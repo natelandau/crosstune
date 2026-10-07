@@ -328,7 +328,7 @@ struct StatsDocument: View {
         if let detailTune {
             // The split view shows the tune in its detail column rather than pushing it.
             Button {
-                detailTune.wrappedValue = rarity.tuneID
+                detailTune.value = rarity.tuneID
             } label: {
                 chevronRow(label)
             }

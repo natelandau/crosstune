@@ -1,4 +1,4 @@
-import CoreGraphics
+import SwiftUI
 
 /// The levels behind the live waveform and where each bar goes. Scrolling keeps the newest
 /// level at the right edge; fixed keeps one slot per bar and overwrites them in turn, so the
@@ -51,15 +51,26 @@ struct WaveformBars: Equatable, Sendable {
 
     /// Each bar's rectangle in a canvas `width` by `height`, centered vertically.
     func layout(width: CGFloat, height: CGFloat) -> [CGRect] {
-        let count = levels.count
-        return levels.enumerated().map { index, level in
-            let bar = min(height, max(Self.minimumBar, CGFloat(level) * height * Self.gain))
-            let x =
-                switch mode {
-                case .scrolling: width - CGFloat(count - index) * Self.step
-                case .fixed: CGFloat(index) * Self.step
-                }
-            return CGRect(x: x, y: (height - bar) / 2, width: Self.barWidth, height: bar)
+        levels.indices.map { rect(at: $0, width: width, height: height) }
+    }
+
+    /// Every bar as rounded rectangles in one path, so a frame fills them all at once.
+    func path(width: CGFloat, height: CGFloat) -> Path {
+        var path = Path()
+        let corner = CGSize(width: Self.barWidth / 2, height: Self.barWidth / 2)
+        for index in levels.indices {
+            path.addRoundedRect(in: rect(at: index, width: width, height: height), cornerSize: corner)
         }
+        return path
+    }
+
+    private func rect(at index: Int, width: CGFloat, height: CGFloat) -> CGRect {
+        let bar = min(height, max(Self.minimumBar, CGFloat(levels[index]) * height * Self.gain))
+        let x =
+            switch mode {
+            case .scrolling: width - CGFloat(levels.count - index) * Self.step
+            case .fixed: CGFloat(index) * Self.step
+            }
+        return CGRect(x: x, y: (height - bar) / 2, width: Self.barWidth, height: bar)
     }
 }

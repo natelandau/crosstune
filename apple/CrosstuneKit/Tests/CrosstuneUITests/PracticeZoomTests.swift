@@ -1,4 +1,5 @@
 import CrosstuneStore
+import Foundation
 import Testing
 
 @testable import CrosstuneUI
@@ -20,6 +21,29 @@ private func near(_ a: Double, _ b: Double) -> Bool {
     @Test func glideTravelsAgainstTheVelocity() {
         #expect(PracticeZoom.glideTauMs == 325)
         #expect(PracticeZoom.glide(velocity: 1000, pointsPerSecond: 100) == -3250)
+    }
+
+    @Test func aGlideEasesOutOnItsDecayAndLandsOnItsTarget() {
+        func at(_ elapsedMs: Double) -> Int64 {
+            PracticeZoom.glidePosition(from: 1000, to: 11_000, elapsedMs: elapsedMs, runMs: 900)
+        }
+        #expect(at(0) == 1000)
+        // One time constant in, a third of the run: (1 - e^-1) / (1 - e^-3) of the way.
+        #expect(at(300) == 1000 + Int64((10_000 * (1 - exp(-1.0)) / (1 - exp(-3.0))).rounded()))
+        #expect(at(899) < 11_000)
+        #expect(at(900) == 11_000)
+        #expect(at(5000) == 11_000)
+        let steps = stride(from: 0.0, through: 900, by: 50).map(at)
+        #expect(zip(steps, steps.dropFirst()).allSatisfy { $0 < $1 })
+        // Each step covers less than the one before.
+        let moves = zip(steps, steps.dropFirst()).map { $1 - $0 }
+        #expect(zip(moves, moves.dropFirst()).allSatisfy { $0 >= $1 })
+    }
+
+    @Test func aGlideBackwardMirrorsOneForward() {
+        let forward = PracticeZoom.glidePosition(from: 0, to: 6000, elapsedMs: 200, runMs: 975)
+        let backward = PracticeZoom.glidePosition(from: 6000, to: 0, elapsedMs: 200, runMs: 975)
+        #expect(forward + backward == 6000)
     }
 
     @Test(arguments: [(Int64(5000), 0.0), (0, -5000.0)])

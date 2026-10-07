@@ -523,7 +523,7 @@ private struct RecordingsContent: View {
     /// tune label line zooms.
     private func openTune(_ tuneID: String, zooms: Bool = false) {
         if let detailTune {
-            detailTune.wrappedValue = tuneID
+            detailTune.value = tuneID
         } else {
             pushZooms = zooms
             pushed = tuneID

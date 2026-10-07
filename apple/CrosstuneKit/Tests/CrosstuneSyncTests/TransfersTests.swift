@@ -456,6 +456,20 @@ import Testing
         #expect(try await file("c1")?.localState == .capturing)
     }
 
+    @Test func findsOnlyFinishedFilesWhoseRecordingIsGone() async throws {
+        try await captured("live", state: .uploaded, recordingState: "ready")
+        try await captured("deleted", state: .uploaded, recordingState: "ready")
+        try await store.write { writer in
+            try writer.applyPullPage(rows: [(.recordings, Self.tombstone("deleted"))], nextSince: 5)
+            try RecordingFile(id: "rowless", localState: .downloaded, fileName: "rowless.m4a").insert(writer.db)
+            try RecordingFile(id: "capture", localState: .capturing, fileName: "capture.aac").insert(writer.db)
+        }
+
+        let found = try await store.read { db in try Transfers.orphanedFiles(db).map(\.id).sorted() }
+
+        #expect(found == ["deleted", "rowless"])
+    }
+
     nonisolated static func tombstone(_ id: String) -> JSONObject {
         [
             "id": .string(id), "created_at": .string(noon.iso), "updated_at": .string(later(60_000).iso),
@@ -536,17 +550,60 @@ import Testing
 
     @Test func noConnectionEndsTheDownloadPass() async throws {
         try await store.setMeta(.keepOffline, to: true)
-        try await ready("d1")
-        try await ready("d2")
-        api.transferFailures["url d1"] = URLError(.notConnectedToInternet)
-        api.transferFailures["url d2"] = URLError(.notConnectedToInternet)
+        let ids = (1...(downloadConcurrency + 2)).map { "d\($0)" }
+        for id in ids {
+            try await ready(id)
+            api.transferFailures["url \(id)"] = URLError(.notConnectedToInternet)
+        }
         let engine = engine()
 
         await engine.transfer()
 
-        #expect(api.transfers.count == 1)
+        // Only the downloads already under way when the first failed ever asked.
+        #expect(api.transfers.count <= downloadConcurrency)
         #expect(engine.transferStatus == .error)
         engine.stop()
+    }
+
+    @Test func keepOfflineDownloadsOnlyAFewRecordingsAtOnce() async throws {
+        try await store.setMeta(.keepOffline, to: true)
+        let ids = (1...(downloadConcurrency + 2)).map { "d\($0)" }
+        for id in ids { try await ready(id) }
+        let held = HeldTransfers()
+        api.onTransfer = { entry in
+            if entry.hasPrefix("get ") { await held.hold() }
+        }
+        let engine = engine()
+        let urls = { self.api.transfers.filter { $0.hasPrefix("url ") }.count }
+
+        let pass = Task { await engine.transfer() }
+        try await waitUntil { held.count == downloadConcurrency }
+        #expect(urls() == downloadConcurrency)
+
+        held.releaseOne()
+        try await waitUntil { held.count == downloadConcurrency }
+        #expect(urls() == downloadConcurrency + 1)
+
+        held.releaseAll()
+        await pass.value
+        for id in ids {
+            #expect(try await file(id)?.localState == .downloaded)
+        }
+    }
+
+    @Test func keepOfflineFetchesNothingForARecordingWhoseCopyIsCurrent() async throws {
+        try await store.setMeta(.keepOffline, to: true)
+        try await ready(
+            "d1",
+            file: RecordingFile(
+                id: "d1", localState: .downloaded, fileName: "d1-rev1.m4a", blobRev: "rev1",
+                peaksFileName: "d1-p1.peaks", peaksRev: "p1"),
+            peaksRev: "p1")
+        try Data("audio".utf8).write(to: store.audioFolder.appending(path: "d1-rev1.m4a"))
+
+        await engine().transfer()
+
+        #expect(api.transfers.isEmpty)
     }
 
     @Test func recoversARowStuckDownloading() async throws {
@@ -926,5 +983,30 @@ final class Gate {
     func open() {
         held?.resume()
         held = nil
+    }
+}
+
+/// Holds every request the test routes here until the test lets it go.
+@MainActor
+final class HeldTransfers {
+    private var held: [CheckedContinuation<Void, Never>] = []
+    private var isOpen = false
+
+    var count: Int { held.count }
+
+    func hold() async {
+        guard !isOpen else { return }
+        await withCheckedContinuation { held.append($0) }
+    }
+
+    func releaseOne() {
+        held.removeFirst().resume()
+    }
+
+    /// Lets every held request go, and every later one pass at once.
+    func releaseAll() {
+        isOpen = true
+        for waiter in held { waiter.resume() }
+        held = []
     }
 }

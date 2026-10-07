@@ -36,6 +36,9 @@ struct PracticeWaveform: View {
     @GestureState private var scrubPressed = false
     @GestureState private var handlePressed = false
     @GestureState private var isPinching = false
+    /// Laying out a label is the ruler's costliest step, and the same labels show frame after
+    /// frame while the audio plays or scrolls.
+    @State private var rulerLabels = ResolvedCache<String, TextEnvironment, GraphicsContext.ResolvedText>(limit: 64)
 
     /// Tick spacings the ruler picks from, in ms.
     private static let tickSteps: [Double] = [
@@ -45,12 +48,16 @@ struct PracticeWaveform: View {
     private static let minTickPoints: Double = 56
     private static let rulerHeight: CGFloat = 16
     private static let space = "practiceWaveform"
+    private static let wavePlayed = BrandStyle.color(hex: PhoneStyle.wavePlayed)
+    private static let waveUnplayed = BrandStyle.color(hex: PhoneStyle.waveUnplayed)
 
     var body: some View {
         let player = model.player
         // The player reports its position only a few times a second, so while it plays the view
-        // redraws every frame and runs the playhead on in between.
-        TimelineView(.animation(paused: !player.audio.isPlaying || model.scrubbingMs != nil)) { _ in
+        // redraws every frame and runs the playhead on in between. A glide's position comes from
+        // the clock, so it redraws every frame too.
+        let still = model.gliding == nil && (!player.audio.isPlaying || model.draggedMs != nil)
+        TimelineView(.animation(paused: still)) { _ in
             if let view = model.laneView {
                 content(view)
             } else {
@@ -110,7 +117,9 @@ struct PracticeWaveform: View {
     }
 
     private func content(_ view: LaneView) -> some View {
-        VStack(spacing: 4) {
+        // Read once per frame and shared by the canvas and the name tabs.
+        let placed = model.placedLoops
+        return VStack(spacing: 4) {
             Canvas { context, size in
                 drawRuler(in: &context, size: size, view: view)
             }
@@ -119,8 +128,8 @@ struct PracticeWaveform: View {
             .frame(height: Self.rulerHeight)
             .accessibilityHidden(true)
             ZStack(alignment: .topLeading) {
-                surface(view)
-                tabs(view)
+                surface(view, placed: placed)
+                tabs(view, placed: placed)
                 if let row = model.selected, let span = model.shownSpan(row.id) {
                     ForEach([LoopModel.Edge.start, .end], id: \.self) { edge in
                         handle(
@@ -144,9 +153,9 @@ struct PracticeWaveform: View {
 
     // MARK: The surface
 
-    private func surface(_ view: LaneView) -> some View {
+    private func surface(_ view: LaneView, placed: [PlacedLoop]) -> some View {
         Canvas { context, size in
-            draw(in: &context, size: size, view: view)
+            draw(in: &context, size: size, view: view, placed: placed)
         }
         .contentShape(.rect)
         .onTapGesture { location in model.tap(atX: Double(location.x)) }
@@ -183,7 +192,7 @@ struct PracticeWaveform: View {
         if let predictedDx { model.endScrub(predictedDx: predictedDx) } else { model.cancelScrub() }
     }
 
-    private func draw(in context: inout GraphicsContext, size: CGSize, view: LaneView) {
+    private func draw(in context: inout GraphicsContext, size: CGSize, view: LaneView, placed: [PlacedLoop]) {
         let width = Double(size.width)
         let lengthMs = Double(model.lengthMs)
         // Bars cover only the recording's own stretch, so the view past either end stays blank.
@@ -197,21 +206,19 @@ struct PracticeWaveform: View {
             let path = Path.peakBars(slice, in: bars)
             if ground != nil {
                 // What has played, left of the fixed playhead, is white; what is to come is silver.
-                let played = CGRect(x: 0, y: 0, width: width / 2, height: Double(size.height))
-                context.drawLayer { layer in
-                    layer.clip(to: Path(played))
-                    layer.fill(path, with: .color(BrandStyle.color(hex: PhoneStyle.wavePlayed)))
-                }
-                context.drawLayer { layer in
-                    layer.clip(to: Path(played), options: .inverse)
-                    layer.fill(path, with: .color(BrandStyle.color(hex: PhoneStyle.waveUnplayed)))
-                }
+                let played = Path(CGRect(x: 0, y: 0, width: width / 2, height: Double(size.height)))
+                var left = context
+                left.clip(to: played)
+                left.fill(path, with: .color(Self.wavePlayed))
+                var right = context
+                right.clip(to: played, options: .inverse)
+                right.fill(path, with: .color(Self.waveUnplayed))
             } else {
                 context.fill(path, with: .style(.tertiary))
             }
         }
         let selectedID = model.selectedID
-        for loop in model.placedLoops {
+        for loop in placed {
             let start = max(0, view.x(ofSourceMs: Double(loop.span.startMs)))
             let end = min(width, view.x(ofSourceMs: Double(loop.span.endMs)))
             guard end > start else { continue }
@@ -227,6 +234,7 @@ struct PracticeWaveform: View {
     private func drawRuler(in context: inout GraphicsContext, size: CGSize, view: LaneView) {
         let step = Self.tickSteps.first { $0 / 1000 * view.pointsPerSecond >= Self.minTickPoints } ?? 300_000
         let last = min(view.endMs, Double(model.lengthMs))
+        let environment = TextEnvironment(context.environment)
         var tick = max(0, (view.startMs / step).rounded(.up) * step)
         while tick <= last {
             let x = (tick - view.startMs) / 1000 * view.pointsPerSecond
@@ -235,9 +243,10 @@ struct PracticeWaveform: View {
                 step < 1000
                 ? RecordingScreenText.preciseTime(milliseconds: Int64(tick))
                 : RecordingText.duration(of: Int64(tick))
-            context.draw(
-                Text(label).font(.caption2).monospacedDigit().foregroundStyle(.secondary),
-                at: CGPoint(x: x + 3, y: 0), anchor: .topLeading)
+            let text = rulerLabels.value(for: label, in: environment) {
+                context.resolve(Text(label).font(.caption2).monospacedDigit().foregroundStyle(.secondary))
+            }
+            context.draw(text, at: CGPoint(x: x + 3, y: 0), anchor: .topLeading)
             tick += step
         }
     }
@@ -245,16 +254,17 @@ struct PracticeWaveform: View {
     // MARK: Name tabs
 
     @ViewBuilder
-    private func tabs(_ view: LaneView) -> some View {
+    private func tabs(_ view: LaneView, placed: [PlacedLoop]) -> some View {
         let selectedID = model.selectedID
-        ForEach(model.placedLoops, id: \.id) { loop in
+        let rows = model.rowsByID
+        ForEach(placed, id: \.id) { loop in
             let start = max(0, view.x(ofSourceMs: Double(loop.span.startMs)))
             let end = min(view.width, view.x(ofSourceMs: Double(loop.span.endMs)))
             // Inset by half a handle, so a tab never sits under its loop's start handle.
             let left = start + PracticeModel.handleReach
             if end > start {
                 LoopNameTab(
-                    model: model, loop: loop, isSelected: loop.id == selectedID,
+                    model: model, loop: loop, row: rows[loop.id], isSelected: loop.id == selectedID,
                     maxWidth: max(0, end - PracticeModel.handleReach - left)
                 )
                 .offset(x: left)
@@ -403,7 +413,9 @@ struct PracticeReadout: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
         } else {
-            TimelineView(.animation(minimumInterval: 0.1, paused: !model.player.audio.isPlaying)) { _ in
+            TimelineView(
+                .animation(minimumInterval: 0.1, paused: !model.player.audio.isPlaying && model.gliding == nil)
+            ) { _ in
                 Text(RecordingScreenText.preciseTime(milliseconds: Int64(model.shownCenterMs(at: model.clock()))))
                     .font(.title3.weight(.semibold))
                     .monospacedDigit()

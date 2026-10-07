@@ -22,6 +22,38 @@ func refusesTextThatIsNotATime(_ input: String) {
     #expect(Timestamp(iso: input) == nil)
 }
 
+@Test(arguments: [
+    "2026-09-25T12:00:00.123Z", "1969-12-31T23:59:59.999Z", "1970-01-01T00:00:00.000Z",
+    "2000-02-29T23:59:59.999Z", "2024-02-29T00:00:00.001Z", "2100-12-31T23:59:59.999Z",
+    "1900-01-01T00:00:00.000Z", "9999-12-31T23:59:59.999Z", "2026-03-01T00:00:00.000Z",
+])
+func readsTheClientsOwnFormWithoutTheGeneralParser(_ input: String) throws {
+    let fast = try #require(Timestamp.canonicalMilliseconds(input))
+    #expect(fast == Timestamp.parsedMilliseconds(input))
+    #expect(Timestamp(milliseconds: fast).iso == input)
+}
+
+@Test(arguments: [
+    "2026-09-25T12:00:00.123456Z", "2026-09-25T12:00:00Z", "2026-09-25T12:00:00.5Z",
+    "2026-09-25T14:00:00.123+02:00", "2026-02-30T12:00:00.000Z", "2026-13-01T12:00:00.000Z",
+    "2026-09-25T24:00:00.000Z", "1899-12-31T23:59:59.999Z", "2026-09-25T12:00:00.\u{0663}23Z",
+    "2026-09-25 12:00:00.123Z",
+])
+func leavesEveryOtherFormToTheGeneralParser(_ input: String) {
+    #expect(Timestamp.canonicalMilliseconds(input) == nil)
+    #expect(Timestamp(iso: input)?.milliseconds == Timestamp.parsedMilliseconds(input))
+}
+
+@Test func readsTimesAcrossTwoCenturiesAsTheGeneralParserDoes() {
+    var milliseconds: Int64 = -86_400_000 * 3
+    while milliseconds < 4_102_444_800_000 {
+        let iso = Timestamp(milliseconds: milliseconds).iso
+        #expect(Timestamp.canonicalMilliseconds(iso) == milliseconds)
+        #expect(Timestamp.parsedMilliseconds(iso) == milliseconds)
+        milliseconds += 604_799_937
+    }
+}
+
 @Test func stampsPastTheStoredTimeWhenNeeded() {
     #expect(noon.stamped(after: nil) == noon)
     #expect(noon.stamped(after: later(-1)) == noon)

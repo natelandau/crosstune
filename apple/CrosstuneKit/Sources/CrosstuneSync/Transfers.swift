@@ -6,6 +6,47 @@ import GRDB
 /// account's quota.
 let quotaProblem = "urn:crosstune:quota-exceeded"
 
+/// How many recordings the download pass fetches at once. Uploads stay one at a time.
+let downloadConcurrency = 3
+
+/// Runs `body` for each of `items`, at most ``downloadConcurrency`` at a time. The first error
+/// starts no more, and is thrown once the bodies already under way have finished.
+@MainActor
+func forEachDownload<Item: Sendable>(
+    _ items: [Item], _ body: @escaping @MainActor (Item) async throws -> Void
+) async throws {
+    let failure = DownloadFailure()
+    try await withThrowingTaskGroup(of: Void.self) { group in
+        var running = 0
+        for item in items {
+            if running == downloadConcurrency {
+                try await group.next()
+                running -= 1
+            }
+            // `next()` hands back results in the order they finished, so a failure can still be
+            // queued behind a success when a slot frees.
+            if failure.happened { break }
+            group.addTask { try await failure.noting { try await body(item) } }
+            running += 1
+        }
+        try await group.waitForAll()
+    }
+}
+
+@MainActor
+private final class DownloadFailure {
+    private(set) var happened = false
+
+    func noting(_ work: @MainActor () async throws -> Void) async throws {
+        do {
+            try await work()
+        } catch {
+            happened = true
+            throw error
+        }
+    }
+}
+
 /// The first backoff after a transient upload failure, doubling with each one after it.
 let uploadRetryBase: Duration = .seconds(30)
 /// The longest an upload waits between tries, so a long outage still retries twice an hour.
@@ -285,12 +326,11 @@ struct Transfers {
     /// whose audio is gone from disk has no copy to save, so its delete stands.
     func dropTombstonedFiles() async throws {
         let audioFolder = store.audioFolder
+        // Read first so a pass with nothing to drop never takes the write lock.
+        guard try await store.read({ db in try Self.orphanedFiles(db).isEmpty == false }) else { return }
         try await store.writeDroppingFiles { writer in
-            let files = try RecordingFile.filter(RecordingFile.CodingKeys.localState != LocalFileState.capturing)
-                .fetchAll(writer.db)
-            for file in files {
+            for file in try Self.orphanedFiles(writer.db) {
                 let row = try Recording.fetchOne(writer.db, key: file.id)
-                if let row, row.deletedAt == nil { continue }
                 if var row, let fileName = file.fileName, file.localState.isNotUploaded,
                     FileManager.default.fileExists(
                         atPath: audioFolder.appending(path: fileName).path(percentEncoded: false))
@@ -310,54 +350,86 @@ struct Transfers {
         }
     }
 
+    /// The finished files whose recording is tombstoned or has no row at all.
+    nonisolated static func orphanedFiles(_ db: Database) throws -> [RecordingFile] {
+        try RecordingFile.fetchAll(
+            db,
+            sql: """
+                SELECT f.* FROM recording_files f
+                LEFT JOIN recordings r ON r.id = f.id
+                WHERE f.local_state <> ? AND (r.id IS NULL OR r.deleted_at IS NOT NULL)
+                """,
+            arguments: [LocalFileState.capturing])
+    }
+
     // MARK: Download
 
     /// When this device keeps recordings offline, fetches the audio and waveform of every ready
-    /// recording whose copy is missing or stale, as after a trim. `fetch` and `fetchPeaksFor`
-    /// share one attempt per recording with a play or another caller that asks for it.
+    /// recording whose copy is missing or stale, as after a trim, up to
+    /// ``downloadConcurrency`` recordings at a time. `fetch` and `fetchPeaksFor` share one
+    /// attempt per recording with a play or another caller that asks for it.
     func downloadPass(
-        fetch: @MainActor (String) async throws -> URL?,
-        fetchPeaksFor: @MainActor (String) async throws -> Data?
+        fetch: @escaping @MainActor (String) async throws -> URL?,
+        fetchPeaksFor: @escaping @MainActor (String) async throws -> Data?
     ) async throws {
         guard try await store.meta(.keepOffline, as: Bool.self) == true else { return }
         let (rows, files) = try await store.read { db -> ([Recording], [String: RecordingFile]) in
-            let rows = try Recording.filter(
-                Recording.CodingKeys.deletedAt == nil && Recording.CodingKeys.state == "ready"
-            ).fetchAll(db)
+            let rows = try Recording.fetchAll(db, sql: Self.needingDownloadSQL)
             let files = Dictionary(
                 uniqueKeysWithValues: try RecordingFile.fetchAll(db, keys: rows.map(\.id)).map { ($0.id, $0) })
             return (rows, files)
         }
-        for row in rows {
-            let file = files[row.id]
-            let needsAudio = file?.fileName == nil || file.map { isStale(row, $0) } == true
-            if needsAudio, !downloadRetries.isWaiting(row.id) {
-                do {
-                    _ = try await fetch(row.id)
-                    downloadRetries.succeeded(row.id)
-                } catch {
-                    // A stop, no connection, or a refused session ends the pass; anything else is
-                    // this recording's problem alone, so it is noted and the rest still download.
-                    if endsTheDownloadPass(error) { throw error }
-                    downloadRetries.failed(row.id)
-                    if let file {
-                        try await setFileState(row.id, restingState(file.localState), error: transferMessage(error))
-                    }
+        try await forEachDownload(rows) { [self] row in
+            try await download(row, file: files[row.id], fetch: fetch, fetchPeaksFor: fetchPeaksFor)
+        }
+    }
+
+    /// Ready live recordings whose audio is missing or stale, or whose waveform is behind, as
+    /// `download(_:file:fetch:fetchPeaksFor:)` decides it.
+    private nonisolated static let needingDownloadSQL = """
+        SELECT r.* FROM recordings r
+        LEFT JOIN recording_files f ON f.id = r.id
+        WHERE r.deleted_at IS NULL AND r.state = 'ready' AND (
+            f.file_name IS NULL
+            OR (f.blob_rev IS NOT NULL AND f.blob_rev IS NOT r.playback_rev)
+            OR (r.peaks_rev IS NOT NULL AND f.peaks_rev IS NOT r.peaks_rev))
+        """
+
+    /// One recording's share of the download pass: its audio when missing or stale, then its
+    /// waveform when behind.
+    private func download(
+        _ row: Recording, file: RecordingFile?,
+        fetch: @MainActor (String) async throws -> URL?,
+        fetchPeaksFor: @MainActor (String) async throws -> Data?
+    ) async throws {
+        var current = file
+        let needsAudio = file?.fileName == nil || file.map { isStale(row, $0) } == true
+        if needsAudio, !downloadRetries.isWaiting(row.id) {
+            do {
+                _ = try await fetch(row.id)
+                downloadRetries.succeeded(row.id)
+            } catch {
+                // A stop, no connection, or a refused session ends the pass; anything else is
+                // this recording's problem alone, so it is noted and the rest still download.
+                if endsTheDownloadPass(error) { throw error }
+                downloadRetries.failed(row.id)
+                if let file {
+                    try await setFileState(row.id, restingState(file.localState), error: transferMessage(error))
                 }
             }
+            // Re-read: the fetch may have just stored the waveform that came with a fresh file.
+            current = try await store.read { db in try RecordingFile.fetchOne(db, key: row.id) }
+        }
 
-            // Re-read: the fetch above may have just stored the waveform that came with a fresh file.
-            let peaksKey = "peaks:\(row.id)"
-            guard let peaksRev = row.peaksRev, !downloadRetries.isWaiting(peaksKey) else { continue }
-            let current = try await store.read { db in try RecordingFile.fetchOne(db, key: row.id) }
-            guard current?.peaksRev != peaksRev else { continue }
-            do {
-                _ = try await fetchPeaksFor(row.id)
-                downloadRetries.succeeded(peaksKey)
-            } catch {
-                // A missing waveform never fails the pass; it just waits for the next one, backed off.
-                downloadRetries.failed(peaksKey)
-            }
+        let peaksKey = "peaks:\(row.id)"
+        guard let peaksRev = row.peaksRev, !downloadRetries.isWaiting(peaksKey), current?.peaksRev != peaksRev
+        else { return }
+        do {
+            _ = try await fetchPeaksFor(row.id)
+            downloadRetries.succeeded(peaksKey)
+        } catch {
+            // A missing waveform never fails the pass; it just waits for the next one, backed off.
+            downloadRetries.failed(peaksKey)
         }
     }
 
@@ -406,7 +478,7 @@ struct Transfers {
                 try stored.save(writer.db)
             }
             // A waveform that fails to fetch never undoes an audio download that already succeeded.
-            _ = try? await fetchPeaks(id)
+            try? await refreshPeaks(id)
             return newDestination
         } catch {
             if let destination { try? FileManager.default.removeItem(at: destination) }
@@ -422,13 +494,31 @@ struct Transfers {
     /// waveform from an earlier revision, or none.
     @discardableResult
     func fetchPeaks(_ id: String) async throws -> Data? {
+        switch try await updatePeaks(id) {
+        case .kept(let file): store.localPeaks(file)
+        case .fetched(let destination): try Data(contentsOf: destination)
+        }
+    }
+
+    /// Brings the recording's waveform up to date as ``fetchPeaks(_:)`` does, without reading it.
+    func refreshPeaks(_ id: String) async throws {
+        _ = try await updatePeaks(id)
+    }
+
+    private enum PeaksUpdate {
+        /// Nothing to fetch, so the file row's own waveform stands.
+        case kept(RecordingFile?)
+        case fetched(URL)
+    }
+
+    private func updatePeaks(_ id: String) async throws -> PeaksUpdate {
         let (file, row) = try await store.read { db in
             (try RecordingFile.fetchOne(db, key: id), try Recording.fetchOne(db, key: id))
         }
         guard let row, row.deletedAt == nil, row.state == "ready", let peaksRev = row.peaksRev else {
-            return store.localPeaks(file)
+            return .kept(file)
         }
-        if let file, file.peaksRev == peaksRev { return store.localPeaks(file) }
+        if let file, file.peaksRev == peaksRev { return .kept(file) }
         try checkStopped()
         // As with the audio download, tag the bytes with what the server actually signed, not
         // with this row's own peaksRev, which can already be behind it.
@@ -447,7 +537,7 @@ struct Transfers {
             stored.updatedAt = .now
             try stored.save(writer.db)
         }
-        return try Data(contentsOf: destination)
+        return .fetched(destination)
     }
 
     /// A stale `downloading` state is an earlier fetch that never finished, not a state to keep:

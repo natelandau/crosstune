@@ -20,6 +20,24 @@ public struct CatalogEntry: Hashable, Sendable, Identifiable {
     public var isArchived: Bool { userTune.archivedAt != nil }
 }
 
+/// A catalog entry with the text a search reads already folded, so a keystroke folds only the
+/// query rather than the whole catalog.
+public struct SearchableEntry: Hashable, Sendable, Identifiable {
+    public let entry: CatalogEntry
+    /// The title, then each alternate title.
+    let titles: [FoldedText]
+    /// The titles, the composer, and who the tune was learned from: where a query matches.
+    let fields: [FoldedText]
+
+    public init(_ entry: CatalogEntry) {
+        self.entry = entry
+        titles = ([entry.tune.title] + entry.tune.alternateTitles).map(FoldedText.init)
+        fields = titles + [entry.tune.composer ?? "", entry.userTune.learnedFrom ?? ""].map(FoldedText.init)
+    }
+
+    public var id: String { entry.id }
+}
+
 /// A field the Missing filter can ask about. The learned fields read the musician's own row;
 /// every other attribute reads the tune. Raw values are the web client's, so both read the same
 /// stored filter.
@@ -240,7 +258,13 @@ public enum CatalogSearch {
     /// True when the query names the tune's title or an alternate title, as `sameText` compares
     /// them.
     public static func titleMatches(_ tune: Tune, query: String) -> Bool {
-        isHeld(query) && ([tune.title] + tune.alternateTitles).contains { sameText($0, query) }
+        let query = FoldedText(query)
+        return !query.isEmpty && ([tune.title] + tune.alternateTitles).contains { sameText(FoldedText($0), query) }
+    }
+
+    /// ``titleMatches(_:query:)`` with the query already folded.
+    static func titleMatches(_ entry: SearchableEntry, _ query: FoldedText) -> Bool {
+        !query.isEmpty && entry.titles.contains { sameText($0, query) }
     }
 
     public static func hidingArchived(_ entries: [CatalogEntry], shown: Bool) -> [CatalogEntry] {
@@ -252,25 +276,38 @@ public enum CatalogSearch {
     public static func filter(_ entries: [CatalogEntry], by filters: CatalogFilters, query: String = "")
         -> [CatalogEntry]
     {
-        let needle = trimmedText(query)
-        return hidingArchived(entries, shown: filters.archived).filter { entry in
+        matching(narrowed(entries.map(SearchableEntry.init), by: filters), query: query).map(\.entry)
+    }
+
+    /// The entries the filters let through, in catalog order.
+    static func narrowed(_ entries: [SearchableEntry], by filters: CatalogFilters) -> [SearchableEntry] {
+        let facets = filters.facets.map { facet, value in
+            (facet, noKey: facet == .key && value == CatalogFilters.noKey, value: FoldedText(value))
+        }
+        return entries.filter { searchable in
+            let entry = searchable.entry
+            if !filters.archived, entry.isArchived { return false }
             if let status = filters.status, entry.userTune.status != status { return false }
             if filters.unheard, entry.heard { return false }
             if let missing = filters.missing, !missing.isMissing(in: entry) { return false }
-            for (facet, value) in filters.facets {
-                let values = facet.values(of: entry)
-                if facet == .key, value == CatalogFilters.noKey {
-                    guard !values.contains(where: isHeld) else { return false }
+            for (facet, noKey, value) in facets {
+                let values = facet.values(of: entry).map { FoldedText($0 ?? "") }
+                if noKey {
+                    guard values.allSatisfy(\.isEmpty) else { return false }
                 } else {
-                    guard values.contains(where: { isHeld($0) && sameText(value, $0 ?? "") }) else { return false }
+                    guard values.contains(where: { !$0.isEmpty && sameText(value, $0) }) else { return false }
                 }
             }
-            guard !needle.isEmpty else { return true }
-            let haystack =
-                [entry.tune.title] + entry.tune.alternateTitles
-                + [entry.tune.composer ?? "", entry.userTune.learnedFrom ?? ""]
-            return haystack.contains { containsText($0, needle) }
+            return true
         }
+    }
+
+    /// The entries the query matches anywhere in a title, an alternate title, the composer, or
+    /// who it was learned from, in the order given.
+    static func matching(_ entries: [SearchableEntry], query: String) -> [SearchableEntry] {
+        let needle = FoldedText(query)
+        guard !needle.isEmpty else { return entries }
+        return entries.filter { entry in entry.fields.contains { containsText($0, needle) } }
     }
 
     /// Whether a value holds anything the fold keeps; whitespace or combining marks alone are blank.

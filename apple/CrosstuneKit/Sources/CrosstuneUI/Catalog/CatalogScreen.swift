@@ -50,8 +50,7 @@ private struct CatalogContent: View {
     @FocusState private var searchFocused: Bool
     @Namespace private var zoom
     #if os(iOS)
-        @Environment(\.store) private var store
-        @State private var counts: LiveQuery<CatalogCounts?>?
+        @Environment(\.catalogCounts) private var counts
     #endif
 
     var body: some View {
@@ -86,11 +85,6 @@ private struct CatalogContent: View {
                 .onSubmit(of: .search, submitSearch)
                 .textInputAutocapitalization(.never)
                 .navigationTitle(title)
-                .task(id: store?.userID) {
-                    counts = store.map { store in
-                        LiveQuery(store, initial: nil) { try CatalogCounts.fetch($0) }
-                    }
-                }
                 .toolbar {
                     if !selection.isActive {
                         ToolbarItem(placement: .primaryAction) { addButton }
@@ -316,7 +310,7 @@ private struct CatalogContent: View {
 
     private func open(_ tuneID: String) {
         if let detailTune {
-            detailTune.wrappedValue = tuneID
+            detailTune.value = tuneID
         } else {
             pushed = tuneID
         }
@@ -375,15 +369,15 @@ struct PushesTune: ViewModifier {
                     #endif
             }
             .onChange(of: tuneID) {
-                if let stackTune, stackTune.wrappedValue != tuneID { stackTune.wrappedValue = tuneID }
+                if let stackTune, stackTune.value != tuneID { stackTune.value = tuneID }
             }
-            .onChange(of: stackTune?.wrappedValue) { _, kept in
+            .onChange(of: stackTune?.value) { _, kept in
                 if stackTune != nil, kept != tuneID { tuneID = kept }
             }
             // After the screen is on show: a push made while the screen itself is being pushed is
             // dropped.
             .task {
-                if let kept = stackTune?.wrappedValue, kept != tuneID { tuneID = kept }
+                if let kept = stackTune?.value, kept != tuneID { tuneID = kept }
             }
         } else {
             content
@@ -413,7 +407,7 @@ struct PushesTune: ViewModifier {
             tuneID
         } set: { new in
             tuneID = new
-            if let stackTune, stackTune.wrappedValue != new { stackTune.wrappedValue = new }
+            if let stackTune, stackTune.value != new { stackTune.value = new }
         }
     }
 }

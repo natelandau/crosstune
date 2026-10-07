@@ -77,6 +77,7 @@ struct TuneFormSheets: ViewModifier {
     @Environment(\.openSheets) private var openSheets
     @Environment(\.selecting) private var selecting
     @Environment(CatalogModel.self) private var catalog: CatalogModel?
+    @Environment(\.playerWindow) private var window
 
     private struct Request: Identifiable {
         let id = UUID()
@@ -86,7 +87,13 @@ struct TuneFormSheets: ViewModifier {
     func body(content: Content) -> some View {
         content
             .environment(\.newTuneContexts, contexts)
-            .focusedSceneValue(\.newTuneAction, canOpen ? MenuAction(open) : nil)
+            .focusedSceneValue(
+                \.newTuneAction,
+                canOpen
+                    ? MenuAction(
+                        id: ShellActionID.newTune(catalog: catalog.map(ObjectIdentifier.init), window: window), open)
+                    : nil
+            )
             .sheet(item: $request) { request in
                 TuneFormSheet(target: .new(title: nil, listID: request.context.listID)) { tuneID in
                     request.context.onSaved?(tuneID)

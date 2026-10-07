@@ -21,32 +21,65 @@ struct ShellControls: ViewModifier {
     func body(content: Content) -> some View {
         let transport = isActive ? player.transport : nil
         content
-            .focusedSceneValue(\.playPauseAction, transport.map { transport in MenuAction { transport.toggle() } })
+            .focusedSceneValue(
+                \.playPauseAction,
+                transport.map { transport in
+                    MenuAction(id: ShellActionID.playPause(ObjectIdentifier(transport))) { transport.toggle() }
+                }
+            )
             .focusedSceneValue(\.isPlaying, transport?.isPlaying)
             .focusedSceneValue(
-                \.skipBackAction, transport.map { transport in MenuAction { Self.skip(transport, back: true) } }
+                \.skipBackAction,
+                transport.map { transport in
+                    MenuAction(id: ShellActionID.skipBack(ObjectIdentifier(transport))) {
+                        Self.skip(transport, back: true)
+                    }
+                }
             )
             .focusedSceneValue(
-                \.skipForwardAction, transport.map { transport in MenuAction { Self.skip(transport, back: false) } }
+                \.skipForwardAction,
+                transport.map { transport in
+                    MenuAction(id: ShellActionID.skipForward(ObjectIdentifier(transport))) {
+                        Self.skip(transport, back: false)
+                    }
+                }
             )
             .focusedSceneValue(
                 \.goToRecordingAction,
-                isActive && player.item?.kind == .recording ? MenuAction { player.expand(in: window) } : nil
+                isActive && player.item?.kind == .recording
+                    ? MenuAction(id: ShellActionID.goToRecording(player: ObjectIdentifier(player), window: window)) {
+                        player.expand(in: window)
+                    } : nil
             )
             .focusedSceneValue(
                 \.closePlayerAction,
                 isActive && PlayerBar.isShown(player, playback)
-                    ? MenuAction { PlayerBar.closePlayer(player, playback) } : nil
+                    ? MenuAction(
+                        id: ShellActionID.closePlayer(
+                            player: ObjectIdentifier(player), playback: playback.map(ObjectIdentifier.init))
+                    ) { PlayerBar.closePlayer(player, playback) } : nil
             )
             .focusedSceneValue(
-                \.nextTuneAction, isActive && playback?.isActive == true ? MenuAction { playback?.next() } : nil
+                \.nextTuneAction,
+                isActive && playback?.isActive == true
+                    ? MenuAction(id: ShellActionID.nextTune(playback.map(ObjectIdentifier.init))) { playback?.next() }
+                    : nil
             )
             .focusedSceneValue(
                 \.previousTuneAction,
-                isActive && playback?.isActive == true ? MenuAction { playback?.previous() } : nil
+                isActive && playback?.isActive == true
+                    ? MenuAction(id: ShellActionID.previousTune(playback.map(ObjectIdentifier.init))) {
+                        playback?.previous()
+                    } : nil
             )
-            .focusedSceneValue(\.showCatalogAction, isActive ? MenuAction { show(.catalog) } : nil)
-            .focusedSceneValue(\.showRecordingsAction, isActive ? MenuAction { show(.recordings) } : nil)
+            .focusedSceneValue(
+                \.showCatalogAction,
+                isActive ? MenuAction(id: ShellActionID.show(.catalog, window: window)) { show(.catalog) } : nil
+            )
+            .focusedSceneValue(
+                \.showRecordingsAction,
+                isActive ? MenuAction(id: ShellActionID.show(.recordings, window: window)) { show(.recordings) } : nil
+            )
             .onKeyPress(.space, phases: .down) { press in
                 guard let transport, !TextEntry.isActive,
                     press.modifiers.isDisjoint(with: Self.otherModifiers.union(.command))

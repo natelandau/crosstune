@@ -51,13 +51,13 @@
             place.detailTune = "t1"
             let window = UUID()
             try await openPaused(in: window)
-            let binding = practiceAwareDetailTune(place, player: player, window: window)
-            #expect(binding.wrappedValue == nil)
+            let detailTune = practiceAwareDetailTune(place, player: player, window: window)
+            #expect(detailTune.value == nil)
 
-            binding.wrappedValue = "t1"
+            detailTune.value = "t1"
             #expect(!player.isExpanded)
             #expect(place.detailTune == "t1")
-            #expect(binding.wrappedValue == "t1")
+            #expect(detailTune.value == "t1")
         }
 
         @Test func anUnhighlightWhileExpandedKeepsTheTuneUnderneath() async throws {
@@ -66,9 +66,9 @@
             let window = UUID()
             try await openPaused(in: window)
             player.transport?.play()
-            let binding = practiceAwareDetailTune(place, player: player, window: window)
+            let detailTune = practiceAwareDetailTune(place, player: player, window: window)
 
-            binding.wrappedValue = nil
+            detailTune.value = nil
             #expect(place.detailTune == "t1")
         }
     }

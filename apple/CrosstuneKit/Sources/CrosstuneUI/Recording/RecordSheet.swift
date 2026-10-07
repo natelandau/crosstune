@@ -69,7 +69,6 @@ struct RecordSheetBody: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openURL) private var openURL
-    @ScaledMetric(relativeTo: .largeTitle) private var timerSize: CGFloat = 64
 
     var body: some View {
         VStack(spacing: 24) {
@@ -78,12 +77,10 @@ struct RecordSheetBody: View {
             Spacer(minLength: 0)
             VStack(spacing: 16) {
                 if model.isLive {
-                    LiveWaveform(
-                        levels: model.recorder.levels, levelCount: model.recorder.levelCount,
-                        paused: model.phase != .recording)
+                    LiveWaveform(recorder: model.recorder, paused: model.phase != .recording)
                 }
                 if model.showsTimer {
-                    timer
+                    RecordTimer(model: model)
                 }
                 notes
             }
@@ -125,15 +122,6 @@ struct RecordSheetBody: View {
                     .multilineTextAlignment(.center)
             }
         #endif
-    }
-
-    private var timer: some View {
-        Text(RecordingText.duration(milliseconds: model.elapsedMilliseconds) ?? "")
-            .font(.system(size: timerSize, weight: .light).monospacedDigit())
-            .contentTransition(reduceMotion ? .identity : .numericText(countsDown: false))
-            .animation(reduceMotion ? nil : .snappy, value: model.elapsedMilliseconds / 1000)
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
     }
 
     @ViewBuilder private var notes: some View {
@@ -191,6 +179,38 @@ struct RecordSheetBody: View {
                 .controlSize(.large)
                 .transition(.opacity)
         }
+    }
+}
+
+/// The take's length, read apart from the sheet, since the recorder moves it on with every
+/// buffer it captures.
+private struct RecordTimer: View {
+    let model: RecordSheetModel
+
+    var body: some View {
+        RecordTimerFace(second: RecordingText.wholeSeconds(of: model.elapsedMilliseconds))
+            .equatable()
+    }
+}
+
+/// The timer's text, which redraws and rolls its digits only when the second it shows changes.
+private struct RecordTimerFace: View, Equatable {
+    let second: Int64
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .largeTitle) private var timerSize: CGFloat = 64
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.second == rhs.second
+    }
+
+    var body: some View {
+        Text(RecordingText.duration(of: second * 1000))
+            .font(.system(size: timerSize, weight: .light).monospacedDigit())
+            .contentTransition(reduceMotion ? .identity : .numericText(countsDown: false))
+            .animation(reduceMotion ? nil : .snappy, value: second)
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
     }
 }
 

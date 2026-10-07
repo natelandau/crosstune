@@ -40,18 +40,18 @@ struct HeatmapView: View {
     @State private var chosen: Int?
     @State private var gridSize = CGSize.zero
     @FocusState private var focused: Bool
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.spacing) private var spacing
 
-    private static let gap: CGFloat = 1
+    fileprivate static let gap: CGFloat = 1
 
     private var days: [Stats.Day] { heatmap.days }
     private var columns: Int { (days.count + 6) / 7 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing(4)) {
-            monthLabels
+            // The month labels and cells redraw only for a new heatmap, never as the chosen day moves.
+            HeatmapMonthLabels(days: days).equatable()
             grid
             Text(chosen.flatMap { days.indices.contains($0) ? days[$0] : nil }.map(detail) ?? StatsCopy.activityHint)
                 .font(.footnote)
@@ -66,71 +66,41 @@ struct HeatmapView: View {
         StatsCopy.dayDetail(day, today: today)
     }
 
-    private var monthLabels: some View {
-        HStack(spacing: Self.gap) {
-            ForEach(Array(StatsCopy.weekMonthLabels(days).enumerated()), id: \.offset) { _, label in
-                Color.clear
-                    .frame(maxWidth: .infinity, minHeight: 0)
-                    .overlay(alignment: .leading) {
-                        if let label {
-                            Text(label).font(.caption2).foregroundStyle(.secondary).fixedSize()
-                        }
-                    }
-            }
-        }
-        .frame(height: 14)
-        .accessibilityHidden(true)
-    }
-
     private var grid: some View {
-        HStack(alignment: .top, spacing: Self.gap) {
-            ForEach(0..<columns, id: \.self) { column in
-                VStack(spacing: Self.gap) {
-                    ForEach(0..<7, id: \.self) { row in
-                        cell(column * 7 + row)
-                    }
-                }
+        HeatmapCells(heatmap: heatmap, today: today)
+            .equatable()
+            .onGeometryChange(for: CGSize.self) {
+                $0.size
+            } action: {
+                gridSize = $0
             }
-        }
-        .onGeometryChange(for: CGSize.self) {
-            $0.size
-        } action: {
-            gridSize = $0
-        }
-        .contentShape(.rect)
-        .gesture(SpatialTapGesture().onEnded { choose(at: $0.location) })
-        .onContinuousHover { phase in
-            if case .active(let location) = phase { choose(at: location) }
-        }
-        .focusable()
-        .focused($focused)
-        .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow, .home, .end]) { press in
-            move(press.key) ? .handled : .ignored
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(StatsCopy.activityHeader)
+            .overlay(alignment: .topLeading) { ring }
+            .contentShape(.rect)
+            .gesture(SpatialTapGesture().onEnded { choose(at: $0.location) })
+            .onContinuousHover { phase in
+                if case .active(let location) = phase { choose(at: location) }
+            }
+            .focusable()
+            .focused($focused)
+            .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow, .home, .end]) { press in
+                move(press.key) ? .handled : .ignored
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(StatsCopy.activityHeader)
     }
 
-    @ViewBuilder private func cell(_ index: Int) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 1)
-        if let day = days.indices.contains(index) ? days[index] : nil {
-            Group {
-                if day.level > 0 {
-                    shape.fill(HeatColor.color(day.level, scheme: colorScheme))
-                        .accessibilityElement()
-                        .accessibilityLabel(detail(day))
-                } else {
-                    // An empty day is blank: a hairline ring keeps its slot without reading as a step.
-                    shape.strokeBorder(.quaternary, lineWidth: 1)
-                        .accessibilityHidden(true)
-                }
-            }
-            .aspectRatio(1, contentMode: .fit)
-            .overlay {
-                if index == chosen { shape.stroke(.primary, lineWidth: 1) }
-            }
-        } else {
-            Color.clear.aspectRatio(1, contentMode: .fit).accessibilityHidden(true)
+    /// The chosen day's ring, one shape placed over its cell from the grid's size, so a move
+    /// redraws the ring alone.
+    @ViewBuilder private var ring: some View {
+        if let chosen, days.indices.contains(chosen), columns > 0 {
+            let width = (gridSize.width - Self.gap * CGFloat(columns - 1)) / CGFloat(columns)
+            let height = (gridSize.height - Self.gap * 6) / 7
+            RoundedRectangle(cornerRadius: 1)
+                .stroke(.primary, lineWidth: 1)
+                .frame(width: max(width, 0), height: max(height, 0))
+                .offset(x: CGFloat(chosen / 7) * (width + Self.gap), y: CGFloat(chosen % 7) * (height + Self.gap))
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
     }
 
@@ -175,5 +145,74 @@ struct HeatmapView: View {
             AccessibilityNotification.Announcement(text).post()
         }
         return true
+    }
+}
+
+/// The month over each week's column, read once per heatmap.
+private struct HeatmapMonthLabels: View, Equatable {
+    let days: [Stats.Day]
+
+    var body: some View {
+        HStack(spacing: HeatmapView.gap) {
+            ForEach(Array(StatsCopy.weekMonthLabels(days).enumerated()), id: \.offset) { _, label in
+                Color.clear
+                    .frame(maxWidth: .infinity, minHeight: 0)
+                    .overlay(alignment: .leading) {
+                        if let label {
+                            Text(label).font(.caption2).foregroundStyle(.secondary).fixedSize()
+                        }
+                    }
+            }
+        }
+        .frame(height: 14)
+        .accessibilityHidden(true)
+    }
+}
+
+/// The day cells, each active one carrying its detail for VoiceOver. Equal for an equal heatmap,
+/// so the details are built once per heatmap rather than on every move of the chosen day.
+private struct HeatmapCells: View, Equatable {
+    let heatmap: Stats.Heatmap
+    let today: String
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var days: [Stats.Day] { heatmap.days }
+    private var columns: Int { (days.count + 6) / 7 }
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.heatmap == rhs.heatmap && lhs.today == rhs.today
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: HeatmapView.gap) {
+            ForEach(0..<columns, id: \.self) { column in
+                VStack(spacing: HeatmapView.gap) {
+                    ForEach(0..<7, id: \.self) { row in
+                        cell(column * 7 + row)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func cell(_ index: Int) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 1)
+        if let day = days.indices.contains(index) ? days[index] : nil {
+            Group {
+                if day.level > 0 {
+                    shape.fill(HeatColor.color(day.level, scheme: colorScheme))
+                        .accessibilityElement()
+                        .accessibilityLabel(StatsCopy.dayDetail(day, today: today))
+                } else {
+                    // An empty day is blank: a hairline ring keeps its slot without reading as a step.
+                    shape.strokeBorder(.quaternary, lineWidth: 1)
+                        .accessibilityHidden(true)
+                }
+            }
+            .aspectRatio(1, contentMode: .fit)
+        } else {
+            Color.clear.aspectRatio(1, contentMode: .fit).accessibilityHidden(true)
+        }
     }
 }

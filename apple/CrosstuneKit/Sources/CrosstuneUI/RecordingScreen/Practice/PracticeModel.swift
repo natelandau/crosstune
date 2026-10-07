@@ -61,6 +61,21 @@ final class PracticeModel {
         var snappedTo: Int64?
     }
 
+    /// A released drag coasting from `from` to `to` over `runMs` from `start`. Its position is
+    /// read from the clock as each frame draws, rather than stored step by step.
+    struct Glide: Equatable {
+        let from: Int64
+        let to: Int64
+        let start: ContinuousClock.Instant
+        let runMs: Double
+
+        func position(at now: ContinuousClock.Instant) -> Int64 {
+            let parts = (now - start).components
+            let elapsed = Double(parts.seconds) * 1000 + Double(parts.attoseconds) / 1e15
+            return PracticeZoom.glidePosition(from: from, to: to, elapsedMs: elapsed, runMs: runMs)
+        }
+    }
+
     /// A drag on the waveform past the threshold, which holds playback until it settles.
     struct Scrub {
         var originMs: Int64
@@ -96,9 +111,16 @@ final class PracticeModel {
     var width: Double = 0
     /// The zoom, held as set; ``scale`` keeps it within what the view's width allows.
     var pointsPerSecond: Double?
+    /// The playhead while a drag holds it, on the trimmed timeline.
+    var draggedMs: Int64?
+    /// The glide under way, if any, which the waveform's frames follow.
+    var gliding: Glide?
     /// The playhead while a drag or its glide moves it, on the trimmed timeline; playback seeks
     /// there once it settles.
-    var scrubbingMs: Int64?
+    var scrubbingMs: Int64? {
+        get { gliding.map { $0.position(at: clock()) } ?? draggedMs }
+        set { draggedMs = newValue }
+    }
     /// How deep a handle's drag is into either end's auto-pan zone, from -1 at the left edge to
     /// 1 at the right; 0 outside both.
     var autoPan: Double = 0
@@ -108,6 +130,7 @@ final class PracticeModel {
     @ObservationIgnored let announce: (String) -> Void
     @ObservationIgnored var handleDrag: HandleDrag?
     @ObservationIgnored var activeScrub: Scrub?
+    /// Settles the glide under way once its run ends.
     @ObservationIgnored var glide: Task<Void, Never>?
     /// How long a released drag coasts: three time constants, where 95% of its distance is covered.
     @ObservationIgnored var glideRun: Duration = .milliseconds(3 * PracticeZoom.glideTauMs)
@@ -195,19 +218,36 @@ final class PracticeModel {
         loops.first { $0.id == id } ?? (selected?.id == id ? selected : nil)
     }
 
-    /// The span a loop shows: its draft until the row has caught up, else its row.
-    func shownSpan(_ id: String) -> LoopSpan? {
-        let row = row(id).map(Self.span)
-        guard let draft = drafts[id] else { return row }
-        guard let row else { return draft.span }
-        return hasLanded(id, draft) ? row : draft.span
+    /// Every loop's row by id, the selected loop's included while the live rows catch up with it.
+    var rowsByID: [String: RecordingLoop] {
+        var rows = Dictionary(loops.map { ($0.id, $0) }) { first, _ in first }
+        if let selected, rows[selected.id] == nil { rows[selected.id] = selected }
+        return rows
     }
 
-    /// Whether loop `id`'s row has caught up with `draft`: it holds the drafted span, or it has
-    /// moved off `base` (a write, this device's or a newer one, has landed) and no gesture is
-    /// still drawing it.
+    /// The span a loop shows: its draft until the row has caught up, else its row.
+    func shownSpan(_ id: String) -> LoopSpan? {
+        guard let row = row(id) else { return drafts[id]?.span }
+        return shownSpan(of: row)
+    }
+
+    /// The span `row`'s loop shows: its draft until the row has caught up, else the row's own.
+    func shownSpan(of row: RecordingLoop) -> LoopSpan {
+        let span = Self.span(row)
+        guard let draft = drafts[row.id] else { return span }
+        return hasLanded(row.id, span, draft) ? span : draft.span
+    }
+
+    /// Whether loop `id`'s row has caught up with `draft`.
     private func hasLanded(_ id: String, _ draft: Draft) -> Bool {
-        guard let row = row(id).map(Self.span) else { return false }
+        guard let row = row(id) else { return false }
+        return hasLanded(id, Self.span(row), draft)
+    }
+
+    /// Whether loop `id`'s row, now at `row`, has caught up with `draft`: it holds the drafted
+    /// span, or it has moved off `base` (a write, this device's or a newer one, has landed) and
+    /// no gesture is still drawing it.
+    private func hasLanded(_ id: String, _ row: LoopSpan, _ draft: Draft) -> Bool {
         if row == draft.span { return true }
         return id != activeKey && draft.base != row && !draft.sent.contains(row)
     }

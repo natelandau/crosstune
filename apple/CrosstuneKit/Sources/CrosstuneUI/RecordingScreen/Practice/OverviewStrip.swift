@@ -17,8 +17,11 @@ struct OverviewStrip: View {
     private static let bandHeight: CGFloat = 6
 
     var body: some View {
-        Canvas { context, size in
-            draw(in: &context, size: size)
+        // A glide's playhead comes from the clock, so the strip follows it frame by frame.
+        TimelineView(.animation(paused: model.gliding == nil)) { _ in
+            Canvas { context, size in
+                draw(in: &context, size: size)
+            }
         }
         .frame(height: Self.waveHeight + Self.bandHeight + 2)
         .contentShape(.rect)

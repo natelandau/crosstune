@@ -60,14 +60,18 @@ public enum ExportArchive {
     /// The counts as of `db`, matching what ``make(store:now:timeZone:progress:)`` would export.
     /// A download writes its file before its row, so the row's change finds the file in place.
     static func counts(_ db: Database, audioFolder: URL) throws -> ExportCounts {
-        let onDevice = Set(
-            try RecordingFile.fetchAll(db).filter { file in
-                guard file.localState != .capturing, let fileName = file.fileName else { return false }
-                return FileManager.default.fileExists(
-                    atPath: audioFolder.appending(path: fileName).path(percentEncoded: false))
-            }.map(\.id))
-        let live = try Recording.fetchAll(db).filter { $0.deletedAt == nil }
-        return ExportCounts(onDevice: live.count { onDevice.contains($0.id) }, total: live.count)
+        let fileNames = try String.fetchAll(
+            db,
+            sql: """
+                SELECT f.file_name FROM recording_files f JOIN recordings r ON r.id = f.id
+                WHERE r.deleted_at IS NULL AND f.local_state <> ? AND f.file_name IS NOT NULL
+                """,
+            arguments: [LocalFileState.capturing])
+        let onDevice = fileNames.count { fileName in
+            FileManager.default.fileExists(atPath: audioFolder.appending(path: fileName).path(percentEncoded: false))
+        }
+        let total = try Recording.filter(Recording.CodingKeys.deletedAt == nil).fetchCount(db)
+        return ExportCounts(onDevice: onDevice, total: total)
     }
 
     /// Builds the zip and returns where it is. `progress` gets the audio files written so far and

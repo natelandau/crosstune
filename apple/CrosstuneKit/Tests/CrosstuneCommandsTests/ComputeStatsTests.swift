@@ -1,3 +1,4 @@
+import CrosstuneStore
 import Foundation
 import Testing
 
@@ -72,5 +73,14 @@ private struct Fixture: Decodable {
     ])
     func reads(_ equivalence: Stats.Equivalence, _ text: String) {
         #expect(equivalenceText(equivalence, tuneTitle: "Soldier's Joy") == text)
+    }
+}
+
+@Suite struct HeatmapBoundsTests {
+    @Test func heatmapBoundsPadTheShownWeeksByTwoDays() throws {
+        let bounds = try #require(heatmapInstantBounds(today: "2026-10-04"))
+        #expect(bounds.from == "2025-10-03")
+        #expect(bounds.to == "2026-10-06")
+        #expect(heatmapInstantBounds(today: "") == nil)
     }
 }

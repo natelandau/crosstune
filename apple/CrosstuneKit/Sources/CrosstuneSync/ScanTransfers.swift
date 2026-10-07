@@ -196,9 +196,9 @@ struct ScanTransfers {
 
     // MARK: Download
 
-    /// Fetches the image of every ready scan with none here. A stop, no connection, or a refused
-    /// session ends the pass; any other failure is that scan's alone, so it backs off in
-    /// `retries` and the rest still download.
+    /// Fetches the image of every ready scan with none here, a few at a time. A stop, no
+    /// connection, or a refused session ends the pass; any other failure is that scan's alone, so
+    /// it backs off in `retries` and the rest still download.
     func downloadPass(retries: DownloadRetries) async throws {
         let ids = try await store.read { db in
             try String.fetchAll(
@@ -210,7 +210,7 @@ struct ScanTransfers {
                     """,
                 arguments: [ScanRecord.ready])
         }
-        for id in ids where !retries.isWaiting(id) {
+        try await forEachDownload(ids.filter { !retries.isWaiting($0) }) { [self] id in
             do {
                 try await downloadOne(id)
                 retries.succeeded(id)

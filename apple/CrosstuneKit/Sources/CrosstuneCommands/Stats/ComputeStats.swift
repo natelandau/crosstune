@@ -168,13 +168,29 @@ private func assignLevels(_ days: inout [Stats.Day]) {
     }
 }
 
+/// The first day the heatmap shows: the Sunday `heatmapWeeks` weeks before the week of `today`.
+private func heatmapStartDay(_ today: PlainDate) -> Int {
+    today.daysSinceEpoch - today.weekday - heatmapWeeks * 7
+}
+
+/// The instants whose local date can fall on the heatmap for `today`, as `YYYY-MM-DD` bounds
+/// from `from` up to but not including `to`. Each bound is padded by two days, more than any
+/// zone's offset, so a reader can drop the history rows outside them before the stats run.
+public func heatmapInstantBounds(today: String) -> (from: String, to: String)? {
+    guard let today = PlainDate(today) else { return nil }
+    return (
+        PlainDate(daysSinceEpoch: heatmapStartDay(today) - 2).text,
+        PlainDate(daysSinceEpoch: today.daysSinceEpoch + 2).text
+    )
+}
+
 private func heatmap(
     _ input: StatsInput, zone: TimeZone, entries: [StatsEntry], recordings: [StatsInput.Recording]
 ) -> Stats.Heatmap {
     guard let today = PlainDate(input.today) else {
         return Stats.Heatmap(visible: false, start: input.today, days: [])
     }
-    let startDay = today.daysSinceEpoch - today.weekday - heatmapWeeks * 7
+    let startDay = heatmapStartDay(today)
     var days = (startDay...today.daysSinceEpoch).map { emptyDay(PlainDate(daysSinceEpoch: $0).text) }
     func index(_ instant: String) -> Int? {
         guard let date = localPlainDate(instant, in: zone) else { return nil }

@@ -57,7 +57,7 @@ public final class TunePickerModel {
     public private(set) var failure: String?
 
     private let store: CrosstuneStore
-    private let entries: LiveQuery<[CatalogEntry]?>
+    private let entries: LiveQuery<[SearchableEntry]?>
     private let members: LiveQuery<Set<String>?>
     private let storedInstruments: LiveQuery<Set<String>?>
     private var adding: Set<String> = []
@@ -71,7 +71,8 @@ public final class TunePickerModel {
         self.store = store
         self.listID = listID
         self.onLateFailure = onLateFailure
-        entries = LiveQuery(store, initial: nil, fetch: CatalogModel.fetchEntries)
+        // Folded on the store's reader rather than on each keystroke.
+        entries = LiveQuery(store, initial: nil) { try CatalogModel.fetchEntries($0).map(SearchableEntry.init) }
         members = LiveQuery(store, initial: nil) { db in
             Set(
                 try ListItem.filter(ListItem.CodingKeys.listID == listID)
@@ -96,11 +97,10 @@ public final class TunePickerModel {
     /// such tune, and would offer to create a tune that is already there.
     public var results: Results? {
         guard let entries = entries.value, let members = members.value else { return nil }
-        let matches =
-            isIdle ? [] : CatalogSearch.filter(entries, by: CatalogFilters(archived: true), query: query)
+        let matches = isIdle ? [] : CatalogSearch.matching(entries, query: query)
         return Results(
-            rows: matches.prefix(Self.maxResults).map { Row(entry: $0, isTaken: members.contains($0.id)) },
-            matches: matches,
+            rows: matches.prefix(Self.maxResults).map { Row(entry: $0.entry, isTaken: members.contains($0.id)) },
+            matches: matches.map(\.entry),
             outcome: SearchOutcome(entries: entries, visible: matches, query: query, archivedShown: true))
     }
 

@@ -412,6 +412,35 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(model.query == "jig")
     }
 
+    @Test func arrangesAgainWhenTheRecordingsSourceQueryOrOrderChange() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store, "b", label: "  Br\u{E9}e jig ", minutes: 1)
+        try await putRecording(store, "a", label: "Air", minutes: 2)
+        try await putRecording(store, "c", label: "Cove reel", minutes: 3, origin: "slippery_hill")
+        let model = RecordingsModel(store: store)
+        try await eventually { model.arrangement(.default)?.unfiled.count == 3 }
+        let title = RecordingSortChoice(sort: .title, descending: false)
+
+        #expect(model.arrangement(.default)?.unfiled.map(\.id) == ["c", "a", "b"])
+        #expect(model.arrangement(title)?.unfiled.map(\.id) == ["a", "b", "c"])
+        #expect(model.arrangement(.default)?.unfiled.map(\.id) == ["c", "a", "b"])
+
+        model.query = " BREE "
+        #expect(model.arrangement(title)?.unfiled.map(\.id) == ["b"])
+        model.query = "\u{300}"
+        #expect(model.arrangement(title)?.unfiled.map(\.id) == ["a", "b", "c"])
+        model.query = ""
+
+        await model.setChoice("slippery_hill")
+        #expect(model.arrangement(title)?.unfiled.map(\.id) == ["c"])
+        await model.setChoice(RecordingsModel.allChoice)
+        #expect(model.arrangement(title)?.unfiled.map(\.id) == ["a", "b", "c"])
+
+        try await putRecording(store, "d", label: "Ash grove", minutes: 4)
+        try await eventually { model.arrangement(title)?.unfiled.map(\.id) == ["a", "d", "b", "c"] }
+    }
+
     @Test func reportsAWriteThatFails() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

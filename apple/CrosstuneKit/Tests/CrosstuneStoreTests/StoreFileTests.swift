@@ -38,6 +38,47 @@ func refusesAUserIDThatIsNotAPlainName(_ userID: String) {
     #expect(!FileManager.default.fileExists(atPath: store.folder.path()))
 }
 
+@Test func deletingAUserMovesTheirFolderAsideThenRemovesIt() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open("user_a")
+    try store.close()
+
+    try CrosstuneStore.delete(userID: "user_a", root: root.url)
+
+    #expect(!FileManager.default.fileExists(atPath: store.folder.path()))
+    #expect(try await poll { try folderNames(in: root.url).isEmpty })
+}
+
+@Test func deletingOthersClearsAFolderLeftHalfDeleted() async throws {
+    let root = TemporaryRoot()
+    let kept = try root.open("user_a")
+    let trash = root.url.appending(path: "\(CrosstuneStore.trashPrefix)left", directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: trash.appending(path: "audio"), withIntermediateDirectories: true)
+
+    try CrosstuneStore.deleteOthers(keeping: "user_a", root: root.url)
+
+    #expect(try await poll { try folderNames(in: root.url) == ["user_a"] })
+    #expect(FileManager.default.fileExists(atPath: kept.folder.path()))
+}
+
+@Test func removingTrashLeavesEveryUserFolder() async throws {
+    let root = TemporaryRoot()
+    let kept = try root.open("user_a")
+    let other = try root.open("user_b")
+    try other.close()
+    let trash = root.url.appending(path: "\(CrosstuneStore.trashPrefix)left", directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: trash.appending(path: "audio"), withIntermediateDirectories: true)
+
+    CrosstuneStore.removeTrash(root: root.url)
+
+    #expect(try await poll { try folderNames(in: root.url).sorted() == ["user_a", "user_b"] })
+    #expect(FileManager.default.fileExists(atPath: kept.folder.path()))
+}
+
+private func folderNames(in root: URL) throws -> [String] {
+    try FileManager.default.contentsOfDirectory(atPath: root.path(percentEncoded: false))
+}
+
 @Test func deletingOthersKeepsOnlyTheSignedInUser() throws {
     let root = TemporaryRoot()
     let kept = try root.open("user_a")

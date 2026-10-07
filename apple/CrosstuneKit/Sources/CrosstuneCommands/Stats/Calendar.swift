@@ -61,8 +61,12 @@ func isLeapYear(_ year: Int) -> Bool {
 }
 
 /// The local date of an ISO 8601 instant in `zone`.
-func localPlainDate(_ instant: String, in zone: TimeZone) -> PlainDate? {
-    guard let timestamp = Timestamp(iso: instant) else { return nil }
+func localPlainDate(_ text: String, in zone: TimeZone) -> PlainDate? {
+    Timestamp(iso: text).flatMap { localPlainDate($0, in: zone) }
+}
+
+/// The local date of `timestamp` in `zone`.
+func localPlainDate(_ timestamp: Timestamp, in zone: TimeZone) -> PlainDate? {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = zone
     let parts = calendar.dateComponents([.year, .month, .day], from: timestamp.date)

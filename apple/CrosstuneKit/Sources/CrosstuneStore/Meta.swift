@@ -37,8 +37,12 @@ enum Meta {
 
     static func set(_ db: Database, _ key: MetaKey, to value: some Encodable) throws {
         let text = String(decoding: try JSONEncoder().encode(value), as: UTF8.self)
+        // An unchanged value updates no row, so observers of the meta table see no change.
         try db.execute(
-            sql: "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            sql: """
+                INSERT INTO meta (key, value) VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value WHERE meta.value IS NOT excluded.value
+                """,
             arguments: [key.rawValue, text])
     }
 }

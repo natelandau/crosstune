@@ -113,10 +113,18 @@ public struct RecordingArrangement: Equatable, Sendable {
     public static func arrange(_ views: [RecordingView], choice: RecordingSortChoice, query: String)
         -> RecordingArrangement
     {
-        let needle = trimmedText(query)
-        let visible = needle.isEmpty ? views : views.filter { matches($0, needle) }
-        let unfiled = visible.filter { $0.tuneID == nil }
-        let filed = visible.filter { $0.tuneID != nil }
+        arrange(views.map(ArrangeableRecording.init), choice: choice, query: query)
+    }
+
+    /// ``arrange(_:choice:query:)`` over recordings whose labels are already trimmed and folded.
+    static func arrange(_ recordings: [ArrangeableRecording], choice: RecordingSortChoice, query: String)
+        -> RecordingArrangement
+    {
+        let needle = FoldedText(query)
+        let visible =
+            needle.isEmpty ? recordings : recordings.filter { $0.fields.contains { containsText($0, needle) } }
+        let unfiled = visible.filter { $0.view.tuneID == nil }
+        let filed = visible.filter { $0.view.tuneID != nil }
 
         switch choice.sort {
         case .added, .recorded:
@@ -132,40 +140,41 @@ public struct RecordingArrangement: Equatable, Sendable {
         }
     }
 
+    private typealias Order = (ArrangeableRecording, ArrangeableRecording) -> Int
+
     // Swift's sort makes no stability promise, so ties keep their input order explicitly.
-    nonisolated private static func sort(
-        _ views: [RecordingView], _ order: (RecordingView, RecordingView) -> Int
-    ) -> [RecordingView] {
-        views.enumerated().sorted { a, b in
+    nonisolated private static func sort(_ recordings: [ArrangeableRecording], _ order: Order) -> [RecordingView] {
+        recordings.enumerated().sorted { a, b in
             let result = order(a.element, b.element)
             return result == 0 ? a.offset < b.offset : result < 0
-        }.map(\.element)
+        }.map(\.element.view)
     }
 
     nonisolated private static func sign<T: Comparable>(_ a: T, _ b: T) -> Int { a < b ? -1 : a > b ? 1 : 0 }
 
     // Equal instants break by id, so the order is stable and reversing it mirrors it exactly.
-    nonisolated private static func newestAddedFirst(_ a: RecordingView, _ b: RecordingView) -> Int {
-        let byDate = sign(b.recording.addedAt.milliseconds, a.recording.addedAt.milliseconds)
-        return byDate != 0 ? byDate : sign(b.recording.id, a.recording.id)
+    nonisolated private static func newestAddedFirst(_ a: ArrangeableRecording, _ b: ArrangeableRecording) -> Int {
+        let (a, b) = (a.view.recording, b.view.recording)
+        let byDate = sign(b.addedAt.milliseconds, a.addedAt.milliseconds)
+        return byDate != 0 ? byDate : sign(b.id, a.id)
     }
 
-    nonisolated private static func byAdded(_ descending: Bool) -> (RecordingView, RecordingView) -> Int {
+    nonisolated private static func byAdded(_ descending: Bool) -> Order {
         { a, b in descending ? newestAddedFirst(a, b) : -newestAddedFirst(a, b) }
     }
 
     // Title and Tune start at A, which reads as newest first for the dates beside them.
-    nonisolated private static func byAddedForAFirst(_ descending: Bool) -> (RecordingView, RecordingView) -> Int {
+    nonisolated private static func byAddedForAFirst(_ descending: Bool) -> Order {
         byAdded(!descending)
     }
 
     // A partial date is stored as the start of its period, so it sorts there with no adjustment.
     // Unknown dates come last in both directions; equal or unknown dates fall back to date added.
-    nonisolated private static func byRecorded(_ descending: Bool) -> (RecordingView, RecordingView) -> Int {
+    nonisolated private static func byRecorded(_ descending: Bool) -> Order {
         let added = byAdded(descending)
         return { a, b in
-            let x = a.recording.knownRecordedDate?.at.milliseconds
-            let y = b.recording.knownRecordedDate?.at.milliseconds
+            let x = a.view.recording.knownRecordedDate?.at.milliseconds
+            let y = b.view.recording.knownRecordedDate?.at.milliseconds
             guard let x, let y else {
                 let unknown = (x == nil ? 1 : 0) - (y == nil ? 1 : 0)
                 return unknown != 0 ? unknown : added(a, b)
@@ -173,10 +182,6 @@ public struct RecordingArrangement: Equatable, Sendable {
             let order = descending ? sign(y, x) : sign(x, y)
             return order != 0 ? order : added(a, b)
         }
-    }
-
-    nonisolated private static func label(_ view: RecordingView) -> String {
-        trimmedText(view.recording.label ?? "")
     }
 
     nonisolated private static func compare(_ a: String, _ b: String) -> Int {
@@ -187,11 +192,10 @@ public struct RecordingArrangement: Equatable, Sendable {
         }
     }
 
-    nonisolated private static func byTitle(descending: Bool) -> (RecordingView, RecordingView) -> Int {
+    nonisolated private static func byTitle(descending: Bool) -> Order {
         let dates = byAddedForAFirst(descending)
         return { a, b in
-            let x = label(a)
-            let y = label(b)
+            let (x, y) = (a.label, b.label)
             if x.isEmpty || y.isEmpty {
                 let untitled = (x.isEmpty ? 1 : 0) - (y.isEmpty ? 1 : 0)
                 return untitled != 0 ? untitled : dates(a, b)
@@ -201,21 +205,19 @@ public struct RecordingArrangement: Equatable, Sendable {
         }
     }
 
-    nonisolated private static func matches(_ view: RecordingView, _ needle: String) -> Bool {
-        [label(view), view.tuneTitle ?? ""].contains { containsText($0, needle) }
-    }
-
-    nonisolated private static func groupByTune(_ views: [RecordingView], descending: Bool) -> [TuneRecordings] {
+    nonisolated private static func groupByTune(_ recordings: [ArrangeableRecording], descending: Bool)
+        -> [TuneRecordings]
+    {
         var order: [String] = []
-        var members: [String: [RecordingView]] = [:]
+        var members: [String: [ArrangeableRecording]] = [:]
         var titles: [String: String] = [:]
-        for view in views {
-            guard let tuneID = view.tuneID else { continue }
+        for recording in recordings {
+            guard let tuneID = recording.view.tuneID else { continue }
             if members[tuneID] == nil {
                 order.append(tuneID)
-                titles[tuneID] = view.tuneTitle ?? ""
+                titles[tuneID] = recording.view.tuneTitle ?? ""
             }
-            members[tuneID, default: []].append(view)
+            members[tuneID, default: []].append(recording)
         }
         let sorted = order.sorted { a, b in
             let result = compare(titles[a] ?? "", titles[b] ?? "")
@@ -229,9 +231,29 @@ public struct RecordingArrangement: Equatable, Sendable {
         }
     }
 
-    nonisolated private static func ownFirstThenNewestAdded(_ a: RecordingView, _ b: RecordingView) -> Int {
-        let imported = { (view: RecordingView) in view.recording.origin == RecordingText.ownOrigin ? 0 : 1 }
+    nonisolated private static func ownFirstThenNewestAdded(_ a: ArrangeableRecording, _ b: ArrangeableRecording)
+        -> Int
+    {
+        let imported = { (recording: ArrangeableRecording) in
+            recording.view.recording.origin == RecordingText.ownOrigin ? 0 : 1
+        }
         let order = imported(a) - imported(b)
         return order != 0 ? order : newestAddedFirst(a, b)
+    }
+}
+
+/// A recording with the label it sorts by and the text a search reads worked out once, when the
+/// store is read, rather than in every comparison.
+struct ArrangeableRecording: Hashable, Sendable {
+    let view: RecordingView
+    /// The trimmed label, empty for an untitled recording.
+    let label: String
+    /// The label and the tune's title, folded.
+    let fields: [FoldedText]
+
+    init(_ view: RecordingView) {
+        self.view = view
+        label = trimmedText(view.recording.label ?? "")
+        fields = [label, view.tuneTitle ?? ""].map(FoldedText.init)
     }
 }

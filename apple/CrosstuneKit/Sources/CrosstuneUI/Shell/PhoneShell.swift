@@ -105,6 +105,19 @@ enum TabSlot: Hashable {
     private struct TabStack: View {
         let destination: Destination
         @Bindable var place: ShellPlace
+        /// Made once, so the screens' environment stays the same from one shell pass to the next.
+        @State private var stackTune: ShellValue<String?>
+
+        init(destination: Destination, place: ShellPlace) {
+            self.destination = destination
+            self.place = place
+            _stackTune = State(
+                initialValue: ShellValue {
+                    place.tabTunes[destination]
+                } set: {
+                    place.tabTunes[destination] = $0
+                })
+        }
 
         var body: some View {
             if destination == .lists {
@@ -118,13 +131,7 @@ enum TabSlot: Hashable {
             DestinationScreen(destination: destination)
                 .toolbarTitleDisplayMode(.inlineLarge)
                 .syncBadgeToolbar(leading: destination == .catalog)
-                .environment(
-                    \.stackTune,
-                    Binding {
-                        place.tabTunes[destination]
-                    } set: {
-                        place.tabTunes[destination] = $0
-                    })
+                .environment(\.stackTune, stackTune)
         }
     }
 

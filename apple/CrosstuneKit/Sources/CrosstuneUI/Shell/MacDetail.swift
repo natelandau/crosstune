@@ -20,8 +20,8 @@
     /// Any write closes the practice view; a clear written while it shows only unhighlights, so
     /// the tune under it stays.
     @MainActor
-    func practiceAwareDetailTune(_ place: ShellPlace, player: PlayerModel, window: UUID?) -> Binding<String?> {
-        Binding {
+    func practiceAwareDetailTune(_ place: ShellPlace, player: PlayerModel, window: UUID?) -> ShellValue<String?> {
+        ShellValue {
             MacDetail.pick(player, in: window, tune: place.detailTune) == .practice ? nil : place.detailTune
         } set: { tune in
             let practicing = MacDetail.pick(player, in: window, tune: place.detailTune) == .practice

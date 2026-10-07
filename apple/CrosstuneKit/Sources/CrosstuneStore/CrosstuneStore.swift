@@ -128,9 +128,10 @@ public final class CrosstuneStore: Sendable {
     }
 
     /// Deletes a user's folder: their database, every audio file, and every scan file. Close
-    /// their open store first.
+    /// their open store first. The folder is gone from its path on return; its contents are
+    /// removed in the background.
     public static func delete(userID: String, root: URL = defaultRoot) throws {
-        try removeIfPresent(folder(for: userID, in: root))
+        try discard(folder(for: userID, in: root))
     }
 
     /// Deletes every user's folder except `userID`'s, such as one a failed sign-out left behind.
@@ -143,8 +144,42 @@ public final class CrosstuneStore: Sendable {
         let keep = Set(try userIDs.map { try folder(for: $0, in: root).lastPathComponent })
         let folders = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
         for folder in folders where !keep.contains(folder.lastPathComponent) {
-            try removeIfPresent(folder)
+            if folder.lastPathComponent.hasPrefix(trashPrefix) {
+                removeInBackground(folder)
+            } else {
+                try discard(folder)
+            }
         }
+    }
+
+    /// Removes every folder a quit left half deleted. Safe in any sign-in state, since no store
+    /// ever opens a trash folder.
+    public static func removeTrash(root: URL = defaultRoot) {
+        let folders = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
+        for folder in folders where folder.lastPathComponent.hasPrefix(trashPrefix) {
+            removeInBackground(folder)
+        }
+    }
+
+    /// The name prefix of a folder being deleted. No user ID can start with it, so
+    /// ``deleteOthers(keeping:root:)`` also clears one a quit left half deleted.
+    static let trashPrefix = ".deleting-"
+
+    /// Renames `url` to a trash name, which is quick and atomic, then removes it off the
+    /// caller's thread, since a folder of audio can take a while to delete.
+    private static func discard(_ url: URL) throws {
+        let trash = url.deletingLastPathComponent()
+            .appending(path: trashPrefix + UUID().uuidString, directoryHint: .isDirectory)
+        do {
+            try FileManager.default.moveItem(at: url, to: trash)
+        } catch CocoaError.fileNoSuchFile {
+            return
+        }
+        removeInBackground(trash)
+    }
+
+    private static func removeInBackground(_ url: URL) {
+        Task.detached(priority: .utility) { try? FileManager.default.removeItem(at: url) }
     }
 
     /// Closes the database. The store cannot be used after this. A close that throws leaves the
@@ -271,14 +306,6 @@ public final class CrosstuneStore: Sendable {
                 at: folder.appending(path: name, directoryHint: .isDirectory), withIntermediateDirectories: true)
         }
         return try DatabasePool(path: folder.appending(path: "crosstune.sqlite").path(percentEncoded: false))
-    }
-
-    private static func removeIfPresent(_ url: URL) throws {
-        do {
-            try FileManager.default.removeItem(at: url)
-        } catch CocoaError.fileNoSuchFile {
-            return
-        }
     }
 }
 

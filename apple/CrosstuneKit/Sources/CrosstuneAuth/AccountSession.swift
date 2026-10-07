@@ -108,8 +108,12 @@ public final class AccountSession {
     @ObservationIgnored private var isActive: Bool?
     /// Stores still closing, by user ID, so a folder never has two open at once.
     @ObservationIgnored private var closing: [String: Task<Void, Never>] = [:]
-    /// The user whose store opens once their previous one has closed.
+    /// The user whose store is opening, once their previous one has closed.
     @ObservationIgnored private var opening: String?
+    /// Opens still under way, by user ID, so a folder is never deleted or opened twice while
+    /// one runs. Each carries a number so only the latest open for a user clears its entry.
+    @ObservationIgnored private var opens: [String: (number: Int, task: Task<Void, Never>)] = [:]
+    @ObservationIgnored private var openCount = 0
     @ObservationIgnored private let pathMonitor = NWPathMonitor()
     /// True while this device is deleting the account or forgetting a deleted one.
     @ObservationIgnored private var isLeavingDeleted = false
@@ -129,6 +133,9 @@ public final class AccountSession {
         self.clientVersion = clientVersion
         self.storageOrigin = storageOrigin
         Clerk.configure(publishableKey: publishableKey)
+        // A signed-out launch never sweeps other users' folders, so a sign-out's deletion that a
+        // quit interrupted is finished here.
+        CrosstuneStore.removeTrash(root: storeRoot)
         Task { [weak self] in
             try? await Task.sleep(for: Self.loadGrace)
             self?.graceElapsed = true
@@ -222,6 +229,9 @@ public final class AccountSession {
     /// any change or recording is still only on this device, since it would go with the catalog.
     public func signOut() async throws {
         let userID = try confirmedUserID()
+        // Leaving checks the open store for unsent work, so it waits for one still opening.
+        await opens[userID]?.task.value
+        guard isStillSignedIn(userID) else { return }
         try await Self.leave(
             userID: userID, store: store, root: storeRoot, sync: sync,
             settle: { await self.settleBeforeLeaving?() },
@@ -238,6 +248,8 @@ public final class AccountSession {
         isLeavingDeleted = true
         defer { isLeavingDeleted = false }
         let client = client
+        await opens[userID]?.task.value
+        guard isStillSignedIn(userID) else { throw LeaveError.deleteFailed }
         await settleBeforeLeaving?()
         do {
             try await Self.deleteAndLeave(
@@ -259,6 +271,8 @@ public final class AccountSession {
         guard !isLeavingDeleted, case .signedIn(let userID, _) = phase else { return }
         isLeavingDeleted = true
         defer { isLeavingDeleted = false }
+        await opens[userID]?.task.value
+        guard isStillSignedIn(userID) else { return }
         await settleBeforeLeaving?()
         await Self.forgetDeleted(userID: userID, store: store, root: storeRoot, sync: sync) {
             try await Clerk.shared.auth.signOut()
@@ -385,6 +399,13 @@ public final class AccountSession {
         return userID
     }
 
+    /// Whether `userID` is still the signed-in user after a wait, so leaving never acts on a
+    /// store that belongs to whoever signed in meanwhile.
+    private func isStillSignedIn(_ userID: String) -> Bool {
+        guard case .signedIn(let current, _) = phase else { return false }
+        return current == userID
+    }
+
     private func forget() {
         closeStore()
         remembered.userID = nil
@@ -408,41 +429,74 @@ public final class AccountSession {
         }
     }
 
-    /// Opens the user's store, first waiting out their previous one if it is still closing.
+    /// Opens the user's store off the main actor, first waiting out their previous one if it is
+    /// still closing or an earlier open of it is still under way. Migrations and the folder scan
+    /// can take a while on a large catalog, so the main actor never waits on them.
     private func openStore(for userID: String) {
-        guard let previous = closing[userID] else { return openNow(userID) }
+        let previous = [closing[userID], opens[userID]?.task].compactMap(\.self)
+        let root = storeRoot
         opening = userID
-        Task { [weak self] in
-            await previous.value
-            guard let self else { return }
-            opening = nil
-            guard case .signedIn(userID, _) = phase, store?.userID != userID else { return }
+        openCount += 1
+        let number = openCount
+        let task = Task { [weak self] in
+            for earlier in previous { await earlier.value }
+            guard self?.wantsStore(for: userID) == true else {
+                self?.finishOpen(userID, number: number)
+                return
+            }
+            let result = await Self.openStore(userID: userID, root: root)
+            guard let self else {
+                try? result.get().close()
+                return
+            }
+            finishOpen(userID, number: number)
+            guard wantsStore(for: userID) else {
+                // Signed out or switched while it opened: nothing ever saw this store.
+                try? result.get().close()
+                return
+            }
             closeStore()
-            openNow(userID)
+            switch result {
+            case .success(let opened): adopt(opened)
+            case .failure(let error):
+                storeFailure = "Could not open this device's copy of your tunes: \(error.localizedDescription)"
+            }
         }
+        opens[userID] = (number, task)
     }
 
-    private func openNow(_ userID: String) {
-        do {
-            let opened = try CrosstuneStore.open(userID: userID, root: storeRoot)
-            store = opened
-            let engine = SyncEngine(
-                store: opened, api: LiveSyncAPI(client: client, storageOrigin: storageOrigin),
-                isOffline: { [weak self] in self?.isOffline ?? true })
-            engine.onSynced = { [weak self] in self?.needsSignIn = false }
-            sync = SessionSync(store: opened, engine: engine, isActive: isActive, isOffline: isOffline)
-            // A capture a crash or kill cut short is saved now rather than waiting on the user.
-            Task { await Recorder.recoverLeftoverCaptures(in: opened) }
-        } catch {
-            storeFailure = "Could not open this device's copy of your tunes: \(error.localizedDescription)"
-        }
+    private func wantsStore(for userID: String) -> Bool {
+        guard case .signedIn(userID, _) = phase else { return false }
+        return store?.userID != userID
+    }
+
+    private func finishOpen(_ userID: String, number: Int) {
+        if opens[userID]?.number == number { opens[userID] = nil }
+        if opening == userID, opens[userID] == nil { opening = nil }
+    }
+
+    @concurrent
+    private nonisolated static func openStore(userID: String, root: URL) async -> Result<CrosstuneStore, any Error> {
+        Result { try CrosstuneStore.open(userID: userID, root: root) }
+    }
+
+    private func adopt(_ opened: CrosstuneStore) {
+        store = opened
+        let engine = SyncEngine(
+            store: opened, api: LiveSyncAPI(client: client, storageOrigin: storageOrigin),
+            isOffline: { [weak self] in self?.isOffline ?? true })
+        engine.onSynced = { [weak self] in self?.needsSignIn = false }
+        sync = SessionSync(store: opened, engine: engine, isActive: isActive, isOffline: isOffline)
+        // A capture a crash or kill cut short is saved now rather than waiting on the user.
+        Task { await Recorder.recoverLeftoverCaptures(in: opened) }
     }
 
     /// Only one user is signed in at a time, so any other folder was left by a sign-out that did
-    /// not finish, or belongs to a store still closing, which is deleted once it has closed. A
-    /// folder whose store is about to open, once its previous store has closed, is kept.
+    /// not finish, or belongs to a store still closing or opening, which is deleted once that is
+    /// done. A folder whose store is about to open, once its previous store has closed, is kept.
     private func deleteOtherFolders(keeping userID: String) {
-        let pending = closing.filter { $0.key != userID }.map(\.value)
+        let pending =
+            closing.filter { $0.key != userID }.map(\.value) + opens.filter { $0.key != userID }.map(\.value.task)
         guard !pending.isEmpty else { return deleteFoldersNotInUse(keeping: userID) }
         Task { [weak self] in
             for close in pending { await close.value }
@@ -453,7 +507,7 @@ public final class AccountSession {
 
     private func deleteFoldersNotInUse(keeping userID: String) {
         let keep = Self.foldersInUse(
-            signedIn: userID, open: store?.userID, opening: opening, closing: Set(closing.keys))
+            signedIn: userID, open: store?.userID, opening: opening, closing: Set(closing.keys).union(opens.keys))
         try? CrosstuneStore.deleteOthers(keeping: keep, root: storeRoot)
     }
 

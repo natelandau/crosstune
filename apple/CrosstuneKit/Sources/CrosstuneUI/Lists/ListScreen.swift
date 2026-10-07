@@ -97,7 +97,7 @@ private struct ListContent: View {
     /// Leaves a deleted list: back to the lists, or the catalog in the split view.
     private func leave() {
         if let sidebarSelection {
-            sidebarSelection.wrappedValue = .catalog
+            sidebarSelection.value = .catalog
         } else {
             dismiss()
         }
@@ -321,7 +321,7 @@ private struct ListTunes: View {
         guard let id = chosen else { return }
         chosen = nil
         if let detailTune {
-            detailTune.wrappedValue = id
+            detailTune.value = id
         } else {
             pushed = id
         }

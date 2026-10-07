@@ -7,6 +7,8 @@ import SwiftUI
 struct LoopNameTab: View {
     let model: PracticeModel
     let loop: PlacedLoop
+    /// The loop's row, which names it.
+    let row: RecordingLoop?
     let isSelected: Bool
     /// The widest the tab may grow before it truncates.
     let maxWidth: CGFloat
@@ -14,7 +16,7 @@ struct LoopNameTab: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let name = model.row(loop.id).map(model.name) ?? ""
+        let name = row.map(model.name) ?? ""
         if model.renaming == loop.id {
             LoopNameField(model: model, id: loop.id, color: LoopColor.color(loop.color, scheme: colorScheme))
         } else if isSelected {

@@ -29,12 +29,23 @@ public struct ListSummary: Hashable, Sendable, Identifiable {
     /// Every live list in the musician's order.
     nonisolated static func fetchAll(_ db: Database) throws -> [ListSummary] {
         let lists = activeByPosition(try TuneList.fetchAll(db))
-        let items = Dictionary(grouping: try ListItem.fetchAll(db), by: \.listID)
+        // A stored timestamp sorts as text in time order, so MAX finds the newest edit.
+        let rows = try Row.fetchAll(
+            db,
+            sql: """
+                SELECT list_id, SUM(deleted_at IS NULL) AS live, MAX(updated_at) AS edited
+                FROM list_items GROUP BY list_id
+                """)
+        let items = Dictionary(
+            rows.map { row -> (String, (live: Int, edited: Timestamp?)) in
+                (row["list_id"], (row["live"], row["edited"]))
+            },
+            uniquingKeysWith: { first, _ in first })
         return lists.map { list in
-            let own = items[list.id] ?? []
+            let own = items[list.id]
             return ListSummary(
-                list: list, count: own.count(where: { $0.deletedAt == nil }),
-                lastEditedAt: own.map(\.updatedAt).reduce(list.updatedAt, max))
+                list: list, count: own?.live ?? 0,
+                lastEditedAt: max(list.updatedAt, own?.edited ?? list.updatedAt))
         }
     }
 }

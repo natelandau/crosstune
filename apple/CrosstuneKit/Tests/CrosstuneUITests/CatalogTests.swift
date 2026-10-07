@@ -647,6 +647,21 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(model.results?.visible.map(\.tune.title) == [])
     }
 
+    @Test func keepsTheLastOfQuickFilterChanges() async throws {
+        let root = TemporaryRoot()
+        let store = try await sampleStore(root)
+        let model = CatalogModel(store: store)
+        try await eventually { model.results != nil }
+        for _ in 0..<10 {
+            model.updateFilters { $0.status = "learning" }
+            model.updateFilters { $0.status = nil }
+            try await eventually { !model.isSavingFilters }
+            let stored = CatalogFilters(stored: try await store.meta(.catalogFilters, as: JSONValue.self))
+            #expect(stored.status == nil)
+            try await eventually { model.results?.filters.status == nil }
+        }
+    }
+
     @Test func resetsAMissingTuningForAnInstrumentNotPlayed() async throws {
         let root = TemporaryRoot()
         let store = try await sampleStore(root)
@@ -683,6 +698,66 @@ private let blankAndSentinel = CatalogSearch.entries(
         await model.setArchived(entry, archived: true)
         try await eventually { model.catalogRevision > revision }
         #expect(model.results?.archivedCount == 2)
+    }
+
+    @Test func worksOutTheResultsAgainWhenAnythingTheyReadChanges() async throws {
+        let root = TemporaryRoot()
+        let store = try await sampleStore(root)
+        let model = CatalogModel(store: store)
+        try await eventually { model.results != nil }
+        // What the results read, filtered and sorted from scratch.
+        func fresh() throws -> [String] {
+            let results = try #require(model.results)
+            return CatalogSearch.sorted(
+                CatalogSearch.filter(results.entries, by: results.filters, query: model.query), by: model.sort,
+                lastPlayed: [:]
+            ).map(\.tune.id)
+        }
+        let all = try #require(model.results?.visible.map(\.tune.id))
+
+        model.query = "farewell"
+        #expect(model.results?.visible.map(\.tune.title) == ["Ashokan Farewell", "Elzic's Farewell"])
+        model.query = " FAREW\u{C9}LL "
+        #expect(model.results?.visible.map(\.tune.title) == ["Ashokan Farewell", "Elzic's Farewell"])
+        #expect(model.results?.outcome == .create(title: "FAREW\u{C9}LL", another: false, hidden: nil))
+        model.query = "ashokan farewell"
+        #expect(model.results?.outcome.offerLabel == "Add another \"ashokan farewell\"")
+        model.query = ""
+        #expect(model.results?.visible.map(\.tune.id) == all)
+
+        model.sort = CatalogSortChoice(sort: .title, descending: true)
+        #expect(model.results?.visible.map(\.tune.id) == all.reversed())
+        #expect(try model.results?.visible.map(\.tune.id) == fresh())
+        model.sort = .default
+
+        model.updateFilters { $0.status = "learning" }
+        let learning = try #require(model.results?.visible)
+        #expect(!learning.isEmpty && learning.count < all.count)
+        #expect(learning.allSatisfy { $0.userTune.status == "learning" })
+        #expect(try learning.map(\.tune.id) == fresh())
+        model.query = "a"
+        #expect(try model.results?.visible.map(\.tune.id) == fresh())
+        model.query = ""
+        model.updateFilters { $0.status = nil }
+        #expect(model.results?.visible.map(\.tune.id) == all)
+        try await eventually { !model.isSavingFilters }
+
+        let renamed = try {
+            var tune = try #require(SampleCatalog.entries.first { $0.userTune.archivedAt == nil }).tune
+            tune.title = "Zz Renamed"
+            return tune
+        }()
+        try await store.write { writer in try writer.put(renamed, at: later(1, than: SampleCatalog.now)) }
+        try await eventually { model.results?.visible.last?.tune.title == "Zz Renamed" }
+        model.query = "zz ren"
+        #expect(model.results?.visible.map(\.tune.id) == [renamed.id])
+        model.query = ""
+
+        model.sort = CatalogSortChoice(sort: .played, descending: true)
+        try await store.write { writer in
+            try writer.record(PlayEvent(context: "row", startedAt: later(60_000), listenedMs: 1, tuneID: renamed.id))
+        }
+        try await eventually { model.results?.visible.first?.tune.id == renamed.id }
     }
 
     @Test func announcesTheCountOnlyWhenItsWordingChanges() async throws {

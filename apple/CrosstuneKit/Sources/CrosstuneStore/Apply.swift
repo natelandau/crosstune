@@ -37,9 +37,24 @@ extension StoreWriter {
         var id: String
     }
 
+    /// What an apply needs of a queued change, without decoding its row data.
+    private struct PendingEntry: Decodable, FetchableRecord {
+        var seq: Int64?
+        var tableName: SyncTable
+        var rowID: String
+        var updatedAt: Timestamp
+
+        enum CodingKeys: String, CodingKey {
+            case seq
+            case tableName = "table_name"
+            case rowID = "row_id"
+            case updatedAt = "updated_at"
+        }
+    }
+
     /// The whole outbox keyed by row. Read once per apply, inside the transaction it acts in.
-    private func pendingByRow() throws -> [RowKey: OutboxEntry] {
-        let entries = try OutboxEntry.fetchAll(db)
+    private func pendingByRow() throws -> [RowKey: PendingEntry] {
+        let entries = try PendingEntry.fetchAll(db, sql: "SELECT seq, table_name, row_id, updated_at FROM outbox")
         return Dictionary(uniqueKeysWithValues: entries.map { (RowKey(table: $0.tableName, id: $0.rowID), $0) })
     }
 

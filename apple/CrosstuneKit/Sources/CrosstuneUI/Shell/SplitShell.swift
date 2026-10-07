@@ -12,18 +12,43 @@
         let player: PlayerModel
         let stage: EmbedStage
         @Bindable var place: ShellPlace
+        /// This window's identity for the shared player.
+        let window: UUID
         /// Changes when the Recordings screen should come forward.
         let recordingsShown: Int
         let onRecord: @MainActor () -> Void
 
         @Environment(\.listSheets) private var listSheets
         @Environment(\.selecting) private var selecting
-        @Environment(\.playerWindow) private var window
+        @Environment(\.catalogCounts) private var counts
         @Environment(CatalogModel.self) private var catalog: CatalogModel?
         /// Nil until the first read, so a list chosen before the lists load is not taken for a deleted one.
         @State private var lists: LiveQuery<[ListSummary]?>?
         @State private var columns = NavigationSplitViewVisibility.automatic
-        @State private var counts: LiveQuery<CatalogCounts?>?
+        /// The detail column's tune as the screens see it. The practice view takes the column, and
+        /// opening any tune closes it.
+        @State private var detailTune: ShellValue<String?>
+        @State private var openedRow: ShellValue<SidebarItem>
+
+        init(
+            store: CrosstuneStore, player: PlayerModel, stage: EmbedStage, place: ShellPlace, window: UUID,
+            recordingsShown: Int, onRecord: @escaping @MainActor () -> Void
+        ) {
+            self.store = store
+            self.player = player
+            self.stage = stage
+            self.place = place
+            self.window = window
+            self.recordingsShown = recordingsShown
+            self.onRecord = onRecord
+            _detailTune = State(initialValue: practiceAwareDetailTune(place, player: player, window: window))
+            _openedRow = State(
+                initialValue: ShellValue {
+                    place.sidebar
+                } set: {
+                    place.sidebar = $0
+                })
+        }
 
         /// The lists the sidebar shows, in the musician's order.
         nonisolated static func sidebarLists(_ db: Database) throws -> [ListSummary] {
@@ -41,11 +66,11 @@
                 contentWithToolbar
                     .navigationSplitViewColumnWidth(min: 300, ideal: 340)
                     .environment(\.detailTune, detailTune)
-                    .environment(\.sidebarSelection, $place.sidebar)
+                    .environment(\.sidebarSelection, openedRow)
             } detail: {
                 detail
                     .environment(\.detailTune, detailTune)
-                    .environment(\.sidebarSelection, $place.sidebar)
+                    .environment(\.sidebarSelection, openedRow)
             }
             // The dock shows a link's player in full, so a play here must not leave a full player
             // waiting to open.
@@ -54,7 +79,6 @@
             }
             .task(id: store.userID) {
                 lists = LiveQuery(store, initial: nil) { try Self.sidebarLists($0) }
-                counts = LiveQuery(store, initial: nil) { try CatalogCounts.fetch($0) }
             }
             .onChange(of: recordingsShown) {
                 place.sidebar = .recordings
@@ -65,12 +89,6 @@
             }
             .onChange(of: place.sidebar, initial: true) { syncSidebar(place: place, catalog: catalog) }
             .onChange(of: catalog?.status) { syncSidebar(place: place, catalog: catalog) }
-        }
-
-        /// The detail column's tune as the screens see it. The practice view takes the column, and
-        /// opening any tune closes it.
-        private var detailTune: Binding<String?> {
-            practiceAwareDetailTune(place, player: player, window: window)
         }
 
         @ViewBuilder private var detail: some View {

@@ -36,6 +36,15 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
         #expect(RecordingText.duration(milliseconds: milliseconds) == text)
     }
 
+    @Test(arguments: [Int64(0), 499, 500, 999, 1000, 1499, 1500, 61_499, 61_500])
+    func theWholeSecondChangesExactlyWhenTheShownTimeDoes(milliseconds: Int64) {
+        let second = RecordingText.wholeSeconds(of: milliseconds)
+        #expect(RecordingText.duration(of: second * 1000) == RecordingText.duration(of: milliseconds))
+        #expect(
+            (second == RecordingText.wholeSeconds(of: milliseconds - 1))
+                == (RecordingText.duration(of: milliseconds) == RecordingText.duration(of: milliseconds - 1)))
+    }
+
     @Test func saysNothingForAnUnknownLength() {
         #expect(RecordingText.duration(milliseconds: nil) == nil)
     }
