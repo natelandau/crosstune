@@ -120,7 +120,10 @@ musician where it is.
 
 - Groups take plain headings, never cards.
 - Search is the system search field. The Filters capsule and its set
-  tokens are the list's first row, as on the catalog.
+  tokens are the list's first row, as on the catalog, while there is a
+  source to choose.
+- A section header has no top padding. The space between sections sets
+  the groups apart, so the first header sits right under the search field.
 
 ## Forms and sheets
 

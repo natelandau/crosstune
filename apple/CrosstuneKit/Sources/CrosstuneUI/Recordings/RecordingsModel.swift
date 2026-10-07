@@ -120,15 +120,11 @@ public final class RecordingsModel {
     /// How many filters are set: the source, unless it is All.
     public var filterCount: Int { choice == Self.allChoice ? 0 : 1 }
 
-    /// Whether the Filters control opens its sheet. It waits silently for the store; with no
-    /// import there is nothing to tell apart, though a set source keeps its way back to All.
-    /// With no recordings the empty state explains the screen, so the disabled control says
-    /// nothing.
-    var filtersGate: FiltersGate {
-        guard let views = snapshot.value?.views else { return .disabled(reason: nil) }
-        let imported = views.contains { $0.recording.origin != RecordingText.ownOrigin }
-        if imported || filterCount > 0 { return .enabled }
-        return .disabled(reason: views.isEmpty ? nil : RecordingsListText.filtersDisabledReason)
+    /// Whether the screen shows its Filters control: once the store is read, while an import
+    /// gives the sources something to tell apart, or while a set source needs its way back to All.
+    var showsFilters: Bool {
+        guard let views = snapshot.value?.views else { return false }
+        return filterCount > 0 || views.contains { $0.recording.origin != RecordingText.ownOrigin }
     }
 
     /// Whether the captures never saved show. They are the musician's own and have no label or

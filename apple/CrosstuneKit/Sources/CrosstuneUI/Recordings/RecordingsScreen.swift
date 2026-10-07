@@ -145,15 +145,17 @@ private struct RecordingsContent: View {
                         .selectionDisabled()
                 }
             #else
-                RecordingsFilterRow(
-                    choice: model.choice, filtersGate: model.filtersGate,
-                    onFilters: { showsFilters = true }, onReset: { Task { await model.resetSource() } }
-                )
-                .listRowInsets(
-                    EdgeInsets(top: spacing.stackGap, leading: 16, bottom: spacing.stackGap, trailing: 16)
-                )
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
+                if model.showsFilters {
+                    RecordingsFilterRow(
+                        choice: model.choice, count: model.filterCount, onFilters: { showsFilters = true },
+                        onReset: { Task { await model.resetSource() } }
+                    )
+                    .listRowInsets(
+                        EdgeInsets(top: spacing.stackGap, leading: 16, bottom: spacing.stackGap, trailing: 16)
+                    )
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                }
             #endif
             #if os(macOS)
                 if model.showsUnfinished { unfinishedSection }
@@ -349,7 +351,7 @@ private struct RecordingsContent: View {
         } header: {
             ListHeader<RecordingSort>(count: model.countLabel(arrangement), choice: nil)
                 .textCase(nil)
-                .macHeaderInset()
+                .headerInsets()
         }
     }
 
@@ -407,7 +409,7 @@ private struct RecordingsContent: View {
                     .textCase(nil)
                 RecordingsGroupHeading(title: title)
             }
-            .macHeaderInset()
+            .headerInsets()
         } else {
             heading(title)
         }
@@ -415,14 +417,14 @@ private struct RecordingsContent: View {
 
     private func heading(_ title: String) -> some View {
         RecordingsGroupHeading(title: title)
-            .macHeaderInset()
+            .headerInsets()
     }
 
     #if os(macOS)
         private var searchField: some View {
             FilterSearchField(
                 prompt: RecordingsListText.search, query: $model.query, isFocused: $searchFocused,
-                filterCount: model.filterCount, filtersGate: model.filtersGate,
+                filterCount: model.showsFilters ? model.filterCount : nil,
                 onSubmit: { searchFocused = false }, onFilters: { showsFilters = true })
         }
 
@@ -583,13 +585,13 @@ private struct RecordingsContent: View {
 }
 
 extension View {
-    /// A section header's leading edge at the column title's and the rows', which a plain Mac
-    /// list's header margin otherwise sits outside.
-    fileprivate func macHeaderInset() -> some View {
+    /// A section header's place: on the Mac at the column's row edges; on iOS with no top
+    /// padding, since the space between sections already sets the groups apart.
+    fileprivate func headerInsets() -> some View {
         #if os(macOS)
             padding(.horizontal, 8)
         #else
-            self
+            listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 4, trailing: 16))
         #endif
     }
 

@@ -51,8 +51,6 @@ public enum RecordingsListText {
     public static let source = "Source"
     public static let all = "All"
     public static let mine = "Mine"
-    /// Why Filters is disabled while every recording is the musician's own.
-    public static let filtersDisabledReason = "All recordings are yours"
 
     public static func openTune(_ title: String) -> String { "Open \(title)" }
 

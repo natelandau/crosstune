@@ -74,18 +74,18 @@ struct RecordingsFilterBar: View {
     }
 }
 
-/// The iPhone recordings list's first row: the Filters capsule, then the set source as a
-/// removable token that wraps under it when the row is full.
+/// The iPhone recordings list's first row while there is a source to choose: the Filters
+/// capsule, then the set source as a removable token that wraps under it when the row is full.
 struct RecordingsFilterRow: View {
     let choice: String
-    let filtersGate: FiltersGate
+    /// How many filters are set, the model's `filterCount`.
+    let count: Int
     let onFilters: () -> Void
     let onReset: () -> Void
 
     var body: some View {
-        let count = choice == RecordingsModel.allChoice ? 0 : 1
         FlowLayout(spacing: 6, lineSpacing: 6) {
-            FiltersButton(setCount: count, gate: filtersGate, action: onFilters)
+            FiltersButton(setCount: count, action: onFilters)
                 .buttonStyle(FilterControlStyle(isSet: count > 0))
             if count > 0 {
                 RemoveFilterCapsule(label: RecordingsFilterSheet.label(for: choice), action: onReset)

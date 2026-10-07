@@ -175,11 +175,9 @@ struct CatalogFilterRow: View {
 
     private var filtersControl: some View {
         let count = results.filters.sheetCount
-        return FiltersButton(
-            setCount: count, gate: isSelecting ? .disabled(reason: nil) : .enabled,
-            action: onFilters
-        )
-        .buttonStyle(FilterControlStyle(isSet: count > 0))
+        return FiltersButton(setCount: count, action: onFilters)
+            .buttonStyle(FilterControlStyle(isSet: count > 0))
+            .disabled(isSelecting)
     }
 
     @ViewBuilder private func wrappedTokens(_ tokens: [SetFilter]) -> some View {

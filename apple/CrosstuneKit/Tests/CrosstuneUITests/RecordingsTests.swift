@@ -98,7 +98,6 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(RecordingsListText.source == "Source")
         #expect(RecordingsListText.all == "All")
         #expect(RecordingsListText.mine == "Mine")
-        #expect(RecordingsListText.filtersDisabledReason == "All recordings are yours")
         #expect(RecordingsFilterSheet.label(for: RecordingsModel.allChoice) == "All")
         #expect(RecordingsFilterSheet.label(for: "own") == "Mine")
         #expect(RecordingsFilterSheet.label(for: "slippery_hill") == "Slippery-Hill")
@@ -171,7 +170,7 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(model.sourceOptions == ["all", "own", "slippery_hill"])
         #expect(model.choice == "all")
         #expect(model.filterCount == 0)
-        #expect(model.filtersGate == .enabled)
+        #expect(model.showsFilters)
 
         await model.setChoice("slippery_hill")
         try await eventually { model.arrangement(.default)?.unfiled.isEmpty == true }
@@ -207,7 +206,7 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(model.sourceOptions == ["all", "own", "slippery_hill"])
         #expect(model.filterCount == 1)
         // A set source keeps its way back to All, even with only own recordings.
-        #expect(model.filtersGate == .enabled)
+        #expect(model.showsFilters)
         let arrangement = model.arrangement(.default)
         #expect(arrangement?.isEmpty == true)
         #expect(model.showsNothingMatches(arrangement))
@@ -227,26 +226,26 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(model.showsNothingMatches(model.arrangement(.default)))
     }
 
-    @Test func disablesFiltersWithOnlyOwnRecordingsAndSaysWhy() async throws {
+    @Test func hidesFiltersWithOnlyOwnRecordings() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await putRecording(store, "mine")
         let model = RecordingsModel(store: store)
         try await eventually { model.arrangement(.default) != nil }
         #expect(model.sourceOptions == ["all", "own"])
-        #expect(model.filtersGate == .disabled(reason: RecordingsListText.filtersDisabledReason))
+        #expect(!model.showsFilters)
         await model.setChoice("own")
-        #expect(model.filtersGate == .enabled)
+        #expect(model.showsFilters)
         #expect(model.filterCount == 1)
     }
 
-    @Test func disablesFiltersSilentlyUntilLoadedAndWithNoRecordings() async throws {
+    @Test func hidesFiltersUntilLoadedAndWithNoRecordings() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let model = RecordingsModel(store: store)
-        #expect(model.filtersGate == .disabled(reason: nil))
+        #expect(!model.showsFilters)
         try await eventually { model.arrangement(.default) != nil }
-        #expect(model.filtersGate == .disabled(reason: nil))
+        #expect(!model.showsFilters)
         #expect(!model.showsNothingMatches(model.arrangement(.default)))
     }
 
