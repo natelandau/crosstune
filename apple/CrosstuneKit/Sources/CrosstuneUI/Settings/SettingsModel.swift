@@ -368,11 +368,6 @@ public final class SettingsModel {
         return figures
     }
 
-    /// The storage figures as `48.2 MB of 1 GB used`.
-    nonisolated public static func storageText(_ figures: StorageFigures) -> String {
-        RecordingText.storageUsed(figures)
-    }
-
     /// The share of the quota spent, from 0 to 1.
     nonisolated public static func storageFraction(_ figures: StorageFigures) -> Double {
         guard figures.quotaBytes > 0 else { return 0 }

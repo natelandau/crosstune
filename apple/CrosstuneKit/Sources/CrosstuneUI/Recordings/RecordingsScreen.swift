@@ -38,7 +38,7 @@ struct StorageSummary: View {
     @Environment(\.spacing) private var spacing
 
     var body: some View {
-        let text = SettingsModel.storageText(storage)
+        let text = RecordingText.storageUsed(storage)
         VStack(alignment: .leading, spacing: spacing(6)) {
             Text(text)
                 .font(.footnote)

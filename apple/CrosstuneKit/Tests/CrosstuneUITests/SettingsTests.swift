@@ -137,7 +137,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
 
     @Test func readsStorageAsUsedOfQuotaAndCapsTheBar() {
         let figures = StorageFigures(usedBytes: 48_200_000, quotaBytes: 1_000_000_000, maxFileBytes: 1)
-        #expect(SettingsModel.storageText(figures) == "48.2 MB of 1 GB used")
+        #expect(RecordingText.storageUsed(figures) == "48.2 MB of 1 GB used")
         #expect(SettingsModel.storageFraction(figures) == 0.0482)
         let over = StorageFigures(usedBytes: 2_000, quotaBytes: 1_000, maxFileBytes: 1)
         #expect(SettingsModel.storageFraction(over) == 1)

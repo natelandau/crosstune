@@ -313,7 +313,7 @@ public struct SettingsScreen: View {
 
     @ViewBuilder private func storageSection(_ model: SettingsModel) -> some View {
         if let figures = model.storage {
-            let text = SettingsModel.storageText(figures)
+            let text = RecordingText.storageUsed(figures)
             Section(SettingsModel.storage) {
                 VStack(alignment: .leading, spacing: spacing.stackGap) {
                     Text(text)
