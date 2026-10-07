@@ -128,7 +128,7 @@ import Testing
             TunePageSamples.column(model: pages.full.model, detail: pages.full.detail)
                 .tint(BrandStyle.accent)
                 // Outside a navigation stack a list token's link draws disabled.
-                .environment(\.sidebarSelection, .constant(.catalog))
+                .environment(\.sidebarSelection, ShellValue.constant(.catalog))
         }
     }
 
@@ -416,7 +416,7 @@ import Testing
                     .padding(PageStyle.pageMargin)
                     .frame(maxWidth: .infinity)
                     .tint(MacStyle.accent)
-                    .environment(\.sidebarSelection, .constant(.catalog))
+                    .environment(\.sidebarSelection, ShellValue.constant(.catalog))
             }
         }
     #endif

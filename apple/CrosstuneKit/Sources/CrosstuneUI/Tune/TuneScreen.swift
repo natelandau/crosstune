@@ -211,7 +211,7 @@ private struct TuneContent: View {
     /// Leaves a deleted tune: back to the screen that pushed it, or an empty detail column.
     private func leave() {
         if let detailTune {
-            detailTune.wrappedValue = nil
+            detailTune.value = nil
         } else {
             dismiss()
         }
@@ -486,7 +486,7 @@ struct OpensList<Label: View>: View {
     var body: some View {
         if let sidebarSelection {
             Button {
-                sidebarSelection.wrappedValue = .list(id: listID)
+                sidebarSelection.value = .list(id: listID)
             } label: {
                 label(true)
             }

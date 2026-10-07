@@ -92,7 +92,7 @@ extension TuneSelection {
     /// detail column's tune while it is off, where there is one; and none on a phone, whose rows
     /// push their tune instead.
     @MainActor static func listBinding(
-        _ selection: Binding<TuneSelection>, visible: [String], detailTune: Binding<String?>?
+        _ selection: Binding<TuneSelection>, visible: [String], detailTune: ShellValue<String?>?
     ) -> Binding<Set<String>>? {
         if selection.wrappedValue.isActive {
             return Binding {
@@ -102,12 +102,14 @@ extension TuneSelection {
             }
         }
         guard let detailTune else { return nil }
+        // Read here, so the screen building the binding redraws when the detail column's tune changes.
+        _ = detailTune.value
         return Binding {
-            detailTune.wrappedValue.map { [$0] } ?? []
+            detailTune.value.map { [$0] } ?? []
         } set: { rows in
-            var detail = detailTune.wrappedValue
+            var detail = detailTune.value
             selection.wrappedValue.choose(rows, detail: &detail)
-            if detail != detailTune.wrappedValue { detailTune.wrappedValue = detail }
+            if detail != detailTune.value { detailTune.value = detail }
         }
     }
 }

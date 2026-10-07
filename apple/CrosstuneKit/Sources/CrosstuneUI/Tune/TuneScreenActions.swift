@@ -40,5 +40,5 @@ extension EnvironmentValues {
     @Entry public var tuneScreenActions = TuneScreenActions()
     /// The split view's sidebar row, which a screen sets to show a list in the content column.
     /// Nil on iPhone, where a screen pushes the list onto its own stack instead.
-    @Entry public var sidebarSelection: Binding<SidebarItem>?
+    @Entry public var sidebarSelection: ShellValue<SidebarItem>?
 }

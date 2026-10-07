@@ -18,15 +18,19 @@
         @Environment(\.selecting) private var selecting
         @Environment(CatalogModel.self) private var catalog: CatalogModel?
         @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+        @Environment(\.catalogCounts) private var counts
         /// Read from inside the tabs, since the tab view sets it only for its own content.
         @State private var inSidebar = false
         @State private var rowsHidden = false
         /// Nil until the first read, so a list open before the lists load is not taken for a
         /// deleted one.
         @State private var lists: LiveQuery<[ListSummary]?>?
-        @State private var counts: LiveQuery<CatalogCounts?>?
         @State private var deleting: ListSummary?
-        @State private var tabWidth: CGFloat = 0
+        @State private var tabWidth = PadTabWidth()
+        /// Made once, so the screens' environment stays the same from one shell pass to the next.
+        @State private var tabTunes: [Destination: ShellValue<String?>]
+        @State private var scrollAnchors: [Destination: ShellValue<String?>]
+        @State private var openList: ShellValue<SidebarItem>
 
         init(
             player: PlayerModel, stage: EmbedStage, place: ShellPlace, recordingsShown: Int,
@@ -37,6 +41,29 @@
             self.place = place
             self.recordingsShown = recordingsShown
             self.onRecord = onRecord
+            _tabTunes = State(initialValue: Self.perDestination(\.tabTunes, of: place))
+            _scrollAnchors = State(initialValue: Self.perDestination(\.scrollAnchors, of: place))
+            _openList = State(
+                initialValue: ShellValue {
+                    PadTab.openList(place: place)
+                } set: {
+                    PadTab.openList($0, place: place)
+                })
+        }
+
+        /// One value per destination, each reading and writing that destination's entry in `place`.
+        private static func perDestination(
+            _ field: ReferenceWritableKeyPath<ShellPlace, [Destination: String]>, of place: ShellPlace
+        ) -> [Destination: ShellValue<String?>] {
+            Dictionary(
+                uniqueKeysWithValues: Destination.allCases.map { destination in
+                    let value = ShellValue {
+                        place[keyPath: field][destination]
+                    } set: {
+                        place[keyPath: field][destination] = $0
+                    }
+                    return (destination, value)
+                })
         }
 
         var body: some View {
@@ -99,7 +126,6 @@
             .modifier(PlayerPresentations(player: player, stage: stage, zoom: nil, standsWithReading: true))
             .task(id: store?.userID) {
                 lists = store.map { store in LiveQuery(store, initial: nil) { try ListSummary.fetchAll($0) } }
-                counts = store.map { store in LiveQuery(store, initial: nil) { try CatalogCounts.fetch($0) } }
             }
             .onChange(of: lists?.value) {
                 PadTab.closeDeletedList(place: place, lists: loadedLists?.map(\.id))
@@ -168,20 +194,17 @@
         /// `NavigationSplitView`, which in a narrow portrait window floats the content column over
         /// the detail behind a scrim and, with its visibility pinned, cannot bring it back.
         private func split(_ destination: Destination) -> some View {
-            HStack(spacing: 0) {
+            PadColumns(width: tabWidth) {
                 content(destination)
                     .toolbarTitleDisplayMode(.inlineLarge)
                     .safeAreaPadding(.bottom, PadStyle.footClearance)
-                    .frame(width: PadStyle.contentColumnWidth(in: tabWidth))
-                Divider().ignoresSafeArea()
+            } detail: {
                 detail(destination)
                     .safeAreaPadding(.bottom, PadStyle.footClearance)
-                    .frame(maxWidth: .infinity)
             }
-            .onGeometryChange(for: CGFloat.self, of: \.size.width) { tabWidth = $0 }
             .environment(\.inPadSplit, true)
-            .environment(\.detailTune, destination == .settings ? nil : tune(destination))
-            .environment(\.scrollAnchor, scrollAnchor(destination))
+            .environment(\.detailTune, destination == .settings ? nil : tabTunes[destination])
+            .environment(\.scrollAnchor, scrollAnchors[destination])
             .background {
                 TabBarPlacementReader { inSidebar = $0 }
             }
@@ -229,28 +252,30 @@
             }
         }
 
-        private func tune(_ destination: Destination) -> Binding<String?> {
-            Binding {
-                place.tabTunes[destination]
-            } set: {
-                place.tabTunes[destination] = $0
-            }
-        }
+    }
 
-        private func scrollAnchor(_ destination: Destination) -> Binding<String?> {
-            Binding {
-                place.scrollAnchors[destination]
-            } set: {
-                place.scrollAnchors[destination] = $0
-            }
-        }
+    /// The tab view's width, which every tab's columns share. A reference, so a resize redraws
+    /// the columns that read it rather than the whole shell and every tab's screens.
+    @MainActor @Observable
+    private final class PadTabWidth {
+        var value: CGFloat = 0
+    }
 
-        private var openList: Binding<SidebarItem> {
-            Binding {
-                PadTab.openList(place: place)
-            } set: { item in
-                PadTab.openList(item, place: place)
+    /// The content column at its share of the tab's width beside the detail column.
+    private struct PadColumns<Content: View, Detail: View>: View {
+        let width: PadTabWidth
+        @ViewBuilder let content: Content
+        @ViewBuilder let detail: Detail
+
+        var body: some View {
+            HStack(spacing: 0) {
+                content
+                    .frame(width: PadStyle.contentColumnWidth(in: width.value))
+                Divider().ignoresSafeArea()
+                detail
+                    .frame(maxWidth: .infinity)
             }
+            .onGeometryChange(for: CGFloat.self, of: \.size.width) { width.value = $0 }
         }
     }
 

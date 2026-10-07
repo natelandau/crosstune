@@ -20,6 +20,7 @@ public struct AppShell: View {
     @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
     @State private var catalog: CatalogModel?
     @State private var recordings: RecordingsModel?
+    @State private var counts: LiveQuery<CatalogCounts?>?
     @State private var take: RecordTake?
     @State private var openSheets = ShellCover()
     /// Above the layout, so the shell's own sheets stand down the iPhone record slot too.
@@ -69,13 +70,19 @@ public struct AppShell: View {
             .environment(recentTakeForPlatform)
             .environment(catalog)
             .environment(recordings)
+            .environment(\.catalogCounts, counts)
             .environment(\.openSheets, openSheets)
             .environment(\.recordCover, recordCover)
             .environment(\.selecting, selecting)
             .environment(\.playerWindow, playerWindow)
-            .environment(\.openCatalogRoot, MenuAction { showCatalogRoot() })
-            .focusedSceneValue(\.recordAction, canRecord ? MenuAction(record) : nil)
-            .focusedSceneValue(\.syncNowAction, engine.map { engine in MenuAction { Task { await engine.sync() } } })
+            .environment(\.openCatalogRoot, MenuAction(id: ShellActionID.openCatalogRoot) { showCatalogRoot() })
+            .focusedSceneValue(\.recordAction, canRecord ? MenuAction(id: recordID, record) : nil)
+            .focusedSceneValue(
+                \.syncNowAction,
+                engine.map { engine in
+                    MenuAction(id: ShellActionID.syncNow(ObjectIdentifier(engine))) { Task { await engine.sync() } }
+                }
+            )
             .modifier(
                 ShellControls(
                     player: player, playback: listPlayback, window: playerWindow,
@@ -89,6 +96,7 @@ public struct AppShell: View {
                     sort: UserDefaults.standard.string(forKey: CatalogSortChoice.storageKey)
                         .flatMap(CatalogSortChoice.init(rawValue:)) ?? .default)
                 recordings = RecordingsModel(store: store)
+                counts = LiveQuery(store, initial: nil) { try CatalogCounts.fetch($0) }
             }
             .onAppear {
                 player.isCapturing = { [recorders] in recorders.isCapturing || Recorder.hasActiveCapture }
@@ -131,6 +139,12 @@ public struct AppShell: View {
         #endif
     }
 
+    private var recordID: ShellActionID {
+        .record(
+            store: ObjectIdentifier(store), recorders: ObjectIdentifier(recorders), player: ObjectIdentifier(player),
+            playback: listPlayback.map(ObjectIdentifier.init), window: playerWindow)
+    }
+
     private func record() {
         startRecording(tuneID: nil)
     }
@@ -162,8 +176,8 @@ public struct AppShell: View {
             }
         #else
             SplitShell(
-                store: store, player: player, stage: stage, place: place, recordingsShown: recordingsShown,
-                onRecord: record)
+                store: store, player: player, stage: stage, place: place, window: playerWindow,
+                recordingsShown: recordingsShown, onRecord: record)
         #endif
     }
 }

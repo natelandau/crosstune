@@ -34,6 +34,7 @@ struct ListSheets: ViewModifier {
     @State private var picking: ListPickerRequest?
     @Environment(\.tuneScreenActions) private var tuneScreenActions
     @Environment(\.openSheets) private var openSheets
+    @Environment(\.playerWindow) private var window
 
     func body(content: Content) -> some View {
         content
@@ -41,7 +42,8 @@ struct ListSheets: ViewModifier {
             .environment(\.tuneScreenActions, withAddToList)
             .focusedSceneValue(
                 \.newListAction,
-                MenuGates.newList(sheetsOpen: openSheets?.isCovered == true) ? MenuAction { naming = .new } : nil
+                MenuGates.newList(sheetsOpen: openSheets?.isCovered == true)
+                    ? MenuAction(id: ShellActionID.newList(window: window)) { naming = .new } : nil
             )
             .sheet(item: $naming) { target in
                 ListNameSheet(target: target)

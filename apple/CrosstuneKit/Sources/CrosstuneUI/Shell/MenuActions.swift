@@ -3,16 +3,54 @@ import SwiftUI
 
 /// Something a menu command does, published by the screen or shell that can do it. A command
 /// whose action no focused view publishes is disabled.
-public struct MenuAction {
+///
+/// Two actions are equal when they share an identity, so a publisher that makes the same action
+/// again on its next pass leaves the menu bar as it is.
+public struct MenuAction: Equatable {
+    private let id: AnyHashable
     private let perform: @MainActor () -> Void
 
+    /// An action equal to none made apart from it.
     public init(_ perform: @escaping @MainActor () -> Void) {
+        self.init(id: UUID(), perform)
+    }
+
+    /// - Parameter id: The same for two actions only when they do the same thing: it carries
+    ///   every value `perform` captures that can differ from one pass to the next.
+    public init(id: some Hashable, _ perform: @escaping @MainActor () -> Void) {
+        self.id = AnyHashable(id)
         self.perform = perform
+    }
+
+    public static func == (lhs: MenuAction, rhs: MenuAction) -> Bool {
+        lhs.id == rhs.id
     }
 
     @MainActor public func callAsFunction() {
         perform()
     }
+}
+
+/// The identities of the shell's own menu actions, each carrying the objects its action captures,
+/// so the same action made on another pass compares equal and a changed one does not. An action
+/// that acts on its own window carries that window, so another window's equal-looking action is
+/// never taken for it when focus moves.
+enum ShellActionID: Hashable {
+    case playPause(ObjectIdentifier)
+    case skipBack(ObjectIdentifier)
+    case skipForward(ObjectIdentifier)
+    case goToRecording(player: ObjectIdentifier, window: UUID)
+    case closePlayer(player: ObjectIdentifier, playback: ObjectIdentifier?)
+    case nextTune(ObjectIdentifier?)
+    case previousTune(ObjectIdentifier?)
+    case show(Destination, window: UUID)
+    case openCatalogRoot
+    case record(
+        store: ObjectIdentifier, recorders: ObjectIdentifier, player: ObjectIdentifier, playback: ObjectIdentifier?,
+        window: UUID)
+    case syncNow(ObjectIdentifier)
+    case newTune(catalog: ObjectIdentifier?, window: UUID?)
+    case newList(window: UUID?)
 }
 
 /// The names of the app's menu commands.

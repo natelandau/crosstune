@@ -9,25 +9,54 @@ extension EnvironmentValues {
     @Entry public var commands: CrosstuneCommands.Commands?
     /// The tune the split view's detail column shows, by id. Nil on iPhone, where a screen
     /// pushes the tune onto its own stack instead.
-    @Entry public var detailTune: Binding<String?>?
+    @Entry public var detailTune: ShellValue<String?>?
     /// Whether a screen sits in either column of the iPad shell's split.
     @Entry var inPadSplit = false
     /// The tune a tab's screen pushes on iPhone, kept by the shell so a switch to the split view
     /// shows it in the detail column and a switch back pushes it again. Nil in the split view and
     /// on a screen pushed over the tab's own.
-    @Entry var stackTune: Binding<String?>?
+    @Entry var stackTune: ShellValue<String?>?
     /// The row a column's list keeps at its top, by id, nil at the very top. The iPad shell keeps
     /// one per destination, so every tab that shows that destination opens at the same place
     /// after a form change. Nil elsewhere.
-    @Entry var scrollAnchor: Binding<String?>?
+    @Entry var scrollAnchor: ShellValue<String?>?
     /// Told when a row marked with ``SwiftUI/View/scrollAnchorRow(_:)`` comes into or out of view.
     @Entry var scrollRowVisibility: ScrollRowVisibility?
     /// Shows the Catalog at its root in this window, as from a stats value. Nil outside the
     /// shell, as in the Mac Settings window, which cannot switch the main window's destination.
     @Entry var openCatalogRoot: MenuAction?
+    /// The counts beside the catalog's status choices, read once for the window and shared by
+    /// every screen that shows them. Nil outside the shell.
+    @Entry var catalogCounts: LiveQuery<CatalogCounts?>?
     /// This window's identity for the shared player, so only the window that asks for the
     /// player in full shows it. Nil outside the shell.
     @Entry var playerWindow: UUID?
+}
+
+/// A value the shell keeps that a screen reads and writes, such as the tune in the detail column.
+/// The shell makes each one once, and every read goes through the shell's observable place, so
+/// the environment holding it stays the same from one shell pass to the next and only a screen
+/// that reads the value redraws when it changes. A binding the shell built on each pass would
+/// differ every time and redraw every screen under it.
+@MainActor
+public final class ShellValue<Value> {
+    private let read: @MainActor () -> Value
+    private let write: @MainActor (Value) -> Void
+
+    public init(get: @escaping @MainActor () -> Value, set: @escaping @MainActor (Value) -> Void) {
+        read = get
+        write = set
+    }
+
+    /// A value that never changes and ignores every write.
+    public static func constant(_ value: Value) -> ShellValue {
+        ShellValue(get: { value }, set: { _ in })
+    }
+
+    public var value: Value {
+        get { read() }
+        set { write(newValue) }
+    }
 }
 
 /// Told when a row comes into or out of view, by the row's id.
@@ -84,17 +113,17 @@ private struct KeepsScrollAnchor: ViewModifier {
     private struct Kept: View {
         let content: Content
         let rows: [String]
-        @Binding var anchor: String?
+        let anchor: ShellValue<String?>
         @State private var visible: VisibleRows
         /// Made once with `visible`, so the rows' environment does not change on every pass.
         @State private var report: ScrollRowVisibility
         /// Only the list on show writes its place: another tab's copy of it lays out too.
         @State private var isShown = false
 
-        init(content: Content, rows: [String], anchor: Binding<String?>) {
+        init(content: Content, rows: [String], anchor: ShellValue<String?>) {
             self.content = content
             self.rows = rows
-            _anchor = anchor
+            self.anchor = anchor
             let visible = VisibleRows()
             _visible = State(initialValue: visible)
             _report = State(
@@ -111,10 +140,10 @@ private struct KeepsScrollAnchor: ViewModifier {
                         guard isShown else { return }
                         let top = rows.first(where: visible.ids.contains)
                         // The first row in view at the very top leaves the header rows above it showing.
-                        anchor = top == rows.first ? nil : top
+                        anchor.value = top == rows.first ? nil : top
                     }
                     .onAppear {
-                        if let anchor { proxy.scrollTo(anchor, anchor: .top) }
+                        if let row = anchor.value { proxy.scrollTo(row, anchor: .top) }
                         isShown = true
                     }
                     .onDisappear { isShown = false }
