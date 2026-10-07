@@ -13,6 +13,8 @@ public final class CrosstuneStore: Sendable {
     public enum StoreError: Error, Equatable {
         /// A user ID that is not safe as a folder name.
         case invalidUserID(String)
+        /// A write after ``sealUnlessUnsent()`` sealed the store.
+        case sealed
     }
 
     public let userID: String
@@ -20,6 +22,7 @@ public final class CrosstuneStore: Sendable {
     /// Read queries, including `ValueObservation`, run against this.
     public let database: DatabasePool
     private let closed = Mutex(false)
+    private let sealed = Mutex(false)
 
     public var audioFolder: URL { folder.appending(path: "audio", directoryHint: .isDirectory) }
     public var scansFolder: URL { folder.appending(path: "scans", directoryHint: .isDirectory) }
@@ -93,7 +96,8 @@ public final class CrosstuneStore: Sendable {
         let scansFolder = scansFolder
         // A write, not a read, so no row naming one of these files can commit between reading the
         // names and removing the files.
-        try? await database.write { db in
+        try? await database.write { [self] db in
+            try ensureUnsealed()
             let files = try String.fetchAll(
                 db, sql: "SELECT file_name FROM recording_files WHERE file_name IS NOT NULL")
             let peaks = try String.fetchAll(
@@ -155,9 +159,27 @@ public final class CrosstuneStore: Sendable {
         }
     }
 
-    /// Whether ``close()`` has been called, so a late write can tell a store being left from a
-    /// real failure.
-    public var isClosed: Bool { closed.withLock { $0 } }
+    /// Whether ``close()`` has been called or the store is sealed, so a late write can tell a
+    /// store being left from a real failure.
+    public var isClosed: Bool { closed.withLock { $0 } || sealed.withLock { $0 } }
+
+    /// Refuses every later write, unless the store still holds work that exists only on this
+    /// device, and says whether it sealed. One write transaction checks and seals, and writes run
+    /// one at a time, so no write can land between the check and the seal.
+    public func sealUnlessUnsent() async throws -> Bool {
+        try await database.write { [self] db in
+            let unsent =
+                try OutboxEntry.edits.fetchCount(db) + RecordingFile.notUploadedCount(db)
+                + ScanFile.notUploadedCount(db)
+            guard unsent == 0 else { return false }
+            sealed.withLock { $0 = true }
+            return true
+        }
+    }
+
+    private func ensureUnsealed() throws {
+        if sealed.withLock({ $0 }) { throw StoreError.sealed }
+    }
 
     /// Runs `body` in one write transaction: every row it stores and every change it queues
     /// land together, or none do.
@@ -165,7 +187,10 @@ public final class CrosstuneStore: Sendable {
     public func write<Value: Sendable>(_ body: @escaping @Sendable (StoreWriter) throws -> Value) async throws
         -> Value
     {
-        try await database.write { db in try body(StoreWriter(db: db)) }
+        try await database.write { [self] db in
+            try ensureUnsealed()
+            return try body(StoreWriter(db: db))
+        }
     }
 
     /// Runs `body` as ``write(_:)`` does, then deletes every file a row named before it and none
@@ -227,7 +252,10 @@ public final class CrosstuneStore: Sendable {
     }
 
     public func setMeta(_ key: MetaKey, to value: some Encodable & Sendable) async throws {
-        try await database.write { db in try Meta.set(db, key, to: value) }
+        try await database.write { [self] db in
+            try ensureUnsealed()
+            try Meta.set(db, key, to: value)
+        }
     }
 
     static func folder(for userID: String, in root: URL) throws -> URL {

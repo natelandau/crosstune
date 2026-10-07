@@ -69,16 +69,7 @@ extension CrosstuneStore {
     /// How many scans exist only on this device: captured here, still live, and not yet on the
     /// server. A scan that is deleted, or whose tune is, never counts, since its file goes with it.
     public func notUploadedScanCount() async throws -> Int {
-        try await read { db in
-            try Int.fetchOne(
-                db,
-                sql: """
-                    SELECT COUNT(*) FROM scan_files f
-                    JOIN scans s ON s.id = f.scan_id
-                    WHERE f.origin = ? AND s.state = ? AND s.id IN (\(ScanRecord.liveIDsSQL))
-                    """,
-                arguments: [ScanOrigin.captured.rawValue, ScanRecord.pendingUpload]) ?? 0
-        }
+        try await read { db in try ScanFile.notUploadedCount(db) }
     }
 
     /// Keeps a scan file in device backups while it is the only copy, and out of them once the
@@ -86,5 +77,18 @@ extension CrosstuneStore {
     /// and again when its origin changes.
     public func applyBackupRule(toScanFile name: String, origin: ScanOrigin) throws {
         try Self.setExcludedFromBackup(scansFolder.appending(path: name), origin == .downloaded)
+    }
+}
+
+extension ScanFile {
+    static func notUploadedCount(_ db: Database) throws -> Int {
+        try Int.fetchOne(
+            db,
+            sql: """
+                SELECT COUNT(*) FROM scan_files f
+                JOIN scans s ON s.id = f.scan_id
+                WHERE f.origin = ? AND s.state = ? AND s.id IN (\(ScanRecord.liveIDsSQL))
+                """,
+            arguments: [ScanOrigin.captured.rawValue, ScanRecord.pendingUpload]) ?? 0
     }
 }

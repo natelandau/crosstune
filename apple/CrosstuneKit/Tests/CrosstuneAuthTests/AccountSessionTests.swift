@@ -120,6 +120,8 @@ final class LeaveLog: LeavingSync {
     var steps: [String] = []
     /// Runs as the sync, as the engine would push the outbox.
     var onSync: () async throws -> Void = {}
+    /// Runs while sync stops, as a write the musician makes in that wait would.
+    var onStop: () async throws -> Void = {}
 
     func sync() async {
         steps.append("sync")
@@ -129,6 +131,7 @@ final class LeaveLog: LeavingSync {
     func stop() async {
         steps.append("stop")
         await Task.yield()
+        try? await onStop()
         steps.append("stopped")
     }
 
@@ -193,6 +196,25 @@ struct ClerkFailed: Error {}
         }
         #expect(log.steps == ["settle", "sync"])
         #expect(folderExists)
+    }
+
+    @Test func signOutRefusesAnEditMadeWhileSyncStops() async throws {
+        log.onStop = { try await queueChange() }
+
+        await #expect(throws: AccountSession.LeaveError.unsyncedChanges) {
+            try await leave()
+        }
+
+        #expect(log.steps == ["sync", "stop", "stopped", "resume"])
+        #expect(folderExists)
+    }
+
+    @Test func signOutKeepsTheFolderForAnEditMadeWhileTheSessionEnds() async throws {
+        try await leave { try await queueChange() }
+
+        #expect(log.steps == ["sync", "stop", "stopped", "end session"])
+        #expect(folderExists)
+        #expect(store.isClosed)
     }
 
     @Test func signOutRefusesWhileChangesAreUnsent() async throws {

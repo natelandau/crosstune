@@ -112,10 +112,13 @@ extension RecordingFile {
 extension CrosstuneStore {
     /// How many recordings exist only on this device, their audio not yet on the server.
     public func notUploadedRecordingCount() async throws -> Int {
-        try await read { db in
-            try RecordingFile.filter(LocalFileState.notUploaded.contains(RecordingFile.CodingKeys.localState))
-                .fetchCount(db)
-        }
+        try await read { db in try RecordingFile.notUploadedCount(db) }
+    }
+}
+
+extension RecordingFile {
+    static func notUploadedCount(_ db: Database) throws -> Int {
+        try filter(LocalFileState.notUploaded.contains(CodingKeys.localState)).fetchCount(db)
     }
 }
 
