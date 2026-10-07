@@ -1,3 +1,18 @@
+## v0.17.0 (2026-10-07)
+
+### Feat
+
+- **seo**: hide the app from search and add plans and FAQ to schema (#149)
+- **apple**: rework the catalog and recordings filter rows (#148)
+
+### Refactor
+
+- **apple**: clean up post-redesign performance and security (#147)
+
+### Perf
+
+- **apple**: cut redraws, search, and sync work across the client (#150)
+
 ## v0.16.0 (2026-10-06)
 
 ### Feat
