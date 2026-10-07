@@ -11,7 +11,6 @@ import SwiftUI
         let isFocused: FocusState<Bool>.Binding
         /// The count of set sheet filters, or nil to leave the filters control out.
         let filterCount: Int?
-        var filtersGate: FiltersGate = .enabled
         let onSubmit: () -> Void
         let onFilters: () -> Void
 
@@ -44,7 +43,7 @@ import SwiftUI
                     .help(Self.clearSearch)
                 }
                 if let filterCount {
-                    FiltersButton(setCount: filterCount, gate: filtersGate, action: onFilters)
+                    FiltersButton(setCount: filterCount, action: onFilters)
                         .buttonStyle(.borderless)
                 }
             }
@@ -56,13 +55,6 @@ import SwiftUI
         }
     }
 #endif
-
-/// Whether a screen's filters control can open its sheet, and when it cannot, why, for
-/// assistive technology. A nil reason leaves the disabled control silent.
-enum FiltersGate: Equatable, Sendable {
-    case enabled
-    case disabled(reason: String?)
-}
 
 /// The control that opens a screen's filter sheet. It
 /// shows and says the count of set sheet filters, since filters persist and a stale one must
@@ -78,12 +70,7 @@ struct FiltersButton: View {
 
     let setCount: Int
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var gate: FiltersGate = .enabled
     let action: () -> Void
-
-    private var reason: String? {
-        if case .disabled(let reason) = gate { reason } else { nil }
-    }
 
     var body: some View {
         Button(action: action) {
@@ -99,10 +86,8 @@ struct FiltersButton: View {
             }
         }
         .phoneAnimation(value: setCount)
-        .disabled(gate != .enabled)
         .accessibilityLabel(Self.name(setCount: setCount))
-        .accessibilityHint(reason ?? "")
-        .help(reason ?? Self.name(setCount: setCount))
+        .help(Self.name(setCount: setCount))
     }
 }
 

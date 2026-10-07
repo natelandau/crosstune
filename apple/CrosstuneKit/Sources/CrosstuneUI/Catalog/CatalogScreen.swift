@@ -86,17 +86,13 @@ private struct CatalogContent: View {
                 .onSubmit(of: .search, submitSearch)
                 .textInputAutocapitalization(.never)
                 .navigationTitle(title)
-                // The title menu shows only on an inline title; the large styles draw no chevron.
-                .toolbarTitleDisplayMode(.inline)
                 .task(id: store?.userID) {
                     counts = store.map { store in
                         LiveQuery(store, initial: nil) { try CatalogCounts.fetch($0) }
                     }
                 }
                 .toolbar {
-                    // Left out while selecting, since an empty title menu still draws its chevron.
                     if !selection.isActive {
-                        ToolbarTitleMenu { StatusTitleMenu(model: model, counts: counts?.value ?? nil) }
                         ToolbarItem(placement: .primaryAction) { addButton }
                         if results?.visible.isEmpty == false {
                             ToolbarItem(placement: .primaryAction) { moreMenu }
@@ -147,11 +143,15 @@ private struct CatalogContent: View {
     }
 
     private var title: String {
-        if selection.isActive { return TuneSelection.title(selection.ids.count) }
+        selection.isActive ? TuneSelection.title(selection.ids.count) : Destination.catalog.title
+    }
+
+    /// The filter row's status choices. The Mac's sidebar sets status, so its row has none.
+    private var statusChoices: [StatusScope.Choice]? {
         #if os(iOS)
-            return StatusScope.title(model.status)
+            StatusScope.choices(counts?.value ?? nil)
         #else
-            return Destination.catalog.title
+            nil
         #endif
     }
 
@@ -206,7 +206,9 @@ private struct CatalogContent: View {
                     .selectionDisabled()
             #endif
             if let results {
-                CatalogFilterRow(results: results, model: model, isSelecting: selection.isActive) {
+                CatalogFilterRow(
+                    results: results, model: model, statusChoices: statusChoices, isSelecting: selection.isActive
+                ) {
                     showsFilters = true
                 }
                 #if os(macOS)

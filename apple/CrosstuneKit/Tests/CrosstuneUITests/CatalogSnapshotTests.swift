@@ -11,6 +11,8 @@ struct CatalogStandIn: View {
     var filters = CatalogFilters(
         status: "learning", facets: [.key: "A", .genre: "Old-time", .tuning("violin"): "Cross A (AEAE)"])
     var query = ""
+    /// The Mac leaves status to its sidebar, so its filter row has no status control.
+    var showsStatus = true
 
     @FocusState private var searchFocused: Bool
 
@@ -37,7 +39,9 @@ struct CatalogStandIn: View {
                 prompt: CatalogScreen.searchPrompt,
                 query: .constant(query), isFocused: $searchFocused,
                 filterCount: nil, onSubmit: {}, onFilters: {})
-            CatalogFilterRow(results: results, errors: [], onChange: { _ in }, onFilters: {})
+            CatalogFilterRow(
+                results: results, statusChoices: showsStatus ? StatusScope.choices(nil) : nil, errors: [],
+                onChange: { _ in }, onFilters: {})
             ListHeader(count: results.countLabel, choice: .constant(CatalogSortChoice.default))
             ForEach(visible) { entry in
                 TuneRow(
@@ -157,7 +161,9 @@ struct CatalogStandIn: View {
         let results = CatalogStandIn.results(filters: filters, query: "")
         for size in [DynamicTypeSize.large, .accessibility3] {
             snapshot("catalog-filter-row", size: size) {
-                CatalogFilterRow(results: results, errors: [], onChange: { _ in }, onFilters: {})
+                CatalogFilterRow(
+                    results: results, statusChoices: StatusScope.choices(nil), errors: [], onChange: { _ in },
+                    onFilters: {})
             }
         }
     }

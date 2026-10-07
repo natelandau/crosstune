@@ -78,19 +78,20 @@ musician where it is.
 
 ## Catalog
 
-- The title is the status scope: a menu of Catalog and each status, with
-  the count of non-archived tunes beside each. A choice sets the catalog's
-  stored status filter, the same one a stats link sets, and the title
-  reads it.
 - The sync badge leads the catalog's bar, so the trailing edge keeps only
-  Add and More and the title menu stays inline and centered. While
-  selecting, Select All takes that edge and the badge stands aside.
+  Add and More. While selecting, Select All takes that edge and the badge
+  stands aside.
 - Search is the system search field, always shown under the title.
-- The filter row is the list's first row and scrolls with it: Key, Type,
+- The filter row is the list's first row and scrolls with it: Status, Key,
   Filters with its count, then each set sheet filter as a token that
-  removes it. The order and wording match the Mac's.
+  removes it. Status and key drive the list, so they get capsules, and
+  every other filter is in the sheet. The row fits one line on a phone at
+  the default text size, so it holds no more capsules.
+- The Status menu is Any, then each status, with the count of non-archived
+  tunes beside each. It writes the stored status filter that stats links
+  and the sidebars write.
 - The key popover stays a popover on a compact width.
-- Key and type always show on the row, so the Filters count never
+- Status and key always show on the row, so the Filters count never
   includes them.
 - At accessibility text sizes the controls wrap instead of clipping, and a
   token's label wraps instead of truncating.
@@ -119,7 +120,10 @@ musician where it is.
 
 - Groups take plain headings, never cards.
 - Search is the system search field. The Filters capsule and its set
-  tokens are the list's first row, as on the catalog.
+  tokens are the list's first row, as on the catalog, while there is a
+  source to choose.
+- A section header has no top padding. The space between sections sets
+  the groups apart, so the first header sits right under the search field.
 
 ## Forms and sheets
 

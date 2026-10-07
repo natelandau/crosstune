@@ -250,9 +250,10 @@ capsules. Only the catalog shows facet rails on screen.
   names its instrument, and a composer or learned-from capsule names its
   field, because values can collide: two instruments can share a tuning's
   name, and one person can be both composer and teacher.
-- A Filters control that cannot run stays in place, disabled, with its
-  reason to assistive technology. It is silent while the list loads and when
-  there is nothing at all to filter.
+- On the web, a Filters control that cannot run stays in place, disabled,
+  with its reason to assistive technology. It is silent while the list
+  loads and when there is nothing at all to filter. The Apple app hides it
+  instead.
 - A rail of chips stays on one line at every width and text size. It scrolls,
   fades at its end while there is more, and scrolls the chosen chip into
   view.
@@ -588,6 +589,9 @@ it and this page differ.
 - A facet filter is a pull-down that reads its facet and value: "Key: Any",
   "Key: D". A facet whose values carry color opens a popover of pills,
   because a menu draws its images in one color. Choosing a value closes it.
+- A Filters control with nothing to choose leaves the screen, in place of
+  the web's disabled control: Recordings shows Filters only while an import gives
+  the sources something to tell apart or a source is set.
 - Native motion (SwiftUI transitions and symbol effects) is allowed beyond
   the record control and the waveform. Under Reduce Motion nothing moves:
   a change cross-fades or happens at once.

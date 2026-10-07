@@ -22,7 +22,7 @@ public enum CatalogFacet: Hashable, Sendable {
 
     /// The facets with their own control in the catalog's filter row. Every other visible facet
     /// is in the filter sheet.
-    nonisolated public static let onScreen: [CatalogFacet] = [.key, .tuneType]
+    nonisolated public static let onScreen: [CatalogFacet] = [.key]
 
     /// Whether this facet is set in the filter sheet rather than on the screen.
     public var isInSheet: Bool { !Self.onScreen.contains(self) }

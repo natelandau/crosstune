@@ -47,7 +47,7 @@
                 ) {
                     split(.catalog)
                 }
-                // Every choice after the Catalog is a status, whose id is that status.
+                // Every choice after Any is a status, whose id is that status.
                 ForEach(StatusScope.choices(counts?.value ?? nil).dropFirst()) { choice in
                     Tab(choice.label, systemImage: choice.systemImage, value: Slot.tab(.status(choice.id))) {
                         split(.catalog)
@@ -103,6 +103,11 @@
             }
             .onChange(of: lists?.value) {
                 PadTab.closeDeletedList(place: place, lists: loadedLists?.map(\.id))
+            }
+            // A status set outside the sidebar, as from the filter row or a stats link, opens
+            // another status row, where the last status's place does not belong.
+            .onChange(of: catalog?.status) {
+                place.scrollAnchors[.catalog] = nil
             }
             // Out of the sidebar the status and list rows hide, or the top bar keeps the last one
             // chosen as an extra item that crowds out the tabs. They hide a turn after the form

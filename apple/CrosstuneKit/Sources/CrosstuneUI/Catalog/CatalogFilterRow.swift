@@ -1,33 +1,32 @@
 import SwiftUI
 
-/// The catalog's filters on one row: the key and type pull-downs, the Filters button with its
-/// count, then each set sheet filter as a token that removes it. Status is the Mac sidebar's and
-/// the iPhone title menu's.
+/// The catalog's filters on one row: the status and key pull-downs, the Filters button with its
+/// count, then each set sheet filter as a token that removes it. The Mac leaves status to its
+/// sidebar.
 struct CatalogFilterRow: View {
     nonisolated static let archivedShown = "Archived shown"
     nonisolated static let unheardShown = "Unheard"
+
+    nonisolated static func statusLabel(_ selected: String?) -> String {
+        "\(TuneFieldLabels.status): \(selected.map(StatusStyle.label) ?? CatalogFilterSheet.any)"
+    }
 
     nonisolated static func keyLabel(_ selected: String?) -> String {
         "\(CatalogFacet.key.label): \(selected.map(CatalogFacet.key.valueLabel) ?? CatalogFilterSheet.any)"
     }
 
-    nonisolated static func typeLabel(_ selected: String?) -> String {
-        "\(CatalogFacet.tuneType.label): \(selected ?? CatalogFilterSheet.any)"
-    }
-
     /// One of the controls that lead the row.
     enum Control: Hashable, Sendable {
+        case status
         case key
-        case tuneType
         case filters
     }
 
-    /// The row's controls in order. A facet the catalog does not offer has no control, and
-    /// Filters always shows.
-    nonisolated static func controls(_ results: CatalogResults) -> [Control] {
-        var controls: [Control] = []
+    /// The row's controls in order. Status shows when `showsStatus`, a facet the catalog does not
+    /// offer has no control, and Filters always shows.
+    nonisolated static func controls(_ results: CatalogResults, showsStatus: Bool) -> [Control] {
+        var controls: [Control] = showsStatus ? [.status] : []
         if results.facets.contains(.key) { controls.append(.key) }
-        if results.facets.contains(.tuneType) { controls.append(.tuneType) }
         return controls + [.filters]
     }
 
@@ -39,7 +38,7 @@ struct CatalogFilterRow: View {
         let remove: @Sendable (inout CatalogFilters) -> Void
     }
 
-    /// Every set sheet filter, in sheet order. A set key or type shows on its own control.
+    /// Every set sheet filter, in sheet order. A set key shows on its own control.
     nonisolated static func setFilters(_ filters: CatalogFilters) -> [SetFilter] {
         var set = CatalogFacet.all.filter(\.isInSheet).compactMap { facet in
             filters[facet].map {
@@ -60,6 +59,8 @@ struct CatalogFilterRow: View {
     }
 
     private let results: CatalogResults
+    /// The status pull-down's choices, or nil for a row with no status control.
+    private let statusChoices: [StatusScope.Choice]?
     private let errors: [String]
     private let onChange: (@escaping @Sendable (inout CatalogFilters) -> Void) -> Void
     private let onFilters: () -> Void
@@ -69,18 +70,23 @@ struct CatalogFilterRow: View {
     @State private var choosingKey = false
 
     /// `onFilters` opens the filter sheet, which the screen presents.
-    init(results: CatalogResults, model: CatalogModel, isSelecting: Bool, onFilters: @escaping () -> Void) {
+    init(
+        results: CatalogResults, model: CatalogModel, statusChoices: [StatusScope.Choice]?, isSelecting: Bool,
+        onFilters: @escaping () -> Void
+    ) {
         self.init(
-            results: results, errors: [model.filterError, model.actionError].compactMap { $0 },
+            results: results, statusChoices: statusChoices,
+            errors: [model.filterError, model.actionError].compactMap { $0 },
             onChange: model.updateFilters, isSelecting: isSelecting, onFilters: onFilters)
     }
 
     init(
-        results: CatalogResults, errors: [String],
+        results: CatalogResults, statusChoices: [StatusScope.Choice]? = nil, errors: [String],
         onChange: @escaping (@escaping @Sendable (inout CatalogFilters) -> Void) -> Void,
         isSelecting: Bool = false, onFilters: @escaping () -> Void
     ) {
         self.results = results
+        self.statusChoices = statusChoices
         self.errors = errors
         self.onChange = onChange
         self.isSelecting = isSelecting
@@ -118,13 +124,36 @@ struct CatalogFilterRow: View {
     }
 
     private var controls: some View {
-        ForEach(Self.controls(results), id: \.self) { control in
+        ForEach(Self.controls(results, showsStatus: statusChoices != nil), id: \.self) { control in
             switch control {
+            case .status: statusControl
             case .key: keyControl
-            case .tuneType: typeControl
             case .filters: filtersControl
             }
         }
+    }
+
+    private var statusControl: some View {
+        let selected = results.filters.status
+        return Menu {
+            ForEach(statusChoices ?? []) { choice in
+                Button {
+                    if choice.status != selected { onChange { $0.status = choice.status } }
+                } label: {
+                    Label {
+                        Text(choice.count.map { "\(choice.label) \($0)" } ?? choice.label)
+                    } icon: {
+                        Image(systemName: selected == choice.status ? "checkmark" : choice.systemImage)
+                    }
+                }
+            }
+        } label: {
+            PullDownLabel(text: Self.statusLabel(selected))
+        }
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .buttonStyle(FilterControlStyle(isSet: selected != nil))
+        .fixedSize()
     }
 
     private var keyControl: some View {
@@ -144,33 +173,11 @@ struct CatalogFilterRow: View {
         }
     }
 
-    private var typeControl: some View {
-        let selected = results.selected(.tuneType)
-        return Menu {
-            Picker(CatalogFacet.tuneType.label, selection: typeChoice) {
-                Text(CatalogFilterSheet.any).tag(String?.none)
-                ForEach(results.choices(.tuneType), id: \.self) { type in
-                    Text(type).tag(Optional(type))
-                }
-            }
-            .pickerStyle(.inline)
-            .labelsHidden()
-        } label: {
-            PullDownLabel(text: Self.typeLabel(selected))
-        }
-        .menuStyle(.button)
-        .menuIndicator(.hidden)
-        .buttonStyle(FilterControlStyle(isSet: selected != nil))
-        .fixedSize()
-    }
-
     private var filtersControl: some View {
         let count = results.filters.sheetCount
-        return FiltersButton(
-            setCount: count, gate: isSelecting ? .disabled(reason: nil) : .enabled,
-            action: onFilters
-        )
-        .buttonStyle(FilterControlStyle(isSet: count > 0))
+        return FiltersButton(setCount: count, action: onFilters)
+            .buttonStyle(FilterControlStyle(isSet: count > 0))
+            .disabled(isSelecting)
     }
 
     @ViewBuilder private func wrappedTokens(_ tokens: [SetFilter]) -> some View {
@@ -183,14 +190,6 @@ struct CatalogFilterRow: View {
         ForEach(tokens) { token in
             RemoveFilterCapsule(label: token.label) { onChange(token.remove) }
                 .phoneTransition(RemoveFilterCapsule.insertion)
-        }
-    }
-
-    private var typeChoice: Binding<String?> {
-        Binding {
-            results.selected(.tuneType)
-        } set: { type in
-            onChange { $0[.tuneType] = type }
         }
     }
 }

@@ -81,7 +81,7 @@ toolbar is unified and shows no window title text.
   and the catalog's status filter are one value: Catalog shows every
   status, and a status row sets its status. A status set from anywhere,
   such as a stats link, selects its row, and a jump to the catalog never
-  clears it. Key, type, sheet filters, and the query carry across a status
+  clears it. Key, sheet filters, and the query carry across a status
   pick.
 - A count beside a row is absolute: non-archived tunes, whatever the
   filters. The column's header gives the narrowed count. A zero count is
