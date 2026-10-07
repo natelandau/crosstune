@@ -409,3 +409,39 @@ def test_a_p256_apple_music_key_starts() -> None:
         apple_music_private_key=_pem(ec.generate_private_key(ec.SECP256R1())),
     )
     assert settings.apple_music_configured is True
+
+
+_STORAGE = {
+    "r2_account_id": "acct",
+    "storage_bucket": "crosstune-test",
+    "storage_access_key_id": "test-access-key",  # gitleaks:allow -- fixture, not a credential
+    "storage_secret_access_key": "test-secret",  # gitleaks:allow -- fixture, not a credential
+}
+
+
+def test_posthog_configured_needs_project_and_key() -> None:
+    assert Settings().posthog_configured is False
+    assert (
+        Settings(
+            posthog_project_id="123", posthog_person_delete_key="phx_test", **_STORAGE
+        ).posthog_configured
+        is True
+    )
+
+
+def test_posthog_settings_without_storage_refuse_to_start() -> None:
+    # The job runner that deletes a deleted account's analytics data runs only with storage.
+    with pytest.raises(ValidationError, match="PostHog settings need storage"):
+        Settings(posthog_project_id="123", posthog_person_delete_key="phx_test")
+
+
+@pytest.mark.parametrize(
+    ("given", "named"),
+    [
+        ({"posthog_project_id": "123"}, "CROSSTUNE_POSTHOG_PERSON_DELETE_KEY"),
+        ({"posthog_person_delete_key": "phx_test"}, "CROSSTUNE_POSTHOG_PROJECT_ID"),
+    ],
+)
+def test_partial_posthog_settings_refuse_to_start(given: dict[str, str], named: str) -> None:
+    with pytest.raises(ValidationError, match=f"{named} is unset"):
+        Settings(**given)

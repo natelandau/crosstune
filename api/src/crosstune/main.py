@@ -9,6 +9,7 @@ import sentry_sdk
 from fastapi import FastAPI
 
 from crosstune import __version__
+from crosstune.analytics.posthog import PostHogPersons
 from crosstune.auth.jwks import JwksCache
 from crosstune.body import BodyAdmission
 from crosstune.config import Settings, get_settings
@@ -48,6 +49,17 @@ def _build_clerk_users(app: FastAPI, settings: Settings) -> None:
     if app.state.clerk_users is None and settings.clerk_secret_key.get_secret_value():
         app.state.clerk_users = ClerkBackendUsers(
             app.state.http_client, settings.clerk_secret_key.get_secret_value()
+        )
+
+
+def _build_analytics_persons(app: FastAPI, settings: Settings) -> None:
+    """Set app.state.analytics_persons when PostHog is configured and nothing built it yet."""
+    if app.state.analytics_persons is None and settings.posthog_configured:
+        app.state.analytics_persons = PostHogPersons(
+            app.state.http_client,
+            settings.posthog_project_id,
+            settings.posthog_person_delete_key.get_secret_value(),
+            base_url=settings.posthog_api_host,
         )
 
 
@@ -120,6 +132,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     if app.state.jwks is None:
         app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
     _build_clerk_users(app, settings)
+    _build_analytics_persons(app, settings)
     _build_object_store(app, settings)
     built_runner = app.state.job_runner is None and app.state.object_store is not None
     if built_runner:
@@ -129,6 +142,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             app.state.object_store,
             orphan_sweep_seconds=settings.orphan_sweep_seconds,
             http_client=app.state.http_client,
+            analytics_persons=app.state.analytics_persons,
             settings=settings,
         )
         app.state.job_runner.start()
@@ -184,6 +198,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.http_client = None
     app.state.jwks = None
     app.state.clerk_users = None
+    app.state.analytics_persons = None
     app.state.object_store = None
     app.state.job_runner = None
     app.state.pool_closer = None

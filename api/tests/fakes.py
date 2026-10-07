@@ -27,6 +27,20 @@ class FakeClerkUsers:
         self.deleted.append(clerk_user_id)
 
 
+class FakeAnalyticsPersons:
+    """An AnalyticsPersons stand-in. Set `error` to make the next delete_person raise it."""
+
+    def __init__(self) -> None:
+        self.deleted: list[str] = []
+        self.error: Exception | None = None
+
+    async def delete_person(self, distinct_id: str) -> None:
+        """Record the id, or raise the configured error instead of deleting."""
+        if self.error is not None:
+            raise self.error
+        self.deleted.append(distinct_id)
+
+
 class FakeObjectStore:
     """An ObjectStore held in a dict. Presigned URLs are recognizable strings, not signatures."""
 

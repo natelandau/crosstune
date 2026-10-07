@@ -7,6 +7,7 @@ import logging
 import uuid
 from datetime import (
     datetime,
+    timedelta,
 )
 from typing import TYPE_CHECKING
 
@@ -19,10 +20,12 @@ from crosstune.auth.deps import (
 from crosstune.auth.webhooks import verify_svix_signature
 from crosstune.db.locks import lock_user
 from crosstune.db.session import (
-    DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
+    DbSession,
+    request_runner_wake,
 )
 from crosstune.errors import AppError, UnauthorizedError, problem_responses
 from crosstune.files.quota import used_bytes
+from crosstune.jobs.analytics import schedule_person_deletion
 from crosstune.storage.store import user_prefix
 from crosstune.users.clerk import ClerkUnavailableError
 from crosstune.users.service import purge_account
@@ -151,4 +154,21 @@ async def clerk_webhook(
                 # response so a slow or failing store never delays or rolls back the
                 # deletion; the runner's orphan sweep removes whatever it misses.
                 background.add_task(_purge_user_files, store, user_prefix(user_id))
+            # Events can exist without a local row, so this runs even when nothing was purged.
+            # The runner owns the deletes, so PostHog failing never delays or rolls back this.
+            if request.app.state.analytics_persons is not None:
+                settings = request.app.state.settings
+                schedule_person_deletion(
+                    session,
+                    clerk_user_id,
+                    later_passes_after=[
+                        timedelta(seconds=seconds)
+                        for seconds in (
+                            settings.posthog_second_delete_seconds,
+                            settings.posthog_third_delete_seconds,
+                            settings.posthog_fourth_delete_seconds,
+                        )
+                    ],
+                )
+                request_runner_wake(session)
     return Response(status_code=204)
