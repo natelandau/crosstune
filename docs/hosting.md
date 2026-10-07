@@ -9,13 +9,13 @@ together is in `architecture.md`. Deploys and the rebuild order are in
 
 ## How each deployable reads its settings
 
-| Deployable     | Reads                                                      | From                                                                                             |
-| -------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| API            | `CROSSTUNE_*` environment variables, via pydantic-settings | Railway service variables. Locally `api/.env`. Names and defaults: `api/src/crosstune/config.py` |
-| Web client     | `VITE_*` variables at build time                           | Workers Builds variables through `web/scripts/hosted-build.sh`. Locally `web/.env`               |
-| Worker         | `vars` and the KV binding                                  | `web/wrangler.jsonc`, in the repository                                                          |
-| Site           | `PUBLIC_CLERK_PUBLISHABLE_KEY` at build time               | Workers Builds variables through `site/scripts/hosted-build.sh`. Locally `site/.env`             |
-| GitHub Actions | `vars.*` and `secrets.*`                                   | Repository settings                                                                              |
+| Deployable     | Reads                                                                   | From                                                                                             |
+| -------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| API            | `CROSSTUNE_*` environment variables, via pydantic-settings              | Railway service variables. Locally `api/.env`. Names and defaults: `api/src/crosstune/config.py` |
+| Web client     | `VITE_*` variables at build time                                        | Workers Builds variables through `web/scripts/hosted-build.sh`. Locally `web/.env`               |
+| Worker         | `vars` and the KV binding                                               | `web/wrangler.jsonc`, in the repository                                                          |
+| Site           | `PUBLIC_CLERK_PUBLISHABLE_KEY` and `PUBLIC_POSTHOG_TOKEN` at build time | Workers Builds variables through `site/scripts/hosted-build.sh`. Locally `site/.env`             |
+| GitHub Actions | `vars.*` and `secrets.*`                                                | Repository settings                                                                              |
 
 ## Naming a variable
 
@@ -33,25 +33,28 @@ together is in `architecture.md`. Deploys and the rebuild order are in
 
 ## Values that cross hosts
 
-| Value                                                      | Produced by       | Consumed by                          |
-| ---------------------------------------------------------- | ----------------- | ------------------------------------ |
-| Neon production and development connection strings         | Neon              | Railway                              |
-| Neon development project ID and database role              | Neon              | GitHub                               |
-| `crosstune-api` and `crosstune-web` DSNs                   | Sentry            | Railway, Workers Builds              |
-| Clerk development issuer, publishable key, and secret key  | Clerk             | Railway, Workers Builds, GitHub      |
-| Clerk production issuer, publishable key, and secret key   | Clerk             | Railway, Workers Builds              |
-| Clerk webhook signing secrets, one per instance            | Clerk             | Railway                              |
-| Railway development hostname                               | Railway           | Clerk webhooks, `web/wrangler.jsonc` |
-| Railway project, development environment, and service IDs  | Railway           | GitHub                               |
-| `workers.dev` subdomain                                    | Cloudflare        | Railway development regex            |
-| KV namespace ID                                            | Cloudflare        | `web/wrangler.jsonc`, GitHub         |
-| Cloudflare account ID                                      | Cloudflare        | GitHub, Railway                      |
-| R2 access key ID and secret access key, one pair per token | Cloudflare        | Railway, GitHub                      |
-| CNAME targets for `api.<domain>` and the Clerk hostnames   | Railway, Clerk    | Cloudflare DNS                       |
-| App Store Connect API key, key ID, and issuer ID           | App Store Connect | GitHub, `apple/.env`                 |
-| Apple Development certificate and its `.p12` password      | Apple Developer   | GitHub                               |
-| MusicKit private key, its key ID, and the Team ID          | Apple Developer   | Railway, `api/.env`                  |
-| TIDAL app `Crosstune` client ID and client secret          | TIDAL dashboard   | Railway, `api/.env`                  |
+| Value                                                      | Produced by       | Consumed by                                     |
+| ---------------------------------------------------------- | ----------------- | ----------------------------------------------- |
+| Neon production and development connection strings         | Neon              | Railway                                         |
+| Neon development project ID and database role              | Neon              | GitHub                                          |
+| `crosstune-api` and `crosstune-web` DSNs                   | Sentry            | Railway, Workers Builds                         |
+| Clerk development issuer, publishable key, and secret key  | Clerk             | Railway, Workers Builds, GitHub                 |
+| Clerk production issuer, publishable key, and secret key   | Clerk             | Railway, Workers Builds                         |
+| Clerk webhook signing secrets, one per instance            | Clerk             | Railway                                         |
+| Railway development hostname                               | Railway           | Clerk webhooks, `web/wrangler.jsonc`            |
+| Railway project, development environment, and service IDs  | Railway           | GitHub                                          |
+| `workers.dev` subdomain                                    | Cloudflare        | Railway development regex                       |
+| KV namespace ID                                            | Cloudflare        | `web/wrangler.jsonc`, GitHub                    |
+| Cloudflare account ID                                      | Cloudflare        | GitHub, Railway                                 |
+| R2 access key ID and secret access key, one pair per token | Cloudflare        | Railway, GitHub                                 |
+| CNAME targets for `api.<domain>` and the Clerk hostnames   | Railway, Clerk    | Cloudflare DNS                                  |
+| App Store Connect API key, key ID, and issuer ID           | App Store Connect | GitHub, `apple/.env`                            |
+| Apple Development certificate and its `.p12` password      | Apple Developer   | GitHub                                          |
+| MusicKit private key, its key ID, and the Team ID          | Apple Developer   | Railway, `api/.env`                             |
+| TIDAL app `Crosstune` client ID and client secret          | TIDAL dashboard   | Railway, `api/.env`                             |
+| PostHog project token and ingest host                      | PostHog           | Workers Builds, `apple/Config/Release.xcconfig` |
+| PostHog project ID and person delete key                   | PostHog           | Railway production                              |
+| CNAME target for `relay.<domain>`                          | PostHog           | Cloudflare DNS                                  |
 
 ## Neon
 
@@ -202,6 +205,30 @@ The API refuses to start when `CROSSTUNE_STORAGE_PREFIX`,
   bucket to `crosstune-recordings-preview`. No other environment can use
   that bucket.
 
+## PostHog
+
+- One PostHog Cloud project in the US region. Only production has a token.
+- Clients send events to `relay.<domain>`, PostHog's managed reverse proxy.
+- The project token is public by design. It lives in two places:
+  - `apple/Config/Release.xcconfig`, as `POSTHOG_PROJECT_TOKEN` beside
+    `POSTHOG_HOST`.
+  - The `crosstune-site` Workers Builds variable
+    `POSTHOG_PROJECT_TOKEN_PRODUCTION`.
+- Debug builds of the Apple apps and every site build off `main` have no
+  token, so they send nothing.
+- The person delete key is a PostHog personal API key with the Person: Write
+  scope only, limited to this one project. It is set on Railway production
+  only. Every `pr-<n>` environment copies development, and the key can
+  delete production data.
+
+| Railway production variable           | Value                 |
+| ------------------------------------- | --------------------- |
+| `CROSSTUNE_POSTHOG_PROJECT_ID`        | The project ID        |
+| `CROSSTUNE_POSTHOG_PERSON_DELETE_KEY` | The person delete key |
+
+- PostHog deletes a person's events in a weekly batch, so they can stay
+  visible for up to a week after an account deletion.
+
 ## Cloudflare Workers
 
 One Worker, `crosstune-web`, connected to the repository through Workers
@@ -286,6 +313,7 @@ the production and the branch builds:
 | ----------------------------------- | ------------- |
 | `CLERK_PUBLISHABLE_KEY_PRODUCTION`  | `pk_live_...` |
 | `CLERK_PUBLISHABLE_KEY_DEVELOPMENT` | `pk_test_...` |
+| `POSTHOG_PROJECT_TOKEN_PRODUCTION`  | `phc_...`     |
 | `PNPM_VERSION`                      | `12.4.1`      |
 
 - Unlike `crosstune-web`, this Worker uses Cloudflare's Worker Previews.
@@ -299,7 +327,8 @@ the production and the branch builds:
   builds with the development Clerk key.
 - `site/scripts/hosted-build.sh` exports `PUBLIC_CLERK_PUBLISHABLE_KEY` by
   branch, as the web build does. The site uses it for the waitlist form
-  only.
+  only. It exports `PUBLIC_POSTHOG_TOKEN` on `main` only, so every other
+  branch builds with no analytics.
 - The Domains tab matches `crosstune-web`: the apex `<domain>` is attached
   as a custom domain, the production `workers.dev` toggle is off, and
   **Version URLs** is on.
@@ -351,6 +380,9 @@ stay in the RustFS container `docker compose` starts.
   and `my.<domain>`. Browsers apply the subdomain rule from the apex visit,
   so `api.<domain>` and the Clerk hostnames inherit it. A subdomain that
   drops HTTPS is unreachable until the max age expires.
+- `relay.<domain>` is a CNAME to PostHog's managed reverse proxy, with the
+  proxy off. PostHog issues the certificate for that host, so an orange
+  cloud breaks it.
 - Email Routing forwards `support@<domain>` to the maintainer's inbox. The
   MX and SPF/DKIM records it adds are locked to it.
 
