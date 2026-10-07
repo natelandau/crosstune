@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneVocabulary
 import SwiftUI
 
@@ -216,6 +217,7 @@ private struct BulkChoiceRow: View {
             let otherLabel = TuneFieldLabels.other(field.label)
             LabeledContent(otherLabel) {
                 TextField(otherLabel, text: typed, prompt: Text(form.placeholder(field)))
+                    .contentMask()
                     .multilineTextAlignment(.trailing)
                     .focused($otherFocused)
                     .characterLimit(maxLength, text: typed)

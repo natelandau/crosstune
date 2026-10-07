@@ -1,4 +1,5 @@
 import CoreGraphics
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import Foundation
@@ -92,6 +93,7 @@ public final class ScansModel {
 
     private let store: CrosstuneStore
     private let tuneID: String
+    private let analytics: AnalyticsClient
     private let query: LiveQuery<[Scan]?>
     private var moves = PendingMoves()
     /// Counts each read of the scans, so a settled move can tell whether a read has landed since.
@@ -100,9 +102,10 @@ public final class ScansModel {
     @ObservationIgnored private var following: Task<Void, Never>?
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "scans")
 
-    init(store: CrosstuneStore, tuneID: String) {
+    init(store: CrosstuneStore, tuneID: String, analytics: AnalyticsClient = .noop) {
         self.store = store
         self.tuneID = tuneID
+        self.analytics = analytics
         let query = LiveQuery<[Scan]?>(store, initial: nil) { db in
             try Scan.fetch(db, tuneID: tuneID)
         }
@@ -132,8 +135,8 @@ public final class ScansModel {
 
     /// Prepares and stores picked images one at a time, in the order picked, so each scan shows
     /// as soon as it is ready and a pick past the limit stops where the tune is full. An image
-    /// that cannot be read is named and the rest still add.
-    public func add(_ picks: [ScanPick]) async {
+    /// that cannot be read is named and the rest still add. `via` is how the picks came in.
+    public func add(_ picks: [ScanPick], via: ScanVia) async {
         guard !picks.isEmpty else { return }
         isAdding = true
         failure = nil
@@ -161,6 +164,7 @@ public final class ScansModel {
             do {
                 try await commands.addScans(tuneID: tuneID, scans: [prepared])
                 room -= 1
+                analytics.send(.scanAdded(via: via))
             } catch CommandError.scanLimit {
                 // Another device filled the tune while this pick was running.
                 skipped += 1

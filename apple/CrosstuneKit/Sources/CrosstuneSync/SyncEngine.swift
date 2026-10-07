@@ -21,8 +21,9 @@ public final class SyncEngine {
     public private(set) var lastSyncedAt: Date?
     /// The recordings whose audio is being fetched now, by a play or the download pass.
     public private(set) var downloading: Set<String> = []
-    /// Called after each run that finishes clean, which proves the API accepts the session.
-    @ObservationIgnored public var onSynced: (@MainActor () -> Void)?
+    /// Called after each run that finishes clean, which proves the API accepts the session, with
+    /// whether the run stored fresh storage figures.
+    @ObservationIgnored public var onSynced: (@MainActor (_ storedFigures: Bool) -> Void)?
 
     private let store: CrosstuneStore
     private let api: any SyncAPI
@@ -289,10 +290,12 @@ public final class SyncEngine {
     private func syncOnce() async throws {
         try await push()
         try await pull()
+        var storedFigures = false
         do {
             try checkStopped()
             let figures = try await api.storage()
             try await store.setMeta(.storage, to: figures)
+            storedFigures = true
         } catch  where endsThePass(error) {
             throw error
         } catch {
@@ -301,7 +304,7 @@ public final class SyncEngine {
         }
         let finished = Timestamp.now
         lastSyncedAt = finished.date
-        onSynced?()
+        onSynced?(storedFigures)
         do {
             try await store.setMeta(.lastSyncedAt, to: finished)
         } catch {

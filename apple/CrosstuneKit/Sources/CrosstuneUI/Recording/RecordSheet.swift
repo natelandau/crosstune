@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import SwiftUI
 
@@ -116,6 +117,7 @@ struct RecordSheetBody: View {
         #if os(iOS)
             if let title = model.tuneTitle {
                 Text(RecordSheet.filingUnder(title))
+                    .contentMask()
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)

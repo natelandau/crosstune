@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 
@@ -10,6 +11,21 @@ extension ReadingChoice {
     }
 }
 
+/// What a visit to the reading pane reports: the first showing of each kind, as the scan
+/// viewer and the lyrics reader report their own openings.
+struct ReadingVisit {
+    private var reported: Set<ReadingChoice> = []
+
+    /// The event for showing `choice`, or nil once this visit has reported it.
+    mutating func shown(_ choice: ReadingChoice) -> AnalyticsEvent? {
+        guard reported.insert(choice).inserted else { return nil }
+        return switch choice {
+        case .scans: .scanViewed
+        case .lyrics: .lyricsOpened
+        }
+    }
+}
+
 /// The playing tune's scans and lyrics on the practice ground: the scans on their own paper, a
 /// page at a time, or the lyrics at the reader's size. A tune with both opens on its scans, with
 /// a control to turn to the lyrics.
@@ -17,6 +33,9 @@ struct ReadingPane: View {
     let reading: StandReading
 
     @State private var choice = ReadingChoice.scans
+    /// One per tune, since the stand gives each tune's pane an identity of its own.
+    @State private var visit = ReadingVisit()
+    @Environment(\.analytics) private var analytics
 
     init(reading: StandReading) {
         self.reading = reading
@@ -44,6 +63,9 @@ struct ReadingPane: View {
             }
         }
         .padding(16)
+        .onChange(of: shown(segments), initial: true) { _, kind in
+            if let event = visit.shown(kind) { analytics.send(event) }
+        }
     }
 
     /// The control's choice while it shows, else whichever kind the tune has.

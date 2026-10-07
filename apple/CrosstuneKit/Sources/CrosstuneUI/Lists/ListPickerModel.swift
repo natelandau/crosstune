@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import Foundation
@@ -90,13 +91,17 @@ public final class ListPickerModel {
     public private(set) var failure: String?
 
     private let store: CrosstuneStore
+    private let analytics: AnalyticsClient
     private let excludeListID: String?
     private let lists: LiveQuery<[ListSummary]?>
     private let counts: LiveQuery<[String: Int]?>
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "list-picker")
 
-    public init(store: CrosstuneStore, userTuneIDs: [String], excludeListID: String? = nil) {
+    public init(
+        store: CrosstuneStore, userTuneIDs: [String], excludeListID: String? = nil, analytics: AnalyticsClient = .noop
+    ) {
         self.store = store
+        self.analytics = analytics
         self.userTuneIDs = userTuneIDs
         self.excludeListID = excludeListID
         lists = LiveQuery(store, initial: nil) { db in try ListSummary.fetchAll(db) }
@@ -176,6 +181,8 @@ public final class ListPickerModel {
         do {
             let addition = try await write(Commands(store: store))
             isDone = true
+            if addition.created { analytics.send(.listCreated) }
+            analytics.send(.tunesAddedToList(count: addition.added))
             return addition
         } catch {
             Self.logger.warning("A list pick failed: \(error)")

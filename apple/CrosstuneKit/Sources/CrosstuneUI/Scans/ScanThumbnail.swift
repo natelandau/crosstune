@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import Foundation
 import ImageIO
@@ -29,6 +30,7 @@ struct ScanThumbnail: View {
                 Image(decorative: image, scale: 1)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
+                    .contentMask()
             } else if key != nil && decoded?.key == key {
                 // Decoded and found unreadable.
                 placeholder {

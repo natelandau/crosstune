@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAuth
 import CrosstuneStore
 import CrosstuneSync
@@ -8,6 +9,8 @@ import SwiftUI
 /// The row itself is the play, close, or download control.
 struct RecordingItem: View {
     let view: RecordingView
+    /// The screen the row is on, which its plays are reported as started from.
+    let source: ActionSource
     /// True in a list whose heading already names the recording's tune.
     var tuneNamedAbove = false
     /// The account's storage, for a recording the quota blocked.
@@ -44,9 +47,9 @@ struct RecordingItem: View {
             perform: { tap in
                 let item = PlayerItem.recording(view.recording, tuneTitle: view.tuneTitle)
                 switch tap {
-                case .play: player?.play(item, origin: .row)
+                case .play: player?.play(item, origin: .row, source: source)
                 case .close: player?.close()
-                case .open: player?.open(item, in: window, playing: false)
+                case .open: player?.open(item, in: window, playing: false, source: source)
                 // Refused rather than disabled while offline, so the row keeps its tap and its
                 // name; Offline in the meta line says why.
                 case .download: if !offline { Task { await transfers?.download(id) } }

@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import SwiftUI
 
 /// A field row that picks from suggestions without ever limiting the musician: `Other…` reveals a
@@ -73,6 +74,7 @@ struct SuggestionPicker: View {
             let otherLabel = TuneFieldLabels.other(label)
             LabeledContent {
                 TextField(otherLabel, text: $value, prompt: Text(TuneFieldLabels.notSet))
+                    .contentMask()
                     .multilineTextAlignment(.trailing)
                     .focused($otherFocused)
                     .characterLimit(maxLength, text: $value)
@@ -118,9 +120,11 @@ struct SuggestionPicker: View {
                 // The Mac draws a menu as a pop-up button with its own arrows.
                 #if os(macOS)
                     Text(value.isEmpty ? emptyLabel : value)
+                        .contentMask()
                 #else
                     HStack(spacing: 4) {
                         Text(value.isEmpty ? emptyLabel : value)
+                            .contentMask()
                         Image(systemName: "chevron.up.chevron.down")
                             .imageScale(.small)
                             .accessibilityHidden(true)

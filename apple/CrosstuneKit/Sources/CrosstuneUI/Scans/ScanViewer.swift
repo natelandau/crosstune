@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import Foundation
@@ -330,6 +331,8 @@ struct ScanSlide: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // The whole slide, so a zoomed or panned scan stays covered.
+        .contentMask()
         .task(id: isNear ? key : nil) {
             guard isNear, let key, let file = scan.file, decoded?.key != key else { return }
             let url = folder.appending(path: file.fileName)
@@ -483,7 +486,9 @@ struct ScanScreens: ViewModifier {
     /// The position of the scan the open viewer shows, which its close zooms back into.
     @State private var shownIndex: Int?
     @State private var tunes: ScanTunes?
-    @State private var log = ScanViewLog()
+    /// Made once the store is known, for that store; nil while there is none.
+    @State private var log: ScanViewLog?
+    @Environment(\.analytics) private var analytics
     @Environment(\.tuneScreenActions) private var tuneScreenActions
     @Environment(\.store) private var store
     @Environment(\.scenePhase) private var scenePhase
@@ -515,26 +520,29 @@ struct ScanScreens: ViewModifier {
             .environment(tunes)
             .task(id: store.map(ObjectIdentifier.init)) {
                 tunes = store.map(ScanTunes.init(store:))
-                // A writer for another account's store drops the view open in this one.
-                log.writer = store.map(ScanViewWriter.store)
+                // Another account's store gets a log of its own, dropping the view open in this one.
+                log = store.map {
+                    ScanViewLog(
+                        writer: .store($0), analytics: analytics, isForeground: scenePhase != .background)
+                }
             }
             .onChange(of: request) { old, new in
-                log.follow(from: old, to: new)
+                log?.follow(from: old, to: new)
                 shownIndex = nil
             }
-            .onChange(of: scenePhase, initial: true) {
-                log.foreground(scenePhase != .background)
+            .onChange(of: scenePhase) {
+                log?.foreground(scenePhase != .background)
             }
             #if os(macOS)
                 .sheet(item: $request) { request in
                     ScanViewer(tuneID: request.tuneID, startIndex: request.startIndex)
                     .macSheetFrame(MacSheetSize(minWidth: 640, idealWidth: 820, minHeight: 640, idealHeight: 900))
-                    .onDisappear { log.viewerDisappeared(tuneID: request.tuneID) }
+                    .onDisappear { log?.viewerDisappeared(tuneID: request.tuneID) }
                 }
             #else
                 .fullScreenCover(item: $request) { request in
                     ScanViewer(tuneID: request.tuneID, startIndex: request.startIndex) { shownIndex = $0 }
-                    .onDisappear { log.viewerDisappeared(tuneID: request.tuneID) }
+                    .onDisappear { log?.viewerDisappeared(tuneID: request.tuneID) }
                     .zooms(from: Self.zoomSourceID(request, shownIndex: shownIndex), in: zoomNamespace)
                 }
             #endif

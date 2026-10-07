@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneAuth
 import CrosstuneCommands
@@ -117,6 +118,7 @@ public struct RecordingScreen: View {
         Stand(player: player) {
             practice
         }
+        .screenView(.recording)
         .task(id: loadedID) {
             // A trim screen belongs to the recording it opened on.
             path = []
@@ -344,7 +346,7 @@ struct RecordingScreenContent: View {
             AddToTuneSheet(recordingID: view.id) { title in creating = title }
         }
         .sheet(item: $form) { creating in
-            TuneFormSheet(target: .new(title: creating.title)) { tuneID in
+            TuneFormSheet(target: .new(title: creating.title, source: .recording)) { tuneID in
                 file(under: tuneID)
             }
         }
@@ -492,6 +494,7 @@ struct RecordingScreenContent: View {
         private var header: some View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(player.title ?? "")
+                    .contentMask()
                     .font(MacStyle.pageTitle)
                     .lineLimit(2)
                     .accessibilityAddTraits(.isHeader)
@@ -607,7 +610,7 @@ struct RecordingScreenContent: View {
         let model = TrimModel(
             recording: rows.recording, file: rows.file,
             write: { try await commands.updateRecording($0, trimStartMs: .value($1), trimEndMs: .value($2)) },
-            hold: { [player] in player.hold(id, $0) })
+            hold: { [player] in player.hold(id, $0) }, analytics: player.analytics)
         model.open()
         trim = model
         trimNotice = nil

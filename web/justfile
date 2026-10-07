@@ -62,34 +62,39 @@ fix:
 
 # Run the unit and browser tests; extra args go to vitest
 [group('test')]
+[positional-arguments]
 test *args:
-    pnpm vitest run {{ args }}
+    pnpm vitest run "$@"
 
 # Run only the jsdom unit project
 [group('test')]
+[positional-arguments]
 test-unit *args:
-    pnpm vitest run --project unit {{ args }}
+    pnpm vitest run --project unit "$@"
 
 # Run only the Chromium browser projects, in the detected mode and forced iOS
 [group('test')]
+[positional-arguments]
 test-browser *args:
-    pnpm vitest run --project browser --project browser-ios {{ args }}
+    pnpm vitest run --project browser --project browser-ios "$@"
 
 # Run tests shuffled, a new order each run, and list the seeds that failed; SEED=<n> replays one
 [group('test')]
+[positional-arguments]
 stress runs *args:
     #!/usr/bin/env bash
     set -uo pipefail
+    shift
     # Shuffling exposes a test that leans on state an earlier test left behind, which file
     # order hides.
     if [[ -n "${SEED:-}" ]]; then
-        exec pnpm vitest run --sequence.shuffle --sequence.seed="$SEED" {{ args }}
+        exec pnpm vitest run --sequence.shuffle --sequence.seed="$SEED" "$@"
     fi
     failed=()
     for run in $(seq 1 {{ runs }}); do
         seed=$RANDOM$RANDOM
         echo "run $run/{{ runs }}, seed $seed"
-        pnpm vitest run --sequence.shuffle --sequence.seed="$seed" {{ args }} || failed+=("$seed")
+        pnpm vitest run --sequence.shuffle --sequence.seed="$seed" "$@" || failed+=("$seed")
     done
     if (( ${#failed[@]} )); then
         echo "${#failed[@]} of {{ runs }} runs failed; replay one with SEED=<seed> just web::stress 1 {{ args }}"
@@ -100,6 +105,7 @@ stress runs *args:
 
 # Run the Playwright suite against a production build; needs the e2e API and Clerk env
 [group('test')]
+[positional-arguments]
 e2e *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -111,7 +117,7 @@ e2e *args:
         || { echo "the API on {{ e2e_api }} is not bound to the e2e database: $fix" >&2; exit 1; }
     # The preview server Playwright starts proxies /v1, so this is what sends the suite's
     # writes to the e2e database rather than to whatever :8000 is serving.
-    LOCAL_API_PROXY_TARGET='{{ e2e_api }}' pnpm playwright test {{ args }}
+    LOCAL_API_PROXY_TARGET='{{ e2e_api }}' pnpm playwright test "$@"
 
 # Run the dev server with the /v1 proxy
 [group('run')]

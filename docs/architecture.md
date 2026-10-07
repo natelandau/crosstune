@@ -7,21 +7,23 @@ are in `hosting.md`. Deploys and releases are in `operations.md`.
 
 ## Systems
 
-| System     | Role                                                                                                       | Depends on                             |
-| ---------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| Web client | React single-page app, served by a Cloudflare Worker. Reads and writes a local copy of the catalog.        | Worker, Clerk, API                     |
-| Worker     | Serves the client's static assets. Proxies `/v1/*` to the environment's API, so the client is same-origin. | GitHub, Railway                        |
-| API        | FastAPI container on Railway. Owns the schema, sync, ownership, link metadata, and recording storage.      | Neon, Clerk public keys, R2, providers |
-| Neon       | Postgres. One database per environment.                                                                    |                                        |
-| Clerk      | Sign-in UI and session tokens. Webhook on account deletion.                                                | Cloudflare DNS for its hostnames       |
-| R2         | Recording audio. The browser moves bytes directly with presigned URLs. The API signs and manages.          |                                        |
-| Sentry     | Errors from both deployables.                                                                              |                                        |
-| GitHub     | Source and CI. Both hosts deploy from it.                                                                  |                                        |
+| System     | Role                                                                                                             | Depends on                             |
+| ---------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Web client | React single-page app, served by a Cloudflare Worker. Reads and writes a local copy of the catalog.              | Worker, Clerk, API                     |
+| Worker     | Serves the client's static assets. Proxies `/v1/*` to the environment's API, so the client is same-origin.       | GitHub, Railway                        |
+| API        | FastAPI container on Railway. Owns the schema, sync, ownership, link metadata, and recording storage.            | Neon, Clerk public keys, R2, providers |
+| Neon       | Postgres. One database per environment.                                                                          |                                        |
+| Clerk      | Sign-in UI and session tokens. Webhook on account deletion.                                                      | Cloudflare DNS for its hostnames       |
+| R2         | Recording audio. The browser moves bytes directly with presigned URLs. The API signs and manages.                |                                        |
+| Sentry     | Errors from both deployables.                                                                                    |                                        |
+| PostHog    | Usage analytics from the site and the Apple apps. The API deletes a person's data when their account is deleted. | Cloudflare DNS for its proxy host      |
+| GitHub     | Source and CI. Both hosts deploy from it.                                                                        |                                        |
 
 The apex `<domain>` is the static marketing and waitlist site, served by
-its own Worker. It never calls the API. It reaches third parties only when
-a visitor acts: the waitlist form loads Clerk's Frontend API once the email
-field is focused. It embeds no third-party players.
+its own Worker. It never calls the API. It sends page views to PostHog
+through the proxy host. It reaches Clerk only when a visitor acts: the
+waitlist form loads Clerk's Frontend API once the email field is focused.
+It embeds no third-party players.
 
 Cloudflare also hosts the DNS zone for the product domain.
 
@@ -174,6 +176,13 @@ same triggers. A return to the foreground stands in for a visible tab.
   (Svix-signed), the only path for a deletion made from the Clerk
   dashboard. Both paths are idempotent. Foreign keys cascade to every table
   the user owns.
+- The webhook's `user.deleted` event also queues four deletes of the
+  person's PostHog data for the job runner, in the same transaction: one
+  now, then after 10 minutes, 1 day, and 7 days. PostHog deletes only
+  events it already has, so the later passes catch events a client sent
+  just before and events an offline device uploads once it is back. A
+  failure or a `deletion_errors` answer is retried. A PostHog failure
+  never blocks the account deletion.
 - `deleted_accounts` denylists the Clerk id so a token still valid after
   deletion can never recreate the row. The API answers that token with a
   401 of type `urn:crosstune:account-deleted`, and a client that receives

@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import CrosstuneVocabulary
 import SwiftUI
@@ -32,6 +33,7 @@ private struct SelectionMode: ViewModifier {
     let focusedRow: AccessibilityFocusState<String?>.Binding
 
     @Environment(\.store) private var store
+    @Environment(\.analytics) private var analytics
     @Environment(\.listSheets) private var listSheets
     @Environment(\.undoManager) private var undoManager
     /// Set in the split view, whose columns report a compact width even on a wide iPad.
@@ -104,7 +106,7 @@ private struct SelectionMode: ViewModifier {
             .undoBanner(offer)
             .task(id: store.map(ObjectIdentifier.init)) {
                 guard let store else { return }
-                bulk = BulkActions(store: store)
+                bulk = BulkActions(store: store, analytics: analytics)
                 bulk?.undoManager = undoManager
             }
             .onChange(of: undoManager) { bulk?.undoManager = undoManager }

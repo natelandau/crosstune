@@ -568,6 +568,9 @@ it and this page differ.
 - System undo (Cmd-Z, the Edit menu, shake) plus a short banner with an
   Undo button replaces the web's toast.
 - Native search replaces the web's toolbar search field.
+- Every view that shows what the musician wrote or named carries
+  `.contentMask()`, because iPhone and iPad session replays must never show
+  user content.
 - A window or scene root carries `.tint(BrandStyle.accent)`, so slate tints
   the selection, chosen controls, and primary buttons on every Apple
   platform.

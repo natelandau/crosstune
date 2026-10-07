@@ -72,5 +72,10 @@ const imageAlt = `The Crosstune headline, "${HERO_TITLE}" beside an iPhone showi
     </nav>
     <slot />
     <Footer />
+    <script>
+      import { startAnalytics } from '../scripts/analytics'
+
+      startAnalytics(import.meta.env.PUBLIC_POSTHOG_TOKEN)
+    </script>
   </body>
 </html>

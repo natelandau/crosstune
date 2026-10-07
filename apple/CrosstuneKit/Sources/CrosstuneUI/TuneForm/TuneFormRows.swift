@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneVocabulary
 import SwiftUI
 
@@ -184,6 +185,7 @@ struct LyricsEditor: View {
 
     var body: some View {
         TextEditor(text: $lyrics)
+            .contentMask()
             .characterLimit(Vocabulary.Limits.Tune.lyrics, text: $lyrics)
             .accessibilityLabel(TuneFieldLabels.lyrics)
             .overlay(alignment: .topLeading) {

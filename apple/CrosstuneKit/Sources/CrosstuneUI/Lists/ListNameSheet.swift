@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneVocabulary
@@ -29,11 +30,13 @@ public final class ListNameModel {
     public private(set) var failure: String?
 
     private let store: CrosstuneStore
+    private let analytics: AnalyticsClient
     private let opened: String
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "list-name")
 
-    public init(store: CrosstuneStore, target: ListNameTarget) {
+    public init(store: CrosstuneStore, target: ListNameTarget, analytics: AnalyticsClient = .noop) {
         self.store = store
+        self.analytics = analytics
         self.target = target
         var opening = ""
         if case .rename(_, let name) = target { opening = name }
@@ -72,6 +75,7 @@ public final class ListNameModel {
             switch target {
             case .new:
                 listID = try await commands.createList(trimmed)
+                analytics.send(.listCreated)
             case .rename(let id, _):
                 try await commands.renameList(id, name: trimmed)
                 listID = id
@@ -100,6 +104,7 @@ public struct ListNameSheet: View {
     private let onSaved: (_ listID: String) -> Void
 
     @Environment(\.store) private var store
+    @Environment(\.analytics) private var analytics
     @State private var model: ListNameModel?
 
     /// - Parameter onSaved: Runs once a save lands, with the list's id.
@@ -130,7 +135,7 @@ public struct ListNameSheet: View {
         #endif
         .task {
             guard model == nil, let store else { return }
-            model = ListNameModel(store: store, target: target)
+            model = ListNameModel(store: store, target: target, analytics: analytics)
         }
     }
 }
@@ -154,6 +159,7 @@ private struct ListNameForm: View {
                     },
                     prompt: Text(ListNameSheet.placeholder)
                 )
+                .contentMask()
                 .characterLimit(
                     Vocabulary.Limits.List.name,
                     text: Binding {

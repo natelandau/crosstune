@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAuth
 import CrosstuneStore
 import SwiftUI
@@ -106,6 +107,7 @@ public struct DeleteAccountSheet: View {
                 }
                 Section {
                     TextField(Self.confirmLabel, text: $text)
+                        .contentMask()
                         #if os(iOS)
                             .textInputAutocapitalization(.never)
                         #endif

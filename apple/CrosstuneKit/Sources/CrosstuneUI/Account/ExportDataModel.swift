@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneExport
 import CrosstuneStore
 import Foundation
@@ -33,6 +34,7 @@ final class ExportDataModel {
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "export")
 
     private let exporter: Exporter?
+    private let analytics: AnalyticsClient
 
     private(set) var counts: ExportCounts?
     private(set) var progress: Progress?
@@ -45,8 +47,9 @@ final class ExportDataModel {
     /// Bumped by every start and cancel, so a run that finishes late can tell it was abandoned.
     private var generation = 0
 
-    init(exporter: Exporter?) {
+    init(exporter: Exporter?, analytics: AnalyticsClient = .noop) {
         self.exporter = exporter
+        self.analytics = analytics
     }
 
     /// The share sheet and save panel hold the model until they finish, so a zip still here
@@ -105,6 +108,7 @@ final class ExportDataModel {
                 }
                 guard mine == generation else { return Self.discard(url) }
                 exported = url
+                analytics.send(.exportCompleted(format: .zip))
             } catch {
                 guard mine == generation else { return }
                 Self.logger.error("Could not export: \(error, privacy: .public)")

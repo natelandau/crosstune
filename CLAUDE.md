@@ -102,6 +102,18 @@ every label. The glossary in `docs/product.md` has the reasons.
   presenting it carries `.coversShell(_:)` on the line before. A test in
   `CrosstuneUITests` enforces both, so the record control and the shell's
   menu commands stand down behind every presentation.
+- Every view in `CrosstuneUI` that shows user content carries
+  `.contentMask()`, so session replays never show it. A test in
+  `CrosstuneUITests` enforces it; a view handed its text is masked by hand
+  and listed in that test.
+- A new analytics event goes in the analytics spec's event table before
+  code sends it. A model receives the `AnalyticsClient` as an init
+  parameter, a view reads it from the environment.
+- A change to what the Apple app collects, or a new SDK in it, adds a row
+  to the Apple privacy runbook in the vault
+  (`runbooks/2026-10-07-apple-privacy-app-store-label-and-privacy-manifest.md`)
+  in the same session, so the App Store label and `PrivacyInfo.xcprivacy`
+  stay in step.
 
 ## Web tests
 

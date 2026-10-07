@@ -52,7 +52,7 @@ func snapshot(
     /// window presenting a sheet, back onto a screen. A sheet takes its parent's level. Drawing
     /// with `cacheDisplay` ignores the window's alpha.
     @MainActor
-    private func hiddenWindow(size: CGSize, styleMask: NSWindow.StyleMask, appearance: NSAppearance.Name) -> NSWindow {
+    func hiddenWindow(size: CGSize, styleMask: NSWindow.StyleMask, appearance: NSAppearance.Name) -> NSWindow {
         let window = NSWindow(
             contentRect: CGRect(origin: .zero, size: size), styleMask: styleMask, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false

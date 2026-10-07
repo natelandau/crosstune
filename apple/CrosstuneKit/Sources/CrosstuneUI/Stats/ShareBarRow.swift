@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import SwiftUI
 
@@ -11,6 +12,7 @@ struct ShareBarRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(value.value)
+                .contentMask()
                 .font(PageStyle.body)
                 .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)

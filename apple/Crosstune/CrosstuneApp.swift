@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAuth
 import CrosstuneExport
 import CrosstuneUI
@@ -10,27 +11,36 @@ struct CrosstuneApp: App {
     @State private var listPlayback: ListPlayback
     @State private var stage = EmbedStage()
     @State private var recorders = RecorderHost()
+    private let analytics: AnalyticsClient
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        let configuration = AppConfiguration.main
+        // First, with the stored choice applied, so the SDK is set up before the session below
+        // identifies its user, or never when sharing is off.
+        let analytics =
+            configuration.postHogHost.map { Analytics.start(token: configuration.postHogToken, host: $0) } ?? .noop
+        UsageData.launch(analytics)
+        self.analytics = analytics
         // Before any window can start an export, so only zips a past run left behind go.
         ExportArchive.removeLeftovers()
-        let player = PlayerModel.device()
+        let player = PlayerModel.device(analytics: analytics)
         _player = State(initialValue: player)
         _listPlayback = State(initialValue: ListPlayback.device(player: player))
-        let configuration = AppConfiguration.main
         _session = State(
             initialValue: AccountSession(
                 publishableKey: configuration.clerkPublishableKey,
                 apiOrigin: configuration.apiOrigin,
                 clientVersion: configuration.clientVersion,
-                storageOrigin: configuration.storageOrigin
+                storageOrigin: configuration.storageOrigin,
+                analytics: analytics
             ))
     }
 
     var body: some Scene {
         WindowGroup(id: AppCommands.mainWindow) {
             content
+                .environment(\.analytics, analytics)
                 .followsDisplaySettings()
                 .tint(BrandStyle.accent)
         }
@@ -46,6 +56,7 @@ struct CrosstuneApp: App {
         #if os(macOS)
             Settings {
                 settings
+                    .environment(\.analytics, analytics)
                     .environment(\.store, session.store)
                     .environment(session.syncEngine)
                     .environment(session)

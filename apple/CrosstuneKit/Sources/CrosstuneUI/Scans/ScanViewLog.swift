@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneVocabulary
@@ -32,21 +33,18 @@ public enum ScanViewOrigin: Hashable, Sendable {
     }
 }
 
-/// Where the scan view log writes each view. `owner` names the store the writes land in, so a
-/// writer for another store is told apart from the same store's set again.
+/// Where the scan view log writes each view.
 public struct ScanViewWriter {
-    let owner: AnyHashable
     let write: @MainActor (ScanView) -> Void
 
-    public init(owner: AnyHashable, write: @escaping @MainActor (ScanView) -> Void) {
-        self.owner = owner
+    public init(write: @escaping @MainActor (ScanView) -> Void) {
         self.write = write
     }
 
     /// Records into `store`. A write that fails is logged and dropped: a lost view is not worth
     /// interrupting the musician over.
     public static func store(_ store: CrosstuneStore) -> ScanViewWriter {
-        ScanViewWriter(owner: ObjectIdentifier(store)) { view in
+        ScanViewWriter { view in
             Task { await record(view, into: store) }
         }
     }
@@ -70,8 +68,8 @@ public struct ScanViewWriter {
 
 /// Times one window's open scan viewer while the window is in the foreground, and writes each
 /// view that ends having met the threshold. Leaving the foreground ends the view and coming back
-/// starts a new one, so a viewer left open overnight is two short views, not one long one. A view
-/// belongs to the store open while it was timed: a writer for another store drops it.
+/// starts a new one, so a viewer left open overnight is two short views, not one long one. A log
+/// writes to one store, so another store needs a new log, and the view open in this one is dropped.
 @MainActor
 public final class ScanViewLog {
     private struct Open {
@@ -81,27 +79,30 @@ public final class ScanViewLog {
         var since: (instant: SuspendingClock.Instant, date: Date)?
     }
 
+    private let writer: ScanViewWriter
+    private let analytics: AnalyticsClient
     private let clock: @MainActor () -> SuspendingClock.Instant
     private let now: @MainActor () -> Date
     private var open: Open?
-    private var isForeground = true
-
-    /// Takes each view that met the threshold. One for another store drops the view open, which
-    /// belongs to the store that was open while it was timed.
-    public var writer: ScanViewWriter? {
-        didSet {
-            if writer?.owner != oldValue?.owner { open = nil }
-        }
-    }
+    private var isForeground: Bool
 
     /// - Parameters:
+    ///   - writer: Takes each view that met the threshold.
+    ///   - analytics: Where each opening of the viewer is reported.
+    ///   - isForeground: Whether the window is in the foreground as the log is made.
     ///   - clock: Measures time on screen. It stops while the device sleeps, so a sleep never
     ///     counts as viewing time.
     ///   - now: The wall clock a view's start and creation are stamped with.
     public init(
+        writer: ScanViewWriter,
+        analytics: AnalyticsClient,
+        isForeground: Bool = true,
         clock: @escaping @MainActor () -> SuspendingClock.Instant = { SuspendingClock.now },
         now: @escaping @MainActor () -> Date = Date.init
     ) {
+        self.writer = writer
+        self.analytics = analytics
+        self.isForeground = isForeground
         self.clock = clock
         self.now = now
     }
@@ -109,6 +110,7 @@ public final class ScanViewLog {
     /// Ends any open view, then starts a view of `tuneID`'s scans.
     func start(tuneID: String, origin: ScanViewOrigin) {
         end()
+        analytics.send(.scanViewed)
         open = Open(tuneID: tuneID, origin: origin, since: isForeground ? (clock(), now()) : nil)
     }
 
@@ -150,7 +152,7 @@ public final class ScanViewLog {
         let viewedMs = since.instant.duration(to: clock()).milliseconds
         guard viewedMs >= scanViewThresholdMs else { return }
         let createdAt = Timestamp(now())
-        writer?.write(
+        writer.write(
             ScanView(
                 id: newID(at: createdAt), createdAt: createdAt, tuneID: ended.tuneID,
                 context: ended.origin.context.rawValue, listID: ended.origin.listID,

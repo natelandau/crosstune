@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 
@@ -13,6 +14,7 @@ public struct TunePickerSheet: View {
     private let onLateFailure: @MainActor (String) -> Void
 
     @Environment(\.store) private var store
+    @Environment(\.analytics) private var analytics
     @State private var model: TunePickerModel?
 
     /// - Parameters:
@@ -44,7 +46,7 @@ public struct TunePickerSheet: View {
         .macSheetFrame(.picker)
         .task {
             guard model == nil, let store else { return }
-            model = TunePickerModel(store: store, listID: listID, onLateFailure: onLateFailure)
+            model = TunePickerModel(store: store, listID: listID, analytics: analytics, onLateFailure: onLateFailure)
         }
         .onDisappear { model?.close() }
         .shellSheet()
@@ -85,6 +87,7 @@ private struct TunePickerContent: View {
                 }
                 if let note = results.noTuneCalled {
                     Text(note)
+                        .contentMask()
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

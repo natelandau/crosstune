@@ -105,16 +105,8 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         let playback: ListPlayback
     }
 
-    private let suite = "ListPlaybackTests.\(UUID().uuidString)"
-    private let defaults: UserDefaults
-
-    init() throws {
-        defaults = try #require(UserDefaults(suiteName: suite))
-    }
-
-    deinit {
-        UserDefaults.standard.removePersistentDomain(forName: suite)
-    }
+    private let suite = TemporaryDefaults("ListPlaybackTests")
+    private var defaults: UserDefaults { suite.defaults }
 
     private func rig(_ items: [String: PlayerItem]? = nil) -> Rig {
         let audio = FakeAudio()

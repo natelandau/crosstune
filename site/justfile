@@ -39,9 +39,10 @@ fix:
 
 # Build the site, then run the tests against the output; extra args go to vitest
 [group('test')]
+[positional-arguments]
 test *args:
     pnpm astro build
-    pnpm vitest run {{ args }}
+    pnpm vitest run "$@"
 
 # Run the dev server
 [group('run')]

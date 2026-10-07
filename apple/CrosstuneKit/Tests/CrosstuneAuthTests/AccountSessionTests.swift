@@ -1,4 +1,5 @@
 import CrosstuneAPI
+import CrosstuneAnalytics
 import CrosstuneStore
 import CrosstuneSync
 import CrosstuneTestSupport
@@ -101,10 +102,29 @@ private func problem(_ status: Int) -> Components.Schemas.Problem {
     #expect(phase == .signedIn(userID: "user_b", confirmed: true))
 }
 
+@Test func aDeletionReportedWhileSignedInLeavesThatUser() {
+    for confirmed in [true, false] {
+        #expect(
+            AccountSession.deletionReport(
+                phase: .signedIn(userID: "user_a", confirmed: confirmed), isLeavingDeleted: false)
+                == .leave(userID: "user_a"))
+    }
+}
+
+@Test func aDeletionReportedWithNoUserOpenGoesToTheUserClerkLetGo() {
+    #expect(AccountSession.deletionReport(phase: .signedOut, isLeavingDeleted: false) == .afterClerkLetGo)
+    #expect(AccountSession.deletionReport(phase: .loading, isLeavingDeleted: false) == .afterClerkLetGo)
+}
+
+@Test func aDeletionReportedWhileAlreadyLeavingIsIgnored() {
+    for phase: AccountSession.Phase in [.signedIn(userID: "user_a", confirmed: true), .signedOut, .loading] {
+        #expect(AccountSession.deletionReport(phase: phase, isLeavingDeleted: true) == .ignore)
+    }
+}
+
 @Test func remembersAndForgetsTheUser() throws {
-    let suite = "crosstune.tests.\(UUID().uuidString)"
-    let defaults = try #require(UserDefaults(suiteName: suite))
-    defer { defaults.removePersistentDomain(forName: suite) }
+    let suite = TemporaryDefaults()
+    let defaults = suite.defaults
     let remembered = RememberedUser(defaults: defaults)
 
     remembered.userID = "user_a"
@@ -112,6 +132,31 @@ private func problem(_ status: Int) -> Components.Schemas.Problem {
 
     remembered.userID = nil
     #expect(RememberedUser(defaults: defaults).userID == nil)
+}
+
+@Test func remembersADeletedUserAcrossLaunchesUntilForgotten() throws {
+    let suite = TemporaryDefaults()
+    let defaults = suite.defaults
+
+    RememberedUser(defaults: defaults).deletedUserID = "user_a"
+    #expect(RememberedUser(defaults: defaults).deletedUserID == "user_a")
+
+    RememberedUser(defaults: defaults).deletedUserID = nil
+    #expect(RememberedUser(defaults: defaults).deletedUserID == nil)
+}
+
+/// After a relaunch Clerk can restore a deleted user from its cache. The stored mask keeps
+/// the app signed out, so that user is never identified again.
+@Test func aRelaunchWithClerkStillHoldingADeletedUserStaysSignedOut() throws {
+    let suite = TemporaryDefaults()
+    let defaults = suite.defaults
+    RememberedUser(defaults: defaults).deletedUserID = "user_a"
+
+    let relaunched = RememberedUser(defaults: defaults)
+    let phase = AccountSession.phase(
+        clerkLoaded: true, clerkUserID: "user_a", rememberedUserID: relaunched.userID, graceElapsed: true,
+        signedOutUserID: relaunched.deletedUserID)
+    #expect(phase == .signedOut)
 }
 
 /// Records each step of leaving, sync controls and session end alike, in order.
@@ -145,6 +190,7 @@ struct ClerkFailed: Error {}
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let log = LeaveLog()
+    let sink = RecordingAnalyticsSink()
 
     init() throws {
         store = try root.open()
@@ -154,7 +200,9 @@ struct ClerkFailed: Error {}
 
     func leave(endSession: () async throws -> Void = {}, settle: () async -> Void = {}) async throws {
         let log = log
-        try await AccountSession.leave(userID: "user_a", store: store, root: root.url, sync: log, settle: settle) {
+        try await AccountSession.leave(
+            userID: "user_a", store: store, root: root.url, sync: log, analytics: sink.client, settle: settle
+        ) {
             log.steps.append("end session")
             try await endSession()
         }
@@ -326,7 +374,7 @@ struct ClerkFailed: Error {}
     ) async throws {
         let log = log
         try await AccountSession.deleteAndLeave(
-            userID: "user_a", store: store, root: root.url, sync: log,
+            userID: "user_a", store: store, root: root.url, sync: log, analytics: sink.client,
             deleteRemote: {
                 log.steps.append("deleteRemote")
                 try await deleteRemote()
@@ -375,7 +423,7 @@ struct ClerkFailed: Error {}
         // An invalid user ID makes `CrosstuneStore.delete` throw before touching the
         // filesystem, forcing the failure this test needs without a store folder to break.
         try await AccountSession.deleteAndLeave(
-            userID: "not a valid id", store: store, root: root.url, sync: log,
+            userID: "not a valid id", store: store, root: root.url, sync: log, analytics: sink.client,
             deleteRemote: {}, endSession: {}
         )
 
@@ -384,7 +432,9 @@ struct ClerkFailed: Error {}
 
     func forgetDeleted(endSession: () async throws -> Void = {}) async {
         let log = log
-        await AccountSession.forgetDeleted(userID: "user_a", store: store, root: root.url, sync: log) {
+        await AccountSession.forgetDeleted(
+            userID: "user_a", store: store, root: root.url, sync: log, analytics: sink.client
+        ) {
             log.steps.append("end session")
             try await endSession()
         }
@@ -406,6 +456,71 @@ struct ClerkFailed: Error {}
         #expect(!folderExists)
     }
 
+    @Test func signOutSendsSignedOutThenResetsOnceTheSessionEnds() async throws {
+        var callsWhileEnding: [RecordingAnalyticsSink.Call] = [.reset]
+
+        try await leave { callsWhileEnding = sink.calls }
+
+        #expect(callsWhileEnding.isEmpty)
+        #expect(sink.calls == [.capture("signed_out", [:]), .reset])
+    }
+
+    @Test func aSignOutThatDoesNotEndTheSessionKeepsTheUser() async throws {
+
+        await #expect(throws: ClerkFailed.self) {
+            try await leave { throw ClerkFailed() }
+        }
+
+        #expect(sink.calls.isEmpty)
+    }
+
+    @Test func deletingFlushesThenResetsThenSendsAccountDeletedUnidentified() async throws {
+        var callsAtTheRequest: [RecordingAnalyticsSink.Call] = []
+
+        try await deleteAndLeave(deleteRemote: { callsAtTheRequest = sink.calls })
+
+        // The upload of the user's queued events starts before the request.
+        #expect(callsAtTheRequest == [.flush])
+        #expect(sink.calls == [.flush, .reset, .capture("account_deleted", [:])])
+    }
+
+    @Test func aDeleteTheAPIRefusedKeepsTheUser() async throws {
+
+        await #expect(throws: ClerkFailed.self) {
+            try await deleteAndLeave(deleteRemote: { throw ClerkFailed() })
+        }
+
+        #expect(sink.calls == [.flush])
+    }
+
+    @Test func anAccountDeletedElsewhereResetsThenSendsAccountDeletedUnidentified() async {
+
+        await forgetDeleted { throw ClerkFailed() }
+
+        #expect(sink.calls == [.reset, .capture("account_deleted", [:])])
+    }
+
+    @Test func theNextUserNeverInheritsTheLastOnesPerson() async throws {
+
+        var identity = AnalyticsIdentity(analytics: sink.client)
+        identity.userChanged(to: "user_a", from: nil, isLeaving: false, signedUpAt: nil)
+
+        try await leave()
+        // Leaving has forgotten the remembered user by the time Clerk reports none.
+        identity.userChanged(to: nil, from: nil, isLeaving: false, signedUpAt: nil)
+        identity.userChanged(to: "user_b", from: nil, isLeaving: false, signedUpAt: nil)
+
+        #expect(
+            sink.calls == [
+                .identify("user_a", set: [:], setOnce: [:]), .capture("signed_in", [:]),
+                .capture("signed_out", [:]), .reset,
+                .identify("user_b", set: [:], setOnce: [:]), .capture("signed_in", [:]),
+            ])
+        let afterReset = sink.calls.drop(while: { $0 != .reset })
+        #expect(!afterReset.isEmpty)
+        #expect(!afterReset.contains { if case .identify("user_a", _, _) = $0 { true } else { false } })
+    }
+
     @Test func syncResumesAndTheFolderStaysWhenTheSessionDoesNotEnd() async throws {
         await #expect(throws: ClerkFailed.self) {
             try await leave { throw ClerkFailed() }
@@ -415,6 +530,223 @@ struct ClerkFailed: Error {}
         #expect(folderExists)
         #expect(try await store.pendingChangeCount() == 0)
     }
+}
+
+/// When Clerk reports a user, as the sign-up day it gives.
+private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
+
+@MainActor
+@Suite struct AnalyticsIdentityTests {
+    let sink = RecordingAnalyticsSink()
+
+    @Test func aNewUserIsIdentifiedThenSignedIn() {
+        var identity = AnalyticsIdentity(analytics: sink.client)
+
+        identity.userChanged(to: "user_a", from: nil, isLeaving: false, signedUpAt: signedUpAt)
+
+        #expect(
+            sink.calls == [
+                .identify("user_a", set: [:], setOnce: ["signed_up_at": .string("2026-10-07T12:00:00Z")]),
+                .capture("signed_in", [:]),
+            ])
+    }
+
+    @Test func aRelaunchForTheRememberedUserOnlyIdentifies() {
+        var identity = AnalyticsIdentity(analytics: sink.client)
+
+        identity.userChanged(to: "user_a", from: "user_a", isLeaving: false, signedUpAt: signedUpAt)
+
+        #expect(
+            sink.calls == [
+                .identify("user_a", set: [:], setOnce: ["signed_up_at": .string("2026-10-07T12:00:00Z")])
+            ])
+    }
+
+    @Test func anotherUserInPlaceOfTheRememberedOneStartsANewPerson() {
+        var identity = AnalyticsIdentity(analytics: sink.client)
+
+        identity.userChanged(to: "user_b", from: "user_a", isLeaving: false, signedUpAt: nil)
+
+        #expect(
+            sink.calls == [
+                .reset, .identify("user_b", set: [:], setOnce: [:]), .capture("signed_in", [:]),
+            ])
+    }
+
+    @Test func aSessionThatEndsOutsideTheAppForgetsThePerson() {
+        var identity = AnalyticsIdentity(analytics: sink.client)
+
+        identity.userChanged(to: nil, from: "user_a", isLeaving: false, signedUpAt: nil)
+
+        #expect(sink.calls == [.reset])
+    }
+
+    @Test func aSessionTheAppIsEndingLeavesTheResetToLeaving() {
+        var identity = AnalyticsIdentity(analytics: sink.client)
+
+        identity.userChanged(to: nil, from: "user_a", isLeaving: true, signedUpAt: nil)
+        identity.userChanged(to: nil, from: nil, isLeaving: false, signedUpAt: nil)
+        identity.accountDeletedAfterClerkLetGo()
+
+        #expect(sink.calls.isEmpty)
+    }
+
+    @Test func aDeletionReportedAfterClerkLetGoOfTheUserStillCountsOnce() {
+        var identity = AnalyticsIdentity(analytics: sink.client)
+        identity.userChanged(to: "user_a", from: nil, isLeaving: false, signedUpAt: nil)
+
+        identity.userChanged(to: nil, from: "user_a", isLeaving: false, signedUpAt: nil)
+        // True once, so the deleted notice shows for the user Clerk let go of.
+        let first = identity.accountDeletedAfterClerkLetGo()
+        let second = identity.accountDeletedAfterClerkLetGo()
+        #expect(first)
+        #expect(!second)
+
+        #expect(
+            sink.calls == [
+                .identify("user_a", set: [:], setOnce: [:]), .capture("signed_in", [:]), .reset,
+                .capture("account_deleted", [:]),
+            ])
+    }
+
+    /// A relaunch where Clerk restores a deleted user from its cache: the mask, read back from
+    /// the remembered user as the session's init does, keeps that user unidentified.
+    @Test func aMaskedDeletedUserAfterARelaunchIsNeverIdentified() {
+        let suite = TemporaryDefaults()
+        let remembered = RememberedUser(defaults: suite.defaults)
+        remembered.deletedUserID = "user_a"
+        var identity = AnalyticsIdentity(analytics: sink.client)
+        var mask = remembered.deletedUserID
+
+        let userID = AccountSession.follow(
+            clerkUserID: "user_a", signedUpAt: signedUpAt, isLeaving: false, signedOutUserID: &mask,
+            remembered: remembered, identity: &identity)
+
+        #expect(userID == nil)
+        #expect(mask == "user_a")
+        #expect(remembered.userID == nil)
+        #expect(sink.calls.isEmpty)
+    }
+
+    @Test func anotherUserPastTheMaskIsIdentifiedAndTheMaskDropped() {
+        let suite = TemporaryDefaults()
+        let remembered = RememberedUser(defaults: suite.defaults)
+        remembered.deletedUserID = "user_a"
+        var identity = AnalyticsIdentity(analytics: sink.client)
+        var mask = remembered.deletedUserID
+
+        let userID = AccountSession.follow(
+            clerkUserID: "user_b", signedUpAt: nil, isLeaving: false, signedOutUserID: &mask,
+            remembered: remembered, identity: &identity)
+
+        #expect(userID == "user_b")
+        #expect(mask == nil)
+        #expect(remembered.userID == "user_b")
+        #expect(sink.calls == [.identify("user_b", set: [:], setOnce: [:]), .capture("signed_in", [:])])
+    }
+
+    @Test func aDeletionReportedWithNoUserLetGoSendsNothing() {
+        var identity = AnalyticsIdentity(analytics: sink.client)
+
+        let counted = identity.accountDeletedAfterClerkLetGo()
+        #expect(!counted)
+
+        #expect(sink.calls.isEmpty)
+    }
+
+    @Test func aDeletionReportedAfterTheNextSignInIsNotTheNextUsers() {
+        var identity = AnalyticsIdentity(analytics: sink.client)
+        identity.userChanged(to: nil, from: "user_a", isLeaving: false, signedUpAt: nil)
+        identity.userChanged(to: "user_b", from: nil, isLeaving: false, signedUpAt: nil)
+
+        identity.accountDeletedAfterClerkLetGo()
+
+        #expect(!sink.captures.contains { $0.name == "account_deleted" })
+    }
+}
+
+@Test func storeFiguresCountLiveTunesAndTheStoredStorageUse() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    try await store.write { writer in
+        let tune = Tune(title: "Cluck Old Hen")
+        try writer.put(tune)
+        try writer.put(UserTune(tuneID: tune.id, status: "known"))
+        try writer.put(UserTune(deletedAt: .now, tuneID: tune.id, status: "known"))
+    }
+    try await store.setMeta(.storage, to: StorageFigures(usedBytes: 20_000_000, quotaBytes: 0, maxFileBytes: 0))
+
+    let figures = await AccountSession.storeFigures(in: store)
+
+    #expect(figures.catalogSize == 1)
+    #expect(figures.storageUsed == 20_000_000)
+}
+
+@Test func storeFiguresWaitForTheFirstSync() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    try await store.write { writer in
+        let tune = Tune(title: "Cluck Old Hen")
+        try writer.put(tune)
+        try writer.put(UserTune(tuneID: tune.id, status: "known"))
+    }
+
+    let figures = await AccountSession.storeFigures(in: store)
+
+    #expect(figures.catalogSize == nil)
+    #expect(figures.storageUsed == nil)
+}
+
+@MainActor
+@Test func identifyingWithStoreFiguresCarriesThemOnceASyncHasStoredThem() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    let sink = RecordingAnalyticsSink()
+    try await store.write { writer in
+        let tune = Tune(title: "Cluck Old Hen")
+        try writer.put(tune)
+        try writer.put(UserTune(tuneID: tune.id, status: "known"))
+    }
+
+    let before = await AccountSession.identify(
+        userID: "user_a", withFiguresIn: store, analytics: sink.client, canIdentify: { true })
+    try await store.setMeta(.storage, to: StorageFigures(usedBytes: 20_000_000, quotaBytes: 0, maxFileBytes: 0))
+    let after = await AccountSession.identify(
+        userID: "user_a", withFiguresIn: store, analytics: sink.client, canIdentify: { true })
+
+    #expect(!before)
+    #expect(after)
+    #expect(
+        sink.calls == [
+            .identify("user_a", set: [:], setOnce: [:]),
+            .identify(
+                "user_a",
+                set: [
+                    "catalog_size": .string(Bucket.count(1)), "storage_used": .string(Bucket.bytes(20_000_000)),
+                ], setOnce: [:]),
+        ])
+}
+
+@MainActor
+@Test func identifyingWithStoreFiguresNeverRevivesAResetPerson() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    let sink = RecordingAnalyticsSink()
+    try await store.setMeta(.storage, to: StorageFigures(usedBytes: 20_000_000, quotaBytes: 0, maxFileBytes: 0))
+
+    let carried = await AccountSession.identify(
+        userID: "user_a", withFiguresIn: store, analytics: sink.client, canIdentify: { false })
+
+    #expect(!carried)
+    #expect(sink.calls.isEmpty)
+}
+
+@Test func onlyASyncThatStoredTheFiguresIdentifiesWithThem() {
+    // A returning device still holds its last session's figures, so a sync whose storage
+    // call failed must not count them as fresh.
+    #expect(!AccountSession.identifiesAfterSync(storedFigures: false, reported: false))
+    #expect(AccountSession.identifiesAfterSync(storedFigures: true, reported: false))
+    #expect(!AccountSession.identifiesAfterSync(storedFigures: true, reported: true))
 }
 
 @Test func connectivityFiresOnceWhenGoingOnline() {

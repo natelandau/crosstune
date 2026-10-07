@@ -66,6 +66,8 @@
                 }
             }
             .tabViewStyle(.automatic)
+            // The window rather than each tab, so opening Settings reports once.
+            .screenView(.settings)
         }
 
         /// A tab's form.

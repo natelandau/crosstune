@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CA0000000000000000000087 /* CrosstuneAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000086 /* CrosstuneAnalytics */; };
 		CA0000000000000000000014 /* CrosstuneAuth in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000013 /* CrosstuneAuth */; };
 		CA0000000000000000000016 /* CrosstuneExport in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000015 /* CrosstuneExport */; };
 		CA0000000000000000000018 /* CrosstuneUI in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000017 /* CrosstuneUI */; };
@@ -53,6 +54,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CA0000000000000000000087 /* CrosstuneAnalytics in Frameworks */,
 				CA0000000000000000000014 /* CrosstuneAuth in Frameworks */,
 				CA0000000000000000000016 /* CrosstuneExport in Frameworks */,
 				CA0000000000000000000018 /* CrosstuneUI in Frameworks */,
@@ -123,6 +125,7 @@
 			);
 			name = Crosstune;
 			packageProductDependencies = (
+				CA0000000000000000000086 /* CrosstuneAnalytics */,
 				CA0000000000000000000013 /* CrosstuneAuth */,
 				CA0000000000000000000015 /* CrosstuneExport */,
 				CA0000000000000000000017 /* CrosstuneUI */,
@@ -349,6 +352,10 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		CA0000000000000000000086 /* CrosstuneAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CrosstuneAnalytics;
+		};
 		CA0000000000000000000013 /* CrosstuneAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CrosstuneAuth;

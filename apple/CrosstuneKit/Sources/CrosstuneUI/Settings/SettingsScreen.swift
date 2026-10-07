@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneAuth
 import CrosstuneStore
@@ -45,6 +46,8 @@ public struct SettingsScreen: View {
     @Environment(\.systemDynamicTypeSize) private var systemTextSize
     @Environment(\.spacing) private var spacing
     @AppStorage(CaptureChannels.storageKey) private var channels: CaptureChannels = .mono
+    @AppStorage(UsageData.storageKey) private var sharesUsageData = true
+    @Environment(\.analytics) private var analytics
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(\.store) private var store
@@ -121,10 +124,18 @@ public struct SettingsScreen: View {
             if sections.contains(.stats) && opensStatsInSheet {
                 statsSection
             }
-            if sections.contains(.about), let version {
-                Section(Self.about) {
-                    Text(Self.aboutLine(version: version))
+            if sections.contains(.about) {
+                Section {
+                    if let version {
+                        Text(Self.aboutLine(version: version))
+                    }
+                    Toggle(UsageData.title, isOn: $sharesUsageData)
+                } header: {
+                    Text(Self.about)
+                } footer: {
+                    Text(UsageData.footer)
                 }
+                .onChange(of: sharesUsageData) { _, enabled in UsageData.apply(enabled, to: analytics) }
             }
         }
         .formStyle(.grouped)

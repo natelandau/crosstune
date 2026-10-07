@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import SwiftUI
 
 /// Every facet the catalog filters on, plus the archived setting. Each choice applies at once;
@@ -36,7 +37,7 @@ struct CatalogFilterSheet: View {
                     Picker(facet.label, selection: selection(facet, results)) {
                         Text(Self.any).tag(String?.none)
                         ForEach(results.choices(facet), id: \.self) { value in
-                            Text(facet.valueLabel(value)).tag(String?.some(value))
+                            Text(facet.valueLabel(value)).contentMask().tag(String?.some(value))
                         }
                     }
                 }

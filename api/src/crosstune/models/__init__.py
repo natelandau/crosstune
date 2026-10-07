@@ -1,5 +1,6 @@
 """ORM models."""
 
+from crosstune.models.analytics_deletion import AnalyticsDeletion
 from crosstune.models.deleted_account import DeletedAccount
 from crosstune.models.job import Job, UploadSlot
 from crosstune.models.list import List, ListItem
@@ -17,6 +18,7 @@ from crosstune.models.user_settings import UserSettings
 from crosstune.models.user_tune import UserTune
 
 __all__ = [
+    "AnalyticsDeletion",
     "DeletedAccount",
     "Job",
     "List",

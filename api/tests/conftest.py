@@ -29,7 +29,7 @@ from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.http import PublicOnlyTransport
 from crosstune.main import create_app
 from crosstune.ops import local_storage
-from tests.fakes import FakeClerkUsers, FakeObjectStore, FakeRunner
+from tests.fakes import FakeAnalyticsPersons, FakeClerkUsers, FakeObjectStore, FakeRunner
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Iterator
@@ -547,6 +547,7 @@ def app(settings: Settings, engine, mock_http: MockHttp, object_store: FakeObjec
     app.state.http_client = mock_http.client()
     app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
     app.state.clerk_users = FakeClerkUsers()
+    app.state.analytics_persons = FakeAnalyticsPersons()
     app.state.object_store = object_store
     return app
 

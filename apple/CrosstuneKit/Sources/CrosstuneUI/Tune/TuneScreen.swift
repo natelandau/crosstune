@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAuth
 import CrosstuneCommands
 import CrosstuneStore
@@ -31,6 +32,7 @@ public struct TuneScreen: View {
     private let tuneID: String
 
     @Environment(\.store) private var store
+    @Environment(\.analytics) private var analytics
     @Environment(\.inPadSplit) private var inPadSplit
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var model: TuneModel?
@@ -82,7 +84,7 @@ public struct TuneScreen: View {
             }
             .task(id: tuneID) {
                 guard let store else { return }
-                arriving = TuneModel(store: store, tuneID: tuneID)
+                arriving = TuneModel(store: store, tuneID: tuneID, analytics: analytics)
             }
             .onChange(
                 of: arriving.map { Self.arrivalSettled(phase: $0.phase, readFailed: $0.readFailed) }, initial: true
@@ -106,7 +108,7 @@ public struct TuneScreen: View {
             }
             .task(id: tuneID) {
                 guard let store else { return }
-                model = TuneModel(store: store, tuneID: tuneID)
+                model = TuneModel(store: store, tuneID: tuneID, analytics: analytics)
             }
         }
     }
@@ -136,6 +138,9 @@ private struct TuneContent: View {
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @State private var form: TuneFormTarget?
     @State private var confirmsDelete = false
+    /// Whether this visit's screen view is sent, so a page back from a failed delete is not
+    /// counted again.
+    @State private var visited = false
     @Environment(\.tunePageLeaving) private var leaving
 
     var body: some View {
@@ -164,6 +169,7 @@ private struct TuneContent: View {
             .navigationTitle(title)
         case .shown(let detail):
             TunePage(model: model, detail: detail)
+                .screenView(.tune, visit: $visited, stillShown: { model.phase.isShown })
                 .modifier(RefreshesBySync(engine: engine))
                 .navigationTitle(detail.tune.title)
                 #if os(macOS)
@@ -284,7 +290,7 @@ struct TunePresentations: ViewModifier {
             .modifier(
                 ScanImport(
                     choice: $addingScans,
-                    onPick: { picks in Task { await model.scans.add(picks) } },
+                    onPick: { picks, via in Task { await model.scans.add(picks, via: via) } },
                     onFailure: { model.scans.report($0) })
             )
             .coversShell(deletingScan != nil)
@@ -404,7 +410,7 @@ struct TuneMediaRows: View {
         // The screen's own title above already names the tune.
         let pinned = detail.userTune.playRecordingID == view.id
         return HStack {
-            RecordingItem(view: view, tuneNamedAbove: true) { kind in
+            RecordingItem(view: view, source: .tune, tuneNamedAbove: true) { kind in
                 retry(view.id, kind)
             }
             if pinned { PinnedMark() }
@@ -446,7 +452,7 @@ struct TuneMediaRows: View {
         return HStack {
             MediaRow(link: row) { tap in
                 switch tap {
-                case .play: if let item = PlayerItem.link(link) { player?.play(item, origin: .row) }
+                case .play: if let item = PlayerItem.link(link) { player?.play(item, origin: .row, source: .tune) }
                 case .close: player?.close()
                 case .open(let url): openURL(url)
                 }

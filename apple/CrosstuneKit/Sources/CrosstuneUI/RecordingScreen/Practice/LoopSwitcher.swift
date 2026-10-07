@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 
@@ -16,6 +17,7 @@ struct LoopSwitcher: View {
         HStack(spacing: spacing(8)) {
             arrow(.previous, name: PracticeText.previousLoop, systemImage: "chevron.left")
             Text(label ?? PracticeText.noLoop)
+                .contentMask()
                 .font(.subheadline)
                 .lineLimit(1)
                 .truncationMode(.tail)

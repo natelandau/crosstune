@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import Foundation
@@ -24,11 +25,14 @@ final class LyricsReaderModel {
     private(set) var failure: String?
 
     private let store: CrosstuneStore
+    private let analytics: AnalyticsClient
+    @ObservationIgnored private var reportedShown = false
     private let query: LiveQuery<Tune??>
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "lyrics-reader")
 
-    init(store: CrosstuneStore, tuneID: String) {
+    init(store: CrosstuneStore, tuneID: String, analytics: AnalyticsClient = .noop) {
         self.store = store
+        self.analytics = analytics
         self.tuneID = tuneID
         query = LiveQuery(store, initial: nil) { db in
             .some(try Tune.fetchOne(db, key: tuneID))
@@ -41,6 +45,13 @@ final class LyricsReaderModel {
         case .some(nil): .gone
         case .some(.some(let tune)): .shown(title: tune.title, lyrics: tune.lyrics)
         }
+    }
+
+    /// The words are on screen. Reported once per opening of the reader.
+    func shown() {
+        guard !reportedShown else { return }
+        reportedShown = true
+        analytics.send(.lyricsOpened)
     }
 
     /// Writes only the lyrics field, the way the web's reading view does. True once the write

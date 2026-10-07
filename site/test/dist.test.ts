@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom'
 import { readDist, readPage } from './dist'
 import { runInNewContext } from 'node:vm'
 import { APP_URL, SIGN_IN } from '../src/components/actions'
-import { JOINED_KEY, THANKS_PATH } from '../src/scripts/waitlist'
+import { JOINED_KEY, JOIN_EVENT_KEY, THANKS_PATH } from '../src/scripts/waitlist'
 
 describe('home page shell', () => {
   const doc = readPage('/')
@@ -61,6 +61,7 @@ describe('waitlist thanks page', () => {
     const store = new Map(stored === null ? [] : [[JOINED_KEY, stored]])
     const sessionStorage = {
       getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => store.set(k, v),
       removeItem: (k: string) => store.delete(k),
     }
     const location = { replace: vi.fn() }
@@ -80,9 +81,14 @@ describe('waitlist thanks page', () => {
   })
 
   it('shows once after a join and clears the flag', () => {
-    const { store, location } = gate('1')
+    const { store, location } = gate('{}')
     expect(location.replace).not.toHaveBeenCalled()
     expect(store.has(JOINED_KEY)).toBe(false)
+  })
+
+  it("hands the join's acquisition on for analytics to send", () => {
+    const { store } = gate('{"utm_source":"newsletter"}')
+    expect(store.get(JOIN_EVENT_KEY)).toBe('{"utm_source":"newsletter"}')
   })
 
   it('sends a visitor who did not just join to the home page', () => {

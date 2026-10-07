@@ -798,10 +798,10 @@ private let blankAndSentinel = CatalogSearch.entries(
         let root = TemporaryRoot()
         let model = CatalogModel(store: try await sampleStore(root))
         model.query = "Rove Riley"
-        #expect(model.newTune(title: "Rove Riley") == .new(title: "Rove Riley"))
+        #expect(model.newTune(title: "Rove Riley") == .new(title: "Rove Riley", source: .searchOffer))
         #expect(model.query == "")
         model.query = "Rove"
-        #expect(model.newTune() == .new(title: nil))
+        #expect(model.newTune() == .new(title: nil, source: .catalog))
         #expect(model.query == "")
     }
 

@@ -61,8 +61,9 @@ fix:
 
 # Run the package tests on the Mac; extra args go to swift test
 [group('test')]
+[positional-arguments]
 test *args:
-    swift test --package-path CrosstuneKit {{ args }}
+    swift test --package-path CrosstuneKit "$@"
 
 # The compilation cache is keyed on content rather than file dates, so CI restores it into a
 # fresh checkout and still hits.

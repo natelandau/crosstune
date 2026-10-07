@@ -104,6 +104,15 @@ class Settings(BaseSettings):
     clerk_webhook_secret: SecretStr = SecretStr("")
     clerk_secret_key: SecretStr = SecretStr("")
     sentry_dsn: str = ""
+    posthog_api_host: str = "https://us.posthog.com"
+    posthog_project_id: str = ""
+    posthog_person_delete_key: SecretStr = SecretStr("")
+    # How long after an account deletion the PostHog person is deleted again: the second
+    # pass catches events a client sent just before the account went, and the later ones
+    # catch events a device that was offline queued and uploads once it is back.
+    posthog_second_delete_seconds: float = 600.0
+    posthog_third_delete_seconds: float = 86_400.0
+    posthog_fourth_delete_seconds: float = 604_800.0
     link_resolve_timeout_seconds: float = 5.0
     link_resolves_per_minute: int = 30
     link_searches_per_minute: int = 20
@@ -179,6 +188,11 @@ class Settings(BaseSettings):
         """Whether the TIDAL client credentials are complete."""
         return bool(self.tidal_client_id and self.tidal_client_secret.get_secret_value())
 
+    @property
+    def posthog_configured(self) -> bool:
+        """Whether the PostHog project and its person-delete key are both set."""
+        return bool(self.posthog_project_id and self.posthog_person_delete_key.get_secret_value())
+
     @field_validator("database_url")
     @classmethod
     def _normalize_database_url(cls, value: str) -> str:
@@ -251,6 +265,24 @@ class Settings(BaseSettings):
             except ValueError as error:
                 msg = f"CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY {error}"
                 raise ValueError(msg) from None
+        return self
+
+    @model_validator(mode="after")
+    def _require_whole_posthog_settings(self) -> Self:
+        """Refuse half the PostHog settings, which would leave account deletion unable to erase analytics."""
+        problem = _missing_member(
+            {
+                "CROSSTUNE_POSTHOG_PROJECT_ID": self.posthog_project_id,
+                "CROSSTUNE_POSTHOG_PERSON_DELETE_KEY": self.posthog_person_delete_key.get_secret_value(),
+            }
+        )
+        if problem:
+            msg = f"incomplete PostHog settings: {problem}"
+            raise ValueError(msg)
+        # The job runner, which runs the queued analytics deletions, is built only with storage.
+        if self.posthog_configured and not self.storage_configured:
+            msg = "PostHog settings need storage, or deleted accounts' analytics data is never deleted"
+            raise ValueError(msg)
         return self
 
     def _music_credentials_problem(self) -> str | None:

@@ -22,7 +22,7 @@ describe.each(pages)('%s', (path) => {
 describe('/privacy', () => {
   const text = readPage('/privacy').body.textContent ?? ''
 
-  it.each(['Clerk', 'Neon', 'Railway', 'Cloudflare', 'Sentry'])('names %s', (name) => {
+  it.each(['Clerk', 'Neon', 'Railway', 'Cloudflare', 'Sentry', 'PostHog'])('names %s', (name) => {
     expect(text).toContain(name)
   })
 
@@ -30,7 +30,20 @@ describe('/privacy', () => {
     expect(text).toContain(phrase)
   })
 
-  it.each(['no ads', 'no analytics', '50 MB', '5 GB'])('states "%s"', (phrase) => {
+  it.each([
+    'no ads',
+    'Usage analytics',
+    'Share usage data',
+    // Where the switch is on each platform.
+    'Settings > About',
+    'Settings > General',
+    'Wi-Fi or cellular',
+    'photo library',
+    'the app stops collecting',
+    'if Share usage data is on, the app then reports',
+    '50 MB',
+    '5 GB',
+  ])('states "%s"', (phrase) => {
     expect(text.toLowerCase()).toContain(phrase.toLowerCase())
   })
 })

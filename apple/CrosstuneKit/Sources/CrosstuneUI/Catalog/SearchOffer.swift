@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import SwiftUI
 
 /// The row under the search results that adds the typed title as a tune.
@@ -8,6 +9,7 @@ struct SearchOfferRow: View {
     var body: some View {
         Button(action: action) {
             Label(label, systemImage: "plus")
+                .contentMask()
                 .foregroundStyle(.tint)
                 .frame(maxWidth: .infinity, minHeight: minimumTapTarget, alignment: .leading)
                 .contentShape(.rect)
@@ -25,6 +27,7 @@ struct HiddenMatchNote: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(match.note)
+                .contentMask()
                 .foregroundStyle(.secondary)
             Button {
                 onOpen(match.entry.tune.id)

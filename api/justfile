@@ -49,10 +49,11 @@ lint: ruff format ty typos contract-check
 
 # Run the test suite on its own databases in the compose Postgres; args narrow the run and drop coverage
 [group('test')]
+[positional-arguments]
 test *args:
     docker info > /dev/null 2>&1 || { echo "Docker is not running" >&2; exit 1; }
     docker compose -f ../compose.yml up -d --wait postgres
-    uv run pytest -c pyproject.toml --color=yes {{ if args == "" { "tests/ --cov --cov-config=pyproject.toml --cov-report=xml --cov-report=term" } else { args } }}
+    if [ "$#" -eq 0 ]; then set -- tests/ --cov --cov-config=pyproject.toml --cov-report=xml --cov-report=term; fi; uv run pytest -c pyproject.toml --color=yes "$@"
 
 # Run the API with reload
 [group('run')]
@@ -92,8 +93,9 @@ storage-setup:
 
 # Inspect local recordings: `ls [prefix]` or `get <key> [dest]`, with --bucket crosstune-e2e for the e2e bucket
 [group('storage')]
+[positional-arguments]
 storage *args:
-    uv run python -m crosstune.ops.local_storage --cwd '{{ invocation_directory() }}' {{ args }}
+    uv run python -m crosstune.ops.local_storage --cwd '{{ invocation_directory() }}' "$@"
 
 # Delete every object in a local bucket, the one api/.env names by default
 [group('storage')]
@@ -158,9 +160,10 @@ _e2e-db mode:
 
 # Seed the marketing account the site captures sign in to; safe to repeat
 [group('capture')]
+[positional-arguments]
 seed-marketing *args:
     docker compose -f ../compose.yml up -d --wait postgres rustfs
-    uv run python -m crosstune.ops.seed_marketing {{ args }}
+    uv run python -m crosstune.ops.seed_marketing "$@"
 
 # Export the OpenAPI schema every client generates its types from
 [group('contract')]

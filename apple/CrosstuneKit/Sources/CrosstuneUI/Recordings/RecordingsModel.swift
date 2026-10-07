@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
@@ -80,13 +81,15 @@ public final class RecordingsModel {
     public var query = ""
 
     private let store: CrosstuneStore
+    private let analytics: AnalyticsClient
     private let recordings: LiveQuery<RecordingsSnapshot?>
     private let settings: LiveQuery<RecordingsSettings?>
     @ObservationIgnored private var arranged: (key: ArrangementKey, arrangement: RecordingArrangement)?
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "recordings")
 
-    public init(store: CrosstuneStore) {
+    public init(store: CrosstuneStore, analytics: AnalyticsClient = .noop) {
         self.store = store
+        self.analytics = analytics
         recordings = LiveQuery(store, initial: nil, fetch: Self.fetch)
         settings = LiveQuery(store, initial: nil, fetch: Self.fetchSettings)
     }
@@ -280,9 +283,11 @@ public final class RecordingsModel {
     public func importAudio(from urls: [URL]) async {
         failure = nil
         var refusal: String?
+        var added: [AudioFormat: Int] = [:]
         for url in urls {
             do {
                 try await RecordingImport.add(url, to: store, tuneID: nil)
+                added[AudioFormat(pathExtension: url.pathExtension), default: 0] += 1
             } catch {
                 Self.logger.warning("An audio import failed: \(error)")
                 let message = failureMessage(error)
@@ -291,6 +296,9 @@ public final class RecordingsModel {
             }
         }
         if let refusal { failure = refusal }
+        for format in AudioFormat.allCases {
+            if let count = added[format] { analytics.send(.audioImported(fileCount: count, format: format)) }
+        }
     }
 
     /// Drops a failure the musician has left the screen without dismissing, so it is not

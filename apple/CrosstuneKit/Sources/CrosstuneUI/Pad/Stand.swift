@@ -20,6 +20,36 @@ extension EnvironmentValues {
     @Entry var standHasReading = false
     /// The widest practice grows while it has the screen to itself, or nil for no limit.
     @Entry var standPracticeMaxWidth: CGFloat?
+    /// The window's stand visit, held above its shells so a size change keeps it.
+    @Entry var standVisit: StandVisit?
+}
+
+/// Which loaded item the window's stand has reported, so it reports once per visit to an item.
+/// A size change swaps the window's shell and with it the stand, which then appears again for
+/// the same item; only closing the player ends the visit.
+@MainActor final class StandVisit {
+    private struct Key: Equatable {
+        let kind: PlayerItem.Kind
+        let id: String
+    }
+
+    private var reported: Key?
+
+    /// Whether the stand for `item` has been reported this visit, for ``View/screenView(_:visit:stillShown:)``.
+    func binding(for item: PlayerItem?) -> Binding<Bool> {
+        let key = item.map { Key(kind: $0.kind, id: $0.id) }
+        return Binding {
+            key != nil && self.reported == key
+        } set: { isReported in
+            self.reported = isReported ? key : nil
+        }
+    }
+
+    /// Whether the stand leaving the window ends the visit: the player closed or let go of the
+    /// item, rather than a size change swapping the stand out.
+    nonisolated static func ends(isExpanded: Bool, hasItem: Bool) -> Bool {
+        !isExpanded || !hasItem
+    }
 }
 
 extension StandArrangement {
@@ -43,6 +73,9 @@ struct Stand<Practice: View>: View {
     }
 
     @Environment(\.standsWithReading) private var standsWithReading
+    @Environment(\.standVisit) private var windowVisit
+    /// Stands in for the window's visit where no shell holds one, as in a preview.
+    @State private var ownVisit = StandVisit()
 
     init(player: PlayerModel, @ViewBuilder practice: () -> Practice) {
         self.player = player
@@ -60,6 +93,9 @@ struct Stand<Practice: View>: View {
     var body: some View {
         if standsWithReading {
             StandPanes(player: player, fixed: fixedReading, practice: practice)
+                .screenView(.stand, visit: (windowVisit ?? ownVisit).binding(for: player.item)) {
+                    StandVisit.ends(isExpanded: player.isExpanded, hasItem: player.item != nil)
+                }
         } else {
             practice
         }

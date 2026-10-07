@@ -89,6 +89,10 @@ public final class ListModel {
         /// so the screen does not flash the list as gone on its way out.
         case deleting(name: String)
         case gone
+
+        var isShown: Bool {
+            if case .shown = self { true } else { false }
+        }
     }
 
     /// Said after a move, so a screen reader hears where the tune landed.

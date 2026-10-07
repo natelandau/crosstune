@@ -501,9 +501,10 @@ describe('home page waitlist', () => {
     expect(noscript?.innerHTML).toMatch(/display:\s*none/)
   })
 
-  it('ships one module script and one block of structured data', () => {
+  it('ships the layout and page module scripts and one block of structured data', () => {
     expect([...doc.querySelectorAll('script')].map((s) => s.getAttribute('type'))).toEqual([
       'application/ld+json',
+      'module',
       'module',
     ])
   })

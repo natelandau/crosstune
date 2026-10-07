@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import Foundation
@@ -91,8 +92,11 @@ public final class CatalogModel {
     /// Shown when a write fails without a message of its own.
     public static let actionFailed = "Something went wrong"
 
-    /// The search text.
-    public var query = ""
+    /// The search text. A search settles once typing pauses, and is reported once the musician
+    /// is done with it, with the count it settled on.
+    public var query = "" {
+        didSet { if query != oldValue { queryChanged() } }
+    }
     /// The order the tunes show in. Last played starts following the stored play history, which
     /// the screen asks the events pull to fill.
     public var sort: CatalogSortChoice {
@@ -104,6 +108,13 @@ public final class CatalogModel {
     public private(set) var actionError: String?
 
     private let store: CrosstuneStore
+    private let analytics: AnalyticsClient
+    /// The search that settled and has not yet been reported: its trimmed text and the count it
+    /// showed then.
+    @ObservationIgnored private(set) var settledSearch: (query: String, count: Int)?
+    /// How long typing must pause before a search counts as settled.
+    @ObservationIgnored private let searchSettleDelay: Duration
+    @ObservationIgnored private var settling: Task<Void, Never>?
     private let entries: LiveQuery<[CatalogEntry]?>
     private let storedFilters: LiveQuery<CatalogFilters?>
     private let instruments: LiveQuery<Set<String>?>
@@ -127,8 +138,15 @@ public final class CatalogModel {
     @ObservationIgnored private var spokenCount: String?
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "catalog")
 
-    public init(store: CrosstuneStore, sort: CatalogSortChoice = .default) {
+    /// - Parameter searchSettleDelay: How long typing must pause before a search counts as
+    ///   settled.
+    public init(
+        store: CrosstuneStore, sort: CatalogSortChoice = .default, analytics: AnalyticsClient = .noop,
+        searchSettleDelay: Duration = .seconds(1)
+    ) {
         self.store = store
+        self.analytics = analytics
+        self.searchSettleDelay = searchSettleDelay
         self.sort = sort
         entries = LiveQuery(store, initial: nil) { try Self.fetchEntries($0, withHeard: true) }
         storedFilters = LiveQuery(store, initial: nil) { db in
@@ -160,6 +178,7 @@ public final class CatalogModel {
 
     isolated deinit {
         for task in following { task.cancel() }
+        settling?.cancel()
     }
 
     /// Works out the overview off the main actor. Only the latest build lands, so a slow build
@@ -309,6 +328,7 @@ public final class CatalogModel {
 
     /// Shows `shown` at once, then writes `apply` onto the stored row.
     private func write(_ apply: @escaping @Sendable (CatalogFilters) -> CatalogFilters, showing shown: CatalogFilters) {
+        let applied = shown.appliedKinds(since: filters ?? .default)
         filters = shown
         writesInFlight += 1
         // The store runs each write off the main actor, so two started together could land in
@@ -325,6 +345,7 @@ public final class CatalogModel {
                     return next
                 }
                 filterError = nil
+                for kind in applied { analytics.send(.catalogFiltered(filter: kind)) }
                 writesInFlight -= 1
                 if writesInFlight == 0 { filters = written }
             } catch {
@@ -339,8 +360,65 @@ public final class CatalogModel {
     /// Opens the new tune form, ending any search: a tune created from a search ends that search,
     /// whatever the form's outcome.
     public func newTune(title: String? = nil) -> TuneFormTarget {
+        if title != nil { reportSearch(tookOffer: true) }
         query = ""
-        return .new(title: title)
+        return .new(title: title, source: title == nil ? .catalog : .searchOffer)
+    }
+
+    /// A result of the search was opened: the search, settled or not, is done with.
+    public func searchResultOpened() {
+        reportSearch()
+    }
+
+    /// The app left the foreground and may not come back, so the search is reported now.
+    public func leftForeground() {
+        reportSearch()
+    }
+
+    private static func trimmed(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Settles the new query once typing pauses. A blank query ends the search.
+    private func queryChanged() {
+        settling?.cancel()
+        settling = nil
+        guard !Self.trimmed(query).isEmpty else {
+            reportSearch()
+            return
+        }
+        let delay = searchSettleDelay
+        settling = Task { [weak self] in
+            do {
+                try await Task.sleep(for: delay)
+            } catch {
+                return
+            }
+            self?.settle()
+        }
+    }
+
+    /// Takes the query as it stands as the settled search, reporting the one settled before it
+    /// when the text differs.
+    private func settle() {
+        settling?.cancel()
+        settling = nil
+        let text = Self.trimmed(query)
+        guard !text.isEmpty, let count = results?.visible.count else { return }
+        if let settled = settledSearch, settled.query != text { reportSettled(tookOffer: false) }
+        settledSearch = (text, count)
+    }
+
+    /// Reports the search under way, settling it first if typing has not yet paused.
+    private func reportSearch(tookOffer: Bool = false) {
+        if settling != nil { settle() }
+        reportSettled(tookOffer: tookOffer)
+    }
+
+    private func reportSettled(tookOffer: Bool) {
+        guard let settled = settledSearch else { return }
+        settledSearch = nil
+        analytics.send(.searchPerformed(resultCount: settled.count, tookOffer: tookOffer))
     }
 
     /// Archives or unarchives one tune.

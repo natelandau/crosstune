@@ -484,6 +484,8 @@ them with these steps.
 
 ## Rebuilding from nothing
 
-Work through the hosts in this order: Neon, Sentry, Clerk, Railway,
-Cloudflare, GitHub, then the smoke check. Return to Clerk for the webhooks
-once Railway has hostnames. `hosting.md` holds every setting.
+Work through the hosts in this order: Neon, Sentry, Clerk, PostHog,
+Railway, Cloudflare, GitHub, then the smoke check. Return to Clerk for the
+webhooks once Railway has hostnames, and return to PostHog once the
+`relay` CNAME is in Cloudflare so its proxy goes live. `hosting.md` holds
+every setting.

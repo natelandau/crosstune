@@ -1,11 +1,13 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import MusicKit
 import SwiftUI
 
 extension PlayerModel {
     /// The app's player: this device's audio, and Apple Music through the account signed in here.
-    public static func device() -> PlayerModel {
-        PlayerModel(appleMusic: AppleMusic(access: DeviceAppleMusicAccess(), player: AppleMusicPlayer()))
+    public static func device(analytics: AnalyticsClient) -> PlayerModel {
+        PlayerModel(
+            appleMusic: AppleMusic(access: DeviceAppleMusicAccess(), player: AppleMusicPlayer()), analytics: analytics)
     }
 }
 
@@ -46,6 +48,7 @@ struct MusicPlayerCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 if showsTitle {
                     Text(music.trackTitle ?? player.title ?? "")
+                        .contentMask()
                         .font(.headline)
                         .lineLimit(1)
                     if let artist = music.artistName {

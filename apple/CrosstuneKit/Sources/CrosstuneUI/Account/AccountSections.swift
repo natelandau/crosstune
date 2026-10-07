@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAuth
 import CrosstuneStore
 import OSLog
@@ -48,6 +49,7 @@ public struct AccountSections: View {
 
     let session: AccountSession
 
+    @Environment(\.analytics) private var analytics
     @State private var pending = false
     @State private var signOutFailure: String?
     @State private var countsState: DeleteAccountSheet.CountsState = .loading
@@ -68,7 +70,7 @@ public struct AccountSections: View {
             Button(ExportDataSheet.title) { showsExportSheet = true }
                 .disabled(session.store == nil)
                 .sheet(isPresented: $showsExportSheet) {
-                    ExportDataSheet(store: session.store)
+                    ExportDataSheet(store: session.store, analytics: analytics)
                 }
             Button(DeleteAccountSheet.title, role: .destructive) { openDeleteSheet() }
                 .disabled(pending || session.isOffline)

@@ -406,7 +406,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         let store = try root.open()
         try await seed(store, tunes: [tune("a", genre: "Irish"), tune("b", genre: "irish"), tune("c", genre: "Cajun")])
         let long = String(repeating: "x", count: Vocabulary.Limits.Tune.title + 20)
-        let model = TuneFormModel(store: store, target: .new(title: long))
+        let model = TuneFormModel(store: store, target: .new(title: long, source: .catalog))
         await model.load()
 
         #expect(model.phase == .ready)
@@ -432,7 +432,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
             removed.deletedAt = noon
             try writer.put(removed, at: noon)
         }
-        let model = TuneFormModel(store: store, target: .new(title: nil))
+        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog))
         await model.load()
 
         #expect(model.learnedFromOptions == ["Kevin"])
@@ -457,7 +457,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
             dropped.deletedAt = noon
             try writer.put(dropped, at: noon)
         }
-        let model = TuneFormModel(store: store, target: .new(title: nil))
+        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog))
         await model.load()
 
         #expect(model.learnedFromOptions == [])
@@ -468,7 +468,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         let root = TemporaryRoot()
         let store = try root.open()
         try await seed(store)
-        let model = TuneFormModel(store: store, target: .new(title: nil))
+        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog))
         await model.load()
 
         #expect(!model.isEdited)
@@ -485,7 +485,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         let root = TemporaryRoot()
         let store = try root.open()
         try await seed(store, instruments: ["guitar"])
-        let model = TuneFormModel(store: store, target: .new(title: nil))
+        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog))
         await model.load()
         model.values.tunings["guitar"] = TuningValues(tuning: "", capo: nil)
         model.values.composer = ""
@@ -498,7 +498,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         let root = TemporaryRoot()
         let store = try root.open()
         try await seed(store)
-        let model = TuneFormModel(store: store, target: .new(title: nil))
+        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog))
         await model.load()
         // Picking the 4/4 already shown is still the player's choice.
         model.setTimeSignature(model.values.timeSignature)
@@ -510,7 +510,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         let root = TemporaryRoot()
         let store = try root.open()
         try await seed(store)
-        let model = TuneFormModel(store: store, target: .new(title: "Angeline"))
+        let model = TuneFormModel(store: store, target: .new(title: "Angeline", source: .catalog))
         await model.load()
         model.values.key = "D"
         model.values.status = "learning"
@@ -535,7 +535,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         let root = TemporaryRoot()
         let store = try root.open()
         try await seed(store)
-        let model = TuneFormModel(store: store, target: .new(title: nil))
+        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog))
         await model.load()
         model.setTimeSignature("4/4")
         model.setType("Jig")

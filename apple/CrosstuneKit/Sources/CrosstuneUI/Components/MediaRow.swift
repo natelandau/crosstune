@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import SwiftUI
 
 /// The row shape recordings and links share: a fixed glyph slot for the item's state, the title,
@@ -106,6 +107,7 @@ public struct MediaRow: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: spacing.rowLineGap) {
                 Text(title)
+                    .contentMask()
                     .font(Self.titleFont)
                     .rowLineLimit()
                     .allowsHitTesting(false)
@@ -236,6 +238,7 @@ public struct MediaRow: View {
         } label: {
             HStack(spacing: 4) {
                 Text(line.title)
+                    .contentMask()
                     .lineLimit(1)
                 Image(systemName: "arrow.up.right.square")
                     .imageScale(.small)
@@ -255,6 +258,7 @@ public struct MediaRow: View {
         Button(action: line.action) {
             HStack(spacing: 4) {
                 Text(line.title)
+                    .contentMask()
                     .lineLimit(1)
                 Image(systemName: "chevron.right")
                     .imageScale(.small)

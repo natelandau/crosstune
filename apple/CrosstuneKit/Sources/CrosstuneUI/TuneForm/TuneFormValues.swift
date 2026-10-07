@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneVocabulary
@@ -177,6 +178,40 @@ public struct TuneFormValues: Hashable, Sendable {
         userTune.learnedOn = changed(nextUser.learnedOn, beforeUser.learnedOn)
         userTune.notes = changed(nextUser.notes, beforeUser.notes)
         return (tune, userTune)
+    }
+
+    /// Whether any instrument's tuning is set; a capo alone is not a tuning.
+    public var hasTuning: Bool {
+        tunings.values.contains { blankToNil($0.tuning) != nil }
+    }
+
+    /// The names of the fields a save from `opened` writes, in the order ``TuneField`` lists
+    /// them. A tuning and a capo count apart, whichever instrument they are for.
+    public func changedFields(from opened: TuneFormValues, storedTunings: JSONObject) -> [TuneField] {
+        let (tune, userTune) = patches(from: opened, storedTunings: storedTunings)
+        let next = tuningsMap(stored: storedTunings)
+        let entries = Vocabulary.instruments.map {
+            (before: tuningEntry(storedTunings, instrument: $0), after: tuningEntry(next, instrument: $0))
+        }
+        var changed: Set<TuneField> = []
+        if !tune.title.isKeep { changed.insert(.title) }
+        if !tune.alternateTitles.isKeep { changed.insert(.alternateTitles) }
+        if !userTune.status.isKeep { changed.insert(.status) }
+        if !tune.key.isKeep { changed.insert(.key) }
+        if !tune.modes.isKeep { changed.insert(.mode) }
+        if entries.contains(where: { $0.before.tuning != $0.after.tuning }) { changed.insert(.tuning) }
+        if entries.contains(where: { $0.before.capo != $0.after.capo }) { changed.insert(.capo) }
+        if !tune.genre.isKeep { changed.insert(.genre) }
+        if !tune.tuneType.isKeep { changed.insert(.tuneType) }
+        if !tune.timeSignature.isKeep { changed.insert(.timeSignature) }
+        if !tune.partStructure.isKeep { changed.insert(.partStructure) }
+        if !tune.composer.isKeep { changed.insert(.composer) }
+        if !tune.isCrooked.isKeep { changed.insert(.isCrooked) }
+        if !tune.lyrics.isKeep { changed.insert(.lyrics) }
+        if !userTune.notes.isKeep { changed.insert(.notes) }
+        if !userTune.learnedFrom.isKeep { changed.insert(.learnedFrom) }
+        if !userTune.learnedOn.isKeep { changed.insert(.learnedOn) }
+        return TuneField.allCases.filter(changed.contains)
     }
 }
 

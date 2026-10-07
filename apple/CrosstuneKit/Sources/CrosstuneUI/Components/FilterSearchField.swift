@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import SwiftUI
 
 #if os(macOS)
@@ -24,6 +25,7 @@ import SwiftUI
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                 TextField(prompt, text: $query)
+                    .contentMask()
                     .focused(isFocused)
                     .submitLabel(.search)
                     .accessibilityAddTraits(.isSearchField)
@@ -118,6 +120,7 @@ struct RemoveFilterCapsule: View {
                 // A token in the filter row, worn as a set filter control is.
                 HStack(spacing: 4) {
                     Text(label)
+                        .contentMask()
                         .lineLimit(1)
                     Image(systemName: "xmark")
                         .font(.system(size: 8, weight: .bold))
@@ -132,6 +135,7 @@ struct RemoveFilterCapsule: View {
                 HStack(spacing: spacing(6)) {
                     // A long label wraps at the accessibility sizes rather than truncating.
                     Text(label)
+                        .contentMask()
                         .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                         .fixedSize(horizontal: false, vertical: true)
                     Image(systemName: "xmark")

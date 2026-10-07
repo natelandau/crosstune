@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneVocabulary
@@ -49,6 +50,7 @@ public final class TuneFormModel {
     public private(set) var validation: String?
 
     private let store: CrosstuneStore
+    private let analytics: AnalyticsClient
     private var opened = TuneFormValues()
     private var storedTunings: JSONObject = [:]
     /// The catalog the suggestions read: live user tunes joined to live tunes, as the web reads it.
@@ -57,9 +59,10 @@ public final class TuneFormModel {
     private var timeSignatureTouched = false
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "tune-form")
 
-    public init(store: CrosstuneStore, target: TuneFormTarget) {
+    public init(store: CrosstuneStore, target: TuneFormTarget, analytics: AnalyticsClient = .noop) {
         self.store = store
         self.target = target
+        self.analytics = analytics
     }
 
     public var isNew: Bool {
@@ -121,7 +124,7 @@ public final class TuneFormModel {
     func open(_ opening: Opening) {
         catalog = CatalogSearch.entries(tunes: opening.tunes, userTunes: opening.userTunes)
         switch target {
-        case .new(let title, _):
+        case .new(let title, _, _):
             var start = TuneFormValues()
             start.genre = TuneSuggestions.mostUsedGenre(catalog.map(\.tune)) ?? ""
             opened = start
@@ -183,7 +186,7 @@ public final class TuneFormModel {
         let commands = Commands(store: store)
         do {
             switch target {
-            case .new(_, let listID):
+            case .new(_, let listID, let source):
                 let created =
                     if let listID {
                         try await commands.createTune(values.tuneInput, userTune: values.userTuneInput, inList: listID)
@@ -191,18 +194,30 @@ public final class TuneFormModel {
                         try await commands.createTune(values.tuneInput, userTune: values.userTuneInput)
                     }
                 isSaved = true
+                analytics.send(
+                    .tuneCreated(source: source, hasKey: values.tuneInput.key != nil, hasTuning: values.hasTuning))
                 return created.tuneID
             case .edit(let tuneID, let userTuneID):
                 let patches = values.patches(from: opened, storedTunings: storedTunings)
                 try await commands.updateTuneEntry(
                     tuneID: tuneID, userTuneID: userTuneID, tune: patches.tune, userTune: patches.userTune)
                 isSaved = true
+                reportEdit()
                 return tuneID
             }
         } catch {
             Self.logger.warning("A tune form save failed: \(error)")
             failure = failureMessage(error)
             return nil
+        }
+    }
+
+    private func reportEdit() {
+        let fields = values.changedFields(from: opened, storedTunings: storedTunings)
+        guard !fields.isEmpty else { return }
+        analytics.send(.tuneEdited(fieldsChanged: fields))
+        if fields.contains(.status), let from = TuneStatus(opened.status), let to = TuneStatus(values.status) {
+            analytics.send(.tuneStatusChanged(from: from, to: to))
         }
     }
 }

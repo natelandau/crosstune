@@ -38,6 +38,7 @@ format: api::format web::format site::format apple::format
 test: api::test web::test site::test apple::test
 
 # Run the end-to-end suite; extra args go to Playwright
+[positional-arguments]
 e2e *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -63,7 +64,7 @@ e2e *args:
     echo "starting the e2e API on :{{ e2e_api_port }}, logging to $log"
     just api::_serve-e2e > "$log" 2>&1 &
     just api::wait-e2e "$!" "$log"
-    just web::e2e {{ args }}
+    just web::e2e "$@"
 
 # Remove build artifacts and caches everywhere
 clean: api::clean web::clean site::clean
@@ -141,12 +142,14 @@ dev-down:
     docker compose down
 
 # Write a conventional commit interactively; extra args go to cz commit
+[positional-arguments]
 commit *args:
-    uv run --project api cz commit {{ args }}
+    uv run --project api cz commit "$@"
 
 # Bump both package versions, update the changelog, and tag; extra args go to cz bump
+[positional-arguments]
 bump *args:
-    uv run --project api cz bump {{ args }}
+    uv run --project api cz bump "$@"
 
 # Upgrade every dependency and hook version across all modules
 update: api::update web::update site::update apple::update

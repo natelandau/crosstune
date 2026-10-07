@@ -6,14 +6,19 @@ import json
 import logging
 import time
 import uuid
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import httpx2
 import pytest
 from sqlalchemy import func, select
 
+from crosstune.analytics.posthog import AnalyticsUnavailableError
 from crosstune.auth.webhooks import verify_svix_signature
-from crosstune.models import DeletedAccount, Tune, User
+from crosstune.db.base import utc_now
+from crosstune.jobs import analytics as analytics_jobs
+from crosstune.jobs.runner import JobRunner
+from crosstune.models import AnalyticsDeletion, DeletedAccount, Tune, User
 from tests.fakes import FakeObjectStore
 from tests.helpers import T0, WEBHOOK_SECRET, change, push, sign, uid
 
@@ -245,3 +250,109 @@ async def test_user_deleted_with_no_store(
     assert (
         await verify_session.scalar(select(User).where(User.clerk_user_id == "user_gone")) is None
     )
+
+
+async def _post_user_deleted(client, clerk_user_id: str) -> httpx2.Response:
+    body = json.dumps({"type": "user.deleted", "data": {"id": clerk_user_id}}).encode()
+    return await client.post("/v1/webhooks/clerk", content=body, headers=sign(body))
+
+
+async def _queued_deletions(verify_session: AsyncSession) -> list[tuple[str, bool]]:
+    """Each queued analytics deletion's person, and whether it is held back for later."""
+    rows = await verify_session.scalars(
+        select(AnalyticsDeletion).execution_options(populate_existing=True)
+    )
+    return sorted((row.distinct_id, row.locked_until is not None) for row in rows)
+
+
+async def test_user_deleted_queues_the_analytics_person_deletion_four_times(
+    app, client, auth_headers, verify_session: AsyncSession
+) -> None:
+    settings = app.state.settings
+    await client.get("/v1/me", headers=auth_headers("user_abc"))
+    before = utc_now()
+    response = await _post_user_deleted(client, "user_abc")
+    assert response.status_code == 204
+    rows = await verify_session.scalars(
+        select(AnalyticsDeletion)
+        .order_by(AnalyticsDeletion.locked_until.nulls_first())
+        .execution_options(populate_existing=True)
+    )
+    now_pass, *later = rows
+    assert {row.distinct_id for row in [now_pass, *later]} == {"user_abc"}
+    assert now_pass.locked_until is None
+    delays = [
+        timedelta(seconds=seconds)
+        for seconds in (
+            settings.posthog_second_delete_seconds,
+            settings.posthog_third_delete_seconds,
+            settings.posthog_fourth_delete_seconds,
+        )
+    ]
+    for row, delay in zip(later, delays, strict=True):
+        assert row.locked_until is not None
+        assert before + delay <= row.locked_until <= utc_now() + delay
+
+
+async def test_user_deleted_for_unknown_user_still_queues_the_analytics_deletion(
+    client, verify_session: AsyncSession
+) -> None:
+    response = await _post_user_deleted(client, "user_unknown")
+    assert response.status_code == 204
+    assert await _queued_deletions(verify_session) == [
+        ("user_unknown", False),
+        ("user_unknown", True),
+        ("user_unknown", True),
+        ("user_unknown", True),
+    ]
+
+
+async def test_user_deleted_wakes_the_runner_for_the_analytics_deletion(
+    client, fake_runner, verify_session: AsyncSession
+) -> None:
+    await _post_user_deleted(client, "user_unknown")
+    assert fake_runner.wakes == 1
+
+
+async def test_analytics_failure_does_not_block_the_deletion(
+    app, auth_headers, truncate_all: None, verify_session: AsyncSession, caplog
+) -> None:
+    app.state.analytics_persons.error = AnalyticsUnavailableError("posthog down")
+    async with httpx2.AsyncClient(
+        transport=httpx2.ASGITransport(app=app), base_url="http://testclient"
+    ) as client:
+        await client.get("/v1/me", headers=auth_headers("user_gone"))
+        response = await _post_user_deleted(client, "user_gone")
+    runner = JobRunner(
+        app.state.sessionmaker,
+        FakeObjectStore(),
+        analytics_persons=app.state.analytics_persons,
+        settings=app.state.settings,
+    )
+    with caplog.at_level(logging.WARNING, logger=analytics_jobs.log.name):
+        await runner.run_once()
+
+    assert response.status_code == 204
+    assert (
+        await verify_session.scalar(select(User).where(User.clerk_user_id == "user_gone")) is None
+    )
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert [(r.name, r.person) for r in warnings] == [(analytics_jobs.log.name, "user_gone")]
+    assert ("user_gone", True) in await _queued_deletions(verify_session)
+
+
+async def test_user_deleted_without_analytics_configured(
+    app, auth_headers, truncate_all: None, verify_session: AsyncSession
+) -> None:
+    app.state.analytics_persons = None
+    async with httpx2.AsyncClient(
+        transport=httpx2.ASGITransport(app=app), base_url="http://testclient"
+    ) as client:
+        await client.get("/v1/me", headers=auth_headers("user_gone"))
+        response = await _post_user_deleted(client, "user_gone")
+
+    assert response.status_code == 204
+    assert (
+        await verify_session.scalar(select(User).where(User.clerk_user_id == "user_gone")) is None
+    )
+    assert await _queued_deletions(verify_session) == []

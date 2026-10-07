@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import SwiftUI
@@ -21,6 +22,7 @@ public struct ListRow: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: spacing.rowLineGap) {
             Text(summary.name)
+                .contentMask()
                 .font(.headline)
                 .rowLineLimit()
             Text(Self.detail(count: summary.count, edited: summary.lastEditedAt))

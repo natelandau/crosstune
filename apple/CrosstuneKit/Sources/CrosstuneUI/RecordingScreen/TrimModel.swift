@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneStore
 import Foundation
@@ -69,12 +70,17 @@ final class TrimModel {
     @ObservationIgnored private var writing: Patch?
     @ObservationIgnored private let write: Write
     @ObservationIgnored private let hold: Hold
+    @ObservationIgnored private let analytics: AnalyticsClient
     @ObservationIgnored private var isHolding = false
     /// Where the handles stood when the gesture under way began.
     @ObservationIgnored private var gestureOrigin: (start: Int64, end: Int64)?
     @ObservationIgnored private var pinchBase: Double?
 
-    init(recording: Recording, file: RecordingFile?, write: @escaping Write, hold: @escaping Hold) {
+    init(
+        recording: Recording, file: RecordingFile?, write: @escaping Write, hold: @escaping Hold,
+        analytics: AnalyticsClient = .noop
+    ) {
+        self.analytics = analytics
         recordingID = recording.id
         let low = recording.trimStartMs
         let endMs = recording.trimEndMs ?? recording.sourceDurationMs ?? file?.localDurationMs ?? low
@@ -230,6 +236,7 @@ final class TrimModel {
             isSaving = false
             throw error
         }
+        analytics.send(.recordingTrimmed)
         leave()
         return true
     }

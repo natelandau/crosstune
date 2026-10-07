@@ -15,16 +15,8 @@ private final class NoCommands: TrackCommands {
 
 @MainActor
 @Suite final class StandHeaderTests {
-    private let suite = "StandHeaderTests.\(UUID().uuidString)"
-    private let defaults: UserDefaults
-
-    init() throws {
-        defaults = try #require(UserDefaults(suiteName: suite))
-    }
-
-    deinit {
-        UserDefaults.standard.removePersistentDomain(forName: suite)
-    }
+    private let suite = TemporaryDefaults("StandHeaderTests")
+    private var defaults: UserDefaults { suite.defaults }
 
     private let recording = Recording(
         id: "r1", tuneID: nil, source: "microphone", addedAt: noon,

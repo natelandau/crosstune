@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneStore
 import Foundation
@@ -52,6 +53,11 @@ public final class RecordSheetModel {
 
     public let recorder: Recorder
     public let tuneID: String?
+    /// Where the take was asked for.
+    public let source: ActionSource
+    private let analytics: AnalyticsClient
+    /// Set once the take's save or discard is reported, so a take is reported ending once.
+    private var reportedEnd = false
     /// The title of the tune the take is filed under, once read; nil for an unfiled take.
     public private(set) var tuneTitle: String?
     private let recentTake: RecentTake?
@@ -69,10 +75,15 @@ public final class RecordSheetModel {
     /// Set by the first Stop or Cancel, so a second press in the same moment does nothing.
     private var ending = false
 
-    public init(recorder: Recorder, tuneID: String?, recentTake: RecentTake? = nil) {
+    public init(
+        recorder: Recorder, tuneID: String?, recentTake: RecentTake? = nil, source: ActionSource = .dock,
+        analytics: AnalyticsClient = .noop
+    ) {
         self.recorder = recorder
         self.tuneID = tuneID
         self.recentTake = recentTake
+        self.source = source
+        self.analytics = analytics
     }
 
     /// Reads the title of the tune the take is filed under, for the sheet's "Filing under" line.
@@ -185,6 +196,7 @@ public final class RecordSheetModel {
         hasBegun = true
         await recorder.start(tuneID: tuneID)
         startEnded = true
+        if recorder.state == .recording { analytics.send(.recordingStarted(source: source)) }
     }
 
     /// Stops and saves the take. The sheet closes unless the save has something to say.
@@ -198,6 +210,7 @@ public final class RecordSheetModel {
 
     /// Reads a take the recorder ended on its own, as at the size limit.
     public func settle() {
+        reportSaved()
         guard outcome == nil, phase == .saved, let id = recorder.savedRecordingID else { return }
         if recorder.errorMessage == nil { outcome = .saved(recordingID: id) }
     }
@@ -220,14 +233,21 @@ public final class RecordSheetModel {
     public func discard() async {
         guard !ending else { return }
         ending = true
+        let captured = hasStarted
         await recorder.discard()
         ending = false
-        if recorder.errorMessage == nil { outcome = .dropped }
+        guard recorder.errorMessage == nil else { return }
+        outcome = .dropped
+        if captured, !reportedEnd {
+            reportedEnd = true
+            analytics.send(.recordingDiscarded(seconds: recorder.elapsed))
+        }
     }
 
     /// Done, once there is nothing live left: closes on what the take came to.
     public func finish() {
         guard !isLive, phase != .saving else { return }
+        reportSaved()
         if let id = recorder.savedRecordingID, phase == .saved {
             outcome = .saved(recordingID: id)
         } else {
@@ -240,5 +260,12 @@ public final class RecordSheetModel {
     public func abandon() async {
         guard outcome == nil else { return }
         if isLive { await recorder.stop() }
+        reportSaved()
+    }
+
+    private func reportSaved() {
+        guard !reportedEnd, phase == .saved else { return }
+        reportedEnd = true
+        analytics.send(.recordingSaved(seconds: recorder.elapsed))
     }
 }

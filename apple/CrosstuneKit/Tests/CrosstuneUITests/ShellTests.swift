@@ -82,9 +82,8 @@ import Testing
     }
 
     @Test func aStoredWordReadsAsNoShift() throws {
-        let suite = "TextSizeTests.aStoredWordReadsAsNoShift"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let suite = TemporaryDefaults("TextSizeTests")
+        let defaults = suite.defaults
         defaults.set("compact", forKey: TextSize.storageKey)
         // Read the way the root and Settings read it.
         let offset = AppStorage(wrappedValue: 0, TextSize.storageKey, store: defaults)

@@ -245,3 +245,24 @@ reopens one without new information. Add a new entry at the end.
 - Driving `simctl io recordVideo` around `xcodebuild` was rejected: it
   has to guess where the test's timeline starts in the video. XCTest's own
   recording carries its start timestamp.
+
+## PostHog for product analytics
+
+- PostHog Cloud, US region, one project, production only. No other
+  environment has a token, so development and preview traffic never reaches
+  it.
+- The site is anonymous. Only the Apple apps identify a person, by Clerk
+  user ID, and never send email or name. The API uses that ID only to
+  delete a person's data.
+- Events leave through PostHog's managed reverse proxy on a subdomain of the
+  product domain, so a content blocker that lists PostHog's own host does
+  not drop them.
+- Plausible was rejected: it has no Swift SDK.
+- TelemetryDeck was rejected: it lacks the site's acquisition data
+  (referrers, UTM parameters, and conversion goals), so it would need a
+  second tool beside it.
+- Aptabase was rejected: it has no stable ID, so it cannot measure
+  retention.
+- Cloudflare Web Analytics was rejected: it has no custom events.
+- A self-run Cloudflare Worker proxy was rejected: it adds code and a
+  deploy to maintain, for the same result as PostHog's managed proxy.

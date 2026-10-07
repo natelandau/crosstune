@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import and_, case, func, or_, select, update
 
 from crosstune.db.base import utc_now
+from crosstune.jobs import analytics
 from crosstune.jobs.attempt import (
     LOCK_SECONDS,
     MAX_ATTEMPTS,
@@ -38,6 +39,7 @@ if TYPE_CHECKING:
     from sqlalchemy import ColumnElement
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+    from crosstune.analytics.posthog import AnalyticsPersons
     from crosstune.config import Settings
     from crosstune.storage.store import ObjectStore
 
@@ -73,9 +75,12 @@ class JobRunner:
         orphan_sweep_seconds: float = 43_200.0,
         work_root: Path | None = None,
         http_client: httpx2.AsyncClient | None = None,
+        analytics_persons: AnalyticsPersons | None = None,
         settings: Settings,
     ) -> None:
         self._sessionmaker = sessionmaker
+        # Without it, queued analytics deletions wait in their table until it is configured.
+        self._analytics_persons = analytics_persons
         self._store = store
         self._ctx = JobContext(
             sessionmaker=sessionmaker,
@@ -160,7 +165,7 @@ class JobRunner:
     async def next_due(self) -> datetime:
         """The earliest time a pass could find work that no wake announces.
 
-        That is a backed-off or expired job lock, an upload slot of a pending or
+        That is a backed-off or expired job or analytics deletion lock, an upload slot of a pending or
         deleted row passing its abandonment grace, or the next orphan sweep, which
         bounds the sleep to `orphan_sweep_seconds`. Other purges have no due time;
         the delete that makes one wakes the runner.
@@ -184,16 +189,18 @@ class JobRunner:
                     .where(or_(live_pending_scan_slot(), Scan.deleted_at.is_not(None)))
                 ),
             ]
+            deletion_due = (
+                await analytics.next_due(session) if self._analytics_persons is not None else None
+            )
         candidates = [self._next_orphan_sweep]
-        if job_due is not None:
-            candidates.append(job_due)
+        candidates += [due for due in (job_due, deletion_due) if due is not None]
         candidates += [
             expiry + ABANDONED_SLOT_GRACE for expiry in slot_expiries if expiry is not None
         ]
         return min(candidates)
 
     async def run_once(self) -> int:
-        """Run one job, purge a batch of deleted recordings and scans, and sweep orphans when due.
+        """Run one job and one analytics deletion, purge deleted rows, and sweep orphans when due.
 
         Returns:
             int: How many units of work were done, so the loop knows whether to sleep.
@@ -204,6 +211,8 @@ class JobRunner:
             await self._run_job(job)
             done += 1
         done += await self._purge()
+        if self._analytics_persons is not None:
+            done += await analytics.delete_due_person(self._sessionmaker, self._analytics_persons)
         done += await release_abandoned_slots(self._sessionmaker, self._store)
         # Last, so a bucket listing that fails cannot starve the transcodes and purges.
         if utc_now() >= self._next_orphan_sweep:

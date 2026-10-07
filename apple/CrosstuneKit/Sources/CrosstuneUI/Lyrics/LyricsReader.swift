@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 
@@ -18,6 +19,7 @@ public struct LyricsReader: View {
     private let tuneID: String
 
     @Environment(\.store) private var store
+    @Environment(\.analytics) private var analytics
     @Environment(\.dismiss) private var dismiss
     @State private var model: LyricsReaderModel?
 
@@ -35,7 +37,7 @@ public struct LyricsReader: View {
         }
         .task(id: tuneID) {
             guard let store else { return }
-            model = LyricsReaderModel(store: store, tuneID: tuneID)
+            model = LyricsReaderModel(store: store, tuneID: tuneID, analytics: analytics)
         }
         .shellSheet()
     }
@@ -55,6 +57,7 @@ private struct LyricsReaderContent: View {
             Color.clear.onAppear { dismiss() }
         case .shown(let title, let lyrics):
             LyricsReaderPage(model: model, title: title, lyrics: lyrics ?? "")
+                .onAppear { model.shown() }
         }
     }
 }
@@ -149,6 +152,7 @@ struct LyricsBody: View {
                 }
             }
         }
+        .contentMask()
     }
 }
 
