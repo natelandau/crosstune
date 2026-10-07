@@ -48,6 +48,10 @@ describe('_headers', () => {
     expect(rulesFor('/*')).toContain('Referrer-Policy: strict-origin-when-cross-origin')
   })
 
+  it('keeps every response out of search results', () => {
+    expect(rulesFor('/*')).toContain('X-Robots-Tag: noindex')
+  })
+
   it('allows the inline theme script by its hash and no other inline script', () => {
     const html = readFileSync(join(__dirname, './index.html'), 'utf8')
     const inline = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(
