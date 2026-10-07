@@ -1,3 +1,9 @@
+## v0.18.0 (2026-10-07)
+
+### Feat
+
+- **analytics**: add PostHog product analytics (#151)
+
 ## v0.17.0 (2026-10-07)
 
 ### Feat
