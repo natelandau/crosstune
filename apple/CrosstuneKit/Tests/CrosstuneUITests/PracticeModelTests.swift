@@ -850,14 +850,18 @@ private final class FakeLoops {
 
     @Test func newLoopDuringAGlideStopsItWhereItShows() async throws {
         try await load()
-        let model = practice()
+        let now = Now()
+        let model = PracticeModel(
+            player: player, recording: take(), file: nil, writer: store.writer, clock: { now.instant })
+        model.setWidth(300)
         model.glideRun = .seconds(10)
         audio.elapsed = 10
         model.beginScrub()
         model.scrub(dx: -50)
         model.endScrub(predictedDx: -400)
-        try await Task.sleep(for: .milliseconds(50))
+        now.instant += .milliseconds(2500)
         let shown = try #require(model.scrubbingMs)
+        #expect(shown == PracticeZoom.glidePosition(from: 15_000, to: 50_000, elapsedMs: 2500, runMs: 10_000))
         model.newLoop()
         #expect(model.scrubbingMs == nil)
         #expect(model.glide == nil)
