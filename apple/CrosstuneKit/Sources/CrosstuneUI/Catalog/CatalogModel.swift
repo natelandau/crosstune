@@ -156,7 +156,7 @@ public final class CatalogModel {
     private func followLastPlayed() {
         guard lastPlayed == nil else { return }
         lastPlayed = LiveQuery(store, initial: nil) { db in
-            CatalogSearch.lastPlayed(plays: try PlayEvent.fetchAll(db), sessions: try PracticeSession.fetchAll(db))
+            try CatalogSearch.lastPlayed(db)
         }
     }
 
