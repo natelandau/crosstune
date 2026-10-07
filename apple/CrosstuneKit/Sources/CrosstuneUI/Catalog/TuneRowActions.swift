@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import SwiftUI
 
 /// The verbs a tune row offers, on every screen that offers them.
@@ -103,6 +104,7 @@ struct TunePreview: View {
         let text = TuneRowText(tune: entry.tune, userTune: entry.userTune, instruments: instruments)
         VStack(alignment: .leading, spacing: spacing(12)) {
             Text(entry.tune.title)
+                .contentMask()
                 .font(.title3.weight(.semibold))
             FlowLayout {
                 if let key = text.key {

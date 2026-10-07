@@ -5,6 +5,7 @@ let package = Package(
     name: "CrosstuneKit",
     platforms: [.iOS("26.1"), .macOS(.v26)],
     products: [
+        .library(name: "CrosstuneAnalytics", targets: ["CrosstuneAnalytics"]),
         .library(name: "CrosstuneAPI", targets: ["CrosstuneAPI"]),
         .library(name: "CrosstuneAudio", targets: ["CrosstuneAudio"]),
         .library(name: "CrosstuneAuth", targets: ["CrosstuneAuth"]),
@@ -21,12 +22,17 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
         .package(url: "https://github.com/clerk/clerk-ios", from: "1.5.6"),
         .package(url: "https://github.com/groue/GRDB.swift", from: "7.11.1"),
+        .package(url: "https://github.com/PostHog/posthog-ios", from: "3.90.0"),
         // Constraint only, reached through swift-openapi-urlsession. Built with Swift 6.4, 1.7.0
         // strongly links swift_initBorrow, which the Swift runtime in iOS 26 and macOS 26 does
         // not have, so the app fails to launch there.
         .package(url: "https://github.com/apple/swift-collections", from: "1.7.1"),
     ],
     targets: [
+        .target(
+            name: "CrosstuneAnalytics",
+            dependencies: ["CrosstuneVocabulary", .product(name: "PostHog", package: "posthog-ios")]
+        ),
         .target(
             name: "CrosstuneAPI",
             dependencies: [
@@ -46,6 +52,7 @@ let package = Package(
         .target(
             name: "CrosstuneAuth",
             dependencies: [
+                "CrosstuneAnalytics",
                 "CrosstuneAPI",
                 "CrosstuneAudio",
                 "CrosstuneStore",
@@ -85,15 +92,19 @@ let package = Package(
         .target(
             name: "CrosstuneUI",
             dependencies: [
-                "CrosstuneAudio", "CrosstuneAuth", "CrosstuneCommands", "CrosstuneExport", "CrosstuneStore",
-                "CrosstuneSync", "CrosstuneVocabulary", .product(name: "GRDB", package: "GRDB.swift"),
+                "CrosstuneAnalytics", "CrosstuneAudio", "CrosstuneAuth", "CrosstuneCommands", "CrosstuneExport",
+                "CrosstuneStore", "CrosstuneSync", "CrosstuneVocabulary", .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
         .target(name: "CrosstuneVocabulary"),
         .target(
             name: "CrosstuneTestSupport",
-            dependencies: ["CrosstuneStore", .product(name: "GRDB", package: "GRDB.swift")],
+            dependencies: ["CrosstuneAnalytics", "CrosstuneStore", .product(name: "GRDB", package: "GRDB.swift")],
             path: "Tests/CrosstuneTestSupport"
+        ),
+        .testTarget(
+            name: "CrosstuneAnalyticsTests",
+            dependencies: ["CrosstuneAnalytics", "CrosstuneTestSupport", "CrosstuneVocabulary"]
         ),
         .testTarget(
             name: "CrosstuneStoreTests",
@@ -109,7 +120,7 @@ let package = Package(
         .testTarget(
             name: "CrosstuneAuthTests",
             dependencies: [
-                "CrosstuneAPI", "CrosstuneAuth", "CrosstuneStore", "CrosstuneTestSupport",
+                "CrosstuneAnalytics", "CrosstuneAPI", "CrosstuneAuth", "CrosstuneStore", "CrosstuneTestSupport",
                 .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
             ]

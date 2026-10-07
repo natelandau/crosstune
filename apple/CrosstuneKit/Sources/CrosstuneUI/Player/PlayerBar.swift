@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import SwiftUI
 
 /// The loaded item and a close button, as the player's bar on iPhone and iPad, where a tap on the
@@ -119,7 +120,7 @@ public struct PlayerBar: View {
                 itemLabel(glyph: glyph)
             } else {
                 Button {
-                    player.expand(in: window)
+                    player.expand(in: window, source: .dock)
                 } label: {
                     itemLabel(glyph: glyph)
                         .contentShape(.rect)
@@ -178,10 +179,12 @@ public struct PlayerBar: View {
             }
             VStack(alignment: .leading, spacing: 0) {
                 Text(Self.title(player, playback))
+                    .contentMask()
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
                 if let subtitle = Self.playlistSubtitle(playback) ?? Self.subtitle(player) {
                     Text(subtitle)
+                        .contentMask()
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -245,9 +248,10 @@ struct RepeatBadge: View {
     var body: some View {
         HStack(spacing: 0) {
             Button {
-                if let item = player.item { player.open(item, in: window) }
+                if let item = player.item { player.open(item, in: window, source: .dock) }
             } label: {
                 Text(PracticeText.repeating(name))
+                    .contentMask()
                     .font(.caption)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -264,6 +268,7 @@ struct RepeatBadge: View {
                 player.loops.select(nil)
             } label: {
                 Label(PracticeText.repeatLoop(name), systemImage: "repeat")
+                    .contentMask()
                     .labelStyle(.iconOnly)
                     .foregroundStyle(.tint)
                     .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)

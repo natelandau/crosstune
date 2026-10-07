@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import Foundation
@@ -64,11 +65,18 @@ public final class TunePickerModel {
     @ObservationIgnored private var isClosed = false
     /// Takes a failure that lands after the sheet has closed, which has no line of its own left.
     @ObservationIgnored private let onLateFailure: @MainActor (String) -> Void
+    private let analytics: AnalyticsClient
+    /// Tunes this visit added, reported together once the picker has closed and every add has
+    /// landed.
+    @ObservationIgnored private var added = 0
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "tune-picker")
 
-    public init(store: CrosstuneStore, listID: String, onLateFailure: @escaping @MainActor (String) -> Void = { _ in })
-    {
+    public init(
+        store: CrosstuneStore, listID: String, analytics: AnalyticsClient = .noop,
+        onLateFailure: @escaping @MainActor (String) -> Void = { _ in }
+    ) {
         self.store = store
+        self.analytics = analytics
         self.listID = listID
         self.onLateFailure = onLateFailure
         // Folded on the store's reader rather than on each keystroke.
@@ -109,12 +117,16 @@ public final class TunePickerModel {
     public func pick(_ entry: CatalogEntry) async {
         let userTuneID = entry.userTune.id
         guard members.value?.contains(userTuneID) == false, adding.insert(userTuneID).inserted else { return }
-        defer { adding.remove(userTuneID) }
+        defer {
+            adding.remove(userTuneID)
+            reportIfDone()
+        }
         query = ""
         failure = nil
         let listID = listID
         do {
             try await Commands(store: store).addToList(listID, userTuneID: userTuneID)
+            added += 1
         } catch {
             Self.logger.warning("A tune pick failed: \(error)")
             if isClosed {
@@ -144,5 +156,12 @@ public final class TunePickerModel {
     /// The sheet has gone, so a failure still to land reports through `onLateFailure`.
     public func close() {
         isClosed = true
+        reportIfDone()
+    }
+
+    private func reportIfDone() {
+        guard isClosed, adding.isEmpty, added > 0 else { return }
+        analytics.send(.tunesAddedToList(count: added))
+        added = 0
     }
 }

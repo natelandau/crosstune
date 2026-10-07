@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneVocabulary
@@ -202,6 +203,7 @@ private struct EditRecordingForm: View {
         }
         return Section {
             TextField(EditRecordingText.nameLabel, text: name, prompt: Text(EditRecordingText.placeholder))
+                .contentMask()
                 .characterLimit(Vocabulary.Limits.Recording.label, text: name)
                 .focused($focused, equals: .name)
                 .submitLabel(.done)
@@ -236,6 +238,7 @@ private struct EditRecordingForm: View {
         return Section {
             LabeledContent(EditRecordingText.year) {
                 TextField(EditRecordingText.year, text: year, prompt: Text(TuneFieldLabels.notSet))
+                    .contentMask()
                     .multilineTextAlignment(.trailing)
                     #if os(iOS)
                         .keyboardType(.numberPad)

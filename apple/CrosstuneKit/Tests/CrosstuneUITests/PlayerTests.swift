@@ -456,16 +456,8 @@ private final class QuietTrackCommands: TrackCommands {
 
 @MainActor
 @Suite final class PlaylistControlsTests {
-    private let suite = "PlaylistControlsTests.\(UUID().uuidString)"
-    private let defaults: UserDefaults
-
-    init() throws {
-        defaults = try #require(UserDefaults(suiteName: suite))
-    }
-
-    deinit {
-        UserDefaults.standard.removePersistentDomain(forName: suite)
-    }
+    private let suite = TemporaryDefaults("PlaylistControlsTests")
+    private var defaults: UserDefaults { suite.defaults }
 
     private func playback(_ player: PlayerModel = PlayerModel()) -> ListPlayback {
         ListPlayback(player: player, commands: QuietTrackCommands(), defaults: defaults)

@@ -49,6 +49,7 @@ public struct ListsScreen: View {
                 }
             }
         }
+        .screenView(.lists)
         .navigationTitle(Destination.lists.title)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

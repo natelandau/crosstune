@@ -4,9 +4,8 @@ import CrosstuneSync
 import Foundation
 import SwiftUI
 
-/// The iPhone Settings tab: an account card, the catalog in one card, a row for each page of
-/// settings, and the version below. Each page keeps the rows, behavior, and help of the long
-/// form it was split from.
+/// The iPhone Settings tab: an account card, the catalog in one card, and a row for each page of
+/// settings. Each page keeps the rows, behavior, and help of the long form it was split from.
 struct SettingsRoot: View {
     nonisolated static let notSyncedYet = "Not synced yet"
     nonisolated static let syncedPrefix = "Synced"
@@ -30,7 +29,7 @@ struct SettingsRoot: View {
     @State private var model: SettingsModel?
     @State private var summary: LiveQuery<StatsSummary?>?
 
-    /// - Parameter version: The app's marketing version, which the footer names.
+    /// - Parameter version: The app's marketing version, which the About page names.
     init(version: String? = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) {
         self.version = version
     }
@@ -53,13 +52,13 @@ struct SettingsRoot: View {
                         }
                     }
                 }
-            } footer: {
-                if let version { Text(SettingsScreen.aboutLine(version: version)) }
             }
         }
         .formStyle(.grouped)
+        // On the root, not the pages it opens, so opening a page never counts as another visit.
+        .screenView(.settings)
         .navigationDestination(for: SettingsPage.self) { page in
-            SettingsPageScreen(page: page, model: model)
+            SettingsPageScreen(page: page, model: model, version: version)
         }
         .navigationTitle(Destination.settings.title)
         .task(id: ModelKey(store: store, engine: engine)) {
@@ -193,6 +192,8 @@ private struct SettingsPageLink<RowLabel: View>: View {
 struct SettingsPageScreen: View {
     let page: SettingsPage
     let model: SettingsModel?
+    /// The app's marketing version, which the About page names.
+    var version: String? = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
 
     var body: some View {
         switch page {
@@ -207,7 +208,7 @@ struct SettingsPageScreen: View {
                 // A tune opened from the stats screen is not the tab's own pushed tune.
                 .environment(\.stackTune, nil)
         case .category(let category):
-            SettingsCategoryPage(category: category, model: model)
+            SettingsCategoryPage(category: category, model: model, version: version)
         }
     }
 }
@@ -217,6 +218,7 @@ struct SettingsPageScreen: View {
 private struct SettingsCategoryPage: View {
     let category: SettingsCategory
     let model: SettingsModel?
+    let version: String?
 
     @Environment(PlayerModel.self) private var player: PlayerModel?
 
@@ -224,7 +226,7 @@ private struct SettingsCategoryPage: View {
         Group {
             if category.pageRows.isEmpty {
                 SettingsScreen(
-                    version: nil, sections: category.sections, title: category.title, opensStatsInSheet: false,
+                    version: version, sections: category.sections, title: category.title, opensStatsInSheet: false,
                     registersStats: false)
             } else if let model, model.isLoaded {
                 ownRows(model, rows: category.pageRows)

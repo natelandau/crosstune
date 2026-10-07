@@ -16,6 +16,10 @@
 	<string>Crosstune scans written music for your tunes.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Crosstune records tunes you play.</string>
+	<key>PostHogHost</key>
+	<string>$(POSTHOG_HOST)</string>
+	<key>PostHogProjectToken</key>
+	<string>$(POSTHOG_PROJECT_TOKEN)</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

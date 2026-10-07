@@ -1,3 +1,5 @@
+import CrosstuneAnalytics
+
 #if os(macOS)
     import CrosstuneAuth
     import SwiftUI
@@ -171,7 +173,7 @@
                         PlayerBar.showLabel(player, playback: playback),
                         systemImage: "arrow.up.left.and.arrow.down.right", help: PlayerBar.show
                     ) {
-                        player.expand(in: window)
+                        player.expand(in: window, source: .dock)
                     }
                 }
                 close

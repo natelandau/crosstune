@@ -1,3 +1,4 @@
+import CrosstuneTestSupport
 import CrosstuneVocabulary
 import Foundation
 import Testing
@@ -6,10 +7,8 @@ import Testing
 
 @Suite struct CaptureChannelsTests {
     private func withDefaults(_ body: (UserDefaults) -> Void) {
-        let name = "CaptureChannelsTests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: name)!
-        defer { defaults.removePersistentDomain(forName: name) }
-        body(defaults)
+        let suite = TemporaryDefaults("CaptureChannelsTests")
+        body(suite.defaults)
     }
 
     @Test func readsMonoWhenNothingIsStored() {

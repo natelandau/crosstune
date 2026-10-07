@@ -561,7 +561,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
 
     @Test func landsANewTuneInTheListThePickerNamed() async throws {
         let store = try await SampleCatalog.makeStore(root: root.url)
-        let model = TuneFormModel(store: store, target: .new(title: "Rove Riley", listID: waltzes.id))
+        let model = TuneFormModel(store: store, target: .new(title: "Rove Riley", listID: waltzes.id, source: .list))
         await model.load()
         #expect(await model.save() != nil)
         let titles = try await store.read { db in

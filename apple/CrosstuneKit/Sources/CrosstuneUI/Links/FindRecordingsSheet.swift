@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import CrosstuneSync
 import CrosstuneVocabulary
@@ -49,6 +50,7 @@ public struct FindRecordingsSheet: View {
     private let service: String?
 
     @Environment(\.store) private var store
+    @Environment(\.analytics) private var analytics
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @State private var model: FindRecordingsModel?
@@ -91,7 +93,7 @@ public struct FindRecordingsSheet: View {
                 store: store, tuneID: tuneID, service: service, search: search,
                 stopPlayer: {
                     if player?.item != nil { player?.close() }
-                })
+                }, analytics: analytics)
         }
     }
 }
@@ -117,6 +119,7 @@ private struct FindRecordingsForm: View {
                     TextField(
                         FindRecordingsSheet.searchFor, text: queryBinding, prompt: Text(FindRecordingsSheet.searchFor)
                     )
+                    .contentMask()
                     .autocorrectionDisabled()
                     .submitLabel(.search)
                     .onSubmit { Task { await model.submit() } }
@@ -199,6 +202,7 @@ private struct FindRecordingsForm: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(result.title)
+                        .contentMask()
                         .font(.headline)
                     if let subtitle = result.subtitle {
                         Text(subtitle)

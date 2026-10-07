@@ -125,10 +125,8 @@ import Testing
             listAudio.elapsed = 140
             let listed = PlayerModel(audio: listAudio)
             listed.audioSource = recording.audioSource
-            let suite = "macDock.\(UUID().uuidString)"
-            let defaults = try #require(UserDefaults(suiteName: suite))
-            defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
-            let playback = ListPlayback(player: listed, commands: DockQuietCommands(), defaults: defaults)
+            let suite = TemporaryDefaults("macDock")
+            let playback = ListPlayback(player: listed, commands: DockQuietCommands(), defaults: suite.defaults)
             playback.resolve = { _, _ in
                 ListPlayback.Turn(
                     title: entry.tuneTitle ?? "", item: .recording(entry.recording, tuneTitle: entry.tuneTitle))

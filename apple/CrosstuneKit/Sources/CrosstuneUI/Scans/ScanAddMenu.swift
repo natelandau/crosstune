@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import SwiftUI
 import UniformTypeIdentifiers
@@ -94,7 +95,7 @@ struct ScanAddMenu: View {
 /// image named for a message that says it could not be read.
 struct ScanImport: ViewModifier {
     @Binding var choice: ScanAddChoice?
-    let onPick: @MainActor ([ScanPick]) -> Void
+    let onPick: @MainActor ([ScanPick], ScanVia) -> Void
     let onFailure: @MainActor (any Error) -> Void
 
     #if os(iOS)
@@ -107,7 +108,7 @@ struct ScanImport: ViewModifier {
             .fileImporter(isPresented: shows(.file), allowedContentTypes: [.image], allowsMultipleSelection: true) {
                 result in
                 switch result {
-                case .success(let urls): onPick(urls.map(ScanPick.file))
+                case .success(let urls): onPick(urls.map(ScanPick.file), .file)
                 case .failure(let error): onFailure(error)
                 }
             }
@@ -125,7 +126,7 @@ struct ScanImport: ViewModifier {
                                 }
                                 return data
                             }
-                        })
+                        }, .photoLibrary)
                 }
                 .fullScreenCover(isPresented: shows(.scan)) {
                     ScanSheet(onFinish: { images in
@@ -135,7 +136,7 @@ struct ScanImport: ViewModifier {
                                 return ScanPick(name: ScanImport.scannedPageName(offset)) {
                                     try PreparedScan.make(from: scanned.image)
                                 }
-                            })
+                            }, .documentScanner)
                     })
                 }
             #endif

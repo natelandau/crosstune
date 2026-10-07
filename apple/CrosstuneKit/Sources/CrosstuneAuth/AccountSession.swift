@@ -1,5 +1,6 @@
 import ClerkKit
 import CrosstuneAPI
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneStore
 import CrosstuneSync
@@ -80,7 +81,11 @@ public final class AccountSession {
 
     /// A deleted account's user, signed out on this device even while Clerk still holds a
     /// session for it, so a failed sign-out never reopens a store for an account that is gone.
-    private var signedOutUserID: String?
+    /// Kept across launches, since Clerk can restore that user from its cache, and a user
+    /// identified again would bring back the analytics person the API deletes.
+    private var signedOutUserID: String? {
+        didSet { remembered.deletedUserID = signedOutUserID }
+    }
 
     /// Keeps the open store in step with the API. Nil while no store is open.
     public var syncEngine: SyncEngine? { sync?.engine }
@@ -117,17 +122,29 @@ public final class AccountSession {
     @ObservationIgnored private let pathMonitor = NWPathMonitor()
     /// True while this device is deleting the account or forgetting a deleted one.
     @ObservationIgnored private var isLeavingDeleted = false
+    /// Set through sign-out, so a change of Clerk's user meanwhile leaves the analytics reset to
+    /// leaving, which sends `signed_out` first.
+    @ObservationIgnored private var isSigningOut = false
+    /// Whether a sync of the open store has identified the person with the API's figures.
+    @ObservationIgnored private var syncedFiguresReported = false
+    @ObservationIgnored private let analytics: AnalyticsClient
+    @ObservationIgnored private var identity: AnalyticsIdentity
 
     /// - Parameters:
     ///   - apiOrigin: Where the API is served.
     ///   - clientVersion: The app's version, sent with every request.
     ///   - storageOrigin: Where a storage URL the API signs as a bare path resolves. Only a
     ///     local API signs those; see ``LiveSyncAPI``.
+    ///   - analytics: Where sign-in, sign-out, and deletion are reported.
     public init(
         publishableKey: String, apiOrigin: URL, clientVersion: String, storageOrigin: URL? = nil,
-        remembered: RememberedUser = RememberedUser(), storeRoot: URL = CrosstuneStore.defaultRoot
+        remembered: RememberedUser = RememberedUser(), storeRoot: URL = CrosstuneStore.defaultRoot,
+        analytics: AnalyticsClient = .noop
     ) {
+        self.analytics = analytics
+        identity = AnalyticsIdentity(analytics: analytics)
         self.remembered = remembered
+        signedOutUserID = remembered.deletedUserID
         self.storeRoot = storeRoot
         self.apiOrigin = apiOrigin
         self.clientVersion = clientVersion
@@ -179,15 +196,94 @@ public final class AccountSession {
     public func clerkUserChanged() {
         let clerk = Clerk.shared
         guard clerk.isLoaded else { return }
-        let clerkUserID = clerk.user?.id
-        // Once Clerk has let go of the deleted user too, the local sign-out has nothing to cover.
-        if clerkUserID != signedOutUserID { signedOutUserID = nil }
-        let userID = clerkUserID == signedOutUserID ? nil : clerkUserID
-        remembered.userID = userID
+        let userID = Self.follow(
+            clerkUserID: clerk.user?.id, signedUpAt: clerk.user?.createdAt, isLeaving: isSigningOut || isLeavingDeleted,
+            signedOutUserID: &signedOutUserID, remembered: remembered, identity: &identity)
+        identifyWithStoreFigures()
         if userID == nil {
             needsSignIn = false
         } else {
             showsDeletedNotice = false
+        }
+    }
+
+    /// Follows Clerk's user: drops the deleted-user mask once Clerk lets go of that user, keeps
+    /// a masked user signed out and unidentified, reports the change to analytics, and remembers
+    /// the result.
+    ///
+    /// - Returns: The user the app is open for, nil for none or a masked one.
+    static func follow(
+        clerkUserID: String?, signedUpAt: Date?, isLeaving: Bool, signedOutUserID: inout String?,
+        remembered: RememberedUser, identity: inout AnalyticsIdentity
+    ) -> String? {
+        // Once Clerk has let go of the deleted user too, the local sign-out has nothing to cover.
+        if clerkUserID != signedOutUserID { signedOutUserID = nil }
+        let userID = clerkUserID == signedOutUserID ? nil : clerkUserID
+        identity.userChanged(to: userID, from: remembered.userID, isLeaving: isLeaving, signedUpAt: signedUpAt)
+        remembered.userID = userID
+        return userID
+    }
+
+    /// The catalog size and storage use the user's person carries, from the open store. Both are
+    /// nil until a sync has brought the API's figures: before then a new device's empty catalog
+    /// is not the account's, and setting it would overwrite the person's size with nothing.
+    static func storeFigures(in store: CrosstuneStore) async -> (catalogSize: Int?, storageUsed: Int64?) {
+        guard let storage = try? await store.meta(.storage, as: StorageFigures.self) else { return (nil, nil) }
+        let tunes = try? await store.accountCounts().tunes
+        return (tunes, Int64(storage.usedBytes))
+    }
+
+    /// Sets the store's figures on the person once both Clerk's user and their store are known,
+    /// whichever comes last.
+    ///
+    /// - Parameter carried: Called with whether the identify carried the API's figures.
+    private func identifyWithStoreFigures(carried: @escaping @MainActor (Bool) -> Void = { _ in }) {
+        guard case .signedIn(let userID, confirmed: true) = phase, let store, store.userID == userID else { return }
+        let analytics = analytics
+        Task { [weak self] in
+            let sent = await Self.identify(userID: userID, withFiguresIn: store, analytics: analytics) {
+                self?.mayIdentify(userID) ?? false
+            }
+            carried(sent)
+        }
+    }
+
+    /// A sign-out that ran meanwhile has reset the person; identifying again would revive it.
+    private func mayIdentify(_ userID: String) -> Bool {
+        guard !isSigningOut, !isLeavingDeleted, case .signedIn(userID, confirmed: true) = phase else { return false }
+        return true
+    }
+
+    /// Identifies the user with the store's figures, unless `canIdentify` refuses once they are read.
+    ///
+    /// - Returns: Whether the identify carried the API's figures.
+    static func identify(
+        userID: String, withFiguresIn store: CrosstuneStore, analytics: AnalyticsClient,
+        canIdentify: @MainActor () -> Bool
+    ) async -> Bool {
+        let figures = await storeFigures(in: store)
+        guard canIdentify() else { return false }
+        analytics.identify(
+            userID: userID, signedUpAt: nil, catalogSize: figures.catalogSize, storageUsed: figures.storageUsed)
+        return figures.storageUsed != nil
+    }
+
+    /// Whether a sync identifies the person with the store's figures: only one that stored them,
+    /// since a returning device's store still holds its last session's, until one has.
+    nonisolated static func identifiesAfterSync(storedFigures: Bool, reported: Bool) -> Bool {
+        storedFigures && !reported
+    }
+
+    /// The first sync of a session that stores the API's figures, which a new device lacks and a
+    /// returning one holds only from its last session, identifies the person again with them.
+    private func syncLanded(in synced: CrosstuneStore, storedFigures: Bool) {
+        needsSignIn = false
+        guard Self.identifiesAfterSync(storedFigures: storedFigures, reported: syncedFiguresReported),
+            store === synced
+        else { return }
+        identifyWithStoreFigures { [weak self] carried in
+            guard carried, let self, store === synced else { return }
+            syncedFiguresReported = true
         }
     }
 
@@ -229,11 +325,13 @@ public final class AccountSession {
     /// any change or recording is still only on this device, since it would go with the catalog.
     public func signOut() async throws {
         let userID = try confirmedUserID()
+        isSigningOut = true
+        defer { isSigningOut = false }
         // Leaving checks the open store for unsent work, so it waits for one still opening.
         await opens[userID]?.task.value
         guard isStillSignedIn(userID) else { return }
         try await Self.leave(
-            userID: userID, store: store, root: storeRoot, sync: sync,
+            userID: userID, store: store, root: storeRoot, sync: sync, analytics: analytics,
             settle: { await self.settleBeforeLeaving?() },
             endSession: { try await Clerk.shared.auth.signOut() }
         )
@@ -253,7 +351,7 @@ public final class AccountSession {
         await settleBeforeLeaving?()
         do {
             try await Self.deleteAndLeave(
-                userID: userID, store: store, root: storeRoot, sync: sync,
+                userID: userID, store: store, root: storeRoot, sync: sync, analytics: analytics,
                 deleteRemote: { try await Self.deleteRemote { try await client.deleteMeV1MeDelete() } },
                 endSession: { try await Clerk.shared.auth.signOut() }
             )
@@ -268,16 +366,41 @@ public final class AccountSession {
     /// Another device deleted the account: this one drops its copy as if it had made the
     /// delete, without a request of its own.
     func accountDeletedElsewhere() async {
-        guard !isLeavingDeleted, case .signedIn(let userID, _) = phase else { return }
+        let userID: String
+        switch Self.deletionReport(phase: phase, isLeavingDeleted: isLeavingDeleted) {
+        case .ignore:
+            return
+        case .afterClerkLetGo:
+            if identity.accountDeletedAfterClerkLetGo() { showsDeletedNotice = true }
+            return
+        case .leave(let leaving):
+            userID = leaving
+        }
         isLeavingDeleted = true
         defer { isLeavingDeleted = false }
         await opens[userID]?.task.value
         guard isStillSignedIn(userID) else { return }
         await settleBeforeLeaving?()
-        await Self.forgetDeleted(userID: userID, store: store, root: storeRoot, sync: sync) {
+        await Self.forgetDeleted(userID: userID, store: store, root: storeRoot, sync: sync, analytics: analytics) {
             try await Clerk.shared.auth.signOut()
         }
         finishLeaving(deleted: userID)
+    }
+
+    /// What a report that the account is gone asks of the session.
+    enum DeletionReport: Equatable {
+        /// This device is already deleting or forgetting the account.
+        case ignore
+        /// No user is open, so the report is for one Clerk already let go of, if any.
+        case afterClerkLetGo
+        /// Drop this device's copy of the open user's account.
+        case leave(userID: String)
+    }
+
+    nonisolated static func deletionReport(phase: Phase, isLeavingDeleted: Bool) -> DeletionReport {
+        guard !isLeavingDeleted else { return .ignore }
+        guard case .signedIn(let userID, _) = phase else { return .afterClerkLetGo }
+        return .leave(userID: userID)
     }
 
     /// Signed out whether or not Clerk ended its session, since the account it belongs to is gone.
@@ -326,7 +449,7 @@ public final class AccountSession {
     /// after each. An edit that lands while the session ends keeps the folder, signed out, for
     /// the same account to sync on its next sign-in.
     static func leave(
-        userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?,
+        userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?, analytics: AnalyticsClient,
         settle: () async -> Void = {}, endSession: () async throws -> Void
     ) async throws {
         await settle()
@@ -343,6 +466,9 @@ public final class AccountSession {
             sync?.resume()
             throw error
         }
+        // Only an ended session forgets the person, so a refused sign-out keeps sending as them.
+        analytics.send(.signedOut)
+        analytics.reset()
         // Sealed, the store refuses any write still on its way, so the check holds until the
         // folder goes.
         var keepsFolder = false
@@ -363,33 +489,40 @@ public final class AccountSession {
     /// app must finish leaving; a folder this leaves behind is swept on the next sign-in by
     /// ``deleteOtherFolders(keeping:)``.
     static func deleteAndLeave(
-        userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?,
+        userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?, analytics: AnalyticsClient,
         deleteRemote: () async throws -> Void, endSession: () async throws -> Void
     ) async throws {
         await sync?.stop()
+        // Starts uploading the user's queued events before the request without waiting for it.
+        // An event that lands after the API's first delete is caught by its delayed second pass.
+        analytics.flush()
         do {
             try await deleteRemote()
         } catch {
             sync?.resume()
             throw error
         }
-        await dropDeleted(userID: userID, store: store, root: root, endSession: endSession)
+        await dropDeleted(userID: userID, store: store, root: root, analytics: analytics, endSession: endSession)
     }
 
     /// Stops syncing, then drops this device's copy of an account another device deleted. It
     /// never throws: the account is already gone, so nothing here can leave it in place.
     static func forgetDeleted(
-        userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?,
+        userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?, analytics: AnalyticsClient,
         endSession: () async throws -> Void
     ) async {
         await sync?.stop()
-        await dropDeleted(userID: userID, store: store, root: root, endSession: endSession)
+        await dropDeleted(userID: userID, store: store, root: root, analytics: analytics, endSession: endSession)
     }
 
     private static func dropDeleted(
-        userID: String, store: CrosstuneStore?, root: URL, endSession: () async throws -> Void
+        userID: String, store: CrosstuneStore?, root: URL, analytics: AnalyticsClient,
+        endSession: () async throws -> Void
     ) async {
         try? await endSession()
+        // Reset first, so the event goes out unidentified rather than recreating the person.
+        analytics.reset()
+        analytics.send(.accountDeleted)
         try? store?.close()
         try? CrosstuneStore.delete(userID: userID, root: root)
     }
@@ -485,10 +618,12 @@ public final class AccountSession {
         let engine = SyncEngine(
             store: opened, api: LiveSyncAPI(client: client, storageOrigin: storageOrigin),
             isOffline: { [weak self] in self?.isOffline ?? true })
-        engine.onSynced = { [weak self] in self?.needsSignIn = false }
+        syncedFiguresReported = false
+        engine.onSynced = { [weak self] in self?.syncLanded(in: opened, storedFigures: $0) }
         sync = SessionSync(store: opened, engine: engine, isActive: isActive, isOffline: isOffline)
         // A capture a crash or kill cut short is saved now rather than waiting on the user.
         Task { await Recorder.recoverLeftoverCaptures(in: opened) }
+        identifyWithStoreFigures()
     }
 
     /// Only one user is signed in at a time, so any other folder was left by a sign-out that did
@@ -548,6 +683,7 @@ public final class AccountSession {
 /// user and grants nothing: the session itself stays in Clerk's storage.
 public final class RememberedUser: @unchecked Sendable {
     private static let key = "lastSignedInUserID"
+    private static let deletedKey = "deletedUserID"
     private let defaults: UserDefaults
 
     public init(defaults: UserDefaults = .standard) {
@@ -557,5 +693,11 @@ public final class RememberedUser: @unchecked Sendable {
     public var userID: String? {
         get { defaults.string(forKey: Self.key) }
         set { defaults.set(newValue, forKey: Self.key) }
+    }
+
+    /// A deleted account's user, kept signed out until Clerk lets go of them.
+    public var deletedUserID: String? {
+        get { defaults.string(forKey: Self.deletedKey) }
+        set { defaults.set(newValue, forKey: Self.deletedKey) }
     }
 }

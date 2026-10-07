@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneSync
@@ -18,6 +19,7 @@ public struct StatsScreen: View {
         Group {
             if let view = model?.model.view {
                 StatsContent(view: view)
+                    .screenView(.stats)
             } else {
                 // Loading is silence.
                 Color.clear
@@ -211,6 +213,7 @@ struct StatsDocument: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(Array(stats.onThisDay.enumerated()), id: \.offset) { _, line in
                         Text(StatsCopy.onThisDayLine(line, title: view.title(for: line)))
+                            .contentMask()
                             .font(PageStyle.body)
                     }
                 }
@@ -323,6 +326,7 @@ struct StatsDocument: View {
                 .font(PageStyle.body)
             if let title = view.tuneTitles[rarity.tuneID] {
                 Text(title).font(.footnote).foregroundStyle(.secondary)
+                    .contentMask()
             }
         }
         if let detailTune {

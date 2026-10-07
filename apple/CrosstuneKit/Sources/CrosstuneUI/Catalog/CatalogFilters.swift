@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import CrosstuneVocabulary
 import Foundation
@@ -380,5 +381,34 @@ public enum CatalogSearch {
     /// "1 tune" or "3 tunes": the one wording for a number of tunes.
     public static func tunes(_ count: Int) -> String {
         count == 1 ? "1 tune" : "\(count) tunes"
+    }
+}
+
+extension CatalogFilters {
+    /// The kinds of filter set or changed since `before`, each once, in the order
+    /// ``CatalogFilterKind`` lists them. A filter cleared is not one applied.
+    func appliedKinds(since before: CatalogFilters) -> [CatalogFilterKind] {
+        var kinds: Set<CatalogFilterKind> = []
+        if let status, status != before.status { kinds.insert(.status) }
+        for (facet, value) in facets where before.facets[facet] != value { kinds.insert(facet.filterKind) }
+        if archived && !before.archived { kinds.insert(.archived) }
+        if unheard && !before.unheard { kinds.insert(.unheard) }
+        if let missing, missing != before.missing { kinds.insert(.missing) }
+        return CatalogFilterKind.allCases.filter(kinds.contains)
+    }
+}
+
+extension CatalogFacet {
+    /// The facet's kind, one for every instrument's tuning.
+    var filterKind: CatalogFilterKind {
+        switch self {
+        case .key: .key
+        case .tuneType: .tuneType
+        case .mode: .mode
+        case .tuning: .tuning
+        case .genre: .genre
+        case .composer: .composer
+        case .learnedFrom: .learnedFrom
+        }
     }
 }

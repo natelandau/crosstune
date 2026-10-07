@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneStore
 import Foundation
@@ -20,6 +21,7 @@ public final class LoopPlayback {
     public private(set) var isRepeating = false
 
     @ObservationIgnored private let audio: any AudioPlayback
+    @ObservationIgnored private let analytics: AnalyticsClient
     /// Where the playback window starts on the source timeline.
     @ObservationIgnored private var trimStartMs: Int64 = 0
     @ObservationIgnored private var isReady = false
@@ -34,8 +36,9 @@ public final class LoopPlayback {
     /// What the audio player was last told, so a range it already plays is not sent again.
     @ObservationIgnored private var applied: PlaybackWindow??
 
-    init(audio: any AudioPlayback) {
+    init(audio: any AudioPlayback, analytics: AnalyticsClient = .noop) {
         self.audio = audio
+        self.analytics = analytics
     }
 
     /// The selected loop's row, or the one just made while the rows catch up.
@@ -159,7 +162,9 @@ public final class LoopPlayback {
         applied = nil
     }
 
+    /// Every call answers a selection the musician made, so a loop newly selected is one set.
     private func take(_ row: RecordingLoop) {
+        if row.id != selectedID { analytics.send(.loopSet) }
         selectedID = row.id
         apply()
         setRepeat(true)

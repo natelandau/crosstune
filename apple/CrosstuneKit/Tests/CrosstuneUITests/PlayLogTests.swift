@@ -270,6 +270,8 @@ private func link(
 
 @MainActor
 @Suite struct PlayerPlayLogTests {
+    private let suite = TemporaryDefaults("PlayLogTests")
+
     @Test func aRecordingPlayedFromARowIsLogged() async throws {
         let rig = ActivityRig()
         try await rig.playRecording(origin: .row)
@@ -353,9 +355,7 @@ private func link(
 
     @Test func listPlaybackLogsListContext() async throws {
         let rig = ActivityRig()
-        let playback = ListPlayback(
-            player: rig.player, commands: NoTrackCommands(),
-            defaults: try #require(UserDefaults(suiteName: "PlayLogTests.\(UUID().uuidString)")))
+        let playback = ListPlayback(player: rig.player, commands: NoTrackCommands(), defaults: suite.defaults)
         playback.resolve = { _, tuneID in
             ListPlayback.Turn(
                 title: "Tune \(tuneID)", item: .recording(loggedTake("r\(tuneID)", tuneID: tuneID), tuneTitle: nil))
@@ -373,9 +373,7 @@ private func link(
     }
 
     private func playlist(_ rig: ActivityRig, _ items: [String: PlayerItem]) throws -> ListPlayback {
-        let playback = ListPlayback(
-            player: rig.player, commands: NoTrackCommands(),
-            defaults: try #require(UserDefaults(suiteName: "PlayLogTests.\(UUID().uuidString)")))
+        let playback = ListPlayback(player: rig.player, commands: NoTrackCommands(), defaults: suite.defaults)
         playback.resolve = { _, tuneID in items[tuneID].map { ListPlayback.Turn(title: "Tune \(tuneID)", item: $0) } }
         return playback
     }

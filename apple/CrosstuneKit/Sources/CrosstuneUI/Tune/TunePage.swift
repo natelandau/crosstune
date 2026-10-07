@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 
@@ -65,6 +66,7 @@ extension View {
                 .toolbar {
                     ToolbarItem(placement: .principal) {
                         Text(title)
+                            .contentMask()
                             .font(.headline)
                             .lineLimit(1)
                             .opacity(shown ? 1 : 0)
@@ -175,6 +177,7 @@ struct TunePageColumn: View {
                     Image(systemName: "text.quote")
                         .foregroundStyle(.secondary)
                     Text(firstLine ?? TuneScreen.openLyrics)
+                        .contentMask()
                         .lineLimit(1)
                         .foregroundStyle(.primary)
                     Spacer(minLength: 8)
@@ -225,12 +228,14 @@ struct TunePageColumn: View {
             VStack(alignment: .leading, spacing: 6) {
                 if let learned = detail.learned() {
                     Text(learned)
+                        .contentMask()
                         .font(PageStyle.secondary)
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                 }
                 if let notes = detail.notes {
                     Text(notes)
+                        .contentMask()
                         .lineSpacing(3)
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
@@ -250,6 +255,7 @@ private struct TunePageHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(detail.tune.title)
+                .contentMask()
                 .font(PageStyle.pageTitle)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
@@ -259,9 +265,11 @@ private struct TunePageHeader: View {
                 VStack(alignment: .leading, spacing: 2) {
                     if let alternateTitles = detail.alternateTitles {
                         Text(alternateTitles)
+                            .contentMask()
                     }
                     if let composer = detail.tune.composer {
                         Text("\(TuneScreen.composerLabel): \(composer)")
+                            .contentMask()
                     }
                 }
                 .foregroundStyle(.secondary)
@@ -287,6 +295,7 @@ private struct TunePageHeader: View {
                 }
                 if !line.isEmpty {
                     Text(Self.breakingAfterDots(line))
+                        .contentMask()
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -333,6 +342,7 @@ private struct ListToken: View {
     var body: some View {
         OpensList(listID: membership.list.id) { _ in
             Label(membership.list.name, systemImage: Destination.lists.systemImage)
+                .contentMask()
                 .labelStyle(TokenLabelStyle())
                 .lineLimit(1)
                 .padding(.horizontal, 10)

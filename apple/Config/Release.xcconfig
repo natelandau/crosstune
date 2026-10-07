@@ -5,3 +5,6 @@
 CROSSTUNE_API_ORIGIN = https:/$()/api.crosstune.app
 // A publishable key is public by design: every build of the app carries it.
 CLERK_PUBLISHABLE_KEY = pk_live_Y2xlcmsuY3Jvc3N0dW5lLmFwcCQ // gitleaks:allow
+// A project token is public by design: every build of the app carries it.
+POSTHOG_PROJECT_TOKEN = phc_sQkPzziqUb5M7eWukSbUbBerrdKWkmfjoubcVx55yfK8 // gitleaks:allow
+POSTHOG_HOST = https:/$()/relay.crosstune.app

@@ -1,4 +1,5 @@
 import CoreTransferable
+import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 import UniformTypeIdentifiers
@@ -28,8 +29,8 @@ public struct ExportDataSheet: View {
         @State private var panelShown = false
     #endif
 
-    public init(store: CrosstuneStore?) {
-        _model = State(initialValue: ExportDataModel(exporter: store.map(Exporter.live)))
+    public init(store: CrosstuneStore?, analytics: AnalyticsClient) {
+        _model = State(initialValue: ExportDataModel(exporter: store.map(Exporter.live), analytics: analytics))
     }
 
     public var body: some View {

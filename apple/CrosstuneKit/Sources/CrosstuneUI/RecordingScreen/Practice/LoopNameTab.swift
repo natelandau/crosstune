@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 
@@ -39,6 +40,7 @@ struct LoopNameTab: View {
 
     private func face(_ name: String) -> some View {
         Text(name)
+            .contentMask()
             .font(.footnote.weight(.semibold))
             .lineLimit(1)
             .truncationMode(.tail)
@@ -76,6 +78,7 @@ struct LoopNameField: View {
 
     var body: some View {
         TextField(PracticeText.loopName, text: $text)
+            .contentMask()
             .textFieldStyle(.plain)
             .font(.footnote)
             .padding(.horizontal, 8)

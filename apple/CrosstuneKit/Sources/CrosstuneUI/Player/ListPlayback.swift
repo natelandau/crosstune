@@ -66,6 +66,9 @@ public final class ListPlayback: PlayerQueue {
     private var loadedGeneration: Int?
     /// Tunes skipped in a row since one last played through or the musician moved.
     @ObservationIgnored private var skips = 0
+    /// Whether the next tune loaded is one the musician asked for, rather than the playlist
+    /// moving on, so the player reports it as a start.
+    @ObservationIgnored private var startsNext = false
 
     public init(
         player: PlayerModel, commands: any TrackCommands, defaults: UserDefaults = .standard,
@@ -100,6 +103,7 @@ public final class ListPlayback: PlayerQueue {
         endMessage = nil
         player.queue = self
         commands.enable(next: { [weak self] in self?.next() }, previous: { [weak self] in self?.previous() })
+        startsNext = true
         playCurrent()
     }
 
@@ -118,6 +122,7 @@ public final class ListPlayback: PlayerQueue {
         guard turn == generation, isActive, order?.jump(to: tuneID) == true else { return true }
         skips = 0
         showCurrent()
+        startsNext = true
         load(resolved, turn: turn)
         return true
     }
@@ -244,7 +249,9 @@ public final class ListPlayback: PlayerQueue {
         // Refused only while a take is recording, which the playlist gives way to.
         let origin = listID.map { PlayOrigin.list(id: $0) } ?? .dock
         let nowPlaying = NowPlaying(title: resolved.title, tuneTitle: listName)
-        if !player.playQueued(resolved.item, nowPlaying: nowPlaying, origin: origin) {
+        let reportsStart = startsNext
+        startsNext = false
+        if !player.playQueued(resolved.item, nowPlaying: nowPlaying, origin: origin, reportsStart: reportsStart) {
             end()
         }
     }

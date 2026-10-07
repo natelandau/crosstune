@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 
@@ -73,6 +74,7 @@ public struct TuneRow: View {
             StatusGlyph(text.status)
             VStack(alignment: .leading, spacing: spacing.rowLineGap) {
                 Text(text.title)
+                    .contentMask()
                     .font(.body)
                     .rowLineLimit()
                 if !dynamicTypeSize.isAccessibilitySize { secondLine }

@@ -432,9 +432,9 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
 
 @Suite struct SettingsRootTests {
     @Test func everySettingsSectionHasOneHomeOnPhone() {
-        // Cards and footer, then what each category's page declares.
+        // The two cards, then what each category's page declares.
         var homes: [SettingsScreen.Sections] = SettingsCategory.allCases.flatMap { [$0.sections, $0.pageRows] }
-        homes += [[.account], [.stats], [.about]]
+        homes += [[.account], [.stats]]
         var seen: SettingsScreen.Sections = []
         for home in homes {
             #expect(seen.isDisjoint(with: home), "\(home) repeats a section")
@@ -477,7 +477,14 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         #expect(
             SettingsCategory.allCases.map(\.title) == [
                 "Instruments", "Music services", "Recording", Appearance.title, "Sync and storage",
+                SettingsScreen.about,
             ])
+    }
+
+    /// The usage data toggle lives in the About group, so a page the root opens must show it.
+    @Test func aRowOnTheRootOpensTheUsageDataToggle() {
+        let pages = SettingsCategory.allCases.filter { $0.sections.contains(.about) }
+        #expect(pages.count == 1)
     }
 }
 

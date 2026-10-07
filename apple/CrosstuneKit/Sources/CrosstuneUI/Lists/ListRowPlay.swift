@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import Foundation
@@ -264,6 +265,6 @@ struct ListRowPlayButton: View {
         if listPlayback?.isActive == true {
             player?.close()
         }
-        player?.play(item, origin: .list(id: listID))
+        player?.play(item, origin: .list(id: listID), source: .list)
     }
 }

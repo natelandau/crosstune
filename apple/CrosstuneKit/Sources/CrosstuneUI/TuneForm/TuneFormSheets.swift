@@ -95,7 +95,7 @@ struct TuneFormSheets: ViewModifier {
                     : nil
             )
             .sheet(item: $request) { request in
-                TuneFormSheet(target: .new(title: nil, listID: request.context.listID)) { tuneID in
+                TuneFormSheet(target: .new(title: nil, listID: request.context.listID, source: .menu)) { tuneID in
                     request.context.onSaved?(tuneID)
                 }
             }

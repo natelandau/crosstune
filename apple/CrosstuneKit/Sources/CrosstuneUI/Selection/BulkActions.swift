@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneVocabulary
@@ -93,10 +94,12 @@ public final class BulkActions {
     @ObservationIgnored public weak var undoManager: UndoManager?
 
     private let store: CrosstuneStore
+    private let analytics: AnalyticsClient
     static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "bulk")
 
-    public init(store: CrosstuneStore) {
+    public init(store: CrosstuneStore, analytics: AnalyticsClient = .noop) {
         self.store = store
+        self.analytics = analytics
     }
 
     /// Sets every tune's status.
@@ -105,6 +108,7 @@ public final class BulkActions {
         let patch = BulkPatch(userTune: BulkUserTunePatch(status: .value(status)))
         return await run { commands in
             let snapshots = try await commands.updateTunes(ids, patch: patch)
+            analytics.send(.bulkEditApplied(count: ids.count, fieldsChanged: patch.fields))
             return Undoable(
                 message: BulkActionText.statusSet(status, count: ids.count), actionName: BulkActionText.setStatus
             ) {
@@ -155,6 +159,7 @@ public final class BulkActions {
         let ids = entries.map(\.userTune.id)
         return await run(failure: \.editFailure) { commands in
             let snapshots = try await commands.updateTunes(ids, patch: patch)
+            analytics.send(.bulkEditApplied(count: ids.count, fieldsChanged: patch.fields))
             return Undoable(
                 message: BulkActionText.edited(ids.count), actionName: BulkActionText.editTitle(ids.count)
             ) {
@@ -345,5 +350,26 @@ private final class LatestAddition {
 
     init(_ value: ListAddition) {
         self.value = value
+    }
+}
+
+extension BulkPatch {
+    /// The names of the fields this patch writes, in the order ``TuneField`` lists them.
+    var fields: [TuneField] {
+        var fields: Set<TuneField> = []
+        if !userTune.status.isKeep { fields.insert(.status) }
+        if !tune.key.isKeep { fields.insert(.key) }
+        if !tune.modes.isKeep { fields.insert(.mode) }
+        if tunings.values.contains(where: { !$0.isKeep }) { fields.insert(.tuning) }
+        if !tune.genre.isKeep { fields.insert(.genre) }
+        if !tune.tuneType.isKeep { fields.insert(.tuneType) }
+        if !tune.timeSignature.isKeep { fields.insert(.timeSignature) }
+        if !tune.partStructure.isKeep { fields.insert(.partStructure) }
+        if !tune.composer.isKeep { fields.insert(.composer) }
+        if !tune.isCrooked.isKeep { fields.insert(.isCrooked) }
+        if !tune.lyrics.isKeep { fields.insert(.lyrics) }
+        if !userTune.learnedFrom.isKeep { fields.insert(.learnedFrom) }
+        if !userTune.learnedOn.isKeep { fields.insert(.learnedOn) }
+        return TuneField.allCases.filter(fields.contains)
     }
 }

@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import CrosstuneSync
 import SwiftUI
@@ -20,6 +21,7 @@ public struct RecordingsScreen: View {
         Group {
             if let model {
                 RecordingsContent(model: model)
+                    .screenView(.recordings)
             } else {
                 // Loading is silence.
                 Color.clear
@@ -280,7 +282,7 @@ private struct RecordingsContent: View {
         }
         .sheet(item: $filing, onDismiss: openCreated) { view in
             AddToTuneSheet(recordingID: view.id) { title in
-                creating = (view.id, .new(title: title))
+                creating = (view.id, .new(title: title, source: .recordingsList))
             }
         }
         .sheet(item: $form) { creating in
@@ -447,7 +449,9 @@ private struct RecordingsContent: View {
                 return item.id
             } set: { id in
                 guard let id, let view = model.view(id) else { return }
-                player.open(.recording(view.recording, tuneTitle: view.tuneTitle), in: window, playing: false)
+                player.open(
+                    .recording(view.recording, tuneTitle: view.tuneTitle), in: window, playing: false,
+                    source: .recordingsList)
             }
         #else
             nil
@@ -464,7 +468,8 @@ private struct RecordingsContent: View {
             let opensScreen = false
         #endif
         return RecordingItem(
-            view: view, tuneNamedAbove: view.tuneID != nil, storage: model.storage, sort: sort.sort,
+            view: view, source: .recordingsList, tuneNamedAbove: view.tuneID != nil, storage: model.storage,
+            sort: sort.sort,
             onOpenTune: opensTune ? open : nil, opensScreen: opensScreen
         ) { kind in
             retry(view.id, kind)
@@ -493,6 +498,7 @@ private struct RecordingsContent: View {
         } label: {
             HStack(spacing: 4) {
                 Text(tune.tuneTitle)
+                    .contentMask()
                     .lineLimit(1)
                 Image(systemName: "chevron.right")
                     .imageScale(.small)

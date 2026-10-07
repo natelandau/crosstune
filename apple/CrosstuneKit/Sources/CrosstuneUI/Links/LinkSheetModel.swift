@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneSync
@@ -31,6 +32,7 @@ public final class LinkSheetModel {
     public private(set) var failure: String?
 
     private let store: CrosstuneStore
+    private let analytics: AnalyticsClient
     private let resolve: Resolve?
     private let debounce: Duration
     /// The link as last typed, while it is waiting to be looked up or has been.
@@ -43,9 +45,11 @@ public final class LinkSheetModel {
     ///   - resolve: Nil when there is no server to ask, which saves as offline does.
     ///   - debounce: How long typing must pause before the link is looked up.
     public init(
-        store: CrosstuneStore, tuneID: String, resolve: Resolve?, debounce: Duration = .milliseconds(400)
+        store: CrosstuneStore, tuneID: String, resolve: Resolve?, debounce: Duration = .milliseconds(400),
+        analytics: AnalyticsClient = .noop
     ) {
         self.store = store
+        self.analytics = analytics
         self.tuneID = tuneID
         self.resolve = resolve
         self.debounce = debounce
@@ -129,6 +133,7 @@ public final class LinkSheetModel {
         do {
             try await Commands(store: store).addLink(tuneID: tuneID, link: input)
             isSaved = true
+            analytics.send(.linkAdded(service: LinkService(provider: input.provider), via: .paste))
             return true
         } catch {
             Self.logger.warning("A link save failed: \(error)")
@@ -161,5 +166,12 @@ public final class LinkSheetModel {
         return LinkInput(
             url: resolved?.url ?? url, provider: provider, providerRef: providerRef, title: resolved?.title,
             artworkURL: resolved?.artworkURL)
+    }
+}
+
+extension LinkService {
+    /// The service a stored provider names; one this build does not know is other.
+    init(provider: String) {
+        self = LinkService(rawValue: provider) ?? .other
     }
 }

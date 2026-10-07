@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneAuth
 import CrosstuneCommands
@@ -68,6 +69,9 @@ private struct ListContent: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.sidebarSelection) private var sidebarSelection
+    /// Whether this visit's screen view is sent, so a list back from a failed delete is not
+    /// counted again.
+    @State private var visited = false
 
     var body: some View {
         switch model.phase {
@@ -91,6 +95,7 @@ private struct ListContent: View {
             .navigationTitle(name)
         case .shown(let contents):
             ListTunes(model: model, list: contents.list, onDeleted: leave)
+                .screenView(.list, visit: $visited, stillShown: { model.phase.isShown })
         }
     }
 
@@ -197,7 +202,7 @@ private struct ListTunes: View {
             .sheet(isPresented: $picking, onDismiss: openCreated) {
                 TunePickerSheet(
                     listID: list.id,
-                    onCreate: { creating = .new(title: $0, listID: list.id) },
+                    onCreate: { creating = .new(title: $0, listID: list.id, source: .list) },
                     onLateFailure: model.report)
             }
             .sheet(isPresented: $showsWhatPlays, onDismiss: openChosen) {

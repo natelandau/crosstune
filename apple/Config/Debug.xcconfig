@@ -9,6 +9,9 @@ CROSSTUNE_API_ORIGIN = http:/$()/localhost:8000
 CROSSTUNE_STORAGE_ORIGIN = http:/$()/localhost:5173
 // A publishable key is public by design: every build of the app carries it.
 CLERK_PUBLISHABLE_KEY = pk_test_cHVtcGVkLXBvbGVjYXQtMTg2MC5jbGVyay5hY2NvdW50cy5kZXYk // gitleaks:allow
+// Only a Release build sends analytics, so development never reaches the production project.
+POSTHOG_PROJECT_TOKEN =
+POSTHOG_HOST =
 
 // Overrides for one machine, such as the Mac's LAN address for a device. Gitignored, and
 // read by Debug only, so no release build can pick up a developer's origin.

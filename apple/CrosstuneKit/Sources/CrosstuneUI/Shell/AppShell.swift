@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
@@ -17,6 +18,8 @@ public struct AppShell: View {
     private let recorders: RecorderHost
 
     @Environment(SyncEngine.self) private var engine: SyncEngine?
+    @Environment(\.analytics) private var analytics
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
     @State private var catalog: CatalogModel?
     @State private var recordings: RecordingsModel?
@@ -30,6 +33,7 @@ public struct AppShell: View {
     @State private var recordingsShown = 0
     @State private var place = ShellPlace()
     @State private var playerWindow = UUID()
+    @State private var standVisit = StandVisit()
     @State private var recentTake = RecentTake()
     #if os(iOS)
         @Environment(\.horizontalSizeClass) private var sizeClass
@@ -54,7 +58,7 @@ public struct AppShell: View {
             .modifier(LinkSheets())
             .modifier(
                 RecordSheets(
-                    take: $take, host: recorders, store: store, record: startRecording(tuneID:),
+                    take: $take, host: recorders, store: store, record: { startRecording(tuneID: $0, source: .tune) },
                     showRecordings: { recordingsShown += 1 })
             )
             .modifier(LyricsScreens())
@@ -75,8 +79,12 @@ public struct AppShell: View {
             .environment(\.recordCover, recordCover)
             .environment(\.selecting, selecting)
             .environment(\.playerWindow, playerWindow)
+            .environment(\.standVisit, standVisit)
             .environment(\.openCatalogRoot, MenuAction(id: ShellActionID.openCatalogRoot) { showCatalogRoot() })
-            .focusedSceneValue(\.recordAction, canRecord ? MenuAction(id: recordID, record) : nil)
+            .focusedSceneValue(
+                \.recordAction,
+                canRecord ? MenuAction(id: recordID) { startRecording(tuneID: nil, source: .menu) } : nil
+            )
             .focusedSceneValue(
                 \.syncNowAction,
                 engine.map { engine in
@@ -94,10 +102,20 @@ public struct AppShell: View {
                 catalog = CatalogModel(
                     store: store,
                     sort: UserDefaults.standard.string(forKey: CatalogSortChoice.storageKey)
-                        .flatMap(CatalogSortChoice.init(rawValue:)) ?? .default)
-                recordings = RecordingsModel(store: store)
+                        .flatMap(CatalogSortChoice.init(rawValue:)) ?? .default,
+                    analytics: analytics)
+                recordings = RecordingsModel(store: store, analytics: analytics)
                 counts = LiveQuery(store, initial: nil) { try CatalogCounts.fetch($0) }
             }
+            .onChange(of: scenePhase) {
+                if scenePhase == .background { catalog?.leftForeground() }
+            }
+            #if os(macOS)
+                .onAppQuit {
+                    catalog?.leftForeground()
+                    analytics.flush()
+                }
+            #endif
             .onAppear {
                 player.isCapturing = { [recorders] in recorders.isCapturing || Recorder.hasActiveCapture }
             }
@@ -146,18 +164,19 @@ public struct AppShell: View {
     }
 
     private func record() {
-        startRecording(tuneID: nil)
+        startRecording(tuneID: nil, source: .dock)
     }
 
     /// Opens the record sheet, unless another window's sheet has the microphone. The sheet
     /// takes the recorder only once it shows, so a presentation refused while another sheet
     /// is up holds nothing.
-    private func startRecording(tuneID: String?) {
+    private func startRecording(tuneID: String?, source: ActionSource) {
         guard RecordTake.mayReplace(take), recorders.isFree(for: store) else { return }
         // Playback would be recorded along with the instrument.
         PlayerBar.closePlayer(player, listPlayback)
         let model = RecordSheetModel(
-            recorder: recorders.recorder(for: store), tuneID: tuneID, recentTake: recentTakeForPlatform)
+            recorder: recorders.recorder(for: store), tuneID: tuneID, recentTake: recentTakeForPlatform, source: source,
+            analytics: analytics)
         take = RecordTake(model: model)
         #if os(iOS)
             Task { await model.loadTuneTitle(from: store) }

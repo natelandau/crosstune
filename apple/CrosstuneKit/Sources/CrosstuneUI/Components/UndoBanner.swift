@@ -39,7 +39,9 @@ public struct UndoBanner: View {
 
     public var body: some View {
         HStack(spacing: spacing(12)) {
+            // Messages name lists and tunes.
             Text(message)
+                .contentMask()
                 .font(.subheadline)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)

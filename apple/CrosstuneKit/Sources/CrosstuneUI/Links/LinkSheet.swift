@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import CrosstuneSync
 import CrosstuneVocabulary
@@ -14,6 +15,7 @@ public struct LinkSheet: View {
     private let tuneID: String
 
     @Environment(\.store) private var store
+    @Environment(\.analytics) private var analytics
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @State private var model: LinkSheetModel?
 
@@ -48,7 +50,7 @@ public struct LinkSheet: View {
         #endif
         .task {
             guard model == nil, let store else { return }
-            model = LinkSheetModel(store: store, tuneID: tuneID, resolve: resolver)
+            model = LinkSheetModel(store: store, tuneID: tuneID, resolve: resolver, analytics: analytics)
         }
     }
 }
@@ -63,6 +65,7 @@ private struct LinkForm: View {
         Form {
             Section {
                 TextField(LinkSheet.linkHeader, text: urlBinding, prompt: Text(LinkSheet.linkPlaceholder))
+                    .contentMask()
                     .characterLimit(Vocabulary.Limits.Link.url, text: urlBinding)
                     #if os(iOS)
                         .textContentType(.URL)

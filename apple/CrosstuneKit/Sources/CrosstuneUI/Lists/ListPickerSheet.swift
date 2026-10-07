@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import CrosstuneVocabulary
 import SwiftUI
@@ -14,6 +15,7 @@ public struct ListPickerSheet: View {
     private let request: ListPickerRequest
 
     @Environment(\.store) private var store
+    @Environment(\.analytics) private var analytics
     @State private var model: ListPickerModel?
 
     public init(request: ListPickerRequest) {
@@ -43,7 +45,8 @@ public struct ListPickerSheet: View {
         .task {
             guard model == nil, let store else { return }
             model = ListPickerModel(
-                store: store, userTuneIDs: request.userTuneIDs, excludeListID: request.excludeListID)
+                store: store, userTuneIDs: request.userTuneIDs, excludeListID: request.excludeListID,
+                analytics: analytics)
         }
     }
 }
@@ -66,6 +69,7 @@ private struct ListPickerContent: View {
                         } label: {
                             HStack {
                                 Text(row.name)
+                                    .contentMask()
                                     .rowLineLimit()
                                 Spacer()
                                 if let note = row.note {
@@ -104,6 +108,7 @@ private struct ListPickerContent: View {
                 TextField(
                     ListPickerSheet.newListNameLabel, text: $model.newName, prompt: Text(ListNameSheet.placeholder)
                 )
+                .contentMask()
                 .characterLimit(Vocabulary.Limits.List.name, text: $model.newName)
                 .focused($nameFocused)
                 .submitLabel(.done)

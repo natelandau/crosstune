@@ -56,6 +56,7 @@ private struct CatalogContent: View {
     var body: some View {
         let results = model.results
         list(results)
+            .screenView(.catalog)
             .keepsScrollAnchor(rows: results?.visible.map(\.id) ?? [])
             #if os(macOS)
                 .macColumnList()
@@ -110,6 +111,10 @@ private struct CatalogContent: View {
             }
             .onAppear { isShown = true }
             .onDisappear { isShown = false }
+            // Opening a tune, by a row, Return, or the list's selection, ends the search behind it.
+            .onChange(of: pushed ?? detailTune?.value) { _, opened in
+                if opened != nil { model.searchResultOpened() }
+            }
             // Another window's choice reaches this one through the shared defaults.
             .onChange(of: sort, initial: true) { model.sort = sort }
             // History reaches the device only on request, and only Last played needs it.
@@ -288,6 +293,7 @@ private struct CatalogContent: View {
         if case .create(let typed, false, _) = results.outcome { title = CatalogScreen.noTuneCalled(typed) }
         return ContentUnavailableView {
             Label(title, systemImage: Destination.catalog.systemImage)
+                .contentMask()
         } description: {
             if noTunes {
                 Text(CatalogScreen.noTunesHint)
@@ -300,6 +306,7 @@ private struct CatalogContent: View {
             }
             if let offer = results.outcome.offerLabel, let typed = results.outcome.title {
                 Button(offer) { createFromSearch(typed) }
+                    .contentMask()
                     .buttonStyle(.slateProminent)
             } else if noTunes {
                 Button(CatalogScreen.addTune) { form = model.newTune() }

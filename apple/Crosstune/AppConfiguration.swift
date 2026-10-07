@@ -7,6 +7,9 @@ struct AppConfiguration {
     let clientVersion: String
     /// Set only by a Debug build, for a local API's `/storage/...` URLs.
     let storageOrigin: URL?
+    /// Set only by a Release build, so no other build sends analytics.
+    let postHogToken: String?
+    let postHogHost: URL?
 
     static let main = AppConfiguration(bundle: .main)
 
@@ -23,7 +26,12 @@ struct AppConfiguration {
         apiOrigin = origin
         clerkPublishableKey = value("ClerkPublishableKey")
         clientVersion = value("CFBundleShortVersionString")
-        let storage = bundle.object(forInfoDictionaryKey: "CrosstuneStorageOrigin") as? String ?? ""
-        storageOrigin = storage.isEmpty ? nil : URL(string: storage)
+        func optional(_ key: String) -> String? {
+            guard let value = bundle.object(forInfoDictionaryKey: key) as? String, !value.isEmpty else { return nil }
+            return value
+        }
+        storageOrigin = optional("CrosstuneStorageOrigin").flatMap(URL.init(string:))
+        postHogToken = optional("PostHogProjectToken")
+        postHogHost = optional("PostHogHost").flatMap(URL.init(string:))
     }
 }

@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import SwiftUI
 
@@ -48,7 +49,7 @@ struct ShellControls: ViewModifier {
                 \.goToRecordingAction,
                 isActive && player.item?.kind == .recording
                     ? MenuAction(id: ShellActionID.goToRecording(player: ObjectIdentifier(player), window: window)) {
-                        player.expand(in: window)
+                        player.expand(in: window, source: .menu)
                     } : nil
             )
             .focusedSceneValue(

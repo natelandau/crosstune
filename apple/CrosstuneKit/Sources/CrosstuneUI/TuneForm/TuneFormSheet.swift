@@ -1,11 +1,12 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import CrosstuneVocabulary
 import SwiftUI
 
 /// What the tune form opens on: a new tune, perhaps with a title typed into a search and a list
-/// it lands in, or an existing tune to edit.
+/// it lands in, or an existing tune to edit. A new tune names where it was asked for.
 public enum TuneFormTarget: Hashable, Identifiable, Sendable {
-    case new(title: String?, listID: String? = nil)
+    case new(title: String?, listID: String? = nil, source: ActionSource)
     case edit(tuneID: String, userTuneID: String)
 
     public var id: Self { self }
@@ -26,6 +27,7 @@ public struct TuneFormSheet: View {
     private let onSaved: (_ tuneID: String) -> Void
 
     @Environment(\.store) private var store
+    @Environment(\.analytics) private var analytics
     @State private var model: TuneFormModel?
 
     /// - Parameter onSaved: Runs once a save lands, with the saved tune's id.
@@ -52,7 +54,7 @@ public struct TuneFormSheet: View {
         .macSheetFrame(.longForm)
         .task {
             guard model == nil, let store else { return }
-            let model = TuneFormModel(store: store, target: target)
+            let model = TuneFormModel(store: store, target: target, analytics: analytics)
             await model.load()
             self.model = model
         }
@@ -130,6 +132,7 @@ private struct TuneFormContent: View {
                     TuneFieldLabels.notes, text: $model.values.notes,
                     prompt: Text(TuneFieldLabels.notesPlaceholder), axis: .vertical
                 )
+                .contentMask()
                 .lineLimit(3...)
                 .characterLimit(Vocabulary.Limits.Tune.notes, text: $model.values.notes)
             }
@@ -152,6 +155,7 @@ private struct TuneFormContent: View {
                 },
                 prompt: Text(TuneFieldLabels.title)
             )
+            .contentMask()
             .characterLimit(Vocabulary.Limits.Tune.title, text: $model.values.title)
             .focused($titleFocused)
             .submitLabel(.done)
@@ -171,6 +175,7 @@ private struct TuneFormContent: View {
                     TuneFieldLabels.alternateTitles, text: $model.values.alternateTitles,
                     prompt: Text(TuneFieldLabels.notSet)
                 )
+                .contentMask()
                 .multilineTextAlignment(.trailing)
             }
             SuggestionPicker(

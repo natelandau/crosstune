@@ -13,7 +13,7 @@ private final class ViewsRecorded {
     private(set) var views: [ScanView] = []
 
     var writer: ScanViewWriter {
-        ScanViewWriter(owner: ObjectIdentifier(self)) { [self] in views.append($0) }
+        ScanViewWriter { [self] in views.append($0) }
     }
 }
 
@@ -24,10 +24,11 @@ private struct ScanViewRig {
     let recorded = ViewsRecorded()
     let log: ScanViewLog
 
-    init() {
+    init(isForeground: Bool = true) {
         let clock = clock
-        log = ScanViewLog(clock: { clock.instant }, now: { clock.date })
-        log.writer = recorded.writer
+        log = ScanViewLog(
+            writer: recorded.writer, analytics: .noop, isForeground: isForeground, clock: { clock.instant },
+            now: { clock.date })
     }
 
     var viewedMs: [Int64] { recorded.views.map(\.viewedMs) }
@@ -144,24 +145,14 @@ private struct ScanViewRig {
         #expect(rig.viewedMs == [4_000, 3_000])
     }
 
-    @Test func anotherStoresWriterDropsTheOpenView() {
-        let rig = ScanViewRig()
+    @Test func aLogMadeInTheBackgroundTimesNothingUntilTheForeground() {
+        let rig = ScanViewRig(isForeground: false)
         rig.log.start(tuneID: "t1", origin: .tune)
         rig.clock.advance(30_000)
-        let other = ViewsRecorded()
-        rig.log.writer = other.writer
+        rig.log.foreground(true)
+        rig.clock.advance(3_000)
         rig.log.end()
-        #expect(rig.recorded.views.isEmpty)
-        #expect(other.views.isEmpty)
-    }
-
-    @Test func theSameStoresWriterKeepsTheOpenView() {
-        let rig = ScanViewRig()
-        rig.log.start(tuneID: "t1", origin: .tune)
-        rig.clock.advance(30_000)
-        rig.log.writer = rig.recorded.writer
-        rig.log.end()
-        #expect(rig.viewedMs == [30_000])
+        #expect(rig.viewedMs == [3_000])
     }
 }
 

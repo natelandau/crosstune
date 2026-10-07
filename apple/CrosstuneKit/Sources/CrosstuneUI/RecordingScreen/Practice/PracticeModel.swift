@@ -95,8 +95,14 @@ final class PracticeModel {
     /// The recording's tune's part structure, for name suggestions.
     var partStructure: String?
     /// The mode whose controls show under the waveform, which the mode panel reads and sets;
-    /// the screen keeps it as device state.
-    var mode: PracticeMode
+    /// the screen keeps it as device state. Leaving a mode closes its panel.
+    var mode: PracticeMode {
+        didSet {
+            guard mode != oldValue else { return }
+            closePanel(oldValue)
+            openPanel()
+        }
+    }
     private(set) var drafts: [String: Draft] = [:]
     /// The draft a gesture or a held key is still drawing, which waits for it to end.
     var activeKey: String?
@@ -150,6 +156,9 @@ final class PracticeModel {
     /// What the open name field holds, so a touch elsewhere can save it without waiting on focus.
     @ObservationIgnored private var renameDraft: String?
     @ObservationIgnored private var writes: [UUID: Task<Void, Never>] = [:]
+    /// The speed or pitch the open panel showed as it opened, which it is reported against as
+    /// it closes, so a slider dragged through many values reports only where it stopped.
+    @ObservationIgnored private var panelOpenedOn: Int?
 
     init(
         player: PlayerModel, recording: Recording, file: RecordingFile?, writer: LoopWriter,
@@ -413,11 +422,13 @@ final class PracticeModel {
     /// to the recording, however often it shows again in between.
     func enter(screen: UUID? = nil) {
         player.screenOpened(recording.id, by: screen)
+        openPanel()
     }
 
     /// The screen is going: a nudge and a name field that lost focus are written, a scrub lands
     /// where it was dragged, and a handle's drag comes to nothing.
     func leave() {
+        closePanel(mode)
         commitNudge()
         flushBlur()
         if activeScrub != nil { settleScrub(at: scrubbingMs) }
@@ -425,6 +436,34 @@ final class PracticeModel {
         renaming = nil
         activeKey = nil
         autoPan = 0
+    }
+
+    private func panelValue(_ mode: PracticeMode) -> Int? {
+        switch mode {
+        case .loops: nil
+        case .speed: player.speedPercent
+        case .pitch: player.pitchCents
+        }
+    }
+
+    private func openPanel() {
+        panelOpenedOn = panelValue(mode)
+    }
+
+    private func closePanel(_ mode: PracticeMode) {
+        defer { panelOpenedOn = nil }
+        guard let opened = panelOpenedOn, let value = panelValue(mode) else { return }
+        switch mode {
+        case .loops: break
+        case .speed:
+            if value != opened { player.analytics.send(.speedChanged(rate: Double(value) / 100)) }
+        case .pitch:
+            // Reported in whole semitones, so a few cents either way is no change.
+            let semitones = PitchSplit(cents: value).semitones
+            if semitones != PitchSplit(cents: opened).semitones {
+                player.analytics.send(.pitchChanged(semitones: semitones))
+            }
+        }
     }
 
     /// The screen's Escape and exit command: closes the name field, else deselects, and only

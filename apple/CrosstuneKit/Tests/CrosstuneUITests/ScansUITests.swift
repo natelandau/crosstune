@@ -324,7 +324,7 @@ private func jpeg(width: Int, height: Int) -> Data {
         try await eventually { model.scans.scans.count == 18 }
 
         let picks = (0..<5).map { index in ScanPick(name: "scan \(index)") { preparedScan } }
-        await model.scans.add(picks)
+        await model.scans.add(picks, via: .file)
 
         try await eventually { model.scans.scans.count == maxScansPerTune }
         #expect(model.scans.failure == ScanCopy.scansNotAdded(3))
@@ -339,11 +339,12 @@ private func jpeg(width: Int, height: Int) -> Data {
         let model = TuneModel(store: store, tuneID: tuneID)
         try await eventually { model.shown != nil }
 
-        await model.scans.add([
-            ScanPick(name: "first.jpg") { preparedScan },
-            ScanPick.data(name: "broken.heic") { Data([0x00, 0x01, 0x02]) },
-            ScanPick(name: "third.jpg") { preparedScan },
-        ])
+        await model.scans.add(
+            [
+                ScanPick(name: "first.jpg") { preparedScan },
+                ScanPick.data(name: "broken.heic") { Data([0x00, 0x01, 0x02]) },
+                ScanPick(name: "third.jpg") { preparedScan },
+            ], via: .file)
 
         try await eventually { model.scans.scans.count == 2 }
         #expect(model.scans.failure == ScanCopy.unreadable(["broken.heic"]))
@@ -360,7 +361,7 @@ private func jpeg(width: Int, height: Int) -> Data {
         try jpeg(width: 300, height: 400).write(to: picked)
         let missing = root.url.appending(path: "gone.png")
 
-        await model.scans.add([ScanPick.file(picked), ScanPick.file(missing)])
+        await model.scans.add([ScanPick.file(picked), ScanPick.file(missing)], via: .file)
 
         try await eventually { model.scans.scans.count == 1 }
         let scan = try #require(model.scans.scans.first)

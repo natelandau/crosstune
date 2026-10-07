@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneCommands
 import SwiftUI
@@ -67,6 +68,7 @@ struct WhatPlaysSheet: View {
                                 dismiss()
                             } label: {
                                 Text(titles[id] ?? "")
+                                    .contentMask()
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .contentShape(.rect)
                             }

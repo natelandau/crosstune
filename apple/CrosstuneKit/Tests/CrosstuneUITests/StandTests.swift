@@ -1,5 +1,6 @@
 import CoreGraphics
 import CrosstuneStore
+import SwiftUI
 import Testing
 
 @testable import CrosstuneUI
@@ -78,5 +79,42 @@ import Testing
         #expect(ReadingChoice.segments(both) == [.scans, .lyrics])
         #expect(ReadingChoice.segments(scansOnly).isEmpty)
         #expect(ReadingChoice.segments(lyricsOnly).isEmpty)
+    }
+}
+
+/// The stand reports `stand_opened` and its screen once per visit to an item, though a size
+/// change that swaps the shell takes it away and brings it back.
+@MainActor
+@Suite struct StandVisitTests {
+    let reel = PlayerItem(kind: .recording, id: "r1", title: "Reel")
+    let jig = PlayerItem(kind: .recording, id: "r2", title: "Jig")
+
+    @Test func aStandBackFromASizeChangeIsTheSameVisit() {
+        let visit = StandVisit()
+        #expect(!visit.binding(for: reel).wrappedValue)
+        visit.binding(for: reel).wrappedValue = true
+
+        #expect(visit.binding(for: reel).wrappedValue)
+    }
+
+    @Test func anotherItemIsANewVisit() {
+        let visit = StandVisit()
+        visit.binding(for: reel).wrappedValue = true
+
+        #expect(!visit.binding(for: jig).wrappedValue)
+    }
+
+    @Test func closingThePlayerEndsTheVisit() {
+        let visit = StandVisit()
+        visit.binding(for: reel).wrappedValue = true
+        visit.binding(for: reel).wrappedValue = false
+
+        #expect(!visit.binding(for: reel).wrappedValue)
+    }
+
+    @Test func endsOnlyWhenThePlayerNoLongerShowsTheItem() {
+        #expect(!StandVisit.ends(isExpanded: true, hasItem: true))
+        #expect(StandVisit.ends(isExpanded: false, hasItem: true))
+        #expect(StandVisit.ends(isExpanded: true, hasItem: false))
     }
 }

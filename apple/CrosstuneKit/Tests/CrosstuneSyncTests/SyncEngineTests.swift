@@ -374,7 +374,7 @@ import Testing
     @Test func reportsOnlyACleanRunAsSynced() async throws {
         let engine = engine()
         let synced = Counter()
-        engine.onSynced = { synced.count += 1 }
+        engine.onSynced = { _ in synced.count += 1 }
 
         api.failure = APIStatusError(status: 401)
         await engine.sync()
@@ -436,6 +436,20 @@ import Testing
         #expect(engine.status == .idle)
         #expect(engine.lastSyncedAt != nil)
         #expect(try await store.meta(.storage, as: StorageFigures.self) == nil)
+    }
+
+    @Test func reportsWhetherTheRunStoredTheStorageFigures() async throws {
+        let engine = engine()
+        var stored: [Bool] = []
+        engine.onSynced = { stored.append($0) }
+
+        api.storageFailure = APIStatusError(status: 500)
+        await engine.sync()
+        api.storageFailure = nil
+        await engine.sync()
+
+        #expect(stored == [false, true])
+        engine.stop()
     }
 
     @Test func failsTheRunWhenTheStorageFiguresAreRefused() async throws {

@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneSync
@@ -170,6 +171,7 @@ public final class FindRecordingsModel {
     public private(set) var playing: String?
 
     private let store: CrosstuneStore
+    private let analytics: AnalyticsClient
     private let search: Search?
     private let country: String
     private let stopPlayer: @MainActor () -> Void
@@ -201,9 +203,11 @@ public final class FindRecordingsModel {
     ///   - stopPlayer: Stops the app's own player, so one thing plays at a time.
     public init(
         store: CrosstuneStore, tuneID: String, service: String? = nil, search: Search?,
-        country: String = deviceCountry, stopPlayer: @escaping @MainActor () -> Void = {}
+        country: String = deviceCountry, stopPlayer: @escaping @MainActor () -> Void = {},
+        analytics: AnalyticsClient = .noop
     ) {
         self.store = store
+        self.analytics = analytics
         self.tuneID = tuneID
         self.shown = service
         self.isDirect = service != nil
@@ -316,6 +320,7 @@ public final class FindRecordingsModel {
             artworkURL: result.artworkURL)
         do {
             _ = try await Commands(store: store).addLink(tuneID: tuneID, link: input)
+            analytics.send(.linkAdded(service: LinkService(provider: input.provider), via: .find))
         } catch {
             Self.logger.warning("A found recording's link failed: \(error)")
             claimed.remove(result.url)
@@ -375,6 +380,8 @@ public final class FindRecordingsModel {
         isSearching = false
         if case .ok(let found) = outcome {
             group = found.first { $0.provider == provider }
+            analytics.send(
+                .findRecordingsUsed(service: LinkService(provider: provider), resultCount: group?.results.count ?? 0))
         } else {
             failure = Self.message(outcome)
         }

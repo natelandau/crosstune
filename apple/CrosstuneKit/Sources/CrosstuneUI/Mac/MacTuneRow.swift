@@ -1,4 +1,5 @@
 #if os(macOS)
+    import CrosstuneAnalytics
     import SwiftUI
 
     /// The Mac tune row on one line: position in a list, status glyph, title, tunings, then the
@@ -25,6 +26,7 @@
                     }
                     StatusGlyph(text.status)
                     Text(text.title)
+                        .contentMask()
                         .font(MacStyle.body)
                         .lineLimit(1)
                         .layoutPriority(1)

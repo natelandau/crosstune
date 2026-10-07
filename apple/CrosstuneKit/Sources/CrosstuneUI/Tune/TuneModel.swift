@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import Foundation
@@ -19,6 +20,10 @@ public final class TuneModel {
         case deleting(title: String)
         /// The tune is not in the catalog, or was deleted elsewhere.
         case gone
+
+        var isShown: Bool {
+            if case .shown = self { true } else { false }
+        }
     }
 
     /// Where a failed write reports: beside the control that made it.
@@ -48,14 +53,14 @@ public final class TuneModel {
     private var deletingTitle: String?
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "tune")
 
-    public init(store: CrosstuneStore, tuneID: String) {
+    public init(store: CrosstuneStore, tuneID: String, analytics: AnalyticsClient = .noop) {
         self.store = store
         self.tuneID = tuneID
         let settingsRow = settingsID(clerkUserID: store.userID)
         detail = LiveQuery(store, initial: nil) { db in
             .some(try TuneDetail.fetch(db, tuneID: tuneID, settingsID: settingsRow))
         }
-        scans = ScansModel(store: store, tuneID: tuneID)
+        scans = ScansModel(store: store, tuneID: tuneID, analytics: analytics)
     }
 
     public var phase: Phase {
