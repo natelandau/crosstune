@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { clamp } from '../../math'
+import { createStoredValue, readStored } from '../../platform/storage'
 
 export const LYRICS_STEPS = 6
 export const DEFAULT_LYRICS_STEP = 4
@@ -16,40 +17,21 @@ function clampStep(step: number): number {
   return clamp(Math.round(step), 1, LYRICS_STEPS)
 }
 
+function parseStep(raw: string | null): number {
+  const stored = Number(raw)
+  return Number.isInteger(stored) && stored >= 1 && stored <= LYRICS_STEPS
+    ? stored
+    : DEFAULT_LYRICS_STEP
+}
+
 export function readLyricsStep(): number {
-  try {
-    const stored = Number(localStorage.getItem(LYRICS_SIZE_KEY))
-    return Number.isInteger(stored) && stored >= 1 && stored <= LYRICS_STEPS
-      ? stored
-      : DEFAULT_LYRICS_STEP
-  } catch {
-    return DEFAULT_LYRICS_STEP
-  }
+  return parseStep(readStored(LYRICS_SIZE_KEY))
 }
 
-// Storage is read once. After that the value in memory is what the screen shows, so a step
-// chosen while storage is blocked still reads as chosen until the page reloads.
-let step: number | undefined
-
-function current(): number {
-  return (step ??= readLyricsStep())
-}
-
-const listeners = new Set<() => void>()
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
+const step = createStoredValue({ key: LYRICS_SIZE_KEY, parse: parseStep, serialize: String })
 
 export function setLyricsStep(next: number): void {
-  step = clampStep(next)
-  try {
-    localStorage.setItem(LYRICS_SIZE_KEY, String(step))
-  } catch {
-    // Private mode or blocked storage: the step still applies until the page reloads.
-  }
-  for (const listener of listeners) listener()
+  step.set(clampStep(next))
 }
 
 /**
@@ -57,10 +39,10 @@ export function setLyricsStep(next: number): void {
  * read the same rendered step, so a caller that adds to its own copy loses the first press.
  */
 export function stepLyricsSize(by: number): number {
-  setLyricsStep(current() + by)
-  return current()
+  setLyricsStep(step.get() + by)
+  return step.get()
 }
 
 export function useLyricsStep(): number {
-  return useSyncExternalStore(subscribe, current)
+  return useSyncExternalStore(step.subscribe, step.get)
 }

@@ -17,6 +17,7 @@ import { useLocation } from 'react-router'
 import { NowPlayingSlot } from './NowPlayingSlot'
 import { PaneScroller } from './pane'
 import { clamp } from '../math'
+import { readStored, writeStored } from '../platform/storage'
 
 export const COLUMN_WIDTH = 'Column width'
 
@@ -29,21 +30,12 @@ const WIDTH_KEY = 'crosstune.columnWidth'
 const clampWidth = (width: number) => clamp(Math.round(width), COLUMN_MIN, COLUMN_MAX)
 
 function readWidth(): number {
-  try {
-    const stored = Number(localStorage.getItem(WIDTH_KEY))
-    return stored > 0 ? clampWidth(stored) : COLUMN_DEFAULT
-  } catch {
-    return COLUMN_DEFAULT
-  }
+  const stored = Number(readStored(WIDTH_KEY))
+  return stored > 0 ? clampWidth(stored) : COLUMN_DEFAULT
 }
 
-function writeWidth(width: number) {
-  try {
-    localStorage.setItem(WIDTH_KEY, String(width))
-  } catch {
-    // Storage can be blocked; the width still holds for this page load.
-  }
-}
+// Blocked storage drops the write; the width still holds for this page load.
+const writeWidth = (width: number) => writeStored(WIDTH_KEY, String(width))
 
 /** The content column sits at the inline start, so in a right-to-left page the arrows flip. */
 const inlineSign = (element: Element) => (getComputedStyle(element).direction === 'rtl' ? -1 : 1)

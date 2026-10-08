@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useLocation, useNavigate, useNavigationType, type Location } from 'react-router'
 import { useLatest } from '../ui/useLatest'
+import { readStored, writeStored } from '../platform/storage'
 
 const STORAGE_KEY = 'crosstune.backTrail'
 // Enough entries for any Back a person walks; the oldest go first so storage stays small.
@@ -9,7 +10,7 @@ const LIMIT = 200
 /** Reads the session's mirror of the trail, dropping anything malformed. */
 export function readStoredTrail(): Map<string, string> {
   try {
-    const parsed: unknown = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? '[]')
+    const parsed: unknown = JSON.parse(readStored(STORAGE_KEY, 'session') ?? '[]')
     if (!Array.isArray(parsed)) return new Map()
     return new Map(
       parsed.filter(
@@ -37,11 +38,8 @@ function record(key: string, from: string) {
     if (entered.size <= LIMIT) break
     entered.delete(oldest)
   }
-  try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify([...entered]))
-  } catch {
-    // Storage can be blocked; the in-memory map still serves this page load.
-  }
+  // Blocked storage drops the write; the in-memory map still serves this page load.
+  writeStored(STORAGE_KEY, JSON.stringify([...entered]), 'session')
 }
 
 const trimSlash = (path: string) => (path.length > 1 ? path.replace(/\/+$/, '') : path)

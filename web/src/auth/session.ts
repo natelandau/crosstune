@@ -1,76 +1,44 @@
+import { readStored, writeStored } from '../platform/storage'
+
 const KEY = 'crosstune.lastUserId'
 
+/** Blocked storage drops the write: the app still works, it just cannot open offline. */
 export function rememberUser(userId: string): void {
-  try {
-    localStorage.setItem(KEY, userId)
-  } catch {
-    // Private mode or blocked storage: the app still works, it just cannot open offline.
-  }
+  writeStored(KEY, userId)
 }
 
 export function rememberedUser(): string | null {
-  try {
-    return localStorage.getItem(KEY)
-  } catch {
-    return null
-  }
+  return readStored(KEY)
 }
 
 export function forgetUser(): void {
-  try {
-    localStorage.removeItem(KEY)
-  } catch {
-    // Nothing to forget if storage is unavailable.
-  }
+  writeStored(KEY, null)
 }
 
 const ACCOUNT_DELETED_KEY = 'crosstune.accountDeleted'
 
 /** Marks that the account is gone, so the sign-in screen shows its notice until someone signs in. */
 export function markAccountDeleted(): void {
-  try {
-    sessionStorage.setItem(ACCOUNT_DELETED_KEY, '1')
-  } catch {
-    // Private mode or blocked storage: the notice is best-effort.
-  }
+  writeStored(ACCOUNT_DELETED_KEY, '1', 'session')
 }
 
 export function hasAccountDeletedNotice(): boolean {
-  try {
-    return sessionStorage.getItem(ACCOUNT_DELETED_KEY) !== null
-  } catch {
-    return false
-  }
+  return readStored(ACCOUNT_DELETED_KEY, 'session') !== null
 }
 
 export function clearAccountDeletedNotice(): void {
-  try {
-    sessionStorage.removeItem(ACCOUNT_DELETED_KEY)
-  } catch {
-    // Nothing to clear if storage is unavailable.
-  }
+  writeStored(ACCOUNT_DELETED_KEY, null, 'session')
 }
 
 const SIGNED_OUT_KEY = 'crosstune.signedOutUser'
 const signOutListeners = new Set<() => void>()
 // Mirrored in memory so the flag holds for this page even where storage is blocked; storage
 // carries it across a reload.
-let signedOutUser: string | null = (() => {
-  try {
-    return sessionStorage.getItem(SIGNED_OUT_KEY)
-  } catch {
-    return null
-  }
-})()
+let signedOutUser: string | null = readStored(SIGNED_OUT_KEY, 'session')
 
 function setSignedOutUser(userId: string | null): void {
   signedOutUser = userId
-  try {
-    if (userId === null) sessionStorage.removeItem(SIGNED_OUT_KEY)
-    else sessionStorage.setItem(SIGNED_OUT_KEY, userId)
-  } catch {
-    // The in-memory copy still holds for this page.
-  }
+  writeStored(SIGNED_OUT_KEY, userId, 'session')
   for (const listener of signOutListeners) listener()
 }
 

@@ -1,5 +1,6 @@
 import { TABS } from './tabs'
 import type { LucideIcon } from 'lucide-react'
+import { readStored as readStorage, writeStored } from '../platform/storage'
 
 export type Destination = 'catalog' | 'lists' | 'recordings' | 'settings'
 
@@ -33,7 +34,7 @@ export function destinationOf(pathname: string): Destination | null {
 /** Reads the session's mirror, dropping anything malformed or filed under the wrong destination. */
 export function readStored(): Partial<Record<Destination, string>> {
   try {
-    const parsed: unknown = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? '{}')
+    const parsed: unknown = JSON.parse(readStorage(STORAGE_KEY, 'session') ?? '{}')
     if (typeof parsed !== 'object' || parsed === null) return {}
     const memory: Partial<Record<Destination, string>> = {}
     for (const { id } of DESTINATIONS) {
@@ -52,11 +53,8 @@ let memory = readStored()
 
 export function rememberLocation(destination: Destination, location: string) {
   memory[destination] = location
-  try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(memory))
-  } catch {
-    // Storage can be blocked; the in-memory map still serves this page load.
-  }
+  // Blocked storage drops the write; the in-memory map still serves this page load.
+  writeStored(STORAGE_KEY, JSON.stringify(memory), 'session')
 }
 
 export function rememberedLocation(destination: Destination): string | undefined {

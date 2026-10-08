@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { matches } from '../../platform/mediaQuery'
+import { createStoredValue, onOtherTabWrite, readStored } from '../../platform/storage'
 
 export const APPEARANCES = ['system', 'light', 'dark'] as const
 export type Appearance = (typeof APPEARANCES)[number]
@@ -24,29 +25,19 @@ export const TEXT_SIZE_LABELS: Record<TextSize, string> = {
 export const APPEARANCE_KEY = 'crosstune.appearance'
 export const TEXT_SIZE_KEY = 'crosstune.textSize'
 
-function read<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
-  try {
-    const value = localStorage.getItem(key)
-    return allowed.includes(value as T) ? (value as T) : fallback
-  } catch {
-    return fallback
-  }
+function parseChoice<T extends string>(allowed: readonly T[], fallback: T) {
+  return (raw: string | null): T => (allowed.includes(raw as T) ? (raw as T) : fallback)
 }
 
-function write(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value)
-  } catch {
-    // Private mode or blocked storage: the choice still applies until the page reloads.
-  }
-}
+const parseAppearance = parseChoice(APPEARANCES, 'system')
+const parseTextSize = parseChoice(TEXT_SIZES, 'regular')
 
 export function readAppearance(): Appearance {
-  return read(APPEARANCE_KEY, APPEARANCES, 'system')
+  return parseAppearance(readStored(APPEARANCE_KEY))
 }
 
 export function readTextSize(): TextSize {
-  return read(TEXT_SIZE_KEY, TEXT_SIZES, 'regular')
+  return parseTextSize(readStored(TEXT_SIZE_KEY))
 }
 
 export function applyTextSize(size: TextSize): void {
@@ -55,18 +46,12 @@ export function applyTextSize(size: TextSize): void {
   else root.setAttribute('data-text-size', size)
 }
 
-// Storage is read once per key. After that the value in memory is what the screen shows, so
-// a choice made while storage is blocked still reads as chosen until the page reloads.
-let appearance: Appearance | undefined
-let textSize: TextSize | undefined
-
-function currentAppearance(): Appearance {
-  return (appearance ??= readAppearance())
-}
-
-function currentTextSize(): TextSize {
-  return (textSize ??= readTextSize())
-}
+const appearance = createStoredValue({
+  key: APPEARANCE_KEY,
+  parse: parseAppearance,
+  serialize: String,
+})
+const textSize = createStoredValue({ key: TEXT_SIZE_KEY, parse: parseTextSize, serialize: String })
 
 export const DARK_QUERY = '(prefers-color-scheme: dark)'
 
@@ -75,46 +60,28 @@ export function resolveDark(appearance: Appearance): boolean {
   return appearance === 'dark'
 }
 
-const listeners = new Set<() => void>()
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
+// Every tab follows a choice made in any one of them.
+if (typeof window !== 'undefined') {
+  onOtherTabWrite([APPEARANCE_KEY, TEXT_SIZE_KEY], () => {
+    appearance.reload()
+    textSize.reload()
+    applyTextSize(textSize.get())
+  })
 }
-
-function notify(): void {
-  for (const listener of listeners) listener()
-}
-
-// The storage event fires only in the other tabs of this origin, so each of them follows a
-// choice made in any one of them. A null key is localStorage.clear().
-function followOtherTabs(event: StorageEvent): void {
-  if (event.key !== null && event.key !== APPEARANCE_KEY && event.key !== TEXT_SIZE_KEY) return
-  appearance = readAppearance()
-  textSize = readTextSize()
-  applyTextSize(textSize)
-  notify()
-}
-
-if (typeof window !== 'undefined') window.addEventListener('storage', followOtherTabs)
 
 export function setAppearance(next: Appearance): void {
-  appearance = next
-  write(APPEARANCE_KEY, next)
-  notify()
+  appearance.set(next)
 }
 
 export function setTextSize(next: TextSize): void {
-  textSize = next
-  write(TEXT_SIZE_KEY, next)
   applyTextSize(next)
-  notify()
+  textSize.set(next)
 }
 
 export function useAppearance(): Appearance {
-  return useSyncExternalStore(subscribe, currentAppearance)
+  return useSyncExternalStore(appearance.subscribe, appearance.get)
 }
 
 export function useTextSize(): TextSize {
-  return useSyncExternalStore(subscribe, currentTextSize)
+  return useSyncExternalStore(textSize.subscribe, textSize.get)
 }
