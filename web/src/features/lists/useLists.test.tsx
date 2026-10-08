@@ -5,6 +5,7 @@ import {
   activeItems,
   addToList,
   createList,
+  deleteList,
   moveItem,
   removeFromList,
   renameList,
@@ -13,7 +14,7 @@ import { createTune } from '../../commands/tunes'
 import { DbContext } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
-import { useLists, useMembershipCounts } from './useLists'
+import { useActiveLists, useLists, useMembershipCounts } from './useLists'
 
 const OLD = '2020-01-01T00:00:00.000Z'
 
@@ -127,5 +128,19 @@ describe('useMembershipCounts', () => {
     rerender({ ids: [first!.user_tune_id] })
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(spy.mock.calls.length).toBe(callsAfterFirst)
+  })
+})
+
+describe('useActiveLists', () => {
+  it('returns live lists in position order without reading their items', async () => {
+    const second = await createList(db, 'Session set')
+    const gone = await createList(db, 'Old set')
+    await deleteList(db, gone)
+    const items = vi.spyOn(db.list_items, 'toArray')
+
+    const { result } = renderHook(() => useActiveLists(), { wrapper })
+
+    await waitFor(() => expect(result.current?.map((list) => list.id)).toEqual([listId, second]))
+    expect(items).not.toHaveBeenCalled()
   })
 })

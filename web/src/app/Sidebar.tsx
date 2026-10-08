@@ -5,7 +5,7 @@ import { Button as AriaButton } from 'react-aria-components'
 import type { TuneStatus } from '../api/vocabulary'
 import { useCatalogFilters } from '../features/catalog/useCatalogFilters'
 import { useStatusCounts } from '../features/catalog/useStatusCounts'
-import { useLists, useMembershipCounts } from '../features/lists/useLists'
+import { useActiveLists, useMembershipCounts } from '../features/lists/useLists'
 import { countTunes } from '../features/selection/copy'
 import { destination, type Destination } from './destinations'
 import { useDestination } from './useDestination'
@@ -95,7 +95,7 @@ export function Sidebar() {
   const { pathname } = useLocation()
   const [filters, updateFilters] = useCatalogFilters()
   const counts = useStatusCounts()
-  const lists = useLists()
+  const lists = useActiveLists()
   const membership = useMembershipCounts(counts?.userTuneIds ?? [])
   const base = useId()
   const listName = useListNameLauncher()
