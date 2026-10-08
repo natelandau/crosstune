@@ -132,15 +132,16 @@ it.each(['pointer', 'touch'] as const)(
   },
 )
 
+// Beside a sidebar, its status rows set the status, so the row drops Status.
 const FRAMES = [
-  ['phone', { width: 390, height: 844 }, 'touch'],
-  ['split', { width: 820, height: 1180 }, 'touch'],
-  ['wide', { width: 1280, height: 800 }, 'pointer'],
+  ['phone', { width: 390, height: 844 }, 'touch', [statusControlLabel('all')]],
+  ['split', { width: 820, height: 1180 }, 'touch', []],
+  ['wide', { width: 1280, height: 800 }, 'pointer', []],
 ] as const
 
 it.each(FRAMES)(
-  'leads the row with Status, Key, and Filters on %s, and no Type',
-  async (_, frame, density) => {
+  'leads the row with Key and Filters on %s, Status only on the phone, and no Type',
+  async (_, frame, density, status) => {
     const db = openTestDb()
     await seed(db)
     await renderApp({ path: '/catalog', db, frame, density, launcher: { open: () => {} } })
@@ -151,7 +152,7 @@ it.each(FRAMES)(
           .elements()
           .map((el) => el.getAttribute('aria-label') ?? el.textContent),
       )
-      .toEqual([statusControlLabel('all'), facetControlLabel('key', 'all'), FILTERS])
+      .toEqual([...status, facetControlLabel('key', 'all'), FILTERS])
   },
 )
 
@@ -370,6 +371,7 @@ function RowHost({ ready, filters }: { ready: boolean; filters: Partial<CatalogF
         counts={{ visible: 4, total: 4, archived: 0, all: 4 }}
         sheet={sheetFilters(effective, visible, ROW_FACETS)}
         statusCounts={undefined}
+        showsStatus
         title={{ current: null }}
         onChange={() => {}}
       />

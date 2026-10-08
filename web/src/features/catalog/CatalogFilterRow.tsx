@@ -120,7 +120,8 @@ function StatusControl({
 }
 
 /**
- * The catalog's filter row under the search field: Status, Key when the catalog holds keys,
+ * The catalog's filter row under the search field: Status when `showsStatus`, Key when the
+ * catalog holds keys,
  * Filters with its count, then each set sheet filter as a token that removes it. The row is
  * absent while the list loads, and while the catalog holds no tunes and no filter is set,
  * when the empty state already says why. Focus left in a control that goes moves to `title`.
@@ -134,6 +135,7 @@ export function CatalogFilterRow({
   counts,
   sheet,
   statusCounts,
+  showsStatus,
   title,
   onChange,
 }: {
@@ -147,6 +149,8 @@ export function CatalogFilterRow({
   sheet: SheetFilters
   /** Each status's absolute count, for the Status choice. */
   statusCounts: LiveTuneCounts | undefined
+  /** False beside a sidebar, whose status rows already set the status. */
+  showsStatus: boolean
   /** The column's title, where focus goes when the control holding it leaves. */
   title: RefObject<HTMLElement | null>
   onChange: (patch: Partial<CatalogFilters>) => void
@@ -158,7 +162,7 @@ export function CatalogFilterRow({
   const hasKey = visible.includes('key')
   const sheetClosed = useFocusFallback(title, {
     controls: {
-      status: shown,
+      status: shown && showsStatus,
       key: shown && hasKey,
       filters: shown,
       ...Object.fromEntries(sheet.tokens.map((token) => [`token:${token.key}`, shown])),
@@ -172,11 +176,13 @@ export function CatalogFilterRow({
           already set and does not scroll to the last of them on every launch. */}
       {shown && (
         <FilterRow label={FILTER_ROW}>
-          <StatusControl
-            status={filters.status}
-            counts={statusCounts}
-            onChange={(status) => onChange({ status })}
-          />
+          {showsStatus && (
+            <StatusControl
+              status={filters.status}
+              counts={statusCounts}
+              onChange={(status) => onChange({ status })}
+            />
+          )}
           {hasKey && (
             <KeyControl
               values={facets.key}

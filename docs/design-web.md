@@ -70,7 +70,8 @@ folder. Compose it, never rebuild it.
   width. Phone: they replace the tab bar.
 - Filter row: touch, one line that scrolls sideways and fades at its end.
   Pointer, wraps.
-- Catalog filter row: Status, Key, Filters.
+- Catalog filter row: Status, Key, Filters. Split and wide drop Status:
+  the sidebar's status rows set it.
 
 ## Shell
 

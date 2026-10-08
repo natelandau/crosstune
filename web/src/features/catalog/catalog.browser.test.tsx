@@ -238,7 +238,7 @@ it('sets the status from the phone title, and the scope survives a reload', asyn
   await expect.element(title()).toHaveTextContent(STATUS_LABELS.learning)
 })
 
-it('shares one status between the Status capsule, the phone title, and the sidebar', async () => {
+it("shares one status between the phone's capsule and title and the sidebar", async () => {
   const db = openTestDb()
   await seed(db)
   const capsule = (status: Parameters<typeof statusControlLabel>[0]) =>
@@ -260,14 +260,10 @@ it('shares one status between the Status capsule, the phone title, and the sideb
   await expect
     .element(sidebar.getByRole('button', { name: STATUS_LABELS.known, exact: true }))
     .toHaveAttribute('aria-current', 'page')
-  await capsule('known').click()
-  await page.getByRole('menuitemradio', { name: STATUS_LABELS.learning, exact: true }).click()
-  await expect
-    .element(sidebar.getByRole('button', { name: STATUS_LABELS.learning, exact: true }))
-    .toHaveAttribute('aria-current', 'page')
   await sidebar.getByRole('button', { name: STATUS_LABELS.want_to_learn, exact: true }).click()
-  await expect.element(capsule('want_to_learn')).toHaveAttribute('data-set')
   await expect.poll(rowTitles).toEqual(['Angeline the Baker'])
+  await expect.element(page.getByRole('group', { name: FILTER_ROW })).toBeVisible()
+  await expect.element(capsule('want_to_learn')).not.toBeInTheDocument()
 })
 
 it('sets the status from the phone title through an action sheet on touch', async () => {
