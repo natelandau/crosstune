@@ -11,29 +11,9 @@ import {
 import type { Player } from '../features/player/usePlayer'
 import { SyncContext } from '../sync/SyncProvider'
 import type { SyncEngine } from '../sync/types'
+import { fakeEngine, testSession } from './fakeSync'
 
-export function fakeEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
-  return {
-    sync: async () => {},
-    status: () => 'idle',
-    lastSyncedAt: () => null,
-    subscribe: () => () => {},
-    transfer: async () => {},
-    transferStatus: () => 'idle',
-    subscribeTransfer: () => () => {},
-    resolveLink: async () => null,
-    searchRecordings: async () => ({ kind: 'failed' }),
-    download: async () => null,
-    peaks: async () => null,
-    retry: async () => {},
-    deleteAccount: async () => {},
-    onAccountDeleted: () => () => {},
-    stop: () => {},
-    resume: () => {},
-    pullEvents: async () => {},
-    ...overrides,
-  }
-}
+export { fakeEngine, testSession }
 
 /** Stands in for a real `<audio>` element, which can neither decode a fake blob nor build a
  * Web Audio graph from one, so a test drives play state through events instead. Exported so a
@@ -91,13 +71,6 @@ export function fakePlaybackEngine(
   return new PlaybackEngine(element, clock, noopStage)
 }
 
-/** A signed-in, online session for tests that do not care who is signed in. */
-export const testSession: AuthSession = {
-  userId: 'user_1',
-  getToken: async () => 't',
-  offline: false,
-}
-
 export interface ProviderOptions {
   db: CrosstuneDb
   engine?: SyncEngine
@@ -105,7 +78,7 @@ export interface ProviderOptions {
 }
 
 /**
- * The data a hook or component reads from context, with no router and no Ionic. Pass it to
+ * The data a hook or component reads from context, with no router. Pass it to
  * `renderHook` or `render` as `wrapper`.
  */
 export function dataProviders({

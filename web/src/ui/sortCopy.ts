@@ -1,4 +1,5 @@
-import type { SortChoice } from './sortChoice'
+import { nextSort, type SortChoice } from './sortChoice'
+import type { SortOptions } from './sortTypes'
 
 /** The name of every screen's sort menu. */
 export const SORT = 'Sort'
@@ -17,4 +18,39 @@ export function sortDirection<S extends string>(
 ): string {
   if (isDate(sort)) return descending ? NEWEST_FIRST : OLDEST_FIRST
   return descending ? Z_TO_A : A_TO_Z
+}
+
+/** The sort control's name: the visible sort leads, and the arrow's meaning is spoken. */
+export function sortControlName<S extends string>(
+  options: SortOptions<S>,
+  choice: SortChoice<S>,
+): string {
+  return `${SORT_BY} ${options.labels[choice.sort]}, ${sortDirection(choice, options.isDate)}`
+}
+
+export interface SortMenuChoice<S extends string> {
+  sort: S
+  label: string
+  /** The current sort, marked in the menu with its direction. */
+  checked: boolean
+  description?: string
+  /** What picking it sets: the current sort reverses, another starts at its first direction. */
+  next: SortChoice<S>
+}
+
+/** A Sort menu's items, in menu order. */
+export function sortMenuChoices<S extends string>(
+  options: SortOptions<S>,
+  choice: SortChoice<S>,
+): SortMenuChoice<S>[] {
+  return options.sorts.map((sort) => {
+    const checked = choice.sort === sort
+    return {
+      sort,
+      label: options.labels[sort],
+      checked,
+      description: checked ? sortDirection(choice, options.isDate) : undefined,
+      next: nextSort(choice, sort, options.isDate),
+    }
+  })
 }

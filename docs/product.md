@@ -64,9 +64,10 @@ for Android and every browser. The parts that matter:
   when they were learned, notes, and a status. Tunes can be archived.
 - Lists. Ordered, named lists such as a set list. A tune can be in many.
   Each tune plays from its row: the recording or link the musician pinned,
-  or else the one the Play first setting picks. The Apple app also plays a
-  list as a playlist of recordings and full Apple Music tracks, with
-  shuffle and repeat, and next and previous on the lock screen.
+  or else the one the Play first setting picks. A list also plays as a
+  playlist, with shuffle and repeat. The Apple app plays its recordings and
+  full Apple Music tracks, with next and previous on the lock screen. The
+  web client plays its recordings.
 - Links. Paste a URL from YouTube, Spotify, Apple Music, TIDAL, Bandcamp,
   SoundCloud, the Internet Archive, Slippery-Hill, or any site. The app
   resolves title and artwork. Supported providers play in an in-app dock;

@@ -1,85 +1,49 @@
-import {
-  IonRouterOutlet,
-  IonSplitPane,
-  IonTabs,
-  IonTabsContext,
-  type IonTabsContextState,
-} from '@ionic/react'
-import { IonReactMemoryRouter, IonReactRouter } from '@ionic/react-router'
-import { useCallback, useContext, useEffect, useRef, type RefObject } from 'react'
-import { Dock } from '../features/player/Dock'
-import { PlaybackEngineProvider } from '../features/player/PlaybackEngineProvider'
-import { PlayerProvider } from '../features/player/PlayerProvider'
-import { RecordingScreenProvider } from '../features/recording-screen/RecordingScreenProvider'
-import { RecordProvider, useRecord } from '../features/recording/useRecord'
-import { SelectionProvider, useSelectionChrome } from '../features/selection/SelectionProvider'
-import { useFrame, WIDE_QUERY } from '../platform/frame'
-import { ToastProvider } from '../ui/Toast'
-import { PhoneTabBar } from './PhoneTabBar'
-import { routes } from './routes'
+import { useState, type ReactNode } from 'react'
+import { Outlet } from 'react-router'
+import { useFrame } from '../platform/frame'
+import { NowPlaying } from '../features/player/NowPlaying'
+import { useShellSelecting } from '../features/selection/useScreenSelection'
+import { NowPlayingProvider, NowPlayingSlot } from './NowPlayingSlot'
+import { SelectionSlot } from './selectionSlot'
 import { Sidebar } from './Sidebar'
-
-const PANE_ID = 'app-main-pane'
+import { TabBar } from './TabBar'
 
 /**
- * Everything inside the auth gate. One outlet holds the four tab stacks; the frame decides
- * whether a tab bar or a sidebar surrounds it. `initialPath` puts tests at a route without a
- * browser history.
+ * The frame around every destination: the tab bar under one pane on the phone, the sidebar
+ * beside the content on split and wide. The route's content fills the main region.
  */
-export function Shell({ initialPath }: { initialPath?: string }) {
-  const Router = initialPath ? IonReactMemoryRouter : IonReactRouter
-  const routerProps = initialPath ? { initialEntries: [initialPath] } : {}
+export function Shell({ children }: { children?: ReactNode }) {
+  // One provider above both frames, so a resize keeps whatever is docked.
   return (
-    // Outside PlayerProvider so it can reach the engine and prime it inside the tap that
-    // asks to play a recording.
-    <PlaybackEngineProvider>
-      <PlayerProvider>
-        <Router {...routerProps}>
-          <ToastProvider>
-            {/* Inside the router, so starting a recording can also navigate. */}
-            <RecordProvider>
-              <RecordingScreenProvider>
-                <SelectionProvider>
-                  <Frames />
-                </SelectionProvider>
-              </RecordingScreenProvider>
-            </RecordProvider>
-          </ToastProvider>
-        </Router>
-      </PlayerProvider>
-    </PlaybackEngineProvider>
+    <NowPlayingProvider>
+      <NowPlaying />
+      <Frame>{children ?? <Outlet />}</Frame>
+    </NowPlayingProvider>
   )
 }
 
-function Frames() {
+/**
+ * The sidebar and the tab bar come and go around the content, which keeps its place in the
+ * tree on every frame, so a resize never remounts the screen and loses its state. While a
+ * screen selects, its selection bar takes the tab bar's place on the phone.
+ */
+function Frame({ children }: { children: ReactNode }) {
   const frame = useFrame()
-  const { start } = useRecord()
-  const { selecting } = useSelectionChrome()
-  const tabsRef = useRef<IonTabsContextState | null>(null)
-  // The tab bar remembers where each stack was, so the sidebar switches tabs through it and a
-  // stack keeps its pushed pages on both frames.
-  const selectTab = useCallback((tab: string) => tabsRef.current?.selectTab(tab), [])
+  const phone = frame === 'phone'
+  const selecting = useShellSelecting()
+  const [slot, setSlot] = useState<HTMLDivElement | null>(null)
   return (
-    <IonSplitPane when={WIDE_QUERY} contentId={PANE_ID}>
-      <Sidebar contentId={PANE_ID} onSelectTab={selectTab} onRecord={() => start()} />
-      <div className="ion-page" id={PANE_ID}>
-        <IonTabs>
-          <IonRouterOutlet animated={frame === 'phone'}>{routes}</IonRouterOutlet>
-          <TabsHandle intoRef={tabsRef} />
-          {/* Before the tab bar in the same slot, so the player stacks above it on either frame. */}
-          <Dock />
-          <PhoneTabBar hidden={frame === 'wide' || selecting} onRecord={() => start()} />
-        </IonTabs>
+    // The whole frame, bars included, is what recedes behind a touch sheet.
+    <SelectionSlot value={slot}>
+      <div data-sheet-root className="bg-ground text-ink flex h-dvh">
+        {!phone && <Sidebar />}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="relative min-h-0 flex-1 overflow-y-auto">{children}</div>
+          <NowPlayingSlot />
+          {phone && !selecting && <TabBar />}
+          {phone && <div ref={setSlot} className="contents" />}
+        </div>
       </div>
-    </IonSplitPane>
+    </SelectionSlot>
   )
-}
-
-/** Hands IonTabs' context out to the sidebar, which sits beside IonTabs rather than in it. */
-function TabsHandle({ intoRef }: { intoRef: RefObject<IonTabsContextState | null> }) {
-  const context = useContext(IonTabsContext)
-  useEffect(() => {
-    intoRef.current = context
-  }, [context, intoRef])
-  return null
 }

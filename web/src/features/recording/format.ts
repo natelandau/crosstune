@@ -6,6 +6,7 @@ export const DOWNLOAD_FAILED = "Couldn't download"
 export const DOWNLOADING = 'Downloading'
 export const NOT_AVAILABLE = 'Not available'
 export const PROCESS_FAILED = "Couldn't process"
+/** A capture under way, and the name of the Recording settings category. */
 export const RECORDING = 'Recording'
 export const STORAGE_FULL = 'Storage full'
 export const UPLOAD_FAILED = 'Upload failed'

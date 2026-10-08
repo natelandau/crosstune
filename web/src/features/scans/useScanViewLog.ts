@@ -18,19 +18,22 @@ function recordScanView(db: CrosstuneDb, record: ScanViewRecord, createdAt: numb
 }
 
 /**
- * Logs each look at `tuneId`'s scans while the viewer is mounted, timed only while the page is in
- * the foreground. Returns the call that ends the view once the musician closes the viewer;
- * unmounting ends it too.
+ * Logs each look at `tuneId`'s scans while the viewer is mounted and `active`, timed only while
+ * the page is in the foreground. Returns the call that ends the view once the musician closes
+ * the viewer; unmounting or going inactive ends it too, and becoming active again starts a new
+ * one.
  */
 export function useScanViewLog(
   db: CrosstuneDb,
   tuneId: string,
   { context, listId }: ScanViewOrigin,
   now: () => number,
+  active = true,
 ): () => void {
   const logRef = useRef<ScanViewLog | null>(null)
 
   useEffect(() => {
+    if (!active) return
     const log = new ScanViewLog(now, (record) => {
       // A lost view is not worth interrupting the musician over.
       void recordScanView(db, record, now()).catch(() => {})
@@ -53,7 +56,7 @@ export function useScanViewLog(
       log.end()
       logRef.current = null
     }
-  }, [db, tuneId, context, listId, now])
+  }, [db, tuneId, context, listId, now, active])
 
   return useCallback(() => logRef.current?.end(), [])
 }

@@ -1,31 +1,45 @@
-import { IonItem, IonLabel } from '@ionic/react'
-import { Group } from '../../ui/Group'
-import { Screen } from '../../ui/Screen'
-import { APP_VERSION } from '../../version'
-import { AccountGroup } from './AccountGroup'
-import { AppearanceGroup } from './AppearanceGroup'
-import { InstrumentsGroup } from './InstrumentsGroup'
-import { MusicServicesGroup } from './MusicServicesGroup'
-import { RecordingGroup } from './RecordingGroup'
-import { StatsSummaryRow } from './StatsSummaryRow'
-import { SyncGroup } from './SyncGroup'
+import type { ComponentType } from 'react'
+import type { SettingsPageId } from './settingsPaths'
+import { destination } from '../../app/destinations'
+import { ColumnTitle } from '../../app/ColumnTitle'
+import { BackLink, PaneBar } from '../../app/PaneBar'
+import { AccountPage } from './pages/AccountPage'
+import { AppearancePage } from './pages/AppearancePage'
+import { InstrumentsPage } from './pages/InstrumentsPage'
+import { MusicServicesPage } from './pages/MusicServicesPage'
+import { RecordingPage } from './pages/RecordingPage'
+import { SyncPage } from './pages/SyncPage'
+import type { SettingsPageSpec } from './settingsPages'
 
-export function SettingsPage() {
+const SETTINGS = destination('settings')
+
+const BODIES: Record<SettingsPageId, ComponentType> = {
+  account: AccountPage,
+  instruments: InstrumentsPage,
+  'music-services': MusicServicesPage,
+  recording: RecordingPage,
+  appearance: AppearancePage,
+  sync: SyncPage,
+}
+
+/**
+ * One settings page, with Back to Settings where it was pushed. It has no Save: each choice
+ * saves as it changes.
+ */
+export function SettingsPage({ spec }: { spec: SettingsPageSpec }) {
+  const Body = BODIES[spec.id]
   return (
-    <Screen title="Settings" level="top" grouped>
-      <h1 className="sr-only">Settings</h1>
-      <StatsSummaryRow />
-      <AccountGroup />
-      <InstrumentsGroup />
-      <MusicServicesGroup />
-      <AppearanceGroup />
-      <RecordingGroup />
-      <SyncGroup />
-      <Group header="About">
-        <IonItem lines="none">
-          <IonLabel>Crosstune {APP_VERSION}</IonLabel>
-        </IonItem>
-      </Group>
-    </Screen>
+    <>
+      <PaneBar
+        title={spec.title}
+        leading={<BackLink to={SETTINGS.root} label={SETTINGS.label} />}
+      />
+      <div className="max-w-page mx-auto w-full">
+        <ColumnTitle title={spec.title} syncBadge={false} />
+        <div className="px-4 pb-12">
+          <Body />
+        </div>
+      </div>
+    </>
   )
 }

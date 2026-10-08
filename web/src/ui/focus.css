@@ -1,0 +1,26 @@
+:focus-visible {
+  outline: 2px solid var(--slate);
+  outline-offset: 2px;
+}
+
+/* A container that takes focus only to hand it on, such as a dialog as it opens or a page as
+   it pushes, shows no ring, not even the browser's own. */
+:is(
+  [role='dialog'],
+  [role='alertdialog'],
+  [role='menu'],
+  [role='grid'],
+  [role='listbox'],
+  [data-pane-focus]
+):focus-visible {
+  outline: none;
+}
+
+/* A search field rings its whole capsule, so its input draws none of its own. */
+[data-search-field]:has(input:focus-visible) {
+  outline: 2px solid var(--slate);
+  outline-offset: 2px;
+}
+[data-search-field] input:focus-visible {
+  outline: none;
+}

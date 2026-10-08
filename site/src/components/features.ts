@@ -178,7 +178,10 @@ export const FEATURES: readonly Feature[] = [
  */
 export const FAMILY = [
   { name: 'family-mac', alt: 'The Crosstune app for Mac, showing the tune list.' },
-  { name: 'family-web', alt: 'Crosstune in a desktop web browser, showing the tune list.' },
+  {
+    name: 'family-web',
+    alt: "Crosstune in a desktop web browser, with the tune list beside Backstep Cindy's page.",
+  },
   {
     name: 'family-ipad',
     alt: "Crosstune on iPad, with the tune list beside Backstep Cindy's recordings.",

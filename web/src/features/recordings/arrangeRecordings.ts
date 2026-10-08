@@ -1,6 +1,6 @@
 import { isRecordingPrecision } from '../../db/types'
-import { containsText } from '../../text/fold'
 import { nextSort as nextChoice, type SortChoice as Choice } from '../../ui/sortChoice'
+import { recordingLabel, recordingMatches } from './recordingMatch'
 import type { RecordingView } from './useRecordings'
 
 export type RecordingSort = 'added' | 'recorded' | 'title' | 'tune'
@@ -76,23 +76,15 @@ function byRecorded(descending: boolean) {
   }
 }
 
-function labelOf(view: RecordingView): string {
-  return view.recording.label?.trim() ?? ''
-}
-
 function byTitle(descending: boolean) {
   const dates = byAddedForAFirst(descending)
   return (a: RecordingView, b: RecordingView) => {
-    const x = labelOf(a)
-    const y = labelOf(b)
+    const x = recordingLabel(a)
+    const y = recordingLabel(b)
     if (!x || !y) return Number(!x) - Number(!y) || dates(a, b)
     const order = collator.compare(x, y)
     return (descending ? -order : order) || dates(a, b)
   }
-}
-
-function matches(view: RecordingView, needle: string): boolean {
-  return containsText(labelOf(view), needle) || containsText(view.tuneTitle ?? '', needle)
 }
 
 function ownFirstThenNewestAdded(a: RecordingView, b: RecordingView): number {
@@ -123,7 +115,7 @@ export function arrangeRecordings(
   query: string,
 ): Arrangement {
   const needle = query.trim()
-  const visible = needle ? views.filter((v) => matches(v, needle)) : [...views]
+  const visible = needle ? views.filter((v) => recordingMatches(v, needle)) : [...views]
   const unfiled = visible.filter((v) => !v.tuneId)
   const filed = visible.filter((v) => v.tuneId)
 

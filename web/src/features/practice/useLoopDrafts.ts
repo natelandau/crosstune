@@ -9,6 +9,9 @@ import type { LoopPlayback } from './useLoopPlayback'
 const sameSpan = (row: LocalRecordingLoop, span: Span) =>
   row.start_ms === span.startMs && row.end_ms === span.endMs
 
+/** Each drafted loop's span by id, with the row's span from when it was drawn as `base`. */
+export type LoopDrafts = Record<string, { span: Span; base: Span }>
+
 /**
  * A handle's drag shows as a draft until its one write lands in the row. Each draft keeps the
  * row's span from when it was drawn as `base`, and gives way once its row holds the drafted
@@ -28,12 +31,12 @@ export function useLoopDrafts({
   /** A refused write. */
   onError: (error: unknown) => void
 }): {
-  drafts: Record<string, { span: Span; base: Span }>
+  drafts: LoopDrafts
   onDraft: (draft: Draft | null) => void
   onCommit: (draft: Draft) => void
 } {
   const db = useDb()
-  const [drafts, setDrafts] = useState<Record<string, { span: Span; base: Span }>>({})
+  const [drafts, setDrafts] = useState<LoopDrafts>({})
   const active = useRef<string | null>(null)
   const [activeKey, setActiveKey] = useState<string | null>(null)
   const landed = Object.keys(drafts).filter((id) => {

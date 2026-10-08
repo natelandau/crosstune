@@ -21,7 +21,7 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
-    // Ionic's transitions and the swipe and drag gestures move between trace snapshots.
+    // Page transitions and the swipe, hold, and drag gestures move between trace snapshots.
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

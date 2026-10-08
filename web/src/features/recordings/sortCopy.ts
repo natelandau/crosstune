@@ -1,4 +1,4 @@
-import type { SortOptions } from '../../ui/SortMenu'
+import type { SortOptions } from '../../ui/sortTypes'
 import { isDateSort, RECORDING_SORTS, type RecordingSort } from './arrangeRecordings'
 
 export const SORT_LABELS: Record<RecordingSort, string> = {

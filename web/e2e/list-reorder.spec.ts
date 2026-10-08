@@ -1,34 +1,40 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   addTune,
+  dragRow,
   escapeRegExp,
-  expectSettled,
   expectSynced,
+  openRowMenu,
   openTab,
   signIn,
+  tuneRow,
   swipeLeft,
   unique,
 } from './helpers'
-
-/**
- * A row's drag grip. It carries no name of its own: the named Reorder button beside it opens the
- * move menu instead, and Ionic starts a drag only from a press inside the grip.
- */
-const grip = (page: Page, title: string) =>
-  page.getByRole('listitem').filter({ hasText: title }).locator('ion-reorder')
+import { tabLabel } from '../src/app/tabs'
+import {
+  ADD_LIST,
+  ADD_TUNES,
+  addTuneName,
+  CREATE_LIST,
+  LIST_NAME_LABEL,
+  NEW_LIST_TITLE,
+  REMOVE,
+} from '../src/features/lists/listsCopy'
+import { MOVE_TO_TOP } from '../src/features/lists/moveMenu'
+import { DONE } from '../src/ui/confirmCopy'
+import { SEARCH_TUNES, TUNE_LIST } from '../src/features/catalog/catalogCopy'
 
 async function tuneOrder(page: Page, tag: string): Promise<string[]> {
-  // The listitem's own text, not a control inside it: a list row carries both an open control
-  // and a Reorder button, so reading buttons would count each row more than once.
-  const rows = await page.getByRole('main').getByRole('listitem').allTextContents()
-  // A row's text runs the title into the metadata after it, so match the known names.
+  const rows = await page.getByRole('grid', { name: TUNE_LIST }).getByRole('row').allTextContents()
+  // A row's text runs its actions and position into the title, so match the known names.
   return rows.flatMap((text) => {
     const match = text.match(new RegExp(`${escapeRegExp(tag)} (Arkansas|Billy|Cripple)`))
     return match ? [match[1]!] : []
   })
 }
 
-test('reorder a list by dragging a handle and from its menu, and swipe a tune out', async ({
+test('reorder a list by dragging a row and from its menu, and swipe a tune out', async ({
   page,
 }) => {
   await signIn(page)
@@ -38,61 +44,58 @@ test('reorder a list by dragging a handle and from its menu, and swipe a tune ou
     ['Billy', 'G'],
     ['Cripple', 'A'],
   ] as const) {
-    await openTab(page, 'Catalog')
+    await openTab(page, 'catalog')
     await addTune(page, `${tag} ${name}`, key)
   }
 
-  await openTab(page, 'Lists')
-  // The screen's own Add list control, not the one the empty state offers.
-  await page.getByRole('banner').getByRole('button', { name: 'Add list' }).click()
-  await page.getByRole('textbox', { name: 'List name' }).fill(tag)
-  await page.getByRole('button', { name: 'Create', exact: true }).click()
-  const listRow = page.getByRole('button', { name: new RegExp(`^${escapeRegExp(tag)} `) })
+  await openTab(page, 'lists')
+  // The screen's own Add list control, which leads the page, not the one the empty state offers.
+  await page
+    .getByRole('main', { name: tabLabel('lists'), exact: true })
+    .getByRole('button', { name: ADD_LIST })
+    .first()
+    .click()
+  const create = page.getByRole('dialog', { name: NEW_LIST_TITLE })
+  await create.getByRole('textbox', { name: LIST_NAME_LABEL }).fill(tag)
+  await create.getByRole('button', { name: CREATE_LIST, exact: true }).click()
+  const listRow = page
+    .getByRole('grid', { name: tabLabel('lists') })
+    .getByRole('row', { name: new RegExp(`^${escapeRegExp(tag)},`) })
   await expect(listRow).toBeVisible()
   await listRow.click()
-  // The screen's own Add tunes control, not the one the empty state offers.
-  await page.getByRole('banner').getByRole('button', { name: 'Add tunes' }).click()
+  // The screen's own Add tunes control, which leads the page, not the one the empty state offers.
+  await page
+    .getByRole('main', { name: tag, exact: true })
+    .getByRole('button', { name: ADD_TUNES })
+    .first()
+    .click()
+  const picker = page.getByRole('dialog', { name: ADD_TUNES })
   for (const name of ['Arkansas', 'Billy', 'Cripple']) {
-    await page.getByRole('searchbox', { name: 'Search tunes' }).fill(`${tag} ${name}`)
-    await page.getByRole('button', { name: `Add ${tag} ${name}` }).click()
+    await picker.getByRole('searchbox', { name: SEARCH_TUNES }).fill(`${tag} ${name}`)
+    await picker.getByRole('row', { name: addTuneName(`${tag} ${name}`) }).click()
   }
   const since = new Date().toISOString()
-  await page.getByRole('button', { name: 'Done', exact: true }).click()
+  await picker.getByRole('button', { name: DONE, exact: true }).click()
   await expect.poll(() => tuneOrder(page, tag)).toEqual(['Arkansas', 'Billy', 'Cripple'])
   // The pending write syncs on its own, and the pull rebuilds the list it lands in. A row
-  // replaced under the pointer takes the gesture with it, so the gesture waits for it.
+  // replaced under the finger takes the gesture with it, so the gesture waits for it.
   await expectSynced(page, since)
 
-  // Drag Arkansas below Cripple by its grip with the mouse.
-  const handle = grip(page, `${tag} Arkansas`)
-  const target = grip(page, `${tag} Cripple`)
-  // Ionic caches every row's position as the drag starts, so the rows have to have stopped
-  // moving: the picker's dismissal still has them sliding into place.
-  await expect(page.locator('ion-modal.show-modal')).toHaveCount(0)
-  await expectSettled(handle)
-  const from = await handle.boundingBox()
-  const to = await target.boundingBox()
-  if (!from || !to) throw new Error('grips are not visible')
-  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(from.x + from.width / 2, to.y + to.height, { steps: 20 })
-  await page.mouse.up()
-  await expectSettled(handle)
+  // Hold Arkansas, then drag it below Cripple.
+  await dragRow(page, tuneRow(page, `${tag} Arkansas`), tuneRow(page, `${tag} Cripple`))
   await expect.poll(() => tuneOrder(page, tag)).toEqual(['Billy', 'Cripple', 'Arkansas'])
-  // A drag must not leave the handle's menu open behind it.
-  await expect(page.getByRole('button', { name: 'Move to top' })).toBeHidden()
+  // A hold that became a drag must not open the row's menu as well.
+  await expect(page.getByRole('menu')).toHaveCount(0)
 
-  // Tap Cripple's handle and move it to the top from the menu.
-  await page.getByRole('button', { name: `Reorder ${tag} Cripple`, exact: true }).click()
-  await page.getByRole('button', { name: 'Move to top' }).click()
+  // Hold Cripple without moving, and move it to the top from the menu that opens.
+  const menu = await openRowMenu(page, tuneRow(page, `${tag} Cripple`), `${tag} Cripple`)
+  await menu.getByRole('menuitem', { name: MOVE_TO_TOP, exact: true }).click()
   await expect.poll(() => tuneOrder(page, tag)).toEqual(['Cripple', 'Billy', 'Arkansas'])
 
   // Remove Billy from the list with a swipe; the tune itself stays in the catalog.
-  await swipeLeft(
-    page,
-    page.getByRole('button', { name: new RegExp(`^\\d+ ${escapeRegExp(tag)} Billy`) }),
-  )
-  await page.getByRole('button', { name: `Remove ${tag} Billy` }).click()
+  const billy = tuneRow(page, `${tag} Billy`)
+  await swipeLeft(page, billy)
+  await billy.getByRole('button', { name: REMOVE, exact: true }).click()
   await expect.poll(() => tuneOrder(page, tag)).toEqual(['Cripple', 'Arkansas'])
   await page.reload()
   await expect.poll(() => tuneOrder(page, tag)).toEqual(['Cripple', 'Arkansas'])

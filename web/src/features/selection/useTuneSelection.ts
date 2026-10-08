@@ -2,6 +2,8 @@ import { useCallback, useState } from 'react'
 
 export interface TuneSelection {
   count: number
+  /** How many tunes are visible to select. */
+  total?: number
   allSelected: boolean
   isSelected: (userTuneId: string) => boolean
   toggle: (userTuneId: string) => void
@@ -11,13 +13,23 @@ export interface TuneSelection {
   toggleAll: () => void
 }
 
+/** The selection with the set itself, for a caller that walks it rather than asks of it. */
+export interface TuneSelectionState extends TuneSelection {
+  selected: ReadonlySet<string>
+  /** Selects the tune, leaving it selected if it already was. */
+  add: (userTuneId: string) => void
+}
+
 const EMPTY: ReadonlySet<string> = new Set()
 
 /**
  * The user tunes selected on a screen. The selection only ever holds visible tunes, so an
  * action never reaches a tune the user cannot see.
  */
-export function useTuneSelection(visibleIds: readonly string[], active: boolean): TuneSelection {
+export function useTuneSelection(
+  visibleIds: readonly string[],
+  active: boolean,
+): TuneSelectionState {
   const [selected, setSelected] = useState<ReadonlySet<string>>(EMPTY)
   const [anchor, setAnchor] = useState<string | null>(null)
   const [wasActive, setWasActive] = useState(active)
@@ -55,6 +67,11 @@ export function useTuneSelection(visibleIds: readonly string[], active: boolean)
     setAnchor(id)
   }, [])
 
+  const add = useCallback((id: string) => {
+    setSelected((current) => (current.has(id) ? current : new Set([...current, id])))
+    setAnchor(id)
+  }, [])
+
   const toggleRange = useCallback(
     (id: string) => {
       const from = anchor === null ? -1 : visibleIds.indexOf(anchor)
@@ -83,10 +100,13 @@ export function useTuneSelection(visibleIds: readonly string[], active: boolean)
   )
 
   return {
+    selected: nextSelected,
     count: nextSelected.size,
+    total: visibleIds.length,
     allSelected,
     isSelected,
     toggle,
+    add,
     toggleRange,
     selectAll,
     clear,

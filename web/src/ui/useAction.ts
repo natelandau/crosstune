@@ -8,7 +8,7 @@ export function messageFor(error: unknown): string {
 export interface Action {
   /** The last rejection, for a `role="alert"` near the control that triggered it. */
   error: string | null
-  /** True while an action is in flight, to disable the control that started it. */
+  /** True while any action is in flight, to disable the control that started it. */
   pending: boolean
   run: (action: () => Promise<unknown>) => void
   runThen: (action: () => Promise<unknown>, onSuccess: () => void) => void
@@ -19,14 +19,15 @@ export interface Action {
 /** Runs a fire-and-forget mutation, surfacing a rejection instead of losing it. */
 export function useAction(): Action {
   const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
+  // A count, so the first of two overlapping actions to settle does not end the other's wait.
+  const [inFlight, setInFlight] = useState(0)
   const runThen = useCallback((action: () => Promise<unknown>, onSuccess: () => void) => {
     setError(null)
-    setPending(true)
+    setInFlight((n) => n + 1)
     action()
       .then(onSuccess)
       .catch((e: unknown) => setError(messageFor(e)))
-      .finally(() => setPending(false))
+      .finally(() => setInFlight((n) => n - 1))
   }, [])
   const run = useCallback(
     (action: () => Promise<unknown>) => {
@@ -35,5 +36,5 @@ export function useAction(): Action {
     [runThen],
   )
   const clear = useCallback(() => setError(null), [])
-  return { error, pending, run, runThen, clear }
+  return { error, pending: inFlight > 0, run, runThen, clear }
 }

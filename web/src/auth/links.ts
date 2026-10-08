@@ -8,6 +8,8 @@ export const resolveSiteUrl = (value: string | undefined) =>
 export const SITE_URL = resolveSiteUrl(import.meta.env?.VITE_SITE_URL)
 export const WAITLIST_URL = `${SITE_URL}/waitlist`
 
+export const SPLASH_LABEL = 'Loading'
+
 export const SIGN_IN_HEADLINE = 'The tune list in your case, rebuilt for your phone.'
 export const SIGN_IN_LINE =
   "The tunes you know and the tunes you're learning, with a recording one tap away."

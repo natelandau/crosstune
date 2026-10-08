@@ -5,7 +5,9 @@ rules in `design.md`. Where the two pages disagree, this page holds on the
 iPhone and in a compact iPad window. An iPad at regular width takes this
 page, then `design-ipad.md`, which holds where the two disagree. The Mac
 never takes a rule from this page. A view built only for iPhone lives in
-`apple/CrosstuneKit/Sources/CrosstuneUI/Phone/`.
+`apple/CrosstuneKit/Sources/CrosstuneUI/Phone/`. The app follows Apple's
+Human Interface Guidelines for presentation: native SwiftUI controls, SF
+Symbols, system materials and fonts, and Dynamic Type.
 
 ## Tokens
 
@@ -28,6 +30,11 @@ value, a text size, or a row height of its own.
   weight. A page's title is large title bold, and its section headings
   are title 3 semibold.
 - Glass is for controls only, never for content or behind a text field.
+- A window or scene root carries `.tint(BrandStyle.accent)`, so slate tints
+  the selection, chosen controls, and primary buttons.
+- SwiftUI's tint does not reach what UIKit draws itself, such as list
+  selection, focus rings, default buttons, alerts, and menus. The
+  `AccentColor` asset colors those.
 
 ## Placement
 
@@ -46,8 +53,7 @@ musician where it is.
   edge.
 - More is an explicit `Menu`. Loose overflow items lose a destructive
   item's separator and red role.
-- Select is an item in More and in a row's context menu, never a toolbar
-  button.
+- Select is never a toolbar button.
 
 ## Shell
 
@@ -61,6 +67,8 @@ musician where it is.
 - A top-level title is large and shares a row with its toolbar buttons.
   A title that is a menu is inline and centered, because iOS shows a title
   menu only on an inline title.
+- System undo, a shake or Cmd-Z, plus a short banner with an Undo button,
+  takes the place of a toast.
 
 ## Rows
 
@@ -70,9 +78,6 @@ musician where it is.
 - At accessibility text sizes the key pill moves under the title, so
   nothing clips.
 - A row has no separator.
-- Status is a glyph whose shape carries the meaning: Known a filled check,
-  Learning a half-filled circle, Unknown an empty ring, each in its status
-  color. Its word is its accessible name.
 - A list row leads with its position. The row a playing list is on shows
   an animated speaker and a light slate wash.
 
@@ -90,7 +95,15 @@ musician where it is.
 - The Status menu is Any, then each status, with the count of non-archived
   tunes beside each. It writes the stored status filter that stats links
   and the sidebars write.
+- A filter control is a quiet capsule at rest and takes the slate wash
+  once it narrows the list.
+- A facet filter is a pull-down that reads its facet and value: "Key: Any",
+  "Key: D". A facet whose values carry color opens a popover of pills,
+  because a menu draws its images in one color. Choosing a value closes it.
 - The key popover stays a popover on a compact width.
+- A Filters control with nothing to choose leaves the screen, never shows
+  disabled.
+- Pull to refresh runs a sync.
 - Status and key always show on the row, so the Filters count never
   includes them.
 - At accessibility text sizes the controls wrap instead of clipping, and a
@@ -129,6 +142,10 @@ musician where it is.
 
 - A form keeps the native inset grouped style, because a form is where an
   iOS reader expects cards. A screen that only reads is a document page.
+- A segmented control is allowed for a short closed choice. A tune's status
+  is set with one, a segment per word. A system segment shows an image or a
+  word, never both, and the words are what a musician chooses by. When
+  tunes disagree, no segment is chosen.
 
 ## Settings
 
@@ -146,6 +163,11 @@ musician where it is.
 
 ## Stats
 
+- Stats is a document page. Each block is the simplest chart that shows
+  its point: the status split as one bar in the status colors, and each
+  breakdown value over a thin slate bar sized by its share.
+- A breakdown of more than 8 values shows the top 8 and a "Show all" row
+  with the full count, which expands it in place.
 - A grid too wide for the column, such as the key grid, scrolls sideways.
 
 ## Player and practice
@@ -155,6 +177,10 @@ musician where it is.
   when either is away from its default.
 - While a list plays, a sideways swipe on the accessory skips to the next
   or previous tune. A mostly vertical drag does not skip.
+- A link that the app plays itself, such as an Apple Music link through
+  MusicKit, starts in the accessory like a recording and does not open in
+  full. A link in its provider's embed opens in full, because the embed
+  holds its only controls.
 - A tap on the accessory opens the practice screen, a full-screen cover
   that zooms out of the accessory and closes back into it.
 - The practice screen stands on the jet practice ground in every
@@ -173,6 +199,10 @@ musician where it is.
 ## Recording
 
 - The record sheet's status dot pulses while it records.
+- A Stop that cannot run dims as a whole disc, never only its label.
+- The record control and the menu commands that open a sheet stand down
+  while a sheet, dialog, or file picker is up. The record control and the
+  Record command also stand down while a screen is selecting.
 - Started from a tune page, the sheet names the tune that the take files
   under.
 - A new take's row takes the slate wash for 1.5 seconds once the row
@@ -180,8 +210,6 @@ musician where it is.
 
 ## Motion
 
-- Motion shows where a thing came from and where it went, never
-  decoration.
 - A presentation opened from a visible item zooms out of that item and
   back into it: a tune from its row, a reader from its row or thumbnail,
   the practice screen from the accessory.
@@ -193,6 +221,8 @@ musician where it is.
   `phoneTransition`, which read `PageStyle.animatesPhoneMotion`. The Mac
   gets none of it.
 - Under Reduce Motion a zoom gives way to the plain presentation.
+- Native motion, SwiftUI transitions and symbol effects, may move beyond
+  the record control, the live waveform, and a playing list's speaker.
 
 ## Haptics
 
@@ -200,6 +230,11 @@ musician where it is.
   snaps into place, or the accessory skips a tune.
 - Every other haptic is the system's own, on a system control.
   `HapticsPolicyTests` fails on a haptic anywhere else.
+
+## Privacy
+
+- Every view that shows what the musician wrote or named carries
+  `.contentMask()`, because session replays must never show user content.
 
 ## Accessibility
 

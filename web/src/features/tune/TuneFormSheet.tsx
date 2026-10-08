@@ -1,392 +1,368 @@
-import { IonButton, IonInput, IonItem, IonTextarea, IonToggle } from '@ionic/react'
-import { Fragment, useEffect, useRef, useState } from 'react'
-import { TUNE_LIMITS, type Instrument } from '../../api/vocabulary'
-import { createTune, updateTuneEntry } from '../../commands/tunes'
+import { ChevronRight, Plus } from 'lucide-react'
+import { Fragment, useEffect, useId, useRef, useState } from 'react'
+import { Button as AriaButton } from 'react-aria-components'
+import { MODES, TIME_SIGNATURES, TUNE_LIMITS } from '../../api/vocabulary'
 import { CAPO_FRETS, CAPO_INSTRUMENTS, INSTRUMENT_LABELS, TUNINGS } from '../../constants'
-import { useDb } from '../../db/DbProvider'
-import { FieldRow, NOT_SET } from '../../ui/FieldRow'
-import { Group } from '../../ui/Group'
-import { InlineError } from '../../ui/InlineError'
-import { Sheet } from '../../ui/Sheet'
-import { useAction } from '../../ui/useAction'
-import type { CatalogEntry } from '../catalog/filters'
-import { useCatalog } from '../catalog/useCatalog'
-import { LyricsSheet } from '../lyrics/LyricsSheet'
-import { capoLabel, NO_CAPO, tuningInstruments, tuningLabel } from '../settings/instruments'
-import { DETAIL_FIELDS, DETAILS_FOOTER } from './detailFields'
-import { KeyChooser } from './KeyChooser'
-import { ModeRows } from './ModeRows'
+import { capoLabel, NO_CAPO, tuningLabel } from '../settings/instruments'
+import {
+  ADD_PART_MODE,
+  DETAIL_FIELDS,
+  DETAIL_LABELS,
+  DETAILS_FOOTER,
+  PART_MODE_LABELS,
+} from './detailFields'
+import {
+  ADD_NEW_TUNE,
+  DETAILS_HEADER,
+  EDIT_TUNE_TITLE,
+  NEW_TUNE_TITLE,
+  NOTES_PLACEHOLDER,
+  SAVE_TUNE,
+  STATUS_HEADER,
+  TITLE_FIELD,
+  TUNE_TITLE_LABEL,
+  TUNING_HEADER,
+} from './tuneFormCopy'
 import {
   asTimeSignature,
-  emptyValues,
-  inputsFromValues,
+  canAddPartMode,
+  learnedOnParts,
+  learnedOnRefusedPart,
+  learnedOnText,
   modeRows,
-  partModeChanged,
-  typeChanged,
-  valuesFromRows,
-  type TuneFormValues,
-  type TuningValues,
 } from './tuneFormValues'
-import { StatusChooser } from './StatusChooser'
-import { SuggestSelect } from './SuggestSelect'
-import { catalogComposers, catalogLearnedFrom, mostUsedGenre, orderedTypes } from './tuneTypes'
-import { CANCEL } from '../../ui/Confirm'
-import { useSheetSession } from '../../ui/useSheetSession'
+import { NOTES_SECTION } from './tuneScreenCopy'
+import { useTuneForm, type TuneForm } from './useTuneForm'
+import { NOT_SET } from '../../ui/fieldCopy'
+import { KEY } from '../../ui/keyName'
+import { useLatest } from '../../ui/useLatest'
+import { LyricsEditor } from '../lyrics/LyricsEditor'
+import { ErrorLine } from '../../ui/ErrorLine'
+import { FIELD_LABEL, FIELD_ROW } from '../../ui/form/FieldRow'
+import { Group } from '../../ui/form/Group'
+import { PartialDateField } from '../../ui/form/PartialDateField'
+import { Picker } from '../../ui/form/Picker'
+import { StatusRail } from '../../ui/form/StatusRail'
+import { SuggestField } from '../../ui/form/SuggestField'
+import { Switch } from '../../ui/form/Switch'
+import { TextField } from '../../ui/form/TextField'
+import { KeyGrid } from '../../ui/KeyGrid'
+import { Sheet } from '../../ui/Sheet'
+import type { TuneFormOptions } from './formLauncher'
 
-export const TITLE_REQUIRED = 'A title is required'
-export const EDIT_TUNE_TITLE = 'Edit tune'
-export const NEW_TUNE_TITLE = 'New tune'
-export const TUNE_TITLE_LABEL = 'Tune title'
+type FieldRef = HTMLInputElement & HTMLTextAreaElement
 
-export type TuneFormTarget = { kind: 'new'; title?: string } | { kind: 'edit'; entry: CatalogEntry }
-
-function initialValues(target: TuneFormTarget): TuneFormValues {
-  if (target.kind === 'edit') return valuesFromRows(target.entry.tune, target.entry.userTune)
-  // A seeded title arrives from a search box with no limit of its own, and the field's
-  // maxlength only holds back typing, so the cap has to be applied to the value itself.
-  return { ...emptyValues(), title: (target.title ?? '').slice(0, TUNE_LIMITS.title) }
+export interface TuneFormSheetProps extends TuneFormOptions {
+  isOpen: boolean
+  onOpenChange: (open: boolean) => void
+  /**
+   * Called once a save lands, after the sheet asks to close. `dismissed` says the sheet was
+   * closed while the save was running, so the musician has moved on from it.
+   */
+  onSaved?: (tuneId: string, result: { filingError?: string; dismissed: boolean }) => void
 }
 
-export function TuneFormSheet({
-  target,
-  instruments,
-  onClose,
+const asOptions = (values: readonly string[]) =>
+  values.map((value) => ({ id: value, label: value }))
+
+/**
+ * A new tune, or an edit of one, as a full-height sheet on touch and a dialog on pointer.
+ * Fields are ranked by use: title, status, key, tunings, and notes, then the rarer details.
+ */
+export function TuneFormSheet(props: TuneFormSheetProps) {
+  // Each open is a fresh form, so nothing typed in one open reaches the next.
+  const [opens, setOpens] = useState(props.isOpen ? 1 : 0)
+  const [wasOpen, setWasOpen] = useState(props.isOpen)
+  if (props.isOpen !== wasOpen) {
+    setWasOpen(props.isOpen)
+    if (props.isOpen) setOpens((count) => count + 1)
+  }
+  return <TuneFormBody key={opens} {...props} />
+}
+
+function TuneFormBody({
+  isOpen,
+  onOpenChange,
+  tuneId,
+  initialTitle,
+  listId,
+  recordingId,
   onSaved,
-}: {
-  /**
-   * The tune to edit or the new tune to start, or null for a closed sheet. The sheet never
-   * clears it: the parent sets it back to null from onClose.
-   */
-  target: TuneFormTarget | null
-  instruments: ReadonlySet<Instrument>
-  onClose: () => void
-  onSaved: (ids: { tuneId: string; userTuneId: string }) => void
-}) {
-  const db = useDb()
-  const catalog = useCatalog(target !== null) ?? []
-  const { error, pending, runThen, clear } = useAction()
-  const [values, setValues] = useState<TuneFormValues>(emptyValues)
-  const [tunings, setTunings] = useState<Instrument[]>([])
-  const [validation, setValidation] = useState<string | null>(null)
-  const titleRef = useRef<HTMLIonInputElement>(null)
+}: TuneFormSheetProps) {
+  const titleRef = useRef<FieldRef>(null)
+  const dateRef = useRef<HTMLDivElement>(null)
+  const dateErrorId = useId()
   const [editingLyrics, setEditingLyrics] = useState(false)
-  // The last target shown, so the title and action label hold while the sheet animates closed.
-  const [shown, setShown] = useState<TuneFormTarget | null>(null)
-  // A type fills the time signature only while the player has not chosen one.
-  const [timeSignatureTouched, setTimeSignatureTouched] = useState(false)
-  // The seeded genre stands down once the player picks one, even an empty one.
-  const [genreTouched, setGenreTouched] = useState(false)
+  // Counts refused saves, so focus moves to the refused field on a save and never as one types.
+  const [refusals, setRefusals] = useState(0)
+  const closeRef = useLatest(() => onOpenChange(false))
+  const onSavedRef = useLatest(onSaved)
+  const isOpenRef = useLatest(isOpen)
 
-  // Tunings are decided at open, so a field never disappears mid-edit.
-  const sheet = useSheetSession(target, {
-    onOpen: (opened) => {
-      setShown(opened)
-      setValues(initialValues(opened))
-      setTunings(tuningInstruments(instruments, opened.kind === 'edit' ? opened.entry.tune : null))
-      setValidation(null)
-      setEditingLyrics(false)
-      setTimeSignatureTouched(false)
-      setGenreTouched(false)
-      clear()
+  const form = useTuneForm({
+    tuneId,
+    initialTitle,
+    listId,
+    recordingId,
+    enabled: isOpen,
+    onSaved: (id, { filingError }) => {
+      const dismissed = !isOpenRef.current
+      if (!dismissed) closeRef.current()
+      onSavedRef.current?.(id, { filingError, dismissed })
     },
-    onClose,
   })
+  const { values, set, errors } = form
+  const errorsRef = useLatest(errors)
 
-  // Ionic copies aria-* onto the native input once, while the component loads, and takes them
-  // off the host; an attribute set on the host later reaches nothing. The title is only ever
-  // invalid after that point, so the state is written where a screen reader will read it.
   useEffect(() => {
-    const input = titleRef.current?.querySelector('input')
-    if (!input) return
-    if (validation) input.setAttribute('aria-invalid', 'true')
-    else input.removeAttribute('aria-invalid')
-  }, [validation])
+    if (refusals === 0) return
+    if (errorsRef.current.title) titleRef.current?.focus()
+    else if (errorsRef.current.learned_on) {
+      dateRef.current
+        ?.querySelector<HTMLElement>('[aria-invalid="true"], button[data-invalid]')
+        ?.focus()
+    }
+  }, [refusals, errorsRef])
 
-  // The catalog arrives after the open-reset has run, so a new tune's genre is seeded on the
-  // first render that has it. Seeding fills the genre, so this runs once per open.
-  const seedGenre =
-    target?.kind === 'new' && !genreTouched && values.genre === '' ? mostUsedGenre(catalog) : null
-  if (seedGenre) setValues((current) => ({ ...current, genre: seedGenre }))
-
-  const set = <K extends keyof TuneFormValues>(key: K, value: TuneFormValues[K]) =>
-    setValues((current) => ({ ...current, [key]: value }))
-
-  const setTuningValue = (instrument: Instrument, patch: Partial<TuningValues>) =>
-    setValues((current) => ({
-      ...current,
-      tunings: {
-        ...current.tunings,
-        [instrument]: { tuning: '', capo: '', ...current.tunings[instrument], ...patch },
-      },
-    }))
+  // An edit whose tune is deleted, here or on another device, has nothing left to save to.
+  useEffect(() => {
+    if (isOpen && form.missing) closeRef.current()
+  }, [isOpen, form.missing, closeRef])
 
   const save = () => {
-    // Enter reaches this through the hidden submit button, which the toolbar's disabled state
-    // does not cover.
-    if (!target || !sheet.canSave()) return
-    const { tune, userTune } = inputsFromValues(
-      values,
-      target.kind === 'edit' ? target.entry.tune.tunings : undefined,
-    )
-    if (!tune.title) {
-      // A rejection from an earlier attempt no longer describes this form.
-      clear()
-      setValidation(TITLE_REQUIRED)
-      void titleRef.current?.setFocus()
-      return
-    }
-    sheet.beginSave()
-    setValidation(null)
-    const write = async (): Promise<{ tuneId: string; userTuneId: string }> => {
-      if (target.kind === 'new') return createTune(db, tune, userTune)
-      const ids = { tuneId: target.entry.tune.id, userTuneId: target.entry.userTune.id }
-      await updateTuneEntry(db, ids, tune, userTune)
-      return ids
-    }
-    let ids = { tuneId: '', userTuneId: '' }
-    runThen(
-      async () => {
-        ids = await write().catch(sheet.saveFailed)
-      },
-      () => {
-        sheet.close()
-        onSaved(ids)
-      },
-    )
+    if (form.save() === 'invalid') setRefusals((count) => count + 1)
   }
 
-  const pickOptions = (key: string, options: readonly string[]): readonly string[] => {
-    if (key === 'tune_type') return orderedTypes(values.genre, catalog)
-    if (key === 'composer') return catalogComposers(catalog)
-    if (key === 'learned_from') return catalogLearnedFrom(catalog)
-    return options
-  }
-
-  const editing = shown?.kind === 'edit'
+  const editing = tuneId !== undefined
+  const typed = Object.values(form.touched).some(Boolean)
   return (
     <Sheet
-      open={sheet.open}
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
       title={editing ? EDIT_TUNE_TITLE : NEW_TUNE_TITLE}
       height="full"
-      dismissible={false}
-      onClose={sheet.dismissed}
-      start={
-        <IonButton disabled={pending} onClick={sheet.close}>
-          {CANCEL}
-        </IonButton>
-      }
-      end={
-        <IonButton strong disabled={pending || sheet.closing} onClick={save}>
-          {editing ? 'Save' : 'Add'}
-        </IonButton>
-      }
+      locked={typed || form.pending}
+      primary={{
+        label: editing ? SAVE_TUNE : ADD_NEW_TUNE,
+        onPress: save,
+        isDisabled: !form.canSave,
+      }}
     >
-      <form
-        className="pb-8"
-        onSubmit={(event) => {
-          event.preventDefault()
-          save()
-        }}
-        noValidate
-      >
-        {error ? <InlineError className="px-(--form-inset) pt-3">{error}</InlineError> : null}
-        {/* A form with several fields submits on Enter only when it has a submit button. */}
-        <button type="submit" tabIndex={-1} aria-hidden="true" className="sr-only" />
-
-        {/* The sheet's own title already says New tune or Edit tune, so a Title header would
-            only repeat it. The placeholder names the field where the musician is looking. */}
-        <Group error={validation}>
-          <IonItem>
-            <IonInput
-              ref={titleRef}
-              data-field="title"
-              aria-label="Title"
-              placeholder={TUNE_TITLE_LABEL}
-              maxlength={TUNE_LIMITS.title}
-              value={values.title}
-              enterkeyhint="done"
-              onIonInput={(event) => {
-                set('title', String(event.detail.value ?? ''))
-                if (validation) setValidation(null)
-              }}
-            />
-          </IonItem>
-        </Group>
-
-        <Group header="Status" plain>
-          <StatusChooser value={values.status} onChange={(status) => set('status', status)} />
-        </Group>
-
-        <Group header="Key" plain>
-          <KeyChooser value={values.key} onChange={(value) => set('key', value)} />
-        </Group>
-
-        {tunings.length > 0 ? (
-          <Group header="Tuning">
-            {tunings.map((instrument) => (
-              <Fragment key={instrument}>
-                <SuggestSelect
-                  label={tuningLabel(instrument)}
-                  rowLabel={INSTRUMENT_LABELS[instrument]}
-                  value={values.tunings[instrument]?.tuning ?? ''}
-                  options={TUNINGS[instrument]}
-                  other
-                  maxLength={TUNE_LIMITS.tuning}
-                  onChange={(tuning) => setTuningValue(instrument, { tuning })}
-                />
-                {/* The Tuning header does not name the instrument, so the capo row keeps its
-                    full name visible. */}
-                {CAPO_INSTRUMENTS[instrument] ? (
-                  <SuggestSelect
-                    label={capoLabel(instrument)}
-                    value={values.tunings[instrument]?.capo ?? ''}
-                    options={CAPO_FRETS}
-                    other={false}
-                    placeholder={NO_CAPO}
-                    onChange={(capo) => setTuningValue(instrument, { capo })}
-                  />
-                ) : null}
-              </Fragment>
-            ))}
-          </Group>
-        ) : null}
-
-        <Group header="Notes">
-          <IonItem>
-            <IonTextarea
-              aria-label="Notes"
-              placeholder="How it goes, where it came from…"
-              autoGrow
-              rows={3}
-              maxlength={TUNE_LIMITS.notes}
-              value={values.notes}
-              onIonInput={(event) => set('notes', String(event.detail.value ?? ''))}
-            />
-          </IonItem>
-        </Group>
-
-        <Group header="Details" footer={DETAILS_FOOTER}>
-          {DETAIL_FIELDS.map((field) => {
-            if (field.kind === 'switch') {
-              return (
-                <IonItem key={field.key} data-detail={field.label}>
-                  <IonToggle
-                    checked={values[field.key]}
-                    onIonChange={(event) => set(field.key, event.detail.checked)}
-                  >
-                    <span data-row-label className="type-body">
-                      {field.label}
-                    </span>
-                    {field.help ? <span className="type-footnote block">{field.help}</span> : null}
-                  </IonToggle>
-                </IonItem>
-              )
-            }
-            if (field.kind === 'lyrics') {
-              // Not a field of this form: the words have a form of their own, and this is the
-              // way to it. The chevron says so, and nothing about the body is counted here,
-              // because no count of a tune's words is one a musician would trust.
-              return (
-                <IonItem
-                  key={field.key}
-                  button
-                  detail
-                  data-detail={field.label}
-                  onClick={() => setEditingLyrics(true)}
-                >
-                  <span data-row-label className="type-body">
-                    {field.label}
-                  </span>
-                </IonItem>
-              )
-            }
-            if (field.kind === 'date') {
-              return (
-                <FieldRow key={field.key} label={field.label} detail={field.label}>
-                  <IonInput
-                    type="date"
-                    aria-label={field.label}
-                    value={values[field.key]}
-                    onIonInput={(event) => set(field.key, String(event.detail.value ?? ''))}
-                  />
-                </FieldRow>
-              )
-            }
-            if (field.kind === 'text') {
-              return (
-                <FieldRow key={field.key} label={field.label} detail={field.label}>
-                  <IonInput
-                    aria-label={field.label}
-                    placeholder={NOT_SET}
-                    maxlength={field.maxLength}
-                    value={values[field.key]}
-                    onIonInput={(event) => set(field.key, String(event.detail.value ?? ''))}
-                  />
-                </FieldRow>
-              )
-            }
-            if (field.kind === 'modes') {
-              return (
-                <ModeRows
-                  key={field.key}
-                  modes={values.modes}
-                  onChange={(index, value) =>
-                    setValues((current) => ({
-                      ...current,
-                      modes: partModeChanged(current.modes, index, value),
-                    }))
-                  }
-                  onAdd={() =>
-                    setValues((current) => ({
-                      ...current,
-                      modes: [...modeRows(current.modes), ''],
-                    }))
-                  }
-                />
-              )
-            }
-            return (
-              <SuggestSelect
-                key={field.key}
-                detail={field.label}
-                label={field.label}
-                value={values[field.key]}
-                options={pickOptions(field.key, field.options)}
-                other={field.other}
-                maxLength={field.maxLength}
-                // A pick of the time signature already shown sends no change, yet it is still
-                // the player's choice, so closing its picker counts as setting it.
-                onPickerClose={
-                  field.key === 'time_signature' ? () => setTimeSignatureTouched(true) : undefined
-                }
-                onChange={(value) => {
-                  if (field.key === 'tune_type') {
-                    setValues((current) =>
-                      typeChanged(current, value, target?.kind === 'new', timeSignatureTouched),
-                    )
-                  } else if (field.key === 'time_signature') {
-                    setTimeSignatureTouched(true)
-                    set('time_signature', asTimeSignature(value))
-                  } else {
-                    if (field.key === 'genre') setGenreTouched(true)
-                    set(field.key, value)
-                  }
-                }}
-              />
-            )
-          })}
-        </Group>
-
-        <LyricsSheet
-          open={editingLyrics}
-          value={values.lyrics}
-          onCancel={() => setEditingLyrics(false)}
-          onSave={(next) => {
-            set('lyrics', next)
-            setEditingLyrics(false)
+      {/* Shown while closing too, so the fields hold still as the sheet leaves. */}
+      {(form.ready || !isOpen) && (
+        <form
+          noValidate
+          className="pb-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            save()
           }}
-        />
-      </form>
+        >
+          {/* A form with several fields submits on Enter only when it has a submit button. */}
+          <button type="submit" tabIndex={-1} aria-hidden="true" className="sr-only" />
+          <ErrorLine error={form.error} place="sheet" />
+
+          {/* The sheet's title already says New tune or Edit tune, so a Title header would
+              only repeat it. */}
+          <Group error={errors.title}>
+            <TextField
+              ref={titleRef}
+              standalone
+              label={TITLE_FIELD}
+              placeholder={TUNE_TITLE_LABEL}
+              value={values.title}
+              maxLength={TUNE_LIMITS.title}
+              enterKeyHint="done"
+              isInvalid={!!errors.title}
+              onChange={(title) => set('title', title)}
+            />
+          </Group>
+
+          <Group header={STATUS_HEADER} plain>
+            <StatusRail
+              label={STATUS_HEADER}
+              value={values.status}
+              onChange={(status) => set('status', status)}
+            />
+          </Group>
+
+          <Group header={KEY} plain>
+            <KeyGrid value={values.key || null} onChange={(key) => set('key', key ?? '')} />
+          </Group>
+
+          {form.visibleFields.tunings.length > 0 && (
+            <Group header={TUNING_HEADER}>
+              {form.visibleFields.tunings.map((instrument) => (
+                <Fragment key={instrument}>
+                  <SuggestField
+                    label={tuningLabel(instrument)}
+                    rowLabel={INSTRUMENT_LABELS[instrument]}
+                    value={values.tunings[instrument]?.tuning ?? ''}
+                    suggestions={TUNINGS[instrument]}
+                    maxLength={TUNE_LIMITS.tuning}
+                    onChange={(tuning) => form.setTuning(instrument, { tuning })}
+                  />
+                  {CAPO_INSTRUMENTS[instrument] && (
+                    <Picker
+                      label={capoLabel(instrument)}
+                      value={values.tunings[instrument]?.capo || null}
+                      options={asOptions(CAPO_FRETS)}
+                      emptyLabel={NO_CAPO}
+                      onChange={(capo) => form.setTuning(instrument, { capo: capo ?? '' })}
+                    />
+                  )}
+                </Fragment>
+              ))}
+            </Group>
+          )}
+
+          <Group header={NOTES_SECTION}>
+            <TextField
+              standalone
+              multiline
+              label={NOTES_SECTION}
+              placeholder={NOTES_PLACEHOLDER}
+              value={values.notes}
+              maxLength={TUNE_LIMITS.notes}
+              onChange={(notes) => set('notes', notes)}
+            />
+          </Group>
+
+          <Group header={DETAILS_HEADER} footer={DETAILS_FOOTER}>
+            <DetailRows form={form} onEditLyrics={() => setEditingLyrics(true)} />
+          </Group>
+
+          <Group header={DETAIL_LABELS.learned_on} error={errors.learned_on} errorId={dateErrorId}>
+            <PartialDateField
+              ref={dateRef}
+              whole
+              value={learnedOnParts(values.learned_on)}
+              refusedPart={errors.learned_on ? learnedOnRefusedPart(values.learned_on) : null}
+              describedBy={dateErrorId}
+              onLeave={() => form.validate('learned_on')}
+              onChange={(parts) => set('learned_on', learnedOnText(parts))}
+            />
+          </Group>
+        </form>
+      )}
+      <LyricsEditor
+        isOpen={editingLyrics}
+        onOpenChange={setEditingLyrics}
+        value={values.lyrics}
+        onSave={(lyrics) => {
+          set('lyrics', lyrics)
+          setEditingLyrics(false)
+        }}
+      />
     </Sheet>
+  )
+}
+
+/** The Details card's rows, in the order `DETAIL_FIELDS` reads; learned on has its own card. */
+function DetailRows({ form, onEditLyrics }: { form: TuneForm; onEditLyrics: () => void }) {
+  const { values, set, suggestions } = form
+  // The fields whose suggestions come from the catalog rather than a fixed list.
+  const suggested: Partial<Record<string, readonly string[]>> = {
+    tune_type: suggestions.types,
+    composer: suggestions.composers,
+    learned_from: suggestions.learnedFrom,
+  }
+  return DETAIL_FIELDS.map((field) => {
+    switch (field.kind) {
+      case 'text':
+        return (
+          <TextField
+            key={field.key}
+            label={field.label}
+            value={values[field.key]}
+            maxLength={field.maxLength}
+            onChange={(value) => set(field.key, value)}
+          />
+        )
+      case 'modes':
+        return <ModeRows key={field.key} form={form} />
+      case 'switch':
+        return (
+          <Switch
+            key={field.key}
+            label={field.label}
+            description={field.help}
+            isSelected={values[field.key]}
+            onChange={(on) => set(field.key, on)}
+          />
+        )
+      case 'lyrics':
+        // The words have a sheet of their own; the row is the way to it, so it names the
+        // field and shows no count or excerpt.
+        return (
+          <AriaButton
+            key={field.key}
+            onPress={onEditLyrics}
+            className={`${FIELD_ROW} cursor-default data-[pressed]:opacity-60`}
+          >
+            <span className={`${FIELD_LABEL} flex-1`}>{field.label}</span>
+            <ChevronRight className="text-ink-2 size-4 shrink-0" aria-hidden />
+          </AriaButton>
+        )
+      case 'date':
+        return null
+      case 'pick':
+        if (field.key === 'time_signature') {
+          return (
+            <Picker
+              key={field.key}
+              label={field.label}
+              value={values.time_signature || null}
+              options={asOptions(TIME_SIGNATURES)}
+              emptyLabel={NOT_SET}
+              // A pick of the signature already shown sends no change, yet it is still the
+              // player's choice, which a type must never replace.
+              onChoose={() => form.touch('time_signature')}
+              onChange={(value) => set('time_signature', asTimeSignature(value ?? ''))}
+            />
+          )
+        }
+        return (
+          <SuggestField
+            key={field.key}
+            label={field.label}
+            value={values[field.key]}
+            suggestions={suggested[field.key] ?? field.options}
+            maxLength={field.maxLength}
+            onChange={(value) => set(field.key, value)}
+          />
+        )
+    }
+  })
+}
+
+/**
+ * One mode per part. Rows are only added while the form is open, so clearing one empties it
+ * rather than removing it; the save drops empty rows.
+ */
+function ModeRows({ form }: { form: TuneForm }) {
+  const rows = modeRows(form.values.modes)
+  return (
+    <>
+      {rows.map((mode, index) => (
+        <Picker
+          key={PART_MODE_LABELS[index]}
+          label={PART_MODE_LABELS[index]!}
+          value={mode || null}
+          options={asOptions(MODES)}
+          emptyLabel={NOT_SET}
+          onChange={(value) => form.setPartMode(index, value ?? '')}
+        />
+      ))}
+      {canAddPartMode(form.values.modes) && (
+        <AriaButton
+          onPress={form.addPartMode}
+          className={`${FIELD_ROW} text-slate cursor-default data-[pressed]:opacity-60`}
+        >
+          <Plus className="size-5 shrink-0" aria-hidden />
+          {ADD_PART_MODE}
+        </AriaButton>
+      )}
+    </>
   )
 }

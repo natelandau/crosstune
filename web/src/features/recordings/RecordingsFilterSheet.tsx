@@ -1,63 +1,52 @@
-import { IonButton } from '@ionic/react'
-import { ChoiceRow } from '../../ui/ChoiceRow'
-import { FILTERS } from '../../ui/filterCopy'
-import { Group } from '../../ui/Group'
-import { Sheet } from '../../ui/Sheet'
-import { originLabel, sortOrigins } from './recordingRow'
+import { sortOrigins, sourceLabel } from './recordingRow'
+import { ALL_RECORDINGS, SOURCE_SECTION } from './recordingsCopy'
 import type { OriginChoice } from './useRecordingsOrigin'
+import { DONE } from '../../ui/confirmCopy'
+import { FILTERS, RESET } from '../../ui/filterCopy'
+import { Group } from '../../ui/form/Group'
+import { Picker } from '../../ui/form/Picker'
+import { Sheet } from '../../ui/Sheet'
 
-export const ALL_RECORDINGS = 'All'
-export const MY_RECORDINGS = 'Mine'
-export const SOURCE_SECTION = 'Source'
-
-/** `origins` are the import sites the user holds. */
+/**
+ * The Recordings filter: one Source choice of All, Mine, then each import site. The choice
+ * applies at once, and Reset returns to All.
+ */
 export function RecordingsFilterSheet({
-  open,
+  isOpen,
+  onOpenChange,
   choice,
   origins,
   onChange,
-  onClose,
+  onClosed,
 }: {
-  open: boolean
+  isOpen: boolean
+  onOpenChange: (open: boolean) => void
   choice: OriginChoice
+  /** The import sites the musician holds a recording from. */
   origins: readonly string[]
   onChange: (next: OriginChoice) => void
-  onClose: () => void
+  onClosed?: () => void
 }) {
-  // A chosen site the user no longer holds keeps its option, or the select would read as All
-  // while the list stays narrowed.
+  // A chosen site the musician no longer holds keeps its option, or the choice would read as
+  // All while the list stays narrowed.
   const stale = choice !== 'all' && choice !== 'own' && !origins.includes(choice)
-  const sites = sortOrigins(stale ? [...origins, choice] : origins)
-  const options = ['all', 'own', ...sites]
-  const labels = Object.fromEntries(
-    options.map((option) => [
-      option,
-      option === 'all' ? ALL_RECORDINGS : (originLabel(option) ?? MY_RECORDINGS),
-    ]),
-  )
+  const sources = ['own', ...sortOrigins(stale ? [...origins, choice] : origins)]
   return (
     <Sheet
-      open={open}
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+      onClosed={onClosed}
       title={FILTERS}
-      onClose={onClose}
-      start={
-        <IonButton disabled={choice === 'all'} onClick={() => onChange('all')}>
-          Reset
-        </IonButton>
-      }
-      end={
-        <IonButton strong onClick={onClose}>
-          Done
-        </IonButton>
-      }
+      leading={{ label: RESET, onPress: () => onChange('all'), isDisabled: choice === 'all' }}
+      primary={{ label: DONE, onPress: () => onOpenChange(false) }}
     >
       <Group>
-        <ChoiceRow
+        <Picker
           label={SOURCE_SECTION}
-          value={choice}
-          options={options}
-          labels={labels}
-          onChange={onChange}
+          value={choice === 'all' ? null : choice}
+          options={sources.map((source) => ({ id: source, label: sourceLabel(source) }))}
+          emptyLabel={ALL_RECORDINGS}
+          onChange={(value) => onChange(value ?? 'all')}
         />
       </Group>
     </Sheet>

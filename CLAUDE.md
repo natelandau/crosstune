@@ -17,6 +17,8 @@ The code is the source of truth for everything except `docs/architecture.md`.
   `docs/design-ios.md`.
 - An iPad screen at regular width: `docs/design.md`, `docs/design-ios.md`,
   then `docs/design-ipad.md`.
+- A web screen, row, control, or sheet: `docs/design.md`, then
+  `docs/design-web.md`.
 - Deployment or CI: `docs/operations.md`.
 - A host setting, a credential, or a dashboard: the vault's
   `reference/hosting.md`, and its `runbooks/` for a procedure done there.

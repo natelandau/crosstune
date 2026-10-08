@@ -3,7 +3,7 @@ import { page } from 'vitest/browser'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecordingLoop } from '../../db/types'
 import { openTestDb } from '../../test/db'
-import { renderIonic } from '../../test/ionic'
+import { renderInPractice } from '../../test/practiceTheme'
 import { loopRow } from '../../test/rows'
 import { LoopSwitcher } from './LoopSwitcher'
 import { LOOP_SELECTED, NEXT_LOOP, NO_LOOP, PREVIOUS_LOOP } from './practiceCopy'
@@ -31,7 +31,7 @@ function setup({
 } = {}) {
   const playback: LoopPlayback = { selectedId, select: vi.fn(), hold: vi.fn() }
   const handlers = { onCommand: vi.fn(), onReveal: vi.fn(), announce: vi.fn() }
-  renderIonic(
+  renderInPractice(
     <LoopSwitcher
       loops={loops}
       playback={playback}

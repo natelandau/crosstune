@@ -1,4 +1,11 @@
-import { useRef, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
+import {
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type TransitionEvent,
+  type PointerEvent,
+  type RefObject,
+} from 'react'
 import { clamp } from '../../math'
 import { formatDuration } from '../recording/format'
 import {
@@ -21,6 +28,10 @@ export const LOOP_END = 'Loop end'
 export function HANDLE_TEXT(name: string, edge: 'start' | 'end', trimmedMs: number): string {
   return `${name} ${edge}, ${formatDuration(trimmedMs)}`
 }
+
+/** The handle's own move along the timeline, not a transition inside it or of another property. */
+const isSettle = (event: TransitionEvent<HTMLDivElement>) =>
+  event.target === event.currentTarget && event.propertyName === 'left'
 
 const NUDGE_MS = 100
 const NUDGE_LARGE_MS = 1000
@@ -90,6 +101,17 @@ export function LoopHandle({
     pinch: number
   } | null>(null)
   const nudged = useRef(false)
+  // Whether the drag rests on a snap target, so an app can settle the handle onto it. Kept
+  // until a settling transition ends, so letting go mid-settle does not cut it short.
+  const [snapped, setSnapped] = useState(false)
+  const settling = useRef(false)
+  const unsnap = () => {
+    if (!settling.current) setSnapped(false)
+  }
+  const settled = () => {
+    settling.current = false
+    if (!press.current) setSnapped(false)
+  }
 
   const ms = span[edge === 'start' ? 'startMs' : 'endMs']
   const x = xOfMs(view, ms)
@@ -106,6 +128,7 @@ export function LoopHandle({
       ? [bounds.startMs, bounds.endMs]
       : [playheadMs, bounds.startMs, bounds.endMs]
     const to = snapMs(raw, targets, 1000 / view.pxPerS)
+    setSnapped(to !== raw)
     const next = resizeSpan(pressed.span, edge, Math.round(to), bounds)
     latestRef.current = next
     onDraft({ id, ...next })
@@ -145,6 +168,7 @@ export function LoopHandle({
     if (pressed?.pointerId !== event.pointerId) return
     press.current = null
     autoPan.stop()
+    unsnap()
     if (pressed.moved) onDraft(null)
   }
 
@@ -153,6 +177,7 @@ export function LoopHandle({
     if (!pressed || pressed.pointerId !== event.pointerId) return
     press.current = null
     autoPan.stop()
+    unsnap()
     if (!pressed.moved) {
       if (pinches.current === pressed.pinch) onTap(localX(event.clientX))
       return
@@ -172,6 +197,16 @@ export function LoopHandle({
       aria-valuenow={ms - view.trimStartMs}
       aria-valuetext={HANDLE_TEXT(name, edge, ms - view.trimStartMs)}
       data-color={color}
+      data-snapped={snapped || undefined}
+      onTransitionRun={(event) => {
+        if (isSettle(event)) settling.current = true
+      }}
+      onTransitionEnd={(event) => {
+        if (isSettle(event)) settled()
+      }}
+      onTransitionCancel={(event) => {
+        if (isSettle(event)) settled()
+      }}
       // A 44 px target around the edge and its tab; off the view it stays reachable by keyboard.
       className={`loop-color absolute inset-y-0 z-10 flex w-11 -translate-x-1/2 cursor-ew-resize touch-none justify-center rounded-md outline-offset-0 select-none ${inView ? '' : 'pointer-events-none opacity-0'}`}
       style={{ left: clamp(x, 0, view.widthPx) }}
@@ -211,11 +246,11 @@ export function LoopHandle({
       // After a pointerup the press is already gone, so only a capture taken away mid-drag lands.
       onLostPointerCapture={cancel}
     >
-      <span className="h-full w-0.5 bg-(--loop)" />
+      <span className="h-full w-0.5 bg-(--loop-handle)" />
       {/* The tab sits outside the loop so it never covers the audio being looped. */}
       <span
         data-grip
-        className={`absolute top-1/2 flex h-11 w-4 -translate-y-1/2 items-center justify-center gap-0.5 bg-(--loop) ${edge === 'start' ? 'right-1/2 rounded-l-md' : 'left-1/2 rounded-r-md'}`}
+        className={`absolute top-1/2 flex h-11 w-4 -translate-y-1/2 items-center justify-center gap-0.5 bg-(--loop-handle) ${edge === 'start' ? 'right-1/2 rounded-l-md' : 'left-1/2 rounded-r-md'}`}
       >
         <span className="h-4 w-px bg-white/90" />
         <span className="h-4 w-px bg-white/90" />

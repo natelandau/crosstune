@@ -100,6 +100,7 @@ export class PlaybackEngine {
   // Guards the async stage creation, which must run at most once for the element's life.
   #stageRequested = false
   #disposed = false
+  #loads = 0
   private state: PlaybackState = {
     playing: false,
     positionMs: 0,
@@ -137,6 +138,12 @@ export class PlaybackEngine {
 
   get disposed(): boolean {
     return this.#disposed
+  }
+
+  /** Counts every load and unload, so a caller can tell whether the engine has taken up the
+   * recording it handed over since. */
+  get loads(): number {
+    return this.#loads
   }
 
   /** The range last given to `setLoop`, or null when none is set or a `keepLoop` reload has
@@ -191,6 +198,7 @@ export class PlaybackEngine {
     options: { keepLoop?: boolean } = {},
   ): void {
     this.stopTick?.()
+    this.#loads += 1
     if (options.keepLoop) {
       this.cancelTimer()
       this.loop = null
@@ -235,7 +243,7 @@ export class PlaybackEngine {
     const result = this.element.play()
     // Autoplay policy or a missing source rejects rather than throws; either way playback
     // never started, so no 'play' event follows and only failed needs setting here.
-    void result?.catch?.(() => this.setState({ failed: true }))
+    void result?.catch?.(this.failUnlessReplaced())
   }
 
   pause(): void {
@@ -319,6 +327,7 @@ export class PlaybackEngine {
   /** Stops and releases the current recording. The engine itself stays live: its element
    * listeners and Media Session handlers stay registered, ready for the next `load()`. */
   unload(): void {
+    this.#loads += 1
     this.stopTick?.()
     this.stopTick = null
     this.element.pause()
@@ -347,6 +356,15 @@ export class PlaybackEngine {
     if (this.#audioContext) {
       void this.#audioContext.close().catch(() => {})
       this.#audioContext = null
+    }
+  }
+
+  /** A play refused after another load or an unload was aborted by it, so it says nothing
+   * about the recording loaded now. */
+  private failUnlessReplaced(): () => void {
+    const loads = this.#loads
+    return () => {
+      if (loads === this.#loads) this.setState({ failed: true })
     }
   }
 
@@ -383,7 +401,7 @@ export class PlaybackEngine {
     const loop = this.activeLoop()
     if (this.repeat && loop && this.insideLoop) {
       this.jumpTo(loop.fromS)
-      void this.element.play()?.catch?.(() => this.setState({ failed: true }))
+      void this.element.play()?.catch?.(this.failUnlessReplaced())
       return
     }
     this.setState({ playing: false })

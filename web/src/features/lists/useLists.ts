@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { activeItems } from '../../commands/lists'
 import { activeByPosition } from '../../commands/write'
 import { useDb } from '../../db/DbProvider'
+import type { CrosstuneDb } from '../../db/schema'
 import { liveTune } from '../../db/tunes'
 import type { LocalList, LocalListItem, LocalTune, LocalUserTune } from '../../db/types'
 
@@ -42,27 +43,33 @@ export interface ListItemView {
   userTune: LocalUserTune
 }
 
+/** A list and its live tunes in stored order, or null when the list is gone. */
+export async function readListView(
+  db: CrosstuneDb,
+  listId: string,
+): Promise<{ list: LocalList; items: ListItemView[] } | null> {
+  const list = await db.lists.get(listId)
+  if (!list || list.deleted_at) return null
+  const items = await activeItems(db, listId)
+  const userTunes = await db.user_tunes.bulkGet(items.map((item) => item.user_tune_id))
+  const tunes = await db.tunes.bulkGet(userTunes.map((userTune) => userTune?.tune_id ?? ''))
+  const views: ListItemView[] = []
+  for (const [index, item] of items.entries()) {
+    const userTune = userTunes[index]
+    const tune = tunes[index]
+    const liveTuneRow = liveTune(tune)
+    if (userTune && !userTune.deleted_at && liveTuneRow) {
+      views.push({ item, tune: liveTuneRow, userTune })
+    }
+  }
+  return { list, items: views }
+}
+
 export function useListView(
   listId: string,
 ): { list: LocalList; items: ListItemView[] } | null | undefined {
   const db = useDb()
-  return useLiveQuery(async () => {
-    const list = await db.lists.get(listId)
-    if (!list || list.deleted_at) return null
-    const items = await activeItems(db, listId)
-    const userTunes = await db.user_tunes.bulkGet(items.map((item) => item.user_tune_id))
-    const tunes = await db.tunes.bulkGet(userTunes.map((userTune) => userTune?.tune_id ?? ''))
-    const views: ListItemView[] = []
-    for (const [index, item] of items.entries()) {
-      const userTune = userTunes[index]
-      const tune = tunes[index]
-      const liveTuneRow = liveTune(tune)
-      if (userTune && !userTune.deleted_at && liveTuneRow) {
-        views.push({ item, tune: liveTuneRow, userTune })
-      }
-    }
-    return { list, items: views }
-  }, [db, listId])
+  return useLiveQuery(() => readListView(db, listId), [db, listId])
 }
 
 /** The tune's live list item per list it is in, keyed by list id, so removal has the item to tombstone. */

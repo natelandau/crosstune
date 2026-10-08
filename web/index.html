@@ -4,11 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <!-- The status bar takes the page background. The two media tags cover the first paint;
-         syncStatusBar replaces them with the exact page color once the stylesheet applies. -->
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#16181D" />
     <!-- The app ships its own light and dark themes. color-scheme tells browsers and
          Dark Reader so; darkreader-lock tells Dark Reader to leave the page alone. -->
     <meta name="color-scheme" content="light dark" />
@@ -18,21 +16,29 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <title>Crosstune</title>
     <script>
-      // Stamps the saved appearance and text size before the first paint, so a user who chose
-      // dark never sees a light flash. Mirrors readAppearance and readTextSize in
-      // src/features/settings/appearance.ts, which own the keys and the allowed values.
+      // Stamps scheme, text size, and density before the first paint so nothing flashes.
+      // The scheme resolves as applyScheme in src/theme/scheme.ts does.
       try {
         var root = document.documentElement
-        var theme = localStorage.getItem('crosstune.appearance')
-        if (theme === 'light' || theme === 'dark') root.setAttribute('data-theme', theme)
+        var theme = null
+        var size = null
+        try {
+          theme = localStorage.getItem('crosstune.appearance')
+          size = localStorage.getItem('crosstune.textSize')
+        } catch (e) {
+          // Blocked storage: the system setting and the regular size apply.
+        }
         var dark =
           theme === 'dark' ||
           (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-        if (dark) root.classList.add('ion-palette-dark')
-        var size = localStorage.getItem('crosstune.textSize')
+        root.setAttribute('data-scheme', dark ? 'dark' : 'light')
         if (size === 'compact' || size === 'roomy') root.setAttribute('data-text-size', size)
+        root.setAttribute(
+          'data-density',
+          window.matchMedia('(hover: hover) and (pointer: fine)').matches ? 'pointer' : 'touch',
+        )
       } catch (e) {
-        // Blocked storage: the system setting and the regular size apply.
+        // matchMedia is missing: the CSS defaults apply.
       }
     </script>
   </head>

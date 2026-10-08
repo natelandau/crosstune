@@ -1,6 +1,6 @@
 ---
 name: Set up a Node module
-description: Install pnpm, Node, just, and a module's locked packages, and Chromium on request
+description: Install pnpm, Node, just, and a module's locked packages, and browsers on request
 
 inputs:
   module:
@@ -9,6 +9,9 @@ inputs:
   chromium:
     description: "'true' to install Playwright's Chromium, whose download is cached between runs"
     default: "false"
+  browsers:
+    description: The Playwright browsers to install when chromium is 'true'
+    default: chromium
 
 runs:
   using: composite
@@ -34,9 +37,11 @@ runs:
       uses: actions/cache@v6
       with:
         path: ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-    # The cache holds only the browser, so the system libraries it needs install every run.
+        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ inputs.browsers }}
+    # The cache holds only the browsers, so the system libraries they need install every run.
     - if: inputs.chromium == 'true'
       shell: bash
       working-directory: ${{ inputs.module }}
-      run: pnpm exec playwright install --with-deps chromium
+      env:
+        BROWSERS: ${{ inputs.browsers }}
+      run: pnpm exec playwright install --with-deps $BROWSERS

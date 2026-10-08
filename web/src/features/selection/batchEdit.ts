@@ -1,6 +1,5 @@
 import { TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
-import { STATUS_LABELS } from '../../constants'
 import type { CatalogEntry } from '../catalog/filters'
 import { isTuneStatus } from '../catalog/status'
 import {
@@ -193,10 +192,4 @@ export function toPatch(touched: Touched): BulkPatch {
   const patch: BulkPatch = { tune, userTune }
   if (Object.keys(tunings).length > 0) patch.tunings = tunings
   return patch
-}
-
-export function displayValue(field: EditField, value: string | boolean): string {
-  if (typeof value === 'boolean') return value ? 'yes' : 'no'
-  if (field === 'status' && isTuneStatus(value)) return STATUS_LABELS[value]
-  return value
 }

@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   APPEARANCE_KEY,
   TEXT_SIZE_KEY,
-  applyAppearance,
   applyTextSize,
   readAppearance,
   readTextSize,
@@ -24,7 +23,6 @@ function storageChangedElsewhere(key: string | null) {
 
 afterEach(() => {
   localStorage.clear()
-  root.removeAttribute('data-theme')
   root.removeAttribute('data-text-size')
   vi.restoreAllMocks()
   // The module remembers the last choice; a cleared-storage event resets it between tests.
@@ -34,19 +32,16 @@ afterEach(() => {
 describe('appearance', () => {
   it('follows the system until the user chooses', () => {
     expect(readAppearance()).toBe('system')
-    applyAppearance(readAppearance())
-    expect(root.hasAttribute('data-theme')).toBe(false)
   })
 
-  it('stores the choice and stamps it on the document', () => {
-    setAppearance('dark')
+  it('stores the choice', () => {
+    const { result } = renderHook(() => useAppearance())
+    act(() => setAppearance('dark'))
     expect(localStorage.getItem(APPEARANCE_KEY)).toBe('dark')
-    expect(root.getAttribute('data-theme')).toBe('dark')
-    setAppearance('light')
-    expect(root.getAttribute('data-theme')).toBe('light')
-    setAppearance('system')
-    expect(root.hasAttribute('data-theme')).toBe(false)
+    expect(result.current).toBe('dark')
+    act(() => setAppearance('system'))
     expect(readAppearance()).toBe('system')
+    expect(result.current).toBe('system')
   })
 
   it('ignores a stored value it does not know', () => {
@@ -63,8 +58,9 @@ describe('appearance', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('blocked')
     })
-    setAppearance('dark')
-    expect(root.getAttribute('data-theme')).toBe('dark')
+    const { result } = renderHook(() => useAppearance())
+    act(() => setAppearance('dark'))
+    expect(result.current).toBe('dark')
     expect(readAppearance()).toBe('system')
   })
 
@@ -76,7 +72,6 @@ describe('appearance', () => {
     expect(result.current).toBe('system')
     act(() => setAppearance('dark'))
     expect(result.current).toBe('dark')
-    expect(root.getAttribute('data-theme')).toBe('dark')
   })
 
   it('follows a choice made in another tab', () => {
@@ -84,7 +79,6 @@ describe('appearance', () => {
     localStorage.setItem(APPEARANCE_KEY, 'dark')
     storageChangedElsewhere(APPEARANCE_KEY)
     expect(result.current.appearance).toBe('dark')
-    expect(root.getAttribute('data-theme')).toBe('dark')
     localStorage.setItem(TEXT_SIZE_KEY, 'roomy')
     storageChangedElsewhere(TEXT_SIZE_KEY)
     expect(result.current.size).toBe('roomy')
@@ -96,34 +90,22 @@ describe('appearance', () => {
   })
 })
 
-describe('applyAppearance', () => {
+describe('resolveDark', () => {
   const original = window.matchMedia
   afterEach(() => {
     window.matchMedia = original
-    document.documentElement.classList.remove('ion-palette-dark')
-    document.documentElement.removeAttribute('data-theme')
   })
 
-  it('adds the dark palette class for dark and removes it for light', () => {
-    applyAppearance('dark')
-    expect(document.documentElement.classList.contains('ion-palette-dark')).toBe(true)
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
-    applyAppearance('light')
-    expect(document.documentElement.classList.contains('ion-palette-dark')).toBe(false)
-    expect(document.documentElement.getAttribute('data-theme')).toBe('light')
-  })
-
-  it('follows the system preference for system', () => {
+  it('reads a chosen scheme as chosen and System from the device', () => {
     window.matchMedia = (query: string) =>
       ({
         matches: query === '(prefers-color-scheme: dark)',
         addEventListener() {},
         removeEventListener() {},
       }) as unknown as MediaQueryList
-    applyAppearance('system')
     expect(resolveDark('system')).toBe(true)
-    expect(document.documentElement.classList.contains('ion-palette-dark')).toBe(true)
-    expect(document.documentElement.hasAttribute('data-theme')).toBe(false)
+    expect(resolveDark('light')).toBe(false)
+    expect(resolveDark('dark')).toBe(true)
   })
 })
 

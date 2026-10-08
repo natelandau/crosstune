@@ -9,7 +9,7 @@ lives in `apple/CrosstuneKit/Sources/CrosstuneUI/Pad/`.
 
 ## Principles
 
-These five rules decide a case that the rules below do not name.
+These four rules decide a case that the rules below do not name.
 
 1. One language, native forms. The iPad shares the iPhone's rows, zones,
    and tokens, and the Mac's composition and tab order, in the shape
@@ -19,8 +19,6 @@ These five rules decide a case that the rules below do not name.
 3. The detail column always holds a page, never a list, so a musician
    always knows where a tune appears.
 4. The Stand gets the boldest design. Everything else stays quiet.
-5. Motion shows where a thing came from and where it went, never
-   decoration.
 
 ## Tokens
 

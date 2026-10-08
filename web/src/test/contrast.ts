@@ -41,22 +41,13 @@ export function glyphInk(element: Element): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha * Number(style.opacity)})`
 }
 
-/**
- * The first opaque surface under an element. A web component paints its own background inside
- * its shadow root, so the walk looks there before it leaves the host.
- */
+/** The first opaque surface under an element. */
 export function paintedBackground(element: Element): string {
   let node: Element | null = element
   while (node) {
     const own = getComputedStyle(node).backgroundColor
     if (parts(own)[3] === 1) return own
-    const shadow = (node as HTMLElement).shadowRoot
-    for (const child of shadow ? Array.from(shadow.children) : []) {
-      const painted = getComputedStyle(child).backgroundColor
-      if (parts(painted)[3] === 1) return painted
-    }
-    const root = node.getRootNode()
-    node = node.parentElement ?? (root instanceof ShadowRoot ? root.host : null)
+    node = node.parentElement
   }
   return getComputedStyle(document.body).backgroundColor
 }
@@ -72,9 +63,4 @@ export function contrastRatio(foreground: string, background: string): number {
   )
   const under = luminance(br, bg, bb)
   return (Math.max(over, under) + 0.05) / (Math.min(over, under) + 0.05)
-}
-
-/** How far a glyph stands out from whatever it sits on. */
-export function glyphContrast(element: Element): number {
-  return contrastRatio(glyphInk(element), paintedBackground(element))
 }

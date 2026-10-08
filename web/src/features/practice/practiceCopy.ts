@@ -1,6 +1,7 @@
 // Free of imports so the end-to-end specs can read the copy without loading the app.
 
 export const LOOPS_LABEL = 'Loops'
+export const MODES_LABEL = 'Practice mode'
 export const LOOP_NAME = 'Loop name'
 export const LANES_LABEL = 'Waveform'
 export const NEW_LOOP = 'New loop'

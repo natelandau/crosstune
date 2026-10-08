@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from 'react'
 import { matches } from '../../platform/mediaQuery'
-import { syncStatusBar } from '../../platform/statusBar'
 
 export const APPEARANCES = ['system', 'light', 'dark'] as const
 export type Appearance = (typeof APPEARANCES)[number]
@@ -69,30 +68,11 @@ function currentTextSize(): TextSize {
   return (textSize ??= readTextSize())
 }
 
-const DARK_QUERY = '(prefers-color-scheme: dark)'
+export const DARK_QUERY = '(prefers-color-scheme: dark)'
 
 export function resolveDark(appearance: Appearance): boolean {
   if (appearance === 'system') return matches(DARK_QUERY)
   return appearance === 'dark'
-}
-
-/**
- * Ionic reads the palette from a class, so the class is what the choice becomes. The attribute
- * stays for the inline script in index.html and for anything that styles on the choice itself.
- */
-export function applyAppearance(appearance: Appearance): void {
-  const root = document.documentElement
-  if (appearance === 'system') root.removeAttribute('data-theme')
-  else root.setAttribute('data-theme', appearance)
-  root.classList.toggle('ion-palette-dark', resolveDark(appearance))
-  syncStatusBar()
-}
-
-// A system choice must follow the device when it switches at sunset.
-if (typeof window !== 'undefined') {
-  window.matchMedia?.(DARK_QUERY).addEventListener('change', () => {
-    if (currentAppearance() === 'system') applyAppearance('system')
-  })
 }
 
 const listeners = new Set<() => void>()
@@ -112,7 +92,6 @@ function followOtherTabs(event: StorageEvent): void {
   if (event.key !== null && event.key !== APPEARANCE_KEY && event.key !== TEXT_SIZE_KEY) return
   appearance = readAppearance()
   textSize = readTextSize()
-  applyAppearance(appearance)
   applyTextSize(textSize)
   notify()
 }
@@ -122,7 +101,6 @@ if (typeof window !== 'undefined') window.addEventListener('storage', followOthe
 export function setAppearance(next: Appearance): void {
   appearance = next
   write(APPEARANCE_KEY, next)
-  applyAppearance(next)
   notify()
 }
 

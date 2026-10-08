@@ -1,80 +1,66 @@
-import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
+import { X } from 'lucide-react'
+import type { ReactNode, Ref } from 'react'
+import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react-aria-components'
 
-const BASE =
-  'inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full px-3 type-subheadline tabular-nums'
-
-/**
- * A capsule: a pressable rail or pill control when it has onPress, a static badge otherwise.
- * The 32px capsule sits in a 44px hit area so a tap target never shrinks.
- */
-export function Capsule({
-  children,
-  pressed,
-  filled,
-  onPress,
-  onPressEvent,
-  label,
-  tone = 'neutral',
-}: {
-  children: ReactNode
-  pressed?: boolean
-  /** The same filled look as a pressed capsule, for a capsule that is not a toggle (a
-   * remove action, say), so it never announces `aria-pressed`. */
-  filled?: boolean
-  onPress?: () => void
-  /** For a capsule that opens a menu, which anchors its popover to the click. */
-  onPressEvent?: (event: ReactMouseEvent) => void
-  label?: string
-  tone?: 'neutral' | 'warning' | 'danger'
-}) {
-  const fill =
-    pressed || filled
-      ? 'bg-(--ion-color-primary) text-(--ion-color-primary-contrast)'
-      : tone === 'warning'
-        ? 'bg-(--ion-color-warning) text-(--ion-color-warning-contrast)'
-        : tone === 'danger'
-          ? 'bg-(--ion-color-danger) text-(--ion-color-danger-contrast)'
-          : 'bg-(--fill-tertiary) text-(--ion-text-color)'
-  if (!onPress && !onPressEvent) return <span className={`${BASE} ${fill}`}>{children}</span>
-  return (
-    <PressTarget pressed={pressed} onPress={onPress} onPressEvent={onPressEvent} label={label}>
-      <span className={`${BASE} ${fill}`}>{children}</span>
-    </PressTarget>
-  )
+export interface CapsuleProps extends Omit<
+  AriaButtonProps,
+  'children' | 'className' | 'aria-label'
+> {
+  /** The accessible name, and the visible text unless `children` gives the face. */
+  label: string
+  /** A face other than the label, such as a glyph and a count; `label` stays the name. */
+  children?: ReactNode
+  ref?: Ref<HTMLButtonElement>
+  /** The filter holds a value. Marks the element with `data-set` so a `FilterRow` can find it. */
+  set?: boolean
+  /** Renders a token with a trailing remove control. */
+  onRemove?: () => void
+  removeLabel?: string
 }
 
-/**
- * The 44px hit area a rail control sits in, with the pressed state it announces. Separate from
- * `Capsule` so a control that paints its own face, such as a key pill, gets the same target
- * without `Capsule` having to know what is inside it.
- */
-export function PressTarget({
-  children,
-  pressed,
-  onPress,
-  onPressEvent,
-  label,
-}: {
-  children: ReactNode
-  pressed?: boolean
-  onPress?: () => void
-  /** Takes the click itself, for a control that opens a menu anchored to it. Exactly one of
-   * `onPress` and `onPressEvent` is given. */
-  onPressEvent?: (event: ReactMouseEvent) => void
-  label?: string
-}) {
+// The visual capsule can be shorter than the target; ::after extends the hit area to it.
+export const CAPSULE_HIT =
+  "relative after:absolute after:inset-x-0 after:top-1/2 after:h-(--target-filter) after:-translate-y-1/2 after:content-['']"
+const SHAPE =
+  't-secondary inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3'
+
+// Matches Button's pressed state.
+const PRESS = 'transition-opacity duration-(--dur-short) ease-(--ease) data-[pressed]:opacity-60'
+
+function tone(set: boolean | undefined): string {
+  return set ? 'bg-set-fill text-set-label' : 'bg-fill text-ink'
+}
+
+export function Capsule({ label, children, set, onRemove, removeLabel, ...rest }: CapsuleProps) {
+  if (!onRemove) {
+    return (
+      <AriaButton
+        {...rest}
+        aria-label={children === undefined ? undefined : label}
+        data-set={set ? label : undefined}
+        className={`${SHAPE} ${CAPSULE_HIT} ${PRESS} ${tone(set)} gap-1.5 disabled:opacity-40`}
+      >
+        {children ?? label}
+      </AriaButton>
+    )
+  }
   return (
-    <button
-      type="button"
-      aria-pressed={pressed}
+    <span
+      className={`${SHAPE} ${tone(set)} ps-3 pe-0`}
+      role="group"
       aria-label={label}
-      className="grid min-h-11 min-w-11 shrink-0 place-items-center"
-      onClick={(event) => {
-        if (onPressEvent) onPressEvent(event)
-        else onPress?.()
-      }}
+      data-set={set ? label : undefined}
     >
-      {children}
-    </button>
+      <AriaButton {...rest} className={`${CAPSULE_HIT} ${PRESS} h-full`}>
+        {label}
+      </AriaButton>
+      <AriaButton
+        aria-label={removeLabel}
+        onPress={onRemove}
+        className={`${CAPSULE_HIT} ${PRESS} inline-flex h-full w-(--target-filter) items-center justify-center rounded-(--radius-capsule)`}
+      >
+        <X className="size-3.5" aria-hidden />
+      </AriaButton>
+    </span>
   )
 }

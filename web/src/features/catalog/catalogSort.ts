@@ -1,5 +1,5 @@
 import type { SortChoice } from '../../ui/sortChoice'
-import type { SortOptions } from '../../ui/SortMenu'
+import type { SortOptions } from '../../ui/sortTypes'
 import type { CatalogEntry } from './filters'
 
 export type CatalogSort = 'title' | 'added' | 'modified' | 'played'

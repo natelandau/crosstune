@@ -157,3 +157,15 @@ export function tuningSummary(
   if (capo === null && tuning !== null && tuning === STANDARD_TUNINGS[instrument]) return null
   return tuningDisplay(instrument, tunings, options)
 }
+
+/**
+ * A row's tunings: each played instrument's non-standard tuning or capo, in instrument order.
+ * A player of one instrument knows whose tuning it is; two instruments can share a name.
+ */
+export function playedTunings(tunings: unknown, instruments: ReadonlySet<Instrument>): string {
+  const withInstrument = instruments.size > 1
+  return INSTRUMENTS.filter((instrument) => instruments.has(instrument))
+    .map((instrument) => tuningSummary(instrument, tunings, { withInstrument }))
+    .filter(Boolean)
+    .join(' · ')
+}

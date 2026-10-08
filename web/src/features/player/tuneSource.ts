@@ -2,6 +2,15 @@ import type { PlayFirst } from '../../api/vocabulary'
 import type { LocalRecording, LocalRecordingLink } from '../../db/types'
 import type { PlayerItem } from './usePlayer'
 
+/** The rows that are live and belong to `tuneId`, so a pin to a deleted row or to another
+ * tune's row never counts. */
+export function liveRows<Row extends { tune_id?: string | null; deleted_at?: string | null }>(
+  rows: readonly Row[],
+  tuneId: string,
+): Row[] {
+  return rows.filter((row) => !row.deleted_at && row.tune_id === tuneId)
+}
+
 interface Input {
   tuneId: string
   pin: { recordingId: string | null; linkId: string | null }
@@ -18,8 +27,8 @@ interface Input {
  */
 export function chooseRowSource(input: Input): PlayerItem | null {
   const { tuneId, pin } = input
-  const recordings = input.recordings.filter((r) => !r.deleted_at && r.tune_id === tuneId)
-  const links = input.links.filter((l) => !l.deleted_at && l.tune_id === tuneId)
+  const recordings = liveRows(input.recordings, tuneId)
+  const links = liveRows(input.links, tuneId)
 
   const pinnedRecording = recordings.find((r) => r.id === pin.recordingId)
   if (pinnedRecording) return { kind: 'recording', id: pinnedRecording.id }

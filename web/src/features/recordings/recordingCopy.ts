@@ -8,3 +8,5 @@ export const openOn = (label: string) => `Open on ${label}`
 
 /** The exact time a take was recorded, shown while its date is being edited. */
 export const recordedAtNote = (time: string) => `Recorded at ${time}`
+
+export const ADD_TO_TUNE = 'Add to tune'

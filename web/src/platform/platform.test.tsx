@@ -1,9 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { useFrame } from './frame'
-import { getMode } from './mode'
 import { useReducedMotion } from './motion'
-import { usePointer } from './pointer'
 
 type Listener = (event: { matches: boolean }) => void
 
@@ -33,24 +30,6 @@ const original = window.matchMedia
 
 afterEach(() => {
   window.matchMedia = original
-  document.documentElement.classList.remove('ios', 'md')
-})
-
-describe('usePointer', () => {
-  it('is mouse when the pointer is fine and can hover, and follows a change', () => {
-    const flip = installMatchMedia({ '(hover: hover) and (pointer: fine)': true })
-    const { result } = renderHook(() => usePointer())
-    expect(result.current).toBe('mouse')
-    act(() => flip('(hover: hover) and (pointer: fine)', false))
-    expect(result.current).toBe('touch')
-  })
-
-  it('is touch when the browser cannot answer', () => {
-    // @ts-expect-error simulating an environment without matchMedia
-    window.matchMedia = undefined
-    const { result } = renderHook(() => usePointer())
-    expect(result.current).toBe('touch')
-  })
 })
 
 describe('useReducedMotion', () => {
@@ -67,24 +46,5 @@ describe('useReducedMotion', () => {
     window.matchMedia = undefined
     const { result } = renderHook(() => useReducedMotion())
     expect(result.current).toBe(false)
-  })
-})
-
-describe('useFrame', () => {
-  it('is wide from 768px by 600px and phone below either', () => {
-    const query = '(min-width: 768px) and (min-height: 600px)'
-    const flip = installMatchMedia({ [query]: false })
-    const { result } = renderHook(() => useFrame())
-    expect(result.current).toBe('phone')
-    act(() => flip(query, true))
-    expect(result.current).toBe('wide')
-  })
-})
-
-describe('getMode', () => {
-  it('reads the class Ionic stamps on the root and defaults to md', () => {
-    expect(getMode()).toBe('md')
-    document.documentElement.classList.add('ios')
-    expect(getMode()).toBe('ios')
   })
 })

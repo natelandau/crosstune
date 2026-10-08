@@ -1,84 +1,83 @@
-import { useIonRouter } from '@ionic/react'
-import { useState } from 'react'
-import { TABS } from '../../app/tabs'
-import { useOpenTabRoot } from '../../app/useOpenTabRoot'
-import { useDb } from '../../db/DbProvider'
-import { Screen } from '../../ui/Screen'
-import { DEFAULT_FILTERS, type CatalogFilters } from '../catalog/filters'
-import { writeSearchQuery } from '../catalog/searchSession'
-import { useCatalogFilters } from '../catalog/useCatalogFilters'
-import { BreakdownsBlock } from './blocks/BreakdownsBlock'
-import { CountsBlock } from './blocks/CountsBlock'
-import { HeatmapBlock } from './blocks/HeatmapBlock'
-import { MonthsBlock } from './blocks/MonthsBlock'
-import { OnThisDayBlock } from './blocks/OnThisDayBlock'
-import { RaritiesBlock } from './blocks/RaritiesBlock'
-import { RecordedBlock } from './blocks/RecordedBlock'
-import { STATS_TITLE } from './copy'
-import { useStats } from './useStats'
+import { useRef } from 'react'
+import { COUNTS_HEADER, STATS_TITLE } from './copy'
+import { useStatsScreen } from './useStatsScreen'
+import { destination } from '../../app/destinations'
+import { useDestination } from '../../app/useDestination'
+import { usePaneTitleLine } from '../../app/ColumnTitle'
+import { BackLink, PaneBar } from '../../app/PaneBar'
+import { useFixedNow } from '../../ui/useNow'
+import { Breakdowns } from './blocks/Breakdown'
+import { Counts } from './blocks/Counts'
+import { Heatmap } from './blocks/Heatmap'
+import { Months } from './blocks/Months'
+import { OnThisDay } from './blocks/OnThisDay'
+import { Rarities } from './blocks/Rarities'
+import { Recorded } from './blocks/Recorded'
 
-const CATALOG = TABS[0]
+const SETTINGS = destination('settings')
 
 /**
- * A look back over the catalog. Counts and the recorded total always show; every other block
- * shows only when the catalog holds something for it.
+ * A look back over the catalog, as a document page. Counts and the recorded total always show;
+ * every other block shows only when the catalog holds something for it. A value that is a
+ * catalog filter opens the catalog's root with only that filter set.
  */
 export function StatsPage({ now }: { now?: Date }) {
-  const db = useDb()
-  const router = useIonRouter()
-  const openTabRoot = useOpenTabRoot()
-  const [opened] = useState(() => now ?? new Date())
-  const view = useStats(db, opened)
-  const [, updateFilters, filtersError] = useCatalogFilters()
-
-  // Every other filter and the search are cleared, so the catalog shows exactly the tunes the
-  // value counted. The Settings stack keeps this page for the way back.
-  const openCatalog = async (patch: Partial<CatalogFilters>) => {
-    await updateFilters({ ...DEFAULT_FILTERS, ...patch })
-    writeSearchQuery('catalog', '')
-    openTabRoot(CATALOG)
+  const { root } = useDestination()
+  const fixedNow = useFixedNow()
+  const { view, filterCatalog, filterError } = useStatsScreen({
+    openCatalog: () => root('catalog'),
+    now: now ?? fixedNow,
+  })
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  usePaneTitleLine(titleRef)
+  const filter = (patch: Parameters<typeof filterCatalog>[0], header: string) => {
+    void filterCatalog(patch, header)
   }
 
   return (
-    <Screen title={STATS_TITLE} level="pushed" backHref="/settings" grouped>
-      <h1 className="sr-only">{STATS_TITLE}</h1>
-      {view ? (
-        <>
-          <CountsBlock counts={view.stats.counts} />
-          <RecordedBlock
-            recorded={view.stats.recorded}
-            equivalence={view.stats.equivalence}
-            tuneTitles={view.tuneTitles}
-          />
-          {view.stats.months.all_time.length > 0 ? (
-            <MonthsBlock months={view.stats.months} />
-          ) : null}
-          {view.stats.heatmap.visible ? (
-            <HeatmapBlock heatmap={view.stats.heatmap} today={view.today} />
-          ) : null}
-          {view.stats.on_this_day.length > 0 ? (
-            <OnThisDayBlock
-              lines={view.stats.on_this_day}
-              tuneTitles={view.tuneTitles}
-              recordingTitles={view.recordingTitles}
+    <>
+      <PaneBar
+        title={STATS_TITLE}
+        leading={<BackLink to={SETTINGS.root} label={SETTINGS.label} />}
+      />
+      <article className="max-w-page mx-auto w-full px-4 pt-2 pb-12">
+        <h1 ref={titleRef} className="t-page-title pb-6 select-text">
+          {STATS_TITLE}
+        </h1>
+        {view && (
+          <>
+            <Counts
+              counts={view.stats.counts}
+              onStatus={(status) => filter({ status }, COUNTS_HEADER)}
+              error={filterError(COUNTS_HEADER)}
             />
-          ) : null}
-          <BreakdownsBlock
-            breakdowns={view.stats.breakdowns}
-            onFilter={openCatalog}
-            error={filtersError}
-          />
-          {view.stats.rarities.length > 0 ? (
-            <RaritiesBlock
-              rarities={view.stats.rarities}
+            <Recorded
+              recorded={view.stats.recorded}
+              equivalence={view.stats.equivalence}
               tuneTitles={view.tuneTitles}
-              onOpenTune={(tuneId) =>
-                router.push(`/settings/stats/tunes/${tuneId}`, 'forward', 'push')
-              }
             />
-          ) : null}
-        </>
-      ) : null}
-    </Screen>
+            {view.stats.months.all_time.length > 0 && <Months months={view.stats.months} />}
+            {view.stats.heatmap.visible && (
+              <Heatmap heatmap={view.stats.heatmap} today={view.today} />
+            )}
+            {view.stats.on_this_day.length > 0 && (
+              <OnThisDay
+                lines={view.stats.on_this_day}
+                tuneTitles={view.tuneTitles}
+                recordingTitles={view.recordingTitles}
+              />
+            )}
+            <Breakdowns
+              breakdowns={view.stats.breakdowns}
+              onFilter={filter}
+              filterError={filterError}
+            />
+            {view.stats.rarities.length > 0 && (
+              <Rarities rarities={view.stats.rarities} tuneTitles={view.tuneTitles} />
+            )}
+          </>
+        )}
+      </article>
+    </>
   )
 }

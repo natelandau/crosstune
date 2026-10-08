@@ -28,3 +28,10 @@ export function closeRecordingName(title: string): string {
 export function openTuneName(title: string): string {
   return `Open ${title}`
 }
+
+export const RETRY = 'Retry'
+
+/** The name of a stuck recording's Retry, which says which of its steps it retries. */
+export function retryName(kind: 'upload' | 'transcode', title: string): string {
+  return kind === 'upload' ? `${RETRY} uploading ${title}` : `${RETRY} ${title}`
+}

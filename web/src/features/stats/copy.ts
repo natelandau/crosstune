@@ -19,9 +19,7 @@ export const TUNES_LABEL = 'Tunes'
 export const LISTS_LABEL = 'Lists'
 export const RECORDINGS_LABEL = 'Recordings'
 export const LINKS_LABEL = 'Links'
-export const KNOWN_LABEL = STATUS_LABELS.known
 export const LEARNING_LABEL = STATUS_LABELS.learning
-export const UNKNOWN_LABEL = STATUS_LABELS.want_to_learn
 
 export const TUNES_ADDED_LABEL = 'Tunes added'
 /** The toggle that widens the month bars from the last 12 months to every month. */
@@ -38,8 +36,14 @@ const countTunes = (n: number) => count(n, 'tune', 'tunes')
 const countRecordings = (n: number) => count(n, 'recording', 'recordings')
 const countScans = (n: number) => count(n, 'scan', 'scans')
 
-/** The Settings row that opens the stats page. Scans appear only when there are any. */
-export function summaryLine({
+/** What separates the parts of a stats line. */
+export const SUMMARY_SEPARATOR = ' · '
+
+/**
+ * The Settings row that opens the stats page, part by part, so a wrapping line can keep each
+ * part whole. Scans appear only when there are any.
+ */
+export function summaryParts({
   tunes,
   lists,
   recordings,
@@ -51,16 +55,19 @@ export function summaryLine({
   recordings: number
   scans: number
   ms: number
-}): string {
+}): string[] {
   return [
     countTunes(tunes),
     count(lists, 'list', 'lists'),
     countRecordings(recordings),
     scans > 0 ? countScans(scans) : null,
     formatRecorded(ms),
-  ]
-    .filter((part) => part !== null)
-    .join(' · ')
+  ].filter((part) => part !== null)
+}
+
+/** The Settings row that opens the stats page, in one line. */
+export function summaryLine(counts: Parameters<typeof summaryParts>[0]): string {
+  return summaryParts(counts).join(SUMMARY_SEPARATOR)
 }
 
 /** The recorded total: `37 recordings · 9 h 12 m`. */
@@ -76,6 +83,37 @@ export function archivedLine(n: number): string {
 /** The counts block's scans line, shown only when there are any: `86 scans across 41 tunes`. */
 export function scansLine(scans: number, tunes: number): string {
   return `${countScans(scans)} across ${countTunes(tunes)}`
+}
+
+/** The counts block's tally of lists and links, then scans once there are any. */
+export function tallyLine({
+  lists,
+  links,
+  scans,
+  scan_tunes,
+}: {
+  lists: number
+  links: number
+  scans: number
+  scan_tunes: number
+}): string {
+  return [
+    `${LISTS_LABEL} ${lists.toLocaleString('en-US')}`,
+    `${LINKS_LABEL} ${links.toLocaleString('en-US')}`,
+    scans > 0 ? scansLine(scans, scan_tunes) : null,
+  ]
+    .filter((part) => part !== null)
+    .join(' · ')
+}
+
+/** A counted value, as assistive technology reads its row: `Irish, 3 tunes`. */
+export function valueLabel(value: string, n: number): string {
+  return `${value}, ${countTunes(n)}`
+}
+
+/** The row that opens a breakdown past its first values: `Show all 12`. */
+export function showAllLabel(n: number): string {
+  return `Show all ${n.toLocaleString('en-US')}`
 }
 
 /** Column headings for the key grid, short enough to sit side by side at phone width. */

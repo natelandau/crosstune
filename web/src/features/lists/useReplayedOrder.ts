@@ -57,7 +57,11 @@ export interface ReplayedOrder<T> {
   ordered: T[]
   /** Send `rows[from]` beside `rows[to]`, showing it there at once and writing it behind. */
   move: (rows: readonly T[], from: number, to: number) => void
-  /** What the last move said it did, for a status line. */
+  /**
+   * What the last move said it did, for a status line. It names the place the row was dropped
+   * and is not rewritten when a sync later moves the row again: the region speaks for the
+   * musician's own move, and a re-announcement for another device's change would read as theirs.
+   */
   announcement: string
 }
 
@@ -81,7 +85,7 @@ export function useReplayedOrder<T>({
   write: (itemId: string, targetId: string) => Promise<void>
   /** The order the store holds now, as ids. */
   readOrder: () => Promise<string[]>
-  /** What a status line says once `rows[from]` has gone to `to`. */
+  /** What a status line says once `rows[from]` has gone to `to`, at the moment of the move. */
   announce: (rows: readonly T[], from: number, to: number) => string
   onMoveStart?: () => void
   onError: (message: string) => void

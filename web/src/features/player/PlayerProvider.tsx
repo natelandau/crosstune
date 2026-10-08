@@ -1,6 +1,6 @@
 import { useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
 import { DbContext } from '../../db/DbProvider'
-import { visibleMain } from '../../ui/useShortcut'
+import { visibleMain } from '../../platform/visibleMain'
 import { usePlaybackEngine } from './PlaybackEngineProvider'
 import type { PlayOrigin } from './playLog'
 import { PlayLogContext, usePlayLog } from './usePlayLog'

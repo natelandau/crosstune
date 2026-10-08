@@ -1,241 +1,168 @@
-import { IonSpinner } from '@ionic/react'
-import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowUpRight, CloudDownload } from 'lucide-react'
-import type { ComponentProps, ReactNode } from 'react'
-import { activeByPosition } from '../../commands/write'
-import { useDb } from '../../db/DbProvider'
-import type { PlayFirst } from '../../api/vocabulary'
+import type { ReactNode } from 'react'
+import { Button as AriaButton } from 'react-aria-components'
 import type { LocalRecordingLink } from '../../db/types'
-import { useOnline } from '../../sync/SyncProvider'
-import { NotPlayableGlyph, PlayGlyph, Slot, StopGlyph } from '../../ui/rowGlyphs'
-import { TuneItem } from '../catalog/TuneItem'
-import { displayTitle } from '../links/display'
+import type { RowSource } from './useListRowSource'
 import { closeLinkName, openLinkName } from '../links/linkNames'
-import { linkControl } from '../links/linkControl'
-import { chooseRowSource } from '../player/tuneSource'
-import { isPlaying, usePlayer } from '../player/usePlayer'
+import { useLinkRow } from '../links/useLinkRow'
+import { useListPlayback } from '../player/useListPlayback'
 import {
   closeRecordingName,
   downloadingName,
   downloadName,
   playName,
 } from '../recordings/recordingNames'
-import { rowControl } from '../recordings/recordingRow'
-import { useDownload } from '../recordings/useDownload'
-import { useRecordingsWithFiles, type RecordingView } from '../recordings/useRecordings'
-import type { ListItemView } from './useLists'
+import { useRecordingRow } from '../recordings/useRecordingRow'
+import type { RecordingView } from '../recordings/useRecordings'
+import { NotPlayableGlyph, PlayGlyph, StopGlyph } from '../../ui/rowGlyphs'
 
-export const NOT_PLAYABLE = 'No recordings or links'
-
-type RowSource =
-  { kind: 'recording'; view: RecordingView } | { kind: 'link'; link: LocalRecordingLink }
+const SLOT = 'text-ink-2 grid size-(--target-control) shrink-0 place-items-center'
 
 /**
- * What a list row plays for its tune: `null` when it has nothing, `undefined` until its media
- * has been read. Reads the tune's own media in tune-screen order, because a row's view carries
- * none.
+ * What a row's Play does: while this list plays, it moves the queue to the tune; otherwise,
+ * or for a tune the queue lacks, it plays the row's own source, which detaches the queue.
  */
-function useRowSource(
-  entry: ListItemView,
-  playFirst: PlayFirst | undefined,
-): RowSource | null | undefined {
-  const db = useDb()
-  const tuneId = entry.tune.id
-  const views = useRecordingsWithFiles({ tuneId })
-  const links = useLiveQuery(
-    async () =>
-      activeByPosition(await db.recording_links.where('tune_id').equals(tuneId).toArray()),
-    [db, tuneId],
-  )
-  if (!views || !links || playFirst === undefined) return undefined
-  const chosen = chooseRowSource({
-    tuneId,
-    pin: {
-      recordingId: entry.userTune.play_recording_id ?? null,
-      linkId: entry.userTune.play_link_id ?? null,
-    },
-    recordings: views.map((view) => view.recording),
-    links,
-    playFirst,
-  })
-  if (!chosen) return null
-  if (chosen.kind === 'link') {
-    const link = links.find((l) => l.id === chosen.id)
-    return link ? { kind: 'link', link } : null
+function useListedPlay(listId: string, tuneId: string): (playAlone: () => void) => () => void {
+  const playback = useListPlayback()
+  return (playAlone) => () => {
+    if (playback.active?.listId === listId && playback.jump(tuneId)) return
+    playAlone()
   }
-  const view = views.find((v) => v.recording.id === chosen.id)
-  return view ? { kind: 'recording', view } : null
 }
 
-/** One of a row's trailing controls, at the row's touch size. */
-function RowButton({
+function SlotButton({
   name,
-  onClick,
+  loaded = false,
+  onPress,
   children,
 }: {
   name: string
-  onClick: () => void
+  loaded?: boolean
+  onPress: () => void
   children: ReactNode
 }) {
   return (
-    <button type="button" aria-label={name} className={SLOT} onClick={onClick}>
+    <AriaButton
+      aria-label={name}
+      onPress={onPress}
+      className={`${SLOT} rounded-full data-[pressed]:opacity-60 ${loaded ? 'text-slate' : ''}`}
+    >
       {children}
-    </button>
+    </AriaButton>
   )
 }
-
-const SLOT = 'grid size-11 place-items-center'
 
 function RecordingPlay({
   view,
   title,
   listId,
+  tuneId,
 }: {
   view: RecordingView
   title: string
   listId: string
+  tuneId: string
 }) {
-  const player = usePlayer()
-  const online = useOnline()
-  const { recording, file } = view
-  const { fetch, download } = useDownload(recording.id)
-  const item = { kind: 'recording' as const, id: recording.id }
-  const control = rowControl(view, {
-    loaded: isPlaying(player, item),
-    downloading: fetch === 'fetching' || file?.local_state === 'downloading',
+  const { control, loaded, open, offlineDownload } = useRecordingRow(view, {
+    origin: { context: 'list', listId },
   })
-
-  if (control === 'close') {
-    return (
-      <RowButton name={closeRecordingName(title)} onClick={() => player.close()}>
-        <StopGlyph />
-      </RowButton>
-    )
-  }
-  if (control === 'play') {
-    return (
-      <RowButton
-        name={playName(title)}
-        onClick={() => player.play(item, { context: 'list', listId })}
-      >
-        <PlayGlyph />
-      </RowButton>
-    )
-  }
-  if (control === 'download') {
-    return (
-      <RowButton
-        name={downloadName(title)}
-        // Refused rather than disabled, so the control keeps its tap and its name.
-        onClick={() => {
-          if (online) download()
-        }}
-      >
-        <CloudDownload aria-hidden="true" className={`size-5 ${online ? '' : 'opacity-60'}`} />
-      </RowButton>
-    )
-  }
+  const listed = useListedPlay(listId, tuneId)
   if (control === 'downloading') {
     return (
       <span role="status" aria-label={downloadingName(title)} className={SLOT}>
-        <IonSpinner aria-hidden="true" />
+        <CloudDownload className="size-5 opacity-40" aria-hidden />
       </span>
     )
   }
-  return <span className="size-11" />
-}
-
-function LinkPlay({ link, title }: { link: LocalRecordingLink; title: string }) {
-  const player = usePlayer()
-  const item = { kind: 'link' as const, id: link.id }
-  const { control, href } = linkControl(link, isPlaying(player, item))
-  const linkName = displayTitle(link)
-
-  if (control === 'close') {
-    return (
-      <RowButton name={closeLinkName(linkName)} onClick={() => player.close()}>
+  if (!open) return <span className={SLOT} />
+  const name =
+    control === 'close'
+      ? closeRecordingName(title)
+      : control === 'play'
+        ? playName(title)
+        : downloadName(title)
+  return (
+    <SlotButton
+      name={name}
+      loaded={loaded}
+      onPress={control === 'play' ? listed(open.onOpen) : open.onOpen}
+    >
+      {control === 'close' ? (
         <StopGlyph />
-      </RowButton>
-    )
-  }
-  if (control === 'play') {
-    return (
-      <RowButton name={playName(title)} onClick={() => player.play(item)}>
+      ) : control === 'play' ? (
         <PlayGlyph />
-      </RowButton>
-    )
-  }
-  if (control === 'open') {
-    return (
-      <RowButton
-        name={openLinkName(linkName)}
-        onClick={() => window.open(href!, '_blank', 'noopener,noreferrer')}
-      >
-        <ArrowUpRight aria-hidden="true" className="size-5" />
-      </RowButton>
-    )
-  }
-  return <span className="size-11" />
+      ) : (
+        <CloudDownload className={`size-5 ${offlineDownload ? 'opacity-40' : ''}`} aria-hidden />
+      )}
+    </SlotButton>
+  )
 }
 
-/** The play control a list row carries first in its trailing edge. */
-function ListRowPlay({
-  source,
+function LinkPlay({
+  link,
   title,
   listId,
+  tuneId,
 }: {
-  source: RowSource | null
+  link: LocalRecordingLink
   title: string
   listId: string
+  tuneId: string
 }) {
-  if (!source) {
-    return (
-      <Slot>
-        <NotPlayableGlyph />
-      </Slot>
-    )
-  }
-  return source.kind === 'recording' ? (
-    <RecordingPlay view={source.view} title={title} listId={listId} />
-  ) : (
-    <LinkPlay link={source.link} title={title} />
+  const row = useLinkRow(link)
+  const listed = useListedPlay(listId, tuneId)
+  if (!row.open) return <span className={SLOT} />
+  const name =
+    row.control === 'close'
+      ? closeLinkName(row.title)
+      : row.control === 'play'
+        ? playName(title)
+        : openLinkName(row.title)
+  return (
+    <SlotButton
+      name={name}
+      loaded={row.loaded}
+      // A tune whose row plays a link can still be in the queue by a recording.
+      onPress={row.control === 'play' ? listed(row.open.onOpen) : row.open.onOpen}
+    >
+      {row.control === 'close' ? (
+        <StopGlyph />
+      ) : row.control === 'play' ? (
+        <PlayGlyph />
+      ) : (
+        <ArrowUpRight className="size-5" aria-hidden />
+      )}
+    </SlotButton>
   )
 }
 
 /**
- * A tune row in a list: the tune, its play control first in the trailing edge, then `trailing`.
- * While selecting, the row toggles and carries no play control.
+ * A list row's own play control, trailing: what the tune plays, named for the tune, or a mark
+ * that it has nothing to play. Nothing shows until its media has read.
  */
-export function ListTuneRow({
-  entry,
-  playFirst,
-  trailing,
-  ...rest
-}: Omit<ComponentProps<typeof TuneItem>, 'entry' | 'end' | 'description' | 'scanOrigin'> & {
-  entry: ListItemView
-  /** The user's play-first choice, undefined until the settings row has been read. */
-  playFirst: PlayFirst | undefined
-  trailing?: ReactNode
+export function ListRowPlay({
+  source,
+  title,
+  listId,
+  tuneId,
+}: {
+  source: RowSource | null | undefined
+  /** The tune's title, which names the control. */
+  title: string
+  listId: string
+  tuneId: string
 }) {
-  const source = useRowSource(entry, playFirst)
-  const selecting = rest.selection !== undefined
-  const shown = !selecting && source !== undefined
-  return (
-    <TuneItem
-      {...rest}
-      entry={entry}
-      scanOrigin={{ context: 'list', listId: entry.item.list_id }}
-      description={shown && source === null ? NOT_PLAYABLE : undefined}
-      end={
-        shown || trailing ? (
-          <>
-            {shown ? (
-              <ListRowPlay source={source} title={entry.tune.title} listId={entry.item.list_id} />
-            ) : null}
-            {trailing}
-          </>
-        ) : null
-      }
-    />
+  if (source === undefined) return <span className={SLOT} />
+  if (source === null) {
+    return (
+      <span className={SLOT}>
+        <NotPlayableGlyph />
+      </span>
+    )
+  }
+  return source.kind === 'recording' ? (
+    <RecordingPlay view={source.view} title={title} listId={listId} tuneId={tuneId} />
+  ) : (
+    <LinkPlay link={source.link} title={title} listId={listId} tuneId={tuneId} />
   )
 }

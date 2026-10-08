@@ -11,8 +11,8 @@ import { clamp } from '../../math'
 import { useLatest } from '../../ui/useLatest'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { formatDuration, formatPreciseDuration } from '../recording/format'
-import type { ShownPeaks } from '../recording-screen/recordingRange'
-import { Waveform } from '../recording-screen/Waveform'
+import type { ShownPeaks } from './recordingRange'
+import { Waveform } from './Waveform'
 import { slicePeaks } from '../waveform/peaks'
 import { LoopHandle } from './LoopHandle'
 import { roomAround, type Bounds, type Draft, type PlacedLoop, type Span } from './loopModel'
@@ -31,7 +31,7 @@ export interface SelectedLoop {
   span: Span
 }
 
-/** What the screen needs of a scrub under way, so its commands act where the playhead shows. */
+/** What practice needs of a scrub under way, so its commands act where the playhead shows. */
 export interface WaveformScrub {
   /** Stops a glide under way where it has got to; true when there was one. */
   settleGlide: () => boolean
@@ -208,12 +208,12 @@ export function PracticeWaveform({
       className="relative flex touch-none flex-col gap-1 select-none"
       {...handlers}
     >
-      <div aria-hidden="true" className="type-caption relative h-4 overflow-hidden tabular-nums">
+      <div aria-hidden="true" className="t-caption relative h-4 overflow-hidden tabular-nums">
         {ticks.map((t) => (
           <span
             key={t}
             data-tick
-            className="absolute top-0 border-l border-(--ion-color-medium) pl-1 leading-4 text-(--ion-color-medium)"
+            className="absolute top-0 border-l border-(--panel-muted) pl-1 leading-4 text-(--panel-muted)"
             style={{ left: ((t - view.startMs) / 1000) * pxPerS }}
           >
             {step < 1000 ? formatPreciseDuration(t) : formatDuration(t)}
@@ -284,7 +284,7 @@ export function PracticeWaveform({
               />
             )
           }
-          const tabClass = `loop-color type-footnote absolute top-0 truncate rounded-b-md bg-(--loop) px-2 py-1 font-semibold text-white`
+          const tabClass = `loop-color t-secondary absolute top-0 truncate rounded-b-md bg-(--loop) px-2 py-1 font-semibold text-white`
           return loop.id === selected?.id ? (
             <button
               key={loop.id}
@@ -313,7 +313,7 @@ export function PracticeWaveform({
         <div
           aria-hidden="true"
           data-playhead
-          className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-current"
+          className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-(--playhead)"
           style={{ left: widthPx / 2 }}
         />
         {selected
@@ -385,7 +385,7 @@ function RenameField({
       defaultValue={label ?? ''}
       maxLength={LOOP_LIMITS.label}
       data-color={color}
-      className="loop-color type-footnote absolute top-0 z-20 h-8 rounded-b-md border border-(--loop) bg-(--ion-background-color) px-2"
+      className="loop-color t-secondary absolute top-0 z-20 h-8 rounded-b-md border border-(--loop) bg-(--panel-ground) px-2"
       style={{ left, width }}
       // The field takes its own presses, so selecting text never scrolls the audio.
       onPointerDown={(event) => event.stopPropagation()}

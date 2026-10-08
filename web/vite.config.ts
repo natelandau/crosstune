@@ -44,19 +44,6 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss(), VitePWA(pwaOptions)],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
-    // @ionic/react imports every Ionic component, and @ionic/core declares no side-effect
-    // info, so each one would ship. A component module only defines its class and registers
-    // nothing until its wrapper renders, so an unused one can go, which keeps the launch
-    // chunk under the service worker's precache size limit.
-    build: {
-      rolldownOptions: {
-        treeshake: {
-          moduleSideEffects: [
-            { test: /@ionic\/core\/components\/ion-[a-z-]+\.js$/, sideEffects: false },
-          ],
-        },
-      },
-    },
     // A dev server that drifted off 5173 would lose the Clerk origin and the Apple app's
     // storage origin, so a taken port is an error instead.
     server: { host, port: 5173, strictPort: true, proxy, allowedHosts: hosts },

@@ -30,8 +30,19 @@ const unstubRequests: BrowserCommand<[pattern: string]> = async (context, patter
 }
 const commands = { stubRequests, stubbedRequests, unstubRequests }
 
-// Logic runs under jsdom. Anything that renders an Ionic component runs in Chromium, because
-// Ionic is web components with shadow DOM and jsdom does not render them.
+// Each browser project runs headless at the phone viewport, in Chromium unless it names
+// another. A fresh object each, because Vitest names each project's instances in place.
+const browserBase = () => ({
+  enabled: true,
+  headless: true,
+  provider: playwright(),
+  commands,
+  instances: [{ browser: 'chromium' as const }],
+  viewport: { width: 390, height: 844 },
+})
+
+// Logic runs under jsdom. Anything that measures layout, paints, or drives real input runs in a
+// browser, since jsdom does neither.
 export default defineConfig((env) =>
   mergeConfig(
     viteConfig(env),
@@ -80,34 +91,22 @@ export default defineConfig((env) =>
             test: {
               name: 'browser',
               include: ['src/**/*.browser.test.tsx'],
-              exclude: ['**/node_modules/**', 'src/**/*.ios.browser.test.tsx'],
-              setupFiles: ['./src/test/browser.ts'],
+              setupFiles: ['./src/test/setupBrowser.ts'],
               retry: browserRetry,
-              browser: {
-                enabled: true,
-                headless: true,
-                provider: playwright(),
-                commands,
-                instances: [{ browser: 'chromium' }],
-                viewport: { width: 390, height: 844 },
-              },
+              browser: browserBase(),
             },
           },
+          // WebKit does not focus a clicked link, so focus finds its way back to the list after
+          // Back by another path there, and this run confirms the hidden list keeps its scroll
+          // without a restore.
           {
             extends: true,
             test: {
-              name: 'browser-ios',
-              include: ['src/**/*.ios.browser.test.tsx'],
-              setupFiles: ['./src/test/browser-ios.ts'],
+              name: 'browser-webkit',
+              include: ['src/app/columns.browser.test.tsx'],
+              setupFiles: ['./src/test/setupBrowser.ts'],
               retry: browserRetry,
-              browser: {
-                enabled: true,
-                headless: true,
-                provider: playwright(),
-                commands,
-                instances: [{ browser: 'chromium' }],
-                viewport: { width: 390, height: 844 },
-              },
+              browser: { ...browserBase(), instances: [{ browser: 'webkit' as const }] },
             },
           },
         ],

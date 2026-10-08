@@ -1,204 +1,61 @@
-import { IonButton, IonInput, IonItem, IonSelect, IonSelectOption } from '@ionic/react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  MODES,
-  TIME_SIGNATURES,
-  TUNE_LIMITS,
-  STATUSES,
-  type Instrument,
-} from '../../api/vocabulary'
+import { useId, useState } from 'react'
+import { MODES, STATUSES, TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
-import {
-  GENRES,
-  PART_STRUCTURES,
-  QUICK_KEYS,
-  STATUS_LABELS,
-  TUNE_TYPES,
-  TUNINGS,
-} from '../../constants'
-import { usePointer } from '../../platform/pointer'
-import { FieldRow, NOT_SET } from '../../ui/FieldRow'
-import { Group } from '../../ui/Group'
-import { InlineError } from '../../ui/InlineError'
-import { Sheet } from '../../ui/Sheet'
+import { INSTRUMENT_LABELS, STATUS_LABELS } from '../../constants'
 import type { CatalogEntry } from '../catalog/filters'
-import { useCatalog } from '../catalog/useCatalog'
-import { byTuningKey, tuningLabel } from '../settings/instruments'
-import { SuggestSelect } from '../tune/SuggestSelect'
-import { catalogComposers, catalogLearnedFrom } from '../tune/tuneTypes'
 import {
   EDIT_FIELD_LABELS,
   FIELD_KINDS,
-  isUnchanged,
-  summarize,
-  toPatch,
-  tuningInstrument,
-  visibleEditFields,
   type EditField,
   type Summary,
-  type Touched,
   type TouchedValue,
 } from './batchEdit'
-import { countTunes } from './copy'
-import { CANCEL } from '../../ui/Confirm'
+import { EDIT_ONLY_CHANGED, editTunesTitle, MIXED, NO, SAVE_EDIT, YES } from './selectionCopy'
+import { EDIT_LIMITS, editRowValue, useBulkEdit, type BulkEdit } from './useBulkEdit'
+import { tuningLabel } from '../settings/instruments'
+import { DETAILS_HEADER, STATUS_HEADER, TUNING_HEADER } from '../tune/tuneFormCopy'
+import {
+  learnedOnDate,
+  learnedOnError,
+  learnedOnParts,
+  learnedOnRefusedPart,
+  learnedOnText,
+} from '../tune/tuneFormValues'
+import { NOT_SET } from '../../ui/fieldCopy'
+import { KEY } from '../../ui/keyName'
+import type { DateParts } from '../../ui/partialDate'
+import { ErrorLine } from '../../ui/ErrorLine'
+import { Group } from '../../ui/form/Group'
+import { PartialDateField } from '../../ui/form/PartialDateField'
+import { Picker, type PickerOption } from '../../ui/form/Picker'
+import { SuggestField } from '../../ui/form/SuggestField'
+import { KeyGrid } from '../../ui/KeyGrid'
+import { Sheet } from '../../ui/Sheet'
+import { useEndOnClose } from '../../ui/useEndOnClose'
 
-type Pick = { options: readonly string[]; other: boolean }
+// No option can be this: options are stored values, which never hold a NUL.
+const CLEAR = '\u0000clear'
 
-const PICKS: Partial<Record<EditField, Pick>> = {
-  key: { options: QUICK_KEYS, other: true },
-  mode: { options: MODES, other: false },
-  ...byTuningKey((instrument) => ({ options: TUNINGS[instrument], other: true })),
-  genre: { options: GENRES, other: true },
-  tune_type: { options: TUNE_TYPES, other: true },
-  time_signature: { options: TIME_SIGNATURES, other: false },
-  part_structure: { options: PART_STRUCTURES, other: true },
+const asOptions = (values: readonly string[]): PickerOption[] =>
+  values.map((value) => ({ id: value, label: value }))
+
+const CLOSED: Partial<Record<EditField, PickerOption[]>> = {
+  status: STATUSES.map((status) => ({ id: status, label: STATUS_LABELS[status] })),
+  mode: asOptions(MODES),
+  time_signature: asOptions(TIME_SIGNATURES),
+  is_crooked: asOptions([YES, NO]),
 }
 
-// A toggle cannot show a third state, so a yes or no field is picked from a list. Its empty
-// choice keeps every tune as it is rather than clearing them: the column takes no null.
-const YES_NO = ['Yes', 'No']
-
-const LIMITS: Partial<Record<EditField, number>> = {
-  ...TUNE_LIMITS,
-  ...byTuningKey(() => TUNE_LIMITS.tuning),
-}
-
-/** The touched value once the row is touched, the shared value when every tune agrees, else none. */
-function rowValue(summary: Summary, touched: TouchedValue | undefined): TouchedValue {
-  if (touched !== undefined) return touched
-  return summary.kind === 'shared' ? summary.value : null
-}
-
-function StatusRow({
-  summary,
-  touched,
-  onChange,
-}: {
-  summary: Summary
-  touched: TouchedValue | undefined
-  onChange: (value: TouchedValue) => void
-}) {
-  const mouse = usePointer() === 'mouse'
-  const value = rowValue(summary, touched)
-  return (
-    <IonItem>
-      {/* Status can be set but never cleared, so this row carries no empty choice. */}
-      <IonSelect
-        aria-label="Status"
-        placeholder={summary.kind === 'mixed' ? 'Mixed' : NOT_SET}
-        interface={mouse ? 'popover' : 'action-sheet'}
-        value={typeof value === 'string' ? value : ''}
-        onIonChange={(event) => onChange(String(event.detail.value ?? ''))}
-      >
-        {STATUSES.map((status) => (
-          <IonSelectOption key={status} value={status}>
-            {STATUS_LABELS[status]}
-          </IonSelectOption>
-        ))}
-      </IonSelect>
-    </IonItem>
-  )
-}
-
-function EditRow({
-  field,
-  summary,
-  touched,
-  showLabel,
-  picks,
-  onChange,
-}: {
-  field: EditField
-  summary: Summary
-  touched: TouchedValue | undefined
-  /** False when a group header above already names the field. */
-  showLabel: boolean
-  /** The pick lists, with the ones that depend on the catalog filled in. */
-  picks: Partial<Record<EditField, Pick>>
-  /** Undefined leaves the row untouched, so nothing is written for this field. */
-  onChange: (value: TouchedValue | undefined) => void
-}) {
-  if (field === 'status')
-    return <StatusRow summary={summary} touched={touched} onChange={onChange} />
-
-  const label = EDIT_FIELD_LABELS[field]
-  const placeholder = summary.kind === 'mixed' ? 'Mixed' : NOT_SET
-  const detail = showLabel ? label : undefined
-  const value = rowValue(summary, touched)
-  const text = typeof value === 'string' ? value : ''
-  const kind = FIELD_KINDS[field]
-
-  if (kind === 'boolean') {
-    return (
-      <SuggestSelect
-        label={label}
-        showLabel={showLabel}
-        detail={detail}
-        value={value === true ? 'Yes' : value === false ? 'No' : ''}
-        options={YES_NO}
-        other={false}
-        placeholder={placeholder}
-        emptyLabel="Keep"
-        onChange={(next) => onChange(next === '' ? undefined : next === 'Yes')}
-      />
-    )
-  }
-
-  if (kind === 'date') {
-    return (
-      <FieldRow label={label} detail={detail}>
-        <IonInput
-          type="date"
-          aria-label={label}
-          // A date input shows its own format in place of a placeholder, so the one row that
-          // cannot say Mixed where it stands says it underneath.
-          helperText={summary.kind === 'mixed' ? 'Mixed' : undefined}
-          value={text}
-          onIonInput={(event) => {
-            const typed = event.detail.event?.target
-            // A date reads as empty until every part of it is filled, and taking that for a
-            // clear would wipe the field on every selected tune halfway through typing one.
-            if (typed instanceof HTMLInputElement && typed.validity.badInput) return
-            onChange(String(event.detail.value ?? ''))
-          }}
-        />
-      </FieldRow>
-    )
-  }
-
-  const pick = picks[field]!
-  return (
-    <SuggestSelect
-      label={label}
-      showLabel={showLabel}
-      detail={detail}
-      value={text}
-      options={pick.options}
-      other={pick.other}
-      maxLength={LIMITS[field]}
-      placeholder={placeholder}
-      emptyLabel="Clear"
-      clearOnOther={false}
-      onChange={onChange}
-    />
-  )
-}
+/** What an untouched row reads when no one value stands for every tune. */
+const blankLabel = (summary: Summary) => (summary.kind === 'mixed' ? MIXED : NOT_SET)
 
 /**
- * The tune form's own Details list over many tunes at once. Each row reads the value every
- * selected tune shares, Not set when they are all empty, or Mixed when they disagree; only a
- * row the musician touches is written.
+ * The tune form's fields over many tunes at once, as a full-height sheet on touch and a dialog
+ * on pointer. Each row reads the value every tune shares, Not set, or Mixed, and only a row the
+ * musician touches is written.
  */
-export function BulkEditSheet({
-  open,
-  entries,
-  instruments,
-  error,
-  pending,
-  onCancel,
-  onApply,
-}: {
-  open: boolean
+export function BulkEditSheet(props: {
+  isOpen: boolean
   /** The selected tunes, in screen order. */
   entries: readonly CatalogEntry[]
   instruments: ReadonlySet<Instrument>
@@ -211,126 +68,222 @@ export function BulkEditSheet({
   /** Hands the caller the patch; the caller writes it and closes the sheet. */
   onApply: (patch: BulkPatch) => void
 }) {
-  const [touched, setTouched] = useState<Touched>({})
-  const [closing, setClosing] = useState(false)
-  const [wasOpen, setWasOpen] = useState(open)
-  const [session, setSession] = useState(0)
-  // The session the sheet was presented for. Every way out ends here, including Escape, a
-  // backdrop tap, a drag to the bottom, and the Android back button, which dismiss with the
-  // backdrop role rather than through `closing`.
-  const presentedFor = useRef<number | null>(null)
-  // Two submits in one tick both read the same committed `pending`, so the guard is a ref.
-  const applied = useRef(false)
-
-  // Reset during render, not in an effect, so the sheet's first frame is already clean rather
-  // than flashing the previous session's values.
-  if (open !== wasOpen) {
-    setWasOpen(open)
-    if (open) {
-      setTouched({})
-      setClosing(false)
-      setSession((current) => current + 1)
-    }
+  // Each open is a fresh body, so a date half typed in one open never reaches the next.
+  const [opens, setOpens] = useState(props.isOpen ? 1 : 0)
+  const [wasOpen, setWasOpen] = useState(props.isOpen)
+  if (props.isOpen !== wasOpen) {
+    setWasOpen(props.isOpen)
+    if (props.isOpen) setOpens((count) => count + 1)
   }
+  return <BulkEditBody key={opens} {...props} />
+}
 
-  // Lifted once the caller reports the write settled, so a failed edit can be tried again.
-  useEffect(() => {
-    if (!pending) applied.current = false
-  })
-
-  useEffect(() => {
-    if (open) presentedFor.current = session
-  }, [open, session])
-
-  const catalog = useCatalog(open)
-  const picks = useMemo<Partial<Record<EditField, Pick>>>(() => {
-    const known = catalog ?? []
-    return {
-      ...PICKS,
-      composer: { options: catalogComposers(known), other: true },
-      learned_from: { options: catalogLearnedFrom(known), other: true },
-    }
-  }, [catalog])
-
-  const summaries = useMemo(() => summarize(entries), [entries])
-  const fields = useMemo(() => visibleEditFields(entries, instruments), [entries, instruments])
-
-  const touch = (field: EditField, value: TouchedValue | undefined) => {
-    setTouched((current) => {
-      const next = { ...current }
-      if (value === undefined || isUnchanged(summaries[field], value)) delete next[field]
-      else next[field] = value
-      return next
-    })
-  }
-
-  const touchedCount = Object.keys(touched).length
-
-  const save = () => {
-    if (pending || closing || applied.current || touchedCount === 0) return
-    applied.current = true
-    onApply(toPatch(touched))
-  }
-
-  const dismissed = () => {
-    const presented = presentedFor.current
-    presentedFor.current = null
-    // A dismissal that ends after the caller closed the sheet, or after a later session
-    // opened, belongs to a session that is already gone.
-    if (presented !== null && presented !== (open ? session : null)) return
-    onCancel()
-  }
-
-  const row = (field: EditField, showLabel: boolean) => (
-    <EditRow
-      key={field}
-      field={field}
-      summary={summaries[field]}
-      touched={touched[field]}
-      showLabel={showLabel}
-      picks={picks}
-      onChange={(value) => touch(field, value)}
-    />
-  )
-
-  const tunings = fields.flatMap((field) => {
-    const instrument = tuningInstrument(field)
-    return instrument ? [{ field, instrument }] : []
-  })
-  const details = fields.filter(
-    (field) => field !== 'status' && field !== 'key' && tuningInstrument(field) === undefined,
-  )
-
+function BulkEditBody({
+  isOpen,
+  entries,
+  instruments,
+  error,
+  pending,
+  onCancel,
+  onApply,
+}: Parameters<typeof BulkEditSheet>[0]) {
+  const bulk = useBulkEdit({ open: isOpen, entries, instruments, pending, onApply, onCancel })
+  const { summaries, touched, touch, tunings, details } = bulk
+  useEndOnClose(bulk.closing, bulk.dismissed)
+  // A date half typed writes nothing yet, so the sheet holds it by this rather than by a touch.
+  const [dating, setDating] = useState(false)
+  const row = (field: EditField) => <EditRow key={field} field={field} bulk={bulk} />
   return (
     <Sheet
-      open={open && !closing}
-      title={`Edit ${countTunes(entries.length)}`}
+      isOpen={isOpen && !bulk.closing}
+      onOpenChange={(open) => {
+        if (!open) bulk.cancel()
+      }}
+      title={editTunesTitle(entries.length)}
       height="full"
-      dismissible={!pending}
-      onClose={dismissed}
-      start={
-        <IonButton disabled={pending} onClick={() => setClosing(true)}>
-          {CANCEL}
-        </IonButton>
-      }
-      end={
-        <IonButton strong disabled={pending || closing || touchedCount === 0} onClick={save}>
-          Save
-        </IonButton>
-      }
+      locked={bulk.touchedCount > 0 || dating || pending}
+      primary={{ label: SAVE_EDIT, onPress: bulk.save, isDisabled: !bulk.canSave }}
     >
-      <div className="pb-8">
-        <p className="type-footnote px-(--form-inset) pt-3">Only fields you change are saved.</p>
-        {error ? <InlineError className="px-(--form-inset) pt-3">{error}</InlineError> : null}
-        <Group header="Status">{row('status', false)}</Group>
-        <Group header="Key">{row('key', false)}</Group>
-        {tunings.map(({ field, instrument }) => (
-          <Group key={field} header={tuningLabel(instrument)}>
-            {row(field, false)}
+      <div className="pb-4">
+        <p className="t-secondary text-ink-2 px-4 pt-3">{EDIT_ONLY_CHANGED}</p>
+        <ErrorLine error={error} place="sheet" />
+        <Group header={STATUS_HEADER}>{row('status')}</Group>
+        <Group header={KEY} plain>
+          <KeyRow summary={summaries.key} touched={touched.key} onTouch={(v) => touch('key', v)} />
+        </Group>
+        {tunings.length > 0 && (
+          <Group header={TUNING_HEADER}>
+            {tunings.map(({ field, instrument }) => (
+              <EditRow
+                key={field}
+                field={field}
+                bulk={bulk}
+                label={tuningLabel(instrument)}
+                rowLabel={INSTRUMENT_LABELS[instrument]}
+              />
+            ))}
           </Group>
-        ))}
-        <Group header="Details">{details.map((field) => row(field, true))}</Group>
+        )}
+        <Group header={DETAILS_HEADER}>
+          {details.filter((field) => FIELD_KINDS[field] !== 'date').map(row)}
+        </Group>
+        {details.includes('learned_on') && (
+          <DateRow
+            summary={summaries.learned_on}
+            touched={touched.learned_on}
+            onTouch={(value) => touch('learned_on', value)}
+            onDrafting={setDating}
+          />
+        )}
       </div>
     </Sheet>
+  )
+}
+
+/** Says Mixed under a control that cannot say it in place. */
+const footerFor = (summary: Summary) => (summary.kind === 'mixed' ? MIXED : undefined)
+
+/**
+ * One field as a picker for a closed choice or a suggestion field for an open one. Where the
+ * tunes disagree the empty choice reads Mixed and keeps each tune's value, and Not set is a
+ * choice of its own for a field that can be cleared.
+ */
+function EditRow({
+  field,
+  bulk,
+  label = EDIT_FIELD_LABELS[field],
+  rowLabel,
+}: {
+  field: EditField
+  bulk: BulkEdit
+  label?: string
+  rowLabel?: string
+}) {
+  const summary = bulk.summaries[field]
+  const touched = bulk.touched[field]
+  const touch = (value: TouchedValue | undefined) => bulk.touch(field, value)
+  const mixed = summary.kind === 'mixed'
+  const value = editRowValue(summary, touched)
+  const closed = CLOSED[field]
+
+  if (closed) {
+    const boolean = FIELD_KINDS[field] === 'boolean'
+    // Status is always set and a yes or no column takes no null, so neither can be cleared.
+    const clearable = !boolean && field !== 'status'
+    const offerClear = clearable && mixed
+    const chosen =
+      typeof value === 'boolean'
+        ? value
+          ? YES
+          : NO
+        : value
+          ? value
+          : offerClear && touched !== undefined
+            ? CLEAR
+            : null
+    return (
+      <Picker
+        label={label}
+        value={chosen}
+        options={offerClear ? [{ id: CLEAR, label: NOT_SET }, ...closed] : closed}
+        emptyLabel={blankLabel(summary)}
+        onChange={(id) => {
+          if (id === null) touch(clearable && !mixed ? null : undefined)
+          else if (id === CLEAR) touch(null)
+          else touch(boolean ? id === YES : id)
+        }}
+      />
+    )
+  }
+
+  const pick = bulk.picks[field]
+  return (
+    <SuggestField
+      label={label}
+      rowLabel={rowLabel}
+      value={typeof value === 'string' ? value : ''}
+      suggestions={pick?.options ?? []}
+      maxLength={EDIT_LIMITS[field]}
+      keep={
+        mixed
+          ? { label: MIXED, kept: touched === undefined, onKeep: () => touch(undefined) }
+          : undefined
+      }
+      onChange={touch}
+    />
+  )
+}
+
+/**
+ * The key as the tune form's grid. Where the tunes disagree its empty choice reads Mixed and
+ * keeps each tune's key; once a key is picked, pressing it again clears every tune's key.
+ */
+function KeyRow({
+  summary,
+  touched,
+  onTouch,
+}: {
+  summary: Summary
+  touched: TouchedValue | undefined
+  onTouch: (value: TouchedValue | undefined) => void
+}) {
+  const value = editRowValue(summary, touched)
+  const kept = touched === undefined && summary.kind === 'mixed'
+  return (
+    <KeyGrid
+      value={typeof value === 'string' && value !== '' ? value : null}
+      anyLabel={kept ? MIXED : NOT_SET}
+      onChange={(key) => onTouch(key === null && kept ? undefined : key)}
+    />
+  )
+}
+
+/**
+ * Learned on, a part at a time. Only a whole date, or none, is written, so a date still being
+ * typed leaves the field as it was.
+ */
+function DateRow({
+  summary,
+  touched,
+  onTouch,
+  onDrafting,
+}: {
+  summary: Summary
+  touched: TouchedValue | undefined
+  onTouch: (value: TouchedValue | undefined) => void
+  /** Whether the date shown differs from the one the sheet opened with. */
+  onDrafting: (drafting: boolean) => void
+}) {
+  const errorId = useId()
+  const shared = summary.kind === 'shared' && typeof summary.value === 'string' ? summary.value : ''
+  const [draft, setDraft] = useState<DateParts>(() => learnedOnParts(shared))
+  const [initial] = useState(() => learnedOnText(learnedOnParts(shared)))
+  const [left, setLeft] = useState(false)
+  const text = learnedOnText(draft)
+  const refused = learnedOnRefusedPart(text)
+  const error = left ? learnedOnError(text) : null
+  return (
+    <Group
+      header={EDIT_FIELD_LABELS.learned_on}
+      footer={touched === undefined ? footerFor(summary) : undefined}
+      error={error ?? undefined}
+      errorId={errorId}
+    >
+      <PartialDateField
+        whole
+        value={draft}
+        refusedPart={error ? refused : null}
+        describedBy={errorId}
+        onLeave={() => setLeft(true)}
+        onChange={(parts) => {
+          setDraft(parts)
+          const next = learnedOnText(parts)
+          onDrafting(next !== initial)
+          if (next === '') onTouch(null)
+          else if (learnedOnRefusedPart(next) === null) onTouch(learnedOnDate(next))
+          else onTouch(undefined)
+        }}
+      />
+    </Group>
   )
 }

@@ -2,15 +2,19 @@ import { deleteScan } from '../../commands/scans'
 import { useDb } from '../../db/DbProvider'
 import type { ScanFile } from '../../db/scans'
 import type { LocalScan } from '../../db/types'
-import { DELETE, useConfirm } from '../../ui/Confirm'
+import { DELETE } from '../../ui/confirmCopy'
+import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import { useAction } from '../../ui/useAction'
 import { DELETE_SYNCED_NOTE, DELETE_UNSYNCED_NOTE } from '../recordings/recordingRow'
 import { DELETE_SCAN_TITLE } from './scanCopy'
 
 /** Deletes a scan once the musician confirms, saying first whether it can come back. */
-export function useDeleteScan() {
+export function useDeleteScan({
+  confirm,
+}: {
+  confirm: (question: ConfirmQuestion) => Promise<boolean>
+}) {
   const db = useDb()
-  const confirm = useConfirm()
   const { error, run, clear } = useAction()
 
   const remove = async (scan: LocalScan, file: ScanFile | undefined) => {

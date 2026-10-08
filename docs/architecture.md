@@ -56,11 +56,17 @@ Cloudflare also hosts the DNS zone for the product domain.
   locally and the Worker when hosted. The Apple app calls the API origin
   directly, which CORS does not govern. A token's `azp` claim, when present,
   must match an allowed client origin.
-- `web/src/platform/` is the only client module that reads the device: mode,
-  frame, pointer, reduced motion, haptics, status bar, wake lock. A Capacitor
-  plugin replaces one file.
-- Navigation goes only through Ionic's router, never `history` or
-  `window.location`. Ionic's per-tab stacks are not linear browser history.
+- `web/src/platform/` owns the frame, the pointer, reduced motion,
+  haptics, the wake lock, the audio session, and the back button. A
+  Capacitor shell adds one file, its `BackAdapter`.
+- Navigation is browser history, through React Router, never
+  `window.location`. Each tab or sidebar destination's last location is
+  kept for the browser session.
+- Android's back walks one app-owned back stack before history. Every
+  overlay and screen state, such as selection, registers on it while
+  open, and the one back handler in `web/src/platform/` reads it.
+  `design-web.md` gives the order. The browser's own back is history and
+  needs no handler.
 - The schema uses no Postgres extensions.
 - Errors are problem-details documents (RFC 9457). An unhandled exception is
   a 500 with no detail and a Sentry report.
@@ -109,6 +115,10 @@ Push:
   a client that predates the field resets it. A new client against an old
   API fails on the unknown field. `operations.md` says how to release a
   schema change.
+- A user has one settings row. Every client derives its ID as a UUIDv5 of
+  the Clerk user ID under one shared namespace, so two devices that create
+  it offline write the same row. A second row for the same user breaks the
+  unique `user_id` and is `invalid`.
 - A tune record's play pin names a recording or link with no foreign key,
   and push never checks it as a parent. Clients ignore a pin whose row is
   missing, deleted, or filed under another tune.
@@ -271,13 +281,20 @@ same triggers. A return to the foreground stands in for a visible tab.
 - Closing the player, or starting a take, empties the MusicKit queue.
   MusicKit answers the system's remote commands itself, and an empty queue
   gives them nothing to start.
-- A playlist is the Apple app playing a list's tunes one after another. It
-  plays recordings and Apple Music songs, never an embed. The app, not the
+- A playlist plays a list's tunes one after another, never an embed. The
+  Apple app plays recordings and Apple Music songs. The app, not the
   engine, owns the order, repeat, and shuffle, and each tune's source is
   chosen when its turn comes.
-- Both engines report one of three ends: the track finished, or the system
-  asked for the next or the previous tune. A recording registers next and
-  previous in place of the 15 second skips while a playlist holds it.
+- The web client plays only recordings, the same way. Its queue lives in
+  `ListPlaybackProvider`, which resolves each tune to a recording when its
+  turn comes, from what the list holds then. A tune deleted, or archived
+  and hidden, meanwhile is skipped. Anything else that plays, or the player
+  closing, detaches the queue. Shuffle and repeat persist per device in
+  `localStorage`. The queue never persists.
+- Both Apple engines report one of three ends: the track finished, or the
+  system asked for the next or the previous tune. A recording registers
+  next and previous in place of the 15 second skips while a playlist holds
+  it.
 - MusicKit answers next and previous itself, so a playlist song loads
   between two copies of itself. A move to a copy is paused before it is
   heard and reported as next or previous. The app selects the middle entry

@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { Mode } from '../../api/vocabulary'
 import { tuneRow, userTuneRow } from '../../test/rows'
+import { YEAR_FORMAT } from '../../ui/partialDate'
 import {
+  canAddPartMode,
   emptyValues,
   inputsFromValues,
+  LEARNED_ON_INCOMPLETE,
+  learnedOnError,
+  learnedOnRefusedPart,
+  learnedOnParts,
+  learnedOnText,
   modeRows,
   partModeChanged,
   typeChanged,
@@ -187,5 +194,42 @@ describe('tuneFormValues', () => {
     const values = emptyValues()
     values.tunings.guitar = { tuning: '', capo: '2' }
     expect(inputsFromValues(values).tune.tunings).toEqual({ guitar: { capo: 2 } })
+  })
+
+  it('reads a learned-on date into its parts and back, keeping a month past a cleared year', () => {
+    expect(learnedOnParts('2019-03-14')).toEqual({ year: '2019', month: '3', day: '14' })
+    expect(learnedOnText({ year: '2019', month: '3', day: '' })).toBe('2019-3')
+    expect(learnedOnText({ year: '', month: '3', day: '' })).toBe('-3')
+    expect(learnedOnParts('-3')).toEqual({ year: '', month: '3', day: '' })
+    expect(learnedOnText({ year: '', month: '', day: '' })).toBe('')
+  })
+
+  it('stores only a whole learned-on date, never filling a part', () => {
+    const learnedOn = (text: string) =>
+      inputsFromValues({ ...emptyValues(), title: 'A', learned_on: text }).userTune.learned_on
+    expect(learnedOn('2019-3-4')).toBe('2019-03-04')
+    expect(learnedOn('2019-03-14')).toBe('2019-03-14')
+    expect(learnedOn('2019')).toBeNull()
+    expect(learnedOn('2019-3')).toBeNull()
+    expect(learnedOn('')).toBeNull()
+  })
+
+  it('refuses a learned-on date until it is whole, naming the first part left out', () => {
+    expect(learnedOnError('19')).toBe(YEAR_FORMAT)
+    expect(learnedOnRefusedPart('19')).toBe('year')
+    expect(learnedOnError('-3')).toBe(LEARNED_ON_INCOMPLETE)
+    expect(learnedOnRefusedPart('-3')).toBe('year')
+    expect(learnedOnError('2019')).toBe(LEARNED_ON_INCOMPLETE)
+    expect(learnedOnRefusedPart('2019')).toBe('month')
+    expect(learnedOnRefusedPart('2019-3')).toBe('day')
+    expect(learnedOnError('2019-3-14')).toBeNull()
+    expect(learnedOnError('')).toBeNull()
+  })
+
+  it('offers another part mode only once the last is set and while a part is left', () => {
+    expect(canAddPartMode([])).toBe(false)
+    expect(canAddPartMode(['major'])).toBe(true)
+    expect(canAddPartMode(['major', ''])).toBe(false)
+    expect(canAddPartMode(['major', 'minor', 'dorian', 'modal'])).toBe(false)
   })
 })

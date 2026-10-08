@@ -72,11 +72,11 @@ test *args:
 test-unit *args:
     pnpm vitest run --project unit "$@"
 
-# Run only the Chromium browser projects, in the detected mode and forced iOS
+# Run only the browser projects: Chromium, and WebKit
 [group('test')]
 [positional-arguments]
 test-browser *args:
-    pnpm vitest run --project browser --project browser-ios "$@"
+    pnpm vitest run --project browser --project browser-webkit "$@"
 
 # Run tests shuffled, a new order each run, and list the seeds that failed; SEED=<n> replays one
 [group('test')]
@@ -130,6 +130,11 @@ preview:
     pnpm vite build
     pnpm vite preview
 
+# Capture the component kit and app screens on a seeded fixture into .cache/kit-shots for review
+[group('run')]
+kit-shots:
+    node scripts/kit-shots.mjs
+
 # Build for production and validate the Worker config and bundle without uploading
 [group('build')]
 build:
@@ -152,8 +157,8 @@ contract:
 # Upgrade dependencies, holding the majors .github/dependabot.yml ignores to their range
 [group('maintenance')]
 update:
-    pnpm update --latest '!react-router' '!react-router-dom' '!typescript' '!@types/node'
-    pnpm update react-router react-router-dom typescript @types/node
+    pnpm update --latest '!typescript' '!@types/node'
+    pnpm update typescript @types/node
 
 # Remove build artifacts and caches
 [group('maintenance')]
@@ -164,5 +169,5 @@ clean:
 [group('maintenance')]
 setup:
     pnpm install --frozen-lockfile
-    pnpm exec playwright install chromium
+    pnpm exec playwright install chromium webkit
     test -e .env || cp .env.example .env
