@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
 import SwiftUI
@@ -76,6 +77,20 @@ import Testing
     @MainActor @Observable private final class Page {
         var shown = true
         var present = true
+    }
+
+    @MainActor @Observable private final class ReadingShelf {
+        var reading: StandReading
+        init(_ reading: StandReading) { self.reading = reading }
+    }
+
+    private struct ShelvedReadingPane: View {
+        let shelf: ReadingShelf
+        @State private var visit = StandVisit()
+
+        var body: some View {
+            ReadingPane(reading: shelf.reading, visit: visit)
+        }
     }
 
     private struct SwappingPage: View {
@@ -156,6 +171,9 @@ import Testing
     @MainActor
     @Suite(.enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
     struct HostedAnalyticsWiringTests {
+        private static let scan = Scan(
+            record: ScanRecord(id: "scan1", tuneID: "t1", width: 600, height: 800, state: ScanRecord.ready), file: nil)
+
         private func host(_ view: some View) -> NSWindow {
             let window = hiddenWindow(
                 size: CGSize(width: 400, height: 300), styleMask: [.borderless], appearance: .aqua)
@@ -180,6 +198,23 @@ import Testing
             await settle { !sink.calls.isEmpty }
 
             #expect(sink.calls == [.capture("lyrics_opened", ["tune_id": .string("t1")])])
+        }
+
+        @Test func theReadingPaneReportsAKindItGainsWhileItShows() async {
+            let sink = RecordingAnalyticsSink()
+            let shelf = ReadingShelf(StandReading(tuneID: "t1", scans: [], lyrics: "Oh the cuckoo"))
+            let window = host(ShelvedReadingPane(shelf: shelf).environment(\.analytics, sink.client))
+            defer { window.close() }
+            await settle { !sink.calls.isEmpty }
+
+            shelf.reading = StandReading(tuneID: "t1", scans: [Self.scan], lyrics: "Oh the cuckoo")
+            await settle { sink.calls.count >= 2 }
+
+            #expect(
+                sink.calls == [
+                    .capture("lyrics_opened", ["tune_id": .string("t1")]),
+                    .capture("scan_viewed", ["tune_id": .string("t1")]),
+                ])
         }
 
         @Test func theReadingPaneReportsNothingForATuneTheListMovedTo() async {

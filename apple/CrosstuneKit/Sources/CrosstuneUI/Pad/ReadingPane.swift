@@ -49,7 +49,8 @@ struct ReadingPane: View {
             }
         }
         .padding(16)
-        .onAppear { report(shown(segments), picked: false) }
+        // A kind the tune gains while the pane shows, such as lyrics synced in, reports too.
+        .onChange(of: shown(segments), initial: true) { _, shown in report(shown, picked: false) }
     }
 
     /// The control's choice, reported as the musician's own each time they pick a segment.
