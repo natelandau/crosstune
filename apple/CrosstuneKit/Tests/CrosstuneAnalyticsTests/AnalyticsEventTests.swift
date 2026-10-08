@@ -123,6 +123,10 @@ private let linkID = "9d3a6c1e-2f4b-4b7a-a5c8-7e1f0d2b3c94"
         ])
 }
 
+@Test func instrumentsTheVocabularyLacksAreLeftOut() {
+    #expect(SettingChange.instruments(["violin", "theremin"]).value == .strings(["violin"]))
+}
+
 @Test func aSettingChangeSetsItsOwnPersonProperty() {
     let event = AnalyticsEvent.settingChanged(.searchProviders([.youtube, .appleMusic]))
     #expect(

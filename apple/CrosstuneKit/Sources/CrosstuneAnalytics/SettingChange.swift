@@ -27,7 +27,8 @@ public enum SettingChange: Sendable, Equatable {
 
     public var value: AnalyticsValue {
         switch self {
-        case .instruments(let instruments): .strings(instruments)
+        // Synced from the server, which can know an instrument before the plan does.
+        case .instruments(let instruments): .strings(instruments.filter(Vocabulary.instruments.contains))
         case .searchProviders(let services): .strings(services.map(\.rawValue))
         case .audioQuality(let quality): .string(quality.rawValue)
         case .playFirst(let choice): .string(choice.rawValue)
