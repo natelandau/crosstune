@@ -4,8 +4,7 @@
 
 Read `docs/README.md` first. It maps each task to a page and says what each
 page holds and never holds. Check that contract before you write to a page.
-The code is the source of truth for everything except `docs/architecture.md`
-and `docs/hosting.md`.
+The code is the source of truth for everything except `docs/architecture.md`.
 
 - Design or implementation work: `docs/product.md`, then `docs/decisions.md`
   before you propose a different stack, host, or approach.
@@ -18,11 +17,13 @@ and `docs/hosting.md`.
   `docs/design-ios.md`.
 - An iPad screen at regular width: `docs/design.md`, `docs/design-ios.md`,
   then `docs/design-ipad.md`.
-- Deployment, CI, or a host setting: `docs/hosting.md` and
-  `docs/operations.md`.
+- Deployment or CI: `docs/operations.md`.
+- A host setting, a credential, or a dashboard: the vault's
+  `reference/hosting.md`, and its `runbooks/` for a procedure done there.
 
-Feature specs, plans, and design records go in the vault, never under
-`docs/`.
+Feature specs, plans, design records, runbooks, and anything about the
+hosts that should not be public go in the vault, never under `docs/`. The
+repository is public.
 
 ## Naming
 

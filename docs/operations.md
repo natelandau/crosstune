@@ -1,8 +1,8 @@
 # Crosstune operations
 
 How to work on Crosstune: set up, run, test, commit, release, deploy, roll
-back, smoke check, and rebuild. The settings each host holds are in
-`hosting.md`.
+back, and smoke check. How each deployable reads its settings is in the
+Configuration section of `architecture.md`.
 
 ## Prerequisites
 
@@ -450,42 +450,3 @@ Check the result:
   `DOT_OFFSET` in `site/capture/run.ts`.
 - `TAIL_SECONDS` and `KEEP_SPANS` in the same file set how long a clip
   runs after its last tap and which stretches it keeps without a cut.
-
-## Rotate an R2 token
-
-`hosting.md` lists the four R2 tokens: production read-write, development
-read-write, development read-only, and preview read-write. Rotate any of
-them with these steps.
-
-1. In Cloudflare, open **R2 object storage** and select **Manage** next to
-   **API Tokens**. Find the token that holds the bucket and the permission
-   you are replacing, and note its name.
-2. Select **Create Account API token**. Give the new token the same
-   permission and the same single bucket scope as the token you are
-   replacing. Copy the **Access Key ID** and the **Secret Access Key**.
-   Cloudflare shows the secret once.
-3. Set the two new values where the old token lives. For a Railway token
-   (production or development read-write), open project `crosstune`, the
-   matching environment, service `api`, **Variables**, and set
-   `CROSSTUNE_STORAGE_ACCESS_KEY_ID` and
-   `CROSSTUNE_STORAGE_SECRET_ACCESS_KEY`, then deploy. For a GitHub token (development read-only or preview
-   read-write), open the repository's **Settings**, **Secrets and
-   variables**, **Actions**, and update the matching secret pair from
-   `hosting.md`.
-4. Confirm the new token works. For a Railway token, once the deploy is
-   healthy, record audio on that environment and play it back. For a
-   GitHub token, open or push to a pull request and confirm the `Preview`
-   workflow seeds and later removes its recordings.
-5. If you rotate the preview token, run the `Preview` workflow again for
-   each open pull request. Each run sets the token on its environment.
-   Open previews that did not get the new token cannot reach their
-   recordings until their next push.
-6. In Cloudflare, delete the token you noted in step 1.
-
-## Rebuilding from nothing
-
-Work through the hosts in this order: Neon, Sentry, Clerk, PostHog,
-Railway, Cloudflare, GitHub, then the smoke check. Return to Clerk for the
-webhooks once Railway has hostnames, and return to PostHog once the
-`relay` CNAME is in Cloudflare so its proxy goes live. `hosting.md` holds
-every setting.

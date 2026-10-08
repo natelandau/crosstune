@@ -2,8 +2,8 @@
 
 Two deployables, the web client and the API, and the hosted services around
 them. This page records where the boundaries sit, what is the source of
-truth for each question, and how data moves. The settings each host holds
-are in `hosting.md`. Deploys and releases are in `operations.md`.
+truth for each question, and how data moves. Deploys and releases are in
+`operations.md`.
 
 ## Systems
 
@@ -76,7 +76,7 @@ Cloudflare also hosts the DNS zone for the product domain.
 | Which tables sync        | User settings, tunes, user-tune, recording links, recordings, scans, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items. Four history tables, kept out of the main pull: plays, practice sessions, and scan views, which clients push once and never edit, and status changes, which the server writes when a user tune's status changes. Server-only, never synced: users, upload slots, background jobs. |
 | Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file, audio, and scan images in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes other than history events (plays, practice sessions, and scan views), or while a scan is unuploaded, each with its own message. A shape change starts it over (see Pull).                        |
 | Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                                                                                                                                                                                                                                                                                                 |
-| Host settings            | The host dashboards, recorded in `hosting.md`.                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Host settings            | The host dashboards. Configuration says how each deployable reads them.                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ## Sync
 
@@ -230,8 +230,8 @@ same triggers. A return to the foreground stands in for a visible tab.
   at once, with no upstream call. A region that is
   not two letters, such as `419`, is sent as `US`.
 - Adapters for Apple Music, TIDAL, and the Internet Archive answer inline,
-  up to 10 results each. Apple Music and TIDAL need the app's credentials in
-  `hosting.md`. A service with no adapter, or with unset credentials,
+  up to 10 results each. Apple Music and TIDAL need the app's credentials,
+  which `api/.env.example` names. A service with no adapter, or with unset credentials,
   answers `search_only`. Slippery-Hill always does: its search page sits
   behind a Cloudflare challenge for non-browser clients, and its
   `robots.txt` disallows `/tune-search`.
@@ -455,6 +455,30 @@ version tag promoted. A pull request environment runs the PR branch with the
 development variables and its own database. Sentry events carry an
 `environment` tag of `production`, `development`, or `pr-<n>` for a PR's
 API.
+
+## Configuration
+
+| Deployable     | Reads                                                                   | From                                                                                             |
+| -------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| API            | `CROSSTUNE_*` environment variables, via pydantic-settings              | Railway service variables. Locally `api/.env`. Names and defaults: `api/src/crosstune/config.py` |
+| Web client     | `VITE_*` variables at build time                                        | Workers Builds variables through `web/scripts/hosted-build.sh`. Locally `web/.env`               |
+| Worker         | `vars` and the KV binding                                               | `web/wrangler.jsonc`, in the repository                                                          |
+| Site           | `PUBLIC_CLERK_PUBLISHABLE_KEY` and `PUBLIC_POSTHOG_TOKEN` at build time | Workers Builds variables through `site/scripts/hosted-build.sh`. Locally `site/.env`             |
+| GitHub Actions | `vars.*` and `secrets.*`                                                | Repository settings                                                                              |
+
+- Every name the code reads is in `api/.env.example`, `web/.env.example`,
+  or `site/.env.example` with its explanation, names only a host sets
+  included.
+- `LOCAL_`, in the API `CROSSTUNE_LOCAL_`, marks a name that only local work
+  and the end-to-end suite set. `E2E_` marks an end-to-end credential.
+- `STORAGE_` names a setting of any S3-compatible store. `R2_` names only a
+  value that exists on R2 alone.
+- An environment qualifier comes last and is spelled out: `_PRODUCTION`,
+  `_DEVELOPMENT`, `_PREVIEW`.
+- A GitHub variable or secret that feeds one app variable has that
+  variable's name.
+- The hosted values live in the host dashboards. The maintainer keeps the
+  record of them outside this repository.
 
 ## When a system is unavailable
 
