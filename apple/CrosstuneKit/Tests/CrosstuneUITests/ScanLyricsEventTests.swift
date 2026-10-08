@@ -113,6 +113,16 @@ private let prepared: PreparedScan = {
         #expect(visit.readingShown(.lyrics, tuneID: "t4", picked: false) == .lyricsOpened(tuneID: "t4"))
     }
 
+    /// The first tune is the one the stand opened on, even with nothing to read, so the list
+    /// moving on to a tune with scans is not counted as a view.
+    @Test func theStandsFirstTuneIsTheOneItOpenedOn() {
+        let visit = StandVisit()
+
+        #expect(visit.opened(tuneID: "t1") == .standOpened(tuneID: "t1"))
+        #expect(visit.readingShown(.scans, tuneID: "t2", picked: false) == nil)
+        #expect(visit.readingShown(.scans, tuneID: "t2", picked: true) == .scanViewed(tuneID: "t2"))
+    }
+
     @Test func reportsTheLyricsReaderOnceAsItShowsTheWords() async throws {
         let store = try root.open()
         let tuneID = try await tune(store)

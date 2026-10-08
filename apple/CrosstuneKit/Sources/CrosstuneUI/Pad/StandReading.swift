@@ -25,13 +25,21 @@ struct StandReading: Equatable, Sendable {
         }
     }
 
-    /// What there is to read for that tune; nil when there is no tune, it is gone, or it has nothing.
-    nonisolated static func fetch(_ db: Database, item: PlayerItem?, listTuneID: String?) throws -> StandReading? {
+    /// The tune in front of the stand and what there is to read for it; no tune when there is
+    /// none or it is gone.
+    nonisolated static func read(_ db: Database, item: PlayerItem?, listTuneID: String?) throws -> StandRead {
         guard let tuneID = try tuneID(db, item: item, listTuneID: listTuneID),
             let tune = try Tune.fetchOne(db, key: tuneID), tune.deletedAt == nil
-        else { return nil }
+        else { return StandRead(tuneID: nil, reading: nil) }
         let lyrics = tune.lyrics.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
         let reading = StandReading(tuneID: tuneID, scans: try Scan.fetch(db, tuneID: tuneID), lyrics: lyrics)
-        return reading.isEmpty ? nil : reading
+        return StandRead(tuneID: tuneID, reading: reading.isEmpty ? nil : reading)
     }
+}
+
+/// The tune the stand is on, which a visit reports whether or not it has anything to read.
+struct StandRead: Equatable, Sendable {
+    let tuneID: String?
+    /// Nil when the tune has nothing to read.
+    let reading: StandReading?
 }

@@ -249,10 +249,29 @@ public final class PlayerModel {
         open(url)
     }
 
-    /// The loaded link's embed sent the musician on to its provider's site.
-    public func embedOpenedProvider() {
-        guard let item, let link = item.link else { return }
+    /// The loaded link's embed sent the musician on to `url`, reported only when it is the
+    /// link's provider rather than a page such as a consent or sign-in prompt.
+    public func embedOpened(_ url: URL) {
+        guard let item, let link = item.link, Self.isProviderSite(url, provider: link.provider) else { return }
         analytics.linkOpened(provider: link.provider, linkID: item.id)
+    }
+
+    /// The domains each embedding provider's own pages live under. Wider than the hosts a pasted
+    /// link is recognized by, since an embed links out to pages such as geo.music.apple.com.
+    private static let providerDomains: [String: [String]] = [
+        "youtube": ["youtube.com", "youtu.be"],
+        "spotify": ["spotify.com"],
+        "apple_music": ["music.apple.com"],
+        "tidal": ["tidal.com"],
+        "soundcloud": ["soundcloud.com"],
+        "bandcamp": ["bandcamp.com"],
+        "internet_archive": ["archive.org"],
+        "slippery_hill": ["slippery-hill.com"],
+    ]
+
+    static func isProviderSite(_ url: URL, provider: String) -> Bool {
+        guard let host = url.host()?.lowercased(), let domains = providerDomains[provider] else { return false }
+        return domains.contains { host == $0 || host.hasSuffix(".\($0)") }
     }
 
     /// Whether `kind` with `id` is the loaded item.

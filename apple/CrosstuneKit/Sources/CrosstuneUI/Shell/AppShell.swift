@@ -119,7 +119,7 @@ public struct AppShell: View {
             #endif
             .onAppear {
                 player.isCapturing = { [recorders] in recorders.isCapturing || Recorder.hasActiveCapture }
-                stage.onProviderOpened = { [player] in player.embedOpenedProvider() }
+                stage.onOpened = { [player] in player.embedOpened($0) }
             }
             #if os(iOS)
                 .environment(\.windowIsRegular, sizeClass == .regular)

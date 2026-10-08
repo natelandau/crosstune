@@ -836,7 +836,7 @@ private final class OpenedURLs {
         rig.player.play(try #require(PlayerItem.link(link("l2", url: video, provider: "youtube"))), origin: .row)
         let opened = OpenedURLs()
         let stage = EmbedStage(openExternally: opened.open)
-        stage.onProviderOpened = { [player = rig.player] in player.embedOpenedProvider() }
+        stage.onOpened = { [player = rig.player] in player.embedOpened($0) }
         let page = try #require(URL(string: video))
 
         stage.openFromEmbed(page)
@@ -845,12 +845,39 @@ private final class OpenedURLs {
         #expect(opened.all == [page])
     }
 
+    @Test func theEmbedOpeningAnotherSiteReportsNoOpen() throws {
+        let rig = ActivityRig()
+        rig.player.play(try #require(PlayerItem.link(link("l2", url: video, provider: "youtube"))), origin: .row)
+        let opened = OpenedURLs()
+        let stage = EmbedStage(openExternally: opened.open)
+        stage.onOpened = { [player = rig.player] in player.embedOpened($0) }
+        let page = try #require(URL(string: "https://consent.google.com/ml?continue=https://www.youtube.com"))
+
+        stage.openFromEmbed(page)
+
+        #expect(rig.sent("link_opened_externally").isEmpty)
+        #expect(opened.all == [page])
+    }
+
+    @Test(arguments: [
+        ("https://geo.music.apple.com/us/album/1440833081", "apple_music", true),
+        ("https://www.spotify.com/", "spotify", true),
+        ("https://m.youtube.com/watch?v=dQw4w9WgXcQ", "youtube", true),
+        ("https://artist.bandcamp.com/track/reel", "bandcamp", true),
+        ("https://consent.youtube.com.example.com/", "youtube", false),
+        ("https://accounts.google.com/", "youtube", false),
+        ("https://music.apple.com/", "spotify", false),
+    ])
+    func anEmbedsProviderSiteIsAnyPageUnderItsDomains(url: String, provider: String, isProvider: Bool) throws {
+        #expect(PlayerModel.isProviderSite(try #require(URL(string: url)), provider: provider) == isProvider)
+    }
+
     @Test func nothingLoadedReportsNoOpen() {
         let rig = ActivityRig()
         let opened = OpenedURLs()
 
         rig.player.openLinkInProvider(with: opened.open)
-        rig.player.embedOpenedProvider()
+        rig.player.embedOpened(URL(string: songURL)!)
 
         #expect(rig.sink.captures.isEmpty)
         #expect(opened.all.isEmpty)

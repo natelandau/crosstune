@@ -32,7 +32,7 @@ import Testing
     @Test func recordingReadsItsTunesScansAndLyrics() async throws {
         let store = try await store()
         let item = recordingItem(0)
-        let reading = try await store.read { db in try StandReading.fetch(db, item: item, listTuneID: nil) }
+        let reading = try await store.read { db in try StandReading.read(db, item: item, listTuneID: nil).reading }
         let found = try #require(reading)
         #expect(found.tuneID == SampleCatalog.entries[0].tune.id)
         #expect(found.scans.count == 1)
@@ -44,7 +44,7 @@ import Testing
         let item = PlayerItem(kind: .link, id: "sample_link_youtube", title: "Link")
         let tuneID = try await store.read { db in try StandReading.tuneID(db, item: item, listTuneID: nil) }
         #expect(tuneID == SampleCatalog.entries[0].tune.id)
-        let reading = try await store.read { db in try StandReading.fetch(db, item: item, listTuneID: nil) }
+        let reading = try await store.read { db in try StandReading.read(db, item: item, listTuneID: nil).reading }
         let found = try #require(reading)
         #expect(found.tuneID == SampleCatalog.entries[0].tune.id)
         #expect(found.scans.map(\.id) == ["scan1"])
@@ -76,15 +76,15 @@ import Testing
         let store = try await store()
         let index = try #require(SampleCatalog.recordings.firstIndex { $0.id.contains("processing") })
         let item = recordingItem(index)
-        let reading = try await store.read { db in try StandReading.fetch(db, item: item, listTuneID: nil) }
+        let reading = try await store.read { db in try StandReading.read(db, item: item, listTuneID: nil).reading }
         #expect(reading == nil)
     }
 
-    @Test func skipToATuneWithNothingToReadHasNoReading() async throws {
+    @Test func aTuneWithNothingToReadIsStillTheTuneRead() async throws {
         let store = try await store()
         let listTuneID = SampleCatalog.entries[2].tune.id
-        let reading = try await store.read { db in try StandReading.fetch(db, item: nil, listTuneID: listTuneID) }
-        #expect(reading == nil)
+        let read = try await store.read { db in try StandReading.read(db, item: nil, listTuneID: listTuneID) }
+        #expect(read == StandRead(tuneID: listTuneID, reading: nil))
     }
 
     @Test func deletedTuneLeavesNoReading() async throws {
@@ -94,8 +94,8 @@ import Testing
         let tune = gone
         try await store.write { writer in try writer.put(tune) }
         let item = recordingItem(0)
-        let reading = try await store.read { db in try StandReading.fetch(db, item: item, listTuneID: nil) }
-        #expect(reading == nil)
+        let read = try await store.read { db in try StandReading.read(db, item: item, listTuneID: nil) }
+        #expect(read == StandRead(tuneID: nil, reading: nil))
     }
 
     @Test func blankLyricsAreNone() async throws {
@@ -105,7 +105,7 @@ import Testing
         let tune = blank
         try await store.write { writer in try writer.put(tune) }
         let item = recordingItem(0)
-        let reading = try await store.read { db in try StandReading.fetch(db, item: item, listTuneID: nil) }
+        let reading = try await store.read { db in try StandReading.read(db, item: item, listTuneID: nil).reading }
         let found = try #require(reading)
         #expect(found.lyrics == nil)
         #expect(found.scans.count == 1)
