@@ -41,8 +41,8 @@ extension EnvironmentValues {
 
     private var reported: Key?
     private var openedReported = false
-    /// The first tune whose reading the visit showed, and each reading reported since.
-    private var firstReadingTuneID: String?
+    /// The visit's first tune, and each reading reported since.
+    private var firstTuneID: String?
     private var readingsReported: Set<Reading> = []
 
     /// Whether the stand for `item` has been reported this visit, for ``View/screenView(_:visit:stillShown:)``.
@@ -62,6 +62,7 @@ extension EnvironmentValues {
     func opened(tuneID: String) -> AnalyticsEvent? {
         guard !openedReported else { return nil }
         openedReported = true
+        if firstTuneID == nil { firstTuneID = tuneID }
         return .standOpened(tuneID: tuneID)
     }
 
@@ -69,8 +70,8 @@ extension EnvironmentValues {
     /// nothing. Only the first tune's reading and a segment the musician `picked` report, each
     /// once a visit, so a list moving on to its next tune is not counted as a view.
     func readingShown(_ choice: ReadingChoice, tuneID: String, picked: Bool) -> AnalyticsEvent? {
-        let firstTuneID = firstReadingTuneID ?? tuneID
-        firstReadingTuneID = firstTuneID
+        let firstTuneID = firstTuneID ?? tuneID
+        self.firstTuneID = firstTuneID
         guard picked || tuneID == firstTuneID,
             readingsReported.insert(Reading(tuneID: tuneID, choice: choice)).inserted
         else { return nil }
@@ -83,7 +84,7 @@ extension EnvironmentValues {
     /// Ends the visit, so the next one reports again.
     func ended() {
         openedReported = false
-        firstReadingTuneID = nil
+        firstTuneID = nil
         readingsReported = []
     }
 
@@ -165,7 +166,7 @@ private struct StandPanes<Practice: View>: View {
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage(StandArrangement.readingHiddenKey) private var readingHidden = false
     /// Nil inside until the first read, so the panes can wait for it.
-    @State private var query: LiveQuery<StandReading??>?
+    @State private var query: LiveQuery<StandRead?>?
     @State private var size = CGSize.zero
     /// Practice's laid-out height, and the least it can have with its controls whole.
     @State private var practiceHeight: CGFloat?
@@ -193,10 +194,16 @@ private struct StandPanes<Practice: View>: View {
     private var read: StandReading?? {
         if let fixed { return fixed }
         guard store != nil else { return .some(nil) }
-        return query?.value ?? nil
+        return query?.value.map(\.reading)
     }
 
     private var reading: StandReading? { read ?? nil }
+
+    /// The tune in front of the stand, whether or not it has anything to read.
+    private var tuneID: String? {
+        if let fixed { return fixed?.tuneID }
+        return query?.value?.tuneID
+    }
 
     /// A recording's practice reports the height its controls need; a link's reports none, so it
     /// stacks at its share.
@@ -241,8 +248,8 @@ private struct StandPanes<Practice: View>: View {
                 let listTuneID = listTuneID
                 // The last tune's reading holds until the next one's has been read, so a skip
                 // slides from one to the other rather than through practice alone.
-                query = LiveQuery(store, initial: query?.value ?? nil) {
-                    .some(try StandReading.fetch($0, item: item, listTuneID: listTuneID))
+                query = LiveQuery(store, initial: query?.value) {
+                    try StandReading.read($0, item: item, listTuneID: listTuneID)
                 }
             }
     }
@@ -299,7 +306,7 @@ private struct StandPanes<Practice: View>: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // Laid out while hidden, so practice can report what its controls need.
         .opacity(revealed ? 1 : 0)
-        .onChange(of: reading?.tuneID, initial: true) { _, tuneID in
+        .onChange(of: tuneID, initial: true) { _, tuneID in
             if let tuneID, let event = visit.opened(tuneID: tuneID) { analytics.send(event) }
         }
         .onChange(of: isSettled(arrangement), initial: true) { _, settled in
