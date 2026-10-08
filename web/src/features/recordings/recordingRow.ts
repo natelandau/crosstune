@@ -86,7 +86,7 @@ export function sortOrigins(origins: readonly string[]): string[] {
     const at = (RECORDING_ORIGINS as readonly string[]).indexOf(origin)
     return at === -1 ? RECORDING_ORIGINS.length : at
   }
-  return [...origins].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+  return origins.toSorted((a, b) => rank(a) - rank(b) || a.localeCompare(b))
 }
 
 /**

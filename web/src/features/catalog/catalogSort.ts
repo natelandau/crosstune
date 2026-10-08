@@ -48,7 +48,7 @@ export function sortCatalog(
 ): CatalogEntry[] {
   const { sort, descending } = choice
   if (sort === 'title') {
-    return [...entries].sort((a, b) => (descending ? -byTitle(a, b) : byTitle(a, b)))
+    return entries.toSorted((a, b) => (descending ? -byTitle(a, b) : byTitle(a, b)))
   }
   const dateOf =
     sort === 'added'
@@ -56,7 +56,7 @@ export function sortCatalog(
       : sort === 'modified'
         ? modifiedAt
         : (entry: CatalogEntry) => lastPlayed.get(entry.tune.id) ?? null
-  return [...entries].sort((a, b) => {
+  return entries.toSorted((a, b) => {
     const x = dateOf(a)
     const y = dateOf(b)
     if (x === null || y === null) return Number(x === null) - Number(y === null) || byTitle(a, b)

@@ -76,7 +76,7 @@ export function pickColor(span: Span, loops: readonly PlacedLoop[]): number {
   const neighbors = new Set<PlacedLoop>()
   let before: PlacedLoop | null = null
   let after: PlacedLoop | null = null
-  for (const loop of [...loops].sort(byPosition)) {
+  for (const loop of loops.toSorted(byPosition)) {
     if (loop.startMs < span.endMs && span.startMs < loop.endMs) {
       neighbors.add(loop)
     } else if (loop.endMs <= span.startMs) {

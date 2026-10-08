@@ -30,7 +30,7 @@ export const SHEET = {
  * direction from where the finger let go; a slower release goes to the nearest detent.
  */
 export function releaseTarget(at: number, velocity: number, detents: readonly number[]): number {
-  const sorted = [...detents].sort((a, b) => a - b)
+  const sorted = detents.toSorted((a, b) => a - b)
   if (velocity >= SHEET.flick) return sorted.find((d) => d > at) ?? sorted.at(-1)!
   if (velocity <= -SHEET.flick) return sorted.findLast((d) => d < at) ?? sorted[0]!
   return sorted.reduce((best, d) => (Math.abs(d - at) < Math.abs(best - at) ? d : best))
