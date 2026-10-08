@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RECORDED_DATE_FUTURE } from '../../commands/messages'
-import { datePatch, dayCount, NO_DATE, partsOf, YEAR_FORMAT } from './recordedDateParts'
+import { datePatch, partsOf } from './recordedDateParts'
+import { dayCount, NO_DATE, YEAR_FORMAT } from '../../ui/partialDate'
 
 // West of UTC, a local read of a partial date lands in the period before it.
 beforeEach(() => {

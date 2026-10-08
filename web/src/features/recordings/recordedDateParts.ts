@@ -1,27 +1,11 @@
 import type { RecordingPrecision } from '../../api/vocabulary'
 import { RECORDED_DATE_FUTURE } from '../../commands/messages'
 import { RECORDED_AT_LEEWAY_MS } from '../../commands/recordings'
-
-export const YEAR_FORMAT = 'Enter the year as four digits.'
-
-/** A recorded date as the Edit sheet holds it; an empty month or day is "Any". */
-export interface DateParts {
-  year: string
-  month: string
-  day: string
-}
+import { isFullYear, NO_DATE, YEAR_FORMAT, type DateParts } from '../../ui/partialDate'
 
 export interface StoredDate {
   recorded_at: string | null
   recorded_precision: RecordingPrecision | null
-}
-
-export const NO_DATE: DateParts = { year: '', month: '', day: '' }
-
-const FOUR_DIGITS = /^[1-9]\d{3}$/
-
-export function isFullYear(year: string): boolean {
-  return FOUR_DIGITS.test(year)
 }
 
 /** A partial date is read in UTC, where it is stored; a take reads as the day it shows. */
@@ -38,21 +22,6 @@ export function partsOf(at: string | null, precision: RecordingPrecision | null)
     month: precision === 'year' ? '' : String(month),
     day: precision === 'year' || precision === 'month' ? '' : String(day),
   }
-}
-
-/**
- * How many days the chosen month offers: none without a month, and 31 while the year is not
- * yet one, so a day already chosen keeps its option.
- */
-export function dayCount({ year, month }: DateParts): number {
-  if (!month) return 0
-  if (!isFullYear(year)) return 31
-  // Day 0 of the next month is the last of this one.
-  return new Date(Date.UTC(Number(year), Number(month), 0)).getUTCDate()
-}
-
-export function sameParts(a: DateParts, b: DateParts): boolean {
-  return a.year === b.year && a.month === b.month && a.day === b.day
 }
 
 /**

@@ -13,7 +13,10 @@ import {
 } from '../recording/format'
 import { providerLabel } from '../links/display'
 import type { RecordingSort } from './arrangeRecordings'
+import { recordingLabel } from './recordingMatch'
+import { ALL_RECORDINGS, MY_RECORDINGS } from './recordingsCopy'
 import type { RecordingView } from './useRecordings'
+import type { OriginChoice } from './useRecordingsOrigin'
 
 export const DELETE_UNSYNCED_NOTE = 'It has not been uploaded, so this cannot be undone.'
 export const DELETE_SYNCED_NOTE = 'It is removed from every device.'
@@ -36,7 +39,7 @@ export function recordingTitle(
 ): string {
   const date = knownRecordedDate(view.recording) ?? addedDay(view.recording.added_at)
   const dated = `Recording, ${date}`
-  return view.recording.label ?? (tuneNamedAbove ? dated : (view.tuneTitle ?? dated))
+  return recordingLabel(view) || (tuneNamedAbove ? dated : (view.tuneTitle ?? dated))
 }
 
 /** True when `recordingTitle` falls through to the date, which the meta line then leaves out. */
@@ -44,12 +47,17 @@ export function titleIsDate(
   view: RecordingView,
   { tuneNamedAbove = false }: { tuneNamedAbove?: boolean } = {},
 ): boolean {
-  return view.recording.label == null && (tuneNamedAbove || view.tuneTitle == null)
+  return recordingLabel(view) === '' && (tuneNamedAbove || view.tuneTitle == null)
 }
 
 /** The site an imported recording came from; null for one made here. */
 export function originLabel(origin: string): string | null {
   return origin === 'own' ? null : providerLabel({ provider: origin })
+}
+
+/** The words a Recordings source choice shows as: All, Mine, or the import site. */
+export function sourceLabel(choice: OriginChoice): string {
+  return choice === 'all' ? ALL_RECORDINGS : (originLabel(choice) ?? MY_RECORDINGS)
 }
 
 /** Only a page, never a script or a local scheme, may be opened from a stored URL. */

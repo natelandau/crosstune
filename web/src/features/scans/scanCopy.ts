@@ -4,11 +4,17 @@ import { SCAN_REFUSED_ERROR, SCAN_STORAGE_FULL_ERROR, type ScanFile } from '../.
 /** The section on the tune screen, the row action that opens the viewer, and the viewer's name. */
 export const SCANS = 'Scans'
 export const ADD_SCANS = 'Add scans'
-export const NO_SCANS_TITLE = 'No scans yet'
-export const NO_SCANS_HINT = 'Add a photo of written music, lyrics, or notes.'
+/** The hidden file input's own name, for anyone reading the tree. */
+export const CHOOSE_SCAN_FILES = 'Choose scan images'
 export const SCAN_LIMIT_NOTE = `A tune holds up to ${MAX_SCANS} scans.`
 export const INVERT = 'Invert'
 export const ZOOM = 'Zoom'
+export const PREVIOUS_SCAN = 'Previous scan'
+export const NEXT_SCAN = 'Next scan'
+export const EDIT = 'Edit'
+// The screen's toolbar carries its own Edit, for the tune, so this one names what it edits.
+export const EDIT_SCANS = 'Edit scans'
+export const DONE_EDITING_SCANS = 'Done editing scans'
 export const DELETE_SCAN_TITLE = 'Delete this scan?'
 export const SCAN_UNREADABLE = 'This scan cannot be shown'
 
@@ -21,6 +27,11 @@ export const SCAN_REFUSED = 'Could not upload. Delete this scan and add it again
 export const SCAN_NOT_UPLOADED = 'Not uploaded yet'
 /** Shown on a scan another device captured and has not uploaded yet. */
 export const SCAN_WAITING = 'Waiting for upload from another device'
+
+/** The viewer's name: the tune's title with "scans". */
+export function scanViewerName(title: string): string {
+  return `${title} ${SCANS.toLowerCase()}`
+}
 
 export function scanName(index: number): string {
   return `Scan ${index + 1}`
@@ -39,8 +50,9 @@ export function moveScanName(index: number): string {
   return `Move scan ${index + 1}`
 }
 
-export function reorderScanName(index: number): string {
-  return `Reorder scan ${index + 1}`
+/** What a status line says once the scan at `from` has gone to `to` of `count`. */
+export function scanMovedAnnouncement(from: number, to: number, count: number): string {
+  return `${scanName(from)} moved to ${to + 1} of ${count}`
 }
 
 export function downloadingScanName(index: number): string {

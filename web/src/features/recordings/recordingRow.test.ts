@@ -7,7 +7,9 @@ import { recordingFile, recordingRow } from '../../test/rows'
 import { PROCESS_FAILED, UPLOAD_FAILED, WAITING_TO_UPLOAD } from '../recording/format'
 import type { RecordingView } from './useRecordings'
 import {
+  isWebUrl,
   originLabel,
+  originLink,
   recordingMeta,
   recordingTitle,
   retryKind,
@@ -102,6 +104,15 @@ describe('recordingTitle', () => {
   })
 })
 
+describe('a label of only spaces', () => {
+  it('falls through to the tune title, and counts as no label', () => {
+    const spaces = view({ recording: { label: '   ' }, tuneTitle: 'Cluck Old Hen' })
+    expect(recordingTitle(spaces)).toBe('Cluck Old Hen')
+    expect(titleIsDate(spaces)).toBe(false)
+    expect(titleIsDate(view({ recording: { label: '   ' } }))).toBe(true)
+  })
+})
+
 describe('titleIsDate', () => {
   it('is true only when the title falls through to the date', () => {
     expect(titleIsDate(view({ recording: { label: null } }))).toBe(true)
@@ -122,6 +133,35 @@ describe('originLabel', () => {
     expect(originLabel('slippery_hill')).toBe('Slippery-Hill')
     expect(originLabel('own')).toBeNull()
     expect(originLabel('future_site')).toBe(PROVIDER_LABELS.other)
+  })
+})
+
+describe('isWebUrl', () => {
+  it('takes only an http or https page', () => {
+    expect(isWebUrl('https://www.slippery-hill.com/content/x')).toBe(true)
+    expect(isWebUrl('http://example.com')).toBe(true)
+    expect(isWebUrl('javascript:alert(1)')).toBe(false)
+    expect(isWebUrl('file:///etc/passwd')).toBe(false)
+    expect(isWebUrl('data:text/html,hi')).toBe(false)
+    expect(isWebUrl('not a url')).toBe(false)
+    expect(isWebUrl('')).toBe(false)
+  })
+})
+
+describe('originLink', () => {
+  it('links an import to its page on the site it came from', () => {
+    const url = 'https://www.slippery-hill.com/content/x'
+    expect(originLink({ origin: 'slippery_hill', origin_url: url })).toEqual({
+      site: 'Slippery-Hill',
+      url,
+    })
+  })
+
+  it('offers no link for a script, a page that is not a URL, none, or an own recording', () => {
+    expect(originLink({ origin: 'slippery_hill', origin_url: 'javascript:alert(1)' })).toBeNull()
+    expect(originLink({ origin: 'slippery_hill', origin_url: 'garbage' })).toBeNull()
+    expect(originLink({ origin: 'slippery_hill', origin_url: null })).toBeNull()
+    expect(originLink({ origin: 'own', origin_url: 'https://example.com' })).toBeNull()
   })
 })
 

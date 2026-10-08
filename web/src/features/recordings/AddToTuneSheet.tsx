@@ -1,27 +1,17 @@
-import { IonButton } from '@ionic/react'
-import { useEffect, useRef, useState } from 'react'
-import { updateRecording } from '../../commands/recordings'
-import { useAction } from '../../ui/useAction'
-import { useDb } from '../../db/DbProvider'
-import { InlineError } from '../../ui/InlineError'
+import { SEARCH_TUNES } from '../catalog/catalogCopy'
+import { ADD_TO_TUNE_TITLE, addToTuneName } from './recordingsCopy'
+import { useAddToTune } from './useAddToTune'
+import type { RecordingView } from './useRecordings'
+import { CANCEL } from '../../ui/confirmCopy'
+import { useTuneFormLauncher } from '../tune/formLauncher'
 import { Sheet } from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
-import type { CatalogEntry } from '../catalog/filters'
-import { SEARCH_TUNES, TuneSearch } from '../catalog/TuneSearch'
-import { useInstruments } from '../settings/useInstruments'
-import { TuneFormSheet, type TuneFormTarget } from '../tune/TuneFormSheet'
-import type { RecordingView } from './useRecordings'
-import { CANCEL } from '../../ui/Confirm'
-
-export const ADD_TO_TUNE_TITLE = 'Add to a tune'
-export const ADD_TO_TUNE_ERROR = 'The recording could not be added to this tune.'
+import { useEndOnClose } from '../../ui/useEndOnClose'
+import { TuneSearchList } from './TuneSearchList'
 
 /**
- * Search for the tune a recording belongs to, or start a new one to file it under.
- *
- * This must stay mounted for as long as its parent screen lives, never behind a condition of its
- * own: the create path spans a dismissal, where `onClose` runs before the tune form opens, so a
- * parent that unmounts this on that close would drop the half-finished create without a word.
+ * Searches for the tune a recording belongs to and files it there, or carries the typed title
+ * into a new tune, which takes the recording once saved.
  */
 export function AddToTuneSheet({
   view,
@@ -31,125 +21,42 @@ export function AddToTuneSheet({
   view: RecordingView | null
   onClose: () => void
 }) {
-  const db = useDb()
-  const instruments = useInstruments()
   const toast = useToast()
-  const { error, pending, runThen, clear } = useAction()
-  const [query, setQuery] = useState('')
-  const [closing, setClosing] = useState(false)
-  const [openedFor, setOpenedFor] = useState<RecordingView | null>(null)
-  const [form, setForm] = useState<TuneFormTarget | null>(null)
-  // The title chosen from the create offer, handed to the form once the picker has dismissed,
-  // since an overlay presented while another is closing never appears.
-  const creating = useRef<string | null>(null)
-  // The recording the form will file, held past the close that clears `view`.
-  const filing = useRef<string | null>(null)
-  // A pick in flight. A ref, because two taps in one tick both read the same state.
-  const picking = useRef(false)
-  // The recording the sheet was presented for. Every way out ends here, including Escape, the
-  // backdrop, a drag to the bottom, and the hardware back button, which dismiss with the
-  // backdrop role rather than through `closing`.
-  const presentedFor = useRef<RecordingView | null>(null)
+  const form = useTuneFormLauncher()
+  const add = useAddToTune(view, { toast: toast.show, onClose })
 
-  // Reset during render, not an effect, so the next open already starts clean instead of
-  // flashing the previous recording's search for a frame.
-  if (view !== openedFor) {
-    setOpenedFor(view)
-    if (view) {
-      setQuery('')
-      setClosing(false)
-      clear()
-    }
+  const finish = () => {
+    const recordingId = view?.recording.id
+    const title = add.dismissed()
+    if (title === null || recordingId === undefined) return
+    // The tune form files the recording itself once the tune is saved.
+    add.abandon()
+    form.open({ initialTitle: title, recordingId })
   }
 
-  useEffect(() => {
-    if (view) presentedFor.current = view
-  }, [view])
-
-  // A dismissal that ends after a new recording opened belongs to the old one, so it closes nothing.
-  const dismissed = () => {
-    if (presentedFor.current !== null && presentedFor.current !== view) return
-    presentedFor.current = null
-    picking.current = false
-    const title = creating.current
-    creating.current = null
-    onClose()
-    if (title !== null) setForm({ kind: 'new', title })
-  }
-
-  const pick = (entry: CatalogEntry) => {
-    if (!view || closing || picking.current) return
-    picking.current = true
-    const id = view.recording.id
-    runThen(
-      async () => {
-        await updateRecording(db, id, { tune_id: entry.tune.id }).catch((caught: unknown) => {
-          picking.current = false
-          throw caught
-        })
-      },
-      () => setClosing(true),
-    )
-  }
-
-  const create = (title: string) => {
-    if (!view || closing || creating.current !== null) return
-    creating.current = title
-    filing.current = view.recording.id
-    setClosing(true)
-  }
-
-  const saved = ({ tuneId }: { tuneId: string }) => {
-    const id = filing.current
-    filing.current = null
-    setForm(null)
-    if (id === null) return
-    // The tune already exists by now, so a refused filing reports where the closed sheet cannot.
-    void updateRecording(db, id, { tune_id: tuneId }).catch(() =>
-      toast({ message: ADD_TO_TUNE_ERROR }),
-    )
-  }
+  useEndOnClose(add.closing, finish)
 
   return (
-    <>
-      <Sheet
-        open={view !== null && !closing}
-        title={ADD_TO_TUNE_TITLE}
-        onClose={dismissed}
-        start={
-          <IonButton disabled={pending} onClick={() => setClosing(true)}>
-            {CANCEL}
-          </IonButton>
-        }
-      >
-        {/* Mounted only while the sheet is in play: the search reads the whole catalog. */}
-        {view ? (
-          <>
-            <TuneSearch
-              name={SEARCH_TUNES}
-              rowName={(title) => `Add to ${title}`}
-              onPick={pick}
-              onCreate={create}
-              query={query}
-              onQuery={setQuery}
-            />
-            {error ? <InlineError className="px-(--form-inset) pt-2">{error}</InlineError> : null}
-          </>
-        ) : null}
-      </Sheet>
-      {/* The form fixes its tuning fields once, as it opens, so it waits for the settings row
-          rather than opening against an empty set and showing none for the whole edit. */}
-      {instruments ? (
-        <TuneFormSheet
-          target={form}
-          instruments={instruments}
-          onClose={() => {
-            filing.current = null
-            setForm(null)
-          }}
-          onSaved={saved}
-        />
-      ) : null}
-    </>
+    <Sheet
+      isOpen={add.open}
+      onOpenChange={(open) => {
+        if (!open) add.cancel()
+      }}
+      title={ADD_TO_TUNE_TITLE}
+      height="full"
+      locked={add.pending}
+      leading={{ label: CANCEL, onPress: add.cancel, isDisabled: add.pending }}
+    >
+      <TuneSearchList
+        label={SEARCH_TUNES}
+        query={add.query}
+        onQuery={add.setQuery}
+        matches={add.matches}
+        onPick={(entry) => add.pick(entry.tune.id)}
+        onCreate={add.create}
+        rowName={addToTuneName}
+        error={add.error}
+      />
+    </Sheet>
   )
 }
