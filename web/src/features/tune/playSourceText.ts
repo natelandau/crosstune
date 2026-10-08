@@ -1,5 +1,5 @@
 import { Pin, PinOff } from 'lucide-react'
-import type { RowAction } from '../../ui/Row'
+import type { RowAction } from '../../ui/rowTypes'
 
 export const PLAY_FIRST_IN_LISTS = 'Play first in lists'
 export const PLAY_FIRST_SHORT = 'Play first'

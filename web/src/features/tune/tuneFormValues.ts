@@ -1,6 +1,7 @@
 import {
   INSTRUMENTS,
   MODES,
+  TUNE_LIMITS,
   TIME_SIGNATURES,
   type Instrument,
   type Mode,
@@ -10,6 +11,7 @@ import {
 import type { TuneInput, UserTuneInput } from '../../commands/tunes'
 import type { LocalTune, LocalUserTune } from '../../db/types'
 import { isTuneStatus } from '../catalog/status'
+import { isFullYear, YEAR_FORMAT, type DateParts } from '../../ui/partialDate'
 import { setTuning, tuningEntry, tuningsMap, type TuningsMap } from '../settings/instruments'
 import { timeSignatureFor } from './tuneTypes'
 
@@ -141,7 +143,7 @@ export function inputsFromValues(
     userTune: {
       status: values.status,
       learned_from: blankToNull(values.learned_from),
-      learned_on: values.learned_on || null,
+      learned_on: learnedOnDate(values.learned_on),
       notes: blankToNull(values.notes),
     },
   }
@@ -150,6 +152,12 @@ export function inputsFromValues(
 /** The form's mode rows: one per part, and one empty row for a tune with no mode. */
 export const modeRows = (modes: readonly (Mode | '')[]): (Mode | '')[] =>
   modes.length === 0 ? [''] : [...modes]
+
+/** Whether a row for another part's mode may be added: one is left, and the last is set. */
+export function canAddPartMode(modes: readonly (Mode | '')[]): boolean {
+  const rows = modeRows(modes)
+  return rows.length < TUNE_LIMITS.modes && rows.at(-1) !== ''
+}
 
 /** The mode rows with one part's mode set, or emptied for a value this client does not know. */
 export function partModeChanged(
@@ -174,4 +182,51 @@ export function typeChanged(
   const fill = timeSignatureFor(type)
   const replaceable = values.time_signature === '' || (isNew && !timeSignatureTouched)
   return fill && replaceable ? { ...next, time_signature: fill } : next
+}
+
+export const TITLE_REQUIRED = 'A title is required'
+
+/** A learned-on date given only in part; the API stores a whole date and none is invented. */
+export const LEARNED_ON_INCOMPLETE = 'Enter the year, month, and day.'
+
+/**
+ * The learned-on date as the form holds it: year, month, and day joined by hyphens, a full
+ * date as stored or as much of one as the player has given so far. A month outlives a cleared
+ * year, so retyping the year brings it back.
+ */
+export function learnedOnParts(text: string): DateParts {
+  const [year = '', month = '', day = ''] = text.split('-')
+  const part = (value: string) => (value === '' ? '' : String(Number(value)))
+  return { year, month: part(month), day: part(day) }
+}
+
+export function learnedOnText({ year, month, day }: DateParts): string {
+  const parts = [year, month, day]
+  while (parts.length > 0 && parts.at(-1) === '') parts.pop()
+  return parts.join('-')
+}
+
+/** The first part that keeps the learned-on date from being saved, or null when it can be. */
+export function learnedOnRefusedPart(text: string): keyof DateParts | null {
+  const { year, month, day } = learnedOnParts(text)
+  if (text === '') return null
+  if (!isFullYear(year)) return 'year'
+  if (month === '') return 'month'
+  if (day === '') return 'day'
+  return null
+}
+
+/** Why the learned-on date cannot be saved, or null when it can: it is empty or whole. */
+export function learnedOnError(text: string): string | null {
+  const refused = learnedOnRefusedPart(text)
+  if (refused === null) return null
+  const { year } = learnedOnParts(text)
+  return refused === 'year' && year !== '' ? YEAR_FORMAT : LEARNED_ON_INCOMPLETE
+}
+
+/** The date to store, or null for none. Only a whole date is saved, so this never fills a part. */
+export function learnedOnDate(text: string): string | null {
+  if (text === '' || learnedOnRefusedPart(text) !== null) return null
+  const { year, month, day } = learnedOnParts(text)
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
 }

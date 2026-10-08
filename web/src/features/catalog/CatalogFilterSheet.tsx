@@ -1,138 +1,105 @@
-import { IonButton, IonItem, IonSelect, IonSelectOption, IonToggle } from '@ionic/react'
-import { usePointer } from '../../platform/pointer'
-import { FieldRow } from '../../ui/FieldRow'
-import { FILTERS } from '../../ui/filterCopy'
-import { Group } from '../../ui/Group'
-import { Sheet } from '../../ui/Sheet'
-import { MISSING_LABEL, SHOW_UNHEARD } from './filterLabels'
+import { SHOW_ARCHIVED } from './catalogCopy'
+import { archivedCountLabel, MISSING_LABEL, SHOW_UNHEARD, type SheetFilters } from './filterLabels'
 import {
   FACET_LABELS,
   facetChoices,
   MISSING_LABELS,
-  sheetFacets,
-  sheetFilterCount,
-  sheetResets,
+  missingFilterChoices,
   tuneCountLabel,
   type CatalogCounts,
   type CatalogFilters,
-  type Facet,
   type FacetValues,
   type MissingAttribute,
 } from './filters'
+import { DONE } from '../../ui/confirmCopy'
+import { ANY, FILTERS, RESET } from '../../ui/filterCopy'
+import { Group } from '../../ui/form/Group'
+import { Picker } from '../../ui/form/Picker'
+import { Switch } from '../../ui/form/Switch'
+import { Sheet } from '../../ui/Sheet'
 
-export const SHOW_ARCHIVED = 'Show archived'
+const asOptions = (values: readonly string[]) =>
+  values.map((value) => ({ id: value, label: value }))
 
+/**
+ * Type and the other facets the filter row has no room for, the unheard and missing filters,
+ * and Show archived. Every choice applies at once; Reset clears only this sheet's filters.
+ */
 export function CatalogFilterSheet({
-  open,
+  isOpen,
+  onOpenChange,
   filters,
   facets,
-  visible,
+  sheet,
   missing,
   counts,
   onChange,
-  onClose,
 }: {
-  open: boolean
+  isOpen: boolean
+  onOpenChange: (open: boolean) => void
   filters: CatalogFilters
   facets: FacetValues
-  visible: readonly Facet[]
-  /** The attributes worth asking about, so the Missing select offers no empty answer. */
+  sheet: SheetFilters
+  /** The attributes worth asking about, so Missing offers no empty answer. */
   missing: readonly MissingAttribute[]
   counts: CatalogCounts
   onChange: (patch: Partial<CatalogFilters>) => void
-  onClose: () => void
 }) {
-  const pointer = usePointer()
-  const setCount = sheetFilterCount(filters, visible)
-  // A set attribute no tune holds any more still needs its option, like a stale facet value.
-  const missingOptions =
-    filters.missing === 'all' || missing.includes(filters.missing)
-      ? missing
-      : [...missing, filters.missing]
   return (
     <Sheet
-      open={open}
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
       title={FILTERS}
-      onClose={onClose}
-      start={
-        <IonButton disabled={setCount === 0} onClick={() => onChange(sheetResets(visible))}>
-          Reset
-        </IonButton>
-      }
-      end={
-        <IonButton strong onClick={onClose}>
-          Done
-        </IonButton>
-      }
+      leading={{
+        label: RESET,
+        onPress: () => onChange(sheet.reset),
+        isDisabled: sheet.count === 0,
+      }}
+      primary={{ label: DONE, onPress: () => onOpenChange(false) }}
     >
-      <p className="type-footnote px-(--form-inset) pt-5 tabular-nums" aria-live="polite">
+      <p className="t-secondary text-ink-2 t-num px-4 pt-2" aria-live="polite">
         {tuneCountLabel(counts.visible, counts.total)}
       </p>
+      {sheet.facets.length > 0 && (
+        <Group>
+          {sheet.facets.map((facet) => {
+            const { choices, selected } = facetChoices(facets[facet], filters[facet])
+            return (
+              <Picker
+                key={facet}
+                label={FACET_LABELS[facet]}
+                value={selected === 'all' ? null : selected}
+                options={asOptions(choices)}
+                emptyLabel={ANY}
+                onChange={(value) => onChange({ [facet]: value ?? 'all' })}
+              />
+            )
+          })}
+        </Group>
+      )}
       <Group>
-        {sheetFacets(visible).map((facet) => {
-          const { choices, selected } = facetChoices(facets[facet], filters[facet])
-          return (
-            <FieldRow key={facet} label={FACET_LABELS[facet]}>
-              <IonSelect
-                aria-label={FACET_LABELS[facet]}
-                interface={pointer === 'mouse' ? 'popover' : 'action-sheet'}
-                value={selected}
-                onIonChange={(event) => onChange({ [facet]: String(event.detail.value) })}
-              >
-                <IonSelectOption value="all">Any</IonSelectOption>
-                {choices.map((value) => (
-                  <IonSelectOption key={value} value={value}>
-                    {value}
-                  </IonSelectOption>
-                ))}
-              </IonSelect>
-            </FieldRow>
-          )
-        })}
+        <Switch
+          label={SHOW_UNHEARD}
+          isSelected={filters.unheard}
+          onChange={(unheard) => onChange({ unheard })}
+        />
+        <Picker
+          label={MISSING_LABEL}
+          value={filters.missing === 'all' ? null : filters.missing}
+          options={missingFilterChoices(missing, filters.missing).map((attribute) => ({
+            id: attribute,
+            label: MISSING_LABELS[attribute],
+          }))}
+          emptyLabel={ANY}
+          onChange={(value) => onChange({ missing: (value ?? 'all') as CatalogFilters['missing'] })}
+        />
       </Group>
-      <Group>
-        <IonItem>
-          <IonToggle
-            checked={filters.unheard}
-            onIonChange={(event) => onChange({ unheard: event.detail.checked })}
-          >
-            {SHOW_UNHEARD}
-          </IonToggle>
-        </IonItem>
-        <FieldRow label={MISSING_LABEL}>
-          <IonSelect
-            aria-label={MISSING_LABEL}
-            interface={pointer === 'mouse' ? 'popover' : 'action-sheet'}
-            value={filters.missing}
-            onIonChange={(event) =>
-              onChange({ missing: String(event.detail.value) as CatalogFilters['missing'] })
-            }
-          >
-            <IonSelectOption value="all">Any</IonSelectOption>
-            {missingOptions.map((attribute) => (
-              <IonSelectOption key={attribute} value={attribute}>
-                {MISSING_LABELS[attribute]}
-              </IonSelectOption>
-            ))}
-          </IonSelect>
-        </FieldRow>
-      </Group>
-      <Group
-        footer={
-          <>
-            <span className="tabular-nums">{counts.archived}</span> archived{' '}
-            {counts.archived === 1 ? 'tune' : 'tunes'}
-          </>
-        }
-      >
-        <IonItem>
-          <IonToggle
-            checked={filters.archived}
-            onIonChange={(event) => onChange({ archived: event.detail.checked })}
-          >
-            {SHOW_ARCHIVED}
-          </IonToggle>
-        </IonItem>
+      <Group footer={archivedCountLabel(counts.archived)}>
+        <Switch
+          label={SHOW_ARCHIVED}
+          isSelected={filters.archived}
+          onChange={(archived) => onChange({ archived })}
+        />
       </Group>
     </Sheet>
   )

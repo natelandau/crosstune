@@ -1,9 +1,14 @@
-import { IonItem, IonLabel } from '@ionic/react'
 import { Plus } from 'lucide-react'
+import { Link } from 'react-router'
+import { Button as AriaButton } from 'react-aria-components'
+import { OPEN, addOfferLabel, hiddenMatchText, openTuneName } from './catalogCopy'
 import type { SearchOutcome } from './searchIntent'
+import { destination } from '../../app/destinations'
 
-/** The row that adds the typed title, placed as the last row of the results. */
-export function SearchOfferRow({
+const CATALOG = destination('catalog')
+
+/** The row under the results that adds the typed title as a new tune. */
+export function SearchOffer({
   outcome,
   onCreate,
 }: {
@@ -12,19 +17,20 @@ export function SearchOfferRow({
 }) {
   if (outcome.kind !== 'create') return null
   return (
-    <IonItem button detail={false} lines="none" onClick={() => onCreate(outcome.title)}>
-      <Plus aria-hidden="true" slot="start" className="size-6 text-(--ion-color-primary)" />
-      <IonLabel color="primary">{offerLabel(outcome)}</IonLabel>
-    </IonItem>
+    <div className="px-2">
+      <AriaButton
+        onPress={() => onCreate(outcome.title)}
+        className="t-body text-slate flex min-h-(--target) w-full items-center gap-3 rounded-(--radius-row) px-3 text-start data-[pressed]:opacity-60"
+      >
+        <Plus className="size-5 shrink-0" aria-hidden />
+        <span className="min-w-0 truncate">{addOfferLabel(outcome)}</span>
+      </AriaButton>
+    </div>
   )
 }
 
-function offerLabel(outcome: Extract<SearchOutcome, { kind: 'create' }>): string {
-  return outcome.another ? `Add another "${outcome.title}"` : `Add "${outcome.title}"`
-}
-
-/** Names an exact match that search found but a filter or the archived setting hides. */
-export function HiddenMatchNote({
+/** Names an exact match that a filter or the archived setting hides, with a way to open it. */
+export function HiddenMatch({
   outcome,
   onOpen,
 }: {
@@ -32,21 +38,22 @@ export function HiddenMatchNote({
   onOpen: (tuneId: string) => void
 }) {
   if (outcome.kind !== 'create' || !outcome.hidden) return null
-  const { entry, reason } = outcome.hidden
+  const { entry } = outcome.hidden
   return (
-    <p className="type-footnote px-5 pt-2">
-      <span>{`"${entry.tune.title}" is ${reason === 'archived' ? 'archived' : 'hidden by your filters'}.`}</span>{' '}
-      <a
-        href={`/catalog/${entry.tune.id}`}
-        className="-my-3 inline-flex min-h-11 min-w-11 items-center justify-center text-(--ion-color-primary)"
-        aria-label={`Open ${entry.tune.title}`}
+    <p className="t-secondary text-ink-2 px-4 py-2">
+      {hiddenMatchText(outcome.hidden)}{' '}
+      <Link
+        to={`${CATALOG.root}/${entry.tune.id}`}
+        aria-label={openTuneName(entry.tune.title)}
+        className="text-slate -my-3 inline-flex min-h-(--target) min-w-(--target) items-center justify-center"
         onClick={(event) => {
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
           event.preventDefault()
           onOpen(entry.tune.id)
         }}
       >
-        Open
-      </a>
+        {OPEN}
+      </Link>
     </p>
   )
 }

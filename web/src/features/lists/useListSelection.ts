@@ -1,37 +1,21 @@
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { Instrument } from '../../api/vocabulary'
-import type { MenuItem } from '../../ui/Menu'
-import type { BulkAction } from '../selection/SelectionToolbar'
-import { useBulkActions } from '../selection/useBulkActions'
-import { useSelection } from '../selection/useSelection'
-import type { TuneSelection } from '../selection/useTuneSelection'
+import { useMemo, useState } from 'react'
+import type { ConfirmQuestion } from '../../ui/confirmQuestion'
+import {
+  useBulkActionsWith,
+  type BulkActionsState,
+  type SelectionContext,
+} from '../selection/useBulkActionsWith'
+import { useSelectionMode, type SelectionMode } from '../selection/useSelectionMode'
 import type { ListItemView } from './useLists'
 
-/**
- * Everything the screen wears while these rows select: the mode, the count the toolbar titles
- * itself with, the bulk actions, and the controls that open and close the mode. The rows own it
- * because they own the ordered, filtered array the selection is made over.
- */
-export interface ListSelectionState {
-  active: boolean
-  selection: TuneSelection
-  actions: readonly BulkAction[]
-  more: readonly MenuItem[]
-  /** A failed bulk write, for the screen's error line. */
-  error: string | null
-  enter: () => void
-  exit: () => void
-  /** Names the control the mode opens from, so focus can return to it. */
-  selectRef: (node: HTMLElement | null) => void
-}
-
-/** How a screen hosts selection over these rows. */
-export interface ListSelectionHost {
-  /** Named in the toast a bulk action raises. */
-  listName: string
-  /** False while a sheet owns the screen, so a long press cannot open the mode behind it. */
-  enabled: boolean
-  onChange: (state: ListSelectionState | null) => void
+export interface ListSelection {
+  /** The visible rows' user tune ids, stable while their order holds. */
+  visibleIds: readonly string[]
+  mode: SelectionMode
+  /** The selected rows, in the order the list shows them. */
+  selected: readonly ListItemView[]
+  context: SelectionContext
+  bulk: BulkActionsState
 }
 
 /**
@@ -46,39 +30,32 @@ function useStableIds(ids: readonly string[]): readonly string[] {
 }
 
 /**
- * Selection over a list's visible rows, with the bulk actions that act on it, published up to
- * the screen that wears the toolbar.
+ * Selection over a list's visible rows, with the bulk actions that act on it. The caller
+ * supplies the confirmation and the toast.
  */
 export function useListSelection({
   listId,
+  listName,
   items,
   visible,
-  instruments,
-  host,
   closeOpenRow,
+  confirm,
+  toast,
 }: {
   listId: string
+  /** Named in the toast a bulk action raises. */
+  listName: string
   /** Every item, archived ones included, as the query returned them. */
   items: readonly ListItemView[]
   /** The rows on screen, in the order they show. */
   visible: readonly ListItemView[]
-  instruments: ReadonlySet<Instrument>
-  host: ListSelectionHost | undefined
-  closeOpenRow: () => void
-}): Pick<ReturnType<typeof useSelection>, 'active' | 'rowSelection' | 'onClickCapture'> & {
-  sheets: ReactNode
-} {
+  closeOpenRow?: () => void
+  confirm: (question: ConfirmQuestion) => Promise<boolean>
+  toast: (message: string, undo?: () => void) => void
+}): ListSelection {
   const visibleIds = useStableIds(visible.map((view) => view.userTune.id))
-  const {
-    active,
-    selection: tunes,
-    selectRef,
-    enter,
-    exit,
-    rowSelection,
-    onClickCapture,
-  } = useSelection(visibleIds, closeOpenRow)
-  const { isSelected } = tunes
+  const mode = useSelectionMode(visibleIds, { onEnter: closeOpenRow })
+  const { isSelected } = mode.selection
   // Every item, not just the visible ones, keyed by the id the selection speaks in.
   const viewByUserTune = useMemo(
     () => new Map(items.map((view) => [view.userTune.id, view])),
@@ -91,67 +68,18 @@ export function useListSelection({
     () => visibleIds.flatMap((id) => (isSelected(id) ? (viewByUserTune.get(id) ?? []) : [])),
     [visibleIds, isSelected, viewByUserTune],
   )
-  // Memoized: useBulkActions keys its own memo on this map's identity.
+  // Memoized: useBulkActionsWith keys its own memo on this map's identity.
   const itemIdByUserTune = useMemo(
     () => new Map([...viewByUserTune].map(([id, view]) => [id, view.item.id])),
     [viewByUserTune],
   )
-  const bulk = useBulkActions({
+  const context: SelectionContext = { kind: 'list', listId, listName, itemIdByUserTune }
+  const bulk = useBulkActionsWith({
     entries: selected,
-    instruments,
-    context: {
-      kind: 'list',
-      listId,
-      listName: host?.listName ?? '',
-      itemIdByUserTune,
-    },
-    onExit: exit,
+    context,
+    onExit: mode.exit,
+    confirm,
+    toast,
   })
-
-  // Everything the screen's toolbar reads, compared part by part. A publish carries the closures
-  // of the render it ran in, so this has to name every value that changes what one of them would
-  // do, including the visible ids, which toggleAll closes over.
-  const digest: readonly unknown[] = [
-    active,
-    tunes.count,
-    tunes.allSelected,
-    bulk.error,
-    bulk.actions.map((action) => action.label).join(','),
-    bulk.more.map((item) => `${item.label}:${item.tone ?? ''}`).join(','),
-    visibleIds,
-  ]
-  const state: ListSelectionState = {
-    active,
-    selection: tunes,
-    actions: bulk.actions,
-    more: bulk.more,
-    error: bulk.error,
-    enter,
-    exit,
-    selectRef,
-  }
-  const publish = host?.onChange
-  const published = useRef<readonly unknown[] | null>(null)
-  useLayoutEffect(() => {
-    const last = published.current
-    if (
-      !publish ||
-      (last && last.length === digest.length && last.every((v, at) => v === digest[at]))
-    )
-      return
-    published.current = digest
-    publish(state)
-  })
-  // The screen's toolbar outlives these rows, so it has to hear when the last one goes. Forgetting
-  // what was published with it is what lets the next mount publish again, which a StrictMode
-  // double-invoke depends on: the ref survives the remount it simulates, the state does not.
-  useLayoutEffect(
-    () => () => {
-      published.current = null
-      publish?.(null)
-    },
-    [publish],
-  )
-
-  return { active, rowSelection, onClickCapture, sheets: bulk.sheets }
+  return { visibleIds, mode, selected, context, bulk }
 }

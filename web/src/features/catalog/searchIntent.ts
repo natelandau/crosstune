@@ -37,13 +37,27 @@ export function searchOutcome(
   return { kind: 'create', title, another: true, hidden: { entry, reason } }
 }
 
-/** Enter never adds a tune whose title already exists; that takes a deliberate tap. */
+const NO_OUTCOME: SearchOutcome = { kind: 'none' }
+
+/**
+ * Every suggestion under the search leads off the screen, and leaving drops the selection, so
+ * while selecting the search offers nothing at all.
+ */
+export function offeredOutcome(outcome: SearchOutcome, selecting: boolean): SearchOutcome {
+  return selecting ? NO_OUTCOME : outcome
+}
+
+/**
+ * Enter never adds a tune whose title already exists; that takes a deliberate tap. While
+ * selecting it only closes the keyboard, since opening or creating would leave the screen.
+ */
 export function enterAction(
   query: string,
   visible: CatalogEntry[],
   outcome: SearchOutcome,
+  selecting = false,
 ): EnterAction {
-  if (!query.trim() || visible.length > 1) return { kind: 'blur' }
+  if (selecting || !query.trim() || visible.length > 1) return { kind: 'blur' }
   const [only] = visible
   if (only) return { kind: 'open', tuneId: only.tune.id }
   if (outcome.kind !== 'create') return { kind: 'blur' }

@@ -5,10 +5,12 @@ import {
   catalogEntries,
   type CatalogFilters,
   DEFAULT_FILTERS,
+  type Facet,
   FACET_LABELS,
   FACETS,
   facetChoices,
   facetValues,
+  effectiveStatus,
   filterCatalog,
   hiddenResets,
   hideArchived,
@@ -19,10 +21,12 @@ import {
   sheetResets,
   NO_KEY,
   normalizeFilters,
+  ROW_FACETS,
   sheetFacets,
   tuneCountLabel,
   visibleFacets,
 } from './filters'
+import { sheetFilters } from './filterLabels'
 
 const tunes = [
   tune('s1', "soldier's joy", {
@@ -99,6 +103,18 @@ describe('filterCatalog', () => {
     expect(
       filterCatalog(spelled, { ...DEFAULT_FILTERS, genre: 'F\u00eaTE' }).map((e) => e.tune.id),
     ).toEqual(['s7'])
+  })
+
+  it('reads an unrecognized status as Unknown', () => {
+    const odd = catalogEntries(
+      [tune('s9', 'Z')],
+      [userTune('u9', 's9', { status: 'mystery' as never })],
+    )
+    expect(effectiveStatus(odd[0]!.userTune)).toBe('want_to_learn')
+    expect(
+      filterCatalog(odd, { ...DEFAULT_FILTERS, status: 'want_to_learn' }).map((e) => e.tune.id),
+    ).toEqual(['s9'])
+    expect(filterCatalog(odd, { ...DEFAULT_FILTERS, status: 'known' })).toEqual([])
   })
 
   it('filters by status and facets', () => {
@@ -339,6 +355,18 @@ describe('type and composer', () => {
 
   it('keeps Type on the bar, not in the sheet', () => {
     expect(sheetFacets(['key', 'tune_type', 'genre'])).toEqual(['genre'])
+  })
+
+  it('puts Type first in the sheet when only Key has a control on the row', () => {
+    const visible: Facet[] = ['key', 'tune_type', 'genre']
+    const set = { ...DEFAULT_FILTERS, key: 'D', tune_type: 'reel' }
+    const sheet = sheetFilters(set, visible, ROW_FACETS)
+    expect(sheet.facets).toEqual(['tune_type', 'genre'])
+    expect(sheet.count).toBe(1)
+    expect(sheetFilterCount(set, visible)).toBe(0)
+    expect(sheet.reset).toMatchObject({ tune_type: 'all' })
+    expect(sheet.reset).not.toHaveProperty('key')
+    expect(sheet.tokens.map((token) => token.label)).toEqual(['reel'])
   })
 })
 

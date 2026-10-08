@@ -1,309 +1,358 @@
-import { IonButton, useIonRouter } from '@ionic/react'
-import { Ellipsis, ListMusic, Plus } from 'lucide-react'
-import { useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
-import { useParams } from 'react-router-dom'
-import { addToList, deleteList, removeFromList } from '../../commands/lists'
+import { Ellipsis, ListChecks, ListMusic, Plus } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import type { Key, Selection } from 'react-aria-components'
+import { useNavigate, useParams } from 'react-router'
+import type { Instrument } from '../../api/vocabulary'
+import { listTunePath } from '../../app/tuneHome'
+import { SHOW_ARCHIVED, TUNE_LIST, SELECT_TUNES } from '../catalog/catalogCopy'
+import {
+  ADD_TUNES,
+  ALL_ARCHIVED_HINT,
+  ALL_ARCHIVED_TITLE,
+  EMPTY_LIST_HINT,
+  EMPTY_LIST_TITLE,
+  LIST_GONE,
+} from './listsCopy'
+import type { ListItemView } from './useLists'
+import { useListScreen } from './useListScreen'
+import { useListSelection } from './useListSelection'
+import { useListTunes, type ListTunes as ListTunesState } from './useListTunes'
+import { removedFromListToast } from '../selection/selectionCopy'
+import type { SelectionMode } from '../selection/useSelectionMode'
+import { DELETING } from '../../ui/confirmCopy'
+import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { messageFor } from '../../ui/useAction'
-import { useDb } from '../../db/DbProvider'
-import { DELETE, DELETING, useConfirm } from '../../ui/Confirm'
+import { useLatest } from '../../ui/useLatest'
+import { useLeaveTo } from '../../app/backTrail'
+import { useScreenCommand } from '../../app/screenCommands'
+import { destination } from '../../app/destinations'
+
+import { useFrame } from '../../platform/frame'
+import { useRowScanViewer } from '../scans/useRowScanViewer'
+import { applySelection } from '../selection/applySelection'
+import { BulkSheets, SelectionBar } from '../selection/SelectionBar'
+import { useSelectionReturn, useSelectionShell } from '../selection/useScreenSelection'
+import { ColumnTitle } from '../../app/ColumnTitle'
+import { BackLink, PaneBar } from '../../app/PaneBar'
+import { useTuneFormLauncher } from '../tune/formLauncher'
+import { tunePick } from '../tune/tunePick'
+import { Button } from '../../ui/Button'
+import { useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
-import { InlineError } from '../../ui/InlineError'
-import { MORE_ACTIONS, useMenu, type MenuItem } from '../../ui/Menu'
-import { Screen } from '../../ui/Screen'
-import { useRowArrowKeys } from '../../ui/useShortcut'
-import { SHOW_ARCHIVED } from '../catalog/CatalogFilterSheet'
-import { SelectionFooter } from '../selection/SelectionFooter'
-import { useSelectionToolbar } from '../selection/SelectionToolbar'
-import { useInstruments } from '../settings/useInstruments'
-import { TuneFormSheet, type TuneFormTarget } from '../tune/TuneFormSheet'
-import { DELETE_LIST_MESSAGE } from './deleteListMessage'
-import { ListNameSheet, type ListNameTarget } from './ListNameSheet'
-import { ListTunes } from './ListTunes'
-import type { ListSelectionState } from './useListSelection'
-import { ADD_TUNES, TunePickerSheet } from './TunePickerSheet'
-import { useListShowArchived } from './useListShowArchived'
-import { useListView, type ListItemView } from './useLists'
+import { ErrorLine } from '../../ui/ErrorLine'
+import { Menu, type MenuEntry } from '../../ui/Menu'
+import { useReorderAnnouncer } from '../../ui/reorder'
+import { RowList } from '../../ui/RowList'
+import { menuEntries } from '../../ui/sharedActions'
+import { useToast } from '../../ui/Toast'
+import { ListNameSheet } from './ListNameSheet'
+import { ListPlayRow } from './ListPlayRow'
+import { ListTuneRow } from './ListTuneRow'
+import { TunePickerSheet } from './TunePickerSheet'
 
-export const EMPTY_LIST_HINT = 'Add tunes to start this list.'
-export const DELETE_LIST = 'Delete list'
-export const ALL_ARCHIVED_TITLE = 'Every tune here is archived'
-export const HIDE_ARCHIVED = 'Hide archived'
-export const EMPTY_LIST_TITLE = 'Nothing in this list'
-export const LIST_GONE = 'This list is gone'
-// Names the toggle, so the hint follows a rename of it.
-const ARCHIVED_HINT = `Turn on ${SHOW_ARCHIVED} to see them.`
+const LISTS = destination('lists')
+const NO_ITEMS: readonly ListItemView[] = []
 
-const noop = () => {}
-
-// What the toolbar reads before any tune has rendered, since its hook runs on every render
-// while the rows that own the selection may not be on screen at all.
-const NOTHING_SELECTABLE: ListSelectionState = {
-  active: false,
-  selection: {
-    count: 0,
-    allSelected: false,
-    isSelected: () => false,
-    toggle: noop,
-    toggleRange: noop,
-    selectAll: noop,
-    clear: noop,
-    toggleAll: noop,
-  },
-  actions: [],
-  more: [],
-  error: null,
-  enter: noop,
-  exit: noop,
-  selectRef: noop,
-}
-
-/** One list: its tunes in order, with the sheets that add, rename, and edit them. */
-export function ListPage() {
-  const { listId = '' } = useParams()
-  const view = useListView(listId)
-  const [showArchived, setShowArchived] = useListShowArchived()
-  const instruments = useInstruments()
-  const db = useDb()
-  const router = useIonRouter()
-  const openMenu = useMenu()
+/**
+ * One list in the content column: its name as the title, Add tunes and More over it, and its
+ * tunes in order. A tune opens in the detail column on wide and pushes on phone and split.
+ */
+export function ListPage({ listId }: { listId: string }) {
+  const { tuneId } = useParams()
+  const wide = useFrame() === 'wide'
   const confirm = useConfirm()
-  // The one error line: every action on this screen and every move report onto it, and
-  // whichever spoke last is what shows.
-  const [pageError, setPageError] = useState<string | null>(null)
-  const [picking, setPicking] = useState(false)
-  const [naming, setNaming] = useState<ListNameTarget | null>(null)
-  const [form, setForm] = useState<TuneFormTarget | null>(null)
-  // The name of a list whose confirmed delete is running, so the live query reporting it gone
-  // does not flash "This list is gone" while the screen navigates away.
-  const [deletingName, setDeletingName] = useState<string | null>(null)
-  // Published by the rows, which own the array the selection is made over.
-  const [selection, setSelection] = useState<ListSelectionState | null>(null)
-  // Refs rather than state: two presses in one tick both read the same committed state.
-  const deleting = useRef(false)
-  const removing = useRef(new Set<string>())
-  const listRef = useRef<HTMLIonListElement>(null)
-  useRowArrowKeys(listRef)
-
-  const deleted = deletingName !== null
-  const settingsRead = showArchived !== undefined && instruments !== undefined
-  const ready = view !== undefined && settingsRead
-  // One Screen in every state: swapping the IonPage element after the router outlet has
-  // mounted it would leave the outlet holding a detached page.
-  const list = view && !deleted ? view.list : null
-  const notFound = ready && view === null && !deleted
-  const visibleCount = view
-    ? view.items.filter((item) => showArchived || item.userTune.archived_at === null).length
-    : 0
-  const items = view?.items
-  const taken = useMemo(() => new Set(items ? items.map((item) => item.userTune.id) : []), [items])
-
-  const chrome = selection ?? NOTHING_SELECTABLE
-  const selecting = chrome.active
-  const toolbar = useSelectionToolbar({
-    selection: chrome.selection,
-    actions: chrome.actions,
-    more: chrome.more,
-    onExit: chrome.exit,
+  const toast = useToast()
+  const form = useTuneFormLauncher()
+  const leaveTo = useLeaveTo()
+  const screen = useListScreen(listId, { confirm, leave: () => leaveTo(LISTS.root) })
+  const { list, items, deletingName, showArchived, instruments, notFound, error, setError } = screen
+  const { announce, region } = useReorderAnnouncer()
+  // Read here rather than by the rows, since the selection made over them dresses this page's
+  // bar.
+  const tunes = useListTunes({
+    listId,
+    items: items ?? NO_ITEMS,
+    showArchived: showArchived ?? false,
+    onMoveStart: () => setError(null),
+    onError: setError,
   })
+  const selecting = useListSelection({
+    listId,
+    listName: list?.name ?? '',
+    items: items ?? NO_ITEMS,
+    visible: tunes.visible,
+    confirm,
+    toast: toast.show,
+  })
+  const { mode } = selecting
+  useSelectionShell(mode)
+  const { moreRef, rowsRef, fromMore, fromRow, restore } = useSelectionReturn(mode)
 
-  const remove = async (item: ListItemView) => {
-    const id = item.item.id
-    if (removing.current.has(id)) return
-    removing.current.add(id)
-    setPageError(null)
-    try {
-      await removeFromList(db, id)
-    } catch (caught) {
-      setPageError(messageFor(caught))
-    } finally {
-      removing.current.delete(id)
-    }
-  }
+  // Off wide a tune page covers the list, so a list gone under it leaves once it shows again.
+  const shown = wide || tuneId === undefined
+  const goneRef = useLatest(() => {
+    toast.show(LIST_GONE)
+    leaveTo(LISTS.root)
+  })
+  useEffect(() => {
+    if (notFound && shown) goneRef.current()
+  }, [notFound, shown, goneRef])
 
-  const removeList = async () => {
-    if (!list || deleting.current) return
-    deleting.current = true
-    const ok = await confirm({
-      title: `Delete "${list.name}"?`,
-      message: DELETE_LIST_MESSAGE,
-      action: DELETE,
+  const title = list?.name ?? deletingName ?? (notFound ? LIST_GONE : '')
+
+  const remove = async (view: ListItemView) => {
+    const name = list?.name
+    const undo = await screen.remove(view)
+    if (!undo || name === undefined) return
+    toast.show(removedFromListToast(1, name), () => {
+      undo().catch((caught: unknown) => setError(messageFor(caught)))
     })
-    if (!ok) {
-      deleting.current = false
-      return
-    }
-    setPageError(null)
-    setDeletingName(list.name)
-    try {
-      await deleteList(db, list.id)
-    } catch (caught) {
-      deleting.current = false
-      setDeletingName(null)
-      setPageError(messageFor(caught))
-      return
-    }
-    if (router.canGoBack()) router.goBack()
-    else router.push('/lists', 'back', 'replace')
   }
 
-  const add = async (userTuneId: string) => {
-    if (!list) return
-    setPageError(null)
-    try {
-      await addToList(db, list.id, userTuneId)
-    } catch (caught) {
-      setPageError(messageFor(caught))
-    }
-  }
+  useScreenCommand(
+    { id: 'selectTunes', label: SELECT_TUNES, run: fromMore },
+    shown && !mode.active && Boolean(list) && screen.settingsRead,
+  )
 
-  const actions = (event: ReactMouseEvent) => {
-    if (!list) return
-    const menu: MenuItem[] = [
-      ...(selection ? [{ label: 'Select', onPress: () => selection.enter() }] : []),
-      {
-        label: 'Rename',
-        onPress: () => setNaming({ kind: 'rename', listId: list.id, name: list.name }),
-      },
-      showArchived
-        ? { label: HIDE_ARCHIVED, onPress: () => void setShowArchived(false) }
-        : { label: SHOW_ARCHIVED, onPress: () => void setShowArchived(true) },
-      { label: DELETE_LIST, tone: 'error', onPress: () => void removeList() },
-    ]
-    openMenu(event, MORE_ACTIONS, menu)
-  }
+  const more: MenuEntry[] = [
+    { id: 'select', label: SELECT_TUNES, icon: ListChecks, onAction: fromMore },
+    ...menuEntries(screen.menuItems({})),
+  ]
 
   return (
-    <Screen
-      title={
-        selecting ? toolbar.title : list ? list.name : (deletingName ?? (notFound ? 'List' : ''))
-      }
-      titleClass={selecting ? toolbar.titleClass : undefined}
-      level="pushed"
-      backHref="/lists"
-      selecting={selecting}
-      start={selecting ? toolbar.start : undefined}
-      end={
-        selecting ? (
-          toolbar.end
-        ) : // The menu's wording states the archived setting, so it waits until the setting is read.
-        list && settingsRead ? (
-          <>
-            <IonButton
-              className="toolbar-control"
-              aria-label={ADD_TUNES}
-              onClick={() => setPicking(true)}
-            >
-              <Plus aria-hidden="true" className="size-7" />
-            </IonButton>
-            <IonButton
-              ref={selection?.selectRef}
-              className="toolbar-control"
-              aria-label={MORE_ACTIONS}
-              onClick={actions}
-            >
-              <Ellipsis aria-hidden="true" className="size-6" />
-            </IonButton>
-          </>
-        ) : null
-      }
-      footer={
-        selecting ? (
-          <SelectionFooter
-            selection={chrome.selection}
-            actions={chrome.actions}
-            more={chrome.more}
-          />
-        ) : null
-      }
-    >
-      <h1 className="sr-only">{list?.name ?? deletingName ?? 'List'}</h1>
-      {deleted ? (
-        <p role="status" className="type-footnote px-5 pt-4">
+    <>
+      {mode.active ? (
+        <SelectionBar selection={mode} actions={selecting.bulk} restoreFocus={restore} />
+      ) : (
+        <PaneBar
+          title={title}
+          leading={<BackLink to={LISTS.root} label={LISTS.label} />}
+          trailing={
+            // The menu's words state the archived setting, so the verbs wait until it is read.
+            list &&
+            screen.settingsRead && (
+              <>
+                <Button
+                  icon={Plus}
+                  label={ADD_TUNES}
+                  iconOnly
+                  onPress={() => screen.setPicking(true)}
+                />
+                <Menu
+                  label={MORE_ACTIONS}
+                  trigger={<Button ref={moreRef} icon={Ellipsis} label={MORE_ACTIONS} iconOnly />}
+                  items={more}
+                />
+              </>
+            )
+          }
+        />
+      )}
+      <ColumnTitle title={title} />
+      {list && !mode.active && tunes.visible.length > 0 && (
+        <ListPlayRow listId={list.id} rows={tunes.visible} onError={setError} />
+      )}
+      {deletingName !== null && (
+        <p role="status" className="t-secondary text-ink-2 px-4 pb-2">
           {DELETING}
         </p>
-      ) : null}
-      {notFound ? <EmptyState icon={ListMusic} title={LIST_GONE} /> : null}
-      {view && list && showArchived !== undefined && instruments !== undefined ? (
+      )}
+      <ErrorLine error={error} place="bar" />
+      {notFound && <EmptyState icon={ListMusic} title={LIST_GONE} />}
+      {list && items && showArchived !== undefined && instruments !== undefined && (
         <>
-          {pageError ? <InlineError className="px-5 py-2">{pageError}</InlineError> : null}
-          {selection?.error ? (
-            <InlineError className="px-5 py-2">{selection.error}</InlineError>
-          ) : null}
-          {view.items.length === 0 ? (
+          {screen.emptyKind === 'empty' ? (
             <EmptyState
               icon={ListMusic}
               title={EMPTY_LIST_TITLE}
               hint={EMPTY_LIST_HINT}
               action={
-                <IonButton shape="round" onClick={() => setPicking(true)}>
-                  {ADD_TUNES}
-                </IonButton>
+                <Button
+                  variant="primary"
+                  label={ADD_TUNES}
+                  onPress={() => screen.setPicking(true)}
+                />
               }
             />
-          ) : visibleCount === 0 ? (
+          ) : screen.emptyKind === 'allArchived' ? (
             <EmptyState
               icon={ListMusic}
               title={ALL_ARCHIVED_TITLE}
-              hint={ARCHIVED_HINT}
+              hint={ALL_ARCHIVED_HINT}
               action={
-                <IonButton shape="round" onClick={() => void setShowArchived(true)}>
-                  {SHOW_ARCHIVED}
-                </IonButton>
+                <Button
+                  variant="primary"
+                  label={SHOW_ARCHIVED}
+                  onPress={() => void screen.setShowArchived(true)}
+                />
               }
             />
           ) : (
-            <ListTunes
-              ref={listRef}
-              listId={list.id}
-              items={view.items}
-              showArchived={showArchived}
-              instruments={instruments}
-              selection={{
-                listName: list.name,
-                // A rename owns the screen, so nothing behind it, not even a long press, opens
-                // a second mode over the same rows.
-                enabled: naming === null,
-                onChange: setSelection,
-              }}
-              onOpen={(tuneId) =>
-                router.push(`/lists/${list.id}/tunes/${tuneId}`, 'forward', 'push')
-              }
-              onEdit={(item) =>
-                setForm({ kind: 'edit', entry: { tune: item.tune, userTune: item.userTune } })
-              }
-              onRemove={(item) => void remove(item)}
-              onMoveStart={() => setPageError(null)}
-              onError={setPageError}
-            />
+            <div ref={rowsRef} className="contents">
+              <ListTunes
+                listId={list.id}
+                tunes={tunes}
+                mode={mode}
+                instruments={instruments}
+                tuneId={tuneId}
+                wide={wide}
+                onEdit={(view) => form.open({ tuneId: view.tune.id })}
+                onRemove={(view) => void remove(view)}
+                onSelect={(view) => fromRow(view.userTune.id)}
+                announce={announce}
+              />
+            </div>
           )}
-        </>
-      ) : null}
-      {list && instruments ? (
-        <>
           <TunePickerSheet
-            open={picking}
             listId={list.id}
-            taken={taken}
-            onClose={() => setPicking(false)}
-            onCreate={(title) => setForm({ kind: 'new', title })}
+            taken={screen.taken}
+            isOpen={screen.picking}
+            onOpenChange={screen.setPicking}
           />
-          <ListNameSheet
-            target={naming}
-            onClose={() => setNaming(null)}
-            onSaved={() => setNaming(null)}
-          />
-          <TuneFormSheet
-            target={form}
+          <BulkSheets
+            actions={selecting.bulk}
+            entries={selecting.selected}
+            context={selecting.context}
             instruments={instruments}
-            onClose={() => setForm(null)}
-            onSaved={({ userTuneId }) => {
-              const created = form?.kind === 'new'
-              setForm(null)
-              if (created) void add(userTuneId)
-            }}
           />
         </>
-      ) : null}
-    </Screen>
+      )}
+      <ListNameSheet target={screen.naming} onClose={() => screen.setNaming(null)} />
+      {region}
+    </>
+  )
+}
+
+/**
+ * The list's rows, mounted once the list has read, so the rows can reorder from their first
+ * render.
+ */
+function ListTunes({
+  listId,
+  tunes,
+  mode,
+  instruments,
+  tuneId,
+  wide,
+  onEdit,
+  onRemove,
+  onSelect,
+  announce,
+}: {
+  listId: string
+  tunes: ListTunesState
+  /** Selection over the rows, keyed by user tune. */
+  mode: SelectionMode
+  instruments: ReadonlySet<Instrument>
+  /** The tune open beside or over the list. */
+  tuneId: string | undefined
+  wide: boolean
+  onEdit: (view: ListItemView) => void
+  onRemove: (view: ListItemView) => void
+  onSelect: (view: ListItemView) => void
+  announce: (text: string) => void
+}) {
+  const navigate = useNavigate()
+  const { visible } = tunes
+  const selecting = mode.active
+  // The one row whose title morphs into the page title, as in the catalog: off wide only,
+  // since on wide the list stays beside the page.
+  const [opening, setOpening] = useState<string | null>(null)
+  const scans = useRowScanViewer({ context: 'list', listId })
+
+  useEffect(() => {
+    if (tunes.announcement) announce(tunes.announcement)
+  }, [tunes.announcement, announce])
+
+  const open = (view: ListItemView, replace = false) => {
+    setOpening(view.item.id)
+    void navigate(listTunePath(listId, view.tune.id), { replace, state: tunePick() })
+  }
+  const byKey = (key: Key) => visible.find((view) => view.item.id === String(key))
+
+  // Between tunes the page replaces the one before, so walking the rows with the arrows does
+  // not leave an entry in history for every tune passed.
+  const choose = (keys: 'all' | Set<Key>) => {
+    if (keys === 'all') return
+    const [key] = keys
+    const view = key === undefined ? undefined : byKey(key)
+    if (!view || view.tune.id === tuneId) return
+    open(view, tuneId !== undefined)
+  }
+
+  const selected = visible.find((view) => view.tune.id === tuneId)
+  // Holds the widest number shown, so a list that runs into three digits does not step every
+  // title after row 99 inward. Tabular figures make each digit one ch wide.
+  const positionWidth = `max(1.5rem, ${String(visible.length).length}ch)`
+
+  // The rows are keyed by list item and the selection by user tune.
+  const choosing = (keys: Selection) =>
+    applySelection(
+      mode,
+      keys === 'all' ? keys : new Set([...keys].flatMap((key) => byKey(key)?.userTune.id ?? [])),
+    )
+
+  return (
+    <>
+      <RowList
+        label={TUNE_LIST}
+        {...(selecting
+          ? {
+              selectionMode: 'multiple',
+              selectionBehavior: 'toggle',
+              selectedKeys: new Set(
+                visible
+                  .filter((view) => mode.selected.has(view.userTune.id))
+                  .map((view) => view.item.id),
+              ),
+              onSelectionChange: choosing,
+            }
+          : {
+              selectionMode: wide ? 'single' : 'none',
+              // Selection follows focus only once a tune is open, so tabbing into the list never
+              // opens one; Enter or a click opens the first.
+              selectionBehavior: tuneId ? 'replace' : 'toggle',
+              disallowEmptySelection: true,
+              selectedKeys: new Set(selected ? [selected.item.id] : []),
+              onSelectionChange: choose,
+              onAction: wide
+                ? undefined
+                : (key: Key) => {
+                    const view = byKey(key)
+                    if (view) open(view)
+                  },
+            })}
+        // Paused while selecting: a drag of one of several selected rows has no single place to go.
+        onReorder={
+          selecting
+            ? undefined
+            : (key, toIndex) => {
+                const from = visible.findIndex((view) => view.item.id === String(key))
+                if (from >= 0) tunes.move(from, toIndex)
+              }
+        }
+      >
+        {visible.map((view, index) => (
+          <ListTuneRow
+            key={view.item.id}
+            view={view}
+            position={index + 1}
+            positionWidth={positionWidth}
+            instruments={instruments}
+            playFirst={tunes.playFirst}
+            moves={tunes.moveItems(view, index)}
+            onEdit={() => onEdit(view)}
+            onRemove={() => onRemove(view)}
+            onSelect={() => onSelect(view)}
+            onViewScans={
+              tunes.scanTunes.has(view.tune.id) ? () => scans.open(view.tune.id) : undefined
+            }
+            selecting={selecting}
+            opening={!wide && view.item.id === opening}
+          />
+        ))}
+      </RowList>
+      {scans.viewer}
+    </>
   )
 }

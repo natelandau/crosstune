@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { tuneRow, userTuneRow } from '../../test/rows'
 import { catalogEntries, type CatalogEntry } from './filters'
-import { enterAction, searchOutcome, type SearchOutcome } from './searchIntent'
+import { enterAction, offeredOutcome, searchOutcome, type SearchOutcome } from './searchIntent'
 
 const entries = catalogEntries(
   [
@@ -101,5 +101,23 @@ describe('enterAction', () => {
     for (const outcome of [none, create, hidden]) {
       expect(enterAction('o', [byId('s1'), byId('s2')], outcome)).toEqual({ kind: 'blur' })
     }
+  })
+})
+
+describe('offeredOutcome', () => {
+  const create: SearchOutcome = { kind: 'create', title: 'Kesh', another: false }
+
+  it('passes the outcome through unless selecting', () => {
+    expect(offeredOutcome(create, false)).toBe(create)
+  })
+
+  it('offers nothing while selecting', () => {
+    expect(offeredOutcome(create, true)).toEqual({ kind: 'none' })
+  })
+})
+
+describe('enterAction while selecting', () => {
+  it('only blurs, even with one result', () => {
+    expect(enterAction('joy', [entries[0]!], { kind: 'none' }, true)).toEqual({ kind: 'blur' })
   })
 })

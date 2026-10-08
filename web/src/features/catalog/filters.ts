@@ -3,6 +3,7 @@ import type { LocalTune, LocalUserTune } from '../../db/types'
 import { containsText, foldText, sameText } from '../../text/fold'
 import { groupByFold } from '../../text/spelling'
 import { countTunes } from '../selection/copy'
+import { KEY } from '../../ui/keyName'
 import { DETAIL_LABELS } from '../tune/detailFields'
 import {
   byTuningKey,
@@ -27,7 +28,7 @@ export const FACETS = [
 export type Facet = (typeof FACETS)[number]
 
 export const FACET_LABELS: Record<Facet, string> = {
-  key: 'Key',
+  key: KEY,
   tune_type: DETAIL_LABELS.tune_type,
   mode: 'Mode',
   ...byTuningKey(tuningLabel),
@@ -125,6 +126,11 @@ function isStatus(value: unknown): value is TuneStatus {
   return typeof value === 'string' && (STATUSES as readonly string[]).includes(value)
 }
 
+/** The status a tune counts and filters under; one this client does not know reads as Unknown. */
+export function effectiveStatus(userTune: Pick<LocalUserTune, 'status'>): TuneStatus {
+  return isStatus(userTune.status) ? userTune.status : 'want_to_learn'
+}
+
 function isMissingAttribute(value: unknown): value is MissingAttribute {
   return typeof value === 'string' && (MISSING_ATTRIBUTES as readonly string[]).includes(value)
 }
@@ -155,7 +161,8 @@ export function normalizeFilters(value: unknown): CatalogFilters {
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
 
-export function catalogEntries(
+/** Every live user tune paired with its live tune, in storage order. */
+export function pairTunes(
   tunes: LocalTune[],
   userTunes: LocalUserTune[],
   heard: ReadonlySet<string> = new Set(),
@@ -167,7 +174,17 @@ export function catalogEntries(
     const tune = tuneById.get(userTune.tune_id)
     if (tune) entries.push({ tune, userTune, heard: heard.has(tune.id) })
   }
-  return entries.sort((a, b) => collator.compare(a.tune.title, b.tune.title))
+  return entries
+}
+
+export function catalogEntries(
+  tunes: LocalTune[],
+  userTunes: LocalUserTune[],
+  heard: ReadonlySet<string> = new Set(),
+): HeardEntry[] {
+  return pairTunes(tunes, userTunes, heard).sort((a, b) =>
+    collator.compare(a.tune.title, b.tune.title),
+  )
 }
 
 /** True when the query names the tune's title or an alternate title, as `sameText` compares them. */
@@ -219,7 +236,7 @@ export function filterCatalog(
   const needle = query.trim()
   return hideArchived(entries, filters.archived).filter((entry) => {
     const { tune, userTune } = entry
-    if (filters.status !== 'all' && userTune.status !== filters.status) return false
+    if (filters.status !== 'all' && effectiveStatus(userTune) !== filters.status) return false
     if (filters.unheard && entry.heard) return false
     if (filters.missing !== 'all' && !isMissing(attributeValues(entry, filters.missing)))
       return false
@@ -340,13 +357,27 @@ export function hiddenResets(
 /** Facets with their own control on the filter bar; every other visible facet lives in the sheet. */
 export const BAR_FACETS: readonly Facet[] = ['key', 'tune_type']
 
-export function sheetFacets(visible: readonly Facet[]): Facet[] {
-  return visible.filter((facet) => !BAR_FACETS.includes(facet))
+/**
+ * Facets with their own control on the filter row, which matches the Apple apps:
+ * Status, Key, then Filters, with Type in the sheet.
+ */
+export const ROW_FACETS: readonly Facet[] = ['key']
+
+/** The visible facets the sheet lists: every one without its own control in `bar`. */
+export function sheetFacets(
+  visible: readonly Facet[],
+  bar: readonly Facet[] = BAR_FACETS,
+): Facet[] {
+  return visible.filter((facet) => !bar.includes(facet))
 }
 
 /** How many sheet filters are set: the badge on the Filters button and the gate on Reset. */
-export function sheetFilterCount(filters: CatalogFilters, visible: readonly Facet[]): number {
-  const facets = sheetFacets(visible).filter((facet) => filters[facet] !== 'all').length
+export function sheetFilterCount(
+  filters: CatalogFilters,
+  visible: readonly Facet[],
+  bar: readonly Facet[] = BAR_FACETS,
+): number {
+  const facets = sheetFacets(visible, bar).filter((facet) => filters[facet] !== 'all').length
   return (
     facets +
     (filters.archived ? 1 : 0) +
@@ -356,8 +387,19 @@ export function sheetFilterCount(filters: CatalogFilters, visible: readonly Face
 }
 
 /** A patch that clears the sheet's filters and nothing else. */
-export function sheetResets(visible: readonly Facet[]): Partial<CatalogFilters> {
+export function sheetResets(
+  visible: readonly Facet[],
+  bar: readonly Facet[] = BAR_FACETS,
+): Partial<CatalogFilters> {
   const patch: Partial<CatalogFilters> = { archived: false, unheard: false, missing: 'all' }
-  for (const facet of sheetFacets(visible)) patch[facet] = 'all'
+  for (const facet of sheetFacets(visible, bar)) patch[facet] = 'all'
   return patch
+}
+
+/** The Missing choices, plus a set attribute no tune holds any more, like a stale facet value. */
+export function missingFilterChoices(
+  offered: readonly MissingAttribute[],
+  set: CatalogFilters['missing'],
+): readonly MissingAttribute[] {
+  return set === 'all' || offered.includes(set) ? offered : [...offered, set]
 }
