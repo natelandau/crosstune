@@ -1,6 +1,7 @@
 import type { SortChoice } from '../../ui/sortChoice'
 import type { SortOptions } from '../../ui/sortTypes'
 import type { CatalogEntry } from './filters'
+import { compareNames } from '../../text/collate'
 
 export type CatalogSort = 'title' | 'added' | 'modified' | 'played'
 
@@ -17,14 +18,12 @@ interface Played {
   started_at: string
 }
 
-const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
-
 function compareIds(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0
 }
 
 function byTitle(a: CatalogEntry, b: CatalogEntry): number {
-  return collator.compare(a.tune.title, b.tune.title) || compareIds(a.tune.id, b.tune.id)
+  return compareNames(a.tune.title, b.tune.title) || compareIds(a.tune.id, b.tune.id)
 }
 
 // Parsed, not compared as text: a row written here and one pulled from the server spell

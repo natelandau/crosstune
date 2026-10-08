@@ -14,6 +14,7 @@ import {
   tuningKeyInstrument,
   tuningLabel,
 } from '../settings/instruments'
+import { compareNames } from '../../text/collate'
 
 /** One tuning facet per instrument, so each instrument's tunings filter on their own. */
 export const FACETS = [
@@ -159,8 +160,6 @@ export function normalizeFilters(value: unknown): CatalogFilters {
   }
 }
 
-const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
-
 /** Every live user tune paired with its live tune, in storage order. */
 export function pairTunes(
   tunes: LocalTune[],
@@ -182,9 +181,7 @@ export function catalogEntries(
   userTunes: LocalUserTune[],
   heard: ReadonlySet<string> = new Set(),
 ): HeardEntry[] {
-  return pairTunes(tunes, userTunes, heard).sort((a, b) =>
-    collator.compare(a.tune.title, b.tune.title),
-  )
+  return pairTunes(tunes, userTunes, heard).sort((a, b) => compareNames(a.tune.title, b.tune.title))
 }
 
 /** True when the query names the tune's title or an alternate title, as `sameText` compares them. */
@@ -269,7 +266,7 @@ function distinct(facet: Facet, values: (string | null | undefined)[]): string[]
     (value) => value,
   )
     .map(({ shown }) => shown)
-    .sort(collator.compare)
+    .sort(compareNames)
 }
 
 export type FacetValues = Record<Facet, string[]>
