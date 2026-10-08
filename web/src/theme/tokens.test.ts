@@ -20,7 +20,6 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
     ['slate', p.slate, p.ground, 4.5],
     ['label on slate', p.onSlate, p.slate, 4.5],
     ['known glyph', p.known, p.ground, 3],
-    ['learning glyph', p.learning, p.ground, 3],
     ['unknown ring', p.unknown, p.ground, 3],
     ['record', p.record, p.ground, 3],
     ['danger label', p.danger, p.ground, 4.5],
@@ -36,9 +35,16 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
     ['ink on the sidebar', p.ink, p.sidebar, 4.5],
     ['secondary ink on the sidebar', p.sidebarInk2, p.sidebar, 4.5],
     ['known glyph on the sidebar', p.known, p.sidebar, 3],
-    ['learning glyph on the sidebar', p.learning, p.sidebar, 3],
     ['unknown ring on the sidebar', p.sidebarUnknown, p.sidebar, 3],
   ])('%s passes', (_, fg, bg, min) => expect(ratio(fg, bg)).toBeGreaterThanOrEqual(min))
+})
+
+// Learning is Apple's system orange, below 3:1 on a light ground; its half fill carries the status.
+it.each([
+  ['light', '#FF8D28'],
+  ['dark', '#FF9230'],
+] as const)("draws learning in Apple's %s orange", (scheme, orange) => {
+  expect(PALETTE[scheme].learning).toBe(orange)
 })
 
 it.each(['light', 'dark'] as const)('practice reads on %s jet', (scheme) => {

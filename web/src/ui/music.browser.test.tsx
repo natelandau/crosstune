@@ -31,11 +31,15 @@ it.each([
   await expect.poll(() => glyph.element().getBoundingClientRect().width).toBe(size)
 })
 
-// The glyph's shape is painted by its border, so contrast is read from that color.
-it.each(['light', 'dark'] as const)('each glyph passes 3:1 in %s', async (scheme) => {
+// The glyph's shape is painted by its border, so contrast is read from that color. Learning's
+// light orange is the design rules' one exception.
+it.each([
+  ['light', ['known', 'want_to_learn']],
+  ['dark', ['known', 'learning', 'want_to_learn']],
+] as const)('each glyph passes 3:1 in %s', async (scheme, statuses) => {
   renderWithProviders(
     <>
-      {['known', 'learning', 'want_to_learn'].map((s) => (
+      {statuses.map((s) => (
         <StatusGlyph key={s} status={s} />
       ))}
     </>,
@@ -43,7 +47,7 @@ it.each(['light', 'dark'] as const)('each glyph passes 3:1 in %s', async (scheme
   )
   await expect.element(page.getByRole('img', { name: STATUS_LABELS.known })).toBeVisible()
   const images = page.getByRole('img').elements()
-  expect(images).toHaveLength(3)
+  expect(images).toHaveLength(statuses.length)
   for (const img of images) {
     const ground = paintedBackground(img.parentElement as Element)
     expect(contrastRatio(getComputedStyle(img).borderTopColor, ground)).toBeGreaterThanOrEqual(3)

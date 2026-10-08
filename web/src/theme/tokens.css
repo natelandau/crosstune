@@ -10,7 +10,7 @@
   --jet: #2d3142;
   --record: #ff3b30;
   --known: #248a3d;
-  --learning: #c93400;
+  --learning: #ff8d28;
   --unknown: #8a909a;
   --silver: #bfc0c0;
   --danger: #d92d20;
@@ -115,7 +115,7 @@
   --jet: #1e212c;
   --record: #ff453a;
   --known: #30d158;
-  --learning: #ff9f0a;
+  --learning: #ff9230;
   --danger: var(--danger-dark);
   --warning: #ff9f0a;
   --fill: #25272d;
