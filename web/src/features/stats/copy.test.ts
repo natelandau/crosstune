@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { addDays } from './calendar'
-import { dayDetail, onThisDayLine, scansLine, weekMonthLabels } from './copy'
+import {
+  dayDetail,
+  onThisDayLine,
+  scansLine,
+  showAllLabel,
+  tallyLine,
+  valueLabel,
+  weekMonthLabels,
+} from './copy'
 import type { Day } from './types'
 
 describe('weekMonthLabels', () => {
@@ -19,6 +27,26 @@ describe('scansLine', () => {
   it('counts scans and the tunes holding them, singular at one', () => {
     expect(scansLine(86, 41)).toBe('86 scans across 41 tunes')
     expect(scansLine(1, 1)).toBe('1 scan across 1 tune')
+  })
+})
+
+describe('tallyLine', () => {
+  it('names lists and links, and adds scans only once there are any', () => {
+    expect(tallyLine({ lists: 3, links: 1200, scans: 0, scan_tunes: 0 })).toBe(
+      'Lists 3 · Links 1,200',
+    )
+    expect(tallyLine({ lists: 0, links: 4, scans: 86, scan_tunes: 41 })).toBe(
+      'Lists 0 · Links 4 · 86 scans across 41 tunes',
+    )
+  })
+})
+
+describe('valueLabel and showAllLabel', () => {
+  it('count in tunes and group thousands', () => {
+    expect(valueLabel('Irish', 1)).toBe('Irish, 1 tune')
+    expect(valueLabel('Reel', 1200)).toBe('Reel, 1,200 tunes')
+    expect(showAllLabel(12)).toBe('Show all 12')
+    expect(showAllLabel(1200)).toBe('Show all 1,200')
   })
 })
 

@@ -1,7 +1,11 @@
 import { MODES } from '../../api/vocabulary'
+import { isInstrument } from '../../db/types'
 import { foldText, sameText } from '../../text/fold'
 import { compareText, groupByFold, heldSpelling } from '../../text/spelling'
-import { tuningsMap } from '../settings/instruments'
+import { FACET_LABELS, isFilterValue, type CatalogFilters, type Facet } from '../catalog/filters'
+import { tuningKey, tuningLabel, tuningsMap } from '../settings/instruments'
+import { DETAIL_LABELS } from '../tune/detailFields'
+import { isMode } from '../tune/keyMode'
 import type {
   Breakdowns,
   KeyRow,
@@ -180,4 +184,49 @@ export function rarities(entries: readonly Entry[], instruments: readonly string
     )
     .slice(0, MAX_RARITIES)
     .map((candidate) => candidate.rarity)
+}
+
+/** The modes some tune in a key holds, in vocabulary order, then any the client does not know. */
+export function usedModes(rows: readonly KeyRow[]): string[] {
+  const used = new Set(rows.flatMap((row) => row.modes.map((mode) => mode.value)))
+  const unknown = [...used].filter((mode) => !isMode(mode)).sort(compareText)
+  return [...MODES.filter((mode) => used.has(mode)), ...unknown]
+}
+
+/** One value breakdown as the stats page shows it. */
+export interface BreakdownGroup {
+  header: string
+  values: readonly Value[]
+  /** The catalog filter its values open, or null where a value only counts. */
+  facet: Facet | null
+}
+
+/**
+ * The value breakdowns in the order the page shows them, after the key grid: tune type, a
+ * tuning per instrument played, genre, time signature, composer, learned from. Time signature
+ * only counts, since the catalog has no filter for it.
+ */
+export function breakdownGroups(breakdowns: Breakdowns): BreakdownGroup[] {
+  const facet = (name: Facet, values: readonly Value[]): BreakdownGroup => ({
+    header: FACET_LABELS[name],
+    values,
+    facet: name,
+  })
+  return [
+    facet('tune_type', breakdowns.tune_type),
+    ...breakdowns.tunings.flatMap(({ instrument, values }) =>
+      isInstrument(instrument)
+        ? [{ header: tuningLabel(instrument), values, facet: tuningKey(instrument) }]
+        : [],
+    ),
+    facet('genre', breakdowns.genre),
+    { header: DETAIL_LABELS.time_signature, values: breakdowns.time_signature, facet: null },
+    facet('composer', breakdowns.composer),
+    facet('learned_from', breakdowns.learned_from),
+  ]
+}
+
+/** The catalog filter that shows exactly the tunes `value` counted, or null when none can. */
+export function valueFilter(facet: Facet | null, value: string): Partial<CatalogFilters> | null {
+  return facet && isFilterValue(facet, value) ? { [facet]: value } : null
 }
