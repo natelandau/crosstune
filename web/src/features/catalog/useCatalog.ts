@@ -15,7 +15,8 @@ async function heardTuneIds(db: CrosstuneDb): Promise<Set<string>> {
       .above('')
       .filter((row) => !row.deleted_at)
       .keys() as Promise<string[]>
-  return new Set([...(await live(db.recordings)), ...(await live(db.recording_links))])
+  const [recordings, links] = await Promise.all([live(db.recordings), live(db.recording_links)])
+  return new Set([...recordings, ...links])
 }
 
 /**
@@ -26,15 +27,13 @@ async function heardTuneIds(db: CrosstuneDb): Promise<Set<string>> {
  */
 export function useCatalog(enabled = true, { heard = false } = {}): HeardEntry[] | undefined {
   const db = useDb()
-  return useLiveQuery(
-    async () =>
-      enabled
-        ? catalogEntries(
-            await db.tunes.toArray(),
-            await db.user_tunes.toArray(),
-            heard ? await heardTuneIds(db) : undefined,
-          )
-        : undefined,
-    [db, enabled, heard],
-  )
+  return useLiveQuery(async () => {
+    if (!enabled) return undefined
+    const [tunes, userTunes, heardIds] = await Promise.all([
+      db.tunes.toArray(),
+      db.user_tunes.toArray(),
+      heard ? heardTuneIds(db) : undefined,
+    ])
+    return catalogEntries(tunes, userTunes, heardIds)
+  }, [db, enabled, heard])
 }
