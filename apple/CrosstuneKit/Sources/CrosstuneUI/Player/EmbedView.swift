@@ -85,8 +85,8 @@ public final class EmbedStage {
     private let origin = Embed.documentOrigin(bundleID: Bundle.main.bundleIdentifier)
     private let openExternally: @MainActor (URL) -> Void
     private lazy var delegate = EmbedDelegate(origin: origin) { [weak self] in self?.openFromEmbed($0) }
-    /// Told each time the embed sends the musician on to its provider's site.
-    public var onProviderOpened: (@MainActor () -> Void)?
+    /// Told each page the embed sends the musician on to.
+    public var onOpened: (@MainActor (URL) -> Void)?
 
     /// - Parameter openExternally: Opens a page the embed leads out to; the system browser by
     ///   default.
@@ -96,7 +96,7 @@ public final class EmbedStage {
 
     /// Opens `url`, a page the embed led out to, outside the app.
     func openFromEmbed(_ url: URL) {
-        onProviderOpened?()
+        onOpened?(url)
         openExternally(url)
     }
 
