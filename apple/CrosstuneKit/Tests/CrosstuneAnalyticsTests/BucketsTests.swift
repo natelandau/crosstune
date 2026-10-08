@@ -37,3 +37,13 @@ func bucketsAByteCount(bytes: Int64, bucket: String) {
 func bucketsASpeed(rate: Double, bucket: String) {
     #expect(Bucket.speed(rate) == bucket)
 }
+
+private let listenedBuckets: [(Int64, String)] = [
+    (0, "<10s"), (9_999, "<10s"), (10_000, "10-30s"), (29_999, "10-30s"), (30_000, "30s-2m"), (119_999, "30s-2m"),
+    (120_000, "2-5m"), (299_999, "2-5m"), (300_000, "5m+"),
+]
+
+@Test(arguments: listenedBuckets)
+func bucketsTimeListened(ms: Int64, bucket: String) {
+    #expect(Bucket.listened(ms: ms) == bucket)
+}

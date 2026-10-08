@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import Foundation
 import Observation
@@ -29,6 +30,7 @@ public final class SyncEngine {
     private let api: any SyncAPI
     private let isOffline: @MainActor () -> Bool
     private let batchSize: Int
+    private let analytics: AnalyticsClient
     private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "sync")
 
     private let sleep: Sleeper
@@ -52,6 +54,9 @@ public final class SyncEngine {
         afterRun: { [weak self] in
             Task { await self?.transferLoop.trigger() }
         },
+        onFailure: { [weak self] _, error in
+            self?.analytics.send(.syncFailed(reason: syncFailureReason(error)))
+        },
         run: { [weak self] in try await self?.runSync() }
     )
     @ObservationIgnored private lazy var transferLoop = SyncLoop<TransferStatus>(
@@ -70,7 +75,7 @@ public final class SyncEngine {
     @ObservationIgnored private lazy var transfers = Transfers(
         store: store, api: api,
         checkStopped: transferStopCheck,
-        downloadRetries: downloadRetries)
+        downloadRetries: downloadRetries, analytics: analytics)
     @ObservationIgnored private lazy var scans = ScanTransfers(
         store: store, api: api,
         checkStopped: transferStopCheck)
@@ -79,14 +84,18 @@ public final class SyncEngine {
     ///   - isOffline: Whether the device has no connection. A run while offline ends as
     ///     `offline` without a request.
     ///   - sleep: Waits out a retry's backoff.
+    ///   - analytics: Where a sync that fails, and an upload that is refused, are reported.
     public convenience init(
         store: CrosstuneStore,
         api: any SyncAPI,
         isOffline: @escaping @MainActor () -> Bool,
         batchSize: Int = SyncEngine.pushBatchSize,
-        sleep: @escaping Sleeper = { try await Task.sleep(for: $0) }
+        sleep: @escaping Sleeper = { try await Task.sleep(for: $0) },
+        analytics: AnalyticsClient = .noop
     ) {
-        self.init(store: store, api: api, isOffline: isOffline, batchSize: batchSize, sleep: sleep, transferPass: nil)
+        self.init(
+            store: store, api: api, isOffline: isOffline, batchSize: batchSize, sleep: sleep, transferPass: nil,
+            analytics: analytics)
     }
 
     /// - Parameter transferPass: One run of the transfer loop, in place of the upload and
@@ -97,9 +106,11 @@ public final class SyncEngine {
         isOffline: @escaping @MainActor () -> Bool,
         batchSize: Int,
         sleep: @escaping Sleeper,
-        transferPass: (@MainActor () async throws -> Void)?
+        transferPass: (@MainActor () async throws -> Void)?,
+        analytics: AnalyticsClient = .noop
     ) {
         self.store = store
+        self.analytics = analytics
         self.api = api
         self.isOffline = isOffline
         self.batchSize = batchSize

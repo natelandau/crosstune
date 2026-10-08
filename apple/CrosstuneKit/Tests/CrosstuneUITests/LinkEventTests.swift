@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneStore
 import CrosstuneSync
 import CrosstuneTestSupport
 import Foundation
@@ -6,7 +7,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-/// A link reports its service and how it came in once it is stored, and a search in Find
+/// A link reports its service, how it came in, and its ID once it is stored, and a search in Find
 /// recordings reports its service and how much it found once it answers. Never the link itself.
 @MainActor
 @Suite struct LinkEventTests {
@@ -27,6 +28,14 @@ import Testing
         ])
     }
 
+    /// The ID of the link stored at `url`.
+    private func linkID(_ url: String, in store: CrosstuneStore) async throws -> String {
+        try #require(
+            try await store.read { db in
+                try RecordingLink.fetchAll(db).first { $0.url == url }?.id
+            })
+    }
+
     @Test func reportsAPastedLinkByItsService() async throws {
         let store = try await SampleCatalog.makeStore(root: root.url)
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil, analytics: sink.client)
@@ -34,9 +43,15 @@ import Testing
 
         #expect(await model.save())
 
+        let linkID = try await linkID("https://www.youtube.com/watch?v=dQw4w9WgXcQ", in: store)
         #expect(
             sink.captures == [
-                .init(name: "link_added", properties: ["service": .string("youtube"), "via": .string("paste")])
+                .init(
+                    name: "link_added",
+                    properties: [
+                        "service": .string("youtube"), "via": .string("paste"), "link_id": .string(linkID),
+                        "tune_id": .string(tuneID),
+                    ])
             ])
     }
 
@@ -60,12 +75,18 @@ import Testing
         let result = try #require(model.group?.results.first)
         await model.link(result)
 
+        let linkID = try await linkID(result.url, in: store)
         #expect(
             sink.captures == [
                 .init(
                     name: "find_recordings_used",
                     properties: ["service": .string("tidal"), "result_count_bucket": .string("1-9")]),
-                .init(name: "link_added", properties: ["service": .string("tidal"), "via": .string("find")]),
+                .init(
+                    name: "link_added",
+                    properties: [
+                        "service": .string("tidal"), "via": .string("find"), "link_id": .string(linkID),
+                        "tune_id": .string(tuneID),
+                    ]),
             ])
     }
 

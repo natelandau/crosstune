@@ -421,7 +421,7 @@ final class PracticeModel {
     /// The screen is showing: the time spent on it until the sheet holding it goes is one visit
     /// to the recording, however often it shows again in between.
     func enter(screen: UUID? = nil) {
-        player.screenOpened(recording.id, by: screen)
+        player.screenOpened(recording.id, recording: recording, by: screen)
         openPanel()
     }
 
@@ -456,12 +456,14 @@ final class PracticeModel {
         switch mode {
         case .loops: break
         case .speed:
-            if value != opened { player.analytics.send(.speedChanged(rate: Double(value) / 100)) }
+            if value != opened {
+                player.analytics.send(.speedChanged(rate: Double(value) / 100, recordingID: recording.id))
+            }
         case .pitch:
             // Reported in whole semitones, so a few cents either way is no change.
             let semitones = PitchSplit(cents: value).semitones
             if semitones != PitchSplit(cents: opened).semitones {
-                player.analytics.send(.pitchChanged(semitones: semitones))
+                player.analytics.send(.pitchChanged(semitones: semitones, recordingID: recording.id))
             }
         }
     }

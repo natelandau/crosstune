@@ -2,6 +2,7 @@ import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import Foundation
+import GRDB
 import Observation
 import os
 
@@ -49,6 +50,7 @@ public final class TuneModel {
     public private(set) var failure: Failure?
 
     private let store: CrosstuneStore
+    private let analytics: AnalyticsClient
     private let detail: LiveQuery<TuneDetail??>
     private var deletingTitle: String?
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "tune")
@@ -56,6 +58,7 @@ public final class TuneModel {
     public init(store: CrosstuneStore, tuneID: String, analytics: AnalyticsClient = .noop) {
         self.store = store
         self.tuneID = tuneID
+        self.analytics = analytics
         let settingsRow = settingsID(clerkUserID: store.userID)
         detail = LiveQuery(store, initial: nil) { db in
             .some(try TuneDetail.fetch(db, tuneID: tuneID, settingsID: settingsRow))
@@ -84,7 +87,8 @@ public final class TuneModel {
     /// Archives the tune, or brings it back.
     public func setArchived(_ archived: Bool) async {
         guard let userTuneID = shown?.userTune.id else { return }
-        await run(.screen) { try await $0.setArchived(userTuneID, archived: archived) }
+        let landed = await run(.screen) { try await $0.setArchived(userTuneID, archived: archived) }
+        if landed { analytics.send(archived ? .tuneArchived(tuneID: tuneID) : .tuneUnarchived(tuneID: tuneID)) }
     }
 
     /// Deletes the tune with its links, list entries, and recordings. True once the delete has
@@ -93,24 +97,84 @@ public final class TuneModel {
         guard let title = shown?.tune.title, deletingTitle == nil else { return false }
         deletingTitle = title
         let tuneID = tuneID
+        let counts = await Result { try await store.read { db in try Self.deletionCounts(db, tuneID: tuneID) } }
         let deleted = await run(.screen) { try await $0.deleteTune(tuneID) }
-        if !deleted { deletingTitle = nil }
+        if deleted {
+            if let event = Self.deletedEvent(tuneID: tuneID, counts: counts) { analytics.send(event) }
+        } else {
+            deletingTitle = nil
+        }
         return deleted
     }
 
+    /// What a delete takes along: the tune's live recordings, links, and scans.
+    typealias DeletionCounts = (recordings: Int, links: Int, scans: Int)
+
+    /// The report of a landed delete, or nil when its counts were not read, since the plan
+    /// requires them.
+    static func deletedEvent(tuneID: String, counts: Result<DeletionCounts, any Error>) -> AnalyticsEvent? {
+        switch counts {
+        case .success(let counts):
+            return .tuneDeleted(tuneID: tuneID, recordings: counts.recordings, links: counts.links, scans: counts.scans)
+        case .failure(let error):
+            logger.error("A deleted tune's counts were not read, so it is not reported: \(error)")
+            return nil
+        }
+    }
+
+    nonisolated private static func deletionCounts(_ db: Database, tuneID: String) throws -> DeletionCounts {
+        (
+            try Recording.filter(Recording.CodingKeys.tuneID == tuneID && Recording.CodingKeys.deletedAt == nil)
+                .fetchCount(db),
+            try RecordingLink.filter(
+                RecordingLink.CodingKeys.tuneID == tuneID && RecordingLink.CodingKeys.deletedAt == nil
+            ).fetchCount(db),
+            try ScanRecord.filter(ScanRecord.CodingKeys.tuneID == tuneID && ScanRecord.CodingKeys.deletedAt == nil)
+                .fetchCount(db)
+        )
+    }
+
     /// Takes the tune out of one list.
-    public func removeFromList(itemID: String) async {
-        await run(.lists) { try await $0.removeFromList(itemID) }
+    public func removeFromList(itemID: String, listID: String) async {
+        if await run(.lists, { try await $0.removeFromList(itemID) }) {
+            analytics.send(.tunesRemovedFromList(listID: listID, count: 1))
+        }
     }
 
     /// Removes one of the tune's links.
     public func removeLink(_ linkID: String) async {
-        await run(.media) { try await $0.removeLink(linkID) }
+        let link = shown?.links.first { $0.id == linkID }
+        let removed = await run(.media) { try await $0.removeLink(linkID) }
+        if removed, let link {
+            analytics.send(.linkRemoved(service: LinkService(provider: link.provider), linkID: link.id))
+        }
     }
 
     /// Saves a link's audio as one of the tune's recordings.
     public func addRecordingFromLink(_ linkID: String) async {
-        await run(.media) { try await $0.addRecordingFromLink(linkID) }
+        let source = shown?.links.first { $0.id == linkID }.flatMap { ArchiveSource(rawValue: $0.provider) }
+        var recordingID: String?
+        let saved = await run(.media) { recordingID = try await $0.addRecordingFromLink(linkID) }
+        if saved, let source, let recordingID {
+            analytics.send(.archiveRecordingSaved(source: source, recordingID: recordingID, tuneID: tuneID))
+        }
+    }
+
+    /// Takes one of the tune's recordings out of it, leaving it unfiled.
+    public func unfileRecording(_ recording: Recording) async {
+        let removed = await run(.media) { try await $0.updateRecording(recording.id, tuneID: .value(nil)) }
+        if removed { analytics.recordingUnfiled(recording) }
+    }
+
+    /// Deletes one of the tune's recordings.
+    public func deleteRecording(_ recording: Recording) async {
+        let deleted = await run(.media) { try await $0.deleteRecording(recording.id) }
+        if deleted { analytics.recordingDeleted(recording) }
+    }
+
+    /// Reports a link followed out to its provider's own site.
+    public func reportOpened(_ link: RecordingLink) {
+        analytics.linkOpened(link)
     }
 
     /// Pins a recording or link as the one lists play first for this tune, or clears the pin when

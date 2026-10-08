@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
@@ -17,8 +18,10 @@ import Testing
         store = try root.open()
     }
 
-    func engine(isOffline: @escaping @MainActor () -> Bool = { false }) -> SyncEngine {
-        SyncEngine(store: store, api: api, isOffline: isOffline, sleep: sleeper.sleep)
+    func engine(
+        isOffline: @escaping @MainActor () -> Bool = { false }, analytics: AnalyticsClient = .noop
+    ) -> SyncEngine {
+        SyncEngine(store: store, api: api, isOffline: isOffline, sleep: sleeper.sleep, analytics: analytics)
     }
 
     /// A finished capture whose recording row the server already has: a file in the audio

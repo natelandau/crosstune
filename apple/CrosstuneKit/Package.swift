@@ -82,6 +82,7 @@ let package = Package(
         .target(
             name: "CrosstuneSync",
             dependencies: [
+                "CrosstuneAnalytics",
                 "CrosstuneAPI",
                 "CrosstuneStore",
                 "CrosstuneVocabulary",
@@ -137,6 +138,7 @@ let package = Package(
         .testTarget(
             name: "CrosstuneSyncTests",
             dependencies: [
+                "CrosstuneAnalytics",
                 "CrosstuneSync",
                 "CrosstuneAPI",
                 "CrosstuneStore",

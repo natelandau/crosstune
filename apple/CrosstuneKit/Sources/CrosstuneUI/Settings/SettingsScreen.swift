@@ -129,13 +129,12 @@ public struct SettingsScreen: View {
                     if let version {
                         Text(Self.aboutLine(version: version))
                     }
-                    Toggle(UsageData.title, isOn: $sharesUsageData)
+                    Toggle(UsageData.title, isOn: UsageData.toggle($sharesUsageData, analytics: analytics))
                 } header: {
                     Text(Self.about)
                 } footer: {
                     Text(UsageData.footer)
                 }
-                .onChange(of: sharesUsageData) { _, enabled in UsageData.apply(enabled, to: analytics) }
             }
         }
         .formStyle(.grouped)
@@ -153,14 +152,23 @@ public struct SettingsScreen: View {
         .modifier(StatsDestination(isPushed: !opensStatsInSheet && registersStats))
         .navigationTitle(title)
         .task(id: ModelKey(store: store, engine: engine)) {
-            model = store.map { SettingsModel(store: $0, engine: engine) }
+            model = store.map { SettingsModel(store: $0, engine: engine, analytics: analytics) }
             summary = sections.contains(.stats) ? store.map(StatsSummary.live) : nil
         }
     }
 
     private var appearanceSection: some View {
         Section {
-            Picker(Appearance.title, selection: $appearance) {
+            Picker(
+                Appearance.title,
+                selection: Binding(
+                    get: { appearance },
+                    set: {
+                        guard $0 != appearance else { return }
+                        appearance = $0
+                        analytics.send(.settingChanged(.appearance(AppearanceChoice($0))))
+                    })
+            ) {
                 ForEach(Appearance.allCases) { Text($0.label).tag($0) }
             }
             // Text on the Mac does not scale with Dynamic Type, so the shift would do nothing.
@@ -169,7 +177,9 @@ public struct SettingsScreen: View {
                     value: Binding {
                         Self.stepperValue(offset: textSizeOffset, system: systemTextSize)
                     } set: {
+                        guard $0 != textSizeOffset else { return }
                         textSizeOffset = $0
+                        analytics.send(.settingChanged(.textSize($0)))
                     },
                     in: TextSize.offsetRange(system: systemTextSize)
                 ) {
@@ -260,7 +270,16 @@ public struct SettingsScreen: View {
             SettingsFooter(help: SettingsModel.qualityFooter, failure: model.qualityFailure)
         }
         Section {
-            Picker(SettingsModel.channelsTitle, selection: $channels) {
+            Picker(
+                SettingsModel.channelsTitle,
+                selection: Binding(
+                    get: { channels },
+                    set: {
+                        guard $0 != channels else { return }
+                        channels = $0
+                        analytics.send(.settingChanged(.captureChannels(ChannelChoice($0))))
+                    })
+            ) {
                 ForEach(CaptureChannels.allCases) { Text(SettingsModel.channelLabel($0)).tag($0) }
             }
         } footer: {

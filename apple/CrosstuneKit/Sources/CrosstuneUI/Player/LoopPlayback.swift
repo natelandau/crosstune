@@ -164,7 +164,7 @@ public final class LoopPlayback {
 
     /// Every call answers a selection the musician made, so a loop newly selected is one set.
     private func take(_ row: RecordingLoop) {
-        if row.id != selectedID { analytics.send(.loopSet) }
+        if row.id != selectedID { analytics.send(.loopSet(recordingID: row.recordingID)) }
         selectedID = row.id
         apply()
         setRepeat(true)

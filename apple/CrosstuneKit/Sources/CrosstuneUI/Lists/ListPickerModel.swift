@@ -181,8 +181,11 @@ public final class ListPickerModel {
         do {
             let addition = try await write(Commands(store: store))
             isDone = true
-            if addition.created { analytics.send(.listCreated) }
-            analytics.send(.tunesAddedToList(count: addition.added))
+            // A list made with its tunes is one action, reported only as made.
+            analytics.send(
+                addition.created
+                    ? .listCreated(listID: addition.listID, count: addition.added)
+                    : .tunesAddedToList(listID: addition.listID, count: addition.added))
             return addition
         } catch {
             Self.logger.warning("A list pick failed: \(error)")

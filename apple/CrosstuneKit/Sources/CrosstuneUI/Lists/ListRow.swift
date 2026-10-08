@@ -109,6 +109,7 @@ private struct ConfirmsListDelete: ViewModifier {
     @Binding var list: ListSummary?
 
     @Environment(\.commands) private var commands
+    @Environment(\.analytics) private var analytics
     @State private var failure: String?
 
     func body(content: Content) -> some View {
@@ -120,7 +121,7 @@ private struct ConfirmsListDelete: ViewModifier {
                 titleVisibility: .visible, presenting: list
             ) { list in
                 Button(DeleteListMessage.delete, role: .destructive) {
-                    Task { await delete(list.id) }
+                    Task { await delete(list) }
                 }
             } message: { _ in
                 Text(DeleteListMessage.message)
@@ -135,10 +136,11 @@ private struct ConfirmsListDelete: ViewModifier {
             }
     }
 
-    private func delete(_ listID: String) async {
+    private func delete(_ list: ListSummary) async {
         guard let commands else { return }
         do {
-            try await commands.deleteList(listID)
+            try await commands.deleteList(list.id)
+            analytics.send(.listDeleted(listID: list.id, count: list.count))
         } catch {
             failure = failureMessage(error)
         }

@@ -6,7 +6,8 @@ import Synchronization
 /// sends.
 public final class RecordingAnalyticsSink: Sendable {
     public enum Call: Equatable, Sendable {
-        case capture(String, [String: AnalyticsValue])
+        /// `set` is the person properties the event sets, empty for all but a setting change.
+        case capture(String, [String: AnalyticsValue], set: [String: AnalyticsValue] = [:])
         case screen(Screen)
         case identify(String, set: [String: AnalyticsValue], setOnce: [String: AnalyticsValue])
         case reset
@@ -17,10 +18,12 @@ public final class RecordingAnalyticsSink: Sendable {
     public struct Capture: Equatable, Sendable {
         public let name: String
         public let properties: [String: AnalyticsValue]
+        public let set: [String: AnalyticsValue]
 
-        public init(name: String, properties: [String: AnalyticsValue]) {
+        public init(name: String, properties: [String: AnalyticsValue], set: [String: AnalyticsValue] = [:]) {
             self.name = name
             self.properties = properties
+            self.set = set
         }
     }
 
@@ -36,8 +39,8 @@ public final class RecordingAnalyticsSink: Sendable {
     /// The captured events alone, without screens, identity, or the opt-out.
     public var captures: [Capture] {
         calls.compactMap {
-            guard case .capture(let name, let properties) = $0 else { return nil }
-            return Capture(name: name, properties: properties)
+            guard case .capture(let name, let properties, let set) = $0 else { return nil }
+            return Capture(name: name, properties: properties, set: set)
         }
     }
 
@@ -51,8 +54,8 @@ public final class RecordingAnalyticsSink: Sendable {
 private struct Forwarder: AnalyticsSink {
     let recorder: RecordingAnalyticsSink
 
-    func capture(_ name: String, _ properties: [String: AnalyticsValue]) {
-        recorder.record(.capture(name, properties))
+    func capture(_ name: String, _ properties: [String: AnalyticsValue], set: [String: AnalyticsValue]) {
+        recorder.record(.capture(name, properties, set: set))
     }
 
     func screen(_ screen: Screen) {

@@ -73,11 +73,15 @@ final class ScanViewerModel {
     private(set) var failure: String?
 
     private let store: CrosstuneStore
+    private let tuneID: String
+    private let analytics: AnalyticsClient
     private let query: LiveQuery<Phase>
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "scan-viewer")
 
-    init(store: CrosstuneStore, tuneID: String) {
+    init(store: CrosstuneStore, tuneID: String, analytics: AnalyticsClient = .noop) {
         self.store = store
+        self.tuneID = tuneID
+        self.analytics = analytics
         query = LiveQuery(store, initial: .loading) { db in
             guard let tune = try Tune.fetchOne(db, key: tuneID), tune.deletedAt == nil else { return .gone }
             let scans = try Scan.fetch(db, tuneID: tuneID)
@@ -92,6 +96,7 @@ final class ScanViewerModel {
         failure = nil
         do {
             try await Commands(store: store).deleteScan(scanID)
+            analytics.send(.scanDeleted(scanID: scanID, tuneID: tuneID))
         } catch {
             Self.logger.warning("Deleting a scan from the viewer failed: \(error)")
             failure = failureMessage(error)
@@ -118,6 +123,7 @@ public struct ScanViewer: View {
     private let onShow: (Int) -> Void
 
     @Environment(\.store) private var store
+    @Environment(\.analytics) private var analytics
     @State private var model: ScanViewerModel?
 
     /// `onShow` hears the position of each scan the viewer turns to, the first included.
@@ -137,7 +143,7 @@ public struct ScanViewer: View {
         }
         .task(id: tuneID) {
             guard let store else { return }
-            model = ScanViewerModel(store: store, tuneID: tuneID)
+            model = ScanViewerModel(store: store, tuneID: tuneID, analytics: analytics)
         }
         .shellSheet()
     }

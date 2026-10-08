@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 
@@ -33,7 +34,16 @@ extension EnvironmentValues {
         let id: String
     }
 
+    private struct Reading: Hashable {
+        let tuneID: String
+        let choice: ReadingChoice
+    }
+
     private var reported: Key?
+    private var openedReported = false
+    /// The first tune whose reading the visit showed, and each reading reported since.
+    private var firstReadingTuneID: String?
+    private var readingsReported: Set<Reading> = []
 
     /// Whether the stand for `item` has been reported this visit, for ``View/screenView(_:visit:stillShown:)``.
     func binding(for item: PlayerItem?) -> Binding<Bool> {
@@ -42,7 +52,39 @@ extension EnvironmentValues {
             key != nil && self.reported == key
         } set: { isReported in
             self.reported = isReported ? key : nil
+            if !isReported { self.ended() }
         }
+    }
+
+    /// The event for the stand's first tune of this visit, or nil once the visit has reported. A
+    /// list advancing to its next tune is the same visit. The tune is known only once the stand
+    /// has read it, so this is sent then rather than with the screen view.
+    func opened(tuneID: String) -> AnalyticsEvent? {
+        guard !openedReported else { return nil }
+        openedReported = true
+        return .standOpened(tuneID: tuneID)
+    }
+
+    /// The event for the reading pane showing `choice` of `tuneID`, or nil when it reports
+    /// nothing. Only the first tune's reading and a segment the musician `picked` report, each
+    /// once a visit, so a list moving on to its next tune is not counted as a view.
+    func readingShown(_ choice: ReadingChoice, tuneID: String, picked: Bool) -> AnalyticsEvent? {
+        let firstTuneID = firstReadingTuneID ?? tuneID
+        firstReadingTuneID = firstTuneID
+        guard picked || tuneID == firstTuneID,
+            readingsReported.insert(Reading(tuneID: tuneID, choice: choice)).inserted
+        else { return nil }
+        return switch choice {
+        case .scans: .scanViewed(tuneID: tuneID)
+        case .lyrics: .lyricsOpened(tuneID: tuneID)
+        }
+    }
+
+    /// Ends the visit, so the next one reports again.
+    func ended() {
+        openedReported = false
+        firstReadingTuneID = nil
+        readingsReported = []
     }
 
     /// Whether the stand leaving the window ends the visit: the player closed or let go of the
@@ -92,7 +134,7 @@ struct Stand<Practice: View>: View {
 
     var body: some View {
         if standsWithReading {
-            StandPanes(player: player, fixed: fixedReading, practice: practice)
+            StandPanes(player: player, fixed: fixedReading, visit: windowVisit ?? ownVisit, practice: practice)
                 .screenView(.stand, visit: (windowVisit ?? ownVisit).binding(for: player.item)) {
                     StandVisit.ends(isExpanded: player.isExpanded, hasItem: player.item != nil)
                 }
@@ -112,8 +154,10 @@ private struct StandPanes<Practice: View>: View {
     let player: PlayerModel
     /// A reading to show in place of the store's, or nil to follow what plays.
     let fixed: StandReading??
+    let visit: StandVisit
     let practice: Practice
 
+    @Environment(\.analytics) private var analytics
     @Environment(\.store) private var store
     @Environment(ListPlayback.self) private var playback: ListPlayback?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -244,7 +288,7 @@ private struct StandPanes<Practice: View>: View {
                 // A skip slides the next tune's pane in over the last; the stack keeps both in
                 // one place while they pass.
                 ZStack {
-                    ReadingPane(reading: reading)
+                    ReadingPane(reading: reading, visit: visit)
                         .id(reading.tuneID)
                         .phoneTransition(.push(from: .trailing))
                 }
@@ -255,6 +299,9 @@ private struct StandPanes<Practice: View>: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // Laid out while hidden, so practice can report what its controls need.
         .opacity(revealed ? 1 : 0)
+        .onChange(of: reading?.tuneID, initial: true) { _, tuneID in
+            if let tuneID, let event = visit.opened(tuneID: tuneID) { analytics.send(event) }
+        }
         .onChange(of: isSettled(arrangement), initial: true) { _, settled in
             if settled { revealed = true }
         }

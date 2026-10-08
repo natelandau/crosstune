@@ -269,7 +269,6 @@ struct TunePresentations: ViewModifier {
     @Binding var addingScans: ScanAddChoice?
     @Binding var deletingScan: Scan?
 
-    @Environment(\.commands) private var commands
     @Environment(PlayerModel.self) private var player: PlayerModel?
 
     func body(content: Content) -> some View {
@@ -313,7 +312,7 @@ struct TunePresentations: ViewModifier {
     private func delete(_ view: RecordingView) {
         // The player lets go of the audio before its file goes.
         if player?.holds(.recording, id: view.id) == true { player?.close() }
-        Task { await model.runMediaAction { try await commands?.deleteRecording(view.id) } }
+        Task { await model.deleteRecording(view.recording) }
     }
 }
 
@@ -387,7 +386,6 @@ struct TuneMediaRows: View {
     @Binding var editing: RecordingView?
     @Binding var deleting: RecordingView?
 
-    @Environment(\.commands) private var commands
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
@@ -424,11 +422,7 @@ struct TuneMediaRows: View {
             onEdit: { editing = view },
             // Every recording here is already filed under the tune being looked at.
             onAddToTune: nil,
-            onRemoveFromTune: {
-                Task {
-                    await model.runMediaAction { try await commands?.updateRecording(view.id, tuneID: .value(nil)) }
-                }
-            },
+            onRemoveFromTune: { Task { await model.unfileRecording(view.recording) } },
             onDelete: { deleting = view })
     }
 
@@ -454,9 +448,17 @@ struct TuneMediaRows: View {
                 switch tap {
                 case .play: if let item = PlayerItem.link(link) { player?.play(item, origin: .row, source: .tune) }
                 case .close: player?.close()
-                case .open(let url): openURL(url)
+                case .open(let url):
+                    model.reportOpened(link)
+                    openURL(url)
                 }
             }
+            .environment(
+                \.openURL,
+                OpenURLAction { url in
+                    model.reportOpened(link)
+                    return .systemAction
+                })
             if pinned { PinnedMark() }
         }
         .contextMenu {
@@ -514,7 +516,7 @@ struct RemoveFromListButton: View {
 
     var body: some View {
         Button(TuneScreen.remove, systemImage: "text.badge.xmark", role: .destructive) {
-            Task { await model.removeFromList(itemID: membership.itemID) }
+            Task { await model.removeFromList(itemID: membership.itemID, listID: membership.list.id) }
         }
     }
 }

@@ -108,7 +108,7 @@ public final class BulkActions {
         let patch = BulkPatch(userTune: BulkUserTunePatch(status: .value(status)))
         return await run { commands in
             let snapshots = try await commands.updateTunes(ids, patch: patch)
-            analytics.send(.bulkEditApplied(count: ids.count, fieldsChanged: patch.fields))
+            analytics.send(.bulkEditApplied(action: .status, count: ids.count, fieldsChanged: patch.fields))
             return Undoable(
                 message: BulkActionText.statusSet(status, count: ids.count), actionName: BulkActionText.setStatus
             ) {
@@ -125,6 +125,7 @@ public final class BulkActions {
         guard !ids.isEmpty else { return false }
         return await run { commands in
             let snapshots = try await commands.setArchivedMany(ids, archived: archived)
+            analytics.send(.bulkEditApplied(action: .archive, count: ids.count, fieldsChanged: nil))
             return Undoable(
                 message: BulkActionText.archived(archived, count: ids.count),
                 actionName: BulkActionText.archive(archived, count: ids.count)
@@ -137,10 +138,11 @@ public final class BulkActions {
     }
 
     /// Takes list items out of the list named `listName`.
-    public func remove(itemIDs: [String], from listName: String) async -> Bool {
+    public func remove(itemIDs: [String], from listName: String, listID: String) async -> Bool {
         guard !itemIDs.isEmpty else { return false }
         return await run { commands in
             let removed = try await commands.removeTunesFromList(itemIDs)
+            analytics.send(.tunesRemovedFromList(listID: listID, count: removed.count))
             return Undoable(
                 message: BulkActionText.removed(removed.count, from: listName),
                 actionName: BulkActionText.remove(removed.count)
@@ -159,7 +161,7 @@ public final class BulkActions {
         let ids = entries.map(\.userTune.id)
         return await run(failure: \.editFailure) { commands in
             let snapshots = try await commands.updateTunes(ids, patch: patch)
-            analytics.send(.bulkEditApplied(count: ids.count, fieldsChanged: patch.fields))
+            analytics.send(.bulkEditApplied(action: .edit, count: ids.count, fieldsChanged: patch.fields))
             return Undoable(
                 message: BulkActionText.edited(ids.count), actionName: BulkActionText.editTitle(ids.count)
             ) {
@@ -236,6 +238,7 @@ public final class BulkActions {
         let ids = question.userTuneIDs
         return await run { commands in
             try await commands.deleteTunes(ids)
+            analytics.send(.bulkEditApplied(action: .delete, count: ids.count, fieldsChanged: nil))
             return nil
         }
     }

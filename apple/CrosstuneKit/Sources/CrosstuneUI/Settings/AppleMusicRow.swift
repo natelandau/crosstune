@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import SwiftUI
 
@@ -62,6 +63,7 @@ struct AppleMusicSection: View {
 
     @State private var state: AppleMusicAccessState?
     @Environment(\.openURL) private var openURL
+    @Environment(\.analytics) private var analytics
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -93,7 +95,11 @@ struct AppleMusicSection: View {
     private func perform(_ action: AppleMusicRowAction) {
         switch action {
         case .request:
-            Task { state = await access.request() }
+            Task {
+                let answer = await access.request()
+                state = answer
+                analytics.appleMusicAnswered(answer)
+            }
         case .openSystemSettings:
             if let url = AppleMusicRowAction.systemSettingsURL { openURL(url) }
         case .none:

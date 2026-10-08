@@ -263,12 +263,30 @@ public final class RecordingsModel {
 
     /// Deletes a recording and its audio on this device.
     public func delete(_ recordingID: String) async {
-        await run { commands in try await commands.deleteRecording(recordingID) }
+        let recording = view(recordingID)?.recording
+        let deleted = await run { commands in try await commands.deleteRecording(recordingID) }
+        if deleted, let recording { analytics.recordingDeleted(recording) }
     }
 
     /// Takes a recording out of its tune, leaving it unfiled.
     public func removeFromTune(_ recordingID: String) async {
-        await run { commands in try await commands.updateRecording(recordingID, tuneID: .value(nil)) }
+        let recording = view(recordingID)?.recording
+        let removed = await run { commands in try await commands.updateRecording(recordingID, tuneID: .value(nil)) }
+        if removed, let recording { analytics.recordingUnfiled(recording) }
+    }
+
+    /// Files a recording under a tune. A failure is reported as `failure`, so the caller can
+    /// word it for where the filing started.
+    public func file(_ recordingID: String, under tuneID: String, failure: some Error) async {
+        let recording = view(recordingID)?.recording
+        let filed = await run { commands in
+            do {
+                try await commands.updateRecording(recordingID, tuneID: .value(tuneID))
+            } catch {
+                throw failure
+            }
+        }
+        if filed, let recording { analytics.recordingFiled(recording, under: tuneID) }
     }
 
     /// Throws away a capture recovery could not save.
@@ -314,12 +332,16 @@ public final class RecordingsModel {
     }
 
     /// Runs a write the screen started, keeping its failure's message to show.
-    public func run(_ write: (CrosstuneCommands.Commands) async throws -> Void) async {
+    /// - Returns: Whether the write landed.
+    @discardableResult
+    public func run(_ write: (CrosstuneCommands.Commands) async throws -> Void) async -> Bool {
         failure = nil
         do {
             try await write(CrosstuneCommands.Commands(store: store))
+            return true
         } catch {
             report(error)
+            return false
         }
     }
 }

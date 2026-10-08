@@ -1,6 +1,16 @@
 import CrosstuneStore
 import Foundation
 
+/// A practice visit that closed after sounding, as it is reported.
+struct EndedVisit: Equatable, Sendable {
+    let recordingID: String
+    let durationMs: Int64
+    let usedLoops: Bool
+    /// Whether the speed was ever away from normal while the recording was on the screen.
+    let usedSpeed: Bool
+    let usedPitch: Bool
+}
+
 /// Times one recording screen visit while audio plays, and the loops, speeds, and pitches it
 /// played with. A visit that played a loop, or played any time away from the default speed or
 /// pitch, is practice.
@@ -24,12 +34,17 @@ final class PracticeLog {
         /// Playing time at each value, in the order each was first played.
         var speedMs: [(value: Int, ms: Int64)] = []
         var pitchMs: [(value: Int, ms: Int64)] = []
+        /// Whether a speed or pitch away from normal was set, played or not.
+        var setSpeedOff = false
+        var setPitchOff = false
     }
 
     private let clock: @MainActor () -> SuspendingClock.Instant
     private let now: @MainActor () -> Date
     private let write: @MainActor (PracticeSession) -> Void
     private var visit: Visit?
+    /// Takes each practice visit that closes having sounded, kept or not.
+    var onEnd: @MainActor (EndedVisit) -> Void = { _ in }
 
     init(
         clock: @escaping @MainActor () -> SuspendingClock.Instant, now: @escaping @MainActor () -> Date = Date.init,
@@ -63,27 +78,35 @@ final class PracticeLog {
         guard let current = visit, current.speedPercent != percent else { return }
         book(visit?.span.take(at: clock()) ?? 0)
         visit?.speedPercent = percent
+        if percent != PlaybackSetting.speed.standard { visit?.setSpeedOff = true }
     }
 
     func setPitch(_ cents: Int) {
         guard let current = visit, current.pitchCents != cents else { return }
         book(visit?.span.take(at: clock()) ?? 0)
         visit?.pitchCents = cents
+        if cents != PlaybackSetting.pitch.standard { visit?.setPitchOff = true }
     }
 
     /// Ends the visit. Writes a practice session and returns ``Outcome/practice`` when it was
     /// practice with enough audio; returns nil when it was practice too short to keep, and
-    /// ``Outcome/play`` when it was not practice. Nil with no visit open.
+    /// ``Outcome/play`` when it was not practice. Nil with no visit open. Practice that sounded
+    /// at all goes to ``onEnd``.
     @discardableResult
     func close() -> Outcome? {
         guard visit != nil else { return nil }
         playing(false)
         guard let closed = visit else { return nil }
         visit = nil
-        let offDefault =
-            closed.speedMs.contains { $0.value != PlaybackSetting.speed.standard }
-            || closed.pitchMs.contains { $0.value != PlaybackSetting.pitch.standard }
-        if closed.loopIDs.isEmpty && !offDefault { return .play }
+        let playedSpeedOff = closed.speedMs.contains { $0.value != PlaybackSetting.speed.standard }
+        let playedPitchOff = closed.pitchMs.contains { $0.value != PlaybackSetting.pitch.standard }
+        if closed.loopIDs.isEmpty && !playedSpeedOff && !playedPitchOff { return .play }
+        if closed.durationMs > 0 {
+            onEnd(
+                EndedVisit(
+                    recordingID: closed.recordingID, durationMs: closed.durationMs, usedLoops: !closed.loopIDs.isEmpty,
+                    usedSpeed: playedSpeedOff || closed.setSpeedOff, usedPitch: playedPitchOff || closed.setPitchOff))
+        }
         guard let startedAt = closed.span.startedAt, closed.durationMs >= activityThresholdMs else { return nil }
         let createdAt = Timestamp(now())
         write(

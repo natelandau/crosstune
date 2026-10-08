@@ -32,12 +32,17 @@ final class SyncLoop<Status: LoopStatus> {
     private let classify: @MainActor (any Error) -> Status
     private let isStopped: @MainActor () -> Bool
     private let afterRun: @MainActor () -> Void
+    /// Called when a run fails into a state other than offline that the last reported failure of
+    /// this streak was not in, with that state and the error.
+    private let onFailure: @MainActor (Status, any Error) -> Void
     private let sleep: Sleeper
     private let logger: Logger
 
     @ObservationIgnored private var running: Task<Void, Never>?
     @ObservationIgnored private var again = false
     @ObservationIgnored private var failures = 0
+    /// The failed state last reported in the current streak of failures; a clean run ends it.
+    @ObservationIgnored private var reportedFailure: Status?
     @ObservationIgnored private var retry: Task<Void, Never>?
 
     init(
@@ -46,12 +51,14 @@ final class SyncLoop<Status: LoopStatus> {
         isStopped: @escaping @MainActor () -> Bool,
         classify: @escaping @MainActor (any Error) -> Status,
         afterRun: @escaping @MainActor () -> Void = {},
+        onFailure: @escaping @MainActor (Status, any Error) -> Void = { _, _ in },
         run: @escaping @MainActor () async throws -> Void
     ) {
         self.run = run
         self.classify = classify
         self.isStopped = isStopped
         self.afterRun = afterRun
+        self.onFailure = onFailure
         self.sleep = sleep
         logger = Logger(subsystem: "app.crosstune.Crosstune", category: name)
     }
@@ -97,6 +104,7 @@ final class SyncLoop<Status: LoopStatus> {
         do {
             try await run()
             failures = 0
+            reportedFailure = nil
             cancelRetry()
             status = .idle
         } catch is RunStopped {
@@ -109,6 +117,10 @@ final class SyncLoop<Status: LoopStatus> {
                 logger.error("Run failed: \(logDescription(of: error), privacy: .public)")
             }
             status = next
+            if next != .offline, reportedFailure != next {
+                reportedFailure = next
+                onFailure(next, error)
+            }
             if !isStopped() { scheduleRetry() }
         }
     }

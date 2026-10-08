@@ -346,7 +346,7 @@ struct RecordingScreenContent: View {
             AddToTuneSheet(recordingID: view.id) { title in creating = title }
         }
         .sheet(item: $form) { creating in
-            TuneFormSheet(target: .new(title: creating.title, source: .recording)) { tuneID in
+            TuneFormSheet(target: .new(title: creating.title, source: .recordingScreen)) { tuneID in
                 file(under: tuneID)
             }
         }
@@ -639,8 +639,12 @@ struct RecordingScreenContent: View {
     }
 
     private func removeFromTune() {
-        let id = rows.recording.id
-        Task { await run { try await $0.updateRecording(id, tuneID: .value(nil)) } }
+        let recording = rows.recording
+        Task {
+            if await run({ try await $0.updateRecording(recording.id, tuneID: .value(nil)) }) {
+                player.analytics.recordingUnfiled(recording)
+            }
+        }
     }
 
     private func openCreated() {
@@ -650,25 +654,39 @@ struct RecordingScreenContent: View {
     }
 
     private func file(under tuneID: String) {
-        let id = rows.recording.id
-        Task { await run { try await $0.updateRecording(id, tuneID: .value(tuneID)) } }
+        let recording = rows.recording
+        Task {
+            if await run({ try await $0.updateRecording(recording.id, tuneID: .value(tuneID)) }) {
+                player.analytics.recordingFiled(recording, under: tuneID)
+            }
+        }
     }
 
     /// Deletes through the player, which lets go of the audio first and closes this screen, and
     /// shows a failure on the player bar, which outlasts it.
     private func delete(_ view: RecordingView) {
         guard let commands else { return }
-        Task { await player.deleteLoadedRecording { try await commands.deleteRecording(view.id) } }
+        let recording = view.recording
+        let analytics = player.analytics
+        Task {
+            await player.deleteLoadedRecording {
+                try await commands.deleteRecording(view.id)
+                analytics.recordingDeleted(recording)
+            }
+        }
     }
 
-    /// Runs a write on the recording, showing why it failed above the waveform.
-    private func run(_ write: (CrosstuneCommands.Commands) async throws -> Void) async {
-        guard let commands else { return }
+    /// Runs a write on the recording, showing why it failed above the waveform. True when it
+    /// landed.
+    private func run(_ write: (CrosstuneCommands.Commands) async throws -> Void) async -> Bool {
+        guard let commands else { return false }
         failure = nil
         do {
             try await write(commands)
+            return true
         } catch {
             failure = failureMessage(error)
+            return false
         }
     }
 }

@@ -1,4 +1,5 @@
 import CrosstuneAPI
+import CrosstuneAnalytics
 import Foundation
 import OpenAPIRuntime
 
@@ -78,6 +79,16 @@ func classifyFailure(_ error: any Error, isOffline: Bool) -> SyncStatus {
     // No session token and an unreachable server both mean "not reachable right now", not a bug.
     case is DeviceOffline, is NotSignedIn, is URLError: return .offline
     default: return isAuthFailure(error) ? .unauthorized : .error
+    }
+}
+
+/// The reason a failed sync run reports, from the kind of error alone and never its text. A
+/// network failure never gets here: ``classifyFailure(_:isOffline:)`` reads it as offline.
+func syncFailureReason(_ error: any Error) -> FailureReason {
+    if isAuthFailure(error) { return .authExpired }
+    switch underlying(error) {
+    case let status as APIStatusError: return status.status >= 500 ? .serverError : .other
+    default: return .other
     }
 }
 

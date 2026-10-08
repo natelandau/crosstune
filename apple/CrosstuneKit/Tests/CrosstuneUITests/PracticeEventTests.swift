@@ -13,8 +13,8 @@ private func take() -> Recording {
         sourceDurationMs: 60_000, trimStartMs: 0, speedPercent: 100, pitchCents: 0)
 }
 
-/// The recording screen reports a practice visit as it opens, a loop once it repeats, a speed or
-/// pitch once its panel closes changed, and a trim once it is saved.
+/// The recording screen reports a loop once it repeats, a speed or pitch once its panel closes
+/// changed, and a trim once it is saved.
 @MainActor
 @Suite struct PracticeEventTests {
     private let sink = RecordingAnalyticsSink()
@@ -43,9 +43,9 @@ private func take() -> Recording {
             update: { _, _, _ in }, remove: { _ in })
     }
 
-    /// The recording loaded paused on its screen, opened from `source`.
-    private func opened(from source: ActionSource = .recordingsList) async throws -> PracticeModel {
-        player.open(.recording(take(), tuneTitle: nil), playing: false, source: source)
+    /// The recording loaded paused on its screen.
+    private func opened() async throws -> PracticeModel {
+        player.open(.recording(take(), tuneTitle: nil), playing: false, source: .recordingsList)
         #expect(try await poll { player.recordingAudio == .loaded })
         let model = PracticeModel(player: player, recording: take(), file: nil, writer: writer, announce: { _ in })
         model.enter()
@@ -54,43 +54,6 @@ private func take() -> Recording {
 
     private func captures(named name: String) -> [RecordingAnalyticsSink.Capture] {
         sink.captures.filter { $0.name == name }
-    }
-
-    @Test func reportsAVisitOnceWithWhereTheScreenWasOpened() async throws {
-        let model = try await opened(from: .recordingsList)
-        model.leave()
-        model.enter()
-
-        #expect(sink.captures == [.init(name: "practice_started", properties: ["source": .string("recordings_list")])])
-    }
-
-    @Test func reportsAVisitOpenedFromTheDock() async throws {
-        player.play(.recording(take(), tuneTitle: nil))
-        #expect(try await poll { player.recordingAudio == .loaded })
-        player.expand(source: .dock)
-        let model = PracticeModel(player: player, recording: take(), file: nil, writer: writer, announce: { _ in })
-
-        model.enter()
-
-        #expect(
-            captures(named: "practice_started") == [
-                .init(name: "practice_started", properties: ["source": .string("dock")])
-            ])
-    }
-
-    @Test func aLaterVisitWithNoWayInNamedReportsTheDock() async throws {
-        let model = try await opened(from: .recordingsList)
-        model.leave()
-        player.screenClosed()
-
-        // A visit begun without asking, as a playlist moving on under an open screen.
-        player.screenOpened("r2")
-
-        #expect(
-            sink.captures.filter { $0.name == "practice_started" } == [
-                .init(name: "practice_started", properties: ["source": .string("recordings_list")]),
-                .init(name: "practice_started", properties: ["source": .string("dock")]),
-            ])
     }
 
     @Test func reportsNoPitchMovedWithinItsSemitone() async throws {
@@ -113,7 +76,9 @@ private func take() -> Recording {
 
         #expect(
             captures(named: "speed_changed") == [
-                .init(name: "speed_changed", properties: ["speed_bucket": .string("0.75-0.99")])
+                .init(
+                    name: "speed_changed",
+                    properties: ["speed_bucket": .string("0.75-0.99"), "recording_id": .string("r1")])
             ])
     }
 
@@ -136,7 +101,10 @@ private func take() -> Recording {
 
         model.leave()
 
-        #expect(captures(named: "pitch_changed") == [.init(name: "pitch_changed", properties: ["semitones": .int(3)])])
+        #expect(
+            captures(named: "pitch_changed") == [
+                .init(name: "pitch_changed", properties: ["semitones": .int(3), "recording_id": .string("r1")])
+            ])
     }
 
     @Test func reportsALoopSetToRepeat() async throws {
@@ -158,7 +126,7 @@ private func take() -> Recording {
 
         #expect(try await trim.save())
 
-        #expect(sink.captures == [.init(name: "recording_trimmed", properties: [:])])
+        #expect(sink.captures == [.init(name: "recording_trimmed", properties: ["recording_id": .string("r1")])])
     }
 
     @Test func reportsNoTrimThatFailedToSave() async throws {

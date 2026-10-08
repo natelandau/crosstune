@@ -139,6 +139,7 @@ struct ListRowPlayButton: View {
     @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.openURL) private var openURL
+    @Environment(\.analytics) private var analytics
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The square each state takes, so the row keeps its width whichever shows.
@@ -251,7 +252,11 @@ struct ListRowPlayButton: View {
             case .single:
                 playAlone(item, loaded: loaded)
             }
-        case .open(let url, _): openURL(url)
+        case .open(let url, _):
+            if let link = entry.links.first(where: { LinkText.outboundURL($0.url) == url }) {
+                analytics.linkOpened(link)
+            }
+            openURL(url)
         case .downloading, .inert: break
         }
     }

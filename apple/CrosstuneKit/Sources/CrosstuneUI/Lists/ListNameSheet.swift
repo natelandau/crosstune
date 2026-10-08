@@ -75,10 +75,11 @@ public final class ListNameModel {
             switch target {
             case .new:
                 listID = try await commands.createList(trimmed)
-                analytics.send(.listCreated)
-            case .rename(let id, _):
+                analytics.send(.listCreated(listID: listID, count: 0))
+            case .rename(let id, let original):
                 try await commands.renameList(id, name: trimmed)
                 listID = id
+                if trimmed != original { analytics.send(.listRenamed(listID: id)) }
             }
             isSaved = true
             return listID

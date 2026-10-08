@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
@@ -626,5 +627,103 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(rig.playback.listID == "list2")
         #expect(rig.playback.count == 1)
         #expect(self.loads(rig) == 1)
+    }
+}
+
+/// A list played through reports its start once, and each track as it ends with how it was
+/// reached.
+@MainActor
+@Suite struct PlaylistEventTests {
+    private let suite = TemporaryDefaults("PlaylistEventTests")
+    private let commands = FakeTrackCommands()
+
+    private func playlist(_ rig: ActivityRig) -> ListPlayback {
+        let playback = ListPlayback(
+            player: rig.player, commands: commands, defaults: suite.defaults, analytics: rig.sink.client)
+        playback.resolve = { _, tuneID in
+            ListPlayback.Turn(
+                title: "Tune \(tuneID)", item: .recording(loggedTake("r\(tuneID)", tuneID: tuneID), tuneTitle: nil))
+        }
+        return playback
+    }
+
+    /// Waits until recording `id` plays and the play log has heard it.
+    private func playing(_ rig: ActivityRig, _ id: String) async throws {
+        try await waitFor { rig.audio.isPlaying && rig.player.item?.id == id }
+        try await rig.fed { $0.loaded == PlaySubject(kind: .recording, id: id) && $0.playing }
+    }
+
+    @Test func playingAListReportsThePlaylistOnceAndEachTrack() async throws {
+        let rig = ActivityRig()
+        let playback = playlist(rig)
+        playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b", "c"], shuffled: false)
+        try await playing(rig, "ra")
+        rig.clock.advance(15_000)
+        rig.audio.end(.finished)
+        try await playing(rig, "rb")
+        rig.clock.advance(15_000)
+        rig.audio.end(.finished)
+        try await waitFor { rig.sent("playback_ended").count == 2 }
+        #expect(
+            rig.sent("playlist_started") == [
+                [
+                    "shuffle": .bool(false), "repeat": .string("off"), "count_bucket": .string("1-9"),
+                    "list_id": .string("list1"),
+                ]
+            ])
+        let ended = rig.sent("playback_ended")
+        #expect(ended.map { $0["queue"] } == [.string("playlist"), .string("playlist")])
+        #expect(ended.map { $0["source"] } == [.string("list"), .string("list")])
+        #expect(ended.map { $0["trigger"] } == [.string("tap"), .string("auto_advance")])
+        #expect(ended.map { $0["ended_by"] } == [.string("finished"), .string("finished")])
+        #expect(ended.map { $0["list_id"] } == [.string("list1"), .string("list1")])
+        playback.end()
+    }
+
+    @Test func aPlaylistReportsItsStartOnceItsFirstTuneLoads() async throws {
+        let rig = ActivityRig()
+        let playback = playlist(rig)
+        playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b"], shuffled: false)
+        #expect(rig.sent("playlist_started").isEmpty)
+        try await playing(rig, "ra")
+        #expect(rig.sent("playlist_started").count == 1)
+        playback.end()
+    }
+
+    @Test func aPlaylistWithNothingToPlayReportsNoStart() async throws {
+        let rig = ActivityRig()
+        let playback = playlist(rig)
+        playback.resolve = { _, _ in nil }
+        playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b"], shuffled: false)
+        try await waitFor { playback.endMessage == ListPlaybackText.nothingLeft }
+        #expect(rig.sent("playlist_started").isEmpty)
+    }
+
+    @Test func aPlaylistRefusedDuringATakeReportsNoStart() async throws {
+        let rig = ActivityRig()
+        rig.player.isCapturing = { true }
+        let playback = playlist(rig)
+        playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b"], shuffled: false)
+        try await waitFor { !playback.isActive }
+        #expect(rig.sent("playlist_started").isEmpty)
+    }
+
+    @Test func nextInAPlaylistIsASkip() async throws {
+        let rig = ActivityRig()
+        let playback = playlist(rig)
+        playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b", "c"], shuffled: false)
+        try await playing(rig, "ra")
+        rig.clock.advance(5_000)
+        commands.pressNext()
+        try await playing(rig, "rb")
+        rig.clock.advance(12_000)
+        playback.end()
+        rig.player.close()
+        try await waitFor { rig.sent("playback_ended").count == 2 }
+        let ended = rig.sent("playback_ended")
+        #expect(ended.map { $0["recording_id"] } == [.string("ra"), .string("rb")])
+        #expect(ended.first?["ended_by"] == .string("skipped"))
+        #expect(ended.last?["trigger"] == .string("skip"))
+        #expect(rig.sent("playlist_started").count == 1)
     }
 }

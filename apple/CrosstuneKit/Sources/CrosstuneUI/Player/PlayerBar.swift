@@ -300,6 +300,7 @@ struct PlayerCloseButton: View {
 struct LinkPlayerSheet: View {
     let player: PlayerModel
     let stage: EmbedStage
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         NavigationStack {
@@ -319,8 +320,10 @@ struct LinkPlayerSheet: View {
                     } else if let music = player.music {
                         MusicPlayerCard(player: player, music: music, showsPlay: true)
                     }
-                    if let url = link.providerURL {
-                        Link(destination: url) {
+                    if link.providerURL != nil {
+                        Button {
+                            player.openLinkInProvider { openURL($0) }
+                        } label: {
                             Label(PlayerBar.openIn(link.providerName), systemImage: "arrow.up.right")
                         }
                         .buttonStyle(.bordered)

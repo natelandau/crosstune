@@ -264,8 +264,8 @@ public final class RecordSheetModel {
     }
 
     private func reportSaved() {
-        guard !reportedEnd, phase == .saved else { return }
+        guard !reportedEnd, phase == .saved, let recordingID = recorder.savedRecordingID else { return }
         reportedEnd = true
-        analytics.send(.recordingSaved(seconds: recorder.elapsed))
+        analytics.send(.recordingSaved(seconds: recorder.elapsed, recordingID: recordingID, tuneID: tuneID))
     }
 }

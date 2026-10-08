@@ -3,6 +3,7 @@ import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
+import GRDB
 import Testing
 
 @testable import CrosstuneUI
@@ -31,22 +32,119 @@ import Testing
         let model = ListNameModel(store: store, target: .new, analytics: sink.client)
         model.setName("Square dance set")
 
-        _ = try #require(await model.save())
+        let listID = try #require(await model.save())
 
-        #expect(sink.captures == [.init(name: "list_created", properties: [:])])
+        #expect(
+            sink.captures == [
+                .init(name: "list_created", properties: ["list_id": .string(listID), "count_bucket": .string("0")])
+            ])
     }
 
-    @Test func reportsNothingForARenameOrAnEmptyName() async throws {
+    @Test func renamingAListReportsOnlyItsID() async throws {
         let store = try await SampleCatalog.makeStore(root: root.url)
         let list = SampleCatalog.lists[1]
         let rename = ListNameModel(
             store: store, target: .rename(listID: list.id, name: list.name), analytics: sink.client)
         rename.setName("Slow waltzes")
+
         _ = try #require(await rename.save())
+
+        #expect(sink.captures == [.init(name: "list_renamed", properties: ["list_id": .string(list.id)])])
+        #expect(sink.captures.first?.properties.keys.sorted() == ["list_id"])
+    }
+
+    @Test func savingTheSameNameReportsNoRename() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let list = SampleCatalog.lists[1]
+        let rename = ListNameModel(
+            store: store, target: .rename(listID: list.id, name: list.name), analytics: sink.client)
+        rename.setName("  \(list.name) ")
+
+        #expect(await rename.save() == list.id)
+
+        #expect(sink.captures.isEmpty)
+    }
+
+    @Test func reportsNothingForAnEmptyListName() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
         let empty = ListNameModel(store: store, target: .new, analytics: sink.client)
         #expect(await empty.save() == nil)
 
         #expect(sink.calls.isEmpty)
+    }
+
+    private func listModel(_ store: CrosstuneStore) async throws -> ListModel {
+        let model = ListModel(store: store, listID: SampleCatalog.lists[0].id, analytics: sink.client)
+        #expect(try await poll { model.list != nil && !model.rows.isEmpty })
+        return model
+    }
+
+    @Test func removingATuneFromAListReportsTheCount() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let model = try await listModel(store)
+
+        await model.remove(model.rows[0])
+
+        #expect(
+            sink.captures == [
+                .init(
+                    name: "tunes_removed_from_list",
+                    properties: ["list_id": .string(SampleCatalog.lists[0].id), "count_bucket": .string("1-9")])
+            ])
+    }
+
+    @Test func removingTunesFromAListInBulkReportsTheCount() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let bulk = BulkActions(store: store, analytics: sink.client)
+        let items = try await store.read { db in
+            activeByPosition(
+                try ListItem.filter(ListItem.CodingKeys.listID == SampleCatalog.lists[0].id).fetchAll(db)
+            ).map(\.id)
+        }
+
+        #expect(
+            await bulk.remove(
+                itemIDs: Array(items.prefix(2)), from: "Tuesday session", listID: SampleCatalog.lists[0].id)
+        )
+
+        #expect(
+            sink.captures == [
+                .init(
+                    name: "tunes_removed_from_list",
+                    properties: ["list_id": .string(SampleCatalog.lists[0].id), "count_bucket": .string("1-9")])
+            ])
+    }
+
+    @Test func deletingAListReportsItsIDAndSize() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let model = try await listModel(store)
+        let size = model.entries.count
+
+        #expect(await model.delete())
+
+        #expect(
+            sink.captures == [
+                .init(
+                    name: "list_deleted",
+                    properties: [
+                        "list_id": .string(SampleCatalog.lists[0].id),
+                        "count_bucket": .string(Bucket.count(size)),
+                    ])
+            ])
+    }
+
+    @Test func reorderingAListReportsItsIDOnceTheMoveLands() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let model = try await listModel(store)
+
+        model.move(from: 0, to: 1)
+
+        #expect(
+            try await poll {
+                sink.captures == [
+                    .init(name: "list_reordered", properties: ["list_id": .string(SampleCatalog.lists[0].id)])
+                ]
+            })
     }
 
     @Test func reportsTunesAddedToAListByThePicker() async throws {
@@ -56,20 +154,25 @@ import Testing
 
         _ = try #require(await model.add(to: waltzes))
 
-        #expect(sink.captures == [.init(name: "tunes_added_to_list", properties: ["count_bucket": .string("1-9")])])
+        #expect(
+            sink.captures == [
+                .init(
+                    name: "tunes_added_to_list",
+                    properties: ["list_id": .string(waltzes.id), "count_bucket": .string("1-9")])
+            ])
     }
 
-    @Test func reportsAListMadeWithItsTunes() async throws {
+    /// The list starting with its tunes is one action, so it reports as one event.
+    @Test func reportsAListMadeWithItsTunesOnlyAsCreated() async throws {
         let store = try await SampleCatalog.makeStore(root: root.url)
         let model = try await picker(store, titles: ["Soldier's Joy", "Tam Lin"])
         model.newName = "Session favorites"
 
-        _ = try #require(await model.create())
+        let listID = try #require(await model.create()).listID
 
         #expect(
             sink.captures == [
-                .init(name: "list_created", properties: [:]),
-                .init(name: "tunes_added_to_list", properties: ["count_bucket": .string("1-9")]),
+                .init(name: "list_created", properties: ["list_id": .string(listID), "count_bucket": .string("1-9")])
             ])
     }
 
@@ -83,7 +186,12 @@ import Testing
         #expect(sink.calls.isEmpty)
         model.close()
 
-        #expect(sink.captures == [.init(name: "tunes_added_to_list", properties: ["count_bucket": .string("1-9")])])
+        #expect(
+            sink.captures == [
+                .init(
+                    name: "tunes_added_to_list",
+                    properties: ["list_id": .string(SampleCatalog.lists[1].id), "count_bucket": .string("1-9")])
+            ])
     }
 
     @Test func reportsNothingForATunePickerClosedEmpty() async throws {
@@ -106,7 +214,10 @@ import Testing
             sink.captures == [
                 .init(
                     name: "bulk_edit_applied",
-                    properties: ["count_bucket": .string("1-9"), "fields_changed": .strings(["status"])])
+                    properties: [
+                        "action": .string("status"), "count_bucket": .string("1-9"),
+                        "fields_changed": .strings(["status"]),
+                    ])
             ])
     }
 
@@ -122,17 +233,38 @@ import Testing
                 .init(
                     name: "bulk_edit_applied",
                     properties: [
-                        "count_bucket": .string("1-9"), "fields_changed": .strings(["key", "tuning", "learned_from"]),
+                        "action": .string("edit"), "count_bucket": .string("1-9"),
+                        "fields_changed": .strings(["key", "tuning", "learned_from"]),
                     ])
             ])
     }
 
-    @Test func reportsNothingForABulkArchive() async throws {
+    @Test func reportsABulkArchiveAndUnarchive() async throws {
         let store = try await SampleCatalog.makeStore(root: root.url)
         let bulk = BulkActions(store: store, analytics: sink.client)
 
         #expect(await bulk.setArchived(true, [entry("Tam Lin")]))
 
-        #expect(sink.calls.isEmpty)
+        #expect(
+            sink.captures == [
+                .init(
+                    name: "bulk_edit_applied",
+                    properties: ["action": .string("archive"), "count_bucket": .string("1-9")])
+            ])
+    }
+
+    @Test func reportsABulkDelete() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let bulk = BulkActions(store: store, analytics: sink.client)
+        let question = try #require(await bulk.deleteQuestion([entry("Tam Lin"), entry("The Butterfly")]))
+
+        #expect(await bulk.delete(question))
+
+        #expect(
+            sink.captures == [
+                .init(
+                    name: "bulk_edit_applied",
+                    properties: ["action": .string("delete"), "count_bucket": .string("1-9")])
+            ])
     }
 }

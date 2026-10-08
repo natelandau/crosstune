@@ -37,6 +37,10 @@ public struct PlayerItem: Hashable, Sendable {
 /// A loaded link's player and the provider's own page for it.
 public struct LinkPlayback: Hashable, Sendable {
     public let embed: Embed
+    /// The stored provider, such as `youtube`.
+    public let provider: String
+    /// The tune the link belongs to.
+    public let tuneID: String
     /// The provider's name, for "Open in YouTube".
     public let providerName: String
     /// The provider's page for the link, or nil when the stored URL must not be opened.
@@ -45,8 +49,13 @@ public struct LinkPlayback: Hashable, Sendable {
     /// album.
     public let appleMusic: AppleMusicKind?
 
-    public init(embed: Embed, providerName: String, providerURL: URL?, appleMusic: AppleMusicKind? = nil) {
+    public init(
+        embed: Embed, provider: String, tuneID: String, providerName: String, providerURL: URL?,
+        appleMusic: AppleMusicKind? = nil
+    ) {
         self.embed = embed
+        self.provider = provider
+        self.tuneID = tuneID
         self.providerName = providerName
         self.providerURL = providerURL
         self.appleMusic = appleMusic
@@ -82,7 +91,8 @@ extension PlayerItem {
         return PlayerItem(
             kind: .link, id: link.id, title: LinkText.title(link),
             link: LinkPlayback(
-                embed: embed, providerName: LinkText.providerLabel(link.provider),
+                embed: embed, provider: link.provider, tuneID: link.tuneID,
+                providerName: LinkText.providerLabel(link.provider),
                 providerURL: LinkText.outboundURL(link.url),
                 appleMusic: link.provider == "apple_music" ? appleMusicKind(link.url) : nil))
     }

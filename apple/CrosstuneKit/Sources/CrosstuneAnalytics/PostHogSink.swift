@@ -4,10 +4,10 @@ import Synchronization
 
 /// What `PostHogSink` needs from the PostHog SDK, so its consent rules run in tests without it.
 protocol PostHogBackend: Sendable {
-    /// Sets the SDK up. Opted out, it installs no integrations, so nothing is captured until
-    /// `optIn`; otherwise the app lifecycle integration can capture during setup itself.
-    func setup(optedOut: Bool)
-    func capture(_ name: String, _ properties: [String: AnalyticsValue])
+    /// Sets the SDK up opted out, so it installs no integrations and captures nothing until
+    /// `optIn`, which installs the app lifecycle integration and can capture at once.
+    func setup()
+    func capture(_ name: String, _ properties: [String: AnalyticsValue], set: [String: AnalyticsValue])
     func screen(_ name: String, _ properties: [String: AnalyticsValue])
     func identify(_ distinctID: String, set: [String: AnalyticsValue], setOnce: [String: AnalyticsValue])
     func reset()
@@ -64,10 +64,10 @@ final class PostHogSink: AnalyticsSink {
         self.defaults = defaults
     }
 
-    func capture(_ name: String, _ properties: [String: AnalyticsValue]) {
+    func capture(_ name: String, _ properties: [String: AnalyticsValue], set: [String: AnalyticsValue]) {
         state.withLock { state in
             guard state.phase == .sharing else { return }
-            backend.capture(name, properties)
+            backend.capture(name, properties, set: set)
         }
     }
 
@@ -115,17 +115,18 @@ final class PostHogSink: AnalyticsSink {
             state.rememberedUserID = rememberedUserID
             switch (state.phase, enabled) {
             case (.dormant, true):
-                // Decided before setup, because setup can capture an app update at once. A person
-                // to forget is forgotten while the SDK is opted out, so nothing is sent as them.
+                // Set up opted out, because opting in installs the lifecycle integration, which
+                // captures an install or update at once. By then the super properties are on and
+                // a person to forget is forgotten, so nothing goes out without them or as them.
                 let resets = needsReset(state)
-                backend.setup(optedOut: resets)
+                backend.setup()
                 if resets {
                     // The reset registers the super properties, which it would otherwise clear.
                     resetBackend()
-                    backend.optIn()
                 } else {
                     backend.register(superProperties)
                 }
+                backend.optIn()
                 state.phase = .sharing
                 caughtUp(&state)
             case (.stopped, true):
@@ -196,8 +197,8 @@ struct LivePostHog: PostHogBackend {
     static func config(token: String, host: URL) -> PostHogConfig {
         let config = PostHogConfig(projectToken: token, host: host.absoluteString)
         // The app's stored choice decides; the SDK neither keeps one of its own nor lets a reset
-        // clear it.
-        config.optOut = false
+        // clear it. It starts opted out so nothing is captured before the sink opts it in.
+        config.optOut = true
         config.persistOptOut = false
         // Screens are sent by name from each destination, never from view controller titles.
         config.captureScreenViews = false
@@ -226,14 +227,14 @@ struct LivePostHog: PostHogBackend {
         return config
     }
 
-    func setup(optedOut: Bool) {
-        let config = Self.config(token: token, host: host)
-        config.optOut = optedOut
-        PostHogSDK.shared.setup(config)
+    func setup() {
+        PostHogSDK.shared.setup(Self.config(token: token, host: host))
     }
 
-    func capture(_ name: String, _ properties: [String: AnalyticsValue]) {
-        PostHogSDK.shared.capture(name, properties: Self.sdkProperties(properties))
+    func capture(_ name: String, _ properties: [String: AnalyticsValue], set: [String: AnalyticsValue]) {
+        PostHogSDK.shared.capture(
+            name, properties: Self.sdkProperties(properties),
+            userProperties: set.isEmpty ? nil : Self.sdkProperties(set))
     }
 
     func screen(_ name: String, _ properties: [String: AnalyticsValue]) {

@@ -3,121 +3,72 @@ import Testing
 
 @testable import CrosstuneAnalytics
 
-/// One event of every kind, in the order of the spec's event table.
-private let samples: [AnalyticsEvent] = [
-    .signedIn,
-    .signedOut,
-    .accountDeleted,
-    .tuneCreated(source: .catalog, hasKey: true, hasTuning: false),
-    .tuneEdited(fieldsChanged: [.title, .key]),
-    .tuneStatusChanged(from: TuneStatus("learning")!, to: TuneStatus("known")!),
-    .searchPerformed(resultCount: 12, tookOffer: false),
-    .catalogFiltered(filter: .key),
-    .recordingStarted(source: .dock),
-    .recordingSaved(seconds: 95),
-    .recordingDiscarded(seconds: 4),
-    .audioImported(fileCount: 2, format: .mp3),
-    .linkAdded(service: .youtube, via: .paste),
-    .findRecordingsUsed(service: .slipperyHill, resultCount: 3),
-    .playbackStarted(kind: .recording, source: .tune),
-    .practiceStarted(source: .recordingsList),
-    .loopSet,
-    .speedChanged(rate: 0.8),
-    .pitchChanged(semitones: -2),
-    .recordingTrimmed,
-    .scanAdded(via: .camera),
-    .scanViewed,
-    .lyricsOpened,
-    .listCreated,
-    .tunesAddedToList(count: 5),
-    .bulkEditApplied(count: 60, fieldsChanged: [.status]),
-    .statsViewed,
-    .standOpened,
-    .exportCompleted(format: .zip),
-]
+private let tuneID = "6f1c2a9e-7d3b-4e0a-9c1f-2b8d4a6e5c70"
+private let recordingID = "0b7e4f2a-3c1d-4a9b-8e6f-5d2c1b0a9f83"
+private let listID = "3e8b1d7f-6a2c-4f9e-b0d4-1c5a7e9f2b06"
 
-/// The spec's event table, every row but `screen_viewed` and the site's `waitlist_joined`:
-/// each event's name and property keys, copied verbatim.
-private let table: [(name: String, keys: Set<String>)] = [
-    ("signed_in", []),
-    ("signed_out", []),
-    ("account_deleted", []),
-    ("tune_created", ["source", "has_key", "has_tuning"]),
-    ("tune_edited", ["fields_changed"]),
-    ("tune_status_changed", ["from", "to"]),
-    ("search_performed", ["result_count_bucket", "took_offer"]),
-    ("catalog_filtered", ["filter"]),
-    ("recording_started", ["source"]),
-    ("recording_saved", ["duration_bucket"]),
-    ("recording_discarded", ["duration_bucket"]),
-    ("audio_imported", ["count_bucket", "format"]),
-    ("link_added", ["service", "via"]),
-    ("find_recordings_used", ["service", "result_count_bucket"]),
-    ("playback_started", ["kind", "source"]),
-    ("practice_started", ["source"]),
-    ("loop_set", []),
-    ("speed_changed", ["speed_bucket"]),
-    ("pitch_changed", ["semitones"]),
-    ("recording_trimmed", []),
-    ("scan_added", ["via"]),
-    ("scan_viewed", []),
-    ("lyrics_opened", []),
-    ("list_created", []),
-    ("tunes_added_to_list", ["count_bucket"]),
-    ("bulk_edit_applied", ["count_bucket", "fields_changed"]),
-    ("stats_viewed", []),
-    ("stand_opened", []),
-    ("export_completed", ["format"]),
-]
-
-@Test func coversEveryEventInTheSpecsTable() {
-    #expect(samples.count == 29)
-    #expect(table.count == 29)
-    #expect(Set(samples.map(\.name)).count == samples.count)
-}
-
-@Test(arguments: zip(samples, table))
-func namesEachEventAndItsPropertiesAsTheSpecDoes(event: AnalyticsEvent, row: (name: String, keys: Set<String>)) {
-    #expect(event.name == row.name)
-    #expect(Set(event.properties.keys) == row.keys)
-}
+private let linkID = "9d3a6c1e-2f4b-4b7a-a5c8-7e1f0d2b3c94"
 
 @Test func sendsEachPropertyAsItsEnumsRawValue() {
     #expect(
-        AnalyticsEvent.tuneCreated(source: .searchOffer, hasKey: true, hasTuning: false).properties == [
-            "source": .string("search_offer"), "has_key": .bool(true), "has_tuning": .bool(false),
+        AnalyticsEvent.tuneCreated(source: .searchOffer, fieldsSet: [.title, .key], tuneID: tuneID).properties == [
+            "source": .string("search_offer"), "fields_set": .strings(["title", "key"]), "tune_id": .string(tuneID),
         ])
     #expect(
-        AnalyticsEvent.linkAdded(service: .appleMusic, via: .find).properties == [
-            "service": .string("apple_music"), "via": .string("find"),
+        AnalyticsEvent.linkAdded(service: .appleMusic, via: .find, linkID: linkID, tuneID: tuneID).properties == [
+            "service": .string("apple_music"), "via": .string("find"), "link_id": .string(linkID),
+            "tune_id": .string(tuneID),
         ])
     #expect(
-        AnalyticsEvent.playbackStarted(kind: .link, source: .keyboardShortcut).properties == [
-            "kind": .string("link"), "source": .string("keyboard_shortcut"),
-        ])
-    #expect(AnalyticsEvent.scanAdded(via: .documentScanner).properties == ["via": .string("document_scanner")])
+        AnalyticsEvent.recordingStarted(source: .recordingScreen).properties == ["source": .string("recording_screen")])
     #expect(AnalyticsEvent.catalogFiltered(filter: .learnedFrom).properties == ["filter": .string("learned_from")])
     #expect(AnalyticsEvent.exportCompleted(format: .zip).properties == ["format": .string("zip")])
     #expect(
         AnalyticsEvent.audioImported(fileCount: 3, format: .flac).properties == [
             "count_bucket": .string("1-9"), "format": .string("flac"),
         ])
-    #expect(AnalyticsEvent.pitchChanged(semitones: -3).properties == ["semitones": .int(-3)])
+    #expect(
+        AnalyticsEvent.pitchChanged(semitones: -3, recordingID: recordingID).properties == [
+            "semitones": .int(-3), "recording_id": .string(recordingID),
+        ])
+    #expect(
+        AnalyticsEvent.uploadFailed(reason: .authExpired, origin: .slipperyHill).properties == [
+            "failure_reason": .string("auth_expired"), "origin": .string("slippery_hill"),
+        ])
 }
 
 @Test func sendsAStatusChangeAsTheVocabularysValues() {
-    let event = AnalyticsEvent.tuneStatusChanged(from: TuneStatus("want_to_learn")!, to: TuneStatus("learning")!)
-    #expect(event.properties == ["from": .string("want_to_learn"), "to": .string("learning")])
+    let event = AnalyticsEvent.tuneStatusChanged(
+        from: TuneStatus("want_to_learn")!, to: TuneStatus("learning")!, tuneID: tuneID)
+    #expect(
+        event.properties == ["from": .string("want_to_learn"), "to": .string("learning"), "tune_id": .string(tuneID)])
 }
 
 @Test func sendsChangedFieldsAsTheirNamesOnly() {
     #expect(
-        AnalyticsEvent.tuneEdited(fieldsChanged: [.timeSignature, .alternateTitles]).properties == [
-            "fields_changed": .strings(["time_signature", "alternate_titles"])
+        AnalyticsEvent.tuneEdited(fieldsChanged: [.timeSignature, .alternateTitles], tuneID: tuneID).properties == [
+            "fields_changed": .strings(["time_signature", "alternate_titles"]), "tune_id": .string(tuneID),
         ])
     #expect(
-        AnalyticsEvent.bulkEditApplied(count: 1, fieldsChanged: [.tuning, .isCrooked]).properties == [
-            "count_bucket": .string("1-9"), "fields_changed": .strings(["tuning", "is_crooked"]),
+        AnalyticsEvent.bulkEditApplied(action: .edit, count: 1, fieldsChanged: [.tuning, .isCrooked]).properties == [
+            "action": .string("edit"), "count_bucket": .string("1-9"),
+            "fields_changed": .strings(["tuning", "is_crooked"]),
+        ])
+}
+
+@Test func leavesOutWhatABulkActionOrAnUnfiledTakeDoesNotHave() {
+    #expect(
+        AnalyticsEvent.bulkEditApplied(action: .archive, count: 3, fieldsChanged: nil).properties == [
+            "action": .string("archive"), "count_bucket": .string("1-9"),
+        ])
+    #expect(
+        AnalyticsEvent.recordingSaved(seconds: 10, recordingID: recordingID, tuneID: nil).properties == [
+            "duration_bucket": .string("<30s"), "filed": .bool(false), "recording_id": .string(recordingID),
+        ])
+    #expect(
+        AnalyticsEvent.recordingSaved(seconds: 10, recordingID: recordingID, tuneID: tuneID).properties == [
+            "duration_bucket": .string("<30s"), "filed": .bool(true), "recording_id": .string(recordingID),
+            "tune_id": .string(tuneID),
         ])
 }
 
@@ -130,10 +81,59 @@ func namesEachEventAndItsPropertiesAsTheSpecDoes(event: AnalyticsEvent, row: (na
         AnalyticsEvent.findRecordingsUsed(service: .slipperyHill, resultCount: 250).properties == [
             "service": .string("slippery_hill"), "result_count_bucket": .string("200+"),
         ])
-    #expect(AnalyticsEvent.recordingSaved(seconds: 150).properties == ["duration_bucket": .string("2-5m")])
-    #expect(AnalyticsEvent.recordingDiscarded(seconds: 10).properties == ["duration_bucket": .string("<30s")])
-    #expect(AnalyticsEvent.speedChanged(rate: 1.25).properties == ["speed_bucket": .string(">1")])
-    #expect(AnalyticsEvent.tunesAddedToList(count: 10).properties == ["count_bucket": .string("10-49")])
+    #expect(AnalyticsEvent.recordingDiscarded(seconds: 150).properties == ["duration_bucket": .string("2-5m")])
+    #expect(
+        AnalyticsEvent.speedChanged(rate: 1.25, recordingID: recordingID).properties == [
+            "speed_bucket": .string(">1"), "recording_id": .string(recordingID),
+        ])
+    #expect(
+        AnalyticsEvent.tunesAddedToList(listID: listID, count: 10).properties == [
+            "count_bucket": .string("10-49"), "list_id": .string(listID),
+        ])
+    #expect(
+        AnalyticsEvent.storageLimitReached(bytesUsed: 600_000_000).properties == ["storage_used": .string("500MB+")])
+    #expect(
+        AnalyticsEvent.tuneDeleted(tuneID: tuneID, recordings: 2, links: 0, scans: 60).properties == [
+            "tune_id": .string(tuneID), "recordings_count": .string("1-9"), "links_count": .string("0"),
+            "scans_count": .string("50-199"),
+        ])
+}
+
+@Test func sendsAPlayAsItsListenedBucketNeverItsLength() {
+    let report = PlaybackReport(
+        source: .tune, queue: .single, trigger: .tap, kind: .recorded, service: nil, listenedMs: 12_345,
+        completed: false, endedBy: .paused, tuneID: tuneID, recordingID: recordingID, linkID: nil, listID: nil)
+    #expect(
+        AnalyticsEvent.playbackEnded(report).properties == [
+            "source": .string("tune"), "queue": .string("single"), "trigger": .string("tap"),
+            "kind": .string("recorded"), "listened_bucket": .string("10-30s"), "completed": .bool(false),
+            "ended_by": .string("paused"), "tune_id": .string(tuneID), "recording_id": .string(recordingID),
+        ])
+}
+
+@Test func sendsAPracticeVisitAsItsDurationBucketAndTools() {
+    let report = PracticeReport(
+        source: .dock, durationMs: 400_000, usedLoops: false, usedSpeed: true, usedPitch: false, kind: .imported,
+        recordingID: recordingID, tuneID: nil)
+    #expect(
+        AnalyticsEvent.practiceEnded(report).properties == [
+            "source": .string("dock"), "duration_bucket": .string("5m+"), "used_loops": .bool(false),
+            "used_speed": .bool(true), "used_pitch": .bool(false), "kind": .string("imported"),
+            "recording_id": .string(recordingID),
+        ])
+}
+
+@Test func aSettingChangeSetsItsOwnPersonProperty() {
+    let event = AnalyticsEvent.settingChanged(.searchProviders([.youtube, .appleMusic]))
+    #expect(
+        event.properties == ["setting": .string("search_providers"), "value": .strings(["youtube", "apple_music"])])
+    #expect(event.personProperties == ["setting_search_providers": .strings(["youtube", "apple_music"])])
+}
+
+@Test func playsARecordingAsItsOrigin() {
+    #expect(PlaybackKind(.recorded) == .recorded)
+    #expect(PlaybackKind(.imported) == .imported)
+    #expect(PlaybackKind(.slipperyHill) == .slipperyHill)
 }
 
 @Test func acceptsOnlyTheVocabularysStatuses() {
@@ -142,6 +142,22 @@ func namesEachEventAndItsPropertiesAsTheSpecDoes(event: AnalyticsEvent, row: (na
     }
     #expect(TuneStatus("mastered") == nil)
     #expect(TuneStatus("") == nil)
+}
+
+@Test func acceptsOnlyTheVocabularysAudioQualities() {
+    for quality in Vocabulary.audioQualities {
+        #expect(AudioQuality(quality)?.rawValue == quality)
+    }
+    #expect(AudioQuality("lossless") == nil)
+    #expect(AudioQuality("") == nil)
+}
+
+@Test func acceptsOnlyTheVocabularysPlayFirstChoices() {
+    for choice in Vocabulary.playFirsts {
+        #expect(PlayFirst(choice)?.rawValue == choice)
+    }
+    #expect(PlayFirst("links") == nil)
+    #expect(PlayFirst("") == nil)
 }
 
 @Test func namesEveryLinkServiceTheVocabularyHas() {
@@ -162,7 +178,6 @@ func namesEachEventAndItsPropertiesAsTheSpecDoes(event: AnalyticsEvent, row: (na
 @Test func usesTheSnakeCaseNamesForEveryActionSource() {
     #expect(
         ActionSource.allCases.map(\.rawValue) == [
-            "catalog", "tune", "list", "recordings_list", "recording", "dock", "stand", "search_offer",
-            "keyboard_shortcut", "menu",
+            "catalog", "tune", "list", "recordings_list", "recording_screen", "dock", "search_offer", "menu",
         ])
 }

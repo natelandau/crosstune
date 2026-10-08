@@ -162,9 +162,9 @@ public final class ScansModel {
                 continue
             }
             do {
-                try await commands.addScans(tuneID: tuneID, scans: [prepared])
+                let scanIDs = try await commands.addScans(tuneID: tuneID, scans: [prepared])
                 room -= 1
-                analytics.send(.scanAdded(via: via))
+                for scanID in scanIDs { analytics.send(.scanAdded(via: via, scanID: scanID, tuneID: tuneID)) }
             } catch CommandError.scanLimit {
                 // Another device filled the tune while this pick was running.
                 skipped += 1
@@ -195,6 +195,7 @@ public final class ScansModel {
         failure = nil
         do {
             try await Commands(store: store).deleteScan(scanID)
+            analytics.send(.scanDeleted(scanID: scanID, tuneID: tuneID))
         } catch {
             Self.logger.warning("Deleting a scan failed: \(error)")
             failure = failureMessage(error)
@@ -240,6 +241,7 @@ public final class ScansModel {
                 failure = failureMessage(error)
                 return
             }
+            analytics.send(.scansReordered(tuneID: tuneID))
             let shownRevision = revision
             guard
                 let stored = try? await store.read({ db in try Scan.fetch(db, tuneID: tuneID).map(\.id) })

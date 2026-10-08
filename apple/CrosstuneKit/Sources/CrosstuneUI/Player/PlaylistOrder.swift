@@ -1,6 +1,19 @@
+import CrosstuneAnalytics
+
 /// What a list does when a tune ends.
 public enum RepeatMode: String, CaseIterable, Sendable {
     case off, list, one
+}
+
+extension CrosstuneAnalytics.RepeatMode {
+    init(_ mode: CrosstuneUI.RepeatMode) {
+        self =
+            switch mode {
+            case .off: .off
+            case .list: .list
+            case .one: .tune
+            }
+    }
 }
 
 /// The order a list's tunes play in, where playback stands in it, and how it moves on repeat

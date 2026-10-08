@@ -180,11 +180,6 @@ public struct TuneFormValues: Hashable, Sendable {
         return (tune, userTune)
     }
 
-    /// Whether any instrument's tuning is set; a capo alone is not a tuning.
-    public var hasTuning: Bool {
-        tunings.values.contains { blankToNil($0.tuning) != nil }
-    }
-
     /// The names of the fields a save from `opened` writes, in the order ``TuneField`` lists
     /// them. A tuning and a capo count apart, whichever instrument they are for.
     public func changedFields(from opened: TuneFormValues, storedTunings: JSONObject) -> [TuneField] {

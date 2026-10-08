@@ -77,12 +77,12 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
     }
 
     private func queueRecording(_ rig: Rig) async throws {
-        rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.player.recordingAudio == .loaded }
     }
 
     private func queueSong(_ rig: Rig) async throws {
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.player.linkAudio == .native }
     }
 
@@ -107,7 +107,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
     @Test func aQueuedSongYieldsTheSessionAndLoadsGuarded() async throws {
         let rig = rig()
         rig.music.holdsLoads = true
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.music.isHoldingLoad }
         // The load is still waiting, so the yield came first.
         #expect(rig.audio.calls == ["yieldSessionToMusic"])
@@ -123,7 +123,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         let rig = rig()
         try await queueSong(rig)
         rig.music.end(.finished)
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.music.loaded.count == 2 && rig.player.linkAudio == .native }
         #expect(rig.music.guardedLoads == [true, true])
         #expect(rig.music.calls == ["load", "play", "stop", "load", "play"])
@@ -133,7 +133,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         let rig = rig()
         try await queueRecording(rig)
         rig.audio.end(.finished)
-        rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.audio.calls.filter { $0 == "load" }.count == 2 && rig.audio.isPlaying }
         #expect(rig.audio.calls.filter { $0 == "play" }.count == 2)
     }
@@ -141,7 +141,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
     @Test(arguments: [AppleMusicAccessState.noSubscription, .declined, .notAsked])
     func aQueuedSongWithoutAccessReportsCouldNotPlay(state: AppleMusicAccessState) async throws {
         let rig = rig(state)
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.queue.calls == ["couldNotPlay"] }
         #expect(rig.player.linkAudio == nil)
         #expect(rig.player.embed == nil)
@@ -153,7 +153,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
 
     @Test func aQueuedSongThatIsNotFoundReportsCouldNotPlay() async throws {
         let rig = rig(.fullTracks, found: false)
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.queue.calls == ["couldNotPlay"] }
         #expect(rig.player.linkAudio == nil)
         #expect(rig.player.embed == nil)
@@ -164,7 +164,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
     @Test func aQueuedSongThatDoesNotStartReportsCouldNotPlay() async throws {
         let rig = rig()
         rig.music.starts = false
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.queue.calls == ["couldNotPlay"] }
         #expect(rig.player.linkAudio == nil)
         #expect(!rig.player.isLoaded)
@@ -172,7 +172,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
 
     @Test func aQueuedAlbumReportsCouldNotPlayWithoutLoading() async throws {
         let rig = rig()
-        rig.player.playQueued(try songItem(queuedAlbum), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(try songItem(queuedAlbum), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.queue.calls == ["couldNotPlay"] }
         #expect(rig.music.loaded.isEmpty)
         #expect(rig.player.linkAudio == nil)
@@ -182,7 +182,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
     @Test func aQueuedRecordingWithNoAudioReportsCouldNotPlay() async throws {
         let rig = rig()
         rig.player.audioSource = { _ in nil }
-        rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.queue.calls == ["couldNotPlay"] }
         #expect(!rig.player.isLoaded)
         #expect(rig.player.recordingAudio == nil)
@@ -268,7 +268,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         let capturing = Mutex(false)
         rig.player.isCapturing = { capturing.withLock { $0 } }
         rig.music.holdsLoads = true
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.music.isHoldingLoad }
         capturing.withLock { $0 = true }
         rig.music.release()
@@ -283,7 +283,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         let rig = rig()
         rig.player.decisionTimeout = .milliseconds(20)
         rig.music.holdsLoads = true
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.music.isHoldingLoad }
         try await eventually { rig.queue.calls == ["couldNotPlay"] }
         #expect(!rig.player.isLoaded)
@@ -323,7 +323,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
     @Test func aSongThatLoadsAfterTheQueueLeftIsReleasedUnguarded() async throws {
         let rig = rig()
         rig.music.holdsLoads = true
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.music.isHoldingLoad }
         rig.player.leaveQueue()
         rig.music.holdsLoads = false
@@ -405,7 +405,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         let rig = rig()
         rig.music.found = false
         rig.music.holdsLoads = true
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.music.isHoldingLoad }
         rig.player.leaveQueue()
         rig.music.release()
@@ -451,7 +451,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
             await withCheckedContinuation { waiting = $0 }
             return nil
         }
-        rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { asked && waiting != nil }
         rig.player.leaveQueue()
         waiting?.resume()
@@ -463,7 +463,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
     @Test func aQueuedTrackIsRefusedDuringATake() async throws {
         let rig = rig()
         rig.player.isCapturing = { true }
-        #expect(!rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying))
+        #expect(!rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance))
         #expect(!rig.player.isLoaded)
         #expect(rig.queue.calls.isEmpty)
     }
@@ -559,7 +559,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         try await queueRecording(rig)
         rig.player.expand(in: window)
         rig.music.found = false
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying)
+        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { rig.queue.calls == ["couldNotPlay"] }
         try await queueRecording(rig)
         #expect(rig.player.showsExpanded(in: window))

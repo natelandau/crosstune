@@ -421,11 +421,22 @@ public final class CatalogModel {
         analytics.send(.searchPerformed(resultCount: settled.count, tookOffer: tookOffer))
     }
 
+    /// Reports the order the musician chose. Kept apart from setting ``sort`` because every
+    /// window copies the shared choice into its own model, and only the window that chose it
+    /// reports.
+    public func reportSort(_ choice: CatalogSortChoice) {
+        if let kind = CrosstuneAnalytics.CatalogSort(rawValue: choice.sort.rawValue) {
+            analytics.send(.catalogSorted(sort: kind))
+        }
+    }
+
     /// Archives or unarchives one tune.
     public func setArchived(_ entry: CatalogEntry, archived: Bool) async {
         actionError = nil
         do {
             try await Commands(store: store).setArchived(entry.userTune.id, archived: archived)
+            let tuneID = entry.tune.id
+            analytics.send(archived ? .tuneArchived(tuneID: tuneID) : .tuneUnarchived(tuneID: tuneID))
         } catch {
             actionError = failureMessage(error)
         }
