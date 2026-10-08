@@ -28,7 +28,8 @@ struct AnalyticsIdentity {
         }
         userLetGo = nil
         if let rememberedUserID, rememberedUserID != userID { analytics.reset() }
-        analytics.identify(userID: userID, signedUpAt: signedUpAt, catalogSize: nil, storageUsed: nil)
+        analytics.identify(
+            userID: userID, signedUpAt: signedUpAt, catalogSize: nil, storageUsed: nil, fieldsUsed: nil, settings: [])
         if userID != rememberedUserID { analytics.send(.signedIn) }
     }
 

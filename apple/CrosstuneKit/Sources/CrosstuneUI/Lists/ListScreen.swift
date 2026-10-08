@@ -38,6 +38,7 @@ public struct ListScreen: View {
 
     private let listID: String
 
+    @Environment(\.analytics) private var analytics
     @Environment(\.store) private var store
     @State private var model: ListModel?
 
@@ -58,7 +59,7 @@ public struct ListScreen: View {
         }
         .task(id: listID) {
             guard let store else { return }
-            model = ListModel(store: store, listID: listID)
+            model = ListModel(store: store, listID: listID, analytics: analytics)
         }
     }
 }
@@ -213,7 +214,11 @@ private struct ListTunes: View {
                     access: appleMusic, onChoose: { chosen = $0 },
                     onAllow: {
                         guard let access = player?.appleMusic?.access else { return }
-                        Task { appleMusic = await access.request() }
+                        Task {
+                            let answer = await access.request()
+                            appleMusic = answer
+                            player?.analytics.appleMusicAnswered(answer)
+                        }
                     },
                     onOpenSettings: {
                         if let url = AppleMusicRowAction.systemSettingsURL { openURL(url) }

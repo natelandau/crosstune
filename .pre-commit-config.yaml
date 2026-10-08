@@ -189,6 +189,13 @@ repos:
         pass_filenames: false
         files: ^apple/.*\.swift$
 
+      - id: analytics-check
+        name: tracking plan
+        entry: just analytics::check
+        language: system
+        pass_filenames: false
+        files: ^analytics/
+
       - id: apple-swift-test
         name: swift test
         entry: just apple::test

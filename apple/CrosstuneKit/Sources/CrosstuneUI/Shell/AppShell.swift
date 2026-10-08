@@ -113,11 +113,13 @@ public struct AppShell: View {
             #if os(macOS)
                 .onAppQuit {
                     catalog?.leftForeground()
+                    player.appQuitting()
                     analytics.flush()
                 }
             #endif
             .onAppear {
                 player.isCapturing = { [recorders] in recorders.isCapturing || Recorder.hasActiveCapture }
+                stage.onProviderOpened = { [player] in player.embedOpenedProvider() }
             }
             #if os(iOS)
                 .environment(\.windowIsRegular, sizeClass == .regular)

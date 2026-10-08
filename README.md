@@ -9,6 +9,8 @@ why. `docs/README.md` indexes every page under `docs/`.
 - `web/` The web client. TypeScript, managed by pnpm.
 - `site/` The marketing, waitlist, and legal site. Astro, managed by pnpm.
 - `apple/` The iOS and macOS app. Swift, built with Xcode.
+- `analytics/` The tracking plan every analytics event follows, with its
+  checker and PostHog sync. Python, run through the api's uv project.
 - `brand/` The CT mark as SVG, in both colorways. The web icons are
   generated from it.
 - `docs/` The pages that hold what the code cannot say.

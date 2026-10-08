@@ -7,22 +7,9 @@ extension EnvironmentValues {
     @Entry public var analytics: AnalyticsClient = .noop
 }
 
-extension Screen {
-    /// The feature event a visit to this screen also is, for a screen whose opening is itself a
-    /// use of the feature it shows.
-    var openedEvent: AnalyticsEvent? {
-        switch self {
-        case .stats: .statsViewed
-        case .stand: .standOpened
-        default: nil
-        }
-    }
-}
-
 extension View {
-    /// Reports `screen` as a screen view each time this view appears, with its opened event if
-    /// it has one. Put it on content that appears once per visit, never on a container whose
-    /// child swaps from a placeholder.
+    /// Reports `screen` as a screen view each time this view appears. Put it on content that
+    /// appears once per visit, never on a container whose child swaps from a placeholder.
     func screenView(_ screen: Screen) -> some View {
         modifier(ScreenViewModifier(screen: screen))
     }
@@ -50,7 +37,6 @@ private struct ScreenViewModifier: ViewModifier {
                     visit.wrappedValue = true
                 }
                 analytics.screen(screen)
-                if let event = screen.openedEvent { analytics.send(event) }
             }
             .onDisappear {
                 if let visit, stillShown?() ?? true { visit.wrappedValue = false }

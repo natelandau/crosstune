@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneVocabulary
@@ -108,6 +109,7 @@ public final class ListModel {
     public private(set) var announcement: Announcement?
 
     private let store: CrosstuneStore
+    private let analytics: AnalyticsClient
     private let contents: LiveQuery<ListContents??>
     private let storedShowArchived: LiveQuery<Bool?>
     private let storedInstruments: LiveQuery<Set<String>?>
@@ -121,8 +123,9 @@ public final class ListModel {
     @ObservationIgnored private var following: Task<Void, Never>?
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "list")
 
-    public init(store: CrosstuneStore, listID: String) {
+    public init(store: CrosstuneStore, listID: String, analytics: AnalyticsClient = .noop) {
         self.store = store
+        self.analytics = analytics
         self.listID = listID
         contents = LiveQuery(store, initial: nil) { db in .some(try ListContents.fetch(db, listID: listID)) }
         storedShowArchived = LiveQuery(store, initial: nil) { db in
@@ -231,6 +234,7 @@ public final class ListModel {
                 failure = failureMessage(error)
                 return
             }
+            analytics.send(.listReordered(listID: listID))
             // Taken before the read, or a read landing inside it would leave these two describing
             // different moments and neither able to retire the move.
             let shownRevision = revision
@@ -256,7 +260,9 @@ public final class ListModel {
     public func remove(_ entry: ListEntry) async {
         guard removing.insert(entry.item.id).inserted else { return }
         defer { removing.remove(entry.item.id) }
-        await run { try await $0.removeFromList(entry.item.id) }
+        if await run({ try await $0.removeFromList(entry.item.id) }) {
+            analytics.send(.tunesRemovedFromList(listID: listID, count: 1))
+        }
     }
 
     /// Adds a tune to the end of the list, or leaves it where it is when it is already there.
@@ -280,10 +286,15 @@ public final class ListModel {
     /// the screen should leave.
     public func delete() async -> Bool {
         guard let name = list?.name, deletingName == nil else { return false }
+        let size = entries.count
         deletingName = name
         let listID = listID
         let deleted = await run { try await $0.deleteList(listID) }
-        if !deleted { deletingName = nil }
+        if deleted {
+            analytics.send(.listDeleted(listID: listID, count: size))
+        } else {
+            deletingName = nil
+        }
         return deleted
     }
 

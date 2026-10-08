@@ -26,14 +26,15 @@ struct CrosstuneApp: App {
         ExportArchive.removeLeftovers()
         let player = PlayerModel.device(analytics: analytics)
         _player = State(initialValue: player)
-        _listPlayback = State(initialValue: ListPlayback.device(player: player))
+        _listPlayback = State(initialValue: ListPlayback.device(player: player, analytics: analytics))
         _session = State(
             initialValue: AccountSession(
                 publishableKey: configuration.clerkPublishableKey,
                 apiOrigin: configuration.apiOrigin,
                 clientVersion: configuration.clientVersion,
                 storageOrigin: configuration.storageOrigin,
-                analytics: analytics
+                analytics: analytics,
+                deviceSettings: { DeviceSettings.current() }
             ))
     }
 

@@ -1,6 +1,7 @@
 import CrosstuneAnalytics
 import CrosstuneAuth
 import Foundation
+import SwiftUI
 
 /// The "Share usage data" setting: whether the app sends product analytics.
 public enum UsageData {
@@ -16,6 +17,29 @@ public enum UsageData {
     /// deletion clears.
     public static func apply(_ enabled: Bool, to analytics: AnalyticsClient, defaults: UserDefaults = .standard) {
         analytics.setEnabled(enabled, rememberedUserID: RememberedUser(defaults: defaults).userID)
+    }
+
+    /// The musician's own change to the setting. Turning sharing off says so first and flushes,
+    /// since nothing leaves the device once it is off; turning it on only resumes sending.
+    public static func change(to enabled: Bool, analytics: AnalyticsClient, defaults: UserDefaults = .standard) {
+        if enabled {
+            apply(true, to: analytics, defaults: defaults)
+        } else {
+            analytics.disableSharing(rememberedUserID: RememberedUser(defaults: defaults).userID)
+        }
+    }
+
+    /// The Settings toggle: it stores the musician's choice in `stored`, then applies it as
+    /// their own change.
+    public static func toggle(
+        _ stored: Binding<Bool>, analytics: AnalyticsClient, defaults: UserDefaults = .standard
+    ) -> Binding<Bool> {
+        Binding {
+            stored.wrappedValue
+        } set: { enabled in
+            stored.wrappedValue = enabled
+            change(to: enabled, analytics: analytics, defaults: defaults)
+        }
     }
 
     /// Applies the stored choice. The app calls it right after starting analytics, before the

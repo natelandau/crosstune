@@ -5,7 +5,7 @@ on:
   pull_request:
   push:
     branches: [main]
-    paths: ["site/**", "brand/**", ".github/workflows/site.yml", ".github/actions/setup-node/**", "justfile"]
+    paths: ["site/**", "brand/**", ".github/workflows/site.yml", ".github/actions/setup-node/**", "justfile", "analytics/tracking-plan.json"]
 
 # A push to a pull request cancels that PR's previous run. Every other run, including a
 # push to main, falls back to its own run ID and is never canceled.
@@ -41,7 +41,7 @@ jobs:
       - id: changes
         uses: ./.github/actions/changes
         with:
-          pattern: '^(site/|brand/|\.github/workflows/site\.yml$|\.github/actions/setup-node/|justfile$)'
+          pattern: '^(site/|brand/|\.github/workflows/site\.yml$|\.github/actions/setup-node/|justfile$|analytics/tracking-plan\.json$)'
 
   check:
     needs: changes

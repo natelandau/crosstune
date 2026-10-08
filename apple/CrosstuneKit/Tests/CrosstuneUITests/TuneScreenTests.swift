@@ -201,7 +201,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         try await eventually { model.shown != nil }
         await model.removeLink("sample_link_youtube")
         try await eventually { model.shown?.links.map(\.id) == ["sample_link_spotify"] }
-        await model.removeFromList(itemID: "sample_item_session_0")
+        await model.removeFromList(itemID: "sample_item_session_0", listID: SampleCatalog.lists[0].id)
         try await eventually { model.shown?.lists.isEmpty == true }
     }
 
@@ -228,7 +228,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         }
         let model = TuneModel(store: store, tuneID: soldiersJoy.tune.id)
         try await eventually { model.shown != nil }
-        await model.removeFromList(itemID: "sample_item_session_0")
+        await model.removeFromList(itemID: "sample_item_session_0", listID: SampleCatalog.lists[0].id)
         let failure = try #require(model.failure(at: .lists))
         #expect(!failure.isEmpty)
         #expect(model.failure(at: .screen) == nil && model.failure(at: .media) == nil)

@@ -86,6 +86,7 @@ public struct FindRecordingsSheet: View {
         .macSheetFrame(MacSheetSize(idealWidth: 520, minHeight: 420))
         // Full height from the start on iOS: the results and the keyboard both need the room.
         .shellSheet()
+        .screenView(.findRecordings)
         .task {
             guard model == nil, let store else { return }
             let player = player

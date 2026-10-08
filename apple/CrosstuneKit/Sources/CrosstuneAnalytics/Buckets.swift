@@ -20,6 +20,18 @@ public enum Bucket {
         }
     }
 
+    /// How long a play was heard, which a skip ends within seconds, so the low end is finer
+    /// than ``duration(seconds:)``.
+    public static func listened(ms: Int64) -> String {
+        switch ms {
+        case ..<10_000: "<10s"
+        case ..<30_000: "10-30s"
+        case ..<120_000: "30s-2m"
+        case ..<300_000: "2-5m"
+        default: "5m+"
+        }
+    }
+
     /// Decimal megabytes, as the system shows a file's size.
     public static func bytes(_ n: Int64) -> String {
         let megabyte: Int64 = 1_000_000

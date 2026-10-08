@@ -319,8 +319,9 @@ public final class FindRecordingsModel {
             url: result.url, provider: result.provider, providerRef: result.providerRef, title: result.title,
             artworkURL: result.artworkURL)
         do {
-            _ = try await Commands(store: store).addLink(tuneID: tuneID, link: input)
-            analytics.send(.linkAdded(service: LinkService(provider: input.provider), via: .find))
+            let linkID = try await Commands(store: store).addLink(tuneID: tuneID, link: input)
+            analytics.send(
+                .linkAdded(service: LinkService(provider: input.provider), via: .find, linkID: linkID, tuneID: tuneID))
         } catch {
             Self.logger.warning("A found recording's link failed: \(error)")
             claimed.remove(result.url)

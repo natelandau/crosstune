@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import CrosstuneVocabulary
 import Foundation
@@ -45,6 +46,74 @@ struct PlaySubject: Hashable, Sendable {
     let id: String
 }
 
+/// The tune a play reports under.
+enum ReportedTune: Equatable, Sendable {
+    /// The loaded item's row says: its tune, or nil when it is unfiled.
+    case known(String?)
+    /// Read from the store as the play is reported.
+    case lookUp
+
+    /// The tune `item`'s row names, when the item carries its row.
+    init(_ item: PlayerItem) {
+        switch item.kind {
+        case .recording: self = item.recording.map { .known($0.tuneID) } ?? .lookUp
+        case .link: self = item.link.map { .known($0.tuneID) } ?? .lookUp
+        }
+    }
+}
+
+/// How a play is reported: where it started, whether a list played it, what started it, what
+/// it is, and its tune.
+struct PlayAttribution: Equatable, Sendable {
+    var source: ActionSource
+    var queue: PlaybackQueue
+    var trigger: PlaybackTrigger
+    var kind: PlaybackKind
+    /// A link's service; nil for a recording.
+    var service: LinkService?
+    var tune: ReportedTune
+
+    init(
+        source: ActionSource, queue: PlaybackQueue, trigger: PlaybackTrigger, kind: PlaybackKind,
+        service: LinkService?, tune: ReportedTune
+    ) {
+        self.source = source
+        self.queue = queue
+        self.trigger = trigger
+        self.kind = kind
+        self.service = service
+        self.tune = tune
+    }
+
+    /// `item` played as `queue` asked, from `source`.
+    init(_ item: PlayerItem, source: ActionSource, queue: PlaybackQueue, trigger: PlaybackTrigger) {
+        self.init(
+            source: source, queue: queue, trigger: trigger, kind: PlaybackKind(item),
+            service: item.link.map { LinkService(provider: $0.provider) }, tune: ReportedTune(item))
+    }
+}
+
+extension PlaybackKind {
+    /// What `item` is. A recording without its row reads as a take, the commonest kind.
+    init(_ item: PlayerItem) {
+        switch item.kind {
+        case .link: self = .link
+        case .recording: self = item.recording.map { PlaybackKind(RecordingOrigin($0)) } ?? .recorded
+        }
+    }
+}
+
+/// A play that closed after sounding, as it is reported.
+struct EndedPlay: Equatable, Sendable {
+    let subject: PlaySubject
+    let origin: PlayOrigin
+    let attribution: PlayAttribution
+    let listenedMs: Int64
+    /// The item's playing length, 0 when it was never known.
+    let lengthMs: Int64
+    let endedBy: PlaybackEnd
+}
+
 /// Time while something plays, measured on a clock the caller reads that stops while the device
 /// sleeps.
 struct AudibleSpan {
@@ -78,11 +147,13 @@ struct AudibleSpan {
 
 /// Times one item at a time by wall-clock time while it plays, at any speed, and writes it as a
 /// play when it ends having met the threshold: 10 seconds, or the whole item when it is shorter.
+/// Every play that sounded at all, threshold or not, also goes to ``onEnd``.
 @MainActor
 final class PlayLog {
     private struct Open {
         let subject: PlaySubject
         let origin: PlayOrigin
+        let attribution: PlayAttribution
         var lengthMs: Int64
         var span = AudibleSpan()
         var listenedMs: Int64 = 0
@@ -98,6 +169,8 @@ final class PlayLog {
     private let now: @MainActor () -> Date
     private let write: @MainActor (PlayEvent) -> Void
     private var open: Open?
+    /// Takes each play that closes having sounded.
+    var onEnd: @MainActor (EndedPlay) -> Void = { _ in }
 
     /// - Parameters:
     ///   - clock: Measures audible time.
@@ -116,13 +189,15 @@ final class PlayLog {
     var current: PlaySubject? { open?.subject }
     /// Where the open play was asked for.
     var origin: PlayOrigin? { open?.origin }
+    /// How the open play is reported.
+    var attribution: PlayAttribution? { open?.attribution }
     /// Whether the open play is being timed as playing.
     var isTiming: Bool { open?.span.isTiming ?? false }
 
-    /// Ends any open play, then opens one for `subject`, not yet playing.
-    func start(_ subject: PlaySubject, origin: PlayOrigin, lengthMs: Int64 = 0) {
-        end()
-        open = Open(subject: subject, origin: origin, lengthMs: lengthMs)
+    /// Ends any open play as skipped, then opens one for `subject`, not yet playing.
+    func start(_ subject: PlaySubject, origin: PlayOrigin, attribution: PlayAttribution, lengthMs: Int64 = 0) {
+        end(.skipped)
+        open = Open(subject: subject, origin: origin, attribution: attribution, lengthMs: lengthMs)
     }
 
     /// The item's playing length as heard at the current speed, once the player knows it.
@@ -140,12 +215,18 @@ final class PlayLog {
         }
     }
 
-    /// Writes the open play if it met the threshold, and closes it.
-    func end() {
+    /// Writes the open play if it met the threshold, reports it if it sounded, and closes it.
+    func end(_ endedBy: PlaybackEnd) {
         guard open != nil else { return }
         playing(false)
         guard let ended = open else { return }
         open = nil
+        if ended.listenedMs > 0 {
+            onEnd(
+                EndedPlay(
+                    subject: ended.subject, origin: ended.origin, attribution: ended.attribution,
+                    listenedMs: ended.listenedMs, lengthMs: ended.lengthMs, endedBy: endedBy))
+        }
         guard let startedAt = ended.span.startedAt, ended.meetsThreshold else { return }
         let createdAt = Timestamp(now())
         write(
@@ -156,10 +237,14 @@ final class PlayLog {
                 linkID: ended.subject.kind == .link ? ended.subject.id : nil, listID: ended.origin.listID))
     }
 
-    /// Ends the open play and opens a fresh one for the same item and origin, not yet playing.
-    func flush() {
+    /// Ends the open play, at the item's end unless `endedBy` says otherwise, and opens a fresh
+    /// one for the same item, origin, and attribution, not yet playing.
+    func flush(_ endedBy: PlaybackEnd = .finished) {
         guard let flushed = open else { return }
-        start(flushed.subject, origin: flushed.origin, lengthMs: flushed.lengthMs)
+        end(endedBy)
+        open = Open(
+            subject: flushed.subject, origin: flushed.origin, attribution: flushed.attribution,
+            lengthMs: flushed.lengthMs)
     }
 
     /// Closes the open play without writing it.

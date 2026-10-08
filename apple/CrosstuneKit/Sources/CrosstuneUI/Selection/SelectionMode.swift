@@ -250,7 +250,7 @@ private struct SelectionMode: ViewModifier {
             }
             if let list, !itemIDs.isEmpty {
                 Button(BulkActionText.remove(itemIDs.count), systemImage: "text.badge.xmark", role: .destructive) {
-                    run(bulk) { await bulk.remove(itemIDs: itemIDs, from: list.name) }
+                    run(bulk) { await bulk.remove(itemIDs: itemIDs, from: list.name, listID: list.id) }
                 }
             }
             if !entries.isEmpty {

@@ -51,7 +51,7 @@ final class LyricsReaderModel {
     func shown() {
         guard !reportedShown else { return }
         reportedShown = true
-        analytics.send(.lyricsOpened)
+        analytics.send(.lyricsOpened(tuneID: tuneID))
     }
 
     /// Writes only the lyrics field, the way the web's reading view does. True once the write

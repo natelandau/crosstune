@@ -53,6 +53,17 @@ private struct CatalogContent: View {
         @Environment(\.catalogCounts) private var counts
     #endif
 
+    /// The sort as the musician changes it, which is what reports.
+    private var chosenSort: Binding<CatalogSortChoice> {
+        Binding {
+            sort
+        } set: { choice in
+            guard choice != sort else { return }
+            sort = choice
+            model.reportSort(choice)
+        }
+    }
+
     var body: some View {
         let results = model.results
         list(results)
@@ -128,7 +139,7 @@ private struct CatalogContent: View {
                 \.catalogSort,
                 MenuGates.sort(
                     isShown: isShown, sheetsOpen: openSheets?.isCovered == true, selecting: selection.isActive)
-                    ? $sort : nil
+                    ? chosenSort : nil
             )
             .focusedSceneValue(
                 \.findAction,
@@ -229,7 +240,7 @@ private struct CatalogContent: View {
                     .selectionDisabled()
             }
             if let results, !results.visible.isEmpty {
-                ListHeader(count: results.countLabel, choice: selection.isActive ? nil : $sort)
+                ListHeader(count: results.countLabel, choice: selection.isActive ? nil : chosenSort)
                     #if os(macOS)
                         .listRowInsets(MacStyle.columnRowInsets())
                     #else

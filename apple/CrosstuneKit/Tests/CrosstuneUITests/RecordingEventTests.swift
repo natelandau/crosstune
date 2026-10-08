@@ -20,8 +20,12 @@ import Testing
         recorder = Recorder(store: try root.open(), input: input, channels: { .mono })
     }
 
-    private func sheet(source: ActionSource = .dock) -> RecordSheetModel {
-        RecordSheetModel(recorder: recorder, tuneID: nil, source: source, analytics: sink.client)
+    private func sheet(source: ActionSource = .dock, tuneID: String? = nil) -> RecordSheetModel {
+        RecordSheetModel(recorder: recorder, tuneID: tuneID, source: source, analytics: sink.client)
+    }
+
+    private var saved: RecordingAnalyticsSink.Capture? {
+        sink.captures.first { $0.name == "recording_saved" }
     }
 
     @Test func reportsATakeStartedAndSavedWithItsLength() async throws {
@@ -32,10 +36,45 @@ import Testing
         try input.play(seconds: 45)
         await model.stop()
 
+        let recordingID = try #require(recorder.savedRecordingID)
         #expect(
             sink.captures == [
                 .init(name: "recording_started", properties: ["source": .string("menu")]),
-                .init(name: "recording_saved", properties: ["duration_bucket": .string("30s-2m")]),
+                .init(
+                    name: "recording_saved",
+                    properties: [
+                        "duration_bucket": .string("30s-2m"), "filed": .bool(false),
+                        "recording_id": .string(recordingID),
+                    ]),
+            ])
+    }
+
+    @Test func aTakeSavedFromATuneIsFiled() async throws {
+        let model = sheet(source: .tune, tuneID: "t1")
+        await model.begin()
+        try input.play(seconds: 5)
+
+        await model.stop()
+
+        let recordingID = try #require(recorder.savedRecordingID)
+        #expect(
+            saved?.properties == [
+                "duration_bucket": .string("<30s"), "filed": .bool(true), "recording_id": .string(recordingID),
+                "tune_id": .string("t1"),
+            ])
+    }
+
+    @Test func aTakeSavedFromTheDockIsNot() async throws {
+        let model = sheet()
+        await model.begin()
+        try input.play(seconds: 5)
+
+        await model.stop()
+
+        let recordingID = try #require(recorder.savedRecordingID)
+        #expect(
+            saved?.properties == [
+                "duration_bucket": .string("<30s"), "filed": .bool(false), "recording_id": .string(recordingID),
             ])
     }
 

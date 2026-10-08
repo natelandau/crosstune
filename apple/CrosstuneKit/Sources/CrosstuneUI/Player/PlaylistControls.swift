@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import SwiftUI
 
@@ -103,7 +104,7 @@ extension PlayerBar {
 
 extension ListPlayback {
     /// The app's playlist on this device's remote commands.
-    public static func device(player: PlayerModel) -> ListPlayback {
-        ListPlayback(player: player, commands: RemoteTrackCommands())
+    public static func device(player: PlayerModel, analytics: AnalyticsClient = .noop) -> ListPlayback {
+        ListPlayback(player: player, commands: RemoteTrackCommands(), analytics: analytics)
     }
 }

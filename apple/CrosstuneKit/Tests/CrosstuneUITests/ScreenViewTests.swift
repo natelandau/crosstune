@@ -21,6 +21,8 @@ import Testing
         ("Mac/MacSettingsTabs.swift", "settings"),
         ("Stats/StatsScreen.swift", "stats"),
         ("Pad/Stand.swift", "stand"),
+        ("Welcome/WelcomeView.swift", "welcome"),
+        ("Links/FindRecordingsSheet.swift", "findRecordings"),
     ]
 
     /// The screens `text` reports, read with every `//` comment removed, so a comment that names
@@ -113,9 +115,9 @@ import Testing
             let window = host(Text(verbatim: "Stats").screenView(.stats).environment(\.analytics, sink.client))
             defer { window.close() }
 
-            await settle { sink.calls.count >= 2 }
+            await settle { !sink.calls.isEmpty }
 
-            #expect(sink.calls == [.screen(.stats), .capture("stats_viewed", [:])])
+            #expect(sink.calls == [.screen(.stats)])
         }
 
         @Test func contentBackFromAFailedDeleteIsTheSameVisit() async {
@@ -171,12 +173,26 @@ import Testing
         @Test func theReadingPaneReportsTheKindItOpensOn() async {
             let sink = RecordingAnalyticsSink()
             let reading = StandReading(tuneID: "t1", scans: [], lyrics: "Oh the cuckoo")
-            let window = host(ReadingPane(reading: reading).environment(\.analytics, sink.client))
+            let window = host(
+                ReadingPane(reading: reading, visit: StandVisit()).environment(\.analytics, sink.client))
             defer { window.close() }
 
             await settle { !sink.calls.isEmpty }
 
-            #expect(sink.calls == [.capture("lyrics_opened", [:])])
+            #expect(sink.calls == [.capture("lyrics_opened", ["tune_id": .string("t1")])])
+        }
+
+        @Test func theReadingPaneReportsNothingForATuneTheListMovedTo() async {
+            let sink = RecordingAnalyticsSink()
+            let visit = StandVisit()
+            _ = visit.readingShown(.scans, tuneID: "t1", picked: false)
+            let reading = StandReading(tuneID: "t2", scans: [], lyrics: "Oh the cuckoo")
+            let window = host(ReadingPane(reading: reading, visit: visit).environment(\.analytics, sink.client))
+            defer { window.close() }
+
+            await settle { false }
+
+            #expect(sink.calls.isEmpty)
         }
 
         @Test func quittingRunsTheQuitWork() async {

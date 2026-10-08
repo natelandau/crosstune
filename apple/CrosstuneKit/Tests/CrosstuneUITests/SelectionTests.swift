@@ -456,7 +456,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         }
         let before = try await order()
         let items = [before[0], before[2]]
-        #expect(await bulk.remove(itemIDs: items, from: "Tuesday session"))
+        #expect(await bulk.remove(itemIDs: items, from: "Tuesday session", listID: SampleCatalog.lists[0].id))
         #expect(bulk.offer?.message == "Removed 2 tunes from Tuesday session")
         #expect(try await order().count == 3)
 

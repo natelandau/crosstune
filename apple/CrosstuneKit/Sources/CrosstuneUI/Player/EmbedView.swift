@@ -83,9 +83,30 @@ public final class EmbedStage {
     private var hosts: [Host] = []
     private var attachments = 0
     private let origin = Embed.documentOrigin(bundleID: Bundle.main.bundleIdentifier)
-    private lazy var delegate = EmbedDelegate(origin: origin)
+    private let openExternally: @MainActor (URL) -> Void
+    private lazy var delegate = EmbedDelegate(origin: origin) { [weak self] in self?.openFromEmbed($0) }
+    /// Told each time the embed sends the musician on to its provider's site.
+    public var onProviderOpened: (@MainActor () -> Void)?
 
-    public init() {}
+    /// - Parameter openExternally: Opens a page the embed leads out to; the system browser by
+    ///   default.
+    public init(openExternally: @escaping @MainActor (URL) -> Void = EmbedStage.openInSystem) {
+        self.openExternally = openExternally
+    }
+
+    /// Opens `url`, a page the embed led out to, outside the app.
+    func openFromEmbed(_ url: URL) {
+        onProviderOpened?()
+        openExternally(url)
+    }
+
+    public static func openInSystem(_ url: URL) {
+        #if os(iOS)
+            UIApplication.shared.open(url)
+        #else
+            NSWorkspace.shared.open(url)
+        #endif
+    }
 
     /// Offers `host` the web view, loading `embed` unless it is already loaded. The most
     /// prominent host holds it, the newest of those when several are equal.
@@ -179,9 +200,11 @@ public final class EmbedStage {
 @MainActor
 private final class EmbedDelegate: NSObject, WKNavigationDelegate, WKUIDelegate {
     let origin: URL
+    let open: @MainActor (URL) -> Void
 
-    init(origin: URL) {
+    init(origin: URL, open: @escaping @MainActor (URL) -> Void) {
         self.origin = origin
+        self.open = open
     }
 
     func webView(
@@ -203,14 +226,6 @@ private final class EmbedDelegate: NSObject, WKNavigationDelegate, WKUIDelegate 
             open(url)
         }
         return nil
-    }
-
-    private func open(_ url: URL) {
-        #if os(iOS)
-            UIApplication.shared.open(url)
-        #else
-            NSWorkspace.shared.open(url)
-        #endif
     }
 }
 

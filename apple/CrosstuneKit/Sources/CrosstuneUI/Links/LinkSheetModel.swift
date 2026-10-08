@@ -131,9 +131,10 @@ public final class LinkSheetModel {
         let resolved = await resolution(for: trimmed)
         let input = Self.input(trimmed, resolved: resolved)
         do {
-            try await Commands(store: store).addLink(tuneID: tuneID, link: input)
+            let linkID = try await Commands(store: store).addLink(tuneID: tuneID, link: input)
             isSaved = true
-            analytics.send(.linkAdded(service: LinkService(provider: input.provider), via: .paste))
+            analytics.send(
+                .linkAdded(service: LinkService(provider: input.provider), via: .paste, linkID: linkID, tuneID: tuneID))
             return true
         } catch {
             Self.logger.warning("A link save failed: \(error)")

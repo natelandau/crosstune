@@ -24,6 +24,8 @@ public struct DeleteAccountSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.spacing) private var spacing
+    @Environment(\.analytics) private var analytics
+    @State private var visit = AccountDeletionVisit()
     @State private var text = ""
     @State private var pending = false
     @State private var failure: String?
@@ -146,19 +148,57 @@ public struct DeleteAccountSheet: View {
             .shellSheet()
         #endif
         .interactiveDismissDisabled(pending)
+        .onAppear { visit.opened(analytics) }
+        .onDisappear { visit.closed(analytics) }
     }
 
     private func runDelete() {
         pending = true
         failure = nil
+        visit.confirmed()
         Task {
             defer { pending = false }
             do {
                 try await session.deleteAccount()
                 dismiss()
             } catch {
+                visit.failed()
                 failure = failureMessage(error)
             }
         }
+    }
+}
+
+/// One showing of the delete confirmation, reported as it opens and, when it closes without
+/// deleting, as cancelled. A delete under way ends the visit whatever closes the sheet, since
+/// the account going signs the musician out from under it.
+struct AccountDeletionVisit {
+    private enum Phase {
+        case closed
+        case open
+        case deleting
+    }
+
+    private var phase = Phase.closed
+
+    mutating func opened(_ analytics: AnalyticsClient) {
+        guard phase == .closed else { return }
+        phase = .open
+        analytics.send(.accountDeletionStarted)
+    }
+
+    /// The musician confirmed and the delete began.
+    mutating func confirmed() {
+        if phase == .open { phase = .deleting }
+    }
+
+    /// The delete was refused, so the sheet stays up for another try or a cancel.
+    mutating func failed() {
+        if phase == .deleting { phase = .open }
+    }
+
+    mutating func closed(_ analytics: AnalyticsClient) {
+        if phase == .open { analytics.send(.accountDeletionCancelled) }
+        phase = .closed
     }
 }

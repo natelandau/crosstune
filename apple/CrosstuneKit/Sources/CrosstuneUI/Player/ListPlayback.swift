@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneCommands
 import Foundation
@@ -56,6 +57,7 @@ public final class ListPlayback: PlayerQueue {
     private let player: PlayerModel
     private let commands: any TrackCommands
     private let defaults: UserDefaults
+    private let analytics: AnalyticsClient
     @ObservationIgnored private var rng: any RandomNumberGenerator
     @ObservationIgnored private var order: PlaylistOrder?
     /// Bumped by every turn and every change of course, so an answer that arrives after the
@@ -66,17 +68,20 @@ public final class ListPlayback: PlayerQueue {
     private var loadedGeneration: Int?
     /// Tunes skipped in a row since one last played through or the musician moved.
     @ObservationIgnored private var skips = 0
-    /// Whether the next tune loaded is one the musician asked for, rather than the playlist
-    /// moving on, so the player reports it as a start.
-    @ObservationIgnored private var startsNext = false
+    /// What started the turn under way. A tune that cannot play passes it on to the next.
+    @ObservationIgnored private var trigger = PlaybackTrigger.tap
+    /// The playlist's start, reported once its first tune loads, so a playlist that never plays
+    /// is never counted.
+    @ObservationIgnored private var unreportedStart: AnalyticsEvent?
 
     public init(
         player: PlayerModel, commands: any TrackCommands, defaults: UserDefaults = .standard,
-        rng: any RandomNumberGenerator = SystemRandomNumberGenerator()
+        rng: any RandomNumberGenerator = SystemRandomNumberGenerator(), analytics: AnalyticsClient = .noop
     ) {
         self.player = player
         self.commands = commands
         self.defaults = defaults
+        self.analytics = analytics
         self.rng = rng
         repeatMode = defaults.string(forKey: Self.repeatKey).flatMap(RepeatMode.init(rawValue:)) ?? .off
         isShuffled = defaults.bool(forKey: Self.shuffleKey)
@@ -103,8 +108,9 @@ public final class ListPlayback: PlayerQueue {
         endMessage = nil
         player.queue = self
         commands.enable(next: { [weak self] in self?.next() }, previous: { [weak self] in self?.previous() })
-        startsNext = true
-        playCurrent()
+        unreportedStart = .playlistStarted(
+            shuffle: shuffled, repeat: CrosstuneAnalytics.RepeatMode(repeatMode), count: unique.count, listID: listID)
+        playCurrent(.tap)
     }
 
     /// Plays `tuneID` now. False when the tune is not in the playlist or has nothing to play;
@@ -121,8 +127,8 @@ public final class ListPlayback: PlayerQueue {
         // Something else took over while the tune resolved, and that stands.
         guard turn == generation, isActive, order?.jump(to: tuneID) == true else { return true }
         skips = 0
+        trigger = .tap
         showCurrent()
-        startsNext = true
         load(resolved, turn: turn)
         return true
     }
@@ -137,7 +143,7 @@ public final class ListPlayback: PlayerQueue {
             end()
             return
         }
-        playCurrent()
+        playCurrent(.skip)
     }
 
     /// Restarts the tune once it has played past ``restartAfter`` seconds, and at the first tune;
@@ -152,7 +158,7 @@ public final class ListPlayback: PlayerQueue {
             return
         }
         _ = order?.previous()
-        playCurrent()
+        playCurrent(.skip)
     }
 
     /// Off, then repeat the list, then repeat the tune, then off again.
@@ -193,7 +199,7 @@ public final class ListPlayback: PlayerQueue {
                 self.end()
                 return
             }
-            playCurrent()
+            playCurrent(.autoAdvance)
         case .next:
             next()
         case .previous(let elapsed):
@@ -205,7 +211,7 @@ public final class ListPlayback: PlayerQueue {
                 await self?.player.appleMusic?.player.settleAfterPrevious()
                 guard let self, turn == generation, isActive else { return }
                 if elapsed <= Self.restartAfter { _ = order?.previous() }
-                playCurrent()
+                playCurrent(.skip)
             }
         }
     }
@@ -221,12 +227,14 @@ public final class ListPlayback: PlayerQueue {
 
     // MARK: Turns
 
-    /// Resolves the current tune and plays it, or skips it when it has nothing to play.
-    private func playCurrent() {
+    /// Resolves the current tune and plays it as `trigger` started it, or skips it when it has
+    /// nothing to play.
+    private func playCurrent(_ trigger: PlaybackTrigger) {
         guard let listID, let tuneID = order?.current else {
             end()
             return
         }
+        self.trigger = trigger
         showCurrent()
         let turn = advanceGeneration()
         Task { [weak self] in
@@ -249,10 +257,13 @@ public final class ListPlayback: PlayerQueue {
         // Refused only while a take is recording, which the playlist gives way to.
         let origin = listID.map { PlayOrigin.list(id: $0) } ?? .dock
         let nowPlaying = NowPlaying(title: resolved.title, tuneTitle: listName)
-        let reportsStart = startsNext
-        startsNext = false
-        if !player.playQueued(resolved.item, nowPlaying: nowPlaying, origin: origin, reportsStart: reportsStart) {
+        guard player.playQueued(resolved.item, nowPlaying: nowPlaying, origin: origin, trigger: trigger) else {
             end()
+            return
+        }
+        if let unreportedStart {
+            analytics.send(unreportedStart)
+            self.unreportedStart = nil
         }
     }
 
@@ -264,7 +275,7 @@ public final class ListPlayback: PlayerQueue {
             finish(message: ListPlaybackText.nothingLeft)
             return
         }
-        playCurrent()
+        playCurrent(trigger)
     }
 
     private func showCurrent() {
@@ -304,6 +315,7 @@ public final class ListPlayback: PlayerQueue {
         position = 0
         count = 0
         skips = 0
+        unreportedStart = nil
         endMessage = message
     }
 }

@@ -419,7 +419,8 @@ private let loadPaused = ["load", "setWindow", "setRate(100)", "setPitch(0)"]
         try await eventually { player.recordingAudio == .loaded }
 
         player.playQueued(
-            .recording(recording("r2"), tuneTitle: nil), nowPlaying: NowPlaying(title: "Jam", tuneTitle: nil))
+            .recording(recording("r2"), tuneTitle: nil), nowPlaying: NowPlaying(title: "Jam", tuneTitle: nil),
+            trigger: .autoAdvance)
         #expect(!player.opensUnplayed)
         player.isExpanded = false
         #expect(player.holds(.recording, id: "r2"))

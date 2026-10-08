@@ -1,6 +1,10 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import Foundation
 import GRDB
+import os
+
+private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "transfers")
 
 /// The problem type the API answers a slot request with when the recording would pass the
 /// account's quota.
@@ -141,6 +145,21 @@ func isStale(_ recording: Recording, _ file: RecordingFile) -> Bool {
 /// Why a file waiting to upload is stuck when its audio is no longer on this device.
 let missingAudio = "The audio file is missing from this device."
 
+extension RecordingOrigin {
+    /// Where a recording came from. The archive it was saved from comes first, since a save
+    /// from the archive is an import by source.
+    public init(_ recording: Recording) {
+        self =
+            if recording.origin == "slippery_hill" {
+                .slipperyHill
+            } else if recording.source == "microphone" {
+                .recorded
+            } else {
+                .imported
+            }
+    }
+}
+
 /// Why a transfer failed, as a recording's row shows it.
 func transferMessage(_ error: any Error) -> String {
     switch underlying(error) {
@@ -162,6 +181,7 @@ struct Transfers {
     let api: any SyncAPI
     let checkStopped: @MainActor () throws -> Void
     var downloadRetries = DownloadRetries()
+    var analytics = AnalyticsClient.noop
 
     // MARK: Upload
 
@@ -223,6 +243,7 @@ struct Transfers {
         guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else {
             // Nothing to send, so retrying would only grow the try count.
             try await settleUpload(id, .failedUpload, error: missingAudio)
+            analytics.send(.uploadFailed(reason: .other, origin: RecordingOrigin(row)))
             return
         }
         try await setFileState(id, .uploading)
@@ -239,6 +260,8 @@ struct Transfers {
             if let refusal = underlying(error) as? APIStatusError {
                 if refusal.problemType == quotaProblem {
                     try await settleUpload(id, .blockedQuota, error: refusal.message)
+                    // A blocked file tried again and refused again is still the one limit.
+                    if file.localState != .blockedQuota { await reportStorageLimit() }
                     return
                 }
                 switch refusal.status {
@@ -253,6 +276,7 @@ struct Transfers {
                     return
                 case _ where refusesTheRequestItself(refusal):
                     try await settleUpload(id, .failedUpload, error: refusal.message)
+                    analytics.send(.uploadFailed(reason: .other, origin: RecordingOrigin(row)))
                     return
                 default: break
                 }
@@ -277,10 +301,25 @@ struct Transfers {
             case 413:
                 // The server deleted the file because it did not match the size declared.
                 try await settleUpload(id, .failedUpload, error: transferMessage(error))
+                analytics.send(.uploadFailed(reason: .other, origin: RecordingOrigin(row)))
             default:
                 try await scheduleRetry(id, after: error)
                 throw error
             }
+        }
+    }
+
+    /// Reports the limit at the storage use the figures show. Without them nothing is sent, since
+    /// a guessed use would land in the wrong bucket.
+    private func reportStorageLimit() async {
+        do {
+            guard let storage = try await store.meta(.storage, as: StorageFigures.self) else {
+                logger.info("The storage limit was reached before any storage figures; not reported")
+                return
+            }
+            analytics.send(.storageLimitReached(bytesUsed: Int64(storage.usedBytes)))
+        } catch {
+            logger.error("The storage figures were not read: \(logDescription(of: error), privacy: .public)")
         }
     }
 

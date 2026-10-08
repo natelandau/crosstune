@@ -113,6 +113,7 @@ final class ExportDataModel {
                 guard mine == generation else { return }
                 Self.logger.error("Could not export: \(error, privacy: .public)")
                 failure = failureMessage(error)
+                analytics.send(.exportFailed(format: .zip, reason: FailureReason(error)))
             }
             isRunning = false
             run = nil

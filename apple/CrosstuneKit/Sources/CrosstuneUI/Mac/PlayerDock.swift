@@ -90,6 +90,7 @@ import CrosstuneAnalytics
         @Environment(\.playerWindow) private var window
         @Environment(ListPlayback.self) private var playback: ListPlayback?
         @Environment(AccountSession.self) private var session: AccountSession?
+        @Environment(\.openURL) private var openURL
 
         var body: some View {
             HStack(spacing: 8) {
@@ -160,8 +161,10 @@ import CrosstuneAnalytics
                         playback.cycleRepeat()
                     }
                 }
-                if let link = player.item?.link, let url = link.providerURL {
-                    Link(destination: url) {
+                if let link = player.item?.link, link.providerURL != nil {
+                    Button {
+                        player.openLinkInProvider { openURL($0) }
+                    } label: {
                         DockGlyph(systemImage: "arrow.up.right", highlighted: false)
                     }
                     .buttonStyle(.plain)

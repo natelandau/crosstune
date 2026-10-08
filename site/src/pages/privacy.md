@@ -7,7 +7,7 @@ path: /privacy
 
 # Privacy policy
 
-Last updated: 2026-10-07
+Last updated: 2026-10-08
 
 Crosstune is run by Nathaniel Landau, an individual. This page explains what data the service holds and who handles it. Questions go to [support@crosstune.app](mailto:support@crosstune.app).
 
@@ -42,9 +42,9 @@ This site and the iPhone, iPad, and Mac apps send usage analytics to PostHog. Th
 
 PostHog receives each request's IP address and uses it to estimate your approximate location, which is your country and city. It also receives which pages and features you use, and your device and software details. On this site, those details are your browser, operating system, screen size, time zone, and the page that referred you. In the apps, they are your device model, operating system version, screen size, language, time zone, whether you are on Wi-Fi or cellular, and the app version. The apps also report when you install, update, open, and leave them.
 
-On this site, the analytics are not linked to an account, and they store nothing in cookies or local storage. The site has no switch to turn them off, but a content blocker stops them.
+On this site, visits are counted without cookies, and the analytics are not linked to an account. When you join the waitlist, the site keeps the page that referred you and any campaign tags from the link in your browser's session storage, so the next page can send them with the join. That page then deletes them. The site also records your clicks and how fast its pages load. The site has no switch to turn them off, but a content blocker stops them.
 
-The apps link this data to your account. They never send your email address or name to PostHog. They never send tune names, notes, lyrics, scans, or recordings.
+The apps link this data to your account. They never send your email address or name to PostHog. Events can carry the internal IDs of tunes, lists, recordings, links, and scans. They never send tune names, notes, lyrics, scans, or recordings.
 
 While Share usage data is on, the iPhone and iPad apps record your sessions. The Mac app does not record. The recording masks text inputs, images, and all of your content.
 

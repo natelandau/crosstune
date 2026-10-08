@@ -1,7 +1,7 @@
 import CrosstuneVocabulary
 
-/// A property value an event may carry. Every string comes from one of this module's own enums
-/// or the vocabulary, never from text the musician typed.
+/// A property value an event may carry. Every string comes from one of this module's own enums,
+/// the vocabulary, or a row's ID, never from text the musician typed.
 public enum AnalyticsValue: Sendable, Equatable {
     case string(String)
     case int(Int)
@@ -9,242 +9,341 @@ public enum AnalyticsValue: Sendable, Equatable {
     case strings([String])
 }
 
-/// Something the musician did, named and shaped as the product analytics spec's event table
-/// says. The table is the contract the web client shares, so a name or property key changes
-/// there first.
+/// Something the musician did, named and shaped as `analytics/tracking-plan.json` says. The plan
+/// is the contract every client is tested against, so a name or property key changes there
+/// first. An ID is a row's own, and an optional one is left out when nil.
 public enum AnalyticsEvent: Sendable, Equatable {
     /// A different user signed in, not a launch that restored the same one.
     case signedIn
     case signedOut
     case accountDeleted
-    case tuneCreated(source: ActionSource, hasKey: Bool, hasTuning: Bool)
-    case tuneEdited(fieldsChanged: [TuneField])
-    case tuneStatusChanged(from: TuneStatus, to: TuneStatus)
+    case accountDeletionStarted
+    /// The confirmation closed without deleting.
+    case accountDeletionCancelled
+
+    case tuneCreated(source: ActionSource, fieldsSet: [TuneField], tuneID: String)
+    case tuneEdited(fieldsChanged: [TuneField], tuneID: String)
+    case tuneStatusChanged(from: TuneStatus, to: TuneStatus, tuneID: String)
+    case tuneArchived(tuneID: String)
+    case tuneUnarchived(tuneID: String)
+    /// What went with the tune, in buckets.
+    case tuneDeleted(tuneID: String, recordings: Int, links: Int, scans: Int)
+    /// `fieldsChanged` is nil for an action that writes no fields.
+    case bulkEditApplied(action: BulkAction, count: Int, fieldsChanged: [TuneField]?)
+
     case searchPerformed(resultCount: Int, tookOffer: Bool)
     case catalogFiltered(filter: CatalogFilterKind)
+    case catalogSorted(sort: CatalogSort)
+
+    case lyricsOpened(tuneID: String)
+    case standOpened(tuneID: String)
+
+    case listCreated(listID: String, count: Int)
+    /// Never the name.
+    case listRenamed(listID: String)
+    case listDeleted(listID: String, count: Int)
+    case listReordered(listID: String)
+    case tunesAddedToList(listID: String, count: Int)
+    case tunesRemovedFromList(listID: String, count: Int)
+
     case recordingStarted(source: ActionSource)
-    case recordingSaved(seconds: Double)
+    /// A take saved with a tune is filed.
+    case recordingSaved(seconds: Double, recordingID: String, tuneID: String?)
     case recordingDiscarded(seconds: Double)
     case audioImported(fileCount: Int, format: AudioFormat)
-    case linkAdded(service: LinkService, via: LinkVia)
+    case archiveRecordingSaved(source: ArchiveSource, recordingID: String, tuneID: String)
+    case recordingFiled(from: FiledFrom, origin: RecordingOrigin, recordingID: String, tuneID: String)
+    case recordingUnfiled(origin: RecordingOrigin, recordingID: String)
+    /// Never the name.
+    case recordingRenamed(origin: RecordingOrigin, recordingID: String)
+    case recordingDeleted(origin: RecordingOrigin, recordingID: String)
+    case recordingTrimmed(recordingID: String)
+
+    case linkAdded(service: LinkService, via: LinkVia, linkID: String, tuneID: String)
+    case linkRemoved(service: LinkService, linkID: String)
+    case linkOpenedExternally(service: LinkService, linkID: String)
     case findRecordingsUsed(service: LinkService, resultCount: Int)
-    case playbackStarted(kind: PlaybackKind, source: ActionSource)
-    case practiceStarted(source: ActionSource)
-    case loopSet
-    case speedChanged(rate: Double)
-    case pitchChanged(semitones: Int)
-    case recordingTrimmed
-    case scanAdded(via: ScanVia)
-    case scanViewed
-    case lyricsOpened
-    case listCreated
-    case tunesAddedToList(count: Int)
-    case bulkEditApplied(count: Int, fieldsChanged: [TuneField])
-    case statsViewed
-    case standOpened
+    case appleMusicAuthorized(granted: Bool)
+
+    case playbackEnded(PlaybackReport)
+    case playlistStarted(shuffle: Bool, repeat: RepeatMode, count: Int, listID: String)
+    case practiceEnded(PracticeReport)
+    case loopSet(recordingID: String)
+    case speedChanged(rate: Double, recordingID: String)
+    case pitchChanged(semitones: Int, recordingID: String)
+
+    case scanAdded(via: ScanVia, scanID: String, tuneID: String)
+    case scanViewed(tuneID: String)
+    case scanDeleted(scanID: String, tuneID: String)
+    case scansReordered(tuneID: String)
+
+    case settingChanged(SettingChange)
+    /// Sent before sharing stops, so it is the last event a person sends.
+    case usageSharingDisabled
+
+    case storageLimitReached(bytesUsed: Int64)
+    case uploadFailed(reason: FailureReason, origin: RecordingOrigin)
+    case syncFailed(reason: FailureReason)
+
     case exportCompleted(format: ExportFormat)
+    case exportFailed(format: ExportFormat, reason: FailureReason)
 
     public var name: String {
         switch self {
         case .signedIn: "signed_in"
         case .signedOut: "signed_out"
         case .accountDeleted: "account_deleted"
+        case .accountDeletionStarted: "account_deletion_started"
+        case .accountDeletionCancelled: "account_deletion_cancelled"
         case .tuneCreated: "tune_created"
         case .tuneEdited: "tune_edited"
         case .tuneStatusChanged: "tune_status_changed"
+        case .tuneArchived: "tune_archived"
+        case .tuneUnarchived: "tune_unarchived"
+        case .tuneDeleted: "tune_deleted"
+        case .bulkEditApplied: "bulk_edit_applied"
         case .searchPerformed: "search_performed"
         case .catalogFiltered: "catalog_filtered"
+        case .catalogSorted: "catalog_sorted"
+        case .lyricsOpened: "lyrics_opened"
+        case .standOpened: "stand_opened"
+        case .listCreated: "list_created"
+        case .listRenamed: "list_renamed"
+        case .listDeleted: "list_deleted"
+        case .listReordered: "list_reordered"
+        case .tunesAddedToList: "tunes_added_to_list"
+        case .tunesRemovedFromList: "tunes_removed_from_list"
         case .recordingStarted: "recording_started"
         case .recordingSaved: "recording_saved"
         case .recordingDiscarded: "recording_discarded"
         case .audioImported: "audio_imported"
+        case .archiveRecordingSaved: "archive_recording_saved"
+        case .recordingFiled: "recording_filed"
+        case .recordingUnfiled: "recording_unfiled"
+        case .recordingRenamed: "recording_renamed"
+        case .recordingDeleted: "recording_deleted"
+        case .recordingTrimmed: "recording_trimmed"
         case .linkAdded: "link_added"
+        case .linkRemoved: "link_removed"
+        case .linkOpenedExternally: "link_opened_externally"
         case .findRecordingsUsed: "find_recordings_used"
-        case .playbackStarted: "playback_started"
-        case .practiceStarted: "practice_started"
+        case .appleMusicAuthorized: "apple_music_authorized"
+        case .playbackEnded: "playback_ended"
+        case .playlistStarted: "playlist_started"
+        case .practiceEnded: "practice_ended"
         case .loopSet: "loop_set"
         case .speedChanged: "speed_changed"
         case .pitchChanged: "pitch_changed"
-        case .recordingTrimmed: "recording_trimmed"
         case .scanAdded: "scan_added"
         case .scanViewed: "scan_viewed"
-        case .lyricsOpened: "lyrics_opened"
-        case .listCreated: "list_created"
-        case .tunesAddedToList: "tunes_added_to_list"
-        case .bulkEditApplied: "bulk_edit_applied"
-        case .statsViewed: "stats_viewed"
-        case .standOpened: "stand_opened"
+        case .scanDeleted: "scan_deleted"
+        case .scansReordered: "scans_reordered"
+        case .settingChanged: "setting_changed"
+        case .usageSharingDisabled: "usage_sharing_disabled"
+        case .storageLimitReached: "storage_limit_reached"
+        case .uploadFailed: "upload_failed"
+        case .syncFailed: "sync_failed"
         case .exportCompleted: "export_completed"
+        case .exportFailed: "export_failed"
         }
     }
 
     public var properties: [String: AnalyticsValue] {
         switch self {
-        case .signedIn, .signedOut, .accountDeleted, .loopSet, .recordingTrimmed, .scanViewed, .lyricsOpened,
-            .listCreated, .statsViewed, .standOpened:
+        case .signedIn, .signedOut, .accountDeleted, .accountDeletionStarted, .accountDeletionCancelled,
+            .usageSharingDisabled:
             [:]
-        case .tuneCreated(let source, let hasKey, let hasTuning):
-            ["source": .string(source.rawValue), "has_key": .bool(hasKey), "has_tuning": .bool(hasTuning)]
-        case .tuneEdited(let fields):
-            ["fields_changed": .strings(fields.map(\.rawValue))]
-        case .tuneStatusChanged(let from, let to):
-            ["from": .string(from.rawValue), "to": .string(to.rawValue)]
+        case .tuneCreated(let source, let fields, let tuneID):
+            ["source": .string(source.rawValue), "fields_set": .fields(fields), "tune_id": .string(tuneID)]
+        case .tuneEdited(let fields, let tuneID):
+            ["fields_changed": .fields(fields), "tune_id": .string(tuneID)]
+        case .tuneStatusChanged(let from, let to, let tuneID):
+            ["from": .string(from.rawValue), "to": .string(to.rawValue), "tune_id": .string(tuneID)]
+        case .tuneArchived(let tuneID), .tuneUnarchived(let tuneID), .lyricsOpened(let tuneID),
+            .standOpened(let tuneID), .scanViewed(let tuneID), .scansReordered(let tuneID):
+            ["tune_id": .string(tuneID)]
+        case .tuneDeleted(let tuneID, let recordings, let links, let scans):
+            [
+                "tune_id": .string(tuneID), "recordings_count": .count(recordings), "links_count": .count(links),
+                "scans_count": .count(scans),
+            ]
+        case .bulkEditApplied(let action, let count, let fields):
+            ["action": .string(action.rawValue), "count_bucket": .count(count)]
+                .adding("fields_changed", fields.map(AnalyticsValue.fields))
         case .searchPerformed(let resultCount, let tookOffer):
-            ["result_count_bucket": .string(Bucket.count(resultCount)), "took_offer": .bool(tookOffer)]
+            ["result_count_bucket": .count(resultCount), "took_offer": .bool(tookOffer)]
         case .catalogFiltered(let filter):
             ["filter": .string(filter.rawValue)]
-        case .recordingStarted(let source), .practiceStarted(let source):
+        case .catalogSorted(let sort):
+            ["sort": .string(sort.rawValue)]
+        case .listCreated(let listID, let count), .listDeleted(let listID, let count),
+            .tunesAddedToList(let listID, let count), .tunesRemovedFromList(let listID, let count):
+            ["list_id": .string(listID), "count_bucket": .count(count)]
+        case .listRenamed(let listID), .listReordered(let listID):
+            ["list_id": .string(listID)]
+        case .recordingStarted(let source):
             ["source": .string(source.rawValue)]
-        case .recordingSaved(let seconds), .recordingDiscarded(let seconds):
+        case .recordingSaved(let seconds, let recordingID, let tuneID):
+            [
+                "duration_bucket": .string(Bucket.duration(seconds: seconds)), "filed": .bool(tuneID != nil),
+                "recording_id": .string(recordingID),
+            ]
+            .adding("tune_id", tuneID.map(AnalyticsValue.string))
+        case .recordingDiscarded(let seconds):
             ["duration_bucket": .string(Bucket.duration(seconds: seconds))]
         case .audioImported(let fileCount, let format):
-            ["count_bucket": .string(Bucket.count(fileCount)), "format": .string(format.rawValue)]
-        case .linkAdded(let service, let via):
-            ["service": .string(service.rawValue), "via": .string(via.rawValue)]
+            ["count_bucket": .count(fileCount), "format": .string(format.rawValue)]
+        case .archiveRecordingSaved(let source, let recordingID, let tuneID):
+            [
+                "source_archive": .string(source.rawValue), "recording_id": .string(recordingID),
+                "tune_id": .string(tuneID),
+            ]
+        case .recordingFiled(let from, let origin, let recordingID, let tuneID):
+            [
+                "from": .string(from.rawValue), "origin": .string(origin.rawValue),
+                "recording_id": .string(recordingID), "tune_id": .string(tuneID),
+            ]
+        case .recordingUnfiled(let origin, let recordingID), .recordingRenamed(let origin, let recordingID),
+            .recordingDeleted(let origin, let recordingID):
+            ["origin": .string(origin.rawValue), "recording_id": .string(recordingID)]
+        case .recordingTrimmed(let recordingID), .loopSet(let recordingID):
+            ["recording_id": .string(recordingID)]
+        case .linkAdded(let service, let via, let linkID, let tuneID):
+            [
+                "service": .string(service.rawValue), "via": .string(via.rawValue), "link_id": .string(linkID),
+                "tune_id": .string(tuneID),
+            ]
+        case .linkRemoved(let service, let linkID), .linkOpenedExternally(let service, let linkID):
+            ["service": .string(service.rawValue), "link_id": .string(linkID)]
         case .findRecordingsUsed(let service, let resultCount):
-            ["service": .string(service.rawValue), "result_count_bucket": .string(Bucket.count(resultCount))]
-        case .playbackStarted(let kind, let source):
-            ["kind": .string(kind.rawValue), "source": .string(source.rawValue)]
-        case .speedChanged(let rate):
-            ["speed_bucket": .string(Bucket.speed(rate))]
-        case .pitchChanged(let semitones):
-            ["semitones": .int(semitones)]
-        case .scanAdded(let via):
-            ["via": .string(via.rawValue)]
-        case .tunesAddedToList(let count):
-            ["count_bucket": .string(Bucket.count(count))]
-        case .bulkEditApplied(let count, let fields):
-            ["count_bucket": .string(Bucket.count(count)), "fields_changed": .strings(fields.map(\.rawValue))]
+            ["service": .string(service.rawValue), "result_count_bucket": .count(resultCount)]
+        case .appleMusicAuthorized(let granted):
+            ["granted": .bool(granted)]
+        case .playbackEnded(let report):
+            report.properties
+        case .playlistStarted(let shuffle, let repeatMode, let count, let listID):
+            [
+                "shuffle": .bool(shuffle), "repeat": .string(repeatMode.rawValue), "count_bucket": .count(count),
+                "list_id": .string(listID),
+            ]
+        case .practiceEnded(let report):
+            report.properties
+        case .speedChanged(let rate, let recordingID):
+            ["speed_bucket": .string(Bucket.speed(rate)), "recording_id": .string(recordingID)]
+        case .pitchChanged(let semitones, let recordingID):
+            ["semitones": .int(semitones), "recording_id": .string(recordingID)]
+        case .scanAdded(let via, let scanID, let tuneID):
+            ["via": .string(via.rawValue), "scan_id": .string(scanID), "tune_id": .string(tuneID)]
+        case .scanDeleted(let scanID, let tuneID):
+            ["scan_id": .string(scanID), "tune_id": .string(tuneID)]
+        case .settingChanged(let change):
+            ["setting": .string(change.name), "value": change.value]
+        case .storageLimitReached(let bytesUsed):
+            ["storage_used": .string(Bucket.bytes(bytesUsed))]
+        case .uploadFailed(let reason, let origin):
+            ["failure_reason": .string(reason.rawValue), "origin": .string(origin.rawValue)]
+        case .syncFailed(let reason):
+            ["failure_reason": .string(reason.rawValue)]
         case .exportCompleted(let format):
             ["format": .string(format.rawValue)]
+        case .exportFailed(let format, let reason):
+            ["format": .string(format.rawValue), "failure_reason": .string(reason.rawValue)]
         }
     }
-}
 
-/// A destination the musician opened, sent as PostHog's screen event.
-public enum Screen: String, Sendable {
-    case catalog
-    case tune
-    case list
-    case lists
-    case recordings
-    case recording
-    case settings
-    case stats
-    case stand
-}
-
-/// Where an action started, for a feature with more than one way in.
-public enum ActionSource: String, CaseIterable, Sendable {
-    case catalog
-    case tune
-    case list
-    case recordingsList = "recordings_list"
-    /// A recording's own screen.
-    case recording
-    case dock
-    case stand
-    case searchOffer = "search_offer"
-    case keyboardShortcut = "keyboard_shortcut"
-    case menu
-}
-
-/// What started playing: a recording of the musician's own or a link to someone else's.
-public enum PlaybackKind: String, CaseIterable, Sendable {
-    case recording
-    case link
-}
-
-/// The service a link points at, one per provider the API knows.
-public enum LinkService: String, CaseIterable, Sendable {
-    case youtube
-    case spotify
-    case appleMusic = "apple_music"
-    case bandcamp
-    case soundcloud
-    case tidal
-    case internetArchive = "internet_archive"
-    case slipperyHill = "slippery_hill"
-    case other
-}
-
-/// How a link was added: pasted, or picked from Find recordings.
-public enum LinkVia: String, CaseIterable, Sendable {
-    case paste
-    case find
-}
-
-/// How a scan came in.
-public enum ScanVia: String, CaseIterable, Sendable {
-    case camera
-    case documentScanner = "document_scanner"
-    case photoLibrary = "photo_library"
-    case file
-}
-
-/// What the data export produced.
-public enum ExportFormat: String, CaseIterable, Sendable {
-    case zip
-}
-
-/// The container of an imported audio file.
-public enum AudioFormat: String, CaseIterable, Sendable {
-    case m4a
-    case mp3
-    case wav
-    case aiff
-    case flac
-    case other
-
-    public init(pathExtension: String) {
-        self =
-            switch pathExtension.lowercased() {
-            case "m4a": .m4a
-            case "mp3": .mp3
-            case "wav": .wav
-            case "aif", "aiff": .aiff
-            case "flac": .flac
-            default: .other
-            }
+    /// The person properties the event sets as it is sent: a setting change keeps the person's
+    /// current choice, and every other event sets none.
+    public var personProperties: [String: AnalyticsValue] {
+        guard case .settingChanged(let change) = self else { return [:] }
+        return [change.personProperty: change.value]
     }
 }
 
-/// A tune field by name only, never its value. A tuning or a capo is one field whatever the
-/// instrument.
-public enum TuneField: String, CaseIterable, Sendable {
-    case title
-    case alternateTitles = "alternate_titles"
-    case status
-    case key
-    case mode
-    case tuning
-    case capo
-    case genre
-    case tuneType = "tune_type"
-    case timeSignature = "time_signature"
-    case partStructure = "part_structure"
-    case composer
-    case isCrooked = "is_crooked"
-    case lyrics
-    case notes
-    case learnedFrom = "learned_from"
-    case learnedOn = "learned_on"
+/// One play, reported as it ends so its time listened is known.
+public struct PlaybackReport: Sendable, Equatable {
+    public var source: ActionSource
+    public var queue: PlaybackQueue
+    public var trigger: PlaybackTrigger
+    public var kind: PlaybackKind
+    /// A link's service; nil for a recording.
+    public var service: LinkService?
+    /// Sent only as its bucket.
+    public var listenedMs: Int64
+    public var completed: Bool
+    public var endedBy: PlaybackEnd
+    public var tuneID: String?
+    public var recordingID: String?
+    public var linkID: String?
+    public var listID: String?
+
+    public init(
+        source: ActionSource, queue: PlaybackQueue, trigger: PlaybackTrigger, kind: PlaybackKind,
+        service: LinkService?, listenedMs: Int64, completed: Bool, endedBy: PlaybackEnd, tuneID: String?,
+        recordingID: String?, linkID: String?, listID: String?
+    ) {
+        self.source = source
+        self.queue = queue
+        self.trigger = trigger
+        self.kind = kind
+        self.service = service
+        self.listenedMs = listenedMs
+        self.completed = completed
+        self.endedBy = endedBy
+        self.tuneID = tuneID
+        self.recordingID = recordingID
+        self.linkID = linkID
+        self.listID = listID
+    }
+
+    var properties: [String: AnalyticsValue] {
+        [
+            "source": .string(source.rawValue), "queue": .string(queue.rawValue), "trigger": .string(trigger.rawValue),
+            "kind": .string(kind.rawValue), "listened_bucket": .string(Bucket.listened(ms: listenedMs)),
+            "completed": .bool(completed), "ended_by": .string(endedBy.rawValue),
+        ]
+        .adding("service", service.map { .string($0.rawValue) })
+        .adding("tune_id", tuneID.map(AnalyticsValue.string))
+        .adding("recording_id", recordingID.map(AnalyticsValue.string))
+        .adding("link_id", linkID.map(AnalyticsValue.string))
+        .adding("list_id", listID.map(AnalyticsValue.string))
+    }
 }
 
-/// The kind of filter the catalog applied, never the value it filters on. A tuning is one kind
-/// whatever the instrument.
-public enum CatalogFilterKind: String, CaseIterable, Sendable {
-    case status
-    case key
-    case tuneType = "tune_type"
-    case mode
-    case tuning
-    case genre
-    case composer
-    case learnedFrom = "learned_from"
-    case archived
-    case unheard
-    case missing
+/// One visit to a recording's screen, reported as it closes.
+public struct PracticeReport: Sendable, Equatable {
+    public var source: ActionSource
+    /// Sent only as its bucket.
+    public var durationMs: Int64
+    public var usedLoops: Bool
+    public var usedSpeed: Bool
+    public var usedPitch: Bool
+    public var kind: PlaybackKind
+    public var recordingID: String
+    public var tuneID: String?
+
+    public init(
+        source: ActionSource, durationMs: Int64, usedLoops: Bool, usedSpeed: Bool, usedPitch: Bool,
+        kind: PlaybackKind, recordingID: String, tuneID: String?
+    ) {
+        self.source = source
+        self.durationMs = durationMs
+        self.usedLoops = usedLoops
+        self.usedSpeed = usedSpeed
+        self.usedPitch = usedPitch
+        self.kind = kind
+        self.recordingID = recordingID
+        self.tuneID = tuneID
+    }
+
+    var properties: [String: AnalyticsValue] {
+        [
+            "source": .string(source.rawValue),
+            "duration_bucket": .string(Bucket.duration(seconds: Double(durationMs) / 1000)),
+            "used_loops": .bool(usedLoops), "used_speed": .bool(usedSpeed), "used_pitch": .bool(usedPitch),
+            "kind": .string(kind.rawValue), "recording_id": .string(recordingID),
+        ]
+        .adding("tune_id", tuneID.map(AnalyticsValue.string))
+    }
 }
 
 /// One of the vocabulary's tune statuses. The app keeps a status as a string, so this checks
@@ -255,5 +354,19 @@ public struct TuneStatus: Sendable, Equatable {
     public init?(_ rawValue: String) {
         guard Vocabulary.statuses.contains(rawValue) else { return nil }
         self.rawValue = rawValue
+    }
+}
+
+extension AnalyticsValue {
+    fileprivate static func count(_ n: Int) -> AnalyticsValue { .string(Bucket.count(n)) }
+    fileprivate static func fields(_ fields: [TuneField]) -> AnalyticsValue { .strings(fields.map(\.rawValue)) }
+}
+
+extension [String: AnalyticsValue] {
+    /// These properties with `key` set to `value`, or left out when it is nil.
+    fileprivate func adding(_ key: String, _ value: AnalyticsValue?) -> Self {
+        var properties = self
+        properties[key] = value
+        return properties
     }
 }

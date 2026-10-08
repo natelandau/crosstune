@@ -19,6 +19,7 @@ public struct WelcomeView: View {
 
     public var body: some View {
         layout
+            .screenView(.welcome)
             .sheet(isPresented: $showsSignIn) {
                 SignInSheet()
             }

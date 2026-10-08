@@ -45,6 +45,8 @@ public final class PlayerModel {
     private(set) var opensUnplayed = false
     /// The recording screen whose visit is open.
     @ObservationIgnored private var visitScreen: UUID?
+    /// Where the player was last asked for in full, which a recording screen's visit reports.
+    @ObservationIgnored private var expandSource = ActionSource.dock
     /// The loaded recording's loops, the selected one, and Repeat.
     public let loops: LoopPlayback
     /// Where the loaded recording's audio stands; nil unless a recording is loaded.
@@ -70,10 +72,7 @@ public final class PlayerModel {
     /// Plays Apple Music links in full; nil plays every link in its embed.
     public let appleMusic: AppleMusic?
     /// How the loaded link plays; nil unless a link is loaded.
-    public private(set) var linkAudio: LinkAudio? {
-        // An embed plays on its own, out of the player's sight, so showing it is its start.
-        didSet { if linkAudio == .embed { reportStart(loadedSubject) } }
-    }
+    public private(set) var linkAudio: LinkAudio?
     /// Where a recording's audio comes from. The shell sets it once it has a store; until then
     /// a recording has no audio to play, and a recording loaded before it arrives looks again.
     @ObservationIgnored public var audioSource: AudioSource? {
@@ -96,10 +95,6 @@ public final class PlayerModel {
     /// Logs each play and recording screen visit.
     @ObservationIgnored let activity: PlayerActivity
     let analytics: AnalyticsClient
-    /// A play asked for that has not yet started playing, reported once it does.
-    @ObservationIgnored private var startToReport: (subject: PlaySubject, source: ActionSource)?
-    /// Where the player was last asked to show in full, which a practice visit starts from.
-    @ObservationIgnored private var expandSource = ActionSource.dock
     /// Follows the state the activity log times.
     @ObservationIgnored private var following: Task<Void, Never>?
     /// Whether the queue hears each track's end, as it does from loading a track until it leaves.
@@ -174,13 +169,12 @@ public final class PlayerModel {
         self.audio = audio ?? AudioPlayer()
         self.appleMusic = appleMusic
         loops = LoopPlayback(audio: self.audio, analytics: analytics)
-        activity = PlayerActivity(clock: clock, now: now)
+        activity = PlayerActivity(clock: clock, now: now, analytics: analytics)
         self.audio.onTrackEnd = { [weak self] end in self?.trackEnded(end) }
         appleMusic?.player.onTrackEnd = { [weak self] end in self?.trackEnded(end) }
         following = Task { [weak self] in
             for await snapshot in Observations({ @MainActor [weak self] in self?.activitySnapshot }) {
                 guard let snapshot else { continue }
-                if snapshot.playing { self?.reportStart(snapshot.loaded) }
                 if snapshot.playing, self?.opensUnplayed == true { self?.opensUnplayed = false }
                 self?.activity.feed(snapshot)
             }
@@ -217,14 +211,15 @@ public final class PlayerModel {
         if queueHearsTrackEnds { queue?.playerTrackEnded(end) }
     }
 
-    /// The recording screen `screen` shows `recordingID`: its time there is one visit, logged as
-    /// practice or as a play once it closes.
-    func screenOpened(_ recordingID: String, by screen: UUID? = nil) {
-        if activity.screenRecordingID != recordingID { analytics.send(.practiceStarted(source: expandSource)) }
-        // Spent on this visit, so a later one nothing asked for reads as the dock's.
-        expandSource = .dock
+    /// The recording screen `screen` shows `recordingID`, whose row is `recording` when the
+    /// caller has it: its time there is one visit, logged as practice or as a play once it closes.
+    func screenOpened(_ recordingID: String, recording: Recording? = nil, by screen: UUID? = nil) {
         visitScreen = screen
-        activity.screenOpened(recordingID, loaded: loadedSubject, with: activitySnapshot)
+        let row = recording ?? item?.recording.flatMap { $0.id == recordingID ? $0 : nil }
+        activity.screenOpened(
+            recordingID, kind: row.map { PlaybackKind(RecordingOrigin($0)) } ?? .recorded,
+            tune: row.map { .known($0.tuneID) } ?? .lookUp, source: expandSource, loaded: loadedSubject,
+            with: activitySnapshot)
     }
 
     /// The recording screen `screen` has gone. Only the screen that opened the visit last ends
@@ -239,6 +234,25 @@ public final class PlayerModel {
     /// recording screen visit are written now.
     public func leftForeground() {
         activity.leftForeground(loaded: loadedSubject, with: activitySnapshot)
+    }
+
+    /// The app is quitting: the open play and recording screen visit end as closed, reported now
+    /// so the caller's flush sends them. Unlike the background, playing audio keeps nothing open.
+    public func appQuitting() {
+        activity.appQuitting()
+    }
+
+    /// Opens the loaded link in its provider's own app or site with `open`, and reports it.
+    public func openLinkInProvider(with open: (URL) -> Void) {
+        guard let item, let link = item.link, let url = link.providerURL else { return }
+        analytics.linkOpened(provider: link.provider, linkID: item.id)
+        open(url)
+    }
+
+    /// The loaded link's embed sent the musician on to its provider's site.
+    public func embedOpenedProvider() {
+        guard let item, let link = item.link else { return }
+        analytics.linkOpened(provider: link.provider, linkID: item.id)
     }
 
     /// Whether `kind` with `id` is the loaded item.
@@ -261,9 +275,9 @@ public final class PlayerModel {
         guard !isCapturing() else { return false }
         opensUnplayed = false
         let same = holds(item.kind, id: item.id)
-        // The one already loaded carries on its play, so it is no new start.
-        if !same { startToReport = (PlaySubject(kind: item.kind, id: item.id), source) }
-        activity.begin(PlaySubject(kind: item.kind, id: item.id), origin: origin, keepsSame: same)
+        activity.begin(
+            PlaySubject(kind: item.kind, id: item.id), origin: origin,
+            attribution: PlayAttribution(item, source: source, queue: .single, trigger: .tap), keepsSame: same)
         // A queued song sits in a guard queue that reports to the queue; resuming it after the
         // queue is let go would pause on a guard copy, so it loads again unguarded.
         let queued = queue != nil || audio.holdsSession
@@ -293,32 +307,28 @@ public final class PlayerModel {
     /// never falls back to an embed, closes the item and reaches
     /// ``PlayerQueue/playerCouldNotPlay()``. Refused, returning false, while a take is being
     /// recorded. A song with `autoplay` false loads paused at its start. Each load is a new play,
-    /// logged as asked for from `origin`. `reportsStart` marks the load that starts the queue,
-    /// reported once a track of it plays; the queue's later tracks are not new starts.
+    /// logged as asked for from `origin` and reported as a list's track that `trigger` started.
     @discardableResult
     public func playQueued(
         _ item: PlayerItem, nowPlaying: NowPlaying, autoplay: Bool = true, origin: PlayOrigin = .dock,
-        reportsStart: Bool = false
+        trigger: PlaybackTrigger
     ) -> Bool {
-        let subject = PlaySubject(kind: item.kind, id: item.id)
-        if reportsStart {
-            startToReport = (subject, origin.listID == nil ? .dock : .list)
-        } else if let pending = startToReport {
-            // The queue's start is still to play: a track that could not play has given way.
-            startToReport = (subject, pending.source)
-        }
-        return loadQueued(item, nowPlaying: nowPlaying, autoplay: autoplay, origin: origin, keepsPlay: false)
+        loadQueued(item, nowPlaying: nowPlaying, autoplay: autoplay, origin: origin, trigger: trigger, keepsPlay: false)
     }
 
-    /// ``playQueued(_:nowPlaying:autoplay:origin:)``, carrying on the open play when `keepsPlay`
-    /// and it is of `item`.
+    /// ``playQueued(_:nowPlaying:autoplay:origin:trigger:)``, carrying on the open play when
+    /// `keepsPlay` and it is of `item`.
     private func loadQueued(
-        _ item: PlayerItem, nowPlaying: NowPlaying, autoplay: Bool, origin: PlayOrigin, keepsPlay: Bool
+        _ item: PlayerItem, nowPlaying: NowPlaying, autoplay: Bool, origin: PlayOrigin, trigger: PlaybackTrigger,
+        keepsPlay: Bool
     ) -> Bool {
         guard !isCapturing() else { return false }
         opensUnplayed = false
         let same = holds(item.kind, id: item.id)
-        activity.begin(PlaySubject(kind: item.kind, id: item.id), origin: origin, keepsSame: keepsPlay)
+        activity.begin(
+            PlaySubject(kind: item.kind, id: item.id), origin: origin,
+            attribution: PlayAttribution(item, source: .list, queue: .playlist, trigger: trigger),
+            keepsSame: keepsPlay)
         stopAudio()
         loops.reset(forgettingRows: !same)
         self.item = item
@@ -384,7 +394,7 @@ public final class PlayerModel {
     ) -> Bool {
         if !holds(item.kind, id: item.id) {
             // Played from its own screen, which this opens on.
-            guard load(item, origin: .dock, playing: playing, source: .recording) else { return false }
+            guard load(item, origin: .dock, playing: playing, source: .recordingScreen) else { return false }
             opensUnplayed = !playing
         }
         expand(in: window, source: source)
@@ -410,7 +420,6 @@ public final class PlayerModel {
 
     /// Unloads the item, which stops it and takes the player off screen.
     public func close() {
-        startToReport = nil
         unloadItem()
         leaveAttachedQueue()
     }
@@ -423,13 +432,6 @@ public final class PlayerModel {
         item = nil
         opensUnplayed = false
         if !keepsExpansion { isExpanded = false }
-    }
-
-    /// Reports the play waiting to start, once `subject` is what plays.
-    private func reportStart(_ subject: PlaySubject?) {
-        guard let pending = startToReport, let subject, pending.subject == subject else { return }
-        startToReport = nil
-        analytics.send(.playbackStarted(kind: subject.kind == .recording ? .recording : .link, source: pending.source))
     }
 
     /// Tries the loaded recording's audio again after it could not be found or fetched.
@@ -536,7 +538,7 @@ public final class PlayerModel {
                     // The same link at a new address is still the play under way.
                     _ = loadQueued(
                         next, nowPlaying: nowPlaying, autoplay: autoplay, origin: activity.plays.origin ?? .dock,
-                        keepsPlay: true)
+                        trigger: activity.plays.attribution?.trigger ?? .autoAdvance, keepsPlay: true)
                 } else {
                     queuedItemCannotPlay()
                 }
@@ -780,7 +782,7 @@ public final class PlayerModel {
             guard let self, isDeciding(id) else { return }
             if access == .notAsked && asksAccess {
                 deadline?.cancel()
-                _ = await appleMusic.access.request()
+                analytics.appleMusicAnswered(await appleMusic.access.request())
                 guard isDeciding(id) else { return }
                 startDeadline(id) { fail(true) }
                 // Read again under the deadline: the subscription lookup needs the network.

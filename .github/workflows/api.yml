@@ -76,8 +76,8 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
       - run: just lint
-      # The module hooks it skips run in `just lint` here and in the web, site, and Apple
-      # workflows, whose toolchains this runner lacks.
+      # The module hooks it skips run in `just lint` here and in the web, site, Apple, and
+      # analytics workflows.
       - run: just lint-repo
         working-directory: .
 

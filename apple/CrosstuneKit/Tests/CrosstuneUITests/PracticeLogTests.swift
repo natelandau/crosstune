@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneStore
 import CrosstuneTestSupport
@@ -283,7 +284,8 @@ private func loop(_ id: String) -> RecordingLoop {
         // A playlist moves on while the screen shows; the screen's view, keyed by recording,
         // is made again for the new one.
         rig.player.playQueued(
-            .recording(loggedTake("r2"), tuneTitle: nil), nowPlaying: NowPlaying(title: "r2", tuneTitle: nil))
+            .recording(loggedTake("r2"), tuneTitle: nil), nowPlaying: NowPlaying(title: "r2", tuneTitle: nil),
+            trigger: .autoAdvance)
         #expect(rig.recorded.sessions.map(\.recordingID) == ["r1"])
         first.leave()
         let second = PracticeModel(player: rig.player, recording: loggedTake("r2"), file: nil, writer: noLoopWrites)
@@ -314,5 +316,68 @@ private func loop(_ id: String) -> RecordingLoop {
         #expect(rig.recorded.sessions.map(\.durationMs) == [20_000])
         #expect(rig.recorded.sessions.map(\.speedPercent) == [80])
         #expect(rig.recorded.plays.isEmpty)
+    }
+}
+
+/// A recording screen visit reports once as it closes: as practice with the tools it used, or
+/// as a play from the screen when it was not practice.
+@MainActor
+@Suite struct PracticeEndedTests {
+    @Test func aPracticeVisitReportsTheToolsUsed() async throws {
+        let rig = ActivityRig()
+        try await rig.playRecording()
+        rig.player.screenOpened("r1")
+        rig.player.loopsChanged(id: "r1", to: [loop("loop1")])
+        rig.player.loops.select("loop1")
+        rig.player.setSpeed(80)
+        try await rig.fed { $0.loopID == "loop1" && $0.speedPercent == 80 && $0.playing }
+        rig.clock.advance(120_000)
+        rig.player.screenClosed()
+        try await waitFor { !rig.sent("practice_ended").isEmpty }
+        let report = try #require(rig.sent("practice_ended").only)
+        #expect(report["used_loops"] == .bool(true))
+        #expect(report["used_speed"] == .bool(true))
+        #expect(report["used_pitch"] == .bool(false))
+        #expect(report["duration_bucket"] == .string("2-5m"))
+        #expect(report["kind"] == .string("recorded"))
+        #expect(report["recording_id"] == .string("r1"))
+        #expect(rig.sent("playback_ended").isEmpty)
+    }
+
+    @Test func aVisitThatWasNotPracticeIsAPlayFromTheScreen() async throws {
+        let rig = ActivityRig()
+        try await rig.playRecording()
+        rig.player.screenOpened("r1")
+        rig.clock.advance(12_000)
+        rig.player.screenClosed()
+        try await waitFor { !rig.sent("playback_ended").isEmpty }
+        let report = try #require(rig.sent("playback_ended").only)
+        #expect(report["source"] == .string("recording_screen"))
+        #expect(report["ended_by"] == .string("closed"))
+        #expect(rig.sent("practice_ended").isEmpty)
+    }
+
+    @Test func aTakeFiledDuringThePracticeReportsItsNewTune() async throws {
+        let rig = ActivityRig()
+        try await rig.playRecording(tuneID: nil)
+        rig.player.screenOpened("r1")
+        rig.player.setSpeed(80)
+        try await rig.fed { $0.speedPercent == 80 && $0.playing }
+        rig.clock.advance(60_000)
+        rig.recorded.tunes["r1"] = "t9"
+        rig.player.screenClosed()
+        try await waitFor { !rig.sent("practice_ended").isEmpty }
+        #expect(rig.sent("practice_ended").only?["tune_id"] == .string("t9"))
+    }
+
+    @Test func aTakeFiledDuringTheVisitReportsItsPlayUnderItsNewTune() async throws {
+        let rig = ActivityRig()
+        try await rig.playRecording(tuneID: nil)
+        rig.player.screenOpened("r1")
+        rig.clock.advance(12_000)
+        rig.recorded.tunes["r1"] = "t9"
+        rig.player.screenClosed()
+        try await waitFor { !rig.sent("playback_ended").isEmpty }
+        #expect(rig.sent("playback_ended").only?["tune_id"] == .string("t9"))
     }
 }

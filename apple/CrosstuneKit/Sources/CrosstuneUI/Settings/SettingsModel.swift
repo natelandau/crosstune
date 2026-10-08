@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
@@ -101,6 +102,7 @@ public final class SettingsModel {
 
     private let store: CrosstuneStore
     private let engine: SyncEngine?
+    private let analytics: AnalyticsClient
     private let stored: LiveQuery<StoredSettings?>
     private var pendingInstruments: [String: PendingWrite<Bool>] = [:]
     private var pendingSearchProviders: [String: PendingWrite<Bool>] = [:]
@@ -112,9 +114,10 @@ public final class SettingsModel {
 
     /// - Parameter engine: Runs a sync on request and fetches recordings once downloads are
     ///   on. Nil where there is no account, as in the sample shell.
-    public init(store: CrosstuneStore, engine: SyncEngine?) {
+    public init(store: CrosstuneStore, engine: SyncEngine?, analytics: AnalyticsClient = .noop) {
         self.store = store
         self.engine = engine
+        self.analytics = analytics
         let settingsRow = settingsID(clerkUserID: store.userID)
         stored = LiveQuery(store, initial: nil) { db in try StoredSettings.fetch(db, settingsRow: settingsRow) }
         let stored = stored
@@ -154,6 +157,7 @@ public final class SettingsModel {
         instrumentsFailure = nil
         let token = pendingInstruments[instrument, default: PendingWrite()].begin(on)
         let store = store
+        let chosen = Vocabulary.instruments.filter(plays)
         enqueue {
             try await Commands(store: store).toggleInstrumentSetting(
                 clerkUserID: store.userID, instrument: instrument, on: on)
@@ -164,6 +168,7 @@ public final class SettingsModel {
             } else {
                 model.pendingInstruments[instrument]?.land(
                     token, stored: model.stored.value?.instruments.contains(instrument))
+                model.analytics.send(.settingChanged(.instruments(chosen)))
             }
         }
     }
@@ -194,6 +199,7 @@ public final class SettingsModel {
         searchProvidersFailure = nil
         let token = pendingSearchProviders[provider, default: PendingWrite()].begin(on)
         let store = store
+        let chosen = searchableProviders.filter(searches).map(LinkService.init(provider:))
         enqueue {
             try await Commands(store: store).toggleSearchProvider(
                 clerkUserID: store.userID, provider: provider, on: on)
@@ -204,6 +210,7 @@ public final class SettingsModel {
             } else {
                 model.pendingSearchProviders[provider]?.land(
                     token, stored: model.stored.value?.searchProviders.contains(provider))
+                model.analytics.send(.settingChanged(.searchProviders(chosen)))
             }
         }
     }
@@ -222,6 +229,7 @@ public final class SettingsModel {
 
     public func setPlayFirst(_ choice: String) {
         playFirstFailure = nil
+        let changed = choice != playFirst
         let token = pendingPlayFirst.begin(choice)
         let store = store
         enqueue {
@@ -232,6 +240,7 @@ public final class SettingsModel {
                 model.playFirstFailure = failureMessage(error)
             } else {
                 model.pendingPlayFirst.land(token, stored: model.stored.value?.playFirst)
+                if changed, let choice = PlayFirst(choice) { model.analytics.send(.settingChanged(.playFirst(choice))) }
             }
         }
     }
@@ -245,6 +254,7 @@ public final class SettingsModel {
 
     public func setAudioQuality(_ quality: String) {
         qualityFailure = nil
+        let changed = quality != audioQuality
         let token = pendingQuality.begin(quality)
         let store = store
         enqueue {
@@ -255,6 +265,9 @@ public final class SettingsModel {
                 model.qualityFailure = failureMessage(error)
             } else {
                 model.pendingQuality.land(token, stored: model.stored.value?.audioQuality)
+                if changed, let quality = AudioQuality(quality) {
+                    model.analytics.send(.settingChanged(.audioQuality(quality)))
+                }
             }
         }
     }
@@ -284,6 +297,7 @@ public final class SettingsModel {
     /// Stores the download choice for this device. Turning it on starts fetching at once.
     public func setKeepsOffline(_ on: Bool) {
         keepOfflineFailure = nil
+        let changed = on != keepsOffline
         let token = pendingKeepOffline.begin(on)
         let store = store
         enqueue {
@@ -295,6 +309,7 @@ public final class SettingsModel {
                 return
             }
             model.pendingKeepOffline.land(token, stored: model.stored.value?.keepsOffline)
+            if changed { model.analytics.send(.settingChanged(.downloadAll(on))) }
             if on, let engine = model.engine {
                 Task { await engine.transfer() }
             }

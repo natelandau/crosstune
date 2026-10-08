@@ -142,4 +142,39 @@ import Testing
         #expect(try await poll { !catalog.isSavingFilters })
         #expect(sink.captures == [.init(name: "catalog_filtered", properties: ["filter": .string("genre")])])
     }
+
+    @Test func sortingTheCatalogReportsTheSort() async throws {
+        let (_, catalog) = try await loadedCatalog()
+
+        catalog.reportSort(CatalogSortChoice(sort: .played, descending: true))
+        catalog.reportSort(CatalogSortChoice(sort: .added, descending: false))
+
+        #expect(
+            sink.captures == [
+                .init(name: "catalog_sorted", properties: ["sort": .string("played")]),
+                .init(name: "catalog_sorted", properties: ["sort": .string("added")]),
+            ])
+    }
+
+    @Test func copyingASortFromAnotherWindowReportsNothing() async throws {
+        let (_, catalog) = try await loadedCatalog()
+
+        catalog.sort = CatalogSortChoice(sort: .added, descending: true)
+
+        #expect(sink.calls.isEmpty)
+    }
+
+    @Test func archivingARowReportsTheTune() async throws {
+        let (_, catalog) = try await loadedCatalog()
+        let entry = try #require(catalog.results?.visible.first)
+
+        await catalog.setArchived(entry, archived: true)
+        await catalog.setArchived(entry, archived: false)
+
+        #expect(
+            sink.captures == [
+                .init(name: "tune_archived", properties: ["tune_id": .string(entry.tune.id)]),
+                .init(name: "tune_unarchived", properties: ["tune_id": .string(entry.tune.id)]),
+            ])
+    }
 }

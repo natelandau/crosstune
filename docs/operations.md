@@ -111,18 +111,19 @@ removes the Postgres and RustFS volumes; `just dev-down` keeps them.
 
 ## Test
 
-| Command                       | Runs                                                                                                                  |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `just lint`                   | Every linter in every module, then the hooks no module covers, such as the spell check and the workflow linters.      |
-| `just test`                   | API tests on databases of their own in the compose Postgres, web unit and browser tests, and the Swift package tests. |
-| `just api::test [args]`       | API tests. Args narrow the run and drop coverage.                                                                     |
-| `just web::test [args]`       | Web tests. Args go to vitest.                                                                                         |
-| `just web::stress <n> [args]` | Web tests `n` times, shuffled, a new order each run. Prints failing seeds; `SEED=<seed>` replays one.                 |
-| `just site::test [args]`      | Builds the site, then runs its tests against the output. Args go to vitest.                                           |
-| `just apple::test [args]`     | Swift package tests on the Mac. Args go to `swift test`.                                                              |
-| `just apple::build`           | The app for the iOS Simulator and macOS, unsigned.                                                                    |
-| `just typos [paths]`          | Spell check.                                                                                                          |
-| `just e2e [args]`             | The Playwright suite. Args go to Playwright.                                                                          |
+| Command                       | Runs                                                                                                                                                     |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `just lint`                   | Every linter in every module, then the hooks no module covers, such as the spell check and the workflow linters.                                         |
+| `just test`                   | API tests on databases of their own in the compose Postgres, web unit and browser tests, the Swift package tests, and the tracking plan checker's tests. |
+| `just api::test [args]`       | API tests. Args narrow the run and drop coverage.                                                                                                        |
+| `just web::test [args]`       | Web tests. Args go to vitest.                                                                                                                            |
+| `just web::stress <n> [args]` | Web tests `n` times, shuffled, a new order each run. Prints failing seeds; `SEED=<seed>` replays one.                                                    |
+| `just site::test [args]`      | Builds the site, then runs its tests against the output. Args go to vitest.                                                                              |
+| `just apple::test [args]`     | Swift package tests on the Mac. Args go to `swift test`.                                                                                                 |
+| `just analytics::test [args]` | Tracking plan checker tests. Args go to pytest.                                                                                                          |
+| `just apple::build`           | The app for the iOS Simulator and macOS, unsigned.                                                                                                       |
+| `just typos [paths]`          | Spell check.                                                                                                                                             |
+| `just e2e [args]`             | The Playwright suite. Args go to Playwright.                                                                                                             |
 
 The end-to-end suite:
 
@@ -204,14 +205,15 @@ and fails instead in CI, where the `API` workflow always starts it.
   scripts, so it starts for any change under `.github/`. `Web`
   lints, type checks, tests, builds, and checks the generated types.
   `Site` lints, type checks, tests the built pages, and validates the
-  Worker config with a dry run.
-  All three start on every PR, skip their jobs when it touches nothing
+  Worker config with a dry run. `Analytics` checks the tracking plan and
+  tests its checker.
+  All four start on every PR, skip their jobs when it touches nothing
   they cover, and are required checks. A skipped job passes a required
   check.
   `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift
   package tests, builds for the iOS Simulator and macOS, and checks the
-  generated Swift client and vocabulary file. It runs only when `apple/` or
-  the contract changes, and no host deploys from it. It is not a required
+  generated Swift client and vocabulary file. It runs only when `apple/`,
+  the contract, or the tracking plan changes, and no host deploys from it. It is not a required
   check, because a required check must run on every PR and macOS minutes
   cost more. `E2E` runs Playwright on a PR that changes `web/` or `api/`
   beyond their unit and browser tests, test helpers, and Markdown, and on

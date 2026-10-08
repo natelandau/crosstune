@@ -574,13 +574,7 @@ private struct RecordingsContent: View {
     }
 
     private func file(_ recordingID: String, under tuneID: String) async {
-        await model.run { commands in
-            do {
-                try await commands.updateRecording(recordingID, tuneID: .value(tuneID))
-            } catch {
-                throw FilingFailed()
-            }
-        }
+        await model.file(recordingID, under: tuneID, failure: FilingFailed())
     }
 
     /// A filing under a tune started from the add to tune sheet, reported once the sheet has

@@ -697,6 +697,49 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     #expect(figures.storageUsed == nil)
 }
 
+@Test func fieldsUsedListsOnlyFieldsSomeTuneFills() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    try await store.write { writer in
+        try writer.put(Tune(id: "t1", title: "Cluck Old Hen", lyrics: "Cluck old hen"))
+        try writer.put(
+            Tune(id: "t2", title: "Soldier's Joy", tunings: ["violin": .object(["tuning": .string("AEAE")])]))
+        try writer.put(Tune(id: "t3", deletedAt: .now, title: "Gone", composer: "Nobody"))
+    }
+
+    let fields = try await store.read { try AccountSession.fieldsUsed(in: $0) }
+
+    #expect(fields == [.title, .tuning, .lyrics])
+}
+
+/// A capo counts once it is set, at any fret, as a new tune's fields do.
+@Test func fieldsUsedCountsACapoAtTheNut() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    try await store.write { writer in
+        try writer.put(
+            Tune(id: "t1", title: "Cluck Old Hen", tunings: ["five_string_banjo": .object(["capo": .integer(0)])]))
+    }
+
+    let fields = try await store.read { try AccountSession.fieldsUsed(in: $0) }
+
+    #expect(fields == [.title, .capo])
+}
+
+@Test func fieldsUsedCountsTheMusiciansOwnFieldsOfLiveTunes() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    try await store.write { writer in
+        try writer.put(Tune(id: "t1", title: "Cluck Old Hen", modes: ["mixolydian"], isCrooked: true))
+        try writer.put(UserTune(tuneID: "t1", status: "known", learnedFrom: "Ana", notes: "Slow"))
+        try writer.put(UserTune(deletedAt: .now, tuneID: "t1", status: "known", learnedOn: "2026-01-02"))
+    }
+
+    let fields = try await store.read { try AccountSession.fieldsUsed(in: $0) }
+
+    #expect(fields == [.title, .mode, .isCrooked, .notes, .learnedFrom])
+}
+
 @MainActor
 @Test func identifyingWithStoreFiguresCarriesThemOnceASyncHasStoredThem() async throws {
     let root = TemporaryRoot()
@@ -723,8 +766,73 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
                 "user_a",
                 set: [
                     "catalog_size": .string(Bucket.count(1)), "storage_used": .string(Bucket.bytes(20_000_000)),
+                    "fields_used": .strings(["title"]),
                 ], setOnce: [:]),
         ])
+}
+
+@MainActor
+@Test func identifyingCarriesTheSettingsTheStoreAndTheDeviceHold() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    let sink = RecordingAnalyticsSink()
+    try await store.setMeta(.storage, to: StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0))
+    try await store.setMeta(.keepOffline, to: true)
+    try await store.write { writer in
+        try writer.put(
+            UserSettings(
+                audioQuality: "high", instruments: ["violin"], searchProviders: ["youtube", "newservice"],
+                playFirst: "apple_music"))
+    }
+
+    _ = await AccountSession.identify(
+        userID: "user_a", withFiguresIn: store, analytics: sink.client,
+        deviceSettings: [.appearance(.dark), .textSize(2), .captureChannels(.stereo)], canIdentify: { true })
+
+    guard case .identify(_, let set, _) = try #require(sink.calls.last) else {
+        Issue.record("The last call is not an identify")
+        return
+    }
+    #expect(set["setting_instruments"] == .strings(["violin"]))
+    #expect(set["setting_audio_quality"] == .string("high"))
+    #expect(set["setting_search_providers"] == .strings(["youtube", "other"]))
+    #expect(set["setting_play_first"] == .string("apple_music"))
+    #expect(set["setting_download_all"] == .bool(true))
+    #expect(set["setting_appearance"] == .string("dark"))
+    #expect(set["setting_text_size"] == .int(2))
+    #expect(set["setting_capture_channels"] == .string("stereo"))
+}
+
+@MainActor
+@Test func identifyingLeavesOutSettingsTheStoreHoldsNoValueFor() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    let sink = RecordingAnalyticsSink()
+    try await store.setMeta(.storage, to: StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0))
+
+    _ = await AccountSession.identify(
+        userID: "user_a", withFiguresIn: store, analytics: sink.client, canIdentify: { true })
+
+    guard case .identify(_, let set, _) = try #require(sink.calls.last) else {
+        Issue.record("The last call is not an identify")
+        return
+    }
+    #expect(!set.keys.contains { $0.hasPrefix("setting_") })
+}
+
+/// The device's own settings are known at once; the synced ones only once a sync brings them.
+@MainActor
+@Test func identifyingBeforeASyncCarriesOnlyTheDeviceSettings() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    let sink = RecordingAnalyticsSink()
+    try await store.write { writer in try writer.put(UserSettings(audioQuality: "high")) }
+
+    _ = await AccountSession.identify(
+        userID: "user_a", withFiguresIn: store, analytics: sink.client, deviceSettings: [.appearance(.dark)],
+        canIdentify: { true })
+
+    #expect(sink.calls == [.identify("user_a", set: ["setting_appearance": .string("dark")], setOnce: [:])])
 }
 
 @MainActor

@@ -194,15 +194,17 @@ public final class TuneFormModel {
                         try await commands.createTune(values.tuneInput, userTune: values.userTuneInput)
                     }
                 isSaved = true
-                analytics.send(
-                    .tuneCreated(source: source, hasKey: values.tuneInput.key != nil, hasTuning: values.hasTuning))
+                // Measured from a blank form rather than `opened`, so a suggested genre kept as
+                // offered counts as set: the new tune carries it.
+                let fieldsSet = values.changedFields(from: TuneFormValues(), storedTunings: [:])
+                analytics.send(.tuneCreated(source: source, fieldsSet: fieldsSet, tuneID: created.tuneID))
                 return created.tuneID
             case .edit(let tuneID, let userTuneID):
                 let patches = values.patches(from: opened, storedTunings: storedTunings)
                 try await commands.updateTuneEntry(
                     tuneID: tuneID, userTuneID: userTuneID, tune: patches.tune, userTune: patches.userTune)
                 isSaved = true
-                reportEdit()
+                reportEdit(tuneID)
                 return tuneID
             }
         } catch {
@@ -212,12 +214,12 @@ public final class TuneFormModel {
         }
     }
 
-    private func reportEdit() {
+    private func reportEdit(_ tuneID: String) {
         let fields = values.changedFields(from: opened, storedTunings: storedTunings)
         guard !fields.isEmpty else { return }
-        analytics.send(.tuneEdited(fieldsChanged: fields))
+        analytics.send(.tuneEdited(fieldsChanged: fields, tuneID: tuneID))
         if fields.contains(.status), let from = TuneStatus(opened.status), let to = TuneStatus(values.status) {
-            analytics.send(.tuneStatusChanged(from: from, to: to))
+            analytics.send(.tuneStatusChanged(from: from, to: to, tuneID: tuneID))
         }
     }
 }

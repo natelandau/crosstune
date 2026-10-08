@@ -5,6 +5,7 @@ import CrosstuneAudio
 import CrosstuneStore
 import CrosstuneSync
 import Foundation
+import GRDB
 import Network
 import Observation
 
@@ -128,6 +129,7 @@ public final class AccountSession {
     /// Whether a sync of the open store has identified the person with the API's figures.
     @ObservationIgnored private var syncedFiguresReported = false
     @ObservationIgnored private let analytics: AnalyticsClient
+    @ObservationIgnored private let deviceSettings: @MainActor () -> [SettingChange]
     @ObservationIgnored private var identity: AnalyticsIdentity
 
     /// - Parameters:
@@ -136,12 +138,15 @@ public final class AccountSession {
     ///   - storageOrigin: Where a storage URL the API signs as a bare path resolves. Only a
     ///     local API signs those; see ``LiveSyncAPI``.
     ///   - analytics: Where sign-in, sign-out, and deletion are reported.
+    ///   - deviceSettings: The settings this device keeps outside the store, which the person
+    ///     carries beside the synced ones.
     public init(
         publishableKey: String, apiOrigin: URL, clientVersion: String, storageOrigin: URL? = nil,
         remembered: RememberedUser = RememberedUser(), storeRoot: URL = CrosstuneStore.defaultRoot,
-        analytics: AnalyticsClient = .noop
+        analytics: AnalyticsClient = .noop, deviceSettings: @escaping @MainActor () -> [SettingChange] = { [] }
     ) {
         self.analytics = analytics
+        self.deviceSettings = deviceSettings
         identity = AnalyticsIdentity(analytics: analytics)
         self.remembered = remembered
         signedOutUserID = remembered.deletedUserID
@@ -227,10 +232,72 @@ public final class AccountSession {
     /// The catalog size and storage use the user's person carries, from the open store. Both are
     /// nil until a sync has brought the API's figures: before then a new device's empty catalog
     /// is not the account's, and setting it would overwrite the person's size with nothing.
-    static func storeFigures(in store: CrosstuneStore) async -> (catalogSize: Int?, storageUsed: Int64?) {
-        guard let storage = try? await store.meta(.storage, as: StorageFigures.self) else { return (nil, nil) }
+    static func storeFigures(in store: CrosstuneStore) async -> (
+        catalogSize: Int?, storageUsed: Int64?, fieldsUsed: [TuneField]?, settings: [SettingChange]
+    ) {
+        guard let storage = try? await store.meta(.storage, as: StorageFigures.self) else { return (nil, nil, nil, []) }
         let tunes = try? await store.accountCounts().tunes
-        return (tunes, Int64(storage.usedBytes))
+        let fields = try? await store.read { try fieldsUsed(in: $0) }
+        let settings = (try? await store.read { try syncedSettings(in: $0) }) ?? []
+        return (tunes, Int64(storage.usedBytes), fields, settings)
+    }
+
+    /// The settings the store holds a value for. A setting with no stored value is left out
+    /// rather than guessed at.
+    nonisolated static func syncedSettings(in db: Database) throws -> [SettingChange] {
+        var settings: [SettingChange] = []
+        if let row = try UserSettings.filter(UserSettings.CodingKeys.deletedAt == nil).fetchOne(db) {
+            settings.append(.instruments(row.instruments))
+            if let quality = AudioQuality(row.audioQuality) { settings.append(.audioQuality(quality)) }
+            settings.append(.searchProviders(row.searchProviders.map { LinkService(rawValue: $0) ?? .other }))
+            if let playFirst = PlayFirst(row.playFirst) { settings.append(.playFirst(playFirst)) }
+        }
+        if let keepsOffline = try? MetaKey.keepOffline.value(in: db, as: Bool.self) {
+            settings.append(.downloadAll(keepsOffline))
+        }
+        return settings
+    }
+
+    /// The tune fields at least one live tune fills, in `TuneField` order. Status is left out:
+    /// every tune has one, so it says nothing about which fields the musician uses.
+    nonisolated static func fieldsUsed(in db: Database) throws -> [TuneField] {
+        var used: Set<TuneField> = []
+        let tunes = try Tune.filter(Tune.CodingKeys.deletedAt == nil).fetchCursor(db)
+        while let tune = try tunes.next() {
+            if !tune.title.isEmpty { used.insert(.title) }
+            if !tune.alternateTitles.isEmpty { used.insert(.alternateTitles) }
+            if !tune.modes.isEmpty { used.insert(.mode) }
+            if tune.isCrooked { used.insert(.isCrooked) }
+            for (field, value) in [
+                (TuneField.key, tune.key), (.genre, tune.genre), (.tuneType, tune.tuneType),
+                (.timeSignature, tune.timeSignature), (.partStructure, tune.partStructure),
+                (.composer, tune.composer), (.lyrics, tune.lyrics),
+            ] where isFilled(value) {
+                used.insert(field)
+            }
+            for case .object(let entry) in tune.tunings.values {
+                if case .string(let tuning) = entry["tuning"] ?? .null, isFilled(tuning) { used.insert(.tuning) }
+                if case .integer = entry["capo"] ?? .null { used.insert(.capo) }
+            }
+        }
+        let liveTunes = Tune.filter(Tune.CodingKeys.deletedAt == nil).select(Tune.CodingKeys.id)
+        let userTunes = UserTune.filter(UserTune.CodingKeys.deletedAt == nil)
+            .filter(liveTunes.contains(UserTune.CodingKeys.tuneID))
+        let rows = try userTunes.fetchCursor(db)
+        while let userTune = try rows.next() {
+            for (field, value) in [
+                (TuneField.notes, userTune.notes), (.learnedFrom, userTune.learnedFrom),
+                (.learnedOn, userTune.learnedOn),
+            ] where isFilled(value) {
+                used.insert(field)
+            }
+        }
+        return TuneField.allCases.filter(used.contains)
+    }
+
+    nonisolated private static func isFilled(_ value: String?) -> Bool {
+        guard let value else { return false }
+        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     /// Sets the store's figures on the person once both Clerk's user and their store are known,
@@ -241,7 +308,10 @@ public final class AccountSession {
         guard case .signedIn(let userID, confirmed: true) = phase, let store, store.userID == userID else { return }
         let analytics = analytics
         Task { [weak self] in
-            let sent = await Self.identify(userID: userID, withFiguresIn: store, analytics: analytics) {
+            let device = self?.deviceSettings() ?? []
+            let sent = await Self.identify(
+                userID: userID, withFiguresIn: store, analytics: analytics, deviceSettings: device
+            ) {
                 self?.mayIdentify(userID) ?? false
             }
             carried(sent)
@@ -255,16 +325,19 @@ public final class AccountSession {
     }
 
     /// Identifies the user with the store's figures, unless `canIdentify` refuses once they are read.
+    /// The device's own settings go even before a sync, since the device always knows them.
     ///
     /// - Returns: Whether the identify carried the API's figures.
     static func identify(
         userID: String, withFiguresIn store: CrosstuneStore, analytics: AnalyticsClient,
-        canIdentify: @MainActor () -> Bool
+        deviceSettings: [SettingChange] = [], canIdentify: @MainActor () -> Bool
     ) async -> Bool {
         let figures = await storeFigures(in: store)
         guard canIdentify() else { return false }
         analytics.identify(
-            userID: userID, signedUpAt: nil, catalogSize: figures.catalogSize, storageUsed: figures.storageUsed)
+            userID: userID, signedUpAt: nil, catalogSize: figures.catalogSize, storageUsed: figures.storageUsed,
+            fieldsUsed: figures.fieldsUsed,
+            settings: (figures.storageUsed == nil ? [] : figures.settings) + deviceSettings)
         return figures.storageUsed != nil
     }
 
@@ -617,7 +690,7 @@ public final class AccountSession {
         store = opened
         let engine = SyncEngine(
             store: opened, api: LiveSyncAPI(client: client, storageOrigin: storageOrigin),
-            isOffline: { [weak self] in self?.isOffline ?? true })
+            isOffline: { [weak self] in self?.isOffline ?? true }, analytics: analytics)
         syncedFiguresReported = false
         engine.onSynced = { [weak self] in self?.syncLanded(in: opened, storedFigures: $0) }
         sync = SessionSync(store: opened, engine: engine, isActive: isActive, isOffline: isOffline)

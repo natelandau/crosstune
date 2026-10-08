@@ -46,6 +46,8 @@ public final class EditRecordingModel {
     public private(set) var dateFailure: String?
 
     private let store: CrosstuneStore
+    private let analytics: AnalyticsClient
+    private let recording: Recording
     private let openedName: String
     private let now: () -> Timestamp
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "edit-recording")
@@ -53,9 +55,11 @@ public final class EditRecordingModel {
     /// `timeZone` reads a take's day; `now` decides which dates are still to come.
     public init(
         store: CrosstuneStore, recording: Recording, timeZone: TimeZone = .current,
-        now: @escaping () -> Timestamp = { .now }
+        now: @escaping () -> Timestamp = { .now }, analytics: AnalyticsClient = .noop
     ) {
         self.store = store
+        self.analytics = analytics
+        self.recording = recording
         self.now = now
         recordingID = recording.id
         name = recording.label ?? ""
@@ -111,6 +115,7 @@ public final class EditRecordingModel {
                 }
             }
             isSaved = true
+            if trimmed != openedName { analytics.recordingRenamed(recording) }
             return true
         } catch {
             Self.logger.warning("A recording edit failed: \(error)")
@@ -126,6 +131,7 @@ public struct EditRecordingSheet: View {
     private let view: RecordingView
 
     @Environment(\.store) private var store
+    @Environment(\.analytics) private var analytics
     @State private var model: EditRecordingModel?
 
     public init(view: RecordingView) {
@@ -156,7 +162,7 @@ public struct EditRecordingSheet: View {
         #endif
         .task {
             guard model == nil, let store else { return }
-            model = EditRecordingModel(store: store, recording: view.recording)
+            model = EditRecordingModel(store: store, recording: view.recording, analytics: analytics)
         }
     }
 }

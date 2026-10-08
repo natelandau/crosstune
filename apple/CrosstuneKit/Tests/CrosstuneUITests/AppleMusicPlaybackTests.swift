@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
@@ -235,6 +236,18 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(access.requests == 1)
         #expect(player.linkAudio == .native)
         #expect(music.calls == ["load", "play"])
+    }
+
+    @Test(arguments: [(AppleMusicAccessState.fullTracks, true), (.declined, false)])
+    func reportsWhatThePlayerGotFromThePrompt(answer: AppleMusicAccessState, granted: Bool) async throws {
+        let sink = RecordingAnalyticsSink()
+        let access = FakeAccess(.notAsked, answer: answer)
+        let player = PlayerModel(
+            audio: FakeAudio(), appleMusic: AppleMusic(access: access, player: FakeMusic()), analytics: sink.client)
+
+        try await play(player)
+
+        #expect(sink.captures == [.init(name: "apple_music_authorized", properties: ["granted": .bool(granted)])])
     }
 
     @Test func fallsBackToTheEmbedWhenTheTrackIsNotFound() async throws {

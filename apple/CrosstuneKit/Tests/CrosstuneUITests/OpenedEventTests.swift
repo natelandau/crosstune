@@ -6,19 +6,10 @@ import Testing
 
 @testable import CrosstuneUI
 
-/// Stats and the stand report an opening alongside their screen view, and the export reports
-/// once its zip is made.
+/// The export reports once its zip is made.
 @MainActor
 @Suite struct OpenedEventTests {
     private let sink = RecordingAnalyticsSink()
-
-    @Test func statsAndTheStandAreFeaturesOpenedAsWellAsScreens() {
-        #expect(Screen.stats.openedEvent == .statsViewed)
-        #expect(Screen.stand.openedEvent == .standOpened)
-        for screen: Screen in [.catalog, .tune, .list, .lists, .recordings, .recording, .settings] {
-            #expect(screen.openedEvent == nil)
-        }
-    }
 
     private func zip() throws -> URL {
         let folder = FileManager.default.temporaryDirectory.appending(path: "opened-events-\(UUID().uuidString)")
@@ -50,13 +41,13 @@ import Testing
         model.finishHandOff()
     }
 
-    @Test func reportsNoExportThatFailed() async throws {
+    @Test func reportsNoCompletionForAnExportThatFailed() async throws {
         struct DiskFull: Error {}
         let model = ExportDataModel(exporter: exporter { throw DiskFull() }, analytics: sink.client)
         await model.followCounts()
 
         await model.start()?.value
 
-        #expect(sink.calls.isEmpty)
+        #expect(sink.captures.map(\.name) == ["export_failed"])
     }
 }

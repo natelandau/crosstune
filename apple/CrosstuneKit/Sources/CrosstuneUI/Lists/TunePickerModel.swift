@@ -161,7 +161,7 @@ public final class TunePickerModel {
 
     private func reportIfDone() {
         guard isClosed, adding.isEmpty, added > 0 else { return }
-        analytics.send(.tunesAddedToList(count: added))
+        analytics.send(.tunesAddedToList(listID: listID, count: added))
         added = 0
     }
 }

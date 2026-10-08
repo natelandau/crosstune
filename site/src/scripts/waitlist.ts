@@ -11,7 +11,7 @@ export const JOINED_KEY = 'crosstune:waitlist-joined'
 export const JOIN_EVENT_KEY = 'crosstune:waitlist-join-event'
 
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content']
-const ACQUISITION_KEYS = ['$referrer', '$referring_domain', ...UTM_KEYS]
+export const ACQUISITION_KEYS = ['$referrer', '$referring_domain', ...UTM_KEYS]
 
 export interface WaitlistClient {
   join(params: { emailAddress: string }): Promise<unknown>

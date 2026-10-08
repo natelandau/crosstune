@@ -11,41 +11,27 @@ extension ReadingChoice {
     }
 }
 
-/// What a visit to the reading pane reports: the first showing of each kind, as the scan
-/// viewer and the lyrics reader report their own openings.
-struct ReadingVisit {
-    private var reported: Set<ReadingChoice> = []
-
-    /// The event for showing `choice`, or nil once this visit has reported it.
-    mutating func shown(_ choice: ReadingChoice) -> AnalyticsEvent? {
-        guard reported.insert(choice).inserted else { return nil }
-        return switch choice {
-        case .scans: .scanViewed
-        case .lyrics: .lyricsOpened
-        }
-    }
-}
-
 /// The playing tune's scans and lyrics on the practice ground: the scans on their own paper, a
 /// page at a time, or the lyrics at the reader's size. A tune with both opens on its scans, with
 /// a control to turn to the lyrics.
 struct ReadingPane: View {
     let reading: StandReading
+    /// The stand's visit, which outlasts each tune's pane and decides what a showing reports.
+    let visit: StandVisit
 
     @State private var choice = ReadingChoice.scans
-    /// One per tune, since the stand gives each tune's pane an identity of its own.
-    @State private var visit = ReadingVisit()
     @Environment(\.analytics) private var analytics
 
-    init(reading: StandReading) {
+    init(reading: StandReading, visit: StandVisit) {
         self.reading = reading
+        self.visit = visit
     }
 
     var body: some View {
         let segments = ReadingChoice.segments(reading)
         VStack(spacing: 12) {
             if !segments.isEmpty {
-                Picker(StandText.reading, selection: $choice) {
+                Picker(StandText.reading, selection: picked) {
                     ForEach(segments, id: \.self) { choice in
                         Text(choice.label).tag(choice)
                     }
@@ -63,9 +49,21 @@ struct ReadingPane: View {
             }
         }
         .padding(16)
-        .onChange(of: shown(segments), initial: true) { _, kind in
-            if let event = visit.shown(kind) { analytics.send(event) }
+        .onAppear { report(shown(segments), picked: false) }
+    }
+
+    /// The control's choice, reported as the musician's own each time they pick a segment.
+    private var picked: Binding<ReadingChoice> {
+        Binding {
+            choice
+        } set: { choice in
+            self.choice = choice
+            report(choice, picked: true)
         }
+    }
+
+    private func report(_ choice: ReadingChoice, picked: Bool) {
+        if let event = visit.readingShown(choice, tuneID: reading.tuneID, picked: picked) { analytics.send(event) }
     }
 
     /// The control's choice while it shows, else whichever kind the tune has.

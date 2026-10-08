@@ -110,7 +110,7 @@ public final class ScanViewLog {
     /// Ends any open view, then starts a view of `tuneID`'s scans.
     func start(tuneID: String, origin: ScanViewOrigin) {
         end()
-        analytics.send(.scanViewed)
+        analytics.send(.scanViewed(tuneID: tuneID))
         open = Open(tuneID: tuneID, origin: origin, since: isForeground ? (clock(), now()) : nil)
     }
 

@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import GRDB
@@ -40,13 +41,15 @@ public final class AddToTuneModel {
     public private(set) var isFiling = false
 
     private let store: CrosstuneStore
+    private let analytics: AnalyticsClient
     private let entries: LiveQuery<[SearchableEntry]?>
     private let storedInstruments: LiveQuery<Set<String>?>
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "add-to-tune")
 
-    public init(store: CrosstuneStore, recordingID: String) {
+    public init(store: CrosstuneStore, recordingID: String, analytics: AnalyticsClient = .noop) {
         self.store = store
         self.recordingID = recordingID
+        self.analytics = analytics
         // Folded on the store's reader rather than on each keystroke.
         entries = LiveQuery(store, initial: nil) { try CatalogModel.fetchEntries($0).map(SearchableEntry.init) }
         let settingsRow = settingsID(clerkUserID: store.userID)
@@ -86,7 +89,9 @@ public final class AddToTuneModel {
         failure = nil
         let recordingID = recordingID
         do {
+            let before = try? await store.read { db in try Recording.fetchOne(db, key: recordingID) }
             try await Commands(store: store).updateRecording(recordingID, tuneID: .value(entry.tune.id))
+            if let before, before.tuneID != entry.tune.id { analytics.recordingFiled(before, under: entry.tune.id) }
             return true
         } catch {
             Self.logger.warning("A recording could not be filed: \(error)")
@@ -121,6 +126,7 @@ public struct AddToTuneSheet: View {
     private let onCreate: (_ title: String) -> Void
 
     @Environment(\.store) private var store
+    @Environment(\.analytics) private var analytics
     @State private var model: AddToTuneModel?
 
     /// - Parameter onCreate: The musician chose to start a tune by this title; the sheet is
@@ -147,7 +153,7 @@ public struct AddToTuneSheet: View {
         .macSheetFrame(.picker)
         .task {
             guard model == nil, let store else { return }
-            model = AddToTuneModel(store: store, recordingID: recordingID)
+            model = AddToTuneModel(store: store, recordingID: recordingID, analytics: analytics)
         }
         .shellSheet()
     }

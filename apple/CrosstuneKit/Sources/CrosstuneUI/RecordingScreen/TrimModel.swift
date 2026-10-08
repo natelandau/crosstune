@@ -236,7 +236,7 @@ final class TrimModel {
             isSaving = false
             throw error
         }
-        analytics.send(.recordingTrimmed)
+        analytics.send(.recordingTrimmed(recordingID: recordingID))
         leave()
         return true
     }
