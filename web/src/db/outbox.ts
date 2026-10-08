@@ -17,6 +17,7 @@ export async function enqueue(db: CrosstuneDb, entry: Omit<OutboxEntry, 'seq'>):
   })
 }
 
+/** The row's queued change, if any; a file transfer waits while its row still has one. */
 export function pendingFor(
   db: CrosstuneDb,
   table: TableName,
@@ -25,10 +26,15 @@ export function pendingFor(
   return db.outbox.where('[table+row_id]').equals([table, rowId]).first()
 }
 
+/** The oldest queued changes first, at most `limit`. */
 export function pendingBatch(db: CrosstuneDb, limit = PUSH_BATCH_SIZE): Promise<OutboxEntry[]> {
   return db.outbox.orderBy('seq').limit(limit).toArray()
 }
 
+/**
+ * Discards a row's queued change without sending it, for a dependent whose own entry a
+ * cascading parent delete makes redundant.
+ */
 export async function dropPending(db: CrosstuneDb, table: TableName, rowId: string): Promise<void> {
   await db.outbox.where('[table+row_id]').equals([table, rowId]).delete()
 }

@@ -81,11 +81,13 @@ function subscribeOnline(callback: () => void) {
   }
 }
 
+/** Browser connectivity (`navigator.onLine`), kept live. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useOnline(): boolean {
   return useSyncExternalStore(subscribeOnline, () => navigator.onLine)
 }
 
+/** The push and pull of rows. Reads 'offline' whenever the browser is. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useSyncStatus(): SyncStatus {
   const engine = useSyncEngine()
@@ -93,6 +95,10 @@ export function useSyncStatus(): SyncStatus {
   return useOnline() ? status : 'offline'
 }
 
+/**
+ * Recording and scan file uploads and downloads, which run apart from row sync. Reads
+ * 'offline' whenever the browser is.
+ */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useTransferStatus(): TransferStatus {
   const engine = useSyncEngine()
@@ -100,6 +106,7 @@ export function useTransferStatus(): TransferStatus {
   return useOnline() ? status : 'offline'
 }
 
+/** When the engine last finished a sync, or null if none has finished since the page loaded. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useLastSyncedAt(): string | null {
   const engine = useSyncEngine()

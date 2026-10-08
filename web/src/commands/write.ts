@@ -18,6 +18,11 @@ export function defined<T extends object>(patch: Partial<T>): Partial<T> {
   ) as Partial<T>
 }
 
+/**
+ * The transaction every synced write runs in. It spans the synced tables and the outbox, so a
+ * row and its queued change commit together. A write that also touches local audio uses
+ * `recordingTx` instead.
+ */
 export function writeTx<T>(db: CrosstuneDb, fn: () => Promise<T>): Promise<T> {
   return db.transaction('rw', [...syncTables(db), db.outbox], fn)
 }

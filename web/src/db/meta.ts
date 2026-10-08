@@ -15,11 +15,16 @@ export interface StorageFigures {
   max_file_bytes: number
 }
 
+/**
+ * Device-local key/value state that never syncs. Anything that should follow the user across
+ * devices belongs in a `user_settings` row instead.
+ */
 export async function getMeta<T>(db: CrosstuneDb, key: string, fallback: T): Promise<T> {
   const entry = await db.meta.get(key)
   return entry === undefined ? fallback : (entry.value as T)
 }
 
+/** Writes device-local state; see `getMeta`. */
 export async function setMeta(db: CrosstuneDb, key: string, value: unknown): Promise<void> {
   await db.meta.put({ key, value })
 }
