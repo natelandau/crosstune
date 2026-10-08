@@ -4,7 +4,9 @@ Rules every Mac screen follows, beside the rules in `design.md`. Where the
 two pages disagree, this page holds on the Mac. iPhone and iPad never take a
 rule from this page. A view built only for the Mac lives in
 `apple/CrosstuneKit/Sources/CrosstuneUI/Mac/`, and a Mac branch in a shared
-view never changes how iPhone or iPad draw it.
+view never changes how iPhone or iPad draw it. The Mac follows Apple's Human
+Interface Guidelines for presentation: native SwiftUI controls, SF Symbols,
+and system materials and fonts.
 
 ## Tokens
 
@@ -15,6 +17,11 @@ a text size.
 
 - Slate is the accent, lighter in dark mode. It marks every chosen state,
   the selection, focus rings, and default buttons.
+- A window or scene root carries `.tint(BrandStyle.accent)`, so slate tints
+  the selection, chosen controls, and primary buttons.
+- SwiftUI's tint does not reach what AppKit draws itself, such as list
+  selection, focus rings, default buttons, alerts, menus, and the Settings
+  tabs. The `AccentColor` asset colors those.
 - A label on a slate fill is white in light mode and near-black in dark
   mode, because the dark slate is a light color.
 - Coral marks only the selected sidebar row's glyph, the playhead of
@@ -71,6 +78,8 @@ toolbar is unified and shows no window title text.
   one.
 - A pane bar's search field is the app's own, so it can carry the filter
   control at its trailing edge. The system field takes no accessory.
+- System undo, Cmd-Z and the Edit menu, plus a short banner with an Undo
+  button, takes the place of a toast.
 
 ## Sidebar
 
@@ -100,8 +109,15 @@ sort header, rows.
 - Everything above the rows starts at the rows' leading edge.
 - Groups take plain headings in the section heading role, never inset
   cards.
-- A filter control is a capsule a step lower than the pane bar, so the bar
-  stays the column's chrome.
+- A filter control is a quiet capsule a step lower than the pane bar, so
+  the bar stays the column's chrome. It takes the slate wash once it
+  narrows the list.
+- A facet filter is a pull-down that reads its facet and value: "Key: Any",
+  "Key: D". A facet whose values carry color opens a popover of pills,
+  because a menu draws its images in one color. Choosing a value closes it.
+- A Filters control with nothing to choose leaves the screen, never shows
+  disabled. Recordings shows Filters only while an import gives the sources
+  something to tell apart or a source is set.
 - A set sheet filter is a slate token that removes it. Tokens trail the
   controls on one row while it fits and wrap under them when it does not.
 - Nothing scrolls sideways where it can wrap or spread, because a mouse
@@ -118,9 +134,7 @@ sort header, rows.
   trailing edge, so keys line up down the column.
 - The title keeps its width first. Tunings truncate, then drop out, rather
   than shrink to a lone ellipsis.
-- Status is a glyph whose shape carries the meaning: Known a filled check,
-  Learning a half-filled circle, Unknown an empty ring, each in its status
-  color. Its word is its accessible name and its tooltip.
+- A status glyph's word is also its tooltip.
 - A selected row takes the soft inset slate highlight and keeps every
   glyph's own color. The row a playing list is on takes a lighter slate
   wash in the same inset shape.
@@ -150,6 +164,11 @@ A page is a view that reads as a document, such as the tune page or stats.
   before one.
 - Moving to another tune cross-fades. The page on screen stays until the
   next one has read, so the pane never goes blank.
+- Stats is a document page. Each block is the simplest chart that shows
+  its point: the status split as one bar in the status colors, and each
+  breakdown value over a thin slate bar sized by its share.
+- A stats breakdown of more than 8 values shows the top 8 and a "Show all"
+  row with the full count, which expands it in place.
 
 ## Player dock
 
@@ -164,6 +183,10 @@ A page is a view that reads as a document, such as the tune page or stats.
 - While a list plays, previous, next, shuffle, and repeat join the bar.
 - The scrubber is a thin line with a coral playhead. It takes keyboard
   focus, and the arrow keys move it, as they move a slider.
+- A link that the app plays itself, such as an Apple Music link through
+  MusicKit, starts in the bar like a recording and does not open in full. A
+  link in its provider's embed opens in full, because the embed holds its
+  only controls.
 
 ## Recording
 
@@ -179,12 +202,21 @@ A page is a view that reads as a document, such as the tune page or stats.
   loaded.
 - The recording's title is the practice view's heading, in the page title
   role. Close and the recording's menu sit in its `paneBar`.
+- In the recording sheet, a Stop that cannot run dims as a whole disc,
+  never only its label.
+- The record control and the menu commands that open a sheet stand down
+  while a sheet, dialog, or file picker is up. The record control and the
+  Record command also stand down while a screen is selecting.
 
 ## Forms and Settings
 
 - A form is a centered sheet in the grouped form style. A closed choice is a
   native pop-up button, except where the values carry color, such as the
   key's pill grid.
+- A segmented control is allowed for a short closed choice. A tune's status
+  is set with one, a segment per word. A system segment shows an image or a
+  word, never both, and the words are what a musician chooses by. When
+  tunes disagree, no segment is chosen.
 - A closed choice where picking the shown value again must register, such
   as time signature, is a menu, which the Mac draws as a pull-down. A picker
   skips the write when the same value is picked again. The menu's label is
@@ -206,6 +238,14 @@ A page is a view that reads as a document, such as the tune page or stats.
   changing, or the dock appearing. Nothing animates under Reduce Motion.
 - A status glyph changes by a symbol replace transition, so the change of
   shape reads as the change of status.
+- Native motion, SwiftUI transitions and symbol effects, may move beyond
+  the record control, the live waveform, and a playing list's speaker.
+
+## Privacy
+
+- A shared view that shows what the musician wrote or named carries
+  `.contentMask()`, as on iOS. The modifier masks only on iPhone and iPad,
+  so a shared view stays one view on every Apple platform.
 
 ## Accessibility
 

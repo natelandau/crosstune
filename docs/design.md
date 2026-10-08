@@ -1,10 +1,14 @@
 # Crosstune design rules
 
-Rules every screen follows. When a rule and a screen disagree, the rule
-wins and the screen is the bug. The client is Ionic React: each platform
-supplies its own structure, and a rule says where the two differ on
-purpose. Each pattern is implemented once, in `web/src/ui/` or its feature
-folder. A new screen composes it and never rebuilds it.
+Rules every screen follows, on every platform. When a rule and a screen
+disagree, the rule wins and the screen is the bug. Each platform's page
+holds its presentation, and holds on that platform where it and this page
+differ:
+
+- [Web design rules](design-web.md) for the web client.
+- [Mac design rules](design-macos.md) for the Mac.
+- [iOS design rules](design-ios.md) for iPhone and a compact iPad window.
+- [iPad design rules](design-ipad.md) for an iPad at regular width.
 
 ## Words
 
@@ -13,8 +17,7 @@ folder. A new screen composes it and never rebuilds it.
 - Clarity over colloquialism. A label uses the word a player of any folk
   tradition, and a non-native English speaker, understands first, never a
   genre's slang.
-- Sentence case everywhere. Proper nouns keep their capitals. `ios` edit
-  mode copies Apple's capitals.
+- Sentence case everywhere. Proper nouns keep their capitals.
 - A button is a bare imperative verb: Edit, Save, Delete. Add an object only
   when the target is ambiguous: Add tune, Add to list.
 - Anything that acts on several tunes carries the count: "Archive 3 tunes",
@@ -37,95 +40,33 @@ folder. A new screen composes it and never rebuilds it.
   Soldier's Joy". When the row is the control, its name is the verb plus the
   lines the row shows.
 
-## Layout and chrome
+## Layout
 
-Three axes decide the chrome. No screen asks which device it is on;
-`src/platform/` answers.
-
-| Axis    | Values           | Decides                                                   | Source                               |
-| ------- | ---------------- | --------------------------------------------------------- | ------------------------------------ |
-| Mode    | `ios`, `md`      | How components look and animate                           | Ionic's own detection, never forced  |
-| Frame   | `phone`, `wide`  | Tab bar or sidebar, full width or a measured column       | Viewport 768px wide and 600px tall   |
-| Pointer | `touch`, `mouse` | Swipe or hover, sheet or popover, whether shortcuts exist | `(hover: hover) and (pointer: fine)` |
-
-- One router and one outlet always render. Routes are tab-scoped, so a tune
-  opened from a list stays in that tab and Back returns to the list.
-- No overlay is a route. A modal or sheet opens over the current screen and
-  the URL does not change.
-- The frame is decided by width and height together, never width alone, so a
-  landscape phone keeps the phone frame.
-- The phone frame has a tab bar and the wide frame a sidebar. The bar is
-  hidden, not unmounted, on the wide frame, so each stack keeps its pushed
-  pages.
-- Wide-frame content sits in a 640px column, in pixels, so the text size
-  setting scales the type and not the column.
 - No app bar lockup and no link home.
-- `Screen` is the one page component: page, toolbar, scrolling content, and
-  landmark. A top-level screen opens with a large title on `ios` and the
-  search bar under it. A pushed screen carries a back button.
 - One action reached from several places opens one component, laid over the
-  current tab, so finishing returns the musician where they were.
+  current screen, so finishing returns the musician where they were.
 - Chrome at the bottom of the frame reserves its own room.
 - An error shows beside the control that produced it. A group's error
   replaces its help text in red. A row action reports under its list. A
   screen action reports above the rows.
 
-## Color, type, and icons
+## Color and type
 
-- Page background, fills, separators, and secondary text come from Ionic's
-  per-mode defaults.
-- Every screen and sheet takes the page background. A card is set off by a
-  hairline ring in light mode and a lighter fill in dark, drawn as a shadow
-  rather than a border so the content box and row inset never shift.
-- Four Ionic roles carry meaning and no screen invents a fifth. `primary`
-  tints anything chosen. `success` and `warning` mark status dots. `warning`
-  also marks a cautionary action. `danger` marks every destructive one.
-- The tab bar's record dot and the recording sheet's Stop button are
-  recording red, through the `record` token, which does not move with
-  `danger`. Stop's label is white and large text, the only size at which
-  white passes contrast on that red.
 - A control painted in a value's own color keeps that color when chosen.
-- Dark mode is Ionic's system palette, switched by a class the appearance
-  setting writes. The class and `data-theme` are stamped before first paint.
-- `src/app/theme/variables.css` is imported outside every cascade layer.
-  Ionic injects its component styles unlayered at runtime, and a layered
-  rule loses to them whatever its specificity. Anything that must beat Ionic
-  goes there.
-- Ionic's label styles are unlayered too, so each type role is applied again
-  unlayered to reach inside an `ion-label`. Put a color utility on a child
-  span, never on the role element.
-- Ionic copies `aria-*` onto its inner control once, at load, and strips it
-  from the host. State that changes later is written to the control itself.
-- Type comes in named roles: title, headline, body, subheadline, footnote,
-  caption, timer, each defined once per mode in `layer(components)`. A
-  screen uses a role and never sets a size, weight, or tracking. A role whose
-  size is the point of a screen takes the size as a step on the role, chosen
-  by a data attribute.
-- A group header that labels a form section takes footnote in the secondary
-  color. One that names the thing its rows belong to takes the title role.
-  Each kind keeps a constant height whether or not it carries a control or
-  opens anything. When a naming header leads somewhere, a chevron says so
-  and the whole line is the target.
+- A group header that labels a form section is secondary text. One that
+  names the thing its rows belong to is a heading. Each kind keeps a
+  constant height whether or not it carries a control or opens anything.
+  When a naming header leads somewhere, a chevron says so and the whole
+  line is the target.
 - A group's add action is a control at the trailing edge of its header,
   never a row in the card or a loose button.
 - Numerals are tabular wherever a number can change or line up.
 - A musical key is a colored pill everywhere. Its hue comes from the pitch
   class on the circle of fifths, at constant lightness and chroma. A key the
   client cannot read keeps the pill with the neutral fill. Two sizes only:
-  full, a 44px target, and compact, inside row metadata.
-- The text size setting has three steps on the root font size. Inputs never
-  drop below 16px, so iOS does not zoom on focus. iOS Dynamic Type is off.
-- A measurement that lines up with an Ionic edge is in pixels, because
-  Ionic's paddings are pixels.
+  full, a tap target, and compact, inside row metadata.
 - Appearance, text size, and recording channels are per device. Sign-out
   leaves them alone.
-- Every tap target is at least 44px. Ionic injects a smaller unlayered
-  minimum, so toolbar controls, row actions, and capsules each carry a rule
-  that outranks it. Measure the control rather than trusting its class.
-- Icons come from `lucide-react` as named imports, sized with a `size-*`
-  class, hidden from assistive technology inside a named control. A glyph
-  beside a word goes in the button's `start` slot. A text character is never
-  an icon.
 
 ## Identity
 
@@ -141,15 +82,15 @@ Three axes decide the chrome. No screen asks which device it is on;
 
 Everywhere the app lists tunes it uses one row.
 
-- Line one is the title, truncated when long.
-- Line two holds the key with its mode, the status dot with its label, the
-  non-standard tunings and capos for played instruments, and "Archived",
-  each omitted when unset. A screen reader hears a comma between parts.
+- The title keeps its width first and truncates when long.
+- The row shows the status, the key with its mode, the non-standard
+  tunings and capos for played instruments, and "Archived", each omitted
+  when unset. A screen reader hears a comma between parts.
 - An archived row is dimmed as a whole.
 - A tap opens the tune. While selecting, a tap toggles the row.
-- In a list, the row gains a position number, a Reorder button, and a drag
-  grip. A row that plays carries its play control first in its trailing
-  edge, and a tune with nothing to play shows the not-playable glyph there.
+- In a list, the row gains a position number and reorders by a drag. A tune
+  with nothing to play shows the not-playable glyph where a play control
+  would be.
 
 ## Keys, modes, and tunings
 
@@ -195,10 +136,10 @@ Everywhere the app lists tunes it uses one row.
 
 - The labels are "Known", "Learning", and "Unknown" (want to learn). One
   word each fits a phone.
-- Never color alone. A dot always has its label. Known is a filled success
-  dot, learning a filled warning dot, want to learn a hollow ring.
-- Status is a rail of capsules wherever it is set or filtered. A filter rail
-  leads with All.
+- Never color alone. Status is a glyph whose shape carries the meaning:
+  Known a filled check, Learning a half-filled circle, Unknown an empty
+  ring, each in its status color. Its word is its accessible name.
+- Status is set with a rail of capsules, one per word.
 - The tune screen shows the status and never sets it. Only the tune's edit
   form sets it.
 - A required field never clears: pressing the chosen capsule leaves it
@@ -226,14 +167,12 @@ does not.
   that. "Clear search" appears while the field has focus.
 - A search matches stored names, a row's parent's name included, never text
   composed for display, such as a title made from a date.
-- Query text lasts the browser session and filters persist. Opening the new
+- Query text lasts the app session and filters persist. Opening the new
   tune form and signing out clear the query.
 
 ## Filters
 
-The catalog and the Recordings tab each open a filter sheet from the Filters
-control at the search field's trailing edge, with a count and removable
-capsules. Only the catalog shows facet rails on screen.
+The catalog and Recordings each open a filter sheet from a Filters control.
 
 - The control that opens the filter sheet sits with the search field, not in
   the toolbar, and carries a count: "Filters, 2 set". Filters persist, so a
@@ -250,13 +189,6 @@ capsules. Only the catalog shows facet rails on screen.
   names its instrument, and a composer or learned-from capsule names its
   field, because values can collide: two instruments can share a tuning's
   name, and one person can be both composer and teacher.
-- On the web, a Filters control that cannot run stays in place, disabled,
-  with its reason to assistive technology. It is silent while the list
-  loads and when there is nothing at all to filter. The Apple app hides it
-  instead.
-- A rail of chips stays on one line at every width and text size. It scrolls,
-  fades at its end while there is more, and scrolls the chosen chip into
-  view.
 - The list header's count reads "84 tunes", or "11 of 84 tunes" while
   narrowed, and is absent when the catalog is empty.
 - Matching ignores case and accents.
@@ -283,50 +215,42 @@ points.
   filter, such as time signature, only reads, with no chevron. So does a
   value the stored filter would read as Any or No key, such as a genre named
   All.
-- Charts are styled elements, never SVG. Each mark carries its value as
-  text for assistive technology. When a mark is too small to tap, the chart
-  is one tab stop that takes taps, hover, and the arrow keys, and shows the
-  chosen mark's detail under it.
+- Each mark of a chart carries its value as text for assistive technology.
+  When a mark is too small to tap, the chart is one tab stop that takes
+  taps, hover, and the arrow keys, and shows the chosen mark's detail under
+  it.
 - Shading steps are the quartiles of the musician's own values, so a
   casual player and a daily one both see the full range. An empty slot
   stays in place, so the spacing reads as time.
 
 ## Gestures
 
-Every gesture has a visible equivalent. Swipe actions are also hover buttons
-and menu items, long press has the Select item, and drag has the move menu.
+Every gesture has a visible equivalent. Swipe actions are also menu items,
+and a drag has Move.
 
 - On touch a row swipes left to reveal one to three full-height actions in
   their tone: neutral, warning, or error. Every action is the same width. A
   label too long for that width shows shorter text, and the full label still
   names the button.
-- On a mouse the same actions are icon buttons on the row's trailing edge,
-  shown on hover and keyboard focus, always in the tab order.
 - A full swipe only opens the row. No swipe is destructive.
 - A destructive glyph says what it destroys: trash for gone for good, a list
   with a cross for removed from a list.
 - Editing a row opens the form as a sheet over the current screen.
-- A press held 500 ms on a tune row enters selection, on touch only. More
-  than 10px of movement cancels it. The phone vibrates where it can.
-- A reorder grip swallows every click and is unnamed, so a draggable row also
-  carries a move button that opens a menu. After a move a live region says
-  where the tune landed. Both appear only with more than one visible tune.
-  Reordering stops while selecting, and a selecting row has no swipe actions.
-- On `ios` a pushed page swipes back.
-- On a mouse, `/` focuses search, arrow keys walk the rows, Enter opens,
-  Escape leaves selection, and Cmd-A or Ctrl-A selects all. A shortcut
-  stands down while a text field or an overlay holds the keyboard.
+- A long press on a row opens its menu.
+- A draggable row also carries a Move control, so it reorders without a
+  drag. After a move a live region says where the tune landed. Reordering
+  stops while selecting, and a selecting row has no swipe actions.
+- With a keyboard, the arrow keys walk the rows, Enter opens, Escape leaves
+  selection, and Cmd-A or Ctrl-A selects all. A shortcut stands down while
+  a text field or an overlay holds the keyboard.
 
 ## Selection and bulk actions
 
 Selection is component state, never a URL.
 
-- Enter from the More actions menu or a long press.
+- Enter from Select in the screen's More menu or in a row's menu.
 - Each row's own control becomes its checkbox. A check mark on the leading
   edge is inert decoration.
-- The chrome diverges on purpose. On `ios` the actions sit in a footer
-  toolbar and the tab bar hides. On `md` the toolbar carries them and the tab
-  bar stays.
 - The count is a digit beside a word that can elide. A screen wearing the
   selection toolbar shows no back button.
 - The selection holds only visible tunes. A tune hidden by search, a filter,
@@ -338,8 +262,7 @@ Selection is component state, never a URL.
 - Delete is the exception. It takes recordings that no undo can bring back,
   so it confirms and raises no toast.
 - Exits: the toolbar's exit control, Escape, leaving the screen, completing
-  an action, or the Android hardware back button on a native build, which is
-  registered below Ionic's overlays and above its router.
+  an action, or Android's back.
 - Shift-click extends the selection. Cmd-A or Ctrl-A selects all and never
   clears.
 - Focus moves to a row's checkbox on entering and returns to the opening
@@ -352,8 +275,8 @@ Selection is component state, never a URL.
 
 ## Forms
 
-Every form is a sheet on touch and a centered dialog on a mouse. There is
-no form route and no save bar.
+Every form is a sheet over the current screen. There is no form route and
+no save bar.
 
 - The sheet toolbar holds the actions: `Cancel` leads and a bold primary
   action trails, named for what it does. A sheet whose rows are the actions
@@ -373,13 +296,10 @@ no form route and no save bar.
   as "2 of 7".
 - Fields are ranked by how often they are touched. Rare ones go last, in one
   list of rows.
-- One spacing scale: a 16px gutter for cards and bare controls; header,
-  footer, help, and error text at the 32px row inset; 24px above a header;
-  8px below a header and above a footer; 16px between two cards with no
-  header; 44px rows.
 - A labeled field row has the label leading and the value trailing. The
   value elides first.
-- Every control has a visible label. An `aria-label` alone is not a label.
+- Every control has a visible label. A name given only to assistive
+  technology is not a label.
 - A row that opens its own form carries its name and a chevron, and no value
   summary.
 - Every field shows where to type. An empty row reads "Not set". A standalone
@@ -403,23 +323,19 @@ no form route and no save bar.
 
 ## Sheets, menus, confirmations, and toasts
 
-Each follows the pointer and is implemented once.
+Each is implemented once. Each platform's page says how it presents.
 
-- A sheet is a bottom sheet with a grabber on touch, opening part way and
-  dragging to full, or at full height at once for a long body or a form of
-  many fields. On a mouse it is a centered dialog 480px wide. Its title names
-  the dialog.
-- A menu is an action sheet on touch and a popover on a mouse. A destructive
-  item is red and follows a separator. A cautionary one takes the warning
-  color.
-- A destructive action confirms through the app's own overlay, an action
-  sheet on touch and an alert on a mouse. Only the named action resolves
-  true. The button is the bare verb. The message names the consequence and
-  says when data cannot come back:
+- A sheet opens part way, or at full height at once for a long body or a
+  form of many fields. Its title names the dialog.
+- A destructive menu item is red and follows a separator. A cautionary one
+  takes the warning color.
+- A destructive action confirms through the app's own overlay. Only the
+  named action resolves true. The button is the bare verb. The message
+  names the consequence and says when data cannot come back:
   `Delete "Soldier's Joy"? This removes its links and list entries.`
 - A toast is for an action that offers Undo, and for the rare error that
-  arrives after the musician has left the screen. One at a time, about 8
-  seconds, anchored above the frame's bottom chrome.
+  arrives after the musician has left the screen. One at a time, above the
+  frame's bottom chrome.
 - A question the app must have answered has no Cancel, waits for a clean
   sync before it asks, and never opens over another modal.
 - A destructive edit that needs more room than a confirmation opens as its
@@ -472,16 +388,14 @@ Recordings and links share one row shape.
   somewhere, the whole line opens it.
 - The dock opens only from a play tap. Opening a tune never loads a player.
   At most one item is loaded, and it stays loaded while the musician browses.
-- A recording's screen opens from the dock, and on the Mac also from a
-  Recordings row. Its title line up to Close
-  is one control ending in an up chevron, and the screen closes with a down
-  chevron. A recording row's actions are Edit, Add to tune or Remove from
-  tune, Go to tune on a filed recording, Play first in lists, and Delete. An
-  imported recording's menu also has Open on and the site's name, which
-  opens the page it came from, and is never a swipe action. A link row's
-  actions are Play first in lists, Add to recordings when the server can
-  save its audio, and Remove. On a tune's own rows, a recording or link can
-  be pinned to play first in lists, and the pinned row shows a pin mark.
+- Practice opens from the player. A recording row's actions are Edit, Add
+  to tune or Remove from tune, Go to tune on a filed recording, Play first
+  in lists, and Delete. An imported recording's menu also has Open on and
+  the site's name, which opens the page it came from, and is never a swipe
+  action. A link row's actions are Play first in lists, Add to recordings
+  when the server can save its audio, and Remove. On a tune's own rows, a
+  recording or link can be pinned to play first in lists, and the pinned
+  row shows a pin mark.
 - A live recording refuses a swipe dismissal. Discarding captured audio
   confirms first.
 
@@ -519,96 +433,27 @@ A search of other services keeps nothing until the musician saves a result.
   says so below that row, so every answer leaves a way on.
 - A search starts only from the musician's tap, never from opening a
   screen, except where one choice leaves nothing else to pick.
-- A tap that opens a page whose address needs a network answer opens a
-  blank tab during the tap and sends it on once the answer lands. A browser
-  blocks a tab opened after the wait, and after a menu's dismissal, so such
-  a menu item runs during the tap.
 
 ## Empty, loading, sync, and offline states
 
 - An empty list shows an icon, a title that says what is absent, an optional
   hint that says what to do, and an optional action.
-- Loading is silence, not a spinner. A screen renders its one page in every
-  state and shows nothing in the body until its data is read. Never swap the
-  page element after the outlet has mounted it. The only spinners are the
-  sign-in splash and a transfer under way.
+- Loading is silence, not a spinner. A screen shows nothing in its body
+  until its data is read. The only spinners are the sign-in splash and a
+  transfer under way.
 - The sync badge shows only `Offline`, `Sign in again`, and `Sync failed`.
-  Settings holds the full state and the one manual sync control. Pull to
-  refresh syncs on touch.
+  Settings holds the full state and the one manual sync control.
 - Offline, a control that needs the network refuses rather than disables, so
   its name and its tap survive and the reason lands on the row. Sign out is
   the one control disabled, because the local catalog must not be deleted
   while its session is open.
-- A remembered musician is admitted offline once the browser reports no
+- A remembered musician is admitted offline once the device reports no
   connection, or after 5 seconds, and the account row says so.
 
 ## Motion
 
-- Page transitions and swipe back are Ionic's per-mode defaults, off on the
-  wide frame. Overlays use Ionic's own presentation.
-- The app adds no motion of its own beyond the record control and the live
-  waveform. Under reduced motion neither animates.
-
-## Apple app
-
-The Apple app follows Apple's Human Interface Guidelines for presentation:
-native SwiftUI controls, SF Symbols, system materials and fonts, Dynamic
-Type. Every rule above holds, words and behavior alike. Where a rule above
-describes Ionic's web chrome, the Apple app replaces it with the native
-equivalent below. The Mac's presentation rules are in
-[Mac design rules](design-macos.md), iPhone's and a compact iPad window's
-are in [iOS design rules](design-ios.md), and the iPad's at regular width
-are in [iPad design rules](design-ipad.md). Each holds on its platform where
-it and this page differ.
-
-- iPhone has a tab bar in place of the web's. The Mac uses a split view
-  (sidebar, content, detail) instead. An iPad at regular width uses a tab
-  view that becomes a sidebar, each tab a split of content and detail. An
-  iPad in a compact window takes the iPhone layout.
-- System undo (Cmd-Z, the Edit menu, shake) plus a short banner with an
-  Undo button replaces the web's toast.
-- Native search replaces the web's toolbar search field.
-- Every view that shows what the musician wrote or named carries
-  `.contentMask()`, because iPhone and iPad session replays must never show
-  user content.
-- A window or scene root carries `.tint(BrandStyle.accent)`, so slate tints
-  the selection, chosen controls, and primary buttons on every Apple
-  platform.
-- SwiftUI's tint does not reach what AppKit and UIKit draw themselves, such
-  as list selection, focus rings, default buttons, alerts, menus, and the
-  Mac's Settings tabs. The `AccentColor` asset colors those on every Apple
-  platform.
-- A segmented control is allowed for a short closed choice. A tune's status
-  is set with one, a segment per word. A system segment shows an image or a
-  word, never both, and the words are what a musician chooses by. When
-  tunes disagree, no segment is chosen.
-- A long press opens the native context menu. Its Select item, and the
-  screen's own Select action, enter selection, replacing the web's
-  long-press gesture.
-- A screen's filters are its list's first row and scroll with it, not a
-  bar pinned under the navigation bar.
-- A filter control is a quiet capsule at rest and takes the slate wash once
-  it narrows the list.
-- A facet filter is a pull-down that reads its facet and value: "Key: Any",
-  "Key: D". A facet whose values carry color opens a popover of pills,
-  because a menu draws its images in one color. Choosing a value closes it.
-- A Filters control with nothing to choose leaves the screen, in place of
-  the web's disabled control: Recordings shows Filters only while an import gives
-  the sources something to tell apart or a source is set.
-- Native motion (SwiftUI transitions and symbol effects) is allowed beyond
-  the record control and the waveform. Under Reduce Motion nothing moves:
-  a change cross-fades or happens at once.
-- A link that the app plays itself, such as an Apple Music link through
-  MusicKit, starts in the bar like a recording and does not open in full. A
-  link in its provider's embed opens in full, because the embed holds its
-  only controls.
-- Stats is a document page. Each block is the simplest chart that shows
-  its point: the status split as one bar in the status colors, and each
-  breakdown value over a thin slate bar sized by its share.
-- A stats breakdown of more than 8 values shows the top 8 and a "Show all"
-  row with the full count, which expands it in place.
-- In the recording sheet, a Stop that cannot run dims as a whole disc,
-  never only its label.
-- The record control and the menu commands that open a sheet stand down
-  while a sheet, dialog, or file picker is up. The record control and the
-  Record command also stand down while a screen is selecting.
+- Motion shows where a thing came from and where it went, never
+  decoration.
+- Nothing moves on its own except the record control, the live waveform,
+  and the speaker on the row a playing list is on.
+- Under reduced motion a change cross-fades or happens at once.

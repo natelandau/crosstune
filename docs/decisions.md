@@ -3,7 +3,7 @@
 Choices that bind future work, with the alternatives rejected, so nobody
 reopens one without new information. Add a new entry at the end.
 
-## Native Swift for Apple, React and Ionic for Android and the web
+## Native Swift for Apple, React for Android and the web
 
 - iOS and macOS get one native SwiftUI app. The web client, installable as
   a PWA, serves Android and every browser. Android reaches the Play Store
@@ -59,7 +59,10 @@ reopens one without new information. Add a new entry at the end.
 
 - Every tune is owned by its creator and invisible to others.
 - The schema separates the tune from the user-tune relationship, so a shared
-  canonical catalog can be added by a merge step.
+  canonical catalog can be added by a merge step. A canonical tune has a
+  null `owner_user_id`, a duplicate points at its survivor through
+  `merged_into_id`, and a player's own key or tuning becomes an override
+  column on `user_tunes`.
 - A shared catalog at launch brings deduplication, naming variants, and
   permissions that nobody needs yet.
 
@@ -83,26 +86,35 @@ reopens one without new information. Add a new entry at the end.
   learning load.
 - React over Svelte: larger ecosystem, and both native paths stay open.
 
-## Ionic React for the interface
+## Own design system for the web client
 
-- The app must read as native on iOS and Android and as a well-made web app
-  on a desktop. Ionic supplies per-platform components, page transitions,
-  swipe back, and per-tab stacks, and Capacitor is built around it.
-- At 768px wide and 600px tall a sidebar replaces the tab bar, so a wide
-  screen never shows a phone app in a browser.
+- The web client is built on React Aria Components, Motion, and Tailwind
+  with its own `@theme` tokens. It reads as the same service as the Apple
+  apps, in the shape a browser gives it, on a phone, a tablet, and a
+  desktop.
+- Its audience is Android and every non-Apple browser, so it borrows the
+  Apple apps' placement, tokens, and words, never Apple's materials.
+- React Aria supplies keyboard, focus, and screen reader behavior for every
+  interactive primitive, and one press model for touch and mouse. Motion
+  drives the gestures that follow a finger.
+- Tailwind supplies tokens, spacing, and layout utilities, never
+  components.
+- Ionic forced to one look was rejected: every screen would keep fighting
+  its shadow DOM and its unlayered styles.
 - daisyUI was rejected: its screens read as a website (site header, centered
   column on a phone, outlined buttons, flat rows, no transitions).
-- A mixed interface was rejected: half Ionic and half daisyUI reads worse
+- Two component systems in one interface were rejected: the mix reads worse
   than either.
-- Tailwind supplies spacing and layout utilities only, never components.
 
-## Ionic's router, not TanStack Router
+## React Router and browser history
 
-- Page transitions, swipe back, per-tab stacks, and `IonTabs` work only with
-  `@ionic/react-router` on react-router 6.
-- TanStack's file-based routes and typed navigation are the price.
-- Ionic's stacks are not linear browser history, so no code touches
-  `history` or `window.location`.
+- React Router in data mode. Page motion uses React's `<ViewTransition>`,
+  which React Router defers to.
+- Navigation is browser history, so Back is the browser's back, and a
+  refresh or a shared link lands in the same place on every frame. Each
+  tab or sidebar destination remembers its last location.
+- Per-tab stacks apart from browser history were rejected: the browser's
+  back and the app's back would disagree.
 
 ## Hosting
 
@@ -185,11 +197,14 @@ reopens one without new information. Add a new entry at the end.
 - `SystemMusicPlayer` was rejected. It replaces the Music app's own queue
   and keeps playing after Crosstune closes.
 
-## Playlist mode on Apple only, for recordings and Apple Music songs
+## A list plays only sources the app's own engine controls
 
-- A list plays as a playlist only in the Apple app. It plays recordings and
-  full Apple Music tracks, and skips a tune with neither.
-- Embeds stop when an iPhone locks, so a list cannot play through them
+- A list plays as a playlist: one tune after another, with shuffle and
+  repeat. The Apple app plays recordings and full Apple Music tracks. The
+  web client plays recordings only, through its own audio engine.
+- A tune with nothing the engine can play is skipped when its turn comes.
+- An embed is never queued. It cannot report the end of a track, and
+  embeds stop when an iPhone locks, so a list cannot play through them
   without a musician touching the phone. Next, previous, and the end of a
   track need an engine the app controls.
 - A list row still plays any link from its own play button, embeds included.
@@ -219,8 +234,8 @@ reopens one without new information. Add a new entry at the end.
   serves the app shell at `/` offline, so the Worker and the app would both
   steer between site and app on the most fragile path.
 - `app.<domain>` and `<domain>/app` were rejected: the word twice. A path
-  base was rejected too, since it runs through the Ionic router, the
-  service worker scope, and the PWA start URL.
+  base was rejected too, since it runs through the router, the service
+  worker scope, and the PWA start URL.
 - The app at the apex with marketing elsewhere was rejected: the address
   people share would land on a sign-in form.
 - Astro over plain HTML (shared header and footer copied across pages) and
