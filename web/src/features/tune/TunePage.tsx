@@ -93,14 +93,18 @@ export function TunePage({
   const { state } = useLocation()
   const quiet = wide && isQuietPick(state)
   const reveal = useMemo(
-    () => () =>
-      quiet
-        ? setShown(tuneId)
-        : startTransition(() => {
-            addTransitionType(SWAP)
-            setShown(tuneId)
-          }),
-    [quiet, tuneId],
+    () => () => {
+      // Nothing to swap. A swap-typed transition left pending lends its type to a later
+      // commit, and the real swap then commits without it and never cross-fades.
+      if (!waiting) return
+      if (quiet) setShown(tuneId)
+      else
+        startTransition(() => {
+          addTransitionType(SWAP)
+          setShown(tuneId)
+        })
+    },
+    [quiet, tuneId, waiting],
   )
   // One keyed list, so the page held on screen keeps its state while the next one reads.
   const documents = waiting ? [shown, tuneId] : [tuneId]
