@@ -8,6 +8,7 @@ mod api
 mod web
 mod site
 mod apple
+mod analytics
 
 # Where the end-to-end API serves, matching e2e_port in api/justfile and e2e_api in
 # web/justfile. Not the :8000 of a dev session, so `just e2e` runs while `just dev` does.
@@ -18,10 +19,10 @@ default:
     @just --list
 
 # The prek hooks that only call a module's lint recipe, which `just lint` and CI run directly
-module_hooks := "ty,ruff-check,ruff-format,web-eslint,web-prettier,web-tsc,site-eslint,site-prettier,site-tsc,apple-swift-format"
+module_hooks := "ty,ruff-check,ruff-format,web-eslint,web-prettier,web-tsc,site-eslint,site-prettier,site-tsc,apple-swift-format,analytics-check"
 
 # Run every linter in every module, then the hooks no module covers
-lint: api::lint web::lint site::lint apple::lint lint-repo
+lint: api::lint web::lint site::lint apple::lint analytics::check lint-repo
 
 # Run the prek hooks no module lint covers, such as the spell check, yamllint, and actionlint
 lint-repo:
@@ -35,7 +36,7 @@ typos *paths:
 format: api::format web::format site::format apple::format
 
 # Run every unit and integration suite; the end-to-end suite is `just e2e`
-test: api::test web::test site::test apple::test
+test: api::test web::test site::test apple::test analytics::test
 
 # Run the end-to-end suite; extra args go to Playwright
 [positional-arguments]

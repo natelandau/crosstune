@@ -1,0 +1,28 @@
+# Recipes for the analytics tracking plan. Loaded as the `analytics` module by the root
+# justfile and run from this directory: `just analytics::check` from anywhere in the repository.
+
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+[private]
+default:
+    @just --list analytics
+
+# Check the tracking plan for naming, enum, bucket, and content-rule problems
+[group('lint')]
+check:
+    uv run --project ../api python plan.py check
+
+# Run the checker's tests and the plan's own test; extra args go to pytest
+[group('test')]
+test *args:
+    uv run --project ../api python -m pytest test_plan.py -q {{ args }}
+
+# Push each planned event's description and tags to PostHog and mark it verified
+[group('analytics')]
+sync:
+    uv run --project ../api python plan.py sync
+
+# List events PostHog has seen that the plan lacks, and planned events it has never seen
+[group('analytics')]
+audit:
+    uv run --project ../api python plan.py audit

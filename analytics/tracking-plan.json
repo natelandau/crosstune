@@ -1,0 +1,1745 @@
+{
+  "version": 1,
+  "clients": [
+    "site",
+    "apple",
+    "web"
+  ],
+  "buckets": {
+    "count": [
+      "0",
+      "1-9",
+      "10-49",
+      "50-199",
+      "200+"
+    ],
+    "duration": [
+      "<30s",
+      "30s-2m",
+      "2-5m",
+      "5m+"
+    ],
+    "listened": [
+      "<10s",
+      "10-30s",
+      "30s-2m",
+      "2-5m",
+      "5m+"
+    ],
+    "bytes": [
+      "0",
+      "<10MB",
+      "10-50MB",
+      "50-500MB",
+      "500MB+"
+    ],
+    "speed": [
+      "<0.75",
+      "0.75-0.99",
+      "1",
+      ">1"
+    ]
+  },
+  "enums": {
+    "product": [
+      "site",
+      "app"
+    ],
+    "platform": [
+      "site",
+      "web",
+      "ios",
+      "ipados",
+      "macos"
+    ],
+    "form_factor": [
+      "phone",
+      "tablet",
+      "desktop"
+    ],
+    "source": [
+      "catalog",
+      "tune",
+      "list",
+      "recordings_list",
+      "recording_screen",
+      "dock",
+      "search_offer",
+      "menu"
+    ],
+    "origin": [
+      "recorded",
+      "imported",
+      "slippery_hill"
+    ],
+    "kind": [
+      "recorded",
+      "imported",
+      "slippery_hill",
+      "link"
+    ],
+    "queue": [
+      "single",
+      "playlist"
+    ],
+    "trigger": [
+      "tap",
+      "auto_advance",
+      "skip"
+    ],
+    "ended_by": [
+      "finished",
+      "skipped",
+      "paused",
+      "closed"
+    ],
+    "repeat": [
+      "off",
+      "list",
+      "tune"
+    ],
+    "filed_from": [
+      "unfiled",
+      "other_tune"
+    ],
+    "sort": [
+      "title",
+      "added",
+      "modified",
+      "played"
+    ],
+    "bulk_action": [
+      "status",
+      "edit",
+      "archive",
+      "delete"
+    ],
+    "failure_reason": [
+      "network",
+      "storage_full",
+      "auth_expired",
+      "server_error",
+      "other"
+    ],
+    "service": [
+      "youtube",
+      "spotify",
+      "apple_music",
+      "bandcamp",
+      "soundcloud",
+      "tidal",
+      "internet_archive",
+      "slippery_hill",
+      "other"
+    ],
+    "link_via": [
+      "paste",
+      "find"
+    ],
+    "scan_via": [
+      "camera",
+      "document_scanner",
+      "photo_library",
+      "file"
+    ],
+    "tune_field": [
+      "title",
+      "alternate_titles",
+      "status",
+      "key",
+      "mode",
+      "tuning",
+      "capo",
+      "genre",
+      "tune_type",
+      "time_signature",
+      "part_structure",
+      "composer",
+      "is_crooked",
+      "lyrics",
+      "notes",
+      "learned_from",
+      "learned_on"
+    ],
+    "filter": [
+      "status",
+      "key",
+      "tune_type",
+      "mode",
+      "tuning",
+      "genre",
+      "composer",
+      "learned_from",
+      "archived",
+      "unheard",
+      "missing"
+    ],
+    "screen": [
+      "welcome",
+      "catalog",
+      "tune",
+      "lists",
+      "list",
+      "recordings",
+      "recording",
+      "find_recordings",
+      "settings",
+      "stats",
+      "stand"
+    ],
+    "audio_format": [
+      "m4a",
+      "mp3",
+      "wav",
+      "aiff",
+      "flac",
+      "other"
+    ],
+    "export_format": [
+      "zip"
+    ],
+    "archive_source": [
+      "slippery_hill"
+    ],
+    "audio_quality": [
+      "low",
+      "standard",
+      "high",
+      "highest"
+    ],
+    "play_first": [
+      "recordings",
+      "apple_music"
+    ],
+    "appearance": [
+      "system",
+      "light",
+      "dark"
+    ],
+    "capture_channels": [
+      "mono",
+      "stereo"
+    ],
+    "setting": [
+      "instruments",
+      "audio_quality",
+      "search_providers",
+      "play_first",
+      "appearance",
+      "text_size",
+      "capture_channels",
+      "download_all"
+    ],
+    "tune_status": [
+      "known",
+      "learning",
+      "want_to_learn"
+    ],
+    "instrument": [
+      "violin",
+      "five_string_banjo",
+      "tenor_banjo",
+      "guitar",
+      "mandolin",
+      "bouzouki",
+      "mountain_dulcimer"
+    ]
+  },
+  "super_properties": {
+    "product": {
+      "type": "string",
+      "enum": "product",
+      "clients": [
+        "site",
+        "apple",
+        "web"
+      ]
+    },
+    "platform": {
+      "type": "string",
+      "enum": "platform",
+      "clients": [
+        "site",
+        "apple",
+        "web"
+      ]
+    },
+    "form_factor": {
+      "type": "string",
+      "enum": "form_factor",
+      "clients": [
+        "apple",
+        "web"
+      ]
+    },
+    "app_version": {
+      "type": "string",
+      "format": "version",
+      "clients": [
+        "apple",
+        "web"
+      ]
+    }
+  },
+  "person_properties": {
+    "signed_up_at": {
+      "type": "string",
+      "format": "iso8601",
+      "set": "once"
+    },
+    "catalog_size": {
+      "type": "string",
+      "bucket": "count",
+      "set": "always"
+    },
+    "storage_used": {
+      "type": "string",
+      "bucket": "bytes",
+      "set": "always"
+    },
+    "fields_used": {
+      "type": "string_list",
+      "enum": "tune_field",
+      "set": "always",
+      "description": "Tune fields at least one live tune fills. Status is left out, since every tune has one."
+    },
+    "setting_instruments": {
+      "type": "string_list",
+      "enum": "instrument",
+      "set": "always"
+    },
+    "setting_audio_quality": {
+      "type": "string",
+      "enum": "audio_quality",
+      "set": "always"
+    },
+    "setting_search_providers": {
+      "type": "string_list",
+      "enum": "service",
+      "set": "always"
+    },
+    "setting_play_first": {
+      "type": "string",
+      "enum": "play_first",
+      "set": "always"
+    },
+    "setting_appearance": {
+      "type": "string",
+      "enum": "appearance",
+      "set": "always"
+    },
+    "setting_text_size": {
+      "type": "number",
+      "set": "always"
+    },
+    "setting_capture_channels": {
+      "type": "string",
+      "enum": "capture_channels",
+      "set": "always"
+    },
+    "setting_download_all": {
+      "type": "bool",
+      "set": "always"
+    }
+  },
+  "settings": {
+    "instruments": {
+      "type": "string_list",
+      "enum": "instrument"
+    },
+    "audio_quality": {
+      "type": "string",
+      "enum": "audio_quality"
+    },
+    "search_providers": {
+      "type": "string_list",
+      "enum": "service"
+    },
+    "play_first": {
+      "type": "string",
+      "enum": "play_first"
+    },
+    "appearance": {
+      "type": "string",
+      "enum": "appearance"
+    },
+    "text_size": {
+      "type": "number"
+    },
+    "capture_channels": {
+      "type": "string",
+      "enum": "capture_channels"
+    },
+    "download_all": {
+      "type": "bool"
+    }
+  },
+  "questions": {
+    "usage_by_platform": "How much is the app used on each platform?",
+    "retention": "Do people come back, week over week, on each platform?",
+    "site_traffic": "How many visitors does the site get, and what do they read and click?",
+    "waitlist_sources": "Which referrers and campaigns lead to a waitlist join?",
+    "activation": "Do new people go from signing in to a tune, its audio, and practice?",
+    "feature_usage": "Which features are used most and least?",
+    "playback_source": "Where does playback start?",
+    "playlist_vs_single": "Do people play a list's playlist or a single item?",
+    "playlist_listen_through": "How far do people listen through a playlist?",
+    "own_vs_third_party_listening": "Do people listen to their own recordings or to links?",
+    "own_vs_third_party_on_tunes": "Do tunes get the musician's own audio or links?",
+    "record_now_file_later": "Do people record first and file the take under a tune later?",
+    "tune_to_first_audio": "How soon does a new tune get its first audio?",
+    "distinct_tunes_practiced": "How many different tunes does a person practice each week?",
+    "practice_time_by_platform": "How long do people practice, on each platform?",
+    "free_tier_pressure": "How soon do people reach the free storage limit?",
+    "friction_and_churn": "Do failed uploads, syncs, and exports drive people away?",
+    "account_churn": "How many people sign out or start to delete their account, and how many back out?",
+    "default_settings": "Are the default settings the ones people keep?",
+    "facet_retention": "Does using more tune fields go with better retention?"
+  },
+  "events": {
+    "signed_in": {
+      "description": "A different user signed in.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "activation",
+        "usage_by_platform"
+      ],
+      "properties": {}
+    },
+    "signed_out": {
+      "description": "The user signed out.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "account_churn"
+      ],
+      "properties": {}
+    },
+    "account_deleted": {
+      "description": "The user deleted their account.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "account_churn"
+      ],
+      "properties": {}
+    },
+    "account_deletion_started": {
+      "description": "The delete-account confirmation opened.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "account_churn"
+      ],
+      "properties": {}
+    },
+    "account_deletion_cancelled": {
+      "description": "The delete-account confirmation closed without deleting.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "account_churn"
+      ],
+      "properties": {}
+    },
+    "$screen": {
+      "description": "A screen was shown.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "usage_by_platform",
+        "feature_usage"
+      ],
+      "properties": {
+        "screen": {
+          "type": "string",
+          "enum": "screen",
+          "required": true
+        }
+      }
+    },
+    "tune_created": {
+      "description": "A tune was added to the catalog.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "activation",
+        "tune_to_first_audio",
+        "facet_retention",
+        "feature_usage"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": "source",
+          "required": true
+        },
+        "fields_set": {
+          "type": "string_list",
+          "enum": "tune_field",
+          "required": true
+        },
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "tune_edited": {
+      "description": "A tune's fields were edited.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "facet_retention",
+        "feature_usage"
+      ],
+      "properties": {
+        "fields_changed": {
+          "type": "string_list",
+          "enum": "tune_field",
+          "required": true
+        },
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "tune_status_changed": {
+      "description": "A tune's status changed.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "from": {
+          "type": "string",
+          "enum": "tune_status",
+          "required": true
+        },
+        "to": {
+          "type": "string",
+          "enum": "tune_status",
+          "required": true
+        },
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "tune_archived": {
+      "description": "A tune was archived.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "tune_unarchived": {
+      "description": "A tune was restored from the archive.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "tune_deleted": {
+      "description": "A tune was deleted.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage",
+        "free_tier_pressure"
+      ],
+      "properties": {
+        "recordings_count": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "links_count": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "scans_count": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "bulk_edit_applied": {
+      "description": "A bulk action was applied to several tunes.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "count_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "action": {
+          "type": "string",
+          "enum": "bulk_action",
+          "required": true
+        },
+        "fields_changed": {
+          "type": "string_list",
+          "enum": "tune_field",
+          "required": false
+        }
+      }
+    },
+    "search_performed": {
+      "description": "A search ran.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "result_count_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "took_offer": {
+          "type": "bool",
+          "required": true
+        }
+      }
+    },
+    "catalog_filtered": {
+      "description": "The catalog was filtered.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "filter": {
+          "type": "string",
+          "enum": "filter",
+          "required": true
+        }
+      }
+    },
+    "catalog_sorted": {
+      "description": "The catalog was sorted.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "sort": {
+          "type": "string",
+          "enum": "sort",
+          "required": true
+        }
+      }
+    },
+    "lyrics_opened": {
+      "description": "A tune's lyrics were opened.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "stand_opened": {
+      "description": "The Stand was opened for a tune.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "list_created": {
+      "description": "A list was created.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "list_id": {
+          "type": "uuid",
+          "required": true
+        },
+        "count_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        }
+      }
+    },
+    "list_renamed": {
+      "description": "A list was renamed.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "list_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "list_deleted": {
+      "description": "A list was deleted.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "list_id": {
+          "type": "uuid",
+          "required": true
+        },
+        "count_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        }
+      }
+    },
+    "list_reordered": {
+      "description": "A list's tunes were reordered.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "list_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "tunes_added_to_list": {
+      "description": "Tunes were added to a list.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "list_id": {
+          "type": "uuid",
+          "required": true
+        },
+        "count_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        }
+      }
+    },
+    "tunes_removed_from_list": {
+      "description": "Tunes were removed from a list.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "list_id": {
+          "type": "uuid",
+          "required": true
+        },
+        "count_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        }
+      }
+    },
+    "recording_started": {
+      "description": "A recording started.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": "source",
+          "required": true
+        }
+      }
+    },
+    "recording_saved": {
+      "description": "A recording was saved.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "activation",
+        "own_vs_third_party_on_tunes",
+        "record_now_file_later",
+        "tune_to_first_audio"
+      ],
+      "properties": {
+        "duration_bucket": {
+          "type": "string",
+          "bucket": "duration",
+          "required": true
+        },
+        "filed": {
+          "type": "bool",
+          "required": true
+        },
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        },
+        "tune_id": {
+          "type": "uuid",
+          "required": false
+        }
+      }
+    },
+    "recording_discarded": {
+      "description": "A recording was discarded.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "duration_bucket": {
+          "type": "string",
+          "bucket": "duration",
+          "required": true
+        }
+      }
+    },
+    "audio_imported": {
+      "description": "Audio files were imported.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "own_vs_third_party_on_tunes",
+        "feature_usage"
+      ],
+      "properties": {
+        "count_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "format": {
+          "type": "string",
+          "enum": "audio_format",
+          "required": true
+        }
+      }
+    },
+    "archive_recording_saved": {
+      "description": "An archive recording was saved to a tune.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "own_vs_third_party_on_tunes",
+        "tune_to_first_audio"
+      ],
+      "properties": {
+        "source_archive": {
+          "type": "string",
+          "enum": "archive_source",
+          "required": true
+        },
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        },
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "recording_filed": {
+      "description": "A recording was filed under a tune.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "own_vs_third_party_on_tunes",
+        "record_now_file_later",
+        "tune_to_first_audio"
+      ],
+      "properties": {
+        "from": {
+          "type": "string",
+          "enum": "filed_from",
+          "required": true
+        },
+        "origin": {
+          "type": "string",
+          "enum": "origin",
+          "required": true
+        },
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        },
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "recording_unfiled": {
+      "description": "A recording was removed from its tune.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "origin": {
+          "type": "string",
+          "enum": "origin",
+          "required": true
+        },
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "recording_renamed": {
+      "description": "A recording was renamed.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "origin": {
+          "type": "string",
+          "enum": "origin",
+          "required": true
+        },
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "recording_deleted": {
+      "description": "A recording was deleted.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "origin": {
+          "type": "string",
+          "enum": "origin",
+          "required": true
+        },
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "recording_trimmed": {
+      "description": "A recording was trimmed.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "link_added": {
+      "description": "A link to a service was added to a tune.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "activation",
+        "own_vs_third_party_on_tunes",
+        "tune_to_first_audio"
+      ],
+      "properties": {
+        "service": {
+          "type": "string",
+          "enum": "service",
+          "required": true
+        },
+        "via": {
+          "type": "string",
+          "enum": "link_via",
+          "required": true
+        },
+        "link_id": {
+          "type": "uuid",
+          "required": true
+        },
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "link_removed": {
+      "description": "A link was removed.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "service": {
+          "type": "string",
+          "enum": "service",
+          "required": true
+        },
+        "link_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "link_opened_externally": {
+      "description": "A link was opened in its own app or site.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "own_vs_third_party_listening"
+      ],
+      "properties": {
+        "service": {
+          "type": "string",
+          "enum": "service",
+          "required": true
+        },
+        "link_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "find_recordings_used": {
+      "description": "A service was searched for recordings.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage",
+        "own_vs_third_party_on_tunes"
+      ],
+      "properties": {
+        "service": {
+          "type": "string",
+          "enum": "service",
+          "required": true
+        },
+        "result_count_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        }
+      }
+    },
+    "apple_music_authorized": {
+      "description": "The Apple Music permission prompt was answered.",
+      "clients": [
+        "apple"
+      ],
+      "answers": [
+        "own_vs_third_party_listening"
+      ],
+      "properties": {
+        "granted": {
+          "type": "bool",
+          "required": true
+        }
+      }
+    },
+    "playback_ended": {
+      "description": "A play ended.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "playback_source",
+        "playlist_vs_single",
+        "playlist_listen_through",
+        "own_vs_third_party_listening"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": "source",
+          "required": true
+        },
+        "queue": {
+          "type": "string",
+          "enum": "queue",
+          "required": true
+        },
+        "trigger": {
+          "type": "string",
+          "enum": "trigger",
+          "required": true
+        },
+        "kind": {
+          "type": "string",
+          "enum": "kind",
+          "required": true
+        },
+        "service": {
+          "type": "string",
+          "enum": "service",
+          "required": false
+        },
+        "listened_bucket": {
+          "type": "string",
+          "bucket": "listened",
+          "required": true
+        },
+        "completed": {
+          "type": "bool",
+          "required": true
+        },
+        "ended_by": {
+          "type": "string",
+          "enum": "ended_by",
+          "required": true
+        },
+        "tune_id": {
+          "type": "uuid",
+          "required": false
+        },
+        "recording_id": {
+          "type": "uuid",
+          "required": false
+        },
+        "link_id": {
+          "type": "uuid",
+          "required": false
+        },
+        "list_id": {
+          "type": "uuid",
+          "required": false
+        }
+      }
+    },
+    "playlist_started": {
+      "description": "A list's playlist started.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "playlist_vs_single",
+        "feature_usage"
+      ],
+      "properties": {
+        "shuffle": {
+          "type": "bool",
+          "required": true
+        },
+        "repeat": {
+          "type": "string",
+          "enum": "repeat",
+          "required": true
+        },
+        "count_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "list_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "practice_ended": {
+      "description": "A practice session ended.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "activation",
+        "distinct_tunes_practiced",
+        "practice_time_by_platform"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": "source",
+          "required": true
+        },
+        "duration_bucket": {
+          "type": "string",
+          "bucket": "duration",
+          "required": true
+        },
+        "used_loops": {
+          "type": "bool",
+          "required": true
+        },
+        "used_speed": {
+          "type": "bool",
+          "required": true
+        },
+        "used_pitch": {
+          "type": "bool",
+          "required": true
+        },
+        "kind": {
+          "type": "string",
+          "enum": "kind",
+          "required": true
+        },
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        },
+        "tune_id": {
+          "type": "uuid",
+          "required": false
+        }
+      }
+    },
+    "loop_set": {
+      "description": "A practice loop was set.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "speed_changed": {
+      "description": "Playback speed changed.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "speed_bucket": {
+          "type": "string",
+          "bucket": "speed",
+          "required": true
+        },
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "pitch_changed": {
+      "description": "Playback pitch changed.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "semitones": {
+          "type": "number",
+          "required": true
+        },
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "scan_added": {
+      "description": "A scan was added to a tune.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "via": {
+          "type": "string",
+          "enum": "scan_via",
+          "required": true
+        },
+        "scan_id": {
+          "type": "uuid",
+          "required": true
+        },
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "scan_viewed": {
+      "description": "A scan was viewed.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "scan_deleted": {
+      "description": "A scan was deleted.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "scan_id": {
+          "type": "uuid",
+          "required": true
+        },
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "scans_reordered": {
+      "description": "A tune's scans were reordered.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "tune_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "setting_changed": {
+      "description": "A setting changed.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "default_settings"
+      ],
+      "properties": {
+        "setting": {
+          "type": "string",
+          "enum": "setting",
+          "required": true
+        },
+        "value": {
+          "type": "setting_value",
+          "required": true
+        }
+      }
+    },
+    "usage_sharing_disabled": {
+      "description": "The user turned off usage sharing.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "retention"
+      ],
+      "properties": {}
+    },
+    "storage_limit_reached": {
+      "description": "An upload hit the storage limit.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "free_tier_pressure"
+      ],
+      "properties": {
+        "storage_used": {
+          "type": "string",
+          "bucket": "bytes",
+          "required": true
+        }
+      }
+    },
+    "upload_failed": {
+      "description": "An upload failed.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "friction_and_churn"
+      ],
+      "properties": {
+        "failure_reason": {
+          "type": "string",
+          "enum": "failure_reason",
+          "required": true
+        },
+        "origin": {
+          "type": "string",
+          "enum": "origin",
+          "required": true
+        }
+      }
+    },
+    "sync_failed": {
+      "description": "A sync failed.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "friction_and_churn"
+      ],
+      "properties": {
+        "failure_reason": {
+          "type": "string",
+          "enum": "failure_reason",
+          "required": true
+        }
+      }
+    },
+    "export_completed": {
+      "description": "An export finished.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": "export_format",
+          "required": true
+        }
+      }
+    },
+    "export_failed": {
+      "description": "A data export failed.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "friction_and_churn"
+      ],
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": "export_format",
+          "required": true
+        },
+        "failure_reason": {
+          "type": "string",
+          "enum": "failure_reason",
+          "required": true
+        }
+      }
+    },
+    "$pageview": {
+      "description": "A site page was viewed.",
+      "clients": [
+        "site"
+      ],
+      "answers": [
+        "site_traffic"
+      ],
+      "builtin": true
+    },
+    "$pageleave": {
+      "description": "A visitor left a site page.",
+      "clients": [
+        "site"
+      ],
+      "answers": [
+        "site_traffic"
+      ],
+      "builtin": true
+    },
+    "$autocapture": {
+      "description": "A click or form event on the site.",
+      "clients": [
+        "site"
+      ],
+      "answers": [
+        "site_traffic"
+      ],
+      "builtin": true
+    },
+    "$web_vitals": {
+      "description": "Page speed measurements from the site.",
+      "clients": [
+        "site"
+      ],
+      "answers": [
+        "site_traffic"
+      ],
+      "builtin": true
+    },
+    "$rageclick": {
+      "description": "Repeated clicks in one spot on the site.",
+      "clients": [
+        "site"
+      ],
+      "answers": [
+        "site_traffic"
+      ],
+      "builtin": true
+    },
+    "$$heatmap": {
+      "description": "Click and scroll positions for the site's heatmaps.",
+      "clients": [
+        "site"
+      ],
+      "answers": [
+        "site_traffic"
+      ],
+      "builtin": true
+    },
+    "waitlist_joined": {
+      "description": "A visitor joined the waitlist.",
+      "clients": [
+        "site"
+      ],
+      "answers": [
+        "waitlist_sources"
+      ],
+      "properties": {
+        "$referrer": {
+          "type": "string",
+          "format": "free",
+          "required": false
+        },
+        "$referring_domain": {
+          "type": "string",
+          "format": "free",
+          "required": false
+        },
+        "utm_source": {
+          "type": "string",
+          "format": "free",
+          "required": false
+        },
+        "utm_medium": {
+          "type": "string",
+          "format": "free",
+          "required": false
+        },
+        "utm_campaign": {
+          "type": "string",
+          "format": "free",
+          "required": false
+        },
+        "utm_term": {
+          "type": "string",
+          "format": "free",
+          "required": false
+        },
+        "utm_content": {
+          "type": "string",
+          "format": "free",
+          "required": false
+        }
+      }
+    },
+    "Application Opened": {
+      "description": "The app opened.",
+      "clients": [
+        "apple"
+      ],
+      "answers": [
+        "usage_by_platform",
+        "retention"
+      ],
+      "builtin": true
+    },
+    "Application Backgrounded": {
+      "description": "The app went to the background.",
+      "clients": [
+        "apple"
+      ],
+      "answers": [
+        "usage_by_platform",
+        "retention"
+      ],
+      "builtin": true
+    },
+    "Application Installed": {
+      "description": "The app was installed.",
+      "clients": [
+        "apple"
+      ],
+      "answers": [
+        "usage_by_platform",
+        "retention"
+      ],
+      "builtin": true
+    },
+    "Application Updated": {
+      "description": "The app was updated to a new version.",
+      "clients": [
+        "apple"
+      ],
+      "answers": [
+        "usage_by_platform",
+        "retention"
+      ],
+      "builtin": true
+    }
+  }
+}
