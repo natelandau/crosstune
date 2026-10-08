@@ -3,13 +3,30 @@ import {
   addTune,
   expectNoOverlay,
   expectSettled,
+  expectSynced,
+  openSetting,
   openTab,
   requestedProviders,
+  setSwitch,
   signIn,
   stubSearch,
+  tunePage,
   unique,
   type StubbedGroup,
 } from './helpers'
+import {
+  BACK,
+  FIND_RECORDINGS,
+  linkedResult,
+  linkResult,
+  NO_RESULTS,
+  playResult,
+  searchOn,
+  searchService,
+} from '../src/features/links/findRecordingsCopy'
+import { DONE } from '../src/ui/confirmCopy'
+import { ADD_RECORDING } from '../src/features/tune/tuneMediaCopy'
+import { RECORDINGS_SECTION } from '../src/features/tune/tuneScreenCopy'
 
 const HIT_TITLE = 'The Silver Spear'
 const SPOTIFY_SEARCH = 'https://open.spotify.com/search/silver%20spear'
@@ -47,33 +64,24 @@ const GROUPS: StubbedGroup[] = [
 
 /** Chooses exactly `chosen` among the music services. */
 async function chooseServices(page: Page, chosen: string[]): Promise<void> {
-  await openTab(page, 'Settings')
-  await page.getByRole('button', { name: /^Music services/ }).click()
+  await openSetting(page, 'Music services')
   for (const name of SERVICES) {
-    const box = page.getByRole('checkbox', { name })
-    await expect(box).toBeVisible()
-    const on = chosen.includes(name)
-    if ((await box.isChecked()) !== on) {
-      await box.click()
-      await (on ? expect(box).toBeChecked() : expect(box).not.toBeChecked())
-    }
+    await setSwitch(page, page.getByRole('switch', { name, exact: true }), chosen.includes(name))
   }
-  await page.getByRole('button', { name: 'Done', exact: true }).click()
-  await expectNoOverlay(page)
 }
 
 /** Opens the tune page left on the Catalog tab, then its add menu. */
 async function openAddMenu(page: Page, title: string): Promise<void> {
-  // The Catalog tab keeps the tune page it was left on.
-  await openTab(page, 'Catalog')
-  await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible()
-  await page.getByRole('button', { name: 'Add recording' }).click()
+  await openTab(page, 'catalog', { root: false })
+  await expect(tunePage(page).getByRole('heading', { name: title, level: 1 })).toBeVisible()
+  await tunePage(page).getByRole('button', { name: ADD_RECORDING }).click()
 }
 
 /** The signed-in user is shared with other specs, so put the setting back. A reload first
  * clears any sheet a failed step left open over the tabs. */
 async function restoreServices(page: Page): Promise<void> {
   await page.reload()
+  await expectSynced(page)
   await chooseServices(page, SERVICES)
 }
 
@@ -96,47 +104,51 @@ test('pick a service, find a recording on it, play it inline, and link it', asyn
       SERVICES.filter((name) => name !== 'SoundCloud'),
     )
     await openAddMenu(page, title)
-    await page.getByRole('button', { name: 'Find recordings', exact: true }).click()
-    await expect(page.getByRole('dialog', { name: 'Find recordings' })).toBeVisible()
+    await page.getByRole('menuitem', { name: FIND_RECORDINGS, exact: true }).click()
+    const find = page.getByRole('dialog', { name: FIND_RECORDINGS })
+    await expect(find).toBeVisible()
 
     // Opening lists the chosen services and searches none of them.
-    await expect(page.getByRole('button', { name: 'Search Apple Music' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Search Spotify' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Search SoundCloud' })).toHaveCount(0)
+    await expect(find.getByRole('button', { name: searchService('Apple Music') })).toBeVisible()
+    await expect(find.getByRole('button', { name: searchService('Spotify') })).toBeVisible()
+    await expect(find.getByRole('button', { name: searchService('SoundCloud') })).toHaveCount(0)
     expect(requests).toHaveLength(0)
 
     // A search-only service opens its own search page and leaves the list in place.
     const popup = page.waitForEvent('popup')
-    await page.getByRole('button', { name: 'Search Spotify' }).click()
+    await find.getByRole('button', { name: searchService('Spotify') }).click()
     const tab = await popup
     await tab.waitForURL(SPOTIFY_SEARCH)
     expect(await tab.evaluate(() => window.opener)).toBeNull()
     await tab.close()
-    await expect(page.getByRole('dialog', { name: 'Find recordings' })).toBeVisible()
+    await expect(find).toBeVisible()
 
-    await page.getByRole('button', { name: 'Search Apple Music' }).click()
-    await expect(page.getByRole('dialog', { name: 'Apple Music' })).toBeVisible()
-    const play = page.getByRole('button', { name: `Play ${HIT_TITLE}` })
+    await find.getByRole('button', { name: searchService('Apple Music') }).click()
+    const service = page.getByRole('dialog', { name: 'Apple Music' })
+    await expect(service).toBeVisible()
+    const play = service.getByRole('button', { name: playResult(HIT_TITLE) })
     await expect(play).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Search on Apple Music' })).toBeVisible()
+    await expect(service.getByRole('link', { name: searchOn('Apple Music') })).toBeVisible()
     expect(requestedProviders(requests.at(-1)!)).toEqual(['apple_music'])
 
     await play.click()
     await expect(page.locator('iframe[src*="embed.music.apple.com"]')).toBeVisible()
 
-    const link = page.getByRole('button', { name: `Link ${HIT_TITLE}` })
+    const link = service.getByRole('button', { name: linkResult(HIT_TITLE) })
     await expectSettled(link)
     await link.click()
-    await expect(page.getByRole('button', { name: `Linked ${HIT_TITLE}` })).toBeDisabled()
+    await expect(service.getByRole('button', { name: linkedResult(HIT_TITLE) })).toBeDisabled()
 
-    await page.getByRole('button', { name: 'Back', exact: true }).click()
-    await expect(page.getByRole('dialog', { name: 'Find recordings' })).toBeVisible()
+    await service.getByRole('button', { name: BACK, exact: true }).click()
+    await expect(find).toBeVisible()
     await expect(page.locator('iframe[src*="embed.music.apple.com"]')).toHaveCount(0)
 
-    await page.getByRole('button', { name: 'Done', exact: true }).click()
-    await expect(page.locator('ion-modal.show-modal')).toHaveCount(0)
-    const media = page.getByRole('list', { name: 'Recordings' })
-    await expect(media.getByRole('button', { name: `Play ${HIT_TITLE}` })).toBeVisible()
+    await find.getByRole('button', { name: DONE, exact: true }).click()
+    await expectNoOverlay(page)
+    const media = tunePage(page).getByRole('grid', { name: RECORDINGS_SECTION })
+    await expect(
+      media.getByRole('row', { name: new RegExp(`^${playResult(HIT_TITLE)},`) }),
+    ).toBeVisible()
   } finally {
     await restoreServices(page)
   }
@@ -157,23 +169,25 @@ test('go straight to the one chosen service', async ({ page }) => {
   try {
     await chooseServices(page, ['TIDAL'])
     await openAddMenu(page, title)
-    await page.getByRole('button', { name: 'Search TIDAL', exact: true }).click()
-    await expect(page.getByRole('dialog', { name: 'TIDAL' })).toBeVisible()
-    await expect(page.getByText('No results')).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Search on TIDAL' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Back', exact: true })).toHaveCount(0)
+    // With one service chosen, the add menu searches it in place of listing the services.
+    await page.getByRole('menuitem', { name: searchService('TIDAL'), exact: true }).click()
+    const service = page.getByRole('dialog', { name: 'TIDAL' })
+    await expect(service).toBeVisible()
+    await expect(service.getByText(NO_RESULTS)).toBeVisible()
+    await expect(service.getByRole('link', { name: searchOn('TIDAL') })).toBeVisible()
+    await expect(service.getByRole('button', { name: BACK, exact: true })).toHaveCount(0)
     expect(requests.map(requestedProviders)).toEqual([['tidal']])
-    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await service.getByRole('button', { name: DONE, exact: true }).click()
     await expectNoOverlay(page)
 
     await chooseServices(page, ['Spotify'])
     await openAddMenu(page, title)
     const popup = page.waitForEvent('popup')
-    await page.getByRole('button', { name: 'Search Spotify', exact: true }).click()
+    await page.getByRole('menuitem', { name: searchService('Spotify'), exact: true }).click()
     const tab = await popup
     await tab.waitForURL(SPOTIFY_SEARCH)
     await tab.close()
-    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expectNoOverlay(page)
   } finally {
     await restoreServices(page)
   }
