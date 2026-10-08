@@ -84,7 +84,10 @@ folder. Compose it, never rebuild it.
   discard), then ends a screen state such as selection, then goes back in
   history, or exits at the root.
 - No overlay is a route. The URL never changes for a sheet or dialog.
-- Sidebar: Record capsule (red dot, "Record") and Settings at its foot.
+- Sidebar: the Mac sidebar's slate tint, inset 8px from the window with
+  `--radius-surface` corners, no hairline and no shadow. Record
+  capsule (red dot, "Record", centered) runs the sidebar's inner width at
+  its foot, 12px below Settings.
   Selected row takes the slate wash. Sync badge leads the header.
 - Phone tab bar: Catalog, Lists, Record dome, Recordings, Settings. Solid,
   on the ground, top hairline, no glass. Dome: solid disc, recording-red

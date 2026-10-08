@@ -113,7 +113,8 @@ export function Sidebar() {
   return (
     <nav
       aria-label={SIDEBAR}
-      className="bg-ground border-hairline relative flex w-60 shrink-0 flex-col gap-4 overflow-y-auto border-e p-3"
+      data-sidebar
+      className="bg-sidebar relative m-2 flex w-60 shrink-0 flex-col gap-4 overflow-y-auto rounded-(--radius-surface) p-3"
     >
       <div className="flex min-h-6 items-center px-3">
         <SyncBadge />
@@ -182,7 +183,7 @@ export function Sidebar() {
           )
         })}
       </section>
-      <div className="mt-auto flex flex-col gap-1">
+      <div className="mt-auto flex flex-col gap-3">
         <DestinationRow
           id="settings"
           selected={current === 'settings'}

@@ -33,6 +33,11 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
     ['switch track on on its row', p.slate, p.fill, 3],
     ['switch track on against the track off', p.slate, p.fill, 3],
     ['switch thumb on the track on', p.ground, p.slate, 3],
+    ['ink on the sidebar', p.ink, p.sidebar, 4.5],
+    ['secondary ink on the sidebar', p.sidebarInk2, p.sidebar, 4.5],
+    ['known glyph on the sidebar', p.known, p.sidebar, 3],
+    ['learning glyph on the sidebar', p.learning, p.sidebar, 3],
+    ['unknown ring on the sidebar', p.sidebarUnknown, p.sidebar, 3],
   ])('%s passes', (_, fg, bg, min) => expect(ratio(fg, bg)).toBeGreaterThanOrEqual(min))
 })
 

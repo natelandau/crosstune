@@ -21,7 +21,7 @@ export function RecordControl({ shape }: { shape: 'dome' | 'capsule' }) {
       data-record-control
       aria-hidden={covered || undefined}
       inert={covered}
-      className={dome ? 'justify-self-center' : 'self-start'}
+      className={dome ? 'justify-self-center' : undefined}
     >
       <AriaButton
         aria-label={RECORD_LABEL}
@@ -31,7 +31,7 @@ export function RecordControl({ shape }: { shape: 'dome' | 'capsule' }) {
         className={`group ${
           dome
             ? 'bg-ground border-hairline -mt-6 inline-flex size-14 shrink-0 items-center justify-center rounded-full border shadow-(--shadow-float) transition-opacity duration-(--dur-short) ease-(--ease) data-[pressed]:opacity-60'
-            : 't-body bg-fill text-ink inline-flex min-h-(--target-control) items-center gap-2 rounded-(--radius-capsule) px-4 transition-opacity duration-(--dur-short) ease-(--ease) disabled:opacity-60 data-[pressed]:opacity-60'
+            : 't-body bg-fill text-ink flex min-h-(--target-control) w-full items-center justify-center gap-2 rounded-(--radius-capsule) px-4 transition-opacity duration-(--dur-short) ease-(--ease) disabled:opacity-60 data-[pressed]:opacity-60'
         }`}
       >
         <span
