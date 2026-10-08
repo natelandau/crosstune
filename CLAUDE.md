@@ -19,6 +19,8 @@ The code is the source of truth for everything except `docs/architecture.md`.
   then `docs/design-ipad.md`.
 - A web screen, row, control, or sheet: `docs/design.md`, then
   `docs/design-web.md`.
+- Before you add or change a design rule: "Writing these pages" in
+  `docs/design.md` says what to record and which page it goes in.
 - Deployment or CI: `docs/operations.md`.
 - A host setting, a credential, or a dashboard: the vault's
   `reference/hosting.md`, and its `runbooks/` for a procedure done there.
