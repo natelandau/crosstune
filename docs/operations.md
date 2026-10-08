@@ -111,18 +111,19 @@ removes the Postgres and RustFS volumes; `just dev-down` keeps them.
 
 ## Test
 
-| Command                       | Runs                                                                                                                  |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `just lint`                   | Every linter in every module, then the hooks no module covers, such as the spell check and the workflow linters.      |
-| `just test`                   | API tests on databases of their own in the compose Postgres, web unit and browser tests, and the Swift package tests. |
-| `just api::test [args]`       | API tests. Args narrow the run and drop coverage.                                                                     |
-| `just web::test [args]`       | Web tests. Args go to vitest.                                                                                         |
-| `just web::stress <n> [args]` | Web tests `n` times, shuffled, a new order each run. Prints failing seeds; `SEED=<seed>` replays one.                 |
-| `just site::test [args]`      | Builds the site, then runs its tests against the output. Args go to vitest.                                           |
-| `just apple::test [args]`     | Swift package tests on the Mac. Args go to `swift test`.                                                              |
-| `just apple::build`           | The app for the iOS Simulator and macOS, unsigned.                                                                    |
-| `just typos [paths]`          | Spell check.                                                                                                          |
-| `just e2e [args]`             | The Playwright suite. Args go to Playwright.                                                                          |
+| Command                       | Runs                                                                                                                                                     |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `just lint`                   | Every linter in every module, then the hooks no module covers, such as the spell check and the workflow linters.                                         |
+| `just test`                   | API tests on databases of their own in the compose Postgres, web unit and browser tests, the Swift package tests, and the tracking plan checker's tests. |
+| `just api::test [args]`       | API tests. Args narrow the run and drop coverage.                                                                                                        |
+| `just web::test [args]`       | Web tests. Args go to vitest.                                                                                                                            |
+| `just web::stress <n> [args]` | Web tests `n` times, shuffled, a new order each run. Prints failing seeds; `SEED=<seed>` replays one.                                                    |
+| `just site::test [args]`      | Builds the site, then runs its tests against the output. Args go to vitest.                                                                              |
+| `just apple::test [args]`     | Swift package tests on the Mac. Args go to `swift test`.                                                                                                 |
+| `just analytics::test [args]` | Tracking plan checker tests. Args go to pytest.                                                                                                          |
+| `just apple::build`           | The app for the iOS Simulator and macOS, unsigned.                                                                                                       |
+| `just typos [paths]`          | Spell check.                                                                                                                                             |
+| `just e2e [args]`             | The Playwright suite. Args go to Playwright.                                                                                                             |
 
 The end-to-end suite:
 
