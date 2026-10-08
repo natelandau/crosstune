@@ -1,0 +1,43 @@
+/* What the practice, trim, and recording drawings paint with. Practice sets its own, so these
+   defaults only follow the text and page around a drawing. They carry no specificity, so any mapping wins. */
+:where(:root) {
+  --wave-played: currentColor;
+  --wave-unplayed: color-mix(in srgb, currentColor 35%, transparent);
+  --playhead: currentColor;
+  --trim-handle: currentColor;
+  --panel-ink: currentColor;
+  --panel-on-ink: Canvas;
+  --panel-muted: color-mix(in srgb, currentColor 60%, transparent);
+  --panel-ground: Canvas;
+  --panel-danger: currentColor;
+}
+
+/* A loop's palette slot, for whatever draws it to read as `--loop` and `--loop-tint`. */
+.loop-color[data-color='0'] {
+  --loop: var(--loop-0);
+  --loop-tint: var(--loop-0-tint);
+}
+.loop-color[data-color='1'] {
+  --loop: var(--loop-1);
+  --loop-tint: var(--loop-1-tint);
+}
+.loop-color[data-color='2'] {
+  --loop: var(--loop-2);
+  --loop-tint: var(--loop-2-tint);
+}
+.loop-color[data-color='3'] {
+  --loop: var(--loop-3);
+  --loop-tint: var(--loop-3-tint);
+}
+.loop-color[data-color='4'] {
+  --loop: var(--loop-4);
+  --loop-tint: var(--loop-4-tint);
+}
+.loop-color[data-color='5'] {
+  --loop: var(--loop-5);
+  --loop-tint: var(--loop-5-tint);
+}
+/* Set on the loop's own element, where its slot resolves. */
+:where(.loop-color) {
+  --loop-handle: var(--loop);
+}

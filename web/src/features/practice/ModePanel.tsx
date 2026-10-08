@@ -1,87 +1,71 @@
-import { IonLabel, IonSegment, IonSegmentButton } from '@ionic/react'
 import type { ReactNode } from 'react'
-import { PITCH_BADGE, SPEED_BADGE } from '../player/transportCopy'
-import { PITCH, PitchPanel } from '../recording-screen/PitchPanel'
-import { SPEED, SpeedPanel } from '../recording-screen/SpeedPanel'
-import { LOOPS_LABEL, SEGMENT_LABEL } from './practiceCopy'
+import { ToggleButton, ToggleButtonGroup } from 'react-aria-components'
+import { ModeControls } from './ModeControls'
+import { useModeLabels } from './useModeLabels'
+import { MODES_LABEL } from './practiceCopy'
 import { MODES, type Mode } from './usePracticeMode'
+import { isAppleTouch } from '../../platform/appleTouch'
 
-/** Loops, Speed, and Pitch as one segmented control, with Speed and Pitch off default shown. */
-export function ModeSelector({
+/**
+ * Loops, Speed, and Pitch as one segmented choice over the chosen mode's controls. Every
+ * mode's controls stay laid out, so the panel holds the height of the tallest.
+ */
+export function ModePanel({
   mode,
   onMode,
   speedPercent,
   pitchCents,
+  onSpeed,
+  onPitch,
+  pitchUnavailable,
+  loops,
 }: {
   mode: Mode
   onMode: (mode: Mode) => void
   speedPercent: number
   pitchCents: number
-}) {
-  const labels: Record<Mode, string> = {
-    loops: LOOPS_LABEL,
-    speed: SEGMENT_LABEL(SPEED, speedPercent !== 100 ? SPEED_BADGE(speedPercent) : null),
-    pitch: SEGMENT_LABEL(PITCH, pitchCents !== 0 ? PITCH_BADGE(pitchCents) : null),
-  }
-  return (
-    <IonSegment
-      data-mode-selector
-      value={mode}
-      onIonChange={(event) => {
-        const next = MODES.find((m) => m === event.detail.value)
-        if (next) onMode(next)
-      }}
-    >
-      {MODES.map((m) => (
-        <IonSegmentButton key={m} value={m}>
-          <IonLabel>{labels[m]}</IonLabel>
-        </IonSegmentButton>
-      ))}
-    </IonSegment>
-  )
-}
-
-/**
- * The chosen mode's own controls, which the screen places apart from its selector. Every panel
- * stays mounted in one grid cell with only the chosen one shown, so the block is always as tall
- * as the tallest and switching modes never moves what is above it.
- */
-export function ModeControls({
-  mode,
-  speedPercent,
-  pitchCents,
-  onSpeed,
-  onPitch,
-  pitchUnavailable = false,
-  loops,
-}: {
-  mode: Mode
-  speedPercent: number
-  pitchCents: number
   onSpeed: (percent: number) => void
   onPitch: (cents: number) => void
-  pitchUnavailable?: boolean
+  pitchUnavailable: boolean
   /** The Loops mode's panel. */
   loops: ReactNode
 }) {
-  const panels: Record<Mode, ReactNode> = {
-    loops,
-    speed: <SpeedPanel value={speedPercent} onChange={onSpeed} />,
-    pitch: <PitchPanel value={pitchCents} onChange={onPitch} unavailable={pitchUnavailable} />,
-  }
+  const labels = useModeLabels(speedPercent, pitchCents)
   return (
-    <div data-mode-controls className="grid">
-      {MODES.map((m) => (
-        <div
-          key={m}
-          data-mode-panel={m}
-          inert={m !== mode}
-          aria-hidden={m === mode ? undefined : 'true'}
-          className={`[grid-area:1/1] ${m === mode ? '' : 'invisible'}`}
-        >
-          {panels[m]}
-        </div>
-      ))}
+    <div data-mode-panel-root className="flex flex-col gap-3">
+      <ToggleButtonGroup
+        data-mode-selector
+        aria-label={MODES_LABEL}
+        selectionMode="single"
+        disallowEmptySelection
+        selectedKeys={[mode]}
+        onSelectionChange={(keys) => {
+          const next = MODES.find((m) => keys.has(m))
+          if (next) onMode(next)
+        }}
+        className="flex rounded-(--radius-capsule) bg-white/10 p-0.5"
+      >
+        {MODES.map((m) => (
+          <ToggleButton
+            key={m}
+            id={m}
+            className="t-body t-num min-h-(--target) flex-1 rounded-(--radius-capsule) px-2 text-(--panel-muted) transition-colors duration-(--dur-short) ease-(--ease) data-[selected]:bg-(--panel-ink) data-[selected]:text-(--panel-on-ink)"
+          >
+            {labels[m]}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+      <ModeControls
+        mode={mode}
+        speedPercent={speedPercent}
+        pitchCents={pitchCents}
+        onSpeed={onSpeed}
+        onPitch={onPitch}
+        pitchUnavailable={pitchUnavailable}
+        // Safari suspends the Web Audio graph that shifts pitch once the phone locks.
+        lockNotice={isAppleTouch()}
+        loops={loops}
+      />
     </div>
   )
 }

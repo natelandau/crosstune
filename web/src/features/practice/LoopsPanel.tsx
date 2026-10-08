@@ -5,8 +5,8 @@ import { updateLoop } from '../../commands/loops'
 import { LOOP_LIMIT, NO_ROOM } from '../../commands/messages'
 import type { LocalRecordingLoop } from '../../db/types'
 import { Capsule } from '../../ui/Capsule'
-import { Rail } from '../../ui/Rail'
-import { PANEL_TEXT_BUTTON, PANEL_TEXT_BUTTON_SHAPE } from '../recording-screen/panel'
+import { FilterRow } from '../../ui/FilterRow'
+import { PANEL_TEXT_BUTTON, PANEL_TEXT_BUTTON_SHAPE } from './panel'
 import { loopName, partSuggestions, type Bounds, type NewLoop } from './loopModel'
 import {
   DELETE_LOOP,
@@ -129,7 +129,7 @@ export function LoopsPanel({
         <button
           type="button"
           disabled={!selected}
-          className={`${PANEL_TEXT_BUTTON_SHAPE} inline-flex items-center gap-2 ${selected ? 'text-(--ion-color-danger)' : 'text-(--ion-color-medium)'}`}
+          className={`${PANEL_TEXT_BUTTON_SHAPE} inline-flex items-center gap-2 ${selected ? 'text-(--panel-danger)' : 'text-(--panel-muted)'}`}
           onClick={remove}
         >
           <Trash2 aria-hidden="true" className="size-5" />
@@ -146,31 +146,33 @@ export function LoopsPanel({
       <div className="grid items-center">
         <p
           aria-hidden={showHint ? undefined : 'true'}
-          className={`type-footnote m-0 text-center text-(--ion-color-medium) [grid-area:1/1] ${showHint ? '' : 'invisible'}`}
+          className={`t-secondary m-0 text-center text-(--panel-muted) [grid-area:1/1] ${showHint ? '' : 'invisible'}`}
         >
           {LOOPS_EMPTY_HINT}
         </p>
         {suggestions.length > 0 && renamingId ? (
-          // A chip press would take focus from the name field first, whose blur saves the typed
-          // text before the chip's own name.
-          <div className="[grid-area:1/1]" onMouseDown={(event) => event.preventDefault()}>
-            <Rail label={LOOP_NAME_SUGGESTIONS}>
+          <div className="[grid-area:1/1]">
+            <FilterRow label={LOOP_NAME_SUGGESTIONS}>
               {suggestions.map((label) => (
                 <Capsule
                   key={label}
+                  label={label}
+                  // A chip that took focus would blur the name field first, whose blur saves
+                  // the typed text before the chip's own name.
+                  preventFocusOnPress
                   onPress={() => {
                     updateLoop(db, renamingId, { label }).catch(report)
                     onSuggestion?.(label)
                   }}
-                >
-                  {label}
-                </Capsule>
+                />
               ))}
-            </Rail>
+            </FilterRow>
           </div>
         ) : (
-          <div aria-hidden="true" inert className="invisible flex [grid-area:1/1]">
-            <Capsule onPress={() => {}}>{'\u00a0'}</Capsule>
+          <div aria-hidden="true" inert className="invisible [grid-area:1/1]">
+            <FilterRow label={LOOP_NAME_SUGGESTIONS}>
+              <Capsule label={'\u00a0'} />
+            </FilterRow>
           </div>
         )}
       </div>

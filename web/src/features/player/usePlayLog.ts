@@ -10,41 +10,41 @@ import type { PlaybackEngine, PlaybackState } from './playbackEngine'
 import type { PlayerItem } from './usePlayer'
 
 /**
- * How the recording screen takes the loaded recording's time from the play log and gives it back.
- * While the screen is open, its practice log decides what the time spent there becomes.
+ * How practice takes the loaded recording's time from the play log and gives it back.
+ * While practice is open, its practice log decides what the time spent there becomes.
  */
 export interface PlayLogControl {
   /**
-   * The screen now shows `recordingId`: ends the play under way and opens one in the
+   * Practice now shows `recordingId`: ends the play under way and opens one in the
    * `recording_screen` context. Returns whether the recording was already the one loaded, so its
    * playing state is the engine's current one.
    */
-  screenOpened: (recordingId: string) => boolean
+  practiceOpened: (recordingId: string) => boolean
   /**
-   * Whether the screen's play is counting time: the screen passes its audio playing outside the
-   * trim view. The engine's own playing state is not followed while the screen holds the play.
+   * Whether practice's play is counting time: practice passes its audio playing outside the
+   * trim view. The engine's own playing state is not followed while practice holds the play.
    */
-  screenPlaying: (counting: boolean) => void
+  practicePlaying: (counting: boolean) => void
   /**
-   * Whether the screen's recording is the one loaded. Until it is, the engine plays another
+   * Whether practice's recording is the one loaded. Until it is, the engine plays another
    * recording, whose audio and settings are not the visit's.
    */
-  screenLoaded: () => boolean
+  practiceLoaded: () => boolean
   /**
-   * The screen has let go: keeps its play when `keep`, or drops it when the visit became a
+   * Practice has let go: keeps its play when `keep`, or drops it when the visit became a
    * practice session. Playing on in the dock afterward is a fresh play.
    */
-  screenClosed: (keep: boolean) => void
+  practiceClosed: (keep: boolean) => void
 }
 
 const detached: PlayLogControl = {
-  screenOpened: () => false,
-  screenPlaying: () => {},
-  screenLoaded: () => true,
-  screenClosed: () => {},
+  practiceOpened: () => false,
+  practicePlaying: () => {},
+  practiceLoaded: () => true,
+  practiceClosed: () => {},
 }
 
-// A recording screen rendered without PlayerProvider, as in a test with a stand-in player,
+// Practice rendered without PlayerProvider, as in a test with a stand-in player,
 // logs nothing.
 export const PlayLogContext = createContext<PlayLogControl>(detached)
 
@@ -85,13 +85,13 @@ export function usePlayLog(
   // Set by the effect below, which builds a log per database: a play belongs to the database
   // that was open while it played, never the one a new user brings in.
   const logRef = useRef<PlayLog | null>(null)
-  // The recording the screen has taken over, whose play the screen ends.
-  const screenOwned = useRef<string | null>(null)
+  // The recording practice has taken over, whose play practice ends.
+  const practiceOwned = useRef<string | null>(null)
   // Whether the engine's length belongs to the open play. A new item's play waits for the
   // outgoing recording to unload (length 0), so its last ticks never set the new length.
   const lengthReady = useRef(true)
 
-  // A layout effect, so the log exists before the recording screen's effects, which run first
+  // A layout effect, so the log exists before practice's effects, which run first
   // as its descendants, reach it.
   useLayoutEffect(() => {
     const log = new PlayLog(now, (record) => {
@@ -110,16 +110,17 @@ export function usePlayLog(
     const unsubscribe = engine.subscribe((state) => {
       if (state.lengthMs === 0) lengthReady.current = true
       else if (lengthReady.current) log.setLength(heardLengthMs(state.lengthMs, state.speedPercent))
-      if (state.playing !== prev.playing && screenOwned.current === null) log.playing(state.playing)
+      if (state.playing !== prev.playing && practiceOwned.current === null)
+        log.playing(state.playing)
       prev = state
     })
-    // A visit to the recording screen is one unit whatever it plays; the screen ends its play.
+    // A visit to practice is one unit whatever it plays; practice ends its play.
     const unsubscribeEnded = engine.onEnded(() => {
-      if (screenOwned.current === null) log.flush()
+      if (practiceOwned.current === null) log.flush()
     })
 
     const unsubscribeLeave = onPageLeave((how) => {
-      if (screenOwned.current !== null || log.current === null) return
+      if (practiceOwned.current !== null || log.current === null) return
       // A desktop tab keeps playing behind another, and that is still one listen.
       if (how === 'hidden' && engine.getState().playing) return
       log.flush()
@@ -153,8 +154,8 @@ export function usePlayLog(
       log.playing(state.playing)
     }
     return {
-      screenOpened: (id) => {
-        screenOwned.current = id
+      practiceOpened: (id) => {
+        practiceOwned.current = id
         const log = logRef.current
         if (!log) return false
         const loaded = log.current === id
@@ -171,16 +172,16 @@ export function usePlayLog(
         }
         return loaded
       },
-      screenPlaying: (counting) => {
-        if (screenOwned.current !== null) logRef.current?.playing(counting)
+      practicePlaying: (counting) => {
+        if (practiceOwned.current !== null) logRef.current?.playing(counting)
       },
-      screenLoaded: () => {
+      practiceLoaded: () => {
         const current = itemRef.current
-        return current?.kind === 'recording' && current.id === screenOwned.current
+        return current?.kind === 'recording' && current.id === practiceOwned.current
       },
-      screenClosed: (keep) => {
-        const id = screenOwned.current
-        screenOwned.current = null
+      practiceClosed: (keep) => {
+        const id = practiceOwned.current
+        practiceOwned.current = null
         const log = logRef.current
         if (!log) return
         if (keep) log.end()

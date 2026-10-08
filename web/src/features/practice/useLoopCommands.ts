@@ -30,7 +30,7 @@ export interface LoopCommands {
 }
 
 /**
- * New loop and Delete loop, shared by the Loops mode's buttons and the screen's keys. Times are on
+ * New loop and Delete loop, shared by the Loops mode's buttons and practice's keys. Times are on
  * the source timeline; `loops` is sorted by start.
  */
 export function useLoopCommands({
@@ -58,7 +58,7 @@ export function useLoopCommands({
   const selected = loops.find((l) => l.id === playback.selectedId) ?? null
 
   const report = (error: unknown) => {
-    // The screen goes with its recording, so a write refused for that reason needs no word.
+    // Practice goes with its recording, so a write refused for that reason needs no word.
     if (error instanceof Error && error.message === RECORDING_NOT_FOUND) return
     const message = error instanceof Error ? error.message : null
     onError(message === LOOP_LIMIT || message === NO_ROOM ? message : LOOP_NOT_SAVED)

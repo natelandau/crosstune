@@ -1,6 +1,6 @@
 import { useRef, type PointerEvent } from 'react'
-import type { ShownPeaks } from '../recording-screen/recordingRange'
-import { Waveform } from '../recording-screen/Waveform'
+import type { ShownPeaks } from './recordingRange'
+import { Waveform } from './Waveform'
 import type { LaneLoop } from './PracticeWaveform'
 import { capturePointer } from '../../platform/pointer'
 import { clamp } from '../../math'
@@ -87,12 +87,12 @@ export function OverviewStrip({
         />
       ))}
       <div
-        className="pointer-events-none absolute top-0 bottom-2 w-0.5 -translate-x-1/2 bg-current"
+        className="pointer-events-none absolute top-0 bottom-2 w-0.5 -translate-x-1/2 bg-(--playhead)"
         style={{ left: `${share(playheadMs - trimStartMs)}%` }}
       />
       <div
         data-overview-box
-        className="pointer-events-none absolute top-0 bottom-2 rounded-md border-2 border-(--ion-color-primary)"
+        className="pointer-events-none absolute top-0 bottom-2 rounded-md border-2 border-(--panel-ink)"
         style={{
           left: `${share(visible.startMs)}%`,
           width: `${share(visible.endMs - visible.startMs)}%`,

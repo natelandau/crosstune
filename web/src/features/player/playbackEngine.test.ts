@@ -338,6 +338,45 @@ describe('PlaybackEngine', () => {
     expect(engine.getState().playing).toBe(true)
   })
 
+  it('reports a refused play as failed', async () => {
+    const element = fakeElement()
+    const { clock } = fakeClock()
+    const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, clock)
+    engine.load('blob:test', span, settings, meta)
+    vi.spyOn(element, 'play').mockRejectedValue(new Error('refused'))
+    engine.play()
+    await vi.waitFor(() => expect(engine.getState().failed).toBe(true))
+  })
+
+  it('drops a play refused after a later load, which belongs to the recording before', async () => {
+    const element = fakeElement()
+    const { clock } = fakeClock()
+    const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, clock)
+    engine.load('blob:first', span, settings, meta)
+    let refuse: (reason: Error) => void = () => {}
+    const refused = new Promise<void>((_, reject) => (refuse = reject))
+    vi.spyOn(element, 'play').mockReturnValueOnce(refused)
+    engine.play()
+    engine.unload()
+    engine.load('blob:second', span, settings, meta)
+    const loadsBefore = engine.loads
+    refuse(new Error('aborted by the new load'))
+    await refused.catch(() => {})
+    await Promise.resolve()
+    expect(engine.getState().failed).toBe(false)
+    expect(engine.loads).toBe(loadsBefore)
+  })
+
+  it('counts every load and unload', () => {
+    const element = fakeElement()
+    const { clock } = fakeClock()
+    const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, clock)
+    const start = engine.loads
+    engine.load('blob:test', span, settings, meta)
+    engine.unload()
+    expect(engine.loads).toBe(start + 2)
+  })
+
   it('getState() returns the same reference between changes', () => {
     const element = fakeElement()
     const { clock } = fakeClock()

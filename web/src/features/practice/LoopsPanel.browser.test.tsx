@@ -4,8 +4,9 @@ import { addLoop, removeLoop } from '../../commands/loops'
 import { LOOP_LIMIT, NO_ROOM } from '../../commands/messages'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecordingLoop } from '../../db/types'
+import { stampAxes } from '../../test/render'
 import { openTestDb } from '../../test/db'
-import { renderIonic } from '../../test/ionic'
+import { renderInPractice } from '../../test/practiceTheme'
 import { captureRecording, liveLoops, seedLoop } from '../../test/recordings'
 import { loopRow } from '../../test/rows'
 import { LoopsPanel } from './LoopsPanel'
@@ -95,11 +96,11 @@ async function expectHidden(element: HTMLElement) {
     .toBeLessThanOrEqual(1)
 }
 
-/** The color `--ion-color-danger` resolves to here. */
+/** The color practice's danger resolves to. */
 function dangerColor(): string {
   const probe = document.createElement('span')
-  probe.style.color = 'var(--ion-color-danger)'
-  document.body.append(probe)
+  probe.style.color = 'var(--panel-danger)'
+  document.querySelector('[data-practice]')!.append(probe)
   const color = getComputedStyle(probe).color
   probe.remove()
   return color
@@ -108,20 +109,20 @@ function dangerColor(): string {
 describe('LoopsPanel', () => {
   it('shows the empty hint with no loops', async () => {
     const t = setup()
-    renderIonic(t.ui('rec'), { db })
+    renderInPractice(t.ui('rec'), { db })
     await expect.element(page.getByText(LOOPS_EMPTY_HINT)).toBeVisible()
   })
 
   it('hides the hint once there is a loop', async () => {
     const t = setup({ loops: [row('a', 1000, 5000)] })
-    renderIonic(t.ui('rec'), { db })
+    renderInPractice(t.ui('rec'), { db })
     await expect.element(button(NEW_LOOP)).toBeVisible()
     await expect.element(page.getByText(LOOPS_EMPTY_HINT)).not.toBeVisible()
   })
 
   it('disables New loop inside a loop and tells assistive tech which, out of sight', async () => {
     const t = setup({ loops: [row('a', 20_000, 40_000, 'B part')] })
-    renderIonic(t.ui('rec'), { db })
+    renderInPractice(t.ui('rec'), { db })
     await expect.element(button(NEW_LOOP)).toBeDisabled()
     await expect.poll(() => describedBy(NEW_LOOP)?.textContent).toBe(INSIDE_LOOP('B part'))
     await expectHidden(describedBy(NEW_LOOP)!)
@@ -129,7 +130,7 @@ describe('LoopsPanel', () => {
 
   it('names an unnamed loop by its time', async () => {
     const t = setup({ loops: [row('a', 20_000, 40_000)] })
-    renderIonic(t.ui('rec'), { db })
+    renderInPractice(t.ui('rec'), { db })
     await expect.element(button(NEW_LOOP)).toBeDisabled()
     await expect.poll(() => describedBy(NEW_LOOP)?.textContent).toBe(INSIDE_LOOP('Loop 0:20'))
   })
@@ -139,7 +140,7 @@ describe('LoopsPanel', () => {
       playheadMs: 10_000,
       loops: [row('a', 0, 9_800), row('b', 10_200, 20_000)],
     })
-    renderIonic(t.ui('rec'), { db })
+    renderInPractice(t.ui('rec'), { db })
     await expect.element(button(NEW_LOOP)).toBeDisabled()
     await expect.poll(() => describedBy(NEW_LOOP)?.textContent).toBe(NO_ROOM)
     await expectHidden(describedBy(NEW_LOOP)!)
@@ -148,7 +149,7 @@ describe('LoopsPanel', () => {
   it('disables New loop at 100 loops and tells assistive tech', async () => {
     const loops = Array.from({ length: 100 }, (_, i) => row(`l${i}`, i * 1000, i * 1000 + 600))
     const t = setup({ loops, playheadMs: 150_000, bounds: { startMs: 0, endMs: 200_000 } })
-    renderIonic(t.ui('rec'), { db })
+    renderInPractice(t.ui('rec'), { db })
     await expect.element(button(NEW_LOOP)).toBeDisabled()
     await expect.poll(() => describedBy(NEW_LOOP)?.textContent).toBe(LOOP_LIMIT)
     await expectHidden(describedBy(NEW_LOOP)!)
@@ -157,7 +158,7 @@ describe('LoopsPanel', () => {
   it('creates a loop, selects it, and announces Loop created', async () => {
     const recordingId = await captureRecording(db, { durationMs: 60_000 })
     const t = setup()
-    renderIonic(t.ui(recordingId), { db })
+    renderInPractice(t.ui(recordingId), { db })
     await button(NEW_LOOP).click()
     await expect.poll(() => t.onCreated.mock.calls.length).toBe(1)
     const [id] = await liveLoops(db, recordingId)
@@ -171,7 +172,7 @@ describe('LoopsPanel', () => {
     const recordingId = await captureRecording(db, { durationMs: 60_000 })
     const onCommand = vi.fn(() => 40_000)
     const t = setup({ playheadMs: 30_000, onCommand })
-    renderIonic(t.ui(recordingId), { db })
+    renderInPractice(t.ui(recordingId), { db })
     await button(NEW_LOOP).click()
     await expect.poll(() => t.onCreated.mock.calls.length).toBe(1)
     expect(onCommand).toHaveBeenCalledTimes(1)
@@ -182,7 +183,7 @@ describe('LoopsPanel', () => {
   it('reports a failed create as not saved', async () => {
     vi.mocked(addLoop).mockRejectedValueOnce(new Error('disk full'))
     const t = setup()
-    renderIonic(t.ui('rec'), { db })
+    renderInPractice(t.ui('rec'), { db })
     await button(NEW_LOOP).click()
     await expect.poll(() => t.onError.mock.calls.length).toBe(1)
     expect(t.onError).toHaveBeenCalledWith(LOOP_NOT_SAVED)
@@ -193,7 +194,7 @@ describe('LoopsPanel', () => {
     async (why) => {
       vi.mocked(addLoop).mockRejectedValueOnce(new Error(why))
       const t = setup()
-      renderIonic(t.ui('rec'), { db })
+      renderInPractice(t.ui('rec'), { db })
       await button(NEW_LOOP).click()
       await expect.poll(() => t.onError.mock.calls.length).toBe(1)
       expect(t.onError).toHaveBeenCalledWith(why)
@@ -203,7 +204,7 @@ describe('LoopsPanel', () => {
   it('reports a failed delete as not saved', async () => {
     vi.mocked(removeLoop).mockRejectedValueOnce(new Error('disk full'))
     const t = setup({ loops: [row('a', 1000, 5000)], selectedId: 'a' })
-    renderIonic(t.ui('rec'), { db })
+    renderInPractice(t.ui('rec'), { db })
     await button(DELETE_LOOP).click()
     await expect.poll(() => t.onError.mock.calls.length).toBe(1)
     expect(t.onError).toHaveBeenCalledWith(LOOP_NOT_SAVED)
@@ -211,7 +212,7 @@ describe('LoopsPanel', () => {
 
   it('turns New loop off with no reason while there is no audio', async () => {
     const t = setup()
-    renderIonic(
+    renderInPractice(
       <LoopsPanel
         recordingId="rec"
         loops={[]}
@@ -232,19 +233,19 @@ describe('LoopsPanel', () => {
     await expect.element(page.getByText(LOOPS_EMPTY_HINT)).not.toBeVisible()
   })
 
-  it('removes the selected loop with no toast', async () => {
+  it('removes the selected loop without an error', async () => {
     const recordingId = await captureRecording(db, { durationMs: 60_000 })
     const id = await seedLoop(db, recordingId, 1000, 5000)
     const t = setup({ loops: [row(id, 1000, 5000)], selectedId: id })
-    renderIonic(t.ui(recordingId), { db })
+    renderInPractice(t.ui(recordingId), { db })
     await button(DELETE_LOOP).click()
     await expect.poll(async () => (await liveLoops(db, recordingId)).length).toBe(0)
-    expect(document.querySelector('ion-toast')).toBeNull()
+    expect(t.onError).not.toHaveBeenCalled()
   })
 
   it('shows Delete loop disabled and not red with nothing selected', async () => {
     const t = setup({ loops: [row('a', 1000, 5000)] })
-    renderIonic(t.ui('rec'), { db })
+    renderInPractice(t.ui('rec'), { db })
     await expect.element(button(DELETE_LOOP)).toBeDisabled()
     await expect
       .poll(() => getComputedStyle(button(DELETE_LOOP).element()).color)
@@ -253,7 +254,7 @@ describe('LoopsPanel', () => {
 
   it('shows Delete loop enabled and red with a loop selected', async () => {
     const t = setup({ loops: [row('a', 1000, 5000)], selectedId: 'a' })
-    renderIonic(t.ui('rec'), { db })
+    renderInPractice(t.ui('rec'), { db })
     await expect.element(button(DELETE_LOOP)).toBeEnabled()
     await expect
       .poll(() => getComputedStyle(button(DELETE_LOOP).element()).color)
@@ -265,7 +266,7 @@ describe('LoopsPanel', () => {
       playheadMs: 10_000,
       loops: [row('a', 1000, 5000), row('b', 20_000, 25_000)],
     })
-    renderIonic(t.ui('rec'), { db })
+    renderInPractice(t.ui('rec'), { db })
     await expect.element(button(NEW_LOOP)).toBeVisible()
     await expect.element(button(PREVIOUS_LOOP)).not.toBeInTheDocument()
     await expect.element(button(NEXT_LOOP)).not.toBeInTheDocument()
@@ -277,15 +278,58 @@ describe('LoopsPanel', () => {
       renamingId: 'a',
       partStructure: 'AABB',
     })
-    renderIonic(t.ui('rec'), { db })
+    renderInPractice(t.ui('rec'), { db })
     await expect.element(page.getByRole('group', { name: LOOP_NAME_SUGGESTIONS })).toBeVisible()
     await expect.element(button('A part')).toBeVisible()
     await expect.element(button('B part')).toBeVisible()
   })
 
+  it('fades the suggestions at their end on touch while more remain', async () => {
+    stampAxes({ density: 'touch' })
+    const t = setup({ loops: [row('a', 1000, 5000)], renamingId: 'a', partStructure: 'ABCDEFGH' })
+    renderInPractice(t.ui('rec'), { db })
+    const group = page.getByRole('group', { name: LOOP_NAME_SUGGESTIONS })
+    await expect.element(group).toBeVisible()
+    await expect
+      .poll(() => getComputedStyle(group.element()).maskImage)
+      .toContain('linear-gradient')
+  })
+
+  it('draws the suggestions in the dark scheme in the light appearance', async () => {
+    stampAxes({ density: 'touch', scheme: 'light' })
+    const t = setup({ loops: [row('a', 1000, 5000)], renamingId: 'a', partStructure: 'AB' })
+    renderInPractice(t.ui('rec'), { db })
+    const chip = page.getByRole('button', { name: 'A part', exact: true })
+    await expect.element(chip).toBeVisible()
+    const probe = document.createElement('span')
+    probe.style.background = 'var(--practice-fill)'
+    probe.style.color = 'var(--panel-ink)'
+    document.querySelector('[data-practice]')!.append(probe)
+    const dark = getComputedStyle(probe)
+    const paint = (style: CSSStyleDeclaration) => [style.backgroundColor, style.color]
+    await expect.poll(() => paint(getComputedStyle(chip.element()))).toEqual(paint(dark))
+    probe.remove()
+  })
+
+  it('keeps its height when a rename opens the suggestions', async () => {
+    stampAxes({ density: 'pointer' })
+    const resting = setup({ loops: [row('a', 1000, 5000)], partStructure: 'AB' })
+    const renaming = setup({ loops: [row('a', 1000, 5000)], renamingId: 'a', partStructure: 'AB' })
+    renderInPractice(
+      <>
+        <div data-testid="resting">{resting.ui('rec')}</div>
+        <div data-testid="renaming">{renaming.ui('rec')}</div>
+      </>,
+      { db },
+    )
+    await expect.element(page.getByRole('button', { name: 'A part', exact: true })).toBeVisible()
+    const height = (id: string) => page.getByTestId(id).element().getBoundingClientRect().height
+    await expect.poll(() => height('renaming')).toBe(height('resting'))
+  })
+
   it('offers no suggestions when no rename is open', async () => {
     const t = setup({ loops: [row('a', 1000, 5000)], partStructure: 'AABB' })
-    renderIonic(t.ui('rec'), { db })
+    renderInPractice(t.ui('rec'), { db })
     await expect.element(button(NEW_LOOP)).toBeVisible()
     await expect.poll(() => document.body.textContent).not.toContain('A part')
   })

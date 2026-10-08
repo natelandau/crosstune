@@ -10,7 +10,7 @@ export interface PracticeSettings {
   pitchCents: number
 }
 
-/** One visit to the recording screen that counted as practice, timed on the injected clock. */
+/** One visit to practice that reached the threshold, timed on the injected clock. */
 export interface PracticeRecord {
   recordingId: string
   startedAt: number
@@ -44,7 +44,7 @@ function longest(times: Map<number, number>, fallback: number): number {
 }
 
 /**
- * Times one recording screen visit while audio plays, and the loops, speeds, and pitches it
+ * Times one practice visit while audio plays, and the loops, speeds, and pitches it
  * played with. A visit that played a loop, or played any time away from the default speed or
  * pitch, is practice.
  */

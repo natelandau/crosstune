@@ -7,7 +7,7 @@ import { iso, onPageLeave } from '../player/activity'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import type { PlaybackState } from '../player/playbackEngine'
 import { usePlayLogControl } from '../player/usePlayLog'
-import type { RecordingScreen } from '../recording-screen/useRecordingScreen'
+import type { PracticeOverlayHandle } from './usePracticeOverlay'
 import { PracticeLog, type PracticeRecord } from './practiceLog'
 
 async function recordPractice(
@@ -30,20 +30,20 @@ async function recordPractice(
 }
 
 /**
- * Logs each visit to the recording screen for `recordingId` (null while it is closed) as a
+ * Logs each visit to practice for `recordingId` (null while it is closed) as a
  * practice session, or hands it back to the play log as an ordinary play. A visit also ends when
- * the page goes away or is hidden while paused, since the page may never come back; the screen
+ * the page goes away or is hidden while paused, since the page may never come back; practice
  * still open then starts a fresh one.
  */
 export function usePracticeLog(
   recordingId: string | null,
-  screen: Pick<RecordingScreen, 'held' | 'subscribe'>,
+  overlay: Pick<PracticeOverlayHandle, 'held' | 'subscribe'>,
   { now = Date.now }: { now?: () => number } = {},
 ): void {
   const engine = usePlaybackEngine()
   const playLog = usePlayLogControl()
   const db = useContext(DbContext)
-  const { held, subscribe } = screen
+  const { held, subscribe } = overlay
 
   useEffect(() => {
     if (recordingId === null) return
@@ -61,24 +61,24 @@ export function usePracticeLog(
 
     const feed = () => {
       const state = engine.getState()
-      const loaded = playLog.screenLoaded()
+      const loaded = playLog.practiceLoaded()
       if (loaded) {
         log.setSpeed(state.speedPercent)
         log.setPitch(state.pitchCents)
       }
       const audible = loaded && playing && !trimming()
       log.playing(audible)
-      playLog.screenPlaying(audible)
+      playLog.practicePlaying(audible)
       if (audible && state.repeat && state.loop) log.usedLoop(state.loop.id)
     }
     const begin = () => {
-      const loaded = playLog.screenOpened(recordingId)
+      const loaded = playLog.practiceOpened(recordingId)
       const state = engine.getState()
       log.open(recordingId, { speedPercent: state.speedPercent, pitchCents: state.pitchCents })
       if (loaded) playing = state.playing
       feed()
     }
-    const finish = () => playLog.screenClosed(log.close() === 'play')
+    const finish = () => playLog.practiceClosed(log.close() === 'play')
 
     begin()
     const unsubscribeEngine = engine.subscribe((state) => {

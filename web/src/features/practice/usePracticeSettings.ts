@@ -3,26 +3,28 @@ import { RECORDING_NOT_FOUND } from '../../commands/messages'
 import { updateRecording } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
 import type { LocalRecording } from '../../db/types'
-import { useToast } from '../../ui/Toast'
 import { useLatest } from '../../ui/useLatest'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
-import { useRecordingScreen, type HeldSettings } from '../recording-screen/useRecordingScreen'
-import { useSettledWrite } from '../recording-screen/useSettledWrite'
+import { usePracticeOverlay, type HeldSettings } from './usePracticeOverlay'
+import { useSettledWrite } from './useSettledWrite'
 
 export const SPEED_NOT_SAVED = 'The speed could not be saved.'
 export const PITCH_NOT_SAVED = 'The pitch could not be saved.'
 
 /**
- * The recording's speed and pitch as the screen plays them: applied to the engine at once,
+ * The recording's speed and pitch as practice plays them: applied to the engine at once,
  * written once each settles, and held ahead of the row for the dock until the writes land.
  */
 export function usePracticeSettings({
   recording,
   onError,
+  toast,
 }: {
   recording: LocalRecording
-  /** A refused write while the screen shows; null clears it. */
+  /** A refused write while practice shows; null clears it. */
   onError: (message: string | null) => void
+  /** A refused write that lands after practice has closed. */
+  toast: (message: string) => void
 }): {
   speed: number
   pitch: number
@@ -31,7 +33,6 @@ export function usePracticeSettings({
 } {
   const db = useDb()
   const engine = usePlaybackEngine()
-  const toast = useToast()
 
   // What the controls show runs ahead of the row while a change settles, and follows the row
   // when it changes while nothing is settling. `sent` is the last value this view wrote or
@@ -60,7 +61,7 @@ export function usePracticeSettings({
     }
   }
 
-  const recordingScreen = useRecordingScreen()
+  const practiceOverlay = usePracticeOverlay()
   const recordingId = recording.id
   // Tells the dock what plays ahead of the row, so a stored value landing late re-applies
   // this view's value rather than the older one.
@@ -75,8 +76,8 @@ export function usePracticeSettings({
             trimming: false,
           }
     ownHold.current = settings
-    recordingScreen.hold(recordingId, settings)
-  }, [recordingScreen, recordingId, speed, pitch, rowSpeed, rowPitch])
+    practiceOverlay.hold(recordingId, settings)
+  }, [practiceOverlay, recordingId, speed, pitch, rowSpeed, rowPitch])
 
   const rowRef = useLatest(recording)
   const mounted = useRef(true)
@@ -86,12 +87,12 @@ export function usePracticeSettings({
       mounted.current = false
     }
   }, [])
-  // A write refused because the row is gone needs no word: the screen goes with the row. Any
-  // other refusal shows on the screen, or as a toast once the screen has closed.
+  // A write refused because the row is gone needs no word: practice goes with the row. Any
+  // other refusal shows in practice, or as a toast once practice has closed.
   const reportSetting = (message: string) => (error: unknown) => {
     if (error instanceof Error && error.message === RECORDING_NOT_FOUND) return
     if (mounted.current) onError(message)
-    else toast({ message })
+    else toast(message)
   }
   const writing = useRef(new Set<Promise<void>>())
   const write = (patch: { speed_percent: number } | { pitch_cents: number }, message: string) => {
@@ -111,7 +112,7 @@ export function usePracticeSettings({
     write({ pitch_cents: value }, PITCH_NOT_SAVED)
   })
   // Declared after the settled writes, so their flush on leaving is already under way. The hold
-  // outlives the view until every write has settled, so neither the screen nor the dock shows
+  // outlives the view until every write has settled, so neither practice nor the dock shows
   // an older value landing first. A hold another view has taken since, such as the trim view's
   // taken in the same commit that unmounts this one, is left to it.
   useEffect(() => {
@@ -121,10 +122,10 @@ export function usePracticeSettings({
       const left = own.current
       if (!left) return
       void Promise.allSettled([...pending]).then(() => {
-        if (recordingScreen.held(recordingId) === left) recordingScreen.hold(recordingId, null)
+        if (practiceOverlay.held(recordingId) === left) practiceOverlay.hold(recordingId, null)
       })
     }
-  }, [recordingScreen, recordingId])
+  }, [practiceOverlay, recordingId])
 
   const changeSpeed = (percent: number) => {
     setSpeed(percent)

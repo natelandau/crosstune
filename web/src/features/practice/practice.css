@@ -1,0 +1,16 @@
+/* The overlay sets `--spring` from the motion tokens. */
+
+/* A loop handle dragged onto a snap target settles onto it. */
+[data-practice] [data-handle][data-snapped] {
+  transition: left var(--dur-long) var(--spring);
+}
+
+/* Slate disappears on jet, so the ring takes the panel's ink. */
+[data-practice] :focus-visible {
+  outline-color: var(--panel-ink);
+}
+
+/* The zoomed waveform fills the room practice measured for it. */
+[data-practice] .practice-detail {
+  height: var(--practice-detail-height, 120px);
+}

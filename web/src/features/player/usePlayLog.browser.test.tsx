@@ -6,7 +6,7 @@ import { openTestDb } from '../../test/db'
 import { fakePlaybackEngine, FakeAudioElement } from '../../test/providers'
 import { recordingRow } from '../../test/rows'
 import { usePracticeLog } from '../practice/usePracticeLog'
-import type { HeldSettings } from '../recording-screen/useRecordingScreen'
+import type { HeldSettings } from '../practice/usePracticeOverlay'
 import { PlaybackEngineContext } from './PlaybackEngineProvider'
 import type { EngineClock, PlaybackEngine } from './playbackEngine'
 import type { PlayOrigin } from './playLog'
@@ -53,8 +53,8 @@ async function written(db: CrosstuneDb) {
   }
 }
 
-/** The recording screen's hold, as its provider keeps it, for a test to set. */
-function fakeScreen() {
+/** Practice's hold, as its provider keeps it, for a test to set. */
+function fakeOverlay() {
   const holds = new Map<string, HeldSettings>()
   const listeners = new Set<() => void>()
   return {
@@ -75,21 +75,21 @@ function fakeScreen() {
 
 function Practice({
   id,
-  screen,
+  overlay,
   now,
 }: {
   id: string | null
-  screen: ReturnType<typeof fakeScreen>
+  overlay: ReturnType<typeof fakeOverlay>
   now: () => number
 }) {
-  usePracticeLog(id, screen, { now })
+  usePracticeLog(id, overlay, { now })
   return null
 }
 
 interface HarnessProps {
   item: PlayerItem | null
   origin?: PlayOrigin
-  screenId?: string | null
+  overlayId?: string | null
 }
 
 function harness(
@@ -98,12 +98,12 @@ function harness(
   now: () => number,
   initial: HarnessProps,
 ) {
-  const screen = fakeScreen()
-  function Harness({ item, origin = { context: 'row' }, screenId = null }: HarnessProps) {
+  const overlay = fakeOverlay()
+  function Harness({ item, origin = { context: 'row' }, overlayId = null }: HarnessProps) {
     const control = usePlayLog(engine, item, origin, { now })
     return (
       <PlayLogContext.Provider value={control}>
-        <Practice id={screenId} screen={screen} now={now} />
+        <Practice id={overlayId} overlay={overlay} now={now} />
       </PlayLogContext.Provider>
     )
   }
@@ -115,7 +115,7 @@ function harness(
     </DbContext.Provider>
   )
   const view = render(tree(initial))
-  return { screen, rerender: (props: HarnessProps) => view.rerender(tree(props)) }
+  return { overlay, rerender: (props: HarnessProps) => view.rerender(tree(props)) }
 }
 
 const SETTINGS = { speedPercent: 100, pitchCents: 0 }
@@ -276,17 +276,17 @@ describe('usePlayLog', () => {
     await expect.poll(() => written(db)).toEqual({ plays: [['row', 12_000]], practice: 0 })
   })
 
-  it('a recording screen visit that plays a loop is practice, not a play', async () => {
+  it('a practice visit that plays a loop is practice, not a play', async () => {
     const { db, engine, now, advance } = setup()
     await db.recordings.put(recordingRow('rec-1', { tune_id: 'tune-1' }))
     const { rerender } = harness(db, engine, now, { item: REC })
     loadAndPlay(engine)
     advance(4_000)
-    rerender({ item: REC, screenId: 'rec-1' })
+    rerender({ item: REC, overlayId: 'rec-1' })
     engine.setLoop({ id: 'loop-1', label: 'B part', fromS: 10, toS: 20 })
     engine.setRepeat(true)
     advance(14_000)
-    rerender({ item: REC, screenId: null })
+    rerender({ item: REC, overlayId: null })
     engine.pause()
     // A dock play after the visit, so a wrong play from the visit would be written before it.
     engine.play()
@@ -309,41 +309,41 @@ describe('usePlayLog', () => {
       ])
   })
 
-  it('a recording screen visit at the default settings is a play from the screen', async () => {
+  it('a practice visit at the default settings is a play from practice', async () => {
     const { db, engine, now, advance } = setup()
     await db.recordings.put(recordingRow('rec-1'))
-    const { rerender } = harness(db, engine, now, { item: REC, screenId: 'rec-1' })
+    const { rerender } = harness(db, engine, now, { item: REC, overlayId: 'rec-1' })
     loadAndPlay(engine)
     advance(20_000)
     engine.pause()
-    rerender({ item: REC, screenId: null })
+    rerender({ item: REC, overlayId: null })
 
     await expect
       .poll(() => written(db))
       .toEqual({ plays: [['recording_screen', 20_000]], practice: 0 })
   })
 
-  it('a tab hidden while the recording screen plays keeps one visit', async () => {
+  it('a tab hidden while practice plays keeps one visit', async () => {
     const { db, engine, now, advance } = setup()
     await db.recordings.put(recordingRow('rec-1'))
-    const { rerender } = harness(db, engine, now, { item: REC, screenId: 'rec-1' })
+    const { rerender } = harness(db, engine, now, { item: REC, overlayId: 'rec-1' })
     loadAndPlay(engine)
     advance(8_000)
     hidePage()
     advance(8_000)
     showPage()
     engine.pause()
-    rerender({ item: REC, screenId: null })
+    rerender({ item: REC, overlayId: null })
 
     await expect
       .poll(() => written(db))
       .toEqual({ plays: [['recording_screen', 16_000]], practice: 0 })
   })
 
-  it('a tab hidden while the recording screen is paused ends the visit', async () => {
+  it('a tab hidden while practice is paused ends the visit', async () => {
     const { db, engine, now, advance } = setup()
     await db.recordings.put(recordingRow('rec-1'))
-    harness(db, engine, now, { item: REC, screenId: 'rec-1' })
+    harness(db, engine, now, { item: REC, overlayId: 'rec-1' })
     loadAndPlay(engine)
     advance(12_000)
     engine.pause()
@@ -354,20 +354,20 @@ describe('usePlayLog', () => {
       .toEqual({ plays: [['recording_screen', 12_000]], practice: 0 })
   })
 
-  it("another recording playing while the screen shows counts toward neither's visit", async () => {
+  it("another recording playing while practice shows counts toward neither's visit", async () => {
     const { db, engine, now, advance } = setup()
     await db.recordings.bulkPut([recordingRow('rec-1'), recordingRow('rec-2')])
     const { rerender } = harness(db, engine, now, { item: REC })
     engine.load('blob:rec-1', SPAN, { speedPercent: 80, pitchCents: 0 }, META)
     engine.play()
     advance(4_000)
-    rerender({ item: REC, screenId: 'rec-2' })
+    rerender({ item: REC, overlayId: 'rec-2' })
     // A pause and resume from the lock screen, while rec-1 is still the one loaded.
     engine.pause()
     engine.play()
     advance(20_000)
     engine.pause()
-    rerender({ item: REC, screenId: null })
+    rerender({ item: REC, overlayId: null })
     rerender({ item: null })
 
     await expect.poll(() => written(db)).toEqual({ plays: [], practice: 0 })
@@ -376,14 +376,14 @@ describe('usePlayLog', () => {
   it('time in the trim view at the default settings counts toward no play', async () => {
     const { db, engine, now, advance } = setup()
     await db.recordings.put(recordingRow('rec-1'))
-    const { screen, rerender } = harness(db, engine, now, { item: REC, screenId: 'rec-1' })
+    const { overlay, rerender } = harness(db, engine, now, { item: REC, overlayId: 'rec-1' })
     loadAndPlay(engine)
     advance(4_000)
-    screen.hold('rec-1', { ...SETTINGS, trimming: true })
+    overlay.hold('rec-1', { ...SETTINGS, trimming: true })
     advance(20_000)
-    screen.hold('rec-1', null)
+    overlay.hold('rec-1', null)
     engine.pause()
-    rerender({ item: REC, screenId: null })
+    rerender({ item: REC, overlayId: null })
     // Playing on in the dock afterward is a play of its own, written after the visit's outcome.
     engine.play()
     advance(11_000)

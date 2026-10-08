@@ -11,12 +11,15 @@ export function LiveWaveform({
   analyser,
   paused,
   active,
+  className = 'text-(--wave-played)',
 }: {
   analyser: AnalyserNode | null
   /** Hold the bars still, as during an interruption, without stopping the loop. */
   paused: boolean
   /** Run the animation loop at all; false once there is nothing left to show. */
   active: boolean
+  /** Sets the bars' color through `color`. */
+  className?: string
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pausedRef = useLatest(paused)
@@ -63,11 +66,5 @@ export function LiveWaveform({
   }, [analyser, active, reduceMotion, pausedRef])
 
   // The draw loop reads this color off the canvas, so the bars follow the palette in either theme.
-  return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      className="block h-32 w-full text-(--ion-color-primary)"
-    />
-  )
+  return <canvas ref={canvasRef} aria-hidden="true" className={`block h-32 w-full ${className}`} />
 }
