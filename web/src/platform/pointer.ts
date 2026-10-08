@@ -1,21 +1,5 @@
-import { matches, useMediaQuery } from './mediaQuery'
-
-/**
- * Which kind of pointer is driving. `mouse` means a precise pointer that can hover, so row
- * actions show on hover and overlays anchor to their buttons. `touch` means swipes, sheets,
- * and long press. A tablet with a trackpad attached is `mouse`.
- */
-export type Pointer = 'touch' | 'mouse'
-
+/** A precise pointer that can hover. A tablet with a trackpad attached is one. */
 export const MOUSE_QUERY = '(hover: hover) and (pointer: fine)'
-
-export function readPointer(): Pointer {
-  return matches(MOUSE_QUERY) ? 'mouse' : 'touch'
-}
-
-export function usePointer(): Pointer {
-  return useMediaQuery(MOUSE_QUERY) ? 'mouse' : 'touch'
-}
 
 /** Keep a press's later events on `element` wherever the pointer goes. A synthetic or
  * already-released pointer cannot be captured, but its events still arrive, so that is fine. */

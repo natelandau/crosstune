@@ -1,0 +1,27 @@
+/* Practice's drawing palette: practice and trim on jet in every appearance, drawn in the dark
+   scheme, with a coral playhead and loop handles and plain white trim handles. */
+[data-practice] {
+  --panel-ground: var(--jet);
+  --panel-ink: #ffffff;
+  --panel-on-ink: var(--jet);
+  --panel-muted: var(--silver);
+  --panel-danger: var(--danger-dark);
+  /* So a shared error line on jet reads as the dark scheme's. */
+  --danger: var(--danger-dark);
+  --wave-played: #ffffff;
+  --wave-unplayed: var(--silver);
+  --playhead: var(--coral);
+  --trim-handle: #ffffff;
+  /* The panels' round buttons, filled as the dark scheme fills them. */
+  --fill-tertiary: var(--practice-fill);
+}
+[data-practice] .loop-color {
+  --loop-handle: var(--coral);
+}
+/* The loops panel's suggestion chips are the app's own controls, drawn here in the dark scheme. */
+[data-practice] [data-loops-panel] {
+  --ink: var(--panel-ink);
+  --ink-2: var(--panel-muted);
+  --slate: var(--panel-ink);
+  --fill: var(--practice-fill);
+}

@@ -1,0 +1,45 @@
+/* Page motion runs through React's <ViewTransition>, which names these classes. The reduced
+   motion rule in shape.css turns every one of them off. */
+
+/* A pushed page comes in from the trailing edge over the screen it covers. */
+::view-transition-new(.push-in) {
+  animation: var(--dur-long) var(--ease) both push-in;
+}
+
+::view-transition-old(.push-in) {
+  animation: none;
+}
+
+/* On wide, a page fades in and lifts 6px, and a swap to the next tune cross-fades with it. */
+::view-transition-new(.tune-in),
+::view-transition-new(.tune-swap) {
+  animation: var(--dur-base) var(--ease) both tune-in;
+}
+
+::view-transition-old(.tune-swap) {
+  animation: var(--dur-base) var(--ease) both tune-out;
+}
+
+@keyframes push-in {
+  from {
+    transform: translateX(var(--push-from, 100%));
+  }
+}
+
+/* The trailing edge is on the left in a right-to-left page. */
+:root[dir='rtl'] {
+  --push-from: -100%;
+}
+
+@keyframes tune-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes tune-out {
+  to {
+    opacity: 0;
+  }
+}

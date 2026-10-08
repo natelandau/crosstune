@@ -1,0 +1,117 @@
+/* Sizes are rem at a 16px root so the text size setting scales every role. */
+html[data-text-size='compact'] {
+  font-size: 93.75%;
+}
+html[data-text-size='roomy'] {
+  font-size: 106.25%;
+}
+
+/* Geist has no U+266F or U+266D; the symbol faces keep key names in one family per glyph. */
+:root {
+  --font-sans:
+    'Geist Variable', system-ui, 'Apple Symbols', 'Segoe UI Symbol', 'Noto Music',
+    'Noto Sans Symbols 2', sans-serif;
+}
+
+/* A layer, so a utility such as font-bold overrides a role. */
+@layer components {
+  .t-page-title {
+    font-size: 1.875rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .t-screen-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .t-heading {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+  .t-body {
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.45;
+  }
+  .t-secondary {
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.35;
+  }
+  .t-caption {
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+  .t-timer {
+    font-size: 3.5rem;
+    font-weight: 300;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .t-lyrics {
+    font-size: 1.625rem;
+    font-weight: 400;
+    line-height: 1.45;
+  }
+
+  /* Tabular width differs by weight, so a counting figure keeps one weight. */
+  .t-num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  html[data-density='pointer'] {
+    .t-page-title {
+      font-size: 1.625rem;
+    }
+    .t-screen-title {
+      font-size: 1.375rem;
+    }
+    .t-heading {
+      font-size: 0.9375rem;
+    }
+    .t-body {
+      font-size: 0.875rem;
+    }
+    .t-secondary {
+      font-size: 0.78125rem;
+    }
+    .t-caption {
+      font-size: 0.6875rem;
+    }
+    .t-timer {
+      font-size: 3rem;
+    }
+  }
+}
+
+/* The reader's own scale, chosen per device. Unlayered and in px so it overrides t-lyrics and
+   the text size setting never compounds with it: reading distance is not browsing distance. */
+[data-lyrics-size='1'] {
+  font-size: 18px;
+}
+[data-lyrics-size='2'] {
+  font-size: 22px;
+}
+[data-lyrics-size='3'] {
+  font-size: 26px;
+}
+[data-lyrics-size='4'] {
+  font-size: 32px;
+}
+[data-lyrics-size='5'] {
+  font-size: 38px;
+}
+[data-lyrics-size='6'] {
+  font-size: 44px;
+}
+
+/* iOS zooms the page when a focused field is under 16px. */
+html:not([data-density='pointer']) :is(input, textarea, select) {
+  font-size: max(1rem, 16px);
+}

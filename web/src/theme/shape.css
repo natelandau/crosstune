@@ -1,0 +1,51 @@
+:root {
+  --radius-capsule: 9999px;
+  --radius-surface: 14px;
+  --radius-row: 8px;
+  --shadow-float: 0 8px 28px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  --target: 44px;
+  --target-control: 44px;
+  --target-filter: 44px;
+
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-short: 150ms;
+  --dur-base: 250ms;
+  --dur-long: 350ms;
+  /* A cross-fade, the one motion reduced motion keeps, so the rule below leaves it alone. */
+  --dur-fade: 250ms;
+}
+
+/* A document page's readable width, as `max-w-page`. In px, so the text size setting scales
+   the type and not the column. */
+@theme {
+  --container-page: 680px;
+}
+
+/* Black shadows barely show on a near-black ground, so a floating surface also gets a faint
+   light edge. */
+:root[data-scheme='dark'] {
+  --shadow-float:
+    0 8px 28px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+html[data-density='pointer'] {
+  --target: 32px;
+  --target-control: 28px;
+  --target-filter: 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-short: 0.01ms;
+    --dur-base: 0.01ms;
+    --dur-long: 0.01ms;
+  }
+
+  /* Neither React nor the browser honors reduced motion for view transitions. */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none;
+  }
+}

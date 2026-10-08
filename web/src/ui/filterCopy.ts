@@ -9,3 +9,8 @@ export function filtersLabel(setCount: number): string {
 export function removeFilterLabel(value: string): string {
   return `Remove filter ${value}`
 }
+
+/** A filter's empty choice, which widens it to every value. */
+export const ANY = 'Any'
+/** Clears a filter sheet's own filters. */
+export const RESET = 'Reset'

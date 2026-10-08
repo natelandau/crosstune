@@ -1,63 +1,51 @@
-import { IonSearchbar } from '@ionic/react'
-import { useEffect, useImperativeHandle, useRef, type Ref } from 'react'
-
-export const CLEAR_SEARCH = 'Clear search'
-
-export interface SearchFieldHandle {
-  focus: () => void
-  blur: () => void
-}
+import { Search, X } from 'lucide-react'
+import { useState, type Ref } from 'react'
+import { Button, Input, SearchField as AriaSearchField } from 'react-aria-components'
+import { CLEAR_SEARCH } from './searchCopy'
 
 /**
- * The search bar under a top-level screen's title. IonSearchbar names its own input "search
- * text" and its clear button "reset", and forwards no label to either, so this names them. The
- * host keeps Ionic's unnamed `search` landmark, which would otherwise repeat the input's name.
+ * A search box named for what it searches, with the name as its placeholder. Clear shows only
+ * while the field has focus and holds text. On touch the text never drops below 16px, the size
+ * under which iOS zooms the page on focus.
  */
 export function SearchField({
-  name,
+  label,
   value,
-  placeholder = name,
-  onInput,
-  onEnter,
+  onChange,
+  onSubmit,
   ref,
 }: {
-  /** The input's accessible name, such as "Search tunes". */
-  name: string
+  label: string
   value: string
-  placeholder?: string
-  onInput: (value: string) => void
-  onEnter?: () => void
-  ref?: Ref<SearchFieldHandle>
+  onChange: (value: string) => void
+  onSubmit?: () => void
+  ref?: Ref<HTMLInputElement>
 }) {
-  const searchbar = useRef<HTMLIonSearchbarElement>(null)
-
-  useImperativeHandle(ref, () => ({
-    focus: () => void searchbar.current?.setFocus(),
-    blur: () => void searchbar.current?.getInputElement().then((input) => input.blur()),
-  }))
-
-  useEffect(() => {
-    const element = searchbar.current
-    void element?.getInputElement().then((input) => {
-      input.setAttribute('aria-label', name)
-      element.querySelector('.searchbar-clear-button')?.setAttribute('aria-label', CLEAR_SEARCH)
-    })
-  }, [name])
-
+  const [focused, setFocused] = useState(false)
   return (
-    <IonSearchbar
-      ref={searchbar}
+    <AriaSearchField
+      data-search-field
+      aria-label={label}
       value={value}
-      placeholder={placeholder}
-      enterkeyhint="search"
-      showClearButton="focus"
-      onIonInput={(event) => onInput(event.detail.value ?? '')}
-      onKeyDown={(event) => {
-        // Enter that confirms an input method's candidate is not a submit; Safari reports it
-        // only through keyCode 229.
-        if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.keyCode === 229) return
-        onEnter?.()
-      }}
-    />
+      onChange={onChange}
+      onSubmit={onSubmit}
+      onFocusChange={setFocused}
+      className="bg-fill relative flex min-h-(--target-control) items-center rounded-(--radius-capsule) ps-3 pe-1"
+    >
+      <Search className="text-ink-2 size-4 shrink-0" aria-hidden />
+      <Input
+        ref={ref}
+        placeholder={label}
+        className="t-body placeholder:text-ink-2 min-w-0 flex-1 bg-transparent px-2 in-[html[data-density=touch]]:text-[max(16px,1rem)] [&::-webkit-search-cancel-button]:hidden"
+      />
+      {focused && value !== '' && (
+        <Button
+          aria-label={CLEAR_SEARCH}
+          className="text-ink-2 inline-flex size-(--target-control) shrink-0 items-center justify-center rounded-full data-[pressed]:opacity-60"
+        >
+          <X className="size-4" aria-hidden />
+        </Button>
+      )}
+    </AriaSearchField>
   )
 }

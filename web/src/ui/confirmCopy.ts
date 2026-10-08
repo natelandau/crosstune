@@ -1,0 +1,5 @@
+export const DELETE = 'Delete'
+export const DELETING = 'Deleting…'
+export const CANCEL = 'Cancel'
+export const DONE = 'Done'
+export const CLOSE = 'Close'

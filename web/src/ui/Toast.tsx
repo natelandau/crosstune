@@ -1,83 +1,216 @@
-import { useIonToast } from '@ionic/react'
-import { createContext, useCallback, useContext, useRef, type ReactNode } from 'react'
-import { WIDE_QUERY } from '../platform/frame'
-import { matches } from '../platform/mediaQuery'
+import { useReducedMotionConfig } from 'motion/react'
+import {
+  createContext,
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
+import { createPortal } from 'react-dom'
+import { UNDO } from './toastCopy'
+import { useLatest } from './useLatest'
+import { Button } from './Button'
 
+/** How long a toast stays when nothing holds it open. */
 export const TOAST_MS = 8000
+export { UNDO } from './toastCopy'
 
-// The tab bar comes back within a frame or two of the mode ending. The cap is only there so
-// that a bar which never returns cannot hold a message forever, not as a budget a slow device
-// has to meet.
-export const ANCHOR_WAIT_MS = 1500
-
-const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
-
-/**
- * The tab bar, once it is laid out. Ionic positions a toast against its anchor's box as it
- * presents and never again, and the bar is away for as long as a screen is selecting, so a
- * message raised by the action that ends the mode waits for the bar to come back rather than
- * landing on top of it. The wide frame carries a sidebar instead of a tab bar, so there is
- * nothing to wait for and the message takes the bottom of the page.
- */
-async function waitForAnchor(): Promise<HTMLElement | undefined> {
-  const deadline = performance.now() + ANCHOR_WAIT_MS
-  for (;;) {
-    const target = document.querySelector<HTMLElement>('[data-toast-anchor]')
-    if (target?.offsetParent) return target
-    // Nothing is on its way: the wide frame carries a sidebar rather than a tab bar, and a
-    // page with no tab bar in it at all has none to wait for.
-    if (!target || matches(WIDE_QUERY) || performance.now() >= deadline) return undefined
-    await nextFrame()
-  }
+interface ToastState {
+  id: number
+  message: string
+  undo?: () => void
 }
 
-type ToastFn = (options: { message: string; undo?: () => void }) => void
+interface ToastApi {
+  show: (message: string, undo?: () => void) => void
+}
 
-const ToastContext = createContext<ToastFn | null>(null)
+const ToastContext = createContext<ToastApi | null>(null)
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useToast(): ToastApi {
+  const api = use(ToastContext)
+  if (!api) throw new Error('useToast needs a ToastProvider')
+  return api
+}
+
+export interface ToastClock {
+  now: () => number
+  setTimeout: (callback: () => void, ms: number) => number
+  clearTimeout: (handle: number) => void
+}
+
+// Each call looks the global up again so fake timers installed after import still apply.
+const REAL_CLOCK: ToastClock = {
+  now: () => Date.now(),
+  setTimeout: (callback, ms) => window.setTimeout(callback, ms),
+  clearTimeout: (handle) => window.clearTimeout(handle),
+}
 
 /**
- * Owns the app's one ion-toast overlay. Mounted once near the router root so every screen's
- * useToast() shares it, rather than each screen racing its own overlay and chain.
+ * Owns the one toast on screen. A new toast replaces the old. The countdown holds while the
+ * toast has keyboard focus or the pointer is over it, so Undo stays reachable.
  */
-export function ToastProvider({ children }: { children: ReactNode }) {
-  const [present, dismiss] = useIonToast()
-  // useIonToast's own overlap guard only applies after its internal controller.create()
-  // resolves, which is too late to stop several calls in one tick from racing to present.
-  // Chaining every call through one ref-held promise runs them in call order instead.
-  const chain = useRef(Promise.resolve())
-  // A call captures the counter's value when made; if a later call has since bumped it, this
-  // one was superseded before its turn and must never present, not even for the instant
-  // between its dismiss and its present, or a burst would flash every message in it.
-  const requestId = useRef(0)
+export function ToastProvider({
+  children,
+  clock = REAL_CLOCK,
+}: {
+  children: ReactNode
+  clock?: ToastClock
+}) {
+  const [toast, setToast] = useState<ToastState | null>(null)
+  const [leaving, setLeaving] = useState(false)
+  const reduceMotion = useReducedMotionConfig() ?? false
+  const clockRef = useLatest(clock)
+  const nextId = useRef(0)
+  const timer = useRef<{ handle: number; startedAt: number; remaining: number } | null>(null)
+  const held = useRef({ focus: false, pointer: false })
 
-  const toast = useCallback<ToastFn>(
-    ({ message, undo }) => {
-      const id = ++requestId.current
-      chain.current = chain.current
-        .then(() => dismiss())
-        .then(() => waitForAnchor())
-        .then((anchor) => {
-          if (id !== requestId.current) return
-          return present({
-            message,
-            duration: TOAST_MS,
-            position: 'bottom',
-            positionAnchor: anchor,
-            buttons: undo ? [{ text: 'Undo', role: 'undo', handler: undo }] : undefined,
-          })
-        })
-        .catch(() => {})
+  const stop = useCallback(() => {
+    if (!timer.current) return
+    clockRef.current.clearTimeout(timer.current.handle)
+    timer.current = null
+  }, [clockRef])
+
+  const reduceMotionRef = useLatest(reduceMotion)
+  const toastRef = useRef<HTMLDivElement>(null)
+
+  const returnFocusTo = useRef<Element | null>(null)
+  // Focus inside a toast that goes away would fall to <body>; hand it back to where it came from.
+  const restoreFocus = useCallback(() => {
+    const el = toastRef.current
+    if (!el?.contains(document.activeElement)) return
+    const target = returnFocusTo.current
+    if (target instanceof HTMLElement && target.isConnected) target.focus()
+    else (document.activeElement as HTMLElement).blur()
+    returnFocusTo.current = null
+  }, [])
+
+  const dismiss = useCallback(() => {
+    stop()
+    restoreFocus()
+    if (reduceMotionRef.current) setToast(null)
+    else setLeaving(true)
+  }, [stop, reduceMotionRef, restoreFocus])
+
+  const start = useCallback(
+    (ms: number) => {
+      stop()
+      const { now, setTimeout } = clockRef.current
+      timer.current = { handle: setTimeout(dismiss, ms), startedAt: now(), remaining: ms }
     },
-    [dismiss, present],
+    [stop, dismiss, clockRef],
   )
 
-  return <ToastContext.Provider value={toast}>{children}</ToastContext.Provider>
-}
+  const hold = useCallback(
+    (kind: 'focus' | 'pointer', on: boolean) => {
+      const wasHeld = held.current.focus || held.current.pointer
+      held.current[kind] = on
+      const isHeld = held.current.focus || held.current.pointer
+      if (isHeld === wasHeld) return
+      if (isHeld) {
+        const current = timer.current
+        if (!current) return
+        const remaining = Math.max(
+          0,
+          current.remaining - (clockRef.current.now() - current.startedAt),
+        )
+        stop()
+        timer.current = { handle: -1, startedAt: 0, remaining }
+      } else if (timer.current) {
+        start(timer.current.remaining)
+      }
+    },
+    [start, stop, clockRef],
+  )
 
-// This file pairs a provider component with its hook, the point of a context module.
-// eslint-disable-next-line react-refresh/only-export-components
-export function useToast(): ToastFn {
-  const toast = useContext(ToastContext)
-  if (!toast) throw new Error('useToast must be used within a ToastProvider')
-  return toast
+  const show = useCallback(
+    (message: string, undo?: () => void) => {
+      restoreFocus()
+      held.current = { focus: false, pointer: false }
+      nextId.current += 1
+      setLeaving(false)
+      setToast({ id: nextId.current, message, undo })
+      start(TOAST_MS)
+    },
+    [start, restoreFocus],
+  )
+
+  useEffect(() => stop, [stop])
+
+  // Unmounts once the fade ends. Reading the animations also covers a toast dismissed before
+  // its fade began, which would otherwise never fire a transition event.
+  useEffect(() => {
+    const el = toastRef.current
+    if (!leaving || !el) return
+    let cancelled = false
+    const id = toast?.id
+    void Promise.allSettled(el.getAnimations().map((animation) => animation.finished)).then(() => {
+      if (!cancelled) setToast((current) => (current?.id === id ? null : current))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [leaving, toast?.id])
+
+  const api = useMemo(() => ({ show }), [show])
+
+  return (
+    <ToastContext value={api}>
+      {children}
+      {/* Portaled above the modal layer; the top-layer marker keeps it out of aria-hidden. */}
+      {createPortal(
+        <div
+          role="status"
+          data-react-aria-top-layer
+          className="pointer-events-none fixed z-[60] flex justify-center px-4"
+          style={{
+            left: 'var(--toast-left, 0px)',
+            right: 'var(--toast-right, 0px)',
+            bottom: 'var(--toast-bottom, calc(1rem + env(safe-area-inset-bottom)))',
+          }}
+        >
+          {toast && (
+            <div
+              key={toast.id}
+              ref={toastRef}
+              data-leaving={leaving || undefined}
+              onPointerEnter={() => hold('pointer', true)}
+              onPointerLeave={() => hold('pointer', false)}
+              onFocus={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  returnFocusTo.current = event.relatedTarget
+                }
+                hold('focus', true)
+              }}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) hold('focus', false)
+              }}
+              className={`bg-ground text-ink t-body pointer-events-auto flex max-w-full items-center gap-3 rounded-(--radius-surface) py-2 ps-4 pe-2 shadow-(--shadow-float) ${
+                reduceMotion
+                  ? ''
+                  : 'transition-[opacity,translate] duration-(--dur-base) ease-(--ease) data-[leaving]:opacity-0 starting:translate-y-4 starting:opacity-0'
+              }`}
+            >
+              <span>{toast.message}</span>
+              {toast.undo && (
+                <Button
+                  variant="plain"
+                  label={UNDO}
+                  onPress={() => {
+                    toast.undo?.()
+                    dismiss()
+                  }}
+                />
+              )}
+            </div>
+          )}
+        </div>,
+        document.body,
+      )}
+    </ToastContext>
+  )
 }

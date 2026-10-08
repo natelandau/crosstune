@@ -1,27 +1,38 @@
-import type { ReactNode } from 'react'
+import { ArrowDown, ArrowUp } from 'lucide-react'
+import type { ReactElement } from 'react'
+import { Button as AriaButton } from 'react-aria-components'
+import type { MenuTriggerProps } from './Menu'
 
-/**
- * The line above a list that says how many rows it holds and, at its trailing edge, how they are
- * ordered. It scrolls with the list, so the order reads as a fact about these rows rather than a
- * screen-wide setting. `inset` lines it up with an inset list's row labels; without it, with a
- * full-width list's.
- */
-export function ListHeader({
-  count,
-  sort,
-  inset = false,
-}: {
-  count: string
-  sort?: ReactNode
-  inset?: boolean
-}) {
+export interface ListSort {
+  /** The current sort's name, shown beside the arrow. */
+  label: string
+  ascending: boolean
+  /** The button's accessible name, with the direction in words. */
+  spoken: string
+  /** Wraps the sort button in the menu it opens, such as `(trigger) => <Menu trigger={trigger} ... />`. */
+  menu: (trigger: ReactElement<MenuTriggerProps>) => ReactElement
+}
+
+/** The count of what a list shows, leading, and its sort control, trailing. */
+export function ListHeader({ count, sort }: { count: string; sort?: ListSort }) {
   return (
-    <div
-      data-list-header
-      className={`flex min-h-11 items-center gap-2 ${inset ? 'px-(--form-inset)' : 'px-(--form-gutter)'}`}
-    >
-      <p className="type-footnote m-0 min-w-0 flex-1 truncate tabular-nums">{count}</p>
-      {sort}
+    <div className="flex min-h-(--target) items-center justify-between gap-3 px-4">
+      <p className="t-secondary t-num text-ink-2">{count}</p>
+      {sort && <SortControl sort={sort} />}
     </div>
   )
+}
+
+function SortControl({ sort }: { sort: ListSort }) {
+  const Arrow = sort.ascending ? ArrowUp : ArrowDown
+  const button = (
+    <AriaButton
+      aria-label={sort.spoken}
+      className="t-secondary text-slate inline-flex min-h-(--target-control) items-center gap-1 rounded-(--radius-capsule) px-2 data-[pressed]:opacity-60"
+    >
+      {sort.label}
+      <Arrow className="size-4" aria-hidden />
+    </AriaButton>
+  )
+  return sort.menu(button)
 }

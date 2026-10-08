@@ -1,307 +1,336 @@
+import type { LucideIcon } from 'lucide-react'
+import { Check } from 'lucide-react'
+import { cloneElement, useCallback, useId, useRef, useState, type ReactElement } from 'react'
+import { createPortal } from 'react-dom'
 import {
-  IonItem,
-  IonItemDivider,
-  IonLabel,
-  IonList,
-  useIonActionSheet,
-  useIonPopover,
-} from '@ionic/react'
-import { Check, type LucideIcon } from 'lucide-react'
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type MouseEvent as ReactMouseEvent,
-} from 'react'
-import { usePointer } from '../platform/pointer'
-import { CANCEL } from './Confirm'
-import { iconPairSource, iconSource } from './iconSource'
-import { DISABLED_ITEM } from './menuCopy'
+  Menu as AriaMenu,
+  MenuItem,
+  MenuSection,
+  MenuTrigger,
+  Popover,
+  Separator,
+  Text,
+  type Key,
+  type PopoverProps,
+} from 'react-aria-components'
+import { useLatest } from './useLatest'
+import { useStampedDensity } from '../platform/density'
+import type { RowAction } from './Row'
+import { OverlayClaim } from './overlayClaim'
+import { Sheet } from './Sheet'
 
-export const MORE_ACTIONS = 'More actions'
-
-export interface MenuItem {
-  label: string
-  icon?: LucideIcon
-  tone?: 'neutral' | 'warning' | 'error'
-  /** Why the item cannot be used right now; it stays in the menu, disabled, with this reason. */
-  disabled?: string
-  /**
-   * Why the item cannot run now. It keeps its name and its tap, shows this under its label, and
-   * a tap leaves the menu open and runs nothing, the way a control that needs the network
-   * refuses offline rather than disabling.
-   */
-  refused?: string
-  /**
-   * Runs during the tap, while the menu is still up, rather than once it has dismissed. A
-   * browser lets a page open a tab only while it handles a tap, and the dismissal outlasts that.
-   */
-  opensTab?: boolean
-  /**
-   * Marks the item as the current choice. A menu where any item defines it is a single-choice
-   * menu: the checked item carries a check, and choosing it still runs its `onPress`.
-   */
-  checked?: boolean
-  /**
-   * Words assistive technology reads after the label, for a state the item's icon shows, such
-   * as the direction of the current sort.
-   */
-  description?: string
-  onPress: () => void
-}
-
-// A tone is a text color on every menu, never a filled row: `color` on an ion-item paints its
-// background, which reads as a selected item rather than a destructive one.
-const TONE_CLASS = { neutral: undefined, warning: 'menu-warning', error: 'menu-danger' } as const
-
-const CHOICE_KEYS = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End'])
+type Tone = NonNullable<RowAction['tone']>
 
 /**
- * Moves focus among a single-choice popover's items the way Ionic's popover does among its
- * ion-items, which are all it handles: no wrapping, and disabled items are skipped.
+ * A menu item. Any row action is one; a menu item can also go without an icon, carry a
+ * description under its label, be a choice the menu marks, or be disabled.
  */
-function moveAmongChoices(event: KeyboardEvent, menu: HTMLElement) {
-  if (!CHOICE_KEYS.has(event.key)) return
-  event.preventDefault()
-  const choices = [...menu.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')].filter(
-    (choice) => !choice.disabled,
-  )
-  const index = choices.indexOf(document.activeElement as HTMLButtonElement)
-  const next =
-    event.key === 'Home'
-      ? choices[0]
-      : event.key === 'End'
-        ? choices.at(-1)
-        : event.key === 'ArrowDown'
-          ? choices[index + 1]
-          : index > 0
-            ? choices[index - 1]
-            : undefined
-  next?.focus()
+export interface MenuEntry extends Omit<RowAction, 'icon' | 'shortLabel'> {
+  icon?: LucideIcon
+  description?: string
+  /** Present on a choice; true while it is the one chosen. */
+  checked?: boolean
+  disabled?: boolean
 }
 
-// useIonPopover takes the component it presents as an argument, so this one lives beside the
-// hook that calls it rather than in its own file.
-// eslint-disable-next-line react-refresh/only-export-components
-function PopoverMenu({
-  title,
+/** How a menu's choices are marked: one of them, or each on its own. */
+export type ChoiceMode = 'single' | 'multiple'
+
+const TONE: Record<Tone, string> = {
+  neutral: '',
+  warning: 'text-warning',
+  danger: 'text-danger',
+}
+
+/** Danger items go last so a stray tap lands on a harmless one; the rest keep their order. */
+function partition(items: MenuEntry[], destructive: MenuEntry[]): [MenuEntry[], MenuEntry[]] {
+  const marked = destructive.map((item) => ({ ...item, tone: 'danger' as const }))
+  const all = [...items, ...marked]
+  return [
+    all.filter((item) => item.tone !== 'danger'),
+    all.filter((item) => item.tone === 'danger'),
+  ]
+}
+
+/** Items in order, with each run of adjacent choices gathered into one group. */
+function runs(items: MenuEntry[]): (MenuEntry | MenuEntry[])[] {
+  const out: (MenuEntry | MenuEntry[])[] = []
+  for (const item of items) {
+    const last = out.at(-1)
+    if (item.checked === undefined) out.push(item)
+    else if (Array.isArray(last)) last.push(item)
+    else out.push([item])
+  }
+  return out
+}
+
+function MenuList({
+  label,
   items,
-  onChoose,
+  destructive = [],
+  choiceMode = 'multiple',
+  onDone,
+  autoFocus,
 }: {
-  title: string
-  items: MenuItem[]
-  onChoose: (item: MenuItem) => void
+  label: string
+  items: MenuEntry[]
+  destructive?: MenuEntry[]
+  choiceMode?: ChoiceMode
+  onDone: () => void
+  autoFocus?: boolean
 }) {
-  const firstDestructive = items.findIndex((item) => item.tone === 'error')
-  const singleChoice = items.some((item) => item.checked !== undefined)
-  const menuRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!singleChoice) return
-    // On the document rather than the menu, since the popover opens with focus on itself
-    // and the first ArrowDown has to reach the items from there.
-    const onKeyDown = (event: KeyboardEvent) => {
-      const menu = menuRef.current
-      const host = menu?.closest('ion-popover')
-      if (menu && host?.contains(event.target as Node)) moveAmongChoices(event, menu)
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [singleChoice])
-  if (singleChoice) {
-    // Native buttons, not ion-items: the radio state has to sit on the element that takes
-    // focus, and an ion-item keeps its button inside a shadow root.
+  const [main, danger] = partition(items, destructive)
+  const menuId = useId()
+  // React Aria's focus on open looks past the choice sections, where a chosen item lives, so
+  // the first item to take focus hands it on to a single choice's chosen item, as a select's
+  // does. Once per open: a choice that changes while open, such as by sync, leaves focus be.
+  const chosen =
+    autoFocus && choiceMode === 'single' ? main.find((item) => item.checked)?.id : undefined
+  const chosenRef = useLatest(chosen)
+  const menuRef = useCallback(
+    (menu: HTMLDivElement | null) => {
+      if (!menu) return
+      const onFocusIn = (event: FocusEvent) => {
+        const target = event.target as HTMLElement
+        if (!target.matches('[role^="menuitem"]')) return
+        menu.removeEventListener('focusin', onFocusIn)
+        const key = chosenRef.current
+        if (key === undefined) return
+        const item = menu.querySelector<HTMLElement>(`[data-key="${CSS.escape(String(key))}"]`)
+        // After this focus has finished its trip, or React Aria's handler for it, which runs
+        // later, would take focus back.
+        if (item && target !== item) queueMicrotask(() => item.focus())
+      }
+      menu.addEventListener('focusin', onFocusIn)
+      return () => menu.removeEventListener('focusin', onFocusIn)
+    },
+    [chosenRef],
+  )
+  const run = (id: Key) => {
+    ;[...main, ...danger].find((item) => item.id === id)?.onAction()
+    onDone()
+  }
+  const renderItem = ({
+    id,
+    label: text,
+    icon: Icon,
+    tone = 'neutral',
+    description,
+    disabled,
+  }: MenuEntry) => (
+    <MenuItem
+      key={id}
+      id={id}
+      textValue={text}
+      isDisabled={disabled}
+      className={`t-body data-[focused]:bg-fill data-[disabled]:text-ink-2 flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1 ${TONE[tone]}`}
+    >
+      {({ isSelected }) => (
+        <>
+          {Icon && <Icon className="size-5 shrink-0" aria-hidden />}
+          {description ? (
+            <span className="flex min-w-0 flex-1 flex-col">
+              <Text slot="label">{text}</Text>
+              <Text slot="description" className="t-secondary text-ink-2">
+                {description}
+              </Text>
+            </span>
+          ) : (
+            <span className="min-w-0 flex-1">{text}</span>
+          )}
+          {isSelected && <Check className="text-slate size-5 shrink-0" aria-hidden />}
+        </>
+      )}
+    </MenuItem>
+  )
+  // A trigger labels its menu, which would name a sort menu for the current sort; pointing
+  // aria-labelledby at the menu itself makes its own aria-label the name.
+  return (
+    <AriaMenu
+      ref={menuRef}
+      id={menuId}
+      aria-label={label}
+      aria-labelledby={menuId}
+      autoFocus={autoFocus ? 'first' : undefined}
+      onAction={run}
+    >
+      {runs(main).map((group) =>
+        Array.isArray(group) ? (
+          <MenuSection
+            key={`choices-${group[0]!.id}`}
+            selectionMode={choiceMode}
+            selectedKeys={group.filter((item) => item.checked).map((item) => item.id)}
+          >
+            {group.map(renderItem)}
+          </MenuSection>
+        ) : (
+          renderItem(group)
+        ),
+      )}
+      {main.length > 0 && danger.length > 0 && <Separator className="bg-ink-2/25 my-1 h-px" />}
+      {danger.map(renderItem)}
+    </AriaMenu>
+  )
+}
+
+function MenuPopover({ children, onClose, ...props }: PopoverProps & { onClose: () => void }) {
+  return (
+    <Popover
+      {...props}
+      className="bg-ground rounded-(--radius-surface) p-1 shadow-(--shadow-float)"
+    >
+      {(renderProps) => (
+        <>
+          <OverlayClaim close={onClose} />
+          {typeof children === 'function' ? children(renderProps) : children}
+        </>
+      )}
+    </Popover>
+  )
+}
+
+function ActionSheet({
+  isOpen,
+  onClose,
+  ...list
+}: {
+  isOpen: boolean
+  onClose: () => void
+  label: string
+  items: MenuEntry[]
+  destructive?: MenuEntry[]
+  choiceMode?: ChoiceMode
+}) {
+  return (
+    <Sheet
+      isOpen={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+      title={list.label}
+    >
+      <MenuList {...list} onDone={onClose} autoFocus />
+    </Sheet>
+  )
+}
+
+/** What a touch menu sets on its trigger; a React Aria button takes all of it. */
+export interface MenuTriggerProps {
+  onPress?: () => void
+  'aria-haspopup'?: boolean | 'menu' | 'dialog'
+  'aria-expanded'?: boolean
+}
+
+/**
+ * A menu of actions behind `trigger`: a popover on pointer, an action sheet with Cancel on
+ * touch. `destructive` items follow a separator in the danger color. Items that carry
+ * `checked` are choices, marked as `choiceMode` says.
+ */
+export function Menu({
+  label,
+  trigger,
+  items,
+  destructive = [],
+  choiceMode,
+  onClose,
+}: {
+  label: string
+  trigger: ReactElement<MenuTriggerProps>
+  items: MenuEntry[]
+  destructive?: MenuEntry[]
+  choiceMode?: ChoiceMode
+  /** Called whenever the menu closes, by a choice or not. */
+  onClose?: () => void
+}) {
+  const density = useStampedDensity()
+  const [isOpen, setIsOpen] = useState(false)
+  const setOpen = (open: boolean) => {
+    setIsOpen(open)
+    if (!open) onClose?.()
+  }
+  const close = () => setOpen(false)
+  if (density === 'touch') {
+    // Outside MenuTrigger, whose contexts would reach the menu inside the sheet.
     return (
-      <div ref={menuRef} role="menu" aria-label={title} className="py-2">
-        {items.map((item, index) => {
-          const reason = item.disabled ?? item.refused
-          return (
-            <Fragment key={item.label}>
-              {index === firstDestructive ? (
-                <div role="separator" className="menu-choice-separator" />
-              ) : null}
-              <button
-                type="button"
-                role="menuitemradio"
-                aria-checked={!!item.checked}
-                disabled={!!item.disabled}
-                aria-description={item.description}
-                className={`menu-choice type-body flex min-h-11 w-full items-center gap-3 px-4 py-2 text-start disabled:opacity-50 ${TONE_CLASS[item.tone ?? 'neutral'] ?? ''}`}
-                onClick={() => {
-                  if (!item.disabled && !item.refused) onChoose(item)
-                }}
-              >
-                <span className="min-w-0 flex-1">
-                  <span data-menu-label>{item.label}</span>
-                  {reason ? (
-                    <span className="type-footnote block text-(--ion-color-medium)">{reason}</span>
-                  ) : null}
-                </span>
-                {item.icon ? <item.icon aria-hidden className="size-4 shrink-0" /> : null}
-                {item.checked ? <Check aria-hidden className="size-5 shrink-0" /> : null}
-              </button>
-            </Fragment>
-          )
+      <>
+        {cloneElement(trigger, {
+          onPress: () => setOpen(true),
+          'aria-haspopup': 'dialog',
+          'aria-expanded': isOpen,
         })}
-      </div>
+        <ActionSheet
+          isOpen={isOpen}
+          onClose={close}
+          label={label}
+          items={items}
+          destructive={destructive}
+          choiceMode={choiceMode}
+        />
+      </>
     )
   }
   return (
-    // The action sheet shows the title as its header; a popover has nowhere to show it, so the
-    // group carries it as the name of the choices it holds.
-    <div role="group" aria-label={title}>
-      <IonList lines="none">
-        {items.map((item, index) => (
-          <Fragment key={item.label}>
-            {index === firstDestructive ? <IonItemDivider className="menu-divider" /> : null}
-            <IonItem
-              button
-              detail={false}
-              disabled={!!item.disabled}
-              className={TONE_CLASS[item.tone ?? 'neutral']}
-              onClick={() => {
-                if (!item.disabled && !item.refused) onChoose(item)
-              }}
-            >
-              <IonLabel>
-                <span data-menu-label>{item.label}</span>
-                {item.disabled || item.refused ? <p>{item.disabled ?? item.refused}</p> : null}
-              </IonLabel>
-              {item.icon ? <item.icon aria-hidden className="size-5" slot="end" /> : null}
-            </IonItem>
-          </Fragment>
-        ))}
-      </IonList>
-    </div>
+    <MenuTrigger isOpen={isOpen} onOpenChange={setOpen}>
+      {trigger}
+      <MenuPopover placement="bottom end" onClose={close}>
+        <MenuList
+          label={label}
+          items={items}
+          destructive={destructive}
+          choiceMode={choiceMode}
+          onDone={close}
+          autoFocus
+        />
+      </MenuPopover>
+    </MenuTrigger>
   )
 }
 
 /**
- * An action sheet on touch and a popover anchored to the button on mouse. A destructive item
- * is red and follows a separator; a cautionary one takes the warning color in both.
+ * The menu a row opens from a right-click, Shift+F10, or a touch long press: a popover at the
+ * point on pointer, an action sheet on touch. Shown while `at` is set.
  */
-export function useMenu(): (
-  event: MouseEvent | ReactMouseEvent,
-  title: string,
-  items: MenuItem[],
-) => void {
-  const pointer = usePointer()
-  const [presentSheet] = useIonActionSheet()
-
-  const [menu, setMenu] = useState<{ title: string; items: MenuItem[] }>({ title: '', items: [] })
-  const dismissRef = useRef<() => void>(() => {})
-  // The item picked from the open menu. It runs once the menu has finished dismissing, never
-  // while the menu is still up: an action that presents a sheet would otherwise overlap the
-  // menu, and with two overlays presented at once Ionic cannot tell which dismissal should give
-  // the page back to assistive technology, so the screen stays hidden from it.
-  const chosen = useRef<(() => void) | null>(null)
-  const runChosen = () => {
-    const action = chosen.current
-    chosen.current = null
-    action?.()
+export function MenuAtPoint({
+  label,
+  items,
+  at,
+  onClose,
+}: {
+  label: string
+  items: RowAction[]
+  at: { x: number; y: number } | null
+  onClose: () => void
+}) {
+  const density = useStampedDensity()
+  const triggerRef = useRef<HTMLSpanElement>(null)
+  if (density === 'touch') {
+    return <ActionSheet isOpen={at !== null} onClose={onClose} label={label} items={items} />
   }
-  // Stable for the component's life, so componentProps only changes identity when the items
-  // it shows actually change; the effect below keeps the dismiss it calls current.
-  const onChoose = useCallback((item: MenuItem) => {
-    if (item.opensTab) item.onPress()
-    else chosen.current = item.onPress
-    dismissRef.current()
-  }, [])
-  const popoverProps = useMemo(() => ({ ...menu, onChoose }), [menu, onChoose])
-  const [presentPopover, dismissPopover] = useIonPopover(PopoverMenu, popoverProps)
-
-  useEffect(() => {
-    dismissRef.current = () => void dismissPopover()
-  }, [dismissPopover])
-
-  // Ionic's present hooks silently ignore a call while their previous overlay is still
-  // dismissing, so a menu opened from another menu's item would never appear. Each open waits
-  // for the menu before it to finish dismissing.
-  const previous = useRef(Promise.resolve())
-
-  return useCallback(
-    (event, title, nextItems) => {
-      const waitForDismiss = (present: (onDidDismiss: () => void) => unknown) => {
-        previous.current = previous.current.then(
-          () =>
-            new Promise<void>((dismissed) => {
-              // The macrotask lets React commit the closed overlay before the next present,
-              // or the popover reopens with no content mounted. A present that throws or
-              // rejects still releases the next menu. The chosen item runs in the same step,
-              // once Ionic has hidden the menu and dropped it from the page, so a sheet it
-              // opens never overlaps the menu.
-              const release = () =>
-                setTimeout(() => {
-                  dismissed()
-                  runChosen()
-                })
-              Promise.resolve()
-                .then(() => present(release))
-                .catch(release)
-            }),
-        )
-      }
-      if (pointer === 'touch') {
-        // A top border on the first destructive item marks the boundary, since the action sheet
-        // only groups its own cancel button natively.
-        const firstDestructive = nextItems.findIndex((item) => item.tone === 'error')
-        // A sheet's button holds one line of text, so the reasons sit under the header instead.
-        const refusals = nextItems.flatMap((item) => (item.refused ? [item.refused] : []))
-        waitForDismiss((onDidDismiss) =>
-          presentSheet({
-            header: title,
-            subHeader: refusals.length > 0 ? [...new Set(refusals)].join(' ') : undefined,
-            onDidDismiss,
-            buttons: [
-              ...nextItems.map((item, index) => {
-                const pairedIcon = item.checked && item.icon
-                const classes = [
-                  TONE_CLASS[item.tone ?? 'neutral'],
-                  index === firstDestructive ? 'menu-destructive' : null,
-                  pairedIcon ? 'menu-icon-pair' : null,
-                ].filter((name): name is string => name !== null && name !== undefined)
-                const description = [item.description, item.refused].filter(Boolean).join(' ')
-                return {
-                  text: item.disabled ? DISABLED_ITEM(item.label, item.disabled) : item.label,
-                  disabled: !!item.disabled,
-                  icon: pairedIcon
-                    ? iconPairSource(pairedIcon, Check)
-                    : item.checked
-                      ? iconSource(Check)
-                      : item.icon
-                        ? iconSource(item.icon)
-                        : undefined,
-                  role: item.tone === 'error' ? ('destructive' as const) : undefined,
-                  cssClass: classes.length > 0 ? classes : undefined,
-                  // Current, not a radio: Ionic moves a radio's checked state with the arrow keys
-                  // without running its handler, announcing a choice nobody made.
-                  htmlAttributes: {
-                    ...(description ? { 'aria-description': description } : {}),
-                    ...(item.checked ? { 'aria-current': 'true' } : {}),
-                  },
-                  // False keeps the sheet up, so a refused tap leaves the reason in view.
-                  handler: () => {
-                    if (item.refused) return false
-                    if (item.opensTab) item.onPress()
-                    else chosen.current = item.onPress
-                  },
-                }
-              }),
-              { text: CANCEL, role: 'cancel' },
-            ],
-          }),
-        )
-        return
-      }
-      waitForDismiss((onDidDismiss) => {
-        // A fresh object, even for a caller's memoized items, so React always treats this as a
-        // change and the popover always reopens.
-        setMenu({ title, items: [...nextItems] })
-        return presentPopover({ event: event as MouseEvent, onDidDismiss })
-      })
-    },
-    [pointer, presentSheet, presentPopover],
+  if (!at) return null
+  return (
+    <>
+      {/* A real zero-size element at the point, since the popover observes its anchor's size. */}
+      {/* Portaled so no transformed ancestor of the row re-bases its fixed position. */}
+      {createPortal(
+        <span
+          ref={triggerRef}
+          aria-hidden
+          className="pointer-events-none fixed size-0"
+          style={{ left: at.x, top: at.y }}
+        />,
+        document.body,
+      )}
+      <MenuPopover
+        isOpen
+        onOpenChange={(open) => {
+          if (!open) onClose()
+        }}
+        triggerRef={triggerRef}
+        placement="bottom start"
+        onClose={onClose}
+      >
+        <MenuList label={label} items={items} onDone={onClose} autoFocus />
+      </MenuPopover>
+    </>
   )
 }

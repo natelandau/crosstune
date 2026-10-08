@@ -1,4 +1,4 @@
-import { vi, type Mock } from 'vitest'
+import { onTestFinished, vi, type Mock } from 'vitest'
 import type { RecorderLike, TrackLike } from '../features/recording/capture'
 
 /** The chunk a fake recorder flushes on stop(), as a real one flushes what it still holds. */
@@ -54,11 +54,8 @@ export function fakeStream(track: FakeTrack) {
   return { getAudioTracks: () => [track], getTracks: () => [track] }
 }
 
-/**
- * Stub every browser global a recording touches, handing out one microphone track. Pair with
- * vi.unstubAllGlobals() in afterEach.
- */
-export function stubMediaGlobals(): { track: FakeTrack; getUserMedia: Mock } {
+/** Stub every browser global a recording touches, handing out one microphone track. */
+function stubMediaGlobals(): { track: FakeTrack; getUserMedia: Mock } {
   const track = new FakeTrack()
   FakeRecorder.instances = []
   vi.stubGlobal('MediaRecorder', FakeRecorder)
@@ -84,4 +81,23 @@ export function stubMediaGlobals(): { track: FakeTrack; getUserMedia: Mock } {
     value: { persist: vi.fn(async () => true) },
   })
   return { track, getUserMedia }
+}
+
+/**
+ * `stubMediaGlobals` for one test, putting every global it touches back when the test ends.
+ * `navigator.mediaDevices` and `navigator.storage` are defined properties, which
+ * `vi.unstubAllGlobals()` does not restore.
+ */
+export function fakeMediaForTest(): { track: FakeTrack; getUserMedia: Mock } {
+  const owned = (['mediaDevices', 'storage'] as const).map(
+    (key) => [key, Object.getOwnPropertyDescriptor(navigator, key)] as const,
+  )
+  onTestFinished(() => {
+    vi.unstubAllGlobals()
+    for (const [key, descriptor] of owned) {
+      if (descriptor) Object.defineProperty(navigator, key, descriptor)
+      else Reflect.deleteProperty(navigator, key)
+    }
+  })
+  return stubMediaGlobals()
 }

@@ -33,8 +33,9 @@ describe('Mark', () => {
   })
 
   it('binds the mark token to the coral the brand sources are drawn with', () => {
-    const css = readFileSync(resolve(import.meta.dirname, '../app/theme/variables.css'), 'utf8')
-    const token = /--color-mark:\s*(#[0-9a-f]{6});/.exec(css)?.[1]
+    const css = readFileSync(resolve(import.meta.dirname, '../theme/tokens.css'), 'utf8')
+    expect(css).toMatch(/--color-mark:\s*var\(--coral\);/)
+    const token = /--coral:\s*(#[0-9a-f]{6});/.exec(css)?.[1]
     const [t] = markShapes(parseBrand('mark-dark.svg').documentElement)
     expect(token).toBe(t?.getAttribute('stroke'))
   })
