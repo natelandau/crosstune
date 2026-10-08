@@ -1,8 +1,8 @@
 import { sortScans } from '../db/scans'
 import { moveBeside } from '../domain/order'
-import { syncTables, type CrosstuneDb } from '../db/schema'
+import type { CrosstuneDb } from '../db/schema'
 import type { LocalScan } from '../db/types'
-import { newId, nextPosition, now, putRow, tombstone } from './write'
+import { newId, nextPosition, now, putRow, tombstone, writeTx } from './write'
 
 /** The most live scans one tune can hold; the API refuses more. */
 export const MAX_SCANS = 20
@@ -21,7 +21,7 @@ export interface NewScan {
 }
 
 function scansTx<T>(db: CrosstuneDb, fn: () => Promise<T>): Promise<T> {
-  return db.transaction('rw', [...syncTables(db), db.outbox, db.scan_files], fn)
+  return writeTx(db, fn, [db.scan_files])
 }
 
 async function liveScans(db: CrosstuneDb, tuneId: string): Promise<LocalScan[]> {

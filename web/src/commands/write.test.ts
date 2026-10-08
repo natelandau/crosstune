@@ -3,7 +3,7 @@ import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { createTune, deleteTune, updateTune } from './tunes'
-import { nextUpdatedAt } from './write'
+import { nextUpdatedAt, writeTx } from './write'
 
 describe('nextUpdatedAt', () => {
   it('keeps the requested time for a new row or one stamped earlier', () => {
@@ -48,5 +48,15 @@ describe('writes to one row in one millisecond', () => {
     expect(deleted?.updated_at).toBe('2026-09-11T10:00:00.002Z')
     expect(deleted?.deleted_at).toBe(deleted?.updated_at)
     expect((await pendingFor(db, 'tunes', tuneId))?.updated_at).toBe(deleted?.updated_at)
+  })
+})
+
+describe('writeTx', () => {
+  it('also spans the local tables a write names', async () => {
+    const db = openTestDb()
+
+    await writeTx(db, () => db.scan_files.put({ id: 's1' } as never), [db.scan_files])
+
+    expect(await db.scan_files.get('s1')).toBeDefined()
   })
 })

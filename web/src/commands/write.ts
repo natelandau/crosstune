@@ -1,3 +1,4 @@
+import type { Table } from 'dexie'
 import { v7 as uuidv7 } from 'uuid'
 import { dropPending, enqueue } from '../db/outbox'
 import { rowsTable, syncTables, type CrosstuneDb } from '../db/schema'
@@ -20,20 +21,20 @@ export function defined<T extends object>(patch: Partial<T>): Partial<T> {
 
 /**
  * The transaction every synced write runs in. It spans the synced tables and the outbox, so a
- * row and its queued change commit together. A write that also touches local audio uses
- * `recordingTx` instead.
+ * row and its queued change commit together, plus any device-local tables the write also
+ * touches, such as the audio or scan files.
  */
-export function writeTx<T>(db: CrosstuneDb, fn: () => Promise<T>): Promise<T> {
-  return db.transaction('rw', [...syncTables(db), db.outbox], fn)
+export function writeTx<T>(
+  db: CrosstuneDb,
+  fn: () => Promise<T>,
+  local: readonly Table[] = [],
+): Promise<T> {
+  return db.transaction('rw', [...syncTables(db), db.outbox, ...local], fn)
 }
 
 /** A write that touches the local audio tables as well as the synced ones. */
 export function recordingTx<T>(db: CrosstuneDb, fn: () => Promise<T>): Promise<T> {
-  return db.transaction(
-    'rw',
-    [...syncTables(db), db.outbox, db.recording_files, db.recording_chunks],
-    fn,
-  )
+  return writeTx(db, fn, [db.recording_files, db.recording_chunks])
 }
 
 /** Rows that have not been tombstoned, in position order. */
