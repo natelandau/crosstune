@@ -1,65 +1,195 @@
-import { IonContent, IonItem, IonLabel, IonList, IonMenu } from '@ionic/react'
-import { Mic } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
-import { Lockup } from '../ui/Mark'
-import { SyncBadge } from '../ui/SyncBadge'
-import { RECORD_LABEL, TABS } from './tabs'
+import { Plus } from 'lucide-react'
+import { useId } from 'react'
+import { Link, useLocation } from 'react-router'
+import { Button as AriaButton } from 'react-aria-components'
+import type { TuneStatus } from '../api/vocabulary'
+import { useCatalogFilters } from '../features/catalog/useCatalogFilters'
+import { useStatusCounts } from '../features/catalog/useStatusCounts'
+import { useLists, useMembershipCounts } from '../features/lists/useLists'
+import { countTunes } from '../features/selection/copy'
+import { destination, type Destination } from './destinations'
+import { useDestination } from './useDestination'
+import { Button } from '../ui/Button'
+import { StatusGlyph } from '../ui/StatusGlyph'
+import { useListNameLauncher } from '../features/lists/listNameLauncher'
+import { DestinationLink } from './DestinationLink'
+import { RecordControl } from './RecordControl'
+import { SyncBadge } from './SyncBadge'
+
+export const NEW_LIST = 'New list…'
+export const SIDEBAR = 'Sidebar'
+
+const STATUS_ROWS: TuneStatus[] = ['known', 'learning', 'want_to_learn']
+
+const ROW =
+  't-body flex min-h-(--target) w-full items-center gap-3 rounded-(--radius-row) px-3 text-start transition-opacity duration-(--dur-short) ease-(--ease) data-[pressed]:opacity-60'
+
+const rowTone = (selected: boolean) => (selected ? 'bg-wash text-ink' : 'text-ink')
+const glyphTone = (selected: boolean) => (selected ? 'text-coral' : 'text-ink-2')
 
 /**
- * The wide frame's navigation: the lockup, the four destinations, the record control, and the
- * sync state. Recording is not a destination, so it sits below the list as its own control.
+ * The digits are decoration; the row's description says the same in words, so the row's name
+ * stays its label. Ink-2 on the selected wash falls short of 4.5:1, so a selected count is ink.
  */
-export function Sidebar({
-  contentId,
-  onSelectTab,
-  onRecord,
+function Count({
+  id,
+  value,
+  selected,
 }: {
-  contentId: string
-  onSelectTab: (tab: string) => void
-  onRecord: () => void
+  id: string
+  value: number | undefined
+  selected: boolean
 }) {
-  const { pathname } = useLocation()
+  if (!value) return null
   return (
-    // No swipe: on a phone the tab bar is the navigation, and an edge swipe would pull this open.
-    <IonMenu
-      contentId={contentId}
-      type="push"
-      swipeGesture={false}
-      role="navigation"
-      aria-label="Sidebar"
+    <>
+      <span
+        aria-hidden
+        data-count
+        className={`t-caption t-num ms-auto ${selected ? 'text-ink' : 'text-ink-2'}`}
+      >
+        {value}
+      </span>
+      <span id={id} hidden>
+        {countTunes(value)}
+      </span>
+    </>
+  )
+}
+
+const describedBy = (id: string, value: number | undefined) => (value ? id : undefined)
+
+function DestinationRow({
+  id,
+  selected,
+  onChoose,
+  count,
+  countId,
+}: {
+  id: Destination
+  selected: boolean
+  onChoose?: () => void | Promise<unknown>
+  count?: number
+  countId: string
+}) {
+  const { icon: Icon, label, root } = destination(id)
+  return (
+    <DestinationLink
+      to={id}
+      href={root}
+      current={selected}
+      onChoose={onChoose}
+      describedBy={describedBy(countId, count)}
+      className={`${ROW} ${rowTone(selected)}`}
     >
-      <IonContent>
-        <div className="px-5 pt-6 pb-4">
-          <Lockup className="type-title" />
+      <Icon className={`size-5 shrink-0 ${glyphTone(selected)}`} aria-hidden />
+      {label}
+      <Count id={countId} value={count} selected={selected} />
+    </DestinationLink>
+  )
+}
+
+/** The split and wide frames' navigation. */
+export function Sidebar() {
+  const { current, root } = useDestination()
+  const { pathname } = useLocation()
+  const [filters, updateFilters] = useCatalogFilters()
+  const counts = useStatusCounts()
+  const lists = useLists()
+  const membership = useMembershipCounts(counts?.userTuneIds ?? [])
+  const base = useId()
+  const listName = useListNameLauncher()
+
+  const inCatalog = current === 'catalog'
+  const status = filters?.status ?? 'all'
+  const listsSelected = pathname === destination('lists').root
+
+  // The filter write lands before the catalog opens, so it never shows the old scope.
+  const chooseStatus = async (value: TuneStatus) => {
+    await updateFilters({ status: value }).catch(() => {})
+    root('catalog')
+  }
+
+  return (
+    <nav
+      aria-label={SIDEBAR}
+      className="bg-ground border-hairline relative flex w-60 shrink-0 flex-col gap-4 overflow-y-auto border-e p-3"
+    >
+      <div className="flex min-h-6 items-center px-3">
+        <SyncBadge />
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <DestinationRow
+          id="catalog"
+          selected={inCatalog && status === 'all'}
+          onChoose={() => updateFilters({ status: 'all' })}
+          count={counts?.total}
+          countId={`${base}-catalog`}
+        />
+        {STATUS_ROWS.map((value) => {
+          const selected = inCatalog && status === value
+          const count = counts?.byStatus[value]
+          return (
+            <AriaButton
+              key={value}
+              aria-current={selected ? 'page' : undefined}
+              aria-describedby={describedBy(`${base}-${value}`, count)}
+              className={`${ROW} ${rowTone(selected)} ps-10`}
+              onPress={() => void chooseStatus(value)}
+            >
+              <StatusGlyph status={value} labelled />
+              <Count id={`${base}-${value}`} value={count} selected={selected} />
+            </AriaButton>
+          )
+        })}
+        <DestinationRow
+          id="recordings"
+          selected={current === 'recordings'}
+          countId={`${base}-recordings`}
+        />
+      </div>
+      <section aria-labelledby={`${base}-lists`} className="flex flex-col gap-0.5">
+        <div
+          className={`flex items-center justify-between rounded-(--radius-row) ps-3 ${listsSelected ? 'bg-wash' : ''}`}
+        >
+          <h2 id={`${base}-lists`} className="min-w-0 flex-1">
+            <DestinationLink
+              to="lists"
+              href={destination('lists').root}
+              current={listsSelected}
+              className={`t-caption flex min-h-(--target) items-center ${listsSelected ? 'text-ink' : 'text-ink-2'}`}
+            >
+              {destination('lists').label}
+            </DestinationLink>
+          </h2>
+          <Button iconOnly icon={Plus} label={NEW_LIST} onPress={listName.open} />
         </div>
-        <IonList lines="none">
-          {TABS.map((tab) => {
-            const current = pathname === tab.href || pathname.startsWith(`${tab.href}/`)
-            return (
-              <IonItem
-                key={tab.tab}
-                button
-                onClick={() => onSelectTab(tab.tab)}
-                detail={false}
-                color={current ? 'light' : undefined}
-                aria-current={current ? 'page' : undefined}
-              >
-                <tab.icon aria-hidden="true" slot="start" className="size-5" />
-                <IonLabel>{tab.label}</IonLabel>
-              </IonItem>
-            )
-          })}
-        </IonList>
-        <IonList lines="none">
-          <IonItem button detail={false} aria-label={RECORD_LABEL} onClick={onRecord}>
-            <Mic aria-hidden="true" slot="start" className="size-5" />
-            <IonLabel>Record</IonLabel>
-          </IonItem>
-        </IonList>
-        <div className="px-5 py-4">
-          <SyncBadge />
-        </div>
-      </IonContent>
-    </IonMenu>
+        {lists?.map((list) => {
+          const selected = pathname.startsWith(`/lists/${list.id}`)
+          const count = membership?.get(list.id)
+          const countId = `${base}-list-${list.id}`
+          return (
+            <Link
+              key={list.id}
+              to={`/lists/${list.id}`}
+              aria-current={selected ? 'page' : undefined}
+              aria-describedby={describedBy(countId, count)}
+              className={`${ROW} ${rowTone(selected)}`}
+            >
+              <span className="truncate">{list.name}</span>
+              <Count id={countId} value={count} selected={selected} />
+            </Link>
+          )
+        })}
+      </section>
+      <div className="mt-auto flex flex-col gap-1">
+        <DestinationRow
+          id="settings"
+          selected={current === 'settings'}
+          countId={`${base}-settings`}
+        />
+        <RecordControl shape="capsule" />
+      </div>
+    </nav>
   )
 }

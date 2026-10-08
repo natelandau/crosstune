@@ -97,3 +97,5 @@ export function subscribeLocalSignOut(listener: () => void): () => void {
     signOutListeners.delete(listener)
   }
 }
+
+export const ACCOUNT_DELETED = 'Your account and all its data were deleted.'

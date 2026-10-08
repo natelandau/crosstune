@@ -1,7 +1,7 @@
 import { INSTRUMENTS, type Instrument } from '../api/vocabulary'
 import type { CrosstuneDb } from '../db/schema'
-import type { LocalListItem, LocalTune, LocalUserTune } from '../db/types'
-import { activeItems, createList, deleteList, writeOrder } from './lists'
+import type { LocalTune, LocalUserTune } from '../db/types'
+import { activeItems, createList, deleteList, restoreListItems } from './lists'
 import { setTuning, tuningEntry, tuningsMap } from '../features/settings/instruments'
 import { LIST_NOT_FOUND, TUNE_NOT_FOUND, TUNE_NOT_IN_LIST } from './messages'
 import { tombstoneTune, type TuneInput, type UserTuneInput } from './tunes'
@@ -254,41 +254,5 @@ export async function removeTunesFromList(
       removed.push(id)
     }
   })
-  return async () => {
-    if (removed.length === 0) return
-    await writeTx(db, async () => {
-      const at = now()
-      const restorable: LocalListItem[] = []
-      for (const id of removed) {
-        const item = await db.list_items.get(id)
-        if (!item || !item.deleted_at) continue
-        const list = await db.lists.get(item.list_id)
-        const userTune = await db.user_tunes.get(item.user_tune_id)
-        if (!list || list.deleted_at || !userTune || userTune.deleted_at) continue
-        restorable.push(item)
-      }
-      const byList = new Map<string, LocalListItem[]>()
-      for (const item of restorable) {
-        const items = byList.get(item.list_id) ?? []
-        items.push(item)
-        byList.set(item.list_id, items)
-      }
-      for (const [listId, items] of byList) {
-        const active = await activeItems(db, listId)
-        const members = new Set(active.map((member) => member.user_tune_id))
-        const toRestore = items.filter((item) => !members.has(item.user_tune_id))
-        if (toRestore.length === 0) continue
-        const restored = toRestore.map((item) => ({ ...item, deleted_at: null, updated_at: at }))
-        const restoredIds = new Set(restored.map((item) => item.id))
-        for (const item of restored) await putRow(db, 'list_items', item)
-        // The freed position may already be reused by another item, so restored
-        // rows compete for their old slot: a restored item held it first.
-        const merged = [...active, ...restored].sort((a, b) => {
-          if (a.position !== b.position) return a.position - b.position
-          return Number(restoredIds.has(b.id)) - Number(restoredIds.has(a.id))
-        })
-        await writeOrder(db, merged)
-      }
-    })
-  }
+  return () => restoreListItems(db, removed)
 }

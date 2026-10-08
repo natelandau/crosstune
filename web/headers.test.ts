@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { embedFor } from './src/features/player/embed'
 
 /** Parse the Pages `_headers` format: an unindented URL line followed by indented `Name: value` lines. */
-function rulesFor(url: string): string[] {
+function parseHeaders(): Map<string, string[]> {
   const text = readFileSync(join(__dirname, './public/_headers'), 'utf8')
   const rules = new Map<string, string[]>()
   let current: string[] | undefined
@@ -19,7 +19,29 @@ function rulesFor(url: string): string[] {
       rules.set(line, current)
     }
   }
-  return rules.get(url) ?? []
+  return rules
+}
+
+function rulesFor(url: string): string[] {
+  return parseHeaders().get(url) ?? []
+}
+
+/** Every rule whose pattern matches `path`, as Pages combines them: `*` matches anything and a
+ * `:name` placeholder matches one segment. */
+function rulesMatching(path: string): string[] {
+  return [...parseHeaders()].flatMap(([pattern, rules]) => {
+    const source = pattern
+      .split(/(\*|:\w+)/)
+      .map((part) =>
+        part === '*'
+          ? '.*'
+          : part.startsWith(':')
+            ? '[^/]+'
+            : part.replace(/[.+?^${}()|[\]\\]/g, '\\$&'),
+      )
+      .join('')
+    return new RegExp(`^${source}$`).test(path) ? rules : []
+  })
 }
 
 function cspDirective(name: string): string[] {
@@ -50,6 +72,21 @@ describe('_headers', () => {
 
   it('keeps every response out of search results', () => {
     expect(rulesFor('/*')).toContain('X-Robots-Tag: noindex')
+  })
+
+  it('keeps the app entry and its routes out of search results', () => {
+    const html = readFileSync(join(__dirname, './index.html'), 'utf8')
+    expect(html).toContain('<script type="module" src="/src/main.tsx"></script>')
+    for (const path of ['/', '/index.html', '/catalog', '/settings/stats']) {
+      const rules = rulesMatching(path)
+      expect(rules, path).toContain('X-Robots-Tag: noindex')
+      // A `! Name` line detaches a header an earlier rule set.
+      expect(rules, path).not.toContain('! X-Robots-Tag')
+      expect(
+        rules.filter((rule) => rule.startsWith('X-Robots-Tag:')),
+        path,
+      ).toEqual(['X-Robots-Tag: noindex'])
+    }
   })
 
   it('allows the inline theme script by its hash and no other inline script', () => {

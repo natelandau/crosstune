@@ -1,7 +1,16 @@
 import type { Provider } from '../api/vocabulary'
 import type { CrosstuneDb } from '../db/schema'
+import type { LocalRecordingLink } from '../db/types'
 import { TUNE_NOT_FOUND } from './messages'
-import { newId, nextPosition, now, putRow, tombstone, writeTx } from './write'
+import { activeByPosition, newId, nextPosition, now, putRow, tombstone, writeTx } from './write'
+
+/** A tune's live links in position order, as the tune screen shows them. */
+export async function activeLinksForTune(
+  db: CrosstuneDb,
+  tuneId: string,
+): Promise<LocalRecordingLink[]> {
+  return activeByPosition(await db.recording_links.where('tune_id').equals(tuneId).toArray())
+}
 
 export interface LinkInput {
   url: string

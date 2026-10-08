@@ -6,8 +6,7 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     name: 'Crosstune',
     short_name: 'Crosstune',
     description: 'A tune catalog for folk musicians',
-    // The page sets the status bar color once it knows the theme; until then the manifest
-    // falls back to the light page color.
+    // The page's theme-color tags follow the scheme; the manifest holds the light page color.
     theme_color: '#ffffff',
     background_color: '#ffffff',
     display: 'standalone',
@@ -27,6 +26,7 @@ export const pwaOptions: Partial<VitePWAOptions> = {
   },
   workbox: {
     globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+    navigateFallback: 'index.html',
     // The API is never served from cache and never falls back to the shell.
     navigateFallbackDenylist: [/^\/v1\//],
     runtimeCaching: [],

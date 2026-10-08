@@ -1,58 +1,35 @@
 import { ClerkProvider } from '@clerk/react'
-import { IonApp, setupIonicReact } from '@ionic/react'
-import * as Sentry from '@sentry/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { registerSW } from 'virtual:pwa-register'
-import { App } from './app/App'
 import { WAITLIST_URL } from './auth/links'
-import { applyAppearance, readAppearance } from './features/settings/appearance'
-import { scrubR2Breadcrumb } from './sentryBreadcrumbs'
-import { APP_VERSION } from './version'
+import { createAppRouter } from './app/router'
+import { AuthGate } from './app/AuthGate'
+import { AppData } from './app/AppData'
+import { startServices } from './app/startServices'
 import './app.css'
 
-const sentryDsn = import.meta.env.VITE_SENTRY_DSN
-if (sentryDsn) {
-  Sentry.init({
-    dsn: sentryDsn,
-    release: APP_VERSION,
-    environment: import.meta.env.VITE_SENTRY_ENVIRONMENT ?? 'development',
-    beforeBreadcrumb: scrubR2Breadcrumb,
-    // Sentry's defaults collect user info, cookies, and request and response bodies, and bodies
-    // carry a user's own tunes. This is Sentry's documented restrictive baseline.
-    dataCollection: {
-      userInfo: false,
-      cookies: false,
-      httpHeaders: {
-        request: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
-        response: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
-      },
-      httpBodies: [],
-      urlQueryParams: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
-      genAI: { inputs: false, outputs: false },
-      databaseQueryData: false,
-      queues: false,
-      graphQL: { document: false, variables: false },
-    },
-  })
+function mountApp(element: HTMLElement) {
+  // Started before the key check, so a build missing its key still reports the throw.
+  startServices()
+  const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+  if (!clerkKey) throw new Error('VITE_CLERK_PUBLISHABLE_KEY is not set')
+  const router = createAppRouter()
+  createRoot(element).render(
+    <StrictMode>
+      <ClerkProvider publishableKey={clerkKey} waitlistUrl={WAITLIST_URL}>
+        <AuthGate>
+          <AppData router={router} />
+        </AuthGate>
+      </ClerkProvider>
+    </StrictMode>,
+  )
 }
 
-const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
-if (!publishableKey) throw new Error('VITE_CLERK_PUBLISHABLE_KEY is not set')
-
-registerSW({ immediate: true })
-
-setupIonicReact()
-// The inline script in index.html stamps the palette before paint; this syncs the status bar
-// color to it now that the stylesheet has applied.
-applyAppearance(readAppearance())
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ClerkProvider publishableKey={publishableKey} waitlistUrl={WAITLIST_URL}>
-      <IonApp>
-        <App />
-      </IonApp>
-    </ClerkProvider>
-  </StrictMode>,
-)
+const root = document.getElementById('root')!
+const params = new URLSearchParams(location.search)
+// The fixture is a development aid for the screenshot script; a build drops this branch.
+if (import.meta.env.DEV && params.has('fixture')) {
+  void import('./fixture/mountFixture').then(({ mountFixture }) => mountFixture(root, params))
+} else {
+  mountApp(root)
+}

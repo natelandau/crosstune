@@ -26,6 +26,13 @@ describe('pwaOptions', () => {
     }
   })
 
+  it('precaches the app entry and falls back to it for every route', () => {
+    const workbox = pwaOptions.workbox
+    expect((workbox?.globPatterns ?? []).some((glob) => minimatch('index.html', glob))).toBe(true)
+    expect((workbox?.globIgnores ?? []).some((glob) => minimatch('index.html', glob))).toBe(false)
+    expect(workbox?.navigateFallback).toBe('index.html')
+  })
+
   it('updates the shell in place and stays enabled', () => {
     expect(pwaOptions.registerType).toBe('autoUpdate')
     expect(pwaOptions.disable).not.toBe(true)

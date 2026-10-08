@@ -3,7 +3,18 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import openapi from '../../../api/openapi.json'
 import { openTestDb } from '../test/db'
 import { createFakeApi } from '../test/fakeApi'
-import { linkRow, playEventRow, recordingRow, scanFile, scanRow, scanViewRow } from '../test/rows'
+import {
+  linkRow,
+  loopRow,
+  playEventRow,
+  practiceSessionRow,
+  recordingFile,
+  recordingRow,
+  scanFile,
+  scanRow,
+  scanViewRow,
+  userTuneRow,
+} from '../test/rows'
 import { transfersSettled } from '../test/transfers'
 import { createSyncEngine } from '../sync/engine'
 import {
@@ -736,6 +747,89 @@ describe('schema', () => {
       expect(Array.from(tx.objectStore('scan_views').indexNames)).toEqual(['started_at'])
     } finally {
       await opened.delete()
+    }
+  })
+
+  it('reopens a database at the current version with every row as it was stored', async () => {
+    const list: LocalList = {
+      id: 'list-1',
+      created_at: tune.created_at,
+      updated_at: tune.updated_at,
+      deleted_at: null,
+      server_seq: 3,
+      name: 'Tuesday jam',
+      position: 0,
+    }
+    await db.tunes.put(tune)
+    await db.user_tunes.put(userTuneRow('ut-1', tune.id))
+    await db.lists.put(list)
+    await db.list_items.put({
+      id: 'item-1',
+      created_at: tune.created_at,
+      updated_at: tune.updated_at,
+      deleted_at: null,
+      server_seq: 4,
+      list_id: list.id,
+      user_tune_id: 'ut-1',
+      position: 0,
+    })
+    await db.recording_links.put(linkRow('link-1', tune.id))
+    await db.recordings.put(recordingRow('rec-1', { tune_id: tune.id, label: 'Jam' }))
+    await db.recording_files.put(recordingFile('rec-1'))
+    await db.recording_loops.put(loopRow({ id: 'loop-1', recording_id: 'rec-1' }))
+    await db.scans.put(scanRow('scan-1', tune.id))
+    await db.scan_views.put(scanViewRow('view-1'))
+    await db.play_events.put(playEventRow('play-1'))
+    await db.practice_sessions.put(practiceSessionRow('session-1'))
+    await db.status_changes.put({
+      id: 'change-1',
+      server_seq: 5,
+      changed_at: tune.updated_at,
+      user_tune_id: 'ut-1',
+      from_status: 'want_to_learn',
+      to_status: 'learning',
+    })
+    await db.user_settings.put({
+      id: 'settings-1',
+      created_at: tune.created_at,
+      updated_at: tune.updated_at,
+      deleted_at: null,
+      server_seq: 6,
+      instruments: ['violin'],
+      audio_quality: 'standard',
+      play_first: 'recordings',
+    })
+    await db.recording_chunks.put({ recording_id: 'rec-1', idx: 0, blob: new Blob(['abc']) })
+    await db.scan_files.put(scanFile('scan-1', new Blob(['jpg'], { type: 'image/jpeg' })))
+    await enqueue(db, {
+      table: 'tunes',
+      row_id: tune.id,
+      op: 'upsert',
+      updated_at: tune.updated_at,
+      data: toChangeData(tune, 'tunes'),
+    })
+    await setPullCursor(db, 42)
+    await setMeta(db, META_SCAN_INVERT, true)
+    const stored = async (opened: CrosstuneDb) =>
+      Object.fromEntries(
+        await Promise.all(opened.tables.map(async (t) => [t.name, await t.toArray()] as const)),
+      )
+    const before = await stored(db)
+    const { name, verno } = db
+    db.close()
+
+    const reopened = new CrosstuneDb(name)
+    try {
+      await reopened.open()
+      expect(reopened.verno).toBe(verno)
+      expect(await stored(reopened)).toEqual(before)
+      // Every store holds a row, so none can come back empty unnoticed.
+      expect(Object.values(before).filter((rows) => rows.length > 0)).toHaveLength(18)
+      // A Blob compares equal to any other, so the unuploaded audio is read back by its bytes.
+      const chunk = await reopened.recording_chunks.get(['rec-1', 0])
+      expect(await chunk!.blob.text()).toBe('abc')
+    } finally {
+      reopened.close()
     }
   })
 

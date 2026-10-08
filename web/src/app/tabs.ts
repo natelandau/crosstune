@@ -1,6 +1,8 @@
 import { AudioLines, ListMusic, Music, Settings, type LucideIcon } from 'lucide-react'
 
 export const RECORD_LABEL = 'Start a new recording'
+/** The visible word on the Record control, where the full label has no room. */
+export const RECORD_TEXT = 'Record'
 
 export interface TabSpec {
   tab: string
@@ -16,3 +18,10 @@ export const TABS = [
   { tab: 'recordings', href: '/recordings', label: 'Recordings', icon: AudioLines },
   { tab: 'settings', href: '/settings', label: 'Settings', icon: Settings },
 ] as const satisfies readonly TabSpec[]
+
+/** A destination's name, as its tab shows it. */
+export const tabLabel = (tab: (typeof TABS)[number]['tab']) =>
+  TABS.find((spec) => spec.tab === tab)!.label
+
+/** The phone tab bar's accessible name. */
+export const TAB_BAR = 'Tabs'
