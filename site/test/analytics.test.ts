@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const posthog = vi.hoisted(() => ({ init: vi.fn(), capture: vi.fn() }))
+const posthog = vi.hoisted(() => ({ init: vi.fn(), capture: vi.fn(), register: vi.fn() }))
 vi.mock('posthog-js', () => ({ default: posthog }))
 
 beforeEach(() => {
   vi.resetModules()
   posthog.init.mockReset()
   posthog.capture.mockReset()
+  posthog.register.mockReset()
 })
 
 describe('startAnalytics', () => {
@@ -16,7 +17,7 @@ describe('startAnalytics', () => {
     expect(posthog.init).not.toHaveBeenCalled()
   })
 
-  it('starts PostHog through the relay with no tracking beyond page views', async () => {
+  it('starts PostHog through the relay, cookieless, with clicks and page speed', async () => {
     const { startAnalytics, ANALYTICS_HOST } = await import('../src/scripts/analytics')
     expect(ANALYTICS_HOST).toBe('https://relay.crosstune.app')
     await startAnalytics('phc_x')
@@ -26,20 +27,27 @@ describe('startAnalytics', () => {
       expect.objectContaining({
         api_host: 'https://relay.crosstune.app',
         ui_host: 'https://us.posthog.com',
-        persistence: 'memory',
+        cookieless_mode: 'always',
         person_profiles: 'identified_only',
-        autocapture: false,
+        autocapture: true,
         disable_session_recording: true,
         disable_surveys: true,
         capture_pageview: true,
+        capture_heatmaps: true,
+        capture_performance: { web_vitals: true, network_timing: false },
         // Off here, so the PostHog dashboard cannot turn them on.
-        capture_heatmaps: false,
         capture_dead_clicks: false,
         capture_exceptions: false,
-        capture_performance: false,
         advanced_disable_flags: true,
       }),
     )
+  })
+
+  it("registers the site's product and platform on every event", async () => {
+    const { startAnalytics } = await import('../src/scripts/analytics')
+    await startAnalytics('phc_x')
+    expect(posthog.register).toHaveBeenCalledTimes(1)
+    expect(posthog.register).toHaveBeenCalledWith({ product: 'site', platform: 'site' })
   })
 
   it('does not init twice when started again', async () => {
