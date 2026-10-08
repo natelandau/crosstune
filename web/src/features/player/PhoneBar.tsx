@@ -1,6 +1,5 @@
 import { Button as AriaButton } from 'react-aria-components'
 import { OPEN_RECORDING } from './transportCopy'
-import { useShellSelecting } from '../selection/useScreenSelection'
 import {
   CloseButton,
   MessageLine,
@@ -12,15 +11,12 @@ import {
 import { transportNotice } from './transportNotice'
 
 /**
- * Now playing on the phone: a solid bar directly above the tab bar. Play and Pause lead, then
+ * Now playing on the phone: a card floating directly above the tab bar. Play and Pause lead, then
  * the title over its tune or source, the speed and pitch badge, and Close. A press on the
  * body opens practice. A list's controls live in practice, never here.
  */
 export function PhoneBar({ title, detail, transport, onOpen, onClose, message }: BarProps) {
-  const selecting = useShellSelecting()
-  // The Record dome rises out of the tab bar into the foot of this bar, so the bar keeps that
-  // strip clear while the tab bar shows.
-  const frame = `flex min-h-14 items-center gap-1 px-2 pt-1 ${selecting ? 'pb-1' : 'pb-6'}`
+  const frame = 'flex min-h-14 items-center gap-1 px-2 py-1'
   if (message) {
     return (
       <div data-phone-bar className={frame}>

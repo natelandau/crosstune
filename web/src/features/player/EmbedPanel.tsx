@@ -23,7 +23,12 @@ export function EmbedPanel({ embed, title }: { embed: Embed; title: string }) {
     if (!element) return
     let pane: Element | null = null
     const measure = (apply: (cap: number) => void) => {
-      const next = element.closest('[data-now-playing]')?.parentElement ?? null
+      const slot = element.closest('[data-now-playing]')
+      // A floating slot sits in a layer over the pane, so the pane is what the layer covers.
+      const next =
+        (slot?.hasAttribute('data-floating')
+          ? slot.closest('[data-float-pane]')
+          : slot?.parentElement) ?? null
       if (next !== pane) {
         observer.unobserve(pane ?? element)
         pane = next

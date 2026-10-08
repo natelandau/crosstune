@@ -50,18 +50,29 @@ function washOver(wash: string, ground: string): string {
 
 const sidebar = () => page.getByRole('navigation', { name: SIDEBAR })
 
-it('holds five tab controls in order with Record in the middle on the phone', async () => {
+it('holds the four tabs in order, then Record, on the phone', async () => {
   await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE })
   const tabs = page.getByRole('navigation', { name: TAB_BAR })
   await expect.element(tabs).toBeVisible()
   const controls = tabs.getByRole('link').or(tabs.getByRole('button'))
   await expect
     .poll(() => controls.elements().map((e) => e.textContent || e.ariaLabel))
-    .toEqual(['Catalog', 'Lists', RECORD_LABEL, 'Recordings', 'Settings'])
+    .toEqual(['Catalog', 'Lists', 'Recordings', 'Settings', RECORD_LABEL])
   await expect
     .element(tabs.getByRole('link', { name: 'Catalog', exact: true }))
     .toHaveAttribute('aria-current', 'page')
   await expect.element(page.getByRole('navigation', { name: SIDEBAR })).not.toBeInTheDocument()
+})
+
+it('floats the tab bar over the list, which runs under it and pads its end to scroll clear', async () => {
+  await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE })
+  const tabs = page.getByRole('navigation', { name: TAB_BAR })
+  await expect.element(tabs).toBeVisible()
+  const scroller = document.querySelector('[data-column="list"]')!
+  await expect.poll(() => scroller.getBoundingClientRect().bottom).toBe(window.innerHeight)
+  await expect
+    .poll(() => Number.parseFloat(getComputedStyle(scroller).paddingBottom))
+    .toBeGreaterThanOrEqual(window.innerHeight - tabs.element().getBoundingClientRect().top)
 })
 
 it('offers Record with no reason against it', async () => {
@@ -167,11 +178,11 @@ it('names why Record is unavailable outside the recorder, and disables it', asyn
   await expect.element(record).toHaveAccessibleDescription(RECORD_UNAVAILABLE)
 })
 
-it('keeps the solid disc of a disabled dome', async () => {
-  renderWithProviders(<RecordControl shape="dome" />)
-  const dome = page.getByRole('button', { name: RECORD_LABEL })
-  await expect.element(dome).toBeDisabled()
-  expect(getComputedStyle(dome.element()).opacity).toBe('1')
+it('keeps the solid disc of a disabled Record disc', async () => {
+  renderWithProviders(<RecordControl shape="disc" />)
+  const disc = page.getByRole('button', { name: RECORD_LABEL })
+  await expect.element(disc).toBeDisabled()
+  expect(getComputedStyle(disc.element()).opacity).toBe('1')
 })
 
 it('marks the Lists heading selected on the Lists root', async () => {
@@ -442,7 +453,7 @@ it.each([
   async (_name, frame) => {
     await renderApp({ path: '/catalog', db: openTestDb(), frame })
     await expect.element(page.getByRole('heading', { name: 'Catalog', level: 1 })).toBeVisible()
-    const scroller = document.querySelector('[data-sheet-root] > div:last-child > div')!
+    const scroller = document.querySelector('[data-shell-scroller]')!
     appendHiddenText(scroller)
     await expect.poll(() => document.documentElement.scrollHeight).toBe(window.innerHeight)
   },

@@ -99,7 +99,7 @@ export async function removeClerkUser(id: string): Promise<void> {
   }
 }
 
-/** The phone's bottom bar, which holds the four destinations and the Record dome. */
+/** The phone's bottom bar, which holds the four destinations and the Record disc. */
 export const tabBar = (page: Page): Locator => page.getByRole('navigation', { name: TAB_BAR })
 
 /** The landmark that holds a tune's page. */
@@ -338,7 +338,7 @@ export async function expectSettled(target: Locator): Promise<void> {
 /** The label a new recording takes from the time it was made. */
 export const DEFAULT_LABEL = /\d{4}-\d{2}-\d{2} \d{2}:\d{2}/
 
-/** Record from the dome for at least `seconds`, landing on Recordings with the new row unfiled. */
+/** Record from the disc for at least `seconds`, landing on Recordings with the new row unfiled. */
 export async function recordUnfiled(page: Page, seconds: number): Promise<Locator> {
   await tabBar(page).getByRole('button', { name: RECORD_LABEL }).click()
   const sheet = page.getByRole('dialog', { name: NEW_RECORDING })

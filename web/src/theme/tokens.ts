@@ -19,9 +19,9 @@ export interface Palette {
   warning: string
   fill: string
   hairline: string
-  sidebar: string
-  sidebarInk2: string
-  sidebarUnknown: string
+  nav: string
+  navInk2: string
+  navUnknown: string
 }
 
 export const PALETTE: Record<Scheme, Palette> = {
@@ -42,9 +42,9 @@ export const PALETTE: Record<Scheme, Palette> = {
     warning: '#C93400',
     fill: '#F1F2F5',
     hairline: 'rgba(45,49,66,0.10)',
-    sidebar: '#E5E7EA',
-    sidebarInk2: '#5B6270',
-    sidebarUnknown: '#737983',
+    nav: '#E5E7EA',
+    navInk2: '#5B6270',
+    navUnknown: '#737983',
   },
   dark: {
     ground: '#16181D',
@@ -63,8 +63,8 @@ export const PALETTE: Record<Scheme, Palette> = {
     warning: '#FF9F0A',
     fill: '#25272D',
     hairline: 'rgba(255,255,255,0.10)',
-    sidebar: '#2E323B',
-    sidebarInk2: '#9AA0AB',
-    sidebarUnknown: '#8A909A',
+    nav: '#2E323B',
+    navInk2: '#9AA0AB',
+    navUnknown: '#8A909A',
   },
 }

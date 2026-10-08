@@ -44,11 +44,11 @@ folder. Compose it, never rebuild it.
 
 ## Frames
 
-| Frame | Structure                                                           |
-| ----- | ------------------------------------------------------------------- |
-| Phone | One pane, bottom tab bar with the Record dome, now playing above it |
-| Split | Sidebar, one pane where list and page take turns                    |
-| Wide  | Sidebar, resizable content column, detail column                    |
+| Frame | Structure                                                          |
+| ----- | ------------------------------------------------------------------ |
+| Phone | One pane, floating tab bar and Record disc, now playing above them |
+| Split | Sidebar, one pane where list and page take turns                   |
+| Wide  | Sidebar, resizable content column, detail column                   |
 
 - `web/src/platform/` decides frame and density. No screen asks which
   device it is on.
@@ -90,18 +90,25 @@ folder. Compose it, never rebuild it.
   capsule (red dot, "Record", centered) runs the sidebar's inner width at
   its foot, 12px below Settings.
   Selected row takes the slate wash. Sync badge leads the header.
-- Phone tab bar: Catalog, Lists, Record dome, Recordings, Settings. Solid,
-  on the ground, top hairline, no glass. Dome: solid disc, recording-red
-  dot, raised over the bar's middle. Sync badge beside the screen title.
+- Phone tab bar: a capsule of Catalog, Lists, Recordings, Settings, then
+  the Record disc on its own at the trailing end, recording-red dot. Both
+  float over the content, which runs to the bottom of the screen and
+  scrolls beneath them. Sizes match the iPhone tab bar: 62px capsule and
+  disc, 21px from the edges. Solid, in the sidebar's slate tint, hairline
+  edge, no shadow, no fade, no glass. The current tab takes a slate-wash
+  pill that slides between tabs. Panes pad their end by
+  `--float-clearance` so the last row scrolls clear. Sync badge beside the
+  screen title.
 
 ### Now playing
 
-- Phone: solid bar above the tab bar. A tap opens practice. No list
-  transport on the bar.
+- Phone: a card floating just above the tab bar, styled like it. A tap
+  opens practice. No list transport on the bar.
 - Split and wide: 48px bar docked across the foot of the detail pane, top
   hairline, shown over an empty detail column too. Pointer frames add list
   transport.
-- Embed: at most 40% of the pane.
+- Embed: at most 40% of the pane. A floating card measures the pane it
+  floats over.
 
 ## Rows
 
