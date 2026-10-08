@@ -1,6 +1,6 @@
 import { render, waitFor } from '@testing-library/react'
 import { StrictMode, useEffect, useState } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vitest'
 import { DbProvider, useDb } from './DbProvider'
 import type { CrosstuneDb } from './schema'
 import { deleteDatabase } from './schema'
@@ -25,13 +25,22 @@ function Capture({ dbRef }: { dbRef: { current: CrosstuneDb | null } }) {
   return null
 }
 
-describe('DbProvider', () => {
-  afterEach(() => deleteDatabase('u1'))
+/**
+ * A user whose database is deleted once the test finishes, after the setup file's unmount, so
+ * no provider still holds it open. DbProvider opens by user, so `openTestDb()` cannot stand in.
+ */
+function testUser(): string {
+  const userId = `u-${crypto.randomUUID()}`
+  onTestFinished(() => deleteDatabase(userId))
+  return userId
+}
 
+describe('DbProvider', () => {
   it('leaves a database that was closed for good closed after it unmounts', async () => {
+    const userId = testUser()
     const dbRef: { current: CrosstuneDb | null } = { current: null }
     const { unmount } = render(
-      <DbProvider userId="u1">
+      <DbProvider userId={userId}>
         <Capture dbRef={dbRef} />
       </DbProvider>,
     )
@@ -44,9 +53,10 @@ describe('DbProvider', () => {
   })
 
   it('serves queries after a StrictMode remount closes and reopens the database', async () => {
+    const userId = testUser()
     const { getByTestId } = render(
       <StrictMode>
-        <DbProvider userId="u1">
+        <DbProvider userId={userId}>
           <Probe />
         </DbProvider>
       </StrictMode>,
