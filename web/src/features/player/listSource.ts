@@ -1,6 +1,6 @@
 import type { LocalRecording, LocalRecordingLink } from '../../db/types'
 import { liveRows } from './tuneSource'
-import type { PlayerItem } from './usePlayer'
+import type { PlayerItem } from '../../domain/playerItem'
 
 /** Why a playing list passes over a tune. */
 export type SkipReason = 'nothing' | 'linksOnly' | 'notHere'

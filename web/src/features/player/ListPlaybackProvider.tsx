@@ -36,8 +36,9 @@ import {
   type ListPlaybackActive,
   type ListStep,
 } from './useListPlayback'
-import { usePlayer, type PlayerItem } from './usePlayer'
+import { usePlayer } from './usePlayer'
 import { readStored, writeStored } from '../../platform/storage'
+import type { PlayerItem } from '../../domain/playerItem'
 
 interface Run {
   db: CrosstuneDb

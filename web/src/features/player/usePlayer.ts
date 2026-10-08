@@ -1,7 +1,6 @@
 import { createContext, useContext } from 'react'
+import type { PlayerItem } from '../../domain/playerItem'
 import type { PlayOrigin } from './playLog'
-
-export type PlayerItem = { kind: 'link'; id: string } | { kind: 'recording'; id: string }
 
 export interface Player {
   item: PlayerItem | null

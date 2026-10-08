@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { RECORD_TEXT, TABS } from '../app/tabs'
-import { SEARCH_TUNES } from '../features/catalog/catalogCopy'
-import { NEW_TUNE_TITLE } from '../features/tune/tuneFormCopy'
+import { RECORD_TEXT, TABS } from '../../app/tabs'
+import { SEARCH_TUNES } from '../catalog/catalogCopy'
+import { NEW_TUNE_TITLE } from '../tune/tuneFormCopy'
 import {
   GO_TO,
   isSequence,

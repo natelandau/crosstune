@@ -1,4 +1,4 @@
-import type { MenuItem } from '../../ui/menuTypes'
+import type { MenuItem } from './menuTypes'
 
 export const MOVE_DOWN = 'Move down'
 export const MOVE_TO_BOTTOM = 'Move to bottom'

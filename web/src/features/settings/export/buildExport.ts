@@ -11,7 +11,7 @@ import {
   type LocalTune,
   type LocalUserTune,
 } from '../../../db/types'
-import { tuningDisplay } from '../instruments'
+import { tuningDisplay } from '../../../domain/instruments'
 import { csvDocument } from './csv'
 import { NameAllocator } from './safeName'
 

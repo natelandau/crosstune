@@ -1,5 +1,5 @@
-import { formatDuration } from '../recording/format'
-import { clamp } from '../../math'
+import { formatDuration } from '../text/format'
+import { clamp } from '../math'
 
 export const MIN_LOOP_MS = 500
 export const MAX_LOOPS = 100

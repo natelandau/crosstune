@@ -1,4 +1,4 @@
-import { DOWNLOADING, formatDuration } from '../recording/format'
+import { DOWNLOADING, formatDuration } from '../../text/format'
 
 /** The trim view's copy, and why practice or trim cannot be used yet. */
 

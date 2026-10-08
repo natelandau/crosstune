@@ -6,7 +6,7 @@ import { getMeta, setMeta } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { SEARCH_TUNES } from '../catalog/catalogCopy'
 import { DEFAULT_FILTERS, FACET_LABELS, META_CATALOG_FILTERS } from '../catalog/filters'
-import { readSearchQuery, writeSearchQuery } from '../catalog/searchSession'
+import { readSearchQuery, writeSearchQuery } from '../../ui/searchSession'
 import {
   ACTIVITY_HEADER,
   COUNTS_HEADER,

@@ -1,4 +1,4 @@
-import { formatDuration } from '../recording/format'
+import { formatDuration } from '../../text/format'
 import { PROGRESS } from './transportCopy'
 import { clamp } from '../../math'
 

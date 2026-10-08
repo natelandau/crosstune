@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { installBackHandler, webBackAdapter, type BackAdapter } from '../platform/backHandler'
-import { readBackEntries } from './backEntries'
+import { readBackEntries } from '../ui/backEntries'
 
 /**
  * Answers the device's back from the app's back stack: the top overlay, then the top screen

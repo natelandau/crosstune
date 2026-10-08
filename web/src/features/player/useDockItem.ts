@@ -7,7 +7,8 @@ import type { LocalRecording, LocalRecordingLink } from '../../db/types'
 import { displayTitle } from '../links/display'
 import { recordingTitle } from '../recordings/recordingRow'
 import { embedFor, type Embed } from './embed'
-import { usePlayer, type PlayerItem } from './usePlayer'
+import { usePlayer } from './usePlayer'
+import type { PlayerItem } from '../../domain/playerItem'
 
 /** What the player shows: a link and its embed, or a recording and what titles it. */
 export type DockShown =

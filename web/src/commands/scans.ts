@@ -1,5 +1,5 @@
 import { sortScans } from '../db/scans'
-import { moveBeside } from '../features/lists/order'
+import { moveBeside } from '../domain/order'
 import { syncTables, type CrosstuneDb } from '../db/schema'
 import type { LocalScan } from '../db/types'
 import { newId, nextPosition, now, putRow, tombstone } from './write'

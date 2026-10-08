@@ -7,7 +7,7 @@ import { useDb } from '../../db/DbProvider'
 import { messageFor, useAction } from '../../ui/useAction'
 import type { CatalogEntry } from '../catalog/filters'
 import { useCatalog } from '../catalog/useCatalog'
-import { tuningInstruments } from '../settings/instruments'
+import { tuningInstruments } from '../../domain/instruments'
 import { useInstruments } from '../settings/useInstruments'
 import {
   emptyValues,

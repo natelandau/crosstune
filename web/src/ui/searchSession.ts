@@ -1,4 +1,4 @@
-import { readStored, writeStored } from '../../platform/storage'
+import { readStored, writeStored } from '../platform/storage'
 
 // Search text lasts for one app session, unlike the facet filters kept in the meta table:
 // a query coming back on a later launch reads as a filter nobody remembers setting.

@@ -13,7 +13,7 @@ import {
   tuningKey,
   tuningKeyInstrument,
   tuningLabel,
-} from '../settings/instruments'
+} from '../../domain/instruments'
 import { compareNames } from '../../text/collate'
 
 /** One tuning facet per instrument, so each instrument's tunings filter on their own. */

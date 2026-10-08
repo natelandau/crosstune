@@ -1,6 +1,6 @@
 import type { PlayFirst } from '../../api/vocabulary'
 import type { LocalRecording, LocalRecordingLink } from '../../db/types'
-import type { PlayerItem } from './usePlayer'
+import type { PlayerItem } from '../../domain/playerItem'
 
 /** The rows that are live and belong to `tuneId`, so a pin to a deleted row or to another
  * tune's row never counts. */

@@ -2,7 +2,7 @@ import { addUploadedFile } from '../../commands/recordings'
 import { getStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { messageFor } from '../../ui/useAction'
-import { formatBytes } from '../recording/format'
+import { formatBytes } from '../../text/format'
 import { measureDuration } from '../recording/measureDuration'
 
 export const NOT_AUDIO_ERROR = 'Choose an audio file.'

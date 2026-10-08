@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
-import { matches } from '../../platform/mediaQuery'
-import { createStoredValue, onOtherTabWrite, readStored } from '../../platform/storage'
+import { matches } from '../platform/mediaQuery'
+import { createStoredValue, onOtherTabWrite, readStored } from '../platform/storage'
 
 export const APPEARANCES = ['system', 'light', 'dark'] as const
 export type Appearance = (typeof APPEARANCES)[number]

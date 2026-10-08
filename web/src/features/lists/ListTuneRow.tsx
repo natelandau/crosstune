@@ -9,7 +9,8 @@ import { EDIT_TUNE } from '../tune/tuneScreenCopy'
 import type { MenuItem } from '../../ui/menuTypes'
 import { TuneRowView } from '../catalog/TuneRow'
 import type { RowAction } from '../../ui/Row'
-import { moveActions, scansAction } from '../../ui/sharedActions'
+import { moveActions } from '../../ui/sharedActions'
+import { scansAction } from '../scans/scansAction'
 import { ListRowPlay } from './ListRowPlay'
 
 /**

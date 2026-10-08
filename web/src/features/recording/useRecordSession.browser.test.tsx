@@ -7,7 +7,7 @@ import { fakeStream, FakeRecorder, LAST_CHUNK, fakeMediaForTest } from '../../te
 import { dataProviders } from '../../test/providers'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import { DISCARD_TITLE, STARTING_MICROPHONE } from './recordCopy'
-import { RECORDING } from './format'
+import { RECORDING } from '../../text/format'
 import { type SavedRecording, useRecordSession } from './useRecordSession'
 
 /** Every browser global a recording touches, faked; each one is put back when the test ends. */

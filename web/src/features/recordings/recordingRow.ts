@@ -10,7 +10,7 @@ import {
   formatDuration,
   knownRecordedDate,
   recordingDateLabel,
-} from '../recording/format'
+} from '../../text/format'
 import { providerLabel } from '../links/display'
 import type { RecordingSort } from './arrangeRecordings'
 import { recordingLabel } from './recordingMatch'

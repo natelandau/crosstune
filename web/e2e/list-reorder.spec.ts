@@ -21,7 +21,7 @@ import {
   NEW_LIST_TITLE,
   REMOVE,
 } from '../src/features/lists/listsCopy'
-import { MOVE_TO_TOP } from '../src/features/lists/moveMenu'
+import { MOVE_TO_TOP } from '../src/ui/moveMenu'
 import { DONE } from '../src/ui/confirmCopy'
 import { SEARCH_TUNES, TUNE_LIST } from '../src/features/catalog/catalogCopy'
 

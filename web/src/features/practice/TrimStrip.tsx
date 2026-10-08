@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from 'react'
-import { formatPreciseDuration } from '../recording/format'
+import { formatPreciseDuration } from '../../text/format'
 import { slicePeaks } from '../waveform/peaks'
 import type { ShownPeaks } from './recordingRange'
 import type { TrimAction, TrimHandle, TrimState } from './trimModel'

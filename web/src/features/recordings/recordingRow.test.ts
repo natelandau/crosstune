@@ -4,7 +4,7 @@ import type { StorageFigures } from '../../db/meta'
 import type { RecordingFile } from '../../db/recordings'
 import type { LocalRecording } from '../../db/types'
 import { recordingFile, recordingRow } from '../../test/rows'
-import { PROCESS_FAILED, UPLOAD_FAILED, WAITING_TO_UPLOAD } from '../recording/format'
+import { PROCESS_FAILED, UPLOAD_FAILED, WAITING_TO_UPLOAD } from '../../text/format'
 import type { RecordingView } from './useRecordings'
 import {
   isWebUrl,

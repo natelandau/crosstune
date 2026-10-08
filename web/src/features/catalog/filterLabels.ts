@@ -1,6 +1,6 @@
 import { ANY } from '../../ui/filterCopy'
 import { UNKNOWN_KEY } from '../../ui/keyName'
-import { tuningKeyInstrument, withInstrumentLabel } from '../settings/instruments'
+import { tuningKeyInstrument, withInstrumentLabel } from '../../domain/instruments'
 import {
   FACET_LABELS,
   MISSING_LABELS,

@@ -1,6 +1,6 @@
 import { containsText, foldText } from '../../text/fold'
 import { tabLabel } from '../../app/tabs'
-import { GO_TO, type ShortcutId } from '../../ui/keymap'
+import { GO_TO, type ShortcutId } from '../keyboard/keymap'
 import type { HeardEntry } from '../catalog/filters'
 import { matchTunes, MAX_RESULTS } from '../catalog/tuneMatches'
 import { recordingLabel, recordingMatches } from '../recordings/recordingMatch'

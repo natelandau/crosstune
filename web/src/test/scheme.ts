@@ -1,4 +1,4 @@
-import { DARK_QUERY } from '../features/settings/appearance'
+import { DARK_QUERY } from '../theme/appearance'
 
 interface DarkList {
   matches: boolean

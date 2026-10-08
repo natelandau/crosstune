@@ -21,7 +21,7 @@ import {
   type QuickFindItem,
 } from './quickFindResults'
 import { useQuickFind, type QuickFind as Finder } from './useQuickFind'
-import { QUICK_FIND, shortcutById, type ShortcutId } from '../../ui/keymap'
+import { QUICK_FIND, shortcutById, type ShortcutId } from '../keyboard/keymap'
 import { useLatest } from '../../ui/useLatest'
 import { destination, type Destination } from '../../app/destinations'
 import { useScreenCommands } from '../../app/screenCommands'

@@ -6,7 +6,7 @@ import { createTune, setArchived } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
-import { MOVE_DOWN, MOVE_TO_BOTTOM, MOVE_TO_TOP, MOVE_UP } from './moveMenu'
+import { MOVE_DOWN, MOVE_TO_BOTTOM, MOVE_TO_TOP, MOVE_UP } from '../../ui/moveMenu'
 import { useListView } from './useLists'
 import { useListTunes } from './useListTunes'
 

@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { LocalRecordingLoop } from '../../db/types'
-import { adjacent, loopName, placedLoop, type PlacedLoop, type Span } from './loopModel'
+import { adjacent, loopName, placedLoop, type PlacedLoop, type Span } from '../../domain/loopModel'
 import { LOOP_SELECTED, NEXT_LOOP, NO_LOOP, PREVIOUS_LOOP } from './practiceCopy'
 import type { LoopPlayback } from './useLoopPlayback'
 

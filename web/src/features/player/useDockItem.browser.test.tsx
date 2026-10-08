@@ -9,7 +9,8 @@ import { openTestDb } from '../../test/db'
 import { dataProviders, fakePlayer } from '../../test/providers'
 import { captureRecording } from '../../test/recordings'
 import { useDockItem } from './useDockItem'
-import { PlayerContext, type PlayerItem } from './usePlayer'
+import { PlayerContext } from './usePlayer'
+import type { PlayerItem } from '../../domain/playerItem'
 
 let db: CrosstuneDb
 let tuneId: string

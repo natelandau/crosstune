@@ -10,7 +10,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import { ADD_TUNE, SEARCH_TUNES, addOfferLabel } from '../catalog/catalogCopy'
 import { DAY_LABEL, MONTH_LABEL, MONTH_LABELS, YEAR_FORMAT, YEAR_LABEL } from '../../ui/partialDate'
 import { ADD_PART_MODE, DETAIL_LABELS, PART_MODE_LABELS } from './detailFields'
-import { OTHER_OPTION, otherLabel } from './suggestCopy'
+import { OTHER_OPTION, otherLabel } from '../../ui/form/suggestCopy'
 import {
   ADD_NEW_TUNE,
   EDIT_TUNE_TITLE,

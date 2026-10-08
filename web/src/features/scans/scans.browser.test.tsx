@@ -5,7 +5,7 @@ import { deleteScan } from '../../commands/scans'
 import { sortScans } from '../../db/scans'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalList, LocalListItem } from '../../db/types'
-import { MOVE_DOWN } from '../lists/moveMenu'
+import { MOVE_DOWN } from '../../ui/moveMenu'
 import {
   DONE_EDITING_SCANS,
   EDIT_SCANS,

@@ -7,7 +7,7 @@ import {
   type RefObject,
 } from 'react'
 import { clamp } from '../../math'
-import { formatDuration } from '../recording/format'
+import { formatDuration } from '../../text/format'
 import {
   DRAG_THRESHOLD_PX,
   resizeSpan,
@@ -15,7 +15,7 @@ import {
   type Bounds,
   type Draft,
   type Span,
-} from './loopModel'
+} from '../../domain/loopModel'
 import { msAtX, xOfMs, type LaneView } from './practiceZoom'
 import { useAutoPan } from './useAutoPan'
 import { capturePointer } from '../../platform/pointer'

@@ -8,7 +8,7 @@ import {
   type CatalogFilters,
   type Facet,
 } from '../catalog/filters'
-import { tuningKey } from '../settings/instruments'
+import { tuningKey } from '../../domain/instruments'
 import { breakdowns } from './breakdowns'
 
 // Spellings that differ by case, accents, normalization form, and outer whitespace, so every

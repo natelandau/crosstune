@@ -1,6 +1,6 @@
-import type { RecordingPrecision } from '../../api/vocabulary'
-import type { LocalFileState } from '../../db/recordings'
-import { isRecordingPrecision } from '../../db/types'
+import type { RecordingPrecision } from '../api/vocabulary'
+import type { LocalFileState } from '../db/recordings'
+import { isRecordingPrecision } from '../db/types'
 
 export const DOWNLOAD_FAILED = "Couldn't download"
 export const DOWNLOADING = 'Downloading'

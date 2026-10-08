@@ -6,7 +6,7 @@ import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { DEFAULT_FILTERS, FACET_LABELS, META_CATALOG_FILTERS } from '../catalog/filters'
 import { FILTER_SAVE_ERROR } from '../catalog/useCatalogFilters'
-import { readSearchQuery, writeSearchQuery } from '../catalog/searchSession'
+import { readSearchQuery, writeSearchQuery } from '../../ui/searchSession'
 import { useStatsScreen } from './useStatsScreen'
 
 const NOW = new Date('2026-10-04T12:00:00.000Z')

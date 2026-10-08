@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { FACET_LABELS } from '../catalog/filters'
-import { tuningKey, tuningLabel } from '../settings/instruments'
+import { tuningKey, tuningLabel } from '../../domain/instruments'
 import { DETAIL_LABELS } from '../tune/detailFields'
 import { breakdownGroups, valueFilter } from './breakdowns'
 import type { Breakdowns } from './types'

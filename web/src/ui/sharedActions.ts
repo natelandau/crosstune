@@ -1,13 +1,5 @@
-import {
-  ArrowDown,
-  ArrowDownToLine,
-  ArrowUp,
-  ArrowUpToLine,
-  FileMusic,
-  type LucideIcon,
-} from 'lucide-react'
-import { MOVE_DOWN, MOVE_TO_BOTTOM, MOVE_TO_TOP, MOVE_UP } from '../features/lists/moveMenu'
-import { SCANS } from '../features/scans/scanCopy'
+import { ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, type LucideIcon } from 'lucide-react'
+import { MOVE_DOWN, MOVE_TO_BOTTOM, MOVE_TO_TOP, MOVE_UP } from './moveMenu'
 import type { MenuItem } from './menuTypes'
 import type { RowAction as SharedRowAction } from './rowTypes'
 import type { MenuEntry } from './Menu'
@@ -59,9 +51,4 @@ export function moveActions(moves: readonly MenuItem[]): RowAction[] {
     icon: MOVE_ICONS[move.label] ?? ArrowUp,
     onAction: move.onPress,
   }))
-}
-
-/** The tune row action that opens the tune's scans, leading the row's actions, or none. */
-export function scansAction(onViewScans: (() => void) | undefined): RowAction[] {
-  return onViewScans ? [{ id: 'scans', label: SCANS, icon: FileMusic, onAction: onViewScans }] : []
 }

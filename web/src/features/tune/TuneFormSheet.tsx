@@ -3,7 +3,7 @@ import { Fragment, useEffect, useId, useRef, useState } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import { MODES, TIME_SIGNATURES, TUNE_LIMITS } from '../../api/vocabulary'
 import { CAPO_FRETS, CAPO_INSTRUMENTS, INSTRUMENT_LABELS, TUNINGS } from '../../constants'
-import { capoLabel, NO_CAPO, tuningLabel } from '../settings/instruments'
+import { capoLabel, NO_CAPO, tuningLabel } from '../../domain/instruments'
 import {
   ADD_PART_MODE,
   DETAIL_FIELDS,

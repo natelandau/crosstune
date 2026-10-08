@@ -5,8 +5,15 @@ import { useDb } from '../../db/DbProvider'
 import type { LocalRecordingLoop } from '../../db/types'
 import { liveTune } from '../../db/tunes'
 import type { RecordingView } from '../recordings/useRecordings'
-import { loopAt, loopName, resizeSpan, roomAround, rowSpan, spanFields } from './loopModel'
-import type { Draft, NewLoop } from './loopModel'
+import {
+  loopAt,
+  loopName,
+  resizeSpan,
+  roomAround,
+  rowSpan,
+  spanFields,
+} from '../../domain/loopModel'
+import type { Draft, NewLoop } from '../../domain/loopModel'
 import { NEW_LOOP_REASON } from './LoopsPanel'
 import { LOOP_SELECTED } from './practiceCopy'
 import type { LaneLoop, SelectedLoop } from './PracticeWaveform'

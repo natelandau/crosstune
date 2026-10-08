@@ -1,6 +1,6 @@
 import { useCallback, useId, useLayoutEffect, useState } from 'react'
 import type { BackEntry } from '../platform/backStack'
-import { useLatest } from '../ui/useLatest'
+import { useLatest } from './useLatest'
 
 /** An entry as it is held, with whether it stands the shell's controls down. */
 export interface HeldEntry extends BackEntry {

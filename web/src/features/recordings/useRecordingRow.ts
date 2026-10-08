@@ -6,7 +6,7 @@ import { useOnline } from '../../sync/SyncProvider'
 import { CLOSE_PLAYER } from '../player/transportCopy'
 import type { PlayOrigin } from '../player/playLog'
 import { isPlaying, usePlayer } from '../player/usePlayer'
-import { DOWNLOAD_FAILED, formatDuration } from '../recording/format'
+import { DOWNLOAD_FAILED, formatDuration } from '../../text/format'
 import type { RecordingSort } from './arrangeRecordings'
 import { DOWNLOAD, PLAY } from './recordingNames'
 import {

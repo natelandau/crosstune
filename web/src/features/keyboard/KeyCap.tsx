@@ -1,4 +1,4 @@
-import { keyLabel, keySpoken } from '../../ui/keymap'
+import { keyLabel, keySpoken } from './keymap'
 import { keyPlatform, type KeyPlatform } from '../../platform/keyPlatform'
 
 /**

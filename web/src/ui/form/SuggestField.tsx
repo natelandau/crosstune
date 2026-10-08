@@ -10,7 +10,7 @@ import {
   Popover,
   type Key,
 } from 'react-aria-components'
-import { OTHER_OPTION, otherLabel } from '../../features/tune/suggestCopy'
+import { OTHER_OPTION, otherLabel } from './suggestCopy'
 import { containsText } from '../../text/fold'
 import { NOT_SET } from '../fieldCopy'
 import { OverlayClaim } from '../overlayClaim'

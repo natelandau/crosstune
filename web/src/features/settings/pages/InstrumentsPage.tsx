@@ -1,6 +1,6 @@
 import { INSTRUMENTS } from '../../../api/vocabulary'
 import { INSTRUMENT_LABELS } from '../../../constants'
-import { INSTRUMENTS_HELP } from '../instruments'
+import { INSTRUMENTS_HELP } from '../../../domain/instruments'
 import { useInstrumentsSetting } from '../useInstrumentsSetting'
 import { Group } from '../../../ui/form/Group'
 import { Switch } from '../../../ui/form/Switch'

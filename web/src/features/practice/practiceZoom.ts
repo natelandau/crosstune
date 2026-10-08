@@ -1,4 +1,4 @@
-import type { Span } from './loopModel'
+import type { Span } from '../../domain/loopModel'
 import { clamp } from '../../math'
 
 /** What a zoom is held inside: the view's width and the trimmed recording's length. */

@@ -3,7 +3,7 @@ import { page, userEvent } from 'vitest/browser'
 import { expect, it, vi } from 'vitest'
 import { createTune } from '../../commands/tunes'
 import { addOfferLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
-import { recordingDateLabel } from '../recording/format'
+import { recordingDateLabel } from '../../text/format'
 import { EDIT, RECORDING_NAME_LABEL } from './recordingCopy'
 import {
   ADD_TO_TUNE_TITLE,

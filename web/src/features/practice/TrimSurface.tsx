@@ -1,4 +1,4 @@
-import { formatPreciseDuration } from '../recording/format'
+import { formatPreciseDuration } from '../../text/format'
 import type { ShownPeaks } from './recordingRange'
 import { DETAIL_LABEL, LENGTH_LABEL, OVERVIEW_LABEL } from './trimViewCopy'
 import { END_HANDLE, START_HANDLE, TrimStrip } from './TrimStrip'

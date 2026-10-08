@@ -11,7 +11,7 @@ import { PlaybackEngineContext } from './PlaybackEngineProvider'
 import type { EngineClock, PlaybackEngine } from './playbackEngine'
 import type { PlayOrigin } from './playLog'
 import { PlayLogContext, usePlayLog } from './usePlayLog'
-import type { PlayerItem } from './usePlayer'
+import type { PlayerItem } from '../../domain/playerItem'
 
 // The engine's own ticks only move the reported position, which no log reads.
 const stillClock: EngineClock = { every: () => () => {}, after: () => () => {} }

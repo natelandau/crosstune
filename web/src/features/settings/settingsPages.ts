@@ -10,8 +10,8 @@ import {
 import type { AudioQuality } from '../../api/vocabulary'
 import { SETTINGS_PAGE_IDS, type SettingsPageId } from './settingsPaths'
 import { AUDIO_QUALITY_NAMES } from '../../constants'
-import { RECORDING } from '../recording/format'
-import { APPEARANCE_LABELS, type Appearance } from './appearance'
+import { RECORDING } from '../../text/format'
+import { APPEARANCE_LABELS, type Appearance } from '../../theme/appearance'
 import { MUSIC_SERVICES } from './searchProviders'
 import { ACCOUNT, APPEARANCE, INSTRUMENTS, SYNC_AND_STORAGE } from './settingsCopy'
 

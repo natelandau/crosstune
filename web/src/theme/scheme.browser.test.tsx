@@ -1,6 +1,6 @@
 import { act, render } from '@testing-library/react'
 import { expect, it, onTestFinished } from 'vitest'
-import { APPEARANCE_KEY, setAppearance, useAppearance } from '../features/settings/appearance'
+import { APPEARANCE_KEY, setAppearance, useAppearance } from './appearance'
 import { applyScheme, useSchemeSync } from './scheme'
 import { PALETTE } from './tokens'
 

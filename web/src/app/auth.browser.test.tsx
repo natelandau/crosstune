@@ -13,7 +13,7 @@ import {
   rememberedUser,
   rememberUser,
 } from '../auth/session'
-import { readSearchQuery, writeSearchQuery } from '../features/catalog/searchSession'
+import { readSearchQuery, writeSearchQuery } from '../ui/searchSession'
 import { CLERK_LOAD_GRACE_MS, useAuthGate, type GateClock } from '../auth/useAuthGate'
 import { renderWithProviders } from '../test/render'
 import { AuthGate } from './AuthGate'

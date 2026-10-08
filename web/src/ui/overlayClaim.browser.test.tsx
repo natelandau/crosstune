@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { expect, it } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
-import { readBackEntries } from '../app/backEntries'
+import { readBackEntries } from './backEntries'
 import { renderWithProviders } from '../test/render'
 import { Picker } from './form/Picker'
 import { SuggestField } from './form/SuggestField'

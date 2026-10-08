@@ -1,5 +1,5 @@
 import { forgetUser } from '../../auth/session'
-import { clearSearchQueries } from '../catalog/searchSession'
+import { clearSearchQueries } from '../../ui/searchSession'
 import { scansLive } from '../../db/scans'
 import { countUnsentChanges } from '../../db/outbox'
 import { NOT_UPLOADED_STATES } from '../../db/recordings'

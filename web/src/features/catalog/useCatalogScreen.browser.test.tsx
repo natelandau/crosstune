@@ -4,7 +4,7 @@ import { createTune, setArchived } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
-import { readSearchQuery, writeSearchQuery } from './searchSession'
+import { readSearchQuery, writeSearchQuery } from '../../ui/searchSession'
 import { useCatalogScreen } from './useCatalogScreen'
 
 let db: CrosstuneDb

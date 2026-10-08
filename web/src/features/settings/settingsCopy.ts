@@ -1,4 +1,4 @@
-import { formatBytes } from '../recording/format'
+import { formatBytes } from '../../text/format'
 
 export const SIGN_OUT = 'Sign out'
 export const ACCOUNT_OFFLINE = 'Signing out and deleting your account need a connection.'

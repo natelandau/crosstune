@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent, type RefObject
 import type { PlaybackEngine } from '../player/playbackEngine'
 import { capturePointer } from '../../platform/pointer'
 import { useLatest } from '../../ui/useLatest'
-import { DRAG_THRESHOLD_PX } from './loopModel'
+import { DRAG_THRESHOLD_PX } from '../../domain/loopModel'
 import { GLIDE_TAU_MS, glideMs, scrubMs } from './practiceZoom'
 import { clamp } from '../../math'
 
