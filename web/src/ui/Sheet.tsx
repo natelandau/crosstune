@@ -30,6 +30,7 @@ import { PointerOverlay } from './PointerOverlay'
 import { recede } from './recede'
 import { growScale, originBox, releaseTarget, scrim, SHEET } from './sheetGeometry'
 import { useOverlayClaim } from './overlayClaim'
+import { clamp } from '../math'
 
 const MotionModalOverlay = motion.create(ModalOverlay)
 const MotionModal = motion.create(Modal)
@@ -195,7 +196,7 @@ function PointerDialog({
 function useRecede(y: MotionValue<number>, closedY: number): void {
   useLayoutEffect(() => {
     const recession = recede()
-    const update = (value: number) => recession.set(1 - Math.min(Math.max(value / closedY, 0), 1))
+    const update = (value: number) => recession.set(1 - clamp(value / closedY, 0, 1))
     update(y.get())
     const stop = y.on('change', update)
     return () => {
@@ -253,7 +254,7 @@ function TouchSheet({
   const openY = height === 'part' ? closedY - viewport.height * SHEET.partRatio : 0
   const detents = height === 'part' ? [0, openY] : [0]
   const y = useMotionValue(reduceMotion ? openY : closedY)
-  const backdrop = useTransform(y, (value) => scrim(1 - Math.min(Math.max(value / closedY, 0), 1)))
+  const backdrop = useTransform(y, (value) => scrim(1 - clamp(value / closedY, 0, 1)))
   const dragControls = useDragControls()
   const [content, setContent] = useState<HTMLDivElement | null>(null)
   const contentScrolls = useOverflows(content)

@@ -1,5 +1,5 @@
 import { Maximize2 } from 'lucide-react'
-import { formatDuration } from '../recording/format'
+import { formatDuration } from '../../text/format'
 import { ELAPSED, OPEN_RECORDING, REMAINING } from './transportCopy'
 import type { RecordingTransport } from './useRecordingTransport'
 import { Button } from '../../ui/Button'

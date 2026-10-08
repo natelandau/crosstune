@@ -4,7 +4,7 @@ import { OFFLINE } from '../../sync/labels'
 import { useOnline } from '../../sync/SyncProvider'
 import { useCurrentAudio } from '../player/useCurrentAudio'
 import { useRecordingDownload } from '../player/useRecordingDownload'
-import { DOWNLOAD_FAILED, fileStateLabel, NOT_AVAILABLE } from '../recording/format'
+import { DOWNLOAD_FAILED, fileStateLabel, NOT_AVAILABLE } from '../../text/format'
 import { trimmedLengthMs, trimPending } from './recordingRange'
 import { TRIM_BUSY, TRIM_WHILE_DOWNLOADING, TRIM_WHILE_RECORDING } from './trimViewCopy'
 

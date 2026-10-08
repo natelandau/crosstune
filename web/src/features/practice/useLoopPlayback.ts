@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import type { LocalRecordingLoop } from '../../db/types'
 import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import type { RecordingView } from '../recordings/useRecordings'
-import type { Span } from './loopModel'
+import type { Span } from '../../domain/loopModel'
 import { loopHolds, loopRange } from './useLoopFollow'
-import { rowSpan } from './loopModel'
+import { rowSpan } from '../../domain/loopModel'
 import { useLatest } from '../../ui/useLatest'
 
 export interface LoopPlayback {

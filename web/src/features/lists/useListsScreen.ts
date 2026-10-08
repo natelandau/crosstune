@@ -2,7 +2,7 @@ import { SquarePen, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { deleteList } from '../../commands/lists'
 import { useDb } from '../../db/DbProvider'
-import { DELETE } from '../../ui/confirmCopy'
+import { DELETE, EDIT } from '../../ui/confirmCopy'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import type { RowAction } from '../../ui/rowTypes'
 import { useAction } from '../../ui/useAction'
@@ -46,13 +46,13 @@ export function useListsScreen({
 
   const rowActions = (list: ListSummary): RowAction[] => [
     {
-      label: 'Edit',
+      label: EDIT,
       icon: SquarePen,
       tone: 'neutral',
       onPress: () => setNaming({ kind: 'rename', listId: list.id, name: list.name }),
     },
     {
-      label: 'Delete',
+      label: DELETE,
       icon: Trash2,
       tone: 'error',
       onPress: () => void remove(list),

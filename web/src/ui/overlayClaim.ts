@@ -7,7 +7,7 @@ import {
   resetBackEntriesForTest,
   subscribeBackEntries,
   useBackEntry,
-} from '../app/backEntries'
+} from './backEntries'
 
 export interface OverlayClaimOptions {
   coversShell?: boolean

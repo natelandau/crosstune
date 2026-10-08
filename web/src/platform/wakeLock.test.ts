@@ -155,14 +155,12 @@ describe('holdScreenAwake', () => {
       setVisibility('visible')
 
       rejectFirst(new Error('hidden during acquisition'))
-      await flush()
 
-      expect(requests).toBe(2)
+      await expect.poll(() => requests).toBe(2)
     } finally {
       release()
     }
-    await flush()
-    expect(secondSentinel.released).toBe(true)
+    await expect.poll(() => secondSentinel.released).toBe(true)
   })
 
   it('recovers from a synchronous throw out of request()', async () => {
@@ -185,9 +183,8 @@ describe('holdScreenAwake', () => {
 
       setVisibility('hidden')
       setVisibility('visible')
-      await flush()
 
-      expect(calls).toBe(2)
+      await expect.poll(() => calls).toBe(2)
     } finally {
       release()
     }
@@ -210,9 +207,8 @@ describe('holdScreenAwake', () => {
       // A dead sentinel must not be mistaken for a currently held lock.
       setVisibility('hidden')
       setVisibility('visible')
-      await flush()
 
-      expect(calls).toBe(2)
+      await expect.poll(() => calls).toBe(2)
     } finally {
       release()
     }

@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { statsTunePath } from '../../settings/settingsPaths'
 import { RARITIES_HEADER, rarityLine } from '../copy'
 import type { Rarity } from '../types'
-import { PageSection } from '../../tune/PageSection'
+import { PageSection } from '../../../ui/PageSection'
 
 /** Each line names the tune that holds the rare value and links to it. */
 export function Rarities({

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import type { MenuItem } from '../../ui/menuTypes'
 import type { RowAction } from '../../ui/rowTypes'
-import { readSearchQuery, writeSearchQuery } from '../catalog/searchSession'
+import { readSearchQuery, writeSearchQuery } from '../../ui/searchSession'
 import {
   arrangedCount,
   arrangeRecordings,

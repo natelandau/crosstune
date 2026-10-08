@@ -245,7 +245,7 @@ function earliest<T extends { id: string }>(
   rows: readonly T[],
   instant: (row: T) => string,
 ): T | undefined {
-  return [...rows].sort(
+  return rows.toSorted(
     (a, b) => Date.parse(instant(a)) - Date.parse(instant(b)) || compareText(a.id, b.id),
   )[0]
 }

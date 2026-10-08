@@ -1,13 +1,7 @@
 import { useId } from 'react'
 import { keyPlatform, type KeyPlatform } from '../../platform/keyPlatform'
 import { DONE } from '../../ui/confirmCopy'
-import {
-  isSequence,
-  SHORTCUTS,
-  SHORTCUTS_TITLE,
-  type Shortcut,
-  type ShortcutGroup,
-} from '../../ui/keymap'
+import { isSequence, SHORTCUTS, SHORTCUTS_TITLE, type Shortcut, type ShortcutGroup } from './keymap'
 import { Sheet } from '../../ui/Sheet'
 import { KeyCap } from './KeyCap'
 import { useShortcutSheet } from './shortcutSheetLauncher'

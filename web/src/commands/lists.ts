@@ -1,6 +1,6 @@
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalListItem } from '../db/types'
-import { moveBeside } from '../features/lists/order'
+import { moveBeside } from '../domain/order'
 import { LIST_NAME_REQUIRED, LIST_NOT_FOUND } from './messages'
 import {
   activeByPosition,

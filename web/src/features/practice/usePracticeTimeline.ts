@@ -12,7 +12,7 @@ import { useLatest } from '../../ui/useLatest'
 import type { PlaybackEngine } from '../player/playbackEngine'
 import { trimmedLengthMs } from './recordingRange'
 import type { RecordingView } from '../recordings/useRecordings'
-import type { Bounds, Span } from './loopModel'
+import type { Bounds, Span } from '../../domain/loopModel'
 import { fitScale, MAX_PX_PER_S, minPxPerS, openingScale, zoomScale } from './practiceZoom'
 import type { WaveformScrub } from './PracticeWaveform'
 

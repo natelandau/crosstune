@@ -12,9 +12,9 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { recordingRow } from '../../test/rows'
-import { QUICK_FIND, SHORTCUTS_TITLE } from '../../ui/keymap'
+import { QUICK_FIND, SHORTCUTS_TITLE } from '../keyboard/keymap'
 import { SORT_BY } from '../../ui/sortCopy'
-import { readBackEntries } from '../../app/backEntries'
+import { readBackEntries } from '../../ui/backEntries'
 
 import { SHEET } from '../../ui/sheetGeometry'
 import { WIDE } from '../../test/practice'
@@ -247,6 +247,8 @@ it('offers Select tunes on the catalog and not on Settings', async () => {
   await expect.element(quickFind()).not.toBeInTheDocument()
 
   await router.navigate('/settings')
+  // The catalog withdraws its commands as it unmounts, which can land after navigate resolves.
+  await expect.element(page.getByRole('grid', { name: TUNE_LIST })).not.toBeInTheDocument()
   focusBody()
   await commandK()
   await expect.element(command(SHORTCUTS_TITLE)).toBeVisible()

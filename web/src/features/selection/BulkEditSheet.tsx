@@ -12,7 +12,7 @@ import {
 } from './batchEdit'
 import { EDIT_ONLY_CHANGED, editTunesTitle, MIXED, NO, SAVE_EDIT, YES } from './selectionCopy'
 import { EDIT_LIMITS, editRowValue, useBulkEdit, type BulkEdit } from './useBulkEdit'
-import { tuningLabel } from '../settings/instruments'
+import { tuningLabel } from '../../domain/instruments'
 import { DETAILS_HEADER, STATUS_HEADER, TUNING_HEADER } from '../tune/tuneFormCopy'
 import {
   learnedOnDate,

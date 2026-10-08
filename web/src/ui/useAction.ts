@@ -10,13 +10,22 @@ export interface Action {
   error: string | null
   /** True while any action is in flight, to disable the control that started it. */
   pending: boolean
+  /** `runThen` with no success step: on failure the control stays as it was. */
   run: (action: () => Promise<unknown>) => void
+  /**
+   * Calls `onSuccess` only once `action` resolves, for a close or a navigation that must not
+   * happen on failure. Starting clears the last error, and a throw from `onSuccess` lands in
+   * `error` too.
+   */
   runThen: (action: () => Promise<unknown>, onSuccess: () => void) => void
   /** Drops the last rejection without starting another action. */
   clear: () => void
 }
 
-/** Runs a fire-and-forget mutation, surfacing a rejection instead of losing it. */
+/**
+ * Runs a fire-and-forget mutation from a control's handler, surfacing a rejection instead of
+ * losing it. Pair `error` with an inline alert and `pending` with the control's disabled state.
+ */
 export function useAction(): Action {
   const [error, setError] = useState<string | null>(null)
   // A count, so the first of two overlapping actions to settle does not end the other's wait.

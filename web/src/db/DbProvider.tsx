@@ -21,6 +21,10 @@ export function DbProvider({ userId, children }: { userId: string; children: Rea
 }
 
 // This file pairs a provider component with its hook, the point of a context module.
+/**
+ * The signed-in user's local database. Read it through live queries and write only through
+ * `src/commands`. Throws outside `DbProvider`.
+ */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useDb(): CrosstuneDb {
   const db = useContext(DbContext)

@@ -3,7 +3,7 @@ import { isInstrument } from '../../db/types'
 import { foldText, sameText } from '../../text/fold'
 import { compareText, groupByFold, heldSpelling } from '../../text/spelling'
 import { FACET_LABELS, isFilterValue, type CatalogFilters, type Facet } from '../catalog/filters'
-import { tuningKey, tuningLabel, tuningsMap } from '../settings/instruments'
+import { tuningKey, tuningLabel, tuningsMap } from '../../domain/instruments'
 import { DETAIL_LABELS } from '../tune/detailFields'
 import { isMode } from '../tune/keyMode'
 import type {

@@ -1,6 +1,6 @@
-import { INSTRUMENTS, type Instrument } from '../../api/vocabulary'
-import { CAPO_INSTRUMENTS, INSTRUMENT_LABELS, STANDARD_TUNINGS } from '../../constants'
-import { isInstrument, storedInstruments, type LocalUserSettings } from '../../db/types'
+import { INSTRUMENTS, type Instrument } from '../api/vocabulary'
+import { CAPO_INSTRUMENTS, INSTRUMENT_LABELS, STANDARD_TUNINGS } from '../constants'
+import { isInstrument, storedInstruments, type LocalUserSettings } from '../db/types'
 
 /** The footer under the instruments setting, wherever it is asked. */
 export const INSTRUMENTS_HELP = 'Tunes show a tuning for each instrument chosen here.'

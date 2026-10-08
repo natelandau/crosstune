@@ -7,7 +7,7 @@ import type { LocalRecordingLoop } from '../../db/types'
 import { Capsule } from '../../ui/Capsule'
 import { FilterRow } from '../../ui/FilterRow'
 import { PANEL_TEXT_BUTTON, PANEL_TEXT_BUTTON_SHAPE } from './panel'
-import { loopName, partSuggestions, type Bounds, type NewLoop } from './loopModel'
+import { loopName, partSuggestions, type Bounds, type NewLoop } from '../../domain/loopModel'
 import {
   DELETE_LOOP,
   INSIDE_LOOP,

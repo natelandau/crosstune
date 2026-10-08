@@ -1,5 +1,5 @@
 import { onTestFinished, vi, type Mock } from 'vitest'
-import type { RecorderLike, TrackLike } from '../features/recording/capture'
+import type { RecorderLike, TrackLike } from '../features/capture/capture'
 
 /** The chunk a fake recorder flushes on stop(), as a real one flushes what it still holds. */
 export const LAST_CHUNK = 'last'

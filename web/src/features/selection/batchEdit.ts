@@ -1,7 +1,7 @@
 import { TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
 import type { CatalogEntry } from '../catalog/filters'
-import { isTuneStatus } from '../catalog/status'
+import { isTuneStatus } from '../../domain/status'
 import {
   byTuningKey,
   isTuningKey,
@@ -9,7 +9,7 @@ import {
   tuningEntry,
   tuningKeyInstrument,
   tuningLabel,
-} from '../settings/instruments'
+} from '../../domain/instruments'
 import { DETAIL_LABELS } from '../tune/detailFields'
 import { isMode } from '../tune/keyMode'
 

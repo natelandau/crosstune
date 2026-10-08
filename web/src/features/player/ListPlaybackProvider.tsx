@@ -36,7 +36,9 @@ import {
   type ListPlaybackActive,
   type ListStep,
 } from './useListPlayback'
-import { usePlayer, type PlayerItem } from './usePlayer'
+import { usePlayer } from './usePlayer'
+import { readStored, writeStored } from '../../platform/storage'
+import type { PlayerItem } from '../../domain/playerItem'
 
 interface Run {
   db: CrosstuneDb
@@ -47,23 +49,6 @@ interface Run {
 }
 
 const REPEAT_MODES: readonly RepeatMode[] = ['off', 'list', 'one']
-
-// Private mode or blocked storage throws; the choice then lasts until the page reloads.
-function readStored(key: string): string | null {
-  try {
-    return localStorage.getItem(key)
-  } catch {
-    return null
-  }
-}
-
-function store(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value)
-  } catch {
-    // The choice still applies in memory.
-  }
-}
 
 function createRunStore() {
   let run: Run | null = null
@@ -116,7 +101,7 @@ export function ListPlaybackProvider({
   const preferShuffle = () => (shuffleRef.current ??= readStored(SHUFFLE_KEY) === 'true')
   const chooseShuffle = (on: boolean) => {
     shuffleRef.current = on
-    store(SHUFFLE_KEY, String(on))
+    writeStored(SHUFFLE_KEY, String(on))
   }
 
   // A store rather than state, since async turns and effects read and write it between
@@ -410,7 +395,7 @@ export function ListPlaybackProvider({
 
   const cycleRepeat = () => {
     const mode = nextRepeat(repeatRef.current)
-    store(REPEAT_KEY, mode)
+    writeStored(REPEAT_KEY, mode)
     setRepeat(mode)
   }
 

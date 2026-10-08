@@ -1,4 +1,3 @@
-import { useAuth } from '@clerk/react'
 import {
   createContext,
   useContext,
@@ -12,7 +11,6 @@ import { createApiClient } from '../api/client'
 import { useAuthSession } from '../auth/AuthContext'
 import { API_ORIGIN } from '../config'
 import { useDb } from '../db/DbProvider'
-import { forgetDeletedAccount } from '../features/settings/deleteAccount'
 import { APP_VERSION } from '../version'
 import { createSyncEngine } from './engine'
 import { startSyncTriggers } from './triggers'
@@ -24,8 +22,7 @@ export const SyncContext = createContext<SyncEngine | null>(null)
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const db = useDb()
-  const { userId, getToken, offline } = useAuthSession()
-  const { signOut } = useAuth()
+  const { getToken, offline } = useAuthSession()
   const engine = useMemo(
     () =>
       createSyncEngine({
@@ -37,14 +34,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         }),
       }),
     [db, getToken],
-  )
-  // Deleted from another device: this one wipes its copy as if it had made the delete.
-  useEffect(
-    () =>
-      engine.onAccountDeleted(
-        () => void forgetDeletedAccount({ db, userId, engine, signOut: () => signOut() }),
-      ),
-    [engine, db, userId, signOut],
   )
   useEffect(() => {
     engine.resume()
@@ -81,11 +70,13 @@ function subscribeOnline(callback: () => void) {
   }
 }
 
+/** Browser connectivity (`navigator.onLine`), kept live. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useOnline(): boolean {
   return useSyncExternalStore(subscribeOnline, () => navigator.onLine)
 }
 
+/** The push and pull of rows. Reads 'offline' whenever the browser is. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useSyncStatus(): SyncStatus {
   const engine = useSyncEngine()
@@ -93,6 +84,10 @@ export function useSyncStatus(): SyncStatus {
   return useOnline() ? status : 'offline'
 }
 
+/**
+ * Recording and scan file uploads and downloads, which run apart from row sync. Reads
+ * 'offline' whenever the browser is.
+ */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useTransferStatus(): TransferStatus {
   const engine = useSyncEngine()
@@ -100,6 +95,7 @@ export function useTransferStatus(): TransferStatus {
   return useOnline() ? status : 'offline'
 }
 
+/** When the engine last finished a sync, or null if none has finished since the page loaded. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useLastSyncedAt(): string | null {
   const engine = useSyncEngine()

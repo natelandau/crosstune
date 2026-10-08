@@ -49,7 +49,7 @@ export function useQuickFind(
     [db, open],
   )
   const recordings = useLiveQuery(
-    async () => (open ? readRecordingsWithFiles(db) : undefined),
+    async () => (open ? readRecordingsWithFiles(db, { withFiles: false }) : undefined),
     [db, open],
   )
   const [query, setQuery] = useState('')

@@ -9,7 +9,7 @@ import {
   tuneRow,
   unique,
 } from './helpers'
-import { capoLabel, NO_CAPO } from '../src/features/settings/instruments'
+import { capoLabel, NO_CAPO } from '../src/domain/instruments'
 import { EDIT_TUNE_TITLE, SAVE_TUNE } from '../src/features/tune/tuneFormCopy'
 import { EDIT_TUNE } from '../src/features/tune/tuneScreenCopy'
 import { SEARCH_TUNES } from '../src/features/catalog/catalogCopy'

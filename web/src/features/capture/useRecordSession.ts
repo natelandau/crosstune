@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import { useLatest } from '../../ui/useLatest'
-import { RECORDING } from './format'
+import { RECORDING } from '../../text/format'
 import {
   DISCARD,
   DISCARD_TITLE,

@@ -12,10 +12,10 @@ import { useDeleteAndLeave } from '../../ui/useDeleteAndLeave'
 import { useLatest } from '../../ui/useLatest'
 import { useResetOnChange } from '../../ui/useResetOnChange'
 import { ADD_TO_LIST } from '../lists/listPickerCopy'
-import { useLists, useMembership } from '../lists/useLists'
+import { useActiveLists, useMembership } from '../lists/useLists'
 import { lyricOpening } from '../lyrics/lyricLines'
 import { useRecordingsWithFiles, type RecordingView } from '../recordings/useRecordings'
-import { tuningDisplay, tuningInstruments, tuningKey } from '../settings/instruments'
+import { tuningDisplay, tuningInstruments, tuningKey } from '../../domain/instruments'
 import { useInstruments } from '../settings/useInstruments'
 import { ARCHIVE, UNARCHIVE } from './archiveLabels'
 import { DELETE_TUNE_TITLE, deleteTuneMessage } from './deleteTuneMessage'
@@ -97,7 +97,7 @@ export function useTuneScreen(
   const view = useTune(tuneId)
   const instruments = useInstruments()
   const recordings = useRecordingsWithFiles({ tuneId })
-  const lists = useLists()
+  const lists = useActiveLists()
   const userTuneId = view?.userTune.id
   const membership = useMembership(userTuneId ?? '')
   const action = useAction()

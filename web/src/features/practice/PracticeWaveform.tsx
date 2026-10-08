@@ -10,12 +10,18 @@ import { LOOP_LIMITS } from '../../api/vocabulary'
 import { clamp } from '../../math'
 import { useLatest } from '../../ui/useLatest'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
-import { formatDuration, formatPreciseDuration } from '../recording/format'
+import { formatDuration, formatPreciseDuration } from '../../text/format'
 import type { ShownPeaks } from './recordingRange'
 import { Waveform } from './Waveform'
 import { slicePeaks } from '../waveform/peaks'
 import { LoopHandle } from './LoopHandle'
-import { roomAround, type Bounds, type Draft, type PlacedLoop, type Span } from './loopModel'
+import {
+  roomAround,
+  type Bounds,
+  type Draft,
+  type PlacedLoop,
+  type Span,
+} from '../../domain/loopModel'
 import { LANES_LABEL, LOOP_NAME } from './practiceCopy'
 import { msAtX, viewAt, xOfMs } from './practiceZoom'
 import { AUTO_PAN_ZONE_PX } from './useAutoPan'

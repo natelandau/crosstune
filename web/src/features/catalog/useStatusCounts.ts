@@ -1,6 +1,5 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import type { TuneStatus } from '../../api/vocabulary'
-import { useDb } from '../../db/DbProvider'
+import { createSharedLiveQuery } from '../../db/sharedLiveQuery'
 import { effectiveStatus, hideArchived, pairTunes } from './filters'
 
 export interface LiveTuneCounts {
@@ -12,20 +11,18 @@ export interface LiveTuneCounts {
   userTuneIds: string[]
 }
 
-/** Absolute counts for navigation, whatever the catalog's filters. Undefined until read. */
-export function useStatusCounts(): LiveTuneCounts | undefined {
-  const db = useDb()
-  return useLiveQuery(async () => {
-    const entries = hideArchived(
-      pairTunes(await db.tunes.toArray(), await db.user_tunes.toArray()),
-      false,
-    )
-    const byStatus: Record<TuneStatus, number> = { known: 0, learning: 0, want_to_learn: 0 }
-    for (const { userTune } of entries) byStatus[effectiveStatus(userTune)]++
-    return {
-      byStatus,
-      total: entries.length,
-      userTuneIds: entries.map(({ userTune }) => userTune.id),
-    }
-  }, [db])
-}
+/**
+ * Absolute counts for navigation, whatever the catalog's filters. Undefined until read. The
+ * sidebar and the catalog show them at once, so they share one query.
+ */
+export const useStatusCounts = createSharedLiveQuery(async (db): Promise<LiveTuneCounts> => {
+  const [tunes, userTunes] = await Promise.all([db.tunes.toArray(), db.user_tunes.toArray()])
+  const entries = hideArchived(pairTunes(tunes, userTunes), false)
+  const byStatus: Record<TuneStatus, number> = { known: 0, learning: 0, want_to_learn: 0 }
+  for (const { userTune } of entries) byStatus[effectiveStatus(userTune)]++
+  return {
+    byStatus,
+    total: entries.length,
+    userTuneIds: entries.map(({ userTune }) => userTune.id),
+  }
+})

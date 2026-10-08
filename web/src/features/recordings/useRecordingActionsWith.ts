@@ -25,6 +25,7 @@ import { openOn, EDIT, ADD_TO_TUNE } from './recordingCopy'
 import { GO_TO_TUNE } from './recordingNames'
 import { deleteRecordingMessage, originLink } from './recordingRow'
 import type { RecordingView } from './useRecordings'
+import { openExternal } from '../../platform/openExternal'
 
 export const DELETE_RECORDING_TITLE = 'Delete this recording?'
 export const REMOVE_FROM_TUNE = 'Remove from tune'
@@ -183,7 +184,7 @@ export function useRecordingActionsWith({
       label: openOn(site),
       icon: ExternalLink,
       tone: 'neutral',
-      onPress: () => window.open(url, '_blank', 'noopener,noreferrer'),
+      onPress: () => openExternal(url),
     }
   }
 

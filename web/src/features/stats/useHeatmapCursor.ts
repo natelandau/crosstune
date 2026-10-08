@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Day } from './types'
+import { clamp } from '../../math'
 
 // Weeks are columns, so a column away is a week away and a row away is a day.
 const STEPS: Record<string, number> = { ArrowLeft: -7, ArrowRight: 7, ArrowUp: -1, ArrowDown: 1 }
@@ -23,7 +24,7 @@ export function useHeatmapCursor(days: readonly Day[]): HeatmapCursor {
     else if (key === 'Home') next = 0
     else if (key === 'End') next = last
     if (next === null) return false
-    setChosen(Math.min(last, Math.max(0, next)))
+    setChosen(clamp(next, 0, last))
     return true
   }
   const choose = (index: number) => {

@@ -21,4 +21,23 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
+  {
+    // The shared layers sit below the features and the app shell, so a feature can change
+    // without reaching them. Tests may mount features to exercise a shared module.
+    files: ['src/{api,auth,commands,db,domain,platform,sync,text,theme,ui}/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/features/**', '**/app/**'],
+              message: 'Shared layers never import a feature or the app shell.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 )

@@ -14,7 +14,7 @@ import { useDb } from '../../db/DbProvider'
 import type { LocalRecordingLink } from '../../db/types'
 import { ADD_TO_LIST } from '../lists/listPickerCopy'
 import { lyricOpening } from '../lyrics/lyricLines'
-import { NEW_RECORDING } from '../recording/recordCopy'
+import { NEW_RECORDING } from '../capture/recordCopy'
 import type { RecordingView } from '../recordings/useRecordings'
 import { ADD_RECORDING } from './tuneMediaCopy'
 import {
@@ -53,7 +53,7 @@ import { Menu } from '../../ui/Menu'
 import { menuEntries } from '../../ui/sharedActions'
 import { useTuneFormLauncher } from './formLauncher'
 import { LinkRow, MediaList, RecordingRow } from './MediaRow'
-import { PageSection } from './PageSection'
+import { PageSection } from '../../ui/PageSection'
 import { TuneHeader } from './TuneHeader'
 import { isQuietPick } from './tunePick'
 import { TuneScans } from './TuneScans'
@@ -93,14 +93,18 @@ export function TunePage({
   const { state } = useLocation()
   const quiet = wide && isQuietPick(state)
   const reveal = useMemo(
-    () => () =>
-      quiet
-        ? setShown(tuneId)
-        : startTransition(() => {
-            addTransitionType(SWAP)
-            setShown(tuneId)
-          }),
-    [quiet, tuneId],
+    () => () => {
+      // Nothing to swap. A swap-typed transition left pending lends its type to a later
+      // commit, and the real swap then commits without it and never cross-fades.
+      if (!waiting) return
+      if (quiet) setShown(tuneId)
+      else
+        startTransition(() => {
+          addTransitionType(SWAP)
+          setShown(tuneId)
+        })
+    },
+    [quiet, tuneId, waiting],
   )
   // One keyed list, so the page held on screen keeps its state while the next one reads.
   const documents = waiting ? [shown, tuneId] : [tuneId]

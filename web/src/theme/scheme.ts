@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { DARK_QUERY, resolveDark, type Appearance } from '../features/settings/appearance'
+import { DARK_QUERY, resolveDark, type Appearance } from './appearance'
 import { PALETTE } from './tokens'
 
 /** Resolves the same way as the inline script in index.html, which runs before first paint. */

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useDb } from '../../db/DbProvider'
 import { DEFAULT_FILTERS, type CatalogFilters } from '../catalog/filters'
-import { writeSearchQuery } from '../catalog/searchSession'
+import { writeSearchQuery } from '../../ui/searchSession'
 import { useCatalogFilters } from '../catalog/useCatalogFilters'
 import { useStats, type StatsView } from './useStats'
 

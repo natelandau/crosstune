@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { Instrument } from '../../api/vocabulary'
-import { instrumentsFrom } from './instruments'
+import { instrumentsFrom } from '../../domain/instruments'
 import { useSettingsRow } from './useSettingsRow'
 
 /** The instruments the user plays, or undefined until the settings row has been read. */

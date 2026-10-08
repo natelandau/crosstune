@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { activeItems } from '../../commands/lists'
 import { activeByPosition } from '../../commands/write'
 import { useDb } from '../../db/DbProvider'
+import { createSharedLiveQuery } from '../../db/sharedLiveQuery'
 import type { CrosstuneDb } from '../../db/schema'
 import { liveTune } from '../../db/tunes'
 import type { LocalList, LocalListItem, LocalTune, LocalUserTune } from '../../db/types'
@@ -16,12 +17,23 @@ function lastEdited(list: LocalList, items: LocalListItem[]): string {
   )
 }
 
+/**
+ * The live lists in position order, kept live. Reach for it over `useLists` unless the screen
+ * shows item counts or edit times: it never reads `list_items`, so adding or removing a tune
+ * does not re-run it. The sidebar and the tune page read it at once, so they share one query.
+ */
+export const useActiveLists = createSharedLiveQuery(async (db): Promise<LocalList[]> =>
+  activeByPosition(await db.lists.toArray()),
+)
+
+/** The live lists with each one's item count and last edit, for the lists screen. */
 export function useLists(): ListSummary[] | undefined {
   const db = useDb()
   return useLiveQuery(async () => {
-    const lists = activeByPosition(await db.lists.toArray())
+    const [rows, allItems] = await Promise.all([db.lists.toArray(), db.list_items.toArray()])
+    const lists = activeByPosition(rows)
     const itemsByList = new Map<string, LocalListItem[]>()
-    for (const item of await db.list_items.toArray()) {
+    for (const item of allItems) {
       const own = itemsByList.get(item.list_id)
       if (own) own.push(item)
       else itemsByList.set(item.list_id, [item])

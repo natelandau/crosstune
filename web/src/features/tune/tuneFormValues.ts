@@ -10,9 +10,9 @@ import {
 } from '../../api/vocabulary'
 import type { TuneInput, UserTuneInput } from '../../commands/tunes'
 import type { LocalTune, LocalUserTune } from '../../db/types'
-import { isTuneStatus } from '../catalog/status'
+import { isTuneStatus } from '../../domain/status'
 import { isFullYear, YEAR_FORMAT, type DateParts } from '../../ui/partialDate'
-import { setTuning, tuningEntry, tuningsMap, type TuningsMap } from '../settings/instruments'
+import { setTuning, tuningEntry, tuningsMap, type TuningsMap } from '../../domain/instruments'
 import { timeSignatureFor } from './tuneTypes'
 
 /** One instrument's tuning and capo as the form holds them: text, empty when unset. */

@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
-import { formatBytes } from '../recording/format'
+import { formatBytes } from '../../text/format'
 
 export interface StorageSummary {
   used: number

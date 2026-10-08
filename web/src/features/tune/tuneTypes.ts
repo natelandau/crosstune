@@ -2,11 +2,10 @@ import type { TimeSignature } from '../../api/vocabulary'
 import { GENRES, GENRE_TYPES, TUNE_TYPES, TYPE_TIME_SIGNATURES } from '../../constants'
 import { sameText } from '../../text/fold'
 import type { CatalogEntry } from '../catalog/filters'
+import { compareNames } from '../../text/collate'
 
 /** The composer a player writes for a tune with no known author. */
 export const TRADITIONAL = 'Traditional'
-
-const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
 
 function lookup<T>(table: Record<string, T>, key: string): T | undefined {
   const found = Object.keys(table).find((name) => sameText(name, key))
@@ -61,7 +60,7 @@ const live = (entries: readonly CatalogEntry[]) => entries.filter((e) => !e.tune
 
 function mostFirst(counts: Map<string, number>): string[] {
   return [...counts.entries()]
-    .sort(([a, x], [b, y]) => y - x || collator.compare(a, b))
+    .sort(([a, x], [b, y]) => y - x || compareNames(a, b))
     .map(([value]) => value)
 }
 
@@ -81,7 +80,7 @@ export function orderedTypes(genre: string, entries: readonly CatalogEntry[]): s
             TUNE_TYPES,
           ),
         )
-  const rest = without(TUNE_TYPES, lead).sort(collator.compare)
+  const rest = without(TUNE_TYPES, lead).sort(compareNames)
   return [...lead, ...rest]
 }
 
@@ -100,12 +99,12 @@ export function mostUsedGenre(entries: readonly CatalogEntry[]): string | null {
 /** Composer suggestions: Traditional first, then every composer the catalog holds, alphabetically. */
 export function catalogComposers(entries: readonly CatalogEntry[]): string[] {
   const named = [...tally(live(entries).map((e) => e.tune.composer)).keys()]
-  return [TRADITIONAL, ...without(named, [TRADITIONAL]).sort(collator.compare)]
+  return [TRADITIONAL, ...without(named, [TRADITIONAL]).sort(compareNames)]
 }
 
 /** Learned from suggestions: every name the catalog holds, alphabetically. */
 export function catalogLearnedFrom(entries: readonly CatalogEntry[]): string[] {
-  return [...tally(live(entries).map((e) => e.userTune.learned_from)).keys()].sort(collator.compare)
+  return [...tally(live(entries).map((e) => e.userTune.learned_from)).keys()].sort(compareNames)
 }
 
 /** The one time signature a type is written in, or null when it has none or several. */

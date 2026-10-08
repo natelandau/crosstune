@@ -5,7 +5,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { jpegBlob, scanFile, scanRow } from '../../test/rows'
-import { MOVE_TO_BOTTOM } from '../lists/moveMenu'
+import { MOVE_TO_BOTTOM } from '../../ui/moveMenu'
 import { scanMovedAnnouncement } from './scanCopy'
 import { useScansEditor } from './useScansEditor'
 

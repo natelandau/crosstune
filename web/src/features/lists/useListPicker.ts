@@ -3,7 +3,7 @@ import { addTunesToList, createListWithTunes, type Undo } from '../../commands/b
 import { useDb } from '../../db/DbProvider'
 import { useAction } from '../../ui/useAction'
 import { NONE_IN_IT } from './listPickerCopy'
-import { useLists, useMembershipCounts } from './useLists'
+import { useActiveLists, useMembershipCounts } from './useLists'
 
 /**
  * What one successful add did. The picker reports the facts rather than a sentence, so the
@@ -62,7 +62,7 @@ export function useListPicker(
   },
 ): ListPicker {
   const db = useDb()
-  const lists = (useLists() ?? []).filter((list) => list.id !== excludeListId)
+  const lists = (useActiveLists() ?? []).filter((list) => list.id !== excludeListId)
   const counts = useMembershipCounts(userTuneIds)
   const total = userTuneIds.length
   const { error, pending, runThen, clear } = useAction()

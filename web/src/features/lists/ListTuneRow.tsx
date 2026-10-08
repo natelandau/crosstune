@@ -1,7 +1,7 @@
 import { ListChecks, ListX, SquarePen, Volume2 } from 'lucide-react'
-import type { Instrument, PlayFirst } from '../../api/vocabulary'
+import type { Instrument } from '../../api/vocabulary'
 import { NOT_PLAYABLE, REMOVE } from './listsCopy'
-import { useListRowSource } from './useListRowSource'
+import type { RowSource } from './useListRowSource'
 import type { ListItemView } from './useLists'
 import { usePlayingTune } from '../player/usePlayingTune'
 import { SELECT } from '../selection/selectionCopy'
@@ -9,7 +9,8 @@ import { EDIT_TUNE } from '../tune/tuneScreenCopy'
 import type { MenuItem } from '../../ui/menuTypes'
 import { TuneRowView } from '../catalog/TuneRow'
 import type { RowAction } from '../../ui/Row'
-import { moveActions, scansAction } from '../../ui/sharedActions'
+import { moveActions } from '../../ui/sharedActions'
+import { scansAction } from '../scans/scansAction'
 import { ListRowPlay } from './ListRowPlay'
 
 /**
@@ -23,7 +24,7 @@ export function ListTuneRow({
   position,
   positionWidth,
   instruments,
-  playFirst,
+  source,
   moves,
   onEdit,
   onRemove,
@@ -38,8 +39,8 @@ export function ListTuneRow({
   /** Holds the widest position the list shows, so every title starts on one line. */
   positionWidth: string
   instruments: ReadonlySet<Instrument>
-  /** The user's play-first choice, undefined until the settings row has been read. */
-  playFirst: PlayFirst | undefined
+  /** What the row plays: null for nothing, undefined until the list's media has been read. */
+  source: RowSource | null | undefined
   moves: MenuItem[]
   onEdit: () => void
   onRemove: () => void
@@ -51,7 +52,6 @@ export function ListTuneRow({
   selecting?: boolean
   opening?: boolean
 }) {
-  const source = useListRowSource(view, playFirst)
   // Any recording or link of the tune, as on the catalog's rows, so the two screens agree.
   const playing = usePlayingTune() === view.tune.id
   const edit: RowAction = { id: 'edit', label: EDIT_TUNE, icon: SquarePen, onAction: onEdit }

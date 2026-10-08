@@ -17,15 +17,17 @@ export interface RecordingView {
 const isImported = (view: RecordingView) => view.recording.origin !== 'own'
 
 /** Live recordings with their local file: a tune's own recordings before its imported ones,
- * each in position order; every recording unordered for the caller to arrange. */
+ * each in position order; every recording unordered for the caller to arrange. A caller that
+ * needs no file data passes `withFiles: false`, so a live query skips `recording_files` and
+ * does not re-run on every chunk, upload, and download write. */
 export async function readRecordingsWithFiles(
   db: CrosstuneDb,
-  { tuneId }: { tuneId?: string } = {},
+  { tuneId, withFiles = true }: { tuneId?: string; withFiles?: boolean } = {},
 ): Promise<RecordingView[]> {
   const live = tuneId
     ? await activeRecordingsForTune(db, tuneId)
     : (await db.recordings.toArray()).filter((r) => !r.deleted_at)
-  const files = await db.recording_files.bulkGet(live.map((r) => r.id))
+  const files = withFiles ? await db.recording_files.bulkGet(live.map((r) => r.id)) : []
   const wantedTuneIds = [...new Set(live.map((r) => r.tune_id).filter((s): s is string => !!s))]
   const tunes = await db.tunes.bulkGet(wantedTuneIds)
   const liveTunes = new Map(

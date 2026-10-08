@@ -1,7 +1,7 @@
 import type { Mode, TuneStatus, TimeSignature } from '../api/vocabulary'
 import type { CrosstuneDb } from '../db/schema'
-import type { PlayerItem } from '../features/player/usePlayer'
-import type { TuningsMap } from '../features/settings/instruments'
+import type { PlayerItem } from '../domain/playerItem'
+import type { TuningsMap } from '../domain/instruments'
 import { TUNE_NOT_FOUND } from './messages'
 import { tombstoneTuneRecordings } from './recordings'
 import {

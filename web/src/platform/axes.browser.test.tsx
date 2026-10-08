@@ -7,7 +7,7 @@ import {
   stubSystemDark,
   systemDarkListeners,
 } from '../test/scheme'
-import type { Appearance } from '../features/settings/appearance'
+import type { Appearance } from '../theme/appearance'
 import { useSchemeSync } from '../theme/scheme'
 import { useDensity, useStampedDensity } from './density'
 import { useFrame } from './frame'

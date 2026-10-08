@@ -7,7 +7,7 @@ import {
   useReducedMotionConfig,
   type PanInfo,
 } from 'motion/react'
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Dialog, Modal, ModalOverlay } from 'react-aria-components'
 import { useNavigate } from 'react-router'
 import { listPosition } from '../player/playerCopy'
@@ -18,6 +18,7 @@ import { usePracticeOverlay, usePracticeOverlayShown } from './usePracticeOverla
 import { usePracticeOverlayView } from './usePracticeOverlayView'
 import { useTrimHold } from './useTrimHold'
 import { useWakeLock } from '../../platform/wakeLock'
+import { useEscapeCapture } from '../../ui/useEscapeCapture'
 import { useLatest } from '../../ui/useLatest'
 import { destination } from '../../app/destinations'
 import { useFrame } from '../../platform/frame'
@@ -125,22 +126,14 @@ function PracticeModal({ id, onClose }: { id: string; onClose: () => void }) {
   }))
   const onCloseRef = useLatest(onClose)
   const main = shows === 'main'
+  const stepOut = useCallback(() => {
+    if (escapeRef.current?.()) return
+    onCloseRef.current()
+  }, [onCloseRef])
   useEffect(() => {
-    if (!main) return
-    const stepOut = () => {
-      if (escapeRef.current?.()) return
-      onCloseRef.current()
-    }
-    stepOutRef.current = stepOut
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || !isTop()) return
-      event.preventDefault()
-      event.stopPropagation()
-      stepOut()
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [main, isTop, onCloseRef])
+    if (main) stepOutRef.current = stepOut
+  }, [main, stepOut])
+  useEscapeCapture(stepOut, { enabled: main, when: isTop })
 
   // Leaving trim puts focus back on More, once whatever trim stacked over practice, such as
   // Save's question, has let go of it.

@@ -5,6 +5,7 @@ import { PLAY } from '../recordings/recordingNames'
 import { displayTitle, providerLabel } from './display'
 import { linkControl, type LinkControl } from './linkControl'
 import { OPEN } from './linkNames'
+import { openExternal } from '../../platform/openExternal'
 
 export interface LinkRowData {
   title: string
@@ -30,7 +31,7 @@ export function useLinkRow(link: LocalRecordingLink): LinkRowData {
   let open: LinkRowData['open']
   if (control === 'open') {
     // Nothing to load in the dock, so the row is the outbound link, like the one under the title.
-    open = { onOpen: () => window.open(href!, '_blank', 'noopener,noreferrer'), openName: OPEN }
+    open = { onOpen: () => openExternal(href!), openName: OPEN }
   } else if (control === 'close') {
     open = { onOpen: () => player.close(), openName: CLOSE }
   } else if (control === 'play') {

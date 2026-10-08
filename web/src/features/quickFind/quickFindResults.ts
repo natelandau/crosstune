@@ -1,11 +1,12 @@
 import { containsText, foldText } from '../../text/fold'
 import { tabLabel } from '../../app/tabs'
-import { GO_TO, type ShortcutId } from '../../ui/keymap'
+import { GO_TO, type ShortcutId } from '../keyboard/keymap'
 import type { HeardEntry } from '../catalog/filters'
 import { matchTunes, MAX_RESULTS } from '../catalog/tuneMatches'
 import { recordingLabel, recordingMatches } from '../recordings/recordingMatch'
 import { recordingTitle } from '../recordings/recordingRow'
 import type { RecordingView } from '../recordings/useRecordings'
+import { compareNames } from '../../text/collate'
 
 export const QUICK_FIND_PLACEHOLDER = 'Find tunes, lists, and recordings'
 export const NO_MATCHES = 'No matches'
@@ -81,8 +82,6 @@ export interface QuickFindSources {
   commands: readonly QuickFindCommand[]
 }
 
-const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
-
 const isWordCharacter = (character: string) => /[\p{L}\p{N}]/u.test(character)
 
 /** 0 when a text starts with the needle, 1 when one of its words does, else 2. */
@@ -154,7 +153,7 @@ export function rankResults({ query, tunes, lists, recordings, commands }: Quick
     const foundRecordings = ranked(
       recordings
         .filter((view) => recordingMatches(view, needle))
-        .sort((a, b) => collator.compare(recordingTitle(a), recordingTitle(b))),
+        .sort((a, b) => compareNames(recordingTitle(a), recordingTitle(b))),
       (view) => [recordingLabel(view), view.tuneTitle ?? ''],
       needle,
     )

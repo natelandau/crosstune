@@ -7,7 +7,7 @@ import {
   TEXT_SIZES,
   useAppearance,
   useTextSize,
-} from '../appearance'
+} from '../../../theme/appearance'
 import { APPEARANCE_FOOTER, TEXT_SIZE_LABEL, THEME_LABEL } from '../settingsCopy'
 import { Group } from '../../../ui/form/Group'
 import { Picker } from '../../../ui/form/Picker'

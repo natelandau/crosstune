@@ -26,7 +26,7 @@ import {
   searchQuery,
 } from '../links/serviceSearch'
 import { PASTE_LINK } from '../links/pasteLinkCopy'
-import { NEW_RECORDING } from '../recording/recordCopy'
+import { NEW_RECORDING } from '../capture/recordCopy'
 import { retryKind } from '../recordings/recordingRow'
 import { useRecordingActionsWith } from '../recordings/useRecordingActionsWith'
 import type { RecordingView } from '../recordings/useRecordings'

@@ -25,8 +25,9 @@ import type { PlayOrigin } from './playLog'
 import { PlayerProvider } from './PlayerProvider'
 import { useDockItem, type DockShown } from './useDockItem'
 import { REPEAT_KEY, SHUFFLE_KEY, useListPlayback, type ListPlayback } from './useListPlayback'
-import { PlayerContext, usePlayer, type Player, type PlayerItem } from './usePlayer'
+import { PlayerContext, usePlayer, type Player } from './usePlayer'
 import { useRecordingTransport } from './useRecordingTransport'
+import type { PlayerItem } from '../../domain/playerItem'
 
 const AT = '2026-01-01T00:00:00.000Z'
 const TUNES = ['t1', 't2', 't3'] as const

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { messageFor } from '../../ui/useAction'
 import { useLatest } from '../../ui/useLatest'
-import { placeBeside } from './order'
+import { placeBeside } from '../../domain/order'
 
 interface Move {
   itemId: string

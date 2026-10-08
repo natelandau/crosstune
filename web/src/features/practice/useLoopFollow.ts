@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react'
 import type { LocalRecordingLoop } from '../../db/types'
 import type { PlaybackEngine, PlaybackLoop } from '../player/playbackEngine'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
-import { loopName, rowSpan, type Span } from './loopModel'
+import { loopName, rowSpan, type Span } from '../../domain/loopModel'
 import { useLatest } from '../../ui/useLatest'
 
 /**

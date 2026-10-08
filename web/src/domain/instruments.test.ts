@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Instrument } from '../../api/vocabulary'
+import type { Instrument } from '../api/vocabulary'
 import {
   byTuningKey,
   capoLabel,

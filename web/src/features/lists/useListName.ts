@@ -45,11 +45,8 @@ export function useListName(
   const { error, pending, runThen, clear } = useAction()
   const [name, setNameState] = useState('')
   const [invalid, setInvalid] = useState<string | null>(null)
-  // The last target stays shown while the sheet animates closed, so its title does not flip.
-  const [shown, setShown] = useState<ListNameTarget | null>(null)
   const sheet = useSheetSession(target, {
     onOpen: (opened) => {
-      setShown(opened)
       setNameState(opened.kind === 'rename' ? opened.name : '')
       setInvalid(null)
       clear()
@@ -95,7 +92,8 @@ export function useListName(
   return {
     open: sheet.open,
     closing: sheet.closing,
-    renaming: shown?.kind === 'rename',
+    // The last target, so the title does not flip while the sheet animates closed.
+    renaming: sheet.shown?.kind === 'rename',
     name,
     setName,
     invalid,

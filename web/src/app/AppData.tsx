@@ -1,5 +1,7 @@
+import { useAuth } from '@clerk/react'
 import { useAuthSession } from '../auth/AuthContext'
 import { DbProvider } from '../db/DbProvider'
+import { useForgetAccountDeletedElsewhere } from '../features/settings/useForgetAccountDeletedElsewhere'
 import { SyncProvider } from '../sync/SyncProvider'
 import { App } from './App'
 import type { AppRouter } from './router'
@@ -9,8 +11,14 @@ export function AppData({ router }: { router: AppRouter }) {
   return (
     <DbProvider userId={userId}>
       <SyncProvider>
+        <ForgetAccountDeletedElsewhere />
         <App router={router} />
       </SyncProvider>
     </DbProvider>
   )
+}
+
+function ForgetAccountDeletedElsewhere() {
+  useForgetAccountDeletedElsewhere(useAuth().signOut)
+  return null
 }

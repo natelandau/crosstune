@@ -43,7 +43,8 @@ const CATALOG = destination('catalog').label
 const pad = (n: number) => String(n).padStart(3, '0')
 
 /** Enough tunes that the list scrolls well past one screen. */
-async function seedMany(db: CrosstuneDb, count = 200) {
+// Enough rows to scroll even the tallest frame, and few enough to render fast on a slow runner.
+async function seedMany(db: CrosstuneDb, count = 80) {
   const ids = Array.from({ length: count }, (_, i) => pad(i))
   await db.tunes.bulkPut(ids.map((id) => tuneRow(`t${id}`, `Tune ${id}`)))
   await db.user_tunes.bulkPut(ids.map((id) => userTuneRow(`u${id}`, `t${id}`)))
@@ -104,8 +105,9 @@ it('keeps the tune open and the list in place when a wide window narrows to spli
   const db = openTestDb()
   await seedMany(db)
   const { router } = await renderApp({ path: '/catalog', db, frame: WIDE })
-  await expect.element(catalog().getByRole('row', { name: /^Tune 199\b/ })).toBeInTheDocument()
-  const top = await scrollList(4000)
+  await expect.element(catalog().getByRole('row', { name: /^Tune 079\b/ })).toBeInTheDocument()
+  const top = await scrollList(1000)
+  expect(top).toBeGreaterThan(0)
   const row = rowInView()
   row.focus()
   row.click()
@@ -154,8 +156,9 @@ it('keeps the open tune, the list, and its scroll across a tablet rotation', asy
   const db = openTestDb()
   await seedMany(db)
   await renderApp({ path: '/catalog', db, frame: TABLET_LANDSCAPE })
-  await expect.element(catalog().getByRole('row', { name: /^Tune 199\b/ })).toBeInTheDocument()
-  const top = await scrollList(3000)
+  await expect.element(catalog().getByRole('row', { name: /^Tune 079\b/ })).toBeInTheDocument()
+  const top = await scrollList(1000)
+  expect(top).toBeGreaterThan(0)
   rowInView().click()
   await expect.element(tune()).toBeVisible()
   const list = catalog().element()

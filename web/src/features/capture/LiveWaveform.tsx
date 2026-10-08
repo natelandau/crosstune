@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useReducedMotion } from '../../platform/motion'
-import { barCount, createLevels, layoutBars, pushLevel, rmsLevel } from './waveformBars'
+import { barCount, createLevels, eachBar, pushLevel, rmsLevel } from './waveformBars'
 import { useLatest } from '../../ui/useLatest'
 
 /**
@@ -33,30 +33,32 @@ export function LiveWaveform({
     const data = new Uint8Array(analyser.fftSize)
     const state = createLevels(reduceMotion ? 'fixed' : 'scrolling')
     let frame = 0
+    // Measured only on a resize, so a frame reads no layout.
+    let width = 0
+    let height = 0
     const resize = () => {
       const scale = window.devicePixelRatio || 1
-      canvas.width = canvas.clientWidth * scale
-      canvas.height = canvas.clientHeight * scale
+      width = canvas.clientWidth
+      height = canvas.clientHeight
+      canvas.width = width * scale
+      canvas.height = height * scale
       context.setTransform(scale, 0, 0, scale, 0, 0)
     }
     resize()
     const observer = new ResizeObserver(resize)
     observer.observe(canvas)
     const color = getComputedStyle(canvas).color
+    const fillBar = (x: number, y: number, w: number, h: number) => context.fillRect(x, y, w, h)
 
     const draw = () => {
       frame = requestAnimationFrame(draw)
-      const width = canvas.clientWidth
-      const height = canvas.clientHeight
       if (!pausedRef.current) {
         analyser.getByteTimeDomainData(data)
         pushLevel(state, rmsLevel(data), barCount(width))
       }
       context.clearRect(0, 0, width, height)
       context.fillStyle = color
-      for (const bar of layoutBars(state, width, height)) {
-        context.fillRect(bar.x, bar.y, bar.width, bar.height)
-      }
+      eachBar(state, width, height, fillBar)
     }
     draw()
     return () => {

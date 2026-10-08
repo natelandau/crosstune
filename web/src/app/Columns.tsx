@@ -16,6 +16,8 @@ import { useFrame } from '../platform/frame'
 import { useLocation } from 'react-router'
 import { NowPlayingSlot } from './NowPlayingSlot'
 import { PaneScroller } from './pane'
+import { clamp } from '../math'
+import { readStored, writeStored } from '../platform/storage'
 
 export const COLUMN_WIDTH = 'Column width'
 
@@ -25,24 +27,15 @@ export const COLUMN_DEFAULT = 340
 const STEP = 16
 const WIDTH_KEY = 'crosstune.columnWidth'
 
-const clamp = (width: number) => Math.min(COLUMN_MAX, Math.max(COLUMN_MIN, Math.round(width)))
+const clampWidth = (width: number) => clamp(Math.round(width), COLUMN_MIN, COLUMN_MAX)
 
 function readWidth(): number {
-  try {
-    const stored = Number(localStorage.getItem(WIDTH_KEY))
-    return stored > 0 ? clamp(stored) : COLUMN_DEFAULT
-  } catch {
-    return COLUMN_DEFAULT
-  }
+  const stored = Number(readStored(WIDTH_KEY))
+  return stored > 0 ? clampWidth(stored) : COLUMN_DEFAULT
 }
 
-function writeWidth(width: number) {
-  try {
-    localStorage.setItem(WIDTH_KEY, String(width))
-  } catch {
-    // Storage can be blocked; the width still holds for this page load.
-  }
-}
+// Blocked storage drops the write; the width still holds for this page load.
+const writeWidth = (width: number) => writeStored(WIDTH_KEY, String(width))
 
 /** The content column sits at the inline start, so in a right-to-left page the arrows flip. */
 const inlineSign = (element: Element) => (getComputedStyle(element).direction === 'rtl' ? -1 : 1)
@@ -228,7 +221,7 @@ function ColumnSeparator({
     }[event.key]
     if (next === undefined) return
     event.preventDefault()
-    onSettle(clamp(next))
+    onSettle(clampWidth(next))
   }
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -244,7 +237,7 @@ function ColumnSeparator({
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const start = drag.current
     if (!start) return
-    start.last = clamp(start.width + (event.clientX - start.x) * start.sign)
+    start.last = clampWidth(start.width + (event.clientX - start.x) * start.sign)
     onResize(start.last)
   }
 

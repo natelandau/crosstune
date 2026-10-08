@@ -13,13 +13,14 @@ const NONE: ReadonlyMap<string, number> = new Map()
 export function useLastPlayed(enabled: boolean): ReadonlyMap<string, number> {
   const db = useDb()
   const engine = useSyncEngine()
-  const lastPlayed = useLiveQuery(
-    async () =>
-      enabled
-        ? lastPlayedByTune(await db.play_events.toArray(), await db.practice_sessions.toArray())
-        : NONE,
-    [db, enabled],
-  )
+  const lastPlayed = useLiveQuery(async () => {
+    if (!enabled) return NONE
+    const [plays, sessions] = await Promise.all([
+      db.play_events.toArray(),
+      db.practice_sessions.toArray(),
+    ])
+    return lastPlayedByTune(plays, sessions)
+  }, [db, enabled])
 
   useEffect(() => {
     if (!enabled) return

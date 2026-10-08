@@ -1,7 +1,7 @@
 import { useEffect, useRef, useSyncExternalStore, type RefObject } from 'react'
 import { useSelectionMode, type SelectionMode } from './useSelectionMode'
 import { useLatest } from '../../ui/useLatest'
-import { useBackEntry } from '../../app/backEntries'
+import { useBackEntry } from '../../ui/backEntries'
 import { useOverlayOpen } from '../../ui/overlayClaim'
 
 let selecting = 0

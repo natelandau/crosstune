@@ -1,5 +1,5 @@
-import { formatDuration } from '../recording/format'
-import { clamp } from '../../math'
+import { formatDuration } from '../text/format'
+import { clamp } from '../math'
 
 export const MIN_LOOP_MS = 500
 export const MAX_LOOPS = 100
@@ -76,7 +76,7 @@ export function pickColor(span: Span, loops: readonly PlacedLoop[]): number {
   const neighbors = new Set<PlacedLoop>()
   let before: PlacedLoop | null = null
   let after: PlacedLoop | null = null
-  for (const loop of [...loops].sort(byPosition)) {
+  for (const loop of loops.toSorted(byPosition)) {
     if (loop.startMs < span.endMs && span.startMs < loop.endMs) {
       neighbors.add(loop)
     } else if (loop.endMs <= span.startMs) {

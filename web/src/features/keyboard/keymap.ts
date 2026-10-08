@@ -1,7 +1,7 @@
-import { RECORD_TEXT, tabLabel } from '../app/tabs'
-import { SEARCH_TUNES } from '../features/catalog/catalogCopy'
-import { NEW_TUNE_TITLE } from '../features/tune/tuneFormCopy'
-import type { KeyPlatform } from '../platform/keyPlatform'
+import { RECORD_TEXT, tabLabel } from '../../app/tabs'
+import { SEARCH_TUNES } from '../catalog/catalogCopy'
+import { NEW_TUNE_TITLE } from '../tune/tuneFormCopy'
+import type { KeyPlatform } from '../../platform/keyPlatform'
 
 export const QUICK_FIND = 'Quick Find'
 export const SHORTCUTS_TITLE = 'Keyboard shortcuts'

@@ -9,7 +9,7 @@ import {
   type Bounds,
   type NewLoop,
   type PlacedLoop,
-} from './loopModel'
+} from '../../domain/loopModel'
 import { LOOP_CREATED, LOOP_NOT_SAVED } from './practiceCopy'
 import type { LoopPlayback } from './useLoopPlayback'
 

@@ -27,7 +27,7 @@ export interface ScanFile {
 
 /** Reading order: position, with the id breaking ties so two devices agree. */
 export function sortScans<T extends { position: number; id: string }>(scans: T[]): T[] {
-  return [...scans].sort((a, b) => a.position - b.position || a.id.localeCompare(b.id))
+  return scans.toSorted((a, b) => a.position - b.position || a.id.localeCompare(b.id))
 }
 
 /**

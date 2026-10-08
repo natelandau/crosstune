@@ -1,6 +1,7 @@
 import type { SortChoice } from '../../ui/sortChoice'
 import type { SortOptions } from '../../ui/sortTypes'
 import type { CatalogEntry } from './filters'
+import { compareNames } from '../../text/collate'
 
 export type CatalogSort = 'title' | 'added' | 'modified' | 'played'
 
@@ -17,14 +18,12 @@ interface Played {
   started_at: string
 }
 
-const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
-
 function compareIds(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0
 }
 
 function byTitle(a: CatalogEntry, b: CatalogEntry): number {
-  return collator.compare(a.tune.title, b.tune.title) || compareIds(a.tune.id, b.tune.id)
+  return compareNames(a.tune.title, b.tune.title) || compareIds(a.tune.id, b.tune.id)
 }
 
 // Parsed, not compared as text: a row written here and one pulled from the server spell
@@ -49,7 +48,7 @@ export function sortCatalog(
 ): CatalogEntry[] {
   const { sort, descending } = choice
   if (sort === 'title') {
-    return [...entries].sort((a, b) => (descending ? -byTitle(a, b) : byTitle(a, b)))
+    return entries.toSorted((a, b) => (descending ? -byTitle(a, b) : byTitle(a, b)))
   }
   const dateOf =
     sort === 'added'
@@ -57,7 +56,7 @@ export function sortCatalog(
       : sort === 'modified'
         ? modifiedAt
         : (entry: CatalogEntry) => lastPlayed.get(entry.tune.id) ?? null
-  return [...entries].sort((a, b) => {
+  return entries.toSorted((a, b) => {
     const x = dateOf(a)
     const y = dateOf(b)
     if (x === null || y === null) return Number(x === null) - Number(y === null) || byTitle(a, b)

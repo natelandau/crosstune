@@ -1,5 +1,5 @@
 import { STATUSES, type TuneStatus } from '../../api/vocabulary'
-import { isTuneStatus } from '../../features/catalog/status'
+import { isTuneStatus } from '../../domain/status'
 import { ToggleButton, ToggleButtonGroup } from 'react-aria-components'
 import { CAPSULE_HIT } from '../Capsule'
 import { StatusGlyph } from '../StatusGlyph'

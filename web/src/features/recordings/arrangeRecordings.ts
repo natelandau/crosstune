@@ -2,6 +2,7 @@ import { isRecordingPrecision } from '../../db/types'
 import { nextSort as nextChoice, type SortChoice as Choice } from '../../ui/sortChoice'
 import { recordingLabel, recordingMatches } from './recordingMatch'
 import type { RecordingView } from './useRecordings'
+import { compareNames } from '../../text/collate'
 
 export type RecordingSort = 'added' | 'recorded' | 'title' | 'tune'
 
@@ -30,8 +31,6 @@ export interface Arrangement {
   unfiled: RecordingView[]
   filed: FiledArrangement
 }
-
-const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
 
 // Parsed, not compared as text: a row written here and one pulled from the server spell
 // the same instant with different fractional-second precision.
@@ -82,7 +81,7 @@ function byTitle(descending: boolean) {
     const x = recordingLabel(a)
     const y = recordingLabel(b)
     if (!x || !y) return Number(!x) - Number(!y) || dates(a, b)
-    const order = collator.compare(x, y)
+    const order = compareNames(x, y)
     return (descending ? -order : order) || dates(a, b)
   }
 }
@@ -102,7 +101,7 @@ function groupByTune(views: RecordingView[], descending: boolean): TuneGroup[] {
       byId.set(view.tuneId, { tuneId: view.tuneId, tuneTitle: view.tuneTitle ?? '', views: [view] })
   }
   const groups = [...byId.values()].sort((a, b) => {
-    const order = collator.compare(a.tuneTitle, b.tuneTitle)
+    const order = compareNames(a.tuneTitle, b.tuneTitle)
     return (descending ? -order : order) || compareIds(a.tuneId, b.tuneId)
   })
   for (const group of groups) group.views.sort(ownFirstThenNewestAdded)

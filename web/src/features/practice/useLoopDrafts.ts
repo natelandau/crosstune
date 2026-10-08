@@ -3,7 +3,7 @@ import { updateLoop } from '../../commands/loops'
 import { useDb } from '../../db/DbProvider'
 import type { LocalRecordingLoop } from '../../db/types'
 import { useLatest } from '../../ui/useLatest'
-import { rowSpan, spanFields, spanOf, type Draft, type Span } from './loopModel'
+import { rowSpan, spanFields, spanOf, type Draft, type Span } from '../../domain/loopModel'
 import type { LoopPlayback } from './useLoopPlayback'
 
 const sameSpan = (row: LocalRecordingLoop, span: Span) =>

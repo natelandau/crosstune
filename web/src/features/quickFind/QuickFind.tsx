@@ -21,7 +21,8 @@ import {
   type QuickFindItem,
 } from './quickFindResults'
 import { useQuickFind, type QuickFind as Finder } from './useQuickFind'
-import { QUICK_FIND, shortcutById, type ShortcutId } from '../../ui/keymap'
+import { QUICK_FIND, shortcutById, type ShortcutId } from '../keyboard/keymap'
+import { useEscapeCapture } from '../../ui/useEscapeCapture'
 import { useLatest } from '../../ui/useLatest'
 import { destination, type Destination } from '../../app/destinations'
 import { useScreenCommands } from '../../app/screenCommands'
@@ -220,20 +221,12 @@ function FinderBody({
   const { query, setQuery, sections, ready, step, run, leaveStep } = finder
   // A second step sits over the first, so Escape and back step out of it before closing.
   const stepOnTop = useOverlayClaim({ close: leaveStep, active: step !== null })
-  const leaveStepRef = useLatest(leaveStep)
   // Heard at window capture, ahead of the field, which hands Escape on to the dialog, and of
   // the dialog itself, which closes on it and takes focus from a click on its padding.
-  useEffect(() => {
-    if (step === null) return
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.defaultPrevented || !stepOnTop()) return
-      event.preventDefault()
-      event.stopPropagation()
-      leaveStepRef.current()
-    }
-    window.addEventListener('keydown', onEscape, true)
-    return () => window.removeEventListener('keydown', onEscape, true)
-  }, [step, stepOnTop, leaveStepRef])
+  useEscapeCapture(leaveStep, {
+    enabled: step !== null,
+    when: (event) => !event.defaultPrevented && stepOnTop(),
+  })
   const byKey = new Map(
     sections.flatMap((section) => section.items).map((item) => [item.key, item]),
   )

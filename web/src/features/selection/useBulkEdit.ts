@@ -4,7 +4,7 @@ import type { BulkPatch } from '../../commands/bulk'
 import { GENRES, PART_STRUCTURES, QUICK_KEYS, TUNE_TYPES, TUNINGS } from '../../constants'
 import type { CatalogEntry } from '../catalog/filters'
 import { useCatalog } from '../catalog/useCatalog'
-import { byTuningKey } from '../settings/instruments'
+import { byTuningKey } from '../../domain/instruments'
 import { catalogComposers, catalogLearnedFrom } from '../tune/tuneTypes'
 import {
   isUnchanged,

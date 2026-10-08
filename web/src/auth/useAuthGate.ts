@@ -1,6 +1,6 @@
 import { useAuth } from '@clerk/react'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { clearSearchQueries } from '../features/catalog/searchSession'
+import { clearSearchQueries } from '../ui/searchSession'
 import { useLatest } from '../ui/useLatest'
 import {
   clearAccountDeletedNotice,

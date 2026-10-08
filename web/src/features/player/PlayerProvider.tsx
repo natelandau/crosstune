@@ -4,7 +4,8 @@ import { visibleMain } from '../../platform/visibleMain'
 import { usePlaybackEngine } from './PlaybackEngineProvider'
 import type { PlayOrigin } from './playLog'
 import { PlayLogContext, usePlayLog } from './usePlayLog'
-import { PlayerContext, type Player, type PlayerItem } from './usePlayer'
+import { PlayerContext, type Player } from './usePlayer'
+import type { PlayerItem } from '../../domain/playerItem'
 
 const DOCK_ORIGIN: PlayOrigin = { context: 'dock' }
 

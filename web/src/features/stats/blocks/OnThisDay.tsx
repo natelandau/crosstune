@@ -1,6 +1,6 @@
 import { ON_THIS_DAY_HEADER, onThisDayLine } from '../copy'
 import type { OnThisDay as OnThisDayLine } from '../types'
-import { PageSection } from '../../tune/PageSection'
+import { PageSection } from '../../../ui/PageSection'
 
 const RECORDING_KINDS: readonly OnThisDayLine['kind'][] = ['first_recording', 'recording']
 

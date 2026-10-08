@@ -11,7 +11,7 @@ import {
   type LocalTune,
   type LocalUserTune,
 } from '../../../db/types'
-import { tuningDisplay } from '../instruments'
+import { tuningDisplay } from '../../../domain/instruments'
 import { csvDocument } from './csv'
 import { NameAllocator } from './safeName'
 
@@ -235,7 +235,7 @@ function planScans(
     if (!tuneScans || seen.has(tune.id)) continue
     seen.add(tune.id)
     const folder = folders.take(tune.title)
-    ;[...tuneScans].sort(byPosition).forEach((scan, index) => {
+    tuneScans.toSorted(byPosition).forEach((scan, index) => {
       scans.push({ scanId: scan.id, path: `scans/${folder}/${index + 1}.jpg` })
     })
   }

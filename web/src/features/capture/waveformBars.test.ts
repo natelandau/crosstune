@@ -4,12 +4,20 @@ import {
   BAR_WIDTH,
   barCount,
   createLevels,
-  layoutBars,
+  eachBar,
   pushLevel,
   rmsLevel,
+  type Bar,
 } from './waveformBars'
 
 const STEP = BAR_WIDTH + BAR_GAP
+
+/** The bars `eachBar` visits, in order. */
+function layout(state: ReturnType<typeof createLevels>, width: number, height: number): Bar[] {
+  const bars: Bar[] = []
+  eachBar(state, width, height, (x, y, w, h) => bars.push({ x, y, width: w, height: h }))
+  return bars
+}
 
 describe('waveform bars', () => {
   it('reads silence as zero and a full-scale square wave as one', () => {
@@ -27,7 +35,7 @@ describe('waveform bars', () => {
     const state = createLevels('scrolling')
     for (const level of [0.1, 0.2, 0.3]) pushLevel(state, level, 2)
     expect(state.levels).toEqual([0.2, 0.3])
-    const bars = layoutBars(state, 10 * STEP, 100)
+    const bars = layout(state, 10 * STEP, 100)
     expect(bars.map((b) => b.x)).toEqual([8 * STEP, 9 * STEP])
   })
 
@@ -36,7 +44,7 @@ describe('waveform bars', () => {
     for (const level of [0.1, 0.2, 0.3]) pushLevel(state, level, 2)
     expect(state.levels).toEqual([0.3, 0.2])
     expect(state.cursor).toBe(1)
-    const bars = layoutBars(state, 10 * STEP, 100)
+    const bars = layout(state, 10 * STEP, 100)
     expect(bars.map((b) => b.x)).toEqual([0, STEP])
   })
 
@@ -52,7 +60,7 @@ describe('waveform bars', () => {
     const state = createLevels('scrolling')
     pushLevel(state, 0, 3)
     pushLevel(state, 1, 3)
-    const [quiet, loud] = layoutBars(state, 100, 40)
+    const [quiet, loud] = layout(state, 100, 40)
     expect(quiet).toMatchObject({ height: 2, y: 19 })
     expect(loud).toMatchObject({ height: 40, y: 0 })
   })

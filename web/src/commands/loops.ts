@@ -8,7 +8,7 @@ import {
   rowSpan,
   type Bounds,
   type PlacedLoop,
-} from '../features/practice/loopModel'
+} from '../domain/loopModel'
 import { LOOP_LIMIT, NO_ROOM, RECORDING_NOT_FOUND } from './messages'
 import { defined, newId, now, putRow, tombstone, writeTx } from './write'
 

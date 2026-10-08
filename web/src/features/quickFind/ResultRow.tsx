@@ -1,7 +1,7 @@
 import { ListBoxItem, Text } from 'react-aria-components'
 import type { QuickFindItem } from './quickFindResults'
 import { ARCHIVED } from '../tune/archiveLabels'
-import { shortcutById } from '../../ui/keymap'
+import { shortcutById } from '../keyboard/keymap'
 import { ShortcutKeys } from '../keyboard/ShortcutSheet'
 
 /** The second line under a result, when it says something the title does not. */

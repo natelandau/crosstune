@@ -8,7 +8,7 @@ import type { LocalUserTune } from '../../db/types'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { linkRow, recordingFile, recordingRow } from '../../test/rows'
-import { useListRowSource } from './useListRowSource'
+import { useListRowSources } from './useListRowSource'
 import { useListView } from './useLists'
 
 let db: CrosstuneDb
@@ -29,7 +29,14 @@ async function setup(playFirst: PlayFirst | undefined, pin: Partial<LocalUserTun
   const view = list.result.current!.items[0]!
   const entry = { ...view, userTune: { ...view.userTune, ...pin } }
   tuneId = entry.tune.id
-  return renderHook(() => useListRowSource(entry, playFirst), { wrapper })
+  const sources = renderHook(() => useListRowSources([entry], playFirst), { wrapper })
+  return {
+    result: {
+      get current() {
+        return sources.result.current?.get(entry.item.id)
+      },
+    },
+  }
 }
 
 async function addMedia() {
@@ -38,7 +45,7 @@ async function addMedia() {
   await db.recording_links.put(linkRow('link1', tuneId, { provider: 'apple_music' }))
 }
 
-describe('useListRowSource', () => {
+describe('useListRowSources', () => {
   it('stays unread until the play-first setting is known', async () => {
     const { result } = await setup(undefined)
     await expect.poll(() => result.current).toBeUndefined()
@@ -71,6 +78,31 @@ describe('useListRowSource', () => {
       const { result } = await setup(PLAY_FIRST[0], { play_link_id: 'link1' })
       await addMedia()
       await expect.poll(() => idOf(result.current)).toBe('link1')
+    })
+  })
+})
+
+describe('useListRowSources across rows', () => {
+  it("gives each row its own tune's source", async () => {
+    const { userTuneId } = await createTune(db, { title: 'Angeline' }, { status: 'known' })
+    await addToList(db, listId, userTuneId)
+    const wrapper = dataProviders({ db })
+    const list = renderHook(() => useListView(listId), { wrapper })
+    await expect.poll(() => list.result.current?.items.length).toBe(2)
+    const [first, second] = list.result.current!.items
+    await db.recordings.put(recordingRow('rec1', { tune_id: first!.tune.id }))
+    await db.recording_links.put(linkRow('link2', second!.tune.id))
+
+    const { result } = renderHook(() => useListRowSources([first!, second!], PLAY_FIRST[0]), {
+      wrapper,
+    })
+
+    await expect
+      .poll(() => result.current?.get(first!.item.id))
+      .toMatchObject({ kind: 'recording' })
+    expect(result.current?.get(second!.item.id)).toMatchObject({
+      kind: 'link',
+      link: { id: 'link2' },
     })
   })
 })

@@ -1,6 +1,6 @@
 import { useParams } from 'react-router'
 import { SETTINGS_STATS_PATH } from '../settings/settingsPaths'
-import { useLists } from '../lists/useLists'
+import { useActiveLists } from '../lists/useLists'
 import { STATS_TITLE } from '../stats/copy'
 import { destination } from '../../app/destinations'
 import { TunePage } from './TunePage'
@@ -15,7 +15,7 @@ export function CatalogTune() {
 /** A tune opened from a list, in the lists' detail column; Back names the list. */
 export function ListTune() {
   const { listId = '', tuneId = '' } = useParams()
-  const list = useLists()?.find((candidate) => candidate.id === listId)
+  const list = useActiveLists()?.find((candidate) => candidate.id === listId)
   return (
     <TunePage
       tuneId={tuneId}

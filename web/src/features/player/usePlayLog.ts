@@ -7,7 +7,7 @@ import { useLatest } from '../../ui/useLatest'
 import { iso, onPageLeave } from './activity'
 import { heardLengthMs, PlayLog, type PlayOrigin, type PlayRecord } from './playLog'
 import type { PlaybackEngine, PlaybackState } from './playbackEngine'
-import type { PlayerItem } from './usePlayer'
+import type { PlayerItem } from '../../domain/playerItem'
 
 /**
  * How practice takes the loaded recording's time from the play log and gives it back.

@@ -7,7 +7,7 @@
 @import './features/practice/practiceDrawing.css';
 @import './theme/practiceTheme.css';
 @import './features/practice/practice.css';
-@import './features/recording/record.css';
+@import './features/capture/record.css';
 @import './ui/focus.css';
 
 body {

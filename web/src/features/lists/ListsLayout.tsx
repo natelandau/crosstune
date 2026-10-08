@@ -1,6 +1,6 @@
 import { ListMusic } from 'lucide-react'
 import { useOutlet, useParams } from 'react-router'
-import { useLists } from './useLists'
+import { useActiveLists } from './useLists'
 import { destination } from '../../app/destinations'
 import { useStampedDensity } from '../../platform/density'
 import { Columns } from '../../app/Columns'
@@ -23,7 +23,7 @@ export function ListsLayout() {
   const { listId, tuneId } = useParams()
   const outlet = useOutlet()
   const density = useStampedDensity()
-  const name = useLists()?.find((list) => list.id === listId)?.name
+  const name = useActiveLists()?.find((list) => list.id === listId)?.name
   return (
     <Columns
       list={listId ? <ListPage key={listId} listId={listId} /> : <ListsScreen />}

@@ -21,7 +21,7 @@ import {
   type FacetValues,
 } from './filters'
 import { countTunes } from '../selection/copy'
-import { withInstrumentLabel } from '../settings/instruments'
+import { withInstrumentLabel } from '../../domain/instruments'
 import { openTestDb } from '../../test/db'
 import { DONE } from '../../ui/confirmCopy'
 import { ANY, FILTERS, filtersLabel, RESET, removeFilterLabel } from '../../ui/filterCopy'

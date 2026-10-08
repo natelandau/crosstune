@@ -30,7 +30,7 @@ import { useReorderAnnouncer } from '../../ui/reorder'
 import { Row, type RowAction } from '../../ui/Row'
 import { RowList } from '../../ui/RowList'
 import { moveActions } from '../../ui/sharedActions'
-import { PageSection } from './PageSection'
+import { PageSection } from '../../ui/PageSection'
 
 const TUNE_PAGE: ScanViewOrigin = { context: 'tune' }
 const ROW_THUMBNAIL_HEIGHT = 36

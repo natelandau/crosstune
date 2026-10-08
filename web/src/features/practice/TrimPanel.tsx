@@ -1,5 +1,5 @@
 import { ArrowLeftToLine, ArrowRightToLine, Pause, Play, ZoomIn, ZoomOut } from 'lucide-react'
-import { useEffect, useRef, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import { Button as AriaButton, Heading } from 'react-aria-components'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { PAUSE } from '../player/transportCopy'
@@ -19,6 +19,7 @@ import { TrimReadout, TrimStrips } from './TrimSurface'
 import { stripProps, useTrimEditor } from './useTrimEditor'
 import type { RecordingView } from '../recordings/useRecordings'
 import { CANCEL } from '../../ui/confirmCopy'
+import { useEscapeCapture } from '../../ui/useEscapeCapture'
 import { useLatest } from '../../ui/useLatest'
 import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
@@ -102,20 +103,13 @@ export function TrimPanel({
 
   const onDoneRef = useLatest(onDone)
   const savingRef = useLatest(saving)
+  const stepOut = useCallback(() => {
+    if (!savingRef.current) onDoneRef.current()
+  }, [onDoneRef, savingRef])
   useEffect(() => {
-    const stepOut = () => {
-      if (!savingRef.current) onDoneRef.current()
-    }
     if (stepOutRef) stepOutRef.current = stepOut
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || !isTop()) return
-      event.preventDefault()
-      event.stopPropagation()
-      stepOut()
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [isTop, onDoneRef, savingRef, stepOutRef])
+  }, [stepOut, stepOutRef])
+  useEscapeCapture(stepOut, { when: isTop })
 
   return (
     <>

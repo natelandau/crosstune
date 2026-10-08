@@ -1,5 +1,6 @@
-import { formatDuration } from '../recording/format'
+import { formatDuration } from '../../text/format'
 import { PROGRESS } from './transportCopy'
+import { clamp } from '../../math'
 
 const KEY_STEP_MS = 5000
 const ARROW_STEP: Record<string, number> = {
@@ -56,7 +57,7 @@ export function Scrubber({
           const by = ARROW_STEP[event.key]
           if (by === undefined) return
           event.preventDefault()
-          onSeek(Math.min(length, Math.max(0, value + by)))
+          onSeek(clamp(value + by, 0, length))
         }}
         className="absolute inset-0 size-full cursor-pointer opacity-0 outline-none disabled:cursor-default"
       />

@@ -9,7 +9,7 @@ import {
   type BlockerFunction,
 } from 'react-router'
 import { useDb } from '../../db/DbProvider'
-import { formatDuration } from './format'
+import { formatDuration } from '../../text/format'
 import { LiveWaveform } from './LiveWaveform'
 import { savedRecordingPath } from './savedRecordingPath'
 import { DONE, FILING_UNDER, INTERRUPTED_MESSAGE, NEW_RECORDING, STOP } from './recordCopy'

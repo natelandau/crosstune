@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 
-export interface SheetSession {
+export interface SheetSession<T> {
+  /** The last target the sheet opened for, kept while it animates closed so its content holds. */
+  shown: T | null
   /** Whether the sheet shows: it has a target and nothing has asked it to close. */
   open: boolean
   /** Cancel or a save asked the sheet to close; it reports that once dismissal ends. */
@@ -23,9 +25,10 @@ export interface SheetSession {
 export function useSheetSession<T>(
   target: T | null,
   { onOpen, onClose }: { onOpen: (target: T) => void; onClose: () => void },
-): SheetSession {
+): SheetSession<T> {
   const [closing, setClosing] = useState(false)
   const [openedFor, setOpenedFor] = useState<T | null>(null)
+  const [shown, setShown] = useState<T | null>(null)
   // A ref, because two submits in one tick both read the same render's state.
   const saving = useRef<T | null>(null)
 
@@ -33,12 +36,14 @@ export function useSheetSession<T>(
   if (target !== openedFor) {
     setOpenedFor(target)
     if (target !== null) {
+      setShown(target)
       setClosing(false)
       onOpen(target)
     }
   }
 
   return {
+    shown,
     open: target !== null && !closing,
     closing,
     close: () => setClosing(true),
