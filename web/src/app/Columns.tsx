@@ -16,6 +16,7 @@ import { useFrame } from '../platform/frame'
 import { useLocation } from 'react-router'
 import { NowPlayingSlot } from './NowPlayingSlot'
 import { PaneScroller } from './pane'
+import { clamp } from '../math'
 
 export const COLUMN_WIDTH = 'Column width'
 
@@ -25,12 +26,12 @@ export const COLUMN_DEFAULT = 340
 const STEP = 16
 const WIDTH_KEY = 'crosstune.columnWidth'
 
-const clamp = (width: number) => Math.min(COLUMN_MAX, Math.max(COLUMN_MIN, Math.round(width)))
+const clampWidth = (width: number) => clamp(Math.round(width), COLUMN_MIN, COLUMN_MAX)
 
 function readWidth(): number {
   try {
     const stored = Number(localStorage.getItem(WIDTH_KEY))
-    return stored > 0 ? clamp(stored) : COLUMN_DEFAULT
+    return stored > 0 ? clampWidth(stored) : COLUMN_DEFAULT
   } catch {
     return COLUMN_DEFAULT
   }
@@ -228,7 +229,7 @@ function ColumnSeparator({
     }[event.key]
     if (next === undefined) return
     event.preventDefault()
-    onSettle(clamp(next))
+    onSettle(clampWidth(next))
   }
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -244,7 +245,7 @@ function ColumnSeparator({
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const start = drag.current
     if (!start) return
-    start.last = clamp(start.width + (event.clientX - start.x) * start.sign)
+    start.last = clampWidth(start.width + (event.clientX - start.x) * start.sign)
     onResize(start.last)
   }
 

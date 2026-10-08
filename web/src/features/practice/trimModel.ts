@@ -93,7 +93,7 @@ export function trimReducer(state: TrimState, action: TrimAction): TrimState {
  */
 export function detailWindow(state: TrimState, center = state[state.focus]): [number, number] {
   const [low, high] = state.bounds
-  const length = Math.min(high - low, Math.max(MIN_DETAIL_MS, (high - low) / state.zoom))
+  const length = clamp((high - low) / state.zoom, MIN_DETAIL_MS, high - low)
   const from = clamp(center - length / 2, low, high - length)
   return [from, from + length]
 }

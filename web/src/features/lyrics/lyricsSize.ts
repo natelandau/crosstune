@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { clamp } from '../../math'
 
 export const LYRICS_STEPS = 6
 export const DEFAULT_LYRICS_STEP = 4
@@ -8,11 +9,11 @@ export const DEFAULT_LYRICS_STEP = 4
 // different distance from browsing in the hand, so compounding the two would make one wrong.
 export const LYRICS_SIZE_KEY = 'crosstune.lyricsSize'
 
-function clamp(step: number): number {
+function clampStep(step: number): number {
   // Math.round/max/min all propagate NaN, so an unclamped non-finite input would otherwise
   // reach storage and the DOM as the literal string "NaN", matching no CSS step.
   if (!Number.isFinite(step)) return DEFAULT_LYRICS_STEP
-  return Math.min(LYRICS_STEPS, Math.max(1, Math.round(step)))
+  return clamp(Math.round(step), 1, LYRICS_STEPS)
 }
 
 export function readLyricsStep(): number {
@@ -42,7 +43,7 @@ function subscribe(listener: () => void): () => void {
 }
 
 export function setLyricsStep(next: number): void {
-  step = clamp(next)
+  step = clampStep(next)
   try {
     localStorage.setItem(LYRICS_SIZE_KEY, String(step))
   } catch {

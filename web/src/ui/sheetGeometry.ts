@@ -1,3 +1,5 @@
+import { clamp } from '../math'
+
 /** How dark the backdrop behind every sheet, dialog, and alert gets when it shows fully. */
 export const SCRIM_OPACITY = 0.4
 
@@ -42,5 +44,5 @@ export function originBox(origin: (() => Element | null) | undefined): DOMRect |
 
 /** The scale a surface `width` wide starts from to look as wide as `box`. */
 export function growScale(box: DOMRect, width: number, ceiling = 1): number {
-  return Math.min(Math.max(box.width / width, 0.1), ceiling)
+  return clamp(box.width / width, 0.1, ceiling)
 }
