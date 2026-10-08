@@ -5,7 +5,7 @@ import { createList } from '../../commands/lists'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
-import { DELETE } from '../../ui/confirmCopy'
+import { DELETE, EDIT } from '../../ui/confirmCopy'
 import { DELETE_LIST_MESSAGE } from './deleteListMessage'
 import { useListsScreen } from './useListsScreen'
 
@@ -31,7 +31,7 @@ describe('useListsScreen', () => {
     const { result, confirm } = setup(true)
     await expect.poll(() => result.current.lists?.length).toBe(1)
     const list = result.current.lists![0]!
-    const remove = result.current.rowActions(list).find((action) => action.label === 'Delete')!
+    const remove = result.current.rowActions(list).find((action) => action.label === DELETE)!
     act(() => remove.onPress())
     await expect.poll(async () => (await activeLists()).length).toBe(0)
     expect(confirm).toHaveBeenCalledExactlyOnceWith({
@@ -46,7 +46,7 @@ describe('useListsScreen', () => {
     await expect.poll(() => result.current.lists?.length).toBe(1)
     const remove = result.current
       .rowActions(result.current.lists![0]!)
-      .find((action) => action.label === 'Delete')!
+      .find((action) => action.label === DELETE)!
     act(() => remove.onPress())
     await expect.poll(() => confirm.mock.calls.length).toBe(1)
     expect(await activeLists()).toHaveLength(1)
@@ -59,7 +59,7 @@ describe('useListsScreen', () => {
     act(() =>
       result.current
         .rowActions(list)
-        .find((action) => action.label === 'Edit')!
+        .find((action) => action.label === EDIT)!
         .onPress(),
     )
     expect(result.current.naming).toEqual({ kind: 'rename', listId: list.id, name: 'Tuesday jam' })
