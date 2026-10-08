@@ -205,14 +205,15 @@ and fails instead in CI, where the `API` workflow always starts it.
   scripts, so it starts for any change under `.github/`. `Web`
   lints, type checks, tests, builds, and checks the generated types.
   `Site` lints, type checks, tests the built pages, and validates the
-  Worker config with a dry run.
-  All three start on every PR, skip their jobs when it touches nothing
+  Worker config with a dry run. `Analytics` checks the tracking plan and
+  tests its checker.
+  All four start on every PR, skip their jobs when it touches nothing
   they cover, and are required checks. A skipped job passes a required
   check.
   `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift
   package tests, builds for the iOS Simulator and macOS, and checks the
-  generated Swift client and vocabulary file. It runs only when `apple/` or
-  the contract changes, and no host deploys from it. It is not a required
+  generated Swift client and vocabulary file. It runs only when `apple/`,
+  the contract, or the tracking plan changes, and no host deploys from it. It is not a required
   check, because a required check must run on every PR and macOS minutes
   cost more. `E2E` runs Playwright on a PR that changes `web/` or `api/`
   beyond their unit and browser tests, test helpers, and Markdown, and on

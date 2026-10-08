@@ -61,7 +61,9 @@ two audiences.
    the content rule.
 3. Add the code to each client that sends the event.
 4. Run the contract test of each client. The test fails if the client and
-   the plan differ in either direction.
+   the plan differ in either direction. CI reruns each one when the plan
+   changes, so a new client's workflow lists
+   `analytics/tracking-plan.json` in its path filters.
 5. Run `just analytics::sync`. It pushes the description and tags of each
    event to the PostHog event definitions.
 

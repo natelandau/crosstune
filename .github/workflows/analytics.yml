@@ -1,16 +1,16 @@
 ---
-name: Site
+name: Analytics
 
 on:
   pull_request:
   push:
     branches: [main]
-    paths: ["site/**", "brand/**", ".github/workflows/site.yml", ".github/actions/setup-node/**", "justfile", "analytics/tracking-plan.json"]
+    paths: ["analytics/**", "api/pyproject.toml", "api/uv.lock", ".github/workflows/analytics.yml", "justfile"]
 
 # A push to a pull request cancels that PR's previous run. Every other run, including a
 # push to main, falls back to its own run ID and is never canceled.
 concurrency:
-  group: site-${{ github.event.pull_request.number || github.run_id }}
+  group: analytics-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 permissions:
@@ -24,8 +24,9 @@ env:
 jobs:
   # The checks are required, so they run on every pull request and skip when it touches
   # nothing they cover; a skipped job passes a required check, a missing one blocks it.
+  # The checker runs on the API's uv project, so a change to its dependencies counts.
   changes:
-    name: Site changes
+    name: Analytics changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -41,25 +42,24 @@ jobs:
       - id: changes
         uses: ./.github/actions/changes
         with:
-          pattern: '^(site/|brand/|\.github/workflows/site\.yml$|\.github/actions/setup-node/|justfile$|analytics/tracking-plan\.json$)'
+          pattern: '^(analytics/|api/pyproject\.toml$|api/uv\.lock$|\.github/workflows/analytics\.yml$|justfile$)'
 
   check:
     needs: changes
     if: needs.changes.outputs.relevant == 'true'
-    name: Site check
+    name: Analytics check
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     defaults:
       run:
-        working-directory: site
+        working-directory: analytics
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-node
-        with:
-          module: site
       - uses: astral-sh/setup-uv@v7
-      - run: just lint
+        with:
+          enable-cache: true
+      - uses: extractions/setup-just@v4
+      - run: just check
       - run: just test
-      - run: just build
