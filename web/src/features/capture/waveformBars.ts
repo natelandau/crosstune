@@ -53,12 +53,21 @@ export function pushLevel(state: WaveformLevels, level: number, capacity: number
   state.cursor = (state.cursor + 1) % capacity
 }
 
-export function layoutBars(state: WaveformLevels, width: number, height: number): Bar[] {
+/**
+ * Visits each bar's box in order. A callback rather than an array, since a live waveform draws
+ * every animation frame and should leave no garbage behind it.
+ */
+export function eachBar(
+  state: WaveformLevels,
+  width: number,
+  height: number,
+  visit: (x: number, y: number, width: number, height: number) => void,
+): void {
   const step = BAR_WIDTH + BAR_GAP
   const count = state.levels.length
-  return state.levels.map((level, i) => {
-    const bar = Math.min(height, Math.max(MIN_BAR, level * height * GAIN))
+  for (let i = 0; i < count; i++) {
+    const bar = Math.min(height, Math.max(MIN_BAR, state.levels[i]! * height * GAIN))
     const x = state.mode === 'scrolling' ? width - (count - i) * step : i * step
-    return { x, y: (height - bar) / 2, width: BAR_WIDTH, height: bar }
-  })
+    visit(x, (height - bar) / 2, BAR_WIDTH, bar)
+  }
 }
