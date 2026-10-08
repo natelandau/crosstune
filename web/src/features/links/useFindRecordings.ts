@@ -82,8 +82,6 @@ export function useFindRecordings(
   const providers = useSearchProviders()
   const player = usePlayer()
   const { error, run, clear } = useAction()
-  // The tune last opened, kept through the dismissal so the sheet does not empty as it leaves.
-  const [shownTune, setShownTune] = useState<string | null>(tuneId)
   const [query, setQueryState] = useState<string | null>(null)
   const [shown, setShown] = useState<Provider | null>(service ?? null)
   const [direct, setDirect] = useState(service !== undefined)
@@ -104,8 +102,7 @@ export function useFindRecordings(
   const toSettings = useRef(false)
 
   const sheet = useSheetSession(tuneId, {
-    onOpen: (target) => {
-      setShownTune(target)
+    onOpen: () => {
       setQueryState(null)
       setShown(service ?? null)
       setDirect(service !== undefined)
@@ -125,6 +122,8 @@ export function useFindRecordings(
       }
     },
   })
+  // The tune last opened, kept through the dismissal so the sheet does not empty as it leaves.
+  const shownTune = sheet.shown
 
   const data = useLiveQuery(async () => {
     if (shownTune === null) return null

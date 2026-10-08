@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useLatest } from '../../ui/useLatest'
 
 /**
@@ -11,6 +11,14 @@ export function useSettledWrite<T>(value: T, write: (value: T) => void, delayMs 
   const written = useRef(value)
   const waiting = useRef<{ value: T } | null>(null)
 
+  const flush = useCallback(() => {
+    const next = waiting.current
+    if (!next) return
+    waiting.current = null
+    written.current = next.value
+    writeRef.current(next.value)
+  }, [writeRef])
+
   useEffect(() => {
     if (Object.is(value, written.current)) {
       waiting.current = null
@@ -19,24 +27,7 @@ export function useSettledWrite<T>(value: T, write: (value: T) => void, delayMs 
     waiting.current = { value }
     const timer = setTimeout(flush, delayMs)
     return () => clearTimeout(timer)
+  }, [value, delayMs, flush])
 
-    function flush() {
-      const next = waiting.current
-      if (!next) return
-      waiting.current = null
-      written.current = next.value
-      writeRef.current(next.value)
-    }
-  }, [value, delayMs, writeRef])
-
-  useEffect(
-    () => () => {
-      const next = waiting.current
-      if (!next) return
-      waiting.current = null
-      written.current = next.value
-      writeRef.current(next.value)
-    },
-    [writeRef],
-  )
+  useEffect(() => flush, [flush])
 }
