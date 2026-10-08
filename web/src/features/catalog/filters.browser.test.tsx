@@ -6,7 +6,7 @@ import { createTune } from '../../commands/tunes'
 import { STATUS_LABELS } from '../../constants'
 import { getMeta, setMeta } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
-import { SHOW_ARCHIVED, TUNE_LIST } from './catalogCopy'
+import { NO_TUNES_TITLE, SHOW_ARCHIVED, TUNE_LIST } from './catalogCopy'
 import { ARCHIVED_SHOWN, facetControlLabel, MISSING_LABEL, sheetFilters } from './filterLabels'
 import {
   DEFAULT_FILTERS,
@@ -294,15 +294,41 @@ it('applies each sheet choice at once, resets only its own filters, and closes o
   await expect.element(control(removeFilterLabel(ARCHIVED_SHOWN))).not.toBeInTheDocument()
 })
 
-it('keeps Filters in place, disabled and silent, while there is nothing to filter', async () => {
+it('leaves out the filter row while there is nothing to filter', async () => {
   const db = openTestDb()
   await mount(db)
-  const filters = control(FILTERS)
-  await expect.element(filters).toBeDisabled()
-  await expect.element(filters).not.toHaveAccessibleDescription()
-  await expect
-    .element(filterRow().getByRole('button', { name: facetControlLabel('key', 'all') }))
-    .not.toBeInTheDocument()
+  await expect.element(page.getByRole('heading', { name: NO_TUNES_TITLE })).toBeVisible()
+  await expect.element(filterRow()).not.toBeInTheDocument()
+})
+
+it('keeps a set filter in an empty catalog until it is removed, then moves focus to the title', async () => {
+  const db = openTestDb()
+  // Saved by an earlier session.
+  await setMeta(db, META_CATALOG_FILTERS, { ...DEFAULT_FILTERS, archived: true })
+  await mount(db)
+  await expect.element(page.getByRole('heading', { name: NO_TUNES_TITLE })).toBeVisible()
+  const token = control(removeFilterLabel(ARCHIVED_SHOWN))
+  await expect.element(token).toBeVisible()
+  await expect.element(control(filtersLabel(1))).toBeEnabled()
+  ;(token.element() as HTMLElement).focus()
+  await userEvent.keyboard('{Enter}')
+  await expect.element(filterRow()).not.toBeInTheDocument()
+  await expect.element(page.getByRole('heading', { level: 1 })).toHaveFocus()
+  await expect.poll(async () => (await stored(db)).archived).toBe(false)
+})
+
+it('moves focus to the title when Reset in the sheet leaves an empty catalog nothing to filter', async () => {
+  const db = openTestDb()
+  await setMeta(db, META_CATALOG_FILTERS, { ...DEFAULT_FILTERS, archived: true })
+  await mount(db)
+  await control(filtersLabel(1)).click()
+  const sheet = page.getByRole('dialog', { name: FILTERS })
+  await sheet.getByRole('button', { name: RESET }).click()
+  await expect.poll(async () => (await stored(db)).archived).toBe(false)
+  await sheet.getByRole('button', { name: DONE }).click()
+  await expect.element(sheet).not.toBeInTheDocument()
+  await expect.element(filterRow()).not.toBeInTheDocument()
+  await expect.element(page.getByRole('heading', { level: 1 })).toHaveFocus()
 })
 
 it('opens the key grid in a sheet on touch, and choosing a key closes it', async () => {
@@ -344,6 +370,7 @@ function RowHost({ ready, filters }: { ready: boolean; filters: Partial<CatalogF
         counts={{ visible: 4, total: 4, archived: 0, all: 4 }}
         sheet={sheetFilters(effective, visible, ROW_FACETS)}
         statusCounts={undefined}
+        title={{ current: null }}
         onChange={() => {}}
       />
     </MotionConfig>
@@ -354,7 +381,7 @@ it('keeps the touch row at its start when saved filters load, and reveals one se
   const { rerender } = renderWithProviders(<RowHost ready={false} filters={MANY} />, {
     density: 'touch',
   })
-  await expect.element(filterRow()).toBeVisible()
+  await expect.element(filterRow()).not.toBeInTheDocument()
   rerender(<RowHost ready filters={MANY} />)
   const row = filterRow()
   await expect.element(control(removeFilterLabel(ARCHIVED_SHOWN))).toBeInTheDocument()

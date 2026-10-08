@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, type ReactNode, type Ref, type RefObject } from 'react'
 import { usePane } from './pane'
 import { ScreenSyncBadge } from './SyncBadge'
 
@@ -7,25 +7,30 @@ import { ScreenSyncBadge } from './SyncBadge'
  * the content, and tells the pane bar once it has gone under the bar, so the bar takes over.
  * `menu` stands in for the plain title where the title is a control, such as the phone's
  * status scope; `trailing` sits beside it. The phone's sync badge follows, unless
- * `syncBadge` is false.
+ * `syncBadge` is false. `titleRef` reaches the heading, where focus lands when a control
+ * holding it leaves the column.
  */
 export function ColumnTitle({
   title,
   menu,
   trailing,
   syncBadge = true,
+  titleRef,
 }: {
   title: string
   menu?: ReactNode
   trailing?: ReactNode
   syncBadge?: boolean
+  titleRef?: Ref<HTMLHeadingElement>
 }) {
   const line = useRef<HTMLDivElement>(null)
   usePaneTitleLine(line)
 
   return (
     <div ref={line} data-column-title className="flex min-h-11 items-center gap-3 px-4 pb-2">
-      <h1 className="t-screen-title min-w-0 truncate">{menu ?? title}</h1>
+      <h1 ref={titleRef} className="t-screen-title min-w-0 truncate">
+        {menu ?? title}
+      </h1>
       {(trailing || syncBadge) && (
         <div className="flex shrink-0 items-center gap-2">
           {trailing}

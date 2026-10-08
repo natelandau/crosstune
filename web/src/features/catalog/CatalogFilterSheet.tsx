@@ -28,6 +28,7 @@ const asOptions = (values: readonly string[]) =>
 export function CatalogFilterSheet({
   isOpen,
   onOpenChange,
+  onClosed,
   filters,
   facets,
   sheet,
@@ -37,6 +38,8 @@ export function CatalogFilterSheet({
 }: {
   isOpen: boolean
   onOpenChange: (open: boolean) => void
+  /** Runs once the closed sheet has left the page. */
+  onClosed?: () => void
   filters: CatalogFilters
   facets: FacetValues
   sheet: SheetFilters
@@ -49,6 +52,7 @@ export function CatalogFilterSheet({
     <Sheet
       isOpen={isOpen}
       onOpenChange={onOpenChange}
+      onClosed={onClosed}
       title={FILTERS}
       leading={{
         label: RESET,

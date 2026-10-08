@@ -71,6 +71,7 @@ export function CatalogScreen() {
   const { error, run } = useAction()
   const statusCounts = useStatusCounts()
   const playingTune = usePlayingTune()
+  const titleRef = useRef<HTMLHeadingElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   useSearchTarget(searchRef)
 
@@ -201,6 +202,7 @@ export function CatalogScreen() {
       )}
       <ColumnTitle
         title={title}
+        titleRef={titleRef}
         menu={
           phone ? (
             <StatusTitle
@@ -231,6 +233,7 @@ export function CatalogScreen() {
         counts={counts}
         sheet={sheet}
         statusCounts={statusCounts}
+        title={titleRef}
         onChange={(patch) => void setFilters(patch)}
       />
       <ErrorLine error={filterError} place="bar" />

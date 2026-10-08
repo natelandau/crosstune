@@ -1,5 +1,5 @@
 import { AudioLines, ChevronRight, SlidersHorizontal, Upload, X } from 'lucide-react'
-import { useEffect, useId, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { useId, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { NOTHING_MATCHES } from '../catalog/catalogCopy'
 import type { SortChoice } from './arrangeRecordings'
@@ -18,6 +18,7 @@ import { useRecordingsScreen } from './useRecordingsScreen'
 import { FILTERS, filtersLabel, removeFilterLabel } from '../../ui/filterCopy'
 import { SORT, sortControlName, sortMenuChoices } from '../../ui/sortCopy'
 import { useFileDrop } from '../../ui/useFileDrop'
+import { useFocusFallback } from '../../ui/useFocusFallback'
 import { destination } from '../../app/destinations'
 import { sortCommand, useScreenCommand } from '../../app/screenCommands'
 import { useStampedDensity } from '../../platform/density'
@@ -70,34 +71,13 @@ export function RecordingsScreen() {
   const screen = useRecordingsScreen({ confirm: useConfirm(), onOpenTune: openTune })
   const { ready, unfiled, filed, sort, actionsFor, retry, error } = screen
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
+  const titleRef = useRef<HTMLHeadingElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   useSearchTarget(searchRef)
-  // Set beside the presence update that takes the closed sheet off the page, so both commit
-  // together.
-  const [filtersClosed, setFiltersClosed] = useState(0)
-  // A filter control can leave the page while it holds focus: Reset or a token's remove can
-  // leave nothing to filter, and the source write may land before or after the sheet closes.
-  // Focus then lands on the column's title, never on the body. This runs as an effect of the
-  // commit that removes the control or the sheet, never a frame later: a frame can pass before
-  // that commit, and the page stays inert until the sheet's own effects have cleaned up.
-  const shown = { filters: screen.showsFilters, token: screen.filterSet, closes: filtersClosed }
-  const shownBefore = useRef(shown)
-  useEffect(() => {
-    const before = shownBefore.current
-    shownBefore.current = shown
-    // While the sheet is open it holds focus, and the page behind it can take none.
-    const lost =
-      (!filtersOpen && ((before.filters && !shown.filters) || (before.token && !shown.token))) ||
-      (before.closes !== shown.closes && !shown.filters)
-    if (!lost) return
-    // Focus still in a closing sheet stays; its close comes back here.
-    const active = document.activeElement
-    if (active && active !== document.body) return
-    const title = rootRef.current?.querySelector<HTMLElement>('[data-column-title] h1')
-    if (!title) return
-    title.tabIndex = -1
-    title.focus({ preventScroll: true })
+  const filtersClosed = useFocusFallback(titleRef, {
+    controls: { filters: screen.showsFilters, token: screen.filterSet },
+    trigger: screen.showsFilters,
+    sheetOpen: filtersOpen,
   })
   // Off wide a tune page covers the list, so its Sort by goes with it.
   const listShown = useFrame() === 'wide' || openTuneId === undefined
@@ -124,13 +104,13 @@ export function RecordingsScreen() {
   )
 
   return (
-    <div ref={rootRef} {...drop.handlers} className="flex min-h-full flex-col">
+    <div {...drop.handlers} className="flex min-h-full flex-col">
       <PaneBar
         title={RECORDINGS.label}
         trailing={<UploadControl onFiles={(files) => void screen.importFiles(files)} />}
       />
       <DropOverlay shown={drop.over} />
-      <ColumnTitle title={RECORDINGS.label} />
+      <ColumnTitle title={RECORDINGS.label} titleRef={titleRef} />
       <div className="px-4 pb-2">
         <SearchField
           ref={searchRef}
@@ -214,7 +194,7 @@ export function RecordingsScreen() {
             choice={screen.source}
             origins={screen.origins}
             onChange={screen.setSource}
-            onClosed={() => setFiltersClosed((count) => count + 1)}
+            onClosed={filtersClosed}
           />
         </>
       )}
