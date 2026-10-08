@@ -24,14 +24,9 @@ updates:
       default-days: 7
     commit-message:
       prefix: build(web)
-    # @ionic/react-router peers on react-router and react-router-dom <7,
     # typescript-eslint does not support TypeScript 7, and @types/node follows
     # the Node major in web/.node-version.
     ignore:
-      - dependency-name: react-router
-        update-types: ["version-update:semver-major"]
-      - dependency-name: react-router-dom
-        update-types: ["version-update:semver-major"]
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"

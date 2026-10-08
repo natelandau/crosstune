@@ -88,12 +88,14 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      # The component tests run in real Chromium, because Ionic is web
-      # components with shadow DOM that jsdom does not render.
+      # The component tests run in real Chromium, because they measure
+      # layout, paint, and drive real input, which jsdom does not do. WebKit
+      # runs the tests that lean on how Safari keeps a hidden pane's state.
       - uses: ./.github/actions/setup-node
         with:
           module: web
           chromium: "true"
+          browsers: chromium webkit
       - run: just test --shard=${{ matrix.shard }}/3
       # A failing browser test leaves a screenshot under .vitest/attachments. This job holds
       # no secrets and no .env, so a screenshot shows nothing private.
