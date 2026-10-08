@@ -2,7 +2,7 @@ import type { KeyboardEvent, PointerEvent, SyntheticEvent } from 'react'
 import { ACTIVITY_HEADER, ACTIVITY_HINT, dayDetail, weekMonthLabels } from '../copy'
 import type { Heatmap as HeatmapData } from '../types'
 import { useHeatmapCursor } from '../useHeatmapCursor'
-import { PageSection } from '../../tune/PageSection'
+import { PageSection } from '../../../ui/PageSection'
 
 // An empty day is blank: a hairline ring keeps its slot without reading as a step.
 const STEPS = [

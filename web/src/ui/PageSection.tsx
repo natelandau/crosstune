@@ -1,6 +1,6 @@
 import { Plus, type LucideIcon } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
-import { Button } from '../../ui/Button'
+import { Button } from './Button'
 
 /**
  * One section of a document page: its heading in the section heading role with the add control

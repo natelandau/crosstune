@@ -8,7 +8,7 @@ import {
   TUNES_ADDED_LABEL,
 } from '../copy'
 import type { Month, Months as MonthsData } from '../types'
-import { PageSection } from '../../tune/PageSection'
+import { PageSection } from '../../../ui/PageSection'
 import { Capsule } from '../../../ui/Capsule'
 
 /**

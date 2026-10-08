@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { clamp } from '../../math'
 import { formatDuration } from '../../text/format'
-import { BAR_GAP, BAR_WIDTH, MIN_BAR } from '../recording/waveformBars'
+import { BAR_GAP, BAR_WIDTH, MIN_BAR } from '../capture/waveformBars'
 import { barLevels, type Peaks } from '../waveform/peaks'
 import { capturePointer } from '../../platform/pointer'
 

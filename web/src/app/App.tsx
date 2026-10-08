@@ -8,7 +8,7 @@ import {
 import { ListPlaybackProvider } from '../features/player/ListPlaybackProvider'
 import { PlayerProvider } from '../features/player/PlayerProvider'
 import { PlayerContext, type Player } from '../features/player/usePlayer'
-import { RecordStateProvider, useRecordState } from '../features/recording/RecordState'
+import { RecordStateProvider, useRecordState } from '../features/capture/RecordState'
 import { PracticeOverlayStateProvider } from '../features/practice/PracticeOverlayState'
 import { useAppearance } from '../theme/appearance'
 import { ShortcutSheet } from '../features/keyboard/ShortcutSheet'

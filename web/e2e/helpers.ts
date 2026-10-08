@@ -2,7 +2,7 @@ import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { ADD_TUNE, TUNE_LIST } from '../src/features/catalog/catalogCopy'
 import { PLAYER_REGION } from '../src/features/player/playerCopy'
-import { NEW_RECORDING, STOP } from '../src/features/recording/recordCopy'
+import { NEW_RECORDING, STOP } from '../src/features/capture/recordCopy'
 import { EDIT, RECORDING_NAME_LABEL } from '../src/features/recordings/recordingCopy'
 import { EDIT_RECORDING_TITLE, UNFILED_HEADER } from '../src/features/recordings/recordingsCopy'
 import {

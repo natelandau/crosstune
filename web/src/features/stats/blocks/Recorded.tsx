@@ -1,7 +1,7 @@
 import { RECORDED_HEADER, recordedLine } from '../copy'
 import { equivalenceText } from '../equivalences'
 import type { Equivalence, Recorded as RecordedData } from '../types'
-import { PageSection } from '../../tune/PageSection'
+import { PageSection } from '../../../ui/PageSection'
 
 /** Always shown. The comparison under the total appears only when the total earns one. */
 export function Recorded({

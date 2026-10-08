@@ -3,7 +3,7 @@ import { getStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { messageFor } from '../../ui/useAction'
 import { formatBytes } from '../../text/format'
-import { measureDuration } from '../recording/measureDuration'
+import { measureDuration } from '../capture/measureDuration'
 
 export const NOT_AUDIO_ERROR = 'Choose an audio file.'
 export const EMPTY_FILE_ERROR = 'This file is empty.'

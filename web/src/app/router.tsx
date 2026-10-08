@@ -1,7 +1,7 @@
 import { createBrowserRouter, createMemoryRouter, type RouteObject } from 'react-router'
 import { ShortcutsProvider } from '../features/keyboard/ShortcutsProvider'
 import { PracticeOverlay } from '../features/practice/PracticeOverlay'
-import { RecordSheet } from '../features/recording/RecordSheet'
+import { RecordSheet } from '../features/capture/RecordSheet'
 import { Shell } from './Shell'
 import { routes } from './routes'
 

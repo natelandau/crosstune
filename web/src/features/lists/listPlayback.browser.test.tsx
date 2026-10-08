@@ -1,7 +1,7 @@
 import { page, userEvent } from 'vitest/browser'
 import { expect, it } from 'vitest'
 import { RECORD_LABEL } from '../../app/tabs'
-import { NEW_RECORDING } from '../recording/recordCopy'
+import { NEW_RECORDING } from '../capture/recordCopy'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalList, LocalListItem } from '../../db/types'
 import {

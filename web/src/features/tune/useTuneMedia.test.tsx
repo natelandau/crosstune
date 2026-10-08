@@ -18,7 +18,7 @@ import {
   searchService,
 } from '../links/findRecordingsCopy'
 import { SEARCHABLE_PROVIDERS } from '../settings/searchProviders'
-import { NEW_RECORDING } from '../recording/recordCopy'
+import { NEW_RECORDING } from '../capture/recordCopy'
 import { PASTE_LINK } from '../links/pasteLinkCopy'
 import { useRecordingsWithFiles } from '../recordings/useRecordings'
 import { DONT_PLAY_FIRST, PLAY_FIRST_IN_LISTS } from './playSourceText'
