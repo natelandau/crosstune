@@ -247,6 +247,8 @@ it('offers Select tunes on the catalog and not on Settings', async () => {
   await expect.element(quickFind()).not.toBeInTheDocument()
 
   await router.navigate('/settings')
+  // The catalog withdraws its commands as it unmounts, which can land after navigate resolves.
+  await expect.element(page.getByRole('grid', { name: TUNE_LIST })).not.toBeInTheDocument()
   focusBody()
   await commandK()
   await expect.element(command(SHORTCUTS_TITLE)).toBeVisible()
