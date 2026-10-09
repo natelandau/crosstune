@@ -1,3 +1,23 @@
+## v0.19.0 (2026-10-09)
+
+### Feat
+
+- **analytics**: add product analytics to the web app (#162)
+- **settings**: improve tune defaults (#161)
+- **web**: align the web navigation with the Apple apps (#158)
+- **web**: replace the web client with its own design system (#154)
+- **analytics**: add a tracking plan and report usage against it (#152)
+
+### Fix
+
+- **tooling**: harden dev recipes, the smoke check, and build pinning (#159)
+- **web**: hide the catalog filter row when there is nothing to filter
+- **apple**: correct stand, reading, setting, and embed analytics (#153)
+
+### Refactor
+
+- **web**: consolidate shared helpers, layers, and live queries (#157)
+
 ## v0.18.0 (2026-10-07)
 
 ### Feat
