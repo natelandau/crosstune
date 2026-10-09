@@ -25,9 +25,24 @@ BASE = {
         },
     },
     "person_properties": {
-        "catalog_size": {"type": "string", "bucket": "count", "set": "always"},
-        "signed_up_at": {"type": "string", "format": "iso8601", "set": "once"},
-        "setting_audio_quality": {"type": "string", "enum": "source", "set": "always"},
+        "catalog_size": {
+            "type": "string",
+            "bucket": "count",
+            "set": "always",
+            "clients": ["apple", "web"],
+        },
+        "signed_up_at": {
+            "type": "string",
+            "format": "iso8601",
+            "set": "once",
+            "clients": ["apple", "web"],
+        },
+        "setting_audio_quality": {
+            "type": "string",
+            "enum": "source",
+            "set": "always",
+            "clients": ["apple", "web"],
+        },
     },
     "settings": {"audio_quality": {"type": "string", "enum": "source"}},
     "questions": {"activation": "Do new people reach their first practice?"},
@@ -204,11 +219,11 @@ def test_reports_an_answer_that_names_no_question(tmp_path):
     assert any("nope" in f for f in problems(tmp_path, edit))
 
 
-def test_reports_a_question_no_event_answers(tmp_path):
+def test_reports_a_question_nothing_answers(tmp_path):
     def edit(p):
         p["questions"]["retention"] = "Do people come back?"
 
-    assert any("retention" in f for f in problems(tmp_path, edit))
+    assert "question 'retention': nothing answers it" in problems(tmp_path, edit)
 
 
 def test_reports_a_question_without_text_or_with_a_bad_key(tmp_path):
@@ -549,7 +564,9 @@ def test_sync_refuses_to_run_when_check_fails(tmp_path, monkeypatch, capsys):
     assert "missing description" in capsys.readouterr().out
 
 
-def test_audit_refuses_a_plan_whose_events_it_cannot_read(tmp_path, monkeypatch, capsys):
+def test_audit_refuses_a_plan_whose_events_it_cannot_read(
+    tmp_path, monkeypatch, capsys
+):
     path = tmp_path / "plan.json"
     path.write_text("{not json")
     monkeypatch.setattr(
@@ -707,3 +724,39 @@ def test_a_network_error_prints_one_line_without_the_key(
     assert len(lines) == 1
     assert "could not reach PostHog" in lines[0]
     assert "secret" not in captured.out + captured.err
+
+
+def test_reports_a_person_property_without_clients(tmp_path):
+    def edit(p):
+        del p["person_properties"]["catalog_size"]["clients"]
+
+    assert any("catalog_size" in f and "clients" in f for f in problems(tmp_path, edit))
+
+
+def test_reports_a_person_property_with_an_unknown_client(tmp_path):
+    def edit(p):
+        p["person_properties"]["catalog_size"]["clients"] = ["android"]
+
+    assert any("catalog_size" in f and "android" in f for f in problems(tmp_path, edit))
+
+
+def test_reports_a_person_property_for_the_site(tmp_path):
+    def edit(p):
+        p["person_properties"]["catalog_size"]["clients"] = ["site"]
+
+    assert any("catalog_size" in f and "site" in f for f in problems(tmp_path, edit))
+
+
+def test_a_person_property_can_answer_a_question(tmp_path):
+    def edit(p):
+        p["questions"]["reach"] = "How many people use assistive technology?"
+        p["person_properties"]["catalog_size"]["answers"] = ["reach"]
+
+    assert problems(tmp_path, edit) == []
+
+
+def test_reports_a_person_property_answer_that_names_no_question(tmp_path):
+    def edit(p):
+        p["person_properties"]["catalog_size"]["answers"] = ["nope"]
+
+    assert any("catalog_size" in f and "nope" in f for f in problems(tmp_path, edit))

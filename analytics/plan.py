@@ -25,6 +25,8 @@ SEEN_EVENTS_QUERY = (
 )
 
 CLIENTS = {"site", "apple", "web"}
+# The keys a person property adds to the setting it mirrors.
+PERSON_ONLY_KEYS = {"set", "clients", "answers"}
 # A setting_value takes its type from the settings table, by the setting it travels with.
 TYPES = {"string", "string_list", "bool", "number", "uuid", "setting_value"}
 SET_MODES = {"once", "always"}
@@ -57,6 +59,16 @@ def _check_values(kind: str, table: dict, problems: list[str]) -> None:
             problems.append(f"{kind} {name!r}: every value must be a non-empty string")
         elif len(set(values)) != len(values):
             problems.append(f"{kind} {name!r}: duplicate values")
+
+
+def _check_answers(
+    where: str, answers: object, plan: dict, problems: list[str]
+) -> None:
+    problems.extend(
+        f"{where}: answers unknown question {a!r}"
+        for a in answers
+        if not _is_name(a) or a not in plan["questions"]
+    )
 
 
 def _check_clients(where: str, clients: object, problems: list[str]) -> None:
@@ -149,11 +161,7 @@ def _check_event(name: str, event: object, plan: dict, problems: list[str]) -> N
     if not isinstance(answers, list) or not answers:
         problems.append(f"{where}: answers must be a non-empty list")
     else:
-        problems.extend(
-            f"{where}: answers unknown question {a!r}"
-            for a in answers
-            if not _is_name(a) or a not in plan["questions"]
-        )
+        _check_answers(where, answers, plan, problems)
     properties = event.get("properties", {})
     if builtin and properties:
         problems.append(f"{where}: a builtin event has no properties")
@@ -183,7 +191,7 @@ def _check_settings(plan: dict, problems: list[str]) -> None:
             problems.append(f"setting {name!r}: no person property setting_{name}")
         elif not isinstance(mirror, dict):
             continue
-        elif {k: v for k, v in mirror.items() if k != "set"} != spec:
+        elif {k: v for k, v in mirror.items() if k not in PERSON_ONLY_KEYS} != spec:
             problems.append(
                 f"person property 'setting_{name}' differs from setting {name!r}"
             )
@@ -222,13 +230,13 @@ def _check_questions(plan: dict, problems: list[str]) -> None:
             problems.append(f"question {key!r}: needs its question as text")
     answered = {
         a
-        for event in plan["events"].values()
-        if isinstance(event, dict) and isinstance(event.get("answers"), list)
-        for a in event["answers"]
+        for owner in (*plan["events"].values(), *plan["person_properties"].values())
+        if isinstance(owner, dict) and isinstance(owner.get("answers"), list)
+        for a in owner["answers"]
         if _is_name(a)
     }
     problems.extend(
-        f"question {key!r}: no event answers it"
+        f"question {key!r}: nothing answers it"
         for key in plan["questions"]
         if key not in answered
     )
@@ -278,6 +286,16 @@ def check(path: Path) -> list[str]:
             problems.append(f"{where}: a person property cannot take a setting_value")
         if not _is_name(spec.get("set")) or spec["set"] not in SET_MODES:
             problems.append(f"{where}: set must be once or always")
+        clients = spec.get("clients")
+        _check_clients(where, clients, problems)
+        if isinstance(clients, list) and "site" in clients:
+            problems.append(f"{where}: the site sets no person properties")
+        answers = spec.get("answers")
+        if answers is not None:
+            if isinstance(answers, list):
+                _check_answers(where, answers, plan, problems)
+            else:
+                problems.append(f"{where}: answers must be a list")
 
     _check_settings(plan, problems)
     _check_questions(plan, problems)

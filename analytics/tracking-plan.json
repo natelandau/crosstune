@@ -228,7 +228,9 @@
       "appearance",
       "text_size",
       "capture_channels",
-      "download_all"
+      "download_all",
+      "new_tune_status",
+      "new_tune_genre_set"
     ],
     "tune_status": [
       "known",
@@ -243,6 +245,17 @@
       "mandolin",
       "bouzouki",
       "mountain_dulcimer"
+    ],
+    "display_mode": [
+      "browser",
+      "standalone"
+    ],
+    "assistive_tech": [
+      "voiceover",
+      "switch_control",
+      "large_text",
+      "reduce_motion",
+      "bold_text"
     ]
   },
   "super_properties": {
@@ -279,67 +292,151 @@
         "apple",
         "web"
       ]
+    },
+    "display_mode": {
+      "type": "string",
+      "enum": "display_mode",
+      "clients": [
+        "web"
+      ]
     }
   },
   "person_properties": {
     "signed_up_at": {
       "type": "string",
       "format": "iso8601",
-      "set": "once"
+      "set": "once",
+      "clients": [
+        "apple",
+        "web"
+      ]
     },
     "catalog_size": {
       "type": "string",
       "bucket": "count",
-      "set": "always"
+      "set": "always",
+      "clients": [
+        "apple",
+        "web"
+      ]
     },
     "storage_used": {
       "type": "string",
       "bucket": "bytes",
-      "set": "always"
+      "set": "always",
+      "clients": [
+        "apple",
+        "web"
+      ]
     },
     "fields_used": {
       "type": "string_list",
       "enum": "tune_field",
       "set": "always",
-      "description": "Tune fields at least one live tune fills. Status is left out, since every tune has one."
+      "description": "Tune fields at least one live tune fills. Status is left out, since every tune has one.",
+      "clients": [
+        "apple",
+        "web"
+      ]
     },
     "setting_instruments": {
       "type": "string_list",
       "enum": "instrument",
-      "set": "always"
+      "set": "always",
+      "clients": [
+        "apple",
+        "web"
+      ]
     },
     "setting_audio_quality": {
       "type": "string",
       "enum": "audio_quality",
-      "set": "always"
+      "set": "always",
+      "clients": [
+        "apple",
+        "web"
+      ]
     },
     "setting_search_providers": {
       "type": "string_list",
       "enum": "service",
-      "set": "always"
+      "set": "always",
+      "clients": [
+        "apple",
+        "web"
+      ]
     },
     "setting_play_first": {
       "type": "string",
       "enum": "play_first",
-      "set": "always"
+      "set": "always",
+      "clients": [
+        "apple",
+        "web"
+      ]
     },
     "setting_appearance": {
       "type": "string",
       "enum": "appearance",
-      "set": "always"
+      "set": "always",
+      "clients": [
+        "apple",
+        "web"
+      ]
     },
     "setting_text_size": {
       "type": "number",
-      "set": "always"
+      "set": "always",
+      "clients": [
+        "apple",
+        "web"
+      ]
     },
     "setting_capture_channels": {
       "type": "string",
       "enum": "capture_channels",
-      "set": "always"
+      "set": "always",
+      "clients": [
+        "apple"
+      ]
     },
     "setting_download_all": {
       "type": "bool",
-      "set": "always"
+      "set": "always",
+      "clients": [
+        "apple",
+        "web"
+      ]
+    },
+    "setting_new_tune_status": {
+      "type": "string",
+      "enum": "tune_status",
+      "set": "always",
+      "clients": [
+        "apple",
+        "web"
+      ]
+    },
+    "setting_new_tune_genre_set": {
+      "type": "bool",
+      "description": "True when new tunes get a genre. The genre itself is never sent.",
+      "set": "always",
+      "clients": [
+        "apple",
+        "web"
+      ]
+    },
+    "assistive_tech": {
+      "type": "string_list",
+      "enum": "assistive_tech",
+      "set": "always",
+      "clients": [
+        "apple"
+      ],
+      "answers": [
+        "accessibility_reach"
+      ],
+      "description": "Assistive features on. Empty when none is."
     }
   },
   "settings": {
@@ -372,6 +469,14 @@
     },
     "download_all": {
       "type": "bool"
+    },
+    "new_tune_status": {
+      "type": "string",
+      "enum": "tune_status"
+    },
+    "new_tune_genre_set": {
+      "type": "bool",
+      "description": "True when new tunes get a genre. The genre itself is never sent."
     }
   },
   "questions": {
@@ -394,7 +499,9 @@
     "friction_and_churn": "Do failed uploads, syncs, and exports drive people away?",
     "account_churn": "How many people sign out or start to delete their account, and how many back out?",
     "default_settings": "Are the default settings the ones people keep?",
-    "facet_retention": "Does using more tune fields go with better retention?"
+    "facet_retention": "Does using more tune fields go with better retention?",
+    "hands_free_control": "Do people control playback without touching the app?",
+    "accessibility_reach": "How many people use assistive technology, and do they stay?"
   },
   "events": {
     "signed_in": {
@@ -713,8 +820,7 @@
     "stand_opened": {
       "description": "The Stand was opened for a tune.",
       "clients": [
-        "apple",
-        "web"
+        "apple"
       ],
       "answers": [
         "feature_usage"
@@ -1161,7 +1267,8 @@
         "result_count_bucket": {
           "type": "string",
           "bucket": "count",
-          "required": true
+          "required": false,
+          "description": "Absent when the search opened the service's own site."
         }
       }
     },
@@ -1190,7 +1297,8 @@
         "playback_source",
         "playlist_vs_single",
         "playlist_listen_through",
-        "own_vs_third_party_listening"
+        "own_vs_third_party_listening",
+        "hands_free_control"
       ],
       "properties": {
         "source": {
@@ -1221,11 +1329,18 @@
         "listened_bucket": {
           "type": "string",
           "bucket": "listened",
-          "required": true
+          "required": false,
+          "description": "Absent when the player cannot time the audio, such as a web link embed."
         },
         "completed": {
           "type": "bool",
-          "required": true
+          "required": false,
+          "description": "Absent when the player cannot time the audio, such as a web link embed."
+        },
+        "system_controlled": {
+          "type": "bool",
+          "required": true,
+          "description": "Any play, pause, skip, or seek in this play came from outside the app: lock screen, Control Center, headphones, CarPlay, media keys, or a browser's media session."
         },
         "ended_by": {
           "type": "string",
@@ -1740,6 +1855,23 @@
         "retention"
       ],
       "builtin": true
+    },
+    "microphone_denied": {
+      "description": "A recording attempt stopped because microphone permission is denied.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "friction_and_churn"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": "source",
+          "required": true
+        }
+      }
     }
   }
 }
