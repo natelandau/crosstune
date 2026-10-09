@@ -22,6 +22,8 @@ import {
   type Provider,
   RECORDING_PRECISIONS,
   type RecordingPrecision,
+  STATUSES,
+  type TuneStatus,
 } from '../api/vocabulary'
 
 export type { TableName }
@@ -162,6 +164,25 @@ export function storedPlayFirstValue(row: LocalUserSettings | null | undefined):
   return row && !row.deleted_at && typeof row.play_first === 'string'
     ? row.play_first
     : storedPlayFirst(null)
+}
+
+/** The genre a new tune starts with, or null when it starts with none. */
+export function storedNewTuneGenre(row: LocalUserSettings | null | undefined): string | null {
+  return row && !row.deleted_at && typeof row.new_tune_genre === 'string'
+    ? row.new_tune_genre
+    : null
+}
+
+/** The status a new tune starts with, or want to learn when there is no usable value. */
+export function storedNewTuneStatus(row: LocalUserSettings | null | undefined): TuneStatus {
+  return STATUSES.find((value) => value === row?.new_tune_status) ?? 'want_to_learn'
+}
+
+/** The new-tune status to write back, keeping a value this client does not know. */
+export function storedNewTuneStatusValue(row: LocalUserSettings | null | undefined): string {
+  return row && !row.deleted_at && typeof row.new_tune_status === 'string'
+    ? row.new_tune_status
+    : storedNewTuneStatus(null)
 }
 
 export interface LocalRows {

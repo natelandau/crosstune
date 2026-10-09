@@ -1,6 +1,7 @@
 import {
   AudioLines,
   Guitar,
+  ListPlus,
   Mic,
   RefreshCw,
   SunMoon,
@@ -13,12 +14,14 @@ import { AUDIO_QUALITY_NAMES } from '../../constants'
 import { RECORDING } from '../../text/format'
 import { APPEARANCE_LABELS, type Appearance } from '../../theme/appearance'
 import { MUSIC_SERVICES } from './searchProviders'
-import { ACCOUNT, APPEARANCE, INSTRUMENTS, SYNC_AND_STORAGE } from './settingsCopy'
+import { ACCOUNT, APPEARANCE, INSTRUMENTS, NEW_TUNES, SYNC_AND_STORAGE } from './settingsCopy'
 
 /** What the root reads once, so each category's summary is a plain pick from it. */
 export interface SettingsValues {
   /** Empty until the settings row has been read, so the row never flashes Not set. */
   instruments: string
+  /** The genre a new tune starts with, empty until the settings row has been read. */
+  newTunes: string
   services: string
   quality: AudioQuality
   appearance: Appearance
@@ -39,6 +42,12 @@ export const SETTINGS_PAGES: readonly SettingsPageSpec[] = [
     title: INSTRUMENTS,
     icon: Guitar,
     summary: (values) => values.instruments,
+  },
+  {
+    id: 'new-tunes',
+    title: NEW_TUNES,
+    icon: ListPlus,
+    summary: (values) => values.newTunes,
   },
   {
     id: 'music-services',

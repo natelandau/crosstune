@@ -92,6 +92,8 @@ test('reads the chosen instruments from the settings row', async () => {
     instruments: ['violin'],
     audio_quality: 'standard',
     play_first: 'recordings',
+    new_tune_genre: null,
+    new_tune_status: 'want_to_learn',
   })
   const { input } = await readExportInput(db, USER, ZONE)
   expect(input.instruments).toEqual(['violin'])

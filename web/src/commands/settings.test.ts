@@ -7,6 +7,8 @@ import { SEARCHABLE_PROVIDERS, storedSearchProviders, type LocalUserSettings } f
 import {
   setAudioQuality,
   setInstruments,
+  setNewTuneGenre,
+  setNewTuneStatus,
   setPlayFirst,
   settingsId,
   toggleInstrumentSetting,
@@ -38,6 +40,8 @@ async function putStoredRow(fields: Record<string, unknown>): Promise<void> {
     audio_quality: 'standard',
     play_first: 'recordings',
     search_providers: [],
+    new_tune_genre: null,
+    new_tune_status: 'want_to_learn',
     ...fields,
   } as never)
 }
@@ -107,6 +111,8 @@ describe('toggleInstrumentSetting', () => {
       instruments: ['violin', 'harmonica'],
       audio_quality: 'standard',
       play_first: 'recordings',
+      new_tune_genre: null,
+      new_tune_status: 'want_to_learn',
     })
     await toggleInstrumentSetting(db, 'user_1', 'five_string_banjo', true)
     const row = await db.user_settings.get(settingsId('user_1'))
@@ -123,6 +129,8 @@ describe('toggleInstrumentSetting', () => {
       instruments: ['violin', 'harmonica', 'harmonica'],
       audio_quality: 'standard',
       play_first: 'recordings',
+      new_tune_genre: null,
+      new_tune_status: 'want_to_learn',
     })
     await toggleInstrumentSetting(db, 'user_1', 'five_string_banjo', true)
     const row = await db.user_settings.get(settingsId('user_1'))
@@ -295,6 +303,8 @@ describe('toggleSearchProvider', () => {
       instruments: [],
       audio_quality: 'standard',
       play_first: 'recordings',
+      new_tune_genre: null,
+      new_tune_status: 'want_to_learn',
       search_providers: ['tidal', 'future_service'],
     } as never)
     await toggleSearchProvider(db, 'user_1', 'spotify', true)
@@ -334,6 +344,8 @@ describe('toggleSearchProvider', () => {
       instruments: [],
       audio_quality: 'standard',
       play_first: 'recordings',
+      new_tune_genre: null,
+      new_tune_status: 'want_to_learn',
       search_providers: stored,
     } as never)
     await setInstruments(db, 'user_1', ['violin'])
@@ -350,5 +362,46 @@ describe('toggleSearchProvider', () => {
     expect((await db.user_settings.get(settingsId('user_1')))?.search_providers).not.toContain(
       'spotify',
     )
+  })
+})
+
+describe('new tune defaults', () => {
+  it('start a new settings row with no genre and want to learn', async () => {
+    await setInstruments(db, 'user_1', ['violin'])
+    expect((await pendingFor(db, 'user_settings', settingsId('user_1')))?.data).toMatchObject({
+      new_tune_genre: null,
+      new_tune_status: 'want_to_learn',
+    })
+  })
+
+  it('set a genre and a status and keep the other choices', async () => {
+    await setAudioQuality(db, 'user_1', 'high')
+    await setNewTuneGenre(db, 'user_1', 'Old-time')
+    await setNewTuneStatus(db, 'user_1', 'known')
+    const row = await db.user_settings.get(settingsId('user_1'))
+    expect(row).toMatchObject({
+      audio_quality: 'high',
+      new_tune_genre: 'Old-time',
+      new_tune_status: 'known',
+    })
+    expect((await pendingFor(db, 'user_settings', settingsId('user_1')))?.data).toMatchObject({
+      new_tune_genre: 'Old-time',
+      new_tune_status: 'known',
+    })
+  })
+
+  it('store a genre as typed, and a blank one as no genre', async () => {
+    await setNewTuneGenre(db, 'user_1', 'Cape ')
+    expect((await db.user_settings.get(settingsId('user_1')))?.new_tune_genre).toBe('Cape ')
+    await setNewTuneGenre(db, 'user_1', '   ')
+    expect((await db.user_settings.get(settingsId('user_1')))?.new_tune_genre).toBeNull()
+  })
+
+  it('keep a status this client does not know through other settings edits', async () => {
+    await putStoredRow({ new_tune_status: 'future_status' })
+    await setInstruments(db, 'user_1', ['violin'])
+    expect((await pendingFor(db, 'user_settings', settingsId('user_1')))?.data).toMatchObject({
+      new_tune_status: 'future_status',
+    })
   })
 })

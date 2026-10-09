@@ -28,6 +28,7 @@ export const KEEP_OFFLINE_FOOTER =
 /** Settings group names, which are also the settings pages' titles. */
 export const ACCOUNT = 'Account'
 export const INSTRUMENTS = 'Instruments'
+export const NEW_TUNES = 'New tunes'
 export const APPEARANCE = 'Appearance'
 export const SYNC = 'Sync'
 export const SYNC_AND_STORAGE = 'Sync and storage'

@@ -3,6 +3,8 @@ import type { Key, Selection } from 'react-aria-components'
 import { Link, useMatch, useNavigate, useParams } from 'react-router'
 import { SETTINGS_STATS_PATH, settingsPagePath } from './settingsPaths'
 import { storedAudioQuality } from '../../db/recordings'
+import { storedNewTuneGenre } from '../../db/types'
+import { NOT_SET } from '../../ui/fieldCopy'
 import { useAppearance } from '../../theme/appearance'
 import { syncedLine } from './lastSynced'
 import { aboutLine, SETTINGS_CATEGORIES } from './settingsCopy'
@@ -112,10 +114,12 @@ export function SettingsRoot() {
 function useSettingsValues(): SettingsValues {
   const instruments = useInstrumentsSetting()
   const services = useMusicServicesSetting()
-  const quality = storedAudioQuality(useSettingsRow())
+  const row = useSettingsRow()
+  const quality = storedAudioQuality(row)
   const appearance = useAppearance()
   return {
     instruments: instruments.instruments ? instruments.summary : '',
+    newTunes: row === undefined ? '' : (storedNewTuneGenre(row) ?? NOT_SET),
     services: services.providers ? services.summary : '',
     quality,
     appearance,
