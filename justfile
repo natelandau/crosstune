@@ -106,7 +106,7 @@ worktree branch:
     just --justfile '{{ justfile() }}' apple::prune-derived-data
     echo "worktree ready at $path"
 
-# Copy the main checkout's .env files into this worktree, replacing any already here
+# Copy the main checkout's .env files and Apple secrets into this worktree, replacing any already here
 worktree-env:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -121,6 +121,11 @@ worktree-env:
         cp "$env" "$here/${env#"$main"/}"
         echo "copied ${env#"$main"/}"
     done
+    secrets=apple/Config/Secrets.xcconfig
+    if [ -e "$main/$secrets" ]; then
+        cp "$main/$secrets" "$here/$secrets"
+        echo "copied $secrets"
+    fi
 
 # Start Postgres and RustFS, apply migrations, then run the API, web client, and site together
 dev:

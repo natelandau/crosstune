@@ -268,7 +268,8 @@ git push --follow-tags origin main
   apps** job, which raises the attempt and re-runs the jobs after it. A
   re-run of the upload alone sends the same build number, which App Store
   Connect refuses once it has that build. The same release runs from a Mac
-  with `just apple::testflight <build number>` and the key in `apple/.env`.
+  with `just apple::testflight <build number>`, the key in `apple/.env`, and
+  the PostHog project token in `apple/Config/Secrets.xcconfig`.
   Use a build number higher than every uploaded build.
 - Each version is its side's Sentry release tag.
 - A home-screen install keeps the icon it was installed with. A release that

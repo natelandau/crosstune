@@ -306,6 +306,12 @@ archive build_number:
     : "${ASC_KEY_PATH:?the path of the .p8 key file}" "${ASC_KEY_ID:?the key ID}" "${ASC_ISSUER_ID:?the issuer ID}"
     # A .env file does not expand `~`.
     ASC_KEY_PATH="${ASC_KEY_PATH/#\~/$HOME}"
+    # An empty token ships a release that silently sends no analytics.
+    if ! {{ xcodebuild }} -showBuildSettings -project Crosstune.xcodeproj -scheme Crosstune \
+        -configuration Release 2>/dev/null | grep -qE '^ *POSTHOG_PROJECT_TOKEN = phc_'; then
+        echo "POSTHOG_PROJECT_TOKEN is empty; set it in Config/Secrets.xcconfig" >&2
+        exit 1
+    fi
     rm -rf {{ archives }}
     for platform in iOS macOS; do
         {{ xcodebuild }} archive -quiet -project Crosstune.xcodeproj -scheme Crosstune \
@@ -361,10 +367,11 @@ update:
     {{ swift }} package update --package-path CrosstuneKit
     {{ swift }} package update --package-path Tools
 
-# Create .env from the example if absent
+# Create .env and Config/Secrets.xcconfig from their examples if absent
 [group('maintenance')]
 setup:
     test -e .env || cp .env.example .env
+    test -e Config/Secrets.xcconfig || cp Config/Secrets.xcconfig.example Config/Secrets.xcconfig
 
 # Remove build artifacts and caches
 [group('maintenance')]

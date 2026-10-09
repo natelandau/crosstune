@@ -27,6 +27,7 @@ xcuserdata/
 DerivedData/
 *.xcresult
 apple/Config/Local.xcconfig
+apple/Config/Secrets.xcconfig
 
 # Local dev
 .dev/

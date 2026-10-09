@@ -127,6 +127,10 @@ jobs:
         env:
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
         run: printf '%s\n' "$ASC_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+      - name: write the release secrets
+        env:
+          POSTHOG_PROJECT_TOKEN_PRODUCTION: ${{ secrets.POSTHOG_PROJECT_TOKEN_PRODUCTION }}
+        run: printf 'POSTHOG_PROJECT_TOKEN = %s\n' "$POSTHOG_PROJECT_TOKEN_PRODUCTION" > Config/Secrets.xcconfig
       # The run number only rises, and a re-run raises the attempt, so no two
       # uploads share a build number. The archive fixes the number, so a new
       # upload needs this job re-run, not only the upload.
