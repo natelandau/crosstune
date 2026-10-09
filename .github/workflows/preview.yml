@@ -25,7 +25,7 @@ concurrency:
   cancel-in-progress: ${{ github.event.action == 'synchronize' }}
 
 # Secrets are set on the steps that use them, never here, so a step sees only its own.
-# The pinned neonctl and wrangler packages do run with the Neon and Cloudflare tokens.
+# The pinned neonctl and web's locked wrangler do run with the Neon and Cloudflare tokens.
 env:
   # Fail when uv.lock disagrees with pyproject.toml instead of relocking.
   UV_LOCKED: "1"
@@ -60,6 +60,8 @@ jobs:
         uses: ./.github/actions/changes
         with:
           pattern: '^(api/|scripts/preview-railway\.sh$|\.github/workflows/preview\.yml$)'
+          # Tests and recipes never reach the deployed API.
+          exclude: '^api/(tests/|justfile$)'
 
   up:
     name: Create or refresh the preview environment
@@ -151,13 +153,18 @@ jobs:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
         run: scripts/preview-railway.sh hostname
 
+      - uses: ./.github/actions/setup-node
+        with:
+          module: web
+
       - name: point the preview at its API
+        working-directory: web
         env:
           SLUG: ${{ steps.slug.outputs.slug }}
           API_HOSTNAME: ${{ steps.railway.outputs.hostname }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          npx --yes wrangler@4.141.0 kv key put "$SLUG" "https://$API_HOSTNAME" \
+          pnpm exec wrangler kv key put "$SLUG" "https://$API_HOSTNAME" \
             --namespace-id "$CLOUDFLARE_KV_NAMESPACE_ID" --remote
 
   down:
@@ -233,12 +240,17 @@ jobs:
         if: steps.neon-delete.outcome == 'failure'
         run: echo "::warning::could not delete Neon branch $PR_NAME; it may still exist"
 
+      - uses: ./.github/actions/setup-node
+        with:
+          module: web
+
       - name: delete the preview's API entry
+        working-directory: web
         env:
           SLUG: ${{ steps.slug.outputs.slug }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          npx --yes wrangler@4.141.0 kv key delete "$SLUG" \
+          pnpm exec wrangler kv key delete "$SLUG" \
             --namespace-id "$CLOUDFLARE_KV_NAMESPACE_ID" --remote \
             || echo "::warning::could not delete KV entry $SLUG; it may still exist"
 

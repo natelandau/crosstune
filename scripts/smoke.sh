@@ -15,11 +15,15 @@ failed=0
 
 pass() { printf 'ok    %s\n' "$1"; }
 fail() { printf 'FAIL  %s\n' "$1"; failed=1; }
-headers_of() { curl -sS -o /dev/null -D - "$@" | tr -d '\r'; }
-status_of() { curl -sS -o /dev/null -w '%{http_code}' "$@"; }
+# A hung origin fails its check instead of stalling the run.
+fetch() { curl -sS --max-time 20 "$@"; }
+headers_of() { fetch -o /dev/null -D - "$@" | tr -d '\r'; }
+status_of() { fetch -o /dev/null -w '%{http_code}' "$@"; }
+# Captured, not piped: grep -q exits at the first match, and under pipefail curl's SIGPIPE fails the check.
+body_has() { local body; body="$(fetch "$1" || true)"; grep -q "$2" <<<"$body"; }
 
 name="API /healthz answers ok"
-if [ "$(curl -sS "$api/healthz")" = '{"status":"ok"}' ]; then pass "$name"; else fail "$name"; fi
+if [ "$(fetch "$api/healthz" || true)" = '{"status":"ok"}' ]; then pass "$name"; else fail "$name"; fi
 
 name="API rejects an anonymous call with a problem document"
 h="$(headers_of "$api/v1/me" || true)"
@@ -38,21 +42,21 @@ else
 fi
 
 name="web serves the app shell"
-if curl -sS "$web/" | grep -q '<div id="root">'; then pass "$name"; else fail "$name"; fi
+if body_has "$web/" '<div id="root">'; then pass "$name"; else fail "$name"; fi
 
 name="web serves the manifest"
-if curl -sS "$web/manifest.webmanifest" | grep -q 'Crosstune'; then pass "$name"; else fail "$name"; fi
+if body_has "$web/manifest.webmanifest" 'Crosstune'; then pass "$name"; else fail "$name"; fi
 
 name="web serves the service worker"
 if [ "$(status_of "$web/sw.js")" = 200 ]; then pass "$name"; else fail "$name"; fi
 
 name="web serves the shell for a client-side route"
-if curl -sS "$web/tunes/new" | grep -q '<div id="root">'; then pass "$name"; else fail "$name"; fi
+if body_has "$web/tunes/new" '<div id="root">'; then pass "$name"; else fail "$name"; fi
 
 # Site checks: the static site at the apex, which never proxies the API.
 if [ -n "$site" ]; then
   name="site serves the home page"
-  if curl -sS "$site/" | grep -q 'The tune list in your case'; then pass "$name"; else fail "$name"; fi
+  if body_has "$site/" 'id="hero-title"'; then pass "$name"; else fail "$name"; fi
 
   for page in privacy terms support waitlist/thanks; do
     name="site serves /$page"

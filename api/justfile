@@ -131,7 +131,8 @@ worktree-db mode='keep':
         *) echo "mode is keep or reset, not '{{ mode }}'" >&2; exit 1 ;;
     esac
     docker compose -f ../compose.yml up -d --wait postgres rustfs
-    uv run python -m crosstune.ops.local_worktree provision "${flags[@]}"
+    # bash 3.2 treats an empty array as unbound under set -u.
+    uv run python -m crosstune.ops.local_worktree provision ${flags[@]+"${flags[@]}"}
     if ! uv run alembic upgrade head; then
         echo "If alembic cannot locate a revision, main's database ran another branch's migration" >&2
         echo "and this copy inherited it. Downgrade main's database from that branch, then run" >&2
