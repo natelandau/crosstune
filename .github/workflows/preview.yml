@@ -80,7 +80,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
-      - name: compute the preview alias
+      - name: compute the Preview name
         id: slug
         run: |
           slug="$(node web/scripts/branch-slug.mjs)"
@@ -191,7 +191,7 @@ jobs:
 
       # A close event carries the branch in GITHUB_HEAD_REF; a manual run looks it up, which
       # still works once the branch is deleted.
-      - name: compute the preview alias
+      - name: compute the Preview name
         id: slug
         env:
           GH_TOKEN: ${{ github.token }}

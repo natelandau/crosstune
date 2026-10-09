@@ -174,8 +174,8 @@ and fails instead in CI, where the `API` workflow always starts it.
 ## Delivery
 
 - A merge to `main` deploys development. Railway rebuilds the API when a
-  file under `api/` changed. Workers Builds uploads the web client under the
-  alias `main` when a file under `web/` changed.
+  file under `api/` changed. Workers Builds deploys the web client to the
+  Preview `main` when a file under `web/` changed.
 - A merge to `main` that changes a file under `site/` deploys the site to
   production. The site has no development deploy and no part in a release.
 - A version tag deploys the API and the web client to production. The
@@ -187,7 +187,7 @@ and fails instead in CI, where the `API` workflow always starts it.
   Dependabot gets none, because its run has no Actions secrets. The
   `Preview` workflow creates a Neon branch `pr-<n>` from development and a
   Railway environment `pr-<n>` on the PR branch, with the `pr-<n>/` prefix
-  of the preview bucket. A KV entry maps the PR's preview alias to that
+  of the preview bucket. A KV entry maps the PR's Preview name to that
   API. Every push resets the Neon branch and migrates it to the PR's
   schema, so preview data is lost. Every push also copies into the prefix
   each object of the development bucket whose copy is missing, has a

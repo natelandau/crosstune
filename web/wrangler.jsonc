@@ -23,4 +23,16 @@
     "API_ORIGIN_PRODUCTION": "https://api.crosstune.app",
     "API_ORIGIN_DEVELOPMENT": "https://crosstune-development.up.railway.app",
   },
+  // Branch builds deploy as Worker Previews (`wrangler preview`), which inherit
+  // no bindings or vars, so both are repeated here.
+  "previews": {
+    "kv_namespaces": [
+      { "binding": "PREVIEW_API_ORIGINS", "id": "043d121be1454f958d5d85b64b671926" },
+    ],
+    "vars": {
+      "WORKER_NAME": "crosstune-web",
+      "API_ORIGIN_PRODUCTION": "https://api.crosstune.app",
+      "API_ORIGIN_DEVELOPMENT": "https://crosstune-development.up.railway.app",
+    },
+  },
 }
