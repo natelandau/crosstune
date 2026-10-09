@@ -44,14 +44,22 @@ public enum ListRowActions {
 
 extension View {
     /// Gives a list row its actions: Edit, which renames it, and Delete, as trailing swipe
-    /// actions and as context menu items, Delete after a separator.
-    func listRowActions(onEdit: @escaping () -> Void, onDelete: @escaping () -> Void) -> some View {
+    /// actions and as context menu items, Delete after a separator. With `onPlay`, the menu
+    /// opens with Play and Shuffle, which pass whether to shuffle.
+    func listRowActions(
+        onPlay: ((Bool) -> Void)? = nil, onEdit: @escaping () -> Void, onDelete: @escaping () -> Void
+    ) -> some View {
         self
             // A long swipe only reveals the actions; no swipe acts on its own.
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                 ListRowSwipeButtons(onEdit: onEdit, onDelete: onDelete)
             }
             .contextMenu {
+                if let onPlay {
+                    Button(ListPlayText.play, systemImage: "play.fill") { onPlay(false) }
+                    Button(ListPlayText.shuffle, systemImage: "shuffle") { onPlay(true) }
+                    Divider()
+                }
                 ListRowMenuItems(onEdit: onEdit, onDelete: onDelete)
             }
     }
