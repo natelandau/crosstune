@@ -381,6 +381,19 @@ async def test_push_user_settings_play_first_round_trips(client, auth_headers) -
     ]
 
 
+async def test_push_user_settings_new_tune_defaults_round_trip(client, auth_headers) -> None:
+    headers = auth_headers("user_a")
+    results = await push(
+        client,
+        headers,
+        change("user_settings", uid(), T0, new_tune_genre="Old-time", new_tune_status="known"),
+    )
+    assert results[0]["status"] == "applied"
+    rows = (await pull(client, headers))["rows"]
+    stored = [r["row"] for r in rows if r["table"] == "user_settings"]
+    assert [(r["new_tune_genre"], r["new_tune_status"]) for r in stored] == [("Old-time", "known")]
+
+
 async def test_push_user_tune_pin_round_trips(client, auth_headers) -> None:
     headers = auth_headers("user_a")
     tune_id, us_id, rec_id = uid(), uid(), uid()

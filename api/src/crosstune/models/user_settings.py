@@ -10,11 +10,12 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
 from crosstune.models._checks import in_list
-from crosstune.vocabulary import SEARCHABLE_PROVIDERS, AudioQuality, PlayFirst
+from crosstune.models.tune import TUNE
+from crosstune.vocabulary import SEARCHABLE_PROVIDERS, AudioQuality, PlayFirst, TuneStatus
 
 
 class UserSettings(SyncColumns, Base):
-    """The instruments a user plays and how they record.
+    """The instruments a user plays, how they record, and how a new tune starts.
 
     Clients derive the id from the user so every device agrees.
     """
@@ -31,6 +32,10 @@ class UserSettings(SyncColumns, Base):
             in_list("play_first", tuple(PlayFirst), nullable=False),
             name="ck_user_settings_play_first",
         ),
+        CheckConstraint(
+            in_list("new_tune_status", tuple(TuneStatus), nullable=False),
+            name="ck_user_settings_new_tune_status",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
@@ -46,4 +51,8 @@ class UserSettings(SyncColumns, Base):
     )
     play_first: Mapped[str] = mapped_column(
         String(20), nullable=False, default=PlayFirst.RECORDINGS.value
+    )
+    new_tune_genre: Mapped[str | None] = mapped_column(String(TUNE["genre"]), nullable=True)
+    new_tune_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=TuneStatus.WANT_TO_LEARN.value
     )

@@ -3292,6 +3292,23 @@
             "title": "Instruments",
             "type": "array"
           },
+          "new_tune_genre": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Tune Genre"
+          },
+          "new_tune_status": {
+            "$ref": "#/components/schemas/TuneStatus",
+            "default": "want_to_learn"
+          },
           "play_first": {
             "$ref": "#/components/schemas/PlayFirst",
             "default": "recordings"

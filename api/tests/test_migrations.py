@@ -2868,3 +2868,40 @@ async def test_downgrade_to_0032_drops_scan_views(
     finally:
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
     assert table is None
+
+
+async def test_0036_starts_existing_settings_with_no_new_tune_defaults(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000081"
+    settings = "018f0000-0000-7000-8000-000000000082"
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0035")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into user_settings "
+                    "(id, user_id, instruments, audio_quality, created_at, updated_at) "
+                    "values (:id, :user, '{}', 'standard', now(), now())"
+                ),
+                {"id": settings, "user": user},
+            )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    async with engine.begin() as conn:
+        stored = (
+            await conn.execute(text("select new_tune_genre, new_tune_status from user_settings"))
+        ).one()
+    assert tuple(stored) == (None, "want_to_learn")
+    with pytest.raises(IntegrityError, match="ck_user_settings_new_tune_status"):
+        async with engine.begin() as conn:
+            await conn.execute(text("update user_settings set new_tune_status = 'mastered'"))

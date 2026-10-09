@@ -315,6 +315,8 @@ class UserSettingsData(_Data):
     # The default is validated too, so it is stored as a plain string like a sent value.
     audio_quality: AudioQuality = Field(default=AudioQuality.STANDARD, validate_default=True)
     play_first: PlayFirst = Field(default=PlayFirst.RECORDINGS, validate_default=True)
+    new_tune_genre: str | None = Field(default=None, min_length=1, max_length=TUNE["genre"])
+    new_tune_status: TuneStatus = Field(default=TuneStatus.WANT_TO_LEARN, validate_default=True)
     search_providers: Annotated[
         list[Provider], AfterValidator(_distinct), AfterValidator(_no_other)
     ] = Field(default_factory=lambda: list(SEARCHABLE_PROVIDERS))
