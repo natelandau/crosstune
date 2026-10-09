@@ -74,7 +74,7 @@ export function App({
     <TuneFormProvider navigate={(to) => void router.navigate(to)}>{sheeted}</TuneFormProvider>
   )
   // Above the router, so practice's holds reach the bar and the overlay in every route, and the
-  // dome, the capsule, and a tune page reach the one recorder.
+  // disc, the capsule, and a tune page reach the one recorder.
   const practiced = (
     <PracticeOverlayStateProvider>
       <RecordStateProvider>

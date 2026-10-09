@@ -10,7 +10,7 @@
   --jet: #2d3142;
   --record: #ff3b30;
   --known: #248a3d;
-  --learning: #c93400;
+  --learning: #ff8d28;
   --unknown: #8a909a;
   --silver: #bfc0c0;
   --danger: #d92d20;
@@ -26,6 +26,12 @@
   --play-wash: color-mix(in srgb, var(--slate) 6%, transparent);
   --set-fill: color-mix(in srgb, var(--slate) 14%, transparent);
   --set-label: var(--slate);
+  /* The navigation surfaces' tint, the Mac sidebar's: slate at 15% over the ground, 20% in
+     dark, flattened so tests can measure it. Secondary ink and the unknown ring darken on it to
+     keep their contrast. */
+  --nav: #e5e7ea;
+  --nav-ink-2: #5b6270;
+  --nav-unknown: #737983;
   /* The name the shared mark reads its T from. */
   --color-mark: var(--coral);
   color-scheme: light;
@@ -110,7 +116,7 @@
   --jet: #1e212c;
   --record: #ff453a;
   --known: #30d158;
-  --learning: #ff9f0a;
+  --learning: #ff9230;
   --danger: var(--danger-dark);
   --warning: #ff9f0a;
   --fill: #25272d;
@@ -119,6 +125,9 @@
   --play-wash: color-mix(in srgb, var(--slate) 12%, transparent);
   --set-fill: color-mix(in srgb, var(--slate) 28%, transparent);
   --set-label: var(--ink);
+  --nav: #2e323b;
+  --nav-ink-2: var(--ink-2);
+  --nav-unknown: var(--unknown);
   color-scheme: dark;
 
   --key-0-bg: #5c3232;
@@ -212,4 +221,10 @@
   --color-wash: var(--wash);
   --color-set-fill: var(--set-fill);
   --color-set-label: var(--set-label);
+  --color-nav: var(--nav);
+}
+
+[data-nav] {
+  --ink-2: var(--nav-ink-2);
+  --unknown: var(--nav-unknown);
 }

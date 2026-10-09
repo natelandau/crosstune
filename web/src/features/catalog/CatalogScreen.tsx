@@ -233,6 +233,7 @@ export function CatalogScreen() {
         counts={counts}
         sheet={sheet}
         statusCounts={statusCounts}
+        showsStatus={phone}
         title={titleRef}
         onChange={(patch) => void setFilters(patch)}
       />

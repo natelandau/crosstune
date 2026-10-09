@@ -20,7 +20,6 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
     ['slate', p.slate, p.ground, 4.5],
     ['label on slate', p.onSlate, p.slate, 4.5],
     ['known glyph', p.known, p.ground, 3],
-    ['learning glyph', p.learning, p.ground, 3],
     ['unknown ring', p.unknown, p.ground, 3],
     ['record', p.record, p.ground, 3],
     ['danger label', p.danger, p.ground, 4.5],
@@ -33,7 +32,20 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
     ['switch track on on its row', p.slate, p.fill, 3],
     ['switch track on against the track off', p.slate, p.fill, 3],
     ['switch thumb on the track on', p.ground, p.slate, 3],
+    ['ink on the nav', p.ink, p.nav, 4.5],
+    ['secondary ink on the nav', p.navInk2, p.nav, 4.5],
+    ['known glyph on the nav', p.known, p.nav, 3],
+    ['unknown ring on the nav', p.navUnknown, p.nav, 3],
+    ['current tab on the nav', p.slate, p.nav, 4.5],
   ])('%s passes', (_, fg, bg, min) => expect(ratio(fg, bg)).toBeGreaterThanOrEqual(min))
+})
+
+// Learning is Apple's system orange, below 3:1 on a light ground; its half fill carries the status.
+it.each([
+  ['light', '#FF8D28'],
+  ['dark', '#FF9230'],
+] as const)("draws learning in Apple's %s orange", (scheme, orange) => {
+  expect(PALETTE[scheme].learning).toBe(orange)
 })
 
 it.each(['light', 'dark'] as const)('practice reads on %s jet', (scheme) => {

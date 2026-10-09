@@ -129,7 +129,7 @@ export function Columns({
           hidden={!listShown}
           inert={!listShown}
           style={wide ? { width } : undefined}
-          className={`min-h-0 overflow-y-auto ${wide ? 'shrink-0' : 'min-w-0 flex-1'}`}
+          className={`min-h-0 overflow-y-auto pb-(--float-clearance) ${wide ? 'shrink-0' : 'min-w-0 flex-1'}`}
           onFocus={(event) => {
             lastFocus.current = event.target
           }}
@@ -156,7 +156,10 @@ export function Columns({
           hidden={!detailShown}
           className="flex min-h-0 min-w-0 flex-1 flex-col"
         >
-          <PaneScroller scrollerRef={detailRef} className="min-h-0 flex-1 overflow-y-auto">
+          <PaneScroller
+            scrollerRef={detailRef}
+            className="min-h-0 flex-1 overflow-y-auto pb-(--float-clearance)"
+          >
             <main ref={pageRef} aria-label={detailLabel} data-pane-focus className="min-h-full">
               {/* Already shown when a page opens, so a page that waits to read holds the one
                   before it in place rather than blanking the column. */}

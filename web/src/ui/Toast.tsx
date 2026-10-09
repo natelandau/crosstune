@@ -170,7 +170,8 @@ export function ToastProvider({
           style={{
             left: 'var(--toast-left, 0px)',
             right: 'var(--toast-right, 0px)',
-            bottom: 'var(--toast-bottom, calc(1rem + env(safe-area-inset-bottom)))',
+            bottom:
+              'var(--toast-bottom, var(--shell-clearance, calc(1rem + env(safe-area-inset-bottom))))',
           }}
         >
           {toast && (

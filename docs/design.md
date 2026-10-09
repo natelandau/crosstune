@@ -89,7 +89,9 @@ Decide any case the rules below do not name.
   pill. Two sizes: full (tap target) and compact (row metadata).
 - Tabular numerals wherever a number changes or lines up.
 - Text passes 4.5:1, glyphs 3:1, in both appearances and on every ground.
-  Tests measure the token pairs.
+  Tests measure the token pairs. Exception: Learning is Apple's system
+  orange everywhere, below 3:1 on a light ground, so its half fill carries
+  the status.
 - Depth only on floating surfaces and bars. No row, card, or section casts
   a shadow.
 - Per device, untouched by sign-out: appearance, text size, recording

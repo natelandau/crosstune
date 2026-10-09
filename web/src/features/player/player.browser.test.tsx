@@ -17,6 +17,7 @@ import { TUNE } from '../tune/tunePageCopy'
 import { UNDO } from '../../ui/Toast'
 import { TAB_BAR } from '../../app/tabs'
 import { TUNE_LIST } from '../catalog/catalogCopy'
+import { VIDEO_HEIGHT_PX } from './playerHeight'
 
 const PHONE = { width: 390, height: 844 }
 const WIDE = { width: 1280, height: 800 }
@@ -120,7 +121,7 @@ async function playTake() {
   return opener
 }
 
-it('shows the phone bar directly above the tab bar, with Play and Pause swapping', async () => {
+it('floats the phone bar just above the tab bar, with Play and Pause swapping', async () => {
   await mount('/catalog/t1', PHONE, async (db) => {
     await seedTune(db, 't1', 'Old Joe Clark')
     await seedTake(db, 't1')
@@ -128,7 +129,9 @@ it('shows the phone bar directly above the tab bar, with Play and Pause swapping
   await playTake()
 
   const tabs = page.getByRole('navigation', { name: TAB_BAR })
-  await expect.poll(() => box(player().element()).bottom).toBeCloseTo(box(tabs.element()).top, 0)
+  await expect
+    .poll(() => box(tabs.element()).top - box(player().element()).bottom)
+    .toSatisfy((gap: number) => gap > 0 && gap <= 12)
   await player().getByRole('button', { name: PAUSE }).click()
   await expect.element(player().getByRole('button', { name: PLAY, exact: true })).toBeVisible()
   await player().getByRole('button', { name: PLAY, exact: true }).click()
@@ -225,6 +228,20 @@ it('grows an embed up out of the bar, at most 40% of the pane', async () => {
     .toBeLessThanOrEqual(window.innerHeight * 0.4)
 })
 
+it('gives an embed its full height when the phone has room for it', async () => {
+  await mount('/catalog/t1', PHONE, seedLink)
+  await playLink()
+
+  // Read once the cap is set, since the embed shows uncapped for the moment before.
+  const capped = () => {
+    const panel = document.querySelector<HTMLElement>('[data-embed]')
+    return panel?.style.getPropertyValue('--embed-cap')
+      ? embedFrame()!.getBoundingClientRect().height
+      : 0
+  }
+  await expect.poll(capped).toBe(VIDEO_HEIGHT_PX)
+})
+
 it('caps an embed at 40% of the detail pane on wide', async () => {
   await mount('/catalog/t1', WIDE, seedLink)
   await playLink()
@@ -291,6 +308,20 @@ it('sets a toast above the phone bar', async () => {
   await expect.element(undo).toBeVisible()
   await expect
     .poll(() => box(undo.element().parentElement!).bottom <= box(player().element()).top)
+    .toBe(true)
+})
+
+it('sets a toast above the floating tab bar when nothing plays', async () => {
+  await mount('/lists/l1', PHONE, seedList)
+  const rows = page.getByRole('grid', { name: TUNE_LIST })
+  const row = rows.getByRole('row', { name: /Forked Deer/ })
+  await row.hover()
+  await row.getByRole('button', { name: REMOVE }).click()
+  const undo = page.getByRole('button', { name: UNDO })
+  await expect.element(undo).toBeVisible()
+  const tabs = page.getByRole('navigation', { name: TAB_BAR })
+  await expect
+    .poll(() => box(undo.element().parentElement!).bottom <= box(tabs.element()).top)
     .toBe(true)
 })
 

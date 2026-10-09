@@ -84,8 +84,9 @@ function BarFrame({
     <section
       ref={ref}
       aria-label={PLAYER_REGION}
-      // Clipped, so the bar rises out of its own box rather than over the tab bar.
-      className="bg-ground overflow-hidden"
+      // Clipped, so the bar rises out of its own box rather than over the tab bar. The slot
+      // paints the ground, which differs between the docked bar and the phone's floating card.
+      className="overflow-hidden"
     >
       <motion.div initial={{ y: '100%' }} animate={{ y: 0 }}>
         {children}

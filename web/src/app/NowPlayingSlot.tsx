@@ -99,12 +99,19 @@ export function useNowPlaying(): { set: (node: ReactNode) => void } {
 }
 
 /**
- * A place the docked node can sit: the shell's above the tab bar on the phone and at the foot
- * of the content elsewhere, and a layout's own, such as the columns' under the detail pane,
- * which outranks the shell's with a higher `priority`. Only the slot holding the node shows,
- * and none shows while nothing is docked, so no slot reserves space.
+ * A place the docked node can sit: the shell's floating above the tab bar on the phone and at
+ * the foot of the content elsewhere, and a layout's own, such as the columns' under the detail
+ * pane, which outranks the shell's with a higher `priority`. Only the slot holding the node
+ * shows, and none shows while nothing is docked, so no slot reserves space.
  */
-export function NowPlayingSlot({ priority = 0 }: { priority?: number }) {
+export function NowPlayingSlot({
+  priority = 0,
+  floating = false,
+}: {
+  priority?: number
+  /** A card in the navigation tint over the content, rather than a bar docked under it. */
+  floating?: boolean
+}) {
   const context = useContext(NowPlayingContext)
   const [host, setHost] = useState<HTMLDivElement | null>(null)
   const shown = Boolean(context?.node)
@@ -120,8 +127,14 @@ export function NowPlayingSlot({ priority = 0 }: { priority?: number }) {
     <div
       ref={setHost}
       data-now-playing
+      data-nav={floating || undefined}
+      data-floating={floating || undefined}
       hidden={context?.active !== host}
-      className="border-hairline shrink-0 border-t"
+      className={
+        floating
+          ? 'bg-nav border-hairline shrink-0 overflow-hidden rounded-(--radius-surface) border'
+          : 'bg-ground border-hairline shrink-0 border-t'
+      }
     />
   )
 }

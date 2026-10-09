@@ -67,7 +67,7 @@ export interface SheetProps {
   leading?: SheetPrimary | null
   /** Runs once the sheet has finished closing and left the page. */
   onClosed?: () => void
-  /** The control the sheet grows out of and closes back into, such as the Record dome. */
+  /** The control the sheet grows out of and closes back into, such as the Record disc. */
   origin?: () => Element | null
   children: ReactNode
 }

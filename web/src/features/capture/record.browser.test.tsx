@@ -34,7 +34,7 @@ async function recordFromTunePage() {
   await page.getByRole('menuitem', { name: NEW_RECORDING }).click()
 }
 
-it('records from the dome at 390, with the timer up and the dome out of reach', async () => {
+it('records from the disc at 390, with the timer up and the disc out of reach', async () => {
   fakeMediaForTest()
   await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE, density: 'touch' })
   await page.getByRole('button', { name: RECORD_LABEL }).click()
@@ -148,7 +148,7 @@ it('records from the sidebar capsule at 1280 and goes to Recordings once saved',
 })
 
 it.each([
-  ['dome at 390', PHONE, 'touch'],
+  ['disc at 390', PHONE, 'touch'],
   ['capsule at 1280', WIDE, 'pointer'],
 ] as const)('grows out of the %s', async (_name, frame, density) => {
   fakeMediaForTest()

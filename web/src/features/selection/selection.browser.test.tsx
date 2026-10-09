@@ -195,7 +195,7 @@ it('selects on touch from the menu a long press opens, then by taps', async () =
   await expect.element(page.getByRole('toolbar', { name: SELECTION_ACTIONS })).toBeVisible()
 })
 
-it('replaces the tab bar on the phone and stands the Record dome down', async () => {
+it('replaces the tab bar on the phone and stands the Record disc down', async () => {
   const db = openTestDb()
   await seedCatalog(db)
   await renderApp({ path: '/catalog', db, frame: PHONE })
