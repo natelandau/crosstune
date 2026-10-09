@@ -4,10 +4,11 @@ import {
   EXPORT_DATA,
   EXPORT_TITLE,
 } from '../src/features/settings/export/exportCopy'
+import { IMPORT_AND_EXPORT } from '../src/features/settings/settingsCopy'
 import {
   addTune,
   createThrowawayUser,
-  openAccount,
+  openSetting,
   removeClerkUser,
   signInAs,
   unique,
@@ -19,7 +20,7 @@ test('exports the library as a zip download', async ({ page }) => {
     await signInAs(page, emailAddress)
     await addTune(page, unique("Cooley's"), 'D')
 
-    await openAccount(page, emailAddress)
+    await openSetting(page, IMPORT_AND_EXPORT)
     await page.getByRole('button', { name: EXPORT_DATA }).click()
     const download = page.waitForEvent('download')
     await page

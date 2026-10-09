@@ -1,4 +1,5 @@
 import {
+  ArrowDownUp,
   AudioLines,
   Guitar,
   ListPlus,
@@ -14,7 +15,14 @@ import { AUDIO_QUALITY_NAMES } from '../../constants'
 import { RECORDING } from '../../text/format'
 import { APPEARANCE_LABELS, type Appearance } from '../../theme/appearance'
 import { MUSIC_SERVICES } from './searchProviders'
-import { ACCOUNT, APPEARANCE, INSTRUMENTS, NEW_TUNES, SYNC_AND_STORAGE } from './settingsCopy'
+import {
+  ACCOUNT,
+  APPEARANCE,
+  IMPORT_AND_EXPORT,
+  INSTRUMENTS,
+  NEW_TUNES,
+  SYNC_AND_STORAGE,
+} from './settingsCopy'
 
 /** What the root reads once, so each category's summary is a plain pick from it. */
 export interface SettingsValues {
@@ -68,6 +76,7 @@ export const SETTINGS_PAGES: readonly SettingsPageSpec[] = [
     summary: (values) => APPEARANCE_LABELS[values.appearance],
   },
   { id: 'sync', title: SYNC_AND_STORAGE, icon: RefreshCw },
+  { id: 'import-export', title: IMPORT_AND_EXPORT, icon: ArrowDownUp },
 ]
 
 export function isSettingsPage(id: string | undefined): id is SettingsPageId {

@@ -5,6 +5,7 @@ import { ColumnTitle } from '../../app/ColumnTitle'
 import { BackLink, PaneBar } from '../../app/PaneBar'
 import { AccountPage } from './pages/AccountPage'
 import { AppearancePage } from './pages/AppearancePage'
+import { ImportExportPage } from './pages/ImportExportPage'
 import { InstrumentsPage } from './pages/InstrumentsPage'
 import { MusicServicesPage } from './pages/MusicServicesPage'
 import { NewTunesPage } from './pages/NewTunesPage'
@@ -22,6 +23,7 @@ const BODIES: Record<SettingsPageId, ComponentType> = {
   recording: RecordingPage,
   appearance: AppearancePage,
   sync: SyncPage,
+  'import-export': ImportExportPage,
 }
 
 /**

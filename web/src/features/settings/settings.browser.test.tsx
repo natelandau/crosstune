@@ -22,8 +22,15 @@ import { MUSIC_SERVICES, SEARCHABLE_PROVIDERS, servicesSummary } from './searchP
 import {
   ACCOUNT,
   APPEARANCE,
+  EXPORT_HEADER,
+  EXPORT_HELP,
+  IMPORT_AND_EXPORT,
+  IMPORT_HEADER,
+  IMPORT_HELP,
   INSTRUMENTS,
+  MORE_INFO,
   NEW_TUNES,
+  SIGN_OUT,
   SYNC_AND_STORAGE,
   SYNC_NOW,
   TEXT_SIZE_LABEL,
@@ -33,10 +40,15 @@ import {
 import { formatRecorded } from '../stats/formatRecorded'
 import { OFFLINE } from '../../sync/labels'
 import { openTestDb } from '../../test/db'
+import { dataProviders, testSession } from '../../test/providers'
+import { renderWithProviders } from '../../test/render'
+import { IMPORT_HELP_URL, IMPORT_TUNES } from '../import/importCopy'
+import { EXPORT_ACTION, EXPORT_DATA, EXPORT_TITLE } from './export/exportCopy'
 import { NOT_SET } from '../../ui/fieldCopy'
 import { destination } from '../../app/destinations'
 import { STUB_USER_NAME } from '../../fixture/clerkStub'
 import { renderApp } from '../../test/renderApp'
+import { ImportExportPage } from './pages/ImportExportPage'
 import { NO_SETTING_SELECTED } from './SettingsLayout'
 
 vi.mock('@clerk/react', () => import('../../fixture/clerkStub'))
@@ -79,7 +91,15 @@ it('lists the categories in order, each with its summary, on the phone', async (
   await expect.element(page.getByRole('heading', { level: 1, name: SETTINGS.label })).toBeVisible()
   await expect
     .poll(rowTitles)
-    .toEqual([INSTRUMENTS, NEW_TUNES, MUSIC_SERVICES, RECORDING, APPEARANCE, SYNC_AND_STORAGE])
+    .toEqual([
+      INSTRUMENTS,
+      NEW_TUNES,
+      MUSIC_SERVICES,
+      RECORDING,
+      APPEARANCE,
+      SYNC_AND_STORAGE,
+      IMPORT_AND_EXPORT,
+    ])
   const row = (name: string) => categories().getByRole('row', { name: new RegExp(`^${name}`) })
   await expect.element(row(INSTRUMENTS)).toHaveTextContent(INSTRUMENT_LABELS.violin)
   await expect
@@ -287,6 +307,76 @@ it('shows Offline as the account block’s second line while sync is offline', a
   await expect.element(line).toHaveClass('text-warning')
   await account().click()
   await expect.element(page.getByRole('heading', { level: 1, name: ACCOUNT })).toBeVisible()
+})
+
+it('keeps import and export off the account page', async () => {
+  await mount('/settings/account', WIDE)
+  const detail = page.getByRole('main', { name: ACCOUNT })
+  await expect.element(detail.getByRole('button', { name: SIGN_OUT })).toBeVisible()
+  await expect.element(detail.getByRole('button', { name: IMPORT_TUNES })).not.toBeInTheDocument()
+  await expect.element(detail.getByRole('button', { name: EXPORT_DATA })).not.toBeInTheDocument()
+})
+
+it('shows the import and export groups on their own page', async () => {
+  await mount('/settings/import-export', WIDE)
+  const detail = page.getByRole('main', { name: IMPORT_AND_EXPORT })
+  await expect
+    .element(detail.getByRole('heading', { level: 1, name: IMPORT_AND_EXPORT }))
+    .toBeVisible()
+  await expect.element(detail.getByText(IMPORT_HEADER, { exact: true })).toBeVisible()
+  await expect.element(detail).toHaveTextContent(IMPORT_HELP)
+  await expect.element(detail.getByText(EXPORT_HEADER, { exact: true })).toBeVisible()
+  await expect.element(detail.getByText(EXPORT_HELP)).toBeVisible()
+  const more = detail.getByRole('link', { name: MORE_INFO })
+  await expect.element(more).toHaveAttribute('href', IMPORT_HELP_URL)
+  await expect.element(more).toHaveAttribute('target', '_blank')
+  await expect.element(detail.getByRole('button', { name: IMPORT_TUNES })).toBeVisible()
+  await expect.element(detail.getByRole('button', { name: EXPORT_DATA })).toBeVisible()
+  await expect
+    .element(categories().getByRole('row', { name: new RegExp(`^${IMPORT_AND_EXPORT}`) }))
+    .toHaveAttribute('aria-selected', 'true')
+})
+
+it('opens import from the import and export page', async () => {
+  const analytics = recordingAnalytics()
+  await renderApp({
+    path: '/settings/import-export',
+    db: openTestDb(),
+    frame: WIDE,
+    wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
+  })
+  await page
+    .getByRole('main', { name: IMPORT_AND_EXPORT })
+    .getByRole('button', { name: IMPORT_TUNES })
+    .click()
+  await expect.element(page.getByRole('dialog', { name: IMPORT_TUNES })).toBeVisible()
+  await expect
+    .poll(() => analytics.sends())
+    .toEqual([{ name: 'import_started', props: { entry: 'settings' } }])
+})
+
+it('opens export from the import and export page', async () => {
+  await mount('/settings/import-export', WIDE)
+  await page
+    .getByRole('main', { name: IMPORT_AND_EXPORT })
+    .getByRole('button', { name: EXPORT_DATA })
+    .click()
+  const sheet = page.getByRole('dialog', { name: EXPORT_TITLE })
+  await expect.element(sheet).toBeVisible()
+  await expect
+    .element(sheet.getByRole('button', { name: EXPORT_ACTION, exact: true }))
+    .toBeVisible()
+})
+
+it('keeps import and export open to an offline session', async () => {
+  const Data = dataProviders({ db: openTestDb(), session: { ...testSession, offline: true } })
+  renderWithProviders(
+    <Data>
+      <ImportExportPage />
+    </Data>,
+  )
+  await expect.element(page.getByRole('button', { name: IMPORT_TUNES })).toBeEnabled()
+  await expect.element(page.getByRole('button', { name: EXPORT_DATA })).toBeEnabled()
 })
 
 it('keeps Delete account disabled until the confirmation text matches', async () => {

@@ -30,10 +30,11 @@ public struct SettingsScreen: View {
         static let about = Sections(rawValue: 1 << 9)
         static let downloads = Sections(rawValue: 1 << 10)
         static let newTunes = Sections(rawValue: 1 << 11)
+        static let importExport = Sections(rawValue: 1 << 12)
 
         static let all: Sections = [
             .stats, .instruments, .newTunes, .musicServices, .appleMusic, .appearance, .recording, .downloads, .sync,
-            .storage, .account, .about,
+            .storage, .importExport, .account, .about,
         ]
     }
 
@@ -117,6 +118,9 @@ public struct SettingsScreen: View {
                 if sections.contains(.downloads) { downloadsSections(model) }
                 if sections.contains(.sync) { syncSection(model) }
                 if sections.contains(.storage) { storageSection(model) }
+            }
+            if sections.contains(.importExport) {
+                ImportExportSections()
             }
             if sections.contains(.account), let session {
                 AccountSections(session: session)
