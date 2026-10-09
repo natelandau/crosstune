@@ -5,7 +5,6 @@ import { deleteTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { LARGER_TEXT, lyricsTitle, SMALLER_TEXT } from './lyricsCopy'
 import { DEFAULT_LYRICS_STEP, LYRICS_STEPS, setLyricsStep } from './lyricsSize'
-import { DETAIL_LABELS } from '../tune/detailFields'
 import { EDIT_TUNE_TITLE, SAVE_TUNE } from '../tune/tuneFormCopy'
 import { EDIT_LYRICS, EDIT_TUNE, LYRICS_SECTION, OPEN_LYRICS } from '../tune/tuneScreenCopy'
 import { openTestDb } from '../../test/db'
@@ -139,11 +138,9 @@ it('leaves the tune alone while the form edits its words, until the form saves',
   await renderApp({ path: '/catalog/t1', db, frame: PHONE, density: 'touch' })
   await page.getByRole('button', { name: EDIT_TUNE, exact: true }).click()
   const form = page.getByRole('dialog', { name: EDIT_TUNE_TITLE })
-  await form.getByRole('button', { name: DETAIL_LABELS.lyrics, exact: true }).click()
-  const editor = page.getByRole('dialog', { name: LYRICS_SECTION })
-  await editor.getByRole('textbox', { name: LYRICS_SECTION }).fill('Go to meeting')
-  await editor.getByRole('button', { name: DONE, exact: true }).click()
-  await expect.element(editor).not.toBeInTheDocument()
+  const words = form.getByRole('textbox', { name: LYRICS_SECTION })
+  await expect.element(words).toHaveValue(WORDS)
+  await words.fill('Go to meeting')
   await expect.poll(async () => (await db.tunes.get('t1'))?.lyrics).toBe(WORDS)
   await form.getByRole('button', { name: SAVE_TUNE, exact: true }).click()
   await expect.element(form).not.toBeInTheDocument()
