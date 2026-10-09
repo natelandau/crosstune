@@ -1,4 +1,4 @@
-import { CircleSlash, Play, Square } from 'lucide-react'
+import { CircleSlash, Pause, Play, Square } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 /** The slot before a row's title, sized to the row's touch target whatever it holds. */
@@ -19,4 +19,9 @@ export function StopGlyph() {
 /** Stands where a play control would be, for a tune with nothing to play. */
 export function NotPlayableGlyph() {
   return <CircleSlash aria-hidden="true" className="size-5 shrink-0 opacity-60" />
+}
+
+/** Solid pause bars, for a row whose own control pauses what it started. */
+export function PauseGlyph() {
+  return <Pause aria-hidden="true" fill="currentColor" className="size-5 shrink-0" />
 }

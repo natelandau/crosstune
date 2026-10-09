@@ -4,7 +4,9 @@ import { expect, it, onTestFinished, vi } from 'vitest'
 import { StrictMode, use, useEffect } from 'react'
 import { Outlet, RouterProvider, createMemoryRouter, useLocation } from 'react-router'
 import { PlaybackEngineProvider } from '../features/player/PlaybackEngineProvider'
+import { ListPlaybackProvider } from '../features/player/ListPlaybackProvider'
 import { PlayerProvider } from '../features/player/PlayerProvider'
+import { RecordStateProvider } from '../features/capture/RecordState'
 import { APPEARANCE } from '../features/settings/settingsCopy'
 import { RECORD_LABEL } from './tabs'
 import { STATS_TITLE } from '../features/stats/copy'
@@ -102,8 +104,8 @@ async function mount(
   onTestFinished(() => router.dispose())
   beforeRender?.(router)
   // The catalog route reads the catalog and asks before a delete, a list reports through the
-  // toast, and a tune's page plays its recordings, so the routes need a database, somewhere to
-  // ask, a toast, and a player.
+  // toast, a tune's page plays its recordings, and the lists screen plays a list, so the routes
+  // need a database, somewhere to ask, a toast, a player, list playback, and the recorder.
   const Data = dataProviders({ db: await seededDb() })
   // Awaited, since a tune's page suspends until its title reads.
   await act(async () => {
@@ -113,9 +115,13 @@ async function mount(
           <ToastProvider>
             <PlaybackEngineProvider>
               <PlayerProvider>
-                <AppRouterContext value={router}>
-                  <RouterProvider router={router} />
-                </AppRouterContext>
+                <ListPlaybackProvider>
+                  <RecordStateProvider>
+                    <AppRouterContext value={router}>
+                      <RouterProvider router={router} />
+                    </AppRouterContext>
+                  </RecordStateProvider>
+                </ListPlaybackProvider>
               </PlayerProvider>
             </PlaybackEngineProvider>
           </ToastProvider>

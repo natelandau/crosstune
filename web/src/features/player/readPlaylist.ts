@@ -1,7 +1,7 @@
 import { activeLinksForTune } from '../../commands/links'
 import { getMeta } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
-import type { LocalRecording, LocalRecordingLink } from '../../db/types'
+import type { LocalList, LocalRecording, LocalRecordingLink } from '../../db/types'
 import { listShows, META_LIST_SHOW_ARCHIVED } from '../lists/useListShowArchived'
 import { readListView, type ListItemView } from '../lists/useLists'
 import { readRecordingsWithFiles } from '../recordings/useRecordings'
@@ -67,11 +67,38 @@ export function playlistEntries(
 export async function readPlaylist(db: CrosstuneDb, listId: string): Promise<Playlist | null> {
   const view = await readListView(db, listId)
   if (!view) return null
+  return (await playlistsOf(db, [view])).get(listId) ?? null
+}
+
+/** What each live list can play now, keyed by list id, from one read of every tune's sources. */
+export async function readPlaylists(db: CrosstuneDb): Promise<Map<string, Playlist>> {
+  const lists = await db.lists.toArray()
+  const views = await Promise.all(
+    lists.filter((list) => !list.deleted_at).map((list) => readListView(db, list.id)),
+  )
+  return playlistsOf(
+    db,
+    views.filter((view) => view !== null),
+  )
+}
+
+async function playlistsOf(
+  db: CrosstuneDb,
+  views: readonly { list: LocalList; items: ListItemView[] }[],
+): Promise<Map<string, Playlist>> {
   const showArchived = (await getMeta(db, META_LIST_SHOW_ARCHIVED, false)) === true
-  const shown = view.items.filter((v) => listShows(v, showArchived))
+  const shown = views.map((view) => ({
+    list: view.list,
+    rows: view.items.filter((v) => listShows(v, showArchived)),
+  }))
   const media = await readPlaylistMedia(
     db,
-    shown.map((v) => v.tune.id),
+    shown.flatMap(({ rows }) => rows.map((v) => v.tune.id)),
   )
-  return { name: view.list.name, entries: playlistEntries(shown, media), held: media.held }
+  return new Map(
+    shown.map(({ list, rows }) => [
+      list.id,
+      { name: list.name, entries: playlistEntries(rows, media), held: media.held },
+    ]),
+  )
 }
