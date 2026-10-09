@@ -20,6 +20,7 @@ import { App } from './App'
 import { drag } from '../test/gestures'
 import { stampAxes } from '../test/render'
 import { renderApp } from '../test/renderApp'
+import { viewTransitionsDone } from '../test/viewTransitions'
 import { COLUMN_WIDTH, Columns, useDetailPage } from './Columns'
 import { usePane } from './pane'
 import { CHOOSE_OR_PRESS_N, CHOOSE_OR_TAP_PLUS, NO_TUNE_SELECTED } from './DetailEmpty'
@@ -114,6 +115,7 @@ it('keeps the tune open and the list in place when a wide window narrows to spli
   await expect.element(tune()).toBeVisible()
   await expect.element(catalog()).toBeVisible()
   const list = catalog().element()
+  await expect.poll(viewTransitionsDone).toBe(true)
 
   await page.viewport(SPLIT.width, SPLIT.height)
   await expect.element(catalog()).not.toBeInTheDocument()
@@ -163,6 +165,7 @@ it('keeps the open tune, the list, and its scroll across a tablet rotation', asy
   await expect.element(tune()).toBeVisible()
   const list = catalog().element()
   const opened = tune().element()
+  await expect.poll(viewTransitionsDone).toBe(true)
 
   await page.viewport(TABLET_PORTRAIT.width, TABLET_PORTRAIT.height)
   await expect.element(catalog()).not.toBeInTheDocument()

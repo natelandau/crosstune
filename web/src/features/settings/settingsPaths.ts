@@ -7,6 +7,7 @@ export const SETTINGS_PAGE_IDS = [
   'recording',
   'appearance',
   'sync',
+  'import-export',
 ] as const
 
 export type SettingsPageId = (typeof SETTINGS_PAGE_IDS)[number]

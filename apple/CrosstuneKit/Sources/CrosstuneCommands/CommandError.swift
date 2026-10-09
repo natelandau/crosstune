@@ -16,6 +16,7 @@ public enum CommandError: LocalizedError, Equatable, Sendable {
     case recordedDateFuture
     case recordedDateOffPeriod
     case scanLimit
+    case nothingToImport
 
     public static let tuneNotFoundMessage = "Tune not found"
     public static let tuneTitleRequiredMessage = "A tune needs a title"
@@ -30,6 +31,7 @@ public enum CommandError: LocalizedError, Equatable, Sendable {
     public static let recordedDateFutureMessage = "A recorded date cannot be in the future"
     public static let recordedDateOffPeriodMessage = "A partial recorded date starts its period at UTC midnight"
     public static let scanLimitMessage = "A tune holds at most 20 scans."
+    public static let nothingToImportMessage = "Nothing to import"
 
     public var errorDescription: String? {
         switch self {
@@ -46,6 +48,7 @@ public enum CommandError: LocalizedError, Equatable, Sendable {
         case .recordedDateFuture: Self.recordedDateFutureMessage
         case .recordedDateOffPeriod: Self.recordedDateOffPeriodMessage
         case .scanLimit: Self.scanLimitMessage
+        case .nothingToImport: Self.nothingToImportMessage
         }
     }
 }

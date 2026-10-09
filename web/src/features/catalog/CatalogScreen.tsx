@@ -34,6 +34,8 @@ import { BulkSheets, SelectionBar } from '../selection/SelectionBar'
 import { useScreenSelection, useSelectionReturn } from '../selection/useScreenSelection'
 import { ColumnTitle } from '../../app/ColumnTitle'
 import { PaneBar } from '../../app/PaneBar'
+import { ImportSheet } from '../import/ImportSheet'
+import { IMPORT_TUNES } from '../import/importCopy'
 import { useTuneFormLauncher } from '../tune/formLauncher'
 import { useTuneActions } from '../tune/useTuneActions'
 import { tunePick } from '../tune/tunePick'
@@ -75,6 +77,7 @@ export function CatalogScreen() {
   const titleRef = useRef<HTMLHeadingElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   useSearchTarget(searchRef)
+  const [importing, setImporting] = useState(false)
 
   // The one row whose title morphs into the page title. A transition name must be unique on
   // the page, every other row's title would also move, and on wide the list stays beside the
@@ -297,11 +300,18 @@ export function CatalogScreen() {
                     />
                   </div>
                 ) : empty.noTunes ? (
-                  <Button
-                    variant="primary"
-                    label={ADD_TUNE}
-                    onPress={() => form.open({ source: 'catalog' })}
-                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="primary"
+                      label={ADD_TUNE}
+                      onPress={() => form.open({ source: 'catalog' })}
+                    />
+                    <Button
+                      variant="plain"
+                      label={IMPORT_TUNES}
+                      onPress={() => setImporting(true)}
+                    />
+                  </div>
                 ) : null
               }
             />
@@ -369,6 +379,7 @@ export function CatalogScreen() {
       <p className="sr-only" aria-live="polite">
         {announcement}
       </p>
+      <ImportSheet open={importing} entry="empty_catalog" onClosed={() => setImporting(false)} />
       {scans.viewer}
     </>
   )

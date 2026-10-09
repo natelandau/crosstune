@@ -26,6 +26,24 @@ public enum ActionSource: String, CaseIterable, Sendable {
     case menu
 }
 
+/// Where the tune import was opened.
+public enum ImportEntry: String, CaseIterable, Sendable {
+    case settings
+    case emptyCatalog = "empty_catalog"
+}
+
+/// Which reader turned the pasted text into tunes.
+public enum ImportReader: String, CaseIterable, Sendable {
+    case plain
+}
+
+/// Where an import put its tunes.
+public enum ImportList: String, CaseIterable, Sendable {
+    case none
+    case new
+    case existing
+}
+
 /// Where a recording came from: a take, an imported file, or an archive save.
 public enum RecordingOrigin: String, CaseIterable, Sendable {
     case recorded

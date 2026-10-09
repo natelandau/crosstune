@@ -7,8 +7,9 @@ import Foundation
 // still be found inside a longer word. Ordering is a separate question: lists still sort with a
 // locale-aware compare.
 
-/// ECMAScript's whitespace and line terminators, the set `String.prototype.trim` removes.
-private func isECMAScriptSpace(_ scalar: Unicode.Scalar) -> Bool {
+/// ECMAScript's whitespace and line terminators: the set `String.prototype.trim` removes and a
+/// regular expression's `\s` matches.
+public func isECMAScriptSpace(_ scalar: Unicode.Scalar) -> Bool {
     switch scalar.value {
     case 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0xA0, 0xFEFF, 0x2028, 0x2029: true
     default: scalar.properties.generalCategory == .spaceSeparator

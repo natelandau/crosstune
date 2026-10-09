@@ -1,7 +1,7 @@
 import type { HiddenMatch, SearchOutcome } from './searchIntent'
 
 export const ADD_TUNE = 'Add tune'
-export const NO_TUNES_HINT = 'Add the first tune you know.'
+export const NO_TUNES_HINT = 'Add the first tune you know, or import a list you already keep.'
 export const NO_TUNES_TITLE = 'No tunes yet'
 export const NOTHING_MATCHES = 'Nothing matches'
 export const SEARCH_TUNES = 'Search tunes'

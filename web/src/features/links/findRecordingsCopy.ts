@@ -7,7 +7,7 @@ export const SEARCHING = 'Searching…'
 export const NO_RESULTS = 'No results'
 export const SEARCH_NEEDS_CONNECTION = 'Search needs a connection'
 export const SEARCH_FAILED = "Couldn't search. Try again."
-export const BACK = 'Back'
+export { BACK } from '../../ui/confirmCopy'
 export const ADD_TO_RECORDINGS = 'Add to recordings'
 
 /** Shown when the browser blocks the tab a service's search page opens in. */

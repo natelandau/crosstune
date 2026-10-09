@@ -8,6 +8,7 @@ enum SettingsCategory: CaseIterable, Hashable {
     case recording
     case appearance
     case syncAndStorage
+    case importExport
     case about
 
     nonisolated static let syncAndStorageTitle = "Sync and storage"
@@ -20,6 +21,7 @@ enum SettingsCategory: CaseIterable, Hashable {
         case .recording: SettingsModel.recording
         case .appearance: Appearance.title
         case .syncAndStorage: Self.syncAndStorageTitle
+        case .importExport: ImportExportSections.title
         case .about: SettingsScreen.about
         }
     }
@@ -32,6 +34,7 @@ enum SettingsCategory: CaseIterable, Hashable {
         case .recording: "waveform"
         case .appearance: "circle.lefthalf.filled"
         case .syncAndStorage: "arrow.triangle.2.circlepath"
+        case .importExport: "arrow.up.arrow.down"
         case .about: "info.circle"
         }
     }
@@ -45,6 +48,7 @@ enum SettingsCategory: CaseIterable, Hashable {
         case .recording: [.recording]
         case .appearance: [.appearance]
         case .syncAndStorage: [.sync, .storage, .downloads]
+        case .importExport: [.importExport]
         case .about: [.about]
         }
     }
@@ -54,7 +58,7 @@ enum SettingsCategory: CaseIterable, Hashable {
         switch self {
         case .instruments: [.instruments]
         case .musicServices: [.musicServices, .appleMusic]
-        case .newTunes, .recording, .appearance, .syncAndStorage, .about: []
+        case .newTunes, .recording, .appearance, .syncAndStorage, .importExport, .about: []
         }
     }
 }

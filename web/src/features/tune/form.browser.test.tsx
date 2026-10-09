@@ -362,7 +362,9 @@ it("waits on touch while the date's own picker is open", async () => {
   const form = sheet(NEW_TUNE_TITLE)
   await form.getByRole('textbox', { name: YEAR_LABEL }).fill('2019')
   const month = form.getByRole('button', { name: new RegExp(MONTH_LABEL) })
-  await month.click()
+  // Opened from the keyboard, because the menu focuses whichever item opens under the pointer.
+  month.element().focus()
+  await userEvent.keyboard('{Enter}')
   const months = page.getByRole('dialog', { name: MONTH_LABEL })
   // Focus has left the date for the picker once a choice holds it, so a refusal of the
   // date would already show.

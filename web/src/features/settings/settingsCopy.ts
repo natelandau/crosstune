@@ -32,6 +32,15 @@ export const NEW_TUNES = 'New tunes'
 export const APPEARANCE = 'Appearance'
 export const SYNC = 'Sync'
 export const SYNC_AND_STORAGE = 'Sync and storage'
+export const IMPORT_AND_EXPORT = 'Import and export'
+
+export const IMPORT_HEADER = 'Import'
+export const IMPORT_HELP =
+  'Add many tunes at once. You will get a chance to review before Crosstune adds them.'
+export const MORE_INFO = 'More info'
+export const EXPORT_HEADER = 'Export'
+export const EXPORT_HELP =
+  'Save your tunes, recordings, and scans to your device in a single zip file.'
 
 export const USAGE_DATA_TITLE = 'Share usage data'
 export const USAGE_DATA_HELP =

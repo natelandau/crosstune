@@ -552,8 +552,17 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         #expect(
             SettingsCategory.allCases.map(\.title) == [
                 "Instruments", "New tunes", "Music services", "Recording", Appearance.title, "Sync and storage",
-                SettingsScreen.about,
+                "Import and export", SettingsScreen.about,
             ])
+    }
+
+    @Test func importAndExportFollowsSyncAndStorage() throws {
+        let categories = SettingsCategory.allCases
+        let index = try #require(categories.firstIndex(of: .importExport))
+        #expect(categories[index - 1] == .syncAndStorage)
+        #expect(SettingsCategory.importExport.title == "Import and export")
+        #expect(SettingsCategory.importExport.systemImage == "arrow.up.arrow.down")
+        #expect(SettingsCategory.importExport.sections == [.importExport])
     }
 
     /// The usage data toggle lives in the About group, so a page the root opens must show it.
@@ -574,9 +583,61 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
             #expect(seen == .all)
         }
 
+        @Test func importAndExportIsTheLastTab() {
+            #expect(MacSettingsTabs.Pane.allCases.last == .importExport)
+            #expect(MacSettingsTabs.Pane.importExport.title == "Import and export")
+            #expect(MacSettingsTabs.Pane.importExport.systemImage == "arrow.up.arrow.down")
+            #expect(MacSettingsTabs.Pane.importExport.sections == [.importExport])
+            #expect(MacSettingsTabs.Pane(rawValue: "import-export") == .importExport)
+        }
+
         @Test func macGeneralTabIsUnchanged() {
             #expect(
                 MacSettingsTabs.Pane.general.sections == [.appearance, .recording, .downloads, .sync, .storage, .about])
         }
     }
 #endif
+
+@Suite struct ImportExportSectionsTests {
+    /// The same words as the web's Import and export page.
+    @Test func copyMatchesTheWeb() {
+        #expect(ImportExportSections.title == "Import and export")
+        #expect(ImportExportSections.importHeader == "Import")
+        #expect(
+            ImportExportSections.importHelp
+                == "Add many tunes at once. You will get a chance to review before Crosstune adds them.")
+        #expect(ImportExportSections.moreInfo == "More info")
+        #expect(ImportExportSections.exportHeader == "Export")
+        #expect(
+            ImportExportSections.exportHelp
+                == "Save your tunes, recordings, and scans to your device in a single zip file.")
+        #expect(ImportCopy.title == "Import tunes")
+        #expect(ExportDataSheet.title == "Export data")
+    }
+
+    @Test func importSheetPointsRecordingsToTheRecordingsScreen() {
+        #expect(
+            ImportCopy.recordingsNote
+                == "This imports tune titles. To bring in recordings, upload them on the Recordings screen. "
+                + "You can choose many files at once.")
+    }
+
+    @Test func moreInfoLinksToTheImportHelpPage() throws {
+        let text = ImportExportSections.importHelpText
+        #expect(String(text.characters) == "\(ImportExportSections.importHelp) \(ImportExportSections.moreInfo)")
+        let linked = text.runs.filter { $0.link != nil }
+        #expect(linked.count == 1)
+        let run = try #require(linked.first)
+        #expect(String(text[run.range].characters) == ImportExportSections.moreInfo)
+        #expect(run.link == URL(string: "https://crosstune.app/help/import"))
+    }
+
+    /// Import and export live on their own page, so the account offers neither.
+    @Test func accountOffersNeitherImportNorExport() throws {
+        let text = SourceScan.withoutComments(
+            try SourceScan.text(at: SourceScan.sources.appending(path: "Account/AccountSections.swift")))
+        for name in ["ImportSheet", "ImportCopy", "ExportDataSheet"] {
+            #expect(!text.contains(name), "AccountSections names \(name)")
+        }
+    }
+}

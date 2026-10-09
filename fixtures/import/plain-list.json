@@ -1,0 +1,180 @@
+[
+  {
+    "name": "one-per-line",
+    "input": "Soldier's Joy\nCluck Old Hen",
+    "titles": ["Soldier's Joy", "Cluck Old Hen"],
+    "lineCount": 2
+  },
+  {
+    "name": "bullets",
+    "input": "- Soldier's Joy\n* Cluck Old Hen\n• Red Haired Boy\n◦ Sally Goodin\n▪ Drowsy Maggie",
+    "titles": [
+      "Soldier's Joy",
+      "Cluck Old Hen",
+      "Red Haired Boy",
+      "Sally Goodin",
+      "Drowsy Maggie"
+    ],
+    "lineCount": 5
+  },
+  {
+    "name": "numbers",
+    "input": "1. Soldier's Joy\n2) Cluck Old Hen\n#3 Red Haired Boy",
+    "titles": ["Soldier's Joy", "Cluck Old Hen", "Red Haired Boy"],
+    "lineCount": 3
+  },
+  {
+    "name": "checkboxes",
+    "input": "[ ] Soldier's Joy\n[x] Cluck Old Hen\n[X] Red Haired Boy\n☐ Sally Goodin\n☑ Drowsy Maggie\n✓ Silver Spear\n✔ Mason's Apron",
+    "titles": [
+      "Soldier's Joy",
+      "Cluck Old Hen",
+      "Red Haired Boy",
+      "Sally Goodin",
+      "Drowsy Maggie",
+      "Silver Spear",
+      "Mason's Apron"
+    ],
+    "lineCount": 7
+  },
+  {
+    "name": "notes-checklist",
+    "input": "☐ Sally Goodin\n☑ Red Haired Boy",
+    "titles": ["Sally Goodin", "Red Haired Boy"],
+    "lineCount": 2
+  },
+  {
+    "name": "combined-markers",
+    "input": "- [ ] Sally Goodin",
+    "titles": ["Sally Goodin"],
+    "lineCount": 1
+  },
+  {
+    "name": "stacked-markers",
+    "input": "1. - [x] Sally Goodin",
+    "titles": ["Sally Goodin"],
+    "lineCount": 1
+  },
+  {
+    "name": "nbsp-after-bullet",
+    "input": "- Sally Goodin",
+    "titles": ["Sally Goodin"],
+    "lineCount": 1
+  },
+  {
+    "name": "tab-after-bullet",
+    "input": "-\tSally Goodin",
+    "titles": ["Sally Goodin"],
+    "lineCount": 1
+  },
+  {
+    "name": "marker-without-space-kept",
+    "input": "-Sally Goodin\n1.5 Step",
+    "titles": ["-Sally Goodin", "1.5 Step"],
+    "lineCount": 2
+  },
+  {
+    "name": "heading",
+    "input": "Reels:\nDrowsy Maggie",
+    "titles": ["Drowsy Maggie"],
+    "lineCount": 2
+  },
+  {
+    "name": "heading-with-marker",
+    "input": "- Reels:\nDrowsy Maggie",
+    "titles": ["Drowsy Maggie"],
+    "lineCount": 2
+  },
+  {
+    "name": "medley",
+    "input": "Silver Spear / Mason's Apron",
+    "titles": ["Silver Spear", "Mason's Apron"],
+    "lineCount": 1
+  },
+  {
+    "name": "medley-empty-part",
+    "input": "Silver Spear /  / Mason's Apron",
+    "titles": ["Silver Spear", "Mason's Apron"],
+    "lineCount": 1
+  },
+  {
+    "name": "dash-kept",
+    "input": "Cluck Old Hen - Bruce Molsky",
+    "titles": ["Cluck Old Hen - Bruce Molsky"],
+    "lineCount": 1
+  },
+  {
+    "name": "slash-without-spaces-kept",
+    "input": "AC/DC Reel",
+    "titles": ["AC/DC Reel"],
+    "lineCount": 1
+  },
+  {
+    "name": "number-in-title-kept",
+    "input": "1952 Waltz",
+    "titles": ["1952 Waltz"],
+    "lineCount": 1
+  },
+  {
+    "name": "marker-only",
+    "input": "-\n1.\n[ ]",
+    "titles": [],
+    "lineCount": 3
+  },
+  {
+    "name": "blank-lines",
+    "input": "\n  \nSoldier's Joy\n\t\n \n\nCluck Old Hen\n\n",
+    "titles": ["Soldier's Joy", "Cluck Old Hen"],
+    "lineCount": 2
+  },
+  {
+    "name": "crlf",
+    "input": "A\r\nB\rC",
+    "titles": ["A", "B", "C"],
+    "lineCount": 3
+  },
+  {
+    "name": "bom",
+    "input": "﻿Soldier's Joy",
+    "titles": ["Soldier's Joy"],
+    "lineCount": 1
+  },
+  {
+    "name": "parenthetical-kept",
+    "input": "Cluck Old Hen (A, cross-tuned)",
+    "titles": ["Cluck Old Hen (A, cross-tuned)"],
+    "lineCount": 1
+  },
+  {
+    "name": "medley-separators-do-not-overlap",
+    "input": "A / / B",
+    "titles": ["A", "/ B"],
+    "lineCount": 1
+  },
+  {
+    "name": "ideographic-space-after-bullet",
+    "input": "-　Sally Goodin",
+    "titles": ["Sally Goodin"],
+    "lineCount": 1
+  },
+  {
+    "name": "next-line-is-not-whitespace",
+    "input": "-\u0085Sally Goodin\n\u0085Red Haired Boy",
+    "titles": ["-\u0085Sally Goodin", "\u0085Red Haired Boy"],
+    "lineCount": 2
+  },
+  {
+    "name": "non-ascii-digits-kept",
+    "input": "٣. Sally Goodin",
+    "titles": ["٣. Sally Goodin"],
+    "lineCount": 1
+  },
+  { "name": "dashes-only-kept", "input": "---", "titles": ["---"], "lineCount": 1 },
+  { "name": "empty", "input": "", "titles": [], "lineCount": 0 },
+  { "name": "hash-without-number-kept", "input": "# Reels", "titles": ["# Reels"], "lineCount": 1 },
+  { "name": "hash-number-only", "input": "#3", "titles": [], "lineCount": 1 },
+  { "name": "unknown-checkbox-kept", "input": "[y] x", "titles": ["[y] x"], "lineCount": 1 },
+  { "name": "checkbox-only", "input": "[x]", "titles": [], "lineCount": 1 },
+  { "name": "carriage-return-then-crlf", "input": "A\r\r\nB", "titles": ["A", "B"], "lineCount": 2 },
+  { "name": "combining-mark-after-bullet", "input": "- \u0301Sally Goodin", "titles": ["\u0301Sally Goodin"], "lineCount": 1 }
+]

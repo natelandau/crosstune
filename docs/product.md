@@ -105,6 +105,9 @@ for Android and every browser. The parts that matter:
   as recordings.
 - Offline. The full catalog is on the device. Reads and writes work offline
   and sync when a connection returns.
+- Import. Paste a tune list, or open a text file, from Settings or the
+  empty catalog. Review the tunes, with tunes already in the catalog shown
+  unchecked, and add them all at once.
 - Export. One zip from Settings: tunes and lists as spreadsheets, plus the
   recordings and scans on the device.
 - Stats. A page from Settings counts the catalog and its recordings, shows

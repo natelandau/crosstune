@@ -46,6 +46,11 @@ public enum AnalyticsEvent: Sendable, Equatable {
     case tunesAddedToList(listID: String, count: Int)
     case tunesRemovedFromList(listID: String, count: Int)
 
+    case importStarted(entry: ImportEntry)
+    case importReviewed(reader: ImportReader, count: Int, duplicates: Int, hasWarnings: Bool)
+    /// `added` is the tunes added; `skipped` is the rows not added, unchecked or with a blank title.
+    case importCompleted(reader: ImportReader, added: Int, skipped: Int, list: ImportList)
+
     case recordingStarted(source: ActionSource)
     case microphoneDenied(source: ActionSource)
     /// A take saved with a tune is filed.
@@ -114,6 +119,9 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .listReordered: "list_reordered"
         case .tunesAddedToList: "tunes_added_to_list"
         case .tunesRemovedFromList: "tunes_removed_from_list"
+        case .importStarted: "import_started"
+        case .importReviewed: "import_reviewed"
+        case .importCompleted: "import_completed"
         case .recordingStarted: "recording_started"
         case .microphoneDenied: "microphone_denied"
         case .recordingSaved: "recording_saved"
@@ -183,6 +191,18 @@ public enum AnalyticsEvent: Sendable, Equatable {
             ["list_id": .string(listID), "count_bucket": .count(count)]
         case .listRenamed(let listID), .listReordered(let listID):
             ["list_id": .string(listID)]
+        case .importStarted(let entry):
+            ["entry": .string(entry.rawValue)]
+        case .importReviewed(let reader, let count, let duplicates, let hasWarnings):
+            [
+                "reader": .string(reader.rawValue), "count_bucket": .count(count),
+                "duplicate_bucket": .count(duplicates), "has_warnings": .bool(hasWarnings),
+            ]
+        case .importCompleted(let reader, let added, let skipped, let list):
+            [
+                "reader": .string(reader.rawValue), "count_bucket": .count(added),
+                "skipped_bucket": .count(skipped), "list": .string(list.rawValue),
+            ]
         case .recordingStarted(let source), .microphoneDenied(let source):
             ["source": .string(source.rawValue)]
         case .recordingSaved(let seconds, let recordingID, let tuneID):

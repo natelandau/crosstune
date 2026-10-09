@@ -53,9 +53,14 @@ struct InstrumentsChoices: View {
 /// so the musician reads what a setting does before choosing.
 struct SettingsHelp: View {
     let title: String?
-    let help: String?
+    let help: AttributedString?
 
     init(_ help: String?, title: String? = nil) {
+        self.init(attributed: help.map { AttributedString($0) }, title: title)
+    }
+
+    /// Help that carries its own runs, such as a link that follows the sentence.
+    init(attributed help: AttributedString?, title: String? = nil) {
         self.help = help
         self.title = title
     }

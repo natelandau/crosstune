@@ -10,6 +10,7 @@
         nonisolated public static let instruments = SettingsModel.instruments
         nonisolated public static let newTunes = SettingsModel.newTunes
         nonisolated public static let musicServices = SettingsModel.musicServices
+        nonisolated public static let importExport = ImportExportSections.title
 
         /// One tab of the window.
         enum Pane: String, CaseIterable, Hashable {
@@ -18,6 +19,7 @@
             case instruments
             case newTunes = "new-tunes"
             case musicServices = "music-services"
+            case importExport = "import-export"
 
             var title: String {
                 switch self {
@@ -26,6 +28,7 @@
                 case .instruments: MacSettingsTabs.instruments
                 case .newTunes: MacSettingsTabs.newTunes
                 case .musicServices: MacSettingsTabs.musicServices
+                case .importExport: MacSettingsTabs.importExport
                 }
             }
 
@@ -36,6 +39,7 @@
                 case .instruments: "guitars"
                 case .newTunes: "text.badge.plus"
                 case .musicServices: "music.note.list"
+                case .importExport: "arrow.up.arrow.down"
                 }
             }
 
@@ -46,6 +50,7 @@
                 case .instruments: [.instruments]
                 case .newTunes: [.newTunes]
                 case .musicServices: [.musicServices, .appleMusic]
+                case .importExport: [.importExport]
                 }
             }
         }
