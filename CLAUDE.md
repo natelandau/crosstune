@@ -72,8 +72,10 @@ every label. The glossary in `docs/product.md` has the reasons.
   `just setup`; `just dev` makes the database and bucket. Never run
   `just dev-setup` in a worktree: it points the git hooks every checkout
   shares at that worktree's venv, and removing the worktree breaks them.
-- `just test` never runs Playwright. `just e2e` does, beside `just dev`,
-  against its own `crosstune_e2e` database. It signs in against the shared
+- `just test` never runs Playwright. `just e2e` does. It starts Postgres,
+  its own API on :8001, and its own preview server against its own
+  `crosstune_e2e` database. It does not need `just dev`, and it can run
+  while `just dev` is running. It signs in against the shared
   Clerk development instance and spends its usage limits, and needs the
   Clerk keys in `web/.env`.
 - A renamed label, heading, or group name needs `web/e2e/` checked. Those
@@ -114,7 +116,9 @@ every label. The glossary in `docs/product.md` has the reasons.
 - A new analytics event goes in `analytics/tracking-plan.json` before code
   sends it, following `docs/analytics.md`. A model receives the
   `AnalyticsClient` as an init parameter, a view reads it from the
-  environment.
+  environment. On the web, a component reads the client with
+  `useAnalytics()`, code outside React takes it as an argument, and nothing
+  in `web/src/commands/` sends.
 - A change to what the Apple app collects, or a new SDK in it, adds a row
   to the Apple privacy runbook in the vault
   (`runbooks/2026-10-07-apple-privacy-app-store-label-and-privacy-manifest.md`)

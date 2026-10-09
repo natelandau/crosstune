@@ -7,17 +7,17 @@ truth for each question, and how data moves. Deploys and releases are in
 
 ## Systems
 
-| System     | Role                                                                                                             | Depends on                             |
-| ---------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| Web client | React single-page app, served by a Cloudflare Worker. Reads and writes a local copy of the catalog.              | Worker, Clerk, API                     |
-| Worker     | Serves the client's static assets. Proxies `/v1/*` to the environment's API, so the client is same-origin.       | GitHub, Railway                        |
-| API        | FastAPI container on Railway. Owns the schema, sync, ownership, link metadata, and recording storage.            | Neon, Clerk public keys, R2, providers |
-| Neon       | Postgres. One database per environment.                                                                          |                                        |
-| Clerk      | Sign-in UI and session tokens. Webhook on account deletion.                                                      | Cloudflare DNS for its hostnames       |
-| R2         | Recording audio. The browser moves bytes directly with presigned URLs. The API signs and manages.                |                                        |
-| Sentry     | Errors from both deployables.                                                                                    |                                        |
-| PostHog    | Usage analytics from the site and the Apple apps. The API deletes a person's data when their account is deleted. | Cloudflare DNS for its proxy host      |
-| GitHub     | Source and CI. Both hosts deploy from it.                                                                        |                                        |
+| System     | Role                                                                                                                           | Depends on                             |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
+| Web client | React single-page app, served by a Cloudflare Worker. Reads and writes a local copy of the catalog.                            | Worker, Clerk, API                     |
+| Worker     | Serves the client's static assets. Proxies `/v1/*` to the environment's API, so the client is same-origin.                     | GitHub, Railway                        |
+| API        | FastAPI container on Railway. Owns the schema, sync, ownership, link metadata, and recording storage.                          | Neon, Clerk public keys, R2, providers |
+| Neon       | Postgres. One database per environment.                                                                                        |                                        |
+| Clerk      | Sign-in UI and session tokens. Webhook on account deletion.                                                                    | Cloudflare DNS for its hostnames       |
+| R2         | Recording audio. The browser moves bytes directly with presigned URLs. The API signs and manages.                              |                                        |
+| Sentry     | Errors from both deployables.                                                                                                  |                                        |
+| PostHog    | Usage analytics from the site, the web app, and the Apple apps. The API deletes a person's data when their account is deleted. | Cloudflare DNS for its proxy host      |
+| GitHub     | Source and CI. Both hosts deploy from it.                                                                                      |                                        |
 
 The apex `<domain>` is the static marketing and waitlist site, served by
 its own Worker. It never calls the API. It sends page views to PostHog

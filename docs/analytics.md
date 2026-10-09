@@ -32,6 +32,8 @@ two audiences.
   carries one of these.
 - **ID rule.** An event can carry the random UUID of a tune, list,
   recording, link, or scan. PostHog cannot resolve a UUID to content.
+- **Person properties.** Each person property in the plan lists the
+  `clients` that set it. A client sets only the properties that list it.
 - **Properties.** A property is an enum, a boolean, a bucket, a number,
   or an ID. The plan lists every allowed value. A value that is not in
   the plan is a bug. A number is a small setting or offset, such as
@@ -45,6 +47,9 @@ two audiences.
 - **Buckets.** A count, duration, or size travels as a fixed range. The
   `buckets` section of the plan defines each range once. Never send the
   raw number.
+- **Web URLs.** The web app scrubs every URL to a route pattern in
+  `before_send`, so no event carries a tune, list, or recording ID in a
+  path or a query string.
 - **No milestone events.** A device cannot know that an action is the
   first one for a person. Build "first time" in a PostHog funnel.
 - **Named events only in the app.** Autocapture is off in the app on every

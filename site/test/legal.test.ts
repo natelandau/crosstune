@@ -38,6 +38,7 @@ describe('/privacy', () => {
     'Settings > About',
     'Settings > General',
     'Wi-Fi or cellular',
+    'installed or in a browser tab',
     'photo library',
     'the app stops collecting',
     'if Share usage data is on, the app then reports',
