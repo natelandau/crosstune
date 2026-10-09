@@ -125,6 +125,9 @@ public final class ScansModel {
 
     private var read: [Scan] { query.value ?? [] }
 
+    /// Whether the first read has landed, so an empty section is not claimed before it has.
+    public var isLoaded: Bool { query.value != nil }
+
     /// The tune's scans in stored order with the moves in flight replayed.
     public var scans: [Scan] {
         let byID = Dictionary(read.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })

@@ -88,3 +88,7 @@ export function unreadableFilesMessage(names: readonly string[]): string {
     ? `${quoted} is not an image this browser can read.`
     : `${quoted} are not images this browser can read.`
 }
+
+/** An empty Scans section's title and hint. */
+export const NO_SCANS = 'No scans yet'
+export const NO_SCANS_HINT = 'Add a photo of written music, lyrics, or notes.'

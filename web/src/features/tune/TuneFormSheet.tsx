@@ -1,4 +1,4 @@
-import { ChevronRight, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Fragment, useEffect, useId, useRef, useState } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import { MODES, TIME_SIGNATURES, TUNE_LIMITS } from '../../api/vocabulary'
@@ -16,6 +16,7 @@ import {
   DETAILS_HEADER,
   EDIT_TUNE_TITLE,
   NEW_TUNE_TITLE,
+  LYRICS_PLACEHOLDER,
   NOTES_PLACEHOLDER,
   SAVE_TUNE,
   STATUS_HEADER,
@@ -31,14 +32,13 @@ import {
   learnedOnText,
   modeRows,
 } from './tuneFormValues'
-import { NOTES_SECTION } from './tuneScreenCopy'
+import { LYRICS_SECTION, NOTES_SECTION } from './tuneScreenCopy'
 import { useTuneForm, type TuneForm } from './useTuneForm'
 import { NOT_SET } from '../../ui/fieldCopy'
 import { KEY } from '../../ui/keyName'
 import { useLatest } from '../../ui/useLatest'
-import { LyricsEditor } from '../lyrics/LyricsEditor'
 import { ErrorLine } from '../../ui/ErrorLine'
-import { FIELD_LABEL, FIELD_ROW } from '../../ui/form/FieldRow'
+import { FIELD_ROW } from '../../ui/form/FieldRow'
 import { Group } from '../../ui/form/Group'
 import { PartialDateField } from '../../ui/form/PartialDateField'
 import { Picker } from '../../ui/form/Picker'
@@ -67,7 +67,8 @@ const asOptions = (values: readonly string[]) =>
 
 /**
  * A new tune, or an edit of one, as a full-height sheet on touch and a dialog on pointer.
- * Fields are ranked by use: title, status, key, tunings, and notes, then the rarer details.
+ * Fields are ranked by use: title, status, key, tunings, notes, and lyrics, then the rarer
+ * details.
  */
 export function TuneFormSheet(props: TuneFormSheetProps) {
   // Each open is a fresh form, so nothing typed in one open reaches the next.
@@ -93,7 +94,6 @@ function TuneFormBody({
   const titleRef = useRef<FieldRef>(null)
   const dateRef = useRef<HTMLDivElement>(null)
   const dateErrorId = useId()
-  const [editingLyrics, setEditingLyrics] = useState(false)
   // Counts refused saves, so focus moves to the refused field on a save and never as one types.
   const [refusals, setRefusals] = useState(0)
   const closeRef = useLatest(() => onOpenChange(false))
@@ -230,8 +230,21 @@ function TuneFormBody({
             />
           </Group>
 
+          <Group header={LYRICS_SECTION}>
+            <TextField
+              standalone
+              multiline
+              rows={6}
+              label={LYRICS_SECTION}
+              placeholder={LYRICS_PLACEHOLDER}
+              value={values.lyrics}
+              maxLength={TUNE_LIMITS.lyrics}
+              onChange={(lyrics) => set('lyrics', lyrics)}
+            />
+          </Group>
+
           <Group header={DETAILS_HEADER} footer={DETAILS_FOOTER}>
-            <DetailRows form={form} onEditLyrics={() => setEditingLyrics(true)} />
+            <DetailRows form={form} />
           </Group>
 
           <Group header={DETAIL_LABELS.learned_on} error={errors.learned_on} errorId={dateErrorId}>
@@ -247,21 +260,12 @@ function TuneFormBody({
           </Group>
         </form>
       )}
-      <LyricsEditor
-        isOpen={editingLyrics}
-        onOpenChange={setEditingLyrics}
-        value={values.lyrics}
-        onSave={(lyrics) => {
-          set('lyrics', lyrics)
-          setEditingLyrics(false)
-        }}
-      />
     </Sheet>
   )
 }
 
 /** The Details card's rows, in the order `DETAIL_FIELDS` reads; learned on has its own card. */
-function DetailRows({ form, onEditLyrics }: { form: TuneForm; onEditLyrics: () => void }) {
+function DetailRows({ form }: { form: TuneForm }) {
   const { values, set, suggestions } = form
   // The fields whose suggestions come from the catalog rather than a fixed list.
   const suggested: Partial<Record<string, readonly string[]>> = {
@@ -292,19 +296,6 @@ function DetailRows({ form, onEditLyrics }: { form: TuneForm; onEditLyrics: () =
             isSelected={values[field.key]}
             onChange={(on) => set(field.key, on)}
           />
-        )
-      case 'lyrics':
-        // The words have a sheet of their own; the row is the way to it, so it names the
-        // field and shows no count or excerpt.
-        return (
-          <AriaButton
-            key={field.key}
-            onPress={onEditLyrics}
-            className={`${FIELD_ROW} cursor-default data-[pressed]:opacity-60`}
-          >
-            <span className={`${FIELD_LABEL} flex-1`}>{field.label}</span>
-            <ChevronRight className="text-ink-2 size-4 shrink-0" aria-hidden />
-          </AriaButton>
         )
       case 'date':
         return null

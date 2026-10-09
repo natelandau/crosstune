@@ -1,4 +1,4 @@
-import { Ellipsis, Pencil, Plus } from 'lucide-react'
+import { AudioLines, Ellipsis, NotebookPen, Pencil, Plus } from 'lucide-react'
 import {
   addTransitionType,
   startTransition,
@@ -18,7 +18,6 @@ import { NEW_RECORDING } from '../capture/recordCopy'
 import type { RecordingView } from '../recordings/useRecordings'
 import { ADD_RECORDING } from './tuneMediaCopy'
 import {
-  ADD_LYRICS,
   ADD_NOTES,
   ADD_TO_LIST_TITLE,
   EDIT_LYRICS,
@@ -27,6 +26,10 @@ import {
   learnedLine,
   LISTS_SECTION,
   LYRICS_SECTION,
+  NO_TUNE_NOTES,
+  NO_TUNE_NOTES_HINT,
+  NO_TUNE_RECORDINGS,
+  NO_TUNE_RECORDINGS_HINT,
   NOTES_SECTION,
   OPEN_LYRICS,
   RECORDINGS_SECTION,
@@ -54,6 +57,7 @@ import { menuEntries } from '../../ui/sharedActions'
 import { useTuneFormLauncher } from './formLauncher'
 import { LinkRow, MediaList, RecordingRow } from './MediaRow'
 import { PageSection } from '../../ui/PageSection'
+import { SectionEmpty } from '../../ui/SectionEmpty'
 import { TuneHeader } from './TuneHeader'
 import { isQuietPick } from './tunePick'
 import { TuneScans } from './TuneScans'
@@ -317,36 +321,33 @@ function TuneSections({
           />
         }
       >
-        {(!media.empty || media.error) && (
-          <>
-            {!media.empty && (
-              <MediaList label={RECORDINGS_SECTION}>
-                {media.recordingRows.map((row) => (
-                  <RecordingRow
-                    key={row.view.recording.id}
-                    row={row}
-                    onRetry={(kind) => media.retry(row.view, kind)}
-                  />
-                ))}
-                {media.linkRows.map((row) => (
-                  <LinkRow key={row.link.id} row={row} />
-                ))}
-              </MediaList>
-            )}
-            <ErrorLine error={media.error} place="inline" />
-          </>
+        {media.empty ? (
+          <SectionEmpty
+            icon={AudioLines}
+            title={NO_TUNE_RECORDINGS}
+            hint={NO_TUNE_RECORDINGS_HINT}
+          />
+        ) : (
+          <MediaList label={RECORDINGS_SECTION}>
+            {media.recordingRows.map((row) => (
+              <RecordingRow
+                key={row.view.recording.id}
+                row={row}
+                onRetry={(kind) => media.retry(row.view, kind)}
+              />
+            ))}
+            {media.linkRows.map((row) => (
+              <LinkRow key={row.link.id} row={row} />
+            ))}
+          </MediaList>
         )}
+        <ErrorLine error={media.error} place="inline" />
       </PageSection>
 
       <TuneScans tuneId={tuneId} />
 
-      <PageSection
-        title={LYRICS_SECTION}
-        addLabel={screen.facts?.hasLyrics ? EDIT_LYRICS : ADD_LYRICS}
-        addIcon={screen.facts?.hasLyrics ? Pencil : Plus}
-        onAdd={onEdit}
-      >
-        {screen.facts?.hasLyrics && (
+      {screen.facts?.hasLyrics && (
+        <PageSection title={LYRICS_SECTION} addLabel={EDIT_LYRICS} addIcon={Pencil} onAdd={onEdit}>
           <AriaButton
             onPress={onReadLyrics}
             className="-mx-3 flex min-h-(--target) w-[calc(100%+1.5rem)] cursor-default flex-col items-start rounded-(--radius-row) px-3 py-1.5 text-start data-[pressed]:opacity-60"
@@ -354,11 +355,31 @@ function TuneSections({
             <span className="t-body">{OPEN_LYRICS}</span>
             {opening && <span className="t-secondary text-ink-2 truncate">{opening}</span>}
           </AriaButton>
+        </PageSection>
+      )}
+
+      <PageSection
+        title={NOTES_SECTION}
+        addLabel={screen.notes ? EDIT_NOTES : ADD_NOTES}
+        addIcon={screen.notes ? Pencil : Plus}
+        onAdd={onEdit}
+      >
+        {!screen.notes && !screen.learned && (
+          <SectionEmpty icon={NotebookPen} title={NO_TUNE_NOTES} hint={NO_TUNE_NOTES_HINT} />
+        )}
+        {screen.learned && (
+          <p className="t-secondary text-ink-2">
+            {learned.words}
+            {learned.date && <span className="t-num">{learned.date}</span>}
+          </p>
+        )}
+        {screen.notes && (
+          <p className="t-body pt-1 whitespace-pre-wrap select-text">{screen.notes}</p>
         )}
       </PageSection>
 
-      <PageSection title={LISTS_SECTION} addLabel={ADD_TO_LIST} onAdd={onAddToList}>
-        {screen.inLists.length > 0 && (
+      {screen.inLists.length > 0 && (
+        <PageSection title={LISTS_SECTION} addLabel={ADD_TO_LIST} onAdd={onAddToList}>
           <ul className="flex flex-wrap gap-2">
             {screen.inLists.map((list) => (
               <li key={list.id}>
@@ -371,29 +392,8 @@ function TuneSections({
               </li>
             ))}
           </ul>
-        )}
-      </PageSection>
-
-      <PageSection
-        title={NOTES_SECTION}
-        addLabel={screen.notes ? EDIT_NOTES : ADD_NOTES}
-        addIcon={screen.notes ? Pencil : Plus}
-        onAdd={onEdit}
-      >
-        {(screen.notes || screen.learned) && (
-          <>
-            {screen.learned && (
-              <p className="t-secondary text-ink-2">
-                {learned.words}
-                {learned.date && <span className="t-num">{learned.date}</span>}
-              </p>
-            )}
-            {screen.notes && (
-              <p className="t-body pt-1 whitespace-pre-wrap select-text">{screen.notes}</p>
-            )}
-          </>
-        )}
-      </PageSection>
+        </PageSection>
+      )}
     </>
   )
 }

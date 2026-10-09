@@ -21,10 +21,14 @@ public struct TuneScreen: View {
     public static let addToList = "Add to list"
     /// The toolbar menu's item, which opens the list picker.
     public static let addToListItem = "Add to list…"
-    public static let notInList = "Not in any list yet."
     public static let openLyrics = "Open lyrics"
-    public static let noMediaTitle = "Nothing recorded yet"
-    public static let noMediaHint = "Record one, find one, or paste a link to one."
+    public static let noMediaTitle = "No recordings yet"
+    public static let noMediaHint = "Record one, paste a link, or find one on a music service."
+    /// The Notes header's control, which opens the tune form where notes are written.
+    public static let addNotes = "Add notes"
+    public static let editNotes = "Edit notes"
+    public static let noNotesTitle = "No notes yet"
+    public static let noNotesHint = "Who you learned it from, bowings, or anything else to remember."
     public static let moreActions = "More actions"
     public static let remove = "Remove"
     public static let addToRecordings = "Add to recordings"
@@ -168,16 +172,14 @@ private struct TuneContent: View {
             .padding(20)
             .navigationTitle(title)
         case .shown(let detail):
-            TunePage(model: model, detail: detail)
+            TunePage(model: model, detail: detail, onEdit: { edit(detail) })
                 .screenView(.tune, visit: $visited, stillShown: { model.phase.isShown })
                 .modifier(RefreshesBySync(engine: engine))
                 .navigationTitle(detail.tune.title)
                 #if os(macOS)
                     .paneBar {
                         Group {
-                            Button(TuneRowActions.edit) {
-                                form = .edit(tuneID: detail.tune.id, userTuneID: detail.userTune.id)
-                            }
+                            Button(TuneRowActions.edit) { edit(detail) }
                             TuneMoreMenu(model: model, detail: detail) { confirmsDelete = true }
                         }
                         .disabled(leaving)
@@ -203,15 +205,17 @@ private struct TuneContent: View {
 
     @ToolbarContentBuilder private func toolbar(_ detail: TuneDetail) -> some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
-            Button(TuneRowActions.edit) {
-                form = .edit(tuneID: detail.tune.id, userTuneID: detail.userTune.id)
-            }
-            .disabled(leaving)
+            Button(TuneRowActions.edit) { edit(detail) }
+                .disabled(leaving)
         }
         ToolbarItem(placement: .primaryAction) {
             TuneMoreMenu(model: model, detail: detail) { confirmsDelete = true }
                 .disabled(leaving)
         }
+    }
+
+    private func edit(_ detail: TuneDetail) {
+        form = .edit(tuneID: detail.tune.id, userTuneID: detail.userTune.id)
     }
 
     /// Leaves a deleted tune: back to the screen that pushed it, or an empty detail column.

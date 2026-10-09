@@ -1,4 +1,4 @@
-import { ImageOff, Plus, Trash2 } from 'lucide-react'
+import { FileImage, ImageOff, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import type { ScanFile } from '../../db/scans'
@@ -11,6 +11,8 @@ import {
   EDIT,
   EDIT_SCANS,
   moveScanName,
+  NO_SCANS,
+  NO_SCANS_HINT,
   openScanName,
   SCAN_LIMIT_NOTE,
   SCAN_UNREADABLE,
@@ -31,6 +33,7 @@ import { Row, type RowAction } from '../../ui/Row'
 import { RowList } from '../../ui/RowList'
 import { moveActions } from '../../ui/sharedActions'
 import { PageSection } from '../../ui/PageSection'
+import { SectionEmpty } from '../../ui/SectionEmpty'
 
 const TUNE_PAGE: ScanViewOrigin = { context: 'tune' }
 const ROW_THUMBNAIL_HEIGHT = 36
@@ -55,6 +58,7 @@ export function TuneScans({ tuneId }: { tuneId: string }) {
     adding,
     full,
     empty,
+    loaded,
     remove,
     error,
     statusLabel,
@@ -90,70 +94,67 @@ export function TuneScans({ tuneId }: { tuneId: string }) {
           </span>
         }
       >
-        {(!empty || error) && (
-          <>
-            {!empty &&
-              (editingNow ? (
-                <RowList
-                  label={SCANS}
-                  bleed
-                  onReorder={(key, toIndex) => {
-                    const from = indexOf(key)
-                    if (from >= 0) move(from, toIndex)
-                  }}
-                  moveLabel={({ id }) => moveScanName(indexOf(id))}
-                >
-                  {scans.map((scan, at) => {
-                    const status = statusLabel(scan)
-                    const deleteAction: RowAction = {
-                      id: 'delete',
-                      label: deleteScanName(at),
-                      shortLabel: DELETE,
-                      icon: Trash2,
-                      tone: 'danger',
-                      onAction: () => remove(scan),
+        {empty && loaded && <SectionEmpty icon={FileImage} title={NO_SCANS} hint={NO_SCANS_HINT} />}
+        {!empty &&
+          (editingNow ? (
+            <RowList
+              label={SCANS}
+              bleed
+              onReorder={(key, toIndex) => {
+                const from = indexOf(key)
+                if (from >= 0) move(from, toIndex)
+              }}
+              moveLabel={({ id }) => moveScanName(indexOf(id))}
+            >
+              {scans.map((scan, at) => {
+                const status = statusLabel(scan)
+                const deleteAction: RowAction = {
+                  id: 'delete',
+                  label: deleteScanName(at),
+                  shortLabel: DELETE,
+                  icon: Trash2,
+                  tone: 'danger',
+                  onAction: () => remove(scan),
+                }
+                return (
+                  <Row
+                    key={scan.id}
+                    id={scan.id}
+                    textValue={status ? `${scanName(at)}, ${status}` : scanName(at)}
+                    leading={
+                      <span className="shrink-0 overflow-hidden rounded-(--radius-row)">
+                        <Thumbnail
+                          scan={scan}
+                          file={files.get(scan.id)}
+                          height={ROW_THUMBNAIL_HEIGHT}
+                        />
+                      </span>
                     }
-                    return (
-                      <Row
-                        key={scan.id}
-                        id={scan.id}
-                        textValue={status ? `${scanName(at)}, ${status}` : scanName(at)}
-                        leading={
-                          <span className="shrink-0 overflow-hidden rounded-(--radius-row)">
-                            <Thumbnail
-                              scan={scan}
-                              file={files.get(scan.id)}
-                              height={ROW_THUMBNAIL_HEIGHT}
-                            />
-                          </span>
-                        }
-                        title={scanName(at)}
-                        detail={status}
-                        actions={[deleteAction]}
-                        menu={[...moveActions(moveItems(scan, at)), deleteAction]}
-                      />
-                    )
-                  })}
-                </RowList>
-              ) : (
-                <ul aria-label={SCANS} className="flex gap-3 overflow-x-auto pb-1">
-                  {scans.map((scan, index) => (
-                    <li key={scan.id} data-scan-id={scan.id} className="shrink-0">
-                      <AriaButton
-                        aria-label={openScanName(index)}
-                        onPress={() => setViewing(index)}
-                        className="block cursor-default overflow-hidden rounded-(--radius-row) data-[pressed]:opacity-60"
-                      >
-                        <Thumbnail scan={scan} file={files.get(scan.id)} />
-                      </AriaButton>
-                    </li>
-                  ))}
-                </ul>
+                    title={scanName(at)}
+                    detail={status}
+                    actions={[deleteAction]}
+                    menu={[...moveActions(moveItems(scan, at)), deleteAction]}
+                  />
+                )
+              })}
+            </RowList>
+          ) : (
+            <ul aria-label={SCANS} className="flex gap-3 overflow-x-auto pb-1">
+              {scans.map((scan, index) => (
+                <li key={scan.id} data-scan-id={scan.id} className="shrink-0">
+                  <AriaButton
+                    aria-label={openScanName(index)}
+                    onPress={() => setViewing(index)}
+                    className="block cursor-default overflow-hidden rounded-(--radius-row) data-[pressed]:opacity-60"
+                  >
+                    <Thumbnail scan={scan} file={files.get(scan.id)} />
+                  </AriaButton>
+                </li>
               ))}
-            {full && <p className="t-secondary text-ink-2 pt-2">{SCAN_LIMIT_NOTE}</p>}
-            <ErrorLine error={error} place="inline" />
-          </>
-        )}
+            </ul>
+          ))}
+        {full && <p className="t-secondary text-ink-2 pt-2">{SCAN_LIMIT_NOTE}</p>}
+        <ErrorLine error={error} place="inline" />
       </PageSection>
       {/* The native picker cannot be relabeled or sized, so it hides behind Add and stays out
           of the tab order, with its own name for anyone reading the tree. */}

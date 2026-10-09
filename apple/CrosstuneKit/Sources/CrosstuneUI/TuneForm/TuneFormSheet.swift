@@ -13,7 +13,7 @@ public enum TuneFormTarget: Hashable, Identifiable, Sendable {
 }
 
 /// The tune form, as a sheet over the screen that opened it. Fields run from the most touched to
-/// the rarest: title, status, key, tunings, notes, then the details.
+/// the rarest: title, status, key, tunings, notes, lyrics, then the details.
 ///
 /// Reads the store from the environment.
 public struct TuneFormSheet: View {
@@ -136,6 +136,15 @@ private struct TuneFormContent: View {
                 .lineLimit(3...)
                 .characterLimit(Vocabulary.Limits.Tune.notes, text: $model.values.notes)
             }
+            Section(TuneFieldLabels.lyrics) {
+                TextField(
+                    TuneFieldLabels.lyrics, text: $model.values.lyrics,
+                    prompt: Text(TuneFieldLabels.lyricsPlaceholder), axis: .vertical
+                )
+                .contentMask()
+                .lineLimit(6...)
+                .characterLimit(Vocabulary.Limits.Tune.lyrics, text: $model.values.lyrics)
+            }
             detailsSection
         }
         .formStyle(.grouped)
@@ -207,9 +216,6 @@ private struct TuneFormContent: View {
             Toggle(isOn: $model.values.isCrooked) {
                 Text(TuneFieldLabels.isCrooked)
                 Text(TuneFieldLabels.crookedHelp)
-            }
-            NavigationLink(TuneFieldLabels.lyrics) {
-                LyricsEditor(lyrics: $model.values.lyrics)
             }
             SuggestionPicker(
                 TuneFieldLabels.learnedFrom, value: $model.values.learnedFrom, options: model.learnedFromOptions,

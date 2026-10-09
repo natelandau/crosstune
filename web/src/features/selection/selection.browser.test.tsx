@@ -26,7 +26,7 @@ import {
   SELECTION_ACTIONS,
 } from './selectionCopy'
 import { DETAIL_LABELS } from '../tune/detailFields'
-import { ADD_TO_LIST_TITLE } from '../tune/tuneScreenCopy'
+import { ADD_TO_LIST_TITLE, LISTS_SECTION } from '../tune/tuneScreenCopy'
 import { applyPullPage } from '../../sync/apply'
 import { openTestDb } from '../../test/db'
 import { tuneRow, userTuneRow } from '../../test/rows'
@@ -392,7 +392,15 @@ it("adds the tune page's tune to a list from the picker", async () => {
   const ids = await seedCatalog(db)
   const listId = await createList(db, 'Thursday jam')
   await renderApp({ path: `/catalog/${ids['Forked Deer']}`, db, frame: WIDE })
-  await page.getByRole('button', { name: ADD_TO_LIST, exact: true }).click()
+  const tunePage = page.getByRole('main', { name: TUNE })
+  // A tune in no list has no Lists section, so adding starts from the page's More menu.
+  const more = tunePage.getByRole('button', { name: MORE_ACTIONS })
+  await expect.element(more).toBeVisible()
+  await expect
+    .element(tunePage.getByRole('heading', { name: LISTS_SECTION }))
+    .not.toBeInTheDocument()
+  await more.click()
+  await page.getByRole('menuitem', { name: ADD_TO_LIST }).click()
 
   const picker = page.getByRole('dialog', { name: ADD_TO_LIST_TITLE })
   await expect.element(picker).toBeVisible()
@@ -402,6 +410,10 @@ it("adds the tune page's tune to a list from the picker", async () => {
   await expect.element(picker).not.toBeInTheDocument()
   await expect.poll(async () => await db.list_items.where('list_id').equals(listId).count()).toBe(1)
   await expect
-    .element(page.getByRole('main', { name: TUNE }).getByRole('link', { name: 'Thursday jam' }))
+    .element(
+      tunePage
+        .getByRole('region', { name: LISTS_SECTION })
+        .getByRole('link', { name: 'Thursday jam' }),
+    )
     .toBeVisible()
 })

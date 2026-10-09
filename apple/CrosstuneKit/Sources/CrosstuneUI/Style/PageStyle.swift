@@ -18,7 +18,6 @@ enum PageStyle {
         static let popoverArrowEdge = Edge.bottom
         static let pageMargin = MacStyle.pageMargin
         static let pageMaxWidth = MacStyle.pageMaxWidth
-        static let showsEmptyNotes = true
         /// A window has no bar title over the page, so a page with no title of its own heads itself.
         static let pageHeadsItself = true
         /// How far below its place a page's title starts as the page arrives.
@@ -50,7 +49,6 @@ enum PageStyle {
         static let popoverArrowEdge = Edge.top
         static let pageMargin: CGFloat = 20
         static let pageMaxWidth: CGFloat = 680
-        static let showsEmptyNotes = false
         /// The navigation bar carries the title of a pushed page.
         static let pageHeadsItself = false
         /// The pushed page arrives by its own transition, so its title needs no rise.

@@ -25,7 +25,7 @@ import { LEARNED_ON_INCOMPLETE, TITLE_REQUIRED } from './tuneFormValues'
 import { EDIT_TUNE, LYRICS_SECTION } from './tuneScreenCopy'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
-import { CANCEL, DONE } from '../../ui/confirmCopy'
+import { CANCEL } from '../../ui/confirmCopy'
 import { NOT_SET } from '../../ui/fieldCopy'
 import { spokenKey } from '../../ui/keyName'
 import { renderApp } from '../../test/renderApp'
@@ -192,35 +192,21 @@ it('empties an open vocabulary from its Not set choice', async () => {
   await expect.poll(async () => (await db.tunes.get(tuneId))?.tune_type).toBeNull()
 })
 
-it('carries words back from the lyrics sheet on Done, and drops them on Cancel', async () => {
+it('takes lyrics in their own field and saves them with the tune', async () => {
   const db = openTestDb()
   const onOpenChange = renderSheet(db)
   await titleField().fill('Cluck Old Hen')
   const form = sheet(NEW_TUNE_TITLE)
-  const row = form.getByRole('button', { name: DETAIL_LABELS.lyrics, exact: true })
-  const lyrics = sheet(LYRICS_SECTION)
-  const words = lyrics.getByRole('textbox', { name: LYRICS_SECTION })
-
-  await row.click()
-  await words.fill('My old hen')
-  await lyrics.getByRole('button', { name: DONE }).click()
-  await expect.element(lyrics).not.toBeInTheDocument()
-  await expect.element(row).toHaveFocus()
-
-  await row.click()
-  await expect.element(words).toHaveValue('My old hen')
-  await words.fill('My old hen is a good old hen')
-  await lyrics.getByRole('button', { name: CANCEL }).click()
-  await expect.element(lyrics).not.toBeInTheDocument()
-  await expect.element(row).toHaveFocus()
-  await row.click()
-  await expect.element(words).toHaveValue('My old hen')
-  await lyrics.getByRole('button', { name: CANCEL }).click()
-  await expect.element(lyrics).not.toBeInTheDocument()
-
+  // Lyrics are a field of their own, not a row in Details that opens another sheet.
+  await expect
+    .element(form.getByRole('button', { name: LYRICS_SECTION, exact: true }))
+    .not.toBeInTheDocument()
+  await form.getByRole('textbox', { name: LYRICS_SECTION }).fill('My old hen\nShe’s a good old hen')
   await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
   await expect.poll(() => onOpenChange.mock.calls).toEqual([[false]])
-  await expect.poll(() => onlyTune(db)).toMatchObject({ lyrics: 'My old hen' })
+  await expect
+    .poll(() => onlyTune(db))
+    .toMatchObject({ lyrics: 'My old hen\nShe’s a good old hen' })
 })
 
 it('dims an empty suggested field only while it shows Not set', async () => {

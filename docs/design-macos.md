@@ -80,7 +80,6 @@ differ. iPhone and iPad never take a rule from here.
 - 32pt margins. Title always in the content, never only in the toolbar.
 - Section heading controls are small glass controls. Content 8pt below
   the heading, 28pt between sections.
-- Empty section: one quiet line with the way to fill it.
 - A page row stops short of the column, so trailing controls stay near the
   title.
 - A wrapped middle-dot facts line breaks after a dot, never before.

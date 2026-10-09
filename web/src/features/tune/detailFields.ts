@@ -19,7 +19,6 @@ export type DetailField =
     }
   | { kind: 'modes'; key: 'modes'; label: string }
   | { kind: 'switch'; key: 'is_crooked'; label: string; help?: string }
-  | { kind: 'lyrics'; key: 'lyrics'; label: string }
   | { kind: 'date'; key: 'learned_on'; label: string }
 
 /** What each detail field is called, on the tune form and in the bulk edit sheet alike. */
@@ -32,7 +31,6 @@ export const DETAIL_LABELS = {
   tune_type: 'Type',
   part_structure: 'Parts',
   is_crooked: 'Crooked',
-  lyrics: 'Lyrics',
   learned_from: 'Learned from',
   learned_on: 'Learned on',
 } as const
@@ -106,7 +104,6 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
     label: DETAIL_LABELS.is_crooked,
     help: CROOKED_HELP,
   },
-  { kind: 'lyrics', key: 'lyrics', label: DETAIL_LABELS.lyrics },
   // The form swaps in the catalog's names.
   {
     kind: 'pick',
