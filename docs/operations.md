@@ -41,9 +41,9 @@ Run `just dev-setup` in the main checkout only. The git hooks every
 checkout shares call the `prek` of the checkout that installed them, so
 installing them from a worktree breaks them once that worktree is removed.
 Create a worktree with `just worktree <branch>`: it copies each module's
-`.env` from the main checkout and runs `just setup`, so `just e2e` works
-there. In a worktree made another way, run `just worktree-env`, then
-`just setup`.
+`.env` and `apple/Config/Secrets.xcconfig` from the main checkout and runs
+`just setup`, so `just e2e` works there. In a worktree made another way,
+run `just worktree-env`, then `just setup`.
 
 A worktree never uses the main checkout's database or bucket, since
 branches write migrations at the same time. `just api::worktree-db` copies
@@ -268,7 +268,8 @@ git push --follow-tags origin main
   apps** job, which raises the attempt and re-runs the jobs after it. A
   re-run of the upload alone sends the same build number, which App Store
   Connect refuses once it has that build. The same release runs from a Mac
-  with `just apple::testflight <build number>` and the key in `apple/.env`.
+  with `just apple::testflight <build number>`, the key in `apple/.env`, and
+  the PostHog project token in `apple/Config/Secrets.xcconfig`.
   Use a build number higher than every uploaded build.
 - Each version is its side's Sentry release tag.
 - A home-screen install keeps the icon it was installed with. A release that

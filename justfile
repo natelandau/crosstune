@@ -77,7 +77,7 @@ contract: api::contract web::contract apple::contract
 smoke api_origin web_origin site_origin="":
     scripts/smoke.sh '{{ api_origin }}' '{{ web_origin }}' '{{ site_origin }}'
 
-# Install every module's dependencies and create missing .env files from their examples
+# Install every module's dependencies and create missing .env and secrets files from their examples
 setup: api::setup web::setup site::setup apple::setup
 
 # The hooks every worktree shares call the prek of the checkout that installed them.
@@ -87,7 +87,7 @@ dev-setup: setup
     uv run --project api prek install --config .pre-commit-config.yaml
     docker compose up -d
 
-# Create .worktrees/<branch> with main's .env files, its dependencies, and its own database and bucket
+# Create .worktrees/<branch> with main's .env and secrets files, its dependencies, and its own database and bucket
 worktree branch:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -106,7 +106,7 @@ worktree branch:
     just --justfile '{{ justfile() }}' apple::prune-derived-data
     echo "worktree ready at $path"
 
-# Copy the main checkout's .env files into this worktree, replacing any already here
+# Copy the main checkout's .env files and Apple secrets into this worktree, replacing any already here
 worktree-env:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -116,10 +116,16 @@ worktree-env:
         echo "this is the main checkout; run this in a worktree" >&2
         exit 1
     fi
-    for env in "$main"/*/.env; do
-        [ -e "$env" ] || continue
-        cp "$env" "$here/${env#"$main"/}"
-        echo "copied ${env#"$main"/}"
+    for file in "$main"/*/.env "$main/apple/Config/Secrets.xcconfig"; do
+        [ -e "$file" ] || continue
+        relative="${file#"$main"/}"
+        # A branch cut before a file was gitignored would otherwise commit it.
+        if ! git -C "$here" check-ignore -q "$relative"; then
+            echo "skipped $relative: this branch does not ignore it" >&2
+            continue
+        fi
+        cp "$file" "$here/$relative"
+        echo "copied $relative"
     done
 
 # Start Postgres and RustFS, apply migrations, then run the API, web client, and site together
