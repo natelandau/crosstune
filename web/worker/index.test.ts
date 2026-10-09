@@ -34,7 +34,7 @@ describe('handleRequest', () => {
     expect(sent.redirect).toBe('manual')
   })
 
-  it('proxies an aliased preview to the origin stored for its alias', async () => {
+  it('proxies a named Preview to the origin stored for its name', async () => {
     const upstream = vi.fn(async () => new Response('ok'))
     const env = makeEnv({
       PREVIEW_API_ORIGINS: { get: async () => 'https://api-pr-7.up.railway.app' },

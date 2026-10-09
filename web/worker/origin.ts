@@ -9,10 +9,10 @@ export interface OriginEnv {
 const WORKERS_DEV = '.workers.dev'
 
 /**
- * The preview alias when the hostname is `<alias>-<workerName>.<subdomain>.workers.dev`,
- * else null. The bare `<workerName>.<subdomain>.workers.dev` hostname has no alias.
+ * The Preview name when the hostname is `<name>-<workerName>.<subdomain>.workers.dev`,
+ * else null. The bare `<workerName>.<subdomain>.workers.dev` hostname has no Preview name.
  */
-export function previewAlias(hostname: string, workerName: string): string | null {
+export function previewName(hostname: string, workerName: string): string | null {
   if (!hostname.endsWith(WORKERS_DEV)) return null
   const labels = hostname.split('.')
   const first = labels[0]
@@ -23,15 +23,15 @@ export function previewAlias(hostname: string, workerName: string): string | nul
 }
 
 /**
- * The API origin to proxy `/v1` to. Only aliased previews consult KV; a missing
+ * The API origin to proxy `/v1` to. Only named Previews consult KV; a missing
  * entry or a failed read means the development API.
  */
 export async function apiOrigin(hostname: string, env: OriginEnv): Promise<string> {
   if (!hostname.endsWith(WORKERS_DEV)) return env.API_ORIGIN_PRODUCTION
-  const alias = previewAlias(hostname, env.WORKER_NAME)
-  if (alias === null) return env.API_ORIGIN_DEVELOPMENT
+  const name = previewName(hostname, env.WORKER_NAME)
+  if (name === null) return env.API_ORIGIN_DEVELOPMENT
   // The value changes at most once per pull request, so a five-minute edge cache
   // saves a KV round trip on every request.
-  const stored = await env.PREVIEW_API_ORIGINS.get(alias, { cacheTtl: 300 }).catch(() => null)
+  const stored = await env.PREVIEW_API_ORIGINS.get(name, { cacheTtl: 300 }).catch(() => null)
   return stored ?? env.API_ORIGIN_DEVELOPMENT
 }

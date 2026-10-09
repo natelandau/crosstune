@@ -225,7 +225,7 @@ reopens one without new information. Add a new entry at the end.
 ## A static site at the apex, the app at `my.`
 
 - `<domain>` serves a static Astro site in `site/`, with its own Worker,
-  pipeline, and preview aliases. The web client is at `my.<domain>`. A
+  pipeline, and Worker Previews. The web client is at `my.<domain>`. A
   visitor who types the address sees what Crosstune is and can join the
   waitlist. A player signs in at `my.`.
 - `my.` shares Clerk's home domain, so a session carries across. "my

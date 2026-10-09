@@ -446,7 +446,7 @@ same triggers. A return to the foreground stands in for a visible tab.
   the site's cookie. Any other path is served from assets, and an unknown
   path gets `index.html`.
 - The Worker picks the API by hostname. The custom domain goes to
-  production. A `workers.dev` preview hostname's alias is looked up in KV for
+  production. A `workers.dev` Preview hostname's name is looked up in KV for
   a pull request's own API. No entry means the development API.
 - A service worker precaches the shell, scripts, styles, and icons, so an
   offline reload needs nothing the install did not store. API responses are
@@ -463,8 +463,8 @@ same triggers. A return to the foreground stands in for a visible tab.
 | Environment  | API                         | Database                                    | Clerk instance | Web client                                | Recordings                                                                                        |
 | ------------ | --------------------------- | ------------------------------------------- | -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Local        | uvicorn on port 8000        | Postgres in Docker, a database per worktree | Development    | Vite dev server, proxies `/v1`            | RustFS bucket `crosstune-local`, `crosstune-wt-<name>` in a worktree                              |
-| Development  | Railway, generated hostname | Neon development                            | Development    | Worker preview at `main-crosstune-web`    | R2 bucket `crosstune-recordings-dev`                                                              |
-| Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>`                        | Development    | Worker preview at `<alias>-crosstune-web` | R2 bucket `crosstune-recordings-preview`, prefix `pr-<n>/`, seeded from development on every push |
+| Development  | Railway, generated hostname | Neon development                            | Development    | Worker Preview at `main-crosstune-web`    | R2 bucket `crosstune-recordings-dev`                                                              |
+| Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>`                        | Development    | Worker Preview at `<name>-crosstune-web`  | R2 bucket `crosstune-recordings-preview`, prefix `pr-<n>/`, seeded from development on every push |
 | Production   | Railway, `api.<domain>`     | Neon production                             | Production     | Worker on `my.<domain>`                   | R2 bucket `crosstune-recordings`                                                                  |
 
 Development runs the head of `main`. Production runs the commit the last
