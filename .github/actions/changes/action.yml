@@ -6,6 +6,9 @@ inputs:
   pattern:
     description: Extended regular expression matched against each changed path
     required: true
+  exclude:
+    description: Extended regular expression for changed paths that never count, even when pattern matches them
+    default: ""
 
 outputs:
   relevant:
@@ -27,6 +30,7 @@ runs:
         REF_TYPE: ${{ github.ref_type }}
         MESSAGE: ${{ github.event.head_commit.message }}
         PATTERN: ${{ inputs.pattern }}
+        EXCLUDE: ${{ inputs.exclude }}
       run: |
         relevant=true
         if [[ "$EVENT" == pull_request ]]; then
@@ -39,6 +43,7 @@ runs:
             echo "::warning::the pull request changes $count files, more than can be listed; running every check"
           elif files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" \
             --jq '.[] | .filename, (.previous_filename // empty)'); then
+            if [[ -n "$EXCLUDE" ]]; then files=$(grep -vE "$EXCLUDE" <<< "$files" || true); fi
             grep -qE "$PATTERN" <<< "$files" || relevant=false
           else
             echo "::warning::could not list the pull request's files; running every check"

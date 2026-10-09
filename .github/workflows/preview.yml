@@ -60,6 +60,8 @@ jobs:
         uses: ./.github/actions/changes
         with:
           pattern: '^(api/|scripts/preview-railway\.sh$|\.github/workflows/preview\.yml$)'
+          # Tests and recipes never reach the deployed API.
+          exclude: '^api/(tests/|justfile$)'
 
   up:
     name: Create or refresh the preview environment
