@@ -1,0 +1,230 @@
+[
+  {
+    "name": "no-catalog",
+    "catalog": [],
+    "titles": [
+      "Soldier's Joy",
+      "Cluck Old Hen"
+    ],
+    "expected": [
+      {
+        "title": "Soldier's Joy",
+        "duplicate": false,
+        "warnings": []
+      },
+      {
+        "title": "Cluck Old Hen",
+        "duplicate": false,
+        "warnings": []
+      }
+    ]
+  },
+  {
+    "name": "exact-duplicate",
+    "catalog": [
+      {
+        "title": "Soldier's Joy",
+        "alternate_titles": [],
+        "archived": false
+      }
+    ],
+    "titles": [
+      "Soldier's Joy",
+      "Cluck Old Hen"
+    ],
+    "expected": [
+      {
+        "title": "Soldier's Joy",
+        "duplicate": true,
+        "warnings": []
+      },
+      {
+        "title": "Cluck Old Hen",
+        "duplicate": false,
+        "warnings": []
+      }
+    ]
+  },
+  {
+    "name": "folded-duplicate",
+    "catalog": [
+      {
+        "title": "Fête",
+        "alternate_titles": [],
+        "archived": false
+      }
+    ],
+    "titles": [
+      "Fete"
+    ],
+    "expected": [
+      {
+        "title": "Fete",
+        "duplicate": true,
+        "warnings": []
+      }
+    ]
+  },
+  {
+    "name": "alternate-title-duplicate",
+    "catalog": [
+      {
+        "title": "Soldier's Joy",
+        "alternate_titles": [
+          "Soldiers Joy"
+        ],
+        "archived": false
+      }
+    ],
+    "titles": [
+      "soldiers joy"
+    ],
+    "expected": [
+      {
+        "title": "soldiers joy",
+        "duplicate": true,
+        "warnings": []
+      }
+    ]
+  },
+  {
+    "name": "archived-duplicate",
+    "catalog": [
+      {
+        "title": "Red Haired Boy",
+        "alternate_titles": [],
+        "archived": true
+      }
+    ],
+    "titles": [
+      "Red Haired Boy"
+    ],
+    "expected": [
+      {
+        "title": "Red Haired Boy",
+        "duplicate": true,
+        "warnings": []
+      }
+    ]
+  },
+  {
+    "name": "in-batch-merge",
+    "catalog": [],
+    "titles": [
+      "Fête",
+      "Fete"
+    ],
+    "expected": [
+      {
+        "title": "Fête",
+        "duplicate": false,
+        "warnings": []
+      }
+    ]
+  },
+  {
+    "name": "shortened",
+    "catalog": [],
+    "titles": [
+      "😀aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ],
+    "expected": [
+      {
+        "title": "😀aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "duplicate": false,
+        "warnings": [
+          "shortened"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "exactly-the-limit",
+    "catalog": [],
+    "titles": [
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    ],
+    "expected": [
+      {
+        "title": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "duplicate": false,
+        "warnings": []
+      }
+    ]
+  },
+  {
+    "name": "shortened-before-merging",
+    "catalog": [],
+    "titles": [
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac"
+    ],
+    "expected": [
+      {
+        "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "duplicate": false,
+        "warnings": [
+          "shortened"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cut-title-not-retrimmed",
+    "catalog": [],
+    "titles": [
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa b"
+    ],
+    "expected": [
+      {
+        "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ",
+        "duplicate": false,
+        "warnings": [
+          "shortened"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "empty-fold-never-merged",
+    "catalog": [],
+    "titles": [
+      "\u0301",
+      "\u0301"
+    ],
+    "expected": [
+      {
+        "title": "\u0301",
+        "duplicate": false,
+        "warnings": []
+      },
+      {
+        "title": "\u0301",
+        "duplicate": false,
+        "warnings": []
+      }
+    ]
+  },
+  {
+    "name": "empty-fold-never-duplicate",
+    "catalog": [
+      {
+        "title": "\u0301",
+        "alternate_titles": [
+          " "
+        ],
+        "archived": false
+      }
+    ],
+    "titles": [
+      "\u0301"
+    ],
+    "expected": [
+      {
+        "title": "\u0301",
+        "duplicate": false,
+        "warnings": []
+      }
+    ]
+  }
+]

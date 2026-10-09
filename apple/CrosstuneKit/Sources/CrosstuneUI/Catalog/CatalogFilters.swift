@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneVocabulary
 import Foundation
@@ -256,16 +257,9 @@ public enum CatalogSearch {
         return titles == .orderedSame ? first.id < second.id : titles == .orderedAscending
     }
 
-    /// True when the query names the tune's title or an alternate title, as `sameText` compares
-    /// them.
-    public static func titleMatches(_ tune: Tune, query: String) -> Bool {
-        let query = FoldedText(query)
-        return !query.isEmpty && ([tune.title] + tune.alternateTitles).contains { sameText(FoldedText($0), query) }
-    }
-
-    /// ``titleMatches(_:query:)`` with the query already folded.
+    /// True when the folded query names the entry's title or an alternate title.
     static func titleMatches(_ entry: SearchableEntry, _ query: FoldedText) -> Bool {
-        !query.isEmpty && entry.titles.contains { sameText($0, query) }
+        titlesInclude(entry.titles, query)
     }
 
     public static func hidingArchived(_ entries: [CatalogEntry], shown: Bool) -> [CatalogEntry] {
