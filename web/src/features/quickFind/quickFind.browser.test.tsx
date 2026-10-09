@@ -300,7 +300,7 @@ it('shows no matches in an empty catalog, and still runs a command', async () =>
   await userEvent.keyboard('new tune')
   await expect.element(command(NEW_TUNE_TITLE)).toBeVisible()
   await userEvent.keyboard('{Enter}')
-  await expect.poll(() => open.mock.calls.length).toBe(1)
+  await expect.poll(() => open.mock.calls).toEqual([[{ source: 'menu' }]])
   await expect.element(quickFind()).not.toBeInTheDocument()
 })
 

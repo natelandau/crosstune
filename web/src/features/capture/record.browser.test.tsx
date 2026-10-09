@@ -1,5 +1,8 @@
 import { cdp, page, userEvent } from 'vitest/browser'
+import type { ReactElement } from 'react'
 import { expect, it, onTestFinished } from 'vitest'
+import { AnalyticsProvider } from '../../analytics/AnalyticsProvider'
+import { recordingAnalytics } from '../../analytics/testing'
 import { RECORD_LABEL, RECORD_TEXT, TAB_BAR } from '../../app/tabs'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
@@ -247,4 +250,36 @@ it('keeps the wash and drops the slide under reduced motion', async () => {
   const wash = getComputedStyle(row.element(), '::after')
   expect(Number.parseFloat(wash.animationDuration)).toBeGreaterThan(0)
   expect(Number.parseFloat(wash.animationDelay)).toBe(0)
+})
+
+function withAnalytics() {
+  const analytics = recordingAnalytics()
+  return {
+    analytics,
+    wrap: (app: ReactElement) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
+  }
+}
+
+it('reports recording_started with the dock as the source from the dome', async () => {
+  fakeMediaForTest()
+  const { analytics, wrap } = withAnalytics()
+  await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE, density: 'touch', wrap })
+  await page.getByRole('button', { name: RECORD_LABEL }).click()
+
+  await expect
+    .poll(() => analytics.sends())
+    .toEqual([{ name: 'recording_started', props: { source: 'dock' } }])
+})
+
+it('reports recording_started with the tune as the source from a tune page', async () => {
+  fakeMediaForTest()
+  const db = openTestDb()
+  const tuneId = await seedTune(db)
+  const { analytics, wrap } = withAnalytics()
+  await renderApp({ path: `/catalog/${tuneId}`, db, frame: PHONE, density: 'touch', wrap })
+  await recordFromTunePage()
+
+  await expect
+    .poll(() => analytics.sends())
+    .toEqual([{ name: 'recording_started', props: { source: 'tune' } }])
 })

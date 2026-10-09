@@ -2,14 +2,21 @@ import { useCallback, useContext, useMemo, useRef, useState, type ReactNode } fr
 import { DbContext } from '../../db/DbProvider'
 import { visibleMain } from '../../platform/visibleMain'
 import { usePlaybackEngine } from './PlaybackEngineProvider'
-import type { PlayOrigin } from './playLog'
+import { tappedFrom, type PlayOrigin } from './playLog'
 import { PlayLogContext, usePlayLog } from './usePlayLog'
 import { PlayerContext, type Player } from './usePlayer'
 import type { PlayerItem } from '../../domain/playerItem'
 
-const DOCK_ORIGIN: PlayOrigin = { context: 'dock' }
+const DOCK_ORIGIN: PlayOrigin = { context: 'dock', report: tappedFrom('dock') }
 
-export function PlayerProvider({ children }: { children: ReactNode }) {
+export function PlayerProvider({
+  children,
+  now,
+}: {
+  children: ReactNode
+  /** The play log's clock; tests pass one they move on. */
+  now?: () => number
+}) {
   const engine = usePlaybackEngine()
   const [loaded, setLoaded] = useState<{ item: PlayerItem; origin: PlayOrigin } | null>(null)
   const item = loaded?.item ?? null
@@ -46,7 +53,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     () => ({ item, play, close, returnFocus }),
     [item, play, close, returnFocus],
   )
-  const playLog = usePlayLog(engine, item, loaded?.origin ?? DOCK_ORIGIN)
+  const playLog = usePlayLog(engine, item, loaded?.origin ?? DOCK_ORIGIN, { now })
   return (
     <PlayerContext.Provider value={player}>
       <PlayLogContext.Provider value={playLog}>{children}</PlayLogContext.Provider>

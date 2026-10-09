@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { recordingAnalytics } from '../../analytics/testing'
 import { TUNE_LIMITS, type Instrument } from '../../api/vocabulary'
 import { createList } from '../../commands/lists'
 import * as lists from '../../commands/lists'
@@ -33,14 +34,20 @@ beforeEach(async () => {
 
 function setup(options: Partial<UseTuneFormOptions> = {}) {
   const onSaved = vi.fn()
+  const analytics = recordingAnalytics()
   const view = renderHook(
     () => ({
-      form: useTuneForm({ onSaved, instruments: new Set(['violin']), ...options }),
+      form: useTuneForm({
+        source: 'catalog',
+        onSaved,
+        instruments: new Set(['violin']),
+        ...options,
+      }),
       catalog: useCatalog(),
     }),
-    { wrapper: dataProviders({ db }) },
+    { wrapper: dataProviders({ db, analytics }) },
   )
-  return { ...view, onSaved }
+  return { ...view, onSaved, analytics }
 }
 
 async function ready(result: { current: { form: { ready: boolean } } }) {
@@ -82,7 +89,7 @@ describe('useTuneForm', () => {
   it('decides the visible fields once, at open', async () => {
     const view = renderHook(
       ({ instruments }: { instruments: ReadonlySet<Instrument> }) =>
-        useTuneForm({ onSaved: vi.fn(), instruments }),
+        useTuneForm({ source: 'catalog', onSaved: vi.fn(), instruments }),
       {
         wrapper: dataProviders({ db }),
         initialProps: { instruments: new Set<Instrument>(['violin']) },
@@ -265,5 +272,137 @@ describe('useTuneForm', () => {
     })
     expect(again).toBe('ignored')
     expect(await db.tunes.count()).toBe(1)
+  })
+
+  describe('recording filing analytics', () => {
+    it('reports recording_filed from unfiled once the new tune holds the recording', async () => {
+      const recordingId = await captureRecording(db)
+      const { result, onSaved, analytics } = setup({ recordingId })
+      await ready(result)
+      act(() => result.current.form.set('title', 'Banshee'))
+      act(() => void result.current.form.save())
+      await expect.poll(() => onSaved.mock.calls.length).toBe(1)
+      const [tuneId] = onSaved.mock.calls[0]!
+
+      expect(analytics.sends().filter((send) => send.name === 'recording_filed')).toEqual([
+        {
+          name: 'recording_filed',
+          props: {
+            from: 'unfiled',
+            origin: 'recorded',
+            recording_id: recordingId,
+            tune_id: tuneId,
+          },
+        },
+      ])
+    })
+
+    it('reports from another tune when the stored tune was deleted', async () => {
+      const gone = await createTune(db, { title: 'Old Joe Clark' }, { status: 'known' })
+      const recordingId = await captureRecording(db, { tuneId: gone.tuneId })
+      await db.tunes.update(gone.tuneId, { deleted_at: '2026-01-02T00:00:00.000Z' })
+      const { result, onSaved, analytics } = setup({ recordingId })
+      await ready(result)
+      act(() => result.current.form.set('title', 'Banshee'))
+      act(() => void result.current.form.save())
+      await expect.poll(() => onSaved.mock.calls.length).toBe(1)
+
+      expect(analytics.sends().find((send) => send.name === 'recording_filed')).toMatchObject({
+        props: { from: 'other_tune' },
+      })
+    })
+
+    it('reports nothing when the recording refuses the filing', async () => {
+      vi.mocked(recordings.updateRecording).mockRejectedValueOnce(new Error('Recording is gone'))
+      const recordingId = await captureRecording(db)
+      const { result, onSaved, analytics } = setup({ recordingId })
+      await ready(result)
+      act(() => result.current.form.set('title', 'Banshee'))
+      act(() => void result.current.form.save())
+      await expect.poll(() => onSaved.mock.calls.length).toBe(1)
+
+      expect(analytics.sends().map((send) => send.name)).toEqual(['tune_created'])
+    })
+  })
+
+  describe('analytics', () => {
+    it('reports tune_created with its source, fields, and id', async () => {
+      const { result, onSaved, analytics } = setup({ source: 'search_offer' })
+      await ready(result)
+      act(() => result.current.form.set('title', 'Banshee'))
+      act(() => result.current.form.set('key', 'D'))
+      act(() => result.current.form.set('status', 'learning'))
+      act(() => void result.current.form.save())
+      await expect.poll(() => onSaved.mock.calls.length).toBe(1)
+      expect(analytics.sends()).toEqual([
+        {
+          name: 'tune_created',
+          props: {
+            source: 'search_offer',
+            fields_set: ['title', 'status', 'key'],
+            tune_id: onSaved.mock.calls[0]![0],
+          },
+        },
+      ])
+    })
+
+    it('reports a tuning and capo as their own fields', async () => {
+      const { result, onSaved, analytics } = setup({
+        source: 'catalog',
+        instruments: new Set(['guitar']),
+      })
+      await ready(result)
+      act(() => result.current.form.set('title', 'Banshee'))
+      act(() => result.current.form.setTuning('guitar', { tuning: 'DADGAD', capo: '2' }))
+      act(() => void result.current.form.save())
+      await expect.poll(() => onSaved.mock.calls.length).toBe(1)
+      expect(analytics.sends()[0]!.props).toMatchObject({ fields_set: ['title', 'tuning', 'capo'] })
+    })
+
+    it('reports tune_edited with only the fields that changed', async () => {
+      const { tuneId } = await createTune(
+        db,
+        { title: 'Old', key: 'D', genre: 'Old-time' },
+        { status: 'known' },
+      )
+      const { result, onSaved, analytics } = setup({ tuneId })
+      await ready(result)
+      act(() => result.current.form.set('title', 'New'))
+      act(() => result.current.form.set('key', 'G'))
+      act(() => void result.current.form.save())
+      await expect.poll(() => onSaved.mock.calls.length).toBe(1)
+      expect(analytics.sends()).toEqual([
+        { name: 'tune_edited', props: { fields_changed: ['title', 'key'], tune_id: tuneId } },
+      ])
+    })
+
+    it('reports a status change as tune_status_changed beside tune_edited', async () => {
+      const { tuneId } = await createTune(db, { title: 'Old' }, { status: 'learning' })
+      const { result, onSaved, analytics } = setup({ tuneId })
+      await ready(result)
+      act(() => result.current.form.set('status', 'known'))
+      act(() => void result.current.form.save())
+      await expect.poll(() => onSaved.mock.calls.length).toBe(1)
+      expect(analytics.sends()).toEqual([
+        { name: 'tune_edited', props: { fields_changed: ['status'], tune_id: tuneId } },
+        { name: 'tune_status_changed', props: { from: 'learning', to: 'known', tune_id: tuneId } },
+      ])
+    })
+
+    it('reports nothing for a save that changes nothing', async () => {
+      const { tuneId } = await createTune(db, { title: 'Old' }, { status: 'known' })
+      const { result, onSaved, analytics } = setup({ tuneId })
+      await ready(result)
+      act(() => void result.current.form.save())
+      await expect.poll(() => onSaved.mock.calls.length).toBe(1)
+      expect(analytics.sends()).toEqual([])
+    })
+
+    it('reports nothing for a refused save', async () => {
+      const { result, analytics } = setup({ source: 'catalog' })
+      await ready(result)
+      act(() => void result.current.form.save())
+      expect(analytics.sends()).toEqual([])
+    })
   })
 })

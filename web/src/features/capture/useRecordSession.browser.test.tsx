@@ -1,11 +1,18 @@
 import { act, renderHook } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { recordingAnalytics } from '../../analytics/testing'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import type { Source } from '../../analytics/events'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { fakeStream, FakeRecorder, LAST_CHUNK, fakeMediaForTest } from '../../test/fakeMedia'
 import { dataProviders } from '../../test/providers'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
+import { appendChunk, beginCapture } from '../../commands/recordings'
+import { newId } from '../../commands/write'
+import { createSyncEngine } from '../../sync/engine'
+import { STALE_CAPTURE_MS } from '../../sync/transfers'
+import { createFakeApi } from '../../test/fakeApi'
 import { DISCARD_TITLE, STARTING_MICROPHONE } from './recordCopy'
 import { RECORDING } from '../../text/format'
 import { type SavedRecording, useRecordSession } from './useRecordSession'
@@ -22,8 +29,10 @@ function setup(
     tuneId = null,
     answer = true,
     ask = async () => answer,
+    source = 'dock',
   }: {
     tuneId?: string | null
+    source?: Source
     answer?: boolean
     ask?: (question: ConfirmQuestion) => Promise<boolean>
   } = {},
@@ -32,10 +41,12 @@ function setup(
   const toast = vi.fn((_message: string) => {})
   const onDone = vi.fn((_saved: SavedRecording | null) => {})
   const onSaving = vi.fn((_recordingId: string) => {})
-  const hook = renderHook(() => useRecordSession({ tuneId, confirm, toast, onDone, onSaving }), {
-    wrapper: dataProviders({ db }),
-  })
-  return { ...hook, confirm, toast, onDone, onSaving }
+  const analytics = recordingAnalytics()
+  const hook = renderHook(
+    () => useRecordSession({ tuneId, source, confirm, toast, onDone, onSaving }),
+    { wrapper: dataProviders({ db, analytics }) },
+  )
+  return { ...hook, confirm, toast, onDone, onSaving, analytics }
 }
 
 describe('useRecordSession', () => {
@@ -202,5 +213,182 @@ describe('useRecordSession', () => {
     act(() => release())
     await expect.poll(() => onDone.mock.calls.length).toBe(1)
     expect(onDone.mock.calls[0]![0]?.recordingId).toBe(onSaving.mock.calls[0]![0])
+  })
+  describe('analytics', () => {
+    it('sends recording_started with the launcher source once capture begins', async () => {
+      fakeMedia()
+      const { result, analytics } = setup(openTestDb(), { source: 'tune' })
+      await expect.poll(() => result.current.phase).toBe('recording')
+
+      await expect
+        .poll(() => analytics.sends())
+        .toEqual([{ name: 'recording_started', props: { source: 'tune' } }])
+    })
+
+    it('sends microphone_denied and no recording_started when permission is denied', async () => {
+      const media = fakeMedia()
+      media.getUserMedia.mockRejectedValueOnce(
+        Object.assign(new Error('denied'), { name: 'NotAllowedError' }),
+      )
+      const { result, analytics } = setup(openTestDb(), { source: 'menu' })
+      await expect.poll(() => result.current.phase).toBe('denied')
+
+      await expect
+        .poll(() => analytics.sends())
+        .toEqual([{ name: 'microphone_denied', props: { source: 'menu' } }])
+    })
+
+    it('sends nothing when the microphone fails for another reason', async () => {
+      const media = fakeMedia()
+      media.getUserMedia.mockRejectedValueOnce(
+        Object.assign(new Error('busy'), { name: 'NotReadableError' }),
+      )
+      const { result, analytics } = setup(openTestDb())
+      await expect.poll(() => result.current.phase).toBe('denied')
+
+      expect(analytics.sends()).toEqual([])
+    })
+
+    it('sends recording_saved filed under the tune with a duration bucket and ids', async () => {
+      fakeMedia()
+      const db = openTestDb()
+      const { tuneId } = await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
+      const { result, onDone, analytics } = setup(db, { tuneId })
+      await expect.poll(() => result.current.phase).toBe('recording')
+
+      await act(() => result.current.stop())
+      await expect.poll(() => onDone.mock.calls.length).toBe(1)
+
+      const [saved] = await db.recordings.toArray()
+      await expect
+        .poll(() => analytics.sends())
+        .toEqual([
+          { name: 'recording_started', props: { source: 'dock' } },
+          {
+            name: 'recording_saved',
+            props: {
+              duration_bucket: '<30s',
+              filed: true,
+              recording_id: saved!.id,
+              tune_id: tuneId,
+            },
+          },
+        ])
+    })
+
+    it('sends recording_saved unfiled without a tune id', async () => {
+      fakeMedia()
+      const db = openTestDb()
+      const { result, onDone, analytics } = setup(db)
+      await expect.poll(() => result.current.phase).toBe('recording')
+
+      await act(() => result.current.stop())
+      await expect.poll(() => onDone.mock.calls.length).toBe(1)
+
+      const [saved] = await db.recordings.toArray()
+      await expect
+        .poll(() => analytics.sends().at(-1))
+        .toEqual({
+          name: 'recording_saved',
+          props: { duration_bucket: '<30s', filed: false, recording_id: saved!.id },
+        })
+    })
+
+    it('sends recording_discarded with the duration bucket after a confirmed discard', async () => {
+      fakeMedia()
+      const db = openTestDb()
+      const { result, onDone, analytics } = setup(db)
+      await expect.poll(() => result.current.phase).toBe('recording')
+
+      await act(() => result.current.discard())
+      await expect.poll(() => onDone.mock.calls).toEqual([[null]])
+
+      await expect
+        .poll(() => analytics.sends())
+        .toEqual([
+          { name: 'recording_started', props: { source: 'dock' } },
+          { name: 'recording_discarded', props: { duration_bucket: '<30s' } },
+        ])
+    })
+
+    it('sends no recording_discarded when the discard is declined or the mic never started', async () => {
+      const media = fakeMedia()
+      const { result, confirm, analytics } = setup(openTestDb(), { answer: false })
+      await expect.poll(() => result.current.phase).toBe('recording')
+      await act(() => result.current.discard())
+      await expect.poll(() => confirm.mock.calls.length).toBe(1)
+
+      await expect
+        .poll(() => analytics.sends().map((send) => send.name))
+        .toEqual(['recording_started'])
+      media.getUserMedia.mockImplementationOnce(() => new Promise(() => {}))
+      const pending = setup(openTestDb())
+      await expect.poll(() => pending.result.current.statusLabel).toBe(STARTING_MICROPHONE)
+      await act(() => pending.result.current.discard())
+      await expect.poll(() => pending.onDone.mock.calls).toEqual([[null]])
+
+      expect(pending.analytics.sends()).toEqual([])
+    })
+
+    it('finishes an orphaned capture when a sync pass runs', async () => {
+      const db = openTestDb()
+      const id = newId()
+      await beginCapture(db, id, { tuneId: null, recordedAt: new Date(0).toISOString() })
+      await appendChunk(db, id, 0, new Blob(['a'], { type: 'audio/mp4' }))
+      await db.recording_files.update(id, { last_chunk_at: Date.now() - STALE_CAPTURE_MS - 1 })
+
+      const analytics = recordingAnalytics()
+      const engine = createSyncEngine({
+        analytics,
+        db,
+        api: createFakeApi().api,
+        isOnline: () => true,
+      })
+      onTestFinished(() => engine.stop())
+      await engine.sync()
+
+      await expect
+        .poll(async () => (await db.recording_files.get(id))?.local_state)
+        .not.toBe('capturing')
+      // Only the recorder that took the audio reports it; a recovered capture is no new save.
+      expect(analytics.sends().filter((send) => send.name === 'recording_saved')).toEqual([])
+    })
+
+    it('sends recording_saved for a take kept when the recorder goes away mid-take', async () => {
+      fakeMedia()
+      const db = openTestDb()
+      const { result, unmount, analytics } = setup(db)
+      await expect.poll(() => result.current.phase).toBe('recording')
+
+      unmount()
+
+      await expect.poll(async () => (await db.recordings.toArray()).length).toBe(1)
+      const [saved] = await db.recordings.toArray()
+      await expect
+        .poll(() => analytics.sends())
+        .toEqual([
+          { name: 'recording_started', props: { source: 'dock' } },
+          {
+            name: 'recording_saved',
+            props: { duration_bucket: '<30s', filed: false, recording_id: saved!.id },
+          },
+        ])
+    })
+
+    it('reports a stopped take once, though the recorder goes away afterwards', async () => {
+      fakeMedia()
+      const db = openTestDb()
+      const { result, onDone, unmount, analytics } = setup(db)
+      await expect.poll(() => result.current.phase).toBe('recording')
+      await act(() => result.current.stop())
+      await expect.poll(() => onDone.mock.calls.length).toBe(1)
+
+      unmount()
+
+      await expect.poll(async () => (await db.recordings.toArray()).length).toBe(1)
+      await expect
+        .poll(() => analytics.sends().filter((send) => send.name === 'recording_saved').length)
+        .toBe(1)
+    })
   })
 })

@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { countBucket } from '../../analytics/buckets'
+import {
+  createSearchSettler,
+  realSettleClock,
+  type SettleClock,
+} from '../../analytics/searchSettler'
 import type { Instrument } from '../../api/vocabulary'
 import type { SortChoice } from '../../ui/sortChoice'
 import { useScanTuneIds } from '../scans/useScans'
@@ -38,6 +45,8 @@ export interface CatalogScreenOptions {
   onCreate(title: string): void
   /** The facets with their own control on the screen, which the sheet count leaves out. */
   barFacets?: readonly Facet[]
+  /** Times the pause after which a search counts as settled; tests pass their own. */
+  settleClock?: SettleClock
 }
 
 export interface CatalogScreen {
@@ -83,6 +92,8 @@ export interface CatalogScreen {
   setSort: typeof setCatalogSort
   /** The count for a live region, empty on load. */
   announcement: string
+  /** Ends the search because a result was opened. */
+  endSearch(): void
   /** Re-reads the session query, for when another screen cleared it while this one stayed mounted. */
   refreshQuery(): void
 }
@@ -91,7 +102,19 @@ export function useCatalogScreen({
   onOpenTune,
   onCreate,
   barFacets,
+  settleClock = realSettleClock,
 }: CatalogScreenOptions): CatalogScreen {
+  const analytics = useAnalytics()
+  const settler = useMemo(
+    () =>
+      createSearchSettler(settleClock, ({ resultCount, tookOffer }) =>
+        analytics.send('search_performed', {
+          result_count_bucket: countBucket(resultCount),
+          took_offer: tookOffer,
+        }),
+      ),
+    [settleClock, analytics],
+  )
   const loadedEntries = useCatalog(true, { heard: true })
   const [storedFilters, updateFilters, filterError] = useCatalogFilters()
   const loadedInstruments = useInstruments()
@@ -160,14 +183,35 @@ export function useCatalogScreen({
     setAnnounced({ effective, entries, ready, text: announced.ready && ready ? countLabel : '' })
   }
 
+  const resultCount = ready ? tunes.length : undefined
+  useEffect(() => settler.setCount(resultCount), [settler, resultCount])
+  // The search is reported when the screen goes, or when the tab is hidden and may not return.
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') settler.finish()
+    }
+    document.addEventListener('visibilitychange', onHidden)
+    return () => {
+      document.removeEventListener('visibilitychange', onHidden)
+      settler.finish()
+    }
+  }, [settler])
+
   const setQuery = (value: string) => {
     setQueryState(value)
     writeSearchQuery('catalog', value)
+    settler.typed(value)
   }
-  const refreshQuery = useCallback(() => setQueryState(readSearchQuery('catalog')), [])
+  const refreshQuery = useCallback(() => {
+    const stored = readSearchQuery('catalog')
+    setQueryState(stored)
+    // Only a cleared query ends a search; a restored one was not typed here.
+    if (stored.trim() === '') settler.typed(stored)
+  }, [settler])
   const createFromSearch = (title?: string) => {
     const typed = title ?? (outcome.kind === 'create' ? outcome.title : undefined)
     if (typed === undefined) return
+    settler.finish(true)
     // A tune created from the search ends that search, whatever the form's outcome.
     setQuery('')
     onCreate(typed)
@@ -175,8 +219,10 @@ export function useCatalogScreen({
   const submit = (selecting = false): EnterAction | null => {
     if (!ready) return null
     const action = enterAction(query, tunes, outcome, selecting)
-    if (action.kind === 'open') onOpenTune(action.tuneId)
-    else if (action.kind === 'create') createFromSearch(action.title)
+    if (action.kind === 'open') {
+      settler.finish()
+      onOpenTune(action.tuneId)
+    } else if (action.kind === 'create') createFromSearch(action.title)
     return action
   }
 
@@ -203,8 +249,12 @@ export function useCatalogScreen({
     submit,
     createFromSearch,
     sort,
-    setSort: setCatalogSort,
+    setSort: (choice) => {
+      setCatalogSort(choice)
+      analytics.send('catalog_sorted', { sort: choice.sort })
+    },
     announcement: announced.text,
+    endSearch: () => settler.finish(),
     refreshQuery,
   }
 }

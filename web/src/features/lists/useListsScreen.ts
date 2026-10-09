@@ -1,13 +1,12 @@
 import { SquarePen, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { deleteList } from '../../commands/lists'
-import { useDb } from '../../db/DbProvider'
 import { DELETE, EDIT } from '../../ui/confirmCopy'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import type { RowAction } from '../../ui/rowTypes'
 import { useAction } from '../../ui/useAction'
 import { DELETE_LIST_MESSAGE } from './deleteListMessage'
 import type { ListNameTarget } from './useListName'
+import { useListActions } from './useListActions'
 import { useLists, type ListSummary } from './useLists'
 
 export interface ListsScreen {
@@ -31,7 +30,7 @@ export function useListsScreen({
   confirm: (question: ConfirmQuestion) => Promise<boolean>
 }): ListsScreen {
   const lists = useLists()
-  const db = useDb()
+  const actions = useListActions()
   const { error, run } = useAction()
   const [naming, setNaming] = useState<ListNameTarget | null>(null)
 
@@ -41,7 +40,7 @@ export function useListsScreen({
       message: DELETE_LIST_MESSAGE,
       action: DELETE,
     })
-    if (ok) run(() => deleteList(db, list.id))
+    if (ok) run(() => actions.remove(list.id))
   }
 
   const rowActions = (list: ListSummary): RowAction[] => [

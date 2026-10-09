@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { updateRecording } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
 import { messageFor, useAction } from '../../ui/useAction'
 import { useTuneMatches, type TuneMatches } from '../catalog/useTuneMatches'
-import { ADD_TO_TUNE_ERROR, filedToast } from './recordingsCopy'
+import { reportRecordingFiled } from './reportRecordingFiled'
+import { filedToast } from './recordingsCopy'
 import type { RecordingView } from './useRecordings'
 
 export interface AddToTune {
@@ -26,10 +28,6 @@ export interface AddToTune {
    * to open the tune form with, if the close was a create offer.
    */
   dismissed: () => string | null
-  /** The tune form saved this tune; files the recording the create offer was made for. */
-  saved: (tuneId: string) => void
-  /** The tune form closed without saving. */
-  abandon: () => void
   /** The last refusal of a pick. */
   error: string | null
 }
@@ -55,6 +53,7 @@ export function useAddToTune(
   },
 ): AddToTune {
   const db = useDb()
+  const analytics = useAnalytics()
   const { error, pending, runThen, clear } = useAction()
   const [query, setQuery] = useState('')
   const [closing, setClosing] = useState(false)
@@ -62,8 +61,6 @@ export function useAddToTune(
   // The title chosen from the create offer, handed back once the sheet has dismissed, since an
   // overlay presented while another is closing never appears.
   const creating = useRef<string | null>(null)
-  // The recording the tune form will file, held past the close that clears `view`.
-  const filing = useRef<string | null>(null)
   // A pick in flight. A ref, because two taps in one tick both read the same state.
   const picking = useRef(false)
   // The recording the sheet was presented for. Every way out ends here, including Escape, the
@@ -105,6 +102,7 @@ export function useAddToTune(
           picking.current = false
           throw caught
         })
+        reportRecordingFiled(analytics, view.recording, tuneId)
       },
       () => {
         setClosing(true)
@@ -116,7 +114,6 @@ export function useAddToTune(
   const create = (title: string) => {
     if (!view || closing || creating.current !== null) return
     creating.current = title
-    filing.current = view.recording.id
     setClosing(true)
   }
 
@@ -131,14 +128,6 @@ export function useAddToTune(
     return title
   }
 
-  const saved = (tuneId: string) => {
-    const id = filing.current
-    filing.current = null
-    if (id === null) return
-    // The tune already exists by now, so a refused filing reports where the closed sheet cannot.
-    void updateRecording(db, id, { tune_id: tuneId }).catch(() => toast(ADD_TO_TUNE_ERROR))
-  }
-
   return {
     open: view !== null && !closing,
     closing,
@@ -150,10 +139,6 @@ export function useAddToTune(
     create,
     cancel: () => setClosing(true),
     dismissed,
-    saved,
-    abandon: () => {
-      filing.current = null
-    },
     error,
   }
 }

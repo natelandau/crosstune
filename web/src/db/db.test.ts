@@ -1,6 +1,7 @@
 import Dexie from 'dexie'
 import { beforeEach, describe, expect, it } from 'vitest'
 import openapi from '../../../api/openapi.json'
+import { noopAnalytics } from '../analytics/client'
 import { openTestDb } from '../test/db'
 import { createFakeApi } from '../test/fakeApi'
 import {
@@ -685,7 +686,12 @@ describe('schema', () => {
 
       // The moved scan still pushes and uploads.
       const fake = createFakeApi()
-      const engine = createSyncEngine({ db: opened, api: fake.api, isOnline: () => true })
+      const engine = createSyncEngine({
+        analytics: noopAnalytics,
+        db: opened,
+        api: fake.api,
+        isOnline: () => true,
+      })
       await engine.sync()
       await transfersSettled(engine)
       engine.stop()

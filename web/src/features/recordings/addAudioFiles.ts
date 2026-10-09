@@ -1,3 +1,4 @@
+import type { AudioFormat } from '../../analytics/events'
 import { addUploadedFile } from '../../commands/recordings'
 import { getStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
@@ -33,6 +34,21 @@ export async function addAudioFile(db: CrosstuneDb, file: File, tuneId: string |
   })
 }
 
+const FORMAT_BY_EXTENSION: Record<string, AudioFormat> = {
+  m4a: 'm4a',
+  mp3: 'mp3',
+  wav: 'wav',
+  aif: 'aiff',
+  aiff: 'aiff',
+  flac: 'flac',
+}
+
+/** The plan's audio format for a file, from its extension. */
+export function audioFormatOf(file: File): AudioFormat {
+  const extension = /\.([^.]+)$/.exec(file.name)?.[1]?.toLowerCase() ?? ''
+  return FORMAT_BY_EXTENSION[extension] ?? 'other'
+}
+
 /**
  * Adds each file in turn, so one refusal never costs the rest of the batch. Rejects with the
  * first refusal once every file has had its turn, named for its file when there were several.
@@ -41,11 +57,14 @@ export async function addAudioFiles(
   db: CrosstuneDb,
   files: readonly File[],
   tuneId: string | null,
+  /** Called with each file once it is stored, so a caller knows what landed before a refusal. */
+  onAdded: (file: File) => void = () => {},
 ) {
   let refusal: string | null = null
   for (const file of files) {
     try {
       await addAudioFile(db, file, tuneId)
+      onAdded(file)
     } catch (caught) {
       const message = messageFor(caught)
       refusal ??= files.length > 1 ? refusedFile(file.name, message) : message

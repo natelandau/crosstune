@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { page, userEvent } from 'vitest/browser'
 import { expect, it, vi } from 'vitest'
+import { recordingAnalytics } from '../../analytics/testing'
 import { createTune } from '../../commands/tunes'
 import { addOfferLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
 import { recordingDateLabel } from '../../text/format'
@@ -92,6 +93,7 @@ function Host({ initial, onClose }: { initial: RecordingView; onClose: () => voi
   const [shown, setShown] = useState<RecordingView | null>(initial)
   return (
     <AddToTuneSheet
+      source="recordings_list"
       view={shown}
       onClose={() => {
         setShown(null)
@@ -106,7 +108,8 @@ async function mountAdd() {
   await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
   const navigated: string[] = []
   const onClose = vi.fn()
-  const Data = dataProviders({ db })
+  const analytics = recordingAnalytics()
+  const Data = dataProviders({ db, analytics })
   renderWithProviders(
     <Data>
       <TuneFormProvider navigate={(to) => navigated.push(to)}>
@@ -116,7 +119,7 @@ async function mountAdd() {
   )
   const dialog = sheet(ADD_TO_TUNE_TITLE)
   await expect.element(dialog).toBeVisible()
-  return { db, dialog, onClose, navigated }
+  return { db, dialog, onClose, navigated, analytics }
 }
 
 it('files a recording under the tune picked, with an Undo', async () => {
@@ -133,7 +136,7 @@ it('files a recording under the tune picked, with an Undo', async () => {
 })
 
 it('files a recording under a new tune made from the typed title', async () => {
-  const { db, dialog, onClose, navigated } = await mountAdd()
+  const { db, dialog, onClose, navigated, analytics } = await mountAdd()
   await dialog.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally Goodin')
   await dialog
     .getByRole('button', {
@@ -150,4 +153,16 @@ it('files a recording under a new tune made from the typed title', async () => {
   expect(tune).toBeDefined()
   await expect.poll(async () => (await db.recordings.get('r1'))?.tune_id).toBe(tune!.id)
   expect(navigated).toEqual([])
+  await expect
+    .poll(() => analytics.sends())
+    .toEqual([
+      {
+        name: 'tune_created',
+        props: { source: 'recordings_list', fields_set: ['title'], tune_id: tune!.id },
+      },
+      {
+        name: 'recording_filed',
+        props: { from: 'unfiled', origin: 'recorded', recording_id: 'r1', tune_id: tune!.id },
+      },
+    ])
 })

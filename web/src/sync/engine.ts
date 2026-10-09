@@ -1,4 +1,6 @@
 import * as Sentry from '@sentry/react'
+import type { AnalyticsClient } from '../analytics/client'
+import { syncFailureReason } from '../analytics/failure'
 import { ApiError, NetworkError, NoTokenError } from '../api/client'
 import type { Change, ResolveResponse } from '../api/types'
 import { countInvalidChanges, getEventsCursor, getPullCursor } from '../db/meta'
@@ -8,6 +10,7 @@ import { applyEventsPage, applyPullPage, applyPushResults, type InvalidChange } 
 import { scanDownloadPass, scanUploadPass } from './scanTransfers'
 import {
   createDownloadRetries,
+  createUploadReports,
   downloadOne,
   downloadPass,
   fetchPeaks,
@@ -26,6 +29,7 @@ export const BACKOFF_MS = [1000, 2000, 4000, 8000, 16000, 32000, 60000] as const
 export interface EngineOptions {
   db: CrosstuneDb
   api: SyncApi
+  analytics: AnalyticsClient
   isOnline?: () => boolean
   batchSize?: number
   onInvalid?: (change: InvalidChange) => void
@@ -66,6 +70,7 @@ function createLoop<S extends string>({
   classify,
   isStopped,
   afterRun,
+  onFailure,
 }: {
   idle: S
   busy: S
@@ -74,12 +79,15 @@ function createLoop<S extends string>({
   classify: (error: unknown) => S
   isStopped: () => boolean
   afterRun?: () => void
+  /** Called when a run fails into a state, other than offline, that this streak has not reported. */
+  onFailure?: (state: S, error: unknown) => void
 }): Loop<S> {
   let status = idle
   const listeners = new Set<(status: S) => void>()
   let running: Promise<void> | null = null
   let again = false
   let failures = 0
+  let reportedFailure: S | null = null
   let retry: ReturnType<typeof setTimeout> | null = null
 
   function setStatus(next: S) {
@@ -108,12 +116,17 @@ function createLoop<S extends string>({
     try {
       await run()
       failures = 0
+      reportedFailure = null
       cancelRetry()
       setStatus(idle)
     } catch (error) {
       const next = classify(error)
       // Report once per streak: a retry that fails the same way adds nothing.
       if (next !== 'offline' && failures === 0) Sentry.captureException(error)
+      if (next !== 'offline' && reportedFailure !== next) {
+        reportedFailure = next
+        onFailure?.(next, error)
+      }
       setStatus(next)
       if (!isStopped()) scheduleRetry()
     }
@@ -164,6 +177,7 @@ function oncePerKey<T>(start: (key: string) => Promise<T>): (key: string) => Pro
 export function createSyncEngine({
   db,
   api,
+  analytics,
   isOnline = () => navigator.onLine,
   batchSize = PUSH_BATCH_SIZE,
   onInvalid = reportInvalid,
@@ -225,6 +239,7 @@ export function createSyncEngine({
   const fetchOne = oncePerKey((id) => downloadOne(db, api, id))
   const fetchPeaksOnce = oncePerKey((id) => fetchPeaks(db, api, id))
 
+  const uploadReports = createUploadReports(analytics, isOnline)
   const downloadRetries = createDownloadRetries()
   const scanRetries = createDownloadRetries()
 
@@ -267,7 +282,7 @@ export function createSyncEngine({
             return error
           },
         )
-        const uploadError = await uploadPass(db, api)
+        const uploadError = await uploadPass(db, api, uploadReports)
         await downloadPass(db, api, fetchOne, downloadRetries, fetchPeaksOnce)
         const held = scanUploadError ?? scanDownloadError ?? uploadError
         if (held) throw held
@@ -305,6 +320,8 @@ export function createSyncEngine({
       ),
     classify: (error) => classifyFailure(error, isOnline),
     isStopped: () => stopped,
+    onFailure: (_state, error) =>
+      analytics.send('sync_failed', { failure_reason: syncFailureReason(error) }),
     // A pushed row can now take its upload, and a pulled one its download.
     afterRun: () => void transfers.trigger(),
   })

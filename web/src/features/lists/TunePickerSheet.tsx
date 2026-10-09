@@ -32,7 +32,7 @@ export function TunePickerSheet({
   const finish = () => {
     const title = picker.dismissed()
     onOpenChange(false)
-    if (title !== null) form.open({ initialTitle: title, listId })
+    if (title !== null) form.open({ source: 'list', initialTitle: title, listId })
   }
 
   useEndOnClose(picker.closing, finish)

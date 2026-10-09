@@ -1,6 +1,7 @@
 import { renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { recordingAnalytics } from '../../analytics/testing'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders, fakePlayer } from '../../test/providers'
@@ -38,15 +39,25 @@ function view(overrides: Partial<RecordingView> & { origin_url?: string | null }
   } satisfies RecordingView
 }
 
-function setup(options: RecordingActionsOptions = {}) {
-  const Data = dataProviders({ db })
+function setup(
+  options: RecordingActionsOptions = {},
+  answer = false,
+  analytics = recordingAnalytics(),
+) {
+  const Data = dataProviders({ db, analytics })
   const wrapper = ({ children }: { children: ReactNode }) => (
     <Data>
       <PlayerContext.Provider value={fakePlayer()}>{children}</PlayerContext.Provider>
     </Data>
   )
-  const confirm = vi.fn(async () => false)
-  return renderHook(() => useRecordingActionsWith({ confirm, ...options }), { wrapper }).result
+  const confirm = vi.fn(async () => answer)
+  const { result } = renderHook(() => useRecordingActionsWith({ confirm, ...options }), { wrapper })
+  return {
+    get current() {
+      return result.current
+    },
+    confirm,
+  }
 }
 
 const labels = (items: { label: string }[]) => items.map((item) => item.label)
@@ -87,5 +98,55 @@ describe('useRecordingActionsWith', () => {
     ])
     expect(labels(withHandler.current.menuFor(view()))).not.toContain(GO_TO_TUNE)
     expect(labels(setup().current.menuFor(filed))).not.toContain(GO_TO_TUNE)
+  })
+
+  describe('analytics', () => {
+    const pressAction = (result: ReturnType<typeof setup>, target: RecordingView, name: string) =>
+      result.current
+        .actionsFor(target)
+        .find((action) => action.label === name)!
+        .onPress()
+
+    it('sends recording_deleted with the origin once a confirmed delete lands', async () => {
+      const analytics = recordingAnalytics()
+      const result = setup({}, true, analytics)
+      const target = view()
+      await db.recordings.put(target.recording)
+
+      pressAction(result, target, DELETE)
+
+      await expect.poll(async () => (await db.recordings.get('r1'))?.deleted_at).not.toBeNull()
+      await expect
+        .poll(() => analytics.sends())
+        .toEqual([{ name: 'recording_deleted', props: { origin: 'recorded', recording_id: 'r1' } }])
+    })
+
+    it('sends nothing for a declined delete', async () => {
+      const analytics = recordingAnalytics()
+      const result = setup({}, false, analytics)
+      const target = view()
+      await db.recordings.put(target.recording)
+
+      pressAction(result, target, DELETE)
+
+      await expect.poll(() => result.confirm.mock.calls.length).toBe(1)
+      await expect.poll(async () => (await db.recordings.get('r1'))?.deleted_at).toBeNull()
+      expect(analytics.sends()).toEqual([])
+    })
+
+    it('sends recording_unfiled with the origin from Remove from tune', async () => {
+      const analytics = recordingAnalytics()
+      const result = setup({}, false, analytics)
+      const target = view({ tuneId: 't1', tuneTitle: 'Cluck Old Hen' })
+      await db.recordings.put({ ...target.recording, tune_id: 't1', source: 'upload' })
+      const upload = { ...target, recording: { ...target.recording, source: 'upload' as const } }
+
+      pressAction(result, upload, REMOVE_FROM_TUNE)
+
+      await expect.poll(async () => (await db.recordings.get('r1'))?.tune_id).toBeNull()
+      await expect
+        .poll(() => analytics.sends())
+        .toEqual([{ name: 'recording_unfiled', props: { origin: 'imported', recording_id: 'r1' } }])
+    })
   })
 })

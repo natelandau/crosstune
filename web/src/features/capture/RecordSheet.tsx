@@ -67,7 +67,7 @@ function Take({
   const confirm = useConfirm()
   const { show } = useToast()
   const toast = useCallback((message: string) => show(message), [show])
-  const { tuneId } = target
+  const { tuneId, source } = target
 
   const onDone = useCallback(
     (saved: SavedRecording | null) => {
@@ -78,7 +78,14 @@ function Take({
     },
     [close, navigate, pathRef, tuneId],
   )
-  const session = useRecordSession({ tuneId, confirm, toast, onDone, onSaving: saving })
+  const session = useRecordSession({
+    tuneId,
+    source,
+    confirm,
+    toast,
+    onDone,
+    onSaving: saving,
+  })
   const { phase, live, refuseDismiss, discard } = session
 
   // The browser's back would leave the take behind the page it lands on, so it is refused.

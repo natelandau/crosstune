@@ -1,4 +1,9 @@
-import { ApiError, NetworkError } from '../api/client'
+import * as Sentry from '@sentry/react'
+import type { AnalyticsClient } from '../analytics/client'
+import { bytesBucket } from '../analytics/buckets'
+import { failureReason } from '../analytics/failure'
+import { recordingOrigin } from '../analytics/origin'
+import { ApiError, NetworkError, NoTokenError } from '../api/client'
 import type { SyncApi } from '../api/types'
 import {
   cancelCapture,
@@ -22,9 +27,9 @@ import type { CrosstuneDb } from '../db/schema'
 import { liveTune } from '../db/tunes'
 import type { LocalRecording } from '../db/types'
 import { defaultLocks, heldCaptureIds } from './captureLock'
-import { isAuthFailure } from './errors'
+import { isAuthFailure, QUOTA_PROBLEM } from './errors'
 
-export const QUOTA_PROBLEM = 'urn:crosstune:quota-exceeded'
+export { QUOTA_PROBLEM }
 
 // Without a lock manager, a capture stops sending chunks as soon as the recorder does, so
 // a gap this wide means the tab (or the recorder inside it) is gone, not just between chunks.
@@ -107,9 +112,59 @@ async function scheduleRetry(db: CrosstuneDb, id: string, cause: unknown): Promi
   })
 }
 
+/** What an upload pass reports, with the per-file failure streaks it has already reported. */
+export interface UploadReports {
+  /** A failed attempt that will be retried: sent once per streak, never while offline. */
+  failed(row: LocalRecording, cause: unknown): void
+  /** A permanent refusal: always sent (unless offline), and ends the streak. */
+  refused(row: LocalRecording, cause: unknown): void
+  /** A file that settled or left the queue ends its streak. */
+  ended(id: string): void
+  storageLimit(db: CrosstuneDb): Promise<void>
+}
+
+export function createUploadReports(
+  analytics: AnalyticsClient,
+  isOnline: () => boolean = () => navigator.onLine,
+): UploadReports {
+  const streaks = new Set<string>()
+  const send = (row: LocalRecording, cause: unknown): boolean => {
+    // Offline is expected, not friction; the same test the transfer loop applies.
+    if (!isOnline() || cause instanceof NoTokenError) return false
+    analytics.send('upload_failed', {
+      failure_reason: failureReason(cause),
+      origin: recordingOrigin(row),
+    })
+    return true
+  }
+  return {
+    failed(row, cause) {
+      if (streaks.has(row.id)) return
+      if (send(row, cause)) streaks.add(row.id)
+    },
+    refused(row, cause) {
+      streaks.delete(row.id)
+      send(row, cause)
+    },
+    ended: (id) => void streaks.delete(id),
+    // Without the figures nothing is sent, since a guessed use would land in the wrong bucket.
+    async storageLimit(db) {
+      try {
+        const storage = await getStorage(db)
+        if (storage) {
+          analytics.send('storage_limit_reached', { storage_used: bytesBucket(storage.used_bytes) })
+        }
+      } catch (error) {
+        Sentry.captureException(error)
+      }
+    },
+  }
+}
+
 /** Leave the retry loop, win or lose: a state outside it (uploaded, blocked, failed) starts fresh. */
 async function settleUpload(
   db: CrosstuneDb,
+  reports: UploadReports,
   id: string,
   state: LocalFileState,
   error: string | null = null,
@@ -120,9 +175,15 @@ async function settleUpload(
     upload_attempts: 0,
     next_attempt_at: null,
   })
+  reports.ended(id)
 }
 
-async function uploadOne(db: CrosstuneDb, api: SyncApi, id: string): Promise<void> {
+async function uploadOne(
+  db: CrosstuneDb,
+  api: SyncApi,
+  reports: UploadReports,
+  id: string,
+): Promise<void> {
   const file = await db.recording_files.get(id)
   if (!file?.blob) return
   const row = await db.recordings.get(id)
@@ -131,7 +192,7 @@ async function uploadOne(db: CrosstuneDb, api: SyncApi, id: string): Promise<voi
   // The row must exist on the server before it can be given a slot.
   if (await pendingFor(db, 'recordings', id)) return
   if (row.state !== 'pending_upload') {
-    await settleUpload(db, id, 'uploaded')
+    await settleUpload(db, reports, id, 'uploaded')
     return
   }
   await setFileState(db, id, 'uploading')
@@ -143,48 +204,56 @@ async function uploadOne(db: CrosstuneDb, api: SyncApi, id: string): Promise<voi
   } catch (error) {
     if (error instanceof ApiError) {
       if (error.problemType === QUOTA_PROBLEM) {
-        await settleUpload(db, id, 'blocked_quota', error.message)
+        await settleUpload(db, reports, id, 'blocked_quota', error.message)
+        // A blocked file refused again is still the one limit.
+        if (file.local_state !== 'blocked_quota') await reports.storageLimit(db)
         return
       }
       if (error.status === 409) {
         // Already past pending on the server, so a previous confirmation landed.
-        await settleUpload(db, id, 'uploaded')
+        await settleUpload(db, reports, id, 'uploaded')
         return
       }
       if (error.status === 404) {
         // The server has no live row for this recording; pushing it again gives the slot request one.
         await requeueRecording(db, id)
+        reports.ended(id)
         return
       }
       if (!isRetryableRefusal(error)) {
         // A refusal of the request itself (bad mime, too large) will never succeed as-is.
-        await settleUpload(db, id, 'failed_upload', error.message)
+        await settleUpload(db, reports, id, 'failed_upload', error.message)
+        reports.refused(row, error)
         return
       }
     }
     // Everything else (5xx, 401/403/408/429, network and auth failures, a transfer error) is transient.
     await scheduleRetry(db, id, error)
+    reports.failed(row, error)
     throw error
   }
 
   try {
     await api.putObject(slot.url, file.blob, contentType)
     await api.uploadFinished(id)
-    await settleUpload(db, id, 'uploaded')
+    await settleUpload(db, reports, id, 'uploaded')
   } catch (error) {
     if (error instanceof ApiError) {
       if (error.status === 409) {
         // The slot expired or the object never landed; the next pass requests a fresh one.
         await scheduleRetry(db, id, error)
+        reports.failed(row, error)
         return
       }
       if (error.status === 413) {
         // The server deleted the object because it did not match the declared size.
-        await settleUpload(db, id, 'failed_upload', error.message)
+        await settleUpload(db, reports, id, 'failed_upload', error.message)
+        reports.refused(row, error)
         return
       }
     }
     await scheduleRetry(db, id, error)
+    reports.failed(row, error)
     throw error
   }
 }
@@ -203,7 +272,7 @@ async function requeueRecording(db: CrosstuneDb, id: string): Promise<void> {
  * progress is left alone: it has no server row to check against yet, and still needs its chunks.
  * A tombstoned recording that never uploaded is restored as unfiled instead: the server takes a
  * newer upsert over its tombstone, and this blob is the only copy of the audio. */
-async function dropTombstonedFiles(db: CrosstuneDb): Promise<void> {
+async function dropTombstonedFiles(db: CrosstuneDb, reports: UploadReports): Promise<void> {
   await recordingTx(db, async () => {
     // Keys only: a file row carries its audio and peaks, and only an orphan needs them read.
     const ids = await db.recording_files.where('local_state').noneOf(['capturing']).primaryKeys()
@@ -227,6 +296,7 @@ async function dropTombstonedFiles(db: CrosstuneDb): Promise<void> {
       }
       await db.recording_files.delete(id)
       await db.recording_chunks.where('recording_id').equals(id).delete()
+      reports.ended(id)
     }
 
     // Read the owners off the primary keys rather than a unique-direction index cursor,
@@ -246,10 +316,14 @@ async function dropTombstonedFiles(db: CrosstuneDb): Promise<void> {
  * are retried too. A row's own transient failure does not stop the rest of the pass; the
  * first one is returned (null when every row settled) so the caller can still fail the sync.
  */
-export async function uploadPass(db: CrosstuneDb, api: SyncApi): Promise<unknown> {
+export async function uploadPass(
+  db: CrosstuneDb,
+  api: SyncApi,
+  reports: UploadReports,
+): Promise<unknown> {
   // Run before the quota skip below, so a blocked row whose recording was deleted
   // elsewhere is cleaned up instead of being skipped forever by the figures check.
-  await dropTombstonedFiles(db)
+  await dropTombstonedFiles(db, reports)
 
   const waiting = await db.recording_files
     .where('local_state')
@@ -270,7 +344,7 @@ export async function uploadPass(db: CrosstuneDb, api: SyncApi): Promise<unknown
     }
     if (file.next_attempt_at !== null && file.next_attempt_at > nowMs) continue
     try {
-      await uploadOne(db, api, file.id)
+      await uploadOne(db, api, reports, file.id)
     } catch (error) {
       // Only an auth failure stops the whole pass; every other failure, including one
       // that never reached the network, is this row's problem alone and must not

@@ -42,6 +42,12 @@ describe('Waveform', () => {
     expect(bars.getAttribute('aria-hidden')).toBe('true')
   })
 
+  it('every scan and waveform element carries ph-no-capture', async () => {
+    render(<Harness onSeek={vi.fn()} />)
+    await expect.element(page.getByRole('slider', { name: SEEK_LABEL })).toBeVisible()
+    await expect.poll(() => document.querySelector('canvas.ph-no-capture')).not.toBeNull()
+  })
+
   it('seeks to where it is clicked', async () => {
     const onSeek = vi.fn()
     render(<Harness onSeek={onSeek} />)

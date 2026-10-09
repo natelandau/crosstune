@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SearchGroup, SearchResult } from '../../api/types'
 import type { Provider } from '../../api/vocabulary'
+import { recordingAnalytics } from '../../analytics/testing'
 import { toggleSearchProvider } from '../../commands/settings'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
@@ -53,12 +54,14 @@ function setup({
     groups: [apple],
   })),
   player = fakePlayer(),
+  analytics = recordingAnalytics(),
 }: {
   service?: Provider
   searchRecordings?: SyncEngine['searchRecordings']
   player?: Player
+  analytics?: ReturnType<typeof recordingAnalytics>
 } = {}) {
-  const Data = dataProviders({ db, engine: fakeEngine({ searchRecordings }) })
+  const Data = dataProviders({ db, engine: fakeEngine({ searchRecordings }), analytics })
   const wrapper = ({ children }: { children: ReactNode }) => (
     <Data>
       <PlayerContext.Provider value={player}>{children}</PlayerContext.Provider>
@@ -71,7 +74,7 @@ function setup({
       useFindRecordings(target, service, { onClose, onOpenSettings }),
     { wrapper, initialProps: { target: tuneId as string | null } },
   )
-  return { ...hook, onClose, onOpenSettings, searchRecordings, player }
+  return { ...hook, onClose, onOpenSettings, searchRecordings, player, analytics }
 }
 
 describe('useFindRecordings', () => {
@@ -182,5 +185,97 @@ describe('useFindRecordings', () => {
     act(() => result.current.dismissed())
     expect(onClose).toHaveBeenCalledOnce()
     expect(onOpenSettings).toHaveBeenCalledOnce()
+  })
+
+  it('reports a claimed result as a link added via find', async () => {
+    const { result, analytics } = setup()
+    await expect.poll(() => result.current.ready).toBe(true)
+    act(() => {
+      result.current.claim(silver)
+      result.current.claim(silver)
+    })
+    await expect.poll(() => analytics.sends()).toHaveLength(1)
+    const [link] = await db.recording_links.toArray()
+    expect(analytics.sends()).toEqual([
+      {
+        name: 'link_added',
+        props: { service: 'apple_music', via: 'find', link_id: link!.id, tune_id: tuneId },
+      },
+    ])
+  })
+
+  it('reports an in-app search with the bucketed count of its results', async () => {
+    const { result, analytics } = setup()
+    await expect.poll(() => result.current.ready).toBe(true)
+    act(() => result.current.pick('apple_music'))
+    await expect.poll(() => analytics.sends()).toHaveLength(1)
+    expect(analytics.sends()).toEqual([
+      {
+        name: 'find_recordings_used',
+        props: { service: 'apple_music', result_count_bucket: '1-9' },
+      },
+    ])
+  })
+
+  it('reports an in-app search that found nothing as zero', async () => {
+    const searchRecordings = vi.fn<SyncEngine['searchRecordings']>(async () => ({
+      kind: 'ok',
+      groups: [],
+    }))
+    const { result, analytics } = setup({ searchRecordings })
+    await expect.poll(() => result.current.ready).toBe(true)
+    act(() => result.current.pick('apple_music'))
+    await expect.poll(() => analytics.sends()).toHaveLength(1)
+    expect(analytics.sends()).toEqual([
+      { name: 'find_recordings_used', props: { service: 'apple_music', result_count_bucket: '0' } },
+    ])
+  })
+
+  it('reports no search that failed', async () => {
+    const searchRecordings = vi.fn<SyncEngine['searchRecordings']>(async () => ({
+      kind: 'failed',
+    }))
+    const { result, analytics } = setup({ searchRecordings })
+    await expect.poll(() => result.current.ready).toBe(true)
+    act(() => result.current.pick('apple_music'))
+    await expect.poll(() => result.current.search.kind).toBe('failed')
+    expect(analytics.sends()).toEqual([])
+  })
+
+  it('reports a service opened on its own site without a count', async () => {
+    const tab = {
+      opener: {} as unknown,
+      document: document.implementation.createHTMLDocument(),
+      close: vi.fn(),
+      closed: false,
+    }
+    vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    const searchRecordings = vi.fn<SyncEngine['searchRecordings']>(async () => ({
+      kind: 'ok',
+      groups: [
+        {
+          provider: 'spotify',
+          status: 'search_only',
+          results: [],
+          search_url: 'https://open.spotify.com/search/silver',
+        },
+      ],
+    }))
+    const { result, analytics } = setup({ searchRecordings })
+    await expect.poll(() => result.current.ready).toBe(true)
+    act(() => result.current.pick('spotify'))
+    await expect.poll(() => analytics.sends()).toHaveLength(1)
+    expect(analytics.sends()).toEqual([
+      { name: 'find_recordings_used', props: { service: 'spotify' } },
+    ])
+  })
+
+  it('reports no own-site search that could not open', async () => {
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    const { result, analytics } = setup()
+    await expect.poll(() => result.current.ready).toBe(true)
+    act(() => result.current.pick('spotify'))
+    await expect.poll(() => result.current.notice).not.toBeNull()
+    expect(analytics.sends()).toEqual([])
   })
 })

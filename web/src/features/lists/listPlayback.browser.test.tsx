@@ -1,5 +1,8 @@
 import { page, userEvent } from 'vitest/browser'
 import { expect, it } from 'vitest'
+import { AnalyticsProvider } from '../../analytics/AnalyticsProvider'
+import type { AnalyticsClient } from '../../analytics/client'
+import { recordingAnalytics } from '../../analytics/testing'
 import { RECORD_LABEL } from '../../app/tabs'
 import { NEW_RECORDING } from '../capture/recordCopy'
 import type { CrosstuneDb } from '../../db/schema'
@@ -101,10 +104,20 @@ const ALL_HELD: Record<TuneId, Media> = { t1: 'held', t2: 'held', t3: 'held' }
 async function mount(
   frame: { width: number; height: number },
   media: Record<TuneId, Media>,
-  { download }: { download?: () => Promise<Blob | null> } = {},
+  {
+    download,
+    analytics,
+    before,
+  }: {
+    download?: () => Promise<Blob | null>
+    analytics?: AnalyticsClient
+    /** Changes the seeded rows before the app renders. */
+    before?: (db: CrosstuneDb) => Promise<unknown>
+  } = {},
 ) {
   const db = openTestDb()
   await seed(db, media)
+  await before?.(db)
   const element = new FakeAudioElement()
   const engine = fakePlaybackEngine(element as unknown as HTMLAudioElement)
   const app = await renderApp({
@@ -113,6 +126,9 @@ async function mount(
     frame,
     playbackEngine: engine,
     sync: download ? { download } : undefined,
+    wrap: analytics
+      ? (tree) => <AnalyticsProvider client={analytics}>{tree}</AnalyticsProvider>
+      : undefined,
   })
   /** The loaded tune plays to its end. */
   const endTune = () => element.dispatchEvent(new Event('ended'))
@@ -389,6 +405,46 @@ it('plays a tapped tune alone when no list plays', async () => {
   // The dock has drawn for the tune, so any list controls would be there by now.
   await expect.element(player().getByRole('button', { name: PAUSE })).toBeVisible()
   expect(player().getByRole('button', { name: NEXT_TUNE }).query()).toBeNull()
+})
+
+it('a single play from a list row is queue single with list_id', async () => {
+  const analytics = recordingAnalytics()
+  await mount(WIDE, ONE_LINK, {
+    analytics,
+    before: (db) =>
+      db.recording_links.put(
+        linkRow('k-t2', 't2', {
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          provider: 'youtube',
+          provider_ref: 'dQw4w9WgXcQ',
+        }),
+      ),
+  })
+  await row('t2')
+    .getByRole('button', { name: playName(TITLES.t2) })
+    .click()
+  await expect.element(row('t2')).toHaveAttribute('data-playing')
+  await player().getByRole('button', { name: CLOSE_PLAYER }).click()
+
+  await expect
+    .poll(() => analytics.sends())
+    .toEqual([
+      {
+        name: 'playback_ended',
+        props: {
+          source: 'list',
+          queue: 'single',
+          trigger: 'tap',
+          kind: 'link',
+          service: 'youtube',
+          ended_by: 'closed',
+          system_controlled: false,
+          tune_id: 't2',
+          link_id: 'k-t2',
+          list_id: 'l1',
+        },
+      },
+    ])
 })
 
 it('disables Play and Shuffle when nothing in the list can play', async () => {

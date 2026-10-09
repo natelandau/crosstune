@@ -262,8 +262,12 @@ describe('createListWithTunes', () => {
   it('creates a list holding the tunes, and undo deletes it', async () => {
     const a = await tune('A')
     const b = await tune('B')
-    const undo = await createListWithTunes(db, '  Clifftop  ', [a.userTuneId, b.userTuneId])
+    const { undo, listId } = await createListWithTunes(db, '  Clifftop  ', [
+      a.userTuneId,
+      b.userTuneId,
+    ])
     const list = (await db.lists.toArray()).find((l) => !l.deleted_at)!
+    expect(list.id).toBe(listId)
     expect(list.name).toBe('Clifftop')
     expect((await activeItems(db, list.id)).map((i) => i.user_tune_id)).toEqual([
       a.userTuneId,

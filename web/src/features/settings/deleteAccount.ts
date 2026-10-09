@@ -1,3 +1,4 @@
+import type { AnalyticsClient } from '../../analytics/client'
 import { ApiError } from '../../api/client'
 import type { CrosstuneDb } from '../../db/schema'
 import { isAccountDeleted } from '../../sync/errors'
@@ -39,11 +40,13 @@ export async function deleteAccountAndForget({
   userId,
   engine,
   signOut,
+  analytics,
 }: {
   db: CrosstuneDb
   userId: string
   engine: SyncEngine
   signOut: () => Promise<void>
+  analytics: AnalyticsClient
 }): Promise<void> {
   // A stopped engine cannot retry against an account the request below is about to erase.
   engine.stop()
@@ -56,7 +59,7 @@ export async function deleteAccountAndForget({
       throw error
     }
   }
-  await forgetDeletedAccount({ db, userId, engine, signOut })
+  await forgetDeletedAccount({ db, userId, engine, signOut, analytics })
 }
 
 /**
@@ -68,11 +71,13 @@ export async function forgetDeletedAccount({
   userId,
   engine,
   signOut,
+  analytics,
 }: {
   db: CrosstuneDb
   userId: string
   engine: SyncEngine
   signOut: () => Promise<void>
+  analytics: AnalyticsClient
 }): Promise<void> {
   engine.stop()
   markAccountDeleted()
@@ -80,9 +85,11 @@ export async function forgetDeletedAccount({
   // nothing that matters; the local sign-out below covers the session it leaves behind.
   await signOut().catch(() => {})
   try {
-    await forgetLocalData({ db, userId })
+    await forgetLocalData({ db, userId, analytics })
   } catch (error) {
     Sentry.captureException(error)
   }
+  // After the reset, so the event does not tie the deletion to the person.
+  analytics.send('account_deleted', {})
   markSignedOutLocally(userId)
 }

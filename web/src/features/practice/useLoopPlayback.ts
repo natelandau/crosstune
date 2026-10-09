@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import type { LocalRecordingLoop } from '../../db/types'
 import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import type { RecordingView } from '../recordings/useRecordings'
@@ -28,6 +29,7 @@ export function useLoopPlayback(
   loops: LocalRecordingLoop[] | undefined,
 ): LoopPlayback {
   const engine = usePlaybackEngine()
+  const analytics = useAnalytics()
   const holds = loopHolds(engine)
   const loopId = useEngineState(engine, (s) => s.loop?.id ?? null)
   // A loop just created is selected before the live query has read its row.
@@ -39,7 +41,13 @@ export function useLoopPlayback(
     blobStartMs: view.file?.blob_start_ms ?? 0,
     trimStartMs: view.recording.trim_start_ms,
   }
-  const latestRef = useLatest({ loops, offsets })
+  const latestRef = useLatest({ loops, offsets, selectedId, recordingId: view.recording.id })
+  // The loop last reported as set, until a render shows the selection it made; two selects
+  // before that render are one choice.
+  const reportedId = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    reportedId.current = null
+  }, [selectedId])
 
   /** Selects `row` and repeats it; the engine moves an outside playhead to the loop's start. */
   const take = useCallback(
@@ -65,6 +73,12 @@ export function useLoopPlayback(
         engine.setRepeat(false)
         return
       }
+      // Every call answers a selection the musician made, so a loop newly selected is one set.
+      const latest = latestRef.current
+      if (id !== latest.selectedId && id !== reportedId.current) {
+        reportedId.current = id
+        analytics.send('loop_set', { recording_id: latest.recordingId })
+      }
       const row = latestRef.current.loops?.find((l) => l.id === id)
       if (!row) {
         setPending(id)
@@ -73,7 +87,7 @@ export function useLoopPlayback(
       setPending(null)
       take(row)
     },
-    [engine, holds, take, latestRef],
+    [engine, holds, take, latestRef, analytics],
   )
 
   const hold = useCallback(

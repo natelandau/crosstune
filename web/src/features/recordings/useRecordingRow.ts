@@ -4,7 +4,7 @@ import { getStorage } from '../../db/meta'
 import { OFFLINE } from '../../sync/labels'
 import { useOnline } from '../../sync/SyncProvider'
 import { CLOSE_PLAYER } from '../player/transportCopy'
-import type { PlayOrigin } from '../player/playLog'
+import { TUNE_ROW_ORIGIN, type PlayOrigin } from '../player/playLog'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { DOWNLOAD_FAILED, formatDuration } from '../../text/format'
 import type { RecordingSort } from './arrangeRecordings'
@@ -20,8 +20,6 @@ import {
 } from './recordingRow'
 import { useDownload } from './useDownload'
 import type { RecordingView } from './useRecordings'
-
-const ROW_ORIGIN: PlayOrigin = { context: 'row' }
 
 export interface RecordingRowData {
   title: string
@@ -51,7 +49,7 @@ export function useRecordingRow(
     tuneNamedAbove = false,
     sort,
     error,
-    origin: playOrigin = ROW_ORIGIN,
+    origin: playOrigin = TUNE_ROW_ORIGIN,
   }: {
     tuneNamedAbove?: boolean
     sort?: RecordingSort

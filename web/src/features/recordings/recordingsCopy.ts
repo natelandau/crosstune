@@ -11,7 +11,6 @@ export const EDIT_RECORDING_TITLE = 'Edit recording'
 export const NAME_LABEL = 'Name'
 export const DATE_RECORDED_LABEL = 'Date recorded'
 export const ADD_TO_TUNE_TITLE = 'Add to a tune'
-export const ADD_TO_TUNE_ERROR = 'The recording could not be added to this tune.'
 export const UPLOAD_AUDIO = 'Upload audio files'
 export const STORAGE_USED = 'Storage used'
 /** The toast once a recording is filed under a tune. */

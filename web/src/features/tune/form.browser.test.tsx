@@ -1,6 +1,8 @@
 import { page, userEvent, type Locator } from 'vitest/browser'
 import { expect, it, vi } from 'vitest'
 import { listTunePath, tuneHomePath } from '../../app/tuneHome'
+import { recordingAnalytics } from '../../analytics/testing'
+import type { Source } from '../../analytics/events'
 import { createList } from '../../commands/lists'
 import type * as tunes from '../../commands/tunes'
 import { createTune, deleteTune } from '../../commands/tunes'
@@ -97,7 +99,7 @@ function renderSheet(db: CrosstuneDb, density: 'pointer' | 'touch' = 'pointer') 
   const Data = dataProviders({ db })
   renderWithProviders(
     <Data>
-      <TuneFormSheet isOpen onOpenChange={onOpenChange} />
+      <TuneFormSheet source="catalog" isOpen onOpenChange={onOpenChange} />
     </Data>,
     { density },
   )
@@ -386,9 +388,13 @@ function Opener({ options }: { options: TuneFormOptions }) {
   return <Button label={OPEN_FORM} onPress={() => launcher.open(options)} />
 }
 
-function renderProvider(db: CrosstuneDb, options: TuneFormOptions) {
+function renderProvider(
+  db: CrosstuneDb,
+  options: TuneFormOptions,
+  analytics = recordingAnalytics(),
+) {
   const navigated: string[] = []
-  const Data = dataProviders({ db })
+  const Data = dataProviders({ db, analytics })
   renderWithProviders(
     <Data>
       <TuneFormProvider navigate={(to) => navigated.push(to)}>
@@ -399,10 +405,26 @@ function renderProvider(db: CrosstuneDb, options: TuneFormOptions) {
   return navigated
 }
 
+it.each<Source>(['catalog', 'search_offer', 'list', 'recordings_list', 'recording_screen', 'menu'])(
+  'reports a tune added from %s with that source',
+  async (source) => {
+    const db = openTestDb()
+    const analytics = recordingAnalytics()
+    renderProvider(db, { source, initialTitle: 'Sally Goodin' }, analytics)
+    await page.getByRole('button', { name: OPEN_FORM }).click()
+    await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
+    await expect.poll(() => onlyTune(db)).toBeDefined()
+    const tune = (await onlyTune(db))!
+    expect(analytics.sends()).toEqual([
+      { name: 'tune_created', props: { source, fields_set: ['title'], tune_id: tune.id } },
+    ])
+  },
+)
+
 it('opens a new tune added from a list in that list', async () => {
   const db = openTestDb()
   const listId = await createList(db, 'Session')
-  const navigated = renderProvider(db, { initialTitle: 'Sally Goodin', listId })
+  const navigated = renderProvider(db, { source: 'list', initialTitle: 'Sally Goodin', listId })
   await page.getByRole('button', { name: OPEN_FORM }).click()
   await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
   await expect.poll(() => navigated.length).toBe(1)
@@ -412,7 +434,11 @@ it('opens a new tune added from a list in that list', async () => {
 
 it('opens a tune its list refused in the catalog, and says why', async () => {
   const db = openTestDb()
-  const navigated = renderProvider(db, { initialTitle: 'Sally Goodin', listId: 'gone' })
+  const navigated = renderProvider(db, {
+    source: 'list',
+    initialTitle: 'Sally Goodin',
+    listId: 'gone',
+  })
   await page.getByRole('button', { name: OPEN_FORM }).click()
   await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
   await expect.element(page.getByRole('status')).toHaveTextContent(LIST_NOT_FOUND)
@@ -432,7 +458,11 @@ it('stays put when the form is cancelled while its new tune saves', async () => 
     return actual.createTune(...args)
   })
   const callsBefore = vi.mocked(createTune).mock.calls.length
-  const navigated = renderProvider(db, { initialTitle: 'Sally Goodin', listId: 'gone' })
+  const navigated = renderProvider(db, {
+    source: 'list',
+    initialTitle: 'Sally Goodin',
+    listId: 'gone',
+  })
   await page.getByRole('button', { name: OPEN_FORM }).click()
   await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
   await expect.poll(() => vi.mocked(createTune).mock.calls.length).toBe(callsBefore + 1)

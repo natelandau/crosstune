@@ -1,6 +1,9 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { CircleDot, Download, Link, Search, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { serviceOf } from '../../analytics/service'
+import type { Source } from '../../analytics/events'
 import { removeLink } from '../../commands/links'
 import { addRecordingFromLink } from '../../commands/recordings'
 import { setPlaySource } from '../../commands/tunes'
@@ -93,10 +96,11 @@ export function useTuneMedia(
     links: readonly LocalRecordingLink[]
     confirm: (question: ConfirmQuestion) => Promise<boolean>
     /** Opens the recording flow filed under the tune. */
-    startRecording: (tuneId: string) => void
+    startRecording: (options: { tuneId: string; source: Source }) => void
   },
 ): TuneMediaData {
   const db = useDb()
+  const analytics = useAnalytics()
   const online = useOnline()
   const engine = useSyncEngine()
   const providers = useSearchProviders()
@@ -137,6 +141,7 @@ export function useTuneMedia(
         searchQuery(prefill ?? ''),
         provider,
         PROVIDER_LABELS[provider],
+        () => analytics.send('find_recordings_used', { service: serviceOf(provider) }),
       )
       if (message) throw new Error(message)
     })
@@ -177,7 +182,15 @@ export function useTuneMedia(
             short: 'Add',
             icon: Download,
             tone: 'neutral' as const,
-            onPress: () => run(() => addRecordingFromLink(db, link.id)),
+            onPress: () =>
+              run(async () => {
+                const recordingId = await addRecordingFromLink(db, link.id)
+                analytics.send('archive_recording_saved', {
+                  source_archive: 'slippery_hill',
+                  recording_id: recordingId,
+                  tune_id: tuneId,
+                })
+              }),
           },
         ]
       : []),
@@ -185,7 +198,11 @@ export function useTuneMedia(
       label: 'Remove',
       icon: Trash2,
       tone: 'error',
-      onPress: () => run(() => removeLink(db, link.id)),
+      onPress: () =>
+        run(async () => {
+          await removeLink(db, link.id)
+          analytics.send('link_removed', { service: serviceOf(link.provider), link_id: link.id })
+        }),
     },
   ]
 
@@ -206,7 +223,11 @@ export function useTuneMedia(
     pending,
     retry,
     addItems: [
-      { label: NEW_RECORDING, icon: CircleDot, onPress: () => startRecording(tuneId) },
+      {
+        label: NEW_RECORDING,
+        icon: CircleDot,
+        onPress: () => startRecording({ tuneId, source: 'tune' }),
+      },
       { label: PASTE_LINK, icon: Link, onPress: () => setPasting(true) },
       { ...find, refused: online ? undefined : SEARCH_NEEDS_CONNECTION },
     ],

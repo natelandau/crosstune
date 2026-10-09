@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
+import { recordingAnalytics } from '../../analytics/testing'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { useWakeLock } from '../../platform/wakeLock'
@@ -96,4 +97,42 @@ it('keeps the screen awake only while open', async () => {
   await expect.poll(() => vi.mocked(useWakeLock).mock.lastCall).toEqual([true])
   rerender({ open: false })
   await expect.poll(() => vi.mocked(useWakeLock).mock.lastCall).toEqual([false])
+})
+
+function setupReporting(initial: { open: boolean; lyrics: string | null }) {
+  const analytics = recordingAnalytics()
+  const view = renderHook(
+    (props: { open: boolean; lyrics: string | null }) => useLyricsReader({ ...props, tuneId }),
+    { wrapper: dataProviders({ db, analytics }), initialProps: initial },
+  )
+  return { ...view, analytics }
+}
+
+const OPENED = { name: 'lyrics_opened', props: { tune_id: expect.any(String) } }
+
+it('reports lyrics_opened once when the reader opens on words', async () => {
+  const { rerender, analytics } = setupReporting({ open: false, lyrics: WORDS })
+  expect(analytics.sends()).toEqual([])
+  rerender({ open: true, lyrics: WORDS })
+  await expect.poll(() => analytics.sends()).toEqual([OPENED])
+  rerender({ open: true, lyrics: `${WORDS}\nMore` })
+  expect(analytics.sends()).toHaveLength(1)
+})
+
+it('reports when lyrics arrive while the reader is open, once', async () => {
+  const { rerender, analytics } = setupReporting({ open: true, lyrics: null })
+  expect(analytics.sends()).toEqual([])
+  rerender({ open: true, lyrics: WORDS })
+  await expect.poll(() => analytics.sends()).toEqual([OPENED])
+  rerender({ open: true, lyrics: null })
+  rerender({ open: true, lyrics: WORDS })
+  expect(analytics.sends()).toHaveLength(1)
+})
+
+it('reports again for the next opening', async () => {
+  const { rerender, analytics } = setupReporting({ open: true, lyrics: WORDS })
+  await expect.poll(() => analytics.sends()).toHaveLength(1)
+  rerender({ open: false, lyrics: WORDS })
+  rerender({ open: true, lyrics: WORDS })
+  await expect.poll(() => analytics.sends()).toHaveLength(2)
 })

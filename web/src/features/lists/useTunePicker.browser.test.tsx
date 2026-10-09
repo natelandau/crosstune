@@ -1,5 +1,6 @@
 import { renderHook } from '@testing-library/react'
 import { act } from 'react'
+import { recordingAnalytics } from '../../analytics/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { addToList, createList } from '../../commands/lists'
 import { createTune } from '../../commands/tunes'
@@ -24,11 +25,12 @@ beforeEach(async () => {
 
 function setup(open = true) {
   const toast = vi.fn()
+  const analytics = recordingAnalytics()
   const view = renderHook(({ open }) => useTunePicker(open, listId, { toast }), {
-    wrapper: dataProviders({ db }),
+    wrapper: dataProviders({ db, analytics }),
     initialProps: { open },
   })
-  return { ...view, toast }
+  return { ...view, toast, analytics }
 }
 
 const itemsIn = async () =>
@@ -63,6 +65,68 @@ describe('useTunePicker', () => {
     await expect.poll(async () => (await itemsIn()).map((i) => i.user_tune_id)).toEqual([hen])
     await expect.poll(() => result.current.taken.has(hen)).toBe(true)
     expect(result.current.closing).toBe(false)
+  })
+
+  it('reports the visit once, with every tune added, when the picker closes', async () => {
+    const { result, analytics } = setup()
+    act(() => result.current.pick(joy))
+    act(() => result.current.pick(hen))
+    await expect.poll(async () => (await itemsIn()).length).toBe(2)
+    await expect.poll(() => result.current.taken.size).toBe(2)
+    expect(analytics.sends()).toEqual([])
+    act(() => void result.current.dismissed())
+    expect(analytics.sends()).toEqual([
+      { name: 'tunes_added_to_list', props: { list_id: listId, count_bucket: '1-9' } },
+    ])
+  })
+
+  it('waits for an add still running at dismissal, and reports nothing for a failed one', async () => {
+    const { result, analytics, toast } = setup()
+    let settle = () => {}
+    vi.mocked(addToList).mockImplementationOnce(
+      () =>
+        new Promise<string>((resolve) => {
+          settle = () => resolve('item')
+        }),
+    )
+    act(() => result.current.pick(joy))
+    act(() => void result.current.dismissed())
+    expect(analytics.sends()).toEqual([])
+    settle()
+    await expect.poll(() => analytics.sends().length).toBe(1)
+
+    vi.mocked(addToList).mockRejectedValueOnce(new Error('Disk full'))
+    act(() => result.current.pick(hen))
+    act(() => void result.current.dismissed())
+    // The rejection is toasted in the same turn that releases the add and runs the report check.
+    await expect.poll(() => toast.mock.calls.length).toBe(1)
+    expect(analytics.sends()).toHaveLength(1)
+  })
+
+  it('reports an add that finishes after a reopen with its own visit', async () => {
+    const { result, rerender, analytics } = setup()
+    let settle = () => {}
+    vi.mocked(addToList).mockImplementationOnce(
+      () =>
+        new Promise<string>((resolve) => {
+          settle = () => resolve('item')
+        }),
+    )
+    act(() => result.current.pick(joy))
+    act(() => void result.current.dismissed())
+    rerender({ open: false })
+    rerender({ open: true })
+    settle()
+    await expect.poll(() => analytics.sends().length).toBe(1)
+
+    act(() => result.current.pick(hen))
+    await expect.poll(async () => (await itemsIn()).map((i) => i.user_tune_id)).toEqual([hen])
+    await expect.poll(() => result.current.taken.has(hen)).toBe(true)
+    act(() => void result.current.dismissed())
+    expect(analytics.sends()).toEqual([
+      { name: 'tunes_added_to_list', props: { list_id: listId, count_bucket: '1-9' } },
+      { name: 'tunes_added_to_list', props: { list_id: listId, count_bucket: '1-9' } },
+    ])
   })
 
   it('offers to create a tune by the typed title', async () => {

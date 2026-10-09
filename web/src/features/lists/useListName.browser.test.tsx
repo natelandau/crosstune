@@ -1,5 +1,6 @@
 import { renderHook } from '@testing-library/react'
 import { act, useState } from 'react'
+import { recordingAnalytics } from '../../analytics/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createList } from '../../commands/lists'
 import { LIST_NAME_REQUIRED } from '../../commands/messages'
@@ -18,6 +19,7 @@ function setup(initial: ListNameTarget) {
   const onSaved = vi.fn()
   const onClose = vi.fn()
   const onInvalid = vi.fn()
+  const analytics = recordingAnalytics()
   const view = renderHook(
     () => {
       const [target, setTarget] = useState<ListNameTarget | null>(initial)
@@ -31,9 +33,9 @@ function setup(initial: ListNameTarget) {
       })
       return form
     },
-    { wrapper: dataProviders({ db }) },
+    { wrapper: dataProviders({ db, analytics }) },
   )
-  return { ...view, onSaved, onClose, onInvalid }
+  return { ...view, onSaved, onClose, onInvalid, analytics }
 }
 
 const activeNames = async () =>
@@ -61,6 +63,29 @@ describe('useListName', () => {
     expect(await activeNames()).toEqual(['Tuesday jam'])
     const [list] = await db.lists.toArray()
     expect(onSaved).toHaveBeenCalledWith(list!.id)
+  })
+
+  it('reports a list made from the name sheet with a count of 0', async () => {
+    const { result, onSaved, analytics } = setup({ kind: 'new' })
+    act(() => result.current.setName('Tuesday jam'))
+    act(() => result.current.save())
+    await expect.poll(() => onSaved.mock.calls.length).toBe(1)
+    const [list] = await db.lists.toArray()
+    expect(analytics.sends()).toEqual([
+      { name: 'list_created', props: { list_id: list!.id, count_bucket: '0' } },
+    ])
+  })
+
+  it('reports a rename, and nothing for a refused name', async () => {
+    const listId = await createList(db, 'Tuesday jam')
+    const { result, onSaved, analytics } = setup({ kind: 'rename', listId, name: 'Tuesday jam' })
+    act(() => result.current.setName('  '))
+    act(() => result.current.save())
+    expect(analytics.sends()).toEqual([])
+    act(() => result.current.setName('Square dance set'))
+    act(() => result.current.save())
+    await expect.poll(() => onSaved.mock.calls.length).toBe(1)
+    expect(analytics.sends()).toEqual([{ name: 'list_renamed', props: { list_id: listId } }])
   })
 
   it('starts a rename from the current name and saves the new one', async () => {

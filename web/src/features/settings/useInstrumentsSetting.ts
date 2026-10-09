@@ -1,10 +1,12 @@
 import { INSTRUMENTS, type Instrument } from '../../api/vocabulary'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { useAuthSession } from '../../auth/AuthContext'
-import { toggleInstrumentSetting } from '../../commands/settings'
+import { settingsId, toggleInstrumentSetting } from '../../commands/settings'
 import { INSTRUMENT_LABELS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
 import { NOT_SET } from '../../ui/fieldCopy'
 import { useAction } from '../../ui/useAction'
+import { instrumentsFrom } from '../../domain/instruments'
 import { useInstruments } from './useInstruments'
 
 export interface InstrumentsSetting {
@@ -22,14 +24,28 @@ export interface InstrumentsSetting {
 export function useInstrumentsSetting(): InstrumentsSetting {
   const db = useDb()
   const { userId } = useAuthSession()
+  const analytics = useAnalytics()
   const instruments = useInstruments()
   const { clear, error, run } = useAction()
+  // Read back from the store so toggles made before an earlier one settled are all in the list.
+  const reportInstruments = () =>
+    db.user_settings.get(settingsId(userId)).then(
+      (row) => {
+        const stored = instrumentsFrom(row)
+        analytics.send('setting_changed', {
+          setting: 'instruments',
+          value: INSTRUMENTS.filter((instrument) => stored.has(instrument)),
+        })
+      },
+      () => {},
+    )
   const chosen = INSTRUMENTS.filter((instrument) => instruments?.has(instrument))
   const summary = chosen.map((instrument) => INSTRUMENT_LABELS[instrument]).join(', ') || NOT_SET
   return {
     instruments,
     summary,
-    toggle: (instrument, on) => run(() => toggleInstrumentSetting(db, userId, instrument, on)),
+    toggle: (instrument, on) =>
+      run(() => toggleInstrumentSetting(db, userId, instrument, on).then(reportInstruments)),
     error,
     clear,
   }

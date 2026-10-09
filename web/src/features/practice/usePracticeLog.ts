@@ -1,9 +1,11 @@
 import { useContext, useEffect } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { createPlaybackReporter, playedRows } from '../../analytics/playbackReporter'
 import { recordEvent } from '../../commands/events'
 import { newId } from '../../commands/write'
 import { DbContext } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
-import { iso, onPageLeave } from '../player/activity'
+import { iso, onPageLeave, type PageLeave } from '../player/activity'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import type { PlaybackState } from '../player/playbackEngine'
 import { usePlayLogControl } from '../player/usePlayLog'
@@ -43,14 +45,20 @@ export function usePracticeLog(
   const engine = usePlaybackEngine()
   const playLog = usePlayLogControl()
   const db = useContext(DbContext)
+  const analytics = useAnalytics()
   const { held, subscribe } = overlay
 
   useEffect(() => {
     if (recordingId === null) return
-    const log = new PracticeLog(now, (record) => {
-      // A lost session is not worth interrupting the musician over.
-      if (db) void recordPractice(db, record, now()).catch(() => {})
-    })
+    const reporter = createPlaybackReporter(analytics, db ? playedRows(db) : null)
+    const log = new PracticeLog(
+      now,
+      (record) => {
+        // A lost session is not worth interrupting the musician over.
+        if (db) void recordPractice(db, record, now()).catch(() => {})
+      },
+      (visit) => void reporter.practiceEnded(visit),
+    )
     // The trim view forces 100% and no shift so what is heard is what is cut. That is neither
     // practice nor a listen, so its time counts toward nothing.
     const trimming = () => held(recordingId)?.trimming === true
@@ -78,7 +86,7 @@ export function usePracticeLog(
       if (loaded) playing = state.playing
       feed()
     }
-    const finish = () => playLog.practiceClosed(log.close() === 'play')
+    const finish = (leaving?: PageLeave) => playLog.practiceClosed(log.close() === 'play', leaving)
 
     begin()
     const unsubscribeEngine = engine.subscribe((state) => {
@@ -90,7 +98,7 @@ export function usePracticeLog(
     const unsubscribeLeave = onPageLeave((how) => {
       // A desktop tab keeps playing behind another, and that is still one visit.
       if (how === 'hidden' && engine.getState().playing) return
-      finish()
+      finish(how)
       begin()
     })
     return () => {
@@ -99,5 +107,5 @@ export function usePracticeLog(
       unsubscribeEngine()
       finish()
     }
-  }, [recordingId, db, now, engine, playLog, held, subscribe])
+  }, [recordingId, db, now, engine, playLog, held, subscribe, analytics])
 }

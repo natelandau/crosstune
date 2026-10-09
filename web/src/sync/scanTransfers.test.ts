@@ -1,3 +1,5 @@
+import { recordingAnalytics } from '../analytics/testing'
+import { noopAnalytics } from '../analytics/client'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, NetworkError } from '../api/client'
 import type { ScanRow } from '../api/types'
@@ -85,7 +87,12 @@ describe('scanUploadPass', () => {
 
   it('uploads a captured scan after its row is pushed', async () => {
     const { scanId } = await capturedScan()
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await engine.sync()
     await transfersSettled(engine)
     engine.stop()
@@ -105,6 +112,26 @@ describe('scanUploadPass', () => {
       upload_attempts: 0,
       next_attempt_at: null,
     })
+  })
+
+  it.each([
+    ['a quota refusal', quotaRefusal],
+    [
+      'a refused request',
+      () => new ApiError(422, { type: 'about:blank', title: 't', status: 422, detail: 'd' }),
+    ],
+    ['a server error', () => new ApiError(500, null)],
+  ])('a scan upload failure sends nothing: %s', async (_label, make) => {
+    const { scanId } = await capturedScan()
+    const analytics = recordingAnalytics()
+    const engine = createSyncEngine({ analytics, db, api: fake.api, isOnline: () => true })
+    fake.failSlot(make())
+    await engine.sync()
+    await transfersSettled(engine)
+    engine.stop()
+
+    await expect.poll(async () => (await db.scan_files.get(scanId))?.error).not.toBeNull()
+    expect(analytics.sends()).toEqual([])
   })
 
   it('marks storage full on a quota refusal', async () => {
@@ -187,6 +214,7 @@ describe('scanUploadPass', () => {
     fake.failSlot(new ApiError(404, null), scanId)
     const slot = vi.spyOn(fake.api, 'requestScanUploadSlot')
     const engine = createSyncEngine({
+      analytics: noopAnalytics,
       db,
       api: fake.api,
       isOnline: () => true,
@@ -411,7 +439,12 @@ describe('engine transfers', () => {
     vi.spyOn(fake.api, 'scanDownloadUrl').mockRejectedValue(
       new NetworkError(new TypeError('offline')),
     )
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await engine.sync()
     await transfersSettled(engine)
     engine.stop()
@@ -433,7 +466,12 @@ describe('engine transfers', () => {
     })
     const scanSlot = vi.spyOn(fake.api, 'requestScanUploadSlot')
     const recordingSlot = vi.spyOn(fake.api, 'requestUploadSlot')
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await engine.sync()
     await transfersSettled(engine)
     engine.stop()

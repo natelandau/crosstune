@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { durationBucket } from '../../analytics/buckets'
+import type { Source } from '../../analytics/events'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import { useLatest } from '../../ui/useLatest'
 import { RECORDING } from '../../text/format'
@@ -12,6 +15,7 @@ import {
   SAVING,
   STARTING_MICROPHONE,
 } from './recordCopy'
+import { MIC_DENIED } from './recordingSession'
 import { type CapturePhase, useCapture } from './useCapture'
 
 const STATUS: Record<CapturePhase, string> = {
@@ -31,6 +35,8 @@ export interface SavedRecording {
 
 export interface RecordSessionOptions {
   tuneId: string | null
+  /** The control that opened the recorder, reported with the start. */
+  source: Source
   confirm: (question: ConfirmQuestion) => Promise<boolean>
   /** A save that kept audio but has something to say about it, said on the way out. */
   toast: (message: string) => void
@@ -69,11 +75,28 @@ export interface RecordSession {
  */
 export function useRecordSession({
   tuneId,
+  source,
   confirm,
   toast,
   onDone,
   onSaving,
 }: RecordSessionOptions): RecordSession {
+  const analyticsRef = useLatest(useAnalytics())
+  // A save is reported once, whether Stop, a size limit, or the recorder going away ended it.
+  const reported = useRef(false)
+  const reportSaved = useCallback(
+    (recordingId: string, elapsedMs: number) => {
+      if (reported.current) return
+      reported.current = true
+      analyticsRef.current.send('recording_saved', {
+        duration_bucket: durationBucket(elapsedMs),
+        filed: tuneId !== null,
+        recording_id: recordingId,
+        ...(tuneId === null ? {} : { tune_id: tuneId }),
+      })
+    },
+    [analyticsRef, tuneId],
+  )
   const {
     phase,
     elapsedMs,
@@ -82,17 +105,18 @@ export function useRecordSession({
     recordingId,
     stop: finish,
     cancel,
-  } = useCapture({ tuneId })
+  } = useCapture({ tuneId, onKept: (kept) => reportSaved(kept.recordingId, kept.elapsedMs) })
+  const elapsedRef = useLatest(elapsedMs)
   const confirmRef = useLatest(confirm)
   const toastRef = useLatest(toast)
   const onDoneRef = useLatest(onDone)
   const onSavingRef = useLatest(onSaving)
+  // The save's hand-off to the caller happens once, however often the inputs change after it.
+  const done = useRef(false)
   // Two presses in one tick both read the same committed state, so the guard is a ref.
   const ending = useRef(false)
   // Set by Stop in the same tick, before a render can clear `live` for a discard already queued.
   const stopped = useRef(false)
-  // A save is reported once, however often the inputs change after it.
-  const reported = useRef(false)
   const question = useRef<AbortController | null>(null)
   const live = phase === 'starting' || phase === 'recording' || phase === 'interrupted'
   const started = live && phase !== 'starting'
@@ -104,14 +128,29 @@ export function useRecordSession({
   }, [live])
   useEffect(() => () => question.current?.abort(), [])
 
+  // Each attempt reports its start, or its denial, once.
+  const attempted = useRef(false)
   useEffect(() => {
-    if (phase !== 'saved' || reported.current) return
-    reported.current = true
+    if (attempted.current) return
+    if (started) {
+      attempted.current = true
+      analyticsRef.current.send('recording_started', { source })
+    } else if (phase === 'denied' && error === MIC_DENIED) {
+      // A hardware failure is not a refusal, so only the browser's own denial reports.
+      attempted.current = true
+      analyticsRef.current.send('microphone_denied', { source })
+    }
+  }, [analyticsRef, error, phase, source, started])
+
+  useEffect(() => {
+    if (phase !== 'saved' || done.current) return
+    done.current = true
+    reportSaved(recordingId, elapsedRef.current)
     // A size limit or a partly written recording still saved audio, so it reports itself on
     // the way out rather than as a failure the musician has to answer.
     if (error) toastRef.current(error)
     onDoneRef.current({ tuneId, recordingId })
-  }, [error, onDoneRef, phase, recordingId, toastRef, tuneId])
+  }, [elapsedRef, error, onDoneRef, phase, recordingId, reportSaved, toastRef, tuneId])
 
   const startedRef = useLatest(started)
   const stop = useCallback(() => {
@@ -149,8 +188,14 @@ export function useRecordSession({
       ending.current = false
       return
     }
+    // Nothing was captured before the microphone came up, so there is nothing to report.
+    if (started) {
+      analyticsRef.current.send('recording_discarded', {
+        duration_bucket: durationBucket(elapsedRef.current),
+      })
+    }
     onDoneRef.current(null)
-  }, [cancel, confirmRef, live, onDoneRef, started])
+  }, [analyticsRef, cancel, confirmRef, elapsedRef, live, onDoneRef, started])
 
   return {
     phase,

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import type { ResolveResponse } from '../../api/types'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { serviceOf } from '../../analytics/service'
 import { addLink } from '../../commands/links'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
@@ -46,6 +48,7 @@ export function usePasteLink(
 ): PasteLink {
   const db = useDb()
   const engine = useSyncEngine()
+  const analytics = useAnalytics()
   const { error, pending, runThen, clear } = useAction()
   const [url, setUrlState] = useState('')
   const [validation, setValidation] = useState<string | null>(null)
@@ -83,12 +86,18 @@ export function usePasteLink(
           ? { provider: resolved.provider, provider_ref: resolved.provider_ref }
           : detected
       try {
-        await addLink(db, target, {
+        const linkId = await addLink(db, target, {
           url: resolved?.url ?? trimmed,
           provider,
           provider_ref,
           title: resolved?.title ?? null,
           artwork_url: resolved?.artwork_url ?? null,
+        })
+        analytics.send('link_added', {
+          service: serviceOf(provider),
+          via: 'paste',
+          link_id: linkId,
+          tune_id: target,
         })
       } catch (caught) {
         sheet.saveFailed(caught)

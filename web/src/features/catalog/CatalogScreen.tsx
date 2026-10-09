@@ -2,7 +2,6 @@ import { Ellipsis, ListChecks, Music, Plus } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import type { Key, Selection } from 'react-aria-components'
 import { useNavigate, useParams } from 'react-router'
-import { deleteTune, setArchived } from '../../commands/tunes'
 import { useDb } from '../../db/DbProvider'
 import {
   ADD_TUNE,
@@ -36,6 +35,7 @@ import { useScreenSelection, useSelectionReturn } from '../selection/useScreenSe
 import { ColumnTitle } from '../../app/ColumnTitle'
 import { PaneBar } from '../../app/PaneBar'
 import { useTuneFormLauncher } from '../tune/formLauncher'
+import { useTuneActions } from '../tune/useTuneActions'
 import { tunePick } from '../tune/tunePick'
 import { Button } from '../../ui/Button'
 import { useConfirm } from '../../ui/Confirm'
@@ -61,6 +61,7 @@ const CATALOG = destination('catalog')
 /** The catalog's list column: its verbs, search, count and sort, and the tune rows. */
 export function CatalogScreen() {
   const db = useDb()
+  const tuneActions = useTuneActions()
   const navigate = useNavigate()
   const { tuneId } = useParams()
   const frame = useFrame()
@@ -85,7 +86,7 @@ export function CatalogScreen() {
   }
   const screen = useCatalogScreen({
     onOpenTune: openTune,
-    onCreate: (title) => form.open({ initialTitle: title }),
+    onCreate: (title) => form.open({ source: 'search_offer', initialTitle: title }),
     barFacets: ROW_FACETS,
   })
   const {
@@ -138,12 +139,18 @@ export function CatalogScreen() {
   const title = scopeTitle(CATALOG.label, status)
   const phone = frame === 'phone'
 
+  const openFound = (id: string) => {
+    screen.endSearch()
+    openTune(id)
+  }
+
   // Between tunes the page replaces the one before, so walking the rows with the arrows does
   // not leave an entry in history for every tune passed.
   const choose = (keys: 'all' | Set<Key>) => {
     if (keys === 'all') return
     const [key] = keys
     if (key === undefined || key === tuneId) return
+    screen.endSearch()
     void navigate(`${CATALOG.root}/${String(key)}`, {
       replace: tuneId !== undefined,
       state: tunePick(),
@@ -154,7 +161,7 @@ export function CatalogScreen() {
     const ok = await confirm({ ...(await deleteTunesQuestion(db, [entry])), action: DELETE })
     if (!ok) return
     // An open tune's page leaves on its own once the tune is gone.
-    run(() => deleteTune(db, entry.tune.id))
+    run(() => tuneActions.remove(entry.tune.id))
   }
 
   const more: MenuEntry[] = [
@@ -190,7 +197,12 @@ export function CatalogScreen() {
           title={title}
           trailing={
             <>
-              <Button icon={Plus} label={ADD_TUNE} iconOnly onPress={() => form.open({})} />
+              <Button
+                icon={Plus}
+                label={ADD_TUNE}
+                iconOnly
+                onPress={() => form.open({ source: 'catalog' })}
+              />
               <Menu
                 label={MORE_ACTIONS}
                 trigger={<Button ref={moreRef} icon={Ellipsis} label={MORE_ACTIONS} iconOnly />}
@@ -277,7 +289,7 @@ export function CatalogScreen() {
               action={
                 outcome.kind === 'create' ? (
                   <div className="flex flex-col items-center gap-2">
-                    <HiddenMatch outcome={outcome} onOpen={openTune} />
+                    <HiddenMatch outcome={outcome} onOpen={openFound} />
                     <Button
                       variant="primary"
                       label={addOfferLabel(outcome)}
@@ -285,7 +297,11 @@ export function CatalogScreen() {
                     />
                   </div>
                 ) : empty.noTunes ? (
-                  <Button variant="primary" label={ADD_TUNE} onPress={() => form.open({})} />
+                  <Button
+                    variant="primary"
+                    label={ADD_TUNE}
+                    onPress={() => form.open({ source: 'catalog' })}
+                  />
                 ) : null
               }
             />
@@ -308,7 +324,7 @@ export function CatalogScreen() {
                       disallowEmptySelection: true,
                       selectedKeys: new Set(tuneId ? [tuneId] : []),
                       onSelectionChange: choose,
-                      onAction: wide ? undefined : (key: Key) => openTune(String(key)),
+                      onAction: wide ? undefined : (key: Key) => openFound(String(key)),
                     })}
               >
                 {tunes.map((entry) => (
@@ -316,9 +332,14 @@ export function CatalogScreen() {
                     key={entry.tune.id}
                     entry={entry}
                     instruments={instruments}
-                    onEdit={() => form.open({ tuneId: entry.tune.id })}
+                    onEdit={() => form.open({ source: 'catalog', tuneId: entry.tune.id })}
                     onArchive={(archived) =>
-                      run(() => setArchived(db, entry.userTune.id, archived))
+                      run(() =>
+                        tuneActions.archive(
+                          { tuneId: entry.tune.id, userTuneId: entry.userTune.id },
+                          archived,
+                        ),
+                      )
                     }
                     onDelete={() => void confirmDelete(entry)}
                     onSelect={() => fromRow(entry.tune.id)}
@@ -333,7 +354,7 @@ export function CatalogScreen() {
                   />
                 ))}
               </RowList>
-              <HiddenMatch outcome={outcome} onOpen={openTune} />
+              <HiddenMatch outcome={outcome} onOpen={openFound} />
               <SearchOffer outcome={outcome} onCreate={createFromSearch} />
             </div>
           )}

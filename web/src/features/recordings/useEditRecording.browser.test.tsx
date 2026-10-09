@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react'
+import { recordingAnalytics } from '../../analytics/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -25,12 +26,13 @@ beforeEach(() => {
 
 function setup(view: RecordingView | null, onDateError = vi.fn()) {
   const onClose = vi.fn()
+  const analytics = recordingAnalytics()
   const hook = renderHook(
     ({ target }: { target: RecordingView | null }) =>
       useEditRecording(target, { onClose, onDateError }),
-    { wrapper: dataProviders({ db }), initialProps: { target: view } },
+    { wrapper: dataProviders({ db, analytics }), initialProps: { target: view } },
   )
-  return { ...hook, onClose, onDateError }
+  return { ...hook, onClose, onDateError, analytics }
 }
 
 describe('useEditRecording', () => {
@@ -90,5 +92,41 @@ describe('useEditRecording', () => {
     const row = await db.recordings.get('r1')
     expect(row?.label).toBe('Session at Tom’s')
     expect(row?.recorded_at).toBeNull()
+  })
+
+  describe('analytics', () => {
+    it('sends recording_renamed with the origin when the label changed', async () => {
+      await db.recordings.put(viewOf().recording)
+      const { result, analytics } = setup(viewOf())
+      act(() => result.current.setName('Session at Tom’s'))
+      act(() => result.current.save())
+      await expect.poll(() => result.current.closing).toBe(true)
+
+      expect(analytics.sends()).toEqual([
+        { name: 'recording_renamed', props: { origin: 'recorded', recording_id: 'r1' } },
+      ])
+    })
+
+    it('sends nothing when only the date changed', async () => {
+      await db.recordings.put(viewOf().recording)
+      const { result, analytics } = setup(viewOf())
+      act(() => result.current.clearDate())
+      act(() => result.current.save())
+      await expect.poll(() => result.current.closing).toBe(true)
+
+      expect(analytics.sends()).toEqual([])
+    })
+
+    it('sends nothing when the name was cleared on an unnamed recording', async () => {
+      await db.recordings.put(viewOf({ label: null }).recording)
+      const { result, analytics } = setup(viewOf({ label: null }))
+      act(() => result.current.setName('   '))
+      act(() => result.current.editParts({ day: '' }))
+      act(() => result.current.clearDate())
+      act(() => result.current.save())
+      await expect.poll(() => result.current.closing).toBe(true)
+
+      expect(analytics.sends()).toEqual([])
+    })
   })
 })

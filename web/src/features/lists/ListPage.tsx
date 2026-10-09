@@ -197,7 +197,7 @@ export function ListPage({ listId }: { listId: string }) {
                 instruments={instruments}
                 tuneId={tuneId}
                 wide={wide}
-                onEdit={(view) => form.open({ tuneId: view.tune.id })}
+                onEdit={(view) => form.open({ source: 'list', tuneId: view.tune.id })}
                 onRemove={(view) => void remove(view)}
                 onSelect={(view) => fromRow(view.userTune.id)}
                 announce={announce}

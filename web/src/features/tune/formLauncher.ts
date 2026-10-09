@@ -1,6 +1,9 @@
 import { createContext, useContext } from 'react'
+import type { Source } from '../../analytics/events'
 
 export interface TuneFormOptions {
+  /** Where the musician opened the form, reported when it adds a tune. */
+  source: Source
   /** The title typed into a search, carried into a new tune. */
   initialTitle?: string
   /** The tune to edit; without one the form adds a tune. */

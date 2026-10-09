@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { recordingOrigin } from '../../analytics/origin'
 import { updateRecording } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
 import { isRecordingPrecision } from '../../db/types'
@@ -57,6 +59,7 @@ export function useEditRecording(
   },
 ): EditRecording {
   const db = useDb()
+  const analytics = useAnalytics()
   const { error, pending, runThen, clear } = useAction()
   const [name, setNameState] = useState('')
   const [openedName, setOpenedName] = useState('')
@@ -112,6 +115,12 @@ export function useEditRecording(
     sheet.beginSave()
     runThen(async () => {
       await updateRecording(db, view.recording.id, { label, ...date }).catch(sheet.saveFailed)
+      if (label !== (view.recording.label ?? null)) {
+        analytics.send('recording_renamed', {
+          origin: recordingOrigin(view.recording),
+          recording_id: view.recording.id,
+        })
+      }
     }, sheet.close)
   }
 

@@ -1,9 +1,17 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { useDb } from '../../db/DbProvider'
 import { getMeta, setMeta } from '../../db/meta'
+import { useLatest } from '../../ui/useLatest'
 import { usePendingWrite } from '../../ui/usePendingWrite'
-import { META_CATALOG_FILTERS, normalizeFilters, type CatalogFilters } from './filters'
+import { appliedFilters } from './appliedFilters'
+import {
+  DEFAULT_FILTERS,
+  META_CATALOG_FILTERS,
+  normalizeFilters,
+  type CatalogFilters,
+} from './filters'
 
 export const FILTER_SAVE_ERROR = 'The filters could not be saved.'
 
@@ -33,19 +41,35 @@ export function useCatalogFilters(): [
     [db],
   )
   const [filters, writePending] = usePendingWrite(stored, write)
+  const analytics = useAnalytics()
+  const currentRef = useLatest(filters ?? undefined)
+  // The filters as the last patch left them, so a second patch before the next render diffs
+  // against the first rather than reporting the same filter again. A render brings newer filters.
+  const patchedRef = useRef<{ from: CatalogFilters | undefined; to: CatalogFilters } | null>(null)
   const update = useCallback(
     (patch: Partial<CatalogFilters>) => {
+      const rendered = currentRef.current
+      const patched = patchedRef.current
+      const before =
+        patched && patched.from === rendered ? patched.to : (rendered ?? DEFAULT_FILTERS)
+      patchedRef.current = { from: rendered, to: { ...before, ...patch } }
+      const applied = appliedFilters(before, patch)
       const next = writePending(patch)
       next.then(
-        () => setError(null),
+        () => {
+          setError(null)
+          for (const filter of applied) analytics.send('catalog_filtered', { filter })
+        },
         (caught: unknown) => {
+          // The rolled-back filters can render as the same object the failed patch was built on.
+          patchedRef.current = null
           console.warn('catalog: could not persist filters', caught)
           setError(FILTER_SAVE_ERROR)
         },
       )
       return next
     },
-    [writePending],
+    [writePending, currentRef, analytics],
   )
 
   return [filters ?? undefined, update, error]

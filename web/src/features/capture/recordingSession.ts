@@ -69,14 +69,15 @@ export interface RecordingSession {
   finish(): Promise<void>
   /** Stop and discard the recording, including a start still in progress. */
   cancel(): Promise<void>
-  /** Stop reporting. A running recording is finished and kept; a start in progress backs out. */
-  dispose(): void
+  /** Stop reporting. A running recording is finished and kept; a start in progress backs out.
+   * Resolves once the keeping has ended. */
+  dispose(): Promise<void>
 }
 
 const TICK_MS = 250
 const PEAK_WINDOW_MS = 20
 
-const MIC_DENIED =
+export const MIC_DENIED =
   'Crosstune needs microphone access. Allow it in your browser or phone settings and try again.'
 const MIC_FAILED = 'The microphone could not be started.'
 const START_FAILED = 'The recording could not be started.'
@@ -371,11 +372,12 @@ export function createRecordingSession<S extends MediaStreamLike>(
     finish: () => (capture ? finishRecording() : Promise.resolve()),
     cancel,
     dispose() {
-      if (disposed) return
+      if (disposed) return Promise.resolve()
       disposed = true
       listeners.clear()
-      if (capture) void finishRecording()
-      else releaseHardware()
+      if (capture) return finishRecording()
+      releaseHardware()
+      return Promise.resolve()
     },
   }
 }

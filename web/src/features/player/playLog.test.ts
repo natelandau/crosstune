@@ -1,17 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { heardLengthMs, PlayLog, type PlayRecord } from './playLog'
+import { heardLengthMs, PlayLog, type EndedPlay, type PlayRecord } from './playLog'
 
 function setup() {
   let t = 1_000_000
   const written: PlayRecord[] = []
+  const ended: EndedPlay[] = []
   const log = new PlayLog(
     () => t,
     (record) => written.push(record),
+    (play) => ended.push(play),
   )
   const advance = (ms: number) => {
     t += ms
   }
-  return { log, written, advance, at: () => t }
+  return { log, written, ended, advance, at: () => t }
 }
 
 describe('PlayLog', () => {
@@ -21,7 +23,7 @@ describe('PlayLog', () => {
     log.playing(true)
     advance(9_999)
     log.playing(false)
-    log.end()
+    log.end('closed')
     expect(written).toEqual([])
   })
 
@@ -31,7 +33,7 @@ describe('PlayLog', () => {
     log.start('rec-1', { context: 'row' }, 60_000)
     log.playing(true)
     advance(10_000)
-    log.end()
+    log.end('closed')
     expect(written).toEqual([
       {
         recordingId: 'rec-1',
@@ -49,7 +51,7 @@ describe('PlayLog', () => {
     log.playing(true)
     advance(4_000)
     log.playing(false)
-    log.end()
+    log.end('closed')
     expect(written.map((r) => r.listenedMs)).toEqual([4_000])
   })
 
@@ -65,7 +67,7 @@ describe('PlayLog', () => {
     advance(30_000)
     log.playing(true)
     advance(6_000)
-    log.end()
+    log.end('closed')
     expect(written).toEqual([expect.objectContaining({ startedAt, listenedMs: 12_000 })])
   })
 
@@ -79,7 +81,7 @@ describe('PlayLog', () => {
     expect(log.current).toBe('rec-2')
     // The new item starts paused; only a fresh playing signal counts toward it.
     advance(20_000)
-    log.end()
+    log.end('closed')
     expect(written).toHaveLength(1)
   })
 
@@ -88,7 +90,7 @@ describe('PlayLog', () => {
     log.start('rec-1', { context: 'list', listId: 'list-1' }, 60_000)
     log.playing(true)
     advance(11_000)
-    log.end()
+    log.end('closed')
     expect(written).toEqual([
       expect.objectContaining({ context: 'list', listId: 'list-1', listenedMs: 11_000 }),
     ])
@@ -99,7 +101,7 @@ describe('PlayLog', () => {
     log.start('rec-1', { context: 'row' })
     log.playing(true)
     advance(5_000)
-    log.end()
+    log.end('closed')
     expect(written).toEqual([])
   })
 
@@ -109,7 +111,7 @@ describe('PlayLog', () => {
     log.setLength(3_000)
     log.playing(true)
     advance(3_000)
-    log.end()
+    log.end('closed')
     expect(written.map((r) => r.listenedMs)).toEqual([3_000])
   })
 
@@ -118,13 +120,13 @@ describe('PlayLog', () => {
     log.start('rec-1', { context: 'list', listId: 'list-1' }, 60_000)
     log.playing(true)
     advance(20_000)
-    log.flush()
+    log.flush('finished')
     expect(written.map((r) => r.listenedMs)).toEqual([20_000])
     expect(log.current).toBe('rec-1')
     const resumedAt = at()
     log.playing(true)
     advance(12_000)
-    log.end()
+    log.end('closed')
     expect(written[1]).toEqual(
       expect.objectContaining({ context: 'list', listId: 'list-1', startedAt: resumedAt }),
     )
@@ -136,9 +138,93 @@ describe('PlayLog', () => {
     log.playing(true)
     advance(30_000)
     log.drop()
-    log.end()
+    log.end('closed')
     expect(written).toEqual([])
     expect(log.current).toBeNull()
+  })
+})
+
+describe('PlayLog reports', () => {
+  const ORIGIN = {
+    context: 'list' as const,
+    listId: 'list-1',
+    report: { source: 'list' as const, queue: 'playlist' as const, trigger: 'tap' as const },
+  }
+
+  it('PlayLog reports a 3-second play that it does not write', () => {
+    const { log, written, ended, advance } = setup()
+    log.start('rec-1', ORIGIN, 60_000)
+    log.playing(true)
+    advance(3_000)
+    log.end('closed')
+    expect(written).toEqual([])
+    expect(ended).toEqual([
+      {
+        recordingId: 'rec-1',
+        origin: ORIGIN,
+        listenedMs: 3_000,
+        lengthMs: 60_000,
+        endedBy: 'closed',
+        systemControlled: false,
+      },
+    ])
+  })
+
+  it('ended_by is skipped on item change, closed on close, finished at the end', () => {
+    const { log, ended, advance } = setup()
+    log.start('rec-1', ORIGIN, 60_000)
+    log.playing(true)
+    advance(1_000)
+    log.start('rec-2', ORIGIN, 60_000)
+    log.playing(true)
+    advance(1_000)
+    log.flush('finished')
+    log.playing(true)
+    advance(1_000)
+    log.end('closed')
+    expect(ended.map((play) => [play.recordingId, play.endedBy])).toEqual([
+      ['rec-1', 'skipped'],
+      ['rec-2', 'finished'],
+      ['rec-2', 'closed'],
+    ])
+  })
+
+  it('flush can reopen the item under a new origin', () => {
+    const { log, ended, advance } = setup()
+    log.start('rec-1', ORIGIN, 60_000)
+    log.playing(true)
+    advance(1_000)
+    const advanced = { ...ORIGIN, report: { ...ORIGIN.report, trigger: 'auto_advance' as const } }
+    log.flush('finished', advanced)
+    log.playing(true)
+    advance(1_000)
+    log.end('closed')
+    expect(ended.map((play) => play.origin.report?.trigger)).toEqual(['tap', 'auto_advance'])
+  })
+
+  it('a system action marks only the open play', () => {
+    const { log, ended, advance } = setup()
+    log.start('rec-1', ORIGIN, 60_000)
+    log.playing(true)
+    advance(1_000)
+    log.systemControlled()
+    log.flush('finished')
+    log.playing(true)
+    advance(1_000)
+    log.end('closed')
+    expect(ended.map((play) => play.systemControlled)).toEqual([true, false])
+  })
+
+  it('reports nothing for a play that never sounded or was dropped', () => {
+    const { log, ended, advance } = setup()
+    log.start('rec-1', ORIGIN, 60_000)
+    advance(5_000)
+    log.start('rec-2', ORIGIN, 60_000)
+    log.playing(true)
+    advance(5_000)
+    log.drop()
+    log.end('closed')
+    expect(ended).toEqual([])
   })
 })
 

@@ -198,7 +198,9 @@ function Thumbnail({
   const thumbnail = useThumbnail(file, scan.height)
   const size = { height, width: height * aspectRatio(scan) }
   if (file && thumbnail.kind === 'ready') {
-    return <img src={thumbnail.url} alt="" className="block object-contain" style={size} />
+    return (
+      <img src={thumbnail.url} alt="" className="ph-no-capture block object-contain" style={size} />
+    )
   }
   return (
     <span className="bg-fill grid place-items-center" style={size}>

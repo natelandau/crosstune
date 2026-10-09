@@ -1,12 +1,21 @@
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
+import { AnalyticsProvider } from '../../analytics/AnalyticsProvider'
+import { recordingAnalytics } from '../../analytics/testing'
 import { setInstruments } from '../../commands/settings'
 import { AUDIO_QUALITY_NAMES, INSTRUMENT_LABELS, STATUS_LABELS } from '../../constants'
 import { setStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { RECORDING } from '../../text/format'
 import { STORAGE_USED } from '../recordings/recordingsCopy'
-import { APPEARANCE_KEY, APPEARANCE_LABELS, setAppearance } from '../../theme/appearance'
+import {
+  APPEARANCE_KEY,
+  APPEARANCE_LABELS,
+  setAppearance,
+  setTextSize,
+  TEXT_SIZE_KEY,
+  TEXT_SIZE_LABELS,
+} from '../../theme/appearance'
 import { CONFIRM_LABEL, DELETE_ACCOUNT, DELETE_CONFIRMATION_TEXT } from './deleteAccountCopy'
 import { NEW_TUNE_GENRE_LABEL, NEW_TUNE_STATUS_LABEL } from './newTunes'
 import { MUSIC_SERVICES, SEARCHABLE_PROVIDERS, servicesSummary } from './searchProviders'
@@ -17,6 +26,7 @@ import {
   NEW_TUNES,
   SYNC_AND_STORAGE,
   SYNC_NOW,
+  TEXT_SIZE_LABEL,
   THEME_LABEL,
   SETTINGS_CATEGORIES,
 } from './settingsCopy'
@@ -229,6 +239,37 @@ it('applies the dark scheme when Appearance is set to Dark', async () => {
   await expect
     .element(categories().getByRole('row', { name: new RegExp(`^${APPEARANCE}`) }))
     .toHaveTextContent(APPEARANCE_LABELS.dark)
+})
+
+it('reports the theme and the text size step each time they change', async () => {
+  onTestFinished(() => {
+    setAppearance('system')
+    setTextSize('regular')
+    localStorage.removeItem(APPEARANCE_KEY)
+    localStorage.removeItem(TEXT_SIZE_KEY)
+  })
+  const analytics = recordingAnalytics()
+  await renderApp({
+    path: '/settings/appearance',
+    db: openTestDb(),
+    frame: WIDE,
+    wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
+  })
+  const detail = page.getByRole('main', { name: APPEARANCE })
+  await detail.getByRole('button', { name: new RegExp(THEME_LABEL) }).click()
+  await page.getByRole('option', { name: APPEARANCE_LABELS.dark }).click()
+  await expect.poll(() => analytics.sends()).toHaveLength(1)
+  await detail.getByRole('button', { name: new RegExp(TEXT_SIZE_LABEL) }).click()
+  await page.getByRole('option', { name: TEXT_SIZE_LABELS.roomy }).click()
+  await expect.poll(() => analytics.sends()).toHaveLength(2)
+  await detail.getByRole('button', { name: new RegExp(TEXT_SIZE_LABEL) }).click()
+  await page.getByRole('option', { name: TEXT_SIZE_LABELS.compact }).click()
+  await expect.poll(() => analytics.sends()).toHaveLength(3)
+  expect(analytics.sends()).toEqual([
+    { name: 'setting_changed', props: { setting: 'appearance', value: 'dark' } },
+    { name: 'setting_changed', props: { setting: 'text_size', value: 1 } },
+    { name: 'setting_changed', props: { setting: 'text_size', value: -1 } },
+  ])
 })
 
 it('shows Offline as the account block’s second line while sync is offline', async () => {

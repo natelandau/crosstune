@@ -33,11 +33,14 @@ export class AudibleSpan {
   }
 }
 
+/** How the page went away: unloaded or cached (`pagehide`), or behind another tab or app. */
+export type PageLeave = 'pagehide' | 'hidden'
+
 /**
  * Calls `fn` when the page is being unloaded or put in the back-forward cache (`pagehide`), or
  * hidden behind another tab or app (`hidden`). Returns the unsubscribe.
  */
-export function onPageLeave(fn: (how: 'pagehide' | 'hidden') => void): () => void {
+export function onPageLeave(fn: (how: PageLeave) => void): () => void {
   const onPageHide = () => fn('pagehide')
   const onVisibility = () => {
     if (document.visibilityState === 'hidden') fn('hidden')

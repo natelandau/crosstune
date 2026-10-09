@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { useAuthSession } from '../../auth/AuthContext'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
@@ -9,6 +10,7 @@ export function useForgetAccountDeletedElsewhere(signOut: () => Promise<unknown>
   const db = useDb()
   const engine = useSyncEngine()
   const { userId } = useAuthSession()
+  const analytics = useAnalytics()
   useEffect(
     () =>
       engine.onAccountDeleted(
@@ -18,8 +20,9 @@ export function useForgetAccountDeletedElsewhere(signOut: () => Promise<unknown>
             userId,
             engine,
             signOut: async () => void (await signOut()),
+            analytics,
           }),
       ),
-    [engine, db, userId, signOut],
+    [engine, db, userId, signOut, analytics],
   )
 }

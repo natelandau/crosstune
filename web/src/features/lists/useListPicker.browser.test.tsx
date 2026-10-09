@@ -1,5 +1,6 @@
 import { renderHook } from '@testing-library/react'
 import { act } from 'react'
+import { recordingAnalytics } from '../../analytics/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { addToList, createList } from '../../commands/lists'
 import { createTune } from '../../commands/tunes'
@@ -26,10 +27,11 @@ beforeEach(async () => {
 function setup(options: { excludeListId?: string } = {}) {
   const onAdded = vi.fn()
   const onClose = vi.fn()
+  const analytics = recordingAnalytics()
   const view = renderHook(() => useListPicker(true, tunes, { ...options, onAdded, onClose }), {
-    wrapper: dataProviders({ db }),
+    wrapper: dataProviders({ db, analytics }),
   })
-  return { ...view, onAdded, onClose }
+  return { ...view, onAdded, onClose, analytics }
 }
 
 const noteOf = (result: { current: ReturnType<typeof useListPicker> }, id: string) =>
@@ -80,6 +82,37 @@ describe('useListPicker', () => {
     expect(onAdded).toHaveBeenCalledWith(
       expect.objectContaining({ added: 3, listName: 'New set', created: true }),
     )
+  })
+
+  it('reports tunes added to an existing list with the number actually added', async () => {
+    await addToList(db, jam, tunes[0]!)
+    const { result, onAdded, analytics } = setup()
+    await expect.poll(() => noteOf(result, jam)).toBe('1 of 3 in it')
+    act(() => result.current.add(jam))
+    await expect.poll(() => onAdded.mock.calls.length).toBe(1)
+    expect(analytics.sends()).toEqual([
+      { name: 'tunes_added_to_list', props: { list_id: jam, count_bucket: '1-9' } },
+    ])
+  })
+
+  it('reports a list made with tunes as one list_created and no tunes_added_to_list', async () => {
+    const { result, onAdded, analytics } = setup()
+    act(() => result.current.setName('New set'))
+    act(() => result.current.create())
+    await expect.poll(() => onAdded.mock.calls.length).toBe(1)
+    const created = (await db.lists.toArray()).find((list) => list.name === 'New set')!
+    expect(analytics.sends()).toEqual([
+      { name: 'list_created', props: { list_id: created.id, count_bucket: '1-9' } },
+    ])
+  })
+
+  it('reports nothing when the undo of a list made with tunes runs', async () => {
+    const { result, onAdded, analytics } = setup()
+    act(() => result.current.setName('New set'))
+    act(() => result.current.create())
+    await expect.poll(() => onAdded.mock.calls.length).toBe(1)
+    await act(async () => onAdded.mock.lastCall![0].undo())
+    expect(analytics.sends().map((send) => send.name)).toEqual(['list_created'])
   })
 
   it('ignores a create with no name', async () => {

@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { useDb } from '../../db/DbProvider'
 import type { ScanFile } from '../../db/scans'
 import type { LocalScan } from '../../db/types'
@@ -79,6 +80,7 @@ export function useScanViewer({
   onClose: () => void
 }): ScanViewer {
   const db = useDb()
+  const analytics = useAnalytics()
   const data = useScans(tuneId)
   const empty = data !== undefined && data.scans.length === 0
   // A view runs only while there are scans, so a pager that stays mounted through an empty
@@ -96,6 +98,17 @@ export function useScanViewer({
   const scans = data?.scans ?? NO_SCANS
   const files = data?.files ?? NO_FILES
   const shown = Math.min(index, Math.max(0, scans.length - 1))
+
+  // Reported once per opening, when scans are first on screen: scans that sync in while the
+  // viewer is open count, and a page turn does not report again. This runs ahead of the view
+  // log's threshold, which only decides what is stored.
+  const viewedRef = useRef(false)
+  const hasScans = scans.length > 0
+  useEffect(() => {
+    if (!hasScans || viewedRef.current) return
+    viewedRef.current = true
+    analytics.send('scan_viewed', { tune_id: tuneId })
+  }, [hasScans, tuneId, analytics])
 
   const close = () => {
     endView()
