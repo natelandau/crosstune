@@ -11,3 +11,4 @@ export const RECORDED_DATE_MISMATCH = 'A recorded date and its precision are set
 export const RECORDED_DATE_INVALID = 'A recorded date must be a valid date'
 export const RECORDED_DATE_FUTURE = 'A recorded date cannot be in the future'
 export const RECORDED_DATE_OFF_PERIOD = 'A partial recorded date starts its period at UTC midnight'
+export const NOTHING_TO_IMPORT = 'Nothing to import'
