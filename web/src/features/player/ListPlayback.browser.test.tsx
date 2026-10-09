@@ -278,6 +278,27 @@ describe('ListPlayback', () => {
     expect(loadedId()).toBe('r-t1')
   })
 
+  it("plays a tune's own take before an imported one placed ahead of it", async () => {
+    await db.recordings.put(
+      recordingRow('r-t1-imported', {
+        tune_id: 't1',
+        origin: 'imported',
+        position: -1,
+        duration_ms: 3000,
+        source_duration_ms: 3000,
+      }),
+    )
+    await db.recording_files.put(
+      recordingFile('r-t1-imported', {
+        blob: new Blob(['x'], { type: 'audio/mp4' }),
+        local_duration_ms: 3000,
+      }),
+    )
+    mount()
+    await api().start('l1', { shuffle: false })
+    await playing('r-t1')
+  })
+
   it('advances when the engine ends a tune', async () => {
     mount()
     await api().start('l1', { shuffle: false })
@@ -474,6 +495,19 @@ describe('ListPlayback', () => {
     expect(calls).not.toContain('play r-t1')
   })
 
+  it('is settled only while the player holds the tune the queue stands on', async () => {
+    mount()
+    await api().start('l1', { shuffle: false })
+    await playing('r-t1')
+    await expect.poll(() => api().active?.settled).toBe(true)
+    const open = holdReads()
+    api().next()
+    await expect.poll(() => api().active?.settled).toBe(false)
+    open()
+    await playing('r-t2')
+    await expect.poll(() => api().active?.settled).toBe(true)
+  })
+
   it('moves twice for two quick nexts', async () => {
     mount()
     await api().start('l1', { shuffle: false })
@@ -599,6 +633,17 @@ describe('ListPlayback', () => {
     const started = api().start('l1', { shuffle: false })
     shownDb = openTestDb()
     rendered.rerender()
+    open()
+    await started
+    expect(api().active).toBeNull()
+    expect(calls).not.toContain('play r-t1')
+  })
+
+  it('drops a start whose read outlives an end', async () => {
+    mount()
+    const open = holdReads()
+    const started = api().start('l1', { shuffle: false })
+    api().end()
     open()
     await started
     expect(api().active).toBeNull()

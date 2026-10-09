@@ -23,10 +23,13 @@ const SLOT = 'grid size-(--target-control) shrink-0 place-items-center'
 function ListPlayControl({
   name,
   active,
+  settled,
   onPlay,
 }: {
   name: string
   active: boolean
+  /** The player holds the playing list's current tune; false while the next one loads. */
+  settled: boolean
   onPlay: () => void
 }) {
   const engine = usePlaybackEngine()
@@ -36,6 +39,8 @@ function ListPlayControl({
   return (
     <AriaButton
       aria-label={pausing ? pauseListName(name) : playListName(name)}
+      // Until the next tune loads, the engine holds the one being left.
+      isDisabled={active && !settled}
       onPress={() => {
         if (!active) onPlay()
         else if (pausing) engine.pause()
@@ -106,7 +111,8 @@ export function ListRow({
           <ListPlayControl
             name={list.name}
             active={active}
-            onPlay={() => onPlay({ shuffle: undefined })}
+            settled={run?.settled ?? false}
+            onPlay={() => onPlay({})}
           />
         ) : (
           <span className={SLOT} />

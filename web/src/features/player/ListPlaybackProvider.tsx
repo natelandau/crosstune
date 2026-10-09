@@ -25,10 +25,10 @@ import {
   type Queue,
   type RepeatMode,
 } from './listQueue'
-import { playlistReport, playlistSource, type Availability } from './listSource'
+import { playlistReport, playlistSource } from './listSource'
 import { usePlaybackEngine } from './PlaybackEngineProvider'
 import { NOTHING_LEFT } from './playerCopy'
-import { readPlaylist, type Playlist } from './readPlaylist'
+import { playlistAvailability, readPlaylist, type Playlist } from './readPlaylist'
 import {
   ListPlaybackContext,
   ListHoldContext,
@@ -169,7 +169,10 @@ export function ListPlaybackProvider({
   const resolve = (playlist: Playlist | null, tuneId: string | null): PlayerItem | null => {
     const entry = playlist?.entries.find((e) => e.tuneId === tuneId)
     if (!playlist || !entry) return null
-    const choice = playlistSource({ ...entry, ...availability(playlist, onlineRef.current) })
+    const choice = playlistSource({
+      ...entry,
+      ...playlistAvailability(playlist, onlineRef.current),
+    })
     return 'item' in choice ? choice.item : null
   }
 
@@ -386,7 +389,10 @@ export function ListPlaybackProvider({
     if (turn !== startTurn.current || dbRef.current !== db) return
     starting.current = false
     if (!playlist) return
-    const { playable } = playlistReport(playlist.entries, availability(playlist, onlineRef.current))
+    const { playable } = playlistReport(
+      playlist.entries,
+      playlistAvailability(playlist, onlineRef.current),
+    )
     // A list with nothing to play leaves whatever plays alone.
     if (playable.length === 0) return
     detach()
@@ -454,6 +460,9 @@ export function ListPlaybackProvider({
 
   const end = () => {
     const ours = holdsOwn()
+    // Ending also drops a start still reading its list, so nothing begins after the end.
+    starting.current = false
+    startTurn.current += 1
     detach()
     if (ours) playerRef.current.close()
   }
@@ -491,6 +500,13 @@ export function ListPlaybackProvider({
   )
   // Checked during render, so the render that sees a new database never shows the last one's.
   const shown = run?.db === db ? run : null
+  // Read in render: the refs change only alongside a commit of the run or a new player item,
+  // so a render follows each change. The player itself, not its ref, which lags a render.
+  const isSettled =
+    shown?.message === null &&
+    pendingTurn.current === null &&
+    ownItem.current !== null &&
+    player.item === ownItem.current
   const active = useMemo<ListPlaybackActive | null>(
     () =>
       shown && {
@@ -501,8 +517,9 @@ export function ListPlaybackProvider({
         shuffled: shown.queue.shuffled,
         repeat,
         message: shown.message,
+        settled: isSettled,
       },
-    [shown, listRow, repeat],
+    [shown, listRow, repeat, isSettled],
   )
 
   const value = useMemo<ListPlayback>(() => ({ active, ...actions }), [active, actions])
@@ -513,8 +530,4 @@ export function ListPlaybackProvider({
       </LoadFailedContext.Provider>
     </ListPlaybackContext.Provider>
   )
-}
-
-function availability(playlist: Playlist, online: boolean): Availability {
-  return { online, hasAudio: (id) => playlist.held.has(id) }
 }

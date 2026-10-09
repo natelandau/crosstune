@@ -18,6 +18,9 @@ export interface ListPlaybackActive {
   repeat: RepeatMode
   /** Why playback stopped, kept with the player closed until `end`. */
   message: string | null
+  /** The player holds the tune the queue stands on. False while the next one reads, when the
+   * engine still holds, or has paused, the tune being left. */
+  settled: boolean
 }
 
 export interface ListPlayback {
