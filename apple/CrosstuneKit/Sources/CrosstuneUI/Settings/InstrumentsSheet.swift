@@ -41,22 +41,52 @@ struct InstrumentsChoices: View {
                     Vocabulary.instrumentLabels[instrument] ?? instrument,
                     isOn: Binding(get: { model.plays(instrument) }, set: { model.setPlays(instrument, $0) }))
             }
+        } header: {
+            SettingsHelp(SettingsModel.instrumentsHelp)
         } footer: {
-            SettingsFooter(help: SettingsModel.instrumentsHelp, failure: model.instrumentsFailure)
+            SettingsFailure(model.instrumentsFailure)
         }
     }
 }
 
-/// A section's help, replaced in red by the reason its last write failed.
-struct SettingsFooter: View {
+/// A settings section's header: its name, when it has one, then its help, which leads the rows
+/// so the musician reads what a setting does before choosing.
+struct SettingsHelp: View {
+    let title: String?
     let help: String?
+
+    init(_ help: String?, title: String? = nil) {
+        self.help = help
+        self.title = title
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let title {
+                Text(title)
+            }
+            if let help {
+                Text(help)
+                    .font(.footnote)
+                    .fontWeight(.regular)
+                    .foregroundStyle(.secondary)
+                    .textCase(nil)
+            }
+        }
+    }
+}
+
+/// The reason a section's last write failed, in red below its rows.
+struct SettingsFailure: View {
     let failure: String?
+
+    init(_ failure: String?) {
+        self.failure = failure
+    }
 
     var body: some View {
         if let failure {
             Text(failure).foregroundStyle(.red)
-        } else if let help {
-            Text(help)
         }
     }
 }

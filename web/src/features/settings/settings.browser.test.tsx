@@ -17,7 +17,7 @@ import {
   TEXT_SIZE_LABELS,
 } from '../../theme/appearance'
 import { CONFIRM_LABEL, DELETE_ACCOUNT, DELETE_CONFIRMATION_TEXT } from './deleteAccountCopy'
-import { NEW_TUNE_GENRE_LABEL, NEW_TUNE_STATUS_LABEL } from './newTunes'
+import { NEW_TUNE_GENRE_LABEL, NEW_TUNE_STATUS_LABEL, NEW_TUNES_HELP } from './newTunes'
 import { MUSIC_SERVICES, SEARCHABLE_PROVIDERS, servicesSummary } from './searchProviders'
 import {
   ACCOUNT,
@@ -215,10 +215,18 @@ it('saves the status and genre a new tune starts with, and sums up the genre', a
   await expect.element(row).toHaveTextContent(NOT_SET)
   const detail = page.getByRole('main', { name: NEW_TUNES })
   const settings = async () => (await db.user_settings.toArray())[0]
-  await detail
-    .getByRole('radiogroup', { name: NEW_TUNE_STATUS_LABEL })
-    .getByRole('radio', { name: STATUS_LABELS.known })
-    .click()
+  const status = detail.getByRole('button', { name: new RegExp(NEW_TUNE_STATUS_LABEL) })
+  const help = detail.getByText(NEW_TUNES_HELP)
+  await expect.element(status).toBeVisible()
+  // A settings group's help leads its rows.
+  await expect
+    .poll(
+      () =>
+        help.element().compareDocumentPosition(status.element()) & Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+    .toBeTruthy()
+  await status.click()
+  await page.getByRole('option', { name: STATUS_LABELS.known }).click()
   await expect.poll(async () => (await settings())?.new_tune_status).toBe('known')
   await detail.getByRole('combobox', { name: NEW_TUNE_GENRE_LABEL }).click()
   await page.getByRole('option', { name: 'Irish', exact: true }).click()

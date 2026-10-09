@@ -401,6 +401,10 @@ One row component per platform for every list of tunes.
   Escape. Cancel is the way out. Any sheet refuses while its own write is
   pending.
 - Settings save on toggle. No Save button.
+- A settings group's help leads its rows, so it reads before the choice. A
+  failed write shows in red below the rows, and the help stays.
+- New tunes' status is a picker row like the genre beside it, not the tune
+  form's segments.
 - Settings: root of categories, each its own page. A new setting joins its
   category's page, never the root.
 

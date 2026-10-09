@@ -10,7 +10,7 @@ import {
   useAppearance,
   useTextSize,
 } from '../../../theme/appearance'
-import { APPEARANCE_FOOTER, TEXT_SIZE_LABEL, THEME_LABEL } from '../settingsCopy'
+import { APPEARANCE_HELP, TEXT_SIZE_LABEL, THEME_LABEL } from '../settingsCopy'
 import { Group } from '../../../ui/form/Group'
 import { Picker } from '../../../ui/form/Picker'
 
@@ -23,7 +23,7 @@ export function AppearancePage() {
   const appearance = useAppearance()
   const textSize = useTextSize()
   return (
-    <Group footer={APPEARANCE_FOOTER}>
+    <Group help={APPEARANCE_HELP}>
       <Picker
         label={THEME_LABEL}
         value={appearance}

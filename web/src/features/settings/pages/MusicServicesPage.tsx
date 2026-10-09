@@ -16,7 +16,7 @@ export function MusicServicesPage() {
   if (!providers) return null
   return (
     <>
-      <Group footer={MUSIC_SERVICES_HELP} error={error ?? undefined}>
+      <Group help={MUSIC_SERVICES_HELP} error={error ?? undefined}>
         {SEARCHABLE_PROVIDERS.map((provider) => (
           <Switch
             key={provider}
@@ -26,7 +26,7 @@ export function MusicServicesPage() {
           />
         ))}
       </Group>
-      <Group footer={PLAY_FIRST_HELP} error={playFirstError ?? undefined}>
+      <Group help={PLAY_FIRST_HELP} error={playFirstError ?? undefined}>
         <Picker
           label={PLAY_FIRST_LABEL}
           value={playFirst}

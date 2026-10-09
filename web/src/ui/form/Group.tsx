@@ -3,11 +3,13 @@ import { ErrorLine } from '../ErrorLine'
 
 /**
  * A form section: an optional header naming the group, its rows in one inset card, then help
- * text, which a validation message replaces in the danger color.
+ * text, which a validation message replaces in the danger color. A settings group sets `help`
+ * instead of `footer`, which leads the rows and stays when a message shows below them.
  */
 export function Group({
   header,
   footer,
+  help,
   error,
   errorId,
   plain = false,
@@ -15,6 +17,8 @@ export function Group({
 }: {
   header?: string
   footer?: string
+  /** Help shown above the rows, for a settings group. */
+  help?: string
   error?: string
   /** The error's id, for a field that names it as its description. */
   errorId?: string
@@ -30,6 +34,7 @@ export function Group({
           {header}
         </h3>
       )}
+      {help && <p className="t-secondary text-ink-2 px-4 pb-2">{help}</p>}
       {plain ? (
         children
       ) : (

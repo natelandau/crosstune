@@ -3,7 +3,7 @@ import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { isSharingUsage, setSharingUsage } from '../../usage/usageSharing'
 import { Group } from '../../ui/form/Group'
 import { Switch } from '../../ui/form/Switch'
-import { USAGE_DATA_FOOTER, USAGE_DATA_TITLE } from './settingsCopy'
+import { USAGE_DATA_HELP, USAGE_DATA_TITLE } from './settingsCopy'
 
 /** The per-device choice to report which features are used. On unless turned off here. */
 export function UsageSharingRow() {
@@ -16,7 +16,7 @@ export function UsageSharingRow() {
     void done.then(() => setSharingUsage(next))
   }
   return (
-    <Group footer={USAGE_DATA_FOOTER}>
+    <Group help={USAGE_DATA_HELP}>
       <Switch label={USAGE_DATA_TITLE} isSelected={sharing} onChange={change} />
     </Group>
   )

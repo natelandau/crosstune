@@ -5,7 +5,7 @@ import { recordingAnalytics } from '../../usage/testing'
 import { SHARE_USAGE_KEY } from '../../usage/usageSharing'
 import { openTestDb } from '../../test/db'
 import { renderApp } from '../../test/renderApp'
-import { USAGE_DATA_FOOTER, USAGE_DATA_TITLE } from './settingsCopy'
+import { USAGE_DATA_HELP, USAGE_DATA_TITLE } from './settingsCopy'
 
 vi.mock('@clerk/react', () => import('../../fixture/clerkStub'))
 
@@ -32,7 +32,7 @@ const press = () => page.getByText(USAGE_DATA_TITLE, { exact: true }).click()
 it('shows the switch on by default with its footer', async () => {
   await mount()
   await expect.element(toggle()).toBeChecked()
-  await expect.element(page.getByText(USAGE_DATA_FOOTER)).toBeVisible()
+  await expect.element(page.getByText(USAGE_DATA_HELP)).toBeVisible()
 })
 
 it('turning it off records disable and stores false', async () => {

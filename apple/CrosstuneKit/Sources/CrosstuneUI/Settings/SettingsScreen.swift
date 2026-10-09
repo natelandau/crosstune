@@ -131,11 +131,13 @@ public struct SettingsScreen: View {
                     if let version {
                         Text(Self.aboutLine(version: version))
                     }
-                    Toggle(UsageData.title, isOn: UsageData.toggle($sharesUsageData, analytics: analytics))
                 } header: {
                     Text(Self.about)
-                } footer: {
-                    Text(UsageData.footer)
+                }
+                Section {
+                    Toggle(UsageData.title, isOn: UsageData.toggle($sharesUsageData, analytics: analytics))
+                } header: {
+                    SettingsHelp(UsageData.help)
                 }
             }
         }
@@ -191,8 +193,8 @@ public struct SettingsScreen: View {
                 }
                 .accessibilityValue(TextSize.valueLabel(system: systemTextSize, offset: textSizeOffset))
             #endif
-        } footer: {
-            Text(SettingsModel.appearanceFooter)
+        } header: {
+            SettingsHelp(SettingsModel.appearanceHelp)
         }
     }
 
@@ -228,27 +230,29 @@ public struct SettingsScreen: View {
         }
     }
 
-    /// The status and genre every new tune starts with, as the tune form shows them.
-    @ViewBuilder private func newTunesSections(_ model: SettingsModel) -> some View {
+    /// The status and genre every new tune starts with, each a picker row.
+    private func newTunesSections(_ model: SettingsModel) -> some View {
         Section {
-            StatusPicker(status: Binding(get: { model.newTuneStatus }, set: { model.setNewTuneStatus($0) }))
-        } header: {
-            Text(TuneFieldLabels.status)
-        } footer: {
-            SettingsFooter(help: nil, failure: model.newTuneStatusFailure)
-        }
-        Section {
+            Picker(
+                TuneFieldLabels.status,
+                selection: Binding(
+                    get: { StatusField.chosen(model.newTuneStatus) }, set: { model.setNewTuneStatus($0) })
+            ) {
+                ForEach(StatusField.segments, id: \.value) { Text($0.label).tag($0.value) }
+            }
             SuggestionPicker(
                 TuneFieldLabels.genre,
                 value: Binding(get: { model.newTuneGenre }, set: { model.setNewTuneGenre($0) }),
                 options: Vocabulary.genres, allowsOther: true, maxLength: Vocabulary.Limits.Tune.genre)
+        } header: {
+            SettingsHelp(SettingsModel.newTunesHelp)
         } footer: {
-            SettingsFooter(help: SettingsModel.newTunesFooter, failure: model.newTuneGenreFailure)
+            SettingsFailure(model.newTuneStatusFailure ?? model.newTuneGenreFailure)
         }
     }
 
-    /// The services searched, and which version a list plays first, under one footer as the
-    /// web groups them.
+    /// The services searched, and which version a list plays first, under one help as the web
+    /// groups them.
     private func musicServicesSection(_ model: SettingsModel) -> some View {
         Section {
             SettingsFieldRow(title: SettingsModel.musicServices, value: model.searchProvidersSummary) {
@@ -257,21 +261,23 @@ public struct SettingsScreen: View {
                 showsMusicServices = true
             }
             PlayFirstPicker(model: model)
+        } header: {
+            SettingsHelp("\(SettingsModel.musicServicesHelp) \(PlayFirstText.help)")
         } footer: {
-            SettingsFooter(
-                help: "\(SettingsModel.musicServicesHelp) \(PlayFirstText.help)",
-                failure: (musicServicesShowing ? nil : model.searchProvidersFailure) ?? model.playFirstFailure)
+            SettingsFailure((musicServicesShowing ? nil : model.searchProvidersFailure) ?? model.playFirstFailure)
         }
     }
 
-    /// A field row that opens a sheet holding the choices, with the setting's help below.
+    /// A field row that opens a sheet holding the choices, with the setting's help above.
     private func sheetRowSection(
         _ title: String, value: String, help: String, failure: String?, open: @escaping () -> Void
     ) -> some View {
         Section {
             SettingsFieldRow(title: title, value: value, action: open)
+        } header: {
+            SettingsHelp(help)
         } footer: {
-            SettingsFooter(help: help, failure: failure)
+            SettingsFailure(failure)
         }
     }
 
@@ -286,9 +292,9 @@ public struct SettingsScreen: View {
                 }
             }
         } header: {
-            Text(SettingsModel.recording)
+            SettingsHelp(SettingsModel.qualityHelp, title: SettingsModel.recording)
         } footer: {
-            SettingsFooter(help: SettingsModel.qualityFooter, failure: model.qualityFailure)
+            SettingsFailure(model.qualityFailure)
         }
         Section {
             Picker(
@@ -303,8 +309,8 @@ public struct SettingsScreen: View {
             ) {
                 ForEach(CaptureChannels.allCases) { Text(SettingsModel.channelLabel($0)).tag($0) }
             }
-        } footer: {
-            SettingsFooter(help: SettingsModel.channelsFooter, failure: nil)
+        } header: {
+            SettingsHelp(SettingsModel.channelsHelp)
         }
     }
 
@@ -313,8 +319,10 @@ public struct SettingsScreen: View {
             Toggle(
                 SettingsModel.keepOffline,
                 isOn: Binding(get: { model.keepsOffline }, set: { model.setKeepsOffline($0) }))
+        } header: {
+            SettingsHelp(SettingsModel.keepOfflineHelp)
         } footer: {
-            SettingsFooter(help: SettingsModel.keepOfflineFooter, failure: model.keepOfflineFailure)
+            SettingsFailure(model.keepOfflineFailure)
         }
         Section {
             Text(SettingsModel.localAudioText(model.localAudioBytes))
@@ -324,8 +332,10 @@ public struct SettingsScreen: View {
                 model.removeDownloads()
             }
             .disabled(model.keepsOffline || model.isRemovingDownloads)
+        } header: {
+            SettingsHelp(SettingsModel.removeDownloadsHelp)
         } footer: {
-            SettingsFooter(help: SettingsModel.removeDownloadsFooter, failure: model.removeDownloadsFailure)
+            SettingsFailure(model.removeDownloadsFailure)
         }
     }
 
