@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { recordingAnalytics } from '../../analytics/testing'
+import { recordingAnalytics } from '../../usage/testing'
 import type { Instrument } from '../../api/vocabulary'
 import { setInstruments } from '../../commands/settings'
 import { INSTRUMENT_LABELS } from '../../constants'

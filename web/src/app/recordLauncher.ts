@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { Source } from '../analytics/events'
+import type { Source } from '../usage/events'
 
 export const RECORD_UNAVAILABLE = "Recording isn't available yet."
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { MAX_SCANS, moveScan } from '../../commands/scans'
 import { useDb } from '../../db/DbProvider'
 import { sortScans, type ScanFile } from '../../db/scans'

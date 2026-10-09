@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import * as Sentry from '@sentry/react'
-import { recordingAnalytics } from '../../analytics/testing'
+import { recordingAnalytics } from '../../usage/testing'
 import { createTune } from '../../commands/tunes'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'

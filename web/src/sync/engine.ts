@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react'
-import type { AnalyticsClient } from '../analytics/client'
-import { syncFailureReason } from '../analytics/failure'
+import type { AnalyticsClient } from '../usage/client'
+import { syncFailureReason } from '../usage/failure'
 import { ApiError, NetworkError, NoTokenError } from '../api/client'
 import type { Change, ResolveResponse } from '../api/types'
 import { countInvalidChanges, getEventsCursor, getPullCursor } from '../db/meta'

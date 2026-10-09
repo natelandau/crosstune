@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
-import { countBucket } from '../../analytics/buckets'
-import { bulkPatchFields } from '../../analytics/tuneFields'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
+import { countBucket } from '../../usage/buckets'
+import { bulkPatchFields } from '../../usage/tuneFields'
 import { STATUSES } from '../../api/vocabulary'
 import {
   deleteTunes,

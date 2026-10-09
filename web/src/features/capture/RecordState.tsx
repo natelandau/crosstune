@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { Source } from '../../analytics/events'
+import type { Source } from '../../usage/events'
 import { useLatest } from '../../ui/useLatest'
 import { ListPlaybackContext } from '../player/useListPlayback'
 import { usePlayer } from '../player/usePlayer'

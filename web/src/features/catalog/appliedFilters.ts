@@ -1,4 +1,4 @@
-import { FILTERS, type Filter } from '../../analytics/events'
+import { FILTERS, type Filter } from '../../usage/events'
 import { isTuningKey } from '../../domain/instruments'
 import { FACETS, type CatalogFilters } from './filters'
 

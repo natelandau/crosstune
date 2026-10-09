@@ -1,5 +1,5 @@
-import type { AnalyticsClient } from '../../analytics/client'
-import { recordingOrigin } from '../../analytics/origin'
+import type { AnalyticsClient } from '../../usage/client'
+import { recordingOrigin } from '../../usage/origin'
 import type { LocalRecording } from '../../db/types'
 
 /**

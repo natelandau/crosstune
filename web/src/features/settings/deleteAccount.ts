@@ -1,4 +1,4 @@
-import type { AnalyticsClient } from '../../analytics/client'
+import type { AnalyticsClient } from '../../usage/client'
 import { ApiError } from '../../api/client'
 import type { CrosstuneDb } from '../../db/schema'
 import { isAccountDeleted } from '../../sync/errors'

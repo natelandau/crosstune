@@ -7,7 +7,7 @@ const init = vi.fn()
 const startAnalytics = vi.fn()
 vi.mock('virtual:pwa-register', () => ({ registerSW }))
 vi.mock('@sentry/react', () => ({ init }))
-vi.mock('../analytics/client', () => ({ startAnalytics }))
+vi.mock('../usage/client', () => ({ startAnalytics }))
 
 beforeEach(() => {
   registerSW.mockReset()

@@ -1,5 +1,5 @@
-import { recordingAnalytics } from '../analytics/testing'
-import { noopAnalytics } from '../analytics/client'
+import { recordingAnalytics } from '../usage/testing'
+import { noopAnalytics } from '../usage/client'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, NetworkError } from '../api/client'
 import type { ScanRow } from '../api/types'

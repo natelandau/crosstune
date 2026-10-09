@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { addScans, MAX_SCANS } from '../../commands/scans'
 import { useDb } from '../../db/DbProvider'
 import { messageFor } from '../../ui/useAction'

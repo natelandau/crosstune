@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
-import { recordingAnalytics } from '../../analytics/testing'
+import { recordingAnalytics } from '../../usage/testing'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { useCatalogFilters } from './useCatalogFilters'

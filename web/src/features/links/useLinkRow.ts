@@ -1,5 +1,5 @@
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
-import { serviceOf } from '../../analytics/service'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
+import { serviceOf } from '../../usage/service'
 import type { LocalRecordingLink } from '../../db/types'
 import { CLOSE } from '../../ui/confirmCopy'
 import { TUNE_ROW_ORIGIN, type PlayOrigin } from '../player/playLog'

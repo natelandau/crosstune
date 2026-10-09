@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import type { LocalRecordingLoop } from '../../db/types'
 import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import type { RecordingView } from '../recordings/useRecordings'

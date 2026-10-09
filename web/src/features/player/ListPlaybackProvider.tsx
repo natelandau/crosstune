@@ -8,9 +8,9 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
-import type { Trigger } from '../../analytics/events'
-import { createPlaybackReporter } from '../../analytics/playbackReporter'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
+import type { Trigger } from '../../usage/events'
+import { createPlaybackReporter } from '../../usage/playbackReporter'
 import { useDb } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
 import { useOnline } from '../../sync/SyncProvider'

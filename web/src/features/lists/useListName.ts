@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
-import { countBucket } from '../../analytics/buckets'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
+import { countBucket } from '../../usage/buckets'
 import { createList, renameList } from '../../commands/lists'
 import { LIST_NAME_REQUIRED } from '../../commands/messages'
 import { useDb } from '../../db/DbProvider'

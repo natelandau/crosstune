@@ -1,5 +1,5 @@
-import { useAnalytics } from '../../../analytics/AnalyticsProvider'
-import { textSizeOffset } from '../../../analytics/events'
+import { useAnalytics } from '../../../usage/AnalyticsProvider'
+import { textSizeOffset } from '../../../usage/events'
 import {
   APPEARANCE_LABELS,
   APPEARANCES,

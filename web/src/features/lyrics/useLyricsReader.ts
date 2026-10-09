@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { updateTune } from '../../commands/tunes'
 import { useDb } from '../../db/DbProvider'
 import { useWakeLock } from '../../platform/wakeLock'

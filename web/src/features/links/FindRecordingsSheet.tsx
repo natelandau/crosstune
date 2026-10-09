@@ -2,7 +2,7 @@ import { ArrowUpRight, ChevronLeft, ChevronRight, SlidersHorizontal } from 'luci
 import { Fragment, useEffect, useRef } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import { useNavigate } from 'react-router'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import type { SearchGroup, SearchResult } from '../../api/types'
 import type { Provider } from '../../api/vocabulary'
 import { settingsPagePath } from '../settings/settingsPaths'

@@ -1,7 +1,7 @@
 import Dexie from 'dexie'
 import { beforeEach, describe, expect, it } from 'vitest'
 import openapi from '../../../api/openapi.json'
-import { noopAnalytics } from '../analytics/client'
+import { noopAnalytics } from '../usage/client'
 import { openTestDb } from '../test/db'
 import { createFakeApi } from '../test/fakeApi'
 import {

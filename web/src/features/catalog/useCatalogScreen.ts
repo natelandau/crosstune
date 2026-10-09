@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
-import { countBucket } from '../../analytics/buckets'
-import {
-  createSearchSettler,
-  realSettleClock,
-  type SettleClock,
-} from '../../analytics/searchSettler'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
+import { countBucket } from '../../usage/buckets'
+import { createSearchSettler, realSettleClock, type SettleClock } from '../../usage/searchSettler'
 import type { Instrument } from '../../api/vocabulary'
 import type { SortChoice } from '../../ui/sortChoice'
 import { useScanTuneIds } from '../scans/useScans'

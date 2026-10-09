@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
-import { recordingOrigin } from '../../analytics/origin'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
+import { recordingOrigin } from '../../usage/origin'
 import { updateRecording } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
 import { isRecordingPrecision } from '../../db/types'

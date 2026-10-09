@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/react'
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
-import { recordingAnalytics } from '../../analytics/testing'
+import { recordingAnalytics } from '../../usage/testing'
 import { recordEvent } from '../../commands/events'
 import type { CrosstuneDb } from '../../db/schema'
 import { useWakeLock } from '../../platform/wakeLock'
