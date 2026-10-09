@@ -200,6 +200,10 @@ One row component per platform for every list of tunes.
 - In a list: tabular position number leading, reorder by dragging the whole
   row, no grip. Playing row: animated speaker, light slate wash. Nothing to
   play: not-playable glyph in the play slot.
+- A list's row on the lists screen, never in the sidebar: Play trailing,
+  and Play and Shuffle first in its menu, only when a tune in it can play.
+  Otherwise the slot stays empty, so the rows align. While the list plays,
+  the slot pauses and resumes it, and the row takes the playing wash.
 - Selected row: inset slate highlight, every glyph keeps its own color.
 - Status glyph's word is its tooltip on pointer.
 - At most three visible actions. The rest in the row menu.

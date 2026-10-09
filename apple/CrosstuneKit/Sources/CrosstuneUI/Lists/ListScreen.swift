@@ -320,10 +320,8 @@ private struct ListTunes: View {
             fullTracks: appleMusic == .fullTracks, online: online)
     }
 
-    /// Starting a playlist stops whatever was loaded.
     private func startPlaylist(_ report: PlaylistReport, shuffled: Bool) {
         guard let listPlayback else { return }
-        player?.close()
         listPlayback.start(listID: list.id, name: list.name, report: report, shuffled: shuffled)
     }
 

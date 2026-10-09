@@ -55,6 +55,8 @@ async function seedMany(db: CrosstuneDb, count = 80) {
 const catalog = () =>
   page.getByRole('region', { name: CATALOG }).or(page.getByRole('main', { name: CATALOG }))
 const tune = () => page.getByRole('main', { name: TUNE })
+// The page's heading, which shows once the tune has read, as its opening transition starts.
+const tuneTitle = () => tune().getByRole('heading', { level: 1 })
 const focusInDetail = () => detailColumn().contains(document.activeElement)
 const listColumn = () => document.querySelector<HTMLElement>('[data-column="list"]')!
 const detailColumn = () => document.querySelector<HTMLElement>('[data-column="detail"]')!
@@ -112,7 +114,7 @@ it('keeps the tune open and the list in place when a wide window narrows to spli
   const row = rowInView()
   row.focus()
   row.click()
-  await expect.element(tune()).toBeVisible()
+  await expect.element(tuneTitle()).toBeVisible()
   await expect.element(catalog()).toBeVisible()
   const list = catalog().element()
   await expect.poll(viewTransitionsDone).toBe(true)
@@ -162,7 +164,7 @@ it('keeps the open tune, the list, and its scroll across a tablet rotation', asy
   const top = await scrollList(1000)
   expect(top).toBeGreaterThan(0)
   rowInView().click()
-  await expect.element(tune()).toBeVisible()
+  await expect.element(tuneTitle()).toBeVisible()
   const list = catalog().element()
   const opened = tune().element()
   await expect.poll(viewTransitionsDone).toBe(true)

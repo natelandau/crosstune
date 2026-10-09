@@ -16,3 +16,13 @@ export const WHAT_PLAYS_LEAD =
 export const SKIP_NOTHING = 'No recordings or links'
 export const SKIP_LINKS_ONLY = "Only links that can't play in a list"
 export const SKIP_NOT_HERE = "Recordings that aren't on this device yet"
+
+/** `Play Thursday jam`, a list row's play control. */
+export function playListName(name: string): string {
+  return `Play ${name}`
+}
+
+/** `Pause Thursday jam`, the playing list's row control. */
+export function pauseListName(name: string): string {
+  return `Pause ${name}`
+}

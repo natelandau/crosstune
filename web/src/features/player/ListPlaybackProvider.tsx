@@ -25,10 +25,10 @@ import {
   type Queue,
   type RepeatMode,
 } from './listQueue'
-import { playlistReport, playlistSource, type Availability } from './listSource'
+import { playlistReport, playlistSource } from './listSource'
 import { usePlaybackEngine } from './PlaybackEngineProvider'
 import { NOTHING_LEFT } from './playerCopy'
-import { readPlaylist, type Playlist } from './readPlaylist'
+import { playlistAvailability, readPlaylist, type Playlist } from './readPlaylist'
 import {
   ListPlaybackContext,
   ListHoldContext,
@@ -132,8 +132,10 @@ export function ListPlaybackProvider({
   // Bumped by every move, so a turn still reading the database gives way to a later one.
   const generation = useRef(0)
   const pendingTurn = useRef<number | null>(null)
-  // A start is reading its list; anything played meanwhile cancels it.
+  // A start is reading its list; anything played meanwhile cancels it. The list playing
+  // until then plays on, so its own turns never cancel a start.
   const starting = useRef(false)
+  const startTurn = useRef(0)
   // The recording practice holds, whose natural end the list holds at.
   const holding = useRef<string | null>(null)
   // What moved the queue last, which a tune passed over hands on to the one that plays.
@@ -158,7 +160,6 @@ export function ListPlaybackProvider({
   const detach = () => {
     generation.current += 1
     pendingTurn.current = null
-    starting.current = false
     unreportedStart.current = null
     ownItem.current = null
     loadedTune.current = null
@@ -168,7 +169,10 @@ export function ListPlaybackProvider({
   const resolve = (playlist: Playlist | null, tuneId: string | null): PlayerItem | null => {
     const entry = playlist?.entries.find((e) => e.tuneId === tuneId)
     if (!playlist || !entry) return null
-    const choice = playlistSource({ ...entry, ...availability(playlist, onlineRef.current) })
+    const choice = playlistSource({
+      ...entry,
+      ...playlistAvailability(playlist, onlineRef.current),
+    })
     return 'item' in choice ? choice.item : null
   }
 
@@ -342,6 +346,7 @@ export function ListPlaybackProvider({
   useEffect(
     () => () => {
       generation.current += 1
+      startTurn.current += 1
     },
     [],
   )
@@ -350,10 +355,9 @@ export function ListPlaybackProvider({
   // stopped list keeps its message through the close it caused, until `end`.
   const onItem = useEffectEvent((item: PlayerItem | null) => {
     if (item === ownItem.current) return
-    if (starting.current) {
-      // The start's own close leaves the player empty; anything else loaded cancels it.
-      if (item !== null) detach()
-      return
+    if (starting.current && item !== null) {
+      starting.current = false
+      startTurn.current += 1
     }
     const current = runs.get()
     if (!current) return
@@ -377,21 +381,25 @@ export function ListPlaybackProvider({
 
   const start = async (listId: string, options: { shuffle?: boolean } = {}) => {
     const shuffled = options.shuffle ?? preferShuffle()
+    const turn = ++startTurn.current
+    starting.current = true
+    // Inside the tap, so iOS grants audio before the list's first tune asks for it.
+    engine.prime()
+    const playlist = await read(db, listId)
+    if (turn !== startTurn.current || dbRef.current !== db) return
+    starting.current = false
+    if (!playlist) return
+    const { playable } = playlistReport(
+      playlist.entries,
+      playlistAvailability(playlist, onlineRef.current),
+    )
+    // A list with nothing to play leaves whatever plays alone.
+    if (playable.length === 0) return
     detach()
     misses.current = 0
     failures.current = 0
-    starting.current = true
-    const turn = generation.current
-    // Inside the tap, so iOS grants audio before the list's first tune asks for it.
-    engine.prime()
     playerRef.current.close()
     chooseShuffle(shuffled)
-    const playlist = await read(db, listId)
-    if (turn !== generation.current || dbRef.current !== db) return
-    starting.current = false
-    if (!playlist) return
-    const { playable } = playlistReport(playlist.entries, availability(playlist, onlineRef.current))
-    if (playable.length === 0) return
     const queue = createQueue(playable, { shuffled, random })
     trigger.current = 'tap'
     unreportedStart.current = {
@@ -452,6 +460,9 @@ export function ListPlaybackProvider({
 
   const end = () => {
     const ours = holdsOwn()
+    // Ending also drops a start still reading its list, so nothing begins after the end.
+    starting.current = false
+    startTurn.current += 1
     detach()
     if (ours) playerRef.current.close()
   }
@@ -489,6 +500,13 @@ export function ListPlaybackProvider({
   )
   // Checked during render, so the render that sees a new database never shows the last one's.
   const shown = run?.db === db ? run : null
+  // Read in render: the refs change only alongside a commit of the run or a new player item,
+  // so a render follows each change. The player itself, not its ref, which lags a render.
+  const isSettled =
+    shown?.message === null &&
+    pendingTurn.current === null &&
+    ownItem.current !== null &&
+    player.item === ownItem.current
   const active = useMemo<ListPlaybackActive | null>(
     () =>
       shown && {
@@ -499,8 +517,9 @@ export function ListPlaybackProvider({
         shuffled: shown.queue.shuffled,
         repeat,
         message: shown.message,
+        settled: isSettled,
       },
-    [shown, listRow, repeat],
+    [shown, listRow, repeat, isSettled],
   )
 
   const value = useMemo<ListPlayback>(() => ({ active, ...actions }), [active, actions])
@@ -511,8 +530,4 @@ export function ListPlaybackProvider({
       </LoadFailedContext.Provider>
     </ListPlaybackContext.Provider>
   )
-}
-
-function availability(playlist: Playlist, online: boolean): Availability {
-  return { online, hasAudio: (id) => playlist.held.has(id) }
 }

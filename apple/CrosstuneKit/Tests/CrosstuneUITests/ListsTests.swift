@@ -916,3 +916,58 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(WhatPlaysText.groupTitle(.recordingsNotHere) == "Recordings that aren't on this device yet")
     }
 }
+
+@Suite struct ListsPlayOffersTests {
+    private let root = TemporaryRoot()
+
+    private func offers(
+        _ store: CrosstuneStore, online: Bool = false
+    ) async throws -> [String: PlaylistReport] {
+        let snapshot = try await store.read { db in
+            try ListsPlayOffers.Snapshot.fetch(db, settingsID: settingsID(clerkUserID: store.userID))
+        }
+        return ListsPlayOffers.reports(snapshot, canStart: true, fullTracks: false, online: online)
+    }
+
+    @Test func offersNothingUntilReadOrWhilePlayingCannotStart() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let snapshot = try await store.read { db in
+            try ListsPlayOffers.Snapshot.fetch(db, settingsID: settingsID(clerkUserID: store.userID))
+        }
+        #expect(!ListsPlayOffers.reports(snapshot, canStart: true, fullTracks: false, online: false).isEmpty)
+        // A take records, or no playlist player is there.
+        #expect(ListsPlayOffers.reports(snapshot, canStart: false, fullTracks: false, online: false).isEmpty)
+        // The Apple Music access has not read, so a song's count would flash wrong.
+        #expect(ListsPlayOffers.reports(snapshot, canStart: true, fullTracks: nil, online: false).isEmpty)
+        #expect(ListsPlayOffers.reports(nil, canStart: true, fullTracks: false, online: false).isEmpty)
+    }
+
+    @Test func offersOnlyTheListsWithATuneThatPlays() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let commands = Commands(store: store)
+        let empty = try await commands.createList("Empty")
+        let silent = try await commands.createList("Nothing to hear")
+        _ = try await commands.addToList(silent, userTuneID: sample("The Butterfly").userTune.id)
+        let offers = try await offers(store)
+        #expect(offers[session.id]?.playable.contains(sample("Soldier's Joy").tune.id) == true)
+        #expect(offers[empty] == nil)
+        #expect(offers[silent] == nil)
+    }
+
+    @Test func countsAnArchivedTuneOnlyWhileListsShowArchivedTunes() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let commands = Commands(store: store)
+        let list = try await commands.createList("Archived only")
+        let joy = sample("Soldier's Joy").userTune.id
+        _ = try await commands.addToList(list, userTuneID: joy)
+        try await commands.setArchived(joy, archived: true)
+        #expect(try await offers(store)[list] == nil)
+        try await store.write { writer in try writer.setMeta(.listShowArchived, to: true) }
+        #expect(try await offers(store)[list] != nil)
+    }
+
+    @Test func namesTheRowControlForTheList() {
+        #expect(ListsPlayOffers.playLabel(listName: "Waltzes") == "Play Waltzes")
+        #expect(ListsPlayOffers.pauseLabel(listName: "Waltzes") == "Pause Waltzes")
+    }
+}

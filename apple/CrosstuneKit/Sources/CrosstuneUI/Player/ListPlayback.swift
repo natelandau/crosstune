@@ -89,7 +89,9 @@ public final class ListPlayback: PlayerQueue {
     }
 
     /// Plays the tunes `report` says will play, so the bar counts the same tunes as the list.
+    /// Whatever was loaded stops at once rather than playing on while the first tune resolves.
     public func start(listID: String, name: String, report: PlaylistReport, shuffled: Bool) {
+        player.close()
         start(listID: listID, name: name, tuneIDs: report.playable, shuffled: shuffled)
     }
 

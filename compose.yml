@@ -24,7 +24,8 @@ services:
 
   # S3-compatible storage for local recordings, so local work never reaches a hosted bucket.
   rustfs:
-    image: rustfs/rustfs:1.0.0
+    # From GHCR, which CI pulls without Docker Hub's anonymous rate limit. Same image.
+    image: ghcr.io/rustfs/rustfs:1.0.0
     command: ["/data"]
     ports:
       - "127.0.0.1:9000:9000"

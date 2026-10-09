@@ -49,6 +49,11 @@ jobs:
     services:
       postgres:
         image: postgres:18
+        # Signed in, since Docker Hub refuses anonymous pulls from the runners' shared addresses
+        # once they pass its rate limit.
+        credentials:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
         env:
           POSTGRES_USER: crosstune
           POSTGRES_PASSWORD: crosstune
