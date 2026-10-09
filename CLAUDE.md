@@ -67,9 +67,11 @@ every label. The glossary in `docs/product.md` has the reasons.
   `just api::worktree-db reset` takes a fresh copy.
 - Create a worktree with `just worktree <branch>`, never `git worktree add`.
   It adds `.worktrees/<branch>`, copies every module's `.env` and
-  `apple/Config/Secrets.xcconfig` from the main checkout, runs `just setup` so `just e2e` works there, and makes the
-  worktree's database and bucket. In a worktree made any other way, run `just worktree-env`, then
-  `just setup`; `just dev` makes the database and bucket. Never run
+  `apple/Config/Secrets.xcconfig` from the main checkout, runs
+  `just setup` so `just e2e` works there, and makes the worktree's
+  database and bucket. In a worktree made any other way, run
+  `just worktree-env`, then `just setup`; `just dev` makes the database
+  and bucket. Never run
   `just dev-setup` in a worktree: it points the git hooks every checkout
   shares at that worktree's venv, and removing the worktree breaks them.
 - `just test` never runs Playwright. `just e2e` does. It starts Postgres,

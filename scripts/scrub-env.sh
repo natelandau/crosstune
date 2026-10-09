@@ -4,9 +4,10 @@
 # .build/, so anything that copies or caches that folder would carry them along.
 set -euo pipefail
 
+shopt -s nocasematch
 while read -r name; do
   case "$name" in
-    *KEY* | *TOKEN* | *SECRET* | *PASSWORD* | *PASSWD* | *CREDENTIAL*) unset "$name" ;;
+    *KEY* | *TOKEN* | *SECRET* | *PASS* | *PRIVATE* | *CREDENTIAL*) unset "$name" ;;
   esac
 done < <(compgen -e)
 

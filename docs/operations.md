@@ -42,8 +42,8 @@ checkout shares call the `prek` of the checkout that installed them, so
 installing them from a worktree breaks them once that worktree is removed.
 Create a worktree with `just worktree <branch>`: it copies each module's
 `.env` and `apple/Config/Secrets.xcconfig` from the main checkout and runs
-`just setup`, so `just e2e` works there. In a worktree made another way, run `just worktree-env`, then
-`just setup`.
+`just setup`, so `just e2e` works there. In a worktree made another way,
+run `just worktree-env`, then `just setup`.
 
 A worktree never uses the main checkout's database or bucket, since
 branches write migrations at the same time. `just api::worktree-db` copies

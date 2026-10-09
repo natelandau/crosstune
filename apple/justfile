@@ -306,9 +306,11 @@ archive build_number:
     : "${ASC_KEY_PATH:?the path of the .p8 key file}" "${ASC_KEY_ID:?the key ID}" "${ASC_ISSUER_ID:?the issuer ID}"
     # A .env file does not expand `~`.
     ASC_KEY_PATH="${ASC_KEY_PATH/#\~/$HOME}"
-    # An empty token ships a release that silently sends no analytics.
-    if ! {{ xcodebuild }} -showBuildSettings -project Crosstune.xcodeproj -scheme Crosstune \
-        -configuration Release 2>/dev/null | grep -qE '^ *POSTHOG_PROJECT_TOKEN = phc_'; then
+    # An empty token ships a release that silently sends no analytics. Reading the settings
+    # whole lets a failed xcodebuild stop here instead of reading as an empty token.
+    settings="$({{ xcodebuild }} -showBuildSettings -project Crosstune.xcodeproj -scheme Crosstune \
+        -configuration Release)"
+    if ! grep -qE '^ *POSTHOG_PROJECT_TOKEN = phc_' <<<"$settings"; then
         echo "POSTHOG_PROJECT_TOKEN is empty; set it in Config/Secrets.xcconfig" >&2
         exit 1
     fi
