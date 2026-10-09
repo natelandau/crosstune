@@ -281,31 +281,6 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         #expect(TuneSuggestions.types(genre: "", tunes: [tune("a", type: "Fling")]).contains("Fling"))
     }
 
-    @Test func countsGenreSpellingsAlikeAndBreaksTiesAlphabetically() {
-        let tunes = [
-            tune("a", genre: "Old-time"), tune("b", genre: "irish"), tune("c", genre: "Irish"),
-            tune("d", genre: "Old-time"),
-        ]
-        #expect(TuneSuggestions.mostUsedGenre(tunes) == "Irish")
-    }
-
-    @Test func spellsAKnownGenreTheCanonicalWay() {
-        let tunes = [tune("a", genre: "IRISH"), tune("b", genre: "Irish"), tune("c", genre: "Irish")]
-        #expect(TuneSuggestions.mostUsedGenre(tunes) == "Irish")
-        #expect(TuneSuggestions.mostUsedGenre([tune("a", genre: "irish")]) == "Irish")
-    }
-
-    @Test func spellsACustomGenreTheWayMostTunesDoTiesToTheFirstSeen() {
-        let most = [tune("a", genre: "klezmer"), tune("b", genre: "KLEZMER"), tune("c", genre: "KLEZMER")]
-        #expect(TuneSuggestions.mostUsedGenre(most) == "KLEZMER")
-        let tied = [tune("a", genre: "klezmer"), tune("b", genre: "Klezmer")]
-        #expect(TuneSuggestions.mostUsedGenre(tied) == "klezmer")
-    }
-
-    @Test func hasNoGenreForACatalogWithoutOne() {
-        #expect(TuneSuggestions.mostUsedGenre([tune("a")]) == nil)
-    }
-
     @Test func offersTraditionalFirstThenEveryComposerOnceAlphabetically() {
         let tunes = [
             tune("a", composer: "Ed Reavy"), tune("b", composer: "ed reavy"), tune("c", composer: "Charlie Lennon"),
@@ -388,12 +363,15 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
 
 @MainActor
 @Suite struct TuneFormModelTests {
-    private func seed(_ store: CrosstuneStore, instruments: [String] = ["violin"], tunes: [Tune] = []) async throws {
+    private func seed(
+        _ store: CrosstuneStore, instruments: [String] = ["violin"], tunes: [Tune] = [],
+        newTuneGenre: String? = nil, newTuneStatus: String = UserSettings.defaultNewTuneStatus
+    ) async throws {
         try await store.write { writer in
             try writer.put(
                 UserSettings(
                     id: settingsID(clerkUserID: store.userID), createdAt: noon, audioQuality: "standard",
-                    instruments: instruments), at: noon)
+                    instruments: instruments, newTuneGenre: newTuneGenre, newTuneStatus: newTuneStatus), at: noon)
             for tune in tunes {
                 try writer.put(tune, at: noon)
                 try writer.put(userTune(tune.id), at: noon)
@@ -401,7 +379,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         }
     }
 
-    @Test func startsANewTuneWithTheSearchTitleCappedAndTheMostUsedGenre() async throws {
+    @Test func startsANewTuneWithTheSearchTitleCappedAndNoGenreHoweverManyTunesHoldOne() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await seed(store, tunes: [tune("a", genre: "Irish"), tune("b", genre: "irish"), tune("c", genre: "Cajun")])
@@ -411,10 +389,41 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
 
         #expect(model.phase == .ready)
         #expect(model.values.title.count == Vocabulary.Limits.Tune.title)
-        #expect(model.values.genre == "Irish")
+        #expect(model.values.genre == "")
+        #expect(model.values.status == "want_to_learn")
         #expect(model.tuningInstruments == ["violin"])
         // A carried title is work a swipe would lose.
         #expect(model.isEdited)
+    }
+
+    @Test func startsANewTuneWithTheGenreTrimmedAndStatusTheSettingsChoose() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await seed(store, newTuneGenre: "Old-time ", newTuneStatus: "known")
+        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog))
+        await model.load()
+
+        #expect(model.values.genre == "Old-time")
+        #expect(model.values.status == "known")
+        // The settings' choices are where the form starts, not work a swipe would lose.
+        #expect(!model.isEdited)
+    }
+
+    @Test func editsATuneWithItsOwnGenreAndStatusNotTheNewTuneSettings() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let bare = tune("Bare")
+        let learning = userTune(bare.id, status: "learning")
+        try await seed(store, newTuneGenre: "Old-time", newTuneStatus: "known")
+        try await store.write { writer in
+            try writer.put(bare, at: noon)
+            try writer.put(learning, at: noon)
+        }
+        let model = TuneFormModel(store: store, target: .edit(tuneID: bare.id, userTuneID: learning.id))
+        await model.load()
+
+        #expect(model.values.genre == "")
+        #expect(model.values.status == "learning")
     }
 
     @Test func offersTheLearnedFromNamesOfEveryLiveUserTune() async throws {

@@ -222,6 +222,34 @@ enum Schema {
                 t.column("viewed_ms", .integer).notNull()
             }
         }
+        migrator.registerMigration("v15") { db in
+            // The server holds the same defaults, so no repull is needed.
+            let table = SyncTable.userSettings.rawValue
+            try db.alter(table: table) { t in
+                t.add(column: "new_tune_genre", .text)
+                t.add(column: "new_tune_status", .text).notNull().defaults(sql: "'want_to_learn'")
+            }
+            // A row pulled from a server that already had the fields kept them in `extra`.
+            for column in ["new_tune_genre", "new_tune_status"] {
+                try db.execute(
+                    sql: """
+                        UPDATE user_settings
+                        SET \(column) = json_extract(extra, '$.\(column)')
+                        WHERE json_type(extra, '$.\(column)') = 'text'
+                        """)
+                try db.execute(sql: "UPDATE user_settings SET extra = json_remove(extra, '$.\(column)')")
+            }
+            try db.execute(
+                sql: """
+                    UPDATE outbox
+                    SET data = json_set(data,
+                        '$.new_tune_genre', (SELECT new_tune_genre FROM user_settings WHERE id = outbox.row_id),
+                        '$.new_tune_status', coalesce(
+                            (SELECT new_tune_status FROM user_settings WHERE id = outbox.row_id), 'want_to_learn'))
+                    WHERE table_name = ? AND data IS NOT NULL AND json_type(data, '$.new_tune_status') IS NULL
+                    """,
+                arguments: [table])
+        }
         return migrator
     }()
 

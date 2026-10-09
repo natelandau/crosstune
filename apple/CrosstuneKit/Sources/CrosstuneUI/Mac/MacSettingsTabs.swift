@@ -8,6 +8,7 @@
         nonisolated public static let general = "General"
         nonisolated public static let account = AccountSections.title
         nonisolated public static let instruments = SettingsModel.instruments
+        nonisolated public static let newTunes = SettingsModel.newTunes
         nonisolated public static let musicServices = SettingsModel.musicServices
 
         /// One tab of the window.
@@ -15,6 +16,7 @@
             case general
             case account
             case instruments
+            case newTunes = "new-tunes"
             case musicServices = "music-services"
 
             var title: String {
@@ -22,6 +24,7 @@
                 case .general: MacSettingsTabs.general
                 case .account: MacSettingsTabs.account
                 case .instruments: MacSettingsTabs.instruments
+                case .newTunes: MacSettingsTabs.newTunes
                 case .musicServices: MacSettingsTabs.musicServices
                 }
             }
@@ -31,6 +34,7 @@
                 case .general: "gearshape"
                 case .account: "person.crop.circle"
                 case .instruments: "guitars"
+                case .newTunes: "text.badge.plus"
                 case .musicServices: "music.note.list"
                 }
             }
@@ -40,6 +44,7 @@
                 case .general: [.appearance, .recording, .downloads, .sync, .storage, .about]
                 case .account: [.account, .stats]
                 case .instruments: [.instruments]
+                case .newTunes: [.newTunes]
                 case .musicServices: [.musicServices, .appleMusic]
                 }
             }

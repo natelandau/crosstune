@@ -17,11 +17,6 @@ public enum TuneSuggestions {
         return lead + rest
     }
 
-    /// The genre most tunes hold, ties broken alphabetically, or nil when none has one.
-    public static func mostUsedGenre(_ tunes: [Tune]) -> String? {
-        mostFirst(tally(tunes.map(\.genre), canonical: Vocabulary.genres)).first
-    }
-
     /// Composer suggestions: Traditional first, then every composer the catalog holds,
     /// alphabetically.
     public static func composers(_ tunes: [Tune]) -> [String] {

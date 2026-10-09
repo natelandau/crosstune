@@ -302,15 +302,13 @@ private struct V4Fixture {
         #expect(pinned.playLinkID == "link-1")
         #expect(pinned.extra == ["theme": .string("dark")])
 
-        let settings = try Row.fetchAll(db, sql: "SELECT play_first, extra FROM user_settings ORDER BY id")
+        // Read as rows, since the record follows the current schema and later migrations add
+        // settings columns.
+        let settings = try Row.fetchAll(
+            db, sql: "SELECT play_first, audio_quality, extra FROM user_settings ORDER BY id")
         #expect(settings.map { $0["play_first"] as String } == ["recordings", "apple_music"])
+        #expect(settings.map { $0["audio_quality"] as String } == ["high", "standard"])
         #expect(settings.map { $0["extra"] as String } == ["{}", #"{"theme":"dark"}"#])
-        let first = try #require(try UserSettings.fetchOne(db, key: "s-1"))
-        #expect(first.playFirst == UserSettings.defaultPlayFirst)
-        #expect(first.audioQuality == "high")
-        let chosen = try #require(try UserSettings.fetchOne(db, key: "s-2"))
-        #expect(chosen.playFirst == UserSettings.playFirstAppleMusic)
-        #expect(chosen.extra == ["theme": .string("dark")])
 
         let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
         #expect(
@@ -905,3 +903,54 @@ private let v7UserSettingsSchema = """
       "extra" TEXT NOT NULL,
       "search_providers" TEXT NOT NULL DEFAULT '["apple_music","tidal","internet_archive","youtube","spotify","bandcamp","soundcloud"]')
     """
+
+@Test func theV15MigrationAddsNewTuneDefaultsAndKeepsRowsAndQueuedChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v14")
+    let time = "2026-09-25T12:00:00.000Z"
+    try queue.write { db in
+        // Rows pulled after the server added the fields kept them in `extra`.
+        try db.execute(
+            sql: """
+                INSERT INTO user_settings
+                    (id, created_at, updated_at, server_seq, audio_quality, instruments, extra)
+                VALUES
+                    ('s-1', ?, ?, 0, 'high', '[]', '{}'),
+                    ('s-2', ?, ?, 3, 'standard', '[]',
+                        '{"new_tune_genre":"Irish","new_tune_status":"known","theme":"dark"}')
+                """,
+            arguments: [time, time, time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
+                    ('user_settings', 's-1', 'upsert', ?, '{"instruments":[]}'),
+                    ('user_settings', 's-2', 'upsert', ?, '{"new_tune_genre":"Irish","new_tune_status":"known"}'),
+                    ('user_settings', 's-3', 'upsert', ?, '{"instruments":["violin"]}'),
+                    ('tunes', 't-1', 'upsert', ?, '{"title":"Jam"}')
+                """,
+            arguments: [time, time, time, time])
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v15")
+
+    try queue.read { db in
+        // Read as rows, since the record follows the current schema and later migrations add
+        // settings columns.
+        let settings = try Row.fetchAll(
+            db, sql: "SELECT new_tune_genre, new_tune_status, audio_quality, extra FROM user_settings ORDER BY id")
+        #expect(settings.map { $0["new_tune_genre"] as String? } == [nil, "Irish"])
+        #expect(settings.map { $0["new_tune_status"] as String } == ["want_to_learn", "known"])
+        #expect(settings.map { $0["audio_quality"] as String } == ["high", "standard"])
+        #expect(settings.map { $0["extra"] as String } == ["{}", #"{"theme":"dark"}"#])
+
+        let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
+        #expect(
+            data == [
+                #"{"instruments":[],"new_tune_genre":null,"new_tune_status":"want_to_learn"}"#,
+                #"{"new_tune_genre":"Irish","new_tune_status":"known"}"#,
+                // No row to read, so the queued change takes the defaults.
+                #"{"instruments":["violin"],"new_tune_genre":null,"new_tune_status":"want_to_learn"}"#,
+                #"{"title":"Jam"}"#,
+            ])
+    }
+}

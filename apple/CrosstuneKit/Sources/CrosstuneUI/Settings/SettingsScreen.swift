@@ -29,10 +29,11 @@ public struct SettingsScreen: View {
         static let account = Sections(rawValue: 1 << 8)
         static let about = Sections(rawValue: 1 << 9)
         static let downloads = Sections(rawValue: 1 << 10)
+        static let newTunes = Sections(rawValue: 1 << 11)
 
         static let all: Sections = [
-            .stats, .instruments, .musicServices, .appleMusic, .appearance, .recording, .downloads, .sync, .storage,
-            .account, .about,
+            .stats, .instruments, .newTunes, .musicServices, .appleMusic, .appearance, .recording, .downloads, .sync,
+            .storage, .account, .about,
         ]
     }
 
@@ -102,6 +103,7 @@ public struct SettingsScreen: View {
             }
             if let model, model.isLoaded {
                 if sections.contains(.instruments) { instrumentsSection(model) }
+                if sections.contains(.newTunes) { newTunesSections(model) }
                 if sections.contains(.musicServices) { musicServicesSection(model) }
             }
             if sections.contains(.appleMusic), let access = player?.appleMusic?.access {
@@ -223,6 +225,25 @@ public struct SettingsScreen: View {
             model.clearInstrumentsFailure()
             instrumentsShowing = true
             showsInstruments = true
+        }
+    }
+
+    /// The status and genre every new tune starts with, as the tune form shows them.
+    @ViewBuilder private func newTunesSections(_ model: SettingsModel) -> some View {
+        Section {
+            StatusPicker(status: Binding(get: { model.newTuneStatus }, set: { model.setNewTuneStatus($0) }))
+        } header: {
+            Text(TuneFieldLabels.status)
+        } footer: {
+            SettingsFooter(help: nil, failure: model.newTuneStatusFailure)
+        }
+        Section {
+            SuggestionPicker(
+                TuneFieldLabels.genre,
+                value: Binding(get: { model.newTuneGenre }, set: { model.setNewTuneGenre($0) }),
+                options: Vocabulary.genres, allowsOther: true, maxLength: Vocabulary.Limits.Tune.genre)
+        } footer: {
+            SettingsFooter(help: SettingsModel.newTunesFooter, failure: model.newTuneGenreFailure)
         }
     }
 

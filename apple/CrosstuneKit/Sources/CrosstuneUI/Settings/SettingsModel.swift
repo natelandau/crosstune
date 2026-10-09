@@ -16,6 +16,8 @@ struct StoredSettings: Equatable, Sendable {
     var searchProviders: Set<String>
     var audioQuality: String
     var playFirst: String
+    var newTuneGenre: String?
+    var newTuneStatus: String
     var keepsOffline: Bool
     var invalidChanges: Int
     var storage: StorageFigures?
@@ -30,6 +32,8 @@ struct StoredSettings: Equatable, Sendable {
             searchProviders: Set(row?.searchProviders ?? searchableProviders),
             audioQuality: quality ?? SettingsModel.defaultQuality,
             playFirst: storedPlayFirst(row),
+            newTuneGenre: storedNewTuneGenre(row),
+            newTuneStatus: storedNewTuneStatus(row),
             // Anything but a stored true reads as off, as the web reads it.
             keepsOffline: (try? MetaKey.keepOffline.value(in: db, as: Bool.self)) == true,
             invalidChanges: (try? MetaKey.invalidChanges.value(in: db, as: Int.self)) ?? 0,
@@ -52,6 +56,8 @@ public final class SettingsModel {
     nonisolated public static let musicServicesHelp =
         "Select which music services are included when searching for recordings of tunes."
     nonisolated public static let noServices = "No services selected"
+    nonisolated public static let newTunes = "New tunes"
+    nonisolated public static let newTunesFooter = "Every new tune starts with these. Change them on the tune."
     nonisolated public static let recording = "Recording"
     nonisolated public static let quality = "Quality"
     nonisolated public static let qualityFooter = "Higher quality makes larger files."
@@ -91,6 +97,10 @@ public final class SettingsModel {
     /// Why the last quality choice failed, cleared by the next one.
     public private(set) var qualityFailure: String?
     public private(set) var playFirstFailure: String?
+    /// Why the last new-tune genre choice failed, cleared by the next one.
+    public private(set) var newTuneGenreFailure: String?
+    /// Why the last new-tune status choice failed, cleared by the next one.
+    public private(set) var newTuneStatusFailure: String?
     /// Why the last download choice failed, cleared by the next one.
     public private(set) var keepOfflineFailure: String?
     /// Why the last removal of downloaded audio failed, cleared by the next one.
@@ -108,6 +118,8 @@ public final class SettingsModel {
     private var pendingSearchProviders: [String: PendingWrite<Bool>] = [:]
     private var pendingQuality = PendingWrite<String>()
     private var pendingPlayFirst = PendingWrite<String>()
+    private var pendingNewTuneGenre = PendingWrite<String>()
+    private var pendingNewTuneStatus = PendingWrite<String>()
     private var pendingKeepOffline = PendingWrite<Bool>()
     @ObservationIgnored private var lastWrite: Task<Void, Never>?
     @ObservationIgnored private var following: Task<Void, Never>?
@@ -241,6 +253,56 @@ public final class SettingsModel {
             } else {
                 model.pendingPlayFirst.land(token, stored: model.stored.value?.playFirst)
                 if changed, let choice = PlayFirst(choice) { model.analytics.send(.settingChanged(.playFirst(choice))) }
+            }
+        }
+    }
+
+    // MARK: New tunes
+
+    /// The genre a new tune starts with, empty for none.
+    public var newTuneGenre: String {
+        pendingNewTuneGenre.value ?? stored.value?.newTuneGenre ?? ""
+    }
+
+    /// The status a new tune starts with.
+    public var newTuneStatus: String {
+        pendingNewTuneStatus.value ?? stored.value?.newTuneStatus ?? UserSettings.defaultNewTuneStatus
+    }
+
+    /// The Settings root's line for New tunes: the genre, or Not set.
+    public var newTunesSummary: String {
+        newTuneGenre.isEmpty ? TuneFieldLabels.notSet : newTuneGenre
+    }
+
+    public func setNewTuneGenre(_ genre: String) {
+        newTuneGenreFailure = nil
+        let chosen = genre.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : genre
+        let token = pendingNewTuneGenre.begin(chosen)
+        let store = store
+        enqueue {
+            try await Commands(store: store).setNewTuneGenre(clerkUserID: store.userID, genre: chosen)
+        } settled: { model, error in
+            if let error {
+                model.pendingNewTuneGenre.fail(token)
+                model.newTuneGenreFailure = failureMessage(error)
+            } else {
+                model.pendingNewTuneGenre.land(token, stored: model.stored.value.map { $0.newTuneGenre ?? "" })
+            }
+        }
+    }
+
+    public func setNewTuneStatus(_ status: String) {
+        newTuneStatusFailure = nil
+        let token = pendingNewTuneStatus.begin(status)
+        let store = store
+        enqueue {
+            try await Commands(store: store).setNewTuneStatus(clerkUserID: store.userID, status: status)
+        } settled: { model, error in
+            if let error {
+                model.pendingNewTuneStatus.fail(token)
+                model.newTuneStatusFailure = failureMessage(error)
+            } else {
+                model.pendingNewTuneStatus.land(token, stored: model.stored.value?.newTuneStatus)
             }
         }
     }
@@ -419,6 +481,8 @@ public final class SettingsModel {
         }
         pendingQuality.storeChanged()
         pendingPlayFirst.storeChanged()
+        pendingNewTuneGenre.storeChanged()
+        pendingNewTuneStatus.storeChanged()
         pendingKeepOffline.storeChanged()
     }
 }

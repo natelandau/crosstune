@@ -33,6 +33,8 @@ public final class TuneFormModel {
         var tunes: [Tune]
         var userTunes: [UserTune]
         var instruments: Set<String>
+        var newTuneGenre: String?
+        var newTuneStatus: String
         var editing: (tune: Tune, userTune: UserTune)?
     }
 
@@ -118,7 +120,10 @@ public final class TuneFormModel {
         {
             editing = (tune, userTune)
         }
-        return Opening(tunes: tunes, userTunes: userTunes, instruments: instruments, editing: editing)
+        return Opening(
+            tunes: tunes, userTunes: userTunes, instruments: instruments,
+            newTuneGenre: storedNewTuneGenre(settings), newTuneStatus: storedNewTuneStatus(settings),
+            editing: editing)
     }
 
     func open(_ opening: Opening) {
@@ -126,7 +131,8 @@ public final class TuneFormModel {
         switch target {
         case .new(let title, _, _):
             var start = TuneFormValues()
-            start.genre = TuneSuggestions.mostUsedGenre(catalog.map(\.tune)) ?? ""
+            start.genre = opening.newTuneGenre?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            start.status = opening.newTuneStatus
             opened = start
             // A search has no limit of its own, so a carried title is capped here.
             start.title = String((title ?? "").prefix(Vocabulary.Limits.Tune.title))

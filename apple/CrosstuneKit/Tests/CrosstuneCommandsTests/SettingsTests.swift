@@ -410,3 +410,67 @@ private let everyService = [
         #expect(entry.data?["play_first"] == .string(UserSettings.playFirstAppleMusic))
     }
 }
+
+@Suite struct NewTuneDefaultsTests {
+    @Test func aNewRowStartsWithNoGenreAndWantToLearn() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+
+        try await Commands(store: store).setInstruments(clerkUserID: "user_1", instruments: ["violin"], at: noon)
+
+        let id = settingsID(clerkUserID: "user_1")
+        let row = try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+        #expect(row.newTuneGenre == nil)
+        #expect(row.newTuneStatus == "want_to_learn")
+        let entry = try #require(try await store.pendingChanges(limit: 10).last)
+        #expect(entry.data?["new_tune_status"] == .string("want_to_learn"))
+    }
+
+    @Test func setsAGenreAndAStatusAndKeepsTheOtherSettings() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await commands.setAudioQuality(clerkUserID: "user_1", quality: "high", at: noon)
+
+        try await commands.setNewTuneGenre(clerkUserID: "user_1", genre: "Old-time", at: later(1))
+        try await commands.setNewTuneStatus(clerkUserID: "user_1", status: "known", at: later(2))
+
+        let id = settingsID(clerkUserID: "user_1")
+        let row = try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+        #expect(row.audioQuality == "high")
+        #expect(row.newTuneGenre == "Old-time")
+        #expect(row.newTuneStatus == "known")
+        let entry = try #require(try await store.pendingChanges(limit: 10).last)
+        #expect(entry.data?["new_tune_genre"] == .string("Old-time"))
+        #expect(entry.data?["new_tune_status"] == .string("known"))
+    }
+
+    @Test func storesAGenreAsTypedAndABlankOneAsNone() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        let id = settingsID(clerkUserID: "user_1")
+
+        try await commands.setNewTuneGenre(clerkUserID: "user_1", genre: "Cape ", at: noon)
+        #expect(try await store.read { db in try UserSettings.fetchOne(db, key: id) }?.newTuneGenre == "Cape ")
+        try await commands.setNewTuneGenre(clerkUserID: "user_1", genre: "   ", at: later(1))
+        #expect(try await store.read { db in try UserSettings.fetchOne(db, key: id) }?.newTuneGenre == nil)
+    }
+
+    @Test func everySettingsEditKeepsTheNewTuneDefaults() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = settingsID(clerkUserID: "user_1")
+        try await store.write { writer in
+            try writer.put(
+                UserSettings(id: id, createdAt: noon, newTuneGenre: "Irish", newTuneStatus: "future_status"), at: noon)
+        }
+
+        try await Commands(store: store).setInstruments(clerkUserID: "user_1", instruments: ["guitar"], at: later(1))
+
+        let row = try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+        #expect(row.newTuneGenre == "Irish")
+        #expect(row.newTuneStatus == "future_status")
+        #expect(storedNewTuneStatus(row) == "want_to_learn")
+    }
+}
