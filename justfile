@@ -68,7 +68,7 @@ e2e *args:
     just web::e2e "$@"
 
 # Remove build artifacts and caches everywhere
-clean: api::clean web::clean site::clean
+clean: api::clean web::clean site::clean apple::clean
 
 # Regenerate the OpenAPI contract and the typed web and Apple clients from it
 contract: api::contract web::contract apple::contract
@@ -95,6 +95,8 @@ worktree branch:
     main="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
     path="$main/.worktrees/{{ branch }}"
     git -C "$main" worktree add "$path" -b '{{ branch }}'
+    # A rerun would fail on the existing branch, so a later failure says how to finish by hand.
+    trap 'echo "worktree created at $path but setup failed; finish with: cd $path && just worktree-env && just setup && just api::worktree-db" >&2' ERR
     # This justfile, not the new checkout's, since a branch cut from an older commit may lack the recipe
     just --justfile '{{ justfile() }}' --working-directory "$path" worktree-env
     cd "$path"

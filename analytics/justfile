@@ -14,8 +14,9 @@ check:
 
 # Run the checker's tests and the plan's own test; extra args go to pytest
 [group('test')]
+[positional-arguments]
 test *args:
-    uv run --project ../api python -m pytest test_plan.py -q {{ args }}
+    uv run --project ../api python -m pytest test_plan.py -q "$@"
 
 # Push each planned event's description and tags to PostHog and mark it verified
 [group('analytics')]
