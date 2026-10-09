@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { minimatch } from 'minimatch'
 import { describe, expect, it } from 'vitest'
+import { ANALYTICS_HOST } from './src/analytics/config'
 import assetsConfig from './pwa-assets.config'
 import { pwaOptions } from './pwa.config'
 import { parseBrand, readBrand } from './src/test/brand'
@@ -12,6 +13,17 @@ describe('pwaOptions', () => {
     expect(denylist.some((re) => re.test('/v1/tunes'))).toBe(true)
     expect(denylist.some((re) => re.test('/v1/'))).toBe(true)
     expect(pwaOptions.workbox?.runtimeCaching).toEqual([])
+  })
+
+  it('never caches the analytics relay', () => {
+    const rules = pwaOptions.workbox?.runtimeCaching ?? []
+    const relay = `${ANALYTICS_HOST}/e/`
+    const matches = rules.filter((rule) => {
+      const { urlPattern } = rule
+      if (urlPattern instanceof RegExp) return urlPattern.test(relay)
+      return typeof urlPattern === 'string' && relay.includes(urlPattern)
+    })
+    expect(matches).toEqual([])
   })
 
   // Config only: whether the built chunk is actually precached is for the task that mounts

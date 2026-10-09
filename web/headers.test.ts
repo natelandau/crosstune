@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { ANALYTICS_HOST } from './src/analytics/config'
 import { embedFor } from './src/features/player/embed'
 
 /** Parse the Pages `_headers` format: an unindented URL line followed by indented `Name: value` lines. */
@@ -127,6 +128,15 @@ describe('_headers', () => {
     expect(cspDirective('script-src')).toContain('blob:')
     expect(cspDirective('script-src')).toContain("'wasm-unsafe-eval'")
     expect(cspDirective('script-src')).not.toContain("'unsafe-eval'")
+  })
+
+  it('connect-src allows the analytics relay', () => {
+    expect(cspDirective('connect-src')).toContain(ANALYTICS_HOST)
+    expect(cspDirective('script-src')).not.toContain(ANALYTICS_HOST)
+  })
+
+  it('lets the session recorder start its worker from a blob URL', () => {
+    expect(cspDirective('worker-src')).toContain('blob:')
   })
 
   it('keeps the microphone for recording and refuses framing', () => {

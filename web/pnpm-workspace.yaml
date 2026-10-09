@@ -1,4 +1,6 @@
 allowBuilds:
+  # Optional polyfill banner from posthog-js; nothing needs it at build time.
+  core-js: false
   # Both resolve their platform binary from optional dependencies at runtime, and
   # the postinstall only hardlinks and checks the version, so denying it is safe.
   esbuild: false
