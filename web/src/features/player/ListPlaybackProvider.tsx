@@ -132,8 +132,10 @@ export function ListPlaybackProvider({
   // Bumped by every move, so a turn still reading the database gives way to a later one.
   const generation = useRef(0)
   const pendingTurn = useRef<number | null>(null)
-  // A start is reading its list; anything played meanwhile cancels it.
+  // A start is reading its list; anything played meanwhile cancels it. The list playing
+  // until then plays on, so its own turns never cancel a start.
   const starting = useRef(false)
+  const startTurn = useRef(0)
   // The recording practice holds, whose natural end the list holds at.
   const holding = useRef<string | null>(null)
   // What moved the queue last, which a tune passed over hands on to the one that plays.
@@ -158,7 +160,6 @@ export function ListPlaybackProvider({
   const detach = () => {
     generation.current += 1
     pendingTurn.current = null
-    starting.current = false
     unreportedStart.current = null
     ownItem.current = null
     loadedTune.current = null
@@ -342,6 +343,7 @@ export function ListPlaybackProvider({
   useEffect(
     () => () => {
       generation.current += 1
+      startTurn.current += 1
     },
     [],
   )
@@ -350,10 +352,9 @@ export function ListPlaybackProvider({
   // stopped list keeps its message through the close it caused, until `end`.
   const onItem = useEffectEvent((item: PlayerItem | null) => {
     if (item === ownItem.current) return
-    if (starting.current) {
-      // The start's own close leaves the player empty; anything else loaded cancels it.
-      if (item !== null) detach()
-      return
+    if (starting.current && item !== null) {
+      starting.current = false
+      startTurn.current += 1
     }
     const current = runs.get()
     if (!current) return
@@ -377,21 +378,22 @@ export function ListPlaybackProvider({
 
   const start = async (listId: string, options: { shuffle?: boolean } = {}) => {
     const shuffled = options.shuffle ?? preferShuffle()
-    detach()
-    misses.current = 0
-    failures.current = 0
+    const turn = ++startTurn.current
     starting.current = true
-    const turn = generation.current
     // Inside the tap, so iOS grants audio before the list's first tune asks for it.
     engine.prime()
-    playerRef.current.close()
-    chooseShuffle(shuffled)
     const playlist = await read(db, listId)
-    if (turn !== generation.current || dbRef.current !== db) return
+    if (turn !== startTurn.current || dbRef.current !== db) return
     starting.current = false
     if (!playlist) return
     const { playable } = playlistReport(playlist.entries, availability(playlist, onlineRef.current))
+    // A list with nothing to play leaves whatever plays alone.
     if (playable.length === 0) return
+    detach()
+    misses.current = 0
+    failures.current = 0
+    playerRef.current.close()
+    chooseShuffle(shuffled)
     const queue = createQueue(playable, { shuffled, random })
     trigger.current = 'tap'
     unreportedStart.current = {

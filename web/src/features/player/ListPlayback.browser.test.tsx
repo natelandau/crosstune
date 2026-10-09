@@ -106,6 +106,15 @@ async function seedList() {
   )
 }
 
+/** Session tunes: a list whose one tune has no recordings or links. */
+async function seedEmptyList() {
+  const row = { created_at: AT, updated_at: AT, deleted_at: null, server_seq: 0 }
+  await db.tunes.put(tuneRow('t4', 'Tune 4'))
+  await db.user_tunes.put(userTuneRow('u-t4', 't4'))
+  await db.lists.put({ id: 'l2', ...row, name: 'Session tunes', position: 1 })
+  await db.list_items.put({ id: 'i-t4', ...row, list_id: 'l2', user_tune_id: 'u-t4', position: 0 })
+}
+
 /** Passes every call through to the real player, recording what was played and from where. */
 function SpyPlayer({ children }: { children: ReactNode }) {
   const real = usePlayer()
@@ -247,6 +256,26 @@ describe('ListPlayback', () => {
     await api().start('l1', { shuffle: false })
     await playing('r-t1')
     expect(calls).toEqual(['play r-t3', 'close', 'play r-t1'])
+  })
+
+  it('leaves what plays alone when the list has nothing to play', async () => {
+    await seedEmptyList()
+    mount()
+    player().play({ kind: 'recording', id: 'r-t3' })
+    await playing('r-t3')
+    await api().start('l2', { shuffle: false })
+    expect(calls).toEqual(['play r-t3'])
+    expect(loadedId()).toBe('r-t3')
+  })
+
+  it('keeps a playing list when another list has nothing to play', async () => {
+    await seedEmptyList()
+    mount()
+    await api().start('l1', { shuffle: false })
+    await playing('r-t1')
+    await api().start('l2', { shuffle: false })
+    expect(api().active?.listId).toBe('l1')
+    expect(loadedId()).toBe('r-t1')
   })
 
   it('advances when the engine ends a tune', async () => {
