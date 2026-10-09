@@ -83,6 +83,9 @@ export const EXPORT_FORMATS = ['zip'] as const
 export const ARCHIVE_SOURCES = ['slippery_hill'] as const
 export const AUDIO_QUALITIES = ['low', 'standard', 'high', 'highest'] as const
 export const PLAY_FIRSTS = ['recordings', 'apple_music'] as const
+export const IMPORT_ENTRIES = ['settings', 'empty_catalog'] as const
+export const IMPORT_READERS = ['plain'] as const
+export const IMPORT_LISTS = ['none', 'new', 'existing'] as const
 export const APPEARANCES = ['system', 'light', 'dark'] as const
 export const TUNE_STATUSES = ['known', 'learning', 'want_to_learn'] as const
 export const INSTRUMENTS = [
@@ -148,6 +151,9 @@ export const ENUMS = {
   audio_quality: AUDIO_QUALITIES,
   play_first: PLAY_FIRSTS,
   appearance: APPEARANCES,
+  import_entry: IMPORT_ENTRIES,
+  import_reader: IMPORT_READERS,
+  import_list: IMPORT_LISTS,
   tune_status: TUNE_STATUSES,
   instrument: INSTRUMENTS,
 } as const
@@ -173,6 +179,9 @@ export type ExportFormat = (typeof EXPORT_FORMATS)[number]
 export type ArchiveSource = (typeof ARCHIVE_SOURCES)[number]
 export type AudioQuality = (typeof AUDIO_QUALITIES)[number]
 export type PlayFirst = (typeof PLAY_FIRSTS)[number]
+export type ImportEntry = (typeof IMPORT_ENTRIES)[number]
+export type ImportReader = (typeof IMPORT_READERS)[number]
+export type ImportList = (typeof IMPORT_LISTS)[number]
 export type Appearance = (typeof APPEARANCES)[number]
 export type TuneStatus = (typeof TUNE_STATUSES)[number]
 export type Instrument = (typeof INSTRUMENTS)[number]
@@ -232,6 +241,19 @@ export interface EventProps {
   list_reordered: { list_id: string }
   tunes_added_to_list: { list_id: string; count_bucket: CountBucket }
   tunes_removed_from_list: { list_id: string; count_bucket: CountBucket }
+  import_started: { entry: ImportEntry }
+  import_reviewed: {
+    reader: ImportReader
+    count_bucket: CountBucket
+    duplicate_bucket: CountBucket
+    has_warnings: boolean
+  }
+  import_completed: {
+    reader: ImportReader
+    count_bucket: CountBucket
+    skipped_bucket: CountBucket
+    list: ImportList
+  }
   recording_started: { source: Source }
   recording_saved: {
     duration_bucket: DurationBucket

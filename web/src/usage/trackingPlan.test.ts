@@ -102,6 +102,14 @@ const SAMPLES: { [N in EventName]: EventProps[N] } = {
   list_reordered: { list_id: ID_1 },
   tunes_added_to_list: { list_id: ID_1, count_bucket: '200+' },
   tunes_removed_from_list: { list_id: ID_1, count_bucket: '1-9' },
+  import_started: { entry: 'settings' },
+  import_reviewed: {
+    reader: 'plain',
+    count_bucket: '10-49',
+    duplicate_bucket: '1-9',
+    has_warnings: true,
+  },
+  import_completed: { reader: 'plain', count_bucket: '10-49', skipped_bucket: '0', list: 'new' },
   recording_started: { source: 'dock' },
   recording_saved: {
     duration_bucket: '2-5m',

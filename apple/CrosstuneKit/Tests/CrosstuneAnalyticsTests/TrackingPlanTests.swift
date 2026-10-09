@@ -120,6 +120,9 @@ private let samples: [AnalyticsEvent] = [
     .listReordered(listID: listID),
     .tunesAddedToList(listID: listID, count: 5),
     .tunesRemovedFromList(listID: listID, count: 1),
+    .importStarted(entry: .settings),
+    .importReviewed(reader: .plain, count: 12, duplicates: 2, hasWarnings: true),
+    .importCompleted(reader: .plain, added: 10, skipped: 2, list: .new),
     .recordingStarted(source: .dock),
     .microphoneDenied(source: .tune),
     .recordingSaved(seconds: 95, recordingID: recordingID, tuneID: tuneID),
@@ -169,14 +172,14 @@ private func hasASample(_ event: AnalyticsEvent) {
     switch event {
     case .signedIn, .signedOut, .accountDeleted, .accountDeletionStarted, .accountDeletionCancelled, .tuneCreated,
         .tuneEdited, .tuneStatusChanged, .tuneArchived, .tuneUnarchived, .tuneDeleted, .bulkEditApplied,
-        .searchPerformed, .catalogFiltered, .catalogSorted, .lyricsOpened, .standOpened, .listCreated,
-        .listRenamed, .listDeleted, .listReordered, .tunesAddedToList, .tunesRemovedFromList, .recordingStarted,
-        .microphoneDenied, .recordingSaved, .recordingDiscarded, .audioImported, .archiveRecordingSaved,
-        .recordingFiled, .recordingUnfiled, .recordingRenamed, .recordingDeleted, .recordingTrimmed, .linkAdded,
-        .linkRemoved, .linkOpenedExternally, .findRecordingsUsed, .appleMusicAuthorized, .playbackEnded,
-        .playlistStarted, .practiceEnded, .loopSet, .speedChanged, .pitchChanged, .scanAdded, .scanViewed,
-        .scanDeleted, .scansReordered, .settingChanged, .usageSharingDisabled, .storageLimitReached, .uploadFailed,
-        .syncFailed, .exportCompleted, .exportFailed:
+        .searchPerformed, .catalogFiltered, .catalogSorted, .lyricsOpened, .standOpened, .listCreated, .listRenamed,
+        .listDeleted, .listReordered, .tunesAddedToList, .tunesRemovedFromList, .importStarted, .importReviewed,
+        .importCompleted, .recordingStarted, .microphoneDenied, .recordingSaved, .recordingDiscarded, .audioImported,
+        .archiveRecordingSaved, .recordingFiled, .recordingUnfiled, .recordingRenamed, .recordingDeleted,
+        .recordingTrimmed, .linkAdded, .linkRemoved, .linkOpenedExternally, .findRecordingsUsed, .appleMusicAuthorized,
+        .playbackEnded, .playlistStarted, .practiceEnded, .loopSet, .speedChanged, .pitchChanged, .scanAdded,
+        .scanViewed, .scanDeleted, .scansReordered, .settingChanged, .usageSharingDisabled, .storageLimitReached,
+        .uploadFailed, .syncFailed, .exportCompleted, .exportFailed:
         break
     }
 }

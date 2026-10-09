@@ -256,6 +256,18 @@
       "large_text",
       "reduce_motion",
       "bold_text"
+    ],
+    "import_entry": [
+      "settings",
+      "empty_catalog"
+    ],
+    "import_reader": [
+      "plain"
+    ],
+    "import_list": [
+      "none",
+      "new",
+      "existing"
     ]
   },
   "super_properties": {
@@ -1869,6 +1881,87 @@
         "source": {
           "type": "string",
           "enum": "source",
+          "required": true
+        }
+      }
+    },
+    "import_started": {
+      "description": "The tune import opened.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "entry": {
+          "type": "string",
+          "enum": "import_entry",
+          "required": true
+        }
+      }
+    },
+    "import_reviewed": {
+      "description": "The import review showed what was read.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "reader": {
+          "type": "string",
+          "enum": "import_reader",
+          "required": true
+        },
+        "count_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "duplicate_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "has_warnings": {
+          "type": "bool",
+          "required": true
+        }
+      }
+    },
+    "import_completed": {
+      "description": "Imported tunes were added.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "activation",
+        "feature_usage"
+      ],
+      "properties": {
+        "reader": {
+          "type": "string",
+          "enum": "import_reader",
+          "required": true
+        },
+        "count_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "skipped_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "list": {
+          "type": "string",
+          "enum": "import_list",
           "required": true
         }
       }
