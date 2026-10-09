@@ -49,32 +49,32 @@ struct StoredSettings: Equatable, Sendable {
 @Observable
 public final class SettingsModel {
     nonisolated public static let instruments = "Instruments"
-    /// The footer under the instruments setting, wherever it is asked.
+    /// The help above the instruments setting, wherever it is asked.
     nonisolated public static let instrumentsHelp = "Tunes show a tuning for each instrument chosen here."
     nonisolated public static let musicServices = "Music services"
-    /// The footer under the music services setting, wherever it is asked.
+    /// The help above the music services setting, wherever it is asked.
     nonisolated public static let musicServicesHelp =
         "Select which music services are included when searching for recordings of tunes."
     nonisolated public static let noServices = "No services selected"
     nonisolated public static let newTunes = "New tunes"
-    nonisolated public static let newTunesFooter = "Every new tune starts with these. Change them on the tune."
+    nonisolated public static let newTunesHelp = "Every new tune starts with these. Change them on the tune."
     nonisolated public static let recording = "Recording"
     nonisolated public static let quality = "Quality"
-    nonisolated public static let qualityFooter = "Higher quality makes larger files."
+    nonisolated public static let qualityHelp = "Higher quality makes larger files."
     nonisolated public static let channelsTitle = "Channels"
-    nonisolated public static let channelsFooter =
+    nonisolated public static let channelsHelp =
         "Stereo needs a stereo microphone or interface, and makes files twice the size."
     nonisolated public static let keepOffline = "Download all recordings to this device"
-    nonisolated public static let keepOfflineFooter =
+    nonisolated public static let keepOfflineHelp =
         "Your recordings are always saved to your account and show up on every device you sign in on. A recording is kept on this device once you play it here. Turn this on to download every recording ahead of time, so all of them play even with no signal."
     nonisolated public static let removeDownloads = "Remove downloaded audio"
-    nonisolated public static let removeDownloadsFooter =
+    nonisolated public static let removeDownloadsHelp =
         "Frees up space on this device. Your recordings stay in your account and download again when you play them. Anything not yet saved to your account is kept."
     #if os(macOS)
-        nonisolated public static let appearanceFooter =
+        nonisolated public static let appearanceHelp =
             "This applies to this device only. System follows the device when it switches."
     #else
-        nonisolated public static let appearanceFooter =
+        nonisolated public static let appearanceHelp =
             "These apply to this device only. System follows the device when it switches."
     #endif
     nonisolated public static let sync = "Sync"

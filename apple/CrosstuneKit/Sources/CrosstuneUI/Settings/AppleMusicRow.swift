@@ -71,8 +71,8 @@ struct AppleMusicSection: View {
             if let state {
                 row(state)
             }
-        } footer: {
-            SettingsFooter(help: AppleMusicText.help, failure: nil)
+        } header: {
+            SettingsHelp(AppleMusicText.help)
         }
         .task { state = await access.current() }
         .onChange(of: scenePhase) {

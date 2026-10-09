@@ -9,11 +9,11 @@ export const QUALITY_LABEL = 'Quality'
 /** The Sync group's rows: the sync state, then the recording transfers. */
 export const SYNC_STATUS_LABEL = 'Status'
 export const TRANSFERS_LABEL = 'Recordings'
-export const APPEARANCE_FOOTER =
+export const APPEARANCE_HELP =
   'These apply to this device only. System follows the phone when it switches.'
-export const QUALITY_FOOTER = 'Higher quality makes larger files.'
+export const QUALITY_HELP = 'Higher quality makes larger files.'
 export const REMOVE_DOWNLOADS = 'Remove downloaded audio'
-export const REMOVE_DOWNLOADS_FOOTER =
+export const REMOVE_DOWNLOADS_HELP =
   'Frees up space on this device. Your recordings stay in your account and download again when you play them. Anything not yet saved to your account is kept.'
 export const ONE_REJECTED = '1 change was rejected by the server and is only on this device.'
 export const rejectedChanges = (count: number) =>
@@ -22,7 +22,7 @@ export const rejectedChanges = (count: number) =>
     : `${count} changes were rejected by the server and are only on this device.`
 export const SYNC_NOW = 'Sync now'
 export const audioOnDevice = (bytes: number) => `${formatBytes(bytes)} of audio on this device`
-export const KEEP_OFFLINE_FOOTER =
+export const KEEP_OFFLINE_HELP =
   'Your recordings are always saved to your account and show up on every device you sign in on. A recording is kept on this device once you play it here. Turn this on to download every recording ahead of time, so all of them play even with no signal.'
 
 /** Settings group names, which are also the settings pages' titles. */
@@ -34,7 +34,7 @@ export const SYNC = 'Sync'
 export const SYNC_AND_STORAGE = 'Sync and storage'
 
 export const USAGE_DATA_TITLE = 'Share usage data'
-export const USAGE_DATA_FOOTER =
+export const USAGE_DATA_HELP =
   'Sends which features you use, never your tunes, notes, or recordings.'
 
 export const aboutLine = (version: string) => `Crosstune ${version}`

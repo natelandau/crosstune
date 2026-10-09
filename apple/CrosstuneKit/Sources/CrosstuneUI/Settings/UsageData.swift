@@ -7,7 +7,7 @@ import SwiftUI
 public enum UsageData {
     nonisolated public static let storageKey = "shareUsageData"
     nonisolated public static let title = "Share usage data"
-    nonisolated public static let footer = "Sends which features you use, never your tunes, notes, or recordings."
+    nonisolated public static let help = "Sends which features you use, never your tunes, notes, or recordings."
 
     nonisolated public static func isEnabled(defaults: UserDefaults = .standard) -> Bool {
         defaults.object(forKey: storageKey) as? Bool ?? true

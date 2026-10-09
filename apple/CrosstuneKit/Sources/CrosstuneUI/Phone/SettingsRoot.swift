@@ -248,8 +248,10 @@ private struct SettingsCategoryPage: View {
                 MusicServicesChoices(model: model)
                 Section {
                     PlayFirstPicker(model: model)
+                } header: {
+                    SettingsHelp(PlayFirstText.help)
                 } footer: {
-                    SettingsFooter(help: PlayFirstText.help, failure: model.playFirstFailure)
+                    SettingsFailure(model.playFirstFailure)
                 }
             }
             if rows.contains(.appleMusic), let access = player?.appleMusic?.access {

@@ -10,7 +10,7 @@ export function InstrumentsPage() {
   const { instruments, toggle, error } = useInstrumentsSetting()
   if (!instruments) return null
   return (
-    <Group footer={INSTRUMENTS_HELP} error={error ?? undefined}>
+    <Group help={INSTRUMENTS_HELP} error={error ?? undefined}>
       {INSTRUMENTS.map((instrument) => (
         <Switch
           key={instrument}

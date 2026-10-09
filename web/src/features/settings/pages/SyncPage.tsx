@@ -1,9 +1,9 @@
 import { LAST_SYNCED, lastSyncedLabel } from '../lastSynced'
 import { KEEP_OFFLINE_LABEL } from '../recordingCopy'
 import {
-  KEEP_OFFLINE_FOOTER,
+  KEEP_OFFLINE_HELP,
   REMOVE_DOWNLOADS,
-  REMOVE_DOWNLOADS_FOOTER,
+  REMOVE_DOWNLOADS_HELP,
   SYNC,
   SYNC_NOW,
   SYNC_STATUS_LABEL,
@@ -40,14 +40,14 @@ export function SyncPage() {
         <ActionRow label={SYNC_NOW} isDisabled={sync.pending} onPress={sync.syncNow} />
       </Group>
       <StorageSummary />
-      <Group footer={KEEP_OFFLINE_FOOTER} error={audio.keepError ?? undefined}>
+      <Group help={KEEP_OFFLINE_HELP} error={audio.keepError ?? undefined}>
         <Switch
           label={KEEP_OFFLINE_LABEL}
           isSelected={audio.keepOffline}
           onChange={audio.setKeepOffline}
         />
       </Group>
-      <Group footer={REMOVE_DOWNLOADS_FOOTER} error={audio.removeError ?? undefined}>
+      <Group help={REMOVE_DOWNLOADS_HELP} error={audio.removeError ?? undefined}>
         <p className="t-body t-num flex min-h-(--target) items-center px-4">
           {audio.localBytesLabel}
         </p>

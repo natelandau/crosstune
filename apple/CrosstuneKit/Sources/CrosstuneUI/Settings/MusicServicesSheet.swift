@@ -40,8 +40,10 @@ struct MusicServicesChoices: View {
                     Vocabulary.providerLabels[provider] ?? provider,
                     isOn: Binding(get: { model.searches(provider) }, set: { model.setSearches(provider, $0) }))
             }
+        } header: {
+            SettingsHelp(SettingsModel.musicServicesHelp)
         } footer: {
-            SettingsFooter(help: SettingsModel.musicServicesHelp, failure: model.searchProvidersFailure)
+            SettingsFailure(model.searchProvidersFailure)
         }
     }
 }
