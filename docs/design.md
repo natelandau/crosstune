@@ -1,8 +1,8 @@
 # Crosstune design rules
 
-Rules for every screen on every platform. Rule and screen disagree: the
-screen is the bug. A platform page adds to this page and wins where they
-differ:
+Rules for every screen on every platform. When a screen and a rule
+disagree, the screen is the bug. A platform page adds to this page and
+wins where the two differ:
 
 - [Web](design-web.md)
 - [Mac](design-macos.md)
@@ -35,7 +35,7 @@ Decide any case the rules below do not name.
 - Each kind of control has one home. A control's job tells the musician
   where it is.
 - Quiet chrome, musical content. Color comes from the music and one slate
-  accent. Boldness only in key hues and practice.
+  accent. Strong color only in key pills and in practice.
 - A tune is a document, not a form. Read on a page, edit in a sheet.
 
 ## Words
@@ -62,7 +62,8 @@ Decide any case the rules below do not name.
 - Relative date carries its verb: "Edited today", "Edited Mar 4". Year only
   when not the current one.
 - Same field, same label on every screen and platform. A row under a header
-  that carries half the name can show less. A screen reader hears it all.
+  that names part of the field can drop that part: under "Tuning", a row
+  reads "Violin". Its accessible name keeps the full label.
 - A string that more than one file needs, tests included, is an exported
   constant beside the component that shows it. Every other file imports
   it, so a wording change is one edit.
@@ -94,8 +95,6 @@ Decide any case the rules below do not name.
   the status.
 - Depth only on floating surfaces and bars. No row, card, or section casts
   a shadow.
-- Per device, untouched by sign-out: appearance, text size, recording
-  channels, sort choices.
 
 ## Identity
 
@@ -154,7 +153,7 @@ Decide any case the rules below do not name.
 - Sidebar count: absolute (non-archived tunes, ignoring filters). Zero
   hidden. The list header gives the narrowed count.
 - Sidebar status rows, the catalog's Status control, the phone title menu,
-  and stats links write one stored status filter.
+  and stats links all set the same stored status filter.
 - A resize, rotation, or frame change keeps selection, scroll, open
   destination, and the playing item.
 - Bottom chrome reserves its own room. Every column scrolls its last row
@@ -169,8 +168,9 @@ Decide any case the rules below do not name.
 
 ## Errors and states
 
-- Error beside its control. A group's error replaces its help text, in red.
-  Row action: reports under its list. Screen action: above the rows.
+- Error beside its control. A field or group shows its error in red, where
+  Forms says. Row action: reports under its list. Screen action: above the
+  rows.
 - Empty list: icon, title naming what is absent, optional hint, optional
   action.
 - Loading is silence. The body shows nothing until its data is read.
@@ -180,8 +180,9 @@ Decide any case the rules below do not name.
 - Offline: a network control refuses on tap rather than disables, so its
   name survives and the reason lands on the row. Exception: Sign out
   disables, because the local catalog must not be deleted mid-session.
-- Remembered musician admitted offline once the device reports no
-  connection, or after 5 seconds. The account row says so.
+- A musician signed in before opens the app offline as soon as the device
+  reports no connection, or after 5 seconds with no answer from sign-in.
+  The account row says "Signed in (offline)".
 
 ## Rows
 
@@ -221,11 +222,12 @@ One row component per platform for every list of tunes.
 - Sizes truncate, never round. Durations `m:ss`. Provider named once.
 - Imported recording: a source line (site name, external-link icon) opens
   the origin page.
-- Row not grouped by its parent: a parent line with a chevron, its own
-  control, only as wide as the name. A red transfer error line with Retry
-  follows it. Each such line keeps a 44pt target, and the row grows.
-- One question, one list under one header, the musician's own recordings
-  first.
+- A row shown outside its parent's group (a recording outside its tune)
+  adds a line that names the parent, with a chevron. That line opens the
+  parent, and only the name is the target. A red transfer error line with
+  Retry follows it. Each such line keeps a 44pt target, and the row grows.
+- All the rows that answer one question form one list under one header,
+  the musician's own recordings first.
 - An action that leaves the app is menu-only, never a swipe action.
 - A pinned item plays first in lists and shows a pin mark.
 
@@ -362,8 +364,8 @@ One row component per platform for every list of tunes.
 - Exception: Delete confirms and raises no toast, since recordings cannot
   come back.
 - Bulk edit: the tune form over many tunes. Each row shows the shared
-  value, `Not set`, or `Mixed`. Only touched rows write. Save is dead until
-  one is. `Other…` keeps the current value.
+  value, `Not set`, or `Mixed`. Only touched rows write. Save stays
+  disabled until a row is touched. `Other…` keeps the current value.
 - A field unique to one tune is never bulk editable.
 
 ## Forms
@@ -372,14 +374,16 @@ One row component per platform for every list of tunes.
   bar.
 - Toolbar: `Cancel` leading, bold primary action trailing, named for what
   it does. A sheet whose rows are the actions: Cancel alone.
-- Sections of related fields. Header names the group, footer carries help,
-  a validation message replaces the footer in red. Help is never a row.
-- Non-list controls (pill grid, chip rail) sit at the cards' gutter.
+- Sections of related fields. The header names the group, and the footer
+  carries help. A validation message replaces the help, in red. Help is
+  never a row. Settings place help differently (see Settings).
+- A control that is not a list of rows (pill grid, chip rail) sits on the
+  ground with no card, aligned to the cards' edges.
 - Closed choice: a field row that opens the one picker. A pill grid only
   where values carry color or the field is the screen's purpose.
 - A set answered once (instruments, music services): a row that names the
-  choice and opens a sheet, never rows on the screen. Names would wrap:
-  count instead, "2 of 7".
+  choice and opens a sheet, never rows on the screen. When the names would
+  wrap, the row shows a count instead, "2 of 7".
 - Fields ranked by use. Rare ones last, in one list.
 - Labeled row: label leading, value trailing, value elides first.
 - Every control has a visible label. An accessibility-only name is not a
@@ -400,13 +404,21 @@ One row component per platform for every list of tunes.
 - A sheet that can lose typed work refuses backdrop tap, drag down, and
   Escape. Cancel is the way out. Any sheet refuses while its own write is
   pending.
-- Settings save on toggle. No Save button.
-- A settings group's help leads its rows, so it reads before the choice. A
-  failed write shows in red below the rows, and the help stays.
-- New tunes' status is a picker row like the genre beside it, not the tune
-  form's segments.
-- Settings: root of categories, each its own page. A new setting joins its
-  category's page, never the root.
+### Settings
+
+Settings is a root list of categories. Each category opens its own page of
+groups.
+
+- A new setting joins its category's page, never the root.
+- Every change saves at once. No Save button.
+- Each group's help sits above its rows, so the musician reads what a
+  setting does before choosing. A failed save shows in red below the rows,
+  and the help stays.
+- A closed choice is a picker row, even one the tune form shows as
+  segments. The default status for new tunes is a picker row, not the
+  status segments.
+- Kept on the device and through sign-out: the appearance, text size, and
+  recording channels settings, and every list's sort choice.
 
 ## Overlays
 
