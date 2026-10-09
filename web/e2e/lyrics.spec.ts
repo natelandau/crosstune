@@ -3,7 +3,7 @@ import { addTune, expectSynced, signIn, tunePage, unique } from './helpers'
 import { LARGER_TEXT, lyricsTitle } from '../src/features/lyrics/lyricsCopy'
 import { EDIT_TUNE_TITLE, SAVE_TUNE } from '../src/features/tune/tuneFormCopy'
 import { EDIT_TUNE, LYRICS_SECTION, OPEN_LYRICS } from '../src/features/tune/tuneScreenCopy'
-import { CLOSE, DONE } from '../src/ui/confirmCopy'
+import { CLOSE } from '../src/ui/confirmCopy'
 
 test('type lyrics on a tune and read them full screen at a larger size', async ({ page }) => {
   await signIn(page)
@@ -13,15 +13,9 @@ test('type lyrics on a tune and read them full screen at a larger size', async (
 
   await tunePage(page).getByRole('button', { name: EDIT_TUNE, exact: true }).click()
   const form = page.getByRole('dialog', { name: EDIT_TUNE_TITLE })
-  // A way into the lyrics form rather than a field on this one, so it names itself and nothing
-  // about the tune.
-  await form.getByRole('button', { name: LYRICS_SECTION, exact: true }).click()
-  const words = page.getByRole('dialog', { name: LYRICS_SECTION })
-  await words
+  await form
     .getByRole('textbox', { name: LYRICS_SECTION })
     .fill('Did you ever go to meeting\nUncle Joe\n\nDon’t mind the weather')
-  // Done hands the words back to the form; the form's own Save writes the tune.
-  await words.getByRole('button', { name: DONE, exact: true }).click()
   await form.getByRole('button', { name: SAVE_TUNE, exact: true }).click()
   await expectSynced(page, since)
 
