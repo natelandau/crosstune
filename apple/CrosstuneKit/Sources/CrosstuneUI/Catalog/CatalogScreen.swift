@@ -8,7 +8,7 @@ public struct CatalogScreen: View {
     public static let searchPrompt = "Search tunes"
     public static let addTune = "Add tune"
     public static let noTunesTitle = "No tunes yet"
-    public static let noTunesHint = "Add the first tune you know."
+    public static let noTunesHint = "Add the first tune you know, or import a list you already keep."
     nonisolated public static let nothingMatches = "Nothing matches"
 
     /// The empty state's title when no tune carries the typed title.
@@ -44,6 +44,7 @@ private struct CatalogContent: View {
     @State private var pushed: String?
     @State private var form: TuneFormTarget?
     @State private var showsFilters = false
+    @State private var showsImport = false
     @State private var isShown = false
     @State private var selection = TuneSelection()
     @AccessibilityFocusState private var focusedRow: String?
@@ -114,6 +115,9 @@ private struct CatalogContent: View {
             .modifier(PushesTune(tuneID: $pushed, isPushing: detailTune == nil, zoom: zoom))
             .sheet(isPresented: $showsFilters) {
                 CatalogFilterSheet(model: model)
+            }
+            .sheet(isPresented: $showsImport) {
+                ImportSheet(entry: .emptyCatalog)
             }
             .sheet(item: $form) { target in
                 TuneFormSheet(target: target) { tuneID in
@@ -322,6 +326,7 @@ private struct CatalogContent: View {
             } else if noTunes {
                 Button(CatalogScreen.addTune) { form = model.newTune() }
                     .buttonStyle(.slateProminent)
+                Button(ImportCopy.title) { showsImport = true }
             }
         }
     }

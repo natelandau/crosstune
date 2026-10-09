@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react'
+import { useId, type ReactNode, type Ref } from 'react'
 import { ErrorLine } from '../ErrorLine'
 
 /**
@@ -13,24 +13,32 @@ export function Group({
   error,
   errorId,
   plain = false,
+  headerRef,
   children,
 }: {
   header?: string
   footer?: string
   /** Help shown above the rows, for a settings group. */
-  help?: string
+  help?: ReactNode
   error?: string
   /** The error's id, for a field that names it as its description. */
   errorId?: string
   /** Sets the rows on the ground with no card, for a control that is not a list of rows. */
   plain?: boolean
+  /** Makes the header focusable from code, for a step that moves focus to it as it shows. */
+  headerRef?: Ref<HTMLHeadingElement>
   children: ReactNode
 }) {
   const id = useId()
   return (
     <section aria-labelledby={header ? id : undefined} className={header ? 'pt-6' : 'pt-4'}>
       {header && (
-        <h3 id={id} className="t-secondary text-ink-2 px-4 pb-2">
+        <h3
+          id={id}
+          ref={headerRef}
+          tabIndex={headerRef ? -1 : undefined}
+          className="t-secondary text-ink-2 px-4 pb-2"
+        >
           {header}
         </h3>
       )}

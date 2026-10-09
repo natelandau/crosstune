@@ -1,5 +1,7 @@
 import { page, userEvent } from 'vitest/browser'
 import { expect, it, onTestFinished, vi } from 'vitest'
+import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
+import { recordingAnalytics } from '../../usage/testing'
 import { setInstruments } from '../../commands/settings'
 import { createTune } from '../../commands/tunes'
 import { STATUS_LABELS } from '../../constants'
@@ -20,6 +22,7 @@ import { getMeta, setMeta } from '../../db/meta'
 import { DEFAULT_FILTERS, META_CATALOG_FILTERS, normalizeFilters, tuneCountLabel } from './filters'
 import { CATALOG_SORT_OPTIONS } from './catalogSort'
 import { setCatalogSort } from './useCatalogSort'
+import { IMPORT_TUNES } from '../import/importCopy'
 import { countTunes } from '../selection/copy'
 import { selectedTitle } from '../selection/selectionCopy'
 import { ARCHIVE, ARCHIVED } from '../tune/archiveLabels'
@@ -78,7 +81,17 @@ function spyLauncher() {
 
 async function mount(
   db: CrosstuneDb,
-  { path = '/catalog', frame = PHONE, density = 'pointer' as 'pointer' | 'touch' } = {},
+  {
+    path = '/catalog',
+    frame = PHONE,
+    density = 'pointer' as 'pointer' | 'touch',
+    wrap,
+  }: {
+    path?: string
+    frame?: { width: number; height: number }
+    density?: 'pointer' | 'touch'
+    wrap?: Parameters<typeof renderApp>[0]['wrap']
+  } = {},
 ) {
   const launcher = spyLauncher()
   const app = await renderApp({
@@ -87,6 +100,7 @@ async function mount(
     frame,
     density,
     launcher,
+    wrap,
   })
   return { ...app, launcher }
 }
@@ -492,6 +506,27 @@ it('invites the first tune into an empty catalog', async () => {
   const main = page.getByRole('main', { name: CATALOG })
   await main.getByRole('button', { name: ADD_TUNE }).last().click()
   await expect.poll(() => launcher.open).toHaveBeenCalledWith({ source: 'catalog' })
+})
+
+it('offers import in an empty catalog', async () => {
+  const db = openTestDb()
+  const analytics = recordingAnalytics()
+  const { unmount } = await mount(db, {
+    wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
+  })
+  const main = page.getByRole('main', { name: CATALOG })
+  const offer = main.getByRole('button', { name: IMPORT_TUNES })
+  await expect.element(offer).toBeVisible()
+  await offer.click()
+  await expect.element(page.getByRole('dialog', { name: IMPORT_TUNES })).toBeVisible()
+  await expect
+    .poll(() => analytics.sends().filter((send) => send.name === 'import_started'))
+    .toEqual([{ name: 'import_started', props: { entry: 'empty_catalog' } }])
+  await unmount()
+  await seed(db)
+  await mount(db)
+  await expect.element(tunes()).toBeVisible()
+  await expect.element(page.getByRole('button', { name: IMPORT_TUNES })).not.toBeInTheDocument()
 })
 
 it('hides archived tunes until Show archived, then dims them', async () => {

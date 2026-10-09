@@ -24,6 +24,8 @@ import Testing
         "offerLabel",
         // The genre new tunes start with, and the settings line that shows it.
         "newTuneGenre", "newTunesSummary",
+        // The line an import read a candidate from.
+        "source",
     ]
 
     /// Methods that return user content, for the same reason as `contentProperties`.
@@ -320,6 +322,12 @@ import Testing
         ("Phone/SettingsRoot.swift", "Text(value(category))"),
         // The system picker shows a typed value as its own choice and as the row's selection.
         ("TuneForm/SuggestionPicker.swift", "Picker(selection: selection)"),
+        // An import row's second line, which can repeat the line it was read from, and the list
+        // picker, which shows the chosen list's name.
+        ("Import/ImportSheet.swift", "Text(note)"),
+        ("Import/ImportSheet.swift", "Picker(ImportCopy.listLabel"),
+        // A file read's failure, which can name the file.
+        ("Import/ImportSheet.swift", "Text(failure)"),
     ]
 
     @Test func everyHandMaskStaysInPlace() throws {
