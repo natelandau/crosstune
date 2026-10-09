@@ -1,6 +1,6 @@
 import { SignIn as ClerkSignIn } from '@clerk/react'
 import { useEffect, useState } from 'react'
-import { useAnalytics } from '../analytics/AnalyticsProvider'
+import { useAnalytics } from '../usage/AnalyticsProvider'
 import { SIGN_IN_HEADLINE, SIGN_IN_LINE } from '../auth/links'
 import { ACCOUNT_DELETED, hasAccountDeletedNotice } from '../auth/session'
 import { Lockup } from '../ui/Mark'

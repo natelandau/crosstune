@@ -1,8 +1,8 @@
 import * as Sentry from '@sentry/react'
-import type { AnalyticsClient } from '../analytics/client'
-import { bytesBucket } from '../analytics/buckets'
-import { failureReason } from '../analytics/failure'
-import { recordingOrigin } from '../analytics/origin'
+import type { AnalyticsClient } from '../usage/client'
+import { bytesBucket } from '../usage/buckets'
+import { failureReason } from '../usage/failure'
+import { recordingOrigin } from '../usage/origin'
 import { ApiError, NetworkError, NoTokenError } from '../api/client'
 import type { SyncApi } from '../api/types'
 import {

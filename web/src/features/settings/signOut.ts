@@ -1,4 +1,4 @@
-import type { AnalyticsClient } from '../../analytics/client'
+import type { AnalyticsClient } from '../../usage/client'
 import { forgetUser } from '../../auth/session'
 import { clearSearchQueries } from '../../ui/searchSession'
 import { scansLive } from '../../db/scans'

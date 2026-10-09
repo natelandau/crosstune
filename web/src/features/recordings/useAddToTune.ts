@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { updateRecording } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
 import { messageFor, useAction } from '../../ui/useAction'

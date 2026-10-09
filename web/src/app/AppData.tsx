@@ -1,5 +1,5 @@
 import { useAuth } from '@clerk/react'
-import { AnalyticsIdentity } from '../analytics/AnalyticsIdentity'
+import { AnalyticsIdentity } from '../usage/AnalyticsIdentity'
 import { useAuthSession } from '../auth/AuthContext'
 import { DbProvider } from '../db/DbProvider'
 import { useForgetAccountDeletedElsewhere } from '../features/settings/useForgetAccountDeletedElsewhere'

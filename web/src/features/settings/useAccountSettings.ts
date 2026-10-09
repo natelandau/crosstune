@@ -1,5 +1,5 @@
 import { useAuth, useUser } from '@clerk/react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { useAuthSession } from '../../auth/AuthContext'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'

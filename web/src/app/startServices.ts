@@ -1,5 +1,5 @@
 import { registerSW } from 'virtual:pwa-register'
-import { startAnalytics, type AnalyticsClient } from '../analytics/client'
+import { startAnalytics, type AnalyticsClient } from '../usage/client'
 import { startErrorReporting } from '../errorReporting'
 
 /**

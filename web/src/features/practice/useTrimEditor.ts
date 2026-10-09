@@ -8,7 +8,7 @@ import {
   type Dispatch,
   type RefObject,
 } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { RECORDING_NOT_FOUND } from '../../commands/messages'
 import { updateRecording } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'

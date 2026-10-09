@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { ANALYTICS_HOST } from './src/analytics/config'
+import { ANALYTICS_HOST } from './src/usage/config'
 import { embedFor } from './src/features/player/embed'
 
 /** Parse the Pages `_headers` format: an unindented URL line followed by indented `Name: value` lines. */

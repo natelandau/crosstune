@@ -1,4 +1,4 @@
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { activeItems, moveItem } from '../../commands/lists'
 import { useDb } from '../../db/DbProvider'
 import { storedPlayFirst } from '../../db/types'

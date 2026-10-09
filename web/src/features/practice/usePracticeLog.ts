@@ -1,6 +1,6 @@
 import { useContext, useEffect } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
-import { createPlaybackReporter, playedRows } from '../../analytics/playbackReporter'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
+import { createPlaybackReporter, playedRows } from '../../usage/playbackReporter'
 import { recordEvent } from '../../commands/events'
 import { newId } from '../../commands/write'
 import { DbContext } from '../../db/DbProvider'

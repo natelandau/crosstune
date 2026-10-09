@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react'
 import type { TuneStatus } from '../../api/vocabulary'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { useAuthSession } from '../../auth/AuthContext'
 import { setNewTuneGenre, setNewTuneStatus } from '../../commands/settings'
 import { useDb } from '../../db/DbProvider'

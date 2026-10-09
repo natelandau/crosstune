@@ -8,8 +8,8 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
-import { recordingOrigin } from '../../analytics/origin'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
+import { recordingOrigin } from '../../usage/origin'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
 import { setPlaySource } from '../../commands/tunes'
 import { useAction } from '../../ui/useAction'

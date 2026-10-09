@@ -65,6 +65,7 @@ every label. The glossary in `docs/product.md` has the reasons.
   but each worktree gets its own database and bucket, copied from main's by
   `just api::worktree-db`, so one branch's migrations never reach another.
   `just api::worktree-db reset` takes a fresh copy.
+- Do all work in a worktree, never in the main checkout.
 - Create a worktree with `just worktree <branch>`, never `git worktree add`.
   It adds `.worktrees/<branch>`, copies every module's `.env` and
   `apple/Config/Secrets.xcconfig` from the main checkout, runs

@@ -1,5 +1,5 @@
 import { INSTRUMENTS, type Instrument } from '../../api/vocabulary'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { useAuthSession } from '../../auth/AuthContext'
 import { settingsId, toggleInstrumentSetting } from '../../commands/settings'
 import { INSTRUMENT_LABELS } from '../../constants'

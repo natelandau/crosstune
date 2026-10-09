@@ -1,4 +1,4 @@
-import type { Source } from '../../analytics/events'
+import type { Source } from '../../usage/events'
 import { SEARCH_TUNES } from '../catalog/catalogCopy'
 import { ADD_TO_TUNE_TITLE, addToTuneName } from './recordingsCopy'
 import { useAddToTune } from './useAddToTune'

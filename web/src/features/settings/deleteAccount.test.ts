@@ -1,4 +1,4 @@
-import { noopAnalytics } from '../../analytics/client'
+import { noopAnalytics } from '../../usage/client'
 import Dexie from 'dexie'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {

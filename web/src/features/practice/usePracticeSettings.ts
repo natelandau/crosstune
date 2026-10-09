@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
-import { speedBucket } from '../../analytics/buckets'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
+import { speedBucket } from '../../usage/buckets'
 import { RECORDING_NOT_FOUND } from '../../commands/messages'
 import { updateRecording } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'

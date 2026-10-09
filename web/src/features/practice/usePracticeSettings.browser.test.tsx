@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { expect, it, onTestFinished } from 'vitest'
-import { recordingAnalytics } from '../../analytics/testing'
+import { recordingAnalytics } from '../../usage/testing'
 import { openTestDb } from '../../test/db'
 import { dataProviders, fakePlaybackEngine } from '../../test/providers'
 import { recordingRow } from '../../test/rows'

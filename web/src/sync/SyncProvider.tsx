@@ -7,7 +7,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react'
-import { useAnalytics } from '../analytics/AnalyticsProvider'
+import { useAnalytics } from '../usage/AnalyticsProvider'
 import { createApiClient } from '../api/client'
 import { useAuthSession } from '../auth/AuthContext'
 import { API_ORIGIN } from '../config'

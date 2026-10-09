@@ -1,4 +1,4 @@
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { deleteScan } from '../../commands/scans'
 import { useDb } from '../../db/DbProvider'
 import type { ScanFile } from '../../db/scans'

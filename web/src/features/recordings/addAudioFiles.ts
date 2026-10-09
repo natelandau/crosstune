@@ -1,4 +1,4 @@
-import type { AudioFormat } from '../../analytics/events'
+import type { AudioFormat } from '../../usage/events'
 import { addUploadedFile } from '../../commands/recordings'
 import { getStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'

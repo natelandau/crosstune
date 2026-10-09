@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
-import { countBucket } from '../../analytics/buckets'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
+import { countBucket } from '../../usage/buckets'
 import { deleteTune, setArchived } from '../../commands/tunes'
 import { activeRecordingsForTune } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'

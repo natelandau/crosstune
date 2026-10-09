@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { recordingAnalytics } from '../../../analytics/testing'
+import { recordingAnalytics } from '../../../usage/testing'
 import type { CrosstuneDb } from '../../../db/schema'
 import { openTestDb } from '../../../test/db'
 import { dataProviders } from '../../../test/providers'

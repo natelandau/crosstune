@@ -1,7 +1,7 @@
 import { ClerkProvider } from '@clerk/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { AnalyticsProvider } from './analytics/AnalyticsProvider'
+import { AnalyticsProvider } from './usage/AnalyticsProvider'
 import { WAITLIST_URL } from './auth/links'
 import { createAppRouter } from './app/router'
 import { AuthGate } from './app/AuthGate'

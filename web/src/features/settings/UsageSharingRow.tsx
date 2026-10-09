@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
-import { isSharingUsage, setSharingUsage } from '../../analytics/usageSharing'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
+import { isSharingUsage, setSharingUsage } from '../../usage/usageSharing'
 import { Group } from '../../ui/form/Group'
 import { Switch } from '../../ui/form/Switch'
 import { USAGE_DATA_FOOTER, USAGE_DATA_TITLE } from './settingsCopy'

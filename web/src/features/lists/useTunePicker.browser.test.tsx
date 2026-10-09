@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react'
 import { act } from 'react'
-import { recordingAnalytics } from '../../analytics/testing'
+import { recordingAnalytics } from '../../usage/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { addToList, createList } from '../../commands/lists'
 import { createTune } from '../../commands/tunes'

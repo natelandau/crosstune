@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react'
 import { act, useState } from 'react'
-import { recordingAnalytics } from '../../analytics/testing'
+import { recordingAnalytics } from '../../usage/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createList } from '../../commands/lists'
 import { LIST_NAME_REQUIRED } from '../../commands/messages'

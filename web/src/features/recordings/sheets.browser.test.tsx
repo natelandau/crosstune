@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { page, userEvent } from 'vitest/browser'
 import { expect, it, vi } from 'vitest'
-import { recordingAnalytics } from '../../analytics/testing'
+import { recordingAnalytics } from '../../usage/testing'
 import { createTune } from '../../commands/tunes'
 import { addOfferLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
 import { recordingDateLabel } from '../../text/format'

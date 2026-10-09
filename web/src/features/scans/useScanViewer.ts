@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { useDb } from '../../db/DbProvider'
 import type { ScanFile } from '../../db/scans'
 import type { LocalScan } from '../../db/types'

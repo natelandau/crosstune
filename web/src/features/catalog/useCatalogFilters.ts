@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useRef, useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { useDb } from '../../db/DbProvider'
 import { getMeta, setMeta } from '../../db/meta'
 import { useLatest } from '../../ui/useLatest'

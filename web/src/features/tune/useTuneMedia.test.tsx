@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import type { Source } from '../../analytics/events'
-import { recordingAnalytics } from '../../analytics/testing'
+import type { Source } from '../../usage/events'
+import { recordingAnalytics } from '../../usage/testing'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as commands from '../../commands/links'

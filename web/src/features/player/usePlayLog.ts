@@ -1,16 +1,16 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import {
   createPlaybackReporter,
   playedRows,
   type PlaybackReporter,
-} from '../../analytics/playbackReporter'
+} from '../../usage/playbackReporter'
 import { recordEvent } from '../../commands/events'
 import { newId } from '../../commands/write'
 import { DbContext } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
 import { useLatest } from '../../ui/useLatest'
-import type { EndedBy } from '../../analytics/events'
+import type { EndedBy } from '../../usage/events'
 import { iso, onPageLeave, type PageLeave } from './activity'
 import {
   heardLengthMs,

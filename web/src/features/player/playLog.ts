@@ -1,4 +1,4 @@
-import type { EndedBy, Queue, Source, Trigger } from '../../analytics/events'
+import type { EndedBy, Queue, Source, Trigger } from '../../usage/events'
 import type { PlayContext } from '../../api/vocabulary'
 import { AudibleSpan } from './activity'
 

@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
-import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { useAuthSession } from '../../auth/AuthContext'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'

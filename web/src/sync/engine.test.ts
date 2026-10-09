@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { noopAnalytics } from '../analytics/client'
-import { recordingAnalytics } from '../analytics/testing'
+import { noopAnalytics } from '../usage/client'
+import { recordingAnalytics } from '../usage/testing'
 import { ApiError, NetworkError, NoTokenError } from '../api/client'
 import { recordEvent } from '../commands/events'
 import { createTune, deleteTune, updateTune } from '../commands/tunes'
