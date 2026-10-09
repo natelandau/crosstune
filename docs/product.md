@@ -117,7 +117,6 @@ Each has a place in the data model and no code:
 
 - A shared canonical catalog across users, with deduplication
 - Sharing tunes, lists, and recordings between users
-- Chord charts
 - Melody transcription
 - Paid access
 
