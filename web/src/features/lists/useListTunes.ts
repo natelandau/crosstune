@@ -1,3 +1,4 @@
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { activeItems, moveItem } from '../../commands/lists'
 import { useDb } from '../../db/DbProvider'
 import { storedPlayFirst } from '../../db/types'
@@ -51,6 +52,7 @@ export function useListTunes({
   onError: (message: string) => void
 }): ListTunes {
   const db = useDb()
+  const analytics = useAnalytics()
   const settings = useSettingsRow()
   const playFirst = settings === undefined ? undefined : storedPlayFirst(settings)
   const scanTunes = useScanTuneIds()
@@ -61,6 +63,7 @@ export function useListTunes({
     readOrder: async () => (await activeItems(db, listId)).map((item) => item.id),
     announce: (rows, from, to) => movedAnnouncement(rows[from]!.tune.title, to + 1, rows.length),
     onMoveStart,
+    onMoved: () => analytics.send('list_reordered', { list_id: listId }),
     onError,
   })
   const visible = ordered.filter((view) => listShows(view, showArchived))

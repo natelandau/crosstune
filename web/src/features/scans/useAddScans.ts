@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { addScans, MAX_SCANS } from '../../commands/scans'
 import { useDb } from '../../db/DbProvider'
 import { messageFor } from '../../ui/useAction'
@@ -20,6 +21,7 @@ export interface AddScans {
  */
 export function useAddScans(tuneId: string, count: number): AddScans {
   const db = useDb()
+  const analytics = useAnalytics()
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // The count when the files land, not when the add began rendering.
@@ -48,7 +50,8 @@ export function useAddScans(tuneId: string, count: number): AddScans {
           unreadable.push(file.name)
           continue
         }
-        await addScans(db, tuneId, [prepared])
+        const [scanId] = await addScans(db, tuneId, [prepared])
+        if (scanId) analytics.send('scan_added', { via: 'file', scan_id: scanId, tune_id: tuneId })
         room--
       }
     } catch (caught) {

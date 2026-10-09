@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { speedBucket } from '../../analytics/buckets'
 import { RECORDING_NOT_FOUND } from '../../commands/messages'
 import { updateRecording } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
@@ -33,6 +35,7 @@ export function usePracticeSettings({
 } {
   const db = useDb()
   const engine = usePlaybackEngine()
+  const analytics = useAnalytics()
 
   // What the controls show runs ahead of the row while a change settles, and follows the row
   // when it changes while nothing is settling. `sent` is the last value this view wrote or
@@ -95,8 +98,17 @@ export function usePracticeSettings({
     else toast(message)
   }
   const writing = useRef(new Set<Promise<void>>())
-  const write = (patch: { speed_percent: number } | { pitch_cents: number }, message: string) => {
-    const done = updateRecording(db, rowRef.current.id, patch).catch(reportSetting(message))
+  const write = (
+    patch: { speed_percent: number } | { pitch_cents: number },
+    message: string,
+    report: (recordingId: string) => void,
+  ) => {
+    const recordingId = rowRef.current.id
+    // The report stays off the refusal path, so it can never show a saved value as unsaved.
+    const done = updateRecording(db, recordingId, patch).then(
+      () => report(recordingId),
+      reportSetting(message),
+    )
     writing.current.add(done)
     void done.finally(() => writing.current.delete(done))
   }
@@ -104,12 +116,19 @@ export function usePracticeSettings({
   useSettledWrite(speed, (value) => {
     setSent((current) => ({ ...current, speed: value }))
     if (value === rowRef.current.speed_percent) return
-    write({ speed_percent: value }, SPEED_NOT_SAVED)
+    write({ speed_percent: value }, SPEED_NOT_SAVED, (id) =>
+      analytics.send('speed_changed', {
+        speed_bucket: speedBucket(value / 100),
+        recording_id: id,
+      }),
+    )
   })
   useSettledWrite(pitch, (value) => {
     setSent((current) => ({ ...current, pitch: value }))
     if (value === rowRef.current.pitch_cents) return
-    write({ pitch_cents: value }, PITCH_NOT_SAVED)
+    write({ pitch_cents: value }, PITCH_NOT_SAVED, (id) =>
+      analytics.send('pitch_changed', { semitones: value / 100, recording_id: id }),
+    )
   })
   // Declared after the settled writes, so their flush on leaving is already under way. The hold
   // outlives the view until every write has settled, so neither practice nor the dock shows

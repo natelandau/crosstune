@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { recordingAnalytics } from '../../analytics/testing'
 import { updateRecording } from '../../commands/recordings'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -53,14 +54,15 @@ async function setup(confirm: (question: ConfirmQuestion) => Promise<boolean> = 
     { speedPercent: 100, pitchCents: 0 },
     { title: 'Jam' },
   )
+  const analytics = recordingAnalytics()
   const onDone = vi.fn()
   const onTrimmedElsewhere = vi.fn()
   const rendered = renderHook(
     ({ view }: { view: RecordingView }) =>
       useTrimEditor({ view, engine, confirm, onDone, onTrimmedElsewhere, isTop: () => true }),
-    { wrapper: dataProviders({ db }), initialProps: { view } },
+    { wrapper: dataProviders({ db, analytics }), initialProps: { view } },
   )
-  return { id, view, element, engine, tick, onDone, onTrimmedElsewhere, ...rendered }
+  return { id, view, element, engine, tick, onDone, onTrimmedElsewhere, analytics, ...rendered }
 }
 
 function press(key: string) {
@@ -147,5 +149,29 @@ describe('useTrimEditor', () => {
     expect(engine.getState().playing).toBe(true)
     act(() => press(' '))
     expect(engine.getState().playing).toBe(false)
+  })
+
+  it('sends recording_trimmed once the trim is written', async () => {
+    const { id, result, onDone, analytics } = await setup()
+    act(() => result.current.dispatch({ type: 'drag', handle: 'start', ms: 5000 }))
+    await act(() => result.current.save())
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
+    expect(analytics.sends()).toEqual([{ name: 'recording_trimmed', props: { recording_id: id } }])
+  })
+
+  it('sends nothing when the trim is declined or the write fails', async () => {
+    const declined = await setup(async () => false)
+    act(() => declined.result.current.dispatch({ type: 'drag', handle: 'start', ms: 5000 }))
+    await act(() => declined.result.current.save())
+    expect(vi.mocked(updateRecording)).not.toHaveBeenCalled()
+    expect(declined.analytics.sends()).toEqual([])
+
+    const failing = await setup()
+    vi.mocked(updateRecording).mockRejectedValueOnce(new Error('nope'))
+    act(() => failing.result.current.dispatch({ type: 'drag', handle: 'start', ms: 5000 }))
+    await act(() => failing.result.current.save())
+    await waitFor(() => expect(failing.result.current.error).not.toBeNull())
+    expect(failing.analytics.sends()).toEqual([])
   })
 })

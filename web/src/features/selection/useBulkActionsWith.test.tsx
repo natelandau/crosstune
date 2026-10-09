@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TuneStatus } from '../../api/vocabulary'
 import * as bulk from '../../commands/bulk'
 import { activeItems, addToList, createList } from '../../commands/lists'
+import { recordingAnalytics } from '../../analytics/testing'
 import { createTune } from '../../commands/tunes'
 import { STATUS_LABELS } from '../../constants'
 import type { CrosstuneDb } from '../../db/schema'
@@ -50,10 +51,11 @@ function setup(context: SelectionContext = CATALOG, answer = true) {
   const confirm = vi.fn().mockResolvedValue(answer)
   const toast = vi.fn<(message: string, undo?: () => void) => void>()
   const onExit = vi.fn()
+  const analytics = recordingAnalytics()
   const view = renderHook(() => useBulkActionsWith({ entries, context, onExit, confirm, toast }), {
-    wrapper: dataProviders({ db }),
+    wrapper: dataProviders({ db, analytics }),
   })
-  return { ...view, confirm, toast, onExit }
+  return { ...view, confirm, toast, onExit, analytics }
 }
 
 const ids = () => entries.map((entry) => entry.userTune.id)
@@ -196,5 +198,87 @@ describe('useBulkActionsWith', () => {
     await expect.poll(() => result.current.sheet).toBeNull()
     await expect.poll(() => onExit.mock.calls.length).toBe(1)
     expect((await db.tunes.get(entries[1]!.tune.id))!.key).toBe('G')
+  })
+
+  describe('analytics', () => {
+    it('reports tunes removed from a list, and nothing for the undo', async () => {
+      const listId = await createList(db, 'Tuesday jam')
+      for (const entry of entries) await addToList(db, listId, entry.userTune.id)
+      const items = await activeItems(db, listId)
+      const context: SelectionContext = {
+        kind: 'list',
+        listId,
+        listName: 'Tuesday jam',
+        itemIdByUserTune: new Map(items.map((item) => [item.user_tune_id, item.id])),
+      }
+      const { result, toast, analytics } = setup(context)
+      press(result.current.more, removeFromListLabel(3))
+      await expect.poll(() => toast.mock.calls.length).toBe(1)
+      expect(analytics.sends()).toEqual([
+        { name: 'tunes_removed_from_list', props: { list_id: listId, count_bucket: '1-9' } },
+      ])
+      await act(async () => lastUndo(toast)())
+      await expect.poll(async () => (await activeItems(db, listId)).length).toBe(3)
+      expect(analytics.sends()).toHaveLength(1)
+    })
+
+    it('reports a bulk status with the count bucket', async () => {
+      const { result, toast, analytics } = setup()
+      press(result.current.statusItems, STATUS_LABELS.known)
+      await expect.poll(() => toast.mock.calls.length).toBe(1)
+      expect(analytics.sends()).toEqual([
+        {
+          name: 'bulk_edit_applied',
+          props: { count_bucket: '1-9', action: 'status', fields_changed: ['status'] },
+        },
+      ])
+    })
+
+    it('reports archive for either direction, counting the tunes changed', async () => {
+      const { result, toast, analytics } = setup()
+      press(result.current.more, archiveLabel(3, true))
+      await expect.poll(() => toast.mock.calls.length).toBe(1)
+      expect(analytics.sends()).toEqual([
+        { name: 'bulk_edit_applied', props: { count_bucket: '1-9', action: 'archive' } },
+      ])
+    })
+
+    it('reports an edit with the fields the patch writes', async () => {
+      const { result, toast, analytics } = setup()
+      act(() => result.current.edit.apply({ tune: { key: 'G', modes: ['dorian'] } }))
+      await expect.poll(() => toast.mock.calls.length).toBe(1)
+      expect(analytics.sends()).toEqual([
+        {
+          name: 'bulk_edit_applied',
+          props: { count_bucket: '1-9', action: 'edit', fields_changed: ['key', 'mode'] },
+        },
+      ])
+    })
+
+    it('reports a confirmed delete', async () => {
+      const { result, onExit, analytics } = setup()
+      press(result.current.more, deleteTunesLabel(3))
+      await expect.poll(() => onExit.mock.calls.length).toBe(1)
+      expect(analytics.sends()).toEqual([
+        { name: 'bulk_edit_applied', props: { count_bucket: '1-9', action: 'delete' } },
+      ])
+    })
+
+    it('sends nothing when the undo runs', async () => {
+      const { result, toast, analytics } = setup()
+      press(result.current.statusItems, STATUS_LABELS.known)
+      await expect.poll(() => toast.mock.calls.length).toBe(1)
+      await act(async () => lastUndo(toast)())
+      await expect.poll(statuses).toEqual(['want_to_learn', 'want_to_learn', 'want_to_learn'])
+      expect(analytics.sends()).toHaveLength(1)
+    })
+
+    it('sends nothing when the write fails', async () => {
+      vi.mocked(bulk.updateTunes).mockRejectedValueOnce(new Error('Disk full'))
+      const { result, analytics } = setup()
+      press(result.current.statusItems, STATUS_LABELS.known)
+      await expect.poll(() => result.current.error).toBe('Disk full')
+      expect(analytics.sends()).toEqual([])
+    })
   })
 })

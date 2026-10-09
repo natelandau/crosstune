@@ -231,13 +231,13 @@ export async function createListWithTunes(
   db: CrosstuneDb,
   name: string,
   userTuneIds: readonly string[],
-): Promise<Undo> {
+): Promise<{ undo: Undo; listId: string }> {
   const listId = await writeTx(db, async () => {
     const id = await createList(db, name)
     await addTunesToList(db, id, userTuneIds)
     return id
   })
-  return () => deleteList(db, listId)
+  return { undo: () => deleteList(db, listId), listId }
 }
 
 export async function removeTunesFromList(

@@ -16,10 +16,13 @@ struct PendingWrite<Value: Equatable> {
         return token
     }
 
-    /// The write failed, so the stored value stands.
-    mutating func fail(_ token: Int) {
-        guard token == self.token else { return }
+    /// The write failed, so the stored value stands. Returns whether it was the latest write,
+    /// the only one whose failure is still worth showing: a later write has replaced its value.
+    @discardableResult
+    mutating func fail(_ token: Int) -> Bool {
+        guard token == self.token else { return false }
         value = nil
+        return true
     }
 
     /// The write landed. A store already showing it needs no cover; otherwise the next read

@@ -1,7 +1,8 @@
 import { renderHook } from '@testing-library/react'
 import { act } from 'react'
+import { recordingAnalytics } from '../../analytics/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { addToList, createList, removeFromList } from '../../commands/lists'
+import { activeItems, addToList, createList, removeFromList } from '../../commands/lists'
 import { createTune, setArchived } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalList } from '../../db/types'
@@ -29,10 +30,11 @@ beforeEach(async () => {
 function setup(id = listId, answer = true) {
   const confirm = vi.fn().mockResolvedValue(answer)
   const leave = vi.fn()
+  const analytics = recordingAnalytics()
   const view = renderHook(() => useListScreen(id, { confirm, leave }), {
-    wrapper: dataProviders({ db }),
+    wrapper: dataProviders({ db, analytics }),
   })
-  return { ...view, confirm, leave }
+  return { ...view, confirm, leave, analytics }
 }
 
 describe('useListScreen', () => {
@@ -52,6 +54,36 @@ describe('useListScreen', () => {
     )
     expect((await seen)?.deleted_at).toBeTruthy()
     expect(result.current.notFound).toBe(false)
+  })
+
+  it('reports a delete with the active items counted before it', async () => {
+    await addToList(db, listId, joy)
+    await addToList(db, listId, hen)
+    const { result, leave, analytics } = setup()
+    await expect.poll(() => result.current.ready).toBe(true)
+    act(() => result.current.removeList())
+    await expect.poll(() => leave.mock.calls.length).toBe(1)
+    expect(analytics.sends()).toEqual([
+      { name: 'list_deleted', props: { list_id: listId, count_bucket: '1-9' } },
+    ])
+  })
+
+  it('reports a removed tune once, and an add nothing', async () => {
+    await addToList(db, listId, joy)
+    const { result, analytics } = setup()
+    await expect.poll(() => result.current.items?.length).toBe(1)
+    const item = result.current.items![0]!
+    await act(async () => {
+      await Promise.all([result.current.remove(item), result.current.remove(item)])
+    })
+    expect(analytics.sends()).toEqual([
+      { name: 'tunes_removed_from_list', props: { list_id: listId, count_bucket: '1-9' } },
+    ])
+    await act(() => result.current.add(hen))
+    await expect
+      .poll(async () => (await activeItems(db, listId)).map((entry) => entry.user_tune_id))
+      .toEqual([hen])
+    expect(analytics.sends()).toHaveLength(1)
   })
 
   it('does not leave when the delete is declined', async () => {

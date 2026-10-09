@@ -5,6 +5,7 @@ import type { LocalRecordingLink } from '../../db/types'
 import type { RowSource } from './useListRowSource'
 import { closeLinkName, openLinkName } from '../links/linkNames'
 import { useLinkRow } from '../links/useLinkRow'
+import { tappedFrom, type PlayOrigin } from '../player/playLog'
 import { useListPlayback } from '../player/useListPlayback'
 import {
   closeRecordingName,
@@ -17,6 +18,11 @@ import type { RecordingView } from '../recordings/useRecordings'
 import { NotPlayableGlyph, PlayGlyph, StopGlyph } from '../../ui/rowGlyphs'
 
 const SLOT = 'text-ink-2 grid size-(--target-control) shrink-0 place-items-center'
+
+/** A tune played alone from its row in list `listId`. */
+function rowOrigin(listId: string): PlayOrigin {
+  return { context: 'list', listId, report: tappedFrom('list') }
+}
 
 /**
  * What a row's Play does: while this list plays, it moves the queue to the tune; otherwise,
@@ -64,7 +70,7 @@ function RecordingPlay({
   tuneId: string
 }) {
   const { control, loaded, open, offlineDownload } = useRecordingRow(view, {
-    origin: { context: 'list', listId },
+    origin: rowOrigin(listId),
   })
   const listed = useListedPlay(listId, tuneId)
   if (control === 'downloading') {
@@ -109,7 +115,7 @@ function LinkPlay({
   listId: string
   tuneId: string
 }) {
-  const row = useLinkRow(link)
+  const row = useLinkRow(link, rowOrigin(listId))
   const listed = useListedPlay(listId, tuneId)
   if (!row.open) return <span className={SLOT} />
   const name =

@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import type { Source } from '../../analytics/events'
 import { useLatest } from '../../ui/useLatest'
 import { ListPlaybackContext } from '../player/useListPlayback'
 import { usePlayer } from '../player/usePlayer'
@@ -14,6 +15,7 @@ import { unlockAudioContext } from './audioContext'
 
 export interface RecordTarget {
   tuneId: string | null
+  source: Source
 }
 
 export interface LastSaved {
@@ -24,7 +26,7 @@ export interface LastSaved {
 
 export interface RecordState {
   /** Opens the recorder. A tune id files the recording under that tune. */
-  start: (tuneId?: string) => void
+  start: (options: { tuneId?: string; source: Source }) => void
   /** True while the recorder is up, for anything that must not appear over it. */
   recording: boolean
   /** What the open recorder files under; null while closed. */
@@ -70,7 +72,7 @@ export function RecordStateProvider({ children }: { children: ReactNode }) {
   const open = useRef(false)
 
   const start = useCallback(
-    (tuneId?: string) => {
+    ({ tuneId, source }: { tuneId?: string; source: Source }) => {
       // A second start while the recorder is up would restart a live recording under it.
       if (open.current) return
       open.current = true
@@ -79,7 +81,7 @@ export function RecordStateProvider({ children }: { children: ReactNode }) {
       // A take starts afresh, so a stopped list goes with its message.
       listRef.current?.end()
       player.close()
-      setTarget({ tuneId: tuneId ?? null })
+      setTarget({ tuneId: tuneId ?? null, source })
     },
     [player, listRef],
   )

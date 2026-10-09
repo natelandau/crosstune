@@ -532,12 +532,53 @@ struct ClerkFailed: Error {}
     }
 }
 
+/// The assistive features a device has on, which a test turns on after the session starts.
+@MainActor
+private final class AssistiveTechInUse {
+    var features: [AssistiveTechnology] = []
+}
+
 /// When Clerk reports a user, as the sign-up day it gives.
 private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
 
 @MainActor
 @Suite struct AnalyticsIdentityTests {
     let sink = RecordingAnalyticsSink()
+
+    @Test func theFirstIdentifyCarriesWhatTheDeviceKnows() {
+        var identity = AnalyticsIdentity(
+            analytics: sink.client, deviceSettings: { [.captureChannels(.stereo)] },
+            assistiveTech: { [.voiceover] })
+
+        identity.userChanged(to: "user_a", from: "user_a", isLeaving: false, signedUpAt: nil)
+
+        #expect(
+            sink.calls == [
+                .identify(
+                    "user_a",
+                    set: ["setting_capture_channels": .string("stereo"), "assistive_tech": .strings(["voiceover"])],
+                    setOnce: [:])
+            ])
+    }
+
+    @Test func theIdentifyAfterTheFiguresLandCarriesTheAssistiveTechnologyInUseThen() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let inUse = AssistiveTechInUse()
+        let identity = AnalyticsIdentity(analytics: sink.client, assistiveTech: { inUse.features })
+        try await store.setMeta(.storage, to: StorageFigures(usedBytes: 20_000_000, quotaBytes: 0, maxFileBytes: 0))
+        inUse.features = [.voiceover, .boldText]
+
+        let carried = await identity.identify(userID: "user_a", withFiguresIn: store) { true }
+
+        #expect(carried)
+        guard case .identify("user_a", let set, _) = try #require(sink.calls.last) else {
+            Issue.record("expected an identify")
+            return
+        }
+        #expect(set["assistive_tech"] == .strings(["voiceover", "bold_text"]))
+        #expect(set["storage_used"] == .string("10-50MB"))
+    }
 
     @Test func aNewUserIsIdentifiedThenSignedIn() {
         var identity = AnalyticsIdentity(analytics: sink.client)
@@ -782,7 +823,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
         try writer.put(
             UserSettings(
                 audioQuality: "high", instruments: ["violin"], searchProviders: ["youtube", "newservice"],
-                playFirst: "apple_music"))
+                playFirst: "apple_music", newTuneGenre: "Reel", newTuneStatus: "learning"))
     }
 
     _ = await AccountSession.identify(
@@ -798,9 +839,28 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     #expect(set["setting_search_providers"] == .strings(["youtube", "other"]))
     #expect(set["setting_play_first"] == .string("apple_music"))
     #expect(set["setting_download_all"] == .bool(true))
+    #expect(set["setting_new_tune_status"] == .string("learning"))
+    #expect(set["setting_new_tune_genre_set"] == .bool(true))
     #expect(set["setting_appearance"] == .string("dark"))
     #expect(set["setting_text_size"] == .int(2))
     #expect(set["setting_capture_channels"] == .string("stereo"))
+}
+
+@MainActor
+@Test func identifyingCarriesTheAssistiveTechnologyInUse() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    let sink = RecordingAnalyticsSink()
+
+    _ = await AccountSession.identify(
+        userID: "user_a", withFiguresIn: store, analytics: sink.client, assistiveTech: [.voiceover, .boldText],
+        canIdentify: { true })
+
+    #expect(
+        sink.calls == [
+            .identify("user_a", set: ["assistive_tech": .strings(["voiceover", "bold_text"])], setOnce: [:])
+        ]
+    )
 }
 
 @MainActor
@@ -818,6 +878,18 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
         return
     }
     #expect(!set.keys.contains { $0.hasPrefix("setting_") })
+}
+
+/// A blank genre counts as none, and a status this build does not know is left out.
+@Test func syncedSettingsReadABlankGenreAsUnsetAndSkipAnUnknownStatus() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    try await store.write { writer in try writer.put(UserSettings(newTuneGenre: "  ", newTuneStatus: "mastered")) }
+
+    let settings = try await store.read { try AccountSession.syncedSettings(in: $0) }
+
+    #expect(settings.contains(.newTuneGenreSet(false)))
+    #expect(!settings.contains { $0.name == "new_tune_status" })
 }
 
 /// The device's own settings are known at once; the synced ones only once a sync brings them.

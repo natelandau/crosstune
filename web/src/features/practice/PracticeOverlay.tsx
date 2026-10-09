@@ -10,6 +10,7 @@ import {
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Dialog, Modal, ModalOverlay } from 'react-aria-components'
 import { useNavigate } from 'react-router'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { listPosition } from '../player/playerCopy'
 import { useListPlayback } from '../player/useListPlayback'
 import { useRecordingActionsWith } from '../recordings/useRecordingActionsWith'
@@ -82,6 +83,9 @@ const FULL_CLIP = 'inset(0px 0px 0px 0px)'
 
 function PracticeModal({ id, onClose }: { id: string; onClose: () => void }) {
   const navigate = useNavigate()
+  const analytics = useAnalytics()
+  // The modal mounts once per open.
+  useEffect(() => analytics.screen('recording'), [analytics])
   // A device back steps out as Escape does, through whichever view is showing.
   const stepOutRef = useRef<(() => void) | null>(null)
   const isTop = useOverlayClaim({ coversShell: true, close: () => stepOutRef.current?.() })
@@ -262,7 +266,11 @@ function PracticeModal({ id, onClose }: { id: string; onClose: () => void }) {
         </MotionModal>
       </ModalOverlay>
       <EditRecordingSheet view={state.editing} onClose={() => state.setEditing(null)} />
-      <AddToTuneSheet view={state.filing} onClose={() => state.setFiling(null)} />
+      <AddToTuneSheet
+        source="recording_screen"
+        view={state.filing}
+        onClose={() => state.setFiling(null)}
+      />
     </>
   )
 }

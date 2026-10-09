@@ -1,5 +1,7 @@
 import { ApiError, NoTokenError } from '../api/client'
 
+export const QUOTA_PROBLEM = 'urn:crosstune:quota-exceeded'
+
 /** No session token, or the server refusing one: nothing past this point can succeed
  * until the user signs in again. */
 export function isAuthFailure(error: unknown): boolean {

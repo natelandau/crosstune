@@ -1,8 +1,17 @@
+import * as Sentry from '@sentry/react'
 import { useMemo, useRef, useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import type { Source } from '../../analytics/events'
+import { tuneFieldsChanged, tuneFieldsSet } from '../../analytics/tuneFields'
 import { TUNE_LIMITS, type Instrument } from '../../api/vocabulary'
 import { addToList } from '../../commands/lists'
 import { updateRecording } from '../../commands/recordings'
-import { createTune, updateTuneEntry } from '../../commands/tunes'
+import {
+  createTune,
+  updateTuneEntry,
+  type TuneInput,
+  type UserTuneInput,
+} from '../../commands/tunes'
 import { useDb } from '../../db/DbProvider'
 import { messageFor, useAction } from '../../ui/useAction'
 import type { CatalogEntry } from '../catalog/filters'
@@ -10,6 +19,7 @@ import { useCatalog } from '../catalog/useCatalog'
 import { instrumentsFrom, tuningInstruments } from '../../domain/instruments'
 import { storedNewTuneGenre, storedNewTuneStatus } from '../../db/types'
 import { useSettingsRow } from '../settings/useSettingsRow'
+import { reportRecordingFiled } from '../recordings/reportRecordingFiled'
 import {
   emptyValues,
   inputsFromValues,
@@ -25,6 +35,8 @@ import {
 import { catalogComposers, catalogLearnedFrom, orderedTypes } from './tuneTypes'
 
 export interface UseTuneFormOptions {
+  /** Where the form was opened, reported when it adds a tune. */
+  source: Source
   /** The tune to edit, looked up in the catalog. Without it, and without `entry`, the form is new. */
   tuneId?: string
   /** A new tune's starting title. */
@@ -96,8 +108,9 @@ export interface TuneForm {
 const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()
 
 export function useTuneForm(options: UseTuneFormOptions): TuneForm {
-  const { tuneId, initialTitle, listId, recordingId, onSaved, enabled = true } = options
+  const { tuneId, initialTitle, listId, recordingId, source, onSaved, enabled = true } = options
   const db = useDb()
+  const analytics = useAnalytics()
   const catalog = useCatalog(enabled)
   const isNew = options.entry === undefined && tuneId === undefined
   const settings = useSettingsRow(options.instruments === undefined || (enabled && isNew))
@@ -202,6 +215,17 @@ export function useTuneForm(options: UseTuneFormOptions): TuneForm {
   const validate: TuneForm['validate'] = (field) =>
     setErrors((current) => ({ ...current, [field]: fieldErrors[field] }))
 
+  const reportEdit = (before: CatalogEntry, tune: TuneInput, userTune: UserTuneInput) => {
+    const fields = tuneFieldsChanged(before, tune, userTune)
+    if (fields.length === 0) return
+    const tuneId = before.tune.id
+    analytics.send('tune_edited', { fields_changed: fields, tune_id: tuneId })
+    const from = valuesFromRows(before.tune, before.userTune).status
+    if (fields.includes('status')) {
+      analytics.send('tune_status_changed', { from, to: userTune.status, tune_id: tuneId })
+    }
+  }
+
   const save = (): SaveStart => {
     if (!writable || savingIn.current === opens) return 'ignored'
     const { tune, userTune } = inputsFromValues(values, entry?.tune.tunings)
@@ -230,10 +254,16 @@ export function useTuneForm(options: UseTuneFormOptions): TuneForm {
               tune,
               userTune,
             )
+            reportEdit(entry, tune, userTune)
             return
           }
           const created = await createTune(db, tune, userTune)
           Object.assign(saved, created)
+          analytics.send('tune_created', {
+            source,
+            fields_set: tuneFieldsSet(tune, userTune),
+            tune_id: created.tuneId,
+          })
         } catch (caught) {
           savingIn.current = null
           setStartedIn(null)
@@ -241,9 +271,22 @@ export function useTuneForm(options: UseTuneFormOptions): TuneForm {
         }
         // The tune exists now, so a refused filing must not fail the save: a retry would
         // create it twice. Each filing is tried on its own, and the first refusal is reported.
+        // Read before the write, because the report classifies by the tune it leaves. A failed
+        // read costs the report, never the filing.
+        const before = recordingId
+          ? await db.recordings.get(recordingId).catch((error: unknown) => {
+              Sentry.captureException(error)
+              return undefined
+            })
+          : undefined
         const filings = [
           listId ? () => addToList(db, listId, saved.userTuneId) : null,
-          recordingId ? () => updateRecording(db, recordingId, { tune_id: saved.tuneId }) : null,
+          recordingId
+            ? async () => {
+                await updateRecording(db, recordingId, { tune_id: saved.tuneId })
+                if (before) reportRecordingFiled(analytics, before, saved.tuneId)
+              }
+            : null,
         ]
         for (const file of filings) {
           await file?.().catch((caught: unknown) => {

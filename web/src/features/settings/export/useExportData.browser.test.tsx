@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { recordingAnalytics } from '../../../analytics/testing'
 import type { CrosstuneDb } from '../../../db/schema'
 import { openTestDb } from '../../../test/db'
 import { dataProviders } from '../../../test/providers'
@@ -34,8 +35,11 @@ function heldExport() {
   return { finish: (made: Made) => finish(made), fail: (cause: unknown) => fail(cause) }
 }
 
-function setup() {
-  return renderHook(() => useExportData(true), { wrapper: dataProviders({ db }) })
+function setup(analytics = recordingAnalytics()) {
+  return {
+    analytics,
+    ...renderHook(() => useExportData(true), { wrapper: dataProviders({ db, analytics }) }),
+  }
 }
 
 describe('useExportData', () => {
@@ -91,5 +95,42 @@ describe('useExportData', () => {
     await expect.poll(() => result.current.error).not.toBeNull()
     expect(result.current.closing).toBe(false)
     expect(downloadBlob).not.toHaveBeenCalled()
+  })
+
+  it('export_completed', async () => {
+    vi.mocked(createExport).mockResolvedValue(ZIP)
+    const { result, analytics } = setup()
+    act(() => result.current.run())
+    await expect.poll(() => result.current.closing).toBe(true)
+    expect(analytics.sends()).toEqual([{ name: 'export_completed', props: { format: 'zip' } }])
+  })
+
+  it('export_failed with other, and storage_full on QuotaExceededError', async () => {
+    vi.mocked(createExport).mockRejectedValueOnce(new Error('boom'))
+    const { result, analytics } = setup()
+    act(() => result.current.run())
+    await expect.poll(() => result.current.error).not.toBeNull()
+    expect(analytics.sends()).toEqual([
+      { name: 'export_failed', props: { format: 'zip', failure_reason: 'other' } },
+    ])
+
+    vi.mocked(createExport).mockRejectedValueOnce(new DOMException('full', 'QuotaExceededError'))
+    act(() => result.current.run())
+    await expect.poll(() => analytics.sends().length).toBe(2)
+    expect(analytics.sends()[1]).toEqual({
+      name: 'export_failed',
+      props: { format: 'zip', failure_reason: 'storage_full' },
+    })
+    expect(analytics.sends().some((send) => send.name === 'export_completed')).toBe(false)
+  })
+
+  it('reports nothing for an export abandoned with Cancel', async () => {
+    const held = heldExport()
+    const { result, analytics } = setup()
+    act(() => result.current.run())
+    act(() => result.current.close())
+    await act(async () => held.fail(new DOMException('Aborted', 'AbortError')))
+    await expect.poll(() => result.current.pending).toBe(false)
+    expect(analytics.sends()).toEqual([])
   })
 })

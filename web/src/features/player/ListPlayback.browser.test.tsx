@@ -1,6 +1,8 @@
 import { renderHook } from '@testing-library/react'
 import { useEffect, useMemo, type ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { AnalyticsProvider } from '../../analytics/AnalyticsProvider'
+import { recordingAnalytics } from '../../analytics/testing'
 import { deleteList } from '../../commands/lists'
 import { deleteTune, setArchived } from '../../commands/tunes'
 import { DbContext } from '../../db/DbProvider'
@@ -43,6 +45,11 @@ let calls: string[]
 let shownDb: CrosstuneDb
 /** While set, every list read waits for it. */
 let hold: Promise<void> | null
+/** What the tree reported. */
+let analytics: ReturnType<typeof recordingAnalytics>
+/** The play log's clock, which a test moves on. */
+let t: number
+const now = () => t
 /** The recording whose transport is mounted, so a test knows the engine is on it. */
 const transport = { recording: null as string | null }
 
@@ -150,7 +157,7 @@ function Providers({ children }: { children: ReactNode }) {
   return (
     <DbContext.Provider value={shownDb}>
       <PlaybackEngineContext.Provider value={engine}>
-        <PlayerProvider>
+        <PlayerProvider now={now}>
           <SpyPlayer>
             <ListPlaybackProvider random={seeded(7)} read={heldRead}>
               {children}
@@ -166,7 +173,11 @@ function Providers({ children }: { children: ReactNode }) {
 function mount(sync: Partial<SyncEngine> = {}) {
   const data = dataProviders({ db, engine: fakeEngine(sync) })
   const rendered = renderHook(() => ({ api: useListPlayback(), player: usePlayer() }), {
-    wrapper: ({ children }) => data({ children: <Providers>{children}</Providers> }),
+    wrapper: ({ children }) => (
+      <AnalyticsProvider client={analytics}>
+        {data({ children: <Providers>{children}</Providers> })}
+      </AnalyticsProvider>
+    ),
   })
   hook = rendered.result
   return rendered
@@ -194,6 +205,8 @@ beforeEach(async () => {
   engine = fakePlaybackEngine(element as unknown as HTMLAudioElement)
   plays = []
   calls = []
+  analytics = recordingAnalytics()
+  t = Date.parse(AT)
   hold = null
   reads = []
   transport.recording = null
@@ -208,7 +221,11 @@ describe('ListPlayback', () => {
     await playing('r-t1')
     expect(plays.at(-1)).toEqual({
       item: { kind: 'recording', id: 'r-t1' },
-      origin: { context: 'list', listId: 'l1' },
+      origin: {
+        context: 'list',
+        listId: 'l1',
+        report: { source: 'list', queue: 'playlist', trigger: 'tap' },
+      },
     })
     await expect
       .poll(() => api().active)
@@ -589,5 +606,155 @@ describe('ListPlayback', () => {
     await Promise.all(reads)
     expect(calls).not.toContain('play r-t3')
     expect(loadedId()).toBe('r-t1')
+  })
+
+  it('playlist auto-advance reports queue playlist and trigger auto_advance with source list, a jump as a tap', async () => {
+    mount()
+    await api().start('l1', { shuffle: false })
+    await playing('r-t1')
+    t += 3_000
+    endTune()
+    await playing('r-t2')
+    t += 2_000
+    api().next()
+    await playing('r-t3')
+    t += 1_000
+    expect(api().jump('t1')).toBe(true)
+    await playing('r-t1')
+    t += 1_000
+    player().close()
+
+    const played = (recordingId: string, trigger: string, endedBy: string) => ({
+      name: 'playback_ended',
+      props: expect.objectContaining({
+        source: 'list',
+        queue: 'playlist',
+        trigger,
+        ended_by: endedBy,
+        recording_id: recordingId,
+        tune_id: recordingId.slice(2),
+        list_id: 'l1',
+      }),
+    })
+    await expect
+      .poll(() => analytics.sends().filter((send) => send.name === 'playback_ended'))
+      .toEqual([
+        played('r-t1', 'tap', 'finished'),
+        played('r-t2', 'auto_advance', 'skipped'),
+        played('r-t3', 'skip', 'skipped'),
+        played('r-t1', 'tap', 'closed'),
+      ])
+  })
+
+  it('a replay under repeat one reports as an auto advance', async () => {
+    mount()
+    await api().start('l1', { shuffle: false })
+    await playing('r-t1')
+    api().cycleRepeat()
+    await expect.poll(() => api().active?.repeat).toBe('list')
+    api().cycleRepeat()
+    await expect.poll(() => api().active?.repeat).toBe('one')
+    t += 3_000
+    const replay = vi.spyOn(element, 'play')
+    endTune()
+    await expect.poll(() => replay.mock.calls.length).toBe(1)
+    t += 1_000
+    player().close()
+
+    await expect
+      .poll(() =>
+        analytics
+          .sends()
+          .filter((send) => send.name === 'playback_ended')
+          .map((send) => (send.props as { trigger: string }).trigger),
+      )
+      .toEqual(['tap', 'auto_advance'])
+  })
+
+  it('a one-tune list replaying under repeat list reports as a playlist auto advance', async () => {
+    await db.list_items.bulkDelete(['i-t2', 'i-t3'])
+    mount()
+    await api().start('l1', { shuffle: false })
+    await playing('r-t1')
+    await expect.poll(() => api().active?.count).toBe(1)
+    api().cycleRepeat()
+    await expect.poll(() => api().active?.repeat).toBe('list')
+    t += 3_000
+    const replay = vi.spyOn(element, 'play')
+    endTune()
+    await expect.poll(() => replay.mock.calls.length).toBe(1)
+    t += 1_000
+    player().close()
+
+    await expect
+      .poll(() =>
+        analytics
+          .sends()
+          .filter((send) => send.name === 'playback_ended')
+          .map((send) => {
+            const { source, queue, trigger } = send.props as Record<string, string>
+            return { source, queue, trigger }
+          }),
+      )
+      .toEqual([
+        { source: 'list', queue: 'playlist', trigger: 'tap' },
+        { source: 'list', queue: 'playlist', trigger: 'auto_advance' },
+      ])
+  })
+
+  it('playlist_started maps repeat one to tune, once the first tune loads', async () => {
+    localStorage.setItem(REPEAT_KEY, 'one')
+    mount()
+    await api().start('l1', { shuffle: true })
+    await expect.poll(loadedId).not.toBeNull()
+    const first = loadedId()!
+    await playing(first)
+    api().next()
+    await expect.poll(loadedId).not.toBe(first)
+    await playing(loadedId()!)
+
+    expect(analytics.sends().filter((send) => send.name === 'playlist_started')).toEqual([
+      {
+        name: 'playlist_started',
+        props: { shuffle: true, repeat: 'tune', count_bucket: '1-9', list_id: 'l1' },
+      },
+    ])
+  })
+
+  it('a dock Play after the list ends on its last tune reports from the dock', async () => {
+    mount()
+    await api().start('l1', { shuffle: false })
+    await playing('r-t1')
+    expect(api().jump('t3')).toBe(true)
+    await playing('r-t3')
+    t += 3_000
+    endTune()
+    await expect.poll(() => api().active).toBeNull()
+    engine.play()
+    await expect.poll(() => engine.getState().playing).toBe(true)
+    t += 2_000
+    player().close()
+
+    const reports = () =>
+      analytics
+        .sends()
+        .filter((send) => (send.props as { recording_id?: string }).recording_id === 'r-t3')
+        .map((send) => send.props)
+    await expect.poll(reports).toEqual([
+      expect.objectContaining({
+        source: 'list',
+        queue: 'playlist',
+        trigger: 'tap',
+        ended_by: 'finished',
+        list_id: 'l1',
+      }),
+      expect.not.objectContaining({ list_id: expect.anything() }),
+    ])
+    expect(reports()[1]).toMatchObject({
+      source: 'dock',
+      queue: 'single',
+      trigger: 'tap',
+      ended_by: 'closed',
+    })
   })
 })

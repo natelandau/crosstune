@@ -21,6 +21,13 @@ private struct Plan: Decodable {
         let properties: [String: Property]?
     }
 
+    struct PersonProperty: Decodable {
+        let type: String
+        let `enum`: String?
+        let bucket: String?
+        let clients: [String]
+    }
+
     struct SuperProperty: Decodable {
         let type: String
         let `enum`: String?
@@ -31,7 +38,7 @@ private struct Plan: Decodable {
     let enums: [String: [String]]
     let events: [String: Event]
     let superProperties: [String: SuperProperty]
-    let personProperties: [String: Property]
+    let personProperties: [String: PersonProperty]
     let settings: [String: Property]
 
     enum CodingKeys: String, CodingKey {
@@ -54,6 +61,12 @@ private struct Plan: Decodable {
 
     /// Whether `value` is what `property` allows. A string with a format is free in shape, so
     /// only its type is checked.
+    func allows(_ value: AnalyticsValue, as property: PersonProperty) -> Bool {
+        allows(
+            value,
+            as: Property(type: property.type, enum: property.enum, bucket: property.bucket, format: nil, required: nil))
+    }
+
     func allows(_ value: AnalyticsValue, as property: Property) -> Bool {
         switch (property.type, value) {
         case ("uuid", .string(let string)):
@@ -108,6 +121,7 @@ private let samples: [AnalyticsEvent] = [
     .tunesAddedToList(listID: listID, count: 5),
     .tunesRemovedFromList(listID: listID, count: 1),
     .recordingStarted(source: .dock),
+    .microphoneDenied(source: .tune),
     .recordingSaved(seconds: 95, recordingID: recordingID, tuneID: tuneID),
     .recordingDiscarded(seconds: 4),
     .audioImported(fileCount: 2, format: .mp3),
@@ -121,12 +135,13 @@ private let samples: [AnalyticsEvent] = [
     .linkRemoved(service: .spotify, linkID: linkID),
     .linkOpenedExternally(service: .appleMusic, linkID: linkID),
     .findRecordingsUsed(service: .slipperyHill, resultCount: 3),
+    .findRecordingsUsed(service: .spotify, resultCount: nil),
     .appleMusicAuthorized(granted: true),
     .playbackEnded(
         PlaybackReport(
             source: .list, queue: .playlist, trigger: .autoAdvance, kind: .link, service: .youtube,
-            listenedMs: 45_000, completed: true, endedBy: .finished, tuneID: tuneID, recordingID: nil,
-            linkID: linkID, listID: listID)),
+            listenedMs: 45_000, completed: true, endedBy: .finished, systemControlled: true, tuneID: tuneID,
+            recordingID: nil, linkID: linkID, listID: listID)),
     .playlistStarted(shuffle: true, repeat: .list, count: 8, listID: listID),
     .practiceEnded(
         PracticeReport(
@@ -156,12 +171,12 @@ private func hasASample(_ event: AnalyticsEvent) {
         .tuneEdited, .tuneStatusChanged, .tuneArchived, .tuneUnarchived, .tuneDeleted, .bulkEditApplied,
         .searchPerformed, .catalogFiltered, .catalogSorted, .lyricsOpened, .standOpened, .listCreated,
         .listRenamed, .listDeleted, .listReordered, .tunesAddedToList, .tunesRemovedFromList, .recordingStarted,
-        .recordingSaved, .recordingDiscarded, .audioImported, .archiveRecordingSaved, .recordingFiled,
-        .recordingUnfiled, .recordingRenamed, .recordingDeleted, .recordingTrimmed, .linkAdded, .linkRemoved,
-        .linkOpenedExternally, .findRecordingsUsed, .appleMusicAuthorized, .playbackEnded, .playlistStarted,
-        .practiceEnded, .loopSet, .speedChanged, .pitchChanged, .scanAdded, .scanViewed, .scanDeleted,
-        .scansReordered, .settingChanged, .usageSharingDisabled, .storageLimitReached, .uploadFailed, .syncFailed,
-        .exportCompleted, .exportFailed:
+        .microphoneDenied, .recordingSaved, .recordingDiscarded, .audioImported, .archiveRecordingSaved,
+        .recordingFiled, .recordingUnfiled, .recordingRenamed, .recordingDeleted, .recordingTrimmed, .linkAdded,
+        .linkRemoved, .linkOpenedExternally, .findRecordingsUsed, .appleMusicAuthorized, .playbackEnded,
+        .playlistStarted, .practiceEnded, .loopSet, .speedChanged, .pitchChanged, .scanAdded, .scanViewed,
+        .scanDeleted, .scansReordered, .settingChanged, .usageSharingDisabled, .storageLimitReached, .uploadFailed,
+        .syncFailed, .exportCompleted, .exportFailed:
         break
     }
 }
@@ -176,6 +191,8 @@ private let settingSamples: [SettingChange] = [
     .textSize(3),
     .captureChannels(.stereo),
     .downloadAll(true),
+    .newTuneStatus(TuneStatus("learning")!),
+    .newTuneGenreSet(true),
 ]
 
 private let plan = Plan.shared
@@ -188,7 +205,12 @@ private let appleEvents = plan.events.filter { name, event in
 
 @Test func everyAppleEventInThePlanHasASample() {
     samples.forEach(hasASample)
-    #expect(Set(samples.map(\.name)).count == samples.count)
+    // One sample per event, except find_recordings_used, sampled with a result count and without.
+    let names = samples.map(\.name)
+    let repeated = Dictionary(grouping: names, by: { $0 }).filter { $0.value.count > 1 }
+    #expect(repeated.mapValues(\.count) == ["find_recordings_used": 2])
+    let finds = samples.filter { $0.name == "find_recordings_used" }
+    #expect(Set(finds.map { $0.properties.keys.contains("result_count_bucket") }) == [true, false])
     #expect(Set(appleEvents.keys) == Set(samples.map(\.name)))
 }
 
@@ -250,6 +272,7 @@ private let pairedEnums: [(name: String, rawValues: [String])] = [
     ("capture_channels", ChannelChoice.allCases.map(\.rawValue)),
     ("tune_status", Vocabulary.statuses),
     ("instrument", Vocabulary.instruments),
+    ("assistive_tech", AssistiveTechnology.allCases.map(\.rawValue)),
 ]
 
 @Test(arguments: pairedEnums)
@@ -311,14 +334,16 @@ func everySettingIsInThePlan(change: SettingChange) throws {
     let sink = RecordingAnalyticsSink()
     sink.client.identify(
         userID: "user_1", signedUpAt: Date(timeIntervalSince1970: 1_791_374_400), catalogSize: 42,
-        storageUsed: 20_000_000, fieldsUsed: [.title, .lyrics], settings: settingSamples)
+        storageUsed: 20_000_000, fieldsUsed: [.title, .lyrics], settings: settingSamples,
+        assistiveTech: [.voiceover])
 
     guard case .identify(_, let set, let setOnce) = try #require(sink.calls.first) else {
         Issue.record("expected an identify")
         return
     }
-    #expect(Set(set.keys).union(setOnce.keys) == Set(plan.personProperties.keys))
+    let applePersonProperties = plan.personProperties.filter { $0.value.clients.contains("apple") }
+    #expect(Set(set.keys).union(setOnce.keys) == Set(applePersonProperties.keys))
     for (key, value) in set.merging(setOnce, uniquingKeysWith: { old, _ in old }) {
-        #expect(plan.allows(value, as: try #require(plan.personProperties[key])), "\(key)")
+        #expect(plan.allows(value, as: try #require(applePersonProperties[key])), "\(key)")
     }
 }

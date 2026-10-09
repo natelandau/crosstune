@@ -1,5 +1,8 @@
 import { expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
+import { AnalyticsProvider } from '../../analytics/AnalyticsProvider'
+import { recordingAnalytics } from '../../analytics/testing'
+import { ADD_NEW_TUNE, NEW_TUNE_TITLE } from '../tune/tuneFormCopy'
 import { updateLoop } from '../../commands/loops'
 import { PAUSE } from '../player/transportCopy'
 import { ARROW_LARGE_STEP_MS, ARROW_STEP_MS } from './PracticeWaveform'
@@ -115,6 +118,32 @@ it('picks a loop by its number in lane order, and a number past the last does no
   press('1')
   await expect.poll(announced).toBe(LOOP_SELECTED('A part'))
   expect(engine.getState().positionMs).toBe(5000)
+})
+
+it('loop_set reports each loop newly selected, a created one too', async () => {
+  const analytics = recordingAnalytics()
+  const { engine } = await mountPlaying(WIDE, {
+    wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
+  })
+  await openPractice()
+  const loopSets = () => analytics.sends().filter((send) => send.name === 'loop_set')
+  press('n')
+  await expect.poll(() => engine.getState().loop).not.toBeNull()
+  press('Escape')
+  await expect.poll(() => engine.getState().loop).toBeNull()
+  // Two presses before the selection renders are one choice.
+  press('1')
+  press('1')
+  await expect.poll(() => engine.getState().loop).not.toBeNull()
+  // Choosing the loop already selected sets nothing new.
+  press('1')
+  press('Escape')
+  await expect.poll(() => engine.getState().loop).toBeNull()
+
+  expect(loopSets()).toEqual([
+    { name: 'loop_set', props: { recording_id: 'r1' } },
+    { name: 'loop_set', props: { recording_id: 'r1' } },
+  ])
 })
 
 it('names a loop from a suggestion chip with one write, over a half-typed name', async () => {
@@ -289,4 +318,33 @@ it('leaves the pitch lock notice out elsewhere', async () => {
   await dialog.getByRole('radio', { name: new RegExp(`^${PITCH}`) }).click()
   await expect.element(dialog.getByRole('slider', { name: CENTS })).toBeVisible()
   expect(dialog.getByText(PITCH_PAUSES_ON_LOCK).query()).toBeNull()
+})
+
+it('reports a tune made from the practice overlay as from the recording screen', async () => {
+  const analytics = recordingAnalytics()
+  await mountPlaying(WIDE, {
+    filed: false,
+    wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
+  })
+  await openPractice()
+  await page.getByRole('dialog', { name: TAKE }).getByRole('button', { name: MORE_ACTIONS }).click()
+  await page.getByRole('menuitem', { name: ADD_TO_TUNE }).click()
+  const sheet = page.getByRole('dialog', { name: ADD_TO_TUNE_TITLE })
+  await sheet.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally Goodin')
+  await sheet
+    .getByRole('button', {
+      name: addOfferLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
+    })
+    .click()
+  await page
+    .getByRole('dialog', { name: NEW_TUNE_TITLE })
+    .getByRole('button', { name: ADD_NEW_TUNE, exact: true })
+    .click()
+  // Playing and practice report too, as their plays end.
+  const filing = () =>
+    analytics.sends().filter((send) => !/^(playback|practice)_ended$/.test(send.name))
+  await expect
+    .poll(() => filing().map((send) => send.name))
+    .toEqual(['tune_created', 'recording_filed'])
+  expect(filing()[0]!.props).toMatchObject({ source: 'recording_screen' })
 })

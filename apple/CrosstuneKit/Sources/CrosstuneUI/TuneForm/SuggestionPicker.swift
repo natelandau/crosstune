@@ -102,6 +102,7 @@ struct SuggestionPicker: View {
             Text(rowLabel)
         }
         .accessibilityLabel(label)
+        .contentMask()
     }
 
     /// The same choices as buttons, each of which writes its value whether or not it is shown.

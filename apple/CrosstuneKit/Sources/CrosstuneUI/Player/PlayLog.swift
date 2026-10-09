@@ -112,6 +112,8 @@ struct EndedPlay: Equatable, Sendable {
     /// The item's playing length, 0 when it was never known.
     let lengthMs: Int64
     let endedBy: PlaybackEnd
+    /// Whether a command from outside the app acted on the play.
+    let systemControlled: Bool
 }
 
 /// Time while something plays, measured on a clock the caller reads that stops while the device
@@ -157,6 +159,7 @@ final class PlayLog {
         var lengthMs: Int64
         var span = AudibleSpan()
         var listenedMs: Int64 = 0
+        var systemControlled = false
 
         /// An unknown length (0) needs the full threshold.
         var meetsThreshold: Bool {
@@ -200,6 +203,11 @@ final class PlayLog {
         open = Open(subject: subject, origin: origin, attribution: attribution, lengthMs: lengthMs)
     }
 
+    /// Notes that a command from outside the app acted on the open play.
+    func markSystemControlled() {
+        open?.systemControlled = true
+    }
+
     /// The item's playing length as heard at the current speed, once the player knows it.
     func setLength(_ lengthMs: Int64) {
         open?.lengthMs = lengthMs
@@ -225,7 +233,8 @@ final class PlayLog {
             onEnd(
                 EndedPlay(
                     subject: ended.subject, origin: ended.origin, attribution: ended.attribution,
-                    listenedMs: ended.listenedMs, lengthMs: ended.lengthMs, endedBy: endedBy))
+                    listenedMs: ended.listenedMs, lengthMs: ended.lengthMs, endedBy: endedBy,
+                    systemControlled: ended.systemControlled))
         }
         guard let startedAt = ended.span.startedAt, ended.meetsThreshold else { return }
         let createdAt = Timestamp(now())

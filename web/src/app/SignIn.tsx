@@ -1,5 +1,6 @@
 import { SignIn as ClerkSignIn } from '@clerk/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useAnalytics } from '../analytics/AnalyticsProvider'
 import { SIGN_IN_HEADLINE, SIGN_IN_LINE } from '../auth/links'
 import { ACCOUNT_DELETED, hasAccountDeletedNotice } from '../auth/session'
 import { Lockup } from '../ui/Mark'
@@ -43,6 +44,8 @@ const APPEARANCE = {
 export function SignIn({ staleSession }: { staleSession: boolean }) {
   // A sign-in clears the notice, so it shows here on every mount and reload until then.
   const [deleted] = useState(hasAccountDeletedNotice)
+  const analytics = useAnalytics()
+  useEffect(() => analytics.screen('welcome'), [analytics])
   return (
     <main className="flex min-h-dvh items-center justify-center p-4">
       <div className="flex w-full max-w-5xl flex-col gap-8 min-[60rem]:flex-row min-[60rem]:items-center min-[60rem]:gap-16">

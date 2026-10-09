@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, NetworkError } from '../api/client'
+import { noopAnalytics } from '../analytics/client'
+import { recordingAnalytics } from '../analytics/testing'
+import { ApiError, NetworkError, NoTokenError } from '../api/client'
 import {
   addRecordingFromLink,
   appendChunk,
@@ -27,6 +29,7 @@ import type { SyncEngine } from './types'
 import {
   CAPTURE_LOCK_GRACE_MS,
   createDownloadRetries,
+  createUploadReports,
   downloadOne,
   downloadPass,
   fetchPeaks,
@@ -68,7 +71,12 @@ async function syncAndTransfer(engine: SyncEngine): Promise<void> {
 }
 
 async function pushed(id: string): Promise<void> {
-  const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+  const engine = createSyncEngine({
+    analytics: noopAnalytics,
+    db,
+    api: fake.api,
+    isOnline: () => true,
+  })
   await syncAndTransfer(engine)
   engine.stop()
   expect(await pendingFor(db, 'recordings', id)).toBeUndefined()
@@ -128,7 +136,7 @@ async function readyOnServer(id: string, tuneId: string | null = null): Promise<
 describe('uploadPass', () => {
   it('waits until the row has been pushed', async () => {
     const id = await captured()
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
     expect(fake.objects.size).toBe(0)
   })
@@ -144,7 +152,7 @@ describe('uploadPass', () => {
     const id = await addRecordingFromLink(db, linkId)
     const slot = vi.spyOn(fake.api, 'requestUploadSlot')
     await pushed(id)
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect(slot).not.toHaveBeenCalled()
     expect(fake.objects.size).toBe(0)
     expect(await db.recording_files.get(id)).toBeUndefined()
@@ -169,7 +177,7 @@ describe('uploadPass', () => {
       bytes: 3,
     })
     fake.failSlot(null)
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')
   })
 
@@ -198,7 +206,7 @@ describe('uploadPass', () => {
     // As if the row had been pushed and then lost on the server.
     await db.outbox.clear()
     const before = (await db.recordings.get(id))!.updated_at
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect(await db.recording_files.get(id)).toMatchObject({ local_state: 'captured', error: null })
     const queued = await pendingFor(db, 'recordings', id)
     expect(queued?.op).toBe('upsert')
@@ -221,7 +229,9 @@ describe('uploadPass', () => {
     fake.failSlot(new ApiError(500, null))
     await pushed(id)
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
-    await expect(uploadPass(db, fake.api)).resolves.toBeInstanceOf(ApiError)
+    await expect(
+      uploadPass(db, fake.api, createUploadReports(noopAnalytics)),
+    ).resolves.toBeInstanceOf(ApiError)
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
   })
 
@@ -230,7 +240,9 @@ describe('uploadPass', () => {
     fake.failSlot(new ApiError(503, null))
     await pushed(id)
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
-    await expect(uploadPass(db, fake.api)).resolves.toBeInstanceOf(ApiError)
+    await expect(
+      uploadPass(db, fake.api, createUploadReports(noopAnalytics)),
+    ).resolves.toBeInstanceOf(ApiError)
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
   })
 
@@ -239,7 +251,9 @@ describe('uploadPass', () => {
     fake.failSlot(new NetworkError(new TypeError('x')))
     await pushed(id)
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
-    await expect(uploadPass(db, fake.api)).resolves.toBeInstanceOf(NetworkError)
+    await expect(
+      uploadPass(db, fake.api, createUploadReports(noopAnalytics)),
+    ).resolves.toBeInstanceOf(NetworkError)
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
   })
 
@@ -254,7 +268,7 @@ describe('uploadPass', () => {
       }),
     )
     await pushed(id)
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect(await db.recording_files.get(id)).toMatchObject({
       local_state: 'captured',
       error: 'Storage is down',
@@ -267,14 +281,24 @@ describe('uploadPass', () => {
     fake.failSlot(new NetworkError(new TypeError('Failed to fetch')))
     await pushed(id)
     let online = true
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => online })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => online,
+    })
     await engine.transfer()
     expect(engine.transferStatus()).toBe('error')
     engine.stop()
 
     online = false
     await db.recording_files.update(id, { next_attempt_at: null })
-    const offline = createSyncEngine({ db, api: fake.api, isOnline: () => online })
+    const offline = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => online,
+    })
     await offline.transfer()
     expect(offline.transferStatus()).toBe('offline')
     offline.stop()
@@ -284,13 +308,13 @@ describe('uploadPass', () => {
     const id = await captured()
     fake.failSlot(new ApiError(500, null))
     await pushed(id)
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     const first = await db.recording_files.get(id)
     expect(first?.upload_attempts).toBe(1)
     expect(first?.next_attempt_at).not.toBeNull()
 
     const slotSpy = vi.spyOn(fake.api, 'requestUploadSlot')
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect(slotSpy).not.toHaveBeenCalled()
     expect((await db.recording_files.get(id))?.upload_attempts).toBe(1)
   })
@@ -300,7 +324,7 @@ describe('uploadPass', () => {
     fake.failSlot(new ApiError(500, null))
     await pushed(id)
 
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     const first = await db.recording_files.get(id)
     const firstDelay = (first?.next_attempt_at ?? 0) - Date.now()
     expect(firstDelay).toBeGreaterThan(25_000)
@@ -308,7 +332,7 @@ describe('uploadPass', () => {
 
     // Past its own backoff window, the row is retried again on the next pass.
     await db.recording_files.update(id, { next_attempt_at: Date.now() - 1 })
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     const second = await db.recording_files.get(id)
     expect(second?.upload_attempts).toBe(2)
     const secondDelay = (second?.next_attempt_at ?? 0) - Date.now()
@@ -320,12 +344,12 @@ describe('uploadPass', () => {
     const id = await captured()
     fake.failSlot(new ApiError(500, null))
     await pushed(id)
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect((await db.recording_files.get(id))?.upload_attempts).toBe(1)
 
     fake.failSlot(null)
     await db.recording_files.update(id, { next_attempt_at: Date.now() - 1 })
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     const settled = await db.recording_files.get(id)
     expect(settled?.local_state).toBe('uploaded')
     expect(settled?.upload_attempts).toBe(0)
@@ -337,7 +361,7 @@ describe('uploadPass', () => {
     fake.failConfirm(new ApiError(409, null))
     await pushed(id)
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')
   })
 
@@ -358,7 +382,7 @@ describe('uploadPass', () => {
     await pushed(id)
     expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')
     await db.recording_files.update(id, { local_state: 'uploading' })
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')
   })
 
@@ -396,7 +420,7 @@ describe('uploadPass', () => {
       ],
       10,
     )
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     const file = await db.recording_files.get(id)
     expect(file?.local_state).toBe('captured')
     expect(await file?.blob?.text()).toBe('abc')
@@ -411,7 +435,7 @@ describe('uploadPass', () => {
     await pushed(id)
     expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')
     await db.recordings.update(id, { deleted_at: AT })
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect(await db.recording_files.get(id)).toBeUndefined()
     expect(await pendingFor(db, 'recordings', id)).toBeUndefined()
   })
@@ -426,12 +450,12 @@ describe('uploadPass', () => {
     fake.failSlot(null)
 
     await setStorage(db, { used_bytes: 98, quota_bytes: 100, max_file_bytes: 50 })
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect((await db.recording_files.get(id))?.local_state).toBe('blocked_quota')
     expect(fake.objects.has(`${id}/upload`)).toBe(false)
 
     await setStorage(db, { used_bytes: 50, quota_bytes: 100, max_file_bytes: 50 })
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')
   })
 
@@ -445,7 +469,7 @@ describe('uploadPass', () => {
     // Figures that would otherwise skip the row without ever reaching the tombstone check.
     await setStorage(db, { used_bytes: 99, quota_bytes: 100, max_file_bytes: 50 })
     await db.recordings.update(id, { deleted_at: AT })
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
     expect((await db.recordings.get(id))?.deleted_at).toBeNull()
   })
@@ -459,7 +483,7 @@ describe('uploadPass', () => {
     expect((await db.recording_files.get(id))?.local_state).toBe('failed_upload')
     fake.failSlot(null)
     await db.recordings.update(id, { deleted_at: AT })
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect(await db.recording_files.get(id)).toMatchObject({ local_state: 'captured', error: null })
     expect((await pendingFor(db, 'recordings', id))?.op).toBe('upsert')
   })
@@ -467,7 +491,7 @@ describe('uploadPass', () => {
   it('drops a file whose recording row was never stored here', async () => {
     const id = await captured()
     await db.recordings.delete(id)
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect(await db.recording_files.get(id)).toBeUndefined()
     expect(await db.recording_chunks.where('recording_id').equals(id).count()).toBe(0)
   })
@@ -484,7 +508,12 @@ describe('uploadPass', () => {
       }),
       bad,
     )
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await syncAndTransfer(engine)
     engine.stop()
     expect(await db.recording_files.get(bad)).toMatchObject({
@@ -498,7 +527,12 @@ describe('uploadPass', () => {
     const bad = await captured()
     const good = await captured()
     fake.failSlot(new ApiError(500, null))
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await syncAndTransfer(engine)
     expect((await db.recording_files.get(bad))?.local_state).toBe('captured')
     expect((await db.recording_files.get(good))?.local_state).toBe('captured')
@@ -508,7 +542,7 @@ describe('uploadPass', () => {
     await db.recording_files.update(good, { upload_attempts: 0, next_attempt_at: null })
 
     fake.failSlot(new ApiError(500, null), bad)
-    const held = await uploadPass(db, fake.api)
+    const held = await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect(held).toBeInstanceOf(ApiError)
     expect((await db.recording_files.get(bad))?.local_state).toBe('captured')
     expect((await db.recording_files.get(good))?.local_state).toBe('uploaded')
@@ -516,9 +550,9 @@ describe('uploadPass', () => {
 
   it('returns null when every row in the pass settles', async () => {
     const id = await captured()
-    expect(await uploadPass(db, fake.api)).toBeNull()
+    expect(await uploadPass(db, fake.api, createUploadReports(noopAnalytics))).toBeNull()
     await pushed(id)
-    expect(await uploadPass(db, fake.api)).toBeNull()
+    expect(await uploadPass(db, fake.api, createUploadReports(noopAnalytics))).toBeNull()
   })
 
   it('deletes chunks that have no file row or whose file row has moved past capturing', async () => {
@@ -527,7 +561,7 @@ describe('uploadPass', () => {
     // A chunk left behind after its capture already finished.
     const id = await captured()
     await db.recording_chunks.put({ recording_id: id, idx: 99, blob: new Blob(['y']) })
-    await uploadPass(db, fake.api)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect(await db.recording_chunks.where('recording_id').equals('ghost').count()).toBe(0)
     expect(await db.recording_chunks.where('recording_id').equals(id).count()).toBe(0)
   })
@@ -894,11 +928,21 @@ describe('createSyncEngine recovery and downloads', () => {
     const id = newId()
     await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
-    const engine1 = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine1 = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await engine1.sync()
     await engine1.sync()
     // A second engine instance (another tab, or a provider remount) is just as live a reader.
-    const engine2 = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine2 = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await engine2.sync()
     expect((await db.recording_files.get(id))?.local_state).toBe('capturing')
     expect(await db.recording_chunks.where('recording_id').equals(id).count()).toBe(1)
@@ -908,7 +952,12 @@ describe('createSyncEngine recovery and downloads', () => {
     const id = newId()
     await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await engine.sync()
     expect((await db.recording_files.get(id))?.local_state).toBe('capturing')
     await db.recording_files.update(id, { last_chunk_at: Date.now() - STALE_CAPTURE_MS - 1 })
@@ -924,7 +973,12 @@ describe('createSyncEngine recovery and downloads', () => {
       next_since: 1,
       has_more: false,
     })
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await syncAndTransfer(engine)
     expect(await db.tunes.get('srv-tune')).toBeTruthy()
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
@@ -941,7 +995,12 @@ describe('createSyncEngine recovery and downloads', () => {
       next_since: 1,
       has_more: false,
     })
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await syncAndTransfer(engine)
     expect(await db.tunes.get('srv-tune')).toBeTruthy()
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
@@ -954,7 +1013,12 @@ describe('createSyncEngine recovery and downloads', () => {
   it('runs one getObject call for two concurrent download() calls on the same id', async () => {
     await readyOnServer('r1')
     const getObjectSpy = vi.spyOn(fake.api, 'getObject')
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     const [a, b] = await Promise.all([engine.download('r1'), engine.download('r1')])
     expect(await a?.text()).toBe('xyz')
     expect(await b?.text()).toBe('xyz')
@@ -963,7 +1027,12 @@ describe('createSyncEngine recovery and downloads', () => {
 
   it('leaves status idle when refreshing storage fails after a clean push and pull', async () => {
     vi.spyOn(fake.api, 'me').mockRejectedValue(new NetworkError(new TypeError('x')))
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await engine.sync()
     expect(engine.status()).toBe('idle')
   })
@@ -975,7 +1044,12 @@ describe('engine.peaks', () => {
     await db.recordings.update('r1', { peaks_rev: 'srv-1' })
     await storePeaks(db, 'r1', new Uint8Array([1, 2, 3]), 'srv-1')
     const peaksSpy = vi.spyOn(fake.api, 'peaksUrl')
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => false })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => false,
+    })
 
     const peaks = await engine.peaks('r1')
     expect(Array.from(peaks ?? [])).toEqual([1, 2, 3])
@@ -988,7 +1062,12 @@ describe('engine.peaks', () => {
     fake.signPeaks('r1', 'srv-1')
     fake.objects.set('r1/peaks.bin', new Blob([new Uint8Array([4, 5, 6])]))
     const peaksSpy = vi.spyOn(fake.api, 'peaksUrl')
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
 
     const [a, b] = await Promise.all([engine.peaks('r1'), engine.peaks('r1')])
     expect(Array.from(a ?? [])).toEqual([4, 5, 6])
@@ -1001,7 +1080,12 @@ describe('engine.peaks', () => {
     await db.recordings.update('r1', { peaks_rev: 'srv-1' })
     fake.signPeaks('r1', 'srv-1')
     // No object staged at the peaks key, so getObject rejects with a transfer error.
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
 
     expect(await engine.peaks('r1')).toBeNull()
   })
@@ -1038,7 +1122,12 @@ describe('engine integration', () => {
     // A stale last chunk is what makes an abandoned capture, not merely having one.
     await db.recording_files.update(stray, { last_chunk_at: Date.now() - STALE_CAPTURE_MS - 1 })
 
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await engine.sync()
     expect(await getStorage(db)).toEqual({ used_bytes: 42, quota_bytes: 100, max_file_bytes: 50 })
     await transfersSettled(engine)
@@ -1047,5 +1136,217 @@ describe('engine integration', () => {
     expect(await (await db.recording_files.get('r1'))?.blob?.text()).toBe('xyz')
     // Recovery ran before push, so the stray capture's row was pushed in time to upload.
     expect((await db.recording_files.get(stray))?.local_state).toBe('uploaded')
+  })
+})
+
+describe('upload reporting', () => {
+  const refusal = (status: number) =>
+    new ApiError(status, { type: 'about:blank', title: 't', status, detail: 'd' })
+  const quota = () =>
+    new ApiError(413, { type: QUOTA_PROBLEM, title: 't', status: 413, detail: 'full' })
+
+  /** A full sync and transfer, as the app runs it, reporting to `analytics`. */
+  async function runEngine(analytics: ReturnType<typeof recordingAnalytics>): Promise<void> {
+    const engine = createSyncEngine({ analytics, db, api: fake.api, isOnline: () => true })
+    await syncAndTransfer(engine)
+    engine.stop()
+  }
+
+  it.each([
+    ['network', () => new NetworkError(new TypeError('Failed to fetch')), 'network'],
+    ['a server error', () => refusal(503), 'server_error'],
+    ['an expired session', () => refusal(401), 'auth_expired'],
+    ['a refused request', () => refusal(422), 'other'],
+  ] as const)('upload_failed maps %s, recordings only', async (_label, make, reason) => {
+    await captured()
+    fake.failSlot(make())
+    const analytics = recordingAnalytics()
+
+    await runEngine(analytics)
+
+    expect(analytics.sends()).toEqual([
+      { name: 'upload_failed', props: { failure_reason: reason, origin: 'recorded' } },
+    ])
+  })
+
+  it('upload_failed reports an upload that fails after the slot, with the recording origin', async () => {
+    const id = await captured()
+    await db.recordings.update(id, { source: 'upload' })
+    await db.outbox.toCollection().modify((entry) => {
+      if (entry.row_id === id) entry.data = { ...entry.data, source: 'upload' }
+    })
+    fake.failPut(new NetworkError(new TypeError('x')), id)
+    const analytics = recordingAnalytics()
+
+    await runEngine(analytics)
+
+    expect(analytics.sends()).toEqual([
+      { name: 'upload_failed', props: { failure_reason: 'network', origin: 'imported' } },
+    ])
+  })
+
+  it('upload_failed is sent once for a failure streak, not for each retry', async () => {
+    const id = await captured()
+    fake.failSlot(refusal(500))
+    await pushed(id)
+    const analytics = recordingAnalytics()
+    const reports = createUploadReports(analytics)
+
+    await uploadPass(db, fake.api, reports)
+    expect((await db.recording_files.get(id))?.upload_attempts).toBe(1)
+    await db.recording_files.update(id, { next_attempt_at: null })
+    await uploadPass(db, fake.api, reports)
+    expect((await db.recording_files.get(id))?.upload_attempts).toBe(2)
+
+    expect(analytics.sends()).toHaveLength(1)
+  })
+
+  it('upload_failed is sent again for a failure after a success', async () => {
+    const id = await captured()
+    fake.failSlot(refusal(500))
+    await pushed(id)
+    const analytics = recordingAnalytics()
+    const reports = createUploadReports(analytics)
+
+    await uploadPass(db, fake.api, reports)
+    fake.failSlot(null)
+    await db.recording_files.update(id, { next_attempt_at: null })
+    await uploadPass(db, fake.api, reports)
+    expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')
+
+    // The same file, queued again and failing again, is a new streak.
+    await db.recordings.update(id, { state: 'pending_upload' })
+    await db.recording_files.update(id, { local_state: 'captured' })
+    fake.failSlot(refusal(500))
+    await uploadPass(db, fake.api, reports)
+    expect((await db.recording_files.get(id))?.upload_attempts).toBe(1)
+
+    expect(analytics.sends()).toHaveLength(2)
+  })
+
+  it('upload_failed is never sent while offline', async () => {
+    const ids = [await captured(), await captured(), await captured()]
+    fake.failSlot(new NetworkError(new TypeError('Failed to fetch')))
+    await pushed(ids[0]!)
+    for (const id of ids) await db.recording_files.update(id, { next_attempt_at: null })
+    const analytics = recordingAnalytics()
+
+    await uploadPass(
+      db,
+      fake.api,
+      createUploadReports(analytics, () => false),
+    )
+    for (const id of ids) {
+      expect((await db.recording_files.get(id))?.upload_attempts).toBeGreaterThan(0)
+    }
+
+    expect(analytics.sends()).toEqual([])
+  })
+
+  it('storage_limit_reached once per blocked streak with storage_used', async () => {
+    const id = await captured()
+    fake.setStorage({ used_bytes: 20_000_000, quota_bytes: 25_000_000, max_file_bytes: 50 })
+    fake.failSlot(quota())
+    const analytics = recordingAnalytics()
+
+    await runEngine(analytics)
+    expect((await db.recording_files.get(id))?.local_state).toBe('blocked_quota')
+    await uploadPass(db, fake.api, createUploadReports(analytics))
+    expect((await db.recording_files.get(id))?.local_state).toBe('blocked_quota')
+
+    expect(analytics.sends()).toEqual([
+      { name: 'storage_limit_reached', props: { storage_used: '10-50MB' } },
+    ])
+
+    // A blocked file that goes through ends the streak.
+    fake.failSlot(null)
+    await uploadPass(db, fake.api, createUploadReports(analytics))
+    expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')
+    await captured()
+    fake.setStorage({ used_bytes: 60_000_000, quota_bytes: 70_000_000, max_file_bytes: 50 })
+    fake.failSlot(quota())
+    await runEngine(analytics)
+
+    expect(analytics.sends()).toEqual([
+      { name: 'storage_limit_reached', props: { storage_used: '10-50MB' } },
+      { name: 'storage_limit_reached', props: { storage_used: '50-500MB' } },
+    ])
+  })
+
+  it('upload_failed is sent again after a blocked upload ends the streak', async () => {
+    const id = await captured()
+    fake.failSlot(refusal(500))
+    await pushed(id)
+    const analytics = recordingAnalytics()
+    const reports = createUploadReports(analytics)
+
+    await uploadPass(db, fake.api, reports)
+    fake.failSlot(quota())
+    await db.recording_files.update(id, { next_attempt_at: null })
+    await uploadPass(db, fake.api, reports)
+    expect((await db.recording_files.get(id))?.local_state).toBe('blocked_quota')
+    fake.failSlot(refusal(500))
+    await uploadPass(db, fake.api, reports)
+    expect((await db.recording_files.get(id))?.upload_attempts).toBe(1)
+
+    expect(analytics.sends().map((send) => send.name)).toEqual([
+      'upload_failed',
+      'storage_limit_reached',
+      'upload_failed',
+    ])
+  })
+
+  it('upload_failed is not sent for a missing session token', async () => {
+    const id = await captured()
+    fake.failSlot(new NoTokenError())
+    const analytics = recordingAnalytics()
+
+    await runEngine(analytics)
+
+    expect((await db.recording_files.get(id))?.upload_attempts).toBe(1)
+    expect(analytics.sends()).toEqual([])
+  })
+
+  it('a storage figures read failure never changes the upload outcome', async () => {
+    const id = await captured()
+    fake.failSlot(quota())
+    await pushed(id)
+    await db.recording_files.update(id, { local_state: 'captured' })
+    // The pass reads the figures once itself; the report is the second read.
+    vi.spyOn(db.meta, 'get')
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValue(new Error('read failed'))
+    const analytics = recordingAnalytics()
+
+    expect(await uploadPass(db, fake.api, createUploadReports(analytics))).toBeNull()
+
+    expect((await db.recording_files.get(id))?.local_state).toBe('blocked_quota')
+    expect(analytics.sends()).toEqual([])
+  })
+
+  it('storage_limit_reached is not sent without storage figures', async () => {
+    const id = await captured()
+    fake.failSlot(quota())
+    const analytics = recordingAnalytics()
+    // As if the figures had never been fetched: the pass reads them from the db.
+    vi.spyOn(fake.api, 'me').mockRejectedValue(new ApiError(500, null))
+
+    await runEngine(analytics)
+
+    expect((await db.recording_files.get(id))?.local_state).toBe('blocked_quota')
+    expect(analytics.sends()).toEqual([])
+  })
+
+  it('reports a permanent refusal once', async () => {
+    const id = await captured()
+    fake.failSlot(refusal(422))
+    const analytics = recordingAnalytics()
+
+    await runEngine(analytics)
+
+    expect((await db.recording_files.get(id))?.local_state).toBe('failed_upload')
+    expect(analytics.sends()).toEqual([
+      { name: 'upload_failed', props: { failure_reason: 'other', origin: 'recorded' } },
+    ])
   })
 })

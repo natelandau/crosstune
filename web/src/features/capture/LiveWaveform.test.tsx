@@ -20,5 +20,6 @@ describe('LiveWaveform', () => {
     const analyser = { fftSize: 32, getByteTimeDomainData: vi.fn() } as unknown as AnalyserNode
     const { container } = render(<LiveWaveform analyser={analyser} paused={false} active />)
     expect(container.querySelector('canvas')).toHaveAttribute('aria-hidden', 'true')
+    expect(container.querySelector('canvas')).toHaveClass('ph-no-capture')
   })
 })

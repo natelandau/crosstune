@@ -1,7 +1,8 @@
 import { ArrowUpRight, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
-import { Fragment, useRef } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import { useNavigate } from 'react-router'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import type { SearchGroup, SearchResult } from '../../api/types'
 import type { Provider } from '../../api/vocabulary'
 import { settingsPagePath } from '../settings/settingsPaths'
@@ -58,6 +59,10 @@ export function FindRecordingsSheet({
   onOpenChange: (open: boolean) => void
 }) {
   const navigate = useNavigate()
+  const analytics = useAnalytics()
+  useEffect(() => {
+    if (isOpen) analytics.screen('find_recordings')
+  }, [isOpen, analytics])
   const fieldRef = useRef<HTMLInputElement>(null)
   const find = useFindRecordings(isOpen ? tuneId : null, service, {
     onClose: () => onOpenChange(false),

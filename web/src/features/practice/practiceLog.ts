@@ -20,6 +20,16 @@ export interface PracticeRecord {
   pitchCents: number
 }
 
+/** A visit that closed after sounding, as it is reported. */
+export interface ClosedVisit {
+  recordingId: string
+  durationMs: number
+  usedLoops: boolean
+  /** Whether the speed was played, or only set, away from normal during the visit. */
+  usedSpeed: boolean
+  usedPitch: boolean
+}
+
 interface OpenSession {
   recordingId: string
   settings: PracticeSettings
@@ -28,6 +38,8 @@ interface OpenSession {
   loopIds: Set<string>
   speedMs: Map<number, number>
   pitchMs: Map<number, number>
+  setSpeedOff: boolean
+  setPitchOff: boolean
 }
 
 /** The key with the most time; the first to reach it wins a tie. */
@@ -46,7 +58,7 @@ function longest(times: Map<number, number>, fallback: number): number {
 /**
  * Times one practice visit while audio plays, and the loops, speeds, and pitches it
  * played with. A visit that played a loop, or played any time away from the default speed or
- * pitch, is practice.
+ * pitch, is practice. Practice that sounded at all, kept or not, also goes to `onClosed`.
  */
 export class PracticeLog {
   #open: OpenSession | null = null
@@ -54,6 +66,7 @@ export class PracticeLog {
   constructor(
     private readonly now: () => number,
     private readonly write: (record: PracticeRecord) => void,
+    private readonly onClosed: (visit: ClosedVisit) => void = () => {},
   ) {}
 
   /** Starts a visit for `recordingId`, not yet playing, at the settings the engine holds. */
@@ -66,6 +79,8 @@ export class PracticeLog {
       loopIds: new Set(),
       speedMs: new Map(),
       pitchMs: new Map(),
+      setSpeedOff: false,
+      setPitchOff: false,
     }
   }
 
@@ -85,6 +100,7 @@ export class PracticeLog {
     if (!open || open.settings.speedPercent === percent) return
     this.book(open, open.span.take(this.now()))
     open.settings.speedPercent = percent
+    if (percent !== DEFAULT_SPEED_PERCENT) open.setSpeedOff = true
   }
 
   setPitch(cents: number): void {
@@ -92,6 +108,7 @@ export class PracticeLog {
     if (!open || open.settings.pitchCents === cents) return
     this.book(open, open.span.take(this.now()))
     open.settings.pitchCents = cents
+    if (cents !== DEFAULT_PITCH_CENTS) open.setPitchOff = true
   }
 
   /**
@@ -104,10 +121,18 @@ export class PracticeLog {
     if (!open) return null
     this.playing(false)
     this.#open = null
-    const offDefault =
-      [...open.speedMs.keys()].some((speed) => speed !== DEFAULT_SPEED_PERCENT) ||
-      [...open.pitchMs.keys()].some((pitch) => pitch !== DEFAULT_PITCH_CENTS)
-    if (open.loopIds.size === 0 && !offDefault) return 'play'
+    const playedSpeedOff = [...open.speedMs.keys()].some((speed) => speed !== DEFAULT_SPEED_PERCENT)
+    const playedPitchOff = [...open.pitchMs.keys()].some((pitch) => pitch !== DEFAULT_PITCH_CENTS)
+    if (open.loopIds.size === 0 && !playedSpeedOff && !playedPitchOff) return 'play'
+    if (open.durationMs > 0) {
+      this.onClosed({
+        recordingId: open.recordingId,
+        durationMs: open.durationMs,
+        usedLoops: open.loopIds.size > 0,
+        usedSpeed: playedSpeedOff || open.setSpeedOff,
+        usedPitch: playedPitchOff || open.setPitchOff,
+      })
+    }
     const startedAt = open.span.startedAt
     if (startedAt === null || open.durationMs < PRACTICE_THRESHOLD_MS) return null
     this.write({

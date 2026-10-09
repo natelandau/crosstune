@@ -1,5 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
+import { useAnalytics } from '../../../analytics/AnalyticsProvider'
+import { failureReason } from '../../../analytics/failure'
 import { useAuthSession } from '../../../auth/AuthContext'
 import { useDb } from '../../../db/DbProvider'
 import { useAction } from '../../../ui/useAction'
@@ -31,6 +33,7 @@ export interface ExportData {
 export function useExportData(open: boolean): ExportData {
   const db = useDb()
   const { userId } = useAuthSession()
+  const analytics = useAnalytics()
   const { error, pending, runThen, clear } = useAction()
   const [closing, setClosing] = useState(false)
   const [openedFor, setOpenedFor] = useState(open)
@@ -71,8 +74,10 @@ export function useExportData(open: boolean): ExportData {
           if (abort.signal.aborted) return
           downloadBlob(blob, fileName)
           finished = true
+          analytics.send('export_completed', { format: 'zip' })
         } catch (cause) {
           if (abort.signal.aborted) return
+          analytics.send('export_failed', { format: 'zip', failure_reason: failureReason(cause) })
           throw cause
         } finally {
           if (controller.current === abort) controller.current = null

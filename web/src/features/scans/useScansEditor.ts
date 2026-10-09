@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { MAX_SCANS, moveScan } from '../../commands/scans'
 import { useDb } from '../../db/DbProvider'
 import { sortScans, type ScanFile } from '../../db/scans'
@@ -57,6 +58,7 @@ export function useScansEditor(
   { confirm }: { confirm: (question: ConfirmQuestion) => Promise<boolean> },
 ): ScansEditor {
   const db = useDb()
+  const analytics = useAnalytics()
   const data = useScans(tuneId)
   const files = data?.files ?? NO_FILES
   const [editing, setEditing] = useState(false)
@@ -77,6 +79,7 @@ export function useScansEditor(
       ).map(scanIdOf),
     announce: (rows, from, to) => scanMovedAnnouncement(from, to, rows.length),
     onMoveStart: () => setMoveError(null),
+    onMoved: () => analytics.send('scans_reordered', { tune_id: tuneId }),
     onError: setMoveError,
   })
   // The rows a menu item acts on are the ones on screen when it is pressed, not when it opened.

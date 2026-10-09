@@ -1,5 +1,7 @@
 import type { ReactElement, ReactNode } from 'react'
 import { vi } from 'vitest'
+import { AnalyticsProvider } from '../analytics/AnalyticsProvider'
+import type { AnalyticsClient } from '../analytics/client'
 import { AuthProvider, type AuthSession } from '../auth/AuthContext'
 import { DbContext } from '../db/DbProvider'
 import type { CrosstuneDb } from '../db/schema'
@@ -75,6 +77,7 @@ export interface ProviderOptions {
   db: CrosstuneDb
   engine?: SyncEngine
   session?: AuthSession
+  analytics?: AnalyticsClient
 }
 
 /**
@@ -85,14 +88,16 @@ export function dataProviders({
   db,
   engine = fakeEngine(),
   session = testSession,
+  analytics,
 }: ProviderOptions): ({ children }: { children: ReactNode }) => ReactElement {
   return function Providers({ children }) {
-    return (
+    const tree = (
       <AuthProvider value={session}>
         <DbContext.Provider value={db}>
           <SyncContext.Provider value={engine}>{children}</SyncContext.Provider>
         </DbContext.Provider>
       </AuthProvider>
     )
+    return analytics ? <AnalyticsProvider client={analytics}>{tree}</AnalyticsProvider> : tree
   }
 }

@@ -15,6 +15,7 @@ import {
 import { RECORDING_SORT_OPTIONS } from './sortCopy'
 import type { RecordingView } from './useRecordings'
 import { useRecordingsScreen } from './useRecordingsScreen'
+import { RECORDINGS_ROW_ORIGIN } from '../player/playLog'
 import { FILTERS, filtersLabel, removeFilterLabel } from '../../ui/filterCopy'
 import { SORT, sortControlName, sortMenuChoices } from '../../ui/sortCopy'
 import { useFileDrop } from '../../ui/useFileDrop'
@@ -100,6 +101,7 @@ export function RecordingsScreen() {
       sort={sort.sort}
       onOpenTune={!grouped && view.tuneId ? () => openTune(view.tuneId!) : undefined}
       onRetry={(kind) => retry(view, kind)}
+      playOrigin={RECORDINGS_ROW_ORIGIN}
     />
   )
 
@@ -199,7 +201,11 @@ export function RecordingsScreen() {
         </>
       )}
       <EditRecordingSheet view={screen.editing} onClose={() => screen.setEditing(null)} />
-      <AddToTuneSheet view={screen.filing} onClose={() => screen.setFiling(null)} />
+      <AddToTuneSheet
+        source="recordings_list"
+        view={screen.filing}
+        onClose={() => screen.setFiling(null)}
+      />
     </div>
   )
 }

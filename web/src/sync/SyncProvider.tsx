@@ -7,6 +7,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react'
+import { useAnalytics } from '../analytics/AnalyticsProvider'
 import { createApiClient } from '../api/client'
 import { useAuthSession } from '../auth/AuthContext'
 import { API_ORIGIN } from '../config'
@@ -23,6 +24,7 @@ export const SyncContext = createContext<SyncEngine | null>(null)
 export function SyncProvider({ children }: { children: ReactNode }) {
   const db = useDb()
   const { getToken, offline } = useAuthSession()
+  const analytics = useAnalytics()
   const engine = useMemo(
     () =>
       createSyncEngine({
@@ -32,8 +34,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           getToken,
           clientVersion: APP_VERSION,
         }),
+        analytics,
       }),
-    [db, getToken],
+    [db, getToken, analytics],
   )
   useEffect(() => {
     engine.resume()

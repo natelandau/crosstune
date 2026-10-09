@@ -184,6 +184,17 @@ it('zooms the scan to twice its fitted width and back', async () => {
     .toBe(Math.round(fitted))
 })
 
+it('every scan and waveform element carries ph-no-capture', async () => {
+  await mount('/catalog/t1')
+  await expect
+    .poll(() => scansSection().element().querySelectorAll('img.ph-no-capture').length)
+    .toBe(3)
+  await thumbnail(0).click()
+  await expect
+    .element(viewer().getByRole('img', { name: scanName(0) }))
+    .toHaveClass('ph-no-capture')
+})
+
 it('inverts the scans from the toolbar', async () => {
   await mount('/catalog/t1')
   await thumbnail(0).click()

@@ -1,3 +1,4 @@
+import type { Source } from '../../analytics/events'
 import { SEARCH_TUNES } from '../catalog/catalogCopy'
 import { ADD_TO_TUNE_TITLE, addToTuneName } from './recordingsCopy'
 import { useAddToTune } from './useAddToTune'
@@ -15,8 +16,11 @@ import { TuneSearchList } from './TuneSearchList'
  */
 export function AddToTuneSheet({
   view,
+  source,
   onClose,
 }: {
+  /** The screen the sheet is on, reported when it adds a tune. */
+  source: Source
   /** The recording to file, or null for a closed sheet; the parent nulls it from onClose. */
   view: RecordingView | null
   onClose: () => void
@@ -30,8 +34,7 @@ export function AddToTuneSheet({
     const title = add.dismissed()
     if (title === null || recordingId === undefined) return
     // The tune form files the recording itself once the tune is saved.
-    add.abandon()
-    form.open({ initialTitle: title, recordingId })
+    form.open({ source, initialTitle: title, recordingId })
   }
 
   useEndOnClose(add.closing, finish)

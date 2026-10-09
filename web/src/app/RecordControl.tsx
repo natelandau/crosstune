@@ -27,7 +27,7 @@ export function RecordControl({ shape }: { shape: 'disc' | 'capsule' }) {
         aria-label={RECORD_LABEL}
         aria-describedby={available ? undefined : reasonId}
         isDisabled={!available}
-        onPress={() => start()}
+        onPress={() => start({ source: 'dock' })}
         className={`group ${
           disc
             ? 'bg-nav border-hairline inline-flex size-[62px] items-center justify-center rounded-full border transition-opacity duration-(--dur-short) ease-(--ease) data-[pressed]:opacity-60'

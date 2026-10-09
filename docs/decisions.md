@@ -266,9 +266,9 @@ reopens one without new information. Add a new entry at the end.
 - PostHog Cloud, US region, one project, production only. No other
   environment has a token, so development and preview traffic never reaches
   it.
-- The site is anonymous. Only the Apple apps identify a person, by Clerk
-  user ID, and never send email or name. The API uses that ID only to
-  delete a person's data.
+- The site is anonymous. The web app and the Apple apps identify a person
+  by Clerk user ID, and never send email or name. The API uses that ID only
+  to delete a person's data.
 - Events leave through PostHog's managed reverse proxy on a subdomain of the
   product domain, so a content blocker that lists PostHog's own host does
   not drop them.

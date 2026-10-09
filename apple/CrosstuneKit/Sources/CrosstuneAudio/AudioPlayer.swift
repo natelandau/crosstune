@@ -21,6 +21,7 @@ public final class AudioPlayer: AudioPlayback {
     public private(set) var hasFailed = false
     public private(set) var isRepeating = false
     @ObservationIgnored public var onTrackEnd: (@MainActor (TrackEnd) -> Void)?
+    @ObservationIgnored public var onSystemCommand: (@MainActor () -> Void)?
     @ObservationIgnored public var skipsByInterval = true {
         didSet {
             // The loaded file's commands were registered under the old value.
@@ -56,6 +57,10 @@ public final class AudioPlayer: AudioPlayback {
     @ObservationIgnored private let segmentEnd: AVAudioPlayerNodeCompletionCallbackType
     @ObservationIgnored private var nowPlaying: NowPlaying?
     @ObservationIgnored private var controls: NowPlayingControls?
+    #if DEBUG
+        /// The system commands registered for the loaded audio, which a test runs as the system would.
+        var nowPlayingControls: NowPlayingControls? { controls }
+    #endif
     /// Where each state the system should show goes: the lock screen and Control Center, or a
     /// test watching what they would be told.
     @ObservationIgnored var publishes: @MainActor (PublishedPlayback) -> Void = { _ in }

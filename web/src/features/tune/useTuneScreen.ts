@@ -1,8 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
 import type { Instrument } from '../../api/vocabulary'
-import { removeFromList } from '../../commands/lists'
-import { deleteTune, setArchived } from '../../commands/tunes'
-import { useDb } from '../../db/DbProvider'
 import type { LocalUserTune } from '../../db/types'
 import type { MenuItem } from '../../ui/menuTypes'
 import { DELETE } from '../../ui/confirmCopy'
@@ -12,6 +9,7 @@ import { useDeleteAndLeave } from '../../ui/useDeleteAndLeave'
 import { useLatest } from '../../ui/useLatest'
 import { useResetOnChange } from '../../ui/useResetOnChange'
 import { ADD_TO_LIST } from '../lists/listPickerCopy'
+import { useListActions } from '../lists/useListActions'
 import { useActiveLists, useMembership } from '../lists/useLists'
 import { lyricOpening } from '../lyrics/lyricLines'
 import { useRecordingsWithFiles, type RecordingView } from '../recordings/useRecordings'
@@ -20,6 +18,7 @@ import { useInstruments } from '../settings/useInstruments'
 import { ARCHIVE, UNARCHIVE } from './archiveLabels'
 import { DELETE_TUNE_TITLE, deleteTuneMessage } from './deleteTuneMessage'
 import { useTune, type TuneView } from './useTune'
+import { useTuneActions } from './useTuneActions'
 
 export interface TuneBadge {
   field: string
@@ -93,7 +92,8 @@ export function useTuneScreen(
     leave: () => void
   },
 ): TuneScreenData {
-  const db = useDb()
+  const listActions = useListActions()
+  const tuneActions = useTuneActions()
   const view = useTune(tuneId)
   const instruments = useInstruments()
   const recordings = useRecordingsWithFiles({ tuneId })
@@ -104,7 +104,7 @@ export function useTuneScreen(
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const deletion = useDeleteAndLeave({
     confirm,
-    remove: () => deleteTune(db, tuneId),
+    remove: () => tuneActions.remove(tuneId),
     leave,
     onStart: () => {
       setDeleteError(null)
@@ -142,10 +142,13 @@ export function useTuneScreen(
   const removing = useRef(new Set<string>())
   const removeItem = (itemId: string) => {
     if (removing.current.has(itemId)) return
+    const listId = [...membership].find(([, item]) => item === itemId)?.[0]
+    // The item is no longer in any list, so another device already took it out.
+    if (!listId) return
     removing.current.add(itemId)
     run(async () => {
       try {
-        await removeFromList(db, itemId)
+        await listActions.removeItem(listId, itemId)
       } finally {
         removing.current.delete(itemId)
       }
@@ -160,7 +163,8 @@ export function useTuneScreen(
       {
         label: archived ? UNARCHIVE : ARCHIVE,
         tone: 'warning',
-        onPress: () => run(() => setArchived(db, view.userTune.id, !archived)),
+        onPress: () =>
+          run(() => tuneActions.archive({ tuneId, userTuneId: view.userTune.id }, !archived)),
       },
       {
         label: DELETE,

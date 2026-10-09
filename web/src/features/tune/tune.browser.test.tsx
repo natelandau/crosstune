@@ -132,7 +132,7 @@ it.each([
     await expect.element(section.getByRole('heading', { name: title })).toBeVisible()
     expect(section.element().textContent).toBe(title)
     await section.getByRole('button', { name: add }).click()
-    await expect.poll(() => launcher.open.mock.calls).toEqual([[{ tuneId: 't1' }]])
+    await expect.poll(() => launcher.open.mock.calls).toEqual([[{ source: 'tune', tuneId: 't1' }]])
   },
 )
 
@@ -151,7 +151,7 @@ it('offers to edit lyrics and notes once they hold something', async () => {
     await expect.element(section.getByRole('button', { name: add })).not.toBeInTheDocument()
   }
   await tunePage().getByRole('button', { name: EDIT_NOTES }).click()
-  await expect.poll(() => launcher.open.mock.calls).toEqual([[{ tuneId: 't1' }]])
+  await expect.poll(() => launcher.open.mock.calls).toEqual([[{ source: 'tune', tuneId: 't1' }]])
 })
 
 it('asks before a delete and goes back to the parent once it lands', async () => {

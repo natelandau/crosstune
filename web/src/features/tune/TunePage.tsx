@@ -213,7 +213,7 @@ function TuneDocument({
         trailing={
           shownFacts && (
             <>
-              <Button label={EDIT_TUNE} onPress={() => form.open({ tuneId })} />
+              <Button label={EDIT_TUNE} onPress={() => form.open({ source: 'tune', tuneId })} />
               <Menu
                 label={MORE_ACTIONS}
                 trigger={<Button icon={Ellipsis} label={MORE_ACTIONS} iconOnly />}
@@ -243,7 +243,7 @@ function TuneDocument({
             screen={screen}
             media={media}
             recordAvailable={record.available}
-            onEdit={() => form.open({ tuneId })}
+            onEdit={() => form.open({ source: 'tune', tuneId })}
             onAddToList={() => setPicking(true)}
             onReadLyrics={() => setReading(true)}
           />

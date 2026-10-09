@@ -1,3 +1,4 @@
+import { noopAnalytics } from '../../analytics/client'
 import Dexie from 'dexie'
 import { describe, expect, it, vi } from 'vitest'
 import { rememberedUser, rememberUser } from '../../auth/session'
@@ -32,7 +33,13 @@ describe('signOutAndForget', () => {
     const signOut = vi.fn(async () => {
       expect(await Dexie.exists(databaseName(userId))).toBe(true)
     })
-    await signOutAndForget({ db, userId, engine: fakeEngine({ sync, stop }), signOut })
+    await signOutAndForget({
+      db,
+      userId,
+      engine: fakeEngine({ sync, stop }),
+      signOut,
+      analytics: noopAnalytics,
+    })
     expect(sync.mock.invocationCallOrder[0]).toBeLessThan(stop.mock.invocationCallOrder[0]!)
     expect(stop.mock.invocationCallOrder[0]).toBeLessThan(signOut.mock.invocationCallOrder[0]!)
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
@@ -47,7 +54,13 @@ describe('signOutAndForget', () => {
     const stop = vi.fn()
     const signOut = vi.fn(async () => {})
     await expect(
-      signOutAndForget({ db, userId, engine: fakeEngine({ stop }), signOut }),
+      signOutAndForget({
+        db,
+        userId,
+        engine: fakeEngine({ stop }),
+        signOut,
+        analytics: noopAnalytics,
+      }),
     ).rejects.toThrow('have not synced')
     expect(stop).not.toHaveBeenCalled()
     expect(signOut).not.toHaveBeenCalled()
@@ -61,7 +74,7 @@ describe('signOutAndForget', () => {
     await recordEvent(db, 'play_events', playEventRow('play-1'))
     await recordEvent(db, 'scan_views', scanViewRow('view-1'))
     const signOut = vi.fn(async () => {})
-    await signOutAndForget({ db, userId, engine: fakeEngine(), signOut })
+    await signOutAndForget({ db, userId, engine: fakeEngine(), signOut, analytics: noopAnalytics })
     expect(signOut).toHaveBeenCalled()
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
   })
@@ -71,9 +84,9 @@ describe('signOutAndForget', () => {
     await recordEvent(db, 'play_events', playEventRow('play-1'))
     await createTune(db, { title: 'X' }, { status: 'known' })
     const signOut = vi.fn(async () => {})
-    await expect(signOutAndForget({ db, userId, engine: fakeEngine(), signOut })).rejects.toThrow(
-      'have not synced',
-    )
+    await expect(
+      signOutAndForget({ db, userId, engine: fakeEngine(), signOut, analytics: noopAnalytics }),
+    ).rejects.toThrow('have not synced')
     expect(signOut).not.toHaveBeenCalled()
     await db.delete()
   })
@@ -90,7 +103,13 @@ describe('signOutAndForget', () => {
     const stop = vi.fn()
     const signOut = vi.fn(async () => {})
     await expect(
-      signOutAndForget({ db, userId, engine: fakeEngine({ stop }), signOut }),
+      signOutAndForget({
+        db,
+        userId,
+        engine: fakeEngine({ stop }),
+        signOut,
+        analytics: noopAnalytics,
+      }),
     ).rejects.toThrow(UNSYNCED_RECORDINGS_ERROR)
     expect(stop).not.toHaveBeenCalled()
     expect(signOut).not.toHaveBeenCalled()
@@ -109,7 +128,13 @@ describe('signOutAndForget', () => {
     const stop = vi.fn()
     const signOut = vi.fn(async () => {})
     await expect(
-      signOutAndForget({ db, userId, engine: fakeEngine({ stop }), signOut }),
+      signOutAndForget({
+        db,
+        userId,
+        engine: fakeEngine({ stop }),
+        signOut,
+        analytics: noopAnalytics,
+      }),
     ).rejects.toThrow(UNSYNCED_SCANS_ERROR)
     expect(stop).not.toHaveBeenCalled()
     expect(signOut).not.toHaveBeenCalled()
@@ -117,7 +142,13 @@ describe('signOutAndForget', () => {
 
     // Once uploaded, the file is only a cache of what the server holds.
     await db.scan_files.update(scanId!, { origin: 'downloaded' })
-    await signOutAndForget({ db, userId, engine: fakeEngine({ stop }), signOut })
+    await signOutAndForget({
+      db,
+      userId,
+      engine: fakeEngine({ stop }),
+      signOut,
+      analytics: noopAnalytics,
+    })
     expect(signOut).toHaveBeenCalledOnce()
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
   })
@@ -139,7 +170,13 @@ describe('signOutAndForget', () => {
       10,
     )
     const signOut = vi.fn(async () => {})
-    await signOutAndForget({ db, userId, engine: fakeEngine({}), signOut })
+    await signOutAndForget({
+      db,
+      userId,
+      engine: fakeEngine({}),
+      signOut,
+      analytics: noopAnalytics,
+    })
     expect(signOut).toHaveBeenCalledOnce()
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
   })
@@ -153,7 +190,13 @@ describe('signOutAndForget', () => {
       throw new Error('Clerk unreachable')
     })
     await expect(
-      signOutAndForget({ db, userId, engine: fakeEngine({ resume }), signOut }),
+      signOutAndForget({
+        db,
+        userId,
+        engine: fakeEngine({ resume }),
+        signOut,
+        analytics: noopAnalytics,
+      }),
     ).rejects.toThrow('Clerk unreachable')
     expect(resume).toHaveBeenCalledOnce()
     expect(await db.tunes.count()).toBe(1)

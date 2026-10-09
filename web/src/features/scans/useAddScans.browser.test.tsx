@@ -1,6 +1,7 @@
 import { renderHook } from '@testing-library/react'
 import { act } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { recordingAnalytics } from '../../analytics/testing'
 import { MAX_SCANS } from '../../commands/scans'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
@@ -36,8 +37,11 @@ async function storedWidths(): Promise<number[]> {
   return scans.filter((scan) => !scan.deleted_at).map((scan) => scan.width)
 }
 
-function setup(count = 0) {
-  return renderHook(() => useAddScans(tuneId, count), { wrapper: dataProviders({ db }) })
+function setup(count = 0, analytics = recordingAnalytics()) {
+  const hook = renderHook(() => useAddScans(tuneId, count), {
+    wrapper: dataProviders({ db, analytics }),
+  })
+  return { ...hook, analytics }
 }
 
 describe('useAddScans', () => {
@@ -62,5 +66,19 @@ describe('useAddScans', () => {
     await act(() => result.current.add([image('a.png'), image('bb.png'), image('ccc.png')]))
     expect(await storedWidths()).toEqual([5])
     expect(result.current.error).toBe(scansNotAddedMessage(2))
+  })
+
+  it('reports each scan added from a file, and none that was left out', async () => {
+    const { result, analytics } = setup(MAX_SCANS - 2)
+    const text = new File(['x'], 'notes.txt', { type: 'text/plain' })
+    await act(() => result.current.add([image('a.png'), text, image('bb.png'), image('ccc.png')]))
+    const stored = await db.scans.where('tune_id').equals(tuneId).sortBy('position')
+    expect(stored).toHaveLength(2)
+    expect(analytics.sends()).toEqual(
+      stored.map((scan) => ({
+        name: 'scan_added',
+        props: { via: 'file', scan_id: scan.id, tune_id: tuneId },
+      })),
+    )
   })
 })

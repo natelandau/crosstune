@@ -202,7 +202,7 @@ export function Waveform({
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        className={`block w-full border-(--wave-unplayed) text-(--wave-played) ${heightClass ?? (compact ? 'h-12' : 'h-24')}`}
+        className={`ph-no-capture block w-full border-(--wave-unplayed) text-(--wave-played) ${heightClass ?? (compact ? 'h-12' : 'h-24')}`}
       />
     </div>
   )

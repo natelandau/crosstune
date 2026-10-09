@@ -11,6 +11,7 @@ import { aboutLine, SETTINGS_CATEGORIES } from './settingsCopy'
 import { useAccountSettings } from './useAccountSettings'
 import { useInstrumentsSetting } from './useInstrumentsSetting'
 import { useMusicServicesSetting } from './useMusicServicesSetting'
+import { UsageSharingRow } from './UsageSharingRow'
 import { useSettingsRow } from './useSettingsRow'
 import { useStatsSummary } from './useStatsSummary'
 import { useSyncSettings } from './useSyncSettings'
@@ -106,6 +107,9 @@ export function SettingsRoot() {
           )
         })}
       </RowList>
+      <div className="px-4">
+        <UsageSharingRow />
+      </div>
       <p className="t-secondary text-ink-2 px-4 pt-6 pb-8">{aboutLine(APP_VERSION)}</p>
     </>
   )

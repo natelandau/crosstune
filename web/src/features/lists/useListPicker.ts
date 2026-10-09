@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { countBucket } from '../../analytics/buckets'
 import { addTunesToList, createListWithTunes, type Undo } from '../../commands/bulk'
 import { useDb } from '../../db/DbProvider'
 import { useAction } from '../../ui/useAction'
@@ -62,6 +64,7 @@ export function useListPicker(
   },
 ): ListPicker {
   const db = useDb()
+  const analytics = useAnalytics()
   const lists = (useActiveLists() ?? []).filter((list) => list.id !== excludeListId)
   const counts = useMembershipCounts(userTuneIds)
   const total = userTuneIds.length
@@ -132,6 +135,7 @@ export function useListPicker(
     if (!list || busy.current || closing) return
     finish(async () => {
       const { undo, added } = await addTunesToList(db, list.id, userTuneIds)
+      analytics.send('tunes_added_to_list', { list_id: list.id, count_bucket: countBucket(added) })
       return { undo, added, listName: list.name, created: false }
     })
   }
@@ -140,7 +144,12 @@ export function useListPicker(
     const listName = name.trim()
     if (busy.current || closing || !listName) return
     finish(async () => {
-      const undo = await createListWithTunes(db, listName, userTuneIds)
+      const { undo, listId } = await createListWithTunes(db, listName, userTuneIds)
+      // One action, reported only as the list made; the tunes it starts with are its count.
+      analytics.send('list_created', {
+        list_id: listId,
+        count_bucket: countBucket(new Set(userTuneIds).size),
+      })
       return { undo, added: total, listName, created: true }
     })
   }

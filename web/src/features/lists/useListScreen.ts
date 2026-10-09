@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { addToList, deleteList, removeFromList } from '../../commands/lists'
+import { addToList } from '../../commands/lists'
 import { useDb } from '../../db/DbProvider'
 import type { LocalList } from '../../db/types'
 import { DELETE } from '../../ui/confirmCopy'
@@ -14,6 +14,7 @@ import { SELECT } from '../selection/selectionCopy'
 import { DELETE_LIST, HIDE_ARCHIVED, RENAME } from './listsCopy'
 import type { ListNameTarget } from './useListName'
 import { listShows, useListShowArchived } from './useListShowArchived'
+import { useListActions } from './useListActions'
 import { useListView, type ListItemView } from './useLists'
 
 export interface ListScreen {
@@ -65,12 +66,13 @@ export function useListScreen(
   const [showArchived, setShowArchived] = useListShowArchived()
   const instruments = useInstruments()
   const db = useDb()
+  const actions = useListActions()
   const [error, setError] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
   const [naming, setNaming] = useState<ListNameTarget | null>(null)
   const { deletingName, start: startDelete } = useDeleteAndLeave({
     confirm,
-    remove: () => deleteList(db, listId),
+    remove: () => actions.remove(listId),
     leave,
     onStart: () => setError(null),
     onError: setError,
@@ -94,7 +96,7 @@ export function useListScreen(
     removing.current.add(id)
     setError(null)
     try {
-      return await removeFromList(db, id)
+      return await actions.removeItem(listId, id)
     } catch (caught) {
       setError(messageFor(caught))
       return null

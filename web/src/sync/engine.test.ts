@@ -1,4 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { noopAnalytics } from '../analytics/client'
+import { recordingAnalytics } from '../analytics/testing'
 import { ApiError, NetworkError, NoTokenError } from '../api/client'
 import { recordEvent } from '../commands/events'
 import { createTune, deleteTune, updateTune } from '../commands/tunes'
@@ -58,7 +60,12 @@ describe('createSyncEngine', () => {
         has_more: false,
       },
     )
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     const seen = trackStatuses(engine)
     await engine.sync()
     expect(fake.pushes[0]?.map((c) => c.id)).toContain(tuneId)
@@ -81,7 +88,12 @@ describe('createSyncEngine', () => {
       await updateTune(db, tuneId, { title: 'v2' })
       return changes.map((c) => ({ table: c.table, id: c.id, status: 'applied' as const }))
     })
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await engine.sync()
     const pending = await pendingBatch(db)
     expect(pending.map((e) => e.data?.title)).toEqual(['v2'])
@@ -97,7 +109,12 @@ describe('createSyncEngine', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     let online = false
     fake.fail(new NetworkError(new TypeError('Failed to fetch')))
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => online })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => online,
+    })
     const seen = trackStatuses(engine)
     await engine.sync()
     expect(engine.status()).toBe('offline')
@@ -113,7 +130,12 @@ describe('createSyncEngine', () => {
   it('reports error for a server failure while online and stop() cancels the retry', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     fake.fail(new ApiError(500, null))
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await engine.sync()
     expect(engine.status()).toBe('error')
     engine.stop()
@@ -125,7 +147,12 @@ describe('createSyncEngine', () => {
 
   it('coalesces concurrent sync calls', async () => {
     await createTune(db, { title: 'X' }, { status: 'known' })
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await Promise.all([engine.sync(), engine.sync(), engine.sync()])
     expect(fake.pushes).toHaveLength(1)
     // One pull per full run: proves the coalesced calls still drove a second
@@ -134,7 +161,12 @@ describe('createSyncEngine', () => {
   })
 
   it('stamps lastSyncedAt on every clean run and leaves it alone on a failure', async () => {
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     expect(engine.lastSyncedAt()).toBeNull()
     await engine.sync()
     const first = engine.lastSyncedAt()
@@ -158,7 +190,12 @@ describe('createSyncEngine', () => {
           rejectPush = reject
         }),
     )
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     const run = engine.sync()
     await drainRealTasks()
     engine.stop()
@@ -174,7 +211,12 @@ describe('createSyncEngine', () => {
   })
 
   it('resume() re-enables sync after a stop', async () => {
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     engine.stop()
     await engine.sync()
     expect(fake.pulls).toHaveLength(0)
@@ -194,7 +236,13 @@ describe('createSyncEngine', () => {
       })),
     )
     const onInvalid = vi.fn()
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true, onInvalid })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+      onInvalid,
+    })
     await engine.sync()
     expect(onInvalid).toHaveBeenCalledWith({
       table: 'tunes',
@@ -216,7 +264,13 @@ describe('createSyncEngine', () => {
       })),
     )
     const onInvalid = vi.fn()
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true, onInvalid })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+      onInvalid,
+    })
     await engine.sync()
     expect(onInvalid).not.toHaveBeenCalled()
     expect(await getInvalidChangeCount(db)).toBe(0)
@@ -225,7 +279,12 @@ describe('createSyncEngine', () => {
 
   it('reports unauthorized when the server rejects the session', async () => {
     fake.fail(new ApiError(401, null))
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await engine.sync()
     expect(engine.status()).toBe('unauthorized')
     engine.stop()
@@ -240,7 +299,12 @@ describe('createSyncEngine', () => {
     })
     fake.fail(deleted)
     const onAccountDeleted = vi.fn()
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     engine.onAccountDeleted(onAccountDeleted)
     await engine.sync()
     expect(onAccountDeleted).toHaveBeenCalledOnce()
@@ -270,7 +334,12 @@ describe('createSyncEngine', () => {
       }),
     )
     const onAccountDeleted = vi.fn()
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     engine.onAccountDeleted(onAccountDeleted)
     const run = engine.sync()
     engine.stop()
@@ -282,7 +351,12 @@ describe('createSyncEngine', () => {
   it('treats a plain 401 as an expired session, not a deleted account', async () => {
     fake.fail(new ApiError(401, null))
     const onAccountDeleted = vi.fn()
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     engine.onAccountDeleted(onAccountDeleted)
     await engine.sync()
     expect(onAccountDeleted).not.toHaveBeenCalled()
@@ -292,7 +366,13 @@ describe('createSyncEngine', () => {
   it('stops pushing when a full batch settles nothing', async () => {
     await createTune(db, { title: 'X' }, { status: 'known' })
     fake.respondToPush(() => [])
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true, batchSize: 1 })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+      batchSize: 1,
+    })
     await engine.sync()
     expect(fake.pushes).toHaveLength(1)
     expect(await pendingBatch(db)).toHaveLength(2)
@@ -302,14 +382,25 @@ describe('createSyncEngine', () => {
     await createTune(db, { title: 'X' }, { status: 'known' })
     await createTune(db, { title: 'Y' }, { status: 'known' })
     expect(await pendingBatch(db)).toHaveLength(4)
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true, batchSize: 2 })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+      batchSize: 2,
+    })
     await engine.sync()
     expect(fake.pushes.map((batch) => batch.length)).toEqual([2, 2])
     expect(await pendingBatch(db)).toHaveLength(0)
   })
 
   it('stops notifying a listener that unsubscribed', async () => {
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     const seen: SyncStatus[] = []
     const unsubscribe = engine.subscribe((s) => seen.push(s))
     await engine.sync()
@@ -323,11 +414,21 @@ describe('createSyncEngine', () => {
   })
 
   it('resolves links only when online and never throws', async () => {
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await expect(engine.resolveLink('https://x')).resolves.toMatchObject({ title: 'Resolved' })
     fake.fail(new TypeError('Failed to fetch'))
     await expect(engine.resolveLink('https://x')).resolves.toBeNull()
-    const offline = createSyncEngine({ db, api: fake.api, isOnline: () => false })
+    const offline = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => false,
+    })
     await expect(offline.resolveLink('https://x')).resolves.toBeNull()
   })
 
@@ -342,7 +443,12 @@ describe('createSyncEngine', () => {
       },
     ]
     const withSearch = (searchRecordings: SyncApi['searchRecordings'], isOnline = () => true) =>
-      createSyncEngine({ db, api: { ...fake.api, searchRecordings }, isOnline })
+      createSyncEngine({
+        analytics: noopAnalytics,
+        db,
+        api: { ...fake.api, searchRecordings },
+        isOnline,
+      })
 
     it('returns offline without calling the API', async () => {
       const search = vi.fn()
@@ -450,7 +556,12 @@ describe('events', () => {
         has_more: false,
       },
     )
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await engine.pullEvents()
     expect(fake.eventPulls).toEqual([0, 5])
     expect(await getEventsCursor(db)).toBe(9)
@@ -469,7 +580,12 @@ describe('events', () => {
       { rows: [pulledPlay('play-1', 3)], next_since: 3, has_more: true },
       new ApiError(500, null),
     )
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await expect(engine.pullEvents()).rejects.toThrow(ApiError)
     expect(await getEventsCursor(db)).toBe(3)
     expect(await db.play_events.count()).toBe(1)
@@ -483,7 +599,12 @@ describe('events', () => {
 
   it('pullEvents does nothing offline', async () => {
     fake.queueEvents({ rows: [pulledPlay('play-1', 3)], next_since: 3, has_more: false })
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => false })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => false,
+    })
     await engine.pullEvents()
     expect(fake.eventPulls).toEqual([])
     expect(await getEventsCursor(db)).toBe(0)
@@ -493,7 +614,12 @@ describe('events', () => {
   it('push applies an event result into its store', async () => {
     const play = playEventRow('play-1')
     await recordEvent(db, 'play_events', play)
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await engine.sync()
     expect(fake.pushes[0]).toEqual([
       {
@@ -511,7 +637,12 @@ describe('events', () => {
   it('push applies a scan view result into its store', async () => {
     const view = scanViewRow('view-1', { context: 'row' })
     await recordEvent(db, 'scan_views', view)
-    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
     await engine.sync()
     expect(fake.pushes[0]?.map((c) => [c.table, c.op, c.id])).toEqual([
       ['scan_views', 'upsert', 'view-1'],
@@ -538,7 +669,7 @@ describe('events', () => {
         })
       },
     }
-    const engine = createSyncEngine({ db, api, isOnline: () => true })
+    const engine = createSyncEngine({ analytics: noopAnalytics, db, api, isOnline: () => true })
     const onAccountDeleted = vi.fn()
     engine.onAccountDeleted(onAccountDeleted)
     const pulling = engine.pullEvents()
@@ -571,7 +702,7 @@ describe('events', () => {
         return fake.api.events(since)
       },
     }
-    const engine = createSyncEngine({ db, api, isOnline: () => true })
+    const engine = createSyncEngine({ analytics: noopAnalytics, db, api, isOnline: () => true })
     const syncing = engine.sync()
     await expect.poll(() => fake.pushes.length).toBe(1)
     const pulling = engine.pullEvents()
@@ -594,5 +725,75 @@ describe('classifyFailure', () => {
     expect(classifyFailure(new ApiError(401, null), () => true)).toBe('unauthorized')
     expect(classifyFailure(new ApiError(403, null), () => true)).toBe('unauthorized')
     expect(classifyFailure(new ApiError(500, null), () => true)).toBe('error')
+  })
+})
+
+describe('sync_failed', () => {
+  function reporting(isOnline = () => true) {
+    const analytics = recordingAnalytics()
+    const engine = createSyncEngine({ analytics, db, api: fake.api, isOnline })
+    onTestFinished(() => engine.stop())
+    return { analytics, engine }
+  }
+
+  it('sync_failed once per streak and state, again after a clean run', async () => {
+    const { analytics, engine } = reporting()
+
+    fake.fail(new ApiError(500, null))
+    await engine.sync()
+    await engine.sync()
+    expect(analytics.sends()).toEqual([
+      { name: 'sync_failed', props: { failure_reason: 'server_error' } },
+    ])
+
+    fake.fail(new ApiError(401, null))
+    await engine.sync()
+    await engine.sync()
+    expect(engine.status()).toBe('unauthorized')
+    expect(analytics.sends().map((send) => send.props)).toEqual([
+      { failure_reason: 'server_error' },
+      { failure_reason: 'auth_expired' },
+    ])
+
+    fake.fail(null)
+    await engine.sync()
+    expect(engine.status()).toBe('idle')
+    fake.fail(new ApiError(422, null))
+    await engine.sync()
+    expect(analytics.sends().map((send) => send.props)).toEqual([
+      { failure_reason: 'server_error' },
+      { failure_reason: 'auth_expired' },
+      { failure_reason: 'other' },
+    ])
+  })
+
+  it('sync_failed reports a local storage error as other', async () => {
+    const { analytics, engine } = reporting()
+    vi.spyOn(fake.api, 'pull').mockRejectedValue(new DOMException('full', 'QuotaExceededError'))
+
+    await engine.sync()
+
+    expect(engine.status()).toBe('error')
+    expect(analytics.sends()).toEqual([{ name: 'sync_failed', props: { failure_reason: 'other' } }])
+  })
+
+  it('sync_failed is never sent while offline', async () => {
+    let online = false
+    const { analytics, engine } = reporting(() => online)
+
+    fake.fail(new NetworkError(new TypeError('Failed to fetch')))
+    await engine.sync()
+    expect(engine.status()).toBe('offline')
+
+    online = true
+    fake.fail(new NoTokenError())
+    await engine.sync()
+    expect(engine.status()).toBe('offline')
+
+    fake.fail(new NetworkError(new TypeError('Failed to fetch')))
+    await engine.sync()
+    expect(engine.status()).toBe('offline')
+
+    expect(analytics.sends()).toEqual([])
   })
 })

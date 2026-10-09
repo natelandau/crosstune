@@ -1,3 +1,5 @@
+import { useAnalytics } from '../../../analytics/AnalyticsProvider'
+import { textSizeOffset } from '../../../analytics/events'
 import {
   APPEARANCE_LABELS,
   APPEARANCES,
@@ -17,6 +19,7 @@ const TEXT_SIZE_OPTIONS = TEXT_SIZES.map((id) => ({ id, label: TEXT_SIZE_LABELS[
 
 /** The two per-device display settings. Neither writes to the account, so neither can refuse. */
 export function AppearancePage() {
+  const analytics = useAnalytics()
   const appearance = useAppearance()
   const textSize = useTextSize()
   return (
@@ -27,7 +30,9 @@ export function AppearancePage() {
         options={THEME_OPTIONS}
         onChange={(id) => {
           const next = APPEARANCES.find((choice) => choice === id)
-          if (next) setAppearance(next)
+          if (!next) return
+          setAppearance(next)
+          analytics.send('setting_changed', { setting: 'appearance', value: next })
         }}
       />
       <Picker
@@ -36,7 +41,9 @@ export function AppearancePage() {
         options={TEXT_SIZE_OPTIONS}
         onChange={(id) => {
           const next = TEXT_SIZES.find((choice) => choice === id)
-          if (next) setTextSize(next)
+          if (!next) return
+          setTextSize(next)
+          analytics.send('setting_changed', { setting: 'text_size', value: textSizeOffset(next) })
         }}
       />
     </Group>

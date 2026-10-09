@@ -1,4 +1,5 @@
 import { useAuth, useUser } from '@clerk/react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { useAuthSession } from '../../auth/AuthContext'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
@@ -29,6 +30,7 @@ export function useAccountSettings(): AccountSettings {
   const { user } = useUser()
   const { signOut } = useAuth()
   const engine = useSyncEngine()
+  const analytics = useAnalytics()
   const { error, pending, run } = useAction()
   const email = user?.primaryEmailAddress?.emailAddress ?? null
   const identity = user ? { name: user.fullName ?? null, email } : null
@@ -38,6 +40,7 @@ export function useAccountSettings(): AccountSettings {
     offline,
     error,
     pending,
-    signOut: () => run(() => signOutAndForget({ db, userId, engine, signOut: () => signOut() })),
+    signOut: () =>
+      run(() => signOutAndForget({ db, userId, engine, signOut: () => signOut(), analytics })),
   }
 }

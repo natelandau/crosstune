@@ -1,3 +1,4 @@
+import { noopAnalytics } from '../../analytics/client'
 import Dexie from 'dexie'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -46,6 +47,7 @@ describe('deleteAccountAndForget', () => {
       userId,
       engine: fakeEngine({ stop, deleteAccount }),
       signOut,
+      analytics: noopAnalytics,
     })
     expect(stop.mock.invocationCallOrder[0]).toBeLessThan(
       deleteAccount.mock.invocationCallOrder[0]!,
@@ -63,7 +65,13 @@ describe('deleteAccountAndForget', () => {
     expect(await db.outbox.count()).toBeGreaterThan(0)
     const signOut = vi.fn(async () => {})
     await expect(
-      deleteAccountAndForget({ db, userId, engine: fakeEngine(), signOut }),
+      deleteAccountAndForget({
+        db,
+        userId,
+        engine: fakeEngine(),
+        signOut,
+        analytics: noopAnalytics,
+      }),
     ).resolves.toBeUndefined()
   })
 
@@ -81,6 +89,7 @@ describe('deleteAccountAndForget', () => {
         userId,
         engine: fakeEngine({ resume, deleteAccount }),
         signOut,
+        analytics: noopAnalytics,
       }),
     ).rejects.toThrow('server unreachable')
     expect(resume).toHaveBeenCalledOnce()
@@ -96,7 +105,13 @@ describe('deleteAccountAndForget', () => {
       throw new Error('Clerk unreachable')
     })
     await expect(
-      deleteAccountAndForget({ db, userId, engine: fakeEngine(), signOut }),
+      deleteAccountAndForget({
+        db,
+        userId,
+        engine: fakeEngine(),
+        signOut,
+        analytics: noopAnalytics,
+      }),
     ).resolves.toBeUndefined()
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
     expect(hasAccountDeletedNotice()).toBe(true)
@@ -119,6 +134,7 @@ describe('deleteAccountAndForget', () => {
         userId,
         engine: fakeEngine({ deleteAccount }),
         signOut: async () => {},
+        analytics: noopAnalytics,
       }),
     ).resolves.toBeUndefined()
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
@@ -131,7 +147,13 @@ describe('deleteAccountAndForget', () => {
     const signOut = vi.fn(async () => {
       noticeAtSignOut = hasAccountDeletedNotice()
     })
-    await deleteAccountAndForget({ db, userId, engine: fakeEngine(), signOut })
+    await deleteAccountAndForget({
+      db,
+      userId,
+      engine: fakeEngine(),
+      signOut,
+      analytics: noopAnalytics,
+    })
     expect(noticeAtSignOut).toBe(true)
   })
 
@@ -142,7 +164,13 @@ describe('deleteAccountAndForget', () => {
       throw new Error('database busy')
     }
     await expect(
-      deleteAccountAndForget({ db, userId, engine: fakeEngine(), signOut: async () => {} }),
+      deleteAccountAndForget({
+        db,
+        userId,
+        engine: fakeEngine(),
+        signOut: async () => {},
+        analytics: noopAnalytics,
+      }),
     ).resolves.toBeUndefined()
     expect(hasAccountDeletedNotice()).toBe(true)
     expect(locallySignedOutUser()).toBe(userId)
@@ -165,7 +193,13 @@ describe('forgetDeletedAccount', () => {
     const signOut = vi.fn(async () => {
       throw new Error('Clerk unreachable')
     })
-    await forgetDeletedAccount({ db, userId, engine: fakeEngine({ stop, deleteAccount }), signOut })
+    await forgetDeletedAccount({
+      db,
+      userId,
+      engine: fakeEngine({ stop, deleteAccount }),
+      signOut,
+      analytics: noopAnalytics,
+    })
     expect(stop).toHaveBeenCalled()
     expect(deleteAccount).not.toHaveBeenCalled()
     expect(signOut).toHaveBeenCalledOnce()

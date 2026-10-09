@@ -120,6 +120,10 @@ public final class SettingsModel {
     private var pendingPlayFirst = PendingWrite<String>()
     private var pendingNewTuneGenre = PendingWrite<String>()
     private var pendingNewTuneStatus = PendingWrite<String>()
+    /// Whether the last genre write that succeeded held a genre, so a flip is judged against what
+    /// was stored even when a write between fails. Writes run one at a time, so this is exact.
+    @ObservationIgnored private var landedGenreSet = false
+    @ObservationIgnored private var genreWritesInFlight = 0
     private var pendingKeepOffline = PendingWrite<Bool>()
     @ObservationIgnored private var lastWrite: Task<Void, Never>?
     @ObservationIgnored private var following: Task<Void, Never>?
@@ -175,8 +179,9 @@ public final class SettingsModel {
                 clerkUserID: store.userID, instrument: instrument, on: on)
         } settled: { model, error in
             if let error {
-                model.pendingInstruments[instrument]?.fail(token)
-                model.instrumentsFailure = failureMessage(error)
+                if model.pendingInstruments[instrument]?.fail(token) == true {
+                    model.instrumentsFailure = failureMessage(error)
+                }
             } else {
                 model.pendingInstruments[instrument]?.land(
                     token, stored: model.stored.value?.instruments.contains(instrument))
@@ -217,8 +222,9 @@ public final class SettingsModel {
                 clerkUserID: store.userID, provider: provider, on: on)
         } settled: { model, error in
             if let error {
-                model.pendingSearchProviders[provider]?.fail(token)
-                model.searchProvidersFailure = failureMessage(error)
+                if model.pendingSearchProviders[provider]?.fail(token) == true {
+                    model.searchProvidersFailure = failureMessage(error)
+                }
             } else {
                 model.pendingSearchProviders[provider]?.land(
                     token, stored: model.stored.value?.searchProviders.contains(provider))
@@ -248,8 +254,7 @@ public final class SettingsModel {
             try await Commands(store: store).setPlayFirst(clerkUserID: store.userID, playFirst: choice)
         } settled: { model, error in
             if let error {
-                model.pendingPlayFirst.fail(token)
-                model.playFirstFailure = failureMessage(error)
+                if model.pendingPlayFirst.fail(token) { model.playFirstFailure = failureMessage(error) }
             } else {
                 model.pendingPlayFirst.land(token, stored: model.stored.value?.playFirst)
                 if changed, let choice = PlayFirst(choice) { model.analytics.send(.settingChanged(.playFirst(choice))) }
@@ -276,33 +281,45 @@ public final class SettingsModel {
 
     public func setNewTuneGenre(_ genre: String) {
         newTuneGenreFailure = nil
-        let chosen = genre.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : genre
+        let isSet = !genre.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let chosen = isSet ? genre : ""
+        // With no write in flight the value shown is the stored one, which a sync may have changed.
+        if genreWritesInFlight == 0 {
+            landedGenreSet = !newTuneGenre.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        genreWritesInFlight += 1
         let token = pendingNewTuneGenre.begin(chosen)
         let store = store
         enqueue {
             try await Commands(store: store).setNewTuneGenre(clerkUserID: store.userID, genre: chosen)
         } settled: { model, error in
+            model.genreWritesInFlight -= 1
             if let error {
-                model.pendingNewTuneGenre.fail(token)
-                model.newTuneGenreFailure = failureMessage(error)
+                if model.pendingNewTuneGenre.fail(token) { model.newTuneGenreFailure = failureMessage(error) }
             } else {
                 model.pendingNewTuneGenre.land(token, stored: model.stored.value.map { $0.newTuneGenre ?? "" })
+                // The genre writes on every keystroke, so only a flip between set and unset is reported.
+                if isSet != model.landedGenreSet { model.analytics.send(.settingChanged(.newTuneGenreSet(isSet))) }
+                model.landedGenreSet = isSet
             }
         }
     }
 
     public func setNewTuneStatus(_ status: String) {
         newTuneStatusFailure = nil
+        let changed = status != newTuneStatus
         let token = pendingNewTuneStatus.begin(status)
         let store = store
         enqueue {
             try await Commands(store: store).setNewTuneStatus(clerkUserID: store.userID, status: status)
         } settled: { model, error in
             if let error {
-                model.pendingNewTuneStatus.fail(token)
-                model.newTuneStatusFailure = failureMessage(error)
+                if model.pendingNewTuneStatus.fail(token) { model.newTuneStatusFailure = failureMessage(error) }
             } else {
                 model.pendingNewTuneStatus.land(token, stored: model.stored.value?.newTuneStatus)
+                if changed, let status = TuneStatus(status) {
+                    model.analytics.send(.settingChanged(.newTuneStatus(status)))
+                }
             }
         }
     }
@@ -323,8 +340,7 @@ public final class SettingsModel {
             try await Commands(store: store).setAudioQuality(clerkUserID: store.userID, quality: quality)
         } settled: { model, error in
             if let error {
-                model.pendingQuality.fail(token)
-                model.qualityFailure = failureMessage(error)
+                if model.pendingQuality.fail(token) { model.qualityFailure = failureMessage(error) }
             } else {
                 model.pendingQuality.land(token, stored: model.stored.value?.audioQuality)
                 if changed, let quality = AudioQuality(quality) {
@@ -366,8 +382,7 @@ public final class SettingsModel {
             try await store.setMeta(.keepOffline, to: on)
         } settled: { model, error in
             if let error {
-                model.pendingKeepOffline.fail(token)
-                model.keepOfflineFailure = failureMessage(error)
+                if model.pendingKeepOffline.fail(token) { model.keepOfflineFailure = failureMessage(error) }
                 return
             }
             model.pendingKeepOffline.land(token, stored: model.stored.value?.keepsOffline)

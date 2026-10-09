@@ -121,6 +121,7 @@ export class PlaybackEngine {
   private readonly listeners = new Set<(state: PlaybackState) => void>()
   private readonly jumpListeners = new Set<() => void>()
   private readonly endListeners = new Set<() => void>()
+  private readonly systemListeners = new Set<() => void>()
   private stopTick: (() => void) | null = null
   private ticksSinceReport = 0
 
@@ -180,6 +181,12 @@ export class PlaybackEngine {
   onEnded = (fn: () => void): (() => void) => {
     this.endListeners.add(fn)
     return () => this.endListeners.delete(fn)
+  }
+
+  /** Calls `fn` just before a lock-screen, headset, or media-key control acts. */
+  onSystemAction = (fn: () => void): (() => void) => {
+    this.systemListeners.add(fn)
+    return () => this.systemListeners.delete(fn)
   }
 
   /** A stable reference between changes, for `useSyncExternalStore`. */
@@ -617,17 +624,22 @@ export class PlaybackEngine {
   private registerActionHandlers(): void {
     const session = mediaSession()
     if (!session) return
-    setActionHandler(session, 'play', () => this.play())
-    setActionHandler(session, 'pause', () => this.pause())
-    setActionHandler(session, 'seekbackward', (details) => {
+    const handle = (action: MediaSessionAction, act: MediaSessionActionHandler) =>
+      setActionHandler(session, action, (details) => {
+        for (const fn of this.systemListeners) fn()
+        act(details)
+      })
+    handle('play', () => this.play())
+    handle('pause', () => this.pause())
+    handle('seekbackward', (details) => {
       const offsetMs = (details.seekOffset ?? DEFAULT_SEEK_OFFSET_S) * 1000
       this.seek(this.positionMsFor(this.element.currentTime) - offsetMs)
     })
-    setActionHandler(session, 'seekforward', (details) => {
+    handle('seekforward', (details) => {
       const offsetMs = (details.seekOffset ?? DEFAULT_SEEK_OFFSET_S) * 1000
       this.seek(this.positionMsFor(this.element.currentTime) + offsetMs)
     })
-    setActionHandler(session, 'seekto', (details) => {
+    handle('seekto', (details) => {
       if (details.seekTime === undefined) return
       this.seek(details.seekTime * 1000)
     })

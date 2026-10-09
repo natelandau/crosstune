@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { countBucket } from '../../analytics/buckets'
 import { createList, renameList } from '../../commands/lists'
 import { LIST_NAME_REQUIRED } from '../../commands/messages'
 import { useDb } from '../../db/DbProvider'
@@ -42,6 +44,7 @@ export function useListName(
   },
 ): ListName {
   const db = useDb()
+  const analytics = useAnalytics()
   const { error, pending, runThen, clear } = useAction()
   const [name, setNameState] = useState('')
   const [invalid, setInvalid] = useState<string | null>(null)
@@ -76,8 +79,13 @@ export function useListName(
     runThen(
       async () => {
         try {
-          if (current.kind === 'new') listId = await createList(db, trimmed)
-          else await renameList(db, current.listId, trimmed)
+          if (current.kind === 'new') {
+            listId = await createList(db, trimmed)
+            analytics.send('list_created', { list_id: listId, count_bucket: countBucket(0) })
+          } else {
+            await renameList(db, current.listId, trimmed)
+            analytics.send('list_renamed', { list_id: listId })
+          }
         } catch (caught) {
           sheet.saveFailed(caught)
         }

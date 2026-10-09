@@ -14,7 +14,7 @@ function run(env: Record<string, string>) {
   const shim = join(bin, 'pnpm')
   writeFileSync(
     shim,
-    '#!/usr/bin/env bash\necho "$1 $VITE_CLERK_PUBLISHABLE_KEY $VITE_SENTRY_ENVIRONMENT $VITE_SENTRY_DSN"\n',
+    '#!/usr/bin/env bash\necho "$1 $VITE_CLERK_PUBLISHABLE_KEY $VITE_SENTRY_ENVIRONMENT $VITE_SENTRY_DSN ${VITE_POSTHOG_KEY:-none}"\n',
   )
   chmodSync(shim, 0o755)
   try {
@@ -25,6 +25,7 @@ function run(env: Record<string, string>) {
         CLERK_PUBLISHABLE_KEY_PRODUCTION: 'pk_live_x',
         CLERK_PUBLISHABLE_KEY_DEVELOPMENT: 'pk_test_x',
         VITE_SENTRY_DSN: 'https://dsn.example',
+        POSTHOG_PROJECT_TOKEN_PRODUCTION: 'phc_live_x',
         ...env,
       },
     })
@@ -38,7 +39,7 @@ describe('hosted-build', () => {
   it('builds production with the production key and environment', () => {
     expect(run({ WORKERS_CI_BRANCH: 'production' })).toMatchObject({
       status: 0,
-      stdout: 'build pk_live_x production https://dsn.example',
+      stdout: 'build pk_live_x production https://dsn.example phc_live_x',
     })
   })
 
@@ -47,7 +48,7 @@ describe('hosted-build', () => {
     (branch) => {
       expect(run({ WORKERS_CI_BRANCH: branch })).toMatchObject({
         status: 0,
-        stdout: 'build pk_test_x development https://dsn.example',
+        stdout: 'build pk_test_x development https://dsn.example none',
       })
     },
   )
@@ -62,5 +63,11 @@ describe('hosted-build', () => {
     const result = run({ WORKERS_CI_BRANCH: 'production', CLERK_PUBLISHABLE_KEY_PRODUCTION: '' })
     expect(result.status).not.toBe(0)
     expect(result.stderr).toMatch(/CLERK_PUBLISHABLE_KEY_PRODUCTION/)
+  })
+
+  it('fails when the production analytics key is missing', () => {
+    const result = run({ WORKERS_CI_BRANCH: 'production', POSTHOG_PROJECT_TOKEN_PRODUCTION: '' })
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).toMatch(/POSTHOG_PROJECT_TOKEN_PRODUCTION/)
   })
 })

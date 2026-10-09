@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/react'
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
+import { recordingAnalytics } from '../../analytics/testing'
 import { recordEvent } from '../../commands/events'
 import type { CrosstuneDb } from '../../db/schema'
 import { useWakeLock } from '../../platform/wakeLock'
@@ -34,10 +35,12 @@ function setup({
   now = () => 0,
   onClose = vi.fn(),
   confirm = vi.fn(async () => true),
+  analytics = recordingAnalytics(),
 }: {
   now?: () => number
   onClose?: () => void
   confirm?: () => Promise<boolean>
+  analytics?: ReturnType<typeof recordingAnalytics>
 } = {}) {
   return renderHook(
     () =>
@@ -49,7 +52,7 @@ function setup({
         confirm,
         onClose,
       }),
-    { wrapper: dataProviders({ db }) },
+    { wrapper: dataProviders({ db, analytics }) },
   )
 }
 
@@ -140,4 +143,31 @@ it('starts a view when scans arrive after the tune had none', async () => {
   t += SCAN_VIEW_THRESHOLD_MS
   act(() => result.current.close())
   await expect.poll(views).toEqual([expect.objectContaining({ viewed_ms: SCAN_VIEW_THRESHOLD_MS })])
+})
+
+const VIEWED = { name: 'scan_viewed', props: { tune_id: 't1' } }
+
+it('reports scan_viewed once per opening, before the view meets the threshold', async () => {
+  await addScans(3)
+  const analytics = recordingAnalytics()
+  const t = 1_000
+  const { result } = setup({ now: () => t, analytics })
+  await expect.poll(() => analytics.sends()).toEqual([VIEWED])
+  act(() => result.current.setIndex(2))
+  await expect.poll(() => result.current.index).toBe(2)
+  act(() => result.current.close())
+  expect(analytics.sends()).toEqual([VIEWED])
+  expect(await views()).toEqual([])
+})
+
+it('reports scan_viewed when scans arrive after the viewer opened on none', async () => {
+  const analytics = recordingAnalytics()
+  const { result } = setup({ analytics })
+  await expect.poll(() => result.current.ready).toBe(true)
+  expect(analytics.sends()).toEqual([])
+  await addScans(1)
+  await expect.poll(() => analytics.sends()).toEqual([VIEWED])
+  await addScans(2)
+  await expect.poll(() => result.current.count).toBe(2)
+  expect(analytics.sends()).toEqual([VIEWED])
 })

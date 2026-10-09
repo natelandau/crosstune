@@ -1,6 +1,8 @@
 import { useState, type ReactElement } from 'react'
 import { page, userEvent, type Locator } from 'vitest/browser'
 import { expect, it, onTestFinished, vi } from 'vitest'
+import { AnalyticsProvider } from '../../analytics/AnalyticsProvider'
+import { recordingAnalytics } from '../../analytics/testing'
 import { createTune } from '../../commands/tunes'
 import { SEARCH_TUNES, TUNE_LIST, SELECT_TUNES } from '../catalog/catalogCopy'
 import { PAUSE, PLAY } from '../player/transportCopy'
@@ -56,7 +58,12 @@ function focusBody() {
 }
 
 async function mountCatalog(
-  options: { launcher?: TuneFormLauncher; density?: 'pointer' | 'touch'; frame?: typeof WIDE } = {},
+  options: {
+    launcher?: TuneFormLauncher
+    density?: 'pointer' | 'touch'
+    frame?: typeof WIDE
+    wrap?: (app: ReactElement) => ReactElement
+  } = {},
 ) {
   const db = openTestDb()
   await createTune(db, { title: 'Old Joe Clark' }, { status: 'known' })
@@ -66,6 +73,7 @@ async function mountCatalog(
     frame: options.frame ?? WIDE,
     density: options.density ?? 'pointer',
     launcher: options.launcher,
+    wrap: options.wrap,
   })
   await expect.element(search()).toBeVisible()
   return app
@@ -125,6 +133,20 @@ it('opens the record sheet on R', async () => {
   focusBody()
   await userEvent.keyboard('r')
   await expect.element(page.getByRole('dialog', { name: NEW_RECORDING })).toBeVisible()
+})
+
+it('reports the menu as the source of a recording started with R', async () => {
+  fakeMediaForTest()
+  const analytics = recordingAnalytics()
+  await mountCatalog({
+    wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
+  })
+  focusBody()
+  await userEvent.keyboard('r')
+
+  await expect
+    .poll(() => analytics.sends())
+    .toEqual([{ name: 'recording_started', props: { source: 'menu' } }])
 })
 
 it('goes to Lists on G then L', async () => {
@@ -215,7 +237,7 @@ it('runs letter shortcuts with focus on a sidebar link', async () => {
   await expect.element(link).toHaveFocus()
 
   await userEvent.keyboard('n')
-  await expect.poll(() => open.mock.calls.length).toBe(1)
+  await expect.poll(() => open.mock.calls).toEqual([[{ source: 'menu' }]])
   await expect.element(link).toHaveFocus()
   await userEvent.keyboard('gl')
   await expect.poll(() => router.state.location.pathname).toBe('/lists')
@@ -256,7 +278,7 @@ it('opens the tune form on N with focus on a row a tune with N heads', async () 
   const open = vi.fn()
   await mountOnRow({ open })
   await userEvent.keyboard('n')
-  await expect.poll(() => open.mock.calls.length).toBe(1)
+  await expect.poll(() => open.mock.calls).toEqual([[{ source: 'menu' }]])
 })
 
 it('goes to Lists on G then L with focus on a row, past a tune with G', async () => {

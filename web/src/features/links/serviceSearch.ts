@@ -49,13 +49,14 @@ export function outcomeMessage(outcome: SearchOutcome): string | null {
  * Opens a service's own search page for `query` in a new tab. Returns null once it opens, or
  * why it could not. Call it from a tap: the client never builds a service's search URL itself,
  * so the route answers it, and a browser blocks a tab opened after that wait. A blank tab opens
- * now and is sent on once the answer lands.
+ * now and is sent on once the answer lands. `onOpened` runs once the tab has been sent on.
  */
 export async function openServiceSearch(
   engine: SyncEngine,
   query: string,
   provider: Provider,
   label: string,
+  onOpened?: () => void,
 ): Promise<string | null> {
   // Nothing to search for opens nothing.
   if (!query.trim()) return null
@@ -84,6 +85,7 @@ export async function openServiceSearch(
     link.rel = 'noreferrer'
     tab.document.body.append(link)
     link.click()
+    onOpened?.()
   } catch {
     // Writing into a tab the musician just closed throws; that is a cancel, not a failure.
     return tab.closed ? null : SEARCH_FAILED

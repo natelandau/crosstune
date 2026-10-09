@@ -25,9 +25,9 @@ describe('RecordStateProvider', () => {
     const { result } = setup(player)
     expect(result.current.target).toBeNull()
 
-    act(() => result.current.start('t1'))
+    act(() => result.current.start({ tuneId: 't1', source: 'tune' }))
 
-    expect(result.current.target).toEqual({ tuneId: 't1' })
+    expect(result.current.target).toEqual({ tuneId: 't1', source: 'tune' })
     expect(result.current.recording).toBe(true)
     expect(unlock).toHaveBeenCalledOnce()
     expect(player.close).toHaveBeenCalledOnce()
@@ -38,27 +38,27 @@ describe('RecordStateProvider', () => {
     const { result } = setup(player)
 
     act(() => {
-      result.current.start('t1')
-      result.current.start('t2')
+      result.current.start({ tuneId: 't1', source: 'tune' })
+      result.current.start({ tuneId: 't2', source: 'tune' })
     })
-    act(() => result.current.start())
+    act(() => result.current.start({ source: 'dock' }))
 
-    expect(result.current.target).toEqual({ tuneId: 't1' })
+    expect(result.current.target).toEqual({ tuneId: 't1', source: 'tune' })
     expect(player.close).toHaveBeenCalledOnce()
   })
 
   it('remembers the last save when it closes, and starts again after', () => {
     const { result } = setup()
     expect(result.current.lastSaved).toBeNull()
-    act(() => result.current.start('t1'))
+    act(() => result.current.start({ tuneId: 't1', source: 'tune' }))
 
     act(() => result.current.close({ recordingId: 'r1' }))
 
     expect(result.current.target).toBeNull()
     expect(result.current.lastSaved).toEqual({ recordingId: 'r1', at: expect.any(Number) })
 
-    act(() => result.current.start())
-    expect(result.current.target).toEqual({ tuneId: null })
+    act(() => result.current.start({ source: 'dock' }))
+    expect(result.current.target).toEqual({ tuneId: null, source: 'dock' })
     act(() => result.current.close())
     // A discarded take leaves the last save standing.
     expect(result.current.lastSaved?.recordingId).toBe('r1')

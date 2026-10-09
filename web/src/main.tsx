@@ -1,6 +1,7 @@
 import { ClerkProvider } from '@clerk/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { AnalyticsProvider } from './analytics/AnalyticsProvider'
 import { WAITLIST_URL } from './auth/links'
 import { createAppRouter } from './app/router'
 import { AuthGate } from './app/AuthGate'
@@ -10,16 +11,18 @@ import './app.css'
 
 function mountApp(element: HTMLElement) {
   // Started before the key check, so a build missing its key still reports the throw.
-  startServices()
+  const analytics = startServices()
   const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
   if (!clerkKey) throw new Error('VITE_CLERK_PUBLISHABLE_KEY is not set')
   const router = createAppRouter()
   createRoot(element).render(
     <StrictMode>
       <ClerkProvider publishableKey={clerkKey} waitlistUrl={WAITLIST_URL}>
-        <AuthGate>
-          <AppData router={router} />
-        </AuthGate>
+        <AnalyticsProvider client={analytics}>
+          <AuthGate>
+            <AppData router={router} />
+          </AuthGate>
+        </AnalyticsProvider>
       </ClerkProvider>
     </StrictMode>,
   )

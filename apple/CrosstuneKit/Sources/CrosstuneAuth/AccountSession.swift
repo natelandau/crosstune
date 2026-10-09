@@ -129,7 +129,6 @@ public final class AccountSession {
     /// Whether a sync of the open store has identified the person with the API's figures.
     @ObservationIgnored private var syncedFiguresReported = false
     @ObservationIgnored private let analytics: AnalyticsClient
-    @ObservationIgnored private let deviceSettings: @MainActor () -> [SettingChange]
     @ObservationIgnored private var identity: AnalyticsIdentity
 
     /// - Parameters:
@@ -140,14 +139,15 @@ public final class AccountSession {
     ///   - analytics: Where sign-in, sign-out, and deletion are reported.
     ///   - deviceSettings: The settings this device keeps outside the store, which the person
     ///     carries beside the synced ones.
+    ///   - assistiveTech: The assistive features the device has on, which the person carries.
     public init(
         publishableKey: String, apiOrigin: URL, clientVersion: String, storageOrigin: URL? = nil,
         remembered: RememberedUser = RememberedUser(), storeRoot: URL = CrosstuneStore.defaultRoot,
-        analytics: AnalyticsClient = .noop, deviceSettings: @escaping @MainActor () -> [SettingChange] = { [] }
+        analytics: AnalyticsClient = .noop, deviceSettings: @escaping @MainActor () -> [SettingChange] = { [] },
+        assistiveTech: @escaping @MainActor () -> [AssistiveTechnology]? = { nil }
     ) {
         self.analytics = analytics
-        self.deviceSettings = deviceSettings
-        identity = AnalyticsIdentity(analytics: analytics)
+        identity = AnalyticsIdentity(analytics: analytics, deviceSettings: deviceSettings, assistiveTech: assistiveTech)
         self.remembered = remembered
         signedOutUserID = remembered.deletedUserID
         self.storeRoot = storeRoot
@@ -251,6 +251,8 @@ public final class AccountSession {
             if let quality = AudioQuality(row.audioQuality) { settings.append(.audioQuality(quality)) }
             settings.append(.searchProviders(row.searchProviders.map { LinkService(rawValue: $0) ?? .other }))
             if let playFirst = PlayFirst(row.playFirst) { settings.append(.playFirst(playFirst)) }
+            if let status = TuneStatus(row.newTuneStatus) { settings.append(.newTuneStatus(status)) }
+            settings.append(.newTuneGenreSet(isFilled(row.newTuneGenre)))
         }
         if let keepsOffline = try? MetaKey.keepOffline.value(in: db, as: Bool.self) {
             settings.append(.downloadAll(keepsOffline))
@@ -306,12 +308,9 @@ public final class AccountSession {
     /// - Parameter carried: Called with whether the identify carried the API's figures.
     private func identifyWithStoreFigures(carried: @escaping @MainActor (Bool) -> Void = { _ in }) {
         guard case .signedIn(let userID, confirmed: true) = phase, let store, store.userID == userID else { return }
-        let analytics = analytics
+        let identity = identity
         Task { [weak self] in
-            let device = self?.deviceSettings() ?? []
-            let sent = await Self.identify(
-                userID: userID, withFiguresIn: store, analytics: analytics, deviceSettings: device
-            ) {
+            let sent = await identity.identify(userID: userID, withFiguresIn: store) {
                 self?.mayIdentify(userID) ?? false
             }
             carried(sent)
@@ -330,14 +329,16 @@ public final class AccountSession {
     /// - Returns: Whether the identify carried the API's figures.
     static func identify(
         userID: String, withFiguresIn store: CrosstuneStore, analytics: AnalyticsClient,
-        deviceSettings: [SettingChange] = [], canIdentify: @MainActor () -> Bool
+        deviceSettings: [SettingChange] = [], assistiveTech: [AssistiveTechnology]? = nil,
+        canIdentify: @MainActor () -> Bool
     ) async -> Bool {
         let figures = await storeFigures(in: store)
         guard canIdentify() else { return false }
         analytics.identify(
             userID: userID, signedUpAt: nil, catalogSize: figures.catalogSize, storageUsed: figures.storageUsed,
             fieldsUsed: figures.fieldsUsed,
-            settings: (figures.storageUsed == nil ? [] : figures.settings) + deviceSettings)
+            settings: (figures.storageUsed == nil ? [] : figures.settings) + deviceSettings,
+            assistiveTech: assistiveTech)
         return figures.storageUsed != nil
     }
 

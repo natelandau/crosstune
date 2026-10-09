@@ -77,6 +77,7 @@ export function useReplayedOrder<T>({
   readOrder,
   announce,
   onMoveStart,
+  onMoved,
   onError,
 }: {
   items: readonly T[]
@@ -88,6 +89,8 @@ export function useReplayedOrder<T>({
   /** What a status line says once `rows[from]` has gone to `to`, at the moment of the move. */
   announce: (rows: readonly T[], from: number, to: number) => string
   onMoveStart?: () => void
+  /** A move's write has landed. */
+  onMoved?: () => void
   onError: (message: string) => void
 }): ReplayedOrder<T> {
   const [announcement, setAnnouncement] = useState('')
@@ -127,6 +130,7 @@ export function useReplayedOrder<T>({
       .then(() => write(next.move.itemId, next.move.targetId))
       .then(
         async () => {
+          onMoved?.()
           // Read before the await, or a commit landing inside it would leave these two
           // describing different moments and neither of them able to retire the move.
           const shown = shownItemsRef.current

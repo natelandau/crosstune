@@ -1,6 +1,8 @@
 import { expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import type { ResolveResponse, SearchGroup, SearchResult } from '../../api/types'
+import { AnalyticsProvider } from '../../analytics/AnalyticsProvider'
+import { recordingAnalytics } from '../../analytics/testing'
 import { settingsPagePath } from '../settings/settingsPaths'
 import { toggleSearchProvider } from '../../commands/settings'
 import type { CrosstuneDb } from '../../db/schema'
@@ -109,4 +111,20 @@ it('takes a musician with no music services to their settings', async () => {
   await openAdd(FIND_RECORDINGS)
   await page.getByRole('button', { name: MUSIC_SERVICES }).click()
   await expect.poll(() => router.state.location.pathname).toBe(settingsPagePath('music-services'))
+})
+
+it('reports find_recordings once when the sheet opens', async () => {
+  const analytics = recordingAnalytics()
+  const db = openTestDb()
+  await seedTune(db)
+  await renderApp({
+    path: '/catalog/t1',
+    db,
+    wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
+  })
+  await openAdd(FIND_RECORDINGS)
+  await expect.element(page.getByRole('dialog', { name: FIND_RECORDINGS })).toBeVisible()
+  const found = () =>
+    analytics.calls.filter((c) => c.type === 'screen' && c.name === 'find_recordings')
+  await expect.poll(() => found().length).toBe(1)
 })

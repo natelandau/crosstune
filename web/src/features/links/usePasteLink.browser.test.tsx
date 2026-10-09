@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
+import { recordingAnalytics } from '../../analytics/testing'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { LINK_NOT_WEB, LINK_REQUIRED } from './pasteLinkCopy'
@@ -15,14 +16,17 @@ beforeEach(async () => {
   ;({ tuneId } = await createTune(db, { title: 'Reel' }, { status: 'known' }))
 })
 
-function setup() {
+function setup(analytics = recordingAnalytics()) {
   const onClose = vi.fn()
   const onInvalid = vi.fn()
   const hook = renderHook(
     ({ target }: { target: string | null }) => usePasteLink(target, { onClose, onInvalid }),
-    { wrapper: dataProviders({ db }), initialProps: { target: tuneId as string | null } },
+    {
+      wrapper: dataProviders({ db, analytics }),
+      initialProps: { target: tuneId as string | null },
+    },
   )
-  return { ...hook, onClose, onInvalid }
+  return { ...hook, onClose, onInvalid, analytics }
 }
 
 describe('usePasteLink', () => {
@@ -73,5 +77,26 @@ describe('usePasteLink', () => {
     rerender({ target: tuneId })
     expect(result.current.open).toBe(true)
     expect(result.current.url).toBe('')
+  })
+
+  it('reports the pasted link with its service and ids once it is saved', async () => {
+    const { result, analytics } = setup()
+    act(() => result.current.setUrl('https://youtu.be/dQw4w9WgXcQ'))
+    act(() => result.current.submit())
+    await expect.poll(() => analytics.sends()).toHaveLength(1)
+    const [link] = await db.recording_links.toArray()
+    expect(analytics.sends()).toEqual([
+      {
+        name: 'link_added',
+        props: { service: 'youtube', via: 'paste', link_id: link!.id, tune_id: tuneId },
+      },
+    ])
+  })
+
+  it('reports nothing for a link that was refused', async () => {
+    const { result, analytics } = setup()
+    act(() => result.current.submit())
+    await expect.poll(() => result.current.validation).toBe(LINK_REQUIRED)
+    expect(analytics.sends()).toEqual([])
   })
 })

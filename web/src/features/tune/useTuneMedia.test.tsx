@@ -1,4 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
+import type { Source } from '../../analytics/events'
+import { recordingAnalytics } from '../../analytics/testing'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as commands from '../../commands/links'
@@ -42,8 +44,13 @@ afterEach(() => {
 function mount({
   start = vi.fn(),
   engine = fakeEngine(),
-}: { start?: (id: string) => void; engine?: ReturnType<typeof fakeEngine> } = {}) {
-  const Data = dataProviders({ db, engine })
+  analytics = recordingAnalytics(),
+}: {
+  start?: (options: { tuneId: string; source: Source }) => void
+  engine?: ReturnType<typeof fakeEngine>
+  analytics?: ReturnType<typeof recordingAnalytics>
+} = {}) {
+  const Data = dataProviders({ db, engine, analytics })
   const wrapper = ({ children }: { children: ReactNode }) => (
     <Data>
       <PlayerContext.Provider value={fakePlayer()}>{children}</PlayerContext.Provider>
@@ -125,7 +132,7 @@ describe('useTuneMedia', () => {
     expect(addItems.map(label)).toEqual([NEW_RECORDING, PASTE_LINK, FIND_RECORDINGS])
     expect(addItems[2]!.refused).toBeUndefined()
     act(() => addItems[0]!.onPress())
-    expect(start).toHaveBeenCalledWith(ids.tuneId)
+    expect(start).toHaveBeenCalledWith({ tuneId: ids.tuneId, source: 'tune' })
     act(() => addItems[1]!.onPress())
     expect(result.current.media.pasting).toBe(true)
     act(() => result.current.media.setPasting(false))
@@ -218,5 +225,103 @@ describe('useTuneMedia', () => {
     // Pending falling means the old action has settled, so a late error would be showing.
     await waitFor(() => expect(result.current.media.pending).toBe(false))
     expect(result.current.media.error).toBeNull()
+  })
+
+  it('sends archive_recording_saved once a link is saved as a recording', async () => {
+    const analytics = recordingAnalytics()
+    await addLink(db, ids.tuneId, {
+      url: 'https://www.slippery-hill.com/recording/1',
+      provider: 'slippery_hill',
+      provider_ref: '1',
+    })
+    const { result } = mount({ analytics })
+    await waitFor(() => expect(result.current.media.linkRows).toHaveLength(1))
+
+    act(() => {
+      result.current.media.linkRows[0]!.actions.find(
+        (a) => a.label === ADD_TO_RECORDINGS,
+      )!.onPress()
+    })
+
+    await expect.poll(async () => (await db.recordings.toArray()).length).toBe(1)
+    const [saved] = await db.recordings.toArray()
+    await expect
+      .poll(() => analytics.sends())
+      .toEqual([
+        {
+          name: 'archive_recording_saved',
+          props: { source_archive: 'slippery_hill', recording_id: saved!.id, tune_id: ids.tuneId },
+        },
+      ])
+  })
+
+  it('sends link_removed with the link and its service once the link is removed', async () => {
+    const analytics = recordingAnalytics()
+    const linkId = await addLink(db, ids.tuneId, {
+      url: 'https://open.spotify.com/track/abc',
+      provider: 'spotify',
+    })
+    const { result } = mount({ analytics })
+    await waitFor(() => expect(result.current.media.linkRows).toHaveLength(1))
+
+    act(() => {
+      result.current.media.linkRows[0]!.actions.find((a) => a.label === 'Remove')!.onPress()
+    })
+
+    await expect
+      .poll(() => analytics.sends())
+      .toEqual([{ name: 'link_removed', props: { service: 'spotify', link_id: linkId } }])
+  })
+
+  it('sends no link_removed when the removal fails', async () => {
+    const analytics = recordingAnalytics()
+    await addLink(db, ids.tuneId, { url: 'https://example.com/a', provider: 'other' })
+    vi.spyOn(commands, 'removeLink').mockRejectedValueOnce(new Error('no'))
+    const { result } = mount({ analytics })
+    await waitFor(() => expect(result.current.media.linkRows).toHaveLength(1))
+
+    act(() => {
+      result.current.media.linkRows[0]!.actions.find((a) => a.label === 'Remove')!.onPress()
+    })
+
+    await expect.poll(() => result.current.media.error).not.toBeNull()
+    expect(analytics.sends()).toEqual([])
+  })
+
+  it('sends find_recordings_used without a count when the one chosen service opens its own site', async () => {
+    const analytics = recordingAnalytics()
+    for (const provider of SEARCHABLE_PROVIDERS) {
+      if (provider !== 'spotify')
+        await toggleSearchProvider(db, testSession.userId, provider, false)
+    }
+    const tab = {
+      opener: {} as unknown,
+      document: document.implementation.createHTMLDocument(),
+      close: vi.fn(),
+      closed: false,
+    }
+    vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    const engine = fakeEngine({
+      searchRecordings: async () => ({
+        kind: 'ok',
+        groups: [
+          {
+            provider: 'spotify',
+            status: 'search_only',
+            results: [],
+            search_url: 'https://open.spotify.com/search/silver',
+          },
+        ],
+      }),
+    })
+    const { result } = mount({ analytics, engine })
+    await waitFor(() => expect(result.current.media.only).toBe('spotify'))
+    await waitFor(() => expect(result.current.media.prefill).toBeTruthy())
+
+    act(() => result.current.media.addItems[2]!.onPress())
+
+    await expect
+      .poll(() => analytics.sends())
+      .toEqual([{ name: 'find_recordings_used', props: { service: 'spotify' } }])
   })
 })

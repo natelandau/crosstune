@@ -84,7 +84,8 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     @Test func dropsAFailedWrite() {
         var pending = PendingWrite<Bool>()
         let token = pending.begin(true)
-        pending.fail(token)
+        let wasLatest = pending.fail(token)
+        #expect(wasLatest)
         #expect(pending.value == nil)
     }
 
@@ -92,7 +93,8 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         var pending = PendingWrite<Bool>()
         let first = pending.begin(true)
         _ = pending.begin(false)
-        pending.fail(first)
+        let firstWasLatest = pending.fail(first)
+        #expect(!firstWasLatest)
         #expect(pending.value == false)
         pending.land(first, stored: false)
         #expect(pending.value == false)
@@ -214,6 +216,35 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         #expect(model.instrumentsFailure == nil)
     }
 
+    /// Writes run in order, so once a later toggle of another instrument is stored, every toggle
+    /// before it has settled.
+    @Test func showsAnInstrumentFailureOnlyForTheLatestToggleOfThatInstrument() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let model = try await loadedModel(store)
+        try await store.write { writer in
+            for event in ["INSERT", "UPDATE"] {
+                try writer.db.execute(
+                    sql: """
+                        CREATE TRIGGER refuse_violin_\(event.lowercased()) BEFORE \(event) ON user_settings
+                        WHEN NEW.instruments LIKE '%"violin"%' BEGIN SELECT RAISE(ABORT, 'refused'); END
+                        """)
+            }
+        }
+
+        model.setPlays("violin", true)
+        model.setPlays("violin", false)
+        model.setPlays("mandolin", true)
+        try await eventually { try await storedSettings(store)?.instruments == ["mandolin"] }
+        #expect(model.instrumentsFailure == nil)
+
+        model.setPlays("violin", true)
+        model.setPlays("guitar", true)
+        try await eventually { try await storedSettings(store)?.instruments == ["guitar", "mandolin"] }
+        #expect(model.instrumentsFailure != nil)
+        #expect(!model.plays("violin"))
+    }
+
     @Test func followsAnInstrumentChangedElsewhere() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -269,6 +300,27 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         model.setNewTuneGenre("")
         try await eventually { try await storedSettings(store)?.newTuneGenre == nil }
         #expect(model.newTunesSummary == TuneFieldLabels.notSet)
+    }
+
+    @Test func showsNoFailureForAGenreALaterKeystrokeSaved() async throws {
+        let store = try await SampleCatalog.makeStore()
+        let model = try await loadedModel(store)
+        try await store.write { writer in
+            for event in ["INSERT", "UPDATE"] {
+                try writer.db.execute(
+                    sql: """
+                        CREATE TRIGGER refuse_genre_\(event.lowercased()) BEFORE \(event) ON user_settings
+                        WHEN NEW.new_tune_genre = 'R' BEGIN SELECT RAISE(ABORT, 'refused'); END
+                        """)
+            }
+        }
+
+        model.setNewTuneGenre("R")
+        model.setNewTuneGenre("Re")
+
+        // Writes run in order, so the refused one has settled once the later one is stored.
+        try await eventually { try await storedSettings(store)?.newTuneGenre == "Re" }
+        #expect(model.newTuneGenreFailure == nil)
     }
 
     @Test func namesEachPlayFirstChoice() {

@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { recordingAnalytics } from '../../analytics/testing'
 import { settingsId } from '../../commands/settings'
 import { getKeepOffline } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
@@ -15,8 +16,12 @@ beforeEach(() => {
   db = openTestDb()
 })
 
-const setup = (engine: SyncEngine = fakeEngine()) =>
-  renderHook(() => useRecordingSettings(), { wrapper: dataProviders({ db, engine }) })
+const setup = (engine: SyncEngine = fakeEngine(), analytics = recordingAnalytics()) => ({
+  analytics,
+  ...renderHook(() => useRecordingSettings(), {
+    wrapper: dataProviders({ db, engine, analytics }),
+  }),
+})
 
 describe('useRecordingSettings', () => {
   it('starts a transfer and asks to keep the storage once keep offline is on', async () => {
@@ -52,5 +57,32 @@ describe('useRecordingSettings', () => {
       .poll(async () => (await db.user_settings.get(settingsId('user_1')))?.audio_quality)
       .toBe('high')
     await expect.poll(() => result.current.quality).toBe('high')
+  })
+
+  it('reports a changed audio quality once it is written', async () => {
+    const { result, analytics } = setup()
+    await expect.poll(() => result.current.localBytesLabel).toBe(audioOnDevice(0))
+    act(() => result.current.setQuality('standard'))
+    act(() => result.current.setQuality('high'))
+    await expect.poll(() => analytics.sends()).toHaveLength(1)
+    await expect.poll(() => result.current.quality).toBe('high')
+    expect(analytics.sends()).toEqual([
+      { name: 'setting_changed', props: { setting: 'audio_quality', value: 'high' } },
+    ])
+  })
+
+  it('reports Keep offline as download_all when it changes', async () => {
+    vi.spyOn(navigator.storage, 'persist').mockResolvedValue(true)
+    const { result, analytics } = setup()
+    act(() => result.current.setKeepOffline(false))
+    act(() => result.current.setKeepOffline(true))
+    await expect.poll(() => analytics.sends()).toHaveLength(1)
+    await expect.poll(() => getKeepOffline(db)).toBe(true)
+    act(() => result.current.setKeepOffline(false))
+    await expect.poll(() => analytics.sends()).toHaveLength(2)
+    expect(analytics.sends()).toEqual([
+      { name: 'setting_changed', props: { setting: 'download_all', value: true } },
+      { name: 'setting_changed', props: { setting: 'download_all', value: false } },
+    ])
   })
 })

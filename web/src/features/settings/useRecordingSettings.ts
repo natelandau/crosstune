@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo } from 'react'
 import type { AudioQuality } from '../../api/vocabulary'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { useAuthSession } from '../../auth/AuthContext'
 import { clearDownloadedBlobs, localAudioBytes } from '../../commands/recordings'
 import { setAudioQuality, settingsId } from '../../commands/settings'
@@ -34,6 +35,7 @@ export function useRecordingSettings(): RecordingSettings {
   const db = useDb()
   const { userId } = useAuthSession()
   const engine = useSyncEngine()
+  const analytics = useAnalytics()
   const qualityAction = useAction()
   const keepAction = useAction()
   const removeAction = useAction()
@@ -64,10 +66,24 @@ export function useRecordingSettings(): RecordingSettings {
 
   return {
     quality: quality?.quality ?? 'standard',
-    setQuality: (next) => qualityAction.run(() => writeQuality({ quality: next })),
+    setQuality: (next) => {
+      const changed = next !== (quality?.quality ?? 'standard')
+      qualityAction.run(() =>
+        writeQuality({ quality: next }).then(() => {
+          if (changed) analytics.send('setting_changed', { setting: 'audio_quality', value: next })
+        }),
+      )
+    },
     qualityError: qualityAction.error,
     keepOffline: keep?.on ?? false,
-    setKeepOffline: (on) => keepAction.run(() => writeKeep({ on })),
+    setKeepOffline: (on) => {
+      const changed = on !== (keep?.on ?? false)
+      keepAction.run(() =>
+        writeKeep({ on }).then(() => {
+          if (changed) analytics.send('setting_changed', { setting: 'download_all', value: on })
+        }),
+      )
+    },
     keepError: keepAction.error,
     localBytesLabel: audioOnDevice(localBytes ?? 0),
     removeDownloads: () => removeAction.run(() => clearDownloadedBlobs(db)),

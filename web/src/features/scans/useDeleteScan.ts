@@ -1,3 +1,4 @@
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { deleteScan } from '../../commands/scans'
 import { useDb } from '../../db/DbProvider'
 import type { ScanFile } from '../../db/scans'
@@ -15,7 +16,8 @@ export function useDeleteScan({
   confirm: (question: ConfirmQuestion) => Promise<boolean>
 }) {
   const db = useDb()
-  const { error, run, clear } = useAction()
+  const analytics = useAnalytics()
+  const { error, runThen, clear } = useAction()
 
   const remove = async (scan: LocalScan, file: ScanFile | undefined) => {
     // A captured file is the only copy until it uploads.
@@ -25,7 +27,12 @@ export function useDeleteScan({
       message: unsynced ? DELETE_UNSYNCED_NOTE : DELETE_SYNCED_NOTE,
       action: DELETE,
     })
-    if (ok) run(() => deleteScan(db, scan.id))
+    if (ok) {
+      runThen(
+        () => deleteScan(db, scan.id),
+        () => analytics.send('scan_deleted', { scan_id: scan.id, tune_id: scan.tune_id }),
+      )
+    }
   }
 
   return {

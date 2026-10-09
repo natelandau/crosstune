@@ -1,10 +1,12 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo } from 'react'
 import type { PlayFirst, Provider } from '../../api/vocabulary'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { serviceOf } from '../../analytics/service'
 import { useAuthSession } from '../../auth/AuthContext'
 import { setPlayFirst, settingsId, toggleSearchProvider } from '../../commands/settings'
 import { useDb } from '../../db/DbProvider'
-import { storedPlayFirst } from '../../db/types'
+import { storedPlayFirst, storedSearchProviders } from '../../db/types'
 import { useAction } from '../../ui/useAction'
 import { usePendingWrite } from '../../ui/usePendingWrite'
 import { SEARCHABLE_PROVIDERS, servicesSummary, useSearchProviders } from './searchProviders'
@@ -27,6 +29,7 @@ export interface MusicServicesSetting {
 export function useMusicServicesSetting(): MusicServicesSetting {
   const db = useDb()
   const { userId } = useAuthSession()
+  const analytics = useAnalytics()
   const providers = useSearchProviders()
   const { clear, error, run } = useAction()
   const playFirstAction = useAction()
@@ -37,15 +40,33 @@ export function useMusicServicesSetting(): MusicServicesSetting {
     storedFirst,
     ({ first }) => setPlayFirst(db, userId, first),
   )
+  // Read back from the store so toggles made before an earlier one settled are all in the list.
+  const reportProviders = () =>
+    db.user_settings.get(settingsId(userId)).then(
+      (row) =>
+        analytics.send('setting_changed', {
+          setting: 'search_providers',
+          value: storedSearchProviders(row).map(serviceOf),
+        }),
+      () => {},
+    )
   const count = SEARCHABLE_PROVIDERS.filter((provider) => providers?.has(provider)).length
   return {
     providers,
     summary: servicesSummary(count),
-    toggle: (provider, on) => run(() => toggleSearchProvider(db, userId, provider, on)),
+    toggle: (provider, on) =>
+      run(() => toggleSearchProvider(db, userId, provider, on).then(reportProviders)),
     error,
     clear,
     playFirst: playFirst?.first ?? 'recordings',
-    setPlayFirst: (next) => playFirstAction.run(() => writePlayFirst({ first: next })),
+    setPlayFirst: (next) => {
+      const changed = next !== playFirst?.first
+      playFirstAction.run(() =>
+        writePlayFirst({ first: next }).then(() => {
+          if (changed) analytics.send('setting_changed', { setting: 'play_first', value: next })
+        }),
+      )
+    },
     playFirstError: playFirstAction.error,
   }
 }

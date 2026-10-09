@@ -83,6 +83,7 @@ export function TuneFormSheet(props: TuneFormSheetProps) {
 function TuneFormBody({
   isOpen,
   onOpenChange,
+  source,
   tuneId,
   initialTitle,
   listId,
@@ -100,6 +101,7 @@ function TuneFormBody({
   const isOpenRef = useLatest(isOpen)
 
   const form = useTuneForm({
+    source,
     tuneId,
     initialTitle,
     listId,

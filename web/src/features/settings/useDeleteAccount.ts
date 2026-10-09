@@ -1,6 +1,7 @@
 import { useAuth } from '@clerk/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { useAuthSession } from '../../auth/AuthContext'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
@@ -55,10 +56,14 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
   const { userId } = useAuthSession()
   const { signOut } = useAuth()
   const engine = useSyncEngine()
+  const analytics = useAnalytics()
   const { error, pending, runThen, clear } = useAction()
   const [text, setText] = useState('')
   const [closing, setClosing] = useState(false)
   const [openedFor, setOpenedFor] = useState(open)
+  const deletedRef = useRef(false)
+  // Read by `close`, which a second call in the same tick reaches before `closing` renders.
+  const closedRef = useRef(false)
   // Undefined while loading; null when the local count could not be read, which must not
   // block a musician from deleting an account whose copy on this device is broken.
   const counts = useLiveQuery(
@@ -76,20 +81,34 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
     }
   }
 
+  useEffect(() => {
+    if (!open) return
+    deletedRef.current = false
+    closedRef.current = false
+    analytics.send('account_deletion_started', {})
+  }, [open, analytics])
+
   const confirmed = confirmMatches(text)
 
   const run = () => {
     if (!confirmed || pending || loading) return
     runThen(
       () =>
-        deleteAccountAndForget({ db, userId, engine, signOut: () => signOut() }).catch(
-          (cause: unknown) => {
-            throw new Error(deleteOutcomeUnknown(cause) ? DELETE_UNCONFIRMED : DELETE_FAILED, {
-              cause,
-            })
-          },
-        ),
-      () => setClosing(true),
+        deleteAccountAndForget({
+          db,
+          userId,
+          engine,
+          signOut: () => signOut(),
+          analytics,
+        }).catch((cause: unknown) => {
+          throw new Error(deleteOutcomeUnknown(cause) ? DELETE_UNCONFIRMED : DELETE_FAILED, {
+            cause,
+          })
+        }),
+      () => {
+        deletedRef.current = true
+        setClosing(true)
+      },
     )
   }
 
@@ -106,6 +125,12 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
     error,
     pending,
     closing,
-    close: () => setClosing(true),
+    close: () => {
+      if (!deletedRef.current && !closedRef.current) {
+        analytics.send('account_deletion_cancelled', {})
+      }
+      closedRef.current = true
+      setClosing(true)
+    },
   }
 }

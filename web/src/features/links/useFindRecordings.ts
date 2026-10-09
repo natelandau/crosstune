@@ -2,6 +2,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { SearchResult } from '../../api/types'
 import type { Provider } from '../../api/vocabulary'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { countBucket } from '../../analytics/buckets'
+import { serviceOf } from '../../analytics/service'
 import { addLink } from '../../commands/links'
 import { PROVIDER_LABELS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
@@ -78,6 +81,7 @@ export function useFindRecordings(
 ): FindRecordings {
   const db = useDb()
   const engine = useSyncEngine()
+  const analytics = useAnalytics()
   const online = useOnline()
   const providers = useSearchProviders()
   const player = usePlayer()
@@ -152,7 +156,15 @@ export function useFindRecordings(
       .searchRecordings(q, [provider], deviceCountry())
       .catch((): SearchOutcome => ({ kind: 'failed' }))
       .then((outcome) => {
-        if (id === request.current) setSearch(outcome)
+        if (id !== request.current) return
+        setSearch(outcome)
+        if (outcome.kind === 'ok') {
+          const found = outcome.groups.find((group) => group.provider === provider)
+          analytics.send('find_recordings_used', {
+            service: serviceOf(provider),
+            result_count_bucket: countBucket(found?.results.length ?? 0),
+          })
+        }
       })
   }
 
@@ -192,7 +204,9 @@ export function useFindRecordings(
     if (pagePending.current) return
     pagePending.current = true
     const id = ++request.current
-    void openServiceSearch(engine, q, provider, PROVIDER_LABELS[provider])
+    void openServiceSearch(engine, q, provider, PROVIDER_LABELS[provider], () =>
+      analytics.send('find_recordings_used', { service: serviceOf(provider) }),
+    )
       .then((message) => {
         if (id === request.current) setNotice(message)
       })
@@ -240,12 +254,18 @@ export function useFindRecordings(
     setClaimed((current) => new Set(current).add(result.url))
     run(async () => {
       try {
-        await addLink(db, target, {
+        const linkId = await addLink(db, target, {
           url: result.url,
           provider: result.provider,
           provider_ref: result.provider_ref,
           title: result.title,
           artwork_url: result.artwork_url,
+        })
+        analytics.send('link_added', {
+          service: serviceOf(result.provider),
+          via: 'find',
+          link_id: linkId,
+          tune_id: target,
         })
       } catch (caught) {
         claiming.current.delete(result.url)

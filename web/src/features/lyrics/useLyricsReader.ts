@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { updateTune } from '../../commands/tunes'
 import { useDb } from '../../db/DbProvider'
 import { useWakeLock } from '../../platform/wakeLock'
@@ -51,6 +52,19 @@ export function useLyricsReader({
   const atSmallest = step <= 1
   const atLargest = step >= LYRICS_STEPS
   useWakeLock(open)
+
+  // Reported once per opening, when the words are first on screen: lyrics that sync in while
+  // the reader is already open count, and a later edit does not report again.
+  const analytics = useAnalytics()
+  const reportedFor = useRef<string | null>(null)
+  const wordsShown = open && verses.length > 0
+  useEffect(() => {
+    if (!open) reportedFor.current = null
+    else if (wordsShown && reportedFor.current !== tuneId) {
+      reportedFor.current = tuneId
+      analytics.send('lyrics_opened', { tune_id: tuneId })
+    }
+  }, [open, wordsShown, tuneId, analytics])
 
   // Cleared during render, so the first frame of an opening is already silent: the live region
   // holds its last text for as long as it is mounted, and a reader exploring the view would

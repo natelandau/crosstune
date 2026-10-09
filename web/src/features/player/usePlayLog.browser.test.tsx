@@ -1,10 +1,13 @@
 import { render } from '@testing-library/react'
 import { describe, expect, it, onTestFinished } from 'vitest'
+import { AnalyticsProvider } from '../../analytics/AnalyticsProvider'
+import type { AnalyticsClient } from '../../analytics/client'
+import { recordingAnalytics } from '../../analytics/testing'
 import { DbContext } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { fakePlaybackEngine, FakeAudioElement } from '../../test/providers'
-import { recordingRow } from '../../test/rows'
+import { linkRow, recordingRow } from '../../test/rows'
 import { usePracticeLog } from '../practice/usePracticeLog'
 import type { HeldSettings } from '../practice/usePracticeOverlay'
 import { PlaybackEngineContext } from './PlaybackEngineProvider'
@@ -97,6 +100,7 @@ function harness(
   engine: PlaybackEngine,
   now: () => number,
   initial: HarnessProps,
+  analytics?: AnalyticsClient,
 ) {
   const overlay = fakeOverlay()
   function Harness({ item, origin = { context: 'row' }, overlayId = null }: HarnessProps) {
@@ -107,13 +111,16 @@ function harness(
       </PlayLogContext.Provider>
     )
   }
-  const tree = (props: HarnessProps) => (
-    <DbContext.Provider value={db}>
-      <PlaybackEngineContext.Provider value={engine}>
-        <Harness {...props} />
-      </PlaybackEngineContext.Provider>
-    </DbContext.Provider>
-  )
+  const tree = (props: HarnessProps) => {
+    const inner = (
+      <DbContext.Provider value={db}>
+        <PlaybackEngineContext.Provider value={engine}>
+          <Harness {...props} />
+        </PlaybackEngineContext.Provider>
+      </DbContext.Provider>
+    )
+    return analytics ? <AnalyticsProvider client={analytics}>{inner}</AnalyticsProvider> : inner
+  }
   const view = render(tree(initial))
   return { overlay, rerender: (props: HarnessProps) => view.rerender(tree(props)) }
 }
@@ -391,5 +398,304 @@ describe('usePlayLog', () => {
     rerender({ item: null })
 
     await expect.poll(() => written(db)).toEqual({ plays: [['dock', 11_000]], practice: 0 })
+  })
+})
+
+/** Stands in for the browser's media session, so a test can press its lock-screen controls. */
+function fakeMediaSession() {
+  const handlers = new Map<MediaSessionAction, MediaSessionActionHandler>()
+  const session = {
+    metadata: null,
+    setActionHandler: (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
+      if (handler) handlers.set(action, handler)
+      else handlers.delete(action)
+    },
+    setPositionState: () => {},
+  } as unknown as MediaSession
+  Object.defineProperty(navigator, 'mediaSession', { value: session, configurable: true })
+  // The own property shadows the browser's; deleting it restores that.
+  onTestFinished(() => void Reflect.deleteProperty(navigator, 'mediaSession'))
+  return (action: MediaSessionAction) => handlers.get(action)?.({ action })
+}
+
+const TUNE_ROW: PlayOrigin = {
+  context: 'row',
+  report: { source: 'tune', queue: 'single', trigger: 'tap' },
+}
+const LIST_ROW: PlayOrigin = {
+  context: 'list',
+  listId: 'list-1',
+  report: { source: 'list', queue: 'single', trigger: 'tap' },
+}
+
+/** Each playback report's recording or link, how it ended, and whether the system drove it. */
+function ends(analytics: ReturnType<typeof recordingAnalytics>) {
+  return analytics
+    .sends()
+    .filter((send) => send.name === 'playback_ended')
+    .map(({ props }) => {
+      const p = props as Record<string, unknown>
+      return [p.recording_id ?? p.link_id, p.ended_by, p.system_controlled]
+    })
+}
+
+describe('usePlayLog reports', () => {
+  it('reports a tune row play with its kind, tune, and listened time', async () => {
+    const { db, engine, now, advance } = setup()
+    await db.recordings.put(recordingRow('rec-1', { tune_id: 'tune-1', source: 'upload' }))
+    const analytics = recordingAnalytics()
+    const { rerender } = harness(db, engine, now, { item: REC, origin: TUNE_ROW }, analytics)
+    loadAndPlay(engine)
+    advance(3_000)
+    engine.pause()
+    rerender({ item: null, origin: TUNE_ROW })
+
+    await expect
+      .poll(() => analytics.sends())
+      .toEqual([
+        {
+          name: 'playback_ended',
+          props: {
+            source: 'tune',
+            queue: 'single',
+            trigger: 'tap',
+            kind: 'imported',
+            listened_bucket: '<10s',
+            completed: false,
+            ended_by: 'closed',
+            system_controlled: false,
+            tune_id: 'tune-1',
+            recording_id: 'rec-1',
+          },
+        },
+      ])
+    // Under the threshold, so nothing is written.
+    expect(await db.play_events.count()).toBe(0)
+  })
+
+  it('ended_by is skipped on item change, closed on close, finished at the end', async () => {
+    const { db, element, engine, now, advance } = setup()
+    await db.recordings.bulkPut([recordingRow('rec-1'), recordingRow('rec-2')])
+    const analytics = recordingAnalytics()
+    const { rerender } = harness(db, engine, now, { item: REC, origin: TUNE_ROW }, analytics)
+    loadAndPlay(engine)
+    advance(60_000)
+    element.paused = true
+    element.dispatchEvent(new Event('ended'))
+    await expect.poll(() => ends(analytics)).toEqual([['rec-1', 'finished', false]])
+    engine.play()
+    advance(2_000)
+    rerender({ item: { kind: 'recording', id: 'rec-2' }, origin: TUNE_ROW })
+    await expect.poll(() => ends(analytics)).toHaveLength(2)
+    engine.load('blob:rec-2', SPAN, SETTINGS, META)
+    engine.play()
+    advance(1_000)
+    rerender({ item: null, origin: TUNE_ROW })
+
+    await expect
+      .poll(() => ends(analytics))
+      .toEqual([
+        ['rec-1', 'finished', false],
+        ['rec-1', 'skipped', false],
+        ['rec-2', 'closed', false],
+      ])
+  })
+
+  it('a media session pause marks the play system controlled', async () => {
+    const press = fakeMediaSession()
+    const { db, engine, now, advance } = setup()
+    await db.recordings.put(recordingRow('rec-1'))
+    const analytics = recordingAnalytics()
+    const { rerender } = harness(db, engine, now, { item: REC, origin: TUNE_ROW }, analytics)
+    loadAndPlay(engine)
+    advance(5_000)
+    press('pause')
+    await expect.poll(() => engine.getState().playing).toBe(false)
+    rerender({ item: null, origin: TUNE_ROW })
+
+    await expect.poll(() => ends(analytics)).toEqual([['rec-1', 'closed', true]])
+  })
+
+  it('an in-app pause leaves it false', async () => {
+    fakeMediaSession()
+    const { db, engine, now, advance } = setup()
+    await db.recordings.put(recordingRow('rec-1'))
+    const analytics = recordingAnalytics()
+    const { rerender } = harness(db, engine, now, { item: REC, origin: TUNE_ROW }, analytics)
+    loadAndPlay(engine)
+    advance(5_000)
+    engine.pause()
+    rerender({ item: null, origin: TUNE_ROW })
+
+    await expect.poll(() => ends(analytics)).toEqual([['rec-1', 'closed', false]])
+  })
+
+  it('a link play from a list row reports no listened or completed', async () => {
+    const { db, engine, now } = setup()
+    await db.recording_links.put(linkRow('link-1', 'tune-1', { provider: 'youtube' }))
+    await db.recordings.put(recordingRow('rec-1'))
+    const analytics = recordingAnalytics()
+    const LINK: PlayerItem = { kind: 'link', id: 'link-1' }
+    const { rerender } = harness(db, engine, now, { item: LINK, origin: LIST_ROW }, analytics)
+    rerender({ item: REC, origin: TUNE_ROW })
+    await expect.poll(() => ends(analytics)).toHaveLength(1)
+    rerender({ item: LINK, origin: LIST_ROW })
+    rerender({ item: null, origin: TUNE_ROW })
+
+    const report = {
+      source: 'list',
+      queue: 'single',
+      trigger: 'tap',
+      kind: 'link',
+      service: 'youtube',
+      system_controlled: false,
+      tune_id: 'tune-1',
+      link_id: 'link-1',
+      list_id: 'list-1',
+    }
+    await expect
+      .poll(() => analytics.sends())
+      .toEqual([
+        { name: 'playback_ended', props: { ...report, ended_by: 'skipped' } },
+        { name: 'playback_ended', props: { ...report, ended_by: 'closed' } },
+      ])
+  })
+
+  it('a plain practice visit sends only its play from practice', async () => {
+    const { db, engine, now, advance } = setup()
+    await db.recordings.put(recordingRow('rec-1', { tune_id: 'tune-1' }))
+    const analytics = recordingAnalytics()
+    const { rerender } = harness(
+      db,
+      engine,
+      now,
+      { item: REC, origin: TUNE_ROW, overlayId: 'rec-1' },
+      analytics,
+    )
+    loadAndPlay(engine)
+    advance(40_000)
+    engine.pause()
+    rerender({ item: REC, origin: TUNE_ROW, overlayId: null })
+
+    await expect
+      .poll(() => analytics.sends())
+      .toEqual([
+        {
+          name: 'playback_ended',
+          props: expect.objectContaining({
+            source: 'recording_screen',
+            ended_by: 'closed',
+            recording_id: 'rec-1',
+          }),
+        },
+      ])
+    // The visit's outcome is settled before its play is reported, so a practice report would
+    // already be here.
+    expect(analytics.sends().map((send) => send.name)).toEqual(['playback_ended'])
+  })
+
+  it('practice_ended reports a visit that played a loop, and no play', async () => {
+    const { db, engine, now, advance } = setup()
+    await db.recordings.put(recordingRow('rec-1', { tune_id: 'tune-1' }))
+    const analytics = recordingAnalytics()
+    const { rerender } = harness(
+      db,
+      engine,
+      now,
+      { item: REC, origin: TUNE_ROW, overlayId: 'rec-1' },
+      analytics,
+    )
+    loadAndPlay(engine)
+    engine.setLoop({ id: 'loop-1', label: 'B part', fromS: 10, toS: 20 })
+    engine.setRepeat(true)
+    advance(40_000)
+    engine.pause()
+    rerender({ item: REC, origin: TUNE_ROW, overlayId: null })
+
+    await expect
+      .poll(() => analytics.sends())
+      .toEqual([
+        {
+          name: 'practice_ended',
+          props: {
+            source: 'dock',
+            duration_bucket: '30s-2m',
+            used_loops: true,
+            used_speed: false,
+            used_pitch: false,
+            kind: 'recorded',
+            recording_id: 'rec-1',
+            tune_id: 'tune-1',
+          },
+        },
+      ])
+  })
+
+  it('a tab hidden while paused ends the play as paused, and a closed page as closed', async () => {
+    const { db, engine, now, advance } = setup()
+    await db.recordings.put(recordingRow('rec-1'))
+    const analytics = recordingAnalytics()
+    harness(db, engine, now, { item: REC, origin: TUNE_ROW }, analytics)
+    loadAndPlay(engine)
+    advance(5_000)
+    engine.pause()
+    hidePage()
+    await expect.poll(() => ends(analytics)).toEqual([['rec-1', 'paused', false]])
+    showPage()
+    engine.play()
+    advance(5_000)
+    window.dispatchEvent(new PageTransitionEvent('pagehide'))
+
+    await expect
+      .poll(() => ends(analytics))
+      .toEqual([
+        ['rec-1', 'paused', false],
+        ['rec-1', 'closed', false],
+      ])
+  })
+
+  it('practice hidden while paused ends its play as paused', async () => {
+    const { db, engine, now, advance } = setup()
+    await db.recordings.put(recordingRow('rec-1'))
+    const analytics = recordingAnalytics()
+    harness(db, engine, now, { item: REC, origin: TUNE_ROW, overlayId: 'rec-1' }, analytics)
+    loadAndPlay(engine)
+    advance(5_000)
+    engine.pause()
+    hidePage()
+
+    await expect.poll(() => ends(analytics)).toEqual([['rec-1', 'paused', false]])
+  })
+
+  it('practice closing with the page reports no play for the hand-off back to itself', async () => {
+    const { db, engine } = setup()
+    // A clock that moves on with every read, so any hand-off play would have length.
+    let t = Date.parse('2026-03-01T12:00:00.000Z')
+    const now = () => (t += 1)
+    await db.recordings.put(recordingRow('rec-1'))
+    const analytics = recordingAnalytics()
+    const { rerender } = harness(
+      db,
+      engine,
+      now,
+      { item: REC, origin: TUNE_ROW, overlayId: 'rec-1' },
+      analytics,
+    )
+    loadAndPlay(engine)
+    t += 20_000
+    window.dispatchEvent(new PageTransitionEvent('pagehide'))
+    t += 20_000
+    engine.pause()
+    rerender({ item: REC, origin: TUNE_ROW, overlayId: null })
+
+    const visits = () =>
+      analytics
+        .sends()
+        .map((send) => send.props as { source?: string; listened_bucket?: string })
+        .map((props) => [props.source, props.listened_bucket])
+    await expect.poll(visits).toEqual([
+      ['recording_screen', '10-30s'],
+      ['recording_screen', '10-30s'],
+    ])
   })
 })

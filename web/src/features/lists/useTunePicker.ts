@@ -1,5 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useLayoutEffect, useRef, useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { countBucket } from '../../analytics/buckets'
 import { addToList } from '../../commands/lists'
 import { useDb } from '../../db/DbProvider'
 import { messageFor, useAction } from '../../ui/useAction'
@@ -28,6 +30,17 @@ export interface TunePicker {
 
 const NOTHING_TAKEN: ReadonlySet<string> = new Set()
 
+interface Visit {
+  /** The sheet has closed since this visit opened, so its inline error has no surface. */
+  gone: boolean
+  /** Adds still running. */
+  adding: number
+  /** Tunes added, reported together once the sheet has closed and no add is running. */
+  added: number
+}
+
+const newVisit = (): Visit => ({ gone: false, adding: 0, added: 0 })
+
 /** Search the catalog and add tunes to one list, several in one visit. */
 export function useTunePicker(
   open: boolean,
@@ -42,6 +55,7 @@ export function useTunePicker(
   },
 ): TunePicker {
   const db = useDb()
+  const analytics = useAnalytics()
   const { error, run, clear } = useAction()
   const [query, setQuery] = useState('')
   const [closing, setClosing] = useState(false)
@@ -49,12 +63,10 @@ export function useTunePicker(
   // Tunes whose add is in flight. A ref, because two taps in one tick both read the same state.
   const adding = useRef(new Set<string>())
   const creating = useRef<string | null>(null)
-  // Whether the sheet has closed since it last opened, so a rejection knows if its inline error
-  // still has a surface.
-  const gone = useRef(false)
-  // Which visit a pick belongs to, so a rejection that outlives its visit reports as a toast
-  // rather than landing inline on a later one.
-  const visit = useRef(0)
+  // The open visit. A pick keeps the visit it was made in, so a rejection that outlives it
+  // reports as a toast rather than landing inline on a later one, and its add counts toward
+  // that visit's report.
+  const visit = useRef<Visit>(newVisit())
 
   // Reset during render, not an effect, so the next open already starts clean instead of
   // flashing the previous visit's search for a frame.
@@ -68,9 +80,7 @@ export function useTunePicker(
   }
 
   useLayoutEffect(() => {
-    if (!open) return
-    gone.current = false
-    visit.current += 1
+    if (open) visit.current = newVisit()
   }, [open])
 
   const own = useLiveQuery(async () => {
@@ -82,22 +92,35 @@ export function useTunePicker(
 
   const found = useTuneMatches(query, open)
 
+  const reportIfDone = (done: Visit) => {
+    if (!done.gone || done.adding > 0 || done.added === 0) return
+    analytics.send('tunes_added_to_list', {
+      list_id: listId,
+      count_bucket: countBucket(done.added),
+    })
+    done.added = 0
+  }
+
   const pick = (id: string) => {
     if (adding.current.has(id)) return
     adding.current.add(id)
     const at = visit.current
+    at.adding += 1
     setQuery('')
     run(async () => {
       try {
         await addToList(db, listId, id)
+        at.added += 1
       } catch (caught) {
         // Adding several tunes means the sheet must close on Done whatever is in flight, so a
         // rejection that outlives the visit that made it takes the app's toast instead of an
         // error line that no longer belongs to it.
-        if (!gone.current && at === visit.current) throw caught
+        if (!at.gone && at === visit.current) throw caught
         toast(messageFor(caught))
       } finally {
         adding.current.delete(id)
+        at.adding -= 1
+        reportIfDone(at)
       }
     })
   }
@@ -111,7 +134,8 @@ export function useTunePicker(
   const dismissed = () => {
     const title = creating.current
     creating.current = null
-    gone.current = true
+    visit.current.gone = true
+    reportIfDone(visit.current)
     return title
   }
 

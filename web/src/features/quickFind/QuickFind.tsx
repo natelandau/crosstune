@@ -82,7 +82,7 @@ function useCommands(navigate: QuickFindNavigate): QuickFindCommand[] {
       id: 'newTune',
       label: shortcutLabel('newTune'),
       shortcut: 'newTune',
-      run: () => form.open({}),
+      run: () => form.open({ source: 'menu' }),
     },
     ...(record.available
       ? [
@@ -90,7 +90,7 @@ function useCommands(navigate: QuickFindNavigate): QuickFindCommand[] {
             id: 'record',
             label: shortcutLabel('record'),
             shortcut: 'record' as const,
-            run: () => record.start(),
+            run: () => record.start({ source: 'menu' }),
           },
         ]
       : []),

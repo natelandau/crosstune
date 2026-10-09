@@ -5,7 +5,7 @@ import type * as ListsModule from '../../commands/lists'
 import { deleteList, moveItem } from '../../commands/lists'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalList, LocalListItem } from '../../db/types'
-import { SEARCH_TUNES, TUNE_LIST, SELECT_TUNES } from '../catalog/catalogCopy'
+import { SEARCH_TUNES, TUNE_LIST, SELECT_TUNES, addOfferLabel } from '../catalog/catalogCopy'
 import { EDITED_YESTERDAY, editedLabel } from './editedLabel'
 import {
   ADD_LIST,
@@ -400,7 +400,9 @@ it('edits a tune from its row through the tune form', async () => {
   const row = tuneRows().getByRole('row', { name: /Forked Deer/ })
   await row.hover()
   await row.getByRole('button', { name: EDIT_TUNE }).click()
-  await expect.poll(() => launcher.open).toHaveBeenCalledWith({ tuneId: 'forked-deer' })
+  await expect
+    .poll(() => launcher.open)
+    .toHaveBeenCalledWith({ source: 'list', tuneId: 'forked-deer' })
 })
 
 it('offers Select tunes in More, which starts selecting', async () => {
@@ -430,6 +432,21 @@ it('adds tunes from the picker, marking those already in the list', async () => 
   await expect.poll(rowTitles).toContain('Big Sciota')
 })
 
+it('opens the tune form for a typed title from the picker as from a list', async () => {
+  const { launcher } = await mount('/lists/l1', WIDE)
+  await page.getByRole('button', { name: ADD_TUNES }).click()
+  const dialog = page.getByRole('dialog', { name: ADD_TUNES })
+  await dialog.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally Goodin')
+  await dialog
+    .getByRole('button', {
+      name: addOfferLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
+    })
+    .click()
+  await expect
+    .poll(() => launcher.open)
+    .toHaveBeenCalledWith({ source: 'list', initialTitle: 'Sally Goodin', listId: 'l1' })
+})
+
 it('shows an empty list with a way to add tunes', async () => {
   const { db } = await mount('/lists/l2', WIDE)
   await expect.poll(rowTitles).toEqual(['Kesh Jig'])
@@ -453,7 +470,14 @@ it("plays a row's recording in the list's context", async () => {
     .click()
   await expect
     .poll(() => player.play)
-    .toHaveBeenCalledWith({ kind: 'recording', id: 'rec1' }, { context: 'list', listId: 'l1' })
+    .toHaveBeenCalledWith(
+      { kind: 'recording', id: 'rec1' },
+      {
+        context: 'list',
+        listId: 'l1',
+        report: { source: 'list', queue: 'single', trigger: 'tap' },
+      },
+    )
   // The control answers alone; the row's own press would open the tune.
   await expect.poll(at(router)).toBe('/lists/l1')
 })

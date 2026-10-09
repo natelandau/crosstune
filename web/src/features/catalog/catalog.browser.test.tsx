@@ -192,13 +192,17 @@ it('walks the rows with the arrows on wide, and the page follows without filling
     .toBe(`/catalog/${ids['Angeline the Baker']}`)
   expect(router.state.historyAction).toBe('PUSH')
   // Selection follows the arrows only once a tune is open, and the router moves before React
-  // commits the open page.
+  // commits the open page, so each key waits for the committed row before the next.
   await expect.element(row('Angeline')).toHaveAttribute('aria-selected', 'true')
+  await expect.element(row('Angeline')).toHaveFocus()
   await userEvent.keyboard('{ArrowDown}')
   await expect.poll(() => router.state.location.pathname).toBe(`/catalog/${ids['Cluck Old Hen']}`)
+  await expect.element(row('Cluck Old Hen')).toHaveAttribute('aria-selected', 'true')
+  await expect.element(row('Cluck Old Hen')).toHaveFocus()
   await userEvent.keyboard('{ArrowDown}')
   await expect.poll(() => router.state.location.pathname).toBe(`/catalog/${ids['Forked Deer']}`)
   expect(router.state.historyAction).toBe('REPLACE')
+  await expect.element(row('Forked Deer')).toHaveAttribute('aria-selected', 'true')
   await expect.element(row('Forked Deer')).toHaveFocus()
   await router.navigate(-1)
   await expect.poll(() => router.state.location.pathname).toBe('/catalog')
@@ -365,7 +369,9 @@ it('offers to add another tune by a title already taken', async () => {
       name: addOfferLabel({ kind: 'create', title: 'Forked Deer', another: true }),
     })
     .click()
-  await expect.poll(() => launcher.open).toHaveBeenCalledWith({ initialTitle: 'Forked Deer' })
+  await expect
+    .poll(() => launcher.open)
+    .toHaveBeenCalledWith({ source: 'search_offer', initialTitle: 'Forked Deer' })
 })
 
 it('names an exact match the filters hide', async () => {
@@ -398,7 +404,9 @@ it('adds a tune by the typed title on Enter when nothing matches', async () => {
   const { launcher, router } = await mount(db)
   await search().fill('Sally Goodin')
   await userEvent.keyboard('{Enter}')
-  await expect.poll(() => launcher.open).toHaveBeenCalledWith({ initialTitle: 'Sally Goodin' })
+  await expect
+    .poll(() => launcher.open)
+    .toHaveBeenCalledWith({ source: 'search_offer', initialTitle: 'Sally Goodin' })
   await expect.element(search()).toHaveValue('')
   expect(router.state.location.pathname).toBe('/catalog')
 })
@@ -448,7 +456,9 @@ it('offers to add the typed title under the results', async () => {
     name: addOfferLabel({ kind: 'create', title: 'Joy', another: false }),
   })
   await offer.click()
-  await expect.poll(() => launcher.open).toHaveBeenCalledWith({ initialTitle: 'Joy' })
+  await expect
+    .poll(() => launcher.open)
+    .toHaveBeenCalledWith({ source: 'search_offer', initialTitle: 'Joy' })
   await expect.element(search()).toHaveValue('')
 })
 
@@ -462,7 +472,9 @@ it(`opens the tune form with the title from the empty state's Add`, async () => 
       name: addOfferLabel({ kind: 'create', title: "Soldier's Joy", another: false }),
     })
     .click()
-  await expect.poll(() => launcher.open).toHaveBeenCalledWith({ initialTitle: "Soldier's Joy" })
+  await expect
+    .poll(() => launcher.open)
+    .toHaveBeenCalledWith({ source: 'search_offer', initialTitle: "Soldier's Joy" })
 })
 
 it('opens an empty tune form from Add', async () => {
@@ -470,7 +482,7 @@ it('opens an empty tune form from Add', async () => {
   await seed(db)
   const { launcher } = await mount(db)
   await page.getByRole('button', { name: ADD_TUNE }).click()
-  await expect.poll(() => launcher.open).toHaveBeenCalledWith({})
+  await expect.poll(() => launcher.open).toHaveBeenCalledWith({ source: 'catalog' })
 })
 
 it('invites the first tune into an empty catalog', async () => {
@@ -479,7 +491,7 @@ it('invites the first tune into an empty catalog', async () => {
   await expect.element(page.getByText(NO_TUNES_HINT)).toBeVisible()
   const main = page.getByRole('main', { name: CATALOG })
   await main.getByRole('button', { name: ADD_TUNE }).last().click()
-  await expect.poll(() => launcher.open).toHaveBeenCalledWith({})
+  await expect.poll(() => launcher.open).toHaveBeenCalledWith({ source: 'catalog' })
 })
 
 it('hides archived tunes until Show archived, then dims them', async () => {
@@ -517,7 +529,9 @@ it('edits, archives, and deletes a tune from its row', async () => {
   const { launcher } = await mount(db)
   await row('Forked Deer').click({ button: 'right' })
   await page.getByRole('menuitem', { name: EDIT_TUNE }).click()
-  await expect.poll(() => launcher.open).toHaveBeenCalledWith({ tuneId: ids['Forked Deer'] })
+  await expect
+    .poll(() => launcher.open)
+    .toHaveBeenCalledWith({ source: 'catalog', tuneId: ids['Forked Deer'] })
 
   await row('Forked Deer').click({ button: 'right' })
   await page.getByRole('menuitem', { name: ARCHIVE }).click()

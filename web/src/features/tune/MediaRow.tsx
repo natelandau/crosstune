@@ -7,6 +7,7 @@ import { openOn } from '../recordings/recordingCopy'
 import type { RecordingSort } from '../recordings/arrangeRecordings'
 import { downloadingName, openTuneName, RETRY, retryName } from '../recordings/recordingNames'
 import { useRecordingRow } from '../recordings/useRecordingRow'
+import type { PlayOrigin } from '../player/playLog'
 import type { LinkMediaRow, RecordingMediaRow } from './useTuneMedia'
 import { PinnedMark } from './PinnedMark'
 import { PlayGlyph, StopGlyph } from '../../ui/rowGlyphs'
@@ -115,6 +116,7 @@ export function RecordingRow({
   tuneNamedAbove = true,
   sort,
   onOpenTune,
+  playOrigin,
 }: {
   row: RecordingMediaRow
   onRetry: (kind: 'upload' | 'transcode') => void
@@ -124,8 +126,10 @@ export function RecordingRow({
   sort?: RecordingSort
   /** Shows the recording's tune as a line that opens it. */
   onOpenTune?: () => void
+  /** Where a play from the row counts as asked for; a tune's page by default. */
+  playOrigin?: PlayOrigin
 }) {
-  const data = useRecordingRow(view, { tuneNamedAbove, sort, error })
+  const data = useRecordingRow(view, { tuneNamedAbove, sort, error, origin: playOrigin })
   const fresh = useNewTake(view.recording.id)
   const { title, control, open, retry, origin } = data
   const meta = data.meta.join(' · ')
@@ -211,7 +215,7 @@ export function RecordingRow({
 
 /** A link to the tune elsewhere: it plays in the dock when it can, else opens its site. */
 export function LinkRow({ row: { link, pinned, actions } }: { row: LinkMediaRow }) {
-  const { title, provider, control, href, loaded, open } = useLinkRow(link)
+  const { title, provider, control, href, reportOpened, loaded, open } = useLinkRow(link)
   const verb =
     control === 'close' ? closeLinkName(title) : open ? `${open.openName} ${title}` : title
   return (
@@ -226,6 +230,10 @@ export function LinkRow({ row: { link, pinned, actions } }: { row: LinkMediaRow 
         href ? (
           <a
             {...keepPress}
+            onClick={(event) => {
+              keepPress.onClick(event)
+              reportOpened()
+            }}
             href={href}
             target="_blank"
             rel="noreferrer"

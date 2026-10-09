@@ -1,5 +1,6 @@
 import { renderHook } from '@testing-library/react'
 import { act } from 'react'
+import { recordingAnalytics } from '../../analytics/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { addToList, createList } from '../../commands/lists'
 import { createTune, setArchived } from '../../commands/tunes'
@@ -28,6 +29,7 @@ beforeEach(async () => {
 
 function setup(showArchived = false) {
   const onError = vi.fn()
+  const analytics = recordingAnalytics()
   const view = renderHook(
     () => {
       const list = useListView(listId)
@@ -39,9 +41,9 @@ function setup(showArchived = false) {
       })
       return { ready: list !== undefined && list !== null, tunes }
     },
-    { wrapper: dataProviders({ db }) },
+    { wrapper: dataProviders({ db, analytics }) },
   )
-  return { ...view, onError }
+  return { ...view, onError, analytics }
 }
 
 const shown = (result: { current: ReturnType<typeof setup>['result']['current'] }) =>
@@ -63,6 +65,19 @@ describe('useListTunes', () => {
     await expect
       .poll(order)
       .toEqual([userTuneIds[1], userTuneIds[2], userTuneIds[0], userTuneIds[3]])
+  })
+
+  it('reports each move once its write lands', async () => {
+    const { result, analytics } = setup()
+    await expect.poll(() => shown(result)).toEqual(titles)
+    expect(analytics.sends()).toEqual([])
+    act(() => result.current.tunes.move(0, 2))
+    act(() => result.current.tunes.move(3, 0))
+    await expect.poll(() => analytics.sends().length).toBe(2)
+    expect(analytics.sends()).toEqual([
+      { name: 'list_reordered', props: { list_id: listId } },
+      { name: 'list_reordered', props: { list_id: listId } },
+    ])
   })
 
   it('offers only the moves that go somewhere', async () => {

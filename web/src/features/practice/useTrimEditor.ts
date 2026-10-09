@@ -8,6 +8,7 @@ import {
   type Dispatch,
   type RefObject,
 } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
 import { RECORDING_NOT_FOUND } from '../../commands/messages'
 import { updateRecording } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
@@ -110,6 +111,7 @@ export function useTrimEditor({
 }: TrimEditorOptions): TrimEditor {
   const { recording, file } = view
   const db = useDb()
+  const analytics = useAnalytics()
   const state = useSyncExternalStore(engine.subscribe, engine.getState)
   const [trim, dispatch] = useReducer(trimReducer, undefined, () => initialTrim(recording, file))
   const [error, setError] = useState<string | null>(null)
@@ -266,6 +268,7 @@ export function useTrimEditor({
     setError(null)
     try {
       await updateRecording(db, recording.id, trimPatch(trim, recording))
+      analytics.send('recording_trimmed', { recording_id: recording.id })
       onDone()
     } catch (caught) {
       writing.current = false

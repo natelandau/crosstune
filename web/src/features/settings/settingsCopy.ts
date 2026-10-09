@@ -33,6 +33,10 @@ export const APPEARANCE = 'Appearance'
 export const SYNC = 'Sync'
 export const SYNC_AND_STORAGE = 'Sync and storage'
 
+export const USAGE_DATA_TITLE = 'Share usage data'
+export const USAGE_DATA_FOOTER =
+  'Sends which features you use, never your tunes, notes, or recordings.'
+
 export const aboutLine = (version: string) => `Crosstune ${version}`
 
 export const SETTINGS_CATEGORIES = 'Settings categories'

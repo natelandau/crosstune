@@ -68,5 +68,11 @@ export function LiveWaveform({
   }, [analyser, active, reduceMotion, pausedRef])
 
   // The draw loop reads this color off the canvas, so the bars follow the palette in either theme.
-  return <canvas ref={canvasRef} aria-hidden="true" className={`block h-32 w-full ${className}`} />
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-hidden="true"
+      className={`ph-no-capture block h-32 w-full ${className}`}
+    />
+  )
 }

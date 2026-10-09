@@ -81,12 +81,12 @@ export function useShortcuts(focusSearch: () => boolean): void {
           return
         case 'newTune':
           event.preventDefault()
-          actions.tuneForm.open({})
+          actions.tuneForm.open({ source: 'menu' })
           return
         case 'record':
           if (!actions.record.available) return
           event.preventDefault()
-          actions.record.start()
+          actions.record.start({ source: 'menu' })
           return
         case 'shortcuts':
           event.preventDefault()

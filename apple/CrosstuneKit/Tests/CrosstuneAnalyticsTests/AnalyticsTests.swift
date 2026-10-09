@@ -83,6 +83,21 @@ struct AnalyticsTests {
             ])
     }
 
+    @Test func identifySendsAssistiveTech() {
+        sink.client.identify(
+            userID: "user_3", signedUpAt: nil, catalogSize: nil, storageUsed: nil, fieldsUsed: nil, settings: [],
+            assistiveTech: [.voiceover])
+        sink.client.identify(
+            userID: "user_3", signedUpAt: nil, catalogSize: nil, storageUsed: nil, fieldsUsed: nil, settings: [],
+            assistiveTech: [])
+
+        #expect(
+            sink.calls == [
+                .identify("user_3", set: ["assistive_tech": .strings(["voiceover"])], setOnce: [:]),
+                .identify("user_3", set: ["assistive_tech": .strings([])], setOnce: [:]),
+            ])
+    }
+
     @Test func leavesOutWhatItDoesNotKnow() {
         sink.client.identify(
             userID: "user_2", signedUpAt: nil, catalogSize: nil, storageUsed: nil, fieldsUsed: nil, settings: [])

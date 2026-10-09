@@ -394,6 +394,23 @@ describe('PlaybackEngine', () => {
     expect(element.paused).toBe(false)
   })
 
+  it('tells system action listeners before each Media Session action acts', () => {
+    const { handlers } = fakeMediaSession()
+    const element = fakeElement()
+    const { clock } = fakeClock()
+    const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, clock)
+    engine.load('blob:test', span, settings, meta)
+    const seen: boolean[] = []
+    const stop = engine.onSystemAction(() => seen.push(element.paused))
+    handlers.get('play')?.({} as MediaSessionActionDetails)
+    handlers.get('pause')?.({} as MediaSessionActionDetails)
+    handlers.get('seekto')?.({ action: 'seekto', seekTime: 5 })
+    stop()
+    handlers.get('seekforward')?.({} as MediaSessionActionDetails)
+    // Paused before the play acted, playing before the pause did.
+    expect(seen).toEqual([true, false, true])
+  })
+
   it('keeps Media Session action handlers registered through an unload', () => {
     const { handlers } = fakeMediaSession()
     const element = fakeElement()

@@ -6,6 +6,7 @@ import { createTune, deleteTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
+import { recordingAnalytics } from '../../analytics/testing'
 import { DELETE_TUNE_TITLE } from './deleteTuneMessage'
 import { ARCHIVE, UNARCHIVE } from './archiveLabels'
 import { useTuneScreen } from './useTuneScreen'
@@ -65,10 +66,11 @@ async function press(result: { current: ReturnType<typeof useTuneScreen> }, labe
 function mount(tuneId = ids.tuneId, { answer = true }: { answer?: boolean } = {}) {
   const confirm = vi.fn(async () => answer)
   const leave = vi.fn()
+  const analytics = recordingAnalytics()
   const hook = renderHook(() => useTuneScreen(tuneId, { confirm, leave }), {
-    wrapper: dataProviders({ db }),
+    wrapper: dataProviders({ db, analytics }),
   })
-  return { ...hook, confirm, leave }
+  return { ...hook, confirm, leave, analytics }
 }
 
 describe('useTuneScreen', () => {
@@ -120,6 +122,18 @@ describe('useTuneScreen', () => {
     expect(result.current.inLists[0]).toMatchObject({ id: listId, name: 'Tuesday jam' })
     await act(async () => result.current.removeFromList(result.current.inLists[0]!.itemId))
     await waitFor(() => expect(result.current.inLists).toHaveLength(0))
+  })
+
+  it('reports a tune removed from a list', async () => {
+    const listId = await createList(db, 'Tuesday jam')
+    await addToList(db, listId, ids.userTuneId)
+    const { result, analytics } = mount()
+    await waitFor(() => expect(result.current.inLists).toHaveLength(1))
+    await act(async () => result.current.removeFromList(result.current.inLists[0]!.itemId))
+    await waitFor(() => expect(result.current.inLists).toHaveLength(0))
+    expect(analytics.sends()).toEqual([
+      { name: 'tunes_removed_from_list', props: { list_id: listId, count_bucket: '1-9' } },
+    ])
   })
 
   it('reports an unknown tune as missing', async () => {

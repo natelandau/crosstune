@@ -8,6 +8,9 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import type { Trigger } from '../../analytics/events'
+import { createPlaybackReporter } from '../../analytics/playbackReporter'
 import { useDb } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
 import { useOnline } from '../../sync/SyncProvider'
@@ -39,6 +42,8 @@ import {
 import { usePlayer } from './usePlayer'
 import { readStored, writeStored } from '../../platform/storage'
 import type { PlayerItem } from '../../domain/playerItem'
+import { usePlayLogControl } from './usePlayLog'
+import type { PlayAttribution } from './playLog'
 
 interface Run {
   db: CrosstuneDb
@@ -90,6 +95,7 @@ export function ListPlaybackProvider({
 }) {
   const db = useDb()
   const engine = usePlaybackEngine()
+  const analytics = useAnalytics()
   const player = usePlayer()
   const playerRef = useLatest(player)
   const onlineRef = useLatest(useOnline())
@@ -130,6 +136,17 @@ export function ListPlaybackProvider({
   const starting = useRef(false)
   // The recording practice holds, whose natural end the list holds at.
   const holding = useRef<string | null>(null)
+  // What moved the queue last, which a tune passed over hands on to the one that plays.
+  const trigger = useRef<Trigger>('tap')
+  // A start not yet reported, sent once its first tune loads.
+  const unreportedStart = useRef<{
+    shuffle: boolean
+    repeat: RepeatMode
+    count: number
+    listId: string
+  } | null>(null)
+  // A playlist's start reads no rows.
+  const reporter = useMemo(() => createPlaybackReporter(analytics, null), [analytics])
 
   const holdsOwn = () => ownItem.current !== null && playerRef.current.item === ownItem.current
   /** The run while its own item is in the player and no turn is pending. */
@@ -142,6 +159,7 @@ export function ListPlaybackProvider({
     generation.current += 1
     pendingTurn.current = null
     starting.current = false
+    unreportedStart.current = null
     ownItem.current = null
     loadedTune.current = null
     commit(null)
@@ -165,7 +183,16 @@ export function ListPlaybackProvider({
     ownItem.current = item
     handedAt.current = engine.loads
     counted.current = null
-    playerRef.current.play(item, { context: 'list', listId: current.listId })
+    playerRef.current.play(item, {
+      context: 'list',
+      listId: current.listId,
+      report: { source: 'list', queue: 'playlist', trigger: trigger.current },
+    })
+    const start = unreportedStart.current
+    if (start) {
+      unreportedStart.current = null
+      reporter.playlistStarted(start)
+    }
   }
 
   const giveUp = (current: Run, queue: Queue) => {
@@ -184,8 +211,9 @@ export function ListPlaybackProvider({
     detach()
   }
 
-  /** Heads for `queue` and plays the tune it stands on. */
-  const move = (current: Run, queue: Queue, direction: ListStep) => {
+  /** Heads for `queue` and plays the tune it stands on, as `moved` started it. */
+  const move = (current: Run, queue: Queue, direction: ListStep, moved: Trigger) => {
+    trigger.current = moved
     commit({ ...current, queue })
     void settle(direction)
   }
@@ -250,7 +278,7 @@ export function ListPlaybackProvider({
     if (misses.current >= current.queue.count) return giveUp(current, current.queue)
     const moved = nextInQueue(current.queue, { manual: true, repeat: repeatRef.current, random })
     if (moved.ended) giveUp(current, current.queue)
-    else move(current, moved.queue, 'forward')
+    else move(current, moved.queue, 'forward', trigger.current)
   }
 
   const onEnded = useEffectEvent(() => {
@@ -258,6 +286,7 @@ export function ListPlaybackProvider({
     if (!current) return
     const own = ownItem.current
     if (own?.kind === 'recording' && own.id === holding.current) return
+    trigger.current = 'auto_advance'
     if (repeatRef.current === 'one') {
       load(ownItem.current!, current)
       return
@@ -265,7 +294,7 @@ export function ListPlaybackProvider({
     const moved = nextInQueue(current.queue, { manual: false, repeat: repeatRef.current, random })
     // The last tune stays loaded and paused where it ended.
     if (moved.ended) detach()
-    else move(current, moved.queue, 'forward')
+    else move(current, moved.queue, 'forward', 'auto_advance')
   })
 
   const onEngineFailed = useEffectEvent(() => {
@@ -285,6 +314,21 @@ export function ListPlaybackProvider({
   })
 
   useEffect(() => engine.onEnded(onEnded), [engine])
+  // Repeat one replays the recording that ended, and so does repeat list when the list holds
+  // one tune; anything else moves on or stops.
+  const replays = useEffectEvent((recordingId: string): PlayAttribution | null => {
+    const own = ownItem.current
+    const current = settled()
+    if (!current) return null
+    const repeat = repeatRef.current
+    if (repeat !== 'one' && !(repeat === 'list' && current.queue.count === 1)) return null
+    if (own?.kind !== 'recording' || own.id !== recordingId || own.id === holding.current) {
+      return null
+    }
+    return { source: 'list', queue: 'playlist', trigger: 'auto_advance' }
+  })
+  const playLog = usePlayLogControl()
+  useEffect(() => playLog.replayedByQueue((recordingId) => replays(recordingId)), [playLog])
   useEffect(() => {
     let wasFailed = engine.getState().failed
     return engine.subscribe((state) => {
@@ -349,6 +393,13 @@ export function ListPlaybackProvider({
     const { playable } = playlistReport(playlist.entries, availability(playlist, onlineRef.current))
     if (playable.length === 0) return
     const queue = createQueue(playable, { shuffled, random })
+    trigger.current = 'tap'
+    unreportedStart.current = {
+      shuffle: shuffled,
+      repeat: repeatRef.current,
+      count: queue.count,
+      listId,
+    }
     commit({ db, listId, listName: playlist.name, queue, message: null })
     await settle('forward', playlist)
   }
@@ -359,7 +410,7 @@ export function ListPlaybackProvider({
     const queue = jumpTo(current.queue, tuneId)
     if (!queue) return false
     engine.prime()
-    move(current, queue, 'forward')
+    move(current, queue, 'forward', 'tap')
     return true
   }
 
@@ -368,7 +419,7 @@ export function ListPlaybackProvider({
     if (!current || current.message !== null) return
     engine.prime()
     const moved = nextInQueue(current.queue, { manual: true, repeat: repeatRef.current, random })
-    if (!moved.ended) move(current, moved.queue, 'forward')
+    if (!moved.ended) move(current, moved.queue, 'forward', 'skip')
     else {
       engine.pause()
       detach()
@@ -382,7 +433,7 @@ export function ListPlaybackProvider({
     // A pending turn has not reached the engine, whose position is still the last tune's.
     const pending = pendingTurn.current !== null
     const back = previousInQueue(current.queue, pending ? 0 : engine.getState().positionMs)
-    if (!back.restart) move(current, back.queue, 'back')
+    if (!back.restart) move(current, back.queue, 'back', 'skip')
     else if (!pending) engine.seek(0)
   }
 

@@ -8,6 +8,8 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { recordingOrigin } from '../../analytics/origin'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
 import { setPlaySource } from '../../commands/tunes'
 import { useAction } from '../../ui/useAction'
@@ -88,6 +90,7 @@ export function useRecordingActionsWith({
   confirm: (question: ConfirmQuestion) => Promise<boolean>
 }): RecordingActions {
   const db = useDb()
+  const analytics = useAnalytics()
   const engine = useSyncEngine()
   const player = usePlayer()
   const { error: actionError, pending, run: runAction, clear: clearAction } = useAction()
@@ -125,7 +128,13 @@ export function useRecordingActionsWith({
     // goes, or it would sit on a source nothing can serve.
     if (isPlaying(player, { kind: 'recording', id })) player.close()
     onDeleted?.()
-    run(() => deleteRecording(db, id))
+    run(async () => {
+      await deleteRecording(db, id)
+      analytics.send('recording_deleted', {
+        origin: recordingOrigin(view.recording),
+        recording_id: id,
+      })
+    })
   }
 
   const retry = (view: RecordingView, kind: 'upload' | 'transcode') => {
@@ -148,7 +157,14 @@ export function useRecordingActionsWith({
         short: 'Remove',
         icon: FolderOutput,
         tone: 'warning',
-        onPress: () => run(() => updateRecording(db, view.recording.id, { tune_id: null })),
+        onPress: () =>
+          run(async () => {
+            await updateRecording(db, view.recording.id, { tune_id: null })
+            analytics.send('recording_unfiled', {
+              origin: recordingOrigin(view.recording),
+              recording_id: view.recording.id,
+            })
+          }),
       }
     }
     if (!onAddToTune) return null

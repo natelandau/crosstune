@@ -1,10 +1,11 @@
 import { createContext, useContext } from 'react'
+import type { Source } from '../analytics/events'
 
 export const RECORD_UNAVAILABLE = "Recording isn't available yet."
 
 export interface RecordLauncher {
   /** Opens the recorder. A tune id files the recording under that tune. */
-  start: (tuneId?: string) => void
+  start: (options: { tuneId?: string; source: Source }) => void
   available: boolean
 }
 

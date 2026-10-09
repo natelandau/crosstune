@@ -161,7 +161,7 @@ function Slide({
       src={image.url}
       alt={scanName(index)}
       draggable={false}
-      className={`m-auto object-contain ${zoomWidth === null ? 'max-h-full max-w-full' : 'max-w-none'} ${invert ? 'invert' : ''}`}
+      className={`ph-no-capture m-auto object-contain ${zoomWidth === null ? 'max-h-full max-w-full' : 'max-w-none'} ${invert ? 'invert' : ''}`}
       style={zoomWidth === null ? undefined : { width: zoomWidth, height: 'auto' }}
     />
   )

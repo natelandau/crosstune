@@ -26,7 +26,7 @@ Crosstune is run by Nathaniel Landau, an individual. This page explains what dat
 - Railway runs the Crosstune API.
 - Cloudflare serves this site and the web app. It also stores your recordings and scans in its R2 storage and forwards email sent to support@crosstune.app through Cloudflare Email Routing.
 - Sentry receives error reports from the API and the web app.
-- PostHog Cloud, in the United States, receives usage analytics from this site and from the iPhone, iPad, and Mac apps. See Usage analytics below for what it receives.
+- PostHog Cloud, in the United States, receives usage analytics from this site, the web app, and the iPhone, iPad, and Mac apps. See Usage analytics below for what it receives.
 
 ## The waitlist
 
@@ -38,17 +38,17 @@ The app stores your full catalog on your own devices so that it works offline. W
 
 ## Usage analytics
 
-This site and the iPhone, iPad, and Mac apps send usage analytics to PostHog. The web app sends none.
+This site, the web app, and the iPhone, iPad, and Mac apps send usage analytics to PostHog.
 
-PostHog receives each request's IP address and uses it to estimate your approximate location, which is your country and city. It also receives which pages and features you use, and your device and software details. On this site, those details are your browser, operating system, screen size, time zone, and the page that referred you. In the apps, they are your device model, operating system version, screen size, language, time zone, whether you are on Wi-Fi or cellular, and the app version. The apps also report when you install, update, open, and leave them.
+PostHog receives each request's IP address and uses it to estimate your approximate location, which is your country and city. It also receives which pages and features you use, and your device and software details. On this site, those details are your browser, operating system, screen size, time zone, and the page that referred you. In the web app, they are your browser, operating system, screen size, language, time zone, and the app version, and whether you use a phone, tablet, or computer and run the app installed or in a browser tab. In the iPhone, iPad, and Mac apps, they are your device model, operating system version, screen size, language, time zone, whether you are on Wi-Fi or cellular, and the app version. The apps also report whether assistive features, such as VoiceOver, are on. They never report what those features read. The apps also report when you install, update, open, and leave them.
 
 On this site, visits are counted without cookies, and the analytics are not linked to an account. When you join the waitlist, the site keeps the page that referred you and any campaign tags from the link in your browser's session storage, so the next page can send them with the join. That page then deletes them. The site also records your clicks and how fast its pages load. The site has no switch to turn them off, but a content blocker stops them.
 
-The apps link this data to your account. They never send your email address or name to PostHog. Events can carry the internal IDs of tunes, lists, recordings, links, and scans. They never send tune names, notes, lyrics, scans, or recordings.
+The web app and the apps link this data to your account. They never send your email address or name to PostHog. Events can carry the internal IDs of tunes, lists, recordings, links, and scans. They never send tune names, notes, lyrics, scans, or recordings.
 
-While Share usage data is on, the iPhone and iPad apps record your sessions. The Mac app does not record. The recording masks text inputs, images, and all of your content.
+While Share usage data is on, the web app and the iPhone and iPad apps record your sessions. The Mac app does not record. The web recording masks all text, inputs, labels, and links, and blocks scans and waveforms. The app recordings mask text inputs, images, and all of your content.
 
-To turn this off, turn off Share usage data in the app: Settings > About on iPhone and iPad, Settings > General on Mac. While it is off, the app stops collecting usage data. Data collected just before you turned it off can still upload.
+To turn this off, turn off Share usage data in the app: Settings > About on the web, iPhone, and iPad, Settings > General on Mac. While it is off, the app stops collecting usage data. Data collected just before you turned it off can still upload.
 
 When you delete your account, we ask PostHog to delete the analytics data linked to your account, including session recordings, and ask again a few minutes later to catch data sent just before the deletion. PostHog deletes events in a weekly batch. If Share usage data is on, the app then reports that an account was deleted, without anything that links the report to you.
 

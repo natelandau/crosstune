@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLatest } from '../../ui/useLatest'
 import { useAuthSession } from '../../auth/AuthContext'
 import { newId } from '../../commands/write'
 import { useDb } from '../../db/DbProvider'
@@ -34,7 +35,19 @@ const clock: SessionClock = {
  * Start capturing on mount and keep going until stop or cancel. One recording per mount; a recording
  * still running when the component unmounts is finished and kept, never discarded.
  */
-export function useCapture({ tuneId }: { tuneId: string | null }): CaptureHandle {
+export function useCapture({
+  tuneId,
+  onKept,
+}: {
+  tuneId: string | null
+  /** Runs when the component went away mid-take and the take was kept all the same. */
+  onKept?: (kept: { recordingId: string; elapsedMs: number }) => void
+}): CaptureHandle {
+  const onKeptRef = useLatest(onKept)
+  const keep = useCallback(
+    (kept: { recordingId: string; elapsedMs: number }) => onKeptRef.current?.(kept),
+    [onKeptRef],
+  )
   const db = useDb()
   const { userId } = useAuthSession()
   const [recordingId] = useState(newId)
@@ -67,9 +80,12 @@ export function useCapture({ tuneId }: { tuneId: string | null }): CaptureHandle
     return () => {
       unsubscribe()
       session.current = null
-      capture.dispose()
+      void capture.dispose().then(() => {
+        const { phase, elapsedMs } = capture.snapshot()
+        if (phase === 'saved') keep({ recordingId, elapsedMs })
+      })
     }
-  }, [db, recordingId, userId, tuneId])
+  }, [db, recordingId, userId, tuneId, keep])
 
   const stop = useCallback(() => session.current?.finish() ?? Promise.resolve(), [])
   const cancel = useCallback(() => session.current?.cancel() ?? Promise.resolve(), [])

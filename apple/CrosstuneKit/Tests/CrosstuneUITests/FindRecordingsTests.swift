@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneSync
@@ -81,11 +82,12 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
 
     private func model(
         _ store: CrosstuneStore, tuneID: String = soldiersJoy.id, service: String? = nil, search: FakeSearch?,
-        country: String = "IE", stopPlayer: @escaping @MainActor () -> Void = {}
+        country: String = "IE", stopPlayer: @escaping @MainActor () -> Void = {},
+        analytics: AnalyticsClient = .noop
     ) -> FindRecordingsModel {
         FindRecordingsModel(
             store: store, tuneID: tuneID, service: service, search: search?.search, country: country,
-            stopPlayer: stopPlayer)
+            stopPlayer: stopPlayer, analytics: analytics)
     }
 
     // MARK: Opening
@@ -187,6 +189,40 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         #expect(model.shown == nil)
         #expect(search.calls == [.init(q: "Soldier's Joy Reel", providers: ["spotify"], country: "IE")])
         #expect(model.failure == nil)
+    }
+
+    @Test func findRecordingsSendsNoCountWhenTheServiceOpensItsOwnSearch() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let search = FakeSearch()
+        search.outcome = .ok([
+            SearchGroup(provider: "spotify", status: .searchOnly, results: [], searchURL: "https://spotify.test/q")
+        ])
+        let sink = RecordingAnalyticsSink()
+        let model = model(store, search: search, analytics: sink.client)
+        try await eventually { model.isLoaded }
+
+        _ = await model.pick("spotify")
+
+        #expect(
+            sink.captures == [.init(name: "find_recordings_used", properties: ["service": .string("spotify")])])
+    }
+
+    @Test func findRecordingsSendsZeroWhenAnInAppSearchFindsNothing() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let search = FakeSearch()
+        search.outcome = .ok([group([])])
+        let sink = RecordingAnalyticsSink()
+        let model = model(store, search: search, analytics: sink.client)
+        try await eventually { model.isLoaded }
+
+        _ = await model.pick("apple_music")
+
+        #expect(
+            sink.captures == [
+                .init(
+                    name: "find_recordings_used",
+                    properties: ["service": .string("apple_music"), "result_count_bucket": .string("0")])
+            ])
     }
 
     @Test(arguments: [

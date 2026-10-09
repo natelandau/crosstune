@@ -1,4 +1,7 @@
 import { useMemo, useState } from 'react'
+import { useAnalytics } from '../../analytics/AnalyticsProvider'
+import { countBucket } from '../../analytics/buckets'
+import { bulkPatchFields } from '../../analytics/tuneFields'
 import { STATUSES } from '../../api/vocabulary'
 import {
   deleteTunes,
@@ -86,6 +89,7 @@ export function useBulkActionsWith({
   toast,
 }: BulkActionsOptions): BulkActionsState {
   const db = useDb()
+  const analytics = useAnalytics()
   // Two actions, because a failed edit belongs in the sheet still holding the musician's
   // work while every other failure belongs on the screen behind it.
   const bar = useAction()
@@ -117,10 +121,15 @@ export function useBulkActionsWith({
     onPress: () =>
       apply(
         bar,
-        async () => ({
-          undo: await updateTunes(db, ids, { userTune: { status } }),
-          message: setStatusLabel(ids.length, status),
-        }),
+        async () => {
+          const undo = await updateTunes(db, ids, { userTune: { status } })
+          analytics.send('bulk_edit_applied', {
+            count_bucket: countBucket(ids.length),
+            action: 'status',
+            fields_changed: ['status'],
+          })
+          return { undo, message: setStatusLabel(ids.length, status) }
+        },
         onExit,
       ),
   }))
@@ -135,14 +144,18 @@ export function useBulkActionsWith({
       onPress: () =>
         apply(
           bar,
-          async () => ({
-            undo: await setArchivedMany(
+          async () => {
+            const undo = await setArchivedMany(
               db,
               targets.map((entry) => entry.userTune.id),
               archive,
-            ),
-            message: archivedToast(targets.length, archive),
-          }),
+            )
+            analytics.send('bulk_edit_applied', {
+              count_bucket: countBucket(targets.length),
+              action: 'archive',
+            })
+            return { undo, message: archivedToast(targets.length, archive) }
+          },
           onExit,
         ),
     }
@@ -152,24 +165,34 @@ export function useBulkActionsWith({
     const ok = await confirm({ ...(await deleteTunesQuestion(db, entries)), action: DELETE })
     if (!ok) return
     // No toast: this is the one bulk action with nothing to undo.
-    bar.runThen(() => deleteTunes(db, ids), onExit)
+    bar.runThen(async () => {
+      await deleteTunes(db, ids)
+      analytics.send('bulk_edit_applied', {
+        count_bucket: countBucket(ids.length),
+        action: 'delete',
+      })
+    }, onExit)
   }
 
   const more: MenuItem[] = [archiveItem(true), archiveItem(false)].filter(
     (item): item is MenuItem => item !== null,
   )
   if (context.kind === 'list' && itemIds.length > 0) {
-    const { listName } = context
+    const { listId, listName } = context
     more.push({
       label: removeFromListLabel(itemIds.length),
       tone: 'error',
       onPress: () =>
         apply(
           bar,
-          async () => ({
-            undo: await removeTunesFromList(db, itemIds),
-            message: removedFromListToast(itemIds.length, listName),
-          }),
+          async () => {
+            const undo = await removeTunesFromList(db, itemIds)
+            analytics.send('tunes_removed_from_list', {
+              list_id: listId,
+              count_bucket: countBucket(new Set(itemIds).size),
+            })
+            return { undo, message: removedFromListToast(itemIds.length, listName) }
+          },
           onExit,
         ),
     })
@@ -206,10 +229,15 @@ export function useBulkActionsWith({
       apply: (patch: BulkPatch) =>
         apply(
           edit,
-          async () => ({
-            undo: await updateTunes(db, ids, patch),
-            message: editedToast(ids.length),
-          }),
+          async () => {
+            const undo = await updateTunes(db, ids, patch)
+            analytics.send('bulk_edit_applied', {
+              count_bucket: countBucket(ids.length),
+              action: 'edit',
+              fields_changed: bulkPatchFields(patch),
+            })
+            return { undo, message: editedToast(ids.length) }
+          },
           () => {
             setOpenSheet(null)
             onExit()

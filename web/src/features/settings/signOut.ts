@@ -1,3 +1,4 @@
+import type { AnalyticsClient } from '../../analytics/client'
 import { forgetUser } from '../../auth/session'
 import { clearSearchQueries } from '../../ui/searchSession'
 import { scansLive } from '../../db/scans'
@@ -16,10 +17,14 @@ export const UNSYNCED_SCANS_ERROR =
 export async function forgetLocalData({
   db,
   userId,
+  analytics,
 }: {
   db: CrosstuneDb
   userId: string
+  analytics: AnalyticsClient
 }): Promise<void> {
+  // First, so the person is forgotten even when deleting the database fails.
+  analytics.reset()
   db.close()
   await deleteDatabase(userId)
   forgetUser()
@@ -41,11 +46,13 @@ export async function signOutAndForget({
   userId,
   engine,
   signOut,
+  analytics,
 }: {
   db: CrosstuneDb
   userId: string
   engine: SyncEngine
   signOut: () => Promise<void>
+  analytics: AnalyticsClient
 }): Promise<void> {
   // The catalog is deleted below, so anything still queued would go with it. Unsent plays and
   // other events go with it too: a few events are not worth blocking a sign-out.
@@ -66,5 +73,7 @@ export async function signOutAndForget({
     engine.resume()
     throw error
   }
-  await forgetLocalData({ db, userId })
+  // Before the reset, which detaches the event from the person.
+  analytics.send('signed_out', {})
+  await forgetLocalData({ db, userId, analytics })
 }
