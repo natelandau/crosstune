@@ -104,10 +104,8 @@ public struct ListsScreen: View {
             fullTracks: fullTracks, online: session?.hasNetwork ?? true)
     }
 
-    /// Starting a playlist stops whatever was loaded.
     private func start(_ summary: ListSummary, report: PlaylistReport, shuffled: Bool) {
         guard let listPlayback else { return }
-        player?.close()
         listPlayback.start(listID: summary.id, name: summary.name, report: report, shuffled: shuffled)
     }
 }

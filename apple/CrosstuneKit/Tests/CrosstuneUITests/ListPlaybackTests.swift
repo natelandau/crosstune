@@ -192,6 +192,20 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(rig.resolver.asked == ["a", "b", "c"])
     }
 
+    @Test func startingFromAReportStopsWhatWasLoadedAtOnce() async throws {
+        let rig = rig()
+        rig.player.play(recording("x"))
+        try await playing(rig, "rx")
+        rig.resolver.holding = ["a"]
+        let report = PlaylistReport(playable: ["a", "b"], skipped: [:], total: 2)
+        rig.playback.start(listID: "list1", name: listName, report: report, shuffled: false)
+        // The first tune is still resolving, and what was loaded is already gone.
+        try await eventually { rig.resolver.isHolding("a") }
+        #expect(rig.player.item == nil)
+        rig.resolver.release("a")
+        try await playing(rig, "ra")
+    }
+
     @Test func startDropsARepeatedTune() async throws {
         let rig = rig()
         start(rig, ["a", "b", "a"])
