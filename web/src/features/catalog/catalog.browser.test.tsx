@@ -29,6 +29,7 @@ import { ARCHIVE, ARCHIVED } from '../tune/archiveLabels'
 import { DELETE_TUNE_TITLE, deleteTuneMessage } from '../tune/deleteTuneMessage'
 import { EDIT_TUNE } from '../tune/tuneScreenCopy'
 import { openTestDb } from '../../test/db'
+import { viewTransitionsDone } from '../../test/viewTransitions'
 import { FILTERS } from '../../ui/filterCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { CLEAR_SEARCH } from '../../ui/searchCopy'
@@ -116,12 +117,6 @@ const rowTitles = () =>
     .elements()
     .map((e) => e.querySelector('[data-row-title]')?.textContent)
 const search = () => page.getByRole('searchbox', { name: SEARCH_TUNES })
-const viewTransitionsDone = () =>
-  !document
-    .getAnimations()
-    .some((animation) =>
-      (animation.effect as KeyframeEffect | null)?.pseudoElement?.startsWith('::view-transition'),
-    )
 const tunePage = () => page.getByRole('main', { name: TUNE })
 const title = () => page.getByRole('heading', { level: 1 })
 
