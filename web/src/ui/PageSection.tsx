@@ -4,9 +4,8 @@ import { Button } from './Button'
 
 /**
  * One section of a document page: its heading in the section heading role with the add control
- * trailing, and its content below. Space sets sections apart, never a hairline, and a section
- * with nothing in it shows only its heading and add control. `add` replaces the plain add
- * button where adding opens a menu or needs a reason it cannot run.
+ * trailing, and its content below. Space sets sections apart, never a hairline. `add` replaces
+ * the plain add button where adding opens a menu or needs a reason it cannot run.
  */
 export function PageSection({
   title,

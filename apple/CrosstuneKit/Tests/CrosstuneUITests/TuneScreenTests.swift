@@ -303,13 +303,26 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(TunePage.facetLine(detail(tune)) == "major · Reel · Old-time · 2/4 · Crooked · AABB")
     }
 
-    @Test func emptySectionsShowOnlyTheirHeadingOnPhone() {
-        for showsEmptyNotes in [true, false] {
-            #expect(!TunePageColumn.showsEmptyNote(isEmpty: false, showsEmptyNotes: showsEmptyNotes))
-        }
-        // The Mac says so under the heading; iPhone leaves the heading and its add control.
-        #expect(TunePageColumn.showsEmptyNote(isEmpty: true, showsEmptyNotes: true))
-        #expect(!TunePageColumn.showsEmptyNote(isEmpty: true, showsEmptyNotes: false))
-        #expect(TunePageColumn.showsEmptyNote(isEmpty: true) == PageStyle.showsEmptyNotes)
+    @Test func aBareTuneShowsRecordingsScansAndNotesButNotLyricsOrLists() {
+        let bare = Tune(id: "bare", createdAt: SampleCatalog.now, title: "Bare", tuneType: "Reel")
+        #expect(TunePageColumn.sections(detail(bare)) == [.recordings, .scans, .notes])
+    }
+
+    @Test func lyricsAndListsShowOnceTheTuneHasThem() {
+        let entry = SampleCatalog.entries[0]
+        var tune = entry.tune
+        tune.lyrics = "My old hen"
+        let full = TuneDetail(
+            tune: tune, userTune: entry.userTune,
+            lists: [TuneMembership(list: SampleCatalog.lists[0], itemID: "item_0")])
+        #expect(TunePageColumn.sections(full) == [.recordings, .scans, .lyrics, .notes, .lists])
+    }
+
+    @Test func emptySectionsSayWhatIsMissingInTheWebClientsWords() {
+        #expect(TuneScreen.noMediaTitle == "No recordings yet")
+        #expect(TuneScreen.noMediaHint == "Record one, paste a link, or find one on a music service.")
+        #expect(TuneScreen.noNotesTitle == "No notes yet")
+        #expect(TuneScreen.addNotes == "Add notes")
+        #expect(TuneScreen.editNotes == "Edit notes")
     }
 }

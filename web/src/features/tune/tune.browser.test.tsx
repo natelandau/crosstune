@@ -7,14 +7,17 @@ import type { CrosstuneDb } from '../../db/schema'
 import type { LocalTune } from '../../db/types'
 import { CLOSE_PLAYER } from '../player/transportCopy'
 import { PLAY } from '../recordings/recordingNames'
-import { ADD_SCANS, SCANS } from '../scans/scanCopy'
+import { ADD_SCANS, NO_SCANS, SCANS } from '../scans/scanCopy'
+import { addToList, createList } from '../../commands/lists'
 import { DELETE_TUNE_TITLE, deleteTuneMessage } from './deleteTuneMessage'
 import {
-  ADD_LYRICS,
   ADD_NOTES,
   EDIT_LYRICS,
   EDIT_NOTES,
+  LISTS_SECTION,
   LYRICS_SECTION,
+  NO_TUNE_NOTES,
+  NO_TUNE_RECORDINGS,
   NOTES_SECTION,
   OPEN_LYRICS,
   RECORDINGS_SECTION,
@@ -101,56 +104,86 @@ it('never opens a wrapped facts line with a dot', async () => {
   }
 })
 
-it('shows an empty Scans section as only its heading and add control', async () => {
+it.each([
+  [RECORDINGS_SECTION, NO_TUNE_RECORDINGS],
+  [SCANS, NO_SCANS],
+  [NOTES_SECTION, NO_TUNE_NOTES],
+])('shows an empty %s section with its heading and an empty state', async (title, empty) => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  const section = tunePage().getByRole('region', { name: title })
+  await expect.element(section.getByRole('heading', { name: title })).toBeVisible()
+  await expect.element(section.getByText(empty, { exact: true })).toBeVisible()
+  // The empty state names what is absent under the section's own heading, not as another one.
+  expect(section.getByRole('heading').elements()).toHaveLength(1)
+})
+
+it('keeps the scans add control in an empty Scans section', async () => {
   const db = openTestDb()
   await seedTune(db, 't1', 'Cluck Old Hen')
   await renderApp({ path: '/catalog/t1', db, frame: PHONE })
   const scans = tunePage().getByRole('region', { name: SCANS })
-  await expect.element(scans.getByRole('heading', { name: SCANS })).toBeVisible()
   await expect.element(scans.getByRole('button', { name: ADD_SCANS })).toBeVisible()
-  // The heading and the add control are all there is: no empty-state text and no list.
-  expect(scans.element().textContent).toBe(SCANS)
-  expect(scans.getByRole('list').elements()).toHaveLength(0)
 })
 
-it.each([
-  [LYRICS_SECTION, ADD_LYRICS],
-  [NOTES_SECTION, ADD_NOTES],
-])(
-  'shows an empty %s section as its heading and an add that opens the form',
-  async (title, add) => {
-    const db = openTestDb()
-    await seedTune(db, 't1', 'Cluck Old Hen')
-    const launcher = { open: vi.fn<TuneFormLauncher['open']>() }
-    await renderApp({
-      path: '/catalog/t1',
-      db,
-      frame: PHONE,
-      launcher,
-    })
-    const section = tunePage().getByRole('region', { name: title })
-    await expect.element(section.getByRole('heading', { name: title })).toBeVisible()
-    expect(section.element().textContent).toBe(title)
-    await section.getByRole('button', { name: add }).click()
-    await expect.poll(() => launcher.open.mock.calls).toEqual([[{ source: 'tune', tuneId: 't1' }]])
-  },
-)
+it('leaves out the lyrics and lists sections while they hold nothing', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  await expect.element(tunePage().getByRole('heading', { name: RECORDINGS_SECTION })).toBeVisible()
+  for (const title of [LYRICS_SECTION, LISTS_SECTION]) {
+    expect(tunePage().getByRole('heading', { name: title, exact: true }).elements()).toHaveLength(0)
+  }
+})
 
-it('offers to edit lyrics and notes once they hold something', async () => {
+it('shows the lyrics, lists, and notes sections once they hold something', async () => {
   const db = openTestDb()
   await db.tunes.put(tuneRow('t1', 'Cluck Old Hen', { lyrics: 'My old hen' }))
   await db.user_tunes.put(userTuneRow('u-t1', 't1', { notes: 'Lift the B part' }))
+  const listId = await createList(db, 'Tuesday jam')
+  await addToList(db, listId, 'u-t1')
   const launcher = { open: vi.fn<TuneFormLauncher['open']>() }
   await renderApp({ path: '/catalog/t1', db, frame: PHONE, launcher })
-  for (const [title, edit, add] of [
-    [LYRICS_SECTION, EDIT_LYRICS, ADD_LYRICS],
-    [NOTES_SECTION, EDIT_NOTES, ADD_NOTES],
+  await expect
+    .element(tunePage().getByRole('region', { name: LISTS_SECTION }).getByRole('link'))
+    .toHaveTextContent('Tuesday jam')
+  // Lists close the page, after the notes.
+  expect(
+    tunePage()
+      .getByRole('heading', { level: 2 })
+      .elements()
+      .map((heading) => heading.textContent),
+  ).toEqual([RECORDINGS_SECTION, SCANS, LYRICS_SECTION, NOTES_SECTION, LISTS_SECTION])
+  for (const [title, edit] of [
+    [LYRICS_SECTION, EDIT_LYRICS],
+    [NOTES_SECTION, EDIT_NOTES],
   ] as const) {
     const section = tunePage().getByRole('region', { name: title })
     await expect.element(section.getByRole('button', { name: edit })).toBeVisible()
-    await expect.element(section.getByRole('button', { name: add })).not.toBeInTheDocument()
   }
   await tunePage().getByRole('button', { name: EDIT_NOTES }).click()
+  await expect.poll(() => launcher.open.mock.calls).toEqual([[{ source: 'tune', tuneId: 't1' }]])
+})
+
+it('shows a learned date alone in the notes section, with no empty state', async () => {
+  const db = openTestDb()
+  await db.tunes.put(tuneRow('t1', 'Cluck Old Hen'))
+  await db.user_tunes.put(userTuneRow('u-t1', 't1', { learned_from: 'Jim' }))
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  const notes = tunePage().getByRole('region', { name: NOTES_SECTION })
+  await expect.element(notes.getByText('Learned from Jim')).toBeVisible()
+  await expect.element(notes.getByRole('button', { name: ADD_NOTES })).toBeVisible()
+  expect(notes.getByText(NO_TUNE_NOTES).elements()).toHaveLength(0)
+})
+
+it('adds notes from an empty Notes section through the tune form', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  const launcher = { open: vi.fn<TuneFormLauncher['open']>() }
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE, launcher })
+  const notes = tunePage().getByRole('region', { name: NOTES_SECTION })
+  await notes.getByRole('button', { name: ADD_NOTES }).click()
   await expect.poll(() => launcher.open.mock.calls).toEqual([[{ source: 'tune', tuneId: 't1' }]])
 })
 

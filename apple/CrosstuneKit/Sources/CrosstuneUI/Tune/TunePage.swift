@@ -3,10 +3,13 @@ import CrosstuneStore
 import SwiftUI
 
 /// One tune as a document: a centered readable column with the title large in the content, a
-/// quiet facet line, then plain sections for how it sounds, its scans, lyrics, lists, and notes.
+/// quiet facet line, then plain sections for how it sounds, its scans, lyrics, notes, and lists,
+/// with lyrics and lists only once the tune has them.
 struct TunePage: View {
     let model: TuneModel
     let detail: TuneDetail
+    /// Opens the tune form, where notes are written.
+    let onEdit: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var risen = false
@@ -16,9 +19,10 @@ struct TunePage: View {
     @State private var addingScans: ScanAddChoice?
     @State private var deletingScan: Scan?
 
-    init(model: TuneModel, detail: TuneDetail) {
+    init(model: TuneModel, detail: TuneDetail, onEdit: @escaping () -> Void) {
         self.model = model
         self.detail = detail
+        self.onEdit = onEdit
     }
 
     /// What the tune is after its key: modes, type, genre, time, crooked, and parts, each left
@@ -37,7 +41,7 @@ struct TunePage: View {
         ScrollView {
             TunePageColumn(
                 model: model, detail: detail, editing: $editing, deleting: $deleting,
-                addingScans: $addingScans, deletingScan: $deletingScan,
+                addingScans: $addingScans, deletingScan: $deletingScan, onEdit: onEdit,
                 titleRise: risen || reduceMotion ? 0 : PageStyle.titleRise,
                 onTitleShows: { titleShows = $0 }
             )
@@ -88,6 +92,8 @@ struct TunePageColumn: View {
     @Binding var deleting: RecordingView?
     @Binding var addingScans: ScanAddChoice?
     @Binding var deletingScan: Scan?
+    /// Opens the tune form, where notes are written.
+    var onEdit: () -> Void = {}
     /// How far below its place the header sits, for the page's arrival.
     var titleRise: CGFloat = 0
     /// Hears whether the title is on screen as the page scrolls.
@@ -95,28 +101,38 @@ struct TunePageColumn: View {
 
     @Environment(\.tuneScreenActions) private var actions
     @Environment(\.lyricsZoom) private var lyricsZoom
+    @Environment(\.tunePageLeaving) private var leaving
     @State private var editingScans = false
 
-    /// Whether an empty section says so under its heading, where `showsEmptyNotes` is the
-    /// platform's choice. Where it does not, the heading and its add control stand alone.
-    nonisolated static func showsEmptyNote(
-        isEmpty: Bool, showsEmptyNotes: Bool = PageStyle.showsEmptyNotes
-    ) -> Bool {
-        isEmpty && showsEmptyNotes
+    /// The sections of a tune's page, in the order the page shows them.
+    enum Section: CaseIterable {
+        case recordings, scans, lyrics, notes, lists
+    }
+
+    /// The sections the page shows: recordings, scans, and notes always, each with its empty
+    /// state while it holds nothing, and lyrics and lists only once the tune has them.
+    nonisolated static func sections(_ detail: TuneDetail) -> [Section] {
+        Section.allCases.filter { section in
+            switch section {
+            case .recordings, .scans, .notes: true
+            case .lyrics: detail.hasLyrics
+            case .lists: !detail.lists.isEmpty
+            }
+        }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: PageStyle.sectionGap) {
             TunePageHeader(model: model, detail: detail, onTitleShows: onTitleShows)
                 .offset(y: titleRise)
-            media
-            scans
-            if detail.hasLyrics {
-                lyrics(detail.lyricsOpening)
-            }
-            lists
-            if detail.notes != nil || detail.learned() != nil {
-                notes
+            ForEach(Self.sections(detail), id: \.self) { section in
+                switch section {
+                case .recordings: media
+                case .scans: scans
+                case .lyrics: lyrics(detail.lyricsOpening)
+                case .notes: notes
+                case .lists: lists
+                }
             }
         }
         .font(PageStyle.body)
@@ -128,8 +144,10 @@ struct TunePageColumn: View {
             TuneMediaAddMenu(model: model, detail: detail)
         } content: {
             VStack(alignment: .leading, spacing: 10) {
-                if Self.showsEmptyNote(isEmpty: detail.recordings.isEmpty && detail.links.isEmpty) {
-                    PageEmptyNote(title: TuneScreen.noMediaTitle, hint: TuneScreen.noMediaHint)
+                if detail.recordings.isEmpty && detail.links.isEmpty {
+                    PageEmptyState(
+                        title: TuneScreen.noMediaTitle, hint: TuneScreen.noMediaHint,
+                        systemImage: Destination.recordings.systemImage)
                 }
                 TuneMediaRows(model: model, detail: detail, editing: $editing, deleting: $deleting)
                 if let failure = model.failure(at: .media) {
@@ -147,8 +165,9 @@ struct TunePageColumn: View {
         } content: {
             VStack(alignment: .leading, spacing: 6) {
                 if layout.showsEmptyState {
-                    if Self.showsEmptyNote(isEmpty: true) {
-                        PageEmptyNote(title: ScanCopy.emptyTitle, hint: ScanCopy.emptyHint)
+                    if scans.isLoaded {
+                        PageEmptyState(
+                            title: ScanCopy.emptyTitle, hint: ScanCopy.emptyHint, systemImage: "doc.richtext")
                     }
                 } else if editingScans {
                     ScanEditRows(model: scans, deleting: $deletingScan)
@@ -206,14 +225,9 @@ struct TunePageColumn: View {
             .help(TuneScreen.addToList)
         } content: {
             VStack(alignment: .leading, spacing: 6) {
-                if Self.showsEmptyNote(isEmpty: detail.lists.isEmpty) {
-                    Text(TuneScreen.notInList)
-                        .foregroundStyle(.secondary)
-                } else if !detail.lists.isEmpty {
-                    FlowLayout(spacing: 6, lineSpacing: PageStyle.tokenLineGap(6)) {
-                        ForEach(detail.lists) { membership in
-                            ListToken(model: model, membership: membership)
-                        }
+                FlowLayout(spacing: 6, lineSpacing: PageStyle.tokenLineGap(6)) {
+                    ForEach(detail.lists) { membership in
+                        ListToken(model: model, membership: membership)
                     }
                 }
                 if let failure = model.failure(at: .lists) {
@@ -223,9 +237,22 @@ struct TunePageColumn: View {
         }
     }
 
+    private var hasNotes: Bool { detail.notes != nil }
+
     private var notes: some View {
-        PageSection(TuneScreen.notesHeader) {
+        let label = hasNotes ? TuneScreen.editNotes : TuneScreen.addNotes
+        return PageSection(TuneScreen.notesHeader) {
+            Button(label, systemImage: hasNotes ? "pencil" : "plus", action: onEdit)
+                .labelStyle(.iconOnly)
+                .disabled(leaving)
+                .help(label)
+        } content: {
             VStack(alignment: .leading, spacing: 6) {
+                if !hasNotes && detail.learned() == nil {
+                    PageEmptyState(
+                        title: TuneScreen.noNotesTitle, hint: TuneScreen.noNotesHint,
+                        systemImage: "note.text")
+                }
                 if let learned = detail.learned() {
                     Text(learned)
                         .contentMask()

@@ -451,7 +451,10 @@ A page reads as a document, such as the tune page or stats.
 - Title in the page title role, selectable, in the content.
 - Section: heading with its controls trailing, one height with or without
   controls. Space separates sections, never a hairline.
-- Empty section: heading and add control only.
+- Empty section the page always holds: heading, add control, and the
+  empty-list icon, title, and hint, smaller, with the title not a heading.
+- A section that only some items fill is absent, heading included, until
+  it holds something. Its add lives in the page's menu or edit form.
 - Row text and glyphs start on the heading's leading edge, glyphs in a
   fixed slot.
 - Group header: a form section label is secondary text. A header naming

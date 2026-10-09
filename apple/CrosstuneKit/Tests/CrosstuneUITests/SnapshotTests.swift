@@ -673,7 +673,7 @@ private struct TunePageSamples {
 
         let empty = SampleCatalog.entries[10]
         let sparseModel = TuneModel(store: store, tuneID: empty.tune.id)
-        #expect(try await poll { sparseModel.shown != nil })
+        #expect(try await poll { sparseModel.shown != nil && sparseModel.scans.isLoaded })
         let sparse = TuneDetail(
             tune: Tune(id: empty.tune.id, createdAt: SampleCatalog.now, title: "Ways of the World", tuneType: "Reel"),
             userTune: empty.userTune)
