@@ -28,6 +28,7 @@ final class FakeAudio: AudioPlayback {
     var onTrackEnd: (@MainActor (TrackEnd) -> Void)?
     var skipsByInterval = true
     var holdsSession = false
+    var onSystemCommand: (@MainActor () -> Void)?
 
     /// Ends the track on its own, paused, as the device's player does.
     func end(_ end: TrackEnd) {

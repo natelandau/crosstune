@@ -197,6 +197,7 @@ public final class RecordSheetModel {
         await recorder.start(tuneID: tuneID)
         startEnded = true
         if recorder.state == .recording { analytics.send(.recordingStarted(source: source)) }
+        if recorder.permissionDenied { analytics.send(.microphoneDenied(source: source)) }
     }
 
     /// Stops and saves the take. The sheet closes unless the save has something to say.

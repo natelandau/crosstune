@@ -176,6 +176,11 @@ final class PlayerActivity {
         itemGone()
     }
 
+    /// A command from outside the app is about to act on the open play.
+    func systemCommand() {
+        plays.markSystemControlled()
+    }
+
     func feed(_ snapshot: ActivitySnapshot) {
         #if DEBUG
             lastFed = snapshot
@@ -291,8 +296,9 @@ final class PlayerActivity {
         let report = PlaybackReport(
             source: attribution.source, queue: attribution.queue, trigger: attribution.trigger,
             kind: attribution.kind, service: attribution.service, listenedMs: ended.listenedMs,
-            completed: ended.endedBy == .finished, endedBy: ended.endedBy, tuneID: nil, recordingID: recordingID,
-            linkID: linkID, listID: ended.origin.listID)
+            completed: ended.endedBy == .finished, endedBy: ended.endedBy,
+            systemControlled: ended.systemControlled, tuneID: nil, recordingID: recordingID, linkID: linkID,
+            listID: ended.origin.listID)
         send(tune: attribution.tune, recordingID: recordingID, linkID: linkID) { tuneID in
             var report = report
             report.tuneID = tuneID

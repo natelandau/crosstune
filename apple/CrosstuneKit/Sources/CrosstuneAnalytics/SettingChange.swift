@@ -11,6 +11,9 @@ public enum SettingChange: Sendable, Equatable {
     case textSize(Int)
     case captureChannels(ChannelChoice)
     case downloadAll(Bool)
+    case newTuneStatus(TuneStatus)
+    /// Whether new tunes start with a genre. The genre is free text, so it is never reported.
+    case newTuneGenreSet(Bool)
 
     public var name: String {
         switch self {
@@ -22,6 +25,8 @@ public enum SettingChange: Sendable, Equatable {
         case .textSize: "text_size"
         case .captureChannels: "capture_channels"
         case .downloadAll: "download_all"
+        case .newTuneStatus: "new_tune_status"
+        case .newTuneGenreSet: "new_tune_genre_set"
         }
     }
 
@@ -36,6 +41,8 @@ public enum SettingChange: Sendable, Equatable {
         case .captureChannels(let choice): .string(choice.rawValue)
         case .textSize(let size): .int(size)
         case .downloadAll(let on): .bool(on)
+        case .newTuneStatus(let status): .string(status.rawValue)
+        case .newTuneGenreSet(let isSet): .bool(isSet)
         }
     }
 

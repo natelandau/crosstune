@@ -7,7 +7,9 @@ import MediaPlayer
 /// never offers controls for nothing.
 @MainActor
 final class NowPlayingControls {
-    private var registrations: [(command: MPRemoteCommand, target: Any)] = []
+    /// A command's handler, given the position a change-of-position command asks for.
+    private typealias Run = (_ position: TimeInterval?) -> MPRemoteCommandHandlerStatus
+    private var registrations: [(command: MPRemoteCommand, target: Any, run: Run)] = []
 
     /// - Parameter skipsByInterval: Offers skips by an interval. Off, they are disabled so the
     ///   system shows next and previous, which it never does while both kinds are enabled.
@@ -26,9 +28,9 @@ final class NowPlayingControls {
             center.skipBackwardCommand.isEnabled = false
             center.skipForwardCommand.isEnabled = false
         }
-        register(center.changePlaybackPositionCommand, on: player) { player, event in
-            guard let event = event as? MPChangePlaybackPositionCommandEvent else { return }
-            player.seek(to: event.positionTime)
+        register(center.changePlaybackPositionCommand, on: player) { player, position in
+            guard let position else { return }
+            player.seek(to: position)
         }
     }
 
@@ -67,6 +69,14 @@ final class NowPlayingControls {
         #endif
     }
 
+    #if DEBUG
+        /// Runs the handler registered on `command` as the system would, for a test, with the
+        /// `position` a change-of-position command carries.
+        func perform(_ command: MPRemoteCommand, position: TimeInterval? = nil) -> MPRemoteCommandHandlerStatus? {
+            registrations.first { $0.command === command }?.run(position)
+        }
+    #endif
+
     func remove() {
         for registration in registrations {
             registration.command.removeTarget(registration.target)
@@ -79,16 +89,20 @@ final class NowPlayingControls {
     /// main thread.
     private func register(
         _ command: MPRemoteCommand, on player: AudioPlayer,
-        _ handle: @escaping @MainActor (AudioPlayer, MPRemoteCommandEvent) -> Void
+        _ handle: @escaping @MainActor (AudioPlayer, _ position: TimeInterval?) -> Void
     ) {
         command.isEnabled = true
-        let target = command.addTarget { [weak player] event in
+        let run: Run = { [weak player] position in
             MainActor.assumeIsolated {
                 guard let player else { return .noActionableNowPlayingItem }
-                handle(player, event)
+                player.onSystemCommand?()
+                handle(player, position)
                 return .success
             }
         }
-        registrations.append((command, target))
+        let target = command.addTarget { event in
+            run((event as? MPChangePlaybackPositionCommandEvent)?.positionTime)
+        }
+        registrations.append((command, target, run))
     }
 }

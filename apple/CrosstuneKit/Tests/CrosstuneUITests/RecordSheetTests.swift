@@ -1,4 +1,5 @@
 @preconcurrency import AVFoundation
+import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
@@ -389,6 +390,15 @@ final class ToneInput: AudioInput {
         #expect(model.outcome == nil)
         model.finish()
         #expect(model.outcome == .dropped)
+    }
+
+    @Test func deniedMicrophoneSendsMicrophoneDeniedAndNoRecordingStarted() async throws {
+        input.permission = false
+        let sink = RecordingAnalyticsSink()
+        let model = RecordSheetModel(recorder: recorder, tuneID: nil, source: .tune, analytics: sink.client)
+        await model.begin()
+
+        #expect(sink.captures == [.init(name: "microphone_denied", properties: ["source": .string("tune")])])
     }
 
     @Test func aSecondStopDoesNothing() async throws {

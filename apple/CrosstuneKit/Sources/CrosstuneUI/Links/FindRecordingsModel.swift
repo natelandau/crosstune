@@ -280,7 +280,9 @@ public final class FindRecordingsModel {
         let page = await Self.searchPage(for: provider, query: query, country: country, search: search)
         guard id == request else { return nil }
         switch page {
-        case .success(let url): return url
+        case .success(let url):
+            analytics.send(.findRecordingsUsed(service: LinkService(provider: provider), resultCount: nil))
+            return url
         case .failure(let reason): failure = reason.message
         case nil: break
         }

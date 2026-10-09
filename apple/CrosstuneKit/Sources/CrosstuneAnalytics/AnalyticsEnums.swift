@@ -205,3 +205,12 @@ public enum CatalogFilterKind: String, CaseIterable, Sendable {
     case unheard
     case missing
 }
+
+/// An assistive feature the device has on.
+public enum AssistiveTechnology: String, CaseIterable, Sendable {
+    case voiceover
+    case switchControl = "switch_control"
+    case largeText = "large_text"
+    case reduceMotion = "reduce_motion"
+    case boldText = "bold_text"
+}

@@ -47,16 +47,18 @@ public struct AnalyticsClient: Sendable {
     }
 
     /// Ties later events to the signed-in user. The sign-up day is set once; the catalog and
-    /// storage buckets, the fields in use, and each of `settings` are set on every call so they
-    /// stay current. A value not known yet is left out rather than sent empty.
+    /// storage buckets, the fields in use, the assistive features on, and each of `settings` are
+    /// set on every call so they stay current. A value not known yet is left out rather than sent
+    /// empty; no assistive feature on is an empty list, not nil.
     public func identify(
         userID: String, signedUpAt: Date?, catalogSize: Int?, storageUsed: Int64?, fieldsUsed: [TuneField]?,
-        settings: [SettingChange]
+        settings: [SettingChange], assistiveTech: [AssistiveTechnology]? = nil
     ) {
         var set: [String: AnalyticsValue] = [:]
         if let catalogSize { set["catalog_size"] = .string(Bucket.count(catalogSize)) }
         if let storageUsed { set["storage_used"] = .string(Bucket.bytes(storageUsed)) }
         if let fieldsUsed { set["fields_used"] = .strings(fieldsUsed.map(\.rawValue)) }
+        if let assistiveTech { set["assistive_tech"] = .strings(assistiveTech.map(\.rawValue)) }
         for setting in settings { set[setting.personProperty] = setting.value }
         var setOnce: [String: AnalyticsValue] = [:]
         if let signedUpAt { setOnce["signed_up_at"] = .string(signedUpAt.formatted(.iso8601)) }

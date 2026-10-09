@@ -171,6 +171,7 @@ public final class PlayerModel {
         loops = LoopPlayback(audio: self.audio, analytics: analytics)
         activity = PlayerActivity(clock: clock, now: now, analytics: analytics)
         self.audio.onTrackEnd = { [weak self] end in self?.trackEnded(end) }
+        self.audio.onSystemCommand = { [weak self] in self?.activity.systemCommand() }
         appleMusic?.player.onTrackEnd = { [weak self] end in self?.trackEnded(end) }
         following = Task { [weak self] in
             for await snapshot in Observations({ @MainActor [weak self] in self?.activitySnapshot }) {

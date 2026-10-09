@@ -42,7 +42,7 @@ struct SettingsRoot: View {
                 ForEach(SettingsCategory.allCases, id: \.self) { category in
                     SettingsPageLink(SettingsPage.category(category)) {
                         LabeledContent {
-                            Text(value(category)).foregroundStyle(.secondary)
+                            Text(value(category)).foregroundStyle(.secondary).contentMask()
                         } label: {
                             Label {
                                 Text(category.title)

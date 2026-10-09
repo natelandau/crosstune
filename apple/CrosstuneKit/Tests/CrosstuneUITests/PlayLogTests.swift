@@ -609,6 +609,47 @@ private final class EndedPlays {
         #expect(report["ended_by"] == .string("finished"))
     }
 
+    @Test func playEndedAfterALockScreenPauseIsSystemControlled() async throws {
+        let rig = ActivityRig()
+        try await rig.playRecording()
+        rig.clock.advance(20_000)
+        rig.audio.onSystemCommand?()
+        try await rig.pause()
+        rig.player.leftForeground()
+        try await waitFor { !rig.sent("playback_ended").isEmpty }
+        let report = try #require(rig.sent("playback_ended").only)
+        #expect(report["ended_by"] == .string("paused"))
+        #expect(report["system_controlled"] == .bool(true))
+    }
+
+    @Test func playEndedWithOnlyInAppControlsIsNotSystemControlled() async throws {
+        let rig = ActivityRig()
+        try await rig.playRecording()
+        rig.clock.advance(20_000)
+        try await rig.pause()
+        rig.player.leftForeground()
+        try await waitFor { !rig.sent("playback_ended").isEmpty }
+        let report = try #require(rig.sent("playback_ended").only)
+        #expect(report["ended_by"] == .string("paused"))
+        #expect(report["system_controlled"] == .bool(false))
+    }
+
+    @Test func aSystemCommandMarksOnlyThePlayItActedOn() async throws {
+        let rig = ActivityRig()
+        try await rig.playRecording("r1")
+        rig.clock.advance(12_000)
+        rig.audio.onSystemCommand?()
+        try await rig.playRecording("r2")
+        rig.clock.advance(12_000)
+        rig.player.close()
+        try await waitFor { rig.sent("playback_ended").count == 2 }
+        let reports = rig.sent("playback_ended")
+        let first = try #require(reports.first { $0["recording_id"] == .string("r1") })
+        let second = try #require(reports.first { $0["recording_id"] == .string("r2") })
+        #expect(first["system_controlled"] == .bool(true))
+        #expect(second["system_controlled"] == .bool(false))
+    }
+
     @Test func aPlayThatNeverSoundedReportsNothing() {
         let clock = ActivityClock()
         let ended = EndedPlays()

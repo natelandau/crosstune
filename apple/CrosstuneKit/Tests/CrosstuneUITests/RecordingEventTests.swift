@@ -105,14 +105,14 @@ import Testing
         #expect(sink.calls.isEmpty)
     }
 
-    @Test func reportsNothingWhenTheMicrophoneIsRefused() async throws {
+    @Test func reportsOnlyTheDenialWhenTheMicrophoneIsRefused() async throws {
         input.permission = false
         let model = sheet()
         await model.begin()
         await model.cancel()
         model.finish()
 
-        #expect(sink.calls.isEmpty)
+        #expect(sink.captures.map(\.name) == ["microphone_denied"])
     }
 
     @Test func reportsASaveWithSomethingToSayOnce() async throws {

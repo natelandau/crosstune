@@ -47,6 +47,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
     case tunesRemovedFromList(listID: String, count: Int)
 
     case recordingStarted(source: ActionSource)
+    case microphoneDenied(source: ActionSource)
     /// A take saved with a tune is filed.
     case recordingSaved(seconds: Double, recordingID: String, tuneID: String?)
     case recordingDiscarded(seconds: Double)
@@ -62,7 +63,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
     case linkAdded(service: LinkService, via: LinkVia, linkID: String, tuneID: String)
     case linkRemoved(service: LinkService, linkID: String)
     case linkOpenedExternally(service: LinkService, linkID: String)
-    case findRecordingsUsed(service: LinkService, resultCount: Int)
+    case findRecordingsUsed(service: LinkService, resultCount: Int?)
     case appleMusicAuthorized(granted: Bool)
 
     case playbackEnded(PlaybackReport)
@@ -114,6 +115,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .tunesAddedToList: "tunes_added_to_list"
         case .tunesRemovedFromList: "tunes_removed_from_list"
         case .recordingStarted: "recording_started"
+        case .microphoneDenied: "microphone_denied"
         case .recordingSaved: "recording_saved"
         case .recordingDiscarded: "recording_discarded"
         case .audioImported: "audio_imported"
@@ -181,7 +183,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
             ["list_id": .string(listID), "count_bucket": .count(count)]
         case .listRenamed(let listID), .listReordered(let listID):
             ["list_id": .string(listID)]
-        case .recordingStarted(let source):
+        case .recordingStarted(let source), .microphoneDenied(let source):
             ["source": .string(source.rawValue)]
         case .recordingSaved(let seconds, let recordingID, let tuneID):
             [
@@ -216,7 +218,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .linkRemoved(let service, let linkID), .linkOpenedExternally(let service, let linkID):
             ["service": .string(service.rawValue), "link_id": .string(linkID)]
         case .findRecordingsUsed(let service, let resultCount):
-            ["service": .string(service.rawValue), "result_count_bucket": .count(resultCount)]
+            ["service": .string(service.rawValue)].adding("result_count_bucket", resultCount.map(AnalyticsValue.count))
         case .appleMusicAuthorized(let granted):
             ["granted": .bool(granted)]
         case .playbackEnded(let report):
@@ -271,6 +273,8 @@ public struct PlaybackReport: Sendable, Equatable {
     public var listenedMs: Int64
     public var completed: Bool
     public var endedBy: PlaybackEnd
+    /// Whether any play, pause, skip, or seek in this play came from outside the app.
+    public var systemControlled: Bool
     public var tuneID: String?
     public var recordingID: String?
     public var linkID: String?
@@ -278,8 +282,8 @@ public struct PlaybackReport: Sendable, Equatable {
 
     public init(
         source: ActionSource, queue: PlaybackQueue, trigger: PlaybackTrigger, kind: PlaybackKind,
-        service: LinkService?, listenedMs: Int64, completed: Bool, endedBy: PlaybackEnd, tuneID: String?,
-        recordingID: String?, linkID: String?, listID: String?
+        service: LinkService?, listenedMs: Int64, completed: Bool, endedBy: PlaybackEnd,
+        systemControlled: Bool, tuneID: String?, recordingID: String?, linkID: String?, listID: String?
     ) {
         self.source = source
         self.queue = queue
@@ -289,6 +293,7 @@ public struct PlaybackReport: Sendable, Equatable {
         self.listenedMs = listenedMs
         self.completed = completed
         self.endedBy = endedBy
+        self.systemControlled = systemControlled
         self.tuneID = tuneID
         self.recordingID = recordingID
         self.linkID = linkID
@@ -300,6 +305,7 @@ public struct PlaybackReport: Sendable, Equatable {
             "source": .string(source.rawValue), "queue": .string(queue.rawValue), "trigger": .string(trigger.rawValue),
             "kind": .string(kind.rawValue), "listened_bucket": .string(Bucket.listened(ms: listenedMs)),
             "completed": .bool(completed), "ended_by": .string(endedBy.rawValue),
+            "system_controlled": .bool(systemControlled),
         ]
         .adding("service", service.map { .string($0.rawValue) })
         .adding("tune_id", tuneID.map(AnalyticsValue.string))

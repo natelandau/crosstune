@@ -34,7 +34,8 @@ struct CrosstuneApp: App {
                 clientVersion: configuration.clientVersion,
                 storageOrigin: configuration.storageOrigin,
                 analytics: analytics,
-                deviceSettings: { DeviceSettings.current() }
+                deviceSettings: { DeviceSettings.current() },
+                assistiveTech: { AssistiveTech.current() }
             ))
     }
 

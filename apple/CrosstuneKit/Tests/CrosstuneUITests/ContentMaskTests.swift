@@ -22,6 +22,8 @@ import Testing
         "value",
         // The catalog's offer to add the typed search as a tune.
         "offerLabel",
+        // The genre new tunes start with, and the settings line that shows it.
+        "newTuneGenre", "newTunesSummary",
     ]
 
     /// Methods that return user content, for the same reason as `contentProperties`.
@@ -314,6 +316,10 @@ import Testing
         ("Components/UndoBanner.swift", "Text(message)"),
         ("Catalog/SearchOffer.swift", "Label(label"),
         ("Catalog/SearchOffer.swift", "Text(match.note)"),
+        // A category's summary, which for New tunes is the genre.
+        ("Phone/SettingsRoot.swift", "Text(value(category))"),
+        // The system picker shows a typed value as its own choice and as the row's selection.
+        ("TuneForm/SuggestionPicker.swift", "Picker(selection: selection)"),
     ]
 
     @Test func everyHandMaskStaysInPlace() throws {

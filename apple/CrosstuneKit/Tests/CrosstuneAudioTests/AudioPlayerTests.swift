@@ -93,6 +93,40 @@ private func eventually(_ condition: () -> Bool) async throws {
         #expect(!center.skipForwardCommand.isEnabled)
     }
 
+    @Test func everyRemoteCommandTellsThePlayerItCameFromTheSystem() throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        let controls = try #require(player.nowPlayingControls)
+        let center = MPRemoteCommandCenter.shared()
+        let told = Mutex(0)
+        player.onSystemCommand = { told.withLock { $0 += 1 } }
+
+        let commands: [MPRemoteCommand] = [
+            center.playCommand, center.pauseCommand, center.togglePlayPauseCommand, center.skipBackwardCommand,
+            center.skipForwardCommand, center.changePlaybackPositionCommand,
+        ]
+        for (index, command) in commands.enumerated() {
+            let status = controls.perform(command)
+            #expect(status == .success)
+            #expect(told.withLock { $0 } == index + 1)
+        }
+        player.unload()
+    }
+
+    @Test func theSystemsPositionCommandSeeks() throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        let controls = try #require(player.nowPlayingControls)
+        let center = MPRemoteCommandCenter.shared()
+
+        #expect(controls.perform(center.changePlaybackPositionCommand, position: 2.5) == .success)
+        #expect(abs(player.elapsed - 2.5) < 0.001)
+        // A position command with no position leaves the place alone.
+        #expect(controls.perform(center.changePlaybackPositionCommand) == .success)
+        #expect(abs(player.elapsed - 2.5) < 0.001)
+        player.unload()
+    }
+
     /// A player on the offline renderer, with a 4-second tone loaded.
     private func offlinePlayer(_ root: TemporaryRoot) throws -> AudioPlayer {
         try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)

@@ -68,6 +68,76 @@ import Testing
             ])
     }
 
+    /// The audio quality change queued last settles last, so the captures before it are final.
+    @Test func reportsANewTuneStatusOnceAndNotWhenPickedAgain() async throws {
+        let store = try root.open()
+        let model = try await loaded(store)
+
+        model.setNewTuneStatus(model.newTuneStatus)
+        model.setNewTuneStatus("learning")
+        model.setNewTuneStatus("learning")
+        model.setAudioQuality("low")
+
+        #expect(try await poll { sink.captures.count == 2 })
+        #expect(
+            sink.captures == [
+                changed("new_tune_status", .string("learning")), changed("audio_quality", .string("low")),
+            ])
+    }
+
+    @Test func reportsAGenreBeingSetOnceHoweverManyKeysAreTyped() async throws {
+        let store = try root.open()
+        let model = try await loaded(store)
+
+        for typed in ["R", "Re", "Reel", "Reels", "Reels "] { model.setNewTuneGenre(typed) }
+        model.setAudioQuality("low")
+
+        #expect(try await poll { sink.captures.count == 2 })
+        #expect(
+            sink.captures == [
+                changed("new_tune_genre_set", .bool(true)), changed("audio_quality", .string("low")),
+            ])
+    }
+
+    @Test func reportsAClearedGenreOnce() async throws {
+        let store = try root.open()
+        let model = try await loaded(store)
+
+        for typed in ["Reel", "Ree", "", " "] { model.setNewTuneGenre(typed) }
+        model.setAudioQuality("low")
+
+        #expect(try await poll { sink.captures.count == 3 })
+        #expect(
+            sink.captures == [
+                changed("new_tune_genre_set", .bool(true)), changed("new_tune_genre_set", .bool(false)),
+                changed("audio_quality", .string("low")),
+            ])
+    }
+
+    @Test func reportsAGenreSetByALaterKeystrokeWhenTheFirstOneFails() async throws {
+        let store = try root.open()
+        let model = try await loaded(store)
+        try await store.write { writer in
+            for event in ["INSERT", "UPDATE"] {
+                try writer.db.execute(
+                    sql: """
+                        CREATE TRIGGER refuse_genre_\(event.lowercased()) BEFORE \(event) ON user_settings
+                        WHEN NEW.new_tune_genre = 'R' BEGIN SELECT RAISE(ABORT, 'refused'); END
+                        """)
+            }
+        }
+
+        model.setNewTuneGenre("R")
+        model.setNewTuneGenre("Re")
+        model.setAudioQuality("low")
+
+        #expect(try await poll { sink.captures.count == 2 })
+        #expect(
+            sink.captures == [
+                changed("new_tune_genre_set", .bool(true)), changed("audio_quality", .string("low")),
+            ])
+    }
+
     @Test func reportsTheServicesSearchedAfterAToggle() async throws {
         let store = try root.open()
         try await Commands(store: store).toggleSearchProvider(clerkUserID: store.userID, provider: "tidal", on: false)
@@ -105,6 +175,18 @@ import Testing
         model.setAudioQuality("high")
 
         #expect(try await poll { model.qualityFailure != nil })
+        #expect(sink.calls.isEmpty)
+    }
+
+    @Test func aRefusedNewTuneChoiceReportsNothing() async throws {
+        let store = try root.open()
+        let model = try await loaded(store)
+
+        try store.close()
+        model.setNewTuneStatus("known")
+        model.setNewTuneGenre("Reel")
+
+        #expect(try await poll { model.newTuneStatusFailure != nil && model.newTuneGenreFailure != nil })
         #expect(sink.calls.isEmpty)
     }
 

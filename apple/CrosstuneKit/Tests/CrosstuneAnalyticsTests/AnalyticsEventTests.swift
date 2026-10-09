@@ -102,12 +102,14 @@ private let linkID = "9d3a6c1e-2f4b-4b7a-a5c8-7e1f0d2b3c94"
 @Test func sendsAPlayAsItsListenedBucketNeverItsLength() {
     let report = PlaybackReport(
         source: .tune, queue: .single, trigger: .tap, kind: .recorded, service: nil, listenedMs: 12_345,
-        completed: false, endedBy: .paused, tuneID: tuneID, recordingID: recordingID, linkID: nil, listID: nil)
+        completed: false, endedBy: .paused, systemControlled: true, tuneID: tuneID,
+        recordingID: recordingID, linkID: nil, listID: nil)
     #expect(
         AnalyticsEvent.playbackEnded(report).properties == [
             "source": .string("tune"), "queue": .string("single"), "trigger": .string("tap"),
             "kind": .string("recorded"), "listened_bucket": .string("10-30s"), "completed": .bool(false),
-            "ended_by": .string("paused"), "tune_id": .string(tuneID), "recording_id": .string(recordingID),
+            "ended_by": .string("paused"), "system_controlled": .bool(true), "tune_id": .string(tuneID),
+            "recording_id": .string(recordingID),
         ])
 }
 

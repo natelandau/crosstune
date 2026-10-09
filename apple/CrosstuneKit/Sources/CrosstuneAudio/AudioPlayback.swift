@@ -56,6 +56,9 @@ public protocol AudioPlayback: PlaybackTransport {
     /// While true, unloading keeps the audio session active, so a background app can start the
     /// next track.
     var holdsSession: Bool { get set }
+    /// Told before each command from outside the app is carried out: the lock screen, Control
+    /// Center, headphones, CarPlay, or the Mac's media keys. The app's own controls never call it.
+    var onSystemCommand: (@MainActor () -> Void)? { get set }
 
     /// Loads `url` in place of anything loaded, paused at its start, playing the whole file at
     /// normal speed and pitch with no loop until told otherwise. `keepLoop`, for a new file of
