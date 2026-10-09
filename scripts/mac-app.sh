@@ -123,7 +123,7 @@ claim() {
 
 run() {
   # Signed, so the keychain sees the same identity from every worktree
-  xcodebuild build -quiet -project "$apple/Crosstune.xcodeproj" -scheme Crosstune \
+  "$me/scripts/scrub-env.sh" xcodebuild build -quiet -project "$apple/Crosstune.xcodeproj" -scheme Crosstune \
     -configuration Debug -destination 'platform=macOS' -derivedDataPath "$derived"
   claim
   quit_app

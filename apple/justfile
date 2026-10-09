@@ -6,6 +6,10 @@ set dotenv-load
 
 # Build products stay inside the module, so a clean checkout holds everything the build made.
 derived_data := ".build/DerivedData"
+# Builds run without credential-like environment variables, which Xcode and SwiftPM store in
+# plain text under .build/.
+xcodebuild := "../scripts/scrub-env.sh xcodebuild"
+swift := "../scripts/scrub-env.sh swift"
 # Marketing captures land here: each simulator pass's result bundle and exported attachments,
 # and the Mac window still. `capture-test` clears it, so it only ever holds the latest run.
 capture := ".build/capture"
@@ -38,12 +42,12 @@ contract-check:
     out=.build/contract-check
     rm -rf "$out" && mkdir -p "$out/Generated"
     trap 'rm -rf "$out"' EXIT
-    swift run -q --package-path Tools normalize-contract ../api/openapi.json "$out/openapi.json"
-    swift run -q --package-path Tools swift-openapi-generator generate \
+    {{ swift }} run -q --package-path Tools normalize-contract ../api/openapi.json "$out/openapi.json"
+    {{ swift }} run -q --package-path Tools swift-openapi-generator generate \
         --config CrosstuneKit/Sources/CrosstuneAPI/openapi-generator-config.yaml \
         --output-directory "$out/Generated" \
         "$out/openapi.json" > /dev/null
-    swift run -q --package-path Tools generate-vocabulary ../api/openapi.json "$out/Vocabulary.swift"
+    {{ swift }} run -q --package-path Tools generate-vocabulary ../api/openapi.json "$out/Vocabulary.swift"
     swift format --in-place --configuration .swift-format "$out/Vocabulary.swift"
     stale=0
     diff -ru CrosstuneKit/Sources/CrosstuneAPI/Generated "$out/Generated" || stale=1
@@ -63,7 +67,7 @@ fix:
 [group('test')]
 [positional-arguments]
 test *args:
-    swift test --package-path CrosstuneKit "$@"
+    {{ swift }} test --package-path CrosstuneKit "$@"
 
 # The compilation cache is keyed on content rather than file dates, so CI restores it into a
 # fresh checkout and still hits.
@@ -72,7 +76,7 @@ test *args:
 [group('build')]
 build:
     for destination in 'generic/platform=iOS Simulator' 'generic/platform=macOS'; do \
-        xcodebuild build -quiet -project Crosstune.xcodeproj -scheme Crosstune \
+        {{ xcodebuild }} build -quiet -project Crosstune.xcodeproj -scheme Crosstune \
             -destination "$destination" -derivedDataPath {{ derived_data }} CODE_SIGNING_ALLOWED=NO \
             COMPILATION_CACHE_ENABLE_CACHING=YES; \
     done
@@ -183,10 +187,10 @@ capture-test *names:
         local bundle="$1" device="$2"
         shift 2
         local destination="platform=iOS Simulator,id=$device"
-        xcodebuild build-for-testing -quiet -project Crosstune.xcodeproj -scheme Marketing \
+        {{ xcodebuild }} build-for-testing -quiet -project Crosstune.xcodeproj -scheme Marketing \
             -destination "$destination" -derivedDataPath {{ derived_data }}
         # A failed test would otherwise wait up to ten minutes for a simulator sysdiagnose.
-        xcodebuild test-without-building -quiet -project Crosstune.xcodeproj -scheme Marketing \
+        {{ xcodebuild }} test-without-building -quiet -project Crosstune.xcodeproj -scheme Marketing \
             -testPlan Marketing -destination "$destination" -derivedDataPath {{ derived_data }} \
             -collect-test-diagnostics never -resultBundlePath "{{ capture }}/$bundle.xcresult" \
             "$@" || status=$?
@@ -304,7 +308,7 @@ archive build_number:
     ASC_KEY_PATH="${ASC_KEY_PATH/#\~/$HOME}"
     rm -rf {{ archives }}
     for platform in iOS macOS; do
-        xcodebuild archive -quiet -project Crosstune.xcodeproj -scheme Crosstune \
+        {{ xcodebuild }} archive -quiet -project Crosstune.xcodeproj -scheme Crosstune \
             -configuration Release -destination "generic/platform=$platform" \
             -derivedDataPath {{ derived_data }} -archivePath "{{ archives }}/$platform.xcarchive" \
             CURRENT_PROJECT_VERSION='{{ build_number }}' {{ asc_auth }}
@@ -319,7 +323,7 @@ upload:
     ASC_KEY_PATH="${ASC_KEY_PATH/#\~/$HOME}"
     for platform in iOS macOS; do
         rm -rf ".build/export/$platform"
-        xcodebuild -exportArchive -archivePath "{{ archives }}/$platform.xcarchive" \
+        {{ xcodebuild }} -exportArchive -archivePath "{{ archives }}/$platform.xcarchive" \
             -exportOptionsPlist Config/ExportOptions.plist \
             -exportPath ".build/export/$platform" {{ asc_auth }}
     done
@@ -342,20 +346,20 @@ check-certificates:
 # Regenerate the Swift client and vocabulary from the committed OpenAPI contract
 [group('contract')]
 contract:
-    swift run --package-path Tools normalize-contract ../api/openapi.json .build/contract/openapi.json
-    swift run --package-path Tools swift-openapi-generator generate \
+    {{ swift }} run --package-path Tools normalize-contract ../api/openapi.json .build/contract/openapi.json
+    {{ swift }} run --package-path Tools swift-openapi-generator generate \
         --config CrosstuneKit/Sources/CrosstuneAPI/openapi-generator-config.yaml \
         --output-directory CrosstuneKit/Sources/CrosstuneAPI/Generated \
         .build/contract/openapi.json
-    swift run --package-path Tools generate-vocabulary ../api/openapi.json \
+    {{ swift }} run --package-path Tools generate-vocabulary ../api/openapi.json \
         CrosstuneKit/Sources/CrosstuneVocabulary/Vocabulary.swift
     swift format --in-place CrosstuneKit/Sources/CrosstuneVocabulary/Vocabulary.swift
 
 # Upgrade the Swift package dependencies
 [group('maintenance')]
 update:
-    swift package update --package-path CrosstuneKit
-    swift package update --package-path Tools
+    {{ swift }} package update --package-path CrosstuneKit
+    {{ swift }} package update --package-path Tools
 
 # Create .env from the example if absent
 [group('maintenance')]
