@@ -642,6 +642,11 @@ public struct UserSettings: SyncedRecord, Hashable {
     /// Which version a list plays when a tune has both and none is pinned. One of
     /// ``Vocabulary/playFirsts``; kept as a plain string like every vocabulary field.
     public var playFirst: String
+    /// The genre a new tune starts with; nil starts it with none.
+    public var newTuneGenre: String?
+    /// The status a new tune starts with. One of ``Vocabulary/statuses``, kept as a plain string
+    /// like every vocabulary field.
+    public var newTuneStatus: String
     public var extra: JSONObject
 
     public enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
@@ -653,6 +658,8 @@ public struct UserSettings: SyncedRecord, Hashable {
         case audioQuality = "audio_quality"
         case searchProviders = "search_providers"
         case playFirst = "play_first"
+        case newTuneGenre = "new_tune_genre"
+        case newTuneStatus = "new_tune_status"
         case instruments, extra
     }
 
@@ -665,12 +672,14 @@ public struct UserSettings: SyncedRecord, Hashable {
     public static let playFirstRecordings = "recordings"
     public static let playFirstAppleMusic = "apple_music"
     public static let defaultPlayFirst = playFirstRecordings
+    public static let defaultNewTuneStatus = "want_to_learn"
 
     public static var wireDefaults: JSONObject {
         [
             "audio_quality": .string("standard"), "instruments": .array([]),
             "search_providers": .array(defaultSearchProviders.map(JSONValue.string)),
-            "play_first": .string(defaultPlayFirst),
+            "play_first": .string(defaultPlayFirst), "new_tune_genre": .null,
+            "new_tune_status": .string(defaultNewTuneStatus),
         ]
     }
 
@@ -678,7 +687,8 @@ public struct UserSettings: SyncedRecord, Hashable {
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
         deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, audioQuality: String = "standard",
         instruments: [String] = [], searchProviders: [String] = defaultSearchProviders,
-        playFirst: String = defaultPlayFirst,
+        playFirst: String = defaultPlayFirst, newTuneGenre: String? = nil,
+        newTuneStatus: String = defaultNewTuneStatus,
         extra: JSONObject = [:]
     ) {
         self.id = id
@@ -690,6 +700,8 @@ public struct UserSettings: SyncedRecord, Hashable {
         self.instruments = instruments
         self.searchProviders = searchProviders
         self.playFirst = playFirst
+        self.newTuneGenre = newTuneGenre
+        self.newTuneStatus = newTuneStatus
         self.extra = extra
     }
 }

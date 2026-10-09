@@ -367,6 +367,23 @@ def test_user_settings_rejects_a_null_play_first() -> None:
         UserSettingsData(play_first=None, created_at=NOW)
 
 
+def test_user_settings_new_tunes_start_with_no_genre_and_want_to_learn() -> None:
+    settings = UserSettingsData(created_at=NOW)
+    assert settings.new_tune_genre is None
+    assert settings.new_tune_status == "want_to_learn"
+
+
+def test_user_settings_rejects_unknown_new_tune_status() -> None:
+    with pytest.raises(ValidationError):
+        UserSettingsData(new_tune_status="mastered", created_at=NOW)
+
+
+@pytest.mark.parametrize("genre", ["", "x" * 101])
+def test_user_settings_rejects_an_empty_or_long_new_tune_genre(genre: str) -> None:
+    with pytest.raises(ValidationError):
+        UserSettingsData(new_tune_genre=genre, created_at=NOW)
+
+
 RECORDING_ID = "018f0000-0000-7000-8000-000000000001"
 
 

@@ -4,10 +4,11 @@ import { TUNE_LIMITS, type Instrument } from '../../api/vocabulary'
 import { createList } from '../../commands/lists'
 import * as lists from '../../commands/lists'
 import * as recordings from '../../commands/recordings'
+import { setNewTuneGenre, setNewTuneStatus } from '../../commands/settings'
 import { createTune, deleteTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
-import { dataProviders } from '../../test/providers'
+import { dataProviders, testSession } from '../../test/providers'
 import { captureRecording } from '../../test/recordings'
 import { useCatalog } from '../catalog/useCatalog'
 import { YEAR_FORMAT } from '../../ui/partialDate'
@@ -155,23 +156,39 @@ describe('useTuneForm', () => {
     expect(result.current.form.touched).toMatchObject({ tunings: true, modes: true })
   })
 
-  it('starts a new tune with the initial title, capped, and seeds the most used genre', async () => {
-    await createTune(db, { title: 'One', genre: 'Irish' }, { status: 'known' })
+  it('starts a new tune with the initial title, capped', async () => {
     const { result } = setup({ initialTitle: 'x'.repeat(500) })
     await ready(result)
     expect(result.current.form.values.title).toHaveLength(TUNE_LIMITS.title)
-    await expect.poll(() => result.current.form.values.genre).toBe('Irish')
-    expect(result.current.form.suggestions.types.length).toBeGreaterThan(0)
   })
 
-  it('stands the seeded genre down once the player picks one', async () => {
+  it('starts a new tune with no genre however many tunes hold one', async () => {
     await createTune(db, { title: 'One', genre: 'Irish' }, { status: 'known' })
     const { result } = setup()
     await ready(result)
-    await expect.poll(() => result.current.form.values.genre).toBe('Irish')
-    act(() => result.current.form.set('genre', ''))
     await expect.poll(() => result.current.catalog?.length).toBe(1)
     expect(result.current.form.values.genre).toBe('')
+    expect(result.current.form.values.status).toBe('want_to_learn')
+  })
+
+  it('starts a new tune with the genre, trimmed, and status the settings choose', async () => {
+    await setNewTuneGenre(db, testSession.userId, 'Old-time ')
+    await setNewTuneStatus(db, testSession.userId, 'known')
+    const { result } = setup()
+    await ready(result)
+    expect(result.current.form.values.genre).toBe('Old-time')
+    expect(result.current.form.values.status).toBe('known')
+    expect(result.current.form.touched).toEqual({})
+  })
+
+  it('opens a tune with its own genre and status, not the new tune settings', async () => {
+    await setNewTuneGenre(db, testSession.userId, 'Old-time')
+    await setNewTuneStatus(db, testSession.userId, 'known')
+    const { tuneId } = await createTune(db, { title: 'Bare' }, { status: 'learning' })
+    const { result } = setup({ tuneId })
+    await ready(result)
+    expect(result.current.form.values.genre).toBe('')
+    expect(result.current.form.values.status).toBe('learning')
   })
 
   it('files a new tune on a list and a recording', async () => {

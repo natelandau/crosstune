@@ -2,6 +2,7 @@
 export const SETTINGS_PAGE_IDS = [
   'account',
   'instruments',
+  'new-tunes',
   'music-services',
   'recording',
   'appearance',

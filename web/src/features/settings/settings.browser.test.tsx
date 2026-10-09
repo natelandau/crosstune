@@ -1,18 +1,20 @@
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { setInstruments } from '../../commands/settings'
-import { AUDIO_QUALITY_NAMES, INSTRUMENT_LABELS } from '../../constants'
+import { AUDIO_QUALITY_NAMES, INSTRUMENT_LABELS, STATUS_LABELS } from '../../constants'
 import { setStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { RECORDING } from '../../text/format'
 import { STORAGE_USED } from '../recordings/recordingsCopy'
 import { APPEARANCE_KEY, APPEARANCE_LABELS, setAppearance } from '../../theme/appearance'
 import { CONFIRM_LABEL, DELETE_ACCOUNT, DELETE_CONFIRMATION_TEXT } from './deleteAccountCopy'
+import { NEW_TUNE_GENRE_LABEL, NEW_TUNE_STATUS_LABEL } from './newTunes'
 import { MUSIC_SERVICES, SEARCHABLE_PROVIDERS, servicesSummary } from './searchProviders'
 import {
   ACCOUNT,
   APPEARANCE,
   INSTRUMENTS,
+  NEW_TUNES,
   SYNC_AND_STORAGE,
   SYNC_NOW,
   THEME_LABEL,
@@ -67,7 +69,7 @@ it('lists the categories in order, each with its summary, on the phone', async (
   await expect.element(page.getByRole('heading', { level: 1, name: SETTINGS.label })).toBeVisible()
   await expect
     .poll(rowTitles)
-    .toEqual([INSTRUMENTS, MUSIC_SERVICES, RECORDING, APPEARANCE, SYNC_AND_STORAGE])
+    .toEqual([INSTRUMENTS, NEW_TUNES, MUSIC_SERVICES, RECORDING, APPEARANCE, SYNC_AND_STORAGE])
   const row = (name: string) => categories().getByRole('row', { name: new RegExp(`^${name}`) })
   await expect.element(row(INSTRUMENTS)).toHaveTextContent(INSTRUMENT_LABELS.violin)
   await expect
@@ -112,10 +114,10 @@ it('opens a page by its address on wide beside the categories', async () => {
 })
 
 it('replaces the open page in the detail as ArrowDown walks the categories on wide', async () => {
-  const { router } = await mount('/settings/instruments', WIDE)
-  const instruments = categories().getByRole('row', { name: new RegExp(`^${INSTRUMENTS}`) })
-  await expect.element(instruments).toHaveAttribute('aria-selected', 'true')
-  ;(instruments.element() as HTMLElement).focus()
+  const { router } = await mount('/settings/new-tunes', WIDE)
+  const newTunes = categories().getByRole('row', { name: new RegExp(`^${NEW_TUNES}`) })
+  await expect.element(newTunes).toHaveAttribute('aria-selected', 'true')
+  ;(newTunes.element() as HTMLElement).focus()
   await userEvent.keyboard('{ArrowDown}')
   await expect.poll(at(router)).toBe('/settings/music-services')
   expect(router.state.historyAction).toBe('REPLACE')
@@ -195,6 +197,23 @@ it('updates the Instruments summary on the root as an instrument toggles', async
   await expect
     .poll(async () => (await db.user_settings.toArray())[0]?.instruments)
     .toEqual(['violin'])
+})
+
+it('saves the status and genre a new tune starts with, and sums up the genre', async () => {
+  const { db } = await mount('/settings/new-tunes', WIDE)
+  const row = categories().getByRole('row', { name: new RegExp(`^${NEW_TUNES}`) })
+  await expect.element(row).toHaveTextContent(NOT_SET)
+  const detail = page.getByRole('main', { name: NEW_TUNES })
+  const settings = async () => (await db.user_settings.toArray())[0]
+  await detail
+    .getByRole('radiogroup', { name: NEW_TUNE_STATUS_LABEL })
+    .getByRole('radio', { name: STATUS_LABELS.known })
+    .click()
+  await expect.poll(async () => (await settings())?.new_tune_status).toBe('known')
+  await detail.getByRole('combobox', { name: NEW_TUNE_GENRE_LABEL }).click()
+  await page.getByRole('option', { name: 'Irish', exact: true }).click()
+  await expect.poll(async () => (await settings())?.new_tune_genre).toBe('Irish')
+  await expect.element(row).toHaveTextContent('Irish')
 })
 
 it('applies the dark scheme when Appearance is set to Dark', async () => {

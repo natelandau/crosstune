@@ -1779,6 +1779,10 @@ export interface components {
              * @default []
              */
             instruments: components["schemas"]["Instrument"][];
+            /** New Tune Genre */
+            new_tune_genre?: string | null;
+            /** @default want_to_learn */
+            new_tune_status: components["schemas"]["TuneStatus"];
             /** @default recordings */
             play_first: components["schemas"]["PlayFirst"];
             /** Search Providers */

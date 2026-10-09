@@ -80,12 +80,34 @@ private func storedPlayFirstValue(_ row: UserSettings?) -> String {
     return row.playFirst
 }
 
+/// The genre a new tune starts with, or nil when it starts with none.
+public func storedNewTuneGenre(_ row: UserSettings?) -> String? {
+    guard let row, row.deletedAt == nil else { return nil }
+    return row.newTuneGenre
+}
+
+/// The status a new tune starts with, or want to learn when this build does not know the
+/// stored value.
+public func storedNewTuneStatus(_ row: UserSettings?) -> String {
+    guard let row, row.deletedAt == nil, Vocabulary.statuses.contains(row.newTuneStatus) else {
+        return UserSettings.defaultNewTuneStatus
+    }
+    return row.newTuneStatus
+}
+
+/// The new-tune status a write keeps: the stored one even when this build does not know it.
+private func storedNewTuneStatusValue(_ row: UserSettings?) -> String {
+    guard let row, row.deletedAt == nil else { return UserSettings.defaultNewTuneStatus }
+    return row.newTuneStatus
+}
+
 extension StoreWriter {
-    /// Stores the settings row, keeping each of `instruments`, `audioQuality`,
-    /// `searchProviders`, and `playFirst` that is nil at its current value.
+    /// Stores the settings row, keeping each field that is nil at its current value. A
+    /// `newTuneGenre` of `.some(nil)` clears the genre.
     private func writeSettings(
         id: String, existing: UserSettings?, instruments: [String]? = nil, audioQuality: String? = nil,
-        searchProviders: [String]? = nil, playFirst: String? = nil, at time: Timestamp = .now
+        searchProviders: [String]? = nil, playFirst: String? = nil, newTuneGenre: String?? = nil,
+        newTuneStatus: String? = nil, at time: Timestamp = .now
     ) throws {
         try put(
             UserSettings(
@@ -94,6 +116,8 @@ extension StoreWriter {
                 instruments: normalizeInstruments(instruments ?? storedInstruments(existing) ?? []),
                 searchProviders: searchProviders ?? storedSearchProviders(existing),
                 playFirst: playFirst ?? storedPlayFirstValue(existing),
+                newTuneGenre: newTuneGenre ?? storedNewTuneGenre(existing),
+                newTuneStatus: newTuneStatus ?? storedNewTuneStatusValue(existing),
                 extra: existing?.extra ?? [:]),
             at: time)
     }
@@ -129,6 +153,23 @@ extension StoreWriter {
     public func setPlayFirst(clerkUserID: String, playFirst: String, at time: Timestamp = .now) throws {
         let id = settingsID(clerkUserID: clerkUserID)
         try writeSettings(id: id, existing: try UserSettings.fetchOne(db, key: id), playFirst: playFirst, at: time)
+    }
+
+    /// The genre a new tune starts with; a blank one means none. Kept as typed, since the
+    /// settings field writes on every keystroke and trimming would drop a space typed between
+    /// two words.
+    public func setNewTuneGenre(clerkUserID: String, genre: String?, at time: Timestamp = .now) throws {
+        let id = settingsID(clerkUserID: clerkUserID)
+        let blank = genre?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
+        try writeSettings(
+            id: id, existing: try UserSettings.fetchOne(db, key: id),
+            newTuneGenre: .some(blank ? nil : genre), at: time)
+    }
+
+    public func setNewTuneStatus(clerkUserID: String, status: String, at time: Timestamp = .now) throws {
+        let id = settingsID(clerkUserID: clerkUserID)
+        try writeSettings(
+            id: id, existing: try UserSettings.fetchOne(db, key: id), newTuneStatus: status, at: time)
     }
 
     /// Turns one searched service on or off, read inside this call like
@@ -179,6 +220,18 @@ extension Commands {
     public func setPlayFirst(clerkUserID: String, playFirst: String, at time: Timestamp = .now) async throws {
         try await store.write { writer in
             try writer.setPlayFirst(clerkUserID: clerkUserID, playFirst: playFirst, at: time)
+        }
+    }
+
+    public func setNewTuneGenre(clerkUserID: String, genre: String?, at time: Timestamp = .now) async throws {
+        try await store.write { writer in
+            try writer.setNewTuneGenre(clerkUserID: clerkUserID, genre: genre, at: time)
+        }
+    }
+
+    public func setNewTuneStatus(clerkUserID: String, status: String, at time: Timestamp = .now) async throws {
+        try await store.write { writer in
+            try writer.setNewTuneStatus(clerkUserID: clerkUserID, status: status, at: time)
         }
     }
 

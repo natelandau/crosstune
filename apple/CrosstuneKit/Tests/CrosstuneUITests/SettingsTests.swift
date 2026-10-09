@@ -248,6 +248,29 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         #expect(model.playFirst == UserSettings.playFirstRecordings)
     }
 
+    @Test func storesTheStatusANewTuneStartsWith() async throws {
+        let store = try await SampleCatalog.makeStore()
+        let model = try await loadedModel(store)
+        #expect(model.newTuneStatus == "want_to_learn")
+        model.setNewTuneStatus("known")
+        #expect(model.newTuneStatus == "known")
+        try await eventually { try await storedSettings(store)?.newTuneStatus == "known" }
+    }
+
+    @Test func storesTheGenreANewTuneStartsWithAndSumsItUp() async throws {
+        let store = try await SampleCatalog.makeStore()
+        let model = try await loadedModel(store)
+        #expect(model.newTuneGenre == "")
+        #expect(model.newTunesSummary == TuneFieldLabels.notSet)
+        model.setNewTuneGenre("Irish")
+        #expect(model.newTuneGenre == "Irish")
+        #expect(model.newTunesSummary == "Irish")
+        try await eventually { try await storedSettings(store)?.newTuneGenre == "Irish" }
+        model.setNewTuneGenre("")
+        try await eventually { try await storedSettings(store)?.newTuneGenre == nil }
+        #expect(model.newTunesSummary == TuneFieldLabels.notSet)
+    }
+
     @Test func namesEachPlayFirstChoice() {
         for choice in Vocabulary.playFirsts { #expect(PlayFirstText.names[choice] != nil) }
         #expect(Set(Vocabulary.playFirsts) == [UserSettings.playFirstRecordings, UserSettings.playFirstAppleMusic])
@@ -476,7 +499,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     @Test func categoriesNameTheirPages() {
         #expect(
             SettingsCategory.allCases.map(\.title) == [
-                "Instruments", "Music services", "Recording", Appearance.title, "Sync and storage",
+                "Instruments", "New tunes", "Music services", "Recording", Appearance.title, "Sync and storage",
                 SettingsScreen.about,
             ])
     }

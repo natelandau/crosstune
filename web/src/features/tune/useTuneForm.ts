@@ -7,8 +7,9 @@ import { useDb } from '../../db/DbProvider'
 import { messageFor, useAction } from '../../ui/useAction'
 import type { CatalogEntry } from '../catalog/filters'
 import { useCatalog } from '../catalog/useCatalog'
-import { tuningInstruments } from '../../domain/instruments'
-import { useInstruments } from '../settings/useInstruments'
+import { instrumentsFrom, tuningInstruments } from '../../domain/instruments'
+import { storedNewTuneGenre, storedNewTuneStatus } from '../../db/types'
+import { useSettingsRow } from '../settings/useSettingsRow'
 import {
   emptyValues,
   inputsFromValues,
@@ -21,7 +22,7 @@ import {
   type TuneFormValues,
   type TuningValues,
 } from './tuneFormValues'
-import { catalogComposers, catalogLearnedFrom, mostUsedGenre, orderedTypes } from './tuneTypes'
+import { catalogComposers, catalogLearnedFrom, orderedTypes } from './tuneTypes'
 
 export interface UseTuneFormOptions {
   /** The tune to edit, looked up in the catalog. Without it, and without `entry`, the form is new. */
@@ -60,7 +61,8 @@ export interface TuneFormErrors {
 export type SaveStart = 'started' | 'invalid' | 'ignored'
 
 export interface TuneForm {
-  /** False until the instruments, and an edited tune, have loaded; the form is then seeded. */
+  /** False until the instruments, and an edited tune or a new one's settings, have loaded; the
+   *  form is then seeded. */
   ready: boolean
   /** The tune to edit is not in the catalog, because it never was or has since been deleted. */
   missing: boolean
@@ -97,10 +99,14 @@ export function useTuneForm(options: UseTuneFormOptions): TuneForm {
   const { tuneId, initialTitle, listId, recordingId, onSaved, enabled = true } = options
   const db = useDb()
   const catalog = useCatalog(enabled)
-  const played = useInstruments(options.instruments === undefined)
+  const isNew = options.entry === undefined && tuneId === undefined
+  const settings = useSettingsRow(options.instruments === undefined || (enabled && isNew))
+  const played = useMemo(
+    () => (settings === undefined ? undefined : instrumentsFrom(settings)),
+    [settings],
+  )
   const instruments = options.instruments ?? played
   const entry = options.entry ?? (tuneId ? catalog?.find((e) => e.tune.id === tuneId) : undefined)
-  const isNew = options.entry === undefined && tuneId === undefined
   const missing = !isNew && entry === undefined && catalog !== undefined
   const { error, pending, runThen, clear } = useAction()
 
@@ -122,7 +128,12 @@ export function useTuneForm(options: UseTuneFormOptions): TuneForm {
     setValues(
       entry
         ? valuesFromRows(entry.tune, entry.userTune)
-        : { ...emptyValues(), title: (initialTitle ?? '').slice(0, TUNE_LIMITS.title) },
+        : {
+            ...emptyValues(),
+            title: (initialTitle ?? '').slice(0, TUNE_LIMITS.title),
+            genre: storedNewTuneGenre(settings)?.trim() ?? '',
+            status: storedNewTuneStatus(settings),
+          },
     )
     setTunings(tuningInstruments(instruments ?? NO_INSTRUMENTS, entry?.tune ?? null))
     setTouched({})
@@ -132,16 +143,8 @@ export function useTuneForm(options: UseTuneFormOptions): TuneForm {
     setSeeded(true)
   }
 
-  const ready = instruments !== undefined && (isNew || entry !== undefined)
+  const ready = instruments !== undefined && (isNew ? settings !== undefined : entry !== undefined)
   if (enabled && !seeded && ready) reset()
-
-  // The catalog arrives after the form has opened, so a new tune's genre is seeded on the
-  // first render that has it. Seeding fills the genre, so this runs once per open.
-  const seedGenre =
-    enabled && seeded && isNew && !touched.genre && values.genre === ''
-      ? mostUsedGenre(catalog ?? [])
-      : null
-  if (seedGenre) setValues((current) => ({ ...current, genre: seedGenre }))
 
   const touch = (field: keyof TuneFormValues) =>
     setTouched((current) => ({ ...current, [field]: true }))

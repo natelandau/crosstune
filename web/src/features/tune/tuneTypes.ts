@@ -1,5 +1,5 @@
 import type { TimeSignature } from '../../api/vocabulary'
-import { GENRES, GENRE_TYPES, TUNE_TYPES, TYPE_TIME_SIGNATURES } from '../../constants'
+import { GENRE_TYPES, TUNE_TYPES, TYPE_TIME_SIGNATURES } from '../../constants'
 import { sameText } from '../../text/fold'
 import type { CatalogEntry } from '../catalog/filters'
 import { compareNames } from '../../text/collate'
@@ -82,18 +82,6 @@ export function orderedTypes(genre: string, entries: readonly CatalogEntry[]): s
         )
   const rest = without(TUNE_TYPES, lead).sort(compareNames)
   return [...lead, ...rest]
-}
-
-/** The genre most live tunes hold, ties broken alphabetically, or null when none has one. */
-export function mostUsedGenre(entries: readonly CatalogEntry[]): string | null {
-  return (
-    mostFirst(
-      tally(
-        live(entries).map((e) => e.tune.genre),
-        GENRES,
-      ),
-    )[0] ?? null
-  )
 }
 
 /** Composer suggestions: Traditional first, then every composer the catalog holds, alphabetically. */

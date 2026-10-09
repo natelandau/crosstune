@@ -5,7 +5,6 @@ import {
   TRADITIONAL,
   catalogComposers,
   catalogLearnedFrom,
-  mostUsedGenre,
   orderedTypes,
   timeSignatureFor,
 } from './tuneTypes'
@@ -60,46 +59,6 @@ describe('orderedTypes', () => {
   })
 })
 
-describe('mostUsedGenre', () => {
-  it('counts spellings alike and breaks ties alphabetically', () => {
-    const entries = [
-      entry({ genre: 'Old-time' }),
-      entry({ genre: 'irish' }),
-      entry({ genre: 'Irish' }),
-      entry({ genre: 'Old-time' }),
-    ]
-    expect(mostUsedGenre(entries)).toBe('Irish')
-  })
-
-  it('spells a known genre the canonical way over an all-caps majority', () => {
-    const entries = [
-      entry({ genre: 'IRISH' }),
-      entry({ genre: 'Irish' }),
-      entry({ genre: 'Irish' }),
-    ]
-    expect(mostUsedGenre(entries)).toBe('Irish')
-  })
-
-  it('spells a lowercase-only known genre the canonical way', () => {
-    expect(mostUsedGenre([entry({ genre: 'irish' })])).toBe('Irish')
-  })
-
-  it('spells a custom genre the way most tunes do, ties to the first seen', () => {
-    const most = [
-      entry({ genre: 'klezmer' }),
-      entry({ genre: 'KLEZMER' }),
-      entry({ genre: 'KLEZMER' }),
-    ]
-    expect(mostUsedGenre(most)).toBe('KLEZMER')
-    const tied = [entry({ genre: 'klezmer' }), entry({ genre: 'Klezmer' })]
-    expect(mostUsedGenre(tied)).toBe('klezmer')
-  })
-
-  it('is null for a catalog with no genres', () => {
-    expect(mostUsedGenre([entry({})])).toBeNull()
-  })
-})
-
 describe('catalogComposers', () => {
   it('offers Traditional first, then every composer once, alphabetically', () => {
     const entries = [entry({ composer: 'Ed Reavy' }), entry({ composer: 'ed reavy' })]
@@ -113,6 +72,11 @@ describe('catalogComposers', () => {
       entry({ composer: 'Ed Reavy' }),
     ]
     expect(catalogComposers(entries)).toEqual([TRADITIONAL, 'Ed Reavy'])
+  })
+
+  it('spells a composer the way the first tune does when spellings tie', () => {
+    const entries = [entry({ composer: 'ed reavy' }), entry({ composer: 'Ed Reavy' })]
+    expect(catalogComposers(entries)).toEqual([TRADITIONAL, 'ed reavy'])
   })
 })
 

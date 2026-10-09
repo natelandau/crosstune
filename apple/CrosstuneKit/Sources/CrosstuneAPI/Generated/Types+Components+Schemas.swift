@@ -4206,6 +4206,10 @@ extension Components {
             public var id: Swift.String
             /// - Remark: Generated from `#/components/schemas/UserSettingsRow/instruments`.
             public var instruments: [Components.Schemas.Instrument]?
+            /// - Remark: Generated from `#/components/schemas/UserSettingsRow/new_tune_genre`.
+            public var newTuneGenre: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/UserSettingsRow/new_tune_status`.
+            public var newTuneStatus: Components.Schemas.TuneStatus?
             /// - Remark: Generated from `#/components/schemas/UserSettingsRow/play_first`.
             public var playFirst: Components.Schemas.PlayFirst?
             /// - Remark: Generated from `#/components/schemas/UserSettingsRow/search_providers`.
@@ -4226,6 +4230,8 @@ extension Components {
             ///   - deletedAt:
             ///   - id:
             ///   - instruments:
+            ///   - newTuneGenre:
+            ///   - newTuneStatus:
             ///   - playFirst:
             ///   - searchProviders:
             ///   - serverSeq:
@@ -4238,6 +4244,8 @@ extension Components {
                 deletedAt: Foundation.Date? = nil,
                 id: Swift.String,
                 instruments: [Components.Schemas.Instrument]? = nil,
+                newTuneGenre: Swift.String? = nil,
+                newTuneStatus: Components.Schemas.TuneStatus? = nil,
                 playFirst: Components.Schemas.PlayFirst? = nil,
                 searchProviders: [Components.Schemas.Provider]? = nil,
                 serverSeq: Swift.Int,
@@ -4250,6 +4258,8 @@ extension Components {
                 self.deletedAt = deletedAt
                 self.id = id
                 self.instruments = instruments
+                self.newTuneGenre = newTuneGenre
+                self.newTuneStatus = newTuneStatus
                 self.playFirst = playFirst
                 self.searchProviders = searchProviders
                 self.serverSeq = serverSeq
@@ -4263,6 +4273,8 @@ extension Components {
                 case deletedAt = "deleted_at"
                 case id
                 case instruments
+                case newTuneGenre = "new_tune_genre"
+                case newTuneStatus = "new_tune_status"
                 case playFirst = "play_first"
                 case searchProviders = "search_providers"
                 case serverSeq = "server_seq"
@@ -4291,6 +4303,14 @@ extension Components {
                     [Components.Schemas.Instrument].self,
                     forKey: .instruments
                 )
+                self.newTuneGenre = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .newTuneGenre
+                )
+                self.newTuneStatus = try container.decodeIfPresent(
+                    Components.Schemas.TuneStatus.self,
+                    forKey: .newTuneStatus
+                )
                 self.playFirst = try container.decodeIfPresent(
                     Components.Schemas.PlayFirst.self,
                     forKey: .playFirst
@@ -4317,6 +4337,8 @@ extension Components {
                     "deleted_at",
                     "id",
                     "instruments",
+                    "new_tune_genre",
+                    "new_tune_status",
                     "play_first",
                     "search_providers",
                     "server_seq",
@@ -4345,6 +4367,14 @@ extension Components {
                 try container.encodeIfPresent(
                     self.instruments,
                     forKey: .instruments
+                )
+                try container.encodeIfPresent(
+                    self.newTuneGenre,
+                    forKey: .newTuneGenre
+                )
+                try container.encodeIfPresent(
+                    self.newTuneStatus,
+                    forKey: .newTuneStatus
                 )
                 try container.encodeIfPresent(
                     self.playFirst,

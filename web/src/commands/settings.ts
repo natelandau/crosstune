@@ -5,12 +5,15 @@ import {
   type Instrument,
   type PlayFirst,
   type Provider,
+  type TuneStatus,
 } from '../api/vocabulary'
 import { storedAudioQualityValue } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import {
   isInstrument,
   storedInstruments,
+  storedNewTuneGenre,
+  storedNewTuneStatusValue,
   storedPlayFirstValue,
   SEARCHABLE_PROVIDERS,
   storedSearchProviderValues,
@@ -44,6 +47,8 @@ async function writeSettings(
     audio_quality?: AudioQuality
     search_providers?: readonly string[]
     play_first?: PlayFirst
+    new_tune_genre?: string | null
+    new_tune_status?: TuneStatus
   },
 ): Promise<void> {
   const at = now()
@@ -58,6 +63,9 @@ async function writeSettings(
     audio_quality: patch.audio_quality ?? storedAudioQualityValue(existing),
     play_first: patch.play_first ?? storedPlayFirstValue(existing),
     search_providers: [...(patch.search_providers ?? storedSearchProviderValues(existing))],
+    new_tune_genre:
+      patch.new_tune_genre === undefined ? storedNewTuneGenre(existing) : patch.new_tune_genre,
+    new_tune_status: patch.new_tune_status ?? storedNewTuneStatusValue(existing),
   })
 }
 
@@ -112,6 +120,34 @@ export async function setPlayFirst(
   const id = settingsId(clerkUserId)
   await writeTx(db, async () => {
     await writeSettings(db, id, await db.user_settings.get(id), { play_first: playFirst })
+  })
+}
+
+/**
+ * The genre a new tune starts with; a blank one means none. Kept as typed, since the settings
+ * field writes on every keystroke and trimming would drop a space typed between two words.
+ */
+export async function setNewTuneGenre(
+  db: CrosstuneDb,
+  clerkUserId: string,
+  genre: string | null,
+): Promise<void> {
+  const id = settingsId(clerkUserId)
+  await writeTx(db, async () => {
+    await writeSettings(db, id, await db.user_settings.get(id), {
+      new_tune_genre: genre?.trim() ? genre : null,
+    })
+  })
+}
+
+export async function setNewTuneStatus(
+  db: CrosstuneDb,
+  clerkUserId: string,
+  status: TuneStatus,
+): Promise<void> {
+  const id = settingsId(clerkUserId)
+  await writeTx(db, async () => {
+    await writeSettings(db, id, await db.user_settings.get(id), { new_tune_status: status })
   })
 }
 

@@ -27,6 +27,8 @@ const row = {
   instruments: ['five_string_banjo', 'kazoo'],
   audio_quality: 'standard',
   play_first: 'recordings',
+  new_tune_genre: null,
+  new_tune_status: 'want_to_learn',
 }
 
 describe('instrumentsFrom', () => {

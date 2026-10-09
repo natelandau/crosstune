@@ -71,6 +71,7 @@ struct SettingsRoot: View {
         guard let model, model.isLoaded else { return "" }
         return switch category {
         case .instruments: model.instrumentSummary
+        case .newTunes: model.newTunesSummary
         case .musicServices: model.searchProvidersSummary
         default: ""
         }
