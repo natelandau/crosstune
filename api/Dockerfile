@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.12.23-python3.13-trixie-slim AS builder
+FROM ghcr.io/astral-sh/uv:0.12.23-python3.13-trixie-slim@sha256:a6aeb5c166af9f765f9c68e585b5a5148c28f3b8a362f90151cecea88b21a3e2 AS builder
 ENV UV_COMPILE_BYTECODE=1
 WORKDIR /app
 COPY uv.lock pyproject.toml ./
@@ -8,7 +8,7 @@ COPY alembic.ini ./
 RUN uv sync --locked --no-dev --no-cache
 
 # CI borrows this stage's ffmpeg without building the app.
-FROM python:3.13-slim-trixie AS media
+FROM python:3.13-slim-trixie@sha256:bf44cdfcb76cd3b41e879bc058fc37ec5872002ccfde7fcb765e218cde0cd79c AS media
 RUN apt-get update && apt-get install -y --no-install-recommends tini ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --uid 1000 --create-home appuser
