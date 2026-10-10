@@ -1,4 +1,5 @@
 import { act, render } from '@testing-library/react'
+import { MotionConfig } from 'motion/react'
 import { useState, type RefObject } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
@@ -10,6 +11,9 @@ import { loopAt } from '../../domain/loopModel'
 import { LANES_LABEL, LOOP_NAME } from './practiceCopy'
 import { GLIDE_TAU_MS } from './practiceZoom'
 import { PracticeWaveform, type LaneLoop } from './PracticeWaveform'
+import { tap } from '../../platform/haptics'
+
+vi.mock('../../platform/haptics', () => ({ tap: vi.fn() }))
 
 const LENGTH_MS = 60_000
 const WIDTH_PX = 400
@@ -20,6 +24,7 @@ const stillClock: EngineClock = { every: () => () => {}, after: () => () => {} }
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.mocked(tap).mockClear()
 })
 
 function Harness({
@@ -99,11 +104,13 @@ function setup({
   playing = false,
   loops = [],
   selected = null,
+  reduceMotion = false,
 }: {
   positionMs?: number
   playing?: boolean
   loops?: LaneLoop[]
   selected?: string | null
+  reduceMotion?: boolean
 } = {}) {
   const engine = fakePlaybackEngine(
     new FakeAudioElement() as unknown as HTMLAudioElement,
@@ -123,15 +130,17 @@ function setup({
   const spies = makeSpies()
   const pinches = { current: 0 }
   render(
-    <PlaybackEngineContext.Provider value={engine}>
-      <Harness
-        engine={engine}
-        loops={loops}
-        initialSelected={selected}
-        spies={spies}
-        pinches={pinches}
-      />
-    </PlaybackEngineContext.Provider>,
+    <MotionConfig reducedMotion={reduceMotion ? 'always' : 'never'}>
+      <PlaybackEngineContext.Provider value={engine}>
+        <Harness
+          engine={engine}
+          loops={loops}
+          initialSelected={selected}
+          spies={spies}
+          pinches={pinches}
+        />
+      </PlaybackEngineContext.Provider>
+    </MotionConfig>,
   )
   return { engine, seek, play, pause, spies, pinches }
 }
@@ -236,6 +245,54 @@ describe('PracticeWaveform', () => {
     pointer(surface(), 'pointerup', 390)
     await expect.poll(() => seek.mock.calls).toEqual([[0]])
     await expect.poll(viewStart).toBe(-2_000)
+  })
+
+  it('a scrub past the end pulls on by less than the drag, then springs back and seeks the end', async () => {
+    const { seek } = setup({ positionMs: 59_000 })
+    // The playhead is drawn at the waveform's center, half its width after the view's start.
+    const shown = () => viewStart() + ((WIDTH_PX / 2) * 1000) / PX_PER_S
+    pointer(surface(), 'pointerdown', 300)
+    pointer(surface(), 'pointermove', 200)
+    // 290px left is 2.9s on, so 1.9s past the end without resistance.
+    pointer(surface(), 'pointermove', 10)
+    await expect.poll(shown).toBeGreaterThan(LENGTH_MS)
+    expect(shown()).toBeLessThan(LENGTH_MS + 1_900)
+    pointer(surface(), 'pointerup', 10)
+    // The spring has not run a frame yet, so nothing is sought until it lands.
+    expect(seek).not.toHaveBeenCalled()
+    await expect.poll(() => seek.mock.calls).toEqual([[LENGTH_MS]])
+    await expect.poll(shown).toBe(LENGTH_MS)
+  })
+
+  it('a scrub past an end settles there at once under reduced motion', async () => {
+    const { seek } = setup({ positionMs: 59_000, reduceMotion: true })
+    pointer(surface(), 'pointerdown', 300)
+    pointer(surface(), 'pointermove', 200)
+    pointer(surface(), 'pointermove', 10)
+    await expect.poll(viewStart).toBeGreaterThan(LENGTH_MS - 2_000)
+    pointer(surface(), 'pointerup', 10)
+    expect(seek.mock.calls).toEqual([[LENGTH_MS]])
+    await expect.poll(viewStart).toBe(LENGTH_MS - 2_000)
+  })
+
+  it('a press that catches the spring back drags on from where it is drawn', async () => {
+    const { seek } = setup({ positionMs: 2_000 })
+    pointer(surface(), 'pointerdown', 100)
+    pointer(surface(), 'pointermove', 250)
+    pointer(surface(), 'pointermove', 390)
+    await expect.poll(viewStart).toBeLessThan(-2_000)
+    const caught = viewStart()
+    // Released and pressed again before the spring has run a frame.
+    pointer(surface(), 'pointerup', 390)
+    pointer(surface(), 'pointerdown', 390)
+    pointer(surface(), 'pointermove', 400)
+    await expect.poll(viewStart).not.toBe(caught)
+    // 10px further on, under resistance, is well under 100ms; a press that re-stretched what
+    // was already stretched would jump by several times that.
+    expect(Math.abs(viewStart() - caught)).toBeLessThan(100)
+    expect(seek).not.toHaveBeenCalled()
+    pointer(surface(), 'pointerup', 400)
+    await expect.poll(() => seek.mock.calls).toEqual([[0]])
   })
 
   it('a fling past the end glides to the end and stops there', async () => {
@@ -429,6 +486,22 @@ describe('PracticeWaveform', () => {
     await expect.poll(() => spies.onCommit.mock.calls.at(-1)?.[0].endMs).toBe(19_530)
     end(19_970, true)
     await expect.poll(() => spies.onCommit.mock.calls.at(-1)?.[0].endMs).toBe(20_000)
+  })
+
+  it('buzzes once as a handle snaps onto the playhead, and again on the next snap', async () => {
+    setup({ positionMs: 19_500, loops: [A], selected: 'a' })
+    const handle = page.getByRole('slider', { name: LOOP_END }).element()
+    pointer(handle, 'pointerdown', xAt(20_500, 19_500))
+    pointer(handle, 'pointermove', xAt(20_000, 19_500))
+    expect(tap).not.toHaveBeenCalled()
+    pointer(handle, 'pointermove', xAt(19_530, 19_500))
+    expect(tap).toHaveBeenCalledTimes(1)
+    pointer(handle, 'pointermove', xAt(19_510, 19_500))
+    expect(tap).toHaveBeenCalledTimes(1)
+    pointer(handle, 'pointermove', xAt(19_800, 19_500))
+    pointer(handle, 'pointermove', xAt(19_520, 19_500))
+    expect(tap).toHaveBeenCalledTimes(2)
+    pointer(handle, 'pointerup', xAt(19_520, 19_500))
   })
 
   it('a handle held at the edge pans by moving the playhead', async () => {

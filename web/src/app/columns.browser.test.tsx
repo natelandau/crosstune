@@ -532,3 +532,37 @@ it('rings no pushed page title it hands focus to', async () => {
   expect(title.element().matches(':focus-visible')).toBe(true)
   expect(getComputedStyle(title.element()).outlineStyle).toBe('none')
 })
+
+it('shows the separator can be dragged under the pointer and while it is', async () => {
+  await renderApp({ path: '/catalog', db: openTestDb(), frame: WIDE })
+  const separator = page.getByRole('separator', { name: COLUMN_WIDTH })
+  await expect.element(separator).toBeInTheDocument()
+  const bar = separator.element().querySelector<HTMLElement>('[aria-hidden]')!
+  const shown = () => Number(getComputedStyle(bar).opacity)
+  // The test pointer stays where an earlier test left it.
+  await userEvent.unhover(separator)
+  await expect.poll(shown).toBe(0)
+  await userEvent.hover(separator)
+  await expect.poll(shown).toBeCloseTo(0.4)
+  onTestFinished(() => userEvent.unhover(separator))
+  const at = separator.element().getBoundingClientRect()
+  const fire = (type: string) =>
+    separator.element().dispatchEvent(
+      new PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        pointerId: 5,
+        pointerType: 'mouse',
+        isPrimary: true,
+        button: 0,
+        clientX: at.left,
+        clientY: at.top + 20,
+      }),
+    )
+  fire('pointerdown')
+  await expect.element(separator).toHaveAttribute('data-dragging')
+  await expect.poll(shown).toBe(1)
+  fire('pointerup')
+  await expect.element(separator).not.toHaveAttribute('data-dragging')
+  await expect.poll(shown).toBeCloseTo(0.4)
+})
