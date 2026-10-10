@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from sqlalchemy import func, select
 
+from crosstune.billing.access import scan_tune_id
 from crosstune.db.base import next_server_seq
 from crosstune.links.detect import detect_provider, normalize_url, valid_slippery_hill_ref
 from crosstune.links.resolve import unresolved_link
@@ -24,6 +25,8 @@ from crosstune.vocabulary import (
     MAX_LOOPS_PER_RECORDING,
     MAX_SCANS_PER_TUNE,
     MIN_LOOP_MS,
+    PREMIUM_REQUIRED,
+    SCAN_TUNE_ONLY,
     RecordingSource,
     TableName,
 )
@@ -34,6 +37,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
     from sqlalchemy.orm import InstrumentedAttribute
 
+    from crosstune.billing.access import Access
     from crosstune.links.resolve import ResolvedLink
     from crosstune.schemas.common import Change
 
@@ -55,11 +59,13 @@ class RowRules:
         user_id: uuid.UUID,
         change: Change,
         resolved_links: Mapping[str, ResolvedLink] | None,
+        access: Access,
     ) -> None:
         self.session = session
         self.user_id = user_id
         self.change = change
         self.resolved_links = resolved_links
+        self.access = access
 
     async def overlaps(self, data: dict[str, Any]) -> bool:  # noqa: ARG002 -- a hook the subclasses fill in
         """Whether the row's span, before any clamp, overlaps another live row's.
@@ -139,18 +145,29 @@ class RecordingLinkRules(RowRules):
 
 
 class RecordingRules(RowRules):
-    """Keep a pushed trim inside the playback file, and start the work a write calls for."""
+    """Hold a free plan's trims, keep a trim inside the playback file, and start work."""
 
     stored: Recording | None = None
 
     async def prepare(self, data: dict[str, Any]) -> str | None:
-        """Keep a pushed trim inside the stored row's playback range, in place.
+        """Refuse a free plan's new recording, then settle the pushed trim in place.
 
-        Uses the row already in the database rather than the pushed values, so a stale
-        push, which the upsert's timestamp check rejects, never has its rewritten trim
-        mistaken for what was actually written.
+        A free plan keeps the stored trim: a pushed trim that differs is replaced with it,
+        and the rest of the change still applies. A server job can rewrite the stored trim
+        without touching `updated_at`, so a device's edit may carry an older trim, and an
+        edit is never refused for it. Otherwise the trim is clamped to the stored row's
+        playback range. Uses the row already in the database rather than the pushed
+        values, so a stale push, which the upsert's timestamp check rejects, never has its
+        rewritten trim mistaken for what was actually written.
         """
         self.stored = await self.session.get(Recording, self.change.id)
+        if not self.access.premium:
+            if self.stored is None:
+                return PREMIUM_REQUIRED
+            if self._upsert_writes(self.stored):
+                data["trim_start_ms"] = self.stored.trim_start_ms
+                data["trim_end_ms"] = self.stored.trim_end_ms
+                return None
         low = (self.stored.playback_start_ms or 0) if self.stored else 0
         high = self.stored.playback_end_ms if self.stored else None
         source_end = self.stored.source_duration_ms if self.stored else None
@@ -164,6 +181,10 @@ class RecordingRules(RowRules):
             end = None
         data["trim_start_ms"], data["trim_end_ms"] = start, end
         return None
+
+    def _upsert_writes(self, stored: Recording) -> bool:
+        """Whether the upsert would write over `stored`, rather than report stale or not yours."""
+        return stored.user_id == self.user_id and stored.updated_at < self.change.updated_at
 
     async def applied(self, row: Recording) -> None:
         """Queue a trim, re-clamp the loops, and start an import the push created."""
@@ -267,10 +288,10 @@ class RecordingLoopRules(RowRules):
 
 
 class ScanRules(RowRules):
-    """Keep a scan on the tune it was made for, and under the tune's scan limit."""
+    """Keep a scan on its tune, under the tune's limit, and a free plan's on its scan tune."""
 
     async def prepare(self, data: dict[str, Any]) -> str | None:
-        """Refuse a scan that would move to another tune or exceed the tune's scan limit."""
+        """Refuse a scan that moves tune, passes the tune's limit, or leaves a free scan tune."""
         stored = await self.session.get(Scan, self.change.id)
         if stored is not None and stored.user_id == self.user_id:
             if stored.tune_id != data["tune_id"]:
@@ -279,6 +300,10 @@ class ScanRules(RowRules):
                 return None
         if await self.live_siblings(Scan.tune_id, data["tune_id"]) >= MAX_SCANS_PER_TUNE:
             return "scan limit reached"
+        if not self.access.premium:
+            held = await scan_tune_id(self.session, self.user_id)
+            if held is not None and held != data["tune_id"]:
+                return SCAN_TUNE_ONLY
         return None
 
 

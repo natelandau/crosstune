@@ -29,7 +29,9 @@ class Problem(BaseModel):
         description=(
             "`about:blank`, or a problem a client branches on: "
             "`urn:crosstune:account-deleted` (401, the account was deleted, so the "
-            "client drops its local data), `urn:crosstune:quota-exceeded` (413), "
+            "client drops its local data), `urn:crosstune:premium-required` (403, the "
+            "addition needs Premium), `urn:crosstune:scan-tune-only` (403, a free "
+            "account's scans stay on one tune), `urn:crosstune:quota-exceeded` (413), "
             "`urn:crosstune:file-too-large` (413)."
         ),
     )
@@ -114,6 +116,22 @@ class ForbiddenError(AppError):
 
     def __init__(self, detail: str = "Not allowed") -> None:
         super().__init__(403, "Forbidden", detail)
+
+
+class PremiumRequiredError(AppError):
+    """The addition is one only Premium allows."""
+
+    def __init__(self, detail: str = "This needs Premium") -> None:
+        super().__init__(403, "Premium required", detail, type_="urn:crosstune:premium-required")
+
+
+class ScanTuneOnlyError(AppError):
+    """A free account's scans belong to the one tune that holds its oldest scan."""
+
+    def __init__(self, detail: str = "Free scans stay on one tune") -> None:
+        super().__init__(
+            403, "Scans are limited to one tune", detail, type_="urn:crosstune:scan-tune-only"
+        )
 
 
 class NotFoundError(AppError):

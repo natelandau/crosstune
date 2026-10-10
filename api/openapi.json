@@ -53,7 +53,8 @@
               "user_settings",
               "play_events",
               "practice_sessions",
-              "scan_views"
+              "scan_views",
+              "entitlements"
             ],
             "title": "Table",
             "type": "string"
@@ -101,6 +102,206 @@
           "playback_start_ms"
         ],
         "title": "DownloadUrl",
+        "type": "object"
+      },
+      "EntitlementChangeResult": {
+        "description": "The outcome of a change to the entitlements row, which a push never applies.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntitlementRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "applied",
+              "stale",
+              "invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "table": {
+            "const": "entitlements",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "table"
+        ],
+        "title": "EntitlementChangeResult",
+        "type": "object"
+      },
+      "EntitlementPullRow": {
+        "description": "An entitlements row in a pull page.",
+        "properties": {
+          "row": {
+            "$ref": "#/components/schemas/EntitlementRow"
+          },
+          "table": {
+            "const": "entitlements",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "row"
+        ],
+        "title": "EntitlementPullRow",
+        "type": "object"
+      },
+      "EntitlementRow": {
+        "description": "What a user's plan allows, as pull returns it. Clients read it and never push it.",
+        "properties": {
+          "auto_renews": {
+            "title": "Auto Renews",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "free_quota_bytes": {
+            "title": "Free Quota Bytes",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "premium_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Premium Expires At"
+          },
+          "premium_quota_bytes": {
+            "title": "Premium Quota Bytes",
+            "type": "integer"
+          },
+          "premium_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrantSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recording_notice_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recording Notice Seen At"
+          },
+          "server_seq": {
+            "title": "Server Seq",
+            "type": "integer"
+          },
+          "trial_ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Ends At"
+          },
+          "trial_reminder_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Reminder Seen At"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "updated_at",
+          "deleted_at",
+          "server_seq",
+          "created_at",
+          "user_id",
+          "premium_source",
+          "premium_expires_at",
+          "auto_renews",
+          "trial_ends_at",
+          "premium_quota_bytes",
+          "free_quota_bytes",
+          "recording_notice_seen_at",
+          "trial_reminder_seen_at"
+        ],
+        "title": "EntitlementRow",
         "type": "object"
       },
       "EventsResponse": {
@@ -184,6 +385,17 @@
         },
         "title": "FrettedTuning",
         "type": "object"
+      },
+      "GrantSource": {
+        "description": "Who issued a grant.",
+        "enum": [
+          "trial",
+          "apple",
+          "stripe",
+          "comp"
+        ],
+        "title": "GrantSource",
+        "type": "string"
       },
       "Instrument": {
         "description": "An instrument with a per-tune tuning. The order is the order the client lists them in.",
@@ -540,6 +752,24 @@
         ],
         "title": "Mode",
         "type": "string"
+      },
+      "NoticeRequest": {
+        "description": "A one-time notice the user has now seen.",
+        "properties": {
+          "notice": {
+            "enum": [
+              "first_recording",
+              "trial_reminder"
+            ],
+            "title": "Notice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notice"
+        ],
+        "title": "NoticeRequest",
+        "type": "object"
       },
       "PeaksUrl": {
         "description": "A presigned GET for the waveform file, tagged with the revision it was signed for.",
@@ -1089,7 +1319,7 @@
           },
           "type": {
             "default": "about:blank",
-            "description": "`about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413).",
+            "description": "`about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:scan-tune-only` (403, a free account's scans stay on one tune), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413).",
             "title": "Type",
             "type": "string"
           }
@@ -1133,6 +1363,7 @@
             "items": {
               "discriminator": {
                 "mapping": {
+                  "entitlements": "#/components/schemas/EntitlementPullRow",
                   "list_items": "#/components/schemas/ListItemPullRow",
                   "lists": "#/components/schemas/ListPullRow",
                   "recording_links": "#/components/schemas/RecordingLinkPullRow",
@@ -1172,6 +1403,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/UserSettingsPullRow"
+                },
+                {
+                  "$ref": "#/components/schemas/EntitlementPullRow"
                 }
               ]
             },
@@ -1212,6 +1446,7 @@
             "items": {
               "discriminator": {
                 "mapping": {
+                  "entitlements": "#/components/schemas/EntitlementChangeResult",
                   "list_items": "#/components/schemas/ListItemChangeResult",
                   "lists": "#/components/schemas/ListChangeResult",
                   "play_events": "#/components/schemas/PlayEventChangeResult",
@@ -1263,6 +1498,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/ScanViewChangeResult"
+                },
+                {
+                  "$ref": "#/components/schemas/EntitlementChangeResult"
                 }
               ]
             },
@@ -3783,6 +4021,41 @@
         ]
       }
     },
+    "/v1/me/notices": {
+      "post": {
+        "description": "Record that the user saw a one-time notice, so no device shows it again.\n\nThe first time is the one kept; a repeat changes nothing.",
+        "operationId": "record_notice_v1_me_notices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoticeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Notice",
+        "tags": [
+          "users"
+        ]
+      }
+    },
     "/v1/recordings/{recording_id}/download": {
       "get": {
         "description": "A presigned GET for the playback file of a ready recording.\n\nCarries the revision and start the signature was issued for, read from the same row\nas the key: a trim landing between this response and the client's GET changes the\nrow, but never what this response already promised.",
@@ -3933,7 +4206,7 @@
     },
     "/v1/recordings/{recording_id}/retry": {
       "post": {
-        "description": "Process a failed recording again: transcode its file, or fetch an import again.\n\nAn import whose file never arrived is fetched again, or fails at once when its\naddress is not one the server imports from. Any other recording whose uploaded\nobject is gone is uploaded again through a new slot; this route only re-runs the\ntranscode. Repeating the call changes nothing.",
+        "description": "Process a failed recording again: transcode its file, or fetch an import again.\n\nAn import whose file never arrived is fetched again, or fails at once when its\naddress is not one the server imports from. Any other recording whose uploaded\nobject is gone is uploaded again through a new slot; this route only re-runs the\ntranscode. Fetching an import again needs Premium; a transcode does not. Repeating\nthe call changes nothing.",
         "operationId": "retry_v1_recordings__recording_id__retry_post",
         "parameters": [
           {
@@ -3950,6 +4223,16 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
           },
           "404": {
             "content": {
@@ -4000,7 +4283,7 @@
     },
     "/v1/recordings/{recording_id}/upload-slot": {
       "post": {
-        "description": "A presigned PUT for one recording's file, once the quota allows it.\n\nA failed recording is issued a slot too, and returns to pending_upload: it is\nthe only way back for one whose uploaded object is no longer in the bucket.",
+        "description": "A presigned PUT for one recording's file, once the plan and its quota allow it.\n\nA failed recording is issued a slot too, and returns to pending_upload: it is\nthe only way back for one whose uploaded object is no longer in the bucket.",
         "operationId": "upload_slot_v1_recordings__recording_id__upload_slot_post",
         "parameters": [
           {
@@ -4034,6 +4317,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
           },
           "404": {
             "content": {
@@ -4245,7 +4538,7 @@
     },
     "/v1/scans/{scan_id}/upload-slot": {
       "post": {
-        "description": "A presigned PUT for one scan's image, once the file cap and quota allow it.",
+        "description": "A presigned PUT for one scan's image, once the file cap, the plan, and its quota allow it.\n\nA free plan uploads only to its scan tune, and only scans count toward its quota.",
         "operationId": "upload_slot_v1_scans__scan_id__upload_slot_post",
         "parameters": [
           {
@@ -4279,6 +4572,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
           },
           "404": {
             "content": {

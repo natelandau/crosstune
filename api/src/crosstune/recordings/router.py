@@ -12,12 +12,18 @@ from pydantic import BaseModel, Field
 from crosstune.auth.deps import (
     CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
+from crosstune.billing.access import access_for
 from crosstune.db.base import bump_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
-from crosstune.errors import ConflictError, NotFoundError, problem_responses
+from crosstune.errors import (
+    ConflictError,
+    NotFoundError,
+    PremiumRequiredError,
+    problem_responses,
+)
 from crosstune.files.quota import reserve_slot, slot_for_recording, verify_upload
 from crosstune.files.urls import UPLOAD_URL_TTL_SECONDS, SignedUrl, presign_get, require_store
 from crosstune.recordings.service import (
@@ -67,7 +73,7 @@ class PeaksUrl(BaseModel):
     peaks_rev: str
 
 
-@router.post("/{recording_id}/upload-slot", responses=problem_responses(404, 409, 413, 503))
+@router.post("/{recording_id}/upload-slot", responses=problem_responses(403, 404, 409, 413, 503))
 async def upload_slot(
     recording_id: uuid.UUID,
     body: UploadSlotRequest,
@@ -75,7 +81,7 @@ async def upload_slot(
     user: CurrentUser,
     session: DbSession,
 ) -> SignedUrl:
-    """A presigned PUT for one recording's file, once the quota allows it.
+    """A presigned PUT for one recording's file, once the plan and its quota allow it.
 
     A failed recording is issued a slot too, and returns to pending_upload: it is
     the only way back for one whose uploaded object is no longer in the bucket.
@@ -85,13 +91,16 @@ async def upload_slot(
     await lock_user(session, user.id)
     recording = await owned_recording(session, user.id, recording_id)
     require_state(recording, *SLOT_STATES)
+    access = await access_for(session, user.id, settings)
+    if not access.premium:
+        raise PremiumRequiredError
     expires_at = await reserve_slot(
         session,
         recording,
         declared_bytes=body.bytes,
         content_type=body.content_type,
         max_file_bytes=settings.recording_max_file_bytes,
-        quota_bytes=settings.storage_quota_bytes,
+        quota_bytes=access.quota_bytes,
     )
     if recording.state == "failed":
         # playback_bytes stays: it is the object still at the upload key, which counts
@@ -148,7 +157,9 @@ async def upload_finished(
     return Response(status_code=204)
 
 
-@router.post("/{recording_id}/retry", status_code=204, responses=problem_responses(404, 409, 503))
+@router.post(
+    "/{recording_id}/retry", status_code=204, responses=problem_responses(403, 404, 409, 503)
+)
 async def retry(
     recording_id: uuid.UUID,
     request: Request,
@@ -160,7 +171,8 @@ async def retry(
     An import whose file never arrived is fetched again, or fails at once when its
     address is not one the server imports from. Any other recording whose uploaded
     object is gone is uploaded again through a new slot; this route only re-runs the
-    transcode. Repeating the call changes nothing.
+    transcode. Fetching an import again needs Premium; a transcode does not. Repeating
+    the call changes nothing.
     """
     # Without a store there is no runner either, so a queued job would never be claimed.
     require_store(request)
@@ -171,6 +183,8 @@ async def retry(
         return Response(status_code=204)
     require_state(recording, "failed")
     if _never_arrived(recording):
+        if not (await access_for(session, user.id, request.app.state.settings)).premium:
+            raise PremiumRequiredError
         await start_import(session, recording)
     else:
         recording.state = "uploaded"

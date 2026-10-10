@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from crosstune.billing.access import access_for
 from crosstune.db.base import bump_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.files.quota import used_bytes
@@ -20,7 +21,13 @@ from crosstune.jobs.attempt import (
     reload,
     still_claimed,
 )
-from crosstune.jobs.importer import IMPORT_MIME, OVER_QUOTA, ImportRefused, fetch_import
+from crosstune.jobs.importer import (
+    IMPORT_MIME,
+    OVER_QUOTA,
+    PREMIUM_REQUIRED_IMPORT,
+    ImportRefused,
+    fetch_import,
+)
 from crosstune.models import Job, Recording
 from crosstune.recordings.service import enqueue_transcode
 from crosstune.storage.store import upload_key
@@ -110,22 +117,26 @@ def _client(ctx: JobContext) -> httpx2.AsyncClient:
 async def _commit(
     ctx: JobContext, session: AsyncSession, job: Job, fetched: FetchedImport, write: _ImportWrite
 ) -> None:
-    """Under the user's lock, check the quota and hand the uploaded file to a transcode.
+    """Under the user's lock, check the plan and quota and hand the uploaded file to a transcode.
 
     Dates the recording from its page's year unless it already has a recorded date,
     which the user may have set while the file downloaded. Leaves `write.committed`
     false when the job is no longer this attempt's to finish.
 
     Raises:
-        ImportRefused: When the file would take the user past their quota.
+        ImportRefused: When the plan has no Premium, or the file would take the user
+            past their quota.
     """
     async with session.begin():
         prepared = await load_locked(session, job)
         if prepared is None:
             return
         recording, stored_job = prepared
+        access = await access_for(session, recording.user_id, ctx.settings)
+        if not access.premium:
+            raise ImportRefused(PREMIUM_REQUIRED_IMPORT)
         used = await used_bytes(session, recording.user_id, exclude=recording.id)
-        if used + fetched.size > ctx.settings.storage_quota_bytes:
+        if used + fetched.size > access.quota_bytes:
             raise ImportRefused(OVER_QUOTA)
         if fetched.year is not None and recording.recorded_at is None:
             recording.recorded_at = datetime(fetched.year, 1, 1, tzinfo=UTC)

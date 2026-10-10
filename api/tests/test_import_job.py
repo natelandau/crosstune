@@ -11,6 +11,7 @@ import httpx2
 import pytest
 from sqlalchemy import func, select
 
+from crosstune.billing.grants import grant_comp
 from crosstune.db.base import new_uuid7, utc_now
 from crosstune.db.engine import make_sessionmaker
 from crosstune.db.locks import advisory_lock_key
@@ -57,8 +58,23 @@ def importer(
     return runner, store
 
 
+async def make_premium_user(session: AsyncSession) -> User:
+    """A user with an open-ended comp, since only Premium imports."""
+    user = await make_user(session)
+    await grant_comp(
+        session,
+        user.id,
+        expires_at=None,
+        storage_addon=False,
+        granted_by="test",
+        reason="test",
+        now=utc_now(),
+    )
+    return user
+
+
 async def seed_import(session: AsyncSession, user: User | None = None) -> Recording:
-    user = user or await make_user(session)
+    user = user or await make_premium_user(session)
     rec = Recording(
         id=new_uuid7(),
         user_id=user.id,
@@ -197,11 +213,11 @@ async def test_import_over_quota_fails(
         store,
         work_root=tmp_path,
         http_client=mock_http.client(),
-        settings=settings.model_copy(update={"storage_quota_bytes": 4096}),
+        settings=settings.model_copy(update={"premium_quota_bytes": 4096}),
     )
     mock_http.add(PAGE, httpx2.Response(200, text=PAGE_HTML))
     mock_http.add(FILE, httpx2.Response(200, content=AUDIO))
-    user = await make_user(verify_session)
+    user = await make_premium_user(verify_session)
     await add_recording(verify_session, user, "ready", playback_bytes=4096 - len(AUDIO) + 1)
     rec = await seed_import(verify_session, user)
 

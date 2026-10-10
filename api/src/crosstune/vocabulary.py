@@ -190,6 +190,29 @@ class JobKind(StrEnum):
     REENCODE = "reencode"
 
 
+class GrantKind(StrEnum):
+    """What a grant entitles its user to."""
+
+    PREMIUM = "premium"
+    STORAGE_ADDON = "storage_addon"
+
+
+class GrantSource(StrEnum):
+    """Who issued a grant."""
+
+    TRIAL = "trial"
+    APPLE = "apple"
+    STRIPE = "stripe"
+    COMP = "comp"
+
+
+class GrantEnvironment(StrEnum):
+    """Whether a grant came from live billing or a test store."""
+
+    PRODUCTION = "production"
+    SANDBOX = "sandbox"
+
+
 SPEED_PERCENT_MIN: Final[int] = 50
 SPEED_PERCENT_MAX: Final[int] = 150
 PITCH_CENTS_MIN: Final[int] = -1200
@@ -219,7 +242,15 @@ TableName = Literal[
     "play_events",
     "practice_sessions",
     "scan_views",
+    "entitlements",
 ]
+
+SERVER_WRITTEN: Final = "server-written"
+"""The push reason for a change to a table only the server writes."""
+PREMIUM_REQUIRED: Final = "premium required"
+"""The push reason for an addition only Premium allows: a new recording."""
+SCAN_TUNE_ONLY: Final = "scans are limited to one tune"
+"""The push reason for a free account's new scan on a tune other than its scan tune."""
 
 # Maximum lengths, by table then field. A column with a width takes it from here, the
 # row schema publishes it, and the client stops input at it.

@@ -196,7 +196,7 @@ async def test_pull_returns_recordings(client, auth_headers) -> None:
     rec = uid()
     await push(client, auth_headers("user_a"), recording(rec))
     body = await pull(client, auth_headers("user_a"))
-    assert [r["table"] for r in body["rows"]] == ["recordings"]
+    assert [r["table"] for r in body["rows"]] == ["entitlements", "recordings"]
 
 
 async def test_deleting_a_tune_soft_deletes_its_recordings(
@@ -517,8 +517,8 @@ async def test_a_partial_recorded_date_round_trips_through_pull(client, auth_hea
         auth_headers("user_a"),
         recording(rec, source="upload", recorded_at=year.isoformat(), recorded_precision="year"),
     )
-    [pulled] = (await pull(client, auth_headers("user_a")))["rows"]
-    row = pulled["row"]
+    rows = (await pull(client, auth_headers("user_a")))["rows"]
+    [row] = [r["row"] for r in rows if r["table"] == "recordings"]
     assert row["id"] == rec
     assert datetime.fromisoformat(row["recorded_at"]) == year
     assert row["recorded_precision"] == "year"

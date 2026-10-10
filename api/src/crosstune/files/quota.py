@@ -31,6 +31,7 @@ async def used_bytes(
     now: datetime | None = None,
     *,
     exclude: uuid.UUID | None = None,
+    include_recordings: bool = True,
 ) -> int:
     """The bytes that count against a user's quota.
 
@@ -44,20 +45,21 @@ async def used_bytes(
         user_id: Whose storage to sum.
         now: The moment that decides whether a slot is still open. Defaults to the clock.
         exclude: A recording or scan to leave out, for a caller sizing that file's own upload.
+        include_recordings: Whether recordings count. A free plan's quota covers scans only.
 
     Returns:
         int: The bytes that count against the user's quota.
     """
     now = now or utc_now()
+    counted = [(Scan, Scan.file_bytes, UploadSlot.scan_id)]
+    if include_recordings:
+        counted.append((Recording, Recording.playback_bytes, UploadSlot.recording_id))
     usage = [
         _usage(model, stored_column, owner_column, user_id=user_id, now=now, exclude=exclude)
-        for model, stored_column, owner_column in (
-            (Recording, Recording.playback_bytes, UploadSlot.recording_id),
-            (Scan, Scan.file_bytes, UploadSlot.scan_id),
-        )
+        for model, stored_column, owner_column in counted
     ]
     # One statement, since callers hold the user's lock while it runs.
-    total = await session.scalar(select(usage[0] + usage[1]))
+    total = await session.scalar(select(sum(usage[1:], start=usage[0])))
     return int(total or 0)
 
 
@@ -114,6 +116,7 @@ async def reserve_slot(
     content_type: str,
     max_file_bytes: int,
     quota_bytes: int,
+    include_recordings: bool = True,
 ) -> datetime:
     """Open or renew the owner's upload slot once the file cap and the quota allow it.
 
@@ -128,6 +131,7 @@ async def reserve_slot(
         content_type: The content type the signed PUT will carry.
         max_file_bytes: The per-file cap for this kind of file.
         quota_bytes: The user's storage quota.
+        include_recordings: Whether recordings count toward `quota_bytes`.
 
     Returns:
         datetime: When the slot, and the URL signed for it, expires.
@@ -137,7 +141,9 @@ async def reserve_slot(
     now = utc_now()
     existing = await _slot_for(session, owner)
     # The owner's own slot or stored file is what the new PUT replaces.
-    used = await used_bytes(session, owner.user_id, now, exclude=owner.id)
+    used = await used_bytes(
+        session, owner.user_id, now, exclude=owner.id, include_recordings=include_recordings
+    )
     if used + declared_bytes > quota_bytes:
         msg = f"{used} of {quota_bytes} bytes used"
         raise QuotaExceededError(msg)

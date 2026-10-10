@@ -21,8 +21,11 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select
 
+from crosstune.billing.access import refresh_entitlement
+from crosstune.billing.grants import grant_comp
 from crosstune.config import Settings
 from crosstune.db.engine import make_engine, make_sessionmaker
+from crosstune.db.locks import lock_user
 from crosstune.http import public_only_client
 from crosstune.jobs.media import hide_from_media_tools
 from crosstune.jobs.runner import JobRunner
@@ -182,7 +185,12 @@ async def _attach_scan(
 
 
 async def seed(
-    session: AsyncSession, store: ObjectStore, fixture: Path, clerk_user_id: str, email: str
+    session: AsyncSession,
+    store: ObjectStore,
+    fixture: Path,
+    clerk_user_id: str,
+    email: str,
+    settings: Settings,
 ) -> SeedResult:
     """Write the fixture into the account of `clerk_user_id`, creating the user if needed.
 
@@ -195,6 +203,7 @@ async def seed(
         fixture: The capture catalog; its `files` paths are relative to its folder.
         clerk_user_id: The marketing user on the Clerk instance the API trusts.
         email: The address stored on the user row.
+        settings: The plan sizes a new user's trial and the push resolve against.
 
     Returns:
         SeedResult: Applied counts per table and the recordings queued for transcode.
@@ -205,10 +214,23 @@ async def seed(
     """
     catalog: dict[str, Any] = json.loads(await asyncio.to_thread(fixture.read_text))
     files: dict[str, str] = catalog.pop("files", {})
-    user = await get_or_create_user(session, clerk_user_id, email)
+    user = await get_or_create_user(session, clerk_user_id, email, settings)
+    await lock_user(session, user.id)
+    # An open-ended comp, so captures show recordings however old the account is.
+    now = utc_now()
+    await grant_comp(
+        session,
+        user.id,
+        expires_at=None,
+        storage_addon=False,
+        granted_by="seed_marketing",
+        reason="marketing captures",
+        now=now,
+    )
+    await refresh_entitlement(session, user.id, settings, now)
 
     changes = _changes(catalog, clerk_user_id)
-    results = await apply_push(session, user.id, changes)
+    results = await apply_push(session, user.id, changes, settings)
     refused = [
         f"{r.table} {r.id}: {r.status} {r.reason or ''}" for r in results if r.status != "applied"
     ]
@@ -286,7 +308,7 @@ async def run(settings: Settings, fixture: Path) -> None:
 
         sessionmaker = make_sessionmaker(engine)
         async with sessionmaker() as session, session.begin():
-            result = await seed(session, store, fixture, clerk_user_id, MARKETING_EMAIL)
+            result = await seed(session, store, fixture, clerk_user_id, MARKETING_EMAIL, settings)
         for table, count in result.applied.items():
             print(f"  {table}: {count}")
         print(f"  transcodes queued: {len(result.enqueued)}")

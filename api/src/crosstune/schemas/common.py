@@ -9,6 +9,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, Field
 
 from crosstune.schemas.rows import (
+    EntitlementRow,
     ListItemRow,
     ListRow,
     PlayEventRow,
@@ -133,6 +134,13 @@ class ScanViewChangeResult(_ChangeResult):
     row: ScanViewRow | None = None
 
 
+class EntitlementChangeResult(_ChangeResult):
+    """The outcome of a change to the entitlements row, which a push never applies."""
+
+    table: Literal["entitlements"]
+    row: EntitlementRow | None = None
+
+
 ChangeResult = Annotated[
     TuneChangeResult
     | UserTuneChangeResult
@@ -145,7 +153,8 @@ ChangeResult = Annotated[
     | UserSettingsChangeResult
     | PlayEventChangeResult
     | PracticeSessionChangeResult
-    | ScanViewChangeResult,
+    | ScanViewChangeResult
+    | EntitlementChangeResult,
     Field(discriminator="table"),
 ]
 
@@ -162,6 +171,7 @@ CHANGE_RESULTS: dict[TableName, type[_ChangeResult]] = {
     "play_events": PlayEventChangeResult,
     "practice_sessions": PracticeSessionChangeResult,
     "scan_views": ScanViewChangeResult,
+    "entitlements": EntitlementChangeResult,
 }
 
 
@@ -228,6 +238,13 @@ class UserSettingsPullRow(BaseModel):
     row: UserSettingsRow
 
 
+class EntitlementPullRow(BaseModel):
+    """An entitlements row in a pull page."""
+
+    table: Literal["entitlements"]
+    row: EntitlementRow
+
+
 PullRow = Annotated[
     TunePullRow
     | UserTunePullRow
@@ -237,7 +254,8 @@ PullRow = Annotated[
     | RecordingPullRow
     | ScanPullRow
     | RecordingLoopPullRow
-    | UserSettingsPullRow,
+    | UserSettingsPullRow
+    | EntitlementPullRow,
     Field(discriminator="table"),
 ]
 
@@ -251,6 +269,7 @@ PULL_ROWS: dict[TableName, type[BaseModel]] = {
     "scans": ScanPullRow,
     "recording_loops": RecordingLoopPullRow,
     "user_settings": UserSettingsPullRow,
+    "entitlements": EntitlementPullRow,
 }
 
 

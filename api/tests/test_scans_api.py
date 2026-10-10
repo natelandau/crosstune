@@ -81,7 +81,7 @@ async def test_slot_refuses_over_5_mb(client, auth_headers) -> None:
 
 
 async def test_slot_refuses_over_quota(client, app, auth_headers) -> None:
-    app.state.settings.storage_quota_bytes = 1500
+    app.state.settings.trial_quota_bytes = 1500
     _, first = await make_scan(client, auth_headers)
     _, second = await make_scan(client, auth_headers)
     assert (await slot(client, auth_headers(USER_A), first, bytes_=1000)).status_code == 200
@@ -102,7 +102,7 @@ async def test_slot_can_be_reissued(client, auth_headers, verify_session) -> Non
 
 
 async def test_slot_reissue_near_quota_replaces_its_own_reservation(client, app, auth_headers):
-    app.state.settings.storage_quota_bytes = 1000
+    app.state.settings.trial_quota_bytes = 1000
     _, scan_id = await make_scan(client, auth_headers)
     assert (await slot(client, auth_headers(USER_A), scan_id, bytes_=900)).status_code == 200
     assert (await slot(client, auth_headers(USER_A), scan_id, bytes_=1000)).status_code == 200

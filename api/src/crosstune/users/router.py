@@ -9,7 +9,7 @@ from datetime import (
     datetime,
     timedelta,
 )
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response
 from pydantic import BaseModel
@@ -18,12 +18,19 @@ from crosstune.auth.deps import (
     CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
 from crosstune.auth.webhooks import verify_svix_signature
+from crosstune.billing.access import access_for, refresh_entitlement
+from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
 from crosstune.db.session import (
     DbSession,
     request_runner_wake,
 )
-from crosstune.errors import AppError, UnauthorizedError, problem_responses
+from crosstune.errors import (
+    VALIDATION_RESPONSE,
+    AppError,
+    UnauthorizedError,
+    problem_responses,
+)
 from crosstune.files.quota import used_bytes
 from crosstune.jobs.analytics import schedule_person_deletion
 from crosstune.storage.store import user_prefix
@@ -60,17 +67,56 @@ class MeResponse(BaseModel):
 async def me(request: Request, user: CurrentUser, session: DbSession) -> MeResponse:
     """The calling user's profile and storage figures."""
     settings = request.app.state.settings
+    access = await access_for(session, user.id, settings)
     return MeResponse(
         id=user.id,
         clerk_user_id=user.clerk_user_id,
         email=user.email,
         created_at=user.created_at,
         storage=StorageResponse(
-            used_bytes=await used_bytes(session, user.id),
-            quota_bytes=settings.storage_quota_bytes,
+            used_bytes=await used_bytes(
+                session, user.id, include_recordings=access.counts_recordings
+            ),
+            quota_bytes=access.quota_bytes,
             max_file_bytes=settings.recording_max_file_bytes,
         ),
     )
+
+
+Notice = Literal["first_recording", "trial_reminder"]
+
+
+class NoticeRequest(BaseModel):
+    """A one-time notice the user has now seen."""
+
+    notice: Notice
+
+
+# Each notice's timestamp column on the entitlements row.
+NOTICE_COLUMNS: dict[Notice, str] = {
+    "first_recording": "recording_notice_seen_at",
+    "trial_reminder": "trial_reminder_seen_at",
+}
+
+
+@router.post("/me/notices", status_code=204, responses=VALIDATION_RESPONSE)
+async def record_notice(
+    body: NoticeRequest, request: Request, user: CurrentUser, session: DbSession
+) -> Response:
+    """Record that the user saw a one-time notice, so no device shows it again.
+
+    The first time is the one kept; a repeat changes nothing.
+    """
+    # The row takes a new server_seq, which must commit in the order pull relies on.
+    await lock_user(session, user.id)
+    row = await refresh_entitlement(session, user.id, request.app.state.settings)
+    column = NOTICE_COLUMNS[body.notice]
+    if getattr(row, column) is None:
+        now = utc_now()
+        setattr(row, column, now)
+        row.updated_at = now
+        bump_server_seq(row)
+    return Response(status_code=204)
 
 
 async def _purge_user_files(store: ObjectStore, prefix: str) -> None:
