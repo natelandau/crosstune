@@ -85,10 +85,13 @@ export function useZoomGestures(
         return
       }
       event.stopPropagation()
-      if (pointers.current.size === 2 && !pinching.current) {
-        pinching.current = true
+      if (pointers.current.size === 2) {
+        // A finger set down again mid-pinch resumes it, so its lift ends it once more.
         pinchEnded.current = false
-        onPinchStart()
+        if (!pinching.current) {
+          pinching.current = true
+          onPinchStart()
+        }
       }
       spread.current = distance()
     },

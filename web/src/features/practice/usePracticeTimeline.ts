@@ -120,7 +120,8 @@ export function usePracticeTimeline({
   // of the engine, and stops a glide first so it cannot carry the playhead off afterward.
   const scrub = useRef<WaveformScrub | null>(null)
   const [scrubbingMs, setScrubbingMs] = useState<number | null>(null)
-  const shownMs = loaded ? (scrubbingMs ?? positionMs) : 0
+  // Held to the take: a scrub pulled past an end is drawn there by the waveform alone.
+  const shownMs = loaded ? clamp(scrubbingMs ?? positionMs, 0, lengthMs) : 0
   const playheadMs = trimStartMs + shownMs
   const settle = () => {
     scrub.current?.settleGlide()
@@ -158,7 +159,13 @@ export function usePracticeTimeline({
     }
   }
   // How far a pinch has stretched the drawn scale past a limit, as a factor of it.
-  const [stretch, setStretch] = useState(1)
+  const [stretch, setDrawnStretch] = useState(1)
+  // The stretch as last set, since a pinch's lift can arrive before its last move has rendered.
+  const stretchNow = useRef(1)
+  const setStretch = (next: number) => {
+    stretchNow.current = next
+    setDrawnStretch(next)
+  }
   // Held to the frame as it stands, so turning the phone keeps the scale wherever it still fits.
   const heldScale = scale === null ? null : clamp(scale, minScale, MAX_PX_PER_S)
   const pxPerS = heldScale === null ? null : heldScale * stretch
@@ -183,12 +190,13 @@ export function usePracticeTimeline({
   }
   const endPinch = () => {
     pinchRaw.current = null
-    if (stretch === 1) return
+    const from = stretchNow.current
+    if (from === 1) return
     if (reduceMotionRef.current) {
       setStretch(1)
       return
     }
-    unstretch.current = animate(stretch, 1, {
+    unstretch.current = animate(from, 1, {
       ...SPRING,
       onUpdate: setStretch,
       onComplete: () => {

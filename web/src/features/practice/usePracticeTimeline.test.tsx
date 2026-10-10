@@ -90,6 +90,17 @@ describe('usePracticeTimeline', () => {
     expect(result.current.pxPerS).toBe(set)
   })
 
+  it('holds the playhead it reports to the take while a scrub pulls past either end', () => {
+    const { result } = setup()
+    act(() => result.current.onScrubbing(-500))
+    expect(result.current.shownMs).toBe(0)
+    expect(result.current.playheadMs).toBe(10_000)
+    expect(result.current.visible!.startMs + result.current.visible!.endMs).toBeCloseTo(0, 6)
+    act(() => result.current.onScrubbing(LENGTH_MS + 500))
+    expect(result.current.shownMs).toBe(LENGTH_MS)
+    expect(result.current.playheadMs).toBe(10_000 + LENGTH_MS)
+  })
+
   it('skips from where the playhead shows', () => {
     const { engine, result } = setup()
     const seek = vi.spyOn(engine, 'seek')
@@ -129,6 +140,28 @@ describe('a pinch past a zoom limit', () => {
     expect(result.current.pxPerS).toBeGreaterThan(minScale / 1.25)
     act(() => result.current.endPinch())
     await expect.poll(() => result.current.pxPerS).toBeCloseTo(minScale, 6)
+  })
+
+  it('springs back from the latest stretch when the fingers lift before it renders', async () => {
+    MotionGlobalConfig.instantAnimations = true
+    onTestFinished(() => {
+      MotionGlobalConfig.instantAnimations = false
+    })
+    const { result } = setup()
+    act(() => {
+      result.current.pinchZoom((MAX_PX_PER_S / result.current.pxPerS!) * 1.5)
+      result.current.endPinch()
+    })
+    await expect.poll(() => result.current.pxPerS).toBe(MAX_PX_PER_S)
+  })
+
+  it('settles from the latest stretch under reduced motion when the lift comes first', () => {
+    const { result } = setup({ reduceMotion: true })
+    act(() => {
+      result.current.pinchZoom((MAX_PX_PER_S / result.current.pxPerS!) * 1.5)
+      result.current.endPinch()
+    })
+    expect(result.current.pxPerS).toBe(MAX_PX_PER_S)
   })
 
   it('settles at the limit at once under reduced motion', () => {
