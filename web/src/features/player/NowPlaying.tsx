@@ -33,30 +33,48 @@ const TOAST_GAP_PX = 8
 let leaving: HTMLElement | null = null
 
 /**
- * Leaves an inert copy of the closing bar where it was and slides it down out of its box, so
- * the bar leaves the way it came. A copy, because the bar's own tree holds the transport,
- * which must stop the moment the player closes.
+ * Leaves an inert copy of the closing bar where it was and slides the bar down out of its box,
+ * so it leaves the way it came. A copy, because the bar's own tree holds the transport, which
+ * must stop the moment the player closes. The copy is of the whole slot, ground and all, pinned
+ * over the slot's place on the page, since the slot leaves the page with the bar.
  */
 function slideOut(section: HTMLElement) {
-  const ghost = section.cloneNode(true) as HTMLElement
+  const slot = section.closest<HTMLElement>('[data-now-playing]') ?? section
+  const { left, top, width, height } = slot.getBoundingClientRect()
+  section.dataset.leavingBar = ''
+  const ghost = slot.cloneNode(true) as HTMLElement
+  delete section.dataset.leavingBar
+  const bar = ghost.querySelector<HTMLElement>('[data-leaving-bar]') ?? ghost
+  delete bar.dataset.leavingBar
   ghost.inert = true
   ghost.setAttribute('aria-hidden', 'true')
-  ghost.removeAttribute('aria-label')
+  // Never found as the slot by code that looks for the one on the page.
+  ghost.removeAttribute('data-now-playing')
+  bar.removeAttribute('aria-label')
   for (const named of ghost.querySelectorAll('[id]')) named.removeAttribute('id')
   // A copied frame or media element would load and play again; a blank box holds its place.
-  const media = section.querySelectorAll('iframe, video, audio')
+  const media = slot.querySelectorAll('iframe, video, audio')
   ghost.querySelectorAll('iframe, video, audio').forEach((copy, index) => {
-    const { width, height } = media[index]!.getBoundingClientRect()
+    const { width: mediaWidth, height: mediaHeight } = media[index]!.getBoundingClientRect()
     const blank = document.createElement('div')
-    blank.style.width = `${width}px`
-    blank.style.height = `${height}px`
+    blank.style.width = `${mediaWidth}px`
+    blank.style.height = `${mediaHeight}px`
     copy.replaceWith(blank)
   })
-  const body = ghost.firstElementChild
+  const body = bar.firstElementChild
   if (!body) return
+  Object.assign(ghost.style, {
+    position: 'fixed',
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${width}px`,
+    height: `${height}px`,
+    margin: '0',
+    pointerEvents: 'none',
+  })
   leaving?.remove()
   leaving = ghost
-  section.after(ghost)
+  document.body.append(ghost)
   void animate(body, { y: '100%' }, { duration: DURATION.base, ease: EASE }).finished.then(() => {
     ghost.remove()
     if (leaving === ghost) leaving = null
