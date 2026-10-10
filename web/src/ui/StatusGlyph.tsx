@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import { useEffect, useRef, type CSSProperties } from 'react'
+import { useLayoutEffect, useRef, type CSSProperties } from 'react'
 import { useReducedMotionConfig } from 'motion/react'
 import { DURATION, springEasing } from '../theme/motion'
 import { Focusable } from 'react-aria-components'
@@ -39,8 +39,9 @@ export function StatusGlyph({ status, labelled = false }: { status: string; labe
   const shown = useRef(key)
   const reduceMotion = useReducedMotionConfig()
   // A new status pops in on the spring, so a change made elsewhere, such as from the tune's
-  // status control, shows here too. The status a glyph first shows never moves.
-  useEffect(() => {
+  // status control, shows here too. The status a glyph first shows never moves. Before paint,
+  // so no frame shows the new status at full size.
+  useLayoutEffect(() => {
     if (shown.current === key) return
     shown.current = key
     if (reduceMotion) return

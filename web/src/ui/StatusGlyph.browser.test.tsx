@@ -2,7 +2,7 @@ import { MotionConfig } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { page } from 'vitest/browser'
-import { expect, it, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vitest'
 import { STATUS_LABELS } from '../constants'
 import { renderWithProviders } from '../test/render'
 import { StatusGlyph } from './StatusGlyph'
@@ -68,4 +68,26 @@ it('changes in place under reduced motion', async () => {
   glyph.set('known')
   await expect.element(page.getByRole('img', { name: STATUS_LABELS.known })).toBeVisible()
   expect(glyph.popped()).toBe(false)
+})
+
+it('starts the pop in the same commit as the new status, before any frame can paint', async () => {
+  const animate = vi.spyOn(Element.prototype, 'animate')
+  let set: Set | null = null
+  renderWithProviders(<Glyph onSet={(next) => (set = next)} />, { density: 'pointer' })
+  const shape = page.getByRole('img', { name: STATUS_LABELS.learning })
+  await expect.element(shape).toBeVisible()
+  await expect.poll(() => set).not.toBeNull()
+  const element = shape.element()
+  // A mutation callback runs right after the commit that changed the glyph, before React's
+  // deferred effects and before the next paint.
+  let poppedAtCommit: boolean | null = null
+  const observer = new MutationObserver(() => {
+    poppedAtCommit ??= animate.mock.contexts.includes(element)
+  })
+  observer.observe(element, { attributes: true })
+  onTestFinished(() => observer.disconnect())
+  // Outside flushSync, as a status read from the store lands, so React defers its effects.
+  set!('known')
+  await expect.poll(() => poppedAtCommit).not.toBeNull()
+  expect(poppedAtCommit).toBe(true)
 })

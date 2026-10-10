@@ -1,6 +1,7 @@
 import { Pencil } from 'lucide-react'
 import { MotionGlobalConfig } from 'motion/react'
 import { useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type { Key } from 'react-aria-components'
 import { page, userEvent } from 'vitest/browser'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
@@ -181,6 +182,41 @@ it('lifts a mouse-dragged row, then lands it without opening or selecting it', a
   await expect.element(row(/Forked Deer/)).not.toHaveAttribute('data-reordering')
   await expect.element(row(/Forked Deer/)).toHaveAttribute('aria-selected', 'false')
   expect(onAction).not.toHaveBeenCalled()
+})
+
+/** The slides list motion is running on the rows, leaving CSS transitions and animations out. */
+const listSlides = () =>
+  page
+    .getByRole('row')
+    .elements()
+    .flatMap((element) =>
+      element
+        .getAnimations()
+        .filter((slide) => !(slide instanceof CSSTransition || slide instanceof CSSAnimation)),
+    )
+
+it('stops rows still sliding from a list change once a mouse drag starts, so they follow it at once', async () => {
+  let sync: Sync | undefined
+  renderWithProviders(
+    <Tunes
+      onReorder={vi.fn()}
+      onSync={(set) => {
+        sync = set
+      }}
+    />,
+    { density: 'pointer' },
+  )
+  await expect.element(row(/Soldier's Joy/)).toBeVisible()
+  await expect.poll(() => sync).toBeDefined()
+  // Another device moves Soldier's Joy to the top. The list hears of it in a microtask and
+  // starts its slides, still before any frame can run.
+  flushSync(() => sync!((rows) => [rows[3]!, ...rows.slice(0, 3)]))
+  await Promise.resolve()
+  expect(listSlides().length).toBeGreaterThan(0)
+  const drag = mousePress(/Forked Deer/)
+  drag.to(rowHeight() * 1.5)
+  expect(listSlides()).toHaveLength(0)
+  drag.drop()
 })
 
 it('drags a row with a pen on a pointer layout as a mouse does', async () => {

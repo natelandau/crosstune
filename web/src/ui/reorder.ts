@@ -64,7 +64,7 @@ export const motionFrames: FrameSource = (step) => {
 const latestSettle = new WeakMap<HTMLElement, object>()
 
 /** How far a row's transform draws it below its place in the layout. */
-function drawnOffset(row: HTMLElement): number {
+export function drawnOffset(row: HTMLElement): number {
   const { transform } = getComputedStyle(row)
   return transform === 'none' ? 0 : new DOMMatrix(transform).m42
 }
@@ -134,8 +134,16 @@ export function beginReorderDrag(
   const first = rowsOf(list)
   const dragged = first.find(own)
   if (!dragged || 'disabled' in dragged.dataset || first.length < 2) return null
-  // A settle this drag interrupts never finishes, so a row it left raised is lowered here.
-  for (const row of first) if (!('lifted' in row.dataset)) delete row.dataset.reordering
+  for (const row of first) {
+    // A settle this drag interrupts never finishes, so a row it left raised is lowered here.
+    if (!('lifted' in row.dataset)) delete row.dataset.reordering
+    // A list change's slide would draw over the offsets the drag gives each row.
+    for (const animation of row.getAnimations()) {
+      if (!(animation instanceof CSSTransition || animation instanceof CSSAnimation)) {
+        animation.cancel()
+      }
+    }
+  }
   const scroller = scrollerOf(list)
   const startScroll = scroller.scrollTop
   // Measured once: the bars and the scroller hold still while a finger drags.

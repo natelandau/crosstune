@@ -1,6 +1,6 @@
 import { useLayoutEffect } from 'react'
 import { DURATION, EASE, springEasing } from '../theme/motion'
-import { rowsOf } from './reorder'
+import { drawnOffset, rowsOf } from './reorder'
 import { useLatest } from './useLatest'
 
 interface Placed {
@@ -20,9 +20,7 @@ const EASING = `cubic-bezier(${EASE.join(', ')})`
 
 /** Where the row is drawn, with any slide still under way counted in. */
 function drawnTop(row: HTMLElement, sliding: WeakMap<HTMLElement, Animation>): number {
-  if (!sliding.has(row)) return row.offsetTop
-  const { transform } = getComputedStyle(row)
-  return row.offsetTop + (transform === 'none' ? 0 : new DOMMatrix(transform).m42)
+  return row.offsetTop + (sliding.has(row) ? drawnOffset(row) : 0)
 }
 
 function snapshot(list: HTMLElement, sliding: WeakMap<HTMLElement, Animation>): Snapshot {
