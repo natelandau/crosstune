@@ -26,12 +26,11 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
     ['warning label', p.warning, p.ground, 4.5],
     ['label on danger', p.onSlate, p.danger, 4.5],
     ['label on warning', p.onSlate, p.warning, 4.5],
-    ['switch edge off on its row', p.ink2, p.fill, 3],
-    ['switch edge off on the ground', p.ink2, p.ground, 3],
-    ['switch thumb off on its track', p.ink2, p.fill, 3],
-    ['switch track on on its row', p.slate, p.fill, 3],
-    ['switch track on against the track off', p.slate, p.fill, 3],
-    ['switch thumb on the track on', p.ground, p.slate, 3],
+    ['switch track off on its row', p.switchOff, p.fill, 3],
+    ['switch track off on the ground', p.switchOff, p.ground, 3],
+    ['switch knob on the track off', p.knob, p.switchOff, 3],
+    ['switch track on on its row', p.switchOn, p.fill, 3],
+    ['switch knob on the track on', p.knob, p.switchOn, 3],
     ['ink on the nav', p.ink, p.nav, 4.5],
     ['secondary ink on the nav', p.navInk2, p.nav, 4.5],
     ['known glyph on the nav', p.known, p.nav, 3],
@@ -82,13 +81,13 @@ describe.each(['light', 'dark'] as const)('tokens.css in %s', (scheme) => {
   // A dark value falls back to the light one where the dark block does not set it.
   const set =
     scheme === 'light' ? light : new Map([...light, ...declared(":root[data-scheme='dark']")])
-  // A value that names another token reads as that token's value.
-  const values = new Map(
-    [...set].map(([name, value]) => [
-      name,
-      value.replace(/^var\((--[\w-]+)\)$/, (_, ref) => set.get(ref) ?? value),
-    ]),
-  )
+  // A value that names another token reads as that token's value, through any chain of names.
+  const resolve = (value: string): string => {
+    const ref = /^var\((--[\w-]+)\)$/.exec(value)?.[1]
+    const named = ref === undefined ? undefined : set.get(ref)
+    return named === undefined ? value : resolve(named)
+  }
+  const values = new Map([...set].map(([name, value]) => [name, resolve(value)]))
   it.each(Object.keys(PALETTE[scheme]) as (keyof Palette)[])('matches tokens.ts for %s', (key) => {
     expect(normal(values.get(property(key)) ?? 'missing')).toBe(normal(PALETTE[scheme][key]))
   })

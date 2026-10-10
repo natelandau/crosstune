@@ -104,7 +104,7 @@ export function Breakdown({
             revealed.current = true
             setExpanded(true)
           }}
-          className={`t-body text-slate flex min-h-(--target) items-center ${PRESS}`}
+          className={`t-body text-action flex min-h-(--target) items-center ${PRESS}`}
         >
           {showAllLabel(values.length)}
         </AriaButton>

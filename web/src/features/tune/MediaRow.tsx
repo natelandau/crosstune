@@ -10,7 +10,7 @@ import { useRecordingRow } from '../recordings/useRecordingRow'
 import type { PlayOrigin } from '../player/playLog'
 import type { LinkMediaRow, RecordingMediaRow } from './useTuneMedia'
 import { PinnedMark } from './PinnedMark'
-import { PlayGlyph, StopGlyph } from '../../ui/rowGlyphs'
+import { DISC_ROW_HOVER, TransportGlyph } from '../../ui/rowGlyphs'
 import { useLatest } from '../../ui/useLatest'
 import { useNewTake } from '../capture/useNewTake'
 import { Row } from '../../ui/Row'
@@ -92,7 +92,7 @@ export function MediaRow({
       leading={
         <span
           data-media-glyph
-          className={`flex h-(--target) w-6 shrink-0 items-center justify-start ${loaded ? 'text-slate' : 'text-ink-2'}`}
+          className={`flex h-(--target) w-7 shrink-0 items-center justify-start ${DISC_ROW_HOVER} ${loaded ? 'text-action' : 'text-ink-2'}`}
         >
           {glyph}
         </span>
@@ -134,10 +134,8 @@ export function RecordingRow({
   const { title, control, open, retry, origin } = data
   const meta = data.meta.join(' · ')
   const glyph =
-    control === 'close' ? (
-      <StopGlyph />
-    ) : control === 'play' ? (
-      <PlayGlyph />
+    control === 'close' || control === 'play' ? (
+      <TransportGlyph shape={control === 'close' ? 'stop' : 'play'} />
     ) : control === 'download' || control === 'downloading' ? (
       <CloudDownload
         className={`size-5 shrink-0 ${control === 'downloading' || data.offlineDownload ? 'opacity-40' : ''}`}
@@ -200,7 +198,7 @@ export function RecordingRow({
             <AriaButton
               aria-label={retryName(retry, title)}
               onPress={() => onRetry(retry)}
-              className="t-body text-slate min-h-(--target-control) shrink-0 px-2"
+              className="t-body text-action min-h-(--target-control) shrink-0 px-2"
             >
               {RETRY}
             </AriaButton>
@@ -222,7 +220,11 @@ export function LinkRow({ row: { link, pinned, actions } }: { row: LinkMediaRow 
     <MediaRow
       id={link.id}
       name={`${verb}, ${href ? linkOutText(provider) : provider}`}
-      glyph={control === 'close' ? <StopGlyph /> : control === 'play' ? <PlayGlyph /> : null}
+      glyph={
+        control === 'close' || control === 'play' ? (
+          <TransportGlyph shape={control === 'close' ? 'stop' : 'play'} />
+        ) : null
+      }
       loaded={loaded}
       title={title}
       pinned={pinned}
@@ -238,7 +240,7 @@ export function LinkRow({ row: { link, pinned, actions } }: { row: LinkMediaRow 
             target="_blank"
             rel="noreferrer"
             aria-label={openOnProviderName(title, provider)}
-            className={`${LINE} text-slate min-h-(--target)`}
+            className={`${LINE} text-action min-h-(--target)`}
           >
             {linkOutText(provider)}
             <ArrowUpRight className="size-4 shrink-0" aria-hidden />

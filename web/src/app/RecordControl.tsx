@@ -3,6 +3,7 @@ import { Button as AriaButton } from 'react-aria-components'
 import { RECORD_LABEL, RECORD_TEXT } from './tabs'
 import { useShellCovered } from '../ui/overlayClaim'
 import { RECORD_UNAVAILABLE, useRecordLauncher } from './recordLauncher'
+import { PRESS } from '../ui/press'
 
 /**
  * The shell's one Record control: a floating disc beside the phone's tabs, a capsule at the
@@ -28,10 +29,11 @@ export function RecordControl({ shape }: { shape: 'disc' | 'capsule' }) {
         aria-describedby={available ? undefined : reasonId}
         isDisabled={!available}
         onPress={() => start({ source: 'dock' })}
+        data-lift
         className={`group ${
           disc
-            ? 'bg-nav border-hairline inline-flex size-[62px] items-center justify-center rounded-full border transition-opacity duration-(--dur-short) ease-(--ease) data-[pressed]:opacity-60'
-            : 't-body bg-fill text-ink flex min-h-(--target-control) w-full items-center justify-center gap-2 rounded-(--radius-capsule) px-4 transition-opacity duration-(--dur-short) ease-(--ease) disabled:opacity-60 data-[pressed]:opacity-60'
+            ? `bg-nav border-hairline not-disabled:hover:bg-fill-hover inline-flex size-[62px] items-center justify-center rounded-full border ${PRESS}`
+            : `t-body bg-fill text-ink not-disabled:hover:bg-fill-hover flex min-h-(--target-control) w-full items-center justify-center gap-2 rounded-(--radius-capsule) px-4 disabled:opacity-60 ${PRESS}`
         }`}
       >
         <span

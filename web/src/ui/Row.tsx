@@ -188,7 +188,7 @@ export function Row({
       className={`group relative flex min-h-(--target) cursor-default items-center rounded-(--radius-row) data-[reordering]:z-10 ${
         touch
           ? 'overflow-hidden'
-          : `data-[selected]:bg-wash gap-3 px-3 py-0 data-[selected]:[--row-tint:var(--wash)] ${playing ? 'bg-(--play-wash) [--row-tint:var(--play-wash)]' : '[--row-tint:transparent]'}`
+          : `data-[selected]:bg-wash gap-3 px-3 py-0 data-[selected]:[--row-tint:var(--wash)] ${playing ? 'bg-(--play-wash) [--row-tint:var(--play-wash)]' : 'not-data-[selected]:hover:bg-row-hover [--row-tint:transparent] not-data-[selected]:hover:[--row-tint:var(--row-hover)]'}`
       } ${dimmed ? 'opacity-60' : ''}`}
     >
       {touch ? (

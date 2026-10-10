@@ -13,7 +13,7 @@ import { useRef } from 'react'
 import { useStampedDensity } from '../../platform/density'
 import { Menu } from '../Menu'
 import { OverlayClaim } from '../overlayClaim'
-import { FIELD_LABEL, FIELD_ROW, FIELD_ROW_BARE, FIELD_VALUE_SHAPE } from './FieldRow'
+import { FIELD_LABEL, FIELD_ROW_BARE, FIELD_VALUE_SHAPE, FIELD_ROW_PRESSABLE } from './FieldRow'
 
 export interface PickerOption {
   id: string
@@ -92,7 +92,7 @@ export function Picker({
             isDisabled={isDisabled}
             aria-describedby={isInvalid ? describedBy : undefined}
             data-invalid={isInvalid || undefined}
-            className={`${FIELD_ROW} disabled:opacity-40 ${invalid}`}
+            className={`${FIELD_ROW_PRESSABLE} disabled:opacity-40 ${invalid}`}
           >
             <span className={FIELD_LABEL}>{label}</span>
             <span className={valueClass}>{shown}</span>
@@ -126,7 +126,7 @@ export function Picker({
             picking.current = false
           })
       }}
-      className={`${FIELD_ROW_BARE} relative data-[disabled]:opacity-40 ${invalid}`}
+      className={`${FIELD_ROW_BARE} hover:bg-fill-hover relative transition-colors duration-(--dur-short) ease-(--ease) data-[disabled]:opacity-40 data-[disabled]:hover:bg-transparent ${invalid}`}
     >
       <Label className={`${FIELD_LABEL} ps-4`}>{label}</Label>
       {/* The button's hit area covers the whole row, so a press on the label opens it too. */}
@@ -161,7 +161,7 @@ export function Picker({
                 {({ isSelected }) => (
                   <>
                     <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                    {isSelected && <Check className="text-slate size-5 shrink-0" aria-hidden />}
+                    {isSelected && <Check className="text-action size-5 shrink-0" aria-hidden />}
                   </>
                 )}
               </ListBoxItem>

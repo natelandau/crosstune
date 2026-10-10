@@ -16,6 +16,13 @@
   outline: none;
 }
 
+/* A switch or checkbox takes focus on a hidden input, so its visible shape draws the ring. */
+[data-focus-visible] > .switch-track,
+[data-focus-visible]:has(> .check-mark) {
+  outline: 2px solid var(--slate);
+  outline-offset: 2px;
+}
+
 /* A search field rings its whole capsule, so its input draws none of its own. */
 [data-search-field]:has(input:focus-visible) {
   outline: 2px solid var(--slate);

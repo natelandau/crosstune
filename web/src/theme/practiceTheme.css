@@ -14,6 +14,11 @@
   --trim-handle: #ffffff;
   /* The panels' round buttons, filled as the dark scheme fills them. */
   --fill-tertiary: var(--practice-fill);
+  /* Hover on jet: a white wash behind a plain control, a stronger fill for a filled one, and a
+     dimmer white for the white play button. */
+  --panel-hover: rgb(255 255 255 / 0.14);
+  --fill-tertiary-hover: rgb(118 118 128 / 0.42);
+  --panel-ink-hover: #e4e5ea;
 }
 [data-practice] .loop-color {
   --loop-handle: var(--coral);

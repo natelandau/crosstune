@@ -1,6 +1,9 @@
 import type { LucideIcon } from 'lucide-react'
-import type { Ref } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react-aria-components'
+import { iconMotion } from '../../ui/iconMotion'
+import { PRESS } from '../../ui/press'
+import { PANEL_HOVER } from './panel'
 
 /**
  * An icon-only control on jet, drawn in the panel's ink. Practice holds an overlay claim, which
@@ -9,6 +12,7 @@ import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react
  */
 export function PracticeButton({
   icon: Icon,
+  glyph,
   label,
   size = 'control',
   iconClassName = 'size-6',
@@ -16,7 +20,9 @@ export function PracticeButton({
   onPress,
   ...rest
 }: Omit<AriaButtonProps, 'children' | 'className' | 'aria-label' | 'aria-disabled'> & {
-  icon: LucideIcon
+  icon?: LucideIcon
+  /** A drawn glyph in place of `icon`, such as play and pause that morph into each other. */
+  glyph?: ReactNode
   label: string
   size?: 'control' | 'large'
   iconClassName?: string
@@ -30,13 +36,16 @@ export function PracticeButton({
       aria-label={label}
       aria-disabled={rest['aria-disabled'] || undefined}
       onPress={rest['aria-disabled'] ? undefined : onPress}
-      className={`inline-flex shrink-0 items-center justify-center rounded-(--radius-capsule) transition-opacity duration-(--dur-short) ease-(--ease) disabled:opacity-40 aria-disabled:opacity-40 aria-pressed:bg-(--fill-tertiary) data-[pressed]:opacity-60 aria-disabled:data-[pressed]:opacity-40 ${
+      // The large control is practice's filled button, which rises under the pointer.
+      data-lift={size === 'large' || undefined}
+      className={`inline-flex shrink-0 items-center justify-center rounded-(--radius-capsule) disabled:opacity-40 aria-disabled:opacity-40 aria-pressed:bg-(--fill-tertiary) ${PRESS} ${
         size === 'large'
-          ? 'size-[72px] bg-(--panel-ink) text-(--panel-on-ink)'
-          : 'size-11 text-(--panel-ink)'
+          ? 'size-[72px] bg-(--panel-ink) text-(--panel-on-ink) not-disabled:not-aria-disabled:hover:bg-(--panel-ink-hover)'
+          : `size-11 text-(--panel-ink) ${PANEL_HOVER}`
       }`}
     >
-      <Icon aria-hidden className={iconClassName} />
+      {glyph ??
+        (Icon && <Icon aria-hidden className={iconClassName} data-motion={iconMotion(Icon)} />)}
     </AriaButton>
   )
 }

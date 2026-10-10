@@ -14,7 +14,8 @@ import { usePracticeKeys } from './usePracticeKeys'
 import { usePracticeMode } from './usePracticeMode'
 import { usePracticeSettings } from './usePracticeSettings'
 import { formatPreciseDuration } from '../../text/format'
-import { ZOOM_IN, ZOOM_OUT, ZOOM_STEP } from './panel'
+import { PRESS } from '../../ui/press'
+import { PANEL_HOVER, ZOOM_IN, ZOOM_OUT, ZOOM_STEP } from './panel'
 import type { ShownPeaks } from './recordingRange'
 import type { RecordingView } from '../recordings/useRecordings'
 import { isAppleTouch } from '../../platform/appleTouch'
@@ -120,7 +121,7 @@ export function PracticeView({
             onPress={() => timeline.zoom(1 / ZOOM_STEP)}
           />
           <AriaButton
-            className="t-body min-h-11 px-2 font-semibold text-(--panel-ink) disabled:opacity-40 data-[pressed]:opacity-60"
+            className={`t-body min-h-11 rounded-full px-2 font-semibold text-(--panel-ink) disabled:opacity-40 ${PRESS} ${PANEL_HOVER}`}
             isDisabled={!timeline.pxPerS || !!blocked}
             onPress={loops.fit}
           >

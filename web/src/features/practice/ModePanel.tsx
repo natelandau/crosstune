@@ -1,3 +1,4 @@
+import { motion } from 'motion/react'
 import type { ReactNode } from 'react'
 import { ToggleButton, ToggleButtonGroup } from 'react-aria-components'
 import { ModeControls } from './ModeControls'
@@ -49,9 +50,18 @@ export function ModePanel({
           <ToggleButton
             key={m}
             id={m}
-            className="t-body t-num min-h-(--target) flex-1 rounded-(--radius-capsule) px-2 text-(--panel-muted) transition-colors duration-(--dur-short) ease-(--ease) data-[selected]:bg-(--panel-ink) data-[selected]:text-(--panel-on-ink)"
+            className="t-body t-num relative min-h-(--target) flex-1 cursor-default rounded-(--radius-capsule) px-2 text-(--panel-muted) transition-colors duration-(--dur-short) ease-(--ease) hover:text-(--panel-ink) data-[selected]:text-(--panel-on-ink) data-[selected]:delay-150"
           >
-            {labels[m]}
+            {/* One pill shared across the modes, so choosing a mode slides it there. */}
+            {m === mode && (
+              <motion.span
+                layoutId="practice-mode-pill"
+                aria-hidden
+                className="absolute inset-0 z-0 rounded-(--radius-capsule) bg-(--panel-ink)"
+              />
+            )}
+            {/* Above the pill as it slides past, and darkening as it arrives rather than before. */}
+            <span className="relative z-10">{labels[m]}</span>
           </ToggleButton>
         ))}
       </ToggleButtonGroup>

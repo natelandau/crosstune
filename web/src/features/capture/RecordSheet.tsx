@@ -21,6 +21,7 @@ import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
 import { Sheet } from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
+import { PRESS } from '../../ui/press'
 
 /** The Record control on screen, the disc or the capsule, which the sheet grows out of. */
 function recordControl(): Element | null {
@@ -166,7 +167,8 @@ function Recorder({ tuneId, session }: { tuneId: string | null; session: RecordS
         <AriaButton
           isDisabled={phase === 'starting'}
           onPress={() => void stop()}
-          className="bg-record mt-2 grid size-20 place-items-center rounded-full text-xl font-bold text-white transition-opacity duration-(--dur-short) ease-(--ease) data-[disabled]:opacity-40 data-[pressed]:opacity-60"
+          data-lift
+          className={`bg-record mt-2 grid size-20 place-items-center rounded-full text-xl font-bold text-white not-disabled:hover:bg-[color-mix(in_srgb,var(--record),black_12%)] data-[disabled]:opacity-40 ${PRESS}`}
         >
           {STOP}
         </AriaButton>

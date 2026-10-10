@@ -46,7 +46,9 @@ export function Group({
       {plain ? (
         children
       ) : (
-        <div className="bg-fill flex flex-col rounded-(--radius-surface)">{children}</div>
+        <div className="bg-fill flex flex-col rounded-(--radius-surface) *:first:rounded-t-(--radius-surface) *:last:rounded-b-(--radius-surface)">
+          {children}
+        </div>
       )}
       {error ? (
         <ErrorLine id={errorId} error={error} place="field" />

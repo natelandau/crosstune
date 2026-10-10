@@ -15,16 +15,17 @@ import { useListNameLauncher } from '../features/lists/listNameLauncher'
 import { DestinationLink } from './DestinationLink'
 import { RecordControl } from './RecordControl'
 import { SyncBadge } from './SyncBadge'
+import { ROW_PRESS } from '../ui/press'
 
 export const NEW_LIST = 'New list…'
 export const SIDEBAR = 'Sidebar'
 
 const STATUS_ROWS: TuneStatus[] = ['known', 'learning', 'want_to_learn']
 
-const ROW =
-  't-body flex min-h-(--target) w-full items-center gap-3 rounded-(--radius-row) px-3 text-start transition-opacity duration-(--dur-short) ease-(--ease) data-[pressed]:opacity-60'
+const ROW = `t-body flex min-h-(--target) w-full items-center gap-3 rounded-(--radius-row) px-3 text-start ${ROW_PRESS}`
 
-const rowTone = (selected: boolean) => (selected ? 'bg-wash text-ink' : 'text-ink')
+// A selected row keeps its wash under the pointer.
+const rowTone = (selected: boolean) => (selected ? 'bg-wash! text-ink' : 'text-ink')
 const glyphTone = (selected: boolean) => (selected ? 'text-coral' : 'text-ink-2')
 
 /**

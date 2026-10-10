@@ -1,4 +1,5 @@
-import { Pause, Play, X } from 'lucide-react'
+import { X } from 'lucide-react'
+import { TransportMark } from '../../ui/rowGlyphs'
 import { RETRY } from './playerCopy'
 import { CLOSE_PLAYER, PAUSE, PITCH_LABEL, PLAY, SPEED_LABEL } from './transportCopy'
 import type { RecordingTransport } from './useRecordingTransport'
@@ -23,7 +24,7 @@ export function PlayToggle({ transport }: { transport: RecordingTransport }) {
   const playing = transport.state.playing
   return (
     <Button
-      icon={playing ? Pause : Play}
+      glyph={<TransportMark shape={playing ? 'pause' : 'play'} className="size-4" />}
       label={playing ? PAUSE : PLAY}
       iconOnly
       // Nothing is loaded to play until the audio is here.

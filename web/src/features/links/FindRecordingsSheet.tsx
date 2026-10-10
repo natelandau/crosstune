@@ -32,7 +32,7 @@ import { DONE } from '../../ui/confirmCopy'
 import { Button } from '../../ui/Button'
 import { EmptyState } from '../../ui/EmptyState'
 import { ErrorLine } from '../../ui/ErrorLine'
-import { FIELD_LABEL, FIELD_ROW } from '../../ui/form/FieldRow'
+import { FIELD_LABEL, FIELD_ROW_PRESSABLE } from '../../ui/form/FieldRow'
 import { Group } from '../../ui/form/Group'
 import { SearchField } from '../../ui/SearchField'
 import { Sheet } from '../../ui/Sheet'
@@ -110,7 +110,7 @@ export function FindRecordingsSheet({
 
   const searchOnRow = (group: SearchGroup) => (
     <a
-      className={`${FIELD_ROW} text-slate`}
+      className={`${FIELD_ROW_PRESSABLE} text-action font-medium`}
       href={group.search_url}
       target="_blank"
       rel="noopener noreferrer"
@@ -144,7 +144,7 @@ export function FindRecordingsSheet({
           <AriaButton
             key={provider}
             onPress={() => find.pick(provider)}
-            className={`${FIELD_ROW} cursor-default data-[pressed]:opacity-60`}
+            className={FIELD_ROW_PRESSABLE}
           >
             <span className={`${FIELD_LABEL} flex-1`}>
               {searchService(PROVIDER_LABELS[provider])}

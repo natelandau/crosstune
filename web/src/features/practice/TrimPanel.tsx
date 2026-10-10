@@ -1,4 +1,5 @@
-import { ArrowLeftToLine, ArrowRightToLine, Pause, Play, ZoomIn, ZoomOut } from 'lucide-react'
+import { ArrowLeftToLine, ArrowRightToLine, ZoomIn, ZoomOut } from 'lucide-react'
+import { TransportMark } from '../../ui/rowGlyphs'
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import { Button as AriaButton, Heading } from 'react-aria-components'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
@@ -13,7 +14,8 @@ import {
   SET_END,
   SET_START,
 } from './trimViewCopy'
-import { ZOOM_IN, ZOOM_OUT } from './panel'
+import { PRESS } from '../../ui/press'
+import { PANEL_FILLED_HOVER, PANEL_HOVER, ZOOM_IN, ZOOM_OUT } from './panel'
 import { TRIM } from './trimCopy'
 import { TrimReadout, TrimStrips } from './TrimSurface'
 import { stripProps, useTrimEditor } from './useTrimEditor'
@@ -29,12 +31,11 @@ import { PracticeButton } from './PracticeButton'
 /** The controls under the strips, capped so they stay in reach on a wide window. */
 const CAPPED = 'mx-auto w-full max-w-xl'
 
-const TEXT_BUTTON =
-  't-body min-h-(--target) rounded-(--radius-capsule) text-(--panel-ink) transition-opacity duration-(--dur-short) ease-(--ease) disabled:opacity-40 data-[pressed]:opacity-60'
+const TEXT_BUTTON = `t-body min-h-(--target) rounded-(--radius-capsule) text-(--panel-ink) disabled:opacity-40 ${PRESS}`
 
-const HEADER_TEXT_BUTTON = `${TEXT_BUTTON} px-3`
+const HEADER_TEXT_BUTTON = `${TEXT_BUTTON} px-3 ${PANEL_HOVER}`
 
-const FILLED_TEXT_BUTTON = `${TEXT_BUTTON} bg-(--fill-tertiary) px-4 font-semibold`
+const FILLED_TEXT_BUTTON = `${TEXT_BUTTON} bg-(--fill-tertiary) px-4 font-semibold ${PANEL_FILLED_HOVER}`
 
 /**
  * Trim in place of practice, on the same jet ground with white handles, so editing reads apart
@@ -180,8 +181,7 @@ export function TrimPanel({
             />
             <PracticeButton
               size="large"
-              icon={playing ? Pause : Play}
-              iconClassName={playing ? 'size-8' : 'ml-1 size-8 fill-current'}
+              glyph={<TransportMark shape={playing ? 'pause' : 'play'} className="size-7" />}
               label={playing ? PAUSE : PLAY_SELECTION}
               isDisabled={!loaded}
               onPress={togglePlay}

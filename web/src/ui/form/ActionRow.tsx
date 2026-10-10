@@ -1,5 +1,5 @@
 import { Button as AriaButton } from 'react-aria-components'
-import { FIELD_ROW } from './FieldRow'
+import { FIELD_ROW_PRESSABLE } from './FieldRow'
 
 /** A row that runs an action when pressed, such as Sync now or Sign out. */
 export function ActionRow({
@@ -17,7 +17,7 @@ export function ActionRow({
     <AriaButton
       isDisabled={isDisabled}
       onPress={onPress}
-      className={`${FIELD_ROW} ${destructive ? 'text-danger' : 'text-slate'} data-[disabled]:opacity-40 data-[pressed]:opacity-60`}
+      className={`${FIELD_ROW_PRESSABLE} ${destructive ? 'text-danger' : 'text-action'} font-medium data-[disabled]:opacity-40`}
     >
       {label}
     </AriaButton>

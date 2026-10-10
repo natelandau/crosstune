@@ -93,7 +93,7 @@ export function KeyGrid({
           className={`${CAPSULE_HIT} inline-flex cursor-default rounded-(--radius-capsule)`}
         >
           {({ isSelected }) => (
-            <KeyPill value={choice.face} chosen={isSelected} plain={choice.plain} />
+            <KeyPill value={choice.face} chosen={isSelected} plain={choice.plain} flood />
           )}
         </ListBoxItem>
       )}

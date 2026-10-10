@@ -2,6 +2,7 @@ import { Search, X } from 'lucide-react'
 import { useState, type Ref } from 'react'
 import { Button, Input, SearchField as AriaSearchField } from 'react-aria-components'
 import { CLEAR_SEARCH } from './searchCopy'
+import { PRESS, WASH_HOVER } from './press'
 
 /**
  * A search box named for what it searches, with the name as its placeholder. Clear shows only
@@ -41,7 +42,7 @@ export function SearchField({
       {focused && value !== '' && (
         <Button
           aria-label={CLEAR_SEARCH}
-          className="text-ink-2 inline-flex size-(--target-control) shrink-0 items-center justify-center rounded-full data-[pressed]:opacity-60"
+          className={`text-ink-2 inline-flex size-(--target-control) shrink-0 items-center justify-center rounded-full ${PRESS} ${WASH_HOVER}`}
         >
           <X className="size-4" aria-hidden />
         </Button>

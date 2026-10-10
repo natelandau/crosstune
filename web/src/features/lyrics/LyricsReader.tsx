@@ -112,7 +112,7 @@ function ReaderSurface({
                     already here, and a scroll mid-tune never reaches it. */}
                 <div className="pt-8">
                   <Button
-                    variant="quiet"
+                    variant="tinted"
                     label={EDIT_LYRICS}
                     fullWidth
                     onPress={() => reader.setEditing(true)}

@@ -1,4 +1,5 @@
-import { Pause, Play, Repeat, RotateCcw, RotateCw } from 'lucide-react'
+import { Repeat, RotateCcw, RotateCw } from 'lucide-react'
+import { TransportMark } from '../../ui/rowGlyphs'
 import { SKIP_BACK, SKIP_FORWARD, SKIP_MS } from '../player/playerCopy'
 import { PAUSE, PLAY, REPEAT_LOOP } from '../player/transportCopy'
 import { useFrame } from '../../platform/frame'
@@ -42,8 +43,13 @@ export function TransportRow({
         <PracticeButton
           size="large"
           data-focus-key="play"
-          icon={playing ? Pause : repeatName ? Repeat : Play}
-          iconClassName={playing || repeatName ? 'size-8' : 'ml-1 size-8 fill-current'}
+          icon={!playing && repeatName ? Repeat : undefined}
+          iconClassName="size-8"
+          glyph={
+            playing || !repeatName ? (
+              <TransportMark shape={playing ? 'pause' : 'play'} className="size-7" />
+            ) : undefined
+          }
           label={playing ? PAUSE : repeatName ? REPEAT_LOOP(repeatName) : PLAY}
           aria-disabled={disabled}
           onPress={onTogglePlay}

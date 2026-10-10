@@ -16,7 +16,7 @@ import {
   type DateParts,
 } from '../partialDate'
 import { NOT_SET } from '../fieldCopy'
-import { FIELD_ROW } from './FieldRow'
+import { FIELD_ROW_PRESSABLE } from './FieldRow'
 import { Picker } from './Picker'
 import { TextField } from './TextField'
 
@@ -101,7 +101,7 @@ export function PartialDateField({
       <AriaButton
         isDisabled={sameParts(value, NO_DATE)}
         onPress={() => onChange(NO_DATE)}
-        className={`${FIELD_ROW} text-slate cursor-default disabled:opacity-40 data-[pressed]:opacity-60`}
+        className={`${FIELD_ROW_PRESSABLE} text-action font-medium disabled:opacity-40`}
       >
         {CLEAR_DATE}
       </AriaButton>
