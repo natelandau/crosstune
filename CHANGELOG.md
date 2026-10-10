@@ -1,3 +1,20 @@
+## v0.20.0 (2026-10-10)
+
+### Feat
+
+- **billing**: add server-side entitlements and plan limits (#173)
+- **web**: add motion across lists, menus, selection, and the player (#172)
+- **web**: redesign buttons and form controls (#170)
+- **site**: redesign the home page around drawn app demos (#169)
+- **lists**: play a list from its row on the lists screen (#168)
+- **tune**: add section empty states and inline lyrics field (#167)
+- **import**: import tune lists in bulk (#166)
+- **settings**: show help above settings and make status a picker (#165)
+
+### Fix
+
+- **web**: keep the dev app loading when a content blocker is on (#164)
+
 ## v0.19.0 (2026-10-09)
 
 ### Feat
