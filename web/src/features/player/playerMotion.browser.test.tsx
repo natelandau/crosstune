@@ -188,3 +188,36 @@ it('leaves no copy behind under reduced motion', async () => {
   await expect.element(player()).toBeVisible()
   expect(copies).toHaveLength(0)
 })
+
+it('leaves no copy when a resize moves the bar to the other frame, only on a close', async () => {
+  await mount(PHONE)
+  await open(takeRow(FAST))
+  const slot = () => player().element().closest('[data-now-playing]')
+  const phoneSlot = slot()
+  const copies = watchLeaving()
+  await page.viewport(WIDE.width, WIDE.height)
+  // The playing bar moves to the wide frame's slot rather than mounting again.
+  await expect.poll(() => slot() !== phoneSlot).toBe(true)
+  expect(copies).toHaveLength(0)
+  await player().getByRole('button', { name: CLOSE_PLAYER, exact: true }).click()
+  await expect.element(player()).not.toBeInTheDocument()
+  await expect.poll(() => copies.length).toBe(1)
+})
+
+it('leaves no copy when the app goes away with the bar open', async () => {
+  const db = openTestDb()
+  await seed(db)
+  const app = await renderApp({
+    path: '/catalog/t1',
+    db,
+    frame: PHONE,
+    playbackEngine: fakePlaybackEngine(),
+  })
+  await expect.element(takeRow(SLOW)).toBeVisible()
+  await open(takeRow(FAST))
+  const copies = watchLeaving()
+  app.unmount()
+  await expect.element(player()).not.toBeInTheDocument()
+  expect(copies).toHaveLength(0)
+  expect(document.querySelector('[aria-hidden="true"] section')).toBeNull()
+})
