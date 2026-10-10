@@ -1,7 +1,7 @@
 // Following the reduced-motion setting while the page is open.
 
 /** The part of a `MediaQueryList` the page reads. */
-export type MediaQuery = {
+type MediaQuery = {
   matches: boolean
   addEventListener(type: 'change', listener: () => void): void
   removeEventListener(type: 'change', listener: () => void): void

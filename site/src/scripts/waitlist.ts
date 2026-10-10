@@ -194,7 +194,7 @@ export function frontendApiHost(publishableKey: string): string {
 }
 
 /** Where Clerk serves the pinned browser build for the instance a key names. */
-export const clerkScriptUrl = (publishableKey: string) =>
+const clerkScriptUrl = (publishableKey: string) =>
   `https://${frontendApiHost(publishableKey)}/npm/@clerk/clerk-js@${__CLERK_JS_VERSION__}/dist/clerk.browser.js`
 
 // The browser build loads its sign-in UI only when a page mounts it, so the waitlist pays for the

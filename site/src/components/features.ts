@@ -4,12 +4,12 @@
  * Where a section's demo panel sits: `right` and `left` bleed to that edge of the page, and
  * `tall` holds a single phone beside the text.
  */
-export type FeatureLayout = 'right' | 'left' | 'tall'
+type FeatureLayout = 'right' | 'left' | 'tall'
 
 /** The demo a feature section shows; `<DemoPanel>` takes these names. */
-export type FeatureDemo = 'tunes' | 'tunePage' | 'record' | 'practice' | 'lists' | 'listen' | 'folk'
+type FeatureDemo = 'tunes' | 'tunePage' | 'record' | 'practice' | 'lists' | 'listen' | 'folk'
 
-export type Feature = {
+type Feature = {
   id: string
   heading: string
   body: string

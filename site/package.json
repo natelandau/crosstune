@@ -22,7 +22,6 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@clerk/clerk-js": "^6.36.0",
-    "@clerk/testing": "^2.2.41",
     "@eslint/js": "^10.0.1",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/schibsted-grotesk": "^5.3.0",

@@ -12,7 +12,7 @@ import { HOME_DESCRIPTION } from '../components/seo'
 const SITE = 'https://crosstune.app'
 const list = (items: readonly string[]) => items.map((item) => `- ${item}`).join('\n')
 
-export function llmsText(): string {
+function llmsText(): string {
   return (
     [
       '# Crosstune',

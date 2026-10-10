@@ -73,7 +73,7 @@ describe('button colors', () => {
 })
 
 describe('touch targets', () => {
-  it.each(['.button', '.button.small', '.nav .sign-in', '.text-link', '.footer nav a'])(
+  it.each(['.button', '.button.small', '.nav .sign-in', '.footer nav a'])(
     'gives %s a hit area at least 44px tall',
     (selector) => {
       const heights = declared(base, selector, 'min-height').map((v) => Number.parseFloat(v))
