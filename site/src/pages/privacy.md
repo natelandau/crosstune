@@ -7,7 +7,7 @@ path: /privacy
 
 # Privacy policy
 
-Last updated: 2026-10-08
+Last updated: 2026-10-10
 
 Crosstune is run by Nathaniel Landau, an individual. This page explains what data the service holds and who handles it. Questions go to [support@crosstune.app](mailto:support@crosstune.app).
 
@@ -27,6 +27,9 @@ Crosstune is run by Nathaniel Landau, an individual. This page explains what dat
 - Cloudflare serves this site and the web app. It also stores your recordings and scans in its R2 storage and forwards email sent to support@crosstune.app through Cloudflare Email Routing.
 - Sentry receives error reports from the API and the web app.
 - PostHog Cloud, in the United States, receives usage analytics from this site, the web app, and the iPhone, iPad, and Mac apps. See Usage analytics below for what it receives.
+- Apple sells Premium in the App Store. Apple holds your payment details, and Crosstune never receives them.
+- Link, a service of Stripe, sells Premium on the web. Link holds your email address, your payment details, and your billing address. Crosstune never receives your card number.
+- RevenueCat keeps the record of your Premium subscription from Apple and Link. It holds your Crosstune account ID, what you bought, and when it renews or ends.
 
 ## The waitlist
 
