@@ -1,5 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { MotionConfig, MotionGlobalConfig } from 'motion/react'
+import type { ReactNode } from 'react'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { fakePlaybackEngine } from '../../test/providers'
 import { recordingFile, recordingRow } from '../../test/rows'
 import { ZOOM_STEP } from './panel'
@@ -10,7 +12,7 @@ import { usePracticeTimeline } from './usePracticeTimeline'
 const LENGTH_MS = 180_000
 const WIDTH_PX = 400
 
-function setup() {
+function setup({ reduceMotion = false }: { reduceMotion?: boolean } = {}) {
   const view: RecordingView = {
     recording: recordingRow('rec-1', { trim_start_ms: 10_000, source_duration_ms: 190_000 }),
     file: recordingFile('rec-1'),
@@ -31,7 +33,12 @@ function setup() {
       timeline.open(null)
       return timeline
     },
-    { initialProps: { width: WIDTH_PX } },
+    {
+      initialProps: { width: WIDTH_PX },
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <MotionConfig reducedMotion={reduceMotion ? 'always' : 'never'}>{children}</MotionConfig>
+      ),
+    },
   )
   return { engine, ...rendered }
 }
@@ -83,10 +90,85 @@ describe('usePracticeTimeline', () => {
     expect(result.current.pxPerS).toBe(set)
   })
 
+  it('holds the playhead it reports to the take while a scrub pulls past either end', () => {
+    const { result } = setup()
+    act(() => result.current.onScrubbing(-500))
+    expect(result.current.shownMs).toBe(0)
+    expect(result.current.playheadMs).toBe(10_000)
+    expect(result.current.visible!.startMs + result.current.visible!.endMs).toBeCloseTo(0, 6)
+    act(() => result.current.onScrubbing(LENGTH_MS + 500))
+    expect(result.current.shownMs).toBe(LENGTH_MS)
+    expect(result.current.playheadMs).toBe(10_000 + LENGTH_MS)
+  })
+
   it('skips from where the playhead shows', () => {
     const { engine, result } = setup()
     const seek = vi.spyOn(engine, 'seek')
     act(() => result.current.skip(15_000))
     expect(seek).toHaveBeenCalledWith(15_000)
+  })
+})
+
+describe('a pinch past a zoom limit', () => {
+  const minScale = WIDTH_PX / (LENGTH_MS / 1000)
+
+  it('stretches the drawn scale past the maximum, then springs back to it', async () => {
+    MotionGlobalConfig.instantAnimations = true
+    onTestFinished(() => {
+      MotionGlobalConfig.instantAnimations = false
+    })
+    const { result } = setup()
+    act(() => result.current.pinchZoom(MAX_PX_PER_S / result.current.pxPerS!))
+    expect(result.current.pxPerS).toBeCloseTo(MAX_PX_PER_S, 6)
+    act(() => result.current.pinchZoom(1.5))
+    expect(result.current.scale).toBe(MAX_PX_PER_S)
+    expect(result.current.pxPerS).toBeGreaterThan(MAX_PX_PER_S)
+    expect(result.current.pxPerS).toBeLessThan(MAX_PX_PER_S * 1.25)
+    act(() => result.current.endPinch())
+    await expect.poll(() => result.current.pxPerS).toBe(MAX_PX_PER_S)
+  })
+
+  it('stretches below the whole take, then springs back to it', async () => {
+    MotionGlobalConfig.instantAnimations = true
+    onTestFinished(() => {
+      MotionGlobalConfig.instantAnimations = false
+    })
+    const { result } = setup()
+    act(() => result.current.pinchZoom(minScale / result.current.pxPerS!))
+    act(() => result.current.pinchZoom(1 / 1.5))
+    expect(result.current.pxPerS).toBeLessThan(minScale)
+    expect(result.current.pxPerS).toBeGreaterThan(minScale / 1.25)
+    act(() => result.current.endPinch())
+    await expect.poll(() => result.current.pxPerS).toBeCloseTo(minScale, 6)
+  })
+
+  it('springs back from the latest stretch when the fingers lift before it renders', async () => {
+    MotionGlobalConfig.instantAnimations = true
+    onTestFinished(() => {
+      MotionGlobalConfig.instantAnimations = false
+    })
+    const { result } = setup()
+    act(() => {
+      result.current.pinchZoom((MAX_PX_PER_S / result.current.pxPerS!) * 1.5)
+      result.current.endPinch()
+    })
+    await expect.poll(() => result.current.pxPerS).toBe(MAX_PX_PER_S)
+  })
+
+  it('settles from the latest stretch under reduced motion when the lift comes first', () => {
+    const { result } = setup({ reduceMotion: true })
+    act(() => {
+      result.current.pinchZoom((MAX_PX_PER_S / result.current.pxPerS!) * 1.5)
+      result.current.endPinch()
+    })
+    expect(result.current.pxPerS).toBe(MAX_PX_PER_S)
+  })
+
+  it('settles at the limit at once under reduced motion', () => {
+    const { result } = setup({ reduceMotion: true })
+    act(() => result.current.pinchZoom((MAX_PX_PER_S / result.current.pxPerS!) * 1.5))
+    expect(result.current.pxPerS).toBeGreaterThan(MAX_PX_PER_S)
+    act(() => result.current.endPinch())
+    expect(result.current.pxPerS).toBe(MAX_PX_PER_S)
   })
 })

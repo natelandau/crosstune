@@ -54,6 +54,7 @@ import { scopeTitle } from './scope'
 import { HiddenMatch, SearchOffer } from './SearchOffer'
 import { StatusTitle } from './StatusTitle'
 import { TuneRow } from './TuneRow'
+import { useHadContent } from '../../ui/useHadContent'
 
 const CATALOG_CONTEXT: SelectionContext = { kind: 'catalog' }
 const CATALOG_ROW: ScanViewOrigin = { context: 'row' }
@@ -116,6 +117,8 @@ export function CatalogScreen() {
     announcement,
     refreshQuery,
   } = screen
+  const hadTunes = useHadContent(ready && tunes.length > 0)
+  const hadNoTunes = useHadContent(ready && tunes.length === 0)
   const scans = useRowScanViewer(CATALOG_ROW)
   const visibleIds = useMemo(() => tunes.map((entry) => entry.tune.id), [tunes])
   const selection = useScreenSelection(visibleIds)
@@ -286,6 +289,7 @@ export function CatalogScreen() {
           )}
           {tunes.length === 0 ? (
             <EmptyState
+              arriving={hadTunes}
               icon={Music}
               title={empty.title}
               hint={empty.hint}
@@ -319,6 +323,7 @@ export function CatalogScreen() {
             <div ref={rowsRef} className="contents">
               <RowList
                 label={TUNE_LIST}
+                arriving={hadNoTunes}
                 {...(selecting
                   ? {
                       selectionMode: 'multiple',

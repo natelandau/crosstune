@@ -68,11 +68,12 @@ export function usePracticeCore({
   })
 
   const pinches = useRef(0)
-  const pinch = useZoomGestures(slot, (action) => timeline.zoom(action.factor), {
+  const pinch = useZoomGestures(slot, (action) => timeline.pinchZoom(action.factor), {
     onFirstPointer: () => {},
     onPinchStart: () => {
       pinches.current += 1
     },
+    onPinchEnd: timeline.endPinch,
   })
 
   return { content, slot, size, timeline, loops, pinches, pinch, focusWaveform }

@@ -130,10 +130,10 @@ html[data-density='pointer'] {
   opacity: 0;
 }
 .trace-ring[data-run] .trace-lead {
-  animation: trace-settle 700ms cubic-bezier(0.45, 0.05, 0.35, 1) both;
+  animation: trace-settle var(--dur-draw) cubic-bezier(0.45, 0.05, 0.35, 1) both;
 }
 .trace-ring[data-run] .trace-track {
-  animation: trace-track-out 700ms linear both;
+  animation: trace-track-out var(--dur-draw) linear both;
 }
 @keyframes trace-settle {
   0% {
@@ -200,7 +200,7 @@ html[data-density='pointer'] {
 }
 .key-flood[data-chosen] .flood-blob {
   scale: 3.6;
-  transition: scale 650ms cubic-bezier(0.3, 0.1, 0.5, 1);
+  transition: scale var(--dur-draw) cubic-bezier(0.3, 0.1, 0.5, 1);
 }
 .key-flood[data-chosen] .flood-blob:nth-child(2) {
   transition-delay: 40ms;
@@ -220,7 +220,7 @@ html[data-density='pointer'] {
    in the next shape rather than crossing it. Play sits right of center to look centered. */
 .transport {
   background: currentColor;
-  transition: clip-path 300ms cubic-bezier(0.3, 0.7, 0.3, 1);
+  transition: clip-path var(--dur-long) var(--ease);
 }
 .transport[data-shape='play'] {
   clip-path: polygon(
@@ -269,6 +269,28 @@ html[data-density='pointer'] {
     40% 92%,
     14% 92%
   );
+}
+
+/* ---------- Popover surface ---------- */
+
+/* A menu or popover scales up out of the point on its trigger it hangs from, and back into it.
+   React Aria holds the surface open until the exit animation ends. */
+.popover-surface {
+  transform-origin: var(--trigger-anchor-point, top);
+}
+.popover-surface[data-entering] {
+  animation: popover-in var(--dur-short) var(--ease);
+}
+/* A closing surface takes no more presses, so a quick click lands on what is behind it. */
+.popover-surface[data-exiting] {
+  animation: popover-in var(--dur-short) var(--ease) reverse forwards;
+  pointer-events: none;
+}
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
 }
 
 /* ---------- Hover motion ---------- */
@@ -342,6 +364,13 @@ html[data-density='pointer'] {
   .transport {
     animation: none !important;
   }
+  /* A fade alone, as reduced motion keeps. */
+  .popover-surface[data-entering] {
+    animation: popover-fade var(--dur-fade) var(--ease);
+  }
+  .popover-surface[data-exiting] {
+    animation: popover-fade var(--dur-fade) var(--ease) reverse forwards;
+  }
   .check-mark *,
   .transport,
   .key-flood,
@@ -356,5 +385,11 @@ html[data-density='pointer'] {
     translate: none !important;
     rotate: none !important;
     scale: none !important;
+  }
+}
+
+@keyframes popover-fade {
+  from {
+    opacity: 0;
   }
 }

@@ -1,3 +1,4 @@
+import { animate, useReducedMotionConfig, type AnimationPlaybackControls } from 'motion/react'
 import {
   useCallback,
   useEffect,
@@ -13,7 +14,15 @@ import type { PlaybackEngine } from '../player/playbackEngine'
 import { trimmedLengthMs } from './recordingRange'
 import type { RecordingView } from '../recordings/useRecordings'
 import type { Bounds, Span } from '../../domain/loopModel'
-import { fitScale, MAX_PX_PER_S, minPxPerS, openingScale, zoomScale } from './practiceZoom'
+import {
+  fitScale,
+  MAX_PX_PER_S,
+  minPxPerS,
+  openingScale,
+  stretchedScale,
+  zoomScale,
+} from './practiceZoom'
+import { SPRING } from '../../theme/motion'
 import type { WaveformScrub } from './PracticeWaveform'
 
 export interface PracticeTimeline {
@@ -66,6 +75,12 @@ export interface PracticeTimeline {
   /** Multiplies the scale by `factor`, held between the whole take and the maximum. */
   zoom: (factor: number) => void
   /**
+   * Multiplies the scale by `factor` for a pinch under way, which stretches past either limit
+   * with resistance until `endPinch` springs it back.
+   */
+  pinchZoom: (factor: number) => void
+  endPinch: () => void
+  /**
    * Frames `loop` and brings the playhead into it, or shows the whole take. Prefer
    * `usePracticeLoops`'s `fit`, which passes the selected loop as drawn.
    */
@@ -105,7 +120,8 @@ export function usePracticeTimeline({
   // of the engine, and stops a glide first so it cannot carry the playhead off afterward.
   const scrub = useRef<WaveformScrub | null>(null)
   const [scrubbingMs, setScrubbingMs] = useState<number | null>(null)
-  const shownMs = loaded ? (scrubbingMs ?? positionMs) : 0
+  // Held to the take: a scrub pulled past an end is drawn there by the waveform alone.
+  const shownMs = loaded ? clamp(scrubbingMs ?? positionMs, 0, lengthMs) : 0
   const playheadMs = trimStartMs + shownMs
   const settle = () => {
     scrub.current?.settleGlide()
@@ -142,9 +158,52 @@ export function usePracticeTimeline({
       setOpenedAt(widthPx)
     }
   }
+  // How far a pinch has stretched the drawn scale past a limit, as a factor of it.
+  const [stretch, setDrawnStretch] = useState(1)
+  // The stretch as last set, since a pinch's lift can arrive before its last move has rendered.
+  const stretchNow = useRef(1)
+  const setStretch = (next: number) => {
+    stretchNow.current = next
+    setDrawnStretch(next)
+  }
   // Held to the frame as it stands, so turning the phone keeps the scale wherever it still fits.
-  const pxPerS = scale === null ? null : clamp(scale, minScale, MAX_PX_PER_S)
+  const heldScale = scale === null ? null : clamp(scale, minScale, MAX_PX_PER_S)
+  const pxPerS = heldScale === null ? null : heldScale * stretch
   const frameRef = useLatest({ widthPx, lengthMs })
+  const pxPerSRef = useLatest(pxPerS)
+  const reduceMotionRef = useLatest(useReducedMotionConfig() ?? false)
+  // The scale the pinch's fingers ask for, before the limits; null between pinches.
+  const pinchRaw = useRef<number | null>(null)
+  const unstretch = useRef<AnimationPlaybackControls | null>(null)
+  useEffect(() => () => unstretch.current?.stop(), [])
+  const pinchZoom = (factor: number) => {
+    const from = pinchRaw.current ?? pxPerSRef.current
+    if (from === null) return
+    unstretch.current?.stop()
+    unstretch.current = null
+    setOpenedAt(null)
+    const raw = from * factor
+    pinchRaw.current = raw
+    const held = zoomScale(raw, 1, frameRef.current)
+    setScale(held)
+    setStretch(stretchedScale(raw, frameRef.current) / held)
+  }
+  const endPinch = () => {
+    pinchRaw.current = null
+    const from = stretchNow.current
+    if (from === 1) return
+    if (reduceMotionRef.current) {
+      setStretch(1)
+      return
+    }
+    unstretch.current = animate(from, 1, {
+      ...SPRING,
+      onUpdate: setStretch,
+      onComplete: () => {
+        unstretch.current = null
+      },
+    })
+  }
   const zoom = (factor: number) => {
     setOpenedAt(null)
     setScale((current) =>
@@ -193,6 +252,8 @@ export function usePracticeTimeline({
     canZoomOut: !!pxPerS && pxPerS > minScale,
     open,
     zoom,
+    pinchZoom,
+    endPinch,
     fit,
     togglePlay: () => (engine.getState().playing ? engine.pause() : engine.play()),
     skip: (deltaMs) => {

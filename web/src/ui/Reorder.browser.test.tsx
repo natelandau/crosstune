@@ -1,6 +1,7 @@
 import { Pencil } from 'lucide-react'
 import { MotionGlobalConfig } from 'motion/react'
 import { useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type { Key } from 'react-aria-components'
 import { page, userEvent } from 'vitest/browser'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
@@ -51,8 +52,10 @@ function Tunes({
   showLater,
   frames,
   loading = false,
+  disabledKeys,
 }: {
   onReorder: (key: Key, to: number) => void
+  disabledKeys?: Key[]
   frames?: FrameSource
   /** Renders as a screen does before its rows can move: with no `onReorder`. */
   loading?: boolean
@@ -74,6 +77,7 @@ function Tunes({
         label="Tunes"
         selectionMode={selectionMode}
         onAction={onAction}
+        disabledKeys={disabledKeys}
         frames={frames}
         onReorder={
           loading
@@ -133,6 +137,159 @@ it('reorders on a mouse drag of the whole row', async () => {
   await expect
     .poll(shownTitles)
     .toEqual(['Angeline the Baker', 'Cluck Old Hen', 'Forked Deer', "Soldier's Joy"])
+})
+
+/** A mouse or pen press on the row's title, which `to` moves by `dy` px and `drop` releases. */
+function mousePress(name: RegExp, pointerType: 'mouse' | 'pen' = 'mouse') {
+  const content = page.getByRole('row', { name }).element().querySelector('[data-row-title]')!
+  const rect = content.getBoundingClientRect()
+  const at = { clientX: rect.left + 5, clientY: rect.top + 5 }
+  const mouse = { bubbles: true, cancelable: true, pointerType, isPrimary: true }
+  content.dispatchEvent(new PointerEvent('pointerdown', { ...mouse, ...at, button: 0 }))
+  return {
+    to: (dy: number, steps = 8) => {
+      for (let step = 1; step <= steps; step++) {
+        const clientY = at.clientY + (dy * step) / steps
+        content.dispatchEvent(new PointerEvent('pointermove', { ...mouse, ...at, clientY }))
+      }
+    },
+    // A browser clicks wherever the release lands, as it does after a drag.
+    drop: () => {
+      content.dispatchEvent(new PointerEvent('pointerup', { ...mouse, ...at, button: 0 }))
+      content.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...at }))
+    },
+  }
+}
+
+const row = (name: RegExp) => page.getByRole('row', { name })
+
+it('lifts a mouse-dragged row, then lands it without opening or selecting it', async () => {
+  const onReorder = vi.fn()
+  const onAction = vi.fn()
+  renderWithProviders(
+    <Tunes onReorder={onReorder} onAction={onAction} selectionMode="multiple" />,
+    { density: 'pointer' },
+  )
+  const drag = mousePress(/Forked Deer/)
+  drag.to(rowHeight() * 2.5)
+  await expect.element(row(/Forked Deer/)).toHaveAttribute('data-lifted')
+  drag.drop()
+  await expect.poll(() => onReorder).toHaveBeenCalledOnce()
+  expect(onReorder).toHaveBeenCalledWith('a', 2)
+  await expect
+    .poll(shownTitles)
+    .toEqual(['Angeline the Baker', 'Cluck Old Hen', 'Forked Deer', "Soldier's Joy"])
+  await expect.element(row(/Forked Deer/)).not.toHaveAttribute('data-reordering')
+  await expect.element(row(/Forked Deer/)).toHaveAttribute('aria-selected', 'false')
+  expect(onAction).not.toHaveBeenCalled()
+})
+
+/** The slides list motion is running on the rows, leaving CSS transitions and animations out. */
+const listSlides = () =>
+  page
+    .getByRole('row')
+    .elements()
+    .flatMap((element) =>
+      element
+        .getAnimations()
+        .filter((slide) => !(slide instanceof CSSTransition || slide instanceof CSSAnimation)),
+    )
+
+it('stops rows still sliding from a list change once a mouse drag starts, so they follow it at once', async () => {
+  let sync: Sync | undefined
+  renderWithProviders(
+    <Tunes
+      onReorder={vi.fn()}
+      onSync={(set) => {
+        sync = set
+      }}
+    />,
+    { density: 'pointer' },
+  )
+  await expect.element(row(/Soldier's Joy/)).toBeVisible()
+  await expect.poll(() => sync).toBeDefined()
+  // Another device moves Soldier's Joy to the top. The list hears of it in a microtask and
+  // starts its slides, still before any frame can run.
+  flushSync(() => sync!((rows) => [rows[3]!, ...rows.slice(0, 3)]))
+  await Promise.resolve()
+  expect(listSlides().length).toBeGreaterThan(0)
+  const drag = mousePress(/Forked Deer/)
+  drag.to(rowHeight() * 1.5)
+  expect(listSlides()).toHaveLength(0)
+  drag.drop()
+})
+
+it('drags a row with a pen on a pointer layout as a mouse does', async () => {
+  const onReorder = vi.fn()
+  renderWithProviders(<Tunes onReorder={onReorder} />, { density: 'pointer' })
+  const drag = mousePress(/Forked Deer/, 'pen')
+  drag.to(rowHeight() * 2.5)
+  await expect.element(row(/Forked Deer/)).toHaveAttribute('data-lifted')
+  drag.drop()
+  await expect.poll(() => onReorder).toHaveBeenCalledWith('a', 2)
+})
+
+it('drags a row with a pen on a touch layout only after a long press', async () => {
+  const onReorder = vi.fn()
+  renderWithProviders(<Tunes onReorder={onReorder} />, { density: 'touch' })
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    const stroke = mousePress(/Forked Deer/, 'pen')
+    stroke.to(rowHeight() * 2.5)
+    expect(
+      row(/Forked Deer/)
+        .element()
+        .hasAttribute('data-lifted'),
+    ).toBe(false)
+    stroke.drop()
+    vi.runOnlyPendingTimers()
+  } finally {
+    vi.useRealTimers()
+  }
+  expect(onReorder).not.toHaveBeenCalled()
+  await longPressDrag(row(/Forked Deer/), rowHeight() * 2.5, { pointerType: 'pen' })
+  await expect.poll(() => onReorder).toHaveBeenCalledWith('a', 2)
+})
+
+it('never drags a disabled row', async () => {
+  const onReorder = vi.fn()
+  renderWithProviders(<Tunes onReorder={onReorder} disabledKeys={['a']} />, {
+    density: 'pointer',
+  })
+  await expect.element(row(/Forked Deer/)).toHaveAttribute('data-disabled')
+  const drag = mousePress(/Forked Deer/)
+  drag.to(rowHeight() * 2.5)
+  await expect.element(row(/Forked Deer/)).not.toHaveAttribute('data-lifted')
+  drag.drop()
+  expect(onReorder).not.toHaveBeenCalled()
+})
+
+it('takes a mouse press that barely moves as a click, not a drag', async () => {
+  const onReorder = vi.fn()
+  const onAction = vi.fn()
+  renderWithProviders(<Tunes onReorder={onReorder} onAction={onAction} />, {
+    density: 'pointer',
+  })
+  await row(/Forked Deer/).click()
+  await expect.poll(() => onAction).toHaveBeenCalledWith('a')
+  const drag = mousePress(/Forked Deer/)
+  drag.to(2, 2)
+  await expect.element(row(/Forked Deer/)).not.toHaveAttribute('data-lifted')
+  drag.drop()
+  expect(onReorder).not.toHaveBeenCalled()
+})
+
+it('puts the rows back when Escape cancels a mouse drag', async () => {
+  const onReorder = vi.fn()
+  renderWithProviders(<Tunes onReorder={onReorder} />, { density: 'pointer' })
+  const drag = mousePress(/Forked Deer/)
+  drag.to(rowHeight() * 2.5)
+  await expect.element(row(/Forked Deer/)).toHaveAttribute('data-lifted')
+  await userEvent.keyboard('{Escape}')
+  await expect.element(row(/Forked Deer/)).not.toHaveAttribute('data-reordering')
+  drag.drop()
+  expect(onReorder).not.toHaveBeenCalled()
+  expect(shownTitles()).toEqual(TUNES.map((tune) => tune.title))
 })
 
 it('reorders from the keyboard through the move button and returns focus to the row', async () => {
@@ -382,7 +539,8 @@ it.each([30, 80])(
 )
 
 it('offers no mouse or keyboard drag while rows are selected', async () => {
-  renderWithProviders(<Tunes onReorder={vi.fn()} selectionMode="multiple" />, {
+  const onReorder = vi.fn()
+  renderWithProviders(<Tunes onReorder={onReorder} selectionMode="multiple" />, {
     density: 'pointer',
   })
   const move = page.getByRole('button', { name: moveRowLabel('Forked Deer') })
@@ -392,9 +550,12 @@ it('offers no mouse or keyboard drag while rows are selected', async () => {
     .toHaveAttribute('draggable', 'true')
   await page.getByRole('row', { name: /Cluck Old Hen/ }).click()
   await expect.element(move).toBeDisabled()
-  await expect
-    .element(page.getByRole('row', { name: /Forked Deer/ }))
-    .not.toHaveAttribute('draggable', 'true')
+  await expect.element(row(/Forked Deer/)).not.toHaveAttribute('draggable', 'true')
+  const drag = mousePress(/Forked Deer/)
+  drag.to(rowHeight() * 2.5)
+  await expect.element(row(/Forked Deer/)).not.toHaveAttribute('data-lifted')
+  drag.drop()
+  expect(onReorder).not.toHaveBeenCalled()
 })
 
 /** Frames a test steps by hand, each a fixed 16ms after the last. */
@@ -444,6 +605,32 @@ it('scrolls the list while a touch drag rests at its edge, to reach rows off scr
     },
   })
   await expect.poll(() => onReorder).toHaveBeenCalledWith('t0', 11)
+})
+
+it('keeps a mouse-dragged row under the pointer while the wheel scrolls the list', async () => {
+  const onReorder = vi.fn()
+  // Frames that never run, so the list moves only by the scroll the test makes.
+  const { frames } = manualFrames()
+  renderWithProviders(
+    <div data-testid="scroller" className="h-48 overflow-y-auto">
+      <Tunes onReorder={onReorder} tunes={TWELVE} frames={frames} />
+    </div>,
+    { density: 'pointer' },
+  )
+  const scroller = page.getByTestId('scroller').element()
+  const drag = mousePress(/^Tune 1$/)
+  drag.to(10)
+  await expect.element(row(/^Tune 1$/)).toHaveAttribute('data-lifted')
+  scroller.scrollTop =
+    row(/^Tune 1$/)
+      .element()
+      .getBoundingClientRect().height * 3
+  // The rows the scroll carried under the pointer slide aside without the pointer moving.
+  await expect
+    .poll(() => new DOMMatrix(getComputedStyle(row(/^Tune 4$/).element()).transform).m42)
+    .toBeLessThan(0)
+  drag.drop()
+  await expect.poll(() => onReorder).toHaveBeenCalledWith('t0', 3)
 })
 
 it('scrolls from the edge a bar over the list leaves uncovered', async () => {

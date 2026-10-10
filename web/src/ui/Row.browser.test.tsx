@@ -416,3 +416,77 @@ it('gives a row with nothing trailing its full width for the title', async () =>
     })
     .toBeLessThanOrEqual(12.5)
 })
+
+/** What the wash token paints, read from an element that shows it alone. */
+function washColor(): string {
+  const probe = document.createElement('div')
+  probe.style.backgroundColor = 'var(--wash)'
+  document.body.append(probe)
+  const color = getComputedStyle(probe).backgroundColor
+  probe.remove()
+  return color
+}
+
+function pointer(target: Element, type: string, pointerType: 'mouse' | 'touch') {
+  const rect = target.getBoundingClientRect()
+  target.dispatchEvent(
+    new PointerEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      pointerId: 3,
+      pointerType,
+      isPrimary: true,
+      button: 0,
+      buttons: type === 'pointerup' ? 0 : 1,
+      clientX: rect.left + 10,
+      clientY: rect.top + rect.height / 2,
+    }),
+  )
+}
+
+it('washes a pointer row while it is pressed, and fades its washes', async () => {
+  renderWithProviders(
+    <RowList label="Tunes" onAction={() => {}}>
+      <Row id="1" textValue="Forked Deer" title="Forked Deer" />
+    </RowList>,
+    { density: 'pointer' },
+  )
+  const row = page.getByRole('row', { name: 'Forked Deer' })
+  await expect.element(row).toBeVisible()
+  const { transitionProperty } = getComputedStyle(row.element())
+  expect(transitionProperty.split(', ')).toContain('background-color')
+  pointer(row.element(), 'pointerdown', 'mouse')
+  await expect.element(row).toHaveAttribute('data-pressed')
+  await expect.poll(() => getComputedStyle(row.element()).backgroundColor).toBe(washColor())
+  pointer(row.element(), 'pointerup', 'mouse')
+  await expect.element(row).not.toHaveAttribute('data-pressed')
+})
+
+it('waits a beat before washing a pressed touch row, so a scroll never flashes it', async () => {
+  renderWithProviders(
+    <RowList label="Tunes" onAction={() => {}}>
+      <Row id="1" textValue="Forked Deer" title="Forked Deer" />
+    </RowList>,
+    { density: 'touch' },
+  )
+  const row = page.getByRole('row', { name: 'Forked Deer' })
+  await expect.element(row).toBeVisible()
+  const content = row.element().querySelector<HTMLElement>('[style*="touch-action"]')!
+  const wash = () => getComputedStyle(content, '::before')
+  expect(Number(wash().opacity)).toBe(0)
+  expect(wash().transitionDelay).toBe('0s')
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    pointer(content, 'pointerdown', 'touch')
+    await expect.element(row).toHaveAttribute('data-pressed')
+    expect(wash().transitionDelay).toBe('0.075s')
+    await expect.poll(() => Number(wash().opacity)).toBe(1)
+    pointer(content, 'pointerup', 'touch')
+    // React Aria ends a touch press on a timeout after the finger lifts.
+    vi.runOnlyPendingTimers()
+  } finally {
+    vi.useRealTimers()
+  }
+  await expect.element(row).not.toHaveAttribute('data-pressed')
+  expect(wash().transitionDelay).toBe('0s')
+})

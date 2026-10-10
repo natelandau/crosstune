@@ -43,3 +43,14 @@
     opacity: 0;
   }
 }
+
+/* A list or empty state that takes the other's place fades in, never one there on load. */
+.arrive {
+  animation: var(--dur-base) var(--ease) both arrive;
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+  }
+}

@@ -1,3 +1,4 @@
+import { AnimatePresence } from 'motion/react'
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Outlet } from 'react-router'
 import { useFrame } from '../platform/frame'
@@ -72,7 +73,10 @@ function Frame({ children }: { children: ReactNode }) {
               }`}
             >
               {phone && <NowPlayingSlot floating />}
-              {phone && !selecting && <TabBar />}
+              {/* Not on load: only a selection starting or ending moves the tab bar. */}
+              <AnimatePresence initial={false}>
+                {phone && !selecting && <TabBar key="tabs" />}
+              </AnimatePresence>
             </div>
           </div>
           {!phone && <NowPlayingSlot />}

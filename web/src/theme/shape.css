@@ -14,6 +14,8 @@
   --dur-long: 350ms;
   /* A cross-fade, the one motion reduced motion keeps, so the rule below leaves it alone. */
   --dur-fade: 250ms;
+  /* A stroke or a flood that reads as drawn, slower than a move. */
+  --dur-draw: 700ms;
 }
 
 /* A document page's readable width, as `max-w-page`. In px, so the text size setting scales
@@ -40,6 +42,7 @@ html[data-density='pointer'] {
     --dur-short: 0.01ms;
     --dur-base: 0.01ms;
     --dur-long: 0.01ms;
+    --dur-draw: 0.01ms;
   }
 
   /* Neither React nor the browser honors reduced motion for view transitions. */

@@ -13,11 +13,11 @@ export interface ReorderItem {
   title: string
 }
 
-/** A touch drag of one row, begun by a long press. */
-export interface TouchReorder {
-  /** The finger is now at `clientY`. */
+/** A drag of one row, begun by a long press on touch or a press and move with a mouse or pen. */
+export interface ReorderDrag {
+  /** The pointer is now at `clientY`. */
   move: (clientY: number) => void
-  /** The finger lifted, dropping the row where it is, or the gesture was cancelled. */
+  /** The pointer lifted, dropping the row where it is, or the gesture was cancelled. */
   end: (drop: boolean) => void
 }
 
@@ -26,8 +26,8 @@ export interface Reorder {
   moveLabel: (item: ReorderItem) => string
   /** A touch hold that can become a drag has begun or ended, so the page must not scroll. */
   hold: (active: boolean) => void
-  /** Starts a touch drag of the row pressed at `pressY`, or null when it has nowhere to go. */
-  begin: (key: Key, pressY: number) => TouchReorder | null
+  /** Starts a drag of the row pressed at `pressY`, or null when it has nowhere to go. */
+  begin: (key: Key, pressY: number) => ReorderDrag | null
 }
 
 export const ReorderContext = createContext<Reorder | null>(null)
@@ -58,6 +58,15 @@ export const motionFrames: FrameSource = (step) => {
   const run = ({ delta }: FrameData) => step(delta)
   frame.update(run, true)
   return () => cancelFrame(run)
+}
+
+// The latest drop of each row, so an earlier settle that ends late leaves a later one raised.
+const latestSettle = new WeakMap<HTMLElement, object>()
+
+/** How far a row's transform draws it below its place in the layout. */
+export function drawnOffset(row: HTMLElement): number {
+  const { transform } = getComputedStyle(row)
+  return transform === 'none' ? 0 : new DOMMatrix(transform).m42
 }
 
 /** The nearest ancestor that scrolls vertically, or the page's own scroller. */
@@ -103,14 +112,15 @@ function visibleBand(scroller: Element): { top: number; bottom: number } | null 
 }
 
 /**
- * Starts touch drags in `list`: the row follows the finger and the rows it passes step aside,
- * and a drop calls `onReorder` with the index it lands at. While the finger rests near the
+ * Starts a drag in `list`: the row lifts and follows the pointer, the rows it passes slide
+ * aside, and a drop calls `onReorder` with the index it lands at, then every row springs from
+ * where it was drawn into its place. While the pointer rests near the
  * edge of the scroller's visible band, each of `frames` scrolls it, so rows off screen are
  * reachable. Positions come from the layout on every move and frame, never from a snapshot, so
  * rows a sync moves mid-drag are dropped among as they now stand. Offsets are layout
  * positions, which transforms and scrolling leave alone.
  */
-export function beginTouchReorder(
+export function beginReorderDrag(
   list: Element,
   key: Key,
   pressY: number,
@@ -119,11 +129,21 @@ export function beginTouchReorder(
     reduceMotion = false,
     frames = motionFrames,
   }: { reduceMotion?: boolean; frames?: FrameSource } = {},
-): TouchReorder | null {
+): ReorderDrag | null {
   const own = (row: HTMLElement) => row.dataset.key === String(key)
   const first = rowsOf(list)
   const dragged = first.find(own)
-  if (!dragged || first.length < 2) return null
+  if (!dragged || 'disabled' in dragged.dataset || first.length < 2) return null
+  for (const row of first) {
+    // A settle this drag interrupts never finishes, so a row it left raised is lowered here.
+    if (!('lifted' in row.dataset)) delete row.dataset.reordering
+    // A list change's slide would draw over the offsets the drag gives each row.
+    for (const animation of row.getAnimations()) {
+      if (!(animation instanceof CSSTransition || animation instanceof CSSAnimation)) {
+        animation.cancel()
+      }
+    }
+  }
   const scroller = scrollerOf(list)
   const startScroll = scroller.scrollTop
   // Measured once: the bars and the scroller hold still while a finger drags.
@@ -134,6 +154,7 @@ export function beginTouchReorder(
   let landing: { from: number; to: number } | null = null
   let fingerY = pressY
   dragged.dataset.reordering = ''
+  dragged.dataset.lifted = ''
 
   const shift = (row: HTMLElement, y: number, follow: boolean) => {
     if (shifted.get(row) === y) return
@@ -166,8 +187,14 @@ export function beginTouchReorder(
     }
   }
 
+  // A wheel or trackpad scroll moves the rows under a pointer that holds still.
+  const scrollEvents: EventTarget =
+    scroller === document.scrollingElement || scroller === document.documentElement
+      ? window
+      : scroller
+  scrollEvents.addEventListener('scroll', place, { passive: true })
   // By the time since the last frame, so the speed holds however fast frames come.
-  const stop = frames((deltaMs) => {
+  const stopFrames = frames((deltaMs) => {
     if (!band) return
     const depth =
       fingerY < band.top + AUTOSCROLL_EDGE_PX
@@ -183,6 +210,10 @@ export function beginTouchReorder(
       before + (Math.round(reach * AUTOSCROLL_SPEED * deltaMs) || Math.sign(reach))
     if (scroller.scrollTop !== before) place()
   })
+  const stop = () => {
+    stopFrames()
+    scrollEvents.removeEventListener('scroll', place)
+  }
 
   return {
     move: (clientY) => {
@@ -191,14 +222,36 @@ export function beginTouchReorder(
     },
     end: (drop) => {
       stop()
+      // In layout terms, with each row's offset read from where it is drawn, not where it is
+      // headed, since rows still sliding aside are partway there.
+      const drawnAt = new Map(
+        rowsOf(list).map((row) => [row, row.offsetTop + drawnOffset(row)] as const),
+      )
       // The new order is on the page before the offsets clear, so no frame shows the old one.
       if (drop && landing && landing.from !== landing.to) {
         const { to } = landing
         flushSync(() => onReorder(key, to))
       }
-      for (const row of shifted.keys()) animate(row, { y: 0 }, { duration: 0 })
+      delete dragged.dataset.lifted
+      // Each row starts from where it was drawn and springs to its place in the new order, so
+      // the dropped row glides into its slot rather than jumping there.
+      const settles: Promise<unknown>[] = []
+      for (const row of rowsOf(list)) {
+        const was = drawnAt.get(row)
+        if (was === undefined) continue
+        const offset = was - row.offsetTop
+        if (reduceMotion || Math.abs(offset) < 0.5) animate(row, { y: 0 }, { duration: 0 })
+        else settles.push(animate(row, { y: [offset, 0] }, SPRING).finished)
+      }
       shifted.clear()
-      delete dragged.dataset.reordering
+      const settle = {}
+      latestSettle.set(dragged, settle)
+      // Raised until it lands, so the rows it passes on the way slide under it.
+      void Promise.all(settles).then(() => {
+        if (latestSettle.get(dragged) === settle && !('lifted' in dragged.dataset)) {
+          delete dragged.dataset.reordering
+        }
+      })
     },
   }
 }

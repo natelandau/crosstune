@@ -200,8 +200,10 @@ One row component per platform for every list of tunes.
 - Archived row: dimmed as a whole.
 - Tap opens the tune. While selecting, tap toggles.
 - In a list: tabular position number leading, reorder by dragging the whole
-  row, no grip. Playing row: animated speaker, light slate wash. Nothing to
-  play: not-playable glyph in the play slot.
+  row, no grip. The dragged row lifts under a shadow, the rows it passes
+  slide aside, and a drop settles it into its slot. No drop line. Playing
+  row: animated speaker, light slate wash. Nothing to play: not-playable
+  glyph in the play slot.
 - A list's row on the lists screen, never in the sidebar: Play trailing,
   and Play and Shuffle first in its menu, only when a tune in it can play.
   Otherwise the slot stays empty, so the rows align. While the list plays,

@@ -1,12 +1,15 @@
+import { AnimatePresence, motion } from 'motion/react'
 import { useLayoutEffect, useRef } from 'react'
 import { usePane } from '../../app/pane'
+import { DURATION, EASE } from '../../theme/motion'
 
 export const DROP_TO_IMPORT = 'Drop to import'
 
 /**
  * What a column shows while files are dragged over it: an inset slate outline and "Drop to
- * import" over the column's visible part. It sticks under the pane bar, so it never covers it,
- * and takes no pointer events, so the drag still lands on the column beneath.
+ * import" over the column's visible part, fading in and out. It sticks under the pane bar, so
+ * it never covers it, and takes no pointer events, so the drag still lands on the column
+ * beneath.
  */
 export function DropOverlay({ shown }: { shown: boolean }) {
   const pane = usePane()
@@ -33,15 +36,26 @@ export function DropOverlay({ shown }: { shown: boolean }) {
     return () => observer.disconnect()
   }, [shown, pane])
 
-  if (!shown) return null
   return (
-    <div ref={anchor} data-drop-overlay className="pointer-events-none sticky z-20 h-0">
-      <div
-        ref={box}
-        className="border-slate bg-wash absolute inset-x-2 top-2 flex items-center justify-center rounded-(--radius-surface) border-2"
-      >
-        <p className="t-heading text-action">{DROP_TO_IMPORT}</p>
-      </div>
-    </div>
+    <AnimatePresence>
+      {shown && (
+        <motion.div
+          ref={anchor}
+          data-drop-overlay
+          className="pointer-events-none sticky z-20 h-0"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: DURATION.short, ease: EASE }}
+        >
+          <div
+            ref={box}
+            className="border-slate bg-wash absolute inset-x-2 top-2 flex items-center justify-center rounded-(--radius-surface) border-2"
+          >
+            <p className="t-heading text-action">{DROP_TO_IMPORT}</p>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

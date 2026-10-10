@@ -230,6 +230,7 @@ function ColumnSeparator({
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
     drag.current = { x: event.clientX, width, sign: inlineSign(event.currentTarget), last: width }
+    event.currentTarget.dataset.dragging = ''
     try {
       event.currentTarget.setPointerCapture(event.pointerId)
     } catch {
@@ -244,10 +245,11 @@ function ColumnSeparator({
     onResize(start.last)
   }
 
-  const endDrag = () => {
+  const endDrag = (event: PointerEvent<HTMLDivElement>) => {
     const start = drag.current
     if (!start) return
     drag.current = null
+    delete event.currentTarget.dataset.dragging
     onSettle(start.last)
   }
 
@@ -266,11 +268,18 @@ function ColumnSeparator({
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
-      className={`bg-hairline relative z-10 w-px shrink-0 cursor-col-resize touch-none before:absolute before:inset-y-0 before:content-[''] ${
+      className={`group bg-hairline relative z-10 w-px shrink-0 cursor-col-resize touch-none before:absolute before:inset-y-0 before:content-[''] ${
         density === 'touch'
           ? 'before:start-[calc(0.5px-var(--target)/2)] before:w-(--target)'
           : 'before:start-0 before:-end-2'
       }`}
-    />
+    >
+      {/* Wider than the hairline, so the handle shows it can be dragged under the pointer and
+          while it is. */}
+      <span
+        aria-hidden
+        className="bg-slate pointer-events-none absolute inset-y-0 -start-px w-[3px] opacity-0 transition-opacity duration-(--dur-short) ease-(--ease) group-hover:opacity-40 group-data-[dragging]:opacity-100"
+      />
+    </div>
   )
 }

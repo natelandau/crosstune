@@ -179,16 +179,17 @@ export function Row({
         event.preventDefault()
         // A touch hold opens the menu on release from RowSwipe; the browser's own event would
         // open it mid-hold, before the hold can turn into a drag.
-        if ((event.nativeEvent as PointerEvent).pointerType === 'touch') return
+        const { pointerType } = event.nativeEvent as PointerEvent
+        if (pointerType === 'touch' || (pointerType === 'pen' && touch)) return
         openAt(event.clientX, event.clientY)
       }}
       ref={setRow}
       data-playing={playing || undefined}
       data-new={fresh || undefined}
-      className={`group relative flex min-h-(--target) cursor-default items-center rounded-(--radius-row) data-[reordering]:z-10 ${
+      className={`group relative flex min-h-(--target) cursor-default items-center rounded-(--radius-row) transition-[box-shadow,background-color] duration-(--dur-short) ease-(--ease) data-[lifted]:shadow-(--shadow-float) data-[reordering]:z-10 ${
         touch
           ? 'overflow-hidden'
-          : `data-[selected]:bg-wash gap-3 px-3 py-0 data-[selected]:[--row-tint:var(--wash)] ${playing ? 'bg-(--play-wash) [--row-tint:var(--play-wash)]' : 'not-data-[selected]:hover:bg-row-hover [--row-tint:transparent] not-data-[selected]:hover:[--row-tint:var(--row-hover)]'}`
+          : `data-[selected]:bg-wash data-[pressed]:bg-wash! data-[reordering]:bg-ground! gap-3 px-3 py-0 data-[pressed]:[--row-tint:var(--wash)] data-[reordering]:bg-[linear-gradient(var(--row-tint),var(--row-tint))] data-[selected]:[--row-tint:var(--wash)] ${playing ? 'bg-(--play-wash) [--row-tint:var(--play-wash)]' : 'not-data-[selected]:hover:bg-row-hover [--row-tint:transparent] not-data-[selected]:hover:[--row-tint:var(--row-hover)]'}`
       } ${dimmed ? 'opacity-60' : ''}`}
     >
       {touch ? (

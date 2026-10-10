@@ -31,15 +31,18 @@ export function useZoomGestures(
   {
     onFirstPointer,
     onPinchStart,
+    onPinchEnd,
     msAt,
   }: {
     onFirstPointer: () => void
     onPinchStart: () => void
+    /** A pinch's fingers have lifted to fewer than two. */
+    onPinchEnd?: () => void
     msAt?: (clientX: number) => number
   },
 ) {
   // The wheel listener is attached once, so it reaches the latest callbacks through a ref.
-  const latestRef = useLatest({ onZoom, msAt })
+  const latestRef = useLatest({ onZoom, msAt, onPinchEnd })
 
   useEffect(() => {
     const target = element.current
@@ -56,6 +59,7 @@ export function useZoomGestures(
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const spread = useRef<number | null>(null)
   const pinching = useRef(false)
+  const pinchEnded = useRef(false)
   useEffect(() => {
     const held = pointers.current
     return () => held.clear()
@@ -65,8 +69,12 @@ export function useZoomGestures(
     return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : null
   }
   const release = (event: PointerEvent<HTMLDivElement>) => {
-    pointers.current.delete(event.pointerId)
+    if (!pointers.current.delete(event.pointerId)) return
     spread.current = null
+    if (pinching.current && !pinchEnded.current && pointers.current.size < 2) {
+      pinchEnded.current = true
+      latestRef.current.onPinchEnd?.()
+    }
     if (pointers.current.size === 0) pinching.current = false
   }
   return {
@@ -77,9 +85,13 @@ export function useZoomGestures(
         return
       }
       event.stopPropagation()
-      if (pointers.current.size === 2 && !pinching.current) {
-        pinching.current = true
-        onPinchStart()
+      if (pointers.current.size === 2) {
+        // A finger set down again mid-pinch resumes it, so its lift ends it once more.
+        pinchEnded.current = false
+        if (!pinching.current) {
+          pinching.current = true
+          onPinchStart()
+        }
       }
       spread.current = distance()
     },

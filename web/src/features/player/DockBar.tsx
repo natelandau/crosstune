@@ -3,7 +3,14 @@ import { formatDuration } from '../../text/format'
 import { ELAPSED, OPEN_RECORDING, REMAINING } from './transportCopy'
 import type { RecordingTransport } from './useRecordingTransport'
 import { Button } from '../../ui/Button'
-import { CloseButton, MessageLine, PlayToggle, RetryButton, type BarProps } from './barParts'
+import {
+  CloseButton,
+  MessageLine,
+  PlayToggle,
+  RetryButton,
+  TrackTitle,
+  type BarProps,
+} from './barParts'
 import { QueueControls } from './QueueControls'
 import { Scrubber } from './Scrubber'
 import { transportNotice } from './transportNotice'
@@ -13,7 +20,14 @@ import { transportNotice } from './transportNotice'
  * Play and Pause, the title, the scrubber between the elapsed and remaining times, the list's
  * controls while a list plays, then Expand and Close trailing.
  */
-export function DockBar({ title, transport, onOpen, onClose, message }: Omit<BarProps, 'detail'>) {
+export function DockBar({
+  title,
+  transport,
+  onOpen,
+  onClose,
+  message,
+  entering,
+}: Omit<BarProps, 'detail'>) {
   if (message) {
     return (
       <div data-dock-bar className="flex h-12 items-center gap-2 px-3">
@@ -25,7 +39,11 @@ export function DockBar({ title, transport, onOpen, onClose, message }: Omit<Bar
   return (
     <div data-dock-bar className="flex h-12 items-center gap-2 px-3">
       {transport && <PlayToggle transport={transport} />}
-      <span className="t-body max-w-[40%] min-w-0 shrink truncate">{title}</span>
+      <TrackTitle
+        title={title}
+        entering={entering}
+        className="t-body max-w-[40%] min-w-0 shrink truncate"
+      />
       {transport ? <Place transport={transport} title={title} /> : <span className="flex-1" />}
       <QueueControls tone="dock" />
       {transport && (

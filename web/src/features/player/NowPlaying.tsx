@@ -1,5 +1,13 @@
-import { motion } from 'motion/react'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
+import { animate, motion, useReducedMotionConfig } from 'motion/react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { providerLabel } from '../links/display'
 import { PLAYER_REGION } from './playerCopy'
 import { useDockItem, type DockShown } from './useDockItem'
@@ -15,9 +23,63 @@ import { DockBar } from './DockBar'
 import { EmbedPanel } from './EmbedPanel'
 import { PhoneBar } from './PhoneBar'
 import { useOpenPractice } from './practiceOpener'
+import { DURATION, EASE } from '../../theme/motion'
+import { useLatest } from '../../ui/useLatest'
 
 // The gap between the toast and the bar it sits above.
 const TOAST_GAP_PX = 8
+
+// The picture of a closed bar still sliding out; one at most, since a new bar replaces it.
+let leaving: HTMLElement | null = null
+
+/**
+ * Leaves an inert copy of the closing bar where it was and slides the bar down out of its box,
+ * so it leaves the way it came. A copy, because the bar's own tree holds the transport, which
+ * must stop the moment the player closes. The copy is of the whole slot, ground and all, pinned
+ * over the slot's place on the page, since the slot leaves the page with the bar.
+ */
+function slideOut(section: HTMLElement) {
+  const slot = section.closest<HTMLElement>('[data-now-playing]') ?? section
+  const { left, top, width, height } = slot.getBoundingClientRect()
+  section.dataset.leavingBar = ''
+  const ghost = slot.cloneNode(true) as HTMLElement
+  delete section.dataset.leavingBar
+  const bar = ghost.querySelector<HTMLElement>('[data-leaving-bar]') ?? ghost
+  delete bar.dataset.leavingBar
+  ghost.inert = true
+  ghost.setAttribute('aria-hidden', 'true')
+  // Never found as the slot by code that looks for the one on the page.
+  ghost.removeAttribute('data-now-playing')
+  bar.removeAttribute('aria-label')
+  for (const named of ghost.querySelectorAll('[id]')) named.removeAttribute('id')
+  // A copied frame or media element would load and play again; a blank box holds its place.
+  const media = slot.querySelectorAll('iframe, video, audio')
+  ghost.querySelectorAll('iframe, video, audio').forEach((copy, index) => {
+    const { width: mediaWidth, height: mediaHeight } = media[index]!.getBoundingClientRect()
+    const blank = document.createElement('div')
+    blank.style.width = `${mediaWidth}px`
+    blank.style.height = `${mediaHeight}px`
+    copy.replaceWith(blank)
+  })
+  const body = bar.firstElementChild
+  if (!body) return
+  Object.assign(ghost.style, {
+    position: 'fixed',
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${width}px`,
+    height: `${height}px`,
+    margin: '0',
+    pointerEvents: 'none',
+  })
+  leaving?.remove()
+  leaving = ghost
+  document.body.append(ghost)
+  void animate(body, { y: '100%' }, { duration: DURATION.base, ease: EASE }).finished.then(() => {
+    ghost.remove()
+    if (leaving === ghost) leaving = null
+  })
+}
 
 /**
  * Docks the loaded item in the shell's now-playing slot: the phone bar above the tab bar, or
@@ -68,6 +130,18 @@ function BarFrame({
   children: ReactNode
 }) {
   const sectionRef = useRef<HTMLElement>(null)
+  const reduceMotionRef = useLatest(useReducedMotionConfig() ?? false)
+  // Before the section leaves the page, so its copy can take its place.
+  useLayoutEffect(() => {
+    leaving?.remove()
+    leaving = null
+    const section = sectionRef.current
+    // The setting as the bar closes, not as it opened.
+    const reduceMotion = reduceMotionRef
+    return () => {
+      if (section?.isConnected && !reduceMotion.current) slideOut(section)
+    }
+  }, [reduceMotionRef])
   const ref = useCallback(
     (element: HTMLElement) => {
       sectionRef.current = element
@@ -96,13 +170,25 @@ function BarFrame({
 }
 
 function NowPlayingBar({ shown, title }: { shown: DockShown; title: string }) {
+  const track =
+    shown.kind === 'recording' ? `recording:${shown.recording.id}` : `link:${shown.link.id}`
+  // Whether the bar has shown another track since it opened, so a new one's title slides in
+  // while the first shows with the bar.
+  const [seen, setSeen] = useState({ track, changed: false })
+  if (seen.track !== track) setSeen({ track, changed: true })
   return shown.kind === 'recording' ? (
     // Keyed, since the transport takes a later blob as the same recording's replaced.
-    <RecordingBar key={shown.recording.id} shown={shown} title={title} />
+    <RecordingBar key={shown.recording.id} shown={shown} title={title} entering={seen.changed} />
   ) : (
     <>
       <EmbedPanel embed={shown.embed} title={title} />
-      <Bar title={title} detail={providerLabel(shown.link)} transport={null} onOpen={null} />
+      <Bar
+        title={title}
+        detail={providerLabel(shown.link)}
+        transport={null}
+        onOpen={null}
+        entering={seen.changed}
+      />
     </>
   )
 }
@@ -110,9 +196,11 @@ function NowPlayingBar({ shown, title }: { shown: DockShown; title: string }) {
 function RecordingBar({
   shown,
   title,
+  entering,
 }: {
   shown: Extract<DockShown, { kind: 'recording' }>
   title: string
+  entering: boolean
 }) {
   const { recording, file, tuneTitle } = shown
   // Above the frame's choice of bar, so a resize keeps the recording loaded and playing.
@@ -131,6 +219,7 @@ function RecordingBar({
       detail={recording.label !== null ? tuneTitle : null}
       transport={transport}
       onOpen={openPractice ? () => openPractice(recording.id) : null}
+      entering={entering}
     />
   )
 }

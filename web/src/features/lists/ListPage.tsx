@@ -50,6 +50,7 @@ import { ListPlayRow } from './ListPlayRow'
 import { ListTuneRow } from './ListTuneRow'
 import { useListRowSources } from './useListRowSource'
 import { TunePickerSheet } from './TunePickerSheet'
+import { useHadContent } from '../../ui/useHadContent'
 
 const LISTS = destination('lists')
 const NO_ITEMS: readonly ListItemView[] = []
@@ -68,6 +69,9 @@ export function ListPage({ listId }: { listId: string }) {
   const screen = useListScreen(listId, { confirm, leave: () => leaveTo(LISTS.root) })
   const { list, items, deletingName, showArchived, instruments, notFound, error, setError } = screen
   const { announce, region } = useReorderAnnouncer()
+  const loaded = Boolean(list && items && showArchived !== undefined && instruments !== undefined)
+  const hadTunes = useHadContent(loaded && screen.emptyKind === null)
+  const hadNoTunes = useHadContent(loaded && screen.emptyKind !== null)
   // Read here rather than by the rows, since the selection made over them dresses this page's
   // bar.
   const tunes = useListTunes({
@@ -164,6 +168,7 @@ export function ListPage({ listId }: { listId: string }) {
         <>
           {screen.emptyKind === 'empty' ? (
             <EmptyState
+              arriving={hadTunes}
               icon={ListMusic}
               title={EMPTY_LIST_TITLE}
               hint={EMPTY_LIST_HINT}
@@ -177,6 +182,7 @@ export function ListPage({ listId }: { listId: string }) {
             />
           ) : screen.emptyKind === 'allArchived' ? (
             <EmptyState
+              arriving={hadTunes}
               icon={ListMusic}
               title={ALL_ARCHIVED_TITLE}
               hint={ALL_ARCHIVED_HINT}
@@ -201,6 +207,7 @@ export function ListPage({ listId }: { listId: string }) {
                 onRemove={(view) => void remove(view)}
                 onSelect={(view) => fromRow(view.userTune.id)}
                 announce={announce}
+                arriving={hadNoTunes}
               />
             </div>
           )}
@@ -239,6 +246,7 @@ function ListTunes({
   onRemove,
   onSelect,
   announce,
+  arriving,
 }: {
   listId: string
   tunes: ListTunesState
@@ -252,6 +260,8 @@ function ListTunes({
   onRemove: (view: ListItemView) => void
   onSelect: (view: ListItemView) => void
   announce: (text: string) => void
+  /** Fades in, since the rows took the place of an empty state. */
+  arriving: boolean
 }) {
   const navigate = useNavigate()
   const { visible } = tunes
@@ -298,6 +308,7 @@ function ListTunes({
     <>
       <RowList
         label={TUNE_LIST}
+        arriving={arriving}
         {...(selecting
           ? {
               selectionMode: 'multiple',

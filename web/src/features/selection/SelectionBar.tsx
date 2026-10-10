@@ -1,5 +1,6 @@
 import { Ellipsis, ListChecks, ListPlus, SquarePen, Tag, type LucideIcon } from 'lucide-react'
-import { useContext, useEffect, useRef, type ReactElement } from 'react'
+import { animate, motion } from 'motion/react'
+import { useContext, useEffect, useLayoutEffect, useRef, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
 import { Button as AriaButton, Toolbar } from 'react-aria-components'
 import type { Instrument } from '../../api/vocabulary'
@@ -22,6 +23,7 @@ import { menuEntries } from '../../ui/sharedActions'
 import { BulkEditSheet } from './BulkEditSheet'
 import { ListPickerSheet } from './ListPickerSheet'
 import { PRESS, WASH_HOVER } from '../../ui/press'
+import { DURATION, EASE } from '../../theme/motion'
 
 /** The More cell's caption on the phone's bar; its name stays `MORE_ACTIONS`. */
 export const MORE_CAPTION = 'More'
@@ -56,6 +58,16 @@ function Cell({
   )
 }
 
+/** Fades in the controls of the pane bar in `pane`, so one bar swapping for another reads as a change of mode. */
+function fadeInBar(pane: Element | null) {
+  const bar = pane?.querySelector(':scope > [data-pane-bar]')
+  if (!bar) return
+  // Its controls and title, never the bar's own ground, which hides the rows scrolling under it.
+  for (const part of bar.children) {
+    void animate(part, { opacity: [0, 1] }, { duration: DURATION.short, ease: EASE })
+  }
+}
+
 /**
  * The pane bar a screen wears while it selects: Select all leading, the count as the title, and
  * Done trailing. On pointer frames the bulk actions sit beside Done; on the phone they take the
@@ -78,6 +90,14 @@ export function SelectionBar({
   const none = count === 0
   const lead = useRef<HTMLSpanElement>(null)
   const restoreFocusRef = useLatest(restoreFocus)
+
+  // In and out: the pane holding the bar outlasts it, so leaving can fade in the screen's own
+  // bar once that commit has put it back.
+  useLayoutEffect(() => {
+    const pane = lead.current?.closest('[data-pane-bar]')?.parentElement ?? null
+    fadeInBar(pane)
+    return () => queueMicrotask(() => fadeInBar(pane))
+  }, [])
 
   // A mode opened from More takes focus with it, since this bar replaced the menu's trigger.
   useEffect(() => {
@@ -150,12 +170,17 @@ export function SelectionBar({
       {phone &&
         slot &&
         createPortal(
-          <Toolbar
-            aria-label={SELECTION_ACTIONS}
-            className="bg-ground border-hairline grid shrink-0 grid-cols-4 items-center border-t pb-[env(safe-area-inset-bottom)]"
-          >
-            {verbs}
-          </Toolbar>,
+          // Clipped, so the bar rises out of the foot of the screen into the tab bar's place.
+          <div className="shrink-0 overflow-hidden">
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }}>
+              <Toolbar
+                aria-label={SELECTION_ACTIONS}
+                className="bg-ground border-hairline grid grid-cols-4 items-center border-t pb-[env(safe-area-inset-bottom)]"
+              >
+                {verbs}
+              </Toolbar>
+            </motion.div>
+          </div>,
           slot,
         )}
     </>

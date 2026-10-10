@@ -1,4 +1,6 @@
 import { X } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import { DURATION, EASE } from '../../theme/motion'
 import { TransportMark } from '../../ui/rowGlyphs'
 import { RETRY } from './playerCopy'
 import { CLOSE_PLAYER, PAUSE, PITCH_LABEL, PLAY, SPEED_LABEL } from './transportCopy'
@@ -17,6 +19,36 @@ export interface BarProps {
   onClose: () => void
   /** Why a list stopped. While set, the bar shows only it and Close player. */
   message?: string | null
+  /** The bar mounted for a track after the first, whose title slides in rather than appears. */
+  entering?: boolean
+}
+
+/**
+ * The loaded item's title, which rises into place when the track changes, so a list playing
+ * through shows each new tune arriving. The first title shows with the bar itself.
+ */
+export function TrackTitle({
+  title,
+  entering = false,
+  className,
+}: {
+  title: string
+  entering?: boolean
+  className: string
+}) {
+  return (
+    <AnimatePresence initial={entering}>
+      <motion.span
+        key={title}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: DURATION.base, ease: EASE }}
+        className={className}
+      >
+        {title}
+      </motion.span>
+    </AnimatePresence>
+  )
 }
 
 /** Play and Pause swap in one place, so the control under the finger never moves. */

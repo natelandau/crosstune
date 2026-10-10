@@ -1,10 +1,12 @@
+import { animate, useReducedMotionConfig, type AnimationPlaybackControls } from 'motion/react'
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type RefObject } from 'react'
 import type { PlaybackEngine } from '../player/playbackEngine'
 import { capturePointer } from '../../platform/pointer'
 import { useLatest } from '../../ui/useLatest'
 import { DRAG_THRESHOLD_PX } from '../../domain/loopModel'
-import { GLIDE_TAU_MS, glideMs, scrubMs } from './practiceZoom'
+import { GLIDE_TAU_MS, glideMs, scrubMs, unstretchedMs } from './practiceZoom'
 import { clamp } from '../../math'
+import { SPRING } from '../../theme/motion'
 
 type Handler = (event: PointerEvent<HTMLElement>) => void
 
@@ -40,9 +42,11 @@ interface Press {
 /**
  * Dragging the audio under a fixed playhead. A drag past the threshold holds playback where it
  * is and moves `scrubbingMs` (trimmed timeline), and a touch released while moving
- * glides on with exponential decay. Once still, the engine seeks there once and plays on if it
- * was playing. A press released without moving is a tap, reported with its x from the
- * element's left edge and the element it began on.
+ * glides on with exponential decay. A drag past either end pulls on with resistance and
+ * springs back to that end on release, so `scrubbingMs` can briefly lie outside the take.
+ * Once still, the engine seeks there once and plays on if it was playing. A press released
+ * without moving is a tap, reported with its x from the element's left edge and the element
+ * it began on.
  */
 export function useScrub({
   engine,
@@ -69,10 +73,12 @@ export function useScrub({
   shownMs: () => number | null
 } {
   const [scrubbingMs, setScrubbingMs] = useState<number | null>(null)
-  const latestRef = useLatest({ engine, pxPerS, lengthMs, pinches, onTap })
+  const reduceMotion = useReducedMotionConfig() ?? false
+  const latestRef = useLatest({ engine, pxPerS, lengthMs, pinches, onTap, reduceMotion })
   const shownRef = useRef<number | null>(null)
   const press = useRef<Press | null>(null)
   const frame = useRef(0)
+  const springBack = useRef<AnimationPlaybackControls | null>(null)
   const held = useRef<{ playing: boolean } | null>(null)
 
   const controls = useMemo(() => {
@@ -83,7 +89,10 @@ export function useScrub({
     const stopGlide = () => {
       cancelAnimationFrame(frame.current)
       frame.current = 0
+      springBack.current?.stop()
+      springBack.current = null
     }
+    const gliding = () => frame.current !== 0 || springBack.current !== null
     /**
      * Lets go of playback: seeks to `ms` unless null, and plays on if it was playing, unless
      * the playhead is at the end.
@@ -91,11 +100,12 @@ export function useScrub({
     const settle = (ms: number | null) => {
       stopGlide()
       const { engine, lengthMs } = latestRef.current
-      if (ms !== null) engine.seek(ms)
+      const atMs = ms === null ? null : clamp(ms, 0, lengthMs)
+      if (atMs !== null) engine.seek(atMs)
       show(null)
       const was = held.current
       held.current = null
-      if (was?.playing && (ms ?? 0) < lengthMs) engine.play()
+      if (was?.playing && (atMs ?? 0) < lengthMs) engine.play()
     }
     const glide = (fromMs: number, toMs: number) => {
       let startT: number | null = null
@@ -111,6 +121,20 @@ export function useScrub({
         frame.current = requestAnimationFrame(step)
       }
       frame.current = requestAnimationFrame(step)
+    }
+    const springTo = (fromMs: number, toMs: number) => {
+      if (latestRef.current.reduceMotion) {
+        settle(toMs)
+        return
+      }
+      springBack.current = animate(fromMs, toMs, {
+        ...SPRING,
+        onUpdate: show,
+        onComplete: () => {
+          springBack.current = null
+          settle(toMs)
+        },
+      })
     }
     const velocity = (samples: Press['samples'], now: number) => {
       const recent = samples.filter((s) => now - s.t <= VELOCITY_WINDOW_MS)
@@ -131,9 +155,14 @@ export function useScrub({
         if (press.current) return
         capturePointer(event.currentTarget, event.pointerId)
         const { engine, pinches } = latestRef.current
-        const caught = frame.current !== 0
+        const caught = gliding()
         if (caught) stopGlide()
-        const fromMs = (caught ? shownRef.current : null) ?? engine.getState().positionMs
+        const caughtMs = caught ? shownRef.current : null
+        const { pxPerS, lengthMs } = latestRef.current
+        const fromMs =
+          caughtMs === null
+            ? engine.getState().positionMs
+            : unstretchedMs(caughtMs, pxPerS, lengthMs)
         press.current = {
           pointerId: event.pointerId,
           startX: event.clientX,
@@ -192,6 +221,11 @@ export function useScrub({
           return
         }
         const atMs = shownRef.current ?? pressed.fromMs
+        const endMs = clamp(atMs, 0, lengthMs)
+        if (endMs !== atMs) {
+          springTo(atMs, endMs)
+          return
+        }
         const distance = pressed.touch
           ? glideMs(velocity(pressed.samples, performance.now()), pxPerS)
           : 0
@@ -209,7 +243,7 @@ export function useScrub({
       onLostPointerCapture: (event) => handlers.onPointerCancel(event),
     }
     const settleGlide = () => {
-      if (frame.current === 0) return false
+      if (!gliding()) return false
       settle(shownRef.current)
       return true
     }

@@ -495,3 +495,43 @@ it.each(TIPPED)(
     await expect.element(menu).not.toBeInTheDocument()
   },
 )
+
+const menuSurface = () => page.getByRole('menu').element().closest<HTMLElement>('.popover-surface')!
+
+/** Fires a key on the element as the browser would, landing before any frame can run. */
+async function press(element: Element, key: string) {
+  element.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+  element.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true, cancelable: true }))
+  await Promise.resolve()
+}
+
+it('scales a pointer menu in from the point it hangs from on its trigger', async () => {
+  renderWithProviders(<MoreMenu />, { density: 'pointer' })
+  const trigger = page.getByRole('button', { name: MORE_ACTIONS })
+  await expect.element(trigger).toBeVisible()
+  trigger.element().focus()
+  await press(trigger.element(), 'ArrowDown')
+  const surface = menuSurface()
+  expect(surface.hasAttribute('data-entering')).toBe(true)
+  expect(surface.getAnimations().map((a) => (a as CSSAnimation).animationName)).toEqual([
+    'popover-in',
+  ])
+  const anchor = surface.style.getPropertyValue('--trigger-anchor-point')
+  expect(anchor).not.toBe('')
+  expect(getComputedStyle(surface).transformOrigin).toBe(anchor)
+})
+
+it('scales a closing menu back out and lets a press through it while it goes', async () => {
+  renderWithProviders(<MoreMenu />, { density: 'pointer' })
+  await page.getByRole('button', { name: MORE_ACTIONS }).click()
+  await expect.element(page.getByRole('menu')).toBeVisible()
+  await expect.poll(() => menuSurface().hasAttribute('data-entering')).toBe(false)
+  const surface = menuSurface()
+  await press(page.getByRole('menu').element(), 'Escape')
+  expect(surface.hasAttribute('data-exiting')).toBe(true)
+  expect(surface.getAnimations().map((a) => (a as CSSAnimation).animationName)).toEqual([
+    'popover-in',
+  ])
+  expect(getComputedStyle(surface).pointerEvents).toBe('none')
+  await expect.element(page.getByRole('menu')).not.toBeInTheDocument()
+})

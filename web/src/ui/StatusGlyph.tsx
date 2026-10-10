@@ -1,5 +1,7 @@
 import { Check } from 'lucide-react'
-import type { CSSProperties } from 'react'
+import { useLayoutEffect, useRef, type CSSProperties } from 'react'
+import { useReducedMotionConfig } from 'motion/react'
+import { DURATION, springEasing } from '../theme/motion'
 import { Focusable } from 'react-aria-components'
 import { STATUS_LABELS } from '../constants'
 import { useStampedDensity } from '../platform/density'
@@ -33,11 +35,27 @@ export function StatusGlyph({ status, labelled = false }: { status: string; labe
   const key: Known = isKnown(status) ? status : 'want_to_learn'
   const label = STATUS_LABELS[key]
   const style = { '--glyph': density === 'touch' ? '18px' : '14px' } as CSSProperties
+  const ref = useRef<HTMLSpanElement>(null)
+  const shown = useRef(key)
+  const reduceMotion = useReducedMotionConfig()
+  // A new status pops in on the spring, so a change made elsewhere, such as from the tune's
+  // status control, shows here too. The status a glyph first shows never moves. Before paint,
+  // so no frame shows the new status at full size.
+  useLayoutEffect(() => {
+    if (shown.current === key) return
+    shown.current = key
+    if (reduceMotion) return
+    ref.current?.animate(
+      { transform: ['scale(0.6)', 'scale(1)'] },
+      { duration: DURATION.long * 1000, easing: springEasing() },
+    )
+  }, [key, reduceMotion])
   const shape = (
     <span
+      ref={ref}
       tabIndex={labelled || density === 'touch' ? undefined : -1}
       {...(labelled ? { 'aria-hidden': true } : { role: 'img', 'aria-label': label })}
-      className={`${SHAPE} ${SHAPES[key]}`}
+      className={`${SHAPE} ${SHAPES[key]} transition-colors duration-(--dur-base) ease-(--ease)`}
       style={style}
     >
       {key === 'known' && <Check className="size-[70%]" strokeWidth={3.5} aria-hidden />}
