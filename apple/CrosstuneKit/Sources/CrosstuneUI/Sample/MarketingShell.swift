@@ -18,7 +18,7 @@
         @State private var stage = EmbedStage()
         @State private var recorders: RecorderHost
 
-        /// - Parameter fixture: The marketing catalog, `site/capture/catalog.json`.
+        /// - Parameter fixture: The marketing catalog, `apple/Marketing/catalog.json`.
         public init(fixture: URL) {
             self.fixture = fixture
             // The playlist must sit on the same player the shell shows.

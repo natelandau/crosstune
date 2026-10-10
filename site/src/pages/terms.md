@@ -1,7 +1,7 @@
 ---
 layout: ../layouts/Legal.astro
 title: Terms of use
-description: The terms for using Crosstune.
+description: The terms for using Crosstune, covering your account, the content you add, acceptable use, and ending access.
 path: /terms
 ---
 

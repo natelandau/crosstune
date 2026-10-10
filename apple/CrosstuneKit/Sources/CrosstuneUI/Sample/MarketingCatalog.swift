@@ -4,8 +4,8 @@
     import CrosstuneStore
     import Foundation
 
-    /// The catalog the marketing site's captures show, loaded from `site/capture/catalog.json`,
-    /// the one fixture every platform reads. Debug builds only.
+    /// The catalog the marketing captures show, loaded from `apple/Marketing/catalog.json`,
+    /// the one fixture every Apple platform reads. Debug builds only.
     ///
     /// The fixture holds rows in the sync wire format, one array per ``SyncTable``, plus a
     /// `files` map from a recording or scan ID to its audio or image, relative to the fixture.

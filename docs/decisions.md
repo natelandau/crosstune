@@ -248,18 +248,17 @@ reopens one without new information. Add a new entry at the end.
   protects nothing for it and would hold copy changes until the next
   release. The cost: merged copy is live, so copy about an unreleased
   feature waits until that release ships.
-- The home page shows only real captures of the app, never interactive
-  demos, mockups, or generated images. One command re-records them from
-  the current app, so the page cannot drift from it.
-- Simulator captures are XCTest recordings, set up by an Xcode test plan.
-  One `.xcresult` bundle holds each test's video, stills, and tap log, so
-  clips trim and place tap dots from the test's own timeline.
-- fastlane snapshot was rejected: it records no video, its device and
-  language matrices are not needed for one page, and it adds a Ruby
-  toolchain.
-- Driving `simctl io recordVideo` around `xcodebuild` was rejected: it
-  has to guess where the test's timeline starts in the video. XCTest's own
-  recording carries its start timestamp.
+- The home page shows the app as HTML demos drawn to scale, not as
+  captures. A demo can put a browser and a phone in one composition at one
+  scale, script a short interaction, and stay light to load. A capture can
+  do none of these. The cost: a demo is drawn by hand, so a redesigned
+  screen needs its demo redrawn.
+- Captured clips of the app were rejected after use: pinned scroll
+  runways and a clip per bullet made scrolling feel heavy, and dark device
+  frames dominated the page.
+- Apple store captures are XCTest recordings, set up by an Xcode test
+  plan. fastlane snapshot was rejected: it records no video and adds a
+  Ruby toolchain.
 
 ## PostHog for product analytics
 

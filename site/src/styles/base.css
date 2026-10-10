@@ -1,4 +1,19 @@
-@import '@fontsource-variable/geist/wght.css';
+/* Subsets of the fontsource files, made by `just fonts`; FONT_CHARS lists what they keep. */
+@font-face {
+  font-family: 'Schibsted Grotesk Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 900;
+  src: url('../assets/fonts/schibsted-grotesk.woff2') format('woff2-variations');
+}
+
+@font-face {
+  font-family: 'Geist Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../assets/fonts/geist.woff2') format('woff2-variations');
+}
 
 *,
 *::before,
@@ -9,150 +24,43 @@
 html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
-}
-
-/* Runways place one snap point per clip and set `data-snap` only while the scroll position is
-   between their first and last stop; proximity only catches a stop that is already close. */
-@media (prefers-reduced-motion: no-preference) {
-  html[data-snap] {
-    scroll-snap-type: y proximity;
-  }
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
-  background: var(--mist);
-  color: var(--jet);
-  font-family: 'Geist Variable', system-ui, sans-serif;
-  font-size: var(--body-size);
-  line-height: var(--body-leading);
-  text-align: left;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--body);
+  line-height: 1.55;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
 }
 
 a {
-  color: var(--slate);
-}
-
-.column {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding-inline: 40px;
-}
-
-@media (max-width: 600px) {
-  .column {
-    padding-inline: 16px;
-  }
-}
-
-.nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-block: 24px;
-}
-
-/* Text links keep their type size but get a 44px tall hit area. */
-.nav a:not(.lockup, .button) {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  color: var(--slate);
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.nav a:not(.lockup, .button):hover {
-  color: var(--jet);
-}
-
-.nav .sections {
-  display: flex;
-  gap: 28px;
-  margin: 0 auto;
-  padding: 0;
-  list-style: none;
-}
-
-.nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.nav-actions .button {
-  min-height: 44px;
-  padding: 0 16px;
-}
-
-@media (max-width: 760px) {
-  .nav .sections {
-    display: none;
-  }
-}
-
-.nav-actions a {
-  white-space: nowrap;
-}
-
-@media (max-width: 420px) {
-  .nav-actions {
-    gap: 14px;
-  }
-
-  .nav-actions .button {
-    padding: 0 12px;
-    font-size: 0.9375rem;
-  }
-
-  .nav .lockup {
-    gap: 8px;
-    font-size: 1.125rem;
-  }
-}
-
-.lockup {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--jet);
-  font-weight: 600;
-  font-size: 1.25rem;
-  text-decoration: none;
-}
-
-.lockup svg {
-  height: 1.5rem;
-  width: auto;
-}
-
-.footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 24px;
-  padding-block: 38px;
-  color: var(--slate-2);
-}
-
-.footer a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-}
-
-.text-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  color: var(--jet);
-  font-weight: 500;
-  text-underline-offset: 4px;
+  color: var(--ink);
+  text-decoration-color: var(--coral);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }
 
 :focus-visible {
-  outline: 2px solid var(--slate);
+  outline: 3px solid var(--slate);
   outline-offset: 3px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .visually-hidden {
@@ -167,99 +75,238 @@ a {
   border: 0;
 }
 
-/* A capture's image or clip, inside whichever frame holds it. */
-.capture {
-  display: block;
-  width: 100%;
-  height: auto;
+.wrap {
+  max-width: var(--maxw);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
 }
 
-/* Without a script a clip never gets a source, and its empty player would cover its poster.
-   Transparent, not hidden: the video's aria-label is the clip's only description. */
-.poster + video.capture:not([src]) {
-  opacity: 0;
-}
-
-/* A runway is the scroll distance a pinned block holds for: the block's own height plus one step
-   per extra clip (`--n` clips), with a snap point at each clip's stop (`--i`). The script reports
-   the block's height as `--pinned-h`, so the runway ends where the block's content does and the
-   next section follows at its usual spacing. Without a script nothing changes the clip, so the
-   block sits in the flow instead. */
-.snap {
-  display: none;
-}
-
-@media (scripting: enabled) {
-  .runway {
-    --step: 70vh;
-    position: relative;
-    height: calc(var(--pinned-h, 100svh) + (var(--n) - 1) * var(--step));
-  }
-
-  .pinned {
-    position: sticky;
-    top: 0;
-  }
-
-  .snap {
-    display: block;
-    position: absolute;
-    top: calc(var(--i) * var(--step));
-    left: 0;
-    width: 1px;
-    height: 1px;
-    scroll-snap-align: start;
-  }
-}
-
-/* Pauses and plays capture clips; hidden until a script can act on it. */
-.clip-toggle {
-  min-height: 44px;
-  padding: 0 18px;
-  border: 0;
-  border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 0 0 1px var(--rule);
-  color: var(--slate);
-  font: inherit;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.clip-toggle:hover {
-  color: var(--jet);
-}
-
-.clip-toggle[hidden] {
-  display: none;
-}
-
-@media (max-width: 600px) {
-  .clip-toggle {
-    padding: 0 12px;
-    font-size: 0.875rem;
-  }
+/* The legal, help, and thanks pages: one readable column. */
+.column {
+  max-width: 1000px;
+  margin-inline: auto;
+  padding-inline: var(--gutter);
 }
 
 .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   min-height: 48px;
   padding: 0 22px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 999px;
   background: var(--coral);
   color: var(--jet);
-  font: inherit;
-  font-weight: 500;
+  font: 600 16px/1 var(--font);
   text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background 0.15s;
 }
 
-/* Lightened rather than darkened, since a darker coral drops jet text below 4.5:1. */
 .button:hover {
-  background: color-mix(in srgb, var(--coral), #fff 16%);
+  background: var(--coral-hover);
+}
+
+.button.small {
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 15px;
+}
+
+.button.quiet {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--alabaster);
+}
+
+.button.quiet:hover {
+  background: var(--mist);
+}
+
+/* Nav */
+.nav {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 20;
+  background: rgb(255 255 255 / 0.9);
+  backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.nav.scrolled {
+  border-bottom-color: var(--line);
+}
+
+.nav .wrap {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  height: 68px;
+}
+
+.nav nav {
+  margin-left: auto;
+}
+
+.nav .sections {
+  display: flex;
+  gap: 26px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Text links keep their type size but get a 44px tall hit area. */
+.nav .sections a,
+.nav .sign-in {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 16px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.nav .sections a {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+.nav .sections a:hover {
+  color: var(--ink);
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.nav .sign-in {
+  padding-inline: 2px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.nav .sign-in:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--coral);
+}
+
+.nav .short {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .nav nav {
+    display: none;
+  }
+
+  .nav-actions {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 440px) {
+  .nav .wrap,
+  .nav-actions {
+    gap: 12px;
+  }
+
+  /* Still the button's accessible name; the short label is only what shows. */
+  .nav .long {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .nav .short {
+    display: inline;
+  }
+
+  .nav .lockup {
+    font-size: 19px;
+  }
+}
+
+.lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-weight: 750;
+  font-size: 21px;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+
+.lockup svg {
+  flex: none;
+  width: 31px;
+  height: 22px;
+}
+
+/* Footer */
+.footer {
+  border-top: 1px solid var(--line);
+  padding-block: 32px 48px;
+  color: var(--ink-2);
+  font-size: var(--small);
+}
+
+.footer .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+}
+
+.footer .lockup {
+  font-size: 17px;
+}
+
+.footer .lockup svg {
+  width: 24px;
+  height: 17px;
+}
+
+.footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 20px;
+  margin-left: auto;
+}
+
+.footer nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.footer nav a:hover {
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+    animation-iteration-count: 1 !important;
+  }
 }

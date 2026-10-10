@@ -1,0 +1,126 @@
+---
+// The five places a player's tunes live today, joined by dashed lines to one Crosstune tune. Each
+// scrap's `data-from` is the offset and turn it drifts in from, once, when the picture scrolls in.
+import '../styles/demos.css'
+---
+
+<div
+  class="places-art"
+  data-places
+  data-nosnippet
+  role="img"
+  aria-label="A folded paper tune list, a voice memo, a streaming app, a slow-down app, and a set list in notes, joined by dashed lines to one Crosstune tune."
+>
+  <div class="places-in" aria-hidden="true">
+    <svg class="lines" viewBox="0 0 560 440" preserveAspectRatio="none">
+      <path d="M100 70 C 200 90, 230 160, 280 200"></path>
+      <path d="M470 60 C 400 90, 340 150, 290 200"></path>
+      <path d="M60 330 C 160 320, 220 260, 270 230"></path>
+      <path d="M500 330 C 420 320, 350 270, 300 230"></path>
+      <path d="M280 420 C 280 360, 285 290, 285 250"></path>
+    </svg>
+    <div class="scrap paper sc-paper" data-from="-22,-14,-4">
+      <div class="sl">
+        <svg>
+          <use href="#i-file"></use>
+        </svg>
+        Folded in the case
+      </div>
+      Soldier's Joy
+      <br />
+      Sally Ann
+      <br />
+      <s>Sail Away Ladies</s>
+      <br />
+      Cluck Old Hen?
+    </div>
+    <div class="scrap sc-memo" data-from="22,-16,3">
+      <div class="sl">
+        <svg>
+          <use href="#i-mic"></use>
+        </svg>
+        Voice Memos
+      </div>
+      <b>New Recording 47</b>
+      <br />
+      <span class="s2">Thu 11:42 PM, 6:18</span>
+    </div>
+    <div class="scrap sc-stream" data-from="-20,16,2">
+      <div class="sl">
+        <svg>
+          <use href="#i-head"></use>
+        </svg>
+        Streaming app
+      </div>
+      <b>Elzic's Farewell</b>
+      <br />
+      <span class="s2">Saved to Liked</span>
+    </div>
+    <div class="scrap sc-slow" data-from="20,18,-3">
+      <div class="sl">
+        <svg>
+          <use href="#i-gauge"></use>
+        </svg>
+        Slow-down app
+      </div>
+      <b>Bonaparte's Retreat</b>
+      <br />
+      <span class="s2">70%, loop 1:02 to 1:14</span>
+    </div>
+    <div class="scrap sc-notes" data-from="0,22,1">
+      <div class="sl">
+        <svg>
+          <use href="#i-list"></use>
+        </svg>
+        Notes
+      </div>
+      <b>Set list, Saturday</b>
+      <br />
+      <span class="s2">Opener in D, then A</span>
+    </div>
+    <div class="hub">
+      <div class="hub-h">
+        <svg viewBox="39 104 434 304">
+          <g fill="none" stroke-width="68" stroke-linecap="round">
+            <path d="M191 138 H439 M339 138 V374" stroke="#ef8354"></path>
+            <path d="M231 367 A118 118 0 1 1 191 138" stroke="#2d3142"></path>
+          </g>
+          <rect x="191" y="104" width="48" height="68" fill="#2d3142"></rect>
+        </svg>
+        Bonaparte's Retreat
+      </div>
+      <ul>
+        <li>
+          <svg>
+            <use href="#i-music"></use>
+          </svg>
+          Learning, D, DDAD tuning
+        </li>
+        <li>
+          <svg>
+            <use href="#i-mic"></use>
+          </svg>
+          3 recordings, 1 from the jam
+        </li>
+        <li>
+          <svg>
+            <use href="#i-gauge"></use>
+          </svg>
+          Loop "B part" at 70%
+        </li>
+        <li>
+          <svg>
+            <use href="#i-head"></use>
+          </svg>
+          2 versions linked
+        </li>
+        <li>
+          <svg>
+            <use href="#i-list"></use>
+          </svg>
+          On Saturday's set list
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>

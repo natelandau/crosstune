@@ -1,20 +1,21 @@
-// The home page's one script: the hero's scenes, the feature captures, and the waitlist form.
-import { mountFeatures } from './features'
-import { mountHero } from './heroScenes'
-import { followReducedMotion } from './playback'
+// The home page's one script: the demos and the waitlist forms.
+import { mountDemos } from './demos'
+import { followReducedMotion } from './reducedMotion'
 import { loadClerk, mountWaitlist } from './waitlist'
 
-const hero = document.querySelector<HTMLElement>('[data-hero]')
-const features = document.querySelector<HTMLElement>('[data-features]')
-followReducedMotion(matchMedia('(prefers-reduced-motion: reduce)'), (reducedMotion) => {
-  const disposers = [
-    hero ? mountHero(hero, { reducedMotion }) : () => {},
-    features ? mountFeatures(features, { reducedMotion }) : () => {},
-  ]
-  return () => {
-    for (const dispose of disposers) dispose()
-  }
-})
+followReducedMotion(matchMedia('(prefers-reduced-motion: reduce)'), (reducedMotion) =>
+  mountDemos(document, { reducedMotion }),
+)
 
-const form = document.querySelector<HTMLFormElement>('form[data-waitlist]')
-if (form) mountWaitlist(form, () => loadClerk(import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY))
+// Both forms share one Clerk load, so focusing either one warms it for the other.
+let clerk: ReturnType<typeof loadClerk> | null = null
+const load = () => {
+  clerk ??= loadClerk(import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY).catch((error: unknown) => {
+    clerk = null
+    throw error
+  })
+  return clerk
+}
+for (const form of document.querySelectorAll<HTMLFormElement>('form[data-waitlist]')) {
+  mountWaitlist(form, load)
+}

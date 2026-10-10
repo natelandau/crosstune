@@ -4,7 +4,7 @@ import type { PostHog, PostHogConfig } from 'posthog-js'
 export const ANALYTICS_HOST = 'https://relay.crosstune.app'
 
 // A beacon sent at once outlives a visitor who leaves the thanks page straight away.
-export const WAITLIST_CAPTURE_OPTIONS = { send_instantly: true, transport: 'sendBeacon' } as const
+const WAITLIST_CAPTURE_OPTIONS = { send_instantly: true, transport: 'sendBeacon' } as const
 
 // Registered on every event, so the site's events split from the apps' in one PostHog project.
 export const SITE_SUPER_PROPERTIES = { product: 'site', platform: 'site' } as const

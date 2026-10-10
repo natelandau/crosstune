@@ -17,7 +17,7 @@
     "environmentVariableEntries" : [
       {
         "key" : "CAPTURE_FIXTURE",
-        "value" : "$(SRCROOT)\/..\/site\/capture\/catalog.json"
+        "value" : "$(SRCROOT)\/Marketing\/catalog.json"
       }
     ],
     "preferredScreenCaptureFormat" : "screenRecording",

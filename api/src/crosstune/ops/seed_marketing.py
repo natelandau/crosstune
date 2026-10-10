@@ -1,6 +1,6 @@
-"""Seed the marketing account in the local database from the site capture fixture.
+"""Seed the marketing account in the local database from the marketing capture fixture.
 
-The web and Android captures for the marketing site sign in to one dedicated account on
+Screenshots of the web app's desktop and Android views sign in to one dedicated account on
 the Clerk development instance. This finds or creates that Clerk user, writes the
 fixture's rows through the same push path a client uses, uploads each recording and
 scan file as a client would, and transcodes the recordings until every one is ready.
@@ -48,7 +48,7 @@ if TYPE_CHECKING:
 # The site's capture scripts sign in with this same address. A `+clerk_test` address
 # stays in Clerk's test mode, so it signs in with the fixed test code and sends no mail.
 MARKETING_EMAIL = "crosstune-marketing+clerk_test@example.com"
-DEFAULT_FIXTURE = Path(__file__).resolve().parents[4] / "site" / "capture" / "catalog.json"
+DEFAULT_FIXTURE = Path(__file__).resolve().parents[4] / "apple" / "Marketing" / "catalog.json"
 READY_TIMEOUT_SECONDS = 120.0
 READY_POLL_SECONDS = 1.0
 

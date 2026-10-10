@@ -1,21 +1,26 @@
 ---
 import Closing from '../components/Closing.astro'
 import Faq from '../components/Faq.astro'
-import FeatureScroller from '../components/FeatureScroller.astro'
+import Features from '../components/Features.astro'
 import Hero from '../components/Hero.astro'
+import Icons from '../components/Icons.astro'
 import MakerNote from '../components/MakerNote.astro'
+import Platforms from '../components/Platforms.astro'
 import Pricing from '../components/Pricing.astro'
 import Problem from '../components/Problem.astro'
 import { HOME_DESCRIPTION, HOME_TITLE, STRUCTURED_DATA } from '../components/seo'
 import Base from '../layouts/Base.astro'
+import '../styles/demos.css'
 ---
 
 <Base title={HOME_TITLE} description={HOME_DESCRIPTION} path="/">
   <script slot="head" type="application/ld+json" set:html={JSON.stringify(STRUCTURED_DATA)} />
+  <Icons />
   <main>
     <Hero />
     <Problem />
-    <FeatureScroller />
+    <Features />
+    <Platforms />
     <Pricing />
     <MakerNote />
     <Faq />

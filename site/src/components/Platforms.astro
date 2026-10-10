@@ -1,0 +1,74 @@
+---
+import DemoPanel from './DemoPanel.astro'
+import { PLATFORMS, PLATFORMS_BODY, PLATFORMS_TITLE } from './features'
+---
+
+<section class="platforms wrap" aria-labelledby="platforms-title">
+  <div class="head">
+    <h2 id="platforms-title">{PLATFORMS_TITLE}</h2>
+    <p>{PLATFORMS_BODY}</p>
+  </div>
+  <DemoPanel name="platforms" />
+  <ul class="names">
+    {PLATFORMS.map((platform) => (
+      <li>
+        <b>{platform.name}</b>
+        <span>{platform.detail}</span>
+      </li>
+    ))}
+  </ul>
+</section>
+
+<style>
+  .platforms {
+    padding-block: var(--section-pad);
+  }
+
+  .head {
+    max-width: 760px;
+  }
+
+  h2 {
+    font-size: var(--h2);
+    font-weight: 750;
+    line-height: 1.04;
+    letter-spacing: -0.03em;
+  }
+
+  .head p {
+    max-width: 58ch;
+    margin-top: 20px;
+    color: var(--ink-2);
+  }
+
+  .names {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 24px;
+    margin: 28px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .names li {
+    padding-top: 12px;
+    border-top: 2px solid var(--ink);
+  }
+
+  .names b {
+    display: block;
+    font-size: 18px;
+  }
+
+  .names span {
+    color: var(--ink-2);
+    font-size: var(--small);
+  }
+
+  @media (max-width: 860px) {
+    .names {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px;
+    }
+  }
+</style>

@@ -8,6 +8,7 @@ import {
   PENDING,
   THANKS_PATH,
   UNREACHABLE,
+  frontendApiHost,
   loadClerk,
   mountWaitlist,
   reportJoin,
@@ -250,11 +251,6 @@ describe('mountWaitlist', () => {
   })
 })
 
-const clerkMock = vi.hoisted(() => ({
-  load: vi.fn(async () => {}),
-  joinWaitlist: vi.fn(async () => ({})),
-  key: '',
-}))
 describe('reportJoin', () => {
   const acquisition = { $referrer: 'https://forum.example/', utm_source: 'newsletter' }
 
@@ -295,23 +291,53 @@ describe('reportJoin', () => {
   })
 })
 
-vi.mock('@clerk/clerk-js', () => ({
-  Clerk: class {
-    constructor(key: string) {
-      clerkMock.key = key
-    }
-    load = clerkMock.load
-    joinWaitlist = clerkMock.joinWaitlist
-  },
-}))
+// A development key for the made-up instance `clerk.example.test`.
+const KEY = `pk_test_${btoa('clerk.example.test$')}`
+
+describe('frontendApiHost', () => {
+  it('reads the Frontend API host out of a publishable key', () => {
+    expect(frontendApiHost(KEY)).toBe('clerk.example.test')
+    expect(frontendApiHost(`pk_live_${btoa('clerk.crosstune.app$')}`)).toBe('clerk.crosstune.app')
+  })
+
+  it('rejects a key that names no host', () => {
+    expect(() => frontendApiHost('pk_test_')).toThrow()
+    expect(() => frontendApiHost(`pk_test_${btoa('evil.example/x$')}`)).toThrow()
+  })
+})
 
 describe('loadClerk', () => {
-  it('constructs, loads, and maps join to joinWaitlist', async () => {
-    const client = await loadClerk('pk_test_abc')
-    expect(clerkMock.key).toBe('pk_test_abc')
-    expect(clerkMock.load).toHaveBeenCalledTimes(1)
+  const script = () =>
+    document.head.querySelector<HTMLScriptElement>('script[data-clerk-publishable-key]')
+
+  beforeEach(() => {
+    script()?.remove()
+    delete window.Clerk
+  })
+
+  it("adds Clerk's pinned browser build for the key's instance, then loads it and maps join", async () => {
+    const clerk = { load: vi.fn(async () => {}), joinWaitlist: vi.fn(async () => ({})) }
+    const loading = loadClerk(KEY)
+    const tag = script()
+    expect(tag?.src).toBe(
+      `https://clerk.example.test/npm/@clerk/clerk-js@${__CLERK_JS_VERSION__}/dist/clerk.browser.js`,
+    )
+    expect(__CLERK_JS_VERSION__).toMatch(/^\d+\.\d+\.\d+$/)
+    expect(tag?.crossOrigin).toBe('anonymous')
+    expect(tag?.dataset.clerkPublishableKey).toBe(KEY)
+    window.Clerk = clerk
+    tag?.dispatchEvent(new Event('load'))
+    const client = await loading
+    expect(clerk.load).toHaveBeenCalledTimes(1)
     await client.join({ emailAddress: 'a@b.co' })
-    expect(clerkMock.joinWaitlist).toHaveBeenCalledWith({ emailAddress: 'a@b.co' })
+    expect(clerk.joinWaitlist).toHaveBeenCalledWith({ emailAddress: 'a@b.co' })
+  })
+
+  it('rejects and removes the tag when the script fails, so a retry adds a fresh one', async () => {
+    const loading = loadClerk(KEY)
+    script()?.dispatchEvent(new Event('error'))
+    await expect(loading).rejects.toThrow()
+    expect(script()).toBeNull()
   })
 
   it('rejects without a publishable key', async () => {

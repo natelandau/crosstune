@@ -1,32 +1,48 @@
 ---
+import Places from './Places.astro'
 import { PROBLEM_BODY, PROBLEM_TITLE } from './problem'
 ---
 
-<section class="problem column" aria-labelledby="problem-title">
-  <h2 id="problem-title">{PROBLEM_TITLE}</h2>
-  <p>{PROBLEM_BODY}</p>
+<section class="problem wrap" aria-labelledby="problem-title">
+  <div class="grid">
+    <div>
+      <h2 id="problem-title">{PROBLEM_TITLE}</h2>
+      <p>{PROBLEM_BODY}</p>
+    </div>
+    <Places />
+  </div>
 </section>
 
 <style>
   .problem {
-    padding-block: var(--section-pad);
+    overflow-x: clip;
+    padding-block: clamp(80px, 10vw, 140px) clamp(40px, 5vw, 72px);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: 64px;
+    align-items: center;
   }
 
   h2 {
-    max-width: 18ch;
-    margin: 0;
-    font-size: var(--section-size);
-    font-weight: var(--section-weight);
-    line-height: 1.02;
-    letter-spacing: var(--tracking);
-    text-wrap: balance;
+    font-size: var(--h2);
+    font-weight: 750;
+    line-height: 1.04;
+    letter-spacing: -0.03em;
   }
 
   p {
-    max-width: 40ch;
-    margin: 20px 0 0;
-    color: var(--slate);
-    font-size: 1.1875rem;
-    text-wrap: pretty;
+    max-width: 46ch;
+    margin-top: 22px;
+    color: var(--ink-2);
+  }
+
+  @media (max-width: 860px) {
+    .grid {
+      grid-template-columns: 1fr;
+      gap: 40px;
+    }
   }
 </style>

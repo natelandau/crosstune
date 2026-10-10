@@ -83,8 +83,9 @@ every label. The glossary in `docs/product.md` has the reasons.
   Clerk keys in `web/.env`.
 - A renamed label, heading, or group name needs `web/e2e/` checked. Those
   specs query by accessible name and only `just e2e` catches a rename.
-- A change to an app screen shown on the site needs
-  `just site::capture <name>`; `docs/operations.md` lists the names.
+- The site draws the app's screens as HTML demos in `site/src/demos/`.
+  A redesigned screen the site shows needs its demo redrawn. Read
+  `site/CLAUDE.md` before changing the site.
 - New recipes go in `api/justfile`, `web/justfile`, `site/justfile`, or
   `apple/justfile`,
   tagged with a `[group(...)]` that matches their neighbors. A root
@@ -98,6 +99,7 @@ every label. The glossary in `docs/product.md` has the reasons.
   `size-*` class and `aria-hidden` inside a control that has an accessible
   name. No inline SVG icons, no text characters as icons, no second icon
   set. `web/src/ui/Mark.tsx` is the one inline SVG and is not an icon.
+  The site uses the same icons from `lucide`; `site/CLAUDE.md` says how.
 - Outbound HTTP in the API uses `httpx2`, never `httpx`.
 - A ref that mirrors the latest render's value is `useLatest` from
   `web/src/ui/useLatest.ts`, named `…Ref`, never a hand-written ref plus

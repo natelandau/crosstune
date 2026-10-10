@@ -1,0 +1,60 @@
+---
+// One demo on its tinted panel. The section around it places the panel and lets it reach the page
+// edge; this component sets the tint, the corner radii, and the padding on the inner side.
+// `side` names the edge a feature panel bleeds to. The hero and the platforms shot render their
+// own panel classes, and the record demo is a contained panel with no side.
+import { DEMOS } from '../demos/index'
+import type { DemoName } from '../demos/index'
+import { PLAY_ANIMATION, REPLAY_ANIMATION } from '../demos/labels'
+import { withPlacementVars } from '../demos/staticPlacement'
+import '../styles/demos.css'
+
+interface Props {
+  name: DemoName
+  side?: 'left' | 'right'
+  class?: string
+}
+
+const { name, side, class: className } = Astro.props
+const def = DEMOS[name]
+const panel = name === 'hero' ? 'hero-panel' : name === 'platforms' ? 'plat-panel' : 'panel'
+---
+
+<div
+  class:list={[
+    panel,
+    className,
+    `tint-${name}`,
+    side && `bleed-${side}`,
+    name === 'record' && 'contained',
+  ]}
+  data-demo={name}
+>
+  <div
+    class="cam"
+    data-kind={def.kind}
+    data-h={def.h}
+    data-hm={def.hm}
+    data-cw={def.cw}
+    style={`--h:${def.h};--hm:${def.hm}${def.cw ? `;--cw:${def.cw}` : ''}`}
+    role="img"
+    aria-label={def.label}
+    data-nosnippet
+  >
+    <div class="stage ui" aria-hidden="true" set:html={withPlacementVars(def.markup())} />
+  </div>
+  {def.script && (
+    <div class="demo-ctl" hidden>
+      <button type="button" aria-label={PLAY_ANIMATION}>
+        <svg aria-hidden="true">
+          <use href="#i-play" />
+        </svg>
+      </button>
+      <button type="button" aria-label={REPLAY_ANIMATION}>
+        <svg aria-hidden="true">
+          <use href="#i-replay" />
+        </svg>
+      </button>
+    </div>
+  )}
+</div>
