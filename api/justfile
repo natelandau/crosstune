@@ -166,6 +166,18 @@ seed-marketing *args:
     docker compose -f ../compose.yml up -d --wait postgres rustfs
     uv run python -m crosstune.ops.seed_marketing "$@"
 
+# Comp an account (Clerk ID or email), or revoke its comp
+[group('billing')]
+[positional-arguments]
+comp *args:
+    uv run python -m crosstune.ops.billing comp "$@"
+
+# Move the end of an account's trial
+[group('billing')]
+[positional-arguments]
+trial *args:
+    uv run python -m crosstune.ops.billing trial "$@"
+
 # Export the OpenAPI schema every client generates its types from
 [group('contract')]
 contract:
