@@ -239,6 +239,10 @@ One row component per platform for every list of tunes.
   the musician's own recordings first.
 - An action that leaves the app is menu-only, never a swipe action.
 - A pinned item plays first in lists and shows a pin mark.
+- A recording a free account cannot play is dimmed as a whole and keeps
+  its menu. On a tune page a free account's recordings collapse to one
+  line, "N recordings, subscribe to play", which expands in place to the
+  dimmed rows.
 
 ## Tune data
 
@@ -426,6 +430,7 @@ groups.
 - A closed choice is a picker row, even one the tune form shows as
   segments. The default status for new tunes is a picker row, not the
   status segments.
+- The Plan group sits on the Account page.
 - Kept on the device and through sign-out: the appearance, text size, and
   recording channels settings, and every list's sort choice.
 
@@ -449,6 +454,12 @@ presents.
 - A destructive edit that needs more room than a confirmation (trimming a
   recording): its own screen, `Cancel` and bold `Save`. Save confirms,
   naming what the edit keeps.
+- A gated control stays in place and answers a tap with the Premium
+  sheet, whose headline names what was tapped. The Premium sheet links to
+  the Plan group.
+- A one-time notice (first recording, trial reminder, trial end) is a
+  sheet, one at a time, never during a capture and never over another
+  modal. Dismissing it marks it seen for the account.
 - A live recording refuses swipe dismissal. Discarding captured audio
   confirms.
 

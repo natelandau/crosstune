@@ -495,6 +495,7 @@ class EntitlementRow(EntitlementData, _Row):
     free_quota_bytes: int
     recording_notice_seen_at: datetime | None
     trial_reminder_seen_at: datetime | None
+    trial_end_seen_at: datetime | None
 
 
 class _EventRow(BaseModel):

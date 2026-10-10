@@ -250,6 +250,18 @@
             "title": "Server Seq",
             "type": "integer"
           },
+          "trial_end_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial End Seen At"
+          },
           "trial_ends_at": {
             "anyOf": [
               {
@@ -299,7 +311,8 @@
           "premium_quota_bytes",
           "free_quota_bytes",
           "recording_notice_seen_at",
-          "trial_reminder_seen_at"
+          "trial_reminder_seen_at",
+          "trial_end_seen_at"
         ],
         "title": "EntitlementRow",
         "type": "object"
@@ -759,7 +772,8 @@
           "notice": {
             "enum": [
               "first_recording",
-              "trial_reminder"
+              "trial_reminder",
+              "trial_ended"
             ],
             "title": "Notice",
             "type": "string"

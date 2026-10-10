@@ -53,3 +53,6 @@ class Entitlement(SyncColumns, Base):
     trial_reminder_seen_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    trial_end_seen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

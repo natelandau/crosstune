@@ -2969,3 +2969,29 @@ async def test_0037_gives_existing_users_a_thirty_day_trial_and_downgrade_drops_
         assert row.server_seq is not None
     assert tables == [None, None, None]
     assert column == 0
+
+
+async def test_0038_adds_the_nullable_trial_end_column_and_downgrade_drops_it(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    query = text(
+        "select is_nullable from information_schema.columns "
+        "where table_name = 'entitlements' and column_name = 'trial_end_seen_at'"
+    )
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0037")
+        async with engine.connect() as conn:
+            before = (await conn.execute(query)).all()
+        await anyio.to_thread.run_sync(command.upgrade, config, "0038")
+        async with engine.connect() as conn:
+            after = (await conn.execute(query)).all()
+        await anyio.to_thread.run_sync(command.downgrade, config, "0037")
+        async with engine.connect() as conn:
+            dropped = (await conn.execute(query)).all()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert before == []
+    assert [tuple(row) for row in after] == [("YES",)]
+    assert dropped == []
