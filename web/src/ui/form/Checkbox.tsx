@@ -18,7 +18,7 @@ export function Checkbox({
       aria-label={label}
       isSelected={isSelected}
       onChange={onChange}
-      className="group before:bg-tint relative flex min-h-(--target) min-w-(--target) shrink-0 cursor-default items-center justify-center rounded-full before:absolute before:size-9 before:scale-60 before:rounded-full before:opacity-0 before:transition-[opacity,scale] before:duration-(--dur-base) before:ease-(--ease) before:content-[''] data-[focus-visible]:outline-2 data-[focus-visible]:outline-offset-2 data-[focus-visible]:outline-(--slate) data-[hovered]:before:scale-100 data-[hovered]:before:opacity-100"
+      className="group before:bg-tint relative flex min-h-(--target) min-w-(--target) shrink-0 cursor-default items-center justify-center rounded-full before:absolute before:size-9 before:scale-60 before:rounded-full before:opacity-0 before:transition-[opacity,scale] before:duration-(--dur-base) before:ease-(--ease) before:content-[''] data-[hovered]:before:scale-100 data-[hovered]:before:opacity-100"
     >
       {/* A drawn mark rather than an icon: its outline and check are strokes the selection
           animates, one erasing as the other draws. */}

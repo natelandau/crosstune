@@ -84,10 +84,6 @@ html[data-density='pointer'] {
 [data-pressed][data-selected] > .switch-track > .switch-thumb {
   translate: calc(var(--switch-w) - var(--switch-h) - var(--stretch)) 0;
 }
-[data-focus-visible] > .switch-track {
-  outline: 2px solid var(--slate);
-  outline-offset: 2px;
-}
 
 /* ---------- Checkbox ---------- */
 
