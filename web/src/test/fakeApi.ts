@@ -36,6 +36,7 @@ const OWNER_COLUMN: Record<TableName, string | null> = {
   play_events: 'user_id',
   practice_sessions: 'user_id',
   scan_views: 'user_id',
+  entitlements: 'user_id',
 }
 
 export function createFakeApi() {

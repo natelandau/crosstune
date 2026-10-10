@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import object_mapper
 
 from crosstune.models import (
+    Entitlement,
     List,
     ListItem,
     PlayEvent,
@@ -25,6 +26,8 @@ from crosstune.models import (
 from crosstune.schemas.rows import (
     DATA_SCHEMAS,
     ROW_SCHEMAS,
+    EntitlementData,
+    EntitlementRow,
     ListData,
     ListItemData,
     ListItemRow,
@@ -87,6 +90,7 @@ class TableSpec:
     table's row soft-deletes in turn, grandchildren included.
     owns_files marks a table whose rows name bucket files, which only the runner's purge
     removes once a row is deleted.
+    pushable is False for a table only the server writes; a push to it is refused.
     """
 
     name: TableName
@@ -101,6 +105,7 @@ class TableSpec:
     pulled: bool = True
     children: tuple[tuple[TableName, str], ...] = ()
     owns_files: bool = False
+    pushable: bool = True
 
     def owned_by(self, user_id: uuid.UUID) -> ColumnElement[bool]:
         """A filter matching the stored rows of this table that `user_id` owns."""
@@ -126,6 +131,7 @@ TABLE_ORDER: tuple[TableName, ...] = (
     "practice_sessions",
     "scan_views",
     "user_settings",
+    "entitlements",
 )
 
 TABLES: dict[TableName, TableSpec] = {
@@ -242,6 +248,15 @@ TABLES: dict[TableName, TableSpec] = {
         accepts_deleted_parents=True,
         append_only=True,
         pulled=False,
+    ),
+    "entitlements": TableSpec(
+        "entitlements",
+        Entitlement,
+        EntitlementData,
+        EntitlementRow,
+        "user_id",
+        (),
+        pushable=False,
     ),
 }
 

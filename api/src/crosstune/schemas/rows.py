@@ -30,6 +30,7 @@ from crosstune.vocabulary import (
     SPEED_PERCENT_MIN,
     TUNING_LENGTH,
     AudioQuality,
+    GrantSource,
     Instrument,
     Mode,
     PlayContext,
@@ -377,6 +378,10 @@ class ScanViewData(_Data):
         return self
 
 
+class EntitlementData(_Data):
+    """No client-editable fields: the server writes every entitlements column."""
+
+
 class _Row(BaseModel):
     """Bookkeeping columns every stored row carries back out.
 
@@ -476,6 +481,22 @@ class UserSettingsRow(UserSettingsData, _Row):
     user_id: uuid.UUID
 
 
+class EntitlementRow(EntitlementData, _Row):
+    """What a user's plan allows, as pull returns it. Clients read it and never push it."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    user_id: uuid.UUID
+    premium_source: GrantSource | None
+    premium_expires_at: datetime | None
+    auto_renews: bool
+    trial_ends_at: datetime | None
+    premium_quota_bytes: int
+    free_quota_bytes: int
+    recording_notice_seen_at: datetime | None
+    trial_reminder_seen_at: datetime | None
+
+
 class _EventRow(BaseModel):
     """Bookkeeping columns an event row carries back out; never edited, so no timestamps."""
 
@@ -525,6 +546,7 @@ DATA_SCHEMAS: dict[TableName, type[_Data]] = {
     "play_events": PlayEventData,
     "practice_sessions": PracticeSessionData,
     "scan_views": ScanViewData,
+    "entitlements": EntitlementData,
 }
 
 ROW_SCHEMAS: dict[TableName, type[BaseModel]] = {
@@ -540,4 +562,5 @@ ROW_SCHEMAS: dict[TableName, type[BaseModel]] = {
     "play_events": PlayEventRow,
     "practice_sessions": PracticeSessionRow,
     "scan_views": ScanViewRow,
+    "entitlements": EntitlementRow,
 }

@@ -26,9 +26,11 @@ export function toLocalRow(row: object): LocalRow {
   return stripOwnership(row) as LocalRow
 }
 
-/** The store a pushed row's result lands in: its synced table or, for an event, its event store. */
-function storeFor(db: CrosstuneDb, table: TableName): Table<object, string> {
-  return isSyncTable(table) ? rowsTable(db, table) : db[table]
+/** The store a pushed row's result lands in: its synced table, its event store, or none
+ * for a table this device does not store. */
+function storeFor(db: CrosstuneDb, table: TableName): Table<object, string> | undefined {
+  if (isSyncTable(table)) return rowsTable(db, table)
+  return isEventTable(table) ? db[table] : undefined
 }
 
 function rowKey(table: string, id: string): string {
@@ -85,8 +87,8 @@ export async function applyPushResults(
       settledSeqs.push(entry.seq!)
       settled++
     }
-    for (const [table, rows] of stores) await storeFor(db, table).bulkPut(rows)
-    for (const [table, ids] of rejectedEvents) await storeFor(db, table).bulkDelete(ids)
+    for (const [table, rows] of stores) await storeFor(db, table)?.bulkPut(rows)
+    for (const [table, ids] of rejectedEvents) await storeFor(db, table)?.bulkDelete(ids)
     await db.outbox.bulkDelete(settledSeqs)
   })
   return { invalid, settled }

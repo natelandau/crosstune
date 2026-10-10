@@ -14,7 +14,7 @@ import pytest
 from sqlalchemy import func, select
 
 from crosstune.config import Settings
-from crosstune.models import DeletedAccount, Job, Recording, Scan, User, UserSettings
+from crosstune.models import DeletedAccount, Entitlement, Job, Recording, Scan, User, UserSettings
 from crosstune.ops import seed_marketing
 from crosstune.ops.seed_marketing import (
     MARKETING_EMAIL,
@@ -54,31 +54,40 @@ async def _counts(session: AsyncSession, user_id: uuid.UUID) -> dict[str, int]:
     return counts
 
 
-def _expected_counts() -> dict[str, int]:
+def _pushed_counts() -> dict[str, int]:
     fixture = _fixture()
     return {table: len(fixture.get(table, [])) for table in TABLE_ORDER}
+
+
+def _expected_counts() -> dict[str, int]:
+    # The server writes every account's one entitlements row; the fixture never holds it.
+    return {**_pushed_counts(), "entitlements": 1}
 
 
 async def _user(session: AsyncSession) -> User:
     return (await session.execute(select(User).where(User.clerk_user_id == CLERK_ID))).scalar_one()
 
 
-async def test_seed_creates_every_row(session: AsyncSession) -> None:
-    result = await seed(session, FakeObjectStore(), FIXTURE, CLERK_ID, MARKETING_EMAIL)
+async def test_seed_creates_every_row(session: AsyncSession, settings: Settings) -> None:
+    result = await seed(session, FakeObjectStore(), FIXTURE, CLERK_ID, MARKETING_EMAIL, settings)
 
     user = await _user(session)
     assert user.email == MARKETING_EMAIL
     assert await _counts(session, user.id) == _expected_counts()
-    assert result.applied == {t: n for t, n in _expected_counts().items() if n}
+    entitlement = (
+        await session.execute(select(Entitlement).where(Entitlement.user_id == user.id))
+    ).scalar_one()
+    assert (entitlement.premium_source, entitlement.premium_expires_at) == ("comp", None)
+    assert result.applied == {t: n for t, n in _pushed_counts().items() if n}
 
 
-async def test_seed_twice_is_idempotent(session: AsyncSession) -> None:
+async def test_seed_twice_is_idempotent(session: AsyncSession, settings: Settings) -> None:
     store = FakeObjectStore()
-    await seed(session, store, FIXTURE, CLERK_ID, MARKETING_EMAIL)
+    await seed(session, store, FIXTURE, CLERK_ID, MARKETING_EMAIL, settings)
     first_user = await _user(session)
     first_keys = store.keys()
 
-    second = await seed(session, store, FIXTURE, CLERK_ID, MARKETING_EMAIL)
+    second = await seed(session, store, FIXTURE, CLERK_ID, MARKETING_EMAIL, settings)
 
     user = await _user(session)
     assert user.id == first_user.id
@@ -90,9 +99,9 @@ async def test_seed_twice_is_idempotent(session: AsyncSession) -> None:
     assert jobs == len(_fixture()["recordings"])
 
 
-async def test_seed_uploads_files(session: AsyncSession) -> None:
+async def test_seed_uploads_files(session: AsyncSession, settings: Settings) -> None:
     store = FakeObjectStore()
-    result = await seed(session, store, FIXTURE, CLERK_ID, MARKETING_EMAIL)
+    result = await seed(session, store, FIXTURE, CLERK_ID, MARKETING_EMAIL, settings)
     user = await _user(session)
     fixture = _fixture()
     assets = FIXTURE.parent
@@ -121,8 +130,10 @@ async def test_seed_uploads_files(session: AsyncSession) -> None:
         )
 
 
-async def test_seed_rekeys_settings_to_the_clerk_user(session: AsyncSession) -> None:
-    await seed(session, FakeObjectStore(), FIXTURE, CLERK_ID, MARKETING_EMAIL)
+async def test_seed_rekeys_settings_to_the_clerk_user(
+    session: AsyncSession, settings: Settings
+) -> None:
+    await seed(session, FakeObjectStore(), FIXTURE, CLERK_ID, MARKETING_EMAIL, settings)
     user = await _user(session)
 
     stored = (
@@ -139,19 +150,21 @@ def test_settings_id_matches_the_clients() -> None:
     )
 
 
-async def test_seed_never_purges(session: AsyncSession) -> None:
+async def test_seed_never_purges(session: AsyncSession, settings: Settings) -> None:
     store = FakeObjectStore()
-    await seed(session, store, FIXTURE, CLERK_ID, MARKETING_EMAIL)
+    await seed(session, store, FIXTURE, CLERK_ID, MARKETING_EMAIL, settings)
     first_user = await _user(session)
 
-    await seed(session, store, FIXTURE, CLERK_ID, MARKETING_EMAIL)
+    await seed(session, store, FIXTURE, CLERK_ID, MARKETING_EMAIL, settings)
 
     assert await session.scalar(select(func.count()).select_from(DeletedAccount)) == 0
     assert (await _user(session)).id == first_user.id
     assert await _counts(session, first_user.id) == _expected_counts()
 
 
-async def test_seed_refuses_a_row_without_its_file(session: AsyncSession, tmp_path: Path) -> None:
+async def test_seed_refuses_a_row_without_its_file(
+    session: AsyncSession, tmp_path: Path, settings: Settings
+) -> None:
     fixture = _fixture()
     recording_id = fixture["recordings"][0]["id"]
     del fixture["files"][recording_id]
@@ -162,7 +175,7 @@ async def test_seed_refuses_a_row_without_its_file(session: AsyncSession, tmp_pa
     broken.write_text(json.dumps(fixture))
 
     with pytest.raises(SeedRefusedError, match=f"recordings {recording_id}"):
-        await seed(session, FakeObjectStore(), broken, CLERK_ID, MARKETING_EMAIL)
+        await seed(session, FakeObjectStore(), broken, CLERK_ID, MARKETING_EMAIL, settings)
 
 
 def test_check_target_refuses_the_e2e_database() -> None:

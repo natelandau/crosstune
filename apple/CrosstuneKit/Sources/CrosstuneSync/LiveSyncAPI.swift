@@ -110,6 +110,7 @@ public struct LiveSyncAPI: SyncAPI {
             body: .json(.init(bytes: Int(bytes), contentType: contentType)))
         switch try await client.uploadSlotV1RecordingsRecordingIdUploadSlotPost(input) {
         case .ok(let response): return try signedURL(try response.body.json.url)
+        case .forbidden(let response): throw Self.refusal(403, try? response.body.applicationProblemJson)
         case .notFound(let response): throw Self.refusal(404, try? response.body.applicationProblemJson)
         case .conflict(let response): throw Self.refusal(409, try? response.body.applicationProblemJson)
         case .contentTooLarge(let response): throw Self.refusal(413, try? response.body.applicationProblemJson)
@@ -176,6 +177,7 @@ public struct LiveSyncAPI: SyncAPI {
             path: .init(scanId: scanID), body: .json(.init(bytes: Int(bytes), contentType: .imageJpeg)))
         switch try await client.uploadSlotV1ScansScanIdUploadSlotPost(input) {
         case .ok(let response): return try signed(try response.body.json)
+        case .forbidden(let response): throw Self.refusal(403, try? response.body.applicationProblemJson)
         case .notFound(let response): throw Self.refusal(404, try? response.body.applicationProblemJson)
         case .conflict(let response): throw Self.refusal(409, try? response.body.applicationProblemJson)
         case .contentTooLarge(let response): throw Self.refusal(413, try? response.body.applicationProblemJson)
@@ -220,6 +222,7 @@ public struct LiveSyncAPI: SyncAPI {
         let input = Operations.RetryV1RecordingsRecordingIdRetryPost.Input(path: .init(recordingId: recordingID))
         switch try await client.retryV1RecordingsRecordingIdRetryPost(input) {
         case .noContent: return
+        case .forbidden(let response): throw Self.refusal(403, try? response.body.applicationProblemJson)
         case .notFound(let response): throw Self.refusal(404, try? response.body.applicationProblemJson)
         case .conflict(let response): throw Self.refusal(409, try? response.body.applicationProblemJson)
         case .unprocessableContent(let response):
@@ -309,7 +312,7 @@ enum WireFormat {
         var hasMore: Bool
 
         struct Row: Decodable {
-            var table: SyncTable
+            var table: String
             var row: JSONObject
         }
 
@@ -365,9 +368,12 @@ enum WireFormat {
 
     static func pullPage(_ response: Components.Schemas.PullResponse) throws -> PullPage {
         let page = try reencode(response, as: PullResponse.self)
+        // A table this build does not store is skipped; the cursor still passes it.
         return PullPage(
-            rows: page.rows.map { PulledRow(table: $0.table, row: $0.row) }, nextSince: page.nextSince,
-            hasMore: page.hasMore)
+            rows: page.rows.compactMap { row in
+                SyncTable(rawValue: row.table).map { PulledRow(table: $0, row: row.row) }
+            },
+            nextSince: page.nextSince, hasMore: page.hasMore)
     }
 
     static func eventsPage(_ response: Components.Schemas.EventsResponse) throws -> EventsPage {

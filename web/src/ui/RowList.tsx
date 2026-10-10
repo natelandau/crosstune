@@ -38,7 +38,10 @@ function changed(before: Selection, after: Selection): Key[] | null {
  * A list of rows with no separators; selection is a wash on the row, not a divider. At most
  * one of its rows is swiped open at a time, and a swipe or hold never opens or selects a row.
  * A `single` list whose selection follows focus, so the arrows move the selection, takes
- * `selectionBehavior="replace"`.
+ * `selectionBehavior="replace"`. One whose selection follows focus only once a row is open
+ * has no selection mode until then and opens a row through `onAction`, with `replace` kept
+ * throughout: React Aria adopts a changed behavior a commit late, and a running view transition
+ * holds that commit back, so an arrow pressed during one would move focus and select nothing.
  *
  * With `onReorder`, a mouse or pen drag of the whole row runs a live drag on pointer events,
  * a touch long press then a drag runs the same drag through the row's own gesture, and the

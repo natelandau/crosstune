@@ -66,14 +66,15 @@ export function SettingsRoot() {
       </div>
       <RowList
         label={SETTINGS_CATEGORIES}
-        {...(wide
+        {...(wide && open
           ? {
-              selectionMode: 'single',
               // Selection follows focus only once a page is open, so tabbing into the list
-              // never opens one.
-              selectionBehavior: open ? 'replace' : 'toggle',
+              // never opens one; until then a row opens its page as its action, as `RowList`
+              // says.
+              selectionMode: 'single',
+              selectionBehavior: 'replace',
               disallowEmptySelection: true,
-              selectedKeys: new Set(open ? [open] : []),
+              selectedKeys: new Set([open]),
               onSelectionChange: (keys: Selection) => {
                 if (keys === 'all') return
                 const [key] = keys

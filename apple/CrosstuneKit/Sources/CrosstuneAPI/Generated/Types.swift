@@ -41,6 +41,15 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `DELETE /v1/me`.
     /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)`.
     func deleteMeV1MeDelete(_ input: Operations.DeleteMeV1MeDelete.Input) async throws -> Operations.DeleteMeV1MeDelete.Output
+    /// Record Notice
+    ///
+    /// Record that the user saw a one-time notice, so no device shows it again.
+    ///
+    /// The first time is the one kept; a repeat changes nothing.
+    ///
+    /// - Remark: HTTP `POST /v1/me/notices`.
+    /// - Remark: Generated from `#/paths//v1/me/notices/post(record_notice_v1_me_notices_post)`.
+    func recordNoticeV1MeNoticesPost(_ input: Operations.RecordNoticeV1MeNoticesPost.Input) async throws -> Operations.RecordNoticeV1MeNoticesPost.Output
     /// Download
     ///
     /// A presigned GET for the playback file of a ready recording.
@@ -68,14 +77,15 @@ public protocol APIProtocol: Sendable {
     /// An import whose file never arrived is fetched again, or fails at once when its
     /// address is not one the server imports from. Any other recording whose uploaded
     /// object is gone is uploaded again through a new slot; this route only re-runs the
-    /// transcode. Repeating the call changes nothing.
+    /// transcode. Fetching an import again needs Premium; a transcode does not. Repeating
+    /// the call changes nothing.
     ///
     /// - Remark: HTTP `POST /v1/recordings/{recording_id}/retry`.
     /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/retry/post(retry_v1_recordings__recording_id__retry_post)`.
     func retryV1RecordingsRecordingIdRetryPost(_ input: Operations.RetryV1RecordingsRecordingIdRetryPost.Input) async throws -> Operations.RetryV1RecordingsRecordingIdRetryPost.Output
     /// Upload Slot
     ///
-    /// A presigned PUT for one recording's file, once the quota allows it.
+    /// A presigned PUT for one recording's file, once the plan and its quota allow it.
     ///
     /// A failed recording is issued a slot too, and returns to pending_upload: it is
     /// the only way back for one whose uploaded object is no longer in the bucket.
@@ -99,7 +109,9 @@ public protocol APIProtocol: Sendable {
     func downloadV1ScansScanIdDownloadGet(_ input: Operations.DownloadV1ScansScanIdDownloadGet.Input) async throws -> Operations.DownloadV1ScansScanIdDownloadGet.Output
     /// Upload Slot
     ///
-    /// A presigned PUT for one scan's image, once the file cap and quota allow it.
+    /// A presigned PUT for one scan's image, once the file cap, the plan, and its quota allow it.
+    ///
+    /// A free plan uploads only to its scan tune, and only scans count toward its quota.
     ///
     /// - Remark: HTTP `POST /v1/scans/{scan_id}/upload-slot`.
     /// - Remark: Generated from `#/paths//v1/scans/{scan_id}/upload-slot/post(upload_slot_v1_scans__scan_id__upload_slot_post)`.
@@ -186,6 +198,23 @@ extension APIProtocol {
     public func deleteMeV1MeDelete(headers: Operations.DeleteMeV1MeDelete.Input.Headers = .init()) async throws -> Operations.DeleteMeV1MeDelete.Output {
         try await deleteMeV1MeDelete(Operations.DeleteMeV1MeDelete.Input(headers: headers))
     }
+    /// Record Notice
+    ///
+    /// Record that the user saw a one-time notice, so no device shows it again.
+    ///
+    /// The first time is the one kept; a repeat changes nothing.
+    ///
+    /// - Remark: HTTP `POST /v1/me/notices`.
+    /// - Remark: Generated from `#/paths//v1/me/notices/post(record_notice_v1_me_notices_post)`.
+    public func recordNoticeV1MeNoticesPost(
+        headers: Operations.RecordNoticeV1MeNoticesPost.Input.Headers = .init(),
+        body: Operations.RecordNoticeV1MeNoticesPost.Input.Body
+    ) async throws -> Operations.RecordNoticeV1MeNoticesPost.Output {
+        try await recordNoticeV1MeNoticesPost(Operations.RecordNoticeV1MeNoticesPost.Input(
+            headers: headers,
+            body: body
+        ))
+    }
     /// Download
     ///
     /// A presigned GET for the playback file of a ready recording.
@@ -229,7 +258,8 @@ extension APIProtocol {
     /// An import whose file never arrived is fetched again, or fails at once when its
     /// address is not one the server imports from. Any other recording whose uploaded
     /// object is gone is uploaded again through a new slot; this route only re-runs the
-    /// transcode. Repeating the call changes nothing.
+    /// transcode. Fetching an import again needs Premium; a transcode does not. Repeating
+    /// the call changes nothing.
     ///
     /// - Remark: HTTP `POST /v1/recordings/{recording_id}/retry`.
     /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/retry/post(retry_v1_recordings__recording_id__retry_post)`.
@@ -244,7 +274,7 @@ extension APIProtocol {
     }
     /// Upload Slot
     ///
-    /// A presigned PUT for one recording's file, once the quota allows it.
+    /// A presigned PUT for one recording's file, once the plan and its quota allow it.
     ///
     /// A failed recording is issued a slot too, and returns to pending_upload: it is
     /// the only way back for one whose uploaded object is no longer in the bucket.
@@ -294,7 +324,9 @@ extension APIProtocol {
     }
     /// Upload Slot
     ///
-    /// A presigned PUT for one scan's image, once the file cap and quota allow it.
+    /// A presigned PUT for one scan's image, once the file cap, the plan, and its quota allow it.
+    ///
+    /// A free plan uploads only to its scan tune, and only scans count toward its quota.
     ///
     /// - Remark: HTTP `POST /v1/scans/{scan_id}/upload-slot`.
     /// - Remark: Generated from `#/paths//v1/scans/{scan_id}/upload-slot/post(upload_slot_v1_scans__scan_id__upload_slot_post)`.

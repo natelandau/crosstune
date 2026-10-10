@@ -52,7 +52,10 @@ async def current_user(request: Request, session: DbSession) -> User:
     claims = getattr(request.state, CLAIMS_STATE_KEY, None) or await verify_bearer(request)
     email = claims.get("email")
     return await get_or_create_user(
-        session, claims["sub"], email=email if isinstance(email, str) else None
+        session,
+        claims["sub"],
+        email=email if isinstance(email, str) else None,
+        settings=request.app.state.settings,
     )
 
 

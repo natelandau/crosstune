@@ -12,6 +12,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
+from crosstune.billing.access import access_for
 from crosstune.db.base import next_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.db.session import request_runner_wake
@@ -19,6 +20,7 @@ from crosstune.models import List, ListItem
 from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult
 from crosstune.sync.rules import RULES, RowRules
 from crosstune.sync.tables import TABLE_ORDER, TABLES, SyncedRow, TableSpec, row_to_dict
+from crosstune.vocabulary import SERVER_WRITTEN
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -28,6 +30,8 @@ if TYPE_CHECKING:
     from sqlalchemy import Select
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from crosstune.billing.access import Access
+    from crosstune.config import Settings
     from crosstune.links.resolve import ResolvedLink
     from crosstune.vocabulary import TableName
 
@@ -36,6 +40,7 @@ async def apply_push(
     session: AsyncSession,
     user_id: uuid.UUID,
     changes: list[Change],
+    settings: Settings,
     resolved_links: Mapping[str, ResolvedLink] | None = None,
 ) -> list[ChangeResult]:
     """Apply changes grouped by table in dependency order. Returns results in the input order.
@@ -44,6 +49,7 @@ async def apply_push(
         session: The request's session; the caller commits.
         user_id: The pushing user.
         changes: The batch, in client order.
+        settings: Source of the plan sizes the user's access resolves against.
         resolved_links: What each untitled link URL resolved to before the transaction, or
             None to store untitled links as pushed. A URL missing from it is stored in its
             offline form.
@@ -52,6 +58,8 @@ async def apply_push(
     # matching the order a pull cursor relies on. Released automatically when the request's
     # transaction ends.
     await lock_user(session, user_id)
+    # Resolved under the lock, so a grant change commits wholly before or after this push.
+    access = await access_for(session, user_id, settings)
 
     grouped: dict[TableName, list[tuple[int, Change]]] = defaultdict(list)
     for index, change in enumerate(changes):
@@ -61,16 +69,22 @@ async def apply_push(
     for table in TABLE_ORDER:
         spec = TABLES[table]
         entries = grouped.get(table, [])
+        if not spec.pushable:
+            for index, change in entries:
+                results[index] = _invalid(change, SERVER_WRITTEN)
+            continue
         # Held for the group: the identity map keeps rows only while something refers to them.
         _held = await _prefetch(session, spec, [change for _, change in entries])
         if RULES.get(table, RowRules).defers_overlaps:
-            await _apply_deferring_overlaps(session, spec, user_id, entries, results)
+            await _apply_deferring_overlaps(session, spec, user_id, entries, results, access)
             continue
         for index, change in entries:
             if spec.append_only:
                 results[index] = await _insert(session, spec, user_id, change)
             elif change.op == "upsert":
-                results[index] = await _upsert(session, spec, user_id, change, resolved_links)
+                results[index] = await _upsert(
+                    session, spec, user_id, change, resolved_links, access
+                )
             else:
                 results[index] = await _delete(session, spec, user_id, change)
     return [results[i] for i in range(len(changes))]
@@ -115,6 +129,7 @@ async def _apply_deferring_overlaps(
     user_id: uuid.UUID,
     entries: list[tuple[int, Change]],
     results: dict[int, ChangeResult],
+    access: Access,
 ) -> None:
     """Apply a batch's changes so a row never loses room another change in it frees.
 
@@ -130,25 +145,25 @@ async def _apply_deferring_overlaps(
     while pending:
         waiting: list[tuple[int, Change]] = []
         for index, change in pending:
-            if await _overlaps(session, spec, user_id, change):
+            if await _overlaps(session, spec, user_id, change, access):
                 waiting.append((index, change))
             else:
-                results[index] = await _upsert(session, spec, user_id, change, None)
+                results[index] = await _upsert(session, spec, user_id, change, None, access)
         if len(waiting) == len(pending):
             for index, change in waiting:
-                results[index] = await _upsert(session, spec, user_id, change, None)
+                results[index] = await _upsert(session, spec, user_id, change, None, access)
             return
         pending = waiting
 
 
 async def _overlaps(
-    session: AsyncSession, spec: TableSpec, user_id: uuid.UUID, change: Change
+    session: AsyncSession, spec: TableSpec, user_id: uuid.UUID, change: Change, access: Access
 ) -> bool:
     """Whether a pushed row's own rules say it overlaps a live row, judged before any clamp."""
     data, rejection = _validated(spec.data_schema, change)
     if rejection:
         return False
-    return await _rules(session, spec.name, user_id, change, None).overlaps(data)
+    return await _rules(session, spec.name, user_id, change, None, access).overlaps(data)
 
 
 def _rules(
@@ -157,8 +172,9 @@ def _rules(
     user_id: uuid.UUID,
     change: Change,
     resolved_links: Mapping[str, ResolvedLink] | None,
+    access: Access,
 ) -> RowRules:
-    return RULES.get(table, RowRules)(session, user_id, change, resolved_links)
+    return RULES.get(table, RowRules)(session, user_id, change, resolved_links, access)
 
 
 def _invalid(change: Change, reason: str) -> ChangeResult:
@@ -282,11 +298,12 @@ async def _upsert(
     user_id: uuid.UUID,
     change: Change,
     resolved_links: Mapping[str, ResolvedLink] | None,
+    access: Access,
 ) -> ChangeResult:
     data, rejection = await _checked(session, spec, user_id, change)
     if rejection:
         return rejection
-    rules = _rules(session, spec.name, user_id, change, resolved_links)
+    rules = _rules(session, spec.name, user_id, change, resolved_links, access)
     reason = await rules.prepare(data)
     if reason:
         return _invalid(change, reason)

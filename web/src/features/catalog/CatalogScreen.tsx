@@ -332,14 +332,15 @@ export function CatalogScreen() {
                       onSelectionChange: (keys: Selection) => applySelection(selection, keys),
                     }
                   : {
-                      selectionMode: wide ? 'single' : 'none',
                       // Selection follows focus only once a tune is open, so tabbing into the
-                      // list never opens one; Enter or a click opens the first.
-                      selectionBehavior: tuneId ? 'replace' : 'toggle',
+                      // list never opens one; until then Enter or a click opens a tune as the
+                      // row's action, as `RowList` says.
+                      selectionMode: wide && tuneId ? 'single' : 'none',
+                      selectionBehavior: 'replace',
                       disallowEmptySelection: true,
                       selectedKeys: new Set(tuneId ? [tuneId] : []),
                       onSelectionChange: choose,
-                      onAction: wide ? undefined : (key: Key) => openFound(String(key)),
+                      onAction: wide && tuneId ? undefined : (key: Key) => openFound(String(key)),
                     })}
               >
                 {tunes.map((entry) => (

@@ -2905,3 +2905,67 @@ async def test_0036_starts_existing_settings_with_no_new_tune_defaults(
     with pytest.raises(IntegrityError, match="ck_user_settings_new_tune_status"):
         async with engine.begin() as conn:
             await conn.execute(text("update user_settings set new_tune_status = 'mastered'"))
+
+
+async def test_0037_gives_existing_users_a_thirty_day_trial_and_downgrade_drops_it(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    users = ["018f0000-0000-7000-8000-000000000091", "018f0000-0000-7000-8000-000000000092"]
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0036")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, :clerk, now(), now())"
+                ),
+                [{"id": user, "clerk": f"user_{n}"} for n, user in enumerate(users)],
+            )
+        await anyio.to_thread.run_sync(command.upgrade, config, "0037")
+        async with engine.connect() as conn:
+            grants = (
+                await conn.execute(
+                    text(
+                        "select kind, source, environment, "
+                        "expires_at - now() between interval '29 days' and interval '31 days' "
+                        "as in_window, expires_at, user_id from grants order by user_id"
+                    )
+                )
+            ).all()
+            entitlements = (
+                await conn.execute(
+                    text(
+                        "select premium_source, trial_ends_at, premium_expires_at, "
+                        "premium_quota_bytes, free_quota_bytes, server_seq, user_id "
+                        "from entitlements order by user_id"
+                    )
+                )
+            ).all()
+        await anyio.to_thread.run_sync(command.downgrade, config, "0036")
+        async with engine.connect() as conn:
+            tables = [
+                (await conn.execute(text(f"select to_regclass('{name}')"))).scalar_one()
+                for name in ("grants", "pending_comps", "entitlements")
+            ]
+            column = (
+                await conn.execute(
+                    text(
+                        "select count(*) from information_schema.columns "
+                        "where table_name = 'users' and column_name = 'last_synced_at'"
+                    )
+                )
+            ).scalar_one()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert [str(g.user_id) for g in grants] == users
+    assert [str(e.user_id) for e in entitlements] == users
+    for grant, row in zip(grants, entitlements, strict=True):
+        assert tuple(grant)[:4] == ("premium", "trial", "production", True)
+        assert row.premium_source == "trial"
+        assert row.trial_ends_at == grant.expires_at == row.premium_expires_at
+        assert (row.premium_quota_bytes, row.free_quota_bytes) == (104_857_600, 52_428_800)
+        assert row.server_seq is not None
+    assert tables == [None, None, None]
+    assert column == 0

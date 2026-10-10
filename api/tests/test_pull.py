@@ -21,8 +21,9 @@ async def test_initial_pull_returns_everything_for_the_caller_only(client, auth_
     await push(client, auth_headers("user_a"), change("tunes", tune_a, T0, title="A's tune"))
     await push(client, auth_headers("user_b"), change("tunes", tune_b, T0, title="B's tune"))
     body = await pull(client, auth_headers("user_a"))
-    ids = {r["row"]["id"] for r in body["rows"]}
-    assert ids == {tune_a}
+    # Every account holds one entitlements row from sign-up.
+    assert [r["table"] for r in body["rows"]] == ["entitlements", "tunes"]
+    assert body["rows"][-1]["row"]["id"] == tune_a
     assert body["has_more"] is False
     assert body["next_since"] == body["rows"][-1]["row"]["server_seq"]
 
@@ -44,7 +45,8 @@ async def test_pull_includes_tombstones(client, auth_headers) -> None:
     await push(client, auth_headers("user_a"), change("tunes", tune, T0, title="X"))
     await push(client, auth_headers("user_a"), change("tunes", tune, T1, op="delete"))
     body = await pull(client, auth_headers("user_a"))
-    assert body["rows"][0]["row"]["deleted_at"] is not None
+    row = next(r["row"] for r in body["rows"] if r["table"] == "tunes")
+    assert row["deleted_at"] is not None
 
 
 async def test_pull_skips_event_tables(client, auth_headers) -> None:
@@ -80,7 +82,7 @@ async def test_pull_skips_event_tables(client, auth_headers) -> None:
     )
     assert scan_view[0]["status"] == "applied"
     body = await pull(client, headers)
-    assert {r["table"] for r in body["rows"]} == {"recordings", "tunes"}
+    assert {r["table"] for r in body["rows"]} == {"entitlements", "recordings", "tunes"}
 
 
 async def test_pull_spans_tables_in_sequence_order(client, auth_headers) -> None:
@@ -95,7 +97,7 @@ async def test_pull_spans_tables_in_sequence_order(client, auth_headers) -> None
     body = await pull(client, auth_headers("user_a"))
     seqs = [r["row"]["server_seq"] for r in body["rows"]]
     assert seqs == sorted(seqs)
-    assert {r["table"] for r in body["rows"]} == {"tunes", "lists", "user_tunes"}
+    assert {r["table"] for r in body["rows"]} == {"entitlements", "tunes", "lists", "user_tunes"}
 
 
 async def test_pull_pages(client, app, auth_headers) -> None:
@@ -115,7 +117,8 @@ async def test_pull_pages(client, app, auth_headers) -> None:
         if not body["has_more"]:
             break
         since = body["next_since"]
-    assert len(seen) == 5
+    # Five tunes and the entitlements row every account holds.
+    assert len(seen) == 6
     assert seen == sorted(seen)
     assert pages == 3
 
@@ -192,6 +195,7 @@ async def test_pull_scopes_every_table_to_the_caller(client, auth_headers) -> No
         by_table: dict[str, set[str]] = {}
         for row in body["rows"]:
             by_table.setdefault(row["table"], set()).add(row["row"]["id"])
+        assert len(by_table.pop("entitlements")) == 1
         assert by_table == expected
 
 
@@ -203,7 +207,8 @@ async def test_pull_includes_user_settings(client, auth_headers) -> None:
         change("user_settings", settings_id, T0, instruments=["five_string_banjo"]),
     )
     body = await pull(client, auth_headers("user_a"))
-    assert [(r["table"], r["row"]["instruments"]) for r in body["rows"]] == [
+    rows = [r for r in body["rows"] if r["table"] != "entitlements"]
+    assert [(r["table"], r["row"]["instruments"]) for r in rows] == [
         ("user_settings", ["five_string_banjo"])
     ]
 
@@ -240,7 +245,7 @@ async def test_pull_answers_in_tune_names_without_being_asked(client, auth_heade
     await push(client, auth_headers("user_a"), change("tunes", uid(), T0, title="Sally Ann"))
     response = await client.get("/v1/sync/pull?since=0", headers=auth_headers("user_a"))
     assert response.status_code == 200, response.text
-    assert {r["table"] for r in response.json()["rows"]} == {"tunes"}
+    assert {r["table"] for r in response.json()["rows"]} == {"entitlements", "tunes"}
 
 
 async def test_pulls_read_only_the_tables_with_changes(session, engine) -> None:

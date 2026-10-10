@@ -38,48 +38,31 @@ func fixture(_ name: String) throws -> Data {
 
     #expect(page.nextSince == 43)
     #expect(page.hasMore == false)
-    #expect(page.rows.count == 3)
-
-    guard case .tunes(let tune) = page.rows[0] else {
-        Issue.record("first row is not a tune: \(page.rows[0])")
-        return
-    }
-    #expect(tune.row.title == "Cluck Old Hen")
-    #expect(tune.row.tunings?.violin?.tuning == "AEAE")
-
-    guard case .lists(let list) = page.rows[1] else {
-        Issue.record("second row is not a list: \(page.rows[1])")
-        return
-    }
-    #expect(list.row.name == "Thursday jam")
-
-    guard case .recordingLoops(let loop) = page.rows[2] else {
-        Issue.record("third row is not a loop: \(page.rows[2])")
-        return
-    }
-    #expect(loop.row.label == "A part")
-    #expect(loop.row.startMs == 1500)
-    #expect(loop.row.color == 2)
+    let tables = page.rows.map { $0.additionalProperties.value["table"] as? String }
+    #expect(tables == ["tunes", "lists", "recording_loops"])
+    let tune = page.rows[0].additionalProperties.value["row"] as? [String: (any Sendable)?]
+    #expect(tune?["title"] as? String == "Cluck Old Hen")
 }
 
-@Test func decodesARowFromANewerServer() async throws {
+@Test func decodesAPullPageFromANewerServer() async throws {
     let newer = """
         {
-          "rows": [{
-            "table": "tunes",
-            "row": {
-              "id": "0b7c9a52-3f0e-4d6a-9d1e-6f4a2b8c1e01",
-              "created_at": "2026-09-20T18:04:11Z",
-              "updated_at": "2026-09-21T02:15:40Z",
-              "deleted_at": null,
-              "server_seq": 41,
-              "owner_user_id": null,
-              "title": "Cluck Old Hen",
-              "modes": ["lydian"],
-              "time_signature": "5/4",
-              "field_added_later": true
+          "rows": [
+            {"table": "tempo_marks", "row": {"id": "x1", "server_seq": 40}},
+            {
+              "table": "tunes",
+              "row": {
+                "id": "0b7c9a52-3f0e-4d6a-9d1e-6f4a2b8c1e01",
+                "created_at": "2026-09-20T18:04:11Z",
+                "updated_at": "2026-09-21T02:15:40Z",
+                "deleted_at": null,
+                "server_seq": 41,
+                "owner_user_id": null,
+                "title": "Cluck Old Hen",
+                "field_added_later": true
+              }
             }
-          }],
+          ],
           "next_since": 41,
           "has_more": false
         }
@@ -92,11 +75,8 @@ func fixture(_ name: String) throws -> Data {
 
     let page = try await client.pullV1SyncPullGet(.init(query: .init(since: 0))).ok.body.json
 
-    guard case .tunes(let tune) = page.rows.first else {
-        Issue.record("first row is not a tune")
-        return
-    }
-    #expect(tune.row.modes == ["lydian"])
-    #expect(tune.row.timeSignature == "5/4")
-    #expect((tune.row.additionalProperties.value["field_added_later"] ?? nil) as? Bool == true)
+    #expect(page.rows.map { $0.additionalProperties.value["table"] as? String } == ["tempo_marks", "tunes"])
+    let tune = page.rows[1].additionalProperties.value["row"] as? [String: (any Sendable)?]
+    #expect((tune?["field_added_later"] ?? nil) as? Bool == true)
+    #expect(page.nextSince == 41)
 }

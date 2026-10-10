@@ -14,8 +14,8 @@
 // Each sync row schema also gets `additionalProperties: true`, so the generated type carries
 // an `additionalProperties` container the store reads into a pulled row's `extra`, matching
 // the web client's own untyped pass-through of unknown row fields.
-// An events page's rows become untyped objects, so a row from a history table the API adds
-// later reaches the client, which skips it, rather than failing the whole page's decode.
+// A pull page's and an events page's rows become untyped objects, so a row from a table the
+// API adds later reaches the client, which skips it, rather than failing the whole page's decode.
 
 import Foundation
 
@@ -49,19 +49,19 @@ func openSyncRowSchemas(_ document: Any) -> Any {
     return document
 }
 
-/// Makes each row of an events page an untyped object, before the generic pass below.
-func openEventRows(_ document: Any) -> Any {
+/// Makes each row of a page response an untyped object, before the generic pass below.
+func openPageRows(_ document: Any, of schema: String) -> Any {
     guard var document = document as? [String: Any],
         var components = document["components"] as? [String: Any],
         var schemas = components["schemas"] as? [String: Any],
-        var response = schemas["EventsResponse"] as? [String: Any],
+        var response = schemas[schema] as? [String: Any],
         var properties = response["properties"] as? [String: Any],
         var rows = properties["rows"] as? [String: Any]
     else { return document }
     rows["items"] = ["type": "object", "additionalProperties": true]
     properties["rows"] = rows
     response["properties"] = properties
-    schemas["EventsResponse"] = response
+    schemas[schema] = response
     components["schemas"] = schemas
     document["components"] = components
     return document
@@ -135,7 +135,9 @@ func isNull(_ schema: Any) -> Bool {
 
 do {
     let input = try Data(contentsOf: URL(fileURLWithPath: arguments[1]))
-    let document = openEventRows(openSyncRowSchemas(try JSONSerialization.jsonObject(with: input)))
+    let document = ["PullResponse", "EventsResponse"].reduce(
+        openSyncRowSchemas(try JSONSerialization.jsonObject(with: input))
+    ) { openPageRows($0, of: $1) }
     let output = try JSONSerialization.data(
         withJSONObject: normalize(document).value,
         options: [.prettyPrinted, .sortedKeys]

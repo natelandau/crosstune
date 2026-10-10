@@ -4,6 +4,9 @@
 export const AUDIO_QUALITIES = ['low', 'standard', 'high', 'highest'] as const
 export type AudioQuality = (typeof AUDIO_QUALITIES)[number]
 
+export const GRANT_SOURCES = ['trial', 'apple', 'stripe', 'comp'] as const
+export type GrantSource = (typeof GRANT_SOURCES)[number]
+
 export const INSTRUMENTS = [
   'violin',
   'five_string_banjo',

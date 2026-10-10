@@ -73,16 +73,16 @@ Cloudflare also hosts the DNS zone for the product domain.
 
 ## Sources of truth
 
-| Question                 | Answer                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order, and a pull holds it shared so no write lands between its reads. A cursor never skips a row.                                                                                                                                                                                                                  |
-| Who owns a row           | The token.                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                                                                                                                                                                                                                                                                                                     |
-| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, scans, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items. Four history tables, kept out of the main pull: plays, practice sessions, and scan views, which clients push once and never edit, and status changes, which the server writes when a user tune's status changes. Server-only, never synced: users, upload slots, background jobs. |
-| Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file, audio, and scan images in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes other than history events (plays, practice sessions, and scan views), or while a scan is unuploaded, each with its own message. A shape change starts it over (see Pull).                        |
-| Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                                                                                                                                                                                                                                                                                                 |
-| Host settings            | The host dashboards. Configuration says how each deployable reads them.                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Question                 | Answer                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order, and a pull holds it shared so no write lands between its reads. A cursor never skips a row.                                                                                                                                                                                                                                                                                  |
+| Who owns a row           | The token.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, scans, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items, and the server-written entitlements row. Four history tables, kept out of the main pull: plays, practice sessions, and scan views, which clients push once and never edit, and status changes, which the server writes when a user tune's status changes. Server-only, never synced: users, upload slots, background jobs, grants, pending comps. |
+| Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file, audio, and scan images in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes other than history events (plays, practice sessions, and scan views), or while a scan is unuploaded, each with its own message. A shape change starts it over (see Pull).                                                                                        |
+| Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                                                                                                                                                                                                                                                                                                                                                                 |
+| Host settings            | The host dashboards. Configuration says how each deployable reads them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ## Sync
 
@@ -161,6 +161,73 @@ before every request that they have not been stopped. An engine stopped
 to close one account's store during sign-out therefore never sends that
 account's request with the next account's token. The Apple app uses the
 same triggers. A return to the foreground stands in for a visible tab.
+
+## Entitlements
+
+Grants decide what an account may add. The server enforces the limits on
+additions; clients gate playback, practice, and opening a scan from the
+synced entitlements row.
+
+- Grants are the source of truth and never leave the server. One grant per
+  kind (`premium`, `storage_addon`) and source (`trial`, `apple`,
+  `stripe`, `comp`). An account is Premium while any Premium grant has no
+  expiry or expires later than now. The server never applies leeway.
+- The entitlements row is the grants' resolved copy: one per user,
+  server-written, read-only to clients. A push to it is `invalid` with
+  reason `server-written`. It reports the Premium grant that lasts
+  longest, with its source, expiry, and `auto_renews`, plus
+  `trial_ends_at`, `premium_quota_bytes`, and `free_quota_bytes`.
+  `premium_quota_bytes` is that grant's quota: the trial's when it is
+  the trial, else Premium's plus any active storage add-on.
+- Writing a comp or paid grant ends any running trial, since the rest of
+  the trial is not added on.
+- A client that starts storing entitlements resets its pull cursor to 0,
+  since the row was pulled, and skipped, before the client knew the table.
+- The row changes only when a grant is written, never when one expires.
+  A client judges expiry itself: Premium when `premium_source` is set and
+  `premium_expires_at` is null or later than now, plus 7 days when
+  `auto_renews`, so an offline device neither keeps a trial forever nor
+  loses a renewal it has not pulled yet.
+- The quota a client shows is `premium_quota_bytes` when Premium, else
+  `free_quota_bytes`, which counts scans only. Used bytes are not on the
+  row, since every upload changes them. They come from `GET /v1/me`,
+  counted the same way.
+- A new account gets a pending comp promised to its email, or else one
+  30-day trial. A pending comp whose end has passed is dropped, and the
+  trial starts. A trial is never granted twice.
+- The scan tune is the tune of the account's earliest live scan, by
+  `created_at`, then `id`. It is computed, never stored, and clients
+  apply the same rule. With no live scan, any tune may become it.
+- Each push and pull records the account's last sync, at most once an
+  hour.
+
+Only additions are refused. Edits and deletes always go through, so a
+disabled recording can still be renamed, filed, or deleted.
+
+| Addition on a free account                  | Refusal                                                |
+| ------------------------------------------- | ------------------------------------------------------ |
+| New recording row, link audio included      | Push `invalid`, reason `premium required`              |
+| New scan row off the scan tune              | Push `invalid`, reason `scans are limited to one tune` |
+| Recording upload slot                       | 403 `urn:crosstune:premium-required`                   |
+| Retry of an import whose file never arrived | 403 `urn:crosstune:premium-required`                   |
+| Scan upload slot off the scan tune          | 403 `urn:crosstune:scan-tune-only`                     |
+| Any upload slot past the quota, on any plan | 413 `urn:crosstune:quota-exceeded`                     |
+| A queued import, judged when its file is in | The recording fails with "Premium required"            |
+
+- `premium required` on a new recording row is not final. The client
+  keeps the row and its outbox entry, and pushes it again once the
+  entitlements row says Premium.
+- A restored soft-deleted recording adds nothing and is allowed. A
+  restored scan off the scan tune is refused like a new one.
+- A free account's trim is never refused. When a pushed trim differs from
+  the stored one, the server keeps the stored trim, applies the rest of
+  the row, and starts no trim job.
+- Retrying a transcode needs no Premium.
+
+The first-recording notice and the three-day trial reminder are
+timestamps on the entitlements row, set once by `POST /v1/me/notices`
+and never by a settings upsert, so a device that predates a notice cannot
+reset it.
 
 ## Sign-in
 
@@ -355,7 +422,7 @@ same triggers. A return to the foreground stands in for a visible tab.
 - The download streams to a temporary file under the per-file cap
   (`recording_max_file_bytes`) and a time limit for the whole download. The
   job uploads the file outside the user lock. Under the lock it checks the
-  quota and hands the recording to the existing transcode.
+  plan and the quota and hands the recording to the existing transcode.
 - When the import's date is still unknown, the job sets its year from the
   Slippery-Hill page. It never overwrites a date the user set.
 - A 404 or 410 on the file fails the import at once. A network failure
@@ -364,10 +431,10 @@ same triggers. A return to the foreground stands in for a visible tab.
   of any other length. A slot expired for more than an hour without a
   confirmation is released, and the runner deletes whatever its PUT left.
 - Scans move the same way: an upload slot, a PUT to R2, then a confirm.
-  One quota (`storage_quota_bytes`) covers recordings and scans. A scan's
-  image goes under the user's `scans/` key prefix. An image stored under
-  the older `notation/` prefix keeps its key, and purges and orphan
-  sweeps look under both.
+  One quota, sized by the user's plan, covers recordings and scans; a free
+  plan's covers scans only. A scan's image goes under the user's `scans/`
+  key prefix. An image stored under the older `notation/` prefix keeps its
+  key, and purges and orphan sweeps look under both.
 - ffprobe and ffmpeg read an upload only as a local file, only through the
   demuxers of the audio types an upload may declare, and run with no
   environment but `PATH`. On Linux they run under `prlimit` limits on
@@ -460,12 +527,12 @@ same triggers. A return to the foreground stands in for a visible tab.
 
 ## Environments
 
-| Environment  | API                         | Database                                    | Clerk instance | Web client                                | Recordings                                                                                        |
-| ------------ | --------------------------- | ------------------------------------------- | -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Local        | uvicorn on port 8000        | Postgres in Docker, a database per worktree | Development    | Vite dev server, proxies `/v1`            | RustFS bucket `crosstune-local`, `crosstune-wt-<name>` in a worktree                              |
-| Development  | Railway, generated hostname | Neon development                            | Development    | Worker Preview at `main-crosstune-web`    | R2 bucket `crosstune-recordings-dev`                                                              |
-| Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>`                        | Development    | Worker Preview at `<name>-crosstune-web`  | R2 bucket `crosstune-recordings-preview`, prefix `pr-<n>/`, seeded from development on every push |
-| Production   | Railway, `api.<domain>`     | Neon production                             | Production     | Worker on `my.<domain>`                   | R2 bucket `crosstune-recordings`                                                                  |
+| Environment  | API                         | Database                                    | Clerk instance | Web client                               | Recordings                                                                                        |
+| ------------ | --------------------------- | ------------------------------------------- | -------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Local        | uvicorn on port 8000        | Postgres in Docker, a database per worktree | Development    | Vite dev server, proxies `/v1`           | RustFS bucket `crosstune-local`, `crosstune-wt-<name>` in a worktree                              |
+| Development  | Railway, generated hostname | Neon development                            | Development    | Worker Preview at `main-crosstune-web`   | R2 bucket `crosstune-recordings-dev`                                                              |
+| Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>`                        | Development    | Worker Preview at `<name>-crosstune-web` | R2 bucket `crosstune-recordings-preview`, prefix `pr-<n>/`, seeded from development on every push |
+| Production   | Railway, `api.<domain>`     | Neon production                             | Production     | Worker on `my.<domain>`                  | R2 bucket `crosstune-recordings`                                                                  |
 
 Development runs the head of `main`. Production runs the commit the last
 version tag promoted. A pull request environment runs the PR branch with the

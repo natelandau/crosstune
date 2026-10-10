@@ -145,6 +145,6 @@ async def test_slot_needs_exactly_one_owner(client, auth_headers, verify_session
 
 
 async def test_me_reports_storage_quota(client, app, auth_headers) -> None:
-    app.state.settings.storage_quota_bytes = 4242
+    app.state.settings.trial_quota_bytes = 4242
     response = await client.get("/v1/me", headers=auth_headers("user_a"))
     assert response.json()["storage"]["quota_bytes"] == 4242
