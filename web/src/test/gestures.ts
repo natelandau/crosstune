@@ -5,7 +5,7 @@ import { LONG_PRESS_MS, LONG_PRESS_SLOP_PX } from '../ui/RowSwipe'
 
 const POINTER_ID = 7
 
-type PointerKind = 'touch' | 'mouse'
+type PointerKind = 'touch' | 'mouse' | 'pen'
 
 function center(element: Element): { x: number; y: number } {
   const rect = element.getBoundingClientRect()
@@ -180,8 +180,11 @@ export async function longPressDrag(
     steps = 12,
     midway,
     beforeLift,
+    pointerType = 'touch',
   }: {
     steps?: number
+    /** A pen on a touch layout holds and drags as a finger does. */
+    pointerType?: 'touch' | 'pen'
     midway?: () => void | Promise<void>
     beforeLift?: () => void | Promise<void>
   } = {},
@@ -190,7 +193,7 @@ export async function longPressDrag(
   const ownClock = !vi.isFakeTimers()
   if (ownClock) vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   try {
-    fire(target, 'pointerdown', start, 'touch')
+    fire(target, 'pointerdown', start, pointerType)
     vi.advanceTimersByTime(LONG_PRESS_MS)
   } finally {
     if (ownClock) vi.useRealTimers()
@@ -198,11 +201,11 @@ export async function longPressDrag(
   let at = start
   for (let step = 1; step <= steps; step++) {
     at = { x: start.x, y: start.y + (dy * step) / steps }
-    fire(target, 'pointermove', at, 'touch')
+    fire(target, 'pointermove', at, pointerType)
     await motionFrame()
     if (step === Math.floor(steps / 2)) await midway?.()
   }
   await beforeLift?.()
-  fire(target, 'pointerup', at, 'touch')
+  fire(target, 'pointerup', at, pointerType)
   await motionFrame()
 }

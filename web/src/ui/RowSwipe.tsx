@@ -24,7 +24,7 @@ import { Button as AriaButton, type Key } from 'react-aria-components'
 import { tap } from '../platform/haptics'
 import { useLatest } from './useLatest'
 import { SPRING } from '../theme/motion'
-import { ReorderContext, type TouchReorder } from './reorder'
+import { ReorderContext, type ReorderDrag } from './reorder'
 import type { RowAction } from './Row'
 
 /** The width of each swipe action; every action takes the same. */
@@ -140,7 +140,7 @@ interface Gesture {
   held: boolean
   movedAfterHold: boolean
   /** The reorder drag that movement after the hold began, until the finger lifts. */
-  reorder: TouchReorder | null
+  reorder: ReorderDrag | null
   locked: boolean
   closing: boolean
 }
@@ -233,7 +233,9 @@ export function RowSwipe({
 
   const onPointerDown = (event: ReactPointerEvent) => {
     // Pointer frames use hover actions; a mouse drag here belongs to text selection or reorder.
-    if (event.pointerType !== 'touch' || !event.isPrimary || event.button !== 0) return
+    // A pen on a touch layout holds and swipes as a finger does.
+    const finger = event.pointerType === 'touch' || event.pointerType === 'pen'
+    if (!finger || !event.isPrimary || event.button !== 0) return
     endGesture()
     const closing = isOpenRef.current
     const current: Gesture = {

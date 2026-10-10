@@ -120,6 +120,9 @@ folder. Compose it, never rebuild it.
 - Pointer: hover and focus show actions trailing.
 - Reorder: drag the whole row, after a long press on touch. Move is a drag
   button named "Move" plus the title, hidden until focused.
+- A mouse or pen drag runs on pointer events, never the browser's drag
+  and drop, whose drag image and drop line cannot lift a row or slide the
+  others. On a touch layout a pen holds and drags as a finger does.
 - Long press vibrates where supported once the hold takes. Release without
   movement opens the menu. Movement after the hold drags.
 

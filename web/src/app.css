@@ -16,3 +16,10 @@ body {
   background: var(--ground);
   color: var(--ink);
 }
+
+/* A row drag holds the grabbing cursor wherever the pointer goes, and selects no text. */
+html[data-row-drag],
+html[data-row-drag] * {
+  cursor: grabbing !important;
+  user-select: none;
+}
