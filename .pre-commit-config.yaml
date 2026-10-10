@@ -108,7 +108,8 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^api/
+        # The seed test reads the Mac app's marketing catalog, and compose.yml runs its database.
+        files: ^(api/|apple/Marketing/catalog\.json$|compose\.yml$|justfile$)
 
       - id: commitizen-branch
         name: commitizen check branch
@@ -145,7 +146,8 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(web|brand|fixtures)/
+        # Each path outside web/ is one a web test reads, and the root justfile runs every module.
+        files: ^(web/|brand/|fixtures/|analytics/|api/openapi\.json$|justfile$)
 
       - id: site-eslint
         name: eslint
@@ -174,7 +176,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(site|brand)/
+        files: ^(site/|brand/|justfile$)
 
       - id: apple-swift-format
         name: swift format
@@ -196,4 +198,5 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(apple/|fixtures/|api/openapi\.json$)
+        # The tracking plan test reads analytics/, and the root justfile runs every module.
+        files: ^(apple/|fixtures/|analytics/|api/openapi\.json$|justfile$)
