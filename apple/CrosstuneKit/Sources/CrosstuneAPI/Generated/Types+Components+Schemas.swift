@@ -214,6 +214,8 @@ extension Components {
             public var recordingNoticeSeenAt: Foundation.Date?
             /// - Remark: Generated from `#/components/schemas/EntitlementRow/server_seq`.
             public var serverSeq: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/trial_end_seen_at`.
+            public var trialEndSeenAt: Foundation.Date?
             /// - Remark: Generated from `#/components/schemas/EntitlementRow/trial_ends_at`.
             public var trialEndsAt: Foundation.Date?
             /// - Remark: Generated from `#/components/schemas/EntitlementRow/trial_reminder_seen_at`.
@@ -235,6 +237,7 @@ extension Components {
             ///   - premiumSource:
             ///   - recordingNoticeSeenAt:
             ///   - serverSeq:
+            ///   - trialEndSeenAt:
             ///   - trialEndsAt:
             ///   - trialReminderSeenAt:
             ///   - updatedAt:
@@ -250,6 +253,7 @@ extension Components {
                 premiumSource: Components.Schemas.GrantSource? = nil,
                 recordingNoticeSeenAt: Foundation.Date? = nil,
                 serverSeq: Swift.Int,
+                trialEndSeenAt: Foundation.Date? = nil,
                 trialEndsAt: Foundation.Date? = nil,
                 trialReminderSeenAt: Foundation.Date? = nil,
                 updatedAt: Foundation.Date,
@@ -265,6 +269,7 @@ extension Components {
                 self.premiumSource = premiumSource
                 self.recordingNoticeSeenAt = recordingNoticeSeenAt
                 self.serverSeq = serverSeq
+                self.trialEndSeenAt = trialEndSeenAt
                 self.trialEndsAt = trialEndsAt
                 self.trialReminderSeenAt = trialReminderSeenAt
                 self.updatedAt = updatedAt
@@ -281,6 +286,7 @@ extension Components {
                 case premiumSource = "premium_source"
                 case recordingNoticeSeenAt = "recording_notice_seen_at"
                 case serverSeq = "server_seq"
+                case trialEndSeenAt = "trial_end_seen_at"
                 case trialEndsAt = "trial_ends_at"
                 case trialReminderSeenAt = "trial_reminder_seen_at"
                 case updatedAt = "updated_at"

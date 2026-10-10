@@ -224,10 +224,10 @@ disabled recording can still be renamed, filed, or deleted.
   the row, and starts no trim job.
 - Retrying a transcode needs no Premium.
 
-The first-recording notice and the three-day trial reminder are
-timestamps on the entitlements row, set once by `POST /v1/me/notices`
-and never by a settings upsert, so a device that predates a notice cannot
-reset it.
+The first-recording notice, the three-day trial reminder, and the trial
+end notice are timestamps on the entitlements row, set once by
+`POST /v1/me/notices` and never by a settings upsert, so a device that
+predates a notice cannot reset it.
 
 ## Sign-in
 

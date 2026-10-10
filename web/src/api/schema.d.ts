@@ -452,6 +452,8 @@ export interface components {
             recording_notice_seen_at: string | null;
             /** Server Seq */
             server_seq: number;
+            /** Trial End Seen At */
+            trial_end_seen_at: string | null;
             /** Trial Ends At */
             trial_ends_at: string | null;
             /** Trial Reminder Seen At */
@@ -694,7 +696,7 @@ export interface components {
              * Notice
              * @enum {string}
              */
-            notice: "first_recording" | "trial_reminder";
+            notice: "first_recording" | "trial_reminder" | "trial_ended";
         };
         /**
          * PeaksUrl

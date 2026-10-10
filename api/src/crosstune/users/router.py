@@ -83,7 +83,7 @@ async def me(request: Request, user: CurrentUser, session: DbSession) -> MeRespo
     )
 
 
-Notice = Literal["first_recording", "trial_reminder"]
+Notice = Literal["first_recording", "trial_reminder", "trial_ended"]
 
 
 class NoticeRequest(BaseModel):
@@ -96,6 +96,7 @@ class NoticeRequest(BaseModel):
 NOTICE_COLUMNS: dict[Notice, str] = {
     "first_recording": "recording_notice_seen_at",
     "trial_reminder": "trial_reminder_seen_at",
+    "trial_ended": "trial_end_seen_at",
 }
 
 

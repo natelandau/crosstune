@@ -135,6 +135,31 @@ async def test_trial_reminder_notice(client, auth_headers, verify_session) -> No
     assert stored.recording_notice_seen_at is None
 
 
+async def test_trial_ended_notice_is_recorded_once_and_pulled(
+    client, auth_headers, verify_session
+) -> None:
+    headers = auth_headers("user_a")
+    first = await pull(client, headers)
+
+    response = await client.post("/v1/me/notices", json={"notice": "trial_ended"}, headers=headers)
+    assert response.status_code == 204
+    stored = await verify_session.scalar(select(Entitlement))
+    seen = stored.trial_end_seen_at
+    assert seen is not None
+    assert stored.recording_notice_seen_at is None
+    assert stored.trial_reminder_seen_at is None
+
+    (row,) = _entitlement_rows(await pull(client, headers, since=first["next_since"]))
+    assert row["trial_end_seen_at"] is not None
+
+    after = await pull(client, headers)
+    response = await client.post("/v1/me/notices", json={"notice": "trial_ended"}, headers=headers)
+    assert response.status_code == 204
+    await verify_session.rollback()
+    assert (await verify_session.scalar(select(Entitlement))).trial_end_seen_at == seen
+    assert _entitlement_rows(await pull(client, headers, since=after["next_since"])) == []
+
+
 def test_every_notice_has_a_column() -> None:
     assert set(get_args(Notice)) == set(NOTICE_COLUMNS)
     assert all(hasattr(Entitlement, column) for column in NOTICE_COLUMNS.values())
