@@ -98,7 +98,9 @@ every label. The glossary in `docs/product.md` has the reasons.
 - Every icon is a `lucide-react` named import, sized with a Tailwind
   `size-*` class and `aria-hidden` inside a control that has an accessible
   name. No inline SVG icons, no text characters as icons, no second icon
-  set. `web/src/ui/Mark.tsx` is the one inline SVG and is not an icon.
+  set. An inline SVG is only for a shape that is not an icon: the brand
+  mark, or a control's shape whose strokes animate, such as a checkbox's
+  mark or a selection ring.
   The site uses the same icons from `lucide`; `site/CLAUDE.md` says how.
 - Outbound HTTP in the API uses `httpx2`, never `httpx`.
 - A ref that mirrors the latest render's value is `useLatest` from
