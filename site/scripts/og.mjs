@@ -44,10 +44,10 @@ if (missing.length > 0) {
   throw new Error(`the home page has no ${missing.join(', ')}; update the layout in og.mjs`)
 }
 await page.addStyleTag({ content: LAYOUT })
-// The demo's camera scales on resize, so it refits to the preview's panel width.
+// The demo's camera refits to the preview's panel width on its ResizeObserver, which runs
+// before the next frame paints.
 await page.evaluate(async () => {
   await document.fonts.ready
-  window.dispatchEvent(new Event('resize'))
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
 })
 await page.screenshot({ path: 'public/og.png' })

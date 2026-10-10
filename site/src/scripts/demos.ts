@@ -16,12 +16,12 @@ export function mountDemos(
   { reducedMotion }: { reducedMotion: boolean },
 ): () => void {
   const listeners = new AbortController()
-  const demos: Demo[] = []
+  const demos = new Map<Element, Demo>()
   const byTarget = new Map<Element, Playable>()
 
   const resize = new ResizeObserver((entries) => {
     for (const entry of entries) {
-      const demo = demos.find((d) => d.cam === entry.target)
+      const demo = demos.get(entry.target)
       if (demo) demo.scale = fit(demo.cam)
     }
   })
@@ -35,7 +35,7 @@ export function mountDemos(
     const demo = new Demo(stage, def, reducedMotion)
     demo.scale = fit(cam)
     cam.dataset.ready = ''
-    demos.push(demo)
+    demos.set(cam, demo)
     resize.observe(cam)
     if (!def.script) continue
 
@@ -106,7 +106,7 @@ export function mountDemos(
     seen.disconnect()
     resize.disconnect()
     listeners.abort()
-    for (const demo of demos) {
+    for (const demo of demos.values()) {
       demo.stop()
       demo.onChange = () => {}
     }

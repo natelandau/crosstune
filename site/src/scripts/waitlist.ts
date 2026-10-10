@@ -202,19 +202,21 @@ export const clerkScriptUrl = (publishableKey: string) =>
 export async function loadClerk(publishableKey: string | undefined): Promise<WaitlistClient> {
   if (!publishableKey) throw new Error('PUBLIC_CLERK_PUBLISHABLE_KEY is not set')
   const src = clerkScriptUrl(publishableKey)
-  await new Promise<void>((resolve, reject) => {
-    const script = document.createElement('script')
-    script.src = src
-    script.async = true
-    script.crossOrigin = 'anonymous'
-    script.dataset.clerkPublishableKey = publishableKey
-    script.addEventListener('load', () => resolve())
-    script.addEventListener('error', () => {
-      script.remove()
-      reject(new Error(`Clerk did not load from ${src}`))
+  // A retry after `load()` failed reuses the script that already ran.
+  if (!window.Clerk)
+    await new Promise<void>((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = src
+      script.async = true
+      script.crossOrigin = 'anonymous'
+      script.dataset.clerkPublishableKey = publishableKey
+      script.addEventListener('load', () => resolve())
+      script.addEventListener('error', () => {
+        script.remove()
+        reject(new Error(`Clerk did not load from ${src}`))
+      })
+      document.head.append(script)
     })
-    document.head.append(script)
-  })
   const clerk = window.Clerk
   if (!clerk) throw new Error('Clerk loaded without setting window.Clerk')
   await clerk.load()

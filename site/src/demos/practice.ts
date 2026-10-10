@@ -27,7 +27,7 @@ const markup = () => `
     <div class="pf-in">
       <div class="pf-loops" data-loops><span>Loops</span><span class="lp dim">${ic('plus')}New loop</span></div>
       <div class="pf-ctl">
-        <div class="pf-tr"><span class="sk">${ic('skipb')}15</span><span class="big">${ic('pause')}</span><span class="sk">${ic('skipf')}15</span><span class="pf-time" data-cur>0:31.0</span></div>
+        <div class="pf-tr"><span class="sk">${ic('skipb')}15</span><span class="big">${ic('pause')}</span><span class="sk">${ic('skipf')}15</span><span class="pf-time" data-cur>0:22.0</span></div>
         <div class="pf-box">
           <div class="pf-lab"><span>Speed</span><span data-spd>100%</span></div>
           <div class="pf-slider"><i class="f" data-fill style="width:100%"></i><i class="th" data-thumb style="left:100%"></i></div>

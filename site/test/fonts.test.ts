@@ -28,4 +28,14 @@ describe('subset fonts', () => {
       expect([...missing]).toEqual([])
     },
   )
+
+  // Demo scripts write text after load, which the built pages never show.
+  it('keeps every character the demo scripts write', () => {
+    const demos = resolve(import.meta.dirname, '../src/demos')
+    const source = readdirSync(demos)
+      .map((name) => readFileSync(join(demos, name), 'utf8'))
+      .join('')
+    const missing = new Set([...source].filter((c) => !/\s/.test(c) && !FONT_CHARS.includes(c)))
+    expect([...missing]).toEqual([])
+  })
 })

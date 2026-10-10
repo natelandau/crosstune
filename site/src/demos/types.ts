@@ -18,6 +18,4 @@ export type DemoDef = {
   markup: () => string
   /** What happens, from the first frame. A demo without one is a still. */
   script?: (d: Demo) => Promise<void>
-  /** Plays once instead of looping. */
-  loop?: boolean
 }

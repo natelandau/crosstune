@@ -16,4 +16,5 @@ export const FONT_CHARS = [
   '−',
   '▶',
   '♯',
+  '♭',
 ].join('')

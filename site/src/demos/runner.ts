@@ -31,6 +31,8 @@ export class Demo {
   private token = 0
   private started = false
   private timers = new Set<ReturnType<typeof setTimeout>>()
+  /** Tweens parked while paused, so a paused demo schedules no frames. */
+  private parked = new Set<() => void>()
 
   constructor(
     stage: HTMLElement,
@@ -58,7 +60,16 @@ export class Demo {
       let last = performance.now()
       const tick = (now: number) => {
         if (t !== this.token) return reject(ABORT)
-        if (!this.paused) elapsed += now - last
+        if (this.paused) {
+          const resume = () => {
+            last = performance.now()
+            requestAnimationFrame(tick)
+          }
+          this.parked.add(resume)
+          return
+        }
+        // A frame's timestamp can predate the `performance.now()` taken just before it.
+        elapsed += Math.max(0, now - last)
         last = now
         const p = Math.min(1, elapsed / ms)
         fn(ease(p))
@@ -165,7 +176,7 @@ export class Demo {
         this.reset()
         await this.wait(500)
         await script(this)
-        if (this.instant || this.def.loop === false) break
+        if (this.instant) break
         await this.wait(1800)
         this.stage.classList.add('fading')
         await this.wait(380)
@@ -176,6 +187,13 @@ export class Demo {
     }
   }
 
+  /** Restarts parked tweens; after a stop or replay they see the new token and abort. */
+  private unpark(): void {
+    const parked = [...this.parked]
+    this.parked.clear()
+    for (const resume of parked) resume()
+  }
+
   play(): void {
     this.paused = false
     this.stage.classList.remove('paused')
@@ -183,6 +201,7 @@ export class Demo {
       this.started = true
       void this.run()
     }
+    this.unpark()
     this.onChange()
   }
 
@@ -198,6 +217,7 @@ export class Demo {
     this.paused = false
     this.stage.classList.remove('paused')
     void this.run()
+    this.unpark()
     this.onChange()
   }
 
@@ -208,6 +228,7 @@ export class Demo {
     this.paused = true
     for (const timer of this.timers) clearTimeout(timer)
     this.timers.clear()
+    this.unpark()
     this.stage.classList.remove('paused', 'fading')
     this.stage.innerHTML = this.def.markup()
     place(this.cam)

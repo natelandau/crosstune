@@ -3,6 +3,7 @@
 // Search copy says fiddle, the word players type.
 import { APP_URL, NATE_EMAIL, SUPPORT_EMAIL } from './actions'
 import { FAQ } from './faq'
+import { HERO_TITLE } from './hero'
 import { MAKER_BAND } from './maker'
 import { PLAN_FREE, PLAN_PREMIUM, PRICES } from './pricing'
 
@@ -11,8 +12,7 @@ export const HOME_DESCRIPTION =
   'Tunes with the recordings you learn from. Slow them down, loop, record your own. Free tune list for fiddle and banjo: old-time, bluegrass, Irish, folk, by ear.'
 
 /** Describes `public/og.png`, which `just site::og` takes from the hero. */
-export const OG_IMAGE_ALT =
-  'The Crosstune headline, "The app for musicians who learn by ear," above the tune catalog in a web browser and Soldier\'s Joy on an iPhone.'
+export const OG_IMAGE_ALT = `The Crosstune headline, "${HERO_TITLE}," above the tune catalog in a web browser and Soldier's Joy on an iPhone.`
 
 const SITE = 'https://crosstune.app/'
 
