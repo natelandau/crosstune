@@ -15,7 +15,7 @@ function Tab({ id }: { id: Destination }) {
       to={id}
       href={spec.root}
       current={isCurrent}
-      className={`relative flex h-[52px] flex-col items-center justify-center gap-1 text-[0.625rem] leading-none font-semibold transition-colors duration-(--dur-short) ease-(--ease) ${isCurrent ? 'text-slate' : 'text-ink'}`}
+      className={`relative flex h-[52px] flex-col items-center justify-center gap-1 text-[0.625rem] leading-none font-semibold transition-colors duration-(--dur-short) ease-(--ease) ${isCurrent ? 'text-action' : 'text-ink'}`}
     >
       {/* One pill shared across the tabs, so choosing a tab slides it there. */}
       {isCurrent && (

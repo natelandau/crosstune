@@ -70,9 +70,11 @@ Decide any case the rules below do not name.
 
 ## Color and type
 
-- Slate: the one accent. Chosen state, selection, focus ring, primary
-  button. A label on slate takes the on-slate token, never white, because
-  dark slate is a light color.
+- Slate: the one accent. Chosen state, selection, focus ring. A label on
+  slate takes the on-slate token, never white, because dark slate is a
+  light color.
+- A solid control (primary button, a loaded transport disc) fills with
+  jet in light and alabaster in dark, its label in the on-accent token.
 - Coral: the mark, the selected sidebar row's glyph, the playhead of
   anything that plays back, every loop handle. Nothing else. An editing
   strip's playhead (trim) stays plain.
@@ -214,7 +216,8 @@ One row component per platform for every list of tunes.
 ### Recording and link rows
 
 - Two lines: title in body, details in secondary. A fixed leading glyph
-  slot shows state. Idle play glyph secondary, loaded item's glyph slate.
+  slot shows state. The transport glyph sits in a disc: tinted while idle,
+  solid once it holds what plays.
 - The row is the control and always answers a tap: play, download, embed,
   or open the provider.
 - Title: most specific name (typed, resolved, then composed from the date).

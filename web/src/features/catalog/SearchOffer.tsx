@@ -4,6 +4,7 @@ import { Button as AriaButton } from 'react-aria-components'
 import { OPEN, addOfferLabel, hiddenMatchText, openTuneName } from './catalogCopy'
 import type { SearchOutcome } from './searchIntent'
 import { destination } from '../../app/destinations'
+import { ROW_PRESS } from '../../ui/press'
 
 const CATALOG = destination('catalog')
 
@@ -20,7 +21,7 @@ export function SearchOffer({
     <div className="px-2">
       <AriaButton
         onPress={() => onCreate(outcome.title)}
-        className="t-body text-slate flex min-h-(--target) w-full items-center gap-3 rounded-(--radius-row) px-3 text-start data-[pressed]:opacity-60"
+        className={`t-body text-action flex min-h-(--target) w-full items-center gap-3 rounded-(--radius-row) px-3 text-start ${ROW_PRESS}`}
       >
         <Plus className="size-5 shrink-0" aria-hidden />
         <span className="min-w-0 truncate">{addOfferLabel(outcome)}</span>
@@ -45,7 +46,7 @@ export function HiddenMatch({
       <Link
         to={`${CATALOG.root}/${entry.tune.id}`}
         aria-label={openTuneName(entry.tune.title)}
-        className="text-slate -my-3 inline-flex min-h-(--target) min-w-(--target) items-center justify-center"
+        className="text-action -my-3 inline-flex min-h-(--target) min-w-(--target) items-center justify-center"
         onClick={(event) => {
           if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
           event.preventDefault()

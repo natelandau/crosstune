@@ -38,7 +38,7 @@ import { NOT_SET } from '../../ui/fieldCopy'
 import { KEY } from '../../ui/keyName'
 import { useLatest } from '../../ui/useLatest'
 import { ErrorLine } from '../../ui/ErrorLine'
-import { FIELD_ROW } from '../../ui/form/FieldRow'
+import { FIELD_ROW_PRESSABLE } from '../../ui/form/FieldRow'
 import { Group } from '../../ui/form/Group'
 import { PartialDateField } from '../../ui/form/PartialDateField'
 import { Picker } from '../../ui/form/Picker'
@@ -350,7 +350,7 @@ function ModeRows({ form }: { form: TuneForm }) {
       {canAddPartMode(form.values.modes) && (
         <AriaButton
           onPress={form.addPartMode}
-          className={`${FIELD_ROW} text-slate cursor-default data-[pressed]:opacity-60`}
+          className={`${FIELD_ROW_PRESSABLE} text-action font-medium`}
         >
           <Plus className="size-5 shrink-0" aria-hidden />
           {ADD_PART_MODE}

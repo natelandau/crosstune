@@ -9,6 +9,7 @@
 @import './features/practice/practice.css';
 @import './features/capture/record.css';
 @import './ui/focus.css';
+@import './ui/controls.css';
 
 body {
   font-family: var(--font-sans);

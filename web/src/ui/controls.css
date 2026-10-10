@@ -1,0 +1,364 @@
+/* Control shapes and motions that utilities cannot express: keyframes, clip-path morphs, and
+   rules that read a parent's state. Every motion here answers the musician's own action. */
+
+/* ---------- Switch ---------- */
+
+/* iOS's switch on touch, a smaller one on pointer so it sits inside a 32px row. */
+:root {
+  --switch-w: 51px;
+  --switch-h: 31px;
+}
+html[data-density='pointer'] {
+  --switch-w: 34px;
+  --switch-h: 20px;
+}
+
+/* The knob runs the track's full height, ringed in the track's color; on, it holds a check. */
+.switch-track {
+  --track: var(--switch-off);
+  position: relative;
+  flex-shrink: 0;
+  width: var(--switch-w);
+  height: var(--switch-h);
+  border-radius: var(--radius-capsule);
+  background: var(--track);
+  transition: background-color var(--dur-short) var(--ease);
+}
+.switch-thumb {
+  --size: var(--switch-h);
+  /* The knob widens while held, toward the side it would travel to. */
+  --stretch: calc(var(--size) * 0.24);
+  --ring: max(2px, calc(var(--switch-h) * 0.07));
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: var(--size);
+  height: var(--size);
+  border-radius: var(--radius-capsule);
+  background: var(--knob);
+  color: var(--track);
+  box-shadow:
+    inset 0 0 0 var(--ring) var(--track),
+    0 1px 3px rgb(0 0 0 / 0.18);
+  transition:
+    translate var(--dur-base) var(--ease),
+    width var(--dur-short) var(--ease),
+    box-shadow var(--dur-short) var(--ease),
+    color var(--dur-short) var(--ease);
+}
+/* A light track's color is too faint on the white knob. */
+:root[data-scheme='dark'] .switch-thumb svg {
+  color: var(--on-accent);
+}
+.switch-thumb svg {
+  opacity: 0;
+  scale: 0.4;
+  transition:
+    opacity 120ms var(--ease),
+    scale var(--dur-base) var(--ease);
+}
+
+[data-hovered]:not([data-selected]) > .switch-track {
+  --track: color-mix(in srgb, var(--switch-off), var(--ink) 22%);
+}
+/* Toward the ground, so the on track never pales behind the white knob. */
+[data-hovered][data-selected] > .switch-track {
+  --track: color-mix(in srgb, var(--switch-on), var(--ground) 18%);
+}
+[data-selected] > .switch-track {
+  --track: var(--switch-on);
+}
+[data-selected] > .switch-track > .switch-thumb {
+  translate: calc(var(--switch-w) - var(--switch-h)) 0;
+}
+[data-selected] > .switch-track svg {
+  opacity: 1;
+  scale: 1;
+  transition-delay: 60ms;
+}
+[data-pressed] > .switch-track > .switch-thumb {
+  width: calc(var(--size) + var(--stretch));
+}
+[data-pressed][data-selected] > .switch-track > .switch-thumb {
+  translate: calc(var(--switch-w) - var(--switch-h) - var(--stretch)) 0;
+}
+[data-focus-visible] > .switch-track {
+  outline: 2px solid var(--slate);
+  outline-offset: 2px;
+}
+
+/* ---------- Checkbox ---------- */
+
+/* The box's outline erases itself as the check strokes in along the same path, and runs back
+   on uncheck. Path lengths are the drawn lengths, so the dash values hide and show each whole. */
+.check-mark path {
+  stroke-dasharray: 60;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 200ms ease 150ms;
+}
+.check-mark polyline {
+  stroke-dasharray: 22;
+  stroke-dashoffset: 66;
+  transition: stroke-dashoffset 150ms linear;
+}
+[data-selected] > .check-mark path {
+  stroke-dashoffset: 60;
+  transition: stroke-dashoffset 300ms linear;
+}
+[data-selected] > .check-mark polyline {
+  stroke-dashoffset: 42;
+  transition: stroke-dashoffset 200ms linear 150ms;
+}
+
+/* ---------- Status ring trace ---------- */
+
+/* A chosen status chip's ring. Chosen by a press, one segment runs along the chip's edge, then
+   closes into the full ring, which stays. With no run, the ring is drawn whole. */
+.trace-ring {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.trace-ring rect {
+  fill: none;
+  stroke: var(--trace);
+  stroke-width: 2;
+}
+.trace-ring .trace-lead {
+  stroke-linecap: round;
+}
+.trace-ring .trace-track {
+  opacity: 0;
+}
+.trace-ring[data-run] .trace-lead {
+  animation: trace-settle 700ms cubic-bezier(0.45, 0.05, 0.35, 1) both;
+}
+.trace-ring[data-run] .trace-track {
+  animation: trace-track-out 700ms linear both;
+}
+@keyframes trace-settle {
+  0% {
+    stroke-dasharray: 22 78;
+    stroke-dashoffset: 0;
+  }
+  72% {
+    stroke-dasharray: 22 78;
+    stroke-dashoffset: -78;
+  }
+  100% {
+    stroke-dasharray: 100 0;
+    stroke-dashoffset: -100;
+  }
+}
+@keyframes trace-track-out {
+  0%,
+  72% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---------- Key flood ---------- */
+
+/* Five bubbles of the chosen color sit just outside the pill's edges. Chosen, each swells in
+   place, so the color closes in from every side and covers the label last. Losing the choice
+   clears at once, so only the new key moves. */
+.key-flood {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.key-flood .flood-blob {
+  position: absolute;
+  z-index: -1;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  border-radius: 50%;
+  background: var(--pill-fill);
+}
+.key-flood .flood-blob:nth-child(1) {
+  left: -12px;
+  top: 50%;
+}
+.key-flood .flood-blob:nth-child(2) {
+  left: calc(100% + 12px);
+  top: 50%;
+}
+.key-flood .flood-blob:nth-child(3) {
+  left: 30%;
+  top: -12px;
+}
+.key-flood .flood-blob:nth-child(4) {
+  left: 70%;
+  top: calc(100% + 12px);
+}
+.key-flood .flood-blob:nth-child(5) {
+  left: 75%;
+  top: -12px;
+}
+.key-flood[data-chosen] .flood-blob {
+  scale: 3.6;
+  transition: scale 650ms cubic-bezier(0.3, 0.1, 0.5, 1);
+}
+.key-flood[data-chosen] .flood-blob:nth-child(2) {
+  transition-delay: 40ms;
+}
+.key-flood[data-chosen] .flood-blob:nth-child(4) {
+  transition-delay: 70ms;
+}
+.key-flood[data-chosen] {
+  transition: color 200ms ease 380ms;
+}
+
+/* ---------- Transport glyph ---------- */
+
+/* One shape for play, stop, and pause, so a change between them morphs. Each is two halves joined
+   by a seam of no width down its middle: pause's two bars, stop's two halves, and play's body and
+   tip. Every outline traces its twelve points in the same order, so each half becomes its partner
+   in the next shape rather than crossing it. Play sits right of center to look centered. */
+.transport {
+  background: currentColor;
+  transition: clip-path 300ms cubic-bezier(0.3, 0.7, 0.3, 1);
+}
+.transport[data-shape='play'] {
+  clip-path: polygon(
+    22% 8%,
+    59% 29%,
+    59% 50%,
+    59% 50%,
+    59% 29%,
+    96% 50%,
+    96% 50%,
+    59% 71%,
+    59% 50%,
+    59% 50%,
+    59% 71%,
+    22% 92%
+  );
+}
+.transport[data-shape='stop'] {
+  clip-path: polygon(
+    12% 12%,
+    50% 12%,
+    50% 50%,
+    50% 50%,
+    50% 12%,
+    88% 12%,
+    88% 88%,
+    50% 88%,
+    50% 50%,
+    50% 50%,
+    50% 88%,
+    12% 88%
+  );
+}
+.transport[data-shape='pause'] {
+  clip-path: polygon(
+    14% 8%,
+    40% 8%,
+    40% 50%,
+    60% 50%,
+    60% 8%,
+    86% 8%,
+    86% 92%,
+    60% 92%,
+    60% 50%,
+    40% 50%,
+    40% 92%,
+    14% 92%
+  );
+}
+
+/* ---------- Hover motion ---------- */
+
+/* A filled button rises a pixel under the pointer, and a glyph moves the way its action goes. */
+@media (hover: hover) {
+  [data-lift][data-hovered]:not([data-disabled], [aria-disabled='true']) {
+    translate: 0 -1px;
+    box-shadow: 0 6px 16px -6px rgb(0 0 0 / 0.35);
+  }
+  [data-hovered]:not([data-disabled], [aria-disabled='true']) > [data-motion='forward'] {
+    translate: 3px 0;
+  }
+  [data-hovered]:not([data-disabled], [aria-disabled='true']) > [data-motion='back'],
+  :hover:not([data-disabled], [aria-disabled='true'], :disabled) > [data-motion='back'] {
+    translate: -3px 0;
+  }
+  [data-hovered]:not([data-disabled], [aria-disabled='true']) > [data-motion='down'] {
+    translate: 0 3px;
+  }
+  [data-hovered]:not([data-disabled], [aria-disabled='true']) > [data-motion='turn'] {
+    rotate: 90deg;
+  }
+  [data-hovered]:not([data-disabled], [aria-disabled='true']) > [data-motion='spin-forward'] {
+    rotate: 40deg;
+  }
+  [data-hovered]:not([data-disabled], [aria-disabled='true']) > [data-motion='spin-back'] {
+    rotate: -40deg;
+  }
+  [data-hovered]:not([data-disabled], [aria-disabled='true']) > [data-motion='grow'] {
+    scale: 1.15;
+  }
+  [data-hovered]:not([data-disabled], [aria-disabled='true']) > [data-motion='shrink'] {
+    scale: 0.87;
+  }
+  [data-hovered]:not([data-disabled], [aria-disabled='true']) > [data-motion='twitch'] {
+    animation: glyph-twitch 450ms var(--ease);
+  }
+  [data-hovered]:not([data-disabled], [aria-disabled='true'])
+    > [data-motion='spread']
+    circle:first-of-type {
+    translate: -1.5px 0;
+  }
+  [data-hovered]:not([data-disabled], [aria-disabled='true'])
+    > [data-motion='spread']
+    circle:last-of-type {
+    translate: 1.5px 0;
+  }
+}
+[data-motion],
+[data-motion] circle {
+  transition:
+    translate var(--dur-base) var(--ease),
+    rotate 300ms var(--ease),
+    scale var(--dur-base) var(--ease);
+}
+@keyframes glyph-twitch {
+  35% {
+    rotate: -10deg;
+    scale: 1.08;
+  }
+  70% {
+    rotate: 6deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trace-ring[data-run] .trace-lead,
+  .trace-ring[data-run] .trace-track,
+  [data-motion],
+  .transport {
+    animation: none !important;
+  }
+  .check-mark *,
+  .transport,
+  .key-flood,
+  .key-flood .flood-blob,
+  .switch-thumb,
+  .switch-thumb svg {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+  [data-motion],
+  [data-lift] {
+    translate: none !important;
+    rotate: none !important;
+    scale: none !important;
+  }
+}

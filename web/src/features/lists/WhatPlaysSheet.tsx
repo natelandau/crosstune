@@ -12,7 +12,7 @@ import type { ListItemView } from './useLists'
 import type { PlaylistReport, SkipReason } from '../player/listSource'
 import { DONE } from '../../ui/confirmCopy'
 import { tunePick } from '../tune/tunePick'
-import { FIELD_ROW } from '../../ui/form/FieldRow'
+import { FIELD_ROW_PRESSABLE } from '../../ui/form/FieldRow'
 import { Group } from '../../ui/form/Group'
 import { Sheet } from '../../ui/Sheet'
 
@@ -65,7 +65,7 @@ export function WhatPlaysSheet({
                 <AriaButton
                   key={`${tuneId}-${index}`}
                   onPress={() => open(tuneId)}
-                  className={`${FIELD_ROW} cursor-default data-[pressed]:opacity-60`}
+                  className={FIELD_ROW_PRESSABLE}
                 >
                   <span className="min-w-0 flex-1 truncate">{titles.get(tuneId) ?? ''}</span>
                 </AriaButton>

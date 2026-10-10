@@ -99,7 +99,7 @@ export function ListTuneRow({
               <>
                 <Volume2
                   data-playing-glyph
-                  className="text-slate size-4 motion-safe:animate-pulse"
+                  className="text-action size-4 motion-safe:animate-pulse"
                   aria-hidden
                 />
                 <span className="sr-only">{position}</span>

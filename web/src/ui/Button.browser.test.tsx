@@ -63,11 +63,11 @@ it('keeps a capsule hit area at the filter target on touch', async () => {
   await expect.poll(hit).toBe('44px')
 })
 
-it('sets a primary button in bold over the body role', async () => {
+it('sets a primary button in semibold over the body role', async () => {
   renderWithProviders(<Button label="Save" variant="primary" />)
   const weight = () =>
     getComputedStyle(page.getByRole('button', { name: 'Save' }).element()).fontWeight
-  await expect.poll(weight).toBe('700')
+  await expect.poll(weight).toBe('600')
 })
 
 it.each([
@@ -119,11 +119,11 @@ it.each([
     />,
     removeFilterLabel('Reel'),
   ],
-] as const)('dims %s while it is pressed', async (_, ui, name) => {
+] as const)('squeezes %s while it is pressed', async (_, ui, name) => {
   renderWithProviders(ui)
   const button = page.getByRole('button', { name, exact: true })
   await expect.element(button).toBeVisible()
-  const opacity = () => Number(getComputedStyle(button.element()).opacity)
+  const scale = () => getComputedStyle(button.element()).scale
   const fire = (type: string) =>
     button.element().dispatchEvent(
       new PointerEvent(type, {
@@ -138,9 +138,9 @@ it.each([
     )
   fire('pointerdown')
   await expect.element(button).toHaveAttribute('data-pressed', 'true')
-  await expect.poll(opacity).toBe(0.6)
+  await expect.poll(scale).toMatch(/^0\.96\b/)
   fire('pointerup')
-  await expect.poll(opacity).toBe(1)
+  await expect.poll(scale).toBe('none')
 })
 
 it('keeps an icon button, and its focus, when the density changes', async () => {

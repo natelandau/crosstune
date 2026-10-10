@@ -10,7 +10,7 @@ import {
 } from '../lists/listsCopy'
 import { useListPicker, type ListAddition } from '../lists/useListPicker'
 import { Button } from '../../ui/Button'
-import { FIELD_ROW } from '../../ui/form/FieldRow'
+import { FIELD_ROW_PRESSABLE } from '../../ui/form/FieldRow'
 import { Group } from '../../ui/form/Group'
 import { TextField } from '../../ui/form/TextField'
 import { Sheet } from '../../ui/Sheet'
@@ -65,7 +65,7 @@ export function ListPickerSheet({
               key={row.id}
               isDisabled={row.disabled}
               onPress={() => picker.add(row.id)}
-              className={`${FIELD_ROW} cursor-default disabled:opacity-40 data-[pressed]:opacity-60`}
+              className={`${FIELD_ROW_PRESSABLE} disabled:opacity-40`}
             >
               <span className="min-w-0 flex-1 truncate text-start">{row.name}</span>
               {row.note && <span className="t-secondary t-num text-ink-2">{row.note}</span>}
@@ -102,7 +102,7 @@ export function ListPickerSheet({
             <AriaButton
               isDisabled={pending}
               onPress={() => picker.setCreating(true)}
-              className={`${FIELD_ROW} text-slate cursor-default disabled:opacity-40 data-[pressed]:opacity-60`}
+              className={`${FIELD_ROW_PRESSABLE} text-action font-medium disabled:opacity-40`}
             >
               <Plus className="size-5 shrink-0" aria-hidden />
               {NEW_LIST_ITEM}

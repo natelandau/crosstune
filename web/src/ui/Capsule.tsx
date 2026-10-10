@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import type { ReactNode, Ref } from 'react'
 import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react-aria-components'
+import { PRESS } from './press'
 
 export interface CapsuleProps extends Omit<
   AriaButtonProps,
@@ -24,11 +25,10 @@ export const CAPSULE_HIT =
 const SHAPE =
   't-secondary inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3'
 
-// Matches Button's pressed state.
-const PRESS = 'transition-opacity duration-(--dur-short) ease-(--ease) data-[pressed]:opacity-60'
-
 function tone(set: boolean | undefined): string {
-  return set ? 'bg-set-fill text-set-label' : 'bg-fill text-ink'
+  return set
+    ? 'bg-set-fill font-medium text-set-label hover:bg-tint-strong'
+    : 'bg-fill text-ink hover:bg-fill-hover'
 }
 
 export function Capsule({ label, children, set, onRemove, removeLabel, ...rest }: CapsuleProps) {

@@ -62,6 +62,7 @@ import { TuneHeader } from './TuneHeader'
 import { isQuietPick } from './tunePick'
 import { TuneScans } from './TuneScans'
 import { readTuneTitle, rememberTuneTitle } from './tuneTitle'
+import { ROW_PRESS } from '../../ui/press'
 
 const NO_RECORDINGS: readonly RecordingView[] = []
 const NO_LINKS: readonly LocalRecordingLink[] = []
@@ -350,7 +351,7 @@ function TuneSections({
         <PageSection title={LYRICS_SECTION} addLabel={EDIT_LYRICS} addIcon={Pencil} onAdd={onEdit}>
           <AriaButton
             onPress={onReadLyrics}
-            className="-mx-3 flex min-h-(--target) w-[calc(100%+1.5rem)] cursor-default flex-col items-start rounded-(--radius-row) px-3 py-1.5 text-start data-[pressed]:opacity-60"
+            className={`-mx-3 flex min-h-(--target) w-[calc(100%+1.5rem)] flex-col items-start rounded-(--radius-row) px-3 py-1.5 text-start ${ROW_PRESS}`}
           >
             <span className="t-body">{OPEN_LYRICS}</span>
             {opening && <span className="t-secondary text-ink-2 truncate">{opening}</span>}

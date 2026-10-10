@@ -63,7 +63,7 @@ export function QueueControls({ tone }: { tone: 'dock' | 'practice' }) {
             label={label}
             iconOnly
             // A toggle that is on takes the fill, so on and off read apart at a glance.
-            variant={pressed ? 'quiet' : 'plain'}
+            variant={pressed ? 'tinted' : 'plain'}
             aria-pressed={pressed}
             onPress={onPress}
           />

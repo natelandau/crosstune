@@ -114,7 +114,7 @@ export function TuneSearchList({
                       // The taken rows hold the same width, so every title starts on one line.
                       <Plus
                         aria-hidden
-                        className={`size-5 shrink-0 ${inert ? 'invisible' : 'text-slate'}`}
+                        className={`size-5 shrink-0 ${inert ? 'invisible' : 'text-action'}`}
                       />
                     }
                     note={inert ? taken?.note : undefined}

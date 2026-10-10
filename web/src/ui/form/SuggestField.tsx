@@ -157,7 +157,7 @@ export function SuggestField({
                 {({ isSelected }) => (
                   <>
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    {isSelected && <Check className="text-slate size-5 shrink-0" aria-hidden />}
+                    {isSelected && <Check className="text-action size-5 shrink-0" aria-hidden />}
                   </>
                 )}
               </ListBoxItem>

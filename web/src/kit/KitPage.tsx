@@ -24,7 +24,7 @@ const DENSITIES = [
   ['pointer', 'Pointer'],
 ] as const
 
-const VARIANTS: readonly ButtonVariant[] = ['primary', 'plain', 'quiet', 'destructive']
+const VARIANTS: readonly ButtonVariant[] = ['primary', 'plain', 'tinted', 'destructive']
 
 const TYPE_ROLES = [
   ['t-page-title', 'Page title'],
@@ -83,8 +83,8 @@ function MenuSection() {
           ]}
           destructive={[{ id: 'delete', label: 'Delete', icon: Trash2, onAction: () => {} }]}
         />
-        <Button variant="quiet" label="Confirm delete" onPress={() => void ask(DELETE_JOY)} />
-        <Button variant="quiet" label="Confirm caution" onPress={() => void ask(ARCHIVE_JOY)} />
+        <Button variant="tinted" label="Confirm delete" onPress={() => void ask(DELETE_JOY)} />
+        <Button variant="tinted" label="Confirm caution" onPress={() => void ask(ARCHIVE_JOY)} />
         <span className="t-secondary" role="status">
           {answer}
         </span>
@@ -132,7 +132,7 @@ function ChromeSection() {
       </FilterRow>
       <div className="flex flex-wrap items-center gap-3 py-2">
         <Button
-          variant="quiet"
+          variant="tinted"
           label="Show toast"
           onPress={() => show('Archived 3 tunes', () => {})}
         />
@@ -165,10 +165,10 @@ function SheetSection() {
         Sheets
       </h2>
       <div className="flex flex-wrap items-center gap-3 py-2">
-        <Button variant="quiet" label="Part-height sheet" onPress={() => setShown('part')} />
-        <Button variant="quiet" label="Full-height sheet" onPress={() => setShown('full')} />
+        <Button variant="tinted" label="Part-height sheet" onPress={() => setShown('part')} />
+        <Button variant="tinted" label="Full-height sheet" onPress={() => setShown('full')} />
         <Button
-          variant="quiet"
+          variant="tinted"
           label="Locked sheet"
           onPress={() => {
             setTitle('')

@@ -10,6 +10,7 @@ import { useRecordState } from '../capture/RecordState'
 import { messageFor } from '../../ui/useAction'
 import { Button } from '../../ui/Button'
 import { WhatPlaysSheet } from './WhatPlaysSheet'
+import { PRESS } from '../../ui/press'
 
 /**
  * Play and Shuffle for a list, over the line that says how many of its tunes will play. The
@@ -43,6 +44,7 @@ export function ListPlayRow({
           <Button
             variant="primary"
             icon={Play}
+            solidIcon
             label={PLAY}
             fullWidth
             isDisabled={disabled}
@@ -51,7 +53,7 @@ export function ListPlayRow({
         </div>
         <div className="flex-1">
           <Button
-            variant="quiet"
+            variant="tinted"
             icon={Shuffle}
             label={SHUFFLE}
             fullWidth
@@ -66,7 +68,7 @@ export function ListPlayRow({
           <AriaButton
             aria-describedby={hintId}
             onPress={() => setExplaining(true)}
-            className="t-secondary text-ink-2 min-h-(--target-control) text-start data-[pressed]:opacity-60"
+            className={`t-secondary text-ink-2 hover:text-ink min-h-(--target-control) text-start underline-offset-4 hover:underline ${PRESS}`}
           >
             {report.playable.length === 0
               ? NOTHING_PLAYS

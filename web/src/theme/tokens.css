@@ -6,6 +6,25 @@
   --ink-2: #6b7280;
   --slate: #4f5d75;
   --on-slate: #ffffff;
+  /* The fill of a solid control, such as a primary button or an on switch, and its hover. */
+  --accent: var(--jet);
+  --on-accent: #ffffff;
+  --accent-hover: #4a4f63;
+  /* The text and glyph of a control that has no fill of its own. */
+  --action: var(--jet);
+  /* A tinted control's fill, a plain control's hover, and a tinted control's hover. */
+  --tint: color-mix(in srgb, var(--slate) 12%, transparent);
+  --tint-hover: color-mix(in srgb, var(--slate) 22%, transparent);
+  --tint-strong: color-mix(in srgb, var(--slate) 32%, transparent);
+  --fill-hover: #dfe2e8;
+  --row-hover: color-mix(in srgb, var(--slate) 8%, transparent);
+  /* A filled control that is off: a neutral shape that still stands apart from the ground. */
+  --disabled-fill: #e6e8ec;
+  --disabled-ink: #6b7280;
+  /* An off switch's track, dark enough to clear 3:1 on its row and the ground, and an on one's. */
+  --switch-off: #848a94;
+  --switch-on: var(--accent);
+  --knob: #ffffff;
   --coral: #ef8354;
   --jet: #2d3142;
   --record: #ff3b30;
@@ -25,7 +44,7 @@
   /* The playing row's wash, lighter than a selection's so the two read apart. */
   --play-wash: color-mix(in srgb, var(--slate) 6%, transparent);
   --set-fill: color-mix(in srgb, var(--slate) 14%, transparent);
-  --set-label: var(--slate);
+  --set-label: var(--action);
   /* The navigation surfaces' tint, the Mac sidebar's: slate at 15% over the ground, 20% in
      dark, flattened so tests can measure it. Secondary ink and the unknown ring darken on it to
      keep their contrast. */
@@ -113,6 +132,21 @@
   --ink-2: #9aa0ab;
   --slate: #8e9bb3;
   --on-slate: #16181d;
+  /* The site's alabaster with its jet label: the light scheme's jet control, inverted. */
+  --accent: #dfe0e0;
+  --on-accent: #2d3142;
+  --accent-hover: #ffffff;
+  --action: var(--ink);
+  --tint: color-mix(in srgb, var(--slate) 16%, transparent);
+  --tint-hover: color-mix(in srgb, var(--slate) 28%, transparent);
+  --tint-strong: color-mix(in srgb, var(--slate) 38%, transparent);
+  --fill-hover: #353841;
+  --row-hover: color-mix(in srgb, var(--slate) 10%, transparent);
+  --disabled-fill: #363942;
+  --disabled-ink: #a3a9b4;
+  --switch-off: #6e7482;
+  /* A white knob would vanish on an alabaster track, and fall under 3:1 on slate. */
+  --switch-on: #8390a8;
   --jet: #1e212c;
   --record: #ff453a;
   --known: #30d158;
@@ -207,6 +241,17 @@
   --color-ink-2: var(--ink-2);
   --color-slate: var(--slate);
   --color-on-slate: var(--on-slate);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-disabled-fill: var(--disabled-fill);
+  --color-disabled-ink: var(--disabled-ink);
+  --color-action: var(--action);
+  --color-tint: var(--tint);
+  --color-tint-hover: var(--tint-hover);
+  --color-tint-strong: var(--tint-strong);
+  --color-fill-hover: var(--fill-hover);
+  --color-row-hover: var(--row-hover);
   --color-coral: var(--coral);
   --color-jet: var(--jet);
   --color-record: var(--record);

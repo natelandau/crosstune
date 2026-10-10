@@ -22,6 +22,9 @@ export interface Palette {
   nav: string
   navInk2: string
   navUnknown: string
+  switchOff: string
+  switchOn: string
+  knob: string
 }
 
 export const PALETTE: Record<Scheme, Palette> = {
@@ -45,6 +48,9 @@ export const PALETTE: Record<Scheme, Palette> = {
     nav: '#E5E7EA',
     navInk2: '#5B6270',
     navUnknown: '#737983',
+    switchOff: '#848A94',
+    switchOn: '#2D3142',
+    knob: '#FFFFFF',
   },
   dark: {
     ground: '#16181D',
@@ -66,5 +72,8 @@ export const PALETTE: Record<Scheme, Palette> = {
     nav: '#2E323B',
     navInk2: '#9AA0AB',
     navUnknown: '#8A909A',
+    switchOff: '#6E7482',
+    switchOn: '#8390A8',
+    knob: '#FFFFFF',
   },
 }

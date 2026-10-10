@@ -11,7 +11,7 @@ import { countTunes } from '../selection/copy'
 import { useStampedDensity } from '../../platform/density'
 import { DELETE } from '../../ui/confirmCopy'
 import { Row, type RowAction } from '../../ui/Row'
-import { PauseGlyph, PlayGlyph } from '../../ui/rowGlyphs'
+import { DISC_HOVER, TransportGlyph } from '../../ui/rowGlyphs'
 import { useNow } from '../../ui/useNow'
 
 const SLOT = 'grid size-(--target-control) shrink-0 place-items-center'
@@ -46,13 +46,11 @@ function ListPlayControl({
         else if (pausing) engine.pause()
         else engine.play()
       }}
-      className={`${SLOT} rounded-full data-[pressed]:opacity-60 ${active ? 'text-slate' : 'text-ink-2'} ${
-        hover
-          ? 'opacity-0 transition-opacity duration-(--dur-short) ease-(--ease) group-hover:opacity-100 data-[focus-visible]:opacity-100'
-          : ''
+      className={`${SLOT} rounded-full transition-[scale,opacity] duration-(--dur-short) ease-(--ease) data-[pressed]:scale-90 ${DISC_HOVER} ${active ? 'text-action' : 'text-ink-2'} ${
+        hover ? 'opacity-0 group-hover:opacity-100 data-[focus-visible]:opacity-100' : ''
       }`}
     >
-      {pausing ? <PauseGlyph /> : <PlayGlyph />}
+      <TransportGlyph shape={pausing ? 'pause' : 'play'} loaded={active} />
     </AriaButton>
   )
 }

@@ -123,7 +123,7 @@ export function BackLink({ to, label }: { to: string; label: string }) {
   return (
     <Link
       to={to}
-      className="t-body text-slate flex min-h-(--target-control) items-center gap-1 pe-2"
+      className="t-body text-action flex min-h-(--target-control) items-center gap-1 pe-2"
       onClick={(event) => {
         if (event.defaultPrevented || event.button !== 0) return
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
@@ -131,7 +131,7 @@ export function BackLink({ to, label }: { to: string; label: string }) {
         leave(to)
       }}
     >
-      <ChevronLeft className="size-6 shrink-0" aria-hidden />
+      <ChevronLeft className="size-6 shrink-0" data-motion="back" aria-hidden />
       {label}
     </Link>
   )

@@ -230,22 +230,22 @@ it.each(['light', 'dark'] as const)(
     const card = track.closest('section')!.firstElementChild!
     const style = (el: Element) => getComputedStyle(el)
     const bg = (el: Element) => style(el).backgroundColor
-    // Off, the track is a light fill whose edge and thumb carry the contrast; on, the slate
-    // track itself does. Each state's outline reads against the row and the ground.
-    const edge = (on: boolean) => (on ? bg(track) : style(track).borderTopColor)
-    const pairs = (on: boolean) => [
-      contrastRatio(edge(on), bg(card)),
-      contrastRatio(edge(on), bg(document.body)),
+    // In either state the track reads against the row and the ground, and the knob against
+    // the track. On, the knob holds a check, so the state never rests on the knob's place alone.
+    const pairs = () => [
+      contrastRatio(bg(track), bg(card)),
+      contrastRatio(bg(track), bg(document.body)),
       contrastRatio(bg(thumb), bg(track)),
     ]
-    expect(Number.parseFloat(style(track).borderTopWidth)).toBeGreaterThanOrEqual(1)
-    for (const ratio of pairs(false)) expect(ratio).toBeGreaterThanOrEqual(3)
-    const off = bg(track)
+    const check = () => Number(style(thumb.firstElementChild!).opacity)
+    await expect.poll(() => Math.min(...pairs())).toBeGreaterThanOrEqual(3)
+    expect(check()).toBe(0)
     await label.click()
     await expect.element(page.getByRole('switch')).toBeChecked()
-    await expect.poll(() => Math.min(...pairs(true))).toBeGreaterThanOrEqual(3)
-    // On and off differ in lightness, not only in the thumb's place.
-    expect(contrastRatio(bg(track), off)).toBeGreaterThanOrEqual(3)
+    // Measured at rest, off the hover's mixed track.
+    await userEvent.unhover(label)
+    await expect.poll(() => Math.min(...pairs())).toBeGreaterThanOrEqual(3)
+    await expect.poll(check).toBe(1)
   },
 )
 

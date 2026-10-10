@@ -90,7 +90,7 @@ export function SettingsRoot() {
               key={category.id}
               id={category.id}
               textValue={summary ? `${category.title}, ${summary}` : category.title}
-              leading={<Icon className="text-slate size-5 shrink-0" aria-hidden />}
+              leading={<Icon className="text-action size-5 shrink-0" aria-hidden />}
               title={category.title}
               trailing={
                 summary ? (

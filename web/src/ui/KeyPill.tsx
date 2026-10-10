@@ -8,16 +8,20 @@ const BASE =
 const FULL = 'min-h-[min(2rem,var(--target-filter))] px-3 t-body'
 const COMPACT = 'h-[22px] px-2 t-caption in-[html[data-density=pointer]]:h-[18px]'
 
-function pillColors(pitch: number | null, chosen: boolean): CSSProperties {
-  if (pitch === null) {
-    return chosen
-      ? ({ '--pill-bg': 'var(--slate)', '--pill-ink': 'var(--on-slate)' } as CSSProperties)
-      : ({ '--pill-bg': 'var(--fill)', '--pill-ink': 'var(--ink)' } as CSSProperties)
-  }
-  const on = chosen ? 'on-' : ''
+function pillColors(pitch: number | null, chosen: boolean, flood: boolean): CSSProperties {
+  const rest =
+    pitch === null
+      ? { bg: 'var(--fill)', ink: 'var(--ink)' }
+      : { bg: `var(--key-${pitch}-bg)`, ink: `var(--key-${pitch}-ink)` }
+  const on =
+    pitch === null
+      ? { bg: 'var(--accent)', ink: 'var(--on-accent)' }
+      : { bg: `var(--key-${pitch}-on-bg)`, ink: `var(--key-${pitch}-on-ink)` }
+  // A flooding pill keeps its resting ground; its bubbles carry the chosen color over it.
   return {
-    '--pill-bg': `var(--key-${pitch}-${on}bg)`,
-    '--pill-ink': `var(--key-${pitch}-${on}ink)`,
+    '--pill-bg': chosen && !flood ? on.bg : rest.bg,
+    '--pill-fill': on.bg,
+    '--pill-ink': chosen ? on.ink : rest.ink,
   } as CSSProperties
 }
 
@@ -32,6 +36,7 @@ export function KeyPill({
   compact = false,
   suffix = '',
   plain = false,
+  flood = false,
 }: {
   value: string
   chosen?: boolean
@@ -41,17 +46,28 @@ export function KeyPill({
   suffix?: string
   /** Text that is not a key, such as a grid's Any, which never takes a key's hue. */
   plain?: boolean
+  /** Floods in the chosen color from the edges when chosen, for a pill the musician picks. */
+  flood?: boolean
 }) {
   const text = value.trim()
   if (!text) return null
   const pitch = plain ? null : pitchClass(text)
   return (
     <span
-      className={`${BASE} ${compact ? COMPACT : FULL}`}
-      style={pillColors(pitch, chosen)}
+      className={`${BASE} ${compact ? COMPACT : FULL} ${flood ? 'key-flood' : ''}`}
+      style={pillColors(pitch, chosen, flood)}
       data-pitch={pitch === null ? undefined : pitch}
       data-chosen={chosen ? '' : undefined}
     >
+      {flood && (
+        <>
+          <span aria-hidden className="flood-blob" />
+          <span aria-hidden className="flood-blob" />
+          <span aria-hidden className="flood-blob" />
+          <span aria-hidden className="flood-blob" />
+          <span aria-hidden className="flood-blob" />
+        </>
+      )}
       {text}
       {suffix}
     </span>

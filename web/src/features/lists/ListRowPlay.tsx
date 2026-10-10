@@ -15,7 +15,7 @@ import {
 } from '../recordings/recordingNames'
 import { useRecordingRow } from '../recordings/useRecordingRow'
 import type { RecordingView } from '../recordings/useRecordings'
-import { NotPlayableGlyph, PlayGlyph, StopGlyph } from '../../ui/rowGlyphs'
+import { DISC_HOVER, NotPlayableGlyph, TransportGlyph } from '../../ui/rowGlyphs'
 
 const SLOT = 'text-ink-2 grid size-(--target-control) shrink-0 place-items-center'
 
@@ -51,7 +51,7 @@ function SlotButton({
     <AriaButton
       aria-label={name}
       onPress={onPress}
-      className={`${SLOT} rounded-full data-[pressed]:opacity-60 ${loaded ? 'text-slate' : ''}`}
+      className={`${SLOT} rounded-full transition-[scale,opacity] duration-(--dur-short) ease-(--ease) data-[pressed]:scale-90 ${DISC_HOVER} ${loaded ? 'text-action' : ''}`}
     >
       {children}
     </AriaButton>
@@ -93,10 +93,8 @@ function RecordingPlay({
       loaded={loaded}
       onPress={control === 'play' ? listed(open.onOpen) : open.onOpen}
     >
-      {control === 'close' ? (
-        <StopGlyph />
-      ) : control === 'play' ? (
-        <PlayGlyph />
+      {control === 'close' || control === 'play' ? (
+        <TransportGlyph shape={control === 'close' ? 'stop' : 'play'} />
       ) : (
         <CloudDownload className={`size-5 ${offlineDownload ? 'opacity-40' : ''}`} aria-hidden />
       )}
@@ -131,10 +129,8 @@ function LinkPlay({
       // A tune whose row plays a link can still be in the queue by a recording.
       onPress={row.control === 'play' ? listed(row.open.onOpen) : row.open.onOpen}
     >
-      {row.control === 'close' ? (
-        <StopGlyph />
-      ) : row.control === 'play' ? (
-        <PlayGlyph />
+      {row.control === 'close' || row.control === 'play' ? (
+        <TransportGlyph shape={row.control === 'close' ? 'stop' : 'play'} />
       ) : (
         <ArrowUpRight className="size-5" aria-hidden />
       )}

@@ -40,7 +40,7 @@ export function DropOverlay({ shown }: { shown: boolean }) {
         ref={box}
         className="border-slate bg-wash absolute inset-x-2 top-2 flex items-center justify-center rounded-(--radius-surface) border-2"
       >
-        <p className="t-heading text-slate">{DROP_TO_IMPORT}</p>
+        <p className="t-heading text-action">{DROP_TO_IMPORT}</p>
       </div>
     </div>
   )

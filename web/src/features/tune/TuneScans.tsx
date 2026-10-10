@@ -34,6 +34,7 @@ import { RowList } from '../../ui/RowList'
 import { moveActions } from '../../ui/sharedActions'
 import { PageSection } from '../../ui/PageSection'
 import { SectionEmpty } from '../../ui/SectionEmpty'
+import { PRESS } from '../../ui/press'
 
 const TUNE_PAGE: ScanViewOrigin = { context: 'tune' }
 const ROW_THUMBNAIL_HEIGHT = 36
@@ -145,7 +146,8 @@ export function TuneScans({ tuneId }: { tuneId: string }) {
                   <AriaButton
                     aria-label={openScanName(index)}
                     onPress={() => setViewing(index)}
-                    className="block cursor-default overflow-hidden rounded-(--radius-row) data-[pressed]:opacity-60"
+                    data-lift
+                    className={`block overflow-hidden rounded-(--radius-row) ${PRESS}`}
                   >
                     <Thumbnail scan={scan} file={files.get(scan.id)} />
                   </AriaButton>

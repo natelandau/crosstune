@@ -21,6 +21,7 @@ import { Menu, type MenuTriggerProps } from '../../ui/Menu'
 import { menuEntries } from '../../ui/sharedActions'
 import { BulkEditSheet } from './BulkEditSheet'
 import { ListPickerSheet } from './ListPickerSheet'
+import { PRESS, WASH_HOVER } from '../../ui/press'
 
 /** The More cell's caption on the phone's bar; its name stays `MORE_ACTIONS`. */
 export const MORE_CAPTION = 'More'
@@ -47,7 +48,7 @@ function Cell({
       aria-label={caption === label ? undefined : label}
       isDisabled={isDisabled}
       onPress={onPress}
-      className="t-caption text-slate flex min-h-14 w-full flex-col items-center justify-center gap-0.5 disabled:opacity-40 data-[pressed]:opacity-60"
+      className={`t-caption text-action flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-(--radius-row) disabled:opacity-40 ${PRESS} ${WASH_HOVER}`}
     >
       <Icon className="size-6" aria-hidden />
       {caption}
