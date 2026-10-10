@@ -84,8 +84,8 @@ every label. The glossary in `docs/product.md` has the reasons.
 - A renamed label, heading, or group name needs `web/e2e/` checked. Those
   specs query by accessible name and only `just e2e` catches a rename.
 - The site draws the app's screens as HTML demos in `site/src/demos/`.
-  A redesigned screen the site shows needs its demo redrawn. Read
-  `site/CLAUDE.md` before changing the site.
+  The demos do not follow the app, so an app change never needs a demo
+  redrawn. Read `site/CLAUDE.md` before changing the site.
 - New recipes go in `api/justfile`, `web/justfile`, `site/justfile`, or
   `apple/justfile`,
   tagged with a `[group(...)]` that matches their neighbors. A root
@@ -97,10 +97,12 @@ every label. The glossary in `docs/product.md` has the reasons.
 
 - Every icon is a `lucide-react` named import, sized with a Tailwind
   `size-*` class and `aria-hidden` inside a control that has an accessible
-  name. No inline SVG icons, no text characters as icons, no second icon
-  set. An inline SVG is only for a shape that is not an icon: the brand
-  mark, or a control's shape whose strokes animate, such as a checkbox's
-  mark or a selection ring.
+  name. No text characters as icons, no second icon set. A hand-drawn
+  glyph is only for the brand mark (`web/src/ui/Mark.tsx`) or for a
+  control's shape that animates between states, which a static icon
+  cannot: the checkbox mark and the status ring are inline SVG strokes,
+  and play, pause, and stop are one CSS shape that morphs
+  (`TransportMark`).
   The site uses the same icons from `lucide`; `site/CLAUDE.md` says how.
 - Outbound HTTP in the API uses `httpx2`, never `httpx`.
 - A ref that mirrors the latest render's value is `useLatest` from

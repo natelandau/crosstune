@@ -251,8 +251,8 @@ reopens one without new information. Add a new entry at the end.
 - The home page shows the app as HTML demos drawn to scale, not as
   captures. A demo can put a browser and a phone in one composition at one
   scale, script a short interaction, and stay light to load. A capture can
-  do none of these. The cost: a demo is drawn by hand, so a redesigned
-  screen needs its demo redrawn.
+  do none of these. The cost: a demo is drawn by hand and does not follow
+  the app, so it can show a screen as it looked before a redesign.
 - Captured clips of the app were rejected after use: pinned scroll
   runways and a clip per bullet made scrolling feel heavy, and dark device
   frames dominated the page.

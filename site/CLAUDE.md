@@ -1,8 +1,7 @@
 # Site
 
 The marketing site at crosstune.app. These rules bind the site only; the app's
-design rules in `docs/design*.md` do not apply here, except that the app screens
-the demos draw look like the app.
+design rules in `docs/design*.md` do not apply here.
 
 ## Design
 
@@ -27,15 +26,15 @@ the demos draw look like the app.
 
 ## Demos
 
-- The demos in `src/demos/` are HTML drawings of the app, not captures. A
-  redesigned app screen the site shows needs its demo redrawn.
+- The demos in `src/demos/` are HTML drawings of the app, not captures. They
+  do not follow the app: a change to an app screen never needs a demo change.
 - A demo's markup is a pure function rendered at build time, so the page and
   its first frames read without a script. Its script only animates.
 - Each demo is one `role="img"` with an `aria-label` and `data-nosnippet`; the
   drawn screens inside are `aria-hidden`.
 - Icons come from the `lucide` package's icon nodes, built into one sprite by
   `src/demos/sprite.ts`. The status bar's signal and battery are drawn device
-  chrome, not icons.
+  chrome, not icons, and live in `src/components/Icons.astro`.
 
 ## Build
 
