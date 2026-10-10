@@ -1,0 +1,127 @@
+---
+// One waitlist form. The hero and the closing band each hold one, so every id takes a prefix.
+import { APP_URL, ALREADY_SIGNED_UP, JOIN_WAITLIST, SIGN_IN, SUPPORT_EMAIL } from './actions'
+
+interface Props {
+  /** Prefixes the field's and the status line's ids so two forms can share the page. */
+  id: string
+}
+
+const { id } = Astro.props
+---
+
+<div class="join">
+  <form data-waitlist>
+    <label class="visually-hidden" for={`${id}-email`}>
+      Email address
+    </label>
+    <div class="fields">
+      <input
+        id={`${id}-email`}
+        type="email"
+        name="email"
+        required
+        autocomplete="email"
+        placeholder="you@example.com"
+      />
+      <button class="button" type="submit">
+        {JOIN_WAITLIST}
+      </button>
+    </div>
+    <p id={`${id}-status`} class="status" data-waitlist-status aria-live="polite"></p>
+  </form>
+  <noscript>
+    <style>
+      form[data-waitlist] {
+        display: none;
+      }
+    </style>
+    <p class="fallback">
+      To join without JavaScript, email <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+    </p>
+  </noscript>
+  <p class="note">
+    {ALREADY_SIGNED_UP} <a href={APP_URL}>{SIGN_IN}</a>
+  </p>
+</div>
+
+<style>
+  .join {
+    max-width: 460px;
+  }
+
+  .fields {
+    display: flex;
+    gap: 8px;
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    height: 48px;
+    padding: 0 18px;
+    border: 1.5px solid var(--field);
+    border-radius: 999px;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 16px var(--font);
+  }
+
+  input::placeholder {
+    color: var(--placeholder);
+  }
+
+  input:focus-visible {
+    outline: 3px solid var(--slate);
+    outline-offset: 1px;
+    border-color: transparent;
+  }
+
+  input[aria-invalid='true'] {
+    border-color: var(--error);
+  }
+
+  .status:empty {
+    display: none;
+  }
+
+  .status {
+    margin-top: 10px;
+    font-size: var(--small);
+    color: var(--ink-2);
+  }
+
+  .fields:has(input[aria-invalid='true']) + .status {
+    color: var(--error);
+  }
+
+  /* After a join the status line replaces the form and stands alone. */
+  .join > .status {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .note,
+  .fallback {
+    margin-top: 12px;
+    font-size: var(--small);
+    color: var(--ink-2);
+  }
+
+  .note a {
+    font-weight: 600;
+  }
+
+  @media (max-width: 480px) {
+    .fields {
+      flex-direction: column;
+    }
+
+    input {
+      flex: none;
+    }
+  }
+</style>

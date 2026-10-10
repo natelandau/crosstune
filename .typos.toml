@@ -15,3 +15,5 @@
     udid = "udid"
     # The web StatusGlyph's prop for a glyph whose row already says its status, in ARIA's spelling.
     labelled = "labelled"
+    # Proper names keep their own spelling, such as the Jalopy Theatre in Brooklyn.
+    theatre = "theatre"

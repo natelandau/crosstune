@@ -1,4 +1,4 @@
-"""Seeding the marketing account from the site capture fixture."""
+"""Seeding the marketing account from the marketing capture fixture."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.anyio
 
-FIXTURE = Path(__file__).resolve().parents[2] / "site" / "capture" / "catalog.json"
+FIXTURE = Path(__file__).resolve().parents[2] / "apple" / "Marketing" / "catalog.json"
 CLERK_ID = "user_marketing_test"
 CLERK_USERS_URL = "https://api.clerk.com/v1/users"
 DEV_KEY = "sk_test_x"  # gitleaks:allow -- fixture

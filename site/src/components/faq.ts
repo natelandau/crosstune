@@ -18,11 +18,6 @@ export const FAQ = [
       "Yes. Your whole catalog is stored on your device. You can read and edit it offline, and it syncs when you're back online. To play a streaming link you need a connection. Saved recordings play offline.",
   },
   {
-    question: 'I play Irish tunes, not old-time. Is it for me?',
-    answer:
-      'Yes. Crosstune is for anyone who learns by ear: Irish, old-time, bluegrass, klezmer, and other folk traditions.',
-  },
-  {
     question: 'Does it work on Android?',
     answer: 'Yes. Open Crosstune in your browser and install it to your home screen.',
   },
@@ -33,6 +28,11 @@ export const FAQ = [
   {
     question: 'Can I get my data out?',
     answer:
-      'Yes. One download from Settings gives you your tunes and lists as spreadsheets, plus your recordings and notation pages.',
+      'Yes. One download from Settings gives you your tunes and lists as spreadsheets, plus your recordings and scans.',
+  },
+  {
+    question: 'Is my data private?',
+    answer:
+      'Your catalog is private to you. Crosstune will never show ads or sell your data. You can download your tunes, lists, and recordings in one file at any time.',
   },
 ]

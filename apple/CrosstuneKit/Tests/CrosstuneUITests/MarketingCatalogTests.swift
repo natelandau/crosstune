@@ -9,7 +9,7 @@ import Testing
 
 private let captureFolder = URL(filePath: #filePath)
     .deletingLastPathComponent()
-    .appending(path: "../../../../site/capture", directoryHint: .isDirectory)
+    .appending(path: "../../../Marketing", directoryHint: .isDirectory)
     .standardizedFileURL
 private let fixture = captureFolder.appending(path: "catalog.json")
 

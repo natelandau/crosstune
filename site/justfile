@@ -71,70 +71,10 @@ update:
 setup:
     pnpm install --frozen-lockfile
 
-# Capture the app's scenes on the simulator and turn them into site assets; names pick captures
-[group('capture')]
-capture *names:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    host_stills=" $(node --input-type=module -e "import { HOST_STILLS } from './capture/hosts.ts'; console.log(HOST_STILLS.join(' '))") "
-    # The other modules' recipes resolve only from the root justfile.
-    cd ..
-    simulator=() hosts=()
-    for name in {{ names }}; do
-        if [[ "$host_stills" == *" $name "* ]]; then hosts+=("$name"); else simulator+=("$name"); fi
-    done
-    wants() { [[ " ${hosts[*]-} " == *" $1 "* ]]; }
-    # The host steps need an unlocked screen and `just dev`. Both are checked before the long
-    # simulator pass: a host still named outright fails now, and a full run skips its step and
-    # still publishes everything else.
-    mac=false web=false
-    skip=()
-    if [ -z "{{ names }}" ]; then
-        if just apple::screen-unlocked 2> /dev/null; then mac=true; else
-            echo "skipping family-mac: the screen is locked" >&2
-            skip+=(family-mac)
-        fi
-        if just site::dev-up 2> /dev/null; then web=true; else
-            echo "skipping family-web and family-android: \`just dev\` is not running" >&2
-            skip+=(family-web family-android)
-        fi
-    else
-        if wants family-mac; then
-            just apple::screen-unlocked || exit 1
-            mac=true
-        fi
-        if wants family-web || wants family-android; then
-            just site::dev-up || exit 1
-            web=true
-        fi
-    fi
-    # The simulator step clears apple/.build/capture, so it runs before the host steps.
-    if [ -z "{{ names }}" ] || [ ${#simulator[@]} -gt 0 ]; then
-        just apple::capture-test ${simulator[@]+"${simulator[@]}"}
-    else
-        mkdir -p apple/.build/capture
-    fi
-    if [ "$mac" = true ]; then just apple::capture-mac; fi
-    if [ "$web" = true ]; then just site::capture-web; fi
-    cd site
-    # A skipped host still may have a PNG left from an earlier run; run.ts must not publish it.
-    skipped="${skip[*]-}"
-    node capture/run.ts --from ../apple/.build/capture/attachments ${skipped:+--skip "${skipped// /,}"} {{ names }}
-
-# Fail unless `just dev` is serving the web app and the API
-[private]
-dev-up:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ! curl -sf http://localhost:5173 > /dev/null || ! curl -sf http://localhost:8000/healthz > /dev/null; then
-        echo "Start \`just dev\` first; the web captures sign in to the local app." >&2
-        exit 1
-    fi
-
-# Capture the web app on desktop and Android signed in as the marketing account; needs `just dev` up
-[group('capture')]
-capture-web: dev-up
-    node capture/web.ts
+# Rewrite the subset fonts in src/assets/fonts from the fontsource packages
+[group('build')]
+fonts:
+    node scripts/fonts.ts
 
 # Copy the touch icon and ICO favicon the web app generates from ../brand
 [group('build')]

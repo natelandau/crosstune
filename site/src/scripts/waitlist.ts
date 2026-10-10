@@ -173,11 +173,50 @@ export function mountWaitlist(
   })
 }
 
+/** The part of the browser build's `window.Clerk` the waitlist uses. */
+interface BrowserClerk {
+  load(): Promise<void>
+  joinWaitlist(params: { emailAddress: string }): Promise<unknown>
+}
+
+declare global {
+  interface Window {
+    Clerk?: BrowserClerk
+  }
+}
+
+/** The Frontend API host a publishable key names: base64 of the host and a trailing `$`. */
+export function frontendApiHost(publishableKey: string): string {
+  const encoded = /^pk_(?:test|live)_(.+)$/.exec(publishableKey)?.[1]
+  const host = encoded ? atob(encoded).replace(/\$$/, '') : ''
+  if (!/^[a-z0-9.-]+$/i.test(host)) throw new Error('The Clerk publishable key names no host')
+  return host
+}
+
+/** Where Clerk serves the pinned browser build for the instance a key names. */
+export const clerkScriptUrl = (publishableKey: string) =>
+  `https://${frontendApiHost(publishableKey)}/npm/@clerk/clerk-js@${__CLERK_JS_VERSION__}/dist/clerk.browser.js`
+
+// The browser build loads its sign-in UI only when a page mounts it, so the waitlist pays for the
+// core alone, a fraction of the bundled build.
 export async function loadClerk(publishableKey: string | undefined): Promise<WaitlistClient> {
   if (!publishableKey) throw new Error('PUBLIC_CLERK_PUBLISHABLE_KEY is not set')
-  const { Clerk } = await import('@clerk/clerk-js')
-  const clerk = new Clerk(publishableKey)
+  const src = clerkScriptUrl(publishableKey)
+  await new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = src
+    script.async = true
+    script.crossOrigin = 'anonymous'
+    script.dataset.clerkPublishableKey = publishableKey
+    script.addEventListener('load', () => resolve())
+    script.addEventListener('error', () => {
+      script.remove()
+      reject(new Error(`Clerk did not load from ${src}`))
+    })
+    document.head.append(script)
+  })
+  const clerk = window.Clerk
+  if (!clerk) throw new Error('Clerk loaded without setting window.Clerk')
   await clerk.load()
-  // clerk-js 6.35 exposes no `clerk.waitlist`; `joinWaitlist` is the method it types.
   return { join: (params) => clerk.joinWaitlist(params) }
 }

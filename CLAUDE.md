@@ -83,8 +83,8 @@ every label. The glossary in `docs/product.md` has the reasons.
   Clerk keys in `web/.env`.
 - A renamed label, heading, or group name needs `web/e2e/` checked. Those
   specs query by accessible name and only `just e2e` catches a rename.
-- A change to an app screen shown on the site needs
-  `just site::capture <name>`; `docs/operations.md` lists the names.
+- The site draws the app's screens as HTML demos in `site/src/demos/`.
+  A redesigned screen the site shows needs its demo redrawn.
 - New recipes go in `api/justfile`, `web/justfile`, `site/justfile`, or
   `apple/justfile`,
   tagged with a `[group(...)]` that matches their neighbors. A root

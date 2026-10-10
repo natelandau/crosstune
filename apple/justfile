@@ -249,7 +249,7 @@ capture-mac: screen-unlocked
     staged="$HOME/Library/Containers/app.crosstune.Crosstune/Data/Library/Caches/marketing-capture"
     rm -rf "$staged"
     mkdir -p "$staged"
-    cp -R ../site/capture/catalog.json ../site/capture/assets "$staged/"
+    cp -R Marketing/catalog.json Marketing/assets "$staged/"
     fixture="$staged/catalog.json"
     mkdir -p {{ capture }}
     out="$PWD/{{ capture }}/family-mac.png"

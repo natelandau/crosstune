@@ -1,224 +1,64 @@
 ---
-import { HERO_SCENES, SCENES_LABEL } from '../scripts/heroScenes'
-import { PAUSE } from '../scripts/playback'
-import PhoneStack from './capture/PhoneStack.astro'
-import { APP_URL, JOIN_WAITLIST, SIGN_IN, WAITLIST_ID } from './actions'
-import { HERO_LEDE, HERO_MICRO, HERO_TITLE } from './hero'
-
-// The phone's widest width; it also sizes the posters.
-const PHONE_WIDTH = 320
+import DemoPanel from './DemoPanel.astro'
+import JoinForm from './JoinForm.astro'
+import { HERO_LEDE, HERO_LEDE_LEAD, HERO_TITLE } from './hero'
 ---
 
-<section class="hero" aria-labelledby="hero-title" data-hero>
-  <div class="intro column">
+<section class="hero wrap" aria-labelledby="hero-title">
+  <div class="top">
     <h1 id="hero-title">{HERO_TITLE}</h1>
-    <p class="lede">{HERO_LEDE}</p>
-    <div class="actions">
-      <a class="button" href={`#${WAITLIST_ID}`}>
-        {JOIN_WAITLIST}
-      </a>
-      <a class="text-link" href={APP_URL}>
-        {SIGN_IN}
-      </a>
+    <div class="side">
+      <p class="lede">
+        <strong>{HERO_LEDE_LEAD}</strong> {HERO_LEDE}
+      </p>
+      <JoinForm id="hero" />
     </div>
-    <p class="micro">{HERO_MICRO}</p>
   </div>
-
-  <div class="runway" style={`--n: ${HERO_SCENES.length}`} data-runway>
-    <div class="pinned stage">
-      <PhoneStack
-        names={HERO_SCENES.map((scene) => scene.name)}
-        alts={HERO_SCENES.map((scene) => scene.alt)}
-        width={PHONE_WIDTH}
-        posters={HERO_SCENES.map((_, i) => (i === 0 ? 'high' : 'low'))}
-      />
-      <div class="controls">
-        <div class="seg" role="group" aria-label={SCENES_LABEL} data-scene-picker hidden>
-          {HERO_SCENES.map((scene, i) => (
-            <button type="button" aria-pressed={i === 0 ? 'true' : 'false'}>
-              {scene.label}
-            </button>
-          ))}
-        </div>
-        <button type="button" class="clip-toggle" data-scene-toggle hidden>
-          {PAUSE}
-        </button>
-      </div>
-    </div>
-    {HERO_SCENES.map((_, i) => (
-      <div class="snap" style={`--i: ${i}`} />
-    ))}
-  </div>
+  <DemoPanel name="hero" />
 </section>
 
 <style>
   .hero {
-    padding-block: 16px var(--section-pad);
+    padding-top: clamp(48px, 8vw, 104px);
   }
 
-  .intro {
+  .top {
     display: grid;
-    justify-items: center;
-    text-align: center;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 48px;
+    align-items: end;
   }
 
   h1 {
-    max-width: 24ch;
-    margin: 0;
-    font-size: var(--hero-size);
-    font-weight: var(--hero-weight);
+    max-width: 11ch;
+    font-size: var(--h1);
+    font-weight: 800;
     line-height: 0.98;
-    letter-spacing: var(--tracking);
-    text-wrap: balance;
+    letter-spacing: -0.04em;
+  }
+
+  .side {
+    display: grid;
+    gap: 28px;
+    padding-bottom: 6px;
   }
 
   .lede {
-    max-width: 54ch;
-    margin: 24px 0 0;
-    color: var(--slate);
-    font-size: 1.1875rem;
-    text-wrap: pretty;
+    max-width: 36ch;
+    color: var(--ink-2);
+    font-size: clamp(19px, 1.7vw, 22px);
+    line-height: 1.45;
   }
 
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: center;
-    gap: 16px 28px;
-    margin-top: 28px;
+  .lede strong {
+    color: var(--ink);
+    font-weight: 600;
   }
 
-  .micro {
-    margin: 16px 0 0;
-    color: var(--slate);
-    font-size: 0.875rem;
-    text-wrap: balance;
-  }
-
-  /* Top-aligned, so at rest the phone sits just under the hero text, and pinned it keeps the
-     same short gap from the screen's top. */
-  .stage {
-    display: grid;
-    justify-items: center;
-    align-content: start;
-    gap: 24px;
-    padding-inline: 16px;
-    padding-top: var(--stage-top);
-    --stage-top: 40px;
-    /* The pinned screen's height the phone leaves for the gap and the controls, even when the
-       controls wrap to two rows. */
-    --controls-room: 140px;
-  }
-
-  /* Capped by the viewport's height too, so the phone and its controls fit one pinned screen. */
-  .stage :global(.stack) {
-    width: min(320px, 100%, (100svh - var(--controls-room) - var(--stage-top)) * 0.46);
-  }
-
-  .controls {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: center;
-    gap: 12px;
-    max-width: 100%;
-  }
-
-  .seg {
-    display: inline-flex;
-    gap: 4px;
-    max-width: 100%;
-    padding: 5px;
-    border-radius: 999px;
-    background: #fff;
-    box-shadow: 0 0 0 1px var(--rule);
-  }
-
-  .seg[hidden] {
-    display: none;
-  }
-
-  .seg button {
-    position: relative;
-    min-height: 44px;
-    padding: 0 18px;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--slate);
-    font: inherit;
-    font-size: 0.9375rem;
-    font-weight: 500;
-    white-space: nowrap;
-    cursor: pointer;
-  }
-
-  .seg button:hover {
-    color: var(--jet);
-  }
-
-  .seg button[aria-pressed='true'] {
-    background: var(--jet);
-    color: var(--mist);
-  }
-
-  .seg button[aria-pressed='true']::after {
-    content: '';
-    position: absolute;
-    bottom: 6px;
-    left: 50%;
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--coral);
-    transform: translateX(-50%);
-  }
-
-  /* A centered paragraph this narrow has a ragged left edge on every line, so the text sits
-     left. */
-  @media (max-width: 600px) {
-    .hero {
-      padding-top: 8px;
-    }
-
-    .intro {
-      justify-items: start;
-      text-align: left;
-    }
-
-    .lede {
-      margin-top: 20px;
-      font-size: var(--body-size);
-    }
-
-    .actions {
-      justify-content: flex-start;
-    }
-
-    .stage {
-      --stage-top: 20px;
-    }
-
-    .stage :global(.stack) {
-      width: min(260px, 64vw, (100svh - var(--controls-room) - var(--stage-top)) * 0.46);
-    }
-
-    .seg button {
-      padding: 0 12px;
-      font-size: 0.875rem;
-    }
-  }
-
-  /* Tighter so the tabs and the pause button share one row on a 360px phone. */
-  @media (max-width: 400px) {
-    .controls {
-      gap: 8px;
-    }
-
-    .seg button,
-    .controls .clip-toggle {
-      padding: 0 10px;
+  @media (max-width: 860px) {
+    .top {
+      grid-template-columns: 1fr;
+      gap: 28px;
     }
   }
 </style>

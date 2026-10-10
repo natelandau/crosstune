@@ -1,43 +1,48 @@
+/* The Crosstune brand palette. The page and its panels use these and tints of them; the app
+   screens inside the demos keep the app's own tokens in demos.css. */
 :root {
+  --white: #ffffff;
   --jet: #2d3142;
   --slate: #4f5d75;
-  --slate-2: #5f6c82;
   --alabaster: #dfe0e0;
+  --silver: #bfc0c0;
   --coral: #ef8354;
 }
 
-/* Site-only surfaces: the page background, the hairline between sections, and the pencil
-   gray of hand-drawn marks. */
+/* Page surfaces and text. */
 :root {
-  --mist: #f4f5f7;
-  --rule: #e4e5e9;
-  --sketch: #8c95a8;
+  --paper: var(--white);
+  --ink: var(--jet);
+  --ink-2: var(--slate);
+  --line: #e6e7e8;
+  --mist: #f3f4f4;
+  --field: #c7cacf;
+  --placeholder: #6a7284;
+  --error: #b42318;
+  --done: #248a3d;
+  --coral-wash: #fbe3d6;
+  --on-coral-wash: #8a3a14;
 }
 
-/* Type scale: the large sizes drop to their second value below 600px. */
+/* Lightened rather than darkened, since a darker coral drops jet text below 4.5:1. */
 :root {
-  --tracking: -0.035em;
-  --hero-size: 72px;
-  --hero-weight: 700;
-  --section-size: 52px;
-  --section-weight: 650;
-  --plan-size: 28px;
-  --plan-weight: 600;
-  --body-size: 17px;
-  --body-leading: 1.55;
+  --coral-hover: #f29468;
 }
 
-/* Each section's top and bottom padding; where two sections meet, their paddings add up to the
-   widest empty band the page shows. */
 :root {
-  --section-pad: 80px;
-}
-
-@media (max-width: 600px) {
-  :root {
-    --section-pad: 64px;
-    --hero-size: 44px;
-    --section-size: 32px;
-    --plan-size: 22px;
-  }
+  --font: 'Schibsted Grotesk Variable', 'Helvetica Neue', Arial, sans-serif;
+  /* The demos draw the web app in its own face and the Apple apps in the system face. */
+  --web-font: 'Geist Variable', -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --ios-font:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Geist Variable', 'Segoe UI', system-ui,
+    sans-serif;
+  --hand: 'Caveat', 'Bradley Hand', 'Segoe Print', cursive;
+  --h1: clamp(44px, 6.4vw, 86px);
+  --h2: clamp(32px, 3.9vw, 50px);
+  --h3: 22px;
+  --body: 18px;
+  --small: 15px;
+  --gutter: clamp(16px, 4vw, 40px);
+  --maxw: 1200px;
+  --section-pad: clamp(72px, 9vw, 128px);
 }

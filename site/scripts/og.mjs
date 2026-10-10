@@ -2,39 +2,18 @@
 // Run through `just og`, which serves dist on the port this reads.
 import { chromium } from 'playwright'
 
-// The page stacks the pinned phone under the headline, below a 630px frame, so the preview
-// sets the headline beside the phone instead, without the lede, which a preview has no room for.
-// Reduced motion keeps the first poster up.
+// The page's hero is taller than a preview, so the preview drops the lede and form, sets the
+// headline on one line, and lets the demo panel fill the rest of the frame. Reduced motion holds
+// the hero demo on its rest frame.
 const LAYOUT = `
-  .nav { position: absolute !important; top: 56px; left: 72px; padding: 0 !important; }
-  .nav .sections, .nav .nav-actions, .hero .lede, .hero .actions, .hero .micro, .hero .controls {
-    display: none !important;
-  }
-  .hero {
-    display: block !important;
-    justify-items: start !important;
-    position: relative;
-    max-width: none !important;
-    height: 630px;
-    margin: 0 !important;
-    padding: 150px 0 0 72px !important;
-    overflow: hidden;
-    text-align: left !important;
-  }
-  .hero .intro { margin: 0 !important; max-width: none !important; justify-items: start !important; text-align: left !important; }
-  .hero h1 { max-width: 11ch !important; }
-  .hero .runway { position: static !important; height: 0 !important; margin: 0 !important; padding: 0 !important; }
-  .hero .snap { display: none !important; }
-  .hero .stage {
-    position: absolute !important;
-    top: 40px !important;
-    right: 120px;
-    width: 260px !important;
-    height: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-  .hero .stack { width: 260px !important; }
+  .nav .nav-actions, .nav nav { display: none !important; }
+  .nav { position: absolute !important; top: 0; left: 0; right: 0; background: none !important; }
+  .nav .wrap { height: 92px !important; padding-inline: 64px !important; max-width: none !important; }
+  .hero { max-width: none !important; padding: 104px 64px 0 !important; height: 630px; overflow: hidden; }
+  .hero .top { display: block !important; }
+  .hero-panel { margin-top: 28px !important; }
+  .hero h1 { max-width: none !important; font-size: 56px !important; }
+  .hero .side { display: none !important; }
 `
 
 const port = process.argv[2] ?? '4398'
@@ -47,19 +26,14 @@ await page.goto(`http://localhost:${port}/`)
 // The layout keys off the hero's class names, so a renamed one would leave a broken preview.
 const SELECTORS = [
   '.nav',
-  '.nav .sections',
+  '.nav .wrap',
+  '.nav nav',
   '.nav .nav-actions',
   '.hero',
+  '.hero .top',
   '.hero h1',
-  '.hero .lede',
-  '.hero .actions',
-  '.hero .micro',
-  '.hero .controls',
-  '.hero .runway',
-  '.hero .snap',
-  '.hero .stage',
-  '.hero .stack',
-  '.hero img',
+  '.hero .side',
+  '.hero-panel',
 ]
 const missing = await page.evaluate(
   (selectors) => selectors.filter((selector) => !document.querySelector(selector)),
@@ -70,9 +44,11 @@ if (missing.length > 0) {
   throw new Error(`the home page has no ${missing.join(', ')}; update the layout in og.mjs`)
 }
 await page.addStyleTag({ content: LAYOUT })
+// The demo's camera scales on resize, so it refits to the preview's panel width.
 await page.evaluate(async () => {
   await document.fonts.ready
-  await Promise.all([...document.querySelectorAll('.hero img')].map((img) => img.decode()))
+  window.dispatchEvent(new Event('resize'))
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
 })
 await page.screenshot({ path: 'public/og.png' })
 await browser.close()

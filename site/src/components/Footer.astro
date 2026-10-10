@@ -1,5 +1,17 @@
-<footer class="footer column">
-  <a href="/privacy">Privacy</a>
-  <a href="/terms">Terms</a>
-  <a href="/support">Support</a>
+---
+import Lockup from './Lockup.astro'
+import { APP_URL, SIGN_IN } from './actions'
+---
+
+<footer class="footer">
+  <div class="wrap">
+    <Lockup />
+    <span>Made in New York for people who learn by ear.</span>
+    <nav aria-label="Footer">
+      <a href={APP_URL}>{SIGN_IN}</a>
+      <a href="/support">Support</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+    </nav>
+  </div>
 </footer>

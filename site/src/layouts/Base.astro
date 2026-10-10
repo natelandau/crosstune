@@ -1,8 +1,17 @@
 ---
 import Footer from '../components/Footer.astro'
 import Lockup from '../components/Lockup.astro'
-import { APP_URL, JOIN_WAITLIST, SECTIONS, SIGN_IN, WAITLIST_ID } from '../components/actions'
-import { HERO_TITLE } from '../components/hero'
+import { OG_IMAGE_ALT } from '../components/seo'
+import {
+  APP_URL,
+  JOIN_WAITLIST,
+  JOIN_WAITLIST_SHORT,
+  SECTIONS,
+  SIGN_IN,
+  WAITLIST_ID,
+} from '../components/actions'
+// The headline face, preloaded because the hero headline is the page's largest paint.
+import headlineFont from '../assets/fonts/schibsted-grotesk.woff2?url'
 import '../styles/tokens.css'
 import '../styles/base.css'
 
@@ -19,7 +28,7 @@ const canonical = `https://crosstune.app${path}`
 // Off the home page the section links point back to it.
 const home = path === '/' ? '' : '/'
 const image = 'https://crosstune.app/og.png'
-const imageAlt = `The Crosstune headline, "${HERO_TITLE}" beside an iPhone showing the tune catalog with its key and status filters.`
+const imageAlt = OG_IMAGE_ALT
 ---
 
 <!doctype html>
@@ -28,12 +37,13 @@ const imageAlt = `The Crosstune headline, "${HERO_TITLE}" beside an iPhone showi
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
+    <link rel="preload" href={headlineFont} as="font" type="font/woff2" crossorigin />
     <meta name="description" content={description} />
     {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
-    <meta name="theme-color" content="#f4f5f7" />
+    <meta name="theme-color" content="#ffffff" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Crosstune" />
     <meta property="og:title" content={title} />
@@ -52,30 +62,44 @@ const imageAlt = `The Crosstune headline, "${HERO_TITLE}" beside an iPhone showi
     <slot name="head" />
   </head>
   <body>
-    <nav class="nav column" aria-label="Main">
-      <Lockup />
-      <ul class="sections">
-        {SECTIONS.map(([label, id]) => (
-          <li>
-            <a href={`${home}#${id}`}>{label}</a>
-          </li>
-        ))}
-      </ul>
-      <div class="nav-actions">
-        <a class="sign-in" href={APP_URL}>
-          {SIGN_IN}
-        </a>
-        <a class="button" href={`${home}#${WAITLIST_ID}`}>
-          {JOIN_WAITLIST}
-        </a>
+    <header class="nav" data-nav>
+      <div class="wrap">
+        <Lockup />
+        <nav aria-label="Main">
+          <ul class="sections">
+            {SECTIONS.map(([label, id]) => (
+              <li>
+                <a href={`${home}#${id}`}>{label}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div class="nav-actions">
+          <a class="sign-in" href={APP_URL}>
+            {SIGN_IN}
+          </a>
+          <a class="button small" href={`${home}#${WAITLIST_ID}`}>
+            <span class="long">{JOIN_WAITLIST}</span>
+            <span class="short" aria-hidden="true">
+              {JOIN_WAITLIST_SHORT}
+            </span>
+          </a>
+        </div>
       </div>
-    </nav>
+    </header>
     <slot />
     <Footer />
     <script>
       import { startAnalytics } from '../scripts/analytics'
 
       startAnalytics(import.meta.env.PUBLIC_POSTHOG_TOKEN)
+
+      const nav = document.querySelector<HTMLElement>('[data-nav]')
+      if (nav) {
+        const edge = () => nav.classList.toggle('scrolled', scrollY > 8)
+        addEventListener('scroll', edge, { passive: true })
+        edge()
+      }
     </script>
   </body>
 </html>
