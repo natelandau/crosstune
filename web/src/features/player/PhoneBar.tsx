@@ -6,6 +6,7 @@ import {
   PlaybackBadge,
   PlayToggle,
   RetryButton,
+  TrackTitle,
   type BarProps,
 } from './barParts'
 import { transportNotice } from './transportNotice'
@@ -15,7 +16,15 @@ import { transportNotice } from './transportNotice'
  * the title over its tune or source, the speed and pitch badge, and Close. A press on the
  * body opens practice. A list's controls live in practice, never here.
  */
-export function PhoneBar({ title, detail, transport, onOpen, onClose, message }: BarProps) {
+export function PhoneBar({
+  title,
+  detail,
+  transport,
+  onOpen,
+  onClose,
+  message,
+  entering,
+}: BarProps) {
   const frame = 'flex min-h-14 items-center gap-1 px-2 py-1'
   if (message) {
     return (
@@ -28,7 +37,7 @@ export function PhoneBar({ title, detail, transport, onOpen, onClose, message }:
   const notice = transport ? transportNotice(transport) : null
   const lines = (
     <>
-      <span className="t-body max-w-full truncate">{title}</span>
+      <TrackTitle title={title} entering={entering} className="t-body max-w-full truncate" />
       {!notice && detail && (
         <span className="t-secondary text-ink-2 max-w-full truncate">{detail}</span>
       )}

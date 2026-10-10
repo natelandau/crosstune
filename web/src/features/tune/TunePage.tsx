@@ -63,6 +63,7 @@ import { isQuietPick } from './tunePick'
 import { TuneScans } from './TuneScans'
 import { readTuneTitle, rememberTuneTitle } from './tuneTitle'
 import { ROW_PRESS } from '../../ui/press'
+import { useHadContent } from '../../ui/useHadContent'
 
 const NO_RECORDINGS: readonly RecordingView[] = []
 const NO_LINKS: readonly LocalRecordingLink[] = []
@@ -310,6 +311,8 @@ function TuneSections({
       : item,
   )
   const learned = learnedLine(screen.learnedFrom, screen.learnedOn)
+  const hadMedia = useHadContent(!media.empty)
+  const hadNotes = useHadContent(Boolean(screen.notes || screen.learned))
   return (
     <>
       <PageSection
@@ -324,6 +327,7 @@ function TuneSections({
       >
         {media.empty ? (
           <SectionEmpty
+            arriving={hadMedia}
             icon={AudioLines}
             title={NO_TUNE_RECORDINGS}
             hint={NO_TUNE_RECORDINGS_HINT}
@@ -366,7 +370,12 @@ function TuneSections({
         onAdd={onEdit}
       >
         {!screen.notes && !screen.learned && (
-          <SectionEmpty icon={NotebookPen} title={NO_TUNE_NOTES} hint={NO_TUNE_NOTES_HINT} />
+          <SectionEmpty
+            arriving={hadNotes}
+            icon={NotebookPen}
+            title={NO_TUNE_NOTES}
+            hint={NO_TUNE_NOTES_HINT}
+          />
         )}
         {screen.learned && (
           <p className="t-secondary text-ink-2">

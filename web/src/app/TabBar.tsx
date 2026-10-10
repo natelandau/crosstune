@@ -1,4 +1,5 @@
-import { motion } from 'motion/react'
+import { motion, useIsPresent } from 'motion/react'
+import { DURATION, EASE } from '../theme/motion'
 import { destination, type Destination } from './destinations'
 import { useDestination } from './useDestination'
 import { DestinationLink } from './DestinationLink'
@@ -31,10 +32,23 @@ function Tab({ id }: { id: Destination }) {
   )
 }
 
-/** The phone's floating bottom bar: a capsule of four tabs, then the Record disc on its own. */
+/**
+ * The phone's floating bottom bar: a capsule of four tabs, then the Record disc on its own.
+ * Under `AnimatePresence` it sinks below the foot of the screen as a selection bar takes its
+ * place and rises back when selecting ends, inert on its way out so nothing there takes a press.
+ */
 export function TabBar() {
+  const present = useIsPresent()
   return (
-    <nav aria-label={TAB_BAR} data-nav className="flex items-center gap-2">
+    <motion.nav
+      aria-label={TAB_BAR}
+      data-nav
+      inert={!present}
+      initial={{ y: '150%' }}
+      animate={{ y: 0 }}
+      exit={{ y: '150%', transition: { duration: DURATION.base, ease: EASE } }}
+      className="flex items-center gap-2"
+    >
       <div className="bg-nav border-hairline grid h-[62px] min-w-0 flex-1 grid-cols-4 items-center rounded-full border px-1">
         <Tab id="catalog" />
         <Tab id="lists" />
@@ -42,6 +56,6 @@ export function TabBar() {
         <Tab id="settings" />
       </div>
       <RecordControl shape="disc" />
-    </nav>
+    </motion.nav>
   )
 }

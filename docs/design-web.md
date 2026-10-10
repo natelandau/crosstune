@@ -199,6 +199,20 @@ folder. Compose it, never rebuild it.
 - Practice and Record grow from the control that opened them and shrink
   back into it.
 - A new take's row slides in with a brief slate highlight.
+- A list's rows move when a change adds, removes, or reorders them: a new
+  row fades in, a removed one fades where it stood while the rows below
+  slide over it, and the rest glide to their places. First paint and a
+  resize move nothing.
+- A list and the empty state that replaces it fade in for each other,
+  never on load.
+- A menu or popover scales up from 0.96 out of the point it hangs from and
+  back into it. A closing one takes no presses.
+- Selecting on phone sinks the tab bar and raises the action bar.
+- Now playing leaves the way it came. A track change moves only its title.
+- A touch row's press wash waits a beat, so a finger that scrolls never
+  flashes it.
+- Practice: a scrub or pinch past an end or a zoom limit pulls on with
+  resistance and springs back, never settling past it.
 - Page motion: React's `<ViewTransition>`. Never React Router's
   `viewTransition` prop, which ignores React's transition names.
 - Shared title transition name only on phone and split, where the list is

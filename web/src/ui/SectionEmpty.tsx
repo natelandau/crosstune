@@ -8,13 +8,18 @@ export function SectionEmpty({
   icon: Icon,
   title,
   hint,
+  arriving = false,
 }: {
   icon: LucideIcon
   title: string
   hint?: string
+  /** Fades in, since it took the place of content; see `useHadContent`. */
+  arriving?: boolean
 }) {
   return (
-    <div className="flex flex-col items-center gap-1.5 px-6 py-6 text-center">
+    <div
+      className={`flex flex-col items-center gap-1.5 px-6 py-6 text-center ${arriving ? 'arrive' : ''}`}
+    >
       <Icon className="text-ink-2 size-8" aria-hidden />
       <p className="t-body font-semibold">{title}</p>
       {hint && <p className="t-secondary text-ink-2 max-w-sm">{hint}</p>}

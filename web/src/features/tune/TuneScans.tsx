@@ -35,6 +35,7 @@ import { moveActions } from '../../ui/sharedActions'
 import { PageSection } from '../../ui/PageSection'
 import { SectionEmpty } from '../../ui/SectionEmpty'
 import { PRESS } from '../../ui/press'
+import { useHadContent } from '../../ui/useHadContent'
 
 const TUNE_PAGE: ScanViewOrigin = { context: 'tune' }
 const ROW_THUMBNAIL_HEIGHT = 36
@@ -64,6 +65,7 @@ export function TuneScans({ tuneId }: { tuneId: string }) {
     error,
     statusLabel,
   } = useScansEditor(tuneId, { confirm })
+  const hadScans = useHadContent(loaded && !empty)
   const picker = useRef<HTMLInputElement>(null)
   const { announce, region } = useReorderAnnouncer()
   useEffect(() => {
@@ -95,7 +97,14 @@ export function TuneScans({ tuneId }: { tuneId: string }) {
           </span>
         }
       >
-        {empty && loaded && <SectionEmpty icon={FileImage} title={NO_SCANS} hint={NO_SCANS_HINT} />}
+        {empty && loaded && (
+          <SectionEmpty
+            arriving={hadScans}
+            icon={FileImage}
+            title={NO_SCANS}
+            hint={NO_SCANS_HINT}
+          />
+        )}
         {!empty &&
           (editingNow ? (
             <RowList

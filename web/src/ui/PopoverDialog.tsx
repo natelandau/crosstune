@@ -31,7 +31,7 @@ export function PopoverDialog({
       isOpen={isOpen}
       onOpenChange={onOpenChange}
       placement={placement}
-      className={`bg-ground rounded-(--radius-surface) p-3 shadow-(--shadow-float) ${className}`}
+      className={`popover-surface bg-ground rounded-(--radius-surface) p-3 shadow-(--shadow-float) ${className}`}
     >
       <OverlayClaim close={() => onOpenChange(false)} />
       <Dialog aria-label={label} className="outline-none">

@@ -403,7 +403,9 @@ export function RowSwipe({
         onDragEnd={onDragEnd}
         onPointerDown={onPointerDown}
         style={{ x, touchAction: 'pan-y' }}
-        className="bg-ground relative flex min-w-0 flex-1 items-center gap-3 px-3 py-1.5 select-none [-webkit-touch-callout:none] group-data-[playing]:bg-[linear-gradient(var(--play-wash),var(--play-wash))] group-data-[selected]:bg-[linear-gradient(var(--wash),var(--wash))]"
+        // The washes lie on a layer under the content so they can fade. The press wash waits a
+        // beat, so a finger that lands only to scroll never flashes the row.
+        className="bg-ground relative isolate flex min-w-0 flex-1 items-center gap-3 px-3 py-1.5 select-none [-webkit-touch-callout:none] group-data-[playing]:bg-[linear-gradient(var(--play-wash),var(--play-wash))] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-(--wash) before:opacity-0 before:transition-opacity before:duration-(--dur-short) group-data-[pressed]:before:opacity-100 group-data-[pressed]:before:delay-75 group-data-[selected]:before:opacity-100"
       >
         {children}
       </motion.div>

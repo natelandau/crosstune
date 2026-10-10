@@ -177,7 +177,7 @@ function MenuPopover({ children, onClose, ...props }: PopoverProps & { onClose: 
   return (
     <Popover
       {...props}
-      className="bg-ground rounded-(--radius-surface) p-1 shadow-(--shadow-float)"
+      className="popover-surface bg-ground rounded-(--radius-surface) p-1 shadow-(--shadow-float)"
     >
       {(renderProps) => (
         <>

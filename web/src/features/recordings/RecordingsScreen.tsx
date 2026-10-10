@@ -43,6 +43,7 @@ import { DropOverlay } from './DropOverlay'
 import { EditRecordingSheet } from './EditRecordingSheet'
 import { RecordingsFilterSheet } from './RecordingsFilterSheet'
 import { StorageSummary } from './StorageSummary'
+import { useHadContent } from '../../ui/useHadContent'
 
 const RECORDINGS = destination('recordings')
 
@@ -71,6 +72,8 @@ export function RecordingsScreen() {
   }
   const screen = useRecordingsScreen({ confirm: useConfirm(), onOpenTune: openTune })
   const { ready, unfiled, filed, sort, actionsFor, retry, error } = screen
+  const hadRecordings = useHadContent(ready && screen.listed > 0)
+  const hadNoRecordings = useHadContent(ready && screen.listed === 0)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const titleRef = useRef<HTMLHeadingElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -156,11 +159,16 @@ export function RecordingsScreen() {
             />
           )}
           {screen.total === 0 ? (
-            <EmptyState icon={AudioLines} title={NO_RECORDINGS_TITLE} hint={NO_RECORDINGS_HINT} />
+            <EmptyState
+              arriving={hadRecordings}
+              icon={AudioLines}
+              title={NO_RECORDINGS_TITLE}
+              hint={NO_RECORDINGS_HINT}
+            />
           ) : screen.listed === 0 ? (
-            <EmptyState icon={AudioLines} title={NOTHING_MATCHES} />
+            <EmptyState arriving={hadRecordings} icon={AudioLines} title={NOTHING_MATCHES} />
           ) : (
-            <div className="px-4">
+            <div className={`px-4 ${hadNoRecordings ? 'arrive' : ''}`}>
               {unfiled.length > 0 && (
                 <Group title={UNFILED_HEADER}>
                   {unfiled.map((view) => row(view, { grouped: false }))}

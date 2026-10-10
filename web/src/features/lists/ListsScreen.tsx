@@ -17,6 +17,7 @@ import { usePlayableLists } from './usePlayableLists'
 import { useRecordState } from '../capture/RecordState'
 import { useListPlayback } from '../player/useListPlayback'
 import { useAction } from '../../ui/useAction'
+import { useHadContent } from '../../ui/useHadContent'
 
 const LISTS = destination('lists')
 const NOTHING: ReadonlySet<string> = new Set()
@@ -26,6 +27,8 @@ export function ListsScreen() {
   const navigate = useNavigate()
   const confirm = useConfirm()
   const { lists, error, naming, setNaming, remove } = useListsScreen({ confirm })
+  const hadLists = useHadContent(Boolean(lists && lists.length > 0))
+  const hadNoLists = useHadContent(lists?.length === 0)
   const playback = useListPlayback()
   const recording = useRecordState().recording
   const readable = usePlayableLists()
@@ -45,6 +48,7 @@ export function ListsScreen() {
       {lists &&
         (lists.length === 0 ? (
           <EmptyState
+            arriving={hadLists}
             icon={ListMusic}
             title={NO_LISTS_TITLE}
             hint={NO_LISTS_HINT}
@@ -53,6 +57,7 @@ export function ListsScreen() {
         ) : (
           <RowList
             label={LISTS.label}
+            arriving={hadNoLists}
             onAction={(key) => void navigate(`${LISTS.root}/${String(key)}`)}
           >
             {lists.map((list) => (

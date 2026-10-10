@@ -263,6 +263,8 @@ it("shares one status between the phone's capsule and title and the sidebar", as
   await page.getByRole('menuitemradio', { name: STATUS_LABELS.learning, exact: true }).click()
   await expect.element(title()).toHaveTextContent(STATUS_LABELS.learning)
   await expect.element(capsule('learning')).toHaveAttribute('data-set')
+  // The first menu fades out before the next one opens.
+  await expect.element(page.getByRole('menu')).not.toBeInTheDocument()
   await title().getByRole('button', { name: STATUS_LABELS.learning }).click()
   await page.getByRole('menuitemradio', { name: STATUS_LABELS.known, exact: true }).click()
   await expect.element(capsule('known')).toHaveAttribute('data-set')

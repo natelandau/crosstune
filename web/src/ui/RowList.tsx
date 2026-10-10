@@ -1,5 +1,5 @@
 import { useReducedMotionConfig } from 'motion/react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   DropIndicator,
   GridList,
@@ -8,6 +8,7 @@ import {
   type Selection,
 } from 'react-aria-components'
 import { useStampedDensity } from '../platform/density'
+import { useListMotion } from './listMotion'
 import { useLatest } from './useLatest'
 import {
   beginReorderDrag,
@@ -59,6 +60,7 @@ export function RowList({
   onReorder,
   moveLabel = (item) => moveRowLabel(item.title),
   frames,
+  arriving = false,
 }: {
   label: string
   children: ReactNode
@@ -87,6 +89,8 @@ export function RowList({
   moveLabel?: (item: ReorderItem) => string
   /** The frames a drag scrolls the list on while it rests at an edge; Motion's by default. */
   frames?: FrameSource
+  /** Fades in, since it took the place of an empty state; see `useHadContent`. */
+  arriving?: boolean
 }) {
   const gate = useSwipeGate()
   const list = useRef<HTMLDivElement>(null)
@@ -95,6 +99,13 @@ export function RowList({
   const reduceMotion = useReducedMotionConfig() ?? false
   const densityRef = useLatest(useStampedDensity())
   const holding = useRef(false)
+  // State as well as the ref, since the list mounts again once it can first reorder.
+  const [listElement, setListElement] = useState<HTMLDivElement | null>(null)
+  useListMotion(listElement, reduceMotion)
+  const listRef = useCallback((element: HTMLDivElement | null) => {
+    list.current = element
+    setListElement(element)
+  }, [])
   const canReorder = onReorder !== undefined
   // React Aria's drag hooks cannot come or go under a mounted GridList, so the list mounts
   // again the first time it can reorder, such as once a list that rendered while loading gets
@@ -269,7 +280,7 @@ export function RowList({
       <ReorderContext value={reorderable ? reorder : null}>
         <GridList
           key={reorderable ? 'reorderable' : 'fixed'}
-          ref={list}
+          ref={listRef}
           aria-label={label}
           // A letter belongs to the app's shortcuts, and `/` searches.
           disallowTypeAhead
@@ -290,7 +301,9 @@ export function RowList({
               if (!gate.blocks(key)) onAction(key)
             })
           }
-          className={`flex flex-col ${bleed ? '-mx-3' : 'px-2'}`}
+          // Positioned and isolated, so a removed row's last frame is placed within the list and
+          // fades beneath the rows that slide over it.
+          className={`relative isolate flex flex-col ${bleed ? '-mx-3' : 'px-2'} ${arriving ? 'arrive' : ''}`}
         >
           {children}
         </GridList>

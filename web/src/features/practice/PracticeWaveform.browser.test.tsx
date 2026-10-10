@@ -217,15 +217,17 @@ describe('PracticeWaveform', () => {
     await expect.poll(() => seek.mock.lastCall).toEqual([16_000])
   })
 
-  it('a scrub held at 0:00 stops there and draws the empty half blank', async () => {
+  it('a scrub past 0:00 pulls on with resistance, draws the empty part blank, and springs back', async () => {
     const { seek } = setup({ positionMs: 2_000 })
     pointer(surface(), 'pointerdown', 100)
     pointer(surface(), 'pointermove', 250)
     pointer(surface(), 'pointermove', 390)
-    await expect.poll(viewStart).toBe(-2_000)
+    await expect.poll(viewStart).toBeLessThan(-2_000)
     await expect
-      .poll(() => waveform().querySelector<HTMLElement>('[data-bars]')!.style.marginLeft)
-      .toBe(`${WIDTH_PX / 2}px`)
+      .poll(() =>
+        parseFloat(waveform().querySelector<HTMLElement>('[data-bars]')!.style.marginLeft),
+      )
+      .toBeGreaterThan(WIDTH_PX / 2)
     const ticks = () => [...waveform().querySelectorAll<HTMLElement>('[data-tick]')]
     await expect.poll(() => ticks().length).toBeGreaterThan(0)
     await expect
@@ -233,6 +235,7 @@ describe('PracticeWaveform', () => {
       .toBeGreaterThanOrEqual(200)
     pointer(surface(), 'pointerup', 390)
     await expect.poll(() => seek.mock.calls).toEqual([[0]])
+    await expect.poll(viewStart).toBe(-2_000)
   })
 
   it('a fling past the end glides to the end and stops there', async () => {

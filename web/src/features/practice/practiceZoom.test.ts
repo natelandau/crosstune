@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  unstretchedMs,
   fitScale,
   glideMs,
   MAX_PX_PER_S,
@@ -15,8 +16,8 @@ const frame = { widthPx: 1000, lengthMs: 120_000 }
 describe('scrubMs', () => {
   it.each([
     [10_000, 100, 9000],
-    [500, 100, 0],
-    [59_500, -100, 60_000],
+    [1500, 100, 500],
+    [58_500, -100, 59_500],
   ])('from %i by %i px -> %i', (from, dx, expected) => {
     expect(scrubMs(from, dx, 100, 60_000)).toBe(expected)
   })
@@ -72,4 +73,11 @@ describe('scales', () => {
     expect(zoomScale(pxPerS, factor, frame)).toBeCloseTo(expected, 3)
     expect(MAX_PX_PER_S).toBe(200)
   })
+})
+
+it('undoes the rubber band, so a press that catches a spring back drags on from where it is drawn', () => {
+  for (const shownMs of [-400, -50, 10_050, 10_300]) {
+    const fromMs = unstretchedMs(shownMs, 200, 10_000)
+    expect(scrubMs(fromMs, 0, 200, 10_000)).toBeCloseTo(shownMs, 6)
+  }
 })

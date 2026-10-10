@@ -42,9 +42,46 @@ export function msAtX(view: LaneView, x: number): number {
   return view.trimStartMs + view.startMs + (x / view.pxPerS) * 1000
 }
 
-/** The playhead time after dragging `dxPx`; dragging right moves back in time. */
+/** How far past an end a drag can pull the audio, however far the pointer goes. */
+export const RUBBER_REACH_PX = 120
+/** How much past a zoom limit a pinch can stretch the scale, as a factor of the limit. */
+const RUBBER_REACH_ZOOM = 1.25
+// The give at the limit: 1 follows the pointer at first, smaller pulls back harder from the start.
+const RUBBER_GIVE = 0.55
+
+/**
+ * `overshoot` past a limit, drawn with the rubber band iOS scroll views use: it gives less the
+ * farther it is pulled and never reaches `reach`.
+ */
+export function rubberBand(overshoot: number, reach: number): number {
+  const over = Math.abs(overshoot)
+  return Math.sign(overshoot) * (1 - 1 / ((over * RUBBER_GIVE) / reach + 1)) * reach
+}
+
+/** The overshoot that `rubberBand` draws at `drawn`, its inverse. */
+export function unRubberBand(drawn: number, reach: number): number {
+  const over = Math.min(Math.abs(drawn), reach * 0.999)
+  return Math.sign(drawn) * (reach / RUBBER_GIVE) * (1 / (1 - over / reach) - 1)
+}
+
+/**
+ * The unstretched time that `scrubMs` draws at `shownMs`, so a press that catches the audio
+ * springing back past an end drags on from where it is drawn without a jump.
+ */
+export function unstretchedMs(shownMs: number, pxPerS: number, lengthMs: number): number {
+  const heldMs = clamp(shownMs, 0, lengthMs)
+  const drawnPx = ((shownMs - heldMs) / 1000) * pxPerS
+  return heldMs + (unRubberBand(drawnPx, RUBBER_REACH_PX) / pxPerS) * 1000
+}
+
+/**
+ * The playhead time after dragging `dxPx`; dragging right moves back in time. Past either end
+ * of the recording the drag pulls on with resistance, and the caller springs it back.
+ */
 export function scrubMs(fromMs: number, dxPx: number, pxPerS: number, lengthMs: number): number {
-  return clamp(fromMs - (dxPx / pxPerS) * 1000, 0, lengthMs)
+  const rawMs = fromMs - (dxPx / pxPerS) * 1000
+  const heldMs = clamp(rawMs, 0, lengthMs)
+  return heldMs + (rubberBand(((rawMs - heldMs) / 1000) * pxPerS, RUBBER_REACH_PX) / pxPerS) * 1000
 }
 
 /** The distance in ms a release at `velocityPxPerS` still travels, from exponential decay. */
@@ -83,4 +120,13 @@ export function openingScale(loop: Span | null, playheadMs: number, widthPx: num
 /** A scale multiplied by `factor` and held between the whole-recording fit and the maximum. */
 export function zoomScale(pxPerS: number, factor: number, frame: ZoomFrame): number {
   return clamp(pxPerS * factor, minPxPerS(frame.widthPx, frame.lengthMs), MAX_PX_PER_S)
+}
+
+/**
+ * A scale a pinch has pulled past a zoom limit, drawn stretched past that limit with
+ * resistance. Measured in ratios, so zooming in and out past a limit feel alike.
+ */
+export function stretchedScale(rawPxPerS: number, frame: ZoomFrame): number {
+  const held = clamp(rawPxPerS, minPxPerS(frame.widthPx, frame.lengthMs), MAX_PX_PER_S)
+  return held * Math.exp(rubberBand(Math.log(rawPxPerS / held), Math.log(RUBBER_REACH_ZOOM)))
 }

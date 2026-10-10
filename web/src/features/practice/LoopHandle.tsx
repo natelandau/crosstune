@@ -19,6 +19,7 @@ import {
 import { msAtX, xOfMs, type LaneView } from './practiceZoom'
 import { useAutoPan } from './useAutoPan'
 import { capturePointer } from '../../platform/pointer'
+import { tap } from '../../platform/haptics'
 import { useLatest } from '../../ui/useLatest'
 
 export const LOOP_START = 'Loop start'
@@ -99,6 +100,8 @@ export function LoopHandle({
     lastX: number
     alt: boolean
     pinch: number
+    /** The target the edge rests on, so the snap buzzes once as it takes hold, not each move. */
+    snappedTo: number | null
   } | null>(null)
   const nudged = useRef(false)
   // Whether the drag rests on a snap target, so an app can settle the handle onto it. Kept
@@ -128,7 +131,10 @@ export function LoopHandle({
       ? [bounds.startMs, bounds.endMs]
       : [playheadMs, bounds.startMs, bounds.endMs]
     const to = snapMs(raw, targets, 1000 / view.pxPerS)
-    setSnapped(to !== raw)
+    const snappedTo = to !== raw ? to : null
+    if (snappedTo !== null && snappedTo !== pressed.snappedTo) tap()
+    pressed.snappedTo = snappedTo
+    setSnapped(snappedTo !== null)
     const next = resizeSpan(pressed.span, edge, Math.round(to), bounds)
     latestRef.current = next
     onDraft({ id, ...next })
@@ -229,6 +235,7 @@ export function LoopHandle({
           lastX: event.clientX,
           alt: event.altKey,
           pinch: pinches.current,
+          snappedTo: null,
         }
       }}
       onPointerMove={(event) => {
