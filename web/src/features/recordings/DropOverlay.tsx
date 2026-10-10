@@ -7,8 +7,9 @@ export const DROP_TO_IMPORT = 'Drop to import'
 
 /**
  * What a column shows while files are dragged over it: an inset slate outline and "Drop to
- * import" over the column's visible part, fading in and out. It sticks under the pane bar, so it never covers it,
- * and takes no pointer events, so the drag still lands on the column beneath.
+ * import" over the column's visible part, fading in and out. It sticks under the pane bar, so
+ * it never covers it, and takes no pointer events, so the drag still lands on the column
+ * beneath.
  */
 export function DropOverlay({ shown }: { shown: boolean }) {
   const pane = usePane()
