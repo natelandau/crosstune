@@ -114,6 +114,179 @@ extension Components {
                 case url
             }
         }
+        /// The outcome of a change to the entitlements row, which a push never applies.
+        ///
+        /// - Remark: Generated from `#/components/schemas/EntitlementChangeResult`.
+        public struct EntitlementChangeResult: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/EntitlementChangeResult/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/EntitlementChangeResult/reason`.
+            public var reason: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/EntitlementChangeResult/row`.
+            public var row: Components.Schemas.EntitlementRow?
+            /// - Remark: Generated from `#/components/schemas/EntitlementChangeResult/status`.
+            public var status: Swift.String
+            /// - Remark: Generated from `#/components/schemas/EntitlementChangeResult/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case entitlements = "entitlements"
+            }
+            /// - Remark: Generated from `#/components/schemas/EntitlementChangeResult/table`.
+            public var table: Components.Schemas.EntitlementChangeResult.TablePayload
+            /// Creates a new `EntitlementChangeResult`.
+            ///
+            /// - Parameters:
+            ///   - id:
+            ///   - reason:
+            ///   - row:
+            ///   - status:
+            ///   - table:
+            public init(
+                id: Swift.String,
+                reason: Swift.String? = nil,
+                row: Components.Schemas.EntitlementRow? = nil,
+                status: Swift.String,
+                table: Components.Schemas.EntitlementChangeResult.TablePayload
+            ) {
+                self.id = id
+                self.reason = reason
+                self.row = row
+                self.status = status
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case id
+                case reason
+                case row
+                case status
+                case table
+            }
+        }
+        /// An entitlements row in a pull page.
+        ///
+        /// - Remark: Generated from `#/components/schemas/EntitlementPullRow`.
+        public struct EntitlementPullRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/EntitlementPullRow/row`.
+            public var row: Components.Schemas.EntitlementRow
+            /// - Remark: Generated from `#/components/schemas/EntitlementPullRow/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case entitlements = "entitlements"
+            }
+            /// - Remark: Generated from `#/components/schemas/EntitlementPullRow/table`.
+            public var table: Components.Schemas.EntitlementPullRow.TablePayload
+            /// Creates a new `EntitlementPullRow`.
+            ///
+            /// - Parameters:
+            ///   - row:
+            ///   - table:
+            public init(
+                row: Components.Schemas.EntitlementRow,
+                table: Components.Schemas.EntitlementPullRow.TablePayload
+            ) {
+                self.row = row
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case row
+                case table
+            }
+        }
+        /// What a user's plan allows, as pull returns it. Clients read it and never push it.
+        ///
+        /// - Remark: Generated from `#/components/schemas/EntitlementRow`.
+        public struct EntitlementRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/auto_renews`.
+            public var autoRenews: Swift.Bool
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/created_at`.
+            public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/deleted_at`.
+            public var deletedAt: Foundation.Date?
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/free_quota_bytes`.
+            public var freeQuotaBytes: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/premium_expires_at`.
+            public var premiumExpiresAt: Foundation.Date?
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/premium_quota_bytes`.
+            public var premiumQuotaBytes: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/premium_source`.
+            public var premiumSource: Components.Schemas.GrantSource?
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/recording_notice_seen_at`.
+            public var recordingNoticeSeenAt: Foundation.Date?
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/server_seq`.
+            public var serverSeq: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/trial_ends_at`.
+            public var trialEndsAt: Foundation.Date?
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/trial_reminder_seen_at`.
+            public var trialReminderSeenAt: Foundation.Date?
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/updated_at`.
+            public var updatedAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/user_id`.
+            public var userId: Swift.String
+            /// Creates a new `EntitlementRow`.
+            ///
+            /// - Parameters:
+            ///   - autoRenews:
+            ///   - createdAt:
+            ///   - deletedAt:
+            ///   - freeQuotaBytes:
+            ///   - id:
+            ///   - premiumExpiresAt:
+            ///   - premiumQuotaBytes:
+            ///   - premiumSource:
+            ///   - recordingNoticeSeenAt:
+            ///   - serverSeq:
+            ///   - trialEndsAt:
+            ///   - trialReminderSeenAt:
+            ///   - updatedAt:
+            ///   - userId:
+            public init(
+                autoRenews: Swift.Bool,
+                createdAt: Foundation.Date,
+                deletedAt: Foundation.Date? = nil,
+                freeQuotaBytes: Swift.Int,
+                id: Swift.String,
+                premiumExpiresAt: Foundation.Date? = nil,
+                premiumQuotaBytes: Swift.Int,
+                premiumSource: Components.Schemas.GrantSource? = nil,
+                recordingNoticeSeenAt: Foundation.Date? = nil,
+                serverSeq: Swift.Int,
+                trialEndsAt: Foundation.Date? = nil,
+                trialReminderSeenAt: Foundation.Date? = nil,
+                updatedAt: Foundation.Date,
+                userId: Swift.String
+            ) {
+                self.autoRenews = autoRenews
+                self.createdAt = createdAt
+                self.deletedAt = deletedAt
+                self.freeQuotaBytes = freeQuotaBytes
+                self.id = id
+                self.premiumExpiresAt = premiumExpiresAt
+                self.premiumQuotaBytes = premiumQuotaBytes
+                self.premiumSource = premiumSource
+                self.recordingNoticeSeenAt = recordingNoticeSeenAt
+                self.serverSeq = serverSeq
+                self.trialEndsAt = trialEndsAt
+                self.trialReminderSeenAt = trialReminderSeenAt
+                self.updatedAt = updatedAt
+                self.userId = userId
+            }
+            public enum CodingKeys: String, CodingKey {
+                case autoRenews = "auto_renews"
+                case createdAt = "created_at"
+                case deletedAt = "deleted_at"
+                case freeQuotaBytes = "free_quota_bytes"
+                case id
+                case premiumExpiresAt = "premium_expires_at"
+                case premiumQuotaBytes = "premium_quota_bytes"
+                case premiumSource = "premium_source"
+                case recordingNoticeSeenAt = "recording_notice_seen_at"
+                case serverSeq = "server_seq"
+                case trialEndsAt = "trial_ends_at"
+                case trialReminderSeenAt = "trial_reminder_seen_at"
+                case updatedAt = "updated_at"
+                case userId = "user_id"
+            }
+        }
         /// A page of history rows after the given cursor.
         ///
         /// - Remark: Generated from `#/components/schemas/EventsResponse`.
@@ -190,6 +363,10 @@ extension Components {
                 case tuning
             }
         }
+        /// Who issued a grant.
+        ///
+        /// - Remark: Generated from `#/components/schemas/GrantSource`.
+        public typealias GrantSource = Swift.String
         /// An instrument with a per-tune tuning. The order is the order the client lists them in.
         ///
         /// - Remark: Generated from `#/components/schemas/Instrument`.
@@ -704,6 +881,23 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/Mode`.
         public typealias Mode = Swift.String
+        /// A one-time notice the user has now seen.
+        ///
+        /// - Remark: Generated from `#/components/schemas/NoticeRequest`.
+        public struct NoticeRequest: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/NoticeRequest/notice`.
+            public var notice: Swift.String
+            /// Creates a new `NoticeRequest`.
+            ///
+            /// - Parameters:
+            ///   - notice:
+            public init(notice: Swift.String) {
+                self.notice = notice
+            }
+            public enum CodingKeys: String, CodingKey {
+                case notice
+            }
+        }
         /// A presigned GET for the waveform file, tagged with the revision it was signed for.
         ///
         /// - Remark: Generated from `#/components/schemas/PeaksUrl`.
@@ -1403,7 +1597,7 @@ extension Components {
             public var status: Swift.Int
             /// - Remark: Generated from `#/components/schemas/Problem/title`.
             public var title: Swift.String
-            /// `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413).
+            /// `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:scan-tune-only` (403, a free account's scans stay on one tune), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413).
             ///
             /// - Remark: Generated from `#/components/schemas/Problem/type`.
             public var _type: Swift.String?
@@ -1414,7 +1608,7 @@ extension Components {
             ///   - errors:
             ///   - status:
             ///   - title:
-            ///   - _type: `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413).
+            ///   - _type: `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:scan-tune-only` (403, a free account's scans stay on one tune), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413).
             public init(
                 detail: Swift.String,
                 errors: Components.Schemas.Problem.ErrorsPayload? = nil,
@@ -1449,82 +1643,21 @@ extension Components {
             /// - Remark: Generated from `#/components/schemas/PullResponse/next_since`.
             public var nextSince: Swift.Int
             /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload`.
-            @frozen public enum RowsPayloadPayload: Codable, Hashable, Sendable {
-                /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/ListItemPullRow`.
-                case listItems(Components.Schemas.ListItemPullRow)
-                /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/ListPullRow`.
-                case lists(Components.Schemas.ListPullRow)
-                /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/RecordingLinkPullRow`.
-                case recordingLinks(Components.Schemas.RecordingLinkPullRow)
-                /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/RecordingLoopPullRow`.
-                case recordingLoops(Components.Schemas.RecordingLoopPullRow)
-                /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/RecordingPullRow`.
-                case recordings(Components.Schemas.RecordingPullRow)
-                /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/ScanPullRow`.
-                case scans(Components.Schemas.ScanPullRow)
-                /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/TunePullRow`.
-                case tunes(Components.Schemas.TunePullRow)
-                /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/UserSettingsPullRow`.
-                case userSettings(Components.Schemas.UserSettingsPullRow)
-                /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/UserTunePullRow`.
-                case userTunes(Components.Schemas.UserTunePullRow)
-                public enum CodingKeys: String, CodingKey {
-                    case table
+            public struct RowsPayloadPayload: Codable, Hashable, Sendable {
+                /// A container of undocumented properties.
+                public var additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer
+                /// Creates a new `RowsPayloadPayload`.
+                ///
+                /// - Parameters:
+                ///   - additionalProperties: A container of undocumented properties.
+                public init(additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()) {
+                    self.additionalProperties = additionalProperties
                 }
                 public init(from decoder: any Swift.Decoder) throws {
-                    let container = try decoder.container(keyedBy: CodingKeys.self)
-                    let discriminator = try container.decode(
-                        Swift.String.self,
-                        forKey: .table
-                    )
-                    switch discriminator {
-                    case "list_items":
-                        self = .listItems(try .init(from: decoder))
-                    case "lists":
-                        self = .lists(try .init(from: decoder))
-                    case "recording_links":
-                        self = .recordingLinks(try .init(from: decoder))
-                    case "recording_loops":
-                        self = .recordingLoops(try .init(from: decoder))
-                    case "recordings":
-                        self = .recordings(try .init(from: decoder))
-                    case "scans":
-                        self = .scans(try .init(from: decoder))
-                    case "tunes":
-                        self = .tunes(try .init(from: decoder))
-                    case "user_settings":
-                        self = .userSettings(try .init(from: decoder))
-                    case "user_tunes":
-                        self = .userTunes(try .init(from: decoder))
-                    default:
-                        throw Swift.DecodingError.unknownOneOfDiscriminator(
-                            discriminatorKey: CodingKeys.table,
-                            discriminatorValue: discriminator,
-                            codingPath: decoder.codingPath
-                        )
-                    }
+                    additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
                 public func encode(to encoder: any Swift.Encoder) throws {
-                    switch self {
-                    case let .listItems(value):
-                        try value.encode(to: encoder)
-                    case let .lists(value):
-                        try value.encode(to: encoder)
-                    case let .recordingLinks(value):
-                        try value.encode(to: encoder)
-                    case let .recordingLoops(value):
-                        try value.encode(to: encoder)
-                    case let .recordings(value):
-                        try value.encode(to: encoder)
-                    case let .scans(value):
-                        try value.encode(to: encoder)
-                    case let .tunes(value):
-                        try value.encode(to: encoder)
-                    case let .userSettings(value):
-                        try value.encode(to: encoder)
-                    case let .userTunes(value):
-                        try value.encode(to: encoder)
-                    }
+                    try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
             /// - Remark: Generated from `#/components/schemas/PullResponse/rows`.
@@ -1575,6 +1708,8 @@ extension Components {
         public struct PushResponse: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload`.
             @frozen public enum ResultsPayloadPayload: Codable, Hashable, Sendable {
+                /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/EntitlementChangeResult`.
+                case entitlements(Components.Schemas.EntitlementChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/ListItemChangeResult`.
                 case listItems(Components.Schemas.ListItemChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/ListChangeResult`.
@@ -1609,6 +1744,8 @@ extension Components {
                         forKey: .table
                     )
                     switch discriminator {
+                    case "entitlements":
+                        self = .entitlements(try .init(from: decoder))
                     case "list_items":
                         self = .listItems(try .init(from: decoder))
                     case "lists":
@@ -1643,6 +1780,8 @@ extension Components {
                 }
                 public func encode(to encoder: any Swift.Encoder) throws {
                     switch self {
+                    case let .entitlements(value):
+                        try value.encode(to: encoder)
                     case let .listItems(value):
                         try value.encode(to: encoder)
                     case let .lists(value):

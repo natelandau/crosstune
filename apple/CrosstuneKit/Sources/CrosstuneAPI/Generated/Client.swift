@@ -489,6 +489,81 @@ public struct Client: APIProtocol {
             }
         )
     }
+    /// Record Notice
+    ///
+    /// Record that the user saw a one-time notice, so no device shows it again.
+    ///
+    /// The first time is the one kept; a repeat changes nothing.
+    ///
+    /// - Remark: HTTP `POST /v1/me/notices`.
+    /// - Remark: Generated from `#/paths//v1/me/notices/post(record_notice_v1_me_notices_post)`.
+    public func recordNoticeV1MeNoticesPost(_ input: Operations.RecordNoticeV1MeNoticesPost.Input) async throws -> Operations.RecordNoticeV1MeNoticesPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.RecordNoticeV1MeNoticesPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/me/notices",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 204:
+                    return .noContent(.init())
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.RecordNoticeV1MeNoticesPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
     /// Download
     ///
     /// A presigned GET for the playback file of a ready recording.
@@ -806,7 +881,8 @@ public struct Client: APIProtocol {
     /// An import whose file never arrived is fetched again, or fails at once when its
     /// address is not one the server imports from. Any other recording whose uploaded
     /// object is gone is uploaded again through a new slot; this route only re-runs the
-    /// transcode. Repeating the call changes nothing.
+    /// transcode. Fetching an import again needs Premium; a transcode does not. Repeating
+    /// the call changes nothing.
     ///
     /// - Remark: HTTP `POST /v1/recordings/{recording_id}/retry`.
     /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/retry/post(retry_v1_recordings__recording_id__retry_post)`.
@@ -836,6 +912,28 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 204:
                     return .noContent(.init())
+                case 403:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.RetryV1RecordingsRecordingIdRetryPost.Output.Forbidden.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .forbidden(.init(body: body))
                 case 404:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
                     let body: Operations.RetryV1RecordingsRecordingIdRetryPost.Output.NotFound.Body
@@ -938,7 +1036,7 @@ public struct Client: APIProtocol {
     }
     /// Upload Slot
     ///
-    /// A presigned PUT for one recording's file, once the quota allows it.
+    /// A presigned PUT for one recording's file, once the plan and its quota allow it.
     ///
     /// A failed recording is issued a slot too, and returns to pending_upload: it is
     /// the only way back for one whose uploaded object is no longer in the bucket.
@@ -1000,6 +1098,28 @@ public struct Client: APIProtocol {
                         preconditionFailure("bestContentType chose an invalid content type.")
                     }
                     return .ok(.init(body: body))
+                case 403:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.UploadSlotV1RecordingsRecordingIdUploadSlotPost.Output.Forbidden.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .forbidden(.init(body: body))
                 case 404:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
                     let body: Operations.UploadSlotV1RecordingsRecordingIdUploadSlotPost.Output.NotFound.Body
@@ -1430,7 +1550,9 @@ public struct Client: APIProtocol {
     }
     /// Upload Slot
     ///
-    /// A presigned PUT for one scan's image, once the file cap and quota allow it.
+    /// A presigned PUT for one scan's image, once the file cap, the plan, and its quota allow it.
+    ///
+    /// A free plan uploads only to its scan tune, and only scans count toward its quota.
     ///
     /// - Remark: HTTP `POST /v1/scans/{scan_id}/upload-slot`.
     /// - Remark: Generated from `#/paths//v1/scans/{scan_id}/upload-slot/post(upload_slot_v1_scans__scan_id__upload_slot_post)`.
@@ -1489,6 +1611,28 @@ public struct Client: APIProtocol {
                         preconditionFailure("bestContentType chose an invalid content type.")
                     }
                     return .ok(.init(body: body))
+                case 403:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.UploadSlotV1ScansScanIdUploadSlotPost.Output.Forbidden.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .forbidden(.init(body: body))
                 case 404:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
                     let body: Operations.UploadSlotV1ScansScanIdUploadSlotPost.Output.NotFound.Body

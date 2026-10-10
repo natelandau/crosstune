@@ -70,6 +70,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Notice
+         * @description Record that the user saw a one-time notice, so no device shows it again.
+         *
+         *     The first time is the one kept; a repeat changes nothing.
+         */
+        post: operations["record_notice_v1_me_notices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recordings/{recording_id}/download": {
         parameters: {
             query?: never;
@@ -132,7 +154,8 @@ export interface paths {
          *     An import whose file never arrived is fetched again, or fails at once when its
          *     address is not one the server imports from. Any other recording whose uploaded
          *     object is gone is uploaded again through a new slot; this route only re-runs the
-         *     transcode. Repeating the call changes nothing.
+         *     transcode. Fetching an import again needs Premium; a transcode does not. Repeating
+         *     the call changes nothing.
          */
         post: operations["retry_v1_recordings__recording_id__retry_post"];
         delete?: never;
@@ -152,7 +175,7 @@ export interface paths {
         put?: never;
         /**
          * Upload Slot
-         * @description A presigned PUT for one recording's file, once the quota allows it.
+         * @description A presigned PUT for one recording's file, once the plan and its quota allow it.
          *
          *     A failed recording is issued a slot too, and returns to pending_upload: it is
          *     the only way back for one whose uploaded object is no longer in the bucket.
@@ -215,7 +238,9 @@ export interface paths {
         put?: never;
         /**
          * Upload Slot
-         * @description A presigned PUT for one scan's image, once the file cap and quota allow it.
+         * @description A presigned PUT for one scan's image, once the file cap, the plan, and its quota allow it.
+         *
+         *     A free plan uploads only to its scan tune, and only scans count toward its quota.
          */
         post: operations["upload_slot_v1_scans__scan_id__upload_slot_post"];
         delete?: never;
@@ -337,7 +362,7 @@ export interface components {
              * Table
              * @enum {string}
              */
-            table: "tunes" | "user_tunes" | "lists" | "list_items" | "recording_links" | "recordings" | "scans" | "recording_loops" | "user_settings" | "play_events" | "practice_sessions" | "scan_views";
+            table: "tunes" | "user_tunes" | "lists" | "list_items" | "recording_links" | "recordings" | "scans" | "recording_loops" | "user_settings" | "play_events" | "practice_sessions" | "scan_views" | "entitlements";
             /**
              * Updated At
              * Format: date-time
@@ -362,6 +387,87 @@ export interface components {
             url: string;
         };
         /**
+         * EntitlementChangeResult
+         * @description The outcome of a change to the entitlements row, which a push never applies.
+         */
+        EntitlementChangeResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason?: string | null;
+            row?: components["schemas"]["EntitlementRow"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "applied" | "stale" | "invalid";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "entitlements";
+        };
+        /**
+         * EntitlementPullRow
+         * @description An entitlements row in a pull page.
+         */
+        EntitlementPullRow: {
+            row: components["schemas"]["EntitlementRow"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "entitlements";
+        };
+        /**
+         * EntitlementRow
+         * @description What a user's plan allows, as pull returns it. Clients read it and never push it.
+         */
+        EntitlementRow: {
+            /** Auto Renews */
+            auto_renews: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /** Free Quota Bytes */
+            free_quota_bytes: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Premium Expires At */
+            premium_expires_at: string | null;
+            /** Premium Quota Bytes */
+            premium_quota_bytes: number;
+            premium_source: components["schemas"]["GrantSource"] | null;
+            /** Recording Notice Seen At */
+            recording_notice_seen_at: string | null;
+            /** Server Seq */
+            server_seq: number;
+            /** Trial Ends At */
+            trial_ends_at: string | null;
+            /** Trial Reminder Seen At */
+            trial_reminder_seen_at: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /**
          * EventsResponse
          * @description A page of history rows after the given cursor.
          */
@@ -383,6 +489,12 @@ export interface components {
             /** Tuning */
             tuning?: string | null;
         };
+        /**
+         * GrantSource
+         * @description Who issued a grant.
+         * @enum {string}
+         */
+        GrantSource: "trial" | "apple" | "stripe" | "comp";
         /**
          * Instrument
          * @description An instrument with a per-tune tuning. The order is the order the client lists them in.
@@ -573,6 +685,17 @@ export interface components {
          * @enum {string}
          */
         Mode: "major" | "minor" | "mixolydian" | "dorian" | "modal" | "other";
+        /**
+         * NoticeRequest
+         * @description A one-time notice the user has now seen.
+         */
+        NoticeRequest: {
+            /**
+             * Notice
+             * @enum {string}
+             */
+            notice: "first_recording" | "trial_reminder";
+        };
         /**
          * PeaksUrl
          * @description A presigned GET for the waveform file, tagged with the revision it was signed for.
@@ -840,7 +963,7 @@ export interface components {
             title: string;
             /**
              * Type
-             * @description `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413).
+             * @description `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:scan-tune-only` (403, a free account's scans stay on one tune), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413).
              * @default about:blank
              */
             type: string;
@@ -861,7 +984,7 @@ export interface components {
             /** Next Since */
             next_since: number;
             /** Rows */
-            rows: (components["schemas"]["TunePullRow"] | components["schemas"]["UserTunePullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["RecordingPullRow"] | components["schemas"]["ScanPullRow"] | components["schemas"]["RecordingLoopPullRow"] | components["schemas"]["UserSettingsPullRow"])[];
+            rows: (components["schemas"]["TunePullRow"] | components["schemas"]["UserTunePullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["RecordingPullRow"] | components["schemas"]["ScanPullRow"] | components["schemas"]["RecordingLoopPullRow"] | components["schemas"]["UserSettingsPullRow"] | components["schemas"]["EntitlementPullRow"])[];
         };
         /**
          * PushRequest
@@ -877,7 +1000,7 @@ export interface components {
          */
         PushResponse: {
             /** Results */
-            results: (components["schemas"]["TuneChangeResult"] | components["schemas"]["UserTuneChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["RecordingChangeResult"] | components["schemas"]["ScanChangeResult"] | components["schemas"]["RecordingLoopChangeResult"] | components["schemas"]["UserSettingsChangeResult"] | components["schemas"]["PlayEventChangeResult"] | components["schemas"]["PracticeSessionChangeResult"] | components["schemas"]["ScanViewChangeResult"])[];
+            results: (components["schemas"]["TuneChangeResult"] | components["schemas"]["UserTuneChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["RecordingChangeResult"] | components["schemas"]["ScanChangeResult"] | components["schemas"]["RecordingLoopChangeResult"] | components["schemas"]["UserSettingsChangeResult"] | components["schemas"]["PlayEventChangeResult"] | components["schemas"]["PracticeSessionChangeResult"] | components["schemas"]["ScanViewChangeResult"] | components["schemas"]["EntitlementChangeResult"])[];
         };
         /**
          * RecordingChangeResult
@@ -2055,6 +2178,37 @@ export interface operations {
             };
         };
     };
+    record_notice_v1_me_notices_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoticeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     download_v1_recordings__recording_id__download_get: {
         parameters: {
             query?: never;
@@ -2189,6 +2343,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description Not Found */
             404: {
                 headers: {
@@ -2249,6 +2412,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SignedUrl"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Not Found */
@@ -2443,6 +2615,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SignedUrl"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Not Found */

@@ -137,6 +137,29 @@ private func json(_ data: Data?) throws -> JSONObject {
         #expect(list.updatedAt == Timestamp(iso: "2026-09-19T21:30:00Z"))
     }
 
+    @Test func skipsPulledRowsFromTablesThisBuildDoesNotStore() async throws {
+        let transport = RecordingTransport(
+            body: """
+                {"rows": [
+                  {"table": "entitlements", "row": {
+                    "id": "e1", "created_at": "2026-09-19T21:30:00Z", "updated_at": "2026-09-19T21:30:00Z",
+                    "deleted_at": null, "server_seq": 50, "user_id": "u", "tier": "premium"
+                  }},
+                  {"table": "lists", "row": {
+                    "id": "l1", "created_at": "2026-09-19T21:30:00Z", "updated_at": "2026-09-19T21:30:00Z",
+                    "deleted_at": null, "server_seq": 51, "user_id": "u", "name": "Thursday jam", "position": 0
+                  }},
+                  {"table": "tempo_marks", "row": {"id": "x1", "server_seq": 52}}
+                ], "next_since": 52, "has_more": false}
+                """)
+
+        let page = try await api(transport).pull(since: 49)
+
+        #expect(page.rows.map(\.table) == [.lists])
+        #expect(page.nextSince == 52)
+        #expect(!page.hasMore)
+    }
+
     @Test func readsAnEventsPageAndKeepsATableThisBuildDoesNotKnow() async throws {
         let transport = RecordingTransport(
             body: """

@@ -29,8 +29,12 @@ import {
 export type { TableName }
 
 /** The tables the main pull syncs and the device stores row by row. The event tables
- * arrive through their own pull and are written only by inserts. */
-export type SyncTableName = Exclude<TableName, 'play_events' | 'practice_sessions' | 'scan_views'>
+ * arrive through their own pull and are written only by inserts. The main pull also
+ * carries entitlements, which this device has no store for and skips. */
+export type SyncTableName = Exclude<
+  TableName,
+  'play_events' | 'practice_sessions' | 'scan_views' | 'entitlements'
+>
 
 export const TABLE_NAMES = [
   'tunes',
