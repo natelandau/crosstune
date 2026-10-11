@@ -1,10 +1,10 @@
+import { ArrowUpRight } from 'lucide-react'
 import { canSubscribe, type Plan } from '../../billing/plan'
 import { storeConfig } from '../../billing/storeConfig'
 import { useStore } from '../../billing/StoreProvider'
 import { usePlan } from '../../billing/usePlan'
-import { ActionRow } from '../../ui/form/ActionRow'
-import { FieldRow } from '../../ui/form/FieldRow'
 import { Group } from '../../ui/form/Group'
+import { StatusRow } from '../../ui/form/StatusRow'
 import { useNow } from '../../ui/useNow'
 import {
   APP_STORE_SUBSCRIPTIONS_URL,
@@ -67,11 +67,21 @@ export function PlanGroup() {
           ) : undefined
         }
       >
-        <FieldRow label={name} value={detail} />
-        {subscribe && (
-          <ActionRow label={SUBSCRIBE} onPress={() => premium.open('plan', 'plan_group')} />
-        )}
-        {manage && <ActionRow label={manage.label} onPress={() => open(manage.url)} />}
+        <StatusRow
+          title={name}
+          detail={detail}
+          action={
+            subscribe
+              ? {
+                  label: SUBSCRIBE,
+                  prominent: true,
+                  onPress: () => premium.open('plan', 'plan_group'),
+                }
+              : manage
+                ? { label: manage.label, icon: ArrowUpRight, onPress: () => open(manage.url) }
+                : undefined
+          }
+        />
       </Group>
       <StorageSummary />
     </>

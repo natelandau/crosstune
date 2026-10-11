@@ -197,6 +197,11 @@ Web form of the toolbar rule in `design.md`: actions sit at the foot.
   pointer. Never a segmented control: it announces as a tab list and spends
   width on unchosen values.
 - Status is a rail of capsules, one per word.
+- A settings group's action is a button in the row that states what it
+  acts on (`StatusRow`): trailing on pointer, full width under the text on
+  touch. Bordered, or filled for the one action the group exists to offer.
+  Never a row of action-colored text, which reads as a label. Exception:
+  Sign out and Delete account stay red rows.
 
 ## Practice
 

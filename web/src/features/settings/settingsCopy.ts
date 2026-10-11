@@ -6,8 +6,7 @@ export const SIGNED_IN_OFFLINE = 'Signed in (offline)'
 export const TEXT_SIZE_LABEL = 'Text size'
 export const THEME_LABEL = 'Theme'
 export const QUALITY_LABEL = 'Quality'
-/** The Sync group's rows: the sync state, then the recording transfers. */
-export const SYNC_STATUS_LABEL = 'Status'
+/** The Sync group's row for the recording transfers. */
 export const TRANSFERS_LABEL = 'Recordings'
 export const APPEARANCE_HELP =
   'These apply to this device only. System follows the phone when it switches.'
