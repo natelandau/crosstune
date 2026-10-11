@@ -152,6 +152,7 @@ async def delete_me(
         user,
         request.app.state.stripe,
         request.app.state.revenuecat,
+        request.app.state.settings,
         utc_now(),
     )
     user_id = await purge_account(session, user.clerk_user_id)
@@ -201,6 +202,7 @@ async def clerk_webhook(
                         existing,
                         request.app.state.stripe,
                         request.app.state.revenuecat,
+                        request.app.state.settings,
                         utc_now(),
                     )
                 except (AccountDeletionUnavailableError, AccountDeletionFailedError):

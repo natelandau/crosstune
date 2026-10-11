@@ -15,11 +15,13 @@ from sqlalchemy import func, select
 
 from crosstune.analytics.posthog import AnalyticsUnavailableError
 from crosstune.auth.webhooks import verify_svix_signature
+from crosstune.billing.grants import PaidSubscription
 from crosstune.billing.stripe import StripeUnavailableError
 from crosstune.db.base import utc_now
 from crosstune.jobs import analytics as analytics_jobs
 from crosstune.jobs.runner import JobRunner
-from crosstune.models import AnalyticsDeletion, DeletedAccount, Grant, Tune, User
+from crosstune.models import AnalyticsDeletion, DeletedAccount, Tune, User
+from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantSource
 from tests.fakes import FakeObjectStore, FakeStripe
 from tests.helpers import T0, WEBHOOK_SECRET, change, push, sign, uid
 
@@ -359,23 +361,24 @@ async def test_user_deleted_without_analytics_configured(
     assert await _queued_deletions(verify_session) == []
 
 
-async def _stripe_subscriber(client, auth_headers, verify_session: AsyncSession) -> None:
-    me = (await client.get("/v1/me", headers=auth_headers("user_gone"))).json()
-    verify_session.add(
-        Grant(
-            user_id=uuid.UUID(me["id"]),
-            kind="premium",
-            source="stripe",
-            external_id="si_123",
+async def _stripe_subscriber(client, app, auth_headers) -> None:
+    await client.get("/v1/me", headers=auth_headers("user_gone"))
+    app.state.revenuecat.subscriptions_by_customer["user_gone"] = [
+        PaidSubscription(
+            store_id="si_123",
+            source=GrantSource.STRIPE,
+            kind=GrantKind.PREMIUM,
+            environment=GrantEnvironment.PRODUCTION,
+            expires_at=None,
+            auto_renews=True,
         )
-    )
-    await verify_session.commit()
+    ]
 
 
 async def test_clerk_user_deleted_ends_billing(
     client, app, auth_headers, verify_session: AsyncSession
 ) -> None:
-    await _stripe_subscriber(client, auth_headers, verify_session)
+    await _stripe_subscriber(client, app, auth_headers)
     response = await _post_user_deleted(client, "user_gone")
     assert response.status_code == 204
     assert app.state.stripe.cancelled == ["si_123"]
@@ -389,7 +392,7 @@ async def test_clerk_user_deleted_stripe_failure_is_503(
     client, app, auth_headers, verify_session: AsyncSession
 ) -> None:
     app.state.stripe = FakeStripe(error=StripeUnavailableError())
-    await _stripe_subscriber(client, auth_headers, verify_session)
+    await _stripe_subscriber(client, app, auth_headers)
     response = await _post_user_deleted(client, "user_gone")
     assert response.status_code == 503
     assert (

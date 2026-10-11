@@ -192,6 +192,11 @@ synced entitlements row.
   or still renewing after access lapsed, and deletes its RevenueCat
   customer. It leaves `apple` grants alone, since the app cannot cancel an
   App Store subscription.
+  - RevenueCat, read at deletion time, names the subscriptions to cancel,
+    not the stored grants. A plan change in Stripe replaces the
+    subscription item that a grant's `external_id` names, and a grant
+    still reads as live until a webhook updates it. Without RevenueCat
+    configured, the grants decide.
   - `DELETE /v1/me` fails with 503 when a live Stripe subscription exists
     and Stripe is not configured. It fails with 502 when Stripe or RevenueCat
     does not confirm. Neither has a `billing-*` type. RevenueCat is skipped
