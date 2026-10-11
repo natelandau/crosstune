@@ -25,6 +25,8 @@ import { TuneFormProvider } from '../features/tune/TuneFormProvider'
 import { ConfirmProvider } from '../ui/Confirm'
 import { NoticeHost } from '../features/plan/NoticeHost'
 import { PremiumSheetProvider, usePremiumSheet } from '../features/plan/PremiumSheetProvider'
+import { StoreProvider } from '../billing/StoreProvider'
+import type { Store } from '../billing/store'
 import { recordingsPlayable } from '../billing/plan'
 import { usePlanOrUnknown } from '../billing/usePlan'
 import { ToastProvider } from '../ui/Toast'
@@ -42,6 +44,7 @@ export function App({
   playbackEngine,
   backAdapter,
   shortcutSheet,
+  store,
 }: {
   router: AppRouter
   /** Stands in for the tune form, for a test that watches what opens it. */
@@ -54,6 +57,8 @@ export function App({
   backAdapter?: BackAdapter
   /** Stands in for the shortcut sheet, for a test that watches what opens it. */
   shortcutSheet?: ShortcutSheetLauncher
+  /** Stands in for the web store; null means purchasing is unavailable. */
+  store?: Store | null
 }) {
   useDensity()
   useSchemeSync(useAppearance())
@@ -98,18 +103,20 @@ export function App({
       <AppMotion>
         <ConfirmProvider>
           <ToastProvider>
-            <PremiumSheetProvider navigate={(to) => void router.navigate(to)}>
-              {/* Outside the router, so a loaded item keeps playing across every navigation.
-                  The player reaches the engine to prime it inside a play tap. */}
-              {playbackEngine ? (
-                <PlaybackEngineContext.Provider value={playbackEngine}>
-                  {played}
-                </PlaybackEngineContext.Provider>
-              ) : (
-                <PlaybackEngineProvider>{played}</PlaybackEngineProvider>
-              )}
-              <NoticeHost navigate={(to) => void router.navigate(to)} />
-            </PremiumSheetProvider>
+            <StoreProvider store={store}>
+              <PremiumSheetProvider navigate={(to) => void router.navigate(to)}>
+                {/* Outside the router, so a loaded item keeps playing across every navigation.
+                    The player reaches the engine to prime it inside a play tap. */}
+                {playbackEngine ? (
+                  <PlaybackEngineContext.Provider value={playbackEngine}>
+                    {played}
+                  </PlaybackEngineContext.Provider>
+                ) : (
+                  <PlaybackEngineProvider>{played}</PlaybackEngineProvider>
+                )}
+                <NoticeHost navigate={(to) => void router.navigate(to)} />
+              </PremiumSheetProvider>
+            </StoreProvider>
           </ToastProvider>
         </ConfirmProvider>
       </AppMotion>

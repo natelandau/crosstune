@@ -135,6 +135,45 @@ describe('_headers', () => {
     expect(cspDirective('script-src')).not.toContain(ANALYTICS_HOST)
   })
 
+  it('lets RevenueCat checkout load Stripe and reach both providers', () => {
+    expect(cspDirective('script-src')).toEqual(
+      expect.arrayContaining(['https://js.stripe.com', 'https://*.js.stripe.com']),
+    )
+    expect(cspDirective('frame-src')).toEqual(
+      expect.arrayContaining([
+        'https://js.stripe.com',
+        'https://*.js.stripe.com',
+        'https://hooks.stripe.com',
+        'https://checkout.stripe.com',
+      ]),
+    )
+    expect(cspDirective('connect-src')).toEqual(
+      expect.arrayContaining([
+        'https://api.revenuecat.com',
+        'https://e.revenue.cat',
+        'https://api.stripe.com',
+        'https://checkout.stripe.com',
+      ]),
+    )
+  })
+
+  it("lets RevenueCat checkout show the app's branding images and font", () => {
+    expect(cspDirective('img-src')).toEqual(
+      expect.arrayContaining(['https://*.stripe.com', 'https://da08ctfrofx1b.cloudfront.net']),
+    )
+    expect(cspDirective('font-src')).toEqual(["'self'", 'https://da08ctfrofx1b.cloudfront.net'])
+  })
+
+  it("allows payment only in Stripe's frames", () => {
+    const policy = rulesFor('/*').find((rule) => rule.startsWith('Permissions-Policy: '))
+    const payment = policy?.match(/(?:^Permissions-Policy: |, )payment=\(([^)]*)\)/)?.[1]
+    expect(payment?.split(' ')).toEqual([
+      '"https://js.stripe.com"',
+      '"https://*.js.stripe.com"',
+      '"https://checkout.stripe.com"',
+    ])
+  })
+
   it('lets the session recorder start its worker from a blob URL', () => {
     expect(cspDirective('worker-src')).toContain('blob:')
   })

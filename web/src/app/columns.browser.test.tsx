@@ -348,7 +348,7 @@ async function mountShell(
     initialEntries: [path],
   })
   onTestFinished(() => router.dispose())
-  render(<App router={router} />, {
+  render(<App router={router} store={null} />, {
     wrapper: dataProviders({ db: openTestDb(), engine: fakeEngine() }),
   })
   return router

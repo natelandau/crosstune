@@ -2,6 +2,7 @@ import { render, type RenderResult } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { onTestFinished } from 'vitest'
 import { page } from 'vitest/browser'
+import type { Store } from '../billing/store'
 import type { CrosstuneDb } from '../db/schema'
 import type { PlaybackEngine } from '../features/player/playbackEngine'
 import type { Player } from '../features/player/usePlayer'
@@ -33,6 +34,8 @@ interface RenderAppOptions {
   android?: AndroidBackForTest
   /** Stands in for the shortcut sheet. */
   shortcutSheet?: ShortcutSheetLauncher
+  /** Stands in for the web store; null by default, so no test reaches RevenueCat. */
+  store?: Store | null
 }
 
 const PHONE = { width: 390, height: 844 }
@@ -53,6 +56,7 @@ export async function renderApp({
   playbackEngine,
   android,
   shortcutSheet,
+  store = null,
 }: RenderAppOptions): Promise<RenderResult & { router: AppRouter }> {
   await page.viewport(frame.width, frame.height)
   onTestFinished(() => page.viewport(PHONE.width, PHONE.height))
@@ -67,6 +71,7 @@ export async function renderApp({
         playbackEngine={playbackEngine}
         backAdapter={android?.adapterFor(router)}
         shortcutSheet={shortcutSheet}
+        store={store}
       />,
     ),
     {
