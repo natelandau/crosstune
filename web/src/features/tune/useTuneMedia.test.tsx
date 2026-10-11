@@ -26,6 +26,8 @@ import { useRecordingsWithFiles } from '../recordings/useRecordings'
 import { DONT_PLAY_FIRST, PLAY_FIRST_IN_LISTS } from './playSourceText'
 import { useTune } from './useTune'
 import { useTuneMedia } from './useTuneMedia'
+import { PremiumSheetProvider } from '../plan/PremiumSheetProvider'
+import { entitlementRow } from '../../test/rows'
 
 vi.mock('../../commands/links', { spy: true })
 
@@ -53,7 +55,9 @@ function mount({
   const Data = dataProviders({ db, engine, analytics })
   const wrapper = ({ children }: { children: ReactNode }) => (
     <Data>
-      <PlayerContext.Provider value={fakePlayer()}>{children}</PlayerContext.Provider>
+      <PremiumSheetProvider navigate={() => {}}>
+        <PlayerContext.Provider value={fakePlayer()}>{children}</PlayerContext.Provider>
+      </PremiumSheetProvider>
     </Data>
   )
   const hook = renderHook(
@@ -93,6 +97,17 @@ describe('useTuneMedia', () => {
     expect(row!.view.recording.id).toBe(id)
     expect(row!.pinned).toBe(false)
     expect(row!.actions.map(label)).toContain(PLAY_FIRST_IN_LISTS)
+  })
+
+  it('shows a failed upload error only while the plan uploads', async () => {
+    const id = await captureRecording(db, { tuneId: ids.tuneId })
+    await db.recording_files.update(id, { local_state: 'failed_upload', error: 'Refused' })
+    await db.entitlements.put(entitlementRow({ premium_source: 'comp' }))
+    const { result } = mount()
+    await waitFor(() => expect(result.current.media.recordingRows[0]?.error).toBe('Refused'))
+
+    await db.entitlements.put(entitlementRow())
+    await waitFor(() => expect(result.current.media.recordingRows[0]?.error).toBeNull())
   })
 
   it('pins and unpins a link, and reports it as pinned', async () => {
@@ -253,6 +268,34 @@ describe('useTuneMedia', () => {
           props: { source_archive: 'slippery_hill', recording_id: saved!.id, tune_id: ids.tuneId },
         },
       ])
+  })
+
+  it('answers Add to recordings on a free plan with the Premium sheet, saving nothing', async () => {
+    const analytics = recordingAnalytics()
+    await db.entitlements.put(entitlementRow())
+    await addLink(db, ids.tuneId, {
+      url: 'https://www.slippery-hill.com/recording/1',
+      provider: 'slippery_hill',
+      provider_ref: '1',
+    })
+    const { result } = mount({ analytics })
+    await waitFor(() => expect(result.current.media.linkRows).toHaveLength(1))
+
+    act(() => {
+      result.current.media.linkRows[0]!.actions.find(
+        (a) => a.label === ADD_TO_RECORDINGS,
+      )!.onPress()
+    })
+
+    await expect
+      .poll(() => analytics.sends())
+      .toEqual([
+        {
+          name: 'premium_sheet_shown',
+          props: { reason: 'recordings', from: 'add_to_recordings' },
+        },
+      ])
+    expect(await db.recordings.count()).toBe(0)
   })
 
   it('sends link_removed with the link and its service once the link is removed', async () => {

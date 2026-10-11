@@ -1,4 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { recordingsPlayable } from '../../billing/plan'
+import { usePlanOrUnknown } from '../../billing/usePlan'
 import { useDb } from '../../db/DbProvider'
 import { useOnline } from '../../sync/SyncProvider'
 import { playlistReport, type PlaylistReport } from '../player/listSource'
@@ -12,6 +14,7 @@ import type { ListItemView } from './useLists'
 export function usePlaylistReport(rows: readonly ListItemView[]): PlaylistReport | undefined {
   const db = useDb()
   const online = useOnline()
+  const recordingsPlay = recordingsPlayable(usePlanOrUnknown())
   // Keyed by the set of tunes, since the caller builds its rows afresh each render and a
   // reorder changes nothing to read.
   const key = [...new Set(rows.map((row) => row.tune.id))].sort().join(' ')
@@ -20,5 +23,6 @@ export function usePlaylistReport(rows: readonly ListItemView[]): PlaylistReport
   return playlistReport(playlistEntries(rows, media), {
     online,
     hasAudio: (id) => media.held.has(id),
+    recordingsPlay,
   })
 }

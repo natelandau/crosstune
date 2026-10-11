@@ -9,6 +9,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import type { LocalList, LocalListItem } from '../../db/types'
 import {
   NOTHING_PLAYS,
+  PLAYLIST_SKIP_PREMIUM,
   SHUFFLE,
   SKIP_LINKS_ONLY,
   WHAT_PLAYS_HINT,
@@ -39,7 +40,14 @@ import { playName } from '../recordings/recordingNames'
 import { openTestDb } from '../../test/db'
 import { fakeMediaForTest } from '../../test/fakeMedia'
 import { FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
-import { linkRow, recordingFile, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
+import {
+  entitlementRow,
+  linkRow,
+  recordingFile,
+  recordingRow,
+  tuneRow,
+  userTuneRow,
+} from '../../test/rows'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { EDIT, RECORDING_NAME_LABEL } from '../recordings/recordingCopy'
 import { EDIT_RECORDING_TITLE, SAVE_RECORDING } from '../recordings/recordingsCopy'
@@ -170,6 +178,19 @@ it('says what plays and opens a skipped tune from the sheet', async () => {
   await tune.click()
   await expect.element(sheet).not.toBeInTheDocument()
   await expect.poll(() => router.state.location.pathname).toBe('/lists/l1/tunes/t2')
+})
+
+it('plays nothing on a free plan and says recordings need Premium', async () => {
+  await mount(WIDE, ONE_LINK, { before: (db) => db.entitlements.put(entitlementRow()) })
+  await expect.element(page.getByRole('button', { name: NOTHING_PLAYS })).toBeVisible()
+  await expect.element(playButton()).toBeDisabled()
+  await page.getByRole('button', { name: NOTHING_PLAYS }).click()
+  const sheet = page.getByRole('dialog', { name: WHAT_PLAYS_TITLE })
+  const premium = sheet.getByRole('region', { name: PLAYLIST_SKIP_PREMIUM })
+  await expect.element(premium.getByRole('button', { name: TITLES.t1 })).toBeVisible()
+  await expect.element(premium.getByRole('button', { name: TITLES.t3 })).toBeVisible()
+  const linksOnly = sheet.getByRole('region', { name: SKIP_LINKS_ONLY })
+  await expect.element(linksOnly.getByRole('button', { name: TITLES.t2 })).toBeVisible()
 })
 
 it('plays the list from its first tune', async () => {

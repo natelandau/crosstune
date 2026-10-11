@@ -9,6 +9,8 @@ import {
   type ReactNode,
 } from 'react'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
+import { recordingsPlayable } from '../../billing/plan'
+import { usePlanOrUnknown } from '../../billing/usePlan'
 import type { Trigger } from '../../usage/events'
 import { createPlaybackReporter } from '../../usage/playbackReporter'
 import { useDb } from '../../db/DbProvider'
@@ -99,6 +101,7 @@ export function ListPlaybackProvider({
   const player = usePlayer()
   const playerRef = useLatest(player)
   const onlineRef = useLatest(useOnline())
+  const recordingsPlayRef = useLatest(recordingsPlayable(usePlanOrUnknown()))
   const dbRef = useLatest(db)
 
   const [repeat, setRepeat] = useState(storedRepeat)
@@ -171,7 +174,7 @@ export function ListPlaybackProvider({
     if (!playlist || !entry) return null
     const choice = playlistSource({
       ...entry,
-      ...playlistAvailability(playlist, onlineRef.current),
+      ...playlistAvailability(playlist, onlineRef.current, recordingsPlayRef.current),
     })
     return 'item' in choice ? choice.item : null
   }
@@ -391,7 +394,7 @@ export function ListPlaybackProvider({
     if (!playlist) return
     const { playable } = playlistReport(
       playlist.entries,
-      playlistAvailability(playlist, onlineRef.current),
+      playlistAvailability(playlist, onlineRef.current, recordingsPlayRef.current),
     )
     // A list with nothing to play leaves whatever plays alone.
     if (playable.length === 0) return

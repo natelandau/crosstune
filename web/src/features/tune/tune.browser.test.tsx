@@ -1,4 +1,4 @@
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { setInstruments } from '../../commands/settings'
 import { deleteTune } from '../../commands/tunes'
@@ -21,9 +21,22 @@ import {
   NOTES_SECTION,
   OPEN_LYRICS,
   RECORDINGS_SECTION,
+  recordingsLine,
 } from './tuneScreenCopy'
 import { openTestDb } from '../../test/db'
-import { linkRow, recordingFile, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
+import {
+  entitlementRow,
+  linkRow,
+  recordingFile,
+  recordingRow,
+  tuneRow,
+  userTuneRow,
+} from '../../test/rows'
+import { fakePlayer } from '../../test/providers'
+import { PREMIUM_RECORDINGS_TITLE } from '../plan/planCopy'
+import { EDIT, SUBSCRIBE_TO_PLAY } from '../recordings/recordingCopy'
+import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
+import { recordingAnalytics } from '../../usage/testing'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { TUNE } from './tunePageCopy'
 import { destination } from '../../app/destinations'
@@ -235,6 +248,76 @@ it('plays a recording when its row is tapped', async () => {
   await expect
     .element(tunePage().getByRole('row', { name: new RegExp(`^${CLOSE_PLAYER} Fast take`) }))
     .toBeVisible()
+})
+
+it("folds a free plan's recordings into one line that opens to dimmed rows", async () => {
+  const db = openTestDb()
+  await db.entitlements.put(entitlementRow())
+  await seedTune(db, 't1', 'Old Joe Clark')
+  for (const n of [1, 2, 3]) {
+    await db.recordings.put(
+      recordingRow(`r${n}`, { tune_id: 't1', label: `Take ${n}`, position: n }),
+    )
+    await db.recording_files.put(
+      recordingFile(`r${n}`, { blob: new Blob(['x'], { type: 'audio/mp4' }) }),
+    )
+  }
+  await db.recording_links.put(
+    linkRow('l1', 't1', {
+      title: 'Henry Reed',
+      provider: 'youtube',
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      provider_ref: 'dQw4w9WgXcQ',
+    }),
+  )
+  const player = fakePlayer()
+  const analytics = recordingAnalytics()
+  await renderApp({
+    path: '/catalog/t1',
+    db,
+    frame: PHONE,
+    player,
+    wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
+  })
+  const section = tunePage().getByRole('region', { name: RECORDINGS_SECTION })
+  const line = section.getByRole('button', { name: recordingsLine(3) })
+  await expect.element(line).toHaveAttribute('aria-expanded', 'false')
+  const takes = section.getByRole('row', { name: /Take \d/ })
+  await expect.element(section.getByRole('row', { name: /Henry Reed/ })).toBeVisible()
+  await expect.poll(() => takes.elements().length).toBe(0)
+
+  await line.click()
+  await expect.element(line).toHaveAttribute('aria-expanded', 'true')
+  await expect.poll(() => takes.elements().length).toBe(3)
+  for (const row of takes.elements()) {
+    await expect.poll(() => Number(getComputedStyle(row).opacity)).toBeLessThan(1)
+  }
+
+  // A gated row's name drops the verb its tap will not do.
+  const take = section.getByRole('row', { name: /^Take 1/ })
+  await expect.element(take).toHaveAccessibleDescription(SUBSCRIBE_TO_PLAY)
+  await take.click({ button: 'right' })
+  await expect.element(page.getByRole('menuitem', { name: EDIT })).toBeVisible()
+  await expect.element(page.getByRole('menuitem', { name: DELETE })).toBeVisible()
+  await userEvent.keyboard('{Escape}')
+  await expect.element(page.getByRole('menuitem', { name: EDIT })).not.toBeInTheDocument()
+
+  await take.click()
+  await expect.element(page.getByRole('dialog', { name: PREMIUM_RECORDINGS_TITLE })).toBeVisible()
+  expect(player.play).not.toHaveBeenCalled()
+  await expect
+    .poll(() => analytics.sends().filter((send) => send.name === 'premium_sheet_shown'))
+    .toEqual([
+      { name: 'premium_sheet_shown', props: { reason: 'recordings', from: 'recordings_line' } },
+    ])
+  await userEvent.keyboard('{Escape}')
+  await expect
+    .element(page.getByRole('dialog', { name: PREMIUM_RECORDINGS_TITLE }))
+    .not.toBeInTheDocument()
+
+  await section.getByRole('row', { name: new RegExp(`^${PLAY} Henry Reed`) }).click()
+  await expect.poll(() => vi.mocked(player.play).mock.calls.length).toBe(1)
+  expect(vi.mocked(player.play).mock.calls[0]![0]).toEqual({ kind: 'link', id: 'l1' })
 })
 
 it('keeps a tune on screen on wide until the next one has read', async () => {

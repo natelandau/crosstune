@@ -1,8 +1,12 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { recordingsPlayable } from '../../billing/plan'
+import { usePlanOrUnknown } from '../../billing/usePlan'
 import { useDb } from '../../db/DbProvider'
-import { getStorage } from '../../db/meta'
+import { isNotUploaded } from '../../db/recordings'
+import { getPremiumHolds, getStorage } from '../../db/meta'
 import { OFFLINE } from '../../sync/labels'
 import { useOnline } from '../../sync/SyncProvider'
+import { usePremiumSheet, type PremiumEntry } from '../plan/PremiumSheetProvider'
 import { CLOSE_PLAYER } from '../player/transportCopy'
 import { TUNE_ROW_ORIGIN, type PlayOrigin } from '../player/playLog'
 import { isPlaying, usePlayer } from '../player/usePlayer'
@@ -30,8 +34,13 @@ export interface RecordingRowData {
   loaded: boolean
   /** A download offered while offline: the row keeps its tap and dims, and says Offline. */
   offlineDownload: boolean
-  /** What a tap on the row does and the verb that names it; undefined when it does nothing. */
-  open: { onOpen: () => void; openName: string } | undefined
+  /** A recording the plan does not play that has something to play: the row dims and its tap
+   * opens the Premium sheet. */
+  disabled: boolean
+  /** What a tap on the row does and the verb that names it; undefined when it does nothing. A
+   * disabled row's tap opens the Premium sheet, so it has no verb: its name must not promise a
+   * play it will not do. */
+  open: { onOpen: () => void; openName: string | null } | undefined
   retry: 'upload' | 'transcode' | null
   /** A failed download, unless the caller's own error line speaks first. */
   error: string | null
@@ -50,6 +59,7 @@ export function useRecordingRow(
     sort,
     error,
     origin: playOrigin = TUNE_ROW_ORIGIN,
+    premiumFrom = 'recording_row',
   }: {
     tuneNamedAbove?: boolean
     sort?: RecordingSort
@@ -57,11 +67,14 @@ export function useRecordingRow(
     error?: string | null
     /** Where a play from this row counts as asked for. */
     origin?: PlayOrigin
+    /** Where a tap on a disabled row counts as opening the Premium sheet from. */
+    premiumFrom?: PremiumEntry
   } = {},
 ): RecordingRowData {
   const { recording, file } = view
   const db = useDb()
   const player = usePlayer()
+  const premium = usePremiumSheet()
   const online = useOnline()
   const { fetch, download } = useDownload(recording.id)
   const title = recordingTitle(view, { tuneNamedAbove })
@@ -72,10 +85,24 @@ export function useRecordingRow(
     () => (blockedQuota ? getStorage(db) : undefined),
     [db, blockedQuota],
   )
-  const control = rowControl(view, {
+  // Only a take the server has not stored can be held, and a held take goes out as soon as the
+  // plan is Premium, so any other row skips the read.
+  const free = !recordingsPlayable(usePlanOrUnknown())
+  const mayBeHeld = recording.server_seq === 0 && free
+  const heldRow = useLiveQuery(
+    async () => mayBeHeld && (await getPremiumHolds(db)).has(recording.id),
+    [db, mayBeHeld, recording.id],
+  )
+  // A free plan uploads no audio, so audio not yet uploaded waits for Premium too.
+  const heldAudio = free && file?.local_state !== 'capturing' && isNotUploaded(file)
+  const held = (heldRow ?? false) || heldAudio
+  const shownControl = rowControl(view, {
     loaded,
     downloading: fetch === 'fetching' || file?.local_state === 'downloading',
   })
+  // A disabled row keeps the play glyph its tap stands for, and never offers a download. One
+  // with nothing to play yet stays without a control.
+  const control = free && shownControl !== 'none' ? 'play' : shownControl
   const offlineDownload = control === 'download' && !online
   // A download control is only ever offered for a ready, not-held recording, so the ordinary
   // meta parts (tries, storage) never apply here; Offline takes the status word's place, the
@@ -87,10 +114,14 @@ export function useRecordingRow(
     : recordingMeta(view, storage ?? null, {
         dateInTitle: titleIsDate(view, { tuneNamedAbove }),
         sort,
+        held,
       })
 
-  const open =
-    control === 'close'
+  const open = free
+    ? control === 'play'
+      ? { onOpen: () => premium.open('recordings', premiumFrom), openName: null }
+      : undefined
+    : control === 'close'
       ? { onOpen: () => player.close(), openName: CLOSE_PLAYER }
       : control === 'play'
         ? { onOpen: () => player.play(item, playOrigin), openName: PLAY }
@@ -111,8 +142,9 @@ export function useRecordingRow(
     control,
     loaded,
     offlineDownload,
+    disabled: free && open !== undefined,
     open,
-    retry: retryKind(view),
+    retry: retryKind(view, { uploads: !free }),
     error: error ?? (fetch === 'failed' ? DOWNLOAD_FAILED : null),
     origin: originLink(recording),
   }

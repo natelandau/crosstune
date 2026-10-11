@@ -15,6 +15,8 @@ import { listPosition } from '../player/playerCopy'
 import { useListPlayback } from '../player/useListPlayback'
 import { useRecordingActionsWith } from '../recordings/useRecordingActionsWith'
 import { practiceBlocker, trimBlocker } from './practiceOverlayModel'
+import { recordingsPlayable } from '../../billing/plan'
+import { usePlanOrUnknown } from '../../billing/usePlan'
 import { usePracticeOverlay, usePracticeOverlayShown } from './usePracticeOverlay'
 import { usePracticeOverlayView } from './usePracticeOverlayView'
 import { useTrimHold } from './useTrimHold'
@@ -104,10 +106,14 @@ function PracticeModal({ id, onClose }: { id: string; onClose: () => void }) {
   )
 
   const confirm = useConfirm()
+  const recordingsPlay = recordingsPlayable(usePlanOrUnknown())
   const actions = useRecordingActionsWith({
     confirm,
-    onTrim: state.openTrim,
-    trimBlocked: view ? trimBlocker(view.recording, view.file, state.audio) : undefined,
+    // A control with nothing to act on is absent, so a free plan's menu has no Trim.
+    onTrim: recordingsPlay ? state.openTrim : undefined,
+    trimBlocked: view
+      ? trimBlocker(view.recording, view.file, state.audio, recordingsPlay)
+      : undefined,
     onOpenTune: (opened) => {
       if (!opened.tuneId) return
       onClose()
@@ -251,7 +257,7 @@ function PracticeModal({ id, onClose }: { id: string; onClose: () => void }) {
                         key={view.recording.id}
                         view={view}
                         shown={state.peaks}
-                        blocked={practiceBlocker(view.file, state.audio)}
+                        blocked={practiceBlocker(view.file, state.audio, recordingsPlay)}
                         escapeRef={escapeRef}
                         focusCarry={focusCarry}
                         isTop={isTop}

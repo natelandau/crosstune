@@ -36,6 +36,9 @@ import type { RecordingView } from '../recordings/useRecordings'
 import { useSearchProviders } from '../settings/searchProviders'
 import { useResetOnChange } from '../../ui/useResetOnChange'
 import { pinRowAction } from './playSourceText'
+import { recordingsPlayable } from '../../billing/plan'
+import { usePlanOrUnknown } from '../../billing/usePlan'
+import { usePremiumSheet } from '../plan/PremiumSheetProvider'
 
 export interface RecordingMediaRow {
   view: RecordingView
@@ -104,6 +107,8 @@ export function useTuneMedia(
   const online = useOnline()
   const engine = useSyncEngine()
   const providers = useSearchProviders()
+  const playable = recordingsPlayable(usePlanOrUnknown())
+  const premium = usePremiumSheet()
   const [pasting, setPasting] = useState(false)
   const [editing, setEditing] = useState<RecordingView | null>(null)
   const [finding, setFinding] = useState(false)
@@ -182,7 +187,8 @@ export function useTuneMedia(
             short: 'Add',
             icon: Download,
             tone: 'neutral' as const,
-            onPress: () =>
+            onPress: () => {
+              if (!playable) return premium.open('recordings', 'add_to_recordings')
               run(async () => {
                 const recordingId = await addRecordingFromLink(db, link.id)
                 analytics.send('archive_recording_saved', {
@@ -190,7 +196,8 @@ export function useTuneMedia(
                   recording_id: recordingId,
                   tune_id: tuneId,
                 })
-              }),
+              })
+            },
           },
         ]
       : []),
@@ -212,7 +219,7 @@ export function useTuneMedia(
       view,
       pinned: view.recording.id === pinnedRecordingId,
       actions: actionsFor(view),
-      error: retryKind(view) === 'upload' ? view.file?.error : null,
+      error: retryKind(view, { uploads: playable }) === 'upload' ? view.file?.error : null,
     })),
     linkRows: links.map((link) => {
       const pinned = link.id === pinnedLinkId

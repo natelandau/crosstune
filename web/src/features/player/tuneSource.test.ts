@@ -21,6 +21,7 @@ function choose(
     recordings: LocalRecording[]
     links: LocalRecordingLink[]
     playFirst: PlayFirst
+    recordingsPlay: boolean
   }>,
 ) {
   return chooseRowSource({
@@ -29,6 +30,7 @@ function choose(
     recordings: [],
     links: [],
     playFirst: 'recordings',
+    recordingsPlay: true,
     ...input,
   })
 }
@@ -189,5 +191,33 @@ describe('chooseRowSource', () => {
 
   it('returns null when there is nothing to play', () => {
     expect(choose({})).toBeNull()
+  })
+
+  describe('while recordings cannot play', () => {
+    it('falls back from a pinned recording to a link, as from a missing one', () => {
+      expect(
+        choose({
+          pin: { recordingId: 'r1', linkId: null },
+          recordings: [rec('r1')],
+          links: [link('l1', 'youtube')],
+          recordingsPlay: false,
+        }),
+      ).toEqual({ kind: 'link', id: 'l1' })
+    })
+
+    it('chooses nothing for a tune holding only recordings', () => {
+      expect(choose({ recordings: [rec('r1')], recordingsPlay: false })).toBeNull()
+    })
+
+    it('plays the pinned recording again once recordings can play', () => {
+      expect(
+        choose({
+          pin: { recordingId: 'r1', linkId: null },
+          recordings: [rec('r1')],
+          links: [link('l1', 'youtube')],
+          recordingsPlay: true,
+        }),
+      ).toEqual({ kind: 'recording', id: 'r1' })
+    })
   })
 })

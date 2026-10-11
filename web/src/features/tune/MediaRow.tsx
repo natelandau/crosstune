@@ -3,11 +3,12 @@ import { createContext, useContext, useLayoutEffect, useState, type ReactNode } 
 import { Button as AriaButton, type Key } from 'react-aria-components'
 import { closeLinkName, linkOutText, openOnProviderName } from '../links/linkNames'
 import { useLinkRow } from '../links/useLinkRow'
-import { openOn } from '../recordings/recordingCopy'
+import { openOn, SUBSCRIBE_TO_PLAY } from '../recordings/recordingCopy'
 import type { RecordingSort } from '../recordings/arrangeRecordings'
 import { downloadingName, openTuneName, RETRY, retryName } from '../recordings/recordingNames'
 import { useRecordingRow } from '../recordings/useRecordingRow'
 import type { PlayOrigin } from '../player/playLog'
+import type { PremiumEntry } from '../plan/PremiumSheetProvider'
 import type { LinkMediaRow, RecordingMediaRow } from './useTuneMedia'
 import { PinnedMark } from './PinnedMark'
 import { DISC_ROW_HOVER, TransportGlyph } from '../../ui/rowGlyphs'
@@ -58,6 +59,7 @@ export function MediaRow({
   title,
   pinned,
   details,
+  description,
   trailing,
   actions,
   dimmed,
@@ -72,6 +74,8 @@ export function MediaRow({
   title: string
   pinned: boolean
   details: ReactNode
+  /** Heard after the row's name. */
+  description?: string
   trailing?: ReactNode
   actions: Parameters<typeof rowActions>[0]
   dimmed?: boolean
@@ -100,6 +104,7 @@ export function MediaRow({
       title={title}
       titleEnd={pinned ? <PinnedMark /> : undefined}
       detail={details}
+      description={description}
       trailing={trailing}
       actions={rowActions(actions)}
       dimmed={dimmed}
@@ -117,6 +122,7 @@ export function RecordingRow({
   sort,
   onOpenTune,
   playOrigin,
+  premiumFrom,
 }: {
   row: RecordingMediaRow
   onRetry: (kind: 'upload' | 'transcode') => void
@@ -128,8 +134,16 @@ export function RecordingRow({
   onOpenTune?: () => void
   /** Where a play from the row counts as asked for; a tune's page by default. */
   playOrigin?: PlayOrigin
+  /** Where a tap on a disabled row counts as opening the Premium sheet from. */
+  premiumFrom?: PremiumEntry
 }) {
-  const data = useRecordingRow(view, { tuneNamedAbove, sort, error, origin: playOrigin })
+  const data = useRecordingRow(view, {
+    tuneNamedAbove,
+    sort,
+    error,
+    origin: playOrigin,
+    premiumFrom,
+  })
   const fresh = useNewTake(view.recording.id)
   const { title, control, open, retry, origin } = data
   const meta = data.meta.join(' · ')
@@ -142,7 +156,9 @@ export function RecordingRow({
         aria-hidden
       />
     ) : null
-  const name = [open ? `${open.openName} ${title}` : title, meta].filter(Boolean).join(', ')
+  const name = [open?.openName ? `${open.openName} ${title}` : title, meta]
+    .filter(Boolean)
+    .join(', ')
   return (
     <MediaRow
       id={view.recording.id}
@@ -159,7 +175,8 @@ export function RecordingRow({
       loaded={data.loaded}
       title={title}
       pinned={pinned}
-      dimmed={data.offlineDownload}
+      dimmed={data.offlineDownload || data.disabled}
+      description={data.disabled ? SUBSCRIBE_TO_PLAY : undefined}
       fresh={fresh}
       details={
         <>

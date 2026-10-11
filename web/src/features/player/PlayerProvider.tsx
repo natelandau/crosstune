@@ -1,5 +1,8 @@
-import { useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
-import { DbContext } from '../../db/DbProvider'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
+import { recordingsPlayable } from '../../billing/plan'
+import { usePlanOrUnknown } from '../../billing/usePlan'
+import { useDb } from '../../db/DbProvider'
+import { useLatest } from '../../ui/useLatest'
 import { visibleMain } from '../../platform/visibleMain'
 import { usePlaybackEngine } from './PlaybackEngineProvider'
 import { tappedFrom, type PlayOrigin } from './playLog'
@@ -24,16 +27,22 @@ export function PlayerProvider({
 
   // A loaded item belongs to one user's database. Clearing it during the render that sees a
   // new database keeps the dock from showing the previous user's recording while the new
-  // read is pending. Only the database's identity matters here, so no database is required.
-  const db = useContext(DbContext)
+  // read is pending.
+  const db = useDb()
   const [itemDb, setItemDb] = useState(db)
   if (db !== itemDb) {
     setItemDb(db)
     setLoaded(null)
   }
+  // Above every error boundary, so a failed plan read gates nothing. A plan that turns free,
+  // as when a trial ends on the clock, unloads a recording in the render that sees it.
+  const recordingsPlay = recordingsPlayable(usePlanOrUnknown())
+  const recordingsPlayRef = useLatest(recordingsPlay)
+  if (!recordingsPlay && loaded?.item.kind === 'recording') setLoaded(null)
 
   const play = useCallback(
     (next: PlayerItem, origin: PlayOrigin = DOCK_ORIGIN) => {
+      if (next.kind === 'recording' && !recordingsPlayRef.current) return
       const active = document.activeElement
       opener.current = active instanceof HTMLElement && active !== document.body ? active : null
       // Synchronous, inside the tap, so iOS has already granted the AudioContext by the
@@ -41,7 +50,7 @@ export function PlayerProvider({
       if (next.kind === 'recording') engine.prime()
       setLoaded({ item: next, origin })
     },
-    [engine],
+    [engine, recordingsPlayRef],
   )
   const close = useCallback(() => setLoaded(null), [])
   const returnFocus = useCallback(() => {

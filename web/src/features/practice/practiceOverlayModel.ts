@@ -5,6 +5,7 @@ import { useOnline } from '../../sync/SyncProvider'
 import { useCurrentAudio } from '../player/useCurrentAudio'
 import { useRecordingDownload } from '../player/useRecordingDownload'
 import { DOWNLOAD_FAILED, fileStateLabel, NOT_AVAILABLE } from '../../text/format'
+import { PREMIUM_RECORDINGS_TITLE } from '../plan/planCopy'
 import { trimmedLengthMs, trimPending } from './recordingRange'
 import { TRIM_BUSY, TRIM_WHILE_DOWNLOADING, TRIM_WHILE_RECORDING } from './trimViewCopy'
 
@@ -12,12 +13,15 @@ import { TRIM_BUSY, TRIM_WHILE_DOWNLOADING, TRIM_WHILE_RECORDING } from './trimV
  * `unavailable` is one the server has no playback file for yet, so there is nothing to fetch. */
 export type AudioFetch = 'held' | 'unavailable' | 'offline' | 'downloading' | 'failed'
 
-/** Why Trim cannot be used right now, or undefined when it can. */
+/** Why Trim cannot be used right now, or undefined when it can. `recordingsPlay` is false while
+ * the plan plays no recording. */
 export function trimBlocker(
   recording: LocalRecording,
   file: RecordingFile | undefined,
   audio: AudioFetch,
+  recordingsPlay: boolean,
 ): string | undefined {
+  if (!recordingsPlay) return PREMIUM_RECORDINGS_TITLE
   if (file?.local_state === 'capturing') return TRIM_WHILE_RECORDING
   if (audio === 'unavailable') return fileStateLabel(recording, file) || NOT_AVAILABLE
   if (audio === 'offline') return OFFLINE
@@ -30,11 +34,14 @@ export function trimBlocker(
   return undefined
 }
 
-/** Why the waveform, transport, and modes cannot be used right now, or undefined when they can. */
+/** Why the waveform, transport, and modes cannot be used right now, or undefined when they can.
+ * `recordingsPlay` is false while the plan plays no recording. */
 export function practiceBlocker(
   file: RecordingFile | undefined,
   audio: AudioFetch,
+  recordingsPlay: boolean,
 ): string | undefined {
+  if (!recordingsPlay) return PREMIUM_RECORDINGS_TITLE
   if (file?.local_state === 'capturing') return TRIM_WHILE_RECORDING
   if (audio === 'downloading') return TRIM_WHILE_DOWNLOADING
   return undefined

@@ -1,5 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { PlayFirst } from '../../api/vocabulary'
+import { recordingsPlayable } from '../../billing/plan'
+import { usePlanOrUnknown } from '../../billing/usePlan'
 import { activeLinksForTune } from '../../commands/links'
 import { useDb } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
@@ -33,7 +35,12 @@ async function readTuneMedia(
   return new Map(read)
 }
 
-function rowSource(entry: ListItemView, media: TuneMedia, playFirst: PlayFirst): RowSource | null {
+function rowSource(
+  entry: ListItemView,
+  media: TuneMedia,
+  playFirst: PlayFirst,
+  recordingsPlay: boolean,
+): RowSource | null {
   const { views, links } = media
   const chosen = chooseRowSource({
     tuneId: entry.tune.id,
@@ -44,6 +51,7 @@ function rowSource(entry: ListItemView, media: TuneMedia, playFirst: PlayFirst):
     recordings: views.map((view) => view.recording),
     links,
     playFirst,
+    recordingsPlay,
   })
   if (!chosen) return null
   if (chosen.kind === 'link') {
@@ -64,6 +72,7 @@ export function useListRowSources(
   playFirst: PlayFirst | undefined,
 ): ReadonlyMap<string, RowSource | null> | undefined {
   const db = useDb()
+  const recordingsPlay = recordingsPlayable(usePlanOrUnknown())
   // Keyed by the set of tunes, since the caller builds its rows afresh each render and a
   // reorder changes nothing to read.
   const key = [...new Set(rows.map((row) => row.tune.id))].sort().join(' ')
@@ -73,7 +82,7 @@ export function useListRowSources(
   for (const row of rows) {
     const tuneMedia = media.get(row.tune.id)
     // A row whose tune joined after the last read waits for the next one.
-    if (tuneMedia) sources.set(row.item.id, rowSource(row, tuneMedia, playFirst))
+    if (tuneMedia) sources.set(row.item.id, rowSource(row, tuneMedia, playFirst, recordingsPlay))
   }
   return sources
 }

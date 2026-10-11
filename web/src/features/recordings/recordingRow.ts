@@ -13,6 +13,7 @@ import {
 } from '../../text/format'
 import { providerLabel } from '../links/display'
 import type { RecordingSort } from './arrangeRecordings'
+import { HELD_FOR_PREMIUM } from './recordingCopy'
 import { recordingLabel } from './recordingMatch'
 import { ALL_RECORDINGS, MY_RECORDINGS } from './recordingsCopy'
 import type { RecordingView } from './useRecordings'
@@ -91,14 +92,25 @@ export function sortOrigins(origins: readonly string[]): string[] {
 
 /**
  * The meta parts in order, already worded; the row joins them with " · ". Under Date added the
- * date is when the recording was added; under every other sort it is when it was played.
+ * date is when the recording was added; under every other sort it is when it was played. A take
+ * `held` for Premium says so in place of its status.
  */
 export function recordingMeta(
   view: RecordingView,
   storage: StorageFigures | null,
-  { dateInTitle = false, sort }: { dateInTitle?: boolean; sort?: RecordingSort } = {},
+  {
+    dateInTitle = false,
+    sort,
+    held = false,
+  }: { dateInTitle?: boolean; sort?: RecordingSort; held?: boolean } = {},
 ): string[] {
   const { recording, file } = view
+  if (held) {
+    return [
+      formatDuration(recording.duration_ms ?? file?.local_duration_ms),
+      HELD_FOR_PREMIUM,
+    ].filter((part): part is string => Boolean(part))
+  }
   const status = fileStateLabel(recording, file)
   const duration = formatDuration(recording.duration_ms ?? file?.local_duration_ms)
   const attempts = file?.upload_attempts ?? 0
@@ -142,14 +154,18 @@ export function rowControl(
   return args.downloading ? 'downloading' : 'download'
 }
 
-/** Which retry a stuck row needs, or null when it is not stuck. */
-export function retryKind(view: RecordingView): 'upload' | 'transcode' | null {
+/** Which retry a stuck row needs, or null when it is not stuck. While the plan holds `uploads`,
+ * an upload retry would do nothing, so only a transcode retry is offered. */
+export function retryKind(
+  view: RecordingView,
+  { uploads = true }: { uploads?: boolean } = {},
+): 'upload' | 'transcode' | null {
   const { recording, file } = view
   const attempts = file?.upload_attempts ?? 0
   // A refused upload, or one the loop keeps failing to send, is stuck until the musician acts.
   const uploadStuck =
     file?.local_state === 'failed_upload' || (file?.local_state === 'captured' && attempts > 0)
-  if (uploadStuck) return 'upload'
+  if (uploadStuck && uploads) return 'upload'
   if (recording.state === 'failed') return 'transcode'
   return null
 }

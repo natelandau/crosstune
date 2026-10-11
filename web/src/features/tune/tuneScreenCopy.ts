@@ -29,3 +29,8 @@ export const NO_TUNE_RECORDINGS = 'No recordings yet'
 export const NO_TUNE_RECORDINGS_HINT = 'Record one, paste a link, or find one on a music service.'
 export const NO_TUNE_NOTES = 'No notes yet'
 export const NO_TUNE_NOTES_HINT = 'Who you learned it from, bowings, or anything else to remember.'
+
+/** A free plan's recordings on a tune page, folded into one line. */
+export function recordingsLine(count: number): string {
+  return count === 1 ? '1 recording, subscribe to play' : `${count} recordings, subscribe to play`
+}

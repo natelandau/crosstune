@@ -1,5 +1,5 @@
 import { ArrowUpDown, type LucideIcon } from 'lucide-react'
-import { useContext, useEffect, useState, type ReactNode } from 'react'
+import { useContext, useEffect, useId, useState, type ReactNode } from 'react'
 import { Button as AriaButton, GridListItem, type Key } from 'react-aria-components'
 import { useStampedDensity } from '../platform/density'
 import { useLatest } from './useLatest'
@@ -44,6 +44,7 @@ export function Row({
   leading,
   title,
   detail,
+  description,
   trailing,
   actions = [],
   menu,
@@ -59,6 +60,8 @@ export function Row({
   leading?: ReactNode
   title: string
   detail?: ReactNode
+  /** Heard after the row's name, such as why a dimmed row does not do what its name says. */
+  description?: string
   trailing?: ReactNode
   actions?: RowAction[]
   menu?: RowAction[]
@@ -75,6 +78,7 @@ export function Row({
   titleTransition?: string
 }) {
   const density = useStampedDensity()
+  const descriptionId = useId()
   const reorder = useContext(ReorderContext)
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null)
   const items = menu ?? actions
@@ -114,6 +118,12 @@ export function Row({
       row.removeEventListener(FOCUS_RESTORE_EVENT, onRestore)
     }
   }, [row, openAtRef, hasMenuRef])
+  // GridListItem does not forward aria-describedby to its row element either.
+  useEffect(() => {
+    if (!row || !description) return
+    row.setAttribute('aria-describedby', descriptionId)
+    return () => row.removeAttribute('aria-describedby')
+  }, [row, description, descriptionId])
   const touch = density === 'touch'
   const titleText = (
     <span
@@ -221,6 +231,11 @@ export function Row({
             </div>
           )}
         </>
+      )}
+      {description && (
+        <span id={descriptionId} hidden>
+          {description}
+        </span>
       )}
       {items.length > 0 && (
         <div

@@ -22,9 +22,14 @@ export interface Playlist {
   held: ReadonlySet<string>
 }
 
-/** What `playlist` can play with the network as `online` says. */
-export function playlistAvailability(playlist: Playlist, online: boolean): Availability {
-  return { online, hasAudio: (id) => playlist.held.has(id) }
+/** What `playlist` can play with the network as `online` says, on a plan that plays
+ * recordings when `recordingsPlay` is true. */
+export function playlistAvailability(
+  playlist: Playlist,
+  online: boolean,
+  recordingsPlay: boolean,
+): Availability {
+  return { online, hasAudio: (id) => playlist.held.has(id), recordingsPlay }
 }
 
 /**
