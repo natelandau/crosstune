@@ -37,7 +37,7 @@ struct ScanTransfers {
             return files.map { ($0, serverSeqs[$0.scanID] ?? 0) }
         }
         let storage = try await store.meta(.storage, as: StorageFigures.self)
-        let anyTune = try await store.plan(at: self.now()).scansOnAnyTune
+        let plan = try await store.plan(at: self.now())
         let now = Timestamp.now
         var firstError: (any Error)?
         for (file, serverSeq) in waiting {
@@ -45,12 +45,12 @@ struct ScanTransfers {
             // a slot after all.
             if file.error == ScanFile.refusedError, serverSeq == 0 { continue }
             if file.error == ScanFile.scanTuneOnlyError {
-                guard anyTune else { continue }
                 // A row refused on push never reached the server, which gives no slot without it.
                 if serverSeq == 0 {
-                    try await requeue(file.scanID)
+                    try await requeue(file.scanID, plan: plan)
                     continue
                 }
+                guard plan.scansOnAnyTune else { continue }
             }
             // Only the figures a sync refreshes free a scan refused for quota; asking for a slot
             // before they show room would draw the same refusal.
@@ -173,19 +173,25 @@ struct ScanTransfers {
         try store.applyBackupRule(toScanFile: file.fileName, origin: .downloaded)
     }
 
-    /// Queues a scan's row again and clears its file's refusal, so the next push stores the row
-    /// and the upload after it can take a slot. Once per scan per grant: the device may judge
-    /// Premium within the offline leeway while the server already judges the account free.
-    private func requeue(_ id: String) async throws {
+    /// Queues a scan's row again, once the plan opens its tune, and clears its file's refusal, so
+    /// the next push stores the row and the upload after it can take a slot. Once per scan per
+    /// grant and scan tune: the device may judge Premium within the offline leeway while the
+    /// server already judges the account free, and the server's scan tune may differ from this
+    /// device's.
+    private func requeue(_ id: String, plan: Plan) async throws {
         try await store.write { writer in
             guard var file = try ScanFile.fetchOne(writer.db, key: id),
                 let scan = try ScanRecord.fetchOne(writer.db, key: id), scan.deletedAt == nil
             else { return }
+            // Read in this write, since queuing an earlier scan can make it the scan tune.
+            let scanTune = try ScanRecord.scanTuneID(writer.db)
+            guard PlanRules.scanOpens(plan, tuneID: scan.tuneID, scanTune: scanTune) else { return }
             let grant = ScanRequeues.grant(of: try Entitlement.current(writer.db))
             var requeues = try MetaKey.scanRequeues.value(in: writer.db, as: ScanRequeues.self) ?? ScanRequeues()
             if requeues.grant != grant { requeues = ScanRequeues(grant: grant) }
-            guard !requeues.scanIDs.contains(id) else { return }
-            requeues.scanIDs.append(id)
+            let attempt = ScanRequeues.attempt(scanID: id, scanTune: scanTune)
+            guard !requeues.attempts.contains(attempt) else { return }
+            requeues.attempts.append(attempt)
             try writer.setMeta(.scanRequeues, to: requeues)
             try writer.put(scan)
             file.error = nil
@@ -291,10 +297,14 @@ struct ScanTransfers {
     }
 }
 
-/// The scans queued again under one grant, stored under ``MetaKey/scanRequeues``.
+/// The scans queued again under one grant, each with the scan tune it was queued under, stored
+/// under ``MetaKey/scanRequeues``. Keeping every scan tune a scan was tried under, rather than only
+/// the latest, stops a scan tune that flips back and forth from sending the same scan forever.
 struct ScanRequeues: Codable, Sendable {
     var grant: String = ""
-    var scanIDs: [String] = []
+    var attempts: [String] = []
+
+    static func attempt(scanID: String, scanTune: String?) -> String { "\(scanID) \(scanTune ?? "none")" }
 
     /// What names the grant a plan was judged under. The row's server sequence changes with each
     /// write of it, so a grant revoked and given again on the same terms still reads as new.

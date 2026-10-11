@@ -594,19 +594,31 @@ import Testing
         #expect(file.error == nil)
     }
 
+    /// A ready scan on a second tune, so a free plan's scan tune is not the captured scans'.
+    func scanOnAnotherTune(_ id: String) async throws {
+        try await store.write { writer in
+            try Tune(id: "t2", createdAt: noon, serverSeq: 2, title: "Bonaparte's Retreat").insert(writer.db)
+            try ScanRecord(
+                id: id, createdAt: later(1_000), serverSeq: 4, tuneID: "t2", width: 600, height: 800,
+                state: ScanRecord.ready
+            ).insert(writer.db)
+        }
+    }
+
     @Test func aScanRowRefusedForItsTuneIsQueuedAgainOncePremium() async throws {
         try await storeEntitlement(store, source: nil)
         try await capturedScan("p1", serverSeq: 0, error: ScanFile.scanTuneOnlyError)
+        try await scanOnAnotherTune("p2")
         let engine = engine()
 
         await engine.transfer()
-        #expect(api.transfers.isEmpty)
+        #expect(!api.transfers.contains { $0.hasSuffix(" p1") })
         #expect(try await store.pendingChanges(limit: 10).isEmpty)
 
         try await storeEntitlement(store, source: "comp")
         await engine.transfer()
 
-        #expect(api.transfers.isEmpty)
+        #expect(!api.transfers.contains { $0.hasSuffix(" p1") })
         let queued = try await store.pendingChanges(limit: 10)
         #expect(queued.map(\.rowID) == ["p1"])
         #expect(queued.first?.tableName == .scans)
@@ -643,9 +655,41 @@ import Testing
         #expect(pushesOfP1() == 2)
     }
 
+    @Test func aFreePlanQueuesARefusedScanAgainOnceNoOtherScanHoldsTheScanTune() async throws {
+        try await storeEntitlement(store, source: nil)
+        try await capturedScan("p1", serverSeq: 0, error: ScanFile.scanTuneOnlyError)
+        api.respondToPush = { changes in
+            changes.map { PushResult(table: $0.table, id: $0.id, status: .invalid, reason: scanTuneOnlyReason) }
+        }
+        let engine = SyncEngine(
+            store: store, api: api, isOffline: { false }, sleep: sleeper.sleep, now: { noon.date })
+        func pushesOfP1() -> Int { api.pushes.filter { $0.contains { $0.id == "p1" } }.count }
+
+        for _ in 0..<3 {
+            await engine.transfer()
+            await engine.sync()
+        }
+
+        #expect(pushesOfP1() == 1)
+        #expect(try await file("p1")?.error == ScanFile.scanTuneOnlyError)
+        #expect(try await store.pendingChanges(limit: 10).isEmpty)
+    }
+
+    @Test func aFreePlanQueuesARefusedScanOnTheScanTuneAgain() async throws {
+        try await storeEntitlement(store, source: nil)
+        try await readyScan("p0")
+        try await capturedScan("p1", serverSeq: 0, error: ScanFile.scanTuneOnlyError)
+
+        await engine().transfer()
+
+        #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["p1"])
+        #expect(try await file("p1")?.error == nil)
+    }
+
     @Test func aGrantRevokedAndGivenAgainGivesTheScanAnotherTry() async throws {
         try await storeEntitlement(store, source: "comp", serverSeq: 1)
         try await capturedScan("p1", serverSeq: 0, error: ScanFile.scanTuneOnlyError)
+        try await scanOnAnotherTune("p2")
         api.respondToPush = { changes in
             changes.map { PushResult(table: $0.table, id: $0.id, status: .invalid, reason: scanTuneOnlyReason) }
         }
