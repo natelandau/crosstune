@@ -159,13 +159,6 @@ _e2e-db mode:
         echo "{{ e2e_db }} is at head. The development database crosstune is untouched."
     fi
 
-# Seed the marketing account the site captures sign in to; safe to repeat
-[group('capture')]
-[positional-arguments]
-seed-marketing *args:
-    docker compose -f ../compose.yml up -d --wait postgres rustfs
-    uv run python -m crosstune.ops.seed_marketing "$@"
-
 # Comp an account (Clerk ID or email), or revoke its comp
 [group('billing')]
 [positional-arguments]
@@ -183,6 +176,19 @@ trial *args:
 [positional-arguments]
 e2e-trial *args:
     {{ e2e_env }} uv run python -m crosstune.ops.billing trial "$@" --e2e
+
+# Seed, clear, or set the billing state of a Clerk development account
+[group('testdata')]
+[positional-arguments]
+testdata *args:
+    docker compose -f ../compose.yml up -d --wait postgres rustfs
+    uv run python -m crosstune.ops.testdata "$@"
+
+# Seed, clear, or set the billing state of a Railway development account
+[group('testdata')]
+[positional-arguments]
+testdata-railway *args:
+    railway ssh --environment development --service crosstune -- python -m crosstune.ops.testdata "$@"
 
 # Export the OpenAPI schema every client generates its types from
 [group('contract')]

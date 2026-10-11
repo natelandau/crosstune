@@ -108,8 +108,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        # The seed test reads the Mac app's marketing catalog, and compose.yml runs its database.
-        files: ^(api/|apple/Marketing/catalog\.json$|compose\.yml$|justfile$)
+        files: ^(api/|compose\.yml$|justfile$)
 
       - id: commitizen-branch
         name: commitizen check branch
