@@ -71,6 +71,7 @@ def _store_grant(user: User, source: GrantSource, expires_at: datetime) -> Grant
         user_id=user.id,
         kind=GrantKind.PREMIUM.value,
         source=source.value,
+        external_id=f"{source.value}-subscription",
         expires_at=expires_at,
     )
 
@@ -149,6 +150,7 @@ async def test_store_subscription_refused(session: AsyncSession, settings: Setti
             user_id=user.id,
             kind=GrantKind.PREMIUM.value,
             source=GrantSource.APPLE.value,
+            external_id="1000000000000001",
             expires_at=now + timedelta(days=30),
         )
     )
