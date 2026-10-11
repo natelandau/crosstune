@@ -1,5 +1,5 @@
 import { page, userEvent } from 'vitest/browser'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { deleteScan } from '../../commands/scans'
 import { sortScans } from '../../db/scans'
@@ -7,6 +7,8 @@ import type { CrosstuneDb } from '../../db/schema'
 import type { LocalList, LocalListItem } from '../../db/types'
 import { MOVE_DOWN } from '../../ui/moveMenu'
 import {
+  ADD_SCANS,
+  deleteScanName,
   DONE_EDITING_SCANS,
   EDIT_SCANS,
   INVERT,
@@ -19,14 +21,19 @@ import {
   scanName,
   SCANS,
   scanViewerName,
+  SUBSCRIBE_TO_OPEN,
   ZOOM,
 } from './scanCopy'
 import { DOUBLE_TAP_MS } from './useScanViewer'
 import { EDIT_TUNE } from '../tune/tuneScreenCopy'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
-import { jpegBlob, scanFile, scanRow, tuneRow, userTuneRow } from '../../test/rows'
-import { CLOSE } from '../../ui/confirmCopy'
+import { entitlementRow, jpegBlob, scanFile, scanRow, tuneRow, userTuneRow } from '../../test/rows'
+import { PREMIUM_SCANS_TITLE, premiumScansBody } from '../plan/planCopy'
+import { useEntitlement } from '../../billing/usePlan'
+import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
+import { recordingAnalytics } from '../../usage/testing'
+import { CLOSE, DELETE } from '../../ui/confirmCopy'
 
 import { swipeLeft, tap } from '../../test/gestures'
 import { stampAxes } from '../../test/render'
@@ -79,6 +86,8 @@ const scansSection = () =>
   page.getByRole('main', { name: TUNE }).getByRole('region', { name: SCANS })
 const thumbnail = (index: number) =>
   scansSection().getByRole('button', { name: openScanName(index), exact: true })
+// A poll gives up long before `expect.element` stops waiting for an element to appear, so a
+// test finds the section with `expect.element` before it polls these reads of it.
 const thumbnailOrder = () =>
   [...scansSection().element().querySelectorAll<HTMLElement>('li[data-scan-id]')].map(
     (item) => item.dataset.scanId,
@@ -186,9 +195,10 @@ it('zooms the scan to twice its fitted width and back', async () => {
 
 it('every scan and waveform element carries ph-no-capture', async () => {
   await mount('/catalog/t1')
-  await expect
-    .poll(() => scansSection().element().querySelectorAll('img.ph-no-capture').length)
-    .toBe(3)
+  // A thumbnail's image arrives once its scan is decoded, so each is found by itself.
+  for (const index of [0, 1, 2]) {
+    await expect.element(thumbnail(index).getByRole('presentation')).toHaveClass('ph-no-capture')
+  }
   await thumbnail(0).click()
   await expect
     .element(viewer().getByRole('img', { name: scanName(0) }))
@@ -236,6 +246,7 @@ it('closes on Escape and from Close, handing focus back to the thumbnail', async
 
 it('reorders scans in edit mode from the keyboard, and the thumbnails follow', async () => {
   const { db } = await mount('/catalog/t1', WIDE, 'pointer')
+  await expect.element(thumbnail(2)).toBeInTheDocument()
   await expect.poll(thumbnailOrder).toEqual(['p0', 'p1', 'p2'])
   await scansSection().getByRole('button', { name: EDIT_SCANS }).click()
   const rows = scansSection().getByRole('grid', { name: SCANS })
@@ -363,7 +374,9 @@ it("hands focus to the row once a row-opened viewer's last scan is gone", async 
   for (const id of ['p0', 'p1', 'p2']) await deleteScan(db, id)
   await expect.element(viewer()).not.toBeInTheDocument()
   await expect.element(row).toHaveFocus()
-  expect(row.getByRole('button', { name: SCANS, exact: true }).elements()).toHaveLength(0)
+  await expect
+    .element(row.getByRole('button', { name: SCANS, exact: true }))
+    .not.toBeInTheDocument()
 })
 
 it('hands focus back to the Scans action on touch, leaving the row closed', async () => {
@@ -415,4 +428,170 @@ it('hands focus back to the Scans action on touch, leaving the row closed', asyn
   expect(seen).toEqual([])
   // The tap on the action never pressed the row too.
   expect(router.state.location.pathname).toBe('/catalog')
+})
+
+describe('on a free plan, scans open on one tune', () => {
+  const OTHER = 'Cluck Old Hen'
+  const TRIAL = entitlementRow({
+    premium_source: 'trial',
+    premium_expires_at: '2099-01-01T00:00:00.000Z',
+    trial_ends_at: '2099-01-01T00:00:00.000Z',
+  })
+
+  /** t1's scans are older, so t1 is the scan tune; t2 holds two newer scans. */
+  async function mountPlan(path: string, entitlement = entitlementRow()) {
+    const db = openTestDb()
+    await seed(db)
+    for (let index = 0; index < 2; index++) {
+      await db.scans.put(
+        scanRow(`q${index}`, 't2', { position: index, created_at: '2026-02-01T00:00:00.000Z' }),
+      )
+      await db.scan_files.put(scanFile(`q${index}`, await jpegBlob(60, 80)))
+    }
+    await db.entitlements.put(entitlement)
+    const analytics = recordingAnalytics()
+    const app = await renderApp({
+      path,
+      db,
+      frame: WIDE,
+      density: 'pointer',
+      wrap: (tree) => <AnalyticsProvider client={analytics}>{tree}</AnalyticsProvider>,
+    })
+    // Unknown opens every scan too, so a trial's answer counts only once its row has loaded.
+    await expect
+      .poll(() => useEntitlement.sharedFor(db).get().value?.premium_source)
+      .toBe(entitlement.premium_source)
+    return { ...app, db, analytics }
+  }
+
+  const premium = () => page.getByRole('dialog', { name: PREMIUM_SCANS_TITLE })
+  const otherViewer = () => page.getByRole('dialog', { name: scanViewerName(OTHER) })
+  const sheetsShown = (analytics: ReturnType<typeof recordingAnalytics>) =>
+    analytics.sends().filter((send) => send.name === 'premium_sheet_shown')
+  /** A thumbnail the plan does not open, named without the verb it will not do. */
+  const gated = (index: number) =>
+    scansSection().getByRole('button', { name: scanName(index), exact: true })
+  const opacity = (button: ReturnType<typeof gated>) =>
+    Number(getComputedStyle(button.element()).opacity)
+  const otherRow = () =>
+    page.getByRole('grid', { name: TUNE_LIST }).getByRole('row', { name: new RegExp(`^${OTHER}`) })
+
+  it("dims another tune's scans, and a tap or Add opens the Premium sheet", async () => {
+    const { analytics } = await mountPlan('/catalog/t2')
+    await expect.element(gated(0)).toBeVisible()
+    await expect.element(gated(0)).toHaveAccessibleDescription(SUBSCRIBE_TO_OPEN)
+    await expect.poll(() => opacity(gated(0))).toBeLessThan(1)
+    await expect.poll(() => opacity(gated(1))).toBeLessThan(1)
+
+    await gated(0).click()
+    await expect.element(premium()).toBeVisible()
+    await expect.element(premium()).toHaveAccessibleDescription(premiumScansBody(TITLE))
+    expect(otherViewer().elements()).toHaveLength(0)
+    await expect
+      .poll(() => sheetsShown(analytics))
+      .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'scans', from: 'scan' } }])
+    await userEvent.keyboard('{Escape}')
+    await expect.element(premium()).not.toBeInTheDocument()
+
+    const picked = vi.spyOn(HTMLInputElement.prototype, 'click')
+    onTestFinished(() => picked.mockRestore())
+    await scansSection().getByRole('button', { name: ADD_SCANS }).click()
+    await expect.element(premium()).toBeVisible()
+    await expect
+      .poll(() => sheetsShown(analytics).at(-1))
+      .toEqual({ name: 'premium_sheet_shown', props: { reason: 'scans', from: 'add_scan' } })
+    expect(picked).not.toHaveBeenCalled()
+  })
+
+  it("deletes another tune's scans in edit mode, with no reorder", async () => {
+    const { db } = await mountPlan('/catalog/t2')
+    await expect.element(gated(0)).toBeVisible()
+    await scansSection().getByRole('button', { name: EDIT_SCANS }).click()
+    const rows = scansSection().getByRole('grid', { name: SCANS })
+    const first = rows.getByRole('row', { name: new RegExp(`^${scanName(0)}`) })
+    await expect.element(first).toBeVisible()
+    expect(
+      rows.getByRole('button', { name: moveScanName(0), exact: true }).elements(),
+    ).toHaveLength(0)
+    await first.click({ button: 'right' })
+    await expect.element(page.getByRole('menuitem', { name: deleteScanName(0) })).toBeVisible()
+    expect(page.getByRole('menuitem', { name: MOVE_DOWN }).elements()).toHaveLength(0)
+    await page.getByRole('menuitem', { name: deleteScanName(0) }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: DELETE }).click()
+    await expect.poll(async () => (await db.scans.get('q0'))?.deleted_at).not.toBeNull()
+  })
+
+  it("opens another tune's scans once every scan on the scan tune is gone", async () => {
+    const { db } = await mountPlan('/catalog/t2')
+    await expect.element(gated(0)).toBeVisible()
+    for (const id of ['p0', 'p1', 'p2']) await deleteScan(db, id)
+    await expect.element(thumbnail(0)).toBeVisible()
+    await expect.element(thumbnail(0)).not.toHaveAccessibleDescription(SUBSCRIBE_TO_OPEN)
+    await expect.poll(() => opacity(thumbnail(0))).toBe(1)
+    await thumbnail(0).click()
+    await expect.element(otherViewer()).toBeVisible()
+    expect(premium().elements()).toHaveLength(0)
+  })
+
+  it("opens the scan tune's scans in the viewer", async () => {
+    await mountPlan('/catalog/t1')
+    await expect.element(thumbnail(0)).toBeVisible()
+    expect(opacity(thumbnail(0))).toBe(1)
+    await thumbnail(0).click()
+    await expect.element(viewer()).toBeVisible()
+  })
+
+  it("opens every tune's scans on a trial", async () => {
+    await mountPlan('/catalog/t2', TRIAL)
+    await thumbnail(0).click()
+    await expect.element(otherViewer()).toBeVisible()
+    expect(premium().elements()).toHaveLength(0)
+  })
+
+  it('keeps a viewer the plan closed shut once Premium is back', async () => {
+    const { db } = await mountPlan('/catalog/t2', TRIAL)
+    await thumbnail(0).click()
+    await expect.element(otherViewer()).toBeVisible()
+    await db.entitlements.put(entitlementRow())
+    await expect.element(otherViewer()).not.toBeInTheDocument()
+    await expect.element(gated(0)).toBeVisible()
+    await db.entitlements.put(TRIAL)
+    // A viewer that came back by itself would cover the thumbnails and open at the first scan.
+    await thumbnail(1).click()
+    await expect.element(otherViewer().getByText(scanCount(1, 2), { exact: true })).toBeVisible()
+  })
+
+  it("keeps a row's viewer the plan closed shut once Premium is back", async () => {
+    const { db } = await mountPlan('/catalog', TRIAL)
+    await userEvent.hover(otherRow())
+    await otherRow().getByRole('button', { name: SCANS, exact: true }).click()
+    await expect.element(otherViewer()).toBeVisible()
+    await db.entitlements.put(entitlementRow())
+    await expect.element(otherViewer()).not.toBeInTheDocument()
+    await expect
+      .element(otherRow().getByRole('button', { name: SCANS, exact: true }))
+      .not.toBeInTheDocument()
+    await db.entitlements.put(TRIAL)
+    // A viewer that came back by itself would cover the rows, so no other could open.
+    const scanTune = page
+      .getByRole('grid', { name: TUNE_LIST })
+      .getByRole('row', { name: new RegExp(`^${TITLE}`) })
+    await userEvent.hover(scanTune)
+    await scanTune.getByRole('button', { name: SCANS, exact: true }).click()
+    await expect.element(viewer()).toBeVisible()
+    expect(otherViewer().elements()).toHaveLength(0)
+  })
+
+  it('leaves Scans off a catalog row whose scans do not open', async () => {
+    await mountPlan('/catalog')
+    const grid = page.getByRole('grid', { name: TUNE_LIST })
+    const scanTune = grid.getByRole('row', { name: new RegExp(`^${TITLE}`) })
+    await expect
+      .element(scanTune.getByRole('button', { name: SCANS, exact: true }))
+      .toBeInTheDocument()
+    await expect.element(otherRow().getByRole('button', { name: EDIT_TUNE })).toBeInTheDocument()
+    await expect
+      .element(otherRow().getByRole('button', { name: SCANS, exact: true }))
+      .not.toBeInTheDocument()
+  })
 })

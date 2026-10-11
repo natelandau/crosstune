@@ -1,5 +1,5 @@
 import { FileImage, ImageOff, Plus, Trash2 } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import type { ScanFile } from '../../db/scans'
 import type { LocalScan } from '../../db/types'
@@ -18,6 +18,7 @@ import {
   SCAN_UNREADABLE,
   scanName,
   SCANS,
+  SUBSCRIBE_TO_OPEN,
 } from '../scans/scanCopy'
 import { aspectRatio, useThumbnail } from '../scans/scanImages'
 import type { ScanViewOrigin } from '../scans/scanViewLog'
@@ -25,6 +26,7 @@ import { THUMBNAIL_HEIGHT } from '../scans/thumbnail'
 import { useScansEditor } from '../scans/useScansEditor'
 import { DELETE, DONE } from '../../ui/confirmCopy'
 import { ScanViewer } from '../scans/ScanViewer'
+import { usePremiumSheet } from '../plan/PremiumSheetProvider'
 import { Button } from '../../ui/Button'
 import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
@@ -42,11 +44,16 @@ const ROW_THUMBNAIL_HEIGHT = 36
 
 /**
  * A tune's scans as a row of thumbnails that open the viewer, with Add taking image files from
- * the device. Edit turns them into rows to reorder and delete.
+ * the device. Edit turns them into rows to reorder and delete. On a tune whose scans the plan
+ * does not open, the thumbnails are dimmed, they and Add open the Premium sheet, and edit only
+ * deletes.
  */
 export function TuneScans({ tuneId }: { tuneId: string }) {
   const confirm = useConfirm()
+  const premium = usePremiumSheet()
+  const lockedId = useId()
   const {
+    opens,
     scans,
     files,
     editing,
@@ -92,7 +99,10 @@ export function TuneScans({ tuneId }: { tuneId: string }) {
               label={ADD_SCANS}
               iconOnly
               isDisabled={full || adding}
-              onPress={() => picker.current?.click()}
+              onPress={() => {
+                if (opens) picker.current?.click()
+                else premium.open('scans', 'add_scan')
+              }}
             />
           </span>
         }
@@ -110,11 +120,15 @@ export function TuneScans({ tuneId }: { tuneId: string }) {
             <RowList
               label={SCANS}
               bleed
-              onReorder={(key, toIndex) => {
-                const from = indexOf(key)
-                if (from >= 0) move(from, toIndex)
-              }}
-              moveLabel={({ id }) => moveScanName(indexOf(id))}
+              onReorder={
+                opens
+                  ? (key, toIndex) => {
+                      const from = indexOf(key)
+                      if (from >= 0) move(from, toIndex)
+                    }
+                  : undefined
+              }
+              moveLabel={opens ? ({ id }) => moveScanName(indexOf(id)) : undefined}
             >
               {scans.map((scan, at) => {
                 const status = statusLabel(scan)
@@ -143,7 +157,9 @@ export function TuneScans({ tuneId }: { tuneId: string }) {
                     title={scanName(at)}
                     detail={status}
                     actions={[deleteAction]}
-                    menu={[...moveActions(moveItems(scan, at)), deleteAction]}
+                    menu={
+                      opens ? [...moveActions(moveItems(scan, at)), deleteAction] : [deleteAction]
+                    }
                   />
                 )
               })}
@@ -153,10 +169,16 @@ export function TuneScans({ tuneId }: { tuneId: string }) {
               {scans.map((scan, index) => (
                 <li key={scan.id} data-scan-id={scan.id} className="shrink-0">
                   <AriaButton
-                    aria-label={openScanName(index)}
-                    onPress={() => setViewing(index)}
+                    aria-label={opens ? openScanName(index) : scanName(index)}
+                    aria-describedby={opens ? undefined : lockedId}
+                    onPress={() => {
+                      if (opens) setViewing(index)
+                      else premium.open('scans', 'scan')
+                    }}
                     data-lift
-                    className={`block overflow-hidden rounded-(--radius-row) ${PRESS}`}
+                    className={`block overflow-hidden rounded-(--radius-row) ${PRESS} ${
+                      opens ? '' : 'opacity-60'
+                    }`}
                   >
                     <Thumbnail scan={scan} file={files.get(scan.id)} />
                   </AriaButton>
@@ -164,6 +186,11 @@ export function TuneScans({ tuneId }: { tuneId: string }) {
               ))}
             </ul>
           ))}
+        {!opens && (
+          <span id={lockedId} hidden>
+            {SUBSCRIBE_TO_OPEN}
+          </span>
+        )}
         {full && <p className="t-secondary text-ink-2 pt-2">{SCAN_LIMIT_NOTE}</p>}
         <ErrorLine error={error} place="inline" />
       </PageSection>

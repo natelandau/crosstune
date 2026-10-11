@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ScanViewOrigin } from './scanViewLog'
 import { ScanViewer } from './ScanViewer'
+import { useScansOpen } from './useScans'
 
 /**
  * One scan viewer for a screen of tune rows, opened by a row's Scans action at the tune's first
@@ -13,6 +14,9 @@ export function useRowScanViewer(origin: ScanViewOrigin): {
 } {
   const [tuneId, setTuneId] = useState<string | null>(null)
   const [closed, setClosed] = useState(0)
+  // A plan that lapses while the viewer shows a tune off the scan tune closes it for good.
+  const opens = useScansOpen(tuneId ?? '')
+  if (tuneId !== null && !opens) setTuneId(null)
   // The control that opened the viewer, which focus returns to, and the row it sits in.
   const opener = useRef<{ control: Element; row: HTMLElement | null } | null>(null)
 

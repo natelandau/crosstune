@@ -4,7 +4,7 @@ import { countBucket } from '../../usage/buckets'
 import { createSearchSettler, realSettleClock, type SettleClock } from '../../usage/searchSettler'
 import type { Instrument } from '../../api/vocabulary'
 import type { SortChoice } from '../../ui/sortChoice'
-import { useScanTuneIds } from '../scans/useScans'
+import { useViewableScanTunes } from '../scans/useScans'
 import { isTuningKey } from '../../domain/instruments'
 import { useInstruments } from '../settings/useInstruments'
 import { sortCatalog, type CatalogSort } from './catalogSort'
@@ -51,7 +51,7 @@ export interface CatalogScreen {
   /** Every stored tune, unfiltered. */
   entries: HeardEntry[]
   instruments: ReadonlySet<Instrument>
-  /** Ids of the tunes that have a scan. */
+  /** Ids of the tunes with scans the plan opens, for the row's Scans action. */
   scanTunes: ReadonlySet<string>
   /** The visible tunes, filtered, searched, and sorted. */
   tunes: CatalogEntry[]
@@ -114,7 +114,7 @@ export function useCatalogScreen({
   const loadedEntries = useCatalog(true, { heard: true })
   const [storedFilters, updateFilters, filterError] = useCatalogFilters()
   const loadedInstruments = useInstruments()
-  const scanTunes = useScanTuneIds()
+  const scanTunes = useViewableScanTunes()
   const ready =
     loadedEntries !== undefined && storedFilters !== undefined && loadedInstruments !== undefined
   const entries = loadedEntries ?? NO_ENTRIES

@@ -1,5 +1,10 @@
 import { MAX_SCANS } from '../../commands/scans'
-import { SCAN_REFUSED_ERROR, SCAN_STORAGE_FULL_ERROR, type ScanFile } from '../../db/scans'
+import {
+  SCAN_REFUSED_ERROR,
+  SCAN_STORAGE_FULL_ERROR,
+  SCAN_TUNE_ONLY_ERROR,
+  type ScanFile,
+} from '../../db/scans'
 
 /** The section on the tune screen, the row action that opens the viewer, and the viewer's name. */
 export const SCANS = 'Scans'
@@ -17,12 +22,17 @@ export const EDIT_SCANS = 'Edit scans'
 export const DONE_EDITING_SCANS = 'Done editing scans'
 export const DELETE_SCAN_TITLE = 'Delete this scan?'
 export const SCAN_UNREADABLE = 'This scan cannot be shown'
+/** Heard on a free plan's scan off its one tune, whose tap opens the Premium sheet. */
+export const SUBSCRIBE_TO_OPEN = 'Subscribe to open'
 
 /** Shown on a scan whose upload the server refused for quota; the sync layer stores the code
  * `storage_full`. */
 export const SCAN_STORAGE_FULL = 'Not uploaded, storage full'
 /** Shown on a scan the server refused outright; the sync layer stores the code `refused`. */
 export const SCAN_REFUSED = 'Could not upload. Delete this scan and add it again.'
+/** Shown on a scan the free plan refuses for being off its one tune; the sync layer stores the
+ * code `scan_tune_only`. */
+export const SCAN_TUNE_ONLY = 'Not uploaded. Scans on more than one tune are part of Premium.'
 /** Shown on a scan captured here whose upload failed for a reason with no label of its own. */
 export const SCAN_NOT_UPLOADED = 'Not uploaded yet'
 /** Shown on a scan another device captured and has not uploaded yet. */
@@ -69,6 +79,7 @@ export function scanCount(index: number, total: number): string {
 export function scanErrorLabel(file: Pick<ScanFile, 'origin' | 'error'>): string | null {
   if (file.error === SCAN_STORAGE_FULL_ERROR) return SCAN_STORAGE_FULL
   if (file.error === SCAN_REFUSED_ERROR) return SCAN_REFUSED
+  if (file.error === SCAN_TUNE_ONLY_ERROR) return SCAN_TUNE_ONLY
   if (file.origin === 'captured' && file.error) return SCAN_NOT_UPLOADED
   return null
 }
