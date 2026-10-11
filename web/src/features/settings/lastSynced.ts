@@ -23,7 +23,16 @@ export function lastSyncedLabel(iso: string | null, now: number): string {
 
 /** The same time as a sentence, such as "Synced 2 min ago". */
 export function syncedLine(iso: string | null, now: number): string {
+  return sentence('Synced', iso, now)
+}
+
+/** The same time under a sync state that already says synced, such as "Last synced 2 min ago". */
+export function lastSyncedLine(iso: string | null, now: number): string {
+  return sentence(LAST_SYNCED, iso, now)
+}
+
+function sentence(lead: string, iso: string | null, now: number): string {
   const label = lastSyncedLabel(iso, now)
   if (label === NOT_SYNCED_YET) return label
-  return `Synced ${label === JUST_NOW ? 'just now' : label}`
+  return `${lead} ${label === JUST_NOW ? 'just now' : label}`
 }

@@ -46,7 +46,7 @@ export function TunePickerSheet({
       title={ADD_TUNES}
       height="full"
       // Picks apply at once, so Cancel would claim an undo it cannot give; Done alone closes.
-      leading={null}
+      cancel={null}
       primary={{ label: DONE, onPress: picker.done }}
     >
       <TuneSearchList

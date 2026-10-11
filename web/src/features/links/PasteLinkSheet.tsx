@@ -2,7 +2,6 @@ import { useId, useRef } from 'react'
 import { LINK_LIMITS } from '../../api/vocabulary'
 import { ADD_LINK, LINK_FIELD, LINK_PLACEHOLDER, PASTE_LINK } from './pasteLinkCopy'
 import { usePasteLink } from './usePasteLink'
-import { CANCEL } from '../../ui/confirmCopy'
 import { Group } from '../../ui/form/Group'
 import { TextField } from '../../ui/form/TextField'
 import { Sheet } from '../../ui/Sheet'
@@ -37,7 +36,7 @@ export function PasteLinkSheet({
       title={PASTE_LINK}
       height="part"
       locked={paste.url.trim() !== '' || paste.pending}
-      leading={{ label: CANCEL, onPress: paste.close, isDisabled: paste.pending }}
+      cancel={{ onPress: paste.close, isDisabled: paste.pending }}
       primary={{
         label: ADD_LINK,
         onPress: paste.submit,

@@ -22,7 +22,7 @@ export function ShortcutSheet({ platform = keyPlatform() }: { platform?: KeyPlat
       }}
       title={SHORTCUTS_TITLE}
       height="part"
-      leading={null}
+      cancel={null}
       primary={{ label: DONE, onPress: close }}
     >
       <div className="flex flex-col gap-6 pb-2">

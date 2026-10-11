@@ -15,7 +15,7 @@ async function mount(stored?: 'false') {
   onTestFinished(() => localStorage.removeItem(SHARE_USAGE_KEY))
   const analytics = recordingAnalytics()
   await renderApp({
-    path: '/settings',
+    path: '/settings/account',
     db: openTestDb(),
     wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
   })

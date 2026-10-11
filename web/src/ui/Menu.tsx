@@ -208,6 +208,7 @@ function ActionSheet({
         if (!open) onClose()
       }}
       title={list.label}
+      height="fit"
     >
       <MenuList {...list} onDone={onClose} autoFocus />
     </Sheet>

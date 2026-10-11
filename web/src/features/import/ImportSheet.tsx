@@ -5,7 +5,7 @@ import { LIST_LIMITS, TUNE_LIMITS } from '../../api/vocabulary'
 import { GENRES } from '../../constants'
 import { useStampedDensity } from '../../platform/density'
 import { Button } from '../../ui/Button'
-import { BACK, CANCEL } from '../../ui/confirmCopy'
+import { BACK } from '../../ui/confirmCopy'
 import { ErrorLine } from '../../ui/ErrorLine'
 import { Checkbox } from '../../ui/form/Checkbox'
 import { Group } from '../../ui/form/Group'
@@ -68,11 +68,12 @@ export function ImportSheet({
       height="full"
       locked={typed || pending}
       asksOnBack={typed}
-      leading={
+      tertiary={
         step === 'review'
           ? { label: BACK, icon: ChevronLeft, onPress: session.back, isDisabled: pending }
-          : { label: CANCEL, onPress: session.close }
+          : undefined
       }
+      cancel={{ onPress: session.close, isDisabled: pending }}
       primary={
         step === 'review'
           ? {

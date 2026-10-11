@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { JUST_NOW, lastSyncedLabel, NOT_SYNCED_YET, syncedLine } from './lastSynced'
+import { JUST_NOW, lastSyncedLabel, lastSyncedLine, NOT_SYNCED_YET, syncedLine } from './lastSynced'
 
 const NOW = Date.parse('2025-03-04T12:00:00.000Z')
 const before = (ms: number) => new Date(NOW - ms).toISOString()
@@ -36,5 +36,13 @@ describe('syncedLine', () => {
     expect(syncedLine(before(2 * MINUTE), NOW)).toBe('Synced 2 min ago')
     expect(syncedLine(before(1_000), NOW)).toBe('Synced just now')
     expect(syncedLine(null, NOW)).toBe(NOT_SYNCED_YET)
+  })
+})
+
+describe('lastSyncedLine', () => {
+  it('leads the time with Last synced', () => {
+    expect(lastSyncedLine(before(2 * MINUTE), NOW)).toBe('Last synced 2 min ago')
+    expect(lastSyncedLine(before(1_000), NOW)).toBe('Last synced just now')
+    expect(lastSyncedLine(null, NOW)).toBe(NOT_SYNCED_YET)
   })
 })

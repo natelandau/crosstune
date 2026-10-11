@@ -77,7 +77,7 @@ function KeyControl({
         <PullDown label={label} />
       </Capsule>
       {touch ? (
-        <Sheet isOpen={isOpen} onOpenChange={setOpen} title={KEY}>
+        <Sheet isOpen={isOpen} onOpenChange={setOpen} title={KEY} cancel={null}>
           <div className="pt-2">{grid}</div>
         </Sheet>
       ) : (

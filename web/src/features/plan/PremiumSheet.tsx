@@ -155,12 +155,12 @@ export function PremiumSheet({
       )}
       {choice ? (
         <>
-          <div className="-ms-4 pt-1">
-            <Button label={SEE_PLAN} onPress={onSeePlan} />
-          </div>
           <PeriodChoice offers={choice} period={chosen ?? period} onChange={setPeriod} />
           <p className="t-secondary text-ink-2 px-4 pt-2">{RENEWS_UNTIL_CANCELLED}</p>
           {trial && <p className="t-secondary text-ink-2 px-4 pt-1">{BILLING_STARTS_TODAY}</p>}
+          <div className="pt-2">
+            <Button label={SEE_PLAN} onPress={onSeePlan} />
+          </div>
         </>
       ) : (
         offline && <p className="t-secondary text-ink-2 pt-2">{SUBSCRIBE_OFFLINE}</p>

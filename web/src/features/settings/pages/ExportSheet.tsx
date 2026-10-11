@@ -1,6 +1,5 @@
 import { EXPORT_ACTION, EXPORT_TITLE } from '../export/exportCopy'
 import { useExportData } from '../export/useExportData'
-import { CANCEL } from '../../../ui/confirmCopy'
 import { ErrorLine } from '../../../ui/ErrorLine'
 import { Sheet } from '../../../ui/Sheet'
 
@@ -18,7 +17,7 @@ export function ExportSheet({ open, onClosed }: { open: boolean; onClosed: () =>
       // Cancel is the way out mid-export, so a late dismiss cannot let a finished export
       // download.
       locked={pending}
-      leading={{ label: CANCEL, onPress: close }}
+      cancel={{ onPress: close }}
       primary={{ label: EXPORT_ACTION, onPress: run, isDisabled: pending || !counts }}
       onClosed={() => {
         abandon()

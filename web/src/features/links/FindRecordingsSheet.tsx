@@ -186,10 +186,11 @@ export function FindRecordingsSheet({
       title={shown === null ? FIND_RECORDINGS : PROVIDER_LABELS[shown]}
       height="full"
       // Nothing here waits to be kept, so there is nothing for Cancel to undo.
-      leading={
+      cancel={null}
+      tertiary={
         shown !== null && !find.direct
           ? { label: BACK, icon: ChevronLeft, onPress: find.back }
-          : null
+          : undefined
       }
       primary={{ label: DONE, onPress: find.close }}
     >

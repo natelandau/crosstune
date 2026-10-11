@@ -13,9 +13,10 @@ import {
 import { Dialog, Heading } from 'react-aria-components'
 import { CANCEL } from './confirmCopy'
 import { useStampedDensity } from '../platform/density'
-import { Button, type ButtonVariant } from './Button'
+import { Button } from './Button'
 import { PointerOverlay } from './PointerOverlay'
 import { Sheet } from './Sheet'
+import { TONE_VARIANT, type ActionTone } from './toneVariant'
 
 export { CANCEL, DELETE } from './confirmCopy'
 
@@ -24,8 +25,7 @@ export interface ConfirmOptions {
   message: string
   /** The confirming button's label, a bare verb: Delete, Remove. */
   action: string
-  /** `danger` for a destructive action, `warning` for a cautionary one. */
-  tone?: 'danger' | 'warning'
+  tone?: ActionTone
   /** Aborting withdraws the question, answering no, if it is still the one on screen. */
   signal?: AbortSignal
 }
@@ -46,11 +46,6 @@ interface ConfirmApi {
 }
 
 const ConfirmContext = createContext<ConfirmApi | null>(null)
-
-const ACTION_VARIANT = {
-  danger: 'destructive',
-  warning: 'warning',
-} as const satisfies Record<NonNullable<ConfirmOptions['tone']>, ButtonVariant>
 
 /**
  * Returns a function that asks a destructive question and resolves true only when the named
@@ -94,17 +89,33 @@ function PointerAlert({
       }}
       className="bg-ground w-80 max-w-full rounded-(--radius-surface) p-4 shadow-(--shadow-float)"
     >
-      <Dialog role="alertdialog" aria-describedby={messageId} className="flex flex-col gap-3">
-        <Heading slot="title" className="t-heading">
+      <Dialog role="alertdialog" aria-describedby={messageId} className="flex flex-col">
+        <Heading slot="title" className="t-heading pt-1">
           {title}
         </Heading>
-        <p id={messageId} className="t-body text-ink-2">
+        <p id={messageId} className="t-body text-ink-2 pt-1">
           {message}
         </p>
-        <div className="flex justify-end gap-2">
-          {/* Focus starts on the safe choice. */}
-          <Button label={CANCEL} autoFocus onPress={() => onAnswer(false)} />
-          <Button variant={ACTION_VARIANT[tone]} label={action} onPress={() => onAnswer(true)} />
+        {/* Two equal shares, so neither choice reads as the default by size alone. */}
+        <div className="flex gap-2 pt-5">
+          <div className="flex min-w-0 flex-1">
+            {/* Focus starts on the safe choice. */}
+            <Button
+              variant="bordered"
+              fullWidth
+              label={CANCEL}
+              autoFocus
+              onPress={() => onAnswer(false)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-1">
+            <Button
+              variant={TONE_VARIANT[tone]}
+              fullWidth
+              label={action}
+              onPress={() => onAnswer(true)}
+            />
+          </div>
         </div>
       </Dialog>
     </PointerOverlay>
@@ -169,20 +180,20 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             if (!open) onAnswer(false)
           }}
           title={options?.title ?? ''}
+          height="fit"
           describedBy={messageId}
+          primary={
+            options && {
+              label: options.action,
+              tone: options.tone ?? 'danger',
+              onPress: () => onAnswer(true),
+            }
+          }
         >
           {options && (
-            <div className="flex flex-col gap-3 pb-2">
-              <p id={messageId} className="t-body text-ink-2 text-center">
-                {options.message}
-              </p>
-              <Button
-                variant={ACTION_VARIANT[options.tone ?? 'danger']}
-                label={options.action}
-                fullWidth
-                onPress={() => onAnswer(true)}
-              />
-            </div>
+            <p id={messageId} className="t-body text-ink-2">
+              {options.message}
+            </p>
           )}
         </Sheet>
       ) : (
