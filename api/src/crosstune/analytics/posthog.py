@@ -6,9 +6,9 @@ from typing import Protocol
 
 import httpx2
 
+from crosstune.rest import DEFAULT_TIMEOUT_SECONDS, SUCCESS_STATUSES
+
 DEFAULT_BASE_URL = "https://us.posthog.com"
-DEFAULT_TIMEOUT_SECONDS = 10.0
-_SUCCESS_STATUSES = range(200, 300)
 
 
 class AnalyticsPersons(Protocol):
@@ -68,7 +68,7 @@ class PostHogPersons:
             )
         except httpx2.HTTPError as exc:
             raise AnalyticsUnavailableError from exc
-        if response.status_code not in _SUCCESS_STATUSES:
+        if response.status_code not in SUCCESS_STATUSES:
             msg = f"PostHog answered {response.status_code} deleting {distinct_id}"
             raise AnalyticsUnavailableError(msg)
         # A failed delete still answers 202, naming what it could not delete.

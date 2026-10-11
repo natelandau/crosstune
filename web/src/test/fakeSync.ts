@@ -20,6 +20,7 @@ export function fakeEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
       throw new Error('fetchFile is not faked')
     },
     retry: async () => {},
+    refreshBilling: async () => {},
     deleteAccount: async () => {},
     onAccountDeleted: () => () => {},
     stop: () => {},

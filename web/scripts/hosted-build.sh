@@ -12,9 +12,14 @@ if [ "$branch" = "production" ]; then
   export VITE_SENTRY_ENVIRONMENT=production
   # Only the production build reports usage; previews and development never get a key.
   export VITE_POSTHOG_KEY="${POSTHOG_PROJECT_TOKEN_PRODUCTION:?POSTHOG_PROJECT_TOKEN_PRODUCTION is not set}"
+  # Purchasing is optional: an empty value hides it instead of failing the build.
+  export VITE_REVENUECAT_WEB_KEY="${REVENUECAT_WEB_KEY_PRODUCTION:-}"
+  export VITE_STRIPE_PORTAL_URL="${STRIPE_PORTAL_URL_PRODUCTION:-}"
 else
   export VITE_CLERK_PUBLISHABLE_KEY="${CLERK_PUBLISHABLE_KEY_DEVELOPMENT:?CLERK_PUBLISHABLE_KEY_DEVELOPMENT is not set}"
   export VITE_SENTRY_ENVIRONMENT=development
+  export VITE_REVENUECAT_WEB_KEY="${REVENUECAT_WEB_KEY_DEVELOPMENT:-}"
+  export VITE_STRIPE_PORTAL_URL="${STRIPE_PORTAL_URL_DEVELOPMENT:-}"
 fi
 
 exec pnpm build

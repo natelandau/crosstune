@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { markNoticeSeen } from '../../billing/notices'
 import type { NoticeKind } from '../../billing/plan'
+import { useStore } from '../../billing/StoreProvider'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { addedDay } from '../../text/format'
@@ -19,7 +20,8 @@ import {
   TRIAL_REMINDER_RECORDINGS,
   trialReminderTitle,
 } from './noticeCopy'
-import { SEE_PLAN } from './planCopy'
+import { SEE_PLAN, SUBSCRIBE } from './planCopy'
+import { usePremiumSheet } from './PremiumSheetProvider'
 import { useDueNotice } from './useDueNotice'
 
 interface Showing {
@@ -38,6 +40,8 @@ export function NoticeHost({ navigate }: { navigate: (to: string) => void }) {
   const db = useDb()
   const engine = useSyncEngine()
   const analytics = useAnalytics()
+  const store = useStore()
+  const premium = usePremiumSheet()
   const bodyId = useId()
   // Dismissed in this session, so a notice never reopens before its seen mark is read back.
   const [dismissed, setDismissed] = useState<ReadonlySet<NoticeKind>>(new Set())
@@ -91,13 +95,23 @@ export function NoticeHost({ navigate }: { navigate: (to: string) => void }) {
       height="part"
       describedBy={bodyId}
       cancelLabel={NOTICE_OK}
-      primary={{
-        label: SEE_PLAN,
-        onPress: () => {
-          dismiss()
-          navigate(settingsPagePath('account'))
-        },
-      }}
+      primary={
+        store && (kind === 'trial_reminder' || kind === 'trial_ended')
+          ? {
+              label: SUBSCRIBE,
+              onPress: () => {
+                dismiss()
+                premium.open('plan', kind)
+              },
+            }
+          : {
+              label: SEE_PLAN,
+              onPress: () => {
+                dismiss()
+                navigate(settingsPagePath('account'))
+              },
+            }
+      }
       onClosed={() => setShowing(null)}
     >
       <div id={bodyId} className="t-body flex flex-col gap-2 pt-2">

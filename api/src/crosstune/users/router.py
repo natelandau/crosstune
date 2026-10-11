@@ -13,12 +13,14 @@ from typing import TYPE_CHECKING, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from crosstune.auth.deps import (
     CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
 from crosstune.auth.webhooks import verify_svix_signature
 from crosstune.billing.access import access_for, refresh_entitlement
+from crosstune.billing.closing import end_billing
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
 from crosstune.db.session import (
@@ -27,12 +29,15 @@ from crosstune.db.session import (
 )
 from crosstune.errors import (
     VALIDATION_RESPONSE,
-    AppError,
+    AccountDeletionFailedError,
+    AccountDeletionUnavailableError,
+    BillingUnavailableError,
     UnauthorizedError,
     problem_responses,
 )
 from crosstune.files.quota import used_bytes
 from crosstune.jobs.analytics import schedule_person_deletion
+from crosstune.models import User
 from crosstune.storage.store import user_prefix
 from crosstune.users.clerk import ClerkUnavailableError
 from crosstune.users.service import purge_account
@@ -127,20 +132,6 @@ async def _purge_user_files(store: ObjectStore, prefix: str) -> None:
         log.warning("could not purge %s; the orphan sweep will remove it", prefix, exc_info=True)
 
 
-class AccountDeletionUnavailableError(AppError):
-    """No Clerk client is configured, so an account cannot be deleted."""
-
-    def __init__(self) -> None:
-        super().__init__(503, "Service Unavailable", "Account deletion is not configured")
-
-
-class AccountDeletionFailedError(AppError):
-    """Clerk did not confirm the delete. The transaction that removed the row rolls back."""
-
-    def __init__(self) -> None:
-        super().__init__(502, "Bad Gateway", "Could not delete the Clerk account")
-
-
 @router.delete("/me", status_code=204, responses=problem_responses(401, 502, 503))
 async def delete_me(
     request: Request,
@@ -156,6 +147,13 @@ async def delete_me(
     if clerk_users is None:
         raise AccountDeletionUnavailableError
     await lock_user(session, user.id)
+    await end_billing(
+        session,
+        user,
+        request.app.state.stripe,
+        request.app.state.revenuecat,
+        utc_now(),
+    )
     user_id = await purge_account(session, user.clerk_user_id)
     if user_id is None:
         # A concurrent delete for this user already committed; there is nothing left to remove.
@@ -194,6 +192,21 @@ async def clerk_webhook(
     if event.get("type") == "user.deleted" and isinstance(data, dict):
         clerk_user_id = data.get("id")
         if isinstance(clerk_user_id, str) and clerk_user_id:
+            existing = await session.scalar(select(User).where(User.clerk_user_id == clerk_user_id))
+            if existing is not None:
+                await lock_user(session, existing.id)
+                try:
+                    await end_billing(
+                        session,
+                        existing,
+                        request.app.state.stripe,
+                        request.app.state.revenuecat,
+                        utc_now(),
+                    )
+                except (AccountDeletionUnavailableError, AccountDeletionFailedError):
+                    # Svix retries a 503; the purge has not run, so the retry starts clean.
+                    msg = "Could not end billing for the deleted account"
+                    raise BillingUnavailableError(msg) from None
             user_id = await purge_account(session, clerk_user_id)
             store = request.app.state.object_store
             if user_id is not None and store is not None:

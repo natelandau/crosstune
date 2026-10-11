@@ -32,7 +32,9 @@ class Problem(BaseModel):
             "client drops its local data), `urn:crosstune:premium-required` (403, the "
             "addition needs Premium), `urn:crosstune:scan-tune-only` (403, a free "
             "account's scans stay on one tune), `urn:crosstune:quota-exceeded` (413), "
-            "`urn:crosstune:file-too-large` (413)."
+            "`urn:crosstune:file-too-large` (413), "
+            "`urn:crosstune:billing-unavailable` (503, purchases are not configured), "
+            "`urn:crosstune:billing-failed` (502, the billing provider did not answer)."
         ),
     )
     title: str
@@ -167,6 +169,36 @@ class ServiceUnavailableError(AppError):
 
     def __init__(self, detail: str) -> None:
         super().__init__(503, "Service Unavailable", detail)
+
+
+class BillingUnavailableError(AppError):
+    """Purchases are not configured, or the billing provider is not answering for a webhook."""
+
+    def __init__(self, detail: str = "Purchases are unavailable") -> None:
+        super().__init__(
+            503, "Service Unavailable", detail, type_="urn:crosstune:billing-unavailable"
+        )
+
+
+class BillingFailedError(AppError):
+    """The billing provider did not give a usable answer, so access was not refreshed."""
+
+    def __init__(self, detail: str = "Could not reach the billing provider") -> None:
+        super().__init__(502, "Bad Gateway", detail, type_="urn:crosstune:billing-failed")
+
+
+class AccountDeletionUnavailableError(AppError):
+    """Account deletion cannot reach a service it needs, so it cannot start."""
+
+    def __init__(self, detail: str = "Account deletion is not configured") -> None:
+        super().__init__(503, "Service Unavailable", detail)
+
+
+class AccountDeletionFailedError(AppError):
+    """A service account deletion depends on did not confirm. The purge rolls back."""
+
+    def __init__(self, detail: str = "Could not delete the Clerk account") -> None:
+        super().__init__(502, "Bad Gateway", detail)
 
 
 class TooManyRequestsError(AppError):

@@ -26,6 +26,8 @@ final class PremiumPresenter {
             switch reason {
             case .recordings: current.recordingsPlay
             case .scans: current.scansOnAnyTune
+            // Nothing in this app opens the Plan reason, so there is nothing to hold back.
+            case .plan: true
             }
         if allowed { return true }
         // A second tap behind the sheet already up is not another showing.

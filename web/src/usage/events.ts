@@ -87,7 +87,7 @@ export const PLAY_FIRSTS = ['recordings', 'apple_music'] as const
 export const IMPORT_ENTRIES = ['settings', 'empty_catalog'] as const
 export const IMPORT_READERS = ['plain'] as const
 export const IMPORT_LISTS = ['none', 'new', 'existing'] as const
-export const PREMIUM_REASONS = ['recordings', 'scans'] as const
+export const PREMIUM_REASONS = ['recordings', 'scans', 'plan'] as const
 export const PREMIUM_ENTRIES = [
   'record',
   'upload',
@@ -96,7 +96,12 @@ export const PREMIUM_ENTRIES = [
   'recordings_line',
   'scan',
   'add_scan',
+  'plan_group',
+  'trial_reminder',
+  'trial_ended',
 ] as const
+export const PURCHASE_PERIODS = ['annual', 'monthly'] as const
+export const PURCHASE_FAILURES = ['cancelled', 'error'] as const
 export const PLAN_NOTICES = [
   'first_recording',
   'trial_reminder',
@@ -172,6 +177,8 @@ export const ENUMS = {
   import_list: IMPORT_LISTS,
   premium_reason: PREMIUM_REASONS,
   premium_entry: PREMIUM_ENTRIES,
+  purchase_period: PURCHASE_PERIODS,
+  purchase_failure: PURCHASE_FAILURES,
   plan_notice: PLAN_NOTICES,
   tune_status: TUNE_STATUSES,
   instrument: INSTRUMENTS,
@@ -203,6 +210,8 @@ export type ImportReader = (typeof IMPORT_READERS)[number]
 export type ImportList = (typeof IMPORT_LISTS)[number]
 export type PremiumReason = (typeof PREMIUM_REASONS)[number]
 export type PremiumEntry = (typeof PREMIUM_ENTRIES)[number]
+export type PurchasePeriod = (typeof PURCHASE_PERIODS)[number]
+export type PurchaseFailure = (typeof PURCHASE_FAILURES)[number]
 export type PlanNotice = Notice
 export type Appearance = (typeof APPEARANCES)[number]
 export type TuneStatus = (typeof TUNE_STATUSES)[number]
@@ -342,6 +351,9 @@ export interface EventProps {
   storage_limit_reached: { storage_used: BytesBucket }
   premium_sheet_shown: { reason: PremiumReason; from: PremiumEntry }
   notice_shown: { notice: PlanNotice }
+  purchase_started: { period: PurchasePeriod; from: PremiumEntry }
+  purchase_completed: { period: PurchasePeriod }
+  purchase_failed: { period: PurchasePeriod; reason: PurchaseFailure }
   upload_failed: { failure_reason: FailureReason; origin: Origin }
   sync_failed: { failure_reason: FailureReason }
   export_completed: { format: ExportFormat }

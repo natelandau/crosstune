@@ -317,12 +317,16 @@ def test_settings_repr_hides_every_secret() -> None:
         "storage_secret_access_key": "storage-reprleak",  # gitleaks:allow -- fixture
         "apple_music_private_key": _pem(ec.generate_private_key(ec.SECP256R1())),
         "tidal_client_secret": "tidal-reprleak",  # gitleaks:allow -- fixture, not a credential
+        "revenuecat_secret_key": "rc-reprleak",  # gitleaks:allow -- fixture, not a credential
+        "revenuecat_webhook_auth": "rcwh-reprleak",  # gitleaks:allow -- fixture, not a credential
+        "stripe_cancel_key": "stripe-reprleak",  # gitleaks:allow -- fixture, not a credential
     }
     settings = Settings(
         database_url="postgresql+asyncpg://crosstune:dbpassreprleak@localhost:5432/crosstune",
         apple_music_team_id="TEAM",
         apple_music_key_id="KEY",
         tidal_client_id="id",
+        revenuecat_project_id="proj_1",
         **secrets,
     )
     shown = repr(settings) + str(settings)
@@ -445,3 +449,28 @@ def test_posthog_settings_without_storage_refuse_to_start() -> None:
 def test_partial_posthog_settings_refuse_to_start(given: dict[str, str], named: str) -> None:
     with pytest.raises(ValidationError, match=f"{named} is unset"):
         Settings(**given)
+
+
+@pytest.mark.parametrize(
+    ("given", "named"),
+    [
+        ({"revenuecat_project_id": "proj_1"}, "CROSSTUNE_REVENUECAT_SECRET_KEY"),
+        ({"revenuecat_secret_key": "sk_rc_test"}, "CROSSTUNE_REVENUECAT_PROJECT_ID"),
+    ],
+)
+def test_partial_revenuecat_settings_refuse_to_start(given: dict[str, str], named: str) -> None:
+    with pytest.raises(ValidationError, match=f"{named} is unset"):
+        Settings(**given)
+
+
+def test_billing_configured_flags() -> None:
+    assert Settings().revenuecat_configured is False
+    assert Settings(revenuecat_webhook_auth="whk").revenuecat_configured is False
+    assert (
+        Settings(
+            revenuecat_project_id="proj_1", revenuecat_secret_key="sk_rc_test"
+        ).revenuecat_configured
+        is True
+    )
+    assert Settings().stripe_configured is False
+    assert Settings(stripe_cancel_key="sk_test_x").stripe_configured is True

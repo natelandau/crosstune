@@ -8,10 +8,9 @@ from typing import Any, Protocol
 
 import httpx2
 
+from crosstune.rest import DEFAULT_TIMEOUT_SECONDS, NOT_FOUND_STATUS, SUCCESS_STATUSES
+
 DEFAULT_BASE_URL = "https://api.clerk.com"
-DEFAULT_TIMEOUT_SECONDS = 10.0
-_SUCCESS_STATUSES = range(200, 300)
-_NOT_FOUND_STATUS = 404
 # Checked before the ID goes into a URL path, so no input can reach another endpoint.
 _USER_ID = re.compile(r"user_[A-Za-z0-9]+")
 
@@ -72,8 +71,8 @@ class ClerkBackendUsers:
         except httpx2.HTTPError as exc:
             raise ClerkUnavailableError from exc
         if (
-            response.status_code not in _SUCCESS_STATUSES
-            and response.status_code != _NOT_FOUND_STATUS
+            response.status_code not in SUCCESS_STATUSES
+            and response.status_code != NOT_FOUND_STATUS
         ):
             msg = f"Clerk answered {response.status_code} deleting {clerk_user_id}"
             raise ClerkUnavailableError(msg)
@@ -119,9 +118,9 @@ class ClerkBackendUsers:
             )
         except httpx2.HTTPError as exc:
             raise ClerkUnavailableError from exc
-        if allow_not_found and response.status_code == _NOT_FOUND_STATUS:
+        if allow_not_found and response.status_code == NOT_FOUND_STATUS:
             return None
-        if response.status_code not in _SUCCESS_STATUSES:
+        if response.status_code not in SUCCESS_STATUSES:
             msg = f"Clerk answered {response.status_code} to {method} {path}"
             raise ClerkUnavailableError(msg)
         try:

@@ -18,6 +18,7 @@ struct PremiumSheet: View {
         switch reason {
         case .recordings: PlanText.premiumRecordingsTitle
         case .scans: PlanText.premiumScansTitle
+        case .plan: ""
         }
     }
 
@@ -26,6 +27,7 @@ struct PremiumSheet: View {
         switch reason {
         case .recordings: PlanText.premiumRecordingsBody
         case .scans: scanTuneTitle.map { PlanText.premiumScansBody(tuneTitle: $0) }
+        case .plan: nil
         }
     }
 

@@ -524,6 +524,7 @@ async def test_run_refuses_a_state_a_store_subscription_outranks(
                 user_id=user_id,
                 kind=GrantKind.PREMIUM.value,
                 source=GrantSource.APPLE.value,
+                external_id="1000000000000001",
                 expires_at=now + timedelta(days=30),
             )
         )
@@ -664,6 +665,7 @@ async def _add_apple_subscription(engine: AsyncEngine, settings: Settings) -> No
                 user_id=user_id,
                 kind=GrantKind.PREMIUM.value,
                 source=GrantSource.APPLE.value,
+                external_id="1000000000000001",
                 expires_at=now + timedelta(days=30),
             )
         )

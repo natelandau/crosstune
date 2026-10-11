@@ -12,6 +12,8 @@ if TYPE_CHECKING:
     from datetime import timedelta
     from pathlib import Path
 
+    from crosstune.billing.grants import PaidSubscription
+
 
 class FakeClerkUsers:
     """A ClerkUsers stand-in. Set `error` to make the next delete_user raise it."""
@@ -25,6 +27,48 @@ class FakeClerkUsers:
         if self.error is not None:
             raise self.error
         self.deleted.append(clerk_user_id)
+
+
+class FakeRevenueCat:
+    """A RevenueCat stand-in. Set `error` to make the next call raise it."""
+
+    def __init__(
+        self,
+        subscriptions_by_customer: dict[str, list[PaidSubscription]] | None = None,
+        error: Exception | None = None,
+        deleted: list[str] | None = None,
+    ) -> None:
+        self.subscriptions_by_customer = subscriptions_by_customer or {}
+        self.error = error
+        self.deleted = deleted if deleted is not None else []
+
+    async def subscriptions(
+        self, customer_id: str, *, now: datetime | None = None
+    ) -> list[PaidSubscription]:
+        """The customer's configured subscriptions, or raise the configured error."""
+        if self.error is not None:
+            raise self.error
+        return list(self.subscriptions_by_customer.get(customer_id, []))
+
+    async def delete_customer(self, customer_id: str) -> None:
+        """Record the id, or raise the configured error instead of deleting."""
+        if self.error is not None:
+            raise self.error
+        self.deleted.append(customer_id)
+
+
+class FakeStripe:
+    """A StripeSubscriptions stand-in. Set `error` to make the next cancel raise it."""
+
+    def __init__(self, cancelled: list[str] | None = None, error: Exception | None = None) -> None:
+        self.cancelled = cancelled if cancelled is not None else []
+        self.error = error
+
+    async def cancel(self, subscription_id: str) -> None:
+        """Record the id, or raise the configured error instead of cancelling."""
+        if self.error is not None:
+            raise self.error
+        self.cancelled.append(subscription_id)
 
 
 class FakeAnalyticsPersons:

@@ -10,4 +10,6 @@ interface ImportMetaEnv {
   readonly VITE_SENTRY_ENVIRONMENT?: string
   readonly VITE_API_ORIGIN?: string
   readonly VITE_SITE_URL?: string
+  readonly VITE_REVENUECAT_WEB_KEY?: string
+  readonly VITE_STRIPE_PORTAL_URL?: string
 }

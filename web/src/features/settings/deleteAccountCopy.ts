@@ -15,3 +15,7 @@ export const CONFIRM_LABEL = `Type ${DELETE_CONFIRMATION_TEXT} to confirm`
 export const DELETE_FAILED = 'Your account was not deleted. Nothing was changed. Try again.'
 export const DELETE_UNCONFIRMED =
   'The delete could not be confirmed, so your account may already be deleted. Check your connection and try again.'
+export const STRIPE_SUBSCRIPTION_LINE =
+  'Your Premium subscription is cancelled now, with no refund for the rest of the period.'
+export const APPLE_SUBSCRIPTION_LINE =
+  'Your App Store subscription keeps billing until you cancel it in App Store settings.'

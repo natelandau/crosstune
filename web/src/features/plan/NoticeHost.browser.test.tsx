@@ -3,6 +3,8 @@ import { expect, it, onTestFinished, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { RECORD_LABEL } from '../../app/tabs'
 import { seenNotices } from '../../billing/notices'
+import type { Store } from '../../billing/store'
+import { StoreProvider } from '../../billing/StoreProvider'
 import { useEntitlement } from '../../billing/usePlan'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalEntitlement } from '../../db/types'
@@ -11,6 +13,7 @@ import type { SyncEngine } from '../../sync/types'
 import { openTestDb } from '../../test/db'
 import { createFakeApi } from '../../test/fakeApi'
 import { fakeMediaForTest } from '../../test/fakeMedia'
+import { fakeStore } from '../../test/fakeStore'
 import { dataProviders } from '../../test/providers'
 import { captureRecording } from '../../test/recordings'
 import { renderWithProviders } from '../../test/render'
@@ -37,7 +40,7 @@ import {
   TRIAL_REMINDER_RECORDINGS,
   trialReminderTitle,
 } from './noticeCopy'
-import { PREMIUM_RECORDINGS_TITLE, SEE_PLAN } from './planCopy'
+import { PREMIUM_RECORDINGS_TITLE, SEE_PLAN, SUBSCRIBE } from './planCopy'
 import { PremiumSheetProvider, usePremiumSheet } from './PremiumSheetProvider'
 import { useDueNotice } from './useDueNotice'
 
@@ -62,17 +65,26 @@ function DueProbe() {
 
 const due = () => page.getByTestId('due')
 
-async function mount(db: CrosstuneDb, row: Partial<LocalEntitlement>, engine?: SyncEngine) {
+async function mount(
+  db: CrosstuneDb,
+  row: Partial<LocalEntitlement>,
+  engine?: SyncEngine,
+  store: Store | null = null,
+) {
   await db.entitlements.put(entitlementRow(row))
   const analytics = recordingAnalytics()
   const navigate = vi.fn()
   const Data = dataProviders({ db, analytics, engine })
   renderWithProviders(
     <Data>
-      <FixedNow value={NOW.getTime()}>
-        <NoticeHost navigate={navigate} />
-        <DueProbe />
-      </FixedNow>
+      <StoreProvider store={store}>
+        <PremiumSheetProvider navigate={navigate}>
+          <FixedNow value={NOW.getTime()}>
+            <NoticeHost navigate={navigate} />
+            <DueProbe />
+          </FixedNow>
+        </PremiumSheetProvider>
+      </StoreProvider>
     </Data>,
   )
   await expect.element(due()).toBeInTheDocument()
@@ -191,6 +203,48 @@ it('tells a lapsed trial it has ended and opens the Plan group from See your pla
   await expect
     .poll(() => shown(analytics))
     .toEqual([{ name: 'notice_shown', props: { notice: 'trial_ended' } }])
+})
+
+const sheetShown = (analytics: ReturnType<typeof recordingAnalytics>) =>
+  analytics.sends().filter((send) => send.name === 'premium_sheet_shown')
+
+it.each(['trial_reminder', 'trial_ended'] as const)(
+  'offers Subscribe on the %s notice, marking it seen and opening the Premium sheet',
+  async (kind) => {
+    const db = openTestDb()
+    const row =
+      kind === 'trial_reminder'
+        ? trialEnding(2 * DAY)
+        : { premium_source: null, trial_ends_at: new Date(NOW.getTime() - DAY).toISOString() }
+    const { analytics, navigate } = await mount(db, row, undefined, fakeStore())
+    const notice = page.getByRole('dialog').first()
+    await expect.element(notice).toBeVisible()
+    await expect.element(notice.getByRole('button', { name: NOTICE_OK })).toBeVisible()
+    await notice.getByRole('button', { name: SUBSCRIBE }).click()
+
+    await expect
+      .poll(() => sheetShown(analytics))
+      .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'plan', from: kind } }])
+    await expect.poll(async () => [...(await seenNotices(db))]).toEqual([kind])
+    expect(navigate).not.toHaveBeenCalled()
+  },
+)
+
+it('keeps See your plan on a notice when no store is configured', async () => {
+  const db = openTestDb()
+  await mount(db, trialEnding(2 * DAY))
+  const notice = page.getByRole('dialog').first()
+  await expect.element(notice.getByRole('button', { name: SEE_PLAN })).toBeVisible()
+  expect(notice.getByRole('button', { name: SUBSCRIBE }).elements()).toHaveLength(0)
+})
+
+it('keeps See your plan on the first-recording notice even with a store', async () => {
+  const db = openTestDb()
+  await captureRecording(db)
+  await mount(db, trialEnding(10 * DAY), undefined, fakeStore())
+  const notice = dialog(FIRST_RECORDING_TITLE)
+  await expect.element(notice.getByRole('button', { name: SEE_PLAN })).toBeVisible()
+  expect(notice.getByRole('button', { name: SUBSCRIBE }).elements()).toHaveLength(0)
 })
 
 it('takes Escape as OK', async () => {

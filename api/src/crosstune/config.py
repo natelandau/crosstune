@@ -108,6 +108,13 @@ class Settings(BaseSettings):
     posthog_api_host: str = "https://us.posthog.com"
     posthog_project_id: str = ""
     posthog_person_delete_key: SecretStr = SecretStr("")
+    revenuecat_project_id: str = ""
+    revenuecat_secret_key: SecretStr = SecretStr("")
+    # Independent of the other RevenueCat settings: a pr environment copies development's.
+    revenuecat_webhook_auth: SecretStr = SecretStr("")
+    stripe_cancel_key: SecretStr = SecretStr("")
+    # Off in production, so a purchase made with Stripe test money never grants Premium there.
+    billing_accept_sandbox_stripe: bool = False
     # How long after an account deletion the PostHog person is deleted again: the second
     # pass catches events a client sent just before the account went, and the later ones
     # catch events a device that was offline queued and uploads once it is back.
@@ -117,6 +124,7 @@ class Settings(BaseSettings):
     link_resolve_timeout_seconds: float = 5.0
     link_resolves_per_minute: int = 30
     link_searches_per_minute: int = 20
+    billing_refreshes_per_minute: int = 10
     apple_music_team_id: str = ""
     apple_music_key_id: str = ""
     apple_music_private_key: SecretStr = SecretStr("")
@@ -197,6 +205,16 @@ class Settings(BaseSettings):
     def posthog_configured(self) -> bool:
         """Whether the PostHog project and its person-delete key are both set."""
         return bool(self.posthog_project_id and self.posthog_person_delete_key.get_secret_value())
+
+    @property
+    def revenuecat_configured(self) -> bool:
+        """Whether the RevenueCat project and its secret key are both set."""
+        return bool(self.revenuecat_project_id and self.revenuecat_secret_key.get_secret_value())
+
+    @property
+    def stripe_configured(self) -> bool:
+        """Whether the Stripe key that cancels subscriptions is set."""
+        return bool(self.stripe_cancel_key.get_secret_value())
 
     @field_validator("database_url")
     @classmethod
@@ -287,6 +305,20 @@ class Settings(BaseSettings):
         # The job runner, which runs the queued analytics deletions, is built only with storage.
         if self.posthog_configured and not self.storage_configured:
             msg = "PostHog settings need storage, or deleted accounts' analytics data is never deleted"
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _require_whole_billing_settings(self) -> Self:
+        """Refuse half the RevenueCat settings, which would leave purchases unreadable."""
+        problem = _missing_member(
+            {
+                "CROSSTUNE_REVENUECAT_PROJECT_ID": self.revenuecat_project_id,
+                "CROSSTUNE_REVENUECAT_SECRET_KEY": self.revenuecat_secret_key.get_secret_value(),
+            }
+        )
+        if problem:
+            msg = f"incomplete RevenueCat settings: {problem}"
             raise ValueError(msg)
         return self
 

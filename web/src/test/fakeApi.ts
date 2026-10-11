@@ -144,6 +144,7 @@ export function createFakeApi() {
       if (noticeError) throw noticeError
       notices.push(notice)
     },
+    async refreshBilling() {},
     async requestUploadSlot(recordingId, body) {
       if (slotError && (slotErrorId === null || slotErrorId === recordingId)) throw slotError
       const state = recordingStates.get(recordingId) ?? 'pending_upload'

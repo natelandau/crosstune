@@ -5,16 +5,21 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
+from datetime import timedelta
 
 import httpx2
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from crosstune.billing.revenuecat import RevenueCatUnavailableError
+from crosstune.billing.stripe import StripeUnavailableError
+from crosstune.db.base import utc_now
 from crosstune.db.locks import lock_user
 from crosstune.errors import ACCOUNT_DELETED_PROBLEM, PROBLEM_JSON
 from crosstune.models import (
     DeletedAccount,
+    Grant,
     Job,
     List,
     ListItem,
@@ -32,7 +37,7 @@ from crosstune.models import (
     UserTune,
 )
 from crosstune.users.clerk import ClerkBackendUsers, ClerkUnavailableError
-from tests.fakes import FakeObjectStore
+from tests.fakes import FakeObjectStore, FakeRevenueCat, FakeStripe
 from tests.helpers import T0, change, push, sign, uid
 from tests.helpers import recording as recording_change
 
@@ -371,3 +376,118 @@ async def test_clerk_backend_users_transport_error_raises_clerk_unavailable() ->
             await users.delete_user("user_a")
     finally:
         await client.aclose()
+
+
+async def _grant(
+    client: httpx2.AsyncClient,
+    auth_headers,
+    verify_session: AsyncSession,
+    source: str,
+    external_id: str,
+    expires_at,
+) -> None:
+    me = (await client.get("/v1/me", headers=auth_headers("user_a"))).json()
+    verify_session.add(
+        Grant(
+            user_id=uuid.UUID(me["id"]),
+            kind="premium",
+            source=source,
+            external_id=external_id,
+            expires_at=expires_at,
+        )
+    )
+    await verify_session.commit()
+
+
+async def test_delete_cancels_stripe_and_deletes_customer(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    events: list[str] = []
+    app.state.stripe = FakeStripe(cancelled=events)
+    app.state.revenuecat = FakeRevenueCat(deleted=events)
+    clerk = app.state.clerk_users
+    original_delete = clerk.delete_user
+
+    async def recording_delete(clerk_user_id: str) -> None:
+        events.append("clerk")
+        await original_delete(clerk_user_id)
+
+    clerk.delete_user = recording_delete
+    await _grant(client, auth_headers, verify_session, "stripe", "sub_123", None)
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert events == ["sub_123", "user_a", "clerk"]
+
+
+async def test_delete_stripe_failure_keeps_account(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    app.state.stripe = FakeStripe(error=StripeUnavailableError())
+    await _grant(client, auth_headers, verify_session, "stripe", "sub_123", None)
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 502
+    assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
+    assert await verify_session.scalar(select(func.count()).select_from(DeletedAccount)) == 0
+    assert app.state.clerk_users.deleted == []
+
+
+async def test_delete_revenuecat_failure_keeps_account(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    app.state.revenuecat = FakeRevenueCat(error=RevenueCatUnavailableError())
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 502
+    assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
+    assert app.state.clerk_users.deleted == []
+
+
+async def test_delete_without_stripe_client_but_stripe_grant_is_503(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    app.state.stripe = None
+    await _grant(client, auth_headers, verify_session, "stripe", "sub_123", None)
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 503
+    assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
+    assert app.state.clerk_users.deleted == []
+
+
+async def test_delete_apple_subscriber_cancels_nothing(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _grant(client, auth_headers, verify_session, "apple", "2000000123", None)
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.cancelled == []
+    assert app.state.revenuecat.deleted == ["user_a"]
+
+
+async def test_delete_expired_stripe_grant_cancels_nothing(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    expired = utc_now() - timedelta(days=1)
+    await _grant(client, auth_headers, verify_session, "stripe", "sub_old", expired)
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.cancelled == []
+
+
+async def test_delete_cancels_a_lapsed_stripe_subscription_still_renewing(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    me = (await client.get("/v1/me", headers=auth_headers("user_a"))).json()
+    verify_session.add(
+        Grant(
+            user_id=uuid.UUID(me["id"]),
+            kind="premium",
+            source="stripe",
+            external_id="sub_retrying",
+            expires_at=utc_now() - timedelta(days=1),
+            auto_renews=True,
+        )
+    )
+    await verify_session.commit()
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.cancelled == ["sub_retrying"]

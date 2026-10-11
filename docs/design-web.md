@@ -158,6 +158,8 @@ folder. Compose it, never rebuild it.
 - Sheets, dialogs, menus, and Quick Find share one modal layer, and the
   page behind is inert. The toast sits above it and outside the inert page,
   so Undo stays in reach behind a sheet.
+- The store's checkout opens only after the Premium sheet has left, never
+  over it: its window would sit under the sheet's inert page.
 - Quick Find finds tunes, lists, recordings, and runs existing commands,
   each showing its key. Sort by is a second step. Escape or back leaves the
   step, keeping the query, before closing.
