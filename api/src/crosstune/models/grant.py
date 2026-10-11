@@ -38,6 +38,18 @@ class Grant(Base):
             unique=True,
             postgresql_where=text("source in ('trial', 'comp')"),
         ),
+        # A store subscription is one grant, which follows it between accounts.
+        Index(
+            "ux_grants_source_external_id",
+            "source",
+            "external_id",
+            unique=True,
+            postgresql_where=text("source in ('apple', 'stripe')"),
+        ),
+        CheckConstraint(
+            "source not in ('apple', 'stripe') or external_id is not null",
+            name="ck_grants_paid_external_id",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid7)

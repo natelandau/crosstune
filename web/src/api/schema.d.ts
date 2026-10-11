@@ -70,6 +70,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/billing/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Billing
+         * @description Re-read the caller's subscriptions from RevenueCat and update their Premium access.
+         */
+        post: operations["refresh_billing_v1_me_billing_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/notices": {
         parameters: {
             query?: never;
@@ -965,7 +985,7 @@ export interface components {
             title: string;
             /**
              * Type
-             * @description `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:scan-tune-only` (403, a free account's scans stay on one tune), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413).
+             * @description `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:scan-tune-only` (403, a free account's scans stay on one tune), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured), `urn:crosstune:billing-failed` (502, the billing provider did not answer).
              * @default about:blank
              */
             type: string;
@@ -2154,6 +2174,71 @@ export interface operations {
             /** @description Validation Error */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    refresh_billing_v1_me_billing_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
                     [name: string]: unknown;
                 };
                 content: {

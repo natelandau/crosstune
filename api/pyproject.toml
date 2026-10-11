@@ -76,6 +76,12 @@
     CROSSTUNE_CLERK_WEBHOOK_SECRET               = "whsec_dGVzdHNlY3JldHRlc3RzZWNyZXQ="  # gitleaks:allow -- fixture, not a credential
     CROSSTUNE_CLERK_SECRET_KEY                   = "sk_test_dGVzdHNlY3JldHRlc3RzZWNyZXQ="  # gitleaks:allow -- fixture, not a credential
     CROSSTUNE_DEBUG                              = "true"
+    # Pinned empty so a developer's api/.env billing keys cannot leak into the suite.
+    CROSSTUNE_REVENUECAT_PROJECT_ID              = ""
+    CROSSTUNE_REVENUECAT_SECRET_KEY              = ""
+    CROSSTUNE_REVENUECAT_WEBHOOK_AUTH            = ""
+    CROSSTUNE_STRIPE_CANCEL_KEY                  = ""
+    CROSSTUNE_BILLING_ACCEPT_SANDBOX_STRIPE      = "false"
     # Pinned empty so a developer's api/.env DSN cannot leak into the suite.
     CROSSTUNE_SENTRY_DSN                         = ""
     # Pinned empty so a developer's api/.env storage settings cannot leak into the suite.

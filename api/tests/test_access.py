@@ -274,3 +274,13 @@ async def test_scan_tune_id_breaks_a_created_at_tie_by_id(session) -> None:
     lower = min((first, second), key=lambda scan: scan.id)
 
     assert await scan_tune_id(session, user_id) == lower.tune_id
+
+
+def test_resolver_holds_premium_in_apple_grace(settings: Settings) -> None:
+    grace_ends = NOW + timedelta(days=6)
+
+    result = resolve([_premium(GrantSource.APPLE, grace_ends, auto_renews=False)], NOW, settings)
+
+    assert result.access.premium is True
+    assert result.premium_source == GrantSource.APPLE
+    assert result.premium_expires_at == grace_ends

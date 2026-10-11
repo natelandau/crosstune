@@ -1,0 +1,35 @@
+{
+  "object": "customer",
+  "id": "cust_1",
+  "project_id": "proj1ab2c3d4",
+  "first_seen_at": 1735689600000,
+  "last_seen_at": 1767225600000,
+  "last_seen_app_version": "1.0",
+  "last_seen_country": "US",
+  "last_seen_platform": "iOS",
+  "last_seen_platform_version": "26.0",
+  "active_entitlements": {
+    "object": "list",
+    "items": [
+      {
+        "object": "customer.active_entitlement",
+        "entitlement_id": "entl1a2b3c4d5e",
+        "expires_at": 4070908800000
+      },
+      {
+        "object": "customer.active_entitlement",
+        "entitlement_id": "entl9z8y7x6w5v",
+        "expires_at": 4039372800000
+      }
+    ],
+    "next_page": null,
+    "url": "/x"
+  },
+  "experiment": null,
+  "attributes": {
+    "object": "list",
+    "items": [],
+    "next_page": null,
+    "url": "/x"
+  }
+}

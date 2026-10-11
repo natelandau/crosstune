@@ -41,6 +41,13 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `DELETE /v1/me`.
     /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)`.
     func deleteMeV1MeDelete(_ input: Operations.DeleteMeV1MeDelete.Input) async throws -> Operations.DeleteMeV1MeDelete.Output
+    /// Refresh Billing
+    ///
+    /// Re-read the caller's subscriptions from RevenueCat and update their Premium access.
+    ///
+    /// - Remark: HTTP `POST /v1/me/billing/refresh`.
+    /// - Remark: Generated from `#/paths//v1/me/billing/refresh/post(refresh_billing_v1_me_billing_refresh_post)`.
+    func refreshBillingV1MeBillingRefreshPost(_ input: Operations.RefreshBillingV1MeBillingRefreshPost.Input) async throws -> Operations.RefreshBillingV1MeBillingRefreshPost.Output
     /// Record Notice
     ///
     /// Record that the user saw a one-time notice, so no device shows it again.
@@ -197,6 +204,15 @@ extension APIProtocol {
     /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)`.
     public func deleteMeV1MeDelete(headers: Operations.DeleteMeV1MeDelete.Input.Headers = .init()) async throws -> Operations.DeleteMeV1MeDelete.Output {
         try await deleteMeV1MeDelete(Operations.DeleteMeV1MeDelete.Input(headers: headers))
+    }
+    /// Refresh Billing
+    ///
+    /// Re-read the caller's subscriptions from RevenueCat and update their Premium access.
+    ///
+    /// - Remark: HTTP `POST /v1/me/billing/refresh`.
+    /// - Remark: Generated from `#/paths//v1/me/billing/refresh/post(refresh_billing_v1_me_billing_refresh_post)`.
+    public func refreshBillingV1MeBillingRefreshPost(headers: Operations.RefreshBillingV1MeBillingRefreshPost.Input.Headers = .init()) async throws -> Operations.RefreshBillingV1MeBillingRefreshPost.Output {
+        try await refreshBillingV1MeBillingRefreshPost(Operations.RefreshBillingV1MeBillingRefreshPost.Input(headers: headers))
     }
     /// Record Notice
     ///

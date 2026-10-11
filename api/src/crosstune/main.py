@@ -11,6 +11,9 @@ from fastapi import FastAPI
 from crosstune import __version__
 from crosstune.analytics.posthog import PostHogPersons
 from crosstune.auth.jwks import JwksCache
+from crosstune.billing.revenuecat import RevenueCatRest
+from crosstune.billing.router import router as billing_router
+from crosstune.billing.stripe import StripeRest
 from crosstune.body import BodyAdmission
 from crosstune.config import Settings, get_settings
 from crosstune.db.engine import IdlePoolCloser, make_engine, make_sessionmaker
@@ -49,6 +52,20 @@ def _build_clerk_users(app: FastAPI, settings: Settings) -> None:
     if app.state.clerk_users is None and settings.clerk_secret_key.get_secret_value():
         app.state.clerk_users = ClerkBackendUsers(
             app.state.http_client, settings.clerk_secret_key.get_secret_value()
+        )
+
+
+def _build_billing_clients(app: FastAPI, settings: Settings) -> None:
+    """Set app.state.revenuecat and app.state.stripe when configured and nothing built them yet."""
+    if app.state.revenuecat is None and settings.revenuecat_configured:
+        app.state.revenuecat = RevenueCatRest(
+            app.state.http_client,
+            settings.revenuecat_project_id,
+            settings.revenuecat_secret_key.get_secret_value(),
+        )
+    if app.state.stripe is None and settings.stripe_configured:
+        app.state.stripe = StripeRest(
+            app.state.http_client, settings.stripe_cancel_key.get_secret_value()
         )
 
 
@@ -132,6 +149,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     if app.state.jwks is None:
         app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
     _build_clerk_users(app, settings)
+    _build_billing_clients(app, settings)
     _build_analytics_persons(app, settings)
     _build_object_store(app, settings)
     built_runner = app.state.job_runner is None and app.state.object_store is not None
@@ -198,6 +216,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.http_client = None
     app.state.jwks = None
     app.state.clerk_users = None
+    app.state.revenuecat = None
+    app.state.stripe = None
     app.state.analytics_persons = None
     app.state.object_store = None
     app.state.job_runner = None
@@ -208,6 +228,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.link_search_limiter = RateLimiter(
         limit=settings.link_searches_per_minute, window_seconds=60.0
     )
+    app.state.billing_refresh_limiter = RateLimiter(
+        limit=settings.billing_refreshes_per_minute, window_seconds=60.0
+    )
     app.state.search_tokens = SearchTokens.from_settings(settings)
     app.state.search_backoff = Backoff()
     app.state.search_adapters = search_adapters(
@@ -217,6 +240,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     install_error_handlers(app)
     app.add_middleware(BodyAdmission)
     app.include_router(users_router)
+    app.include_router(billing_router)
     app.include_router(sync_router)
     app.include_router(links_router)
     app.include_router(recordings_router)

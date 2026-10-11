@@ -1,0 +1,56 @@
+{
+  "object": "list",
+  "items": [
+    {
+      "object": "subscription",
+      "id": "sub_grace",
+      "customer_id": "cust_1",
+      "original_customer_id": "cust_1",
+      "product_id": "prod1",
+      "starts_at": 1735689600000,
+      "current_period_starts_at": 1735689600000,
+      "current_period_ends_at": 1590969600000,
+      "ends_at": 1590969600000,
+      "gives_access": true,
+      "pending_payment": false,
+      "auto_renewal_status": "will_renew",
+      "status": "in_grace_period",
+      "total_revenue_in_usd": {
+        "currency": "USD",
+        "gross": 49.99,
+        "commission": 0,
+        "tax": 0,
+        "proceeds": 49.99
+      },
+      "presented_offering_id": null,
+      "entitlements": {
+        "object": "list",
+        "items": [
+          {
+            "object": "entitlement",
+            "id": "entl1a2b3c4d5e",
+            "project_id": "proj1ab2c3d4",
+            "lookup_key": "premium",
+            "display_name": "Premium",
+            "created_at": 1735689600000,
+            "products": {
+              "object": "list",
+              "items": [],
+              "next_page": null,
+              "url": "/v2/projects/proj1ab2c3d4/entitlements/entl1a2b3c4d5e/products"
+            }
+          }
+        ],
+        "next_page": null,
+        "url": "/v2/projects/proj1ab2c3d4/subscriptions/x/entitlements"
+      },
+      "environment": "sandbox",
+      "store": "app_store",
+      "store_subscription_identifier": "2000000123456789",
+      "country": "US",
+      "management_url": null
+    }
+  ],
+  "next_page": null,
+  "url": "/x"
+}

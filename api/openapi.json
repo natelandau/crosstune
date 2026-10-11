@@ -1333,7 +1333,7 @@
           },
           "type": {
             "default": "about:blank",
-            "description": "`about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:scan-tune-only` (403, a free account's scans stay on one tune), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413).",
+            "description": "`about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:scan-tune-only` (403, a free account's scans stay on one tune), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured), `urn:crosstune:billing-failed` (502, the billing provider did not answer).",
             "title": "Type",
             "type": "string"
           }
@@ -4032,6 +4032,80 @@
         "summary": "Me",
         "tags": [
           "users"
+        ]
+      }
+    },
+    "/v1/me/billing/refresh": {
+      "post": {
+        "description": "Re-read the caller's subscriptions from RevenueCat and update their Premium access.",
+        "operationId": "refresh_billing_v1_me_billing_refresh_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds to wait before trying again.",
+                "required": false,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Refresh Billing",
+        "tags": [
+          "billing"
         ]
       }
     },
