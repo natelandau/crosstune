@@ -9,6 +9,8 @@ public protocol SyncAPI: Sendable {
     func pull(since: Int64) async throws -> PullPage
     /// One page of the history rows the server stored after `since`.
     func events(since: Int64) async throws -> EventsPage
+    /// Tells the server the account has seen a one-time notice. A repeat changes nothing.
+    func recordNotice(_ notice: PlanNotice) async throws
     /// The account's recording storage figures.
     func storage() async throws -> StorageFigures
     /// The provider, canonical URL, title, and artwork for a pasted link.

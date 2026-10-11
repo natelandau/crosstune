@@ -160,6 +160,7 @@ private struct StandPanes<Practice: View>: View {
 
     @Environment(\.analytics) private var analytics
     @Environment(\.store) private var store
+    @Environment(\.plan) private var plan
     @Environment(ListPlayback.self) private var playback: ListPlayback?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.practiceGround) private var ground
@@ -197,7 +198,12 @@ private struct StandPanes<Practice: View>: View {
         return query?.value.map(\.reading)
     }
 
-    private var reading: StandReading? { read ?? nil }
+    /// What there is to read, less scans the plan does not open, which have nothing to show.
+    private var reading: StandReading? {
+        guard let reading = read ?? nil else { return nil }
+        let opens = plan.map { PlanRules.scanOpens($0.plan, tuneID: reading.tuneID, scanTune: $0.scanTune) } ?? true
+        return reading.withScans(opening: opens)
+    }
 
     /// The tune in front of the stand, whether or not it has anything to read.
     private var tuneID: String? {

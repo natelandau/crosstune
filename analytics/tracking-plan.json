@@ -268,6 +268,24 @@
       "none",
       "new",
       "existing"
+    ],
+    "premium_reason": [
+      "recordings",
+      "scans"
+    ],
+    "premium_entry": [
+      "record",
+      "upload",
+      "add_to_recordings",
+      "recording_row",
+      "recordings_line",
+      "scan",
+      "add_scan"
+    ],
+    "plan_notice": [
+      "first_recording",
+      "trial_reminder",
+      "trial_ended"
     ]
   },
   "super_properties": {
@@ -1636,6 +1654,43 @@
         "storage_used": {
           "type": "string",
           "bucket": "bytes",
+          "required": true
+        }
+      }
+    },
+    "premium_sheet_shown": {
+      "description": "The Premium sheet opened because a free account tapped something Premium holds",
+      "clients": [
+        "apple"
+      ],
+      "answers": [
+        "free_tier_pressure"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string",
+          "enum": "premium_reason",
+          "required": true
+        },
+        "from": {
+          "type": "string",
+          "enum": "premium_entry",
+          "required": true
+        }
+      }
+    },
+    "notice_shown": {
+      "description": "A one-time plan notice appeared",
+      "clients": [
+        "apple"
+      ],
+      "answers": [
+        "free_tier_pressure"
+      ],
+      "properties": {
+        "notice": {
+          "type": "string",
+          "enum": "plan_notice",
           "required": true
         }
       }

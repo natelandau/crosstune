@@ -1,8 +1,9 @@
 import Foundation
 import GRDB
 
-/// The tables the client pushes, named as on the wire: the synced tables, then the insert-only
-/// event tables, whose rows the sync pull never carries.
+/// The tables sync carries, named as on the wire: the synced tables, the entitlements row the
+/// server writes and the client only pulls, then the insert-only event tables, whose rows the
+/// sync pull never carries.
 public enum SyncTable: String, CaseIterable, Codable, Sendable {
     case tunes
     case userTunes = "user_tunes"
@@ -13,6 +14,7 @@ public enum SyncTable: String, CaseIterable, Codable, Sendable {
     case scans
     case recordingLoops = "recording_loops"
     case userSettings = "user_settings"
+    case entitlements
     case playEvents = "play_events"
     case practiceSessions = "practice_sessions"
     case scanViews = "scan_views"
@@ -23,12 +25,16 @@ public enum SyncTable: String, CaseIterable, Codable, Sendable {
         switch self {
         case .playEvents, .practiceSessions, .scanViews: true
         case .tunes, .userTunes, .lists, .listItems, .recordingLinks, .recordings, .scans,
-            .recordingLoops, .userSettings:
+            .recordingLoops, .userSettings, .entitlements:
             false
         }
     }
 
     public static let eventTables = allCases.filter(\.isEvent)
+
+    /// The tables whose rows name a recording in `recording_id`, which the server refuses while
+    /// it does not have that recording.
+    public static let recordingDependents: [SyncTable] = [.recordingLoops, .playEvents, .practiceSessions]
 }
 
 /// A local copy of a server row, without its ownership keys, which the server sets from the
@@ -702,6 +708,73 @@ public struct UserSettings: SyncedRecord, Hashable {
         self.playFirst = playFirst
         self.newTuneGenre = newTuneGenre
         self.newTuneStatus = newTuneStatus
+        self.extra = extra
+    }
+}
+
+/// What the account's grants allow, as the server resolved them: one row per user, pulled and
+/// stored, never written here and never pushed. ``Plan`` judges it against the device clock.
+public struct Entitlement: SyncedRecord, Hashable {
+    public static let table = SyncTable.entitlements
+
+    public var id: String
+    public var createdAt: Timestamp
+    public var updatedAt: Timestamp
+    public var deletedAt: Timestamp?
+    public var serverSeq: Int64
+    /// Where the reported Premium grant came from: `trial`, `apple`, `stripe`, or `comp`. Nil
+    /// when no Premium grant was live when the row was written.
+    public var premiumSource: String?
+    /// When the reported grant ends, nil when it never does.
+    public var premiumExpiresAt: Timestamp?
+    public var autoRenews: Bool
+    public var trialEndsAt: Timestamp?
+    public var premiumQuotaBytes: Int64
+    public var freeQuotaBytes: Int64
+    public var recordingNoticeSeenAt: Timestamp?
+    public var trialReminderSeenAt: Timestamp?
+    public var trialEndSeenAt: Timestamp?
+    public var extra: JSONObject
+
+    public enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
+        case id
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case serverSeq = "server_seq"
+        case premiumSource = "premium_source"
+        case premiumExpiresAt = "premium_expires_at"
+        case autoRenews = "auto_renews"
+        case trialEndsAt = "trial_ends_at"
+        case premiumQuotaBytes = "premium_quota_bytes"
+        case freeQuotaBytes = "free_quota_bytes"
+        case recordingNoticeSeenAt = "recording_notice_seen_at"
+        case trialReminderSeenAt = "trial_reminder_seen_at"
+        case trialEndSeenAt = "trial_end_seen_at"
+        case extra
+    }
+
+    public init(
+        id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
+        deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, premiumSource: String? = nil,
+        premiumExpiresAt: Timestamp? = nil, autoRenews: Bool = false, trialEndsAt: Timestamp? = nil,
+        premiumQuotaBytes: Int64, freeQuotaBytes: Int64, recordingNoticeSeenAt: Timestamp? = nil,
+        trialReminderSeenAt: Timestamp? = nil, trialEndSeenAt: Timestamp? = nil, extra: JSONObject = [:]
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
+        self.deletedAt = deletedAt
+        self.serverSeq = serverSeq
+        self.premiumSource = premiumSource
+        self.premiumExpiresAt = premiumExpiresAt
+        self.autoRenews = autoRenews
+        self.trialEndsAt = trialEndsAt
+        self.premiumQuotaBytes = premiumQuotaBytes
+        self.freeQuotaBytes = freeQuotaBytes
+        self.recordingNoticeSeenAt = recordingNoticeSeenAt
+        self.trialReminderSeenAt = trialReminderSeenAt
+        self.trialEndSeenAt = trialEndSeenAt
         self.extra = extra
     }
 }

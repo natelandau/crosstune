@@ -975,6 +975,8 @@ final class CountingSyncAPI: SyncAPI {
         EventsPage(rows: [], nextSince: since, hasMore: false)
     }
 
+    func recordNotice(_ notice: PlanNotice) async throws {}
+
     func storage() async throws -> StorageFigures {
         StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0)
     }

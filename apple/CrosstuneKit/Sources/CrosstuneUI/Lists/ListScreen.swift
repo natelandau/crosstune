@@ -123,6 +123,7 @@ private struct ListTunes: View {
     @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
+    @Environment(\.plan) private var plan
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @Environment(ScanTunes.self) private var scanTunes: ScanTunes?
@@ -313,11 +314,13 @@ private struct ListTunes: View {
         appleMusic = await access.current()
     }
 
+    private var recordingsPlay: Bool { plan?.plan.recordingsPlay ?? true }
+
     private func playReport(_ rows: [ListEntry]) -> PlaylistReport {
         let online = session?.hasNetwork ?? true
         return playlistReport(
             entries: rows.map { $0.playlistEntry(online: online) }, playFirst: model.playFirst,
-            fullTracks: appleMusic == .fullTracks, online: online)
+            fullTracks: appleMusic == .fullTracks, online: online, recordingsPlay: recordingsPlay)
     }
 
     private func startPlaylist(_ report: PlaylistReport, shuffled: Bool) {
@@ -380,7 +383,7 @@ private struct ListTunes: View {
     private func row(_ entry: ListEntry, position: Int, reorderable: Bool) -> some View {
         let playAction = ListRowPlay.action(
             for: entry, playFirst: model.playFirst, loaded: { player?.holds(.recording, id: $0) ?? false },
-            downloading: { transfers?.isDownloading($0) ?? false })
+            downloading: { transfers?.isDownloading($0) ?? false }, recordingsPlay: recordingsPlay)
         let isCurrent = ListRowPlay.isNowPlaying(
             listID: list.id, playingListID: listPlayback?.listID, currentTuneID: listPlayback?.currentTuneID,
             tuneID: entry.tune.id)
@@ -390,7 +393,8 @@ private struct ListTunes: View {
         let edit = { form = .edit(tuneID: entry.tune.id, userTuneID: entry.userTune.id) }
         let remove: () -> Void = { Task { await model.remove(entry) } }
         let scans = TuneRowActions.scansAction(
-            tuneID: entry.tune.id, tunesWithScans: scanTunes, origin: .list(id: list.id), actions: tuneScreenActions)
+            tuneID: entry.tune.id, tunesWithScans: scanTunes, plan: plan, origin: .list(id: list.id),
+            actions: tuneScreenActions)
         return HStack(spacing: spacing(4)) {
             if detailTune != nil || selection.isActive {
                 // The list's selection drives the detail column, or is the selection.

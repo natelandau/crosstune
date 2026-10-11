@@ -285,6 +285,13 @@ private final class Writes {
         #expect(RecordingMenuItem.delete.label == RecordingRowActions.delete)
     }
 
+    @Test func theMoreMenuLeavesTrimOutWhenTheRecordingCannotTrim() {
+        #expect(
+            RecordingMenuItem.items(inTune: true, trimBlocker: nil, trims: false) == [
+                .edit, .removeFromTune, .delete,
+            ])
+    }
+
     @Test func theMoreMenuOpensAnImportedRecordingOnItsSiteBeforeDelete() throws {
         let page = "https://www.slippery-hill.com/content/bear-creek-sally-goodin"
         func imported(_ url: String?, origin: String = "slippery_hill") -> Recording {

@@ -250,6 +250,21 @@ enum Schema {
                     """,
                 arguments: [table])
         }
+        migrator.registerMigration("v16") { db in
+            try createSyncTable(db, .entitlements) { t in
+                t.column("premium_source", .text)
+                t.column("premium_expires_at", .text)
+                t.column("auto_renews", .boolean).notNull()
+                t.column("trial_ends_at", .text)
+                t.column("premium_quota_bytes", .integer).notNull()
+                t.column("free_quota_bytes", .integer).notNull()
+                t.column("recording_notice_seen_at", .text)
+                t.column("trial_reminder_seen_at", .text)
+                t.column("trial_end_seen_at", .text)
+            }
+            // The row was pulled, and skipped, before this build stored the table.
+            try repull(db)
+        }
         return migrator
     }()
 

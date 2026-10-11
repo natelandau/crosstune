@@ -444,6 +444,32 @@ import Testing
         #expect(place.settingsPage == nil)
     }
 
+    @Test func poppingTheIPhoneSettingsPageClosesItForTheIPadLayoutToo() {
+        let place = ShellPlace()
+        place.showSettingsPage(.account)
+
+        place.settingsPath.removeLast()
+
+        #expect(place.settingsPage == nil)
+    }
+
+    @Test func narrowingShowsTheIPadSettingsPageAloneOnTheIPhoneStack() {
+        let place = ShellPlace()
+        place.showSettingsPage(.account)
+        // Picked in the iPad detail column, which never touches the iPhone stack.
+        place.settingsPage = .stats
+
+        place.narrowed()
+
+        #expect(place.settingsPath == NavigationPath([SettingsPage.stats]))
+        #expect(place.settingsPage == .stats)
+
+        place.settingsPage = nil
+        place.narrowed()
+
+        #expect(place.settingsPath.isEmpty)
+    }
+
     @Test func theMacSidebarFallsBackToTheCatalogWithNoRowOfItsOwn() {
         let place = ShellPlace()
         for destination in [Destination.settings, .lists] {

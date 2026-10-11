@@ -9,6 +9,7 @@
     public struct SampleShell: View {
         private let playing: Bool
         private let playingRecording: Bool
+        private let samplePlan: SamplePlan?
 
         @State private var store: CrosstuneStore?
         @State private var engine: SyncEngine?
@@ -17,13 +18,18 @@
         @State private var listPlayback: ListPlayback
         @State private var stage = EmbedStage()
         @State private var recorders = RecorderHost()
+        @State private var plan: PlanModel?
+        @State private var noticeClaim = NoticeClaim()
 
         /// - Parameters:
         ///   - playing: Starts with a link loaded in the player.
         ///   - playingRecording: Starts with a recording playing, from a tone written for it.
-        public init(playing: Bool = false, playingRecording: Bool = false) {
+        ///   - plan: Stores this entitlements row, so the plan gates the shell. Nil leaves the
+        ///     plan unknown, which gates nothing.
+        public init(playing: Bool = false, playingRecording: Bool = false, plan: SamplePlan? = nil) {
             self.playing = playing
             self.playingRecording = playingRecording
+            samplePlan = plan
             // The playlist must sit on the same player the shell shows.
             let player = PlayerModel()
             _player = State(initialValue: player)
@@ -38,6 +44,8 @@
                     AppShell(store: store, player: player, stage: stage, recorders: recorders)
                         .environment(engine)
                         .environment(listPlayback)
+                        .environment(\.plan, plan)
+                        .environment(\.noticeClaim, noticeClaim)
                 } else if let failure {
                     ContentUnavailableView(
                         "The sample catalog did not open", systemImage: "exclamationmark.triangle",
@@ -48,6 +56,11 @@
                 do {
                     let opened = try await SampleCatalog.makeStore(withAudio: true)
                     try await SampleScans.add(to: opened)
+                    if let samplePlan {
+                        try await samplePlan.store(in: opened, now: Date())
+                        plan = PlanModel(store: opened)
+                        player.plan = plan
+                    }
                     engine = SyncEngine(store: opened, api: OfflineSyncAPI(), isOffline: { true })
                     store = opened
                 } catch {
@@ -70,6 +83,7 @@
         func push(_ changes: [Change]) async throws -> [PushResult] { throw URLError(.notConnectedToInternet) }
         func pull(since: Int64) async throws -> PullPage { throw URLError(.notConnectedToInternet) }
         func events(since: Int64) async throws -> EventsPage { throw URLError(.notConnectedToInternet) }
+        func recordNotice(_ notice: PlanNotice) async throws { throw URLError(.notConnectedToInternet) }
         func storage() async throws -> StorageFigures { throw URLError(.notConnectedToInternet) }
         func resolveLink(url: String) async throws -> ResolvedLink { throw URLError(.notConnectedToInternet) }
         func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
@@ -101,21 +115,32 @@
     /// The Mac Settings window over the sample catalog, for looking at every tab and the stats
     /// screen beside ``SampleShell`` without signing in. Debug builds only.
     public struct SampleSettings: View {
+        private let samplePlan: SamplePlan?
         @State private var store: CrosstuneStore?
+        @State private var plan: PlanModel?
 
-        public init() {}
+        /// - Parameter plan: Stores this entitlements row, so the Plan group has a plan to show.
+        public init(plan: SamplePlan? = nil) {
+            samplePlan = plan
+        }
 
         public var body: some View {
             VStack(spacing: 0) {
                 if let store {
-                    MacSettingsTabs().environment(\.store, store)
+                    MacSettingsTabs()
+                        .environment(\.store, store)
+                        .environment(\.plan, plan)
                 } else {
                     // Sized as the tabs are, since the window must not resize once it shows.
                     Color.clear.frame(width: MacSettingsTabs.size.width, height: MacSettingsTabs.size.height)
                 }
             }
             .task {
-                store = try? await SampleCatalog.makeStore()
+                guard let opened = try? await SampleCatalog.makeStore() else { return }
+                if let samplePlan, (try? await samplePlan.store(in: opened, now: Date())) != nil {
+                    plan = PlanModel(store: opened)
+                }
+                store = opened
             }
         }
     }

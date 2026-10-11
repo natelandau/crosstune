@@ -232,3 +232,27 @@ public enum AssistiveTechnology: String, CaseIterable, Sendable {
     case reduceMotion = "reduce_motion"
     case boldText = "bold_text"
 }
+
+/// What Premium holds that a free account tapped.
+public enum PremiumReason: String, CaseIterable, Sendable {
+    case recordings
+    case scans
+}
+
+/// The control a free account tapped that opened the Premium sheet.
+public enum PremiumEntry: String, CaseIterable, Sendable {
+    case record
+    case upload
+    case addToRecordings = "add_to_recordings"
+    case recordingRow = "recording_row"
+    case recordingsLine = "recordings_line"
+    case scan
+    case addScan = "add_scan"
+}
+
+/// A one-time plan notice, named as the API names it.
+public enum NoticeKind: String, CaseIterable, Sendable {
+    case firstRecording = "first_recording"
+    case trialReminder = "trial_reminder"
+    case trialEnded = "trial_ended"
+}

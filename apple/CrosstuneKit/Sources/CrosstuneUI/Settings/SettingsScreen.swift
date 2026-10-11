@@ -31,10 +31,11 @@ public struct SettingsScreen: View {
         static let downloads = Sections(rawValue: 1 << 10)
         static let newTunes = Sections(rawValue: 1 << 11)
         static let importExport = Sections(rawValue: 1 << 12)
+        static let plan = Sections(rawValue: 1 << 13)
 
         static let all: Sections = [
             .stats, .instruments, .newTunes, .musicServices, .appleMusic, .appearance, .recording, .downloads, .sync,
-            .storage, .importExport, .account, .about,
+            .storage, .importExport, .plan, .account, .about,
         ]
     }
 
@@ -53,6 +54,7 @@ public struct SettingsScreen: View {
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(\.store) private var store
+    @Environment(\.plan) private var planModel: PlanModel?
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @State private var model: SettingsModel?
     /// Reads no history, so opening Settings never starts the events pull.
@@ -84,6 +86,8 @@ public struct SettingsScreen: View {
         self.title = title
         self.opensStatsInSheet = opensStatsInSheet
     }
+
+    private var plan: Plan { planModel?.plan ?? .unknown }
 
     /// The stored text size offset held to what the system size leaves, so a shift the system
     /// has since used up steps from where the text actually is.
@@ -121,6 +125,9 @@ public struct SettingsScreen: View {
             }
             if sections.contains(.importExport) {
                 ImportExportSections()
+            }
+            if sections.contains(.plan) {
+                PlanSection(plan: plan, storage: model?.storage(plan: plan))
             }
             if sections.contains(.account), let session {
                 AccountSections(session: session)
@@ -377,17 +384,9 @@ public struct SettingsScreen: View {
     }
 
     @ViewBuilder private func storageSection(_ model: SettingsModel) -> some View {
-        if let figures = model.storage {
-            let text = RecordingText.storageUsed(figures)
+        if let figures = model.storage(plan: plan) {
             Section(SettingsModel.storage) {
-                VStack(alignment: .leading, spacing: spacing.stackGap) {
-                    Text(text)
-                        .monospacedDigit()
-                    ProgressView(value: SettingsModel.storageFraction(figures))
-                        .accessibilityLabel(SettingsModel.storageUsed)
-                        .accessibilityValue(text)
-                }
-                .padding(.vertical, spacing(4))
+                StorageMeter(storage: figures)
             }
         }
     }

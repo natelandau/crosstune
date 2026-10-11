@@ -37,6 +37,7 @@ public struct TuneScreen: View {
 
     @Environment(\.store) private var store
     @Environment(\.analytics) private var analytics
+    @Environment(\.plan) private var plan
     @Environment(\.inPadSplit) private var inPadSplit
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var model: TuneModel?
@@ -88,8 +89,9 @@ public struct TuneScreen: View {
             }
             .task(id: tuneID) {
                 guard let store else { return }
-                arriving = TuneModel(store: store, tuneID: tuneID, analytics: analytics)
+                arriving = TuneModel(store: store, tuneID: tuneID, analytics: analytics, plan: plan)
             }
+            .onChange(of: plan.map(ObjectIdentifier.init), initial: true) { followPlan() }
             .onChange(
                 of: arriving.map { Self.arrivalSettled(phase: $0.phase, readFailed: $0.readFailed) }, initial: true
             ) {
@@ -112,9 +114,16 @@ public struct TuneScreen: View {
             }
             .task(id: tuneID) {
                 guard let store else { return }
-                model = TuneModel(store: store, tuneID: tuneID, analytics: analytics)
+                model = TuneModel(store: store, tuneID: tuneID, analytics: analytics, plan: plan)
             }
+            .onChange(of: plan.map(ObjectIdentifier.init), initial: true) { followPlan() }
         }
+    }
+
+    /// The plan is replaced when the account changes, which may come after the model was made.
+    private func followPlan() {
+        model?.scans.plan = plan
+        arriving?.scans.plan = plan
     }
 }
 
@@ -394,11 +403,22 @@ struct TuneMediaRows: View {
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.openURL) private var openURL
+    @Environment(\.premium) private var premium
+    @Environment(\.plan) private var plan
+    /// Whether a free plan's recordings line is open to the rows below it, for this visit only.
+    @State private var showsRecordings = false
 
     var body: some View {
-        ForEach(detail.recordings) { recording in
-            recordingRow(recording)
+        let collapses = !(plan?.plan.recordingsPlay ?? true) && !detail.recordings.isEmpty
+        if collapses {
+            RecordingsLine(count: detail.recordings.count, isExpanded: $showsRecordings)
                 .pageRowWidth()
+        }
+        if !collapses || showsRecordings {
+            ForEach(detail.recordings) { recording in
+                recordingRow(recording)
+                    .pageRowWidth()
+            }
         }
         ForEach(detail.links) { link in
             linkRow(link)
@@ -412,9 +432,7 @@ struct TuneMediaRows: View {
         // The screen's own title above already names the tune.
         let pinned = detail.userTune.playRecordingID == view.id
         return HStack {
-            RecordingItem(view: view, source: .tune, tuneNamedAbove: true) { kind in
-                retry(view.id, kind)
-            }
+            Self.item(view) { kind in retry(view.id, kind) }
             if pinned { PinnedMark() }
         }
         .newTakeHighlight(view.id)
@@ -428,6 +446,12 @@ struct TuneMediaRows: View {
             onAddToTune: nil,
             onRemoveFromTune: { Task { await model.unfileRecording(view.recording) } },
             onDelete: { deleting = view })
+    }
+
+    /// A recording's row on the page. A free plan shows it only under the recordings line, so
+    /// its tap is reported as coming from the line.
+    static func item(_ view: RecordingView, onRetry: @escaping (RecordingText.Retry) -> Void) -> RecordingItem {
+        RecordingItem(view: view, source: .tune, tuneNamedAbove: true, premiumEntry: .recordingsLine, onRetry: onRetry)
     }
 
     private func retry(_ recordingID: String, _ kind: RecordingText.Retry) {
@@ -446,7 +470,10 @@ struct TuneMediaRows: View {
         }
         let addToRecordings: (() -> Void)? =
             canAddToRecordings(link: link, recordings: detail.recordings.map(\.recording))
-            ? { Task { await model.addRecordingFromLink(link.id) } } : nil
+            ? {
+                guard premium?.gate(.recordings, from: .addToRecordings) ?? true else { return }
+                Task { await model.addRecordingFromLink(link.id) }
+            } : nil
         return HStack {
             MediaRow(link: row) { tap in
                 switch tap {

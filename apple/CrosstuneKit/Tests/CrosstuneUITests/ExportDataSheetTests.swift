@@ -1,4 +1,6 @@
 import CrosstuneExport
+import CrosstuneStore
+import CrosstuneTestSupport
 import Foundation
 import Testing
 
@@ -26,15 +28,22 @@ private actor Gate {
     }
 }
 
+@MainActor
+private final class Connection {
+    var isOffline = true
+}
+
 private struct DiskFull: LocalizedError {
     var errorDescription: String? { "The disk is full." }
 }
 
 /// Counts that arrive once and never change.
-private func countsOnce(_ onDevice: Int, _ total: Int) -> @Sendable () -> AsyncThrowingStream<ExportCounts, any Error> {
+private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
+    -> @Sendable () -> AsyncThrowingStream<ExportCounts, any Error>
+{
     {
         AsyncThrowingStream {
-            $0.yield(ExportCounts(onDevice: onDevice, total: total))
+            $0.yield(ExportCounts(onDevice: onDevice, total: total, missing: missing))
             $0.finish()
         }
     }
@@ -67,23 +76,92 @@ private func countsOnce(_ onDevice: Int, _ total: Int) -> @Sendable () -> AsyncT
         return model
     }
 
-    @Test func theNoteNamesTheDownloadSettingWhenRecordingsAreMissing() {
+    @Test func needsConnectionAgreesWithItsCount() {
         #expect(
-            ExportDataSheet.note(onDevice: 3, total: 5)
-                == "3 of 5 recordings are on this device. Only those are exported. To include every recording, turn on \(SettingsModel.keepOffline) and wait for the downloads to finish."
-        )
+            ExportText.needsConnection(missing: 1)
+                == "Connect to the internet to export 1 file that is not on this device.")
+        #expect(
+            ExportText.needsConnection(missing: 3)
+                == "Connect to the internet to export 3 files that are not on this device.")
     }
 
-    @Test func theNoteAgreesWithATotalOfOne() {
-        #expect(
-            ExportDataSheet.note(onDevice: 0, total: 1)
-                == "0 of 1 recording is on this device. Only those are exported. To include every recording, turn on \(SettingsModel.keepOffline) and wait for the downloads to finish."
-        )
+    @Test func theNoteSaysEverythingIsExportedWhateverIsOnTheDevice() async {
+        let model = ExportDataModel(
+            exporter: Exporter(counts: countsOnce(1, 4, missing: 3), make: { _ in throw DiskFull() }))
+        await model.followCounts()
+        #expect(model.note == ExportDataSheet.completeNote)
     }
 
-    @Test func theNoteSaysEverythingIsExportedWhenNoRecordingIsMissing() {
-        #expect(ExportDataSheet.note(onDevice: 4, total: 4) == ExportDataSheet.completeNote)
-        #expect(ExportDataSheet.note(onDevice: 0, total: 0) == ExportDataSheet.completeNote)
+    @Test func offlineWithFilesToFetchTheNoteSaysSoAndExportRefusesOnTap() async throws {
+        let gate = Gate()
+        let model = ExportDataModel(
+            exporter: Exporter(counts: countsOnce(1, 3, missing: 2), make: { _ in try await gate.wait() }),
+            isOffline: { true })
+        await model.followCounts()
+        #expect(model.note == ExportText.needsConnection(missing: 2))
+        #expect(model.canStart)
+        #expect(model.start() == nil)
+        #expect(model.failure == nil)
+        #expect(!model.isRunning)
+        #expect(await gate.starts == 0)
+    }
+
+    @Test func theNoteFollowsConnectivity() async {
+        let connection = Connection()
+        let model = ExportDataModel(
+            exporter: Exporter(counts: countsOnce(1, 3, missing: 2), make: { _ in throw DiskFull() }),
+            isOffline: { connection.isOffline })
+        await model.followCounts()
+        #expect(model.note == ExportText.needsConnection(missing: 2))
+        connection.isOffline = false
+        #expect(model.note == ExportDataSheet.completeNote)
+    }
+
+    @Test func aFailedFetchSaysSoInExportWords() async throws {
+        #expect(ExportText.fetchFailed == "Couldn't download a file. Try exporting again.")
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let tune = Tune(title: "Cluck Old Hen")
+        try await store.write { writer in
+            try writer.put(tune)
+            try writer.put(UserTune(tuneID: tune.id, status: "learning"))
+            try writer.put(Recording(tuneID: tune.id, source: "capture", addedAt: noon, state: "ready"))
+        }
+        // No engine, so the fetch fails as an offline one would.
+        let model = ExportDataModel(exporter: .live(store, engine: nil), isOffline: { false })
+        let following = Task { await model.followCounts() }
+        defer { following.cancel() }
+        #expect(try await poll { model.counts != nil })
+        let run = try #require(model.start())
+        await run.value
+        #expect(model.failure == ExportText.fetchFailed)
+        #expect(!model.isRunning)
+    }
+
+    @Test func offlineWithEverythingOnTheDeviceExportStillRuns() async throws {
+        let gate = Gate()
+        let model = ExportDataModel(
+            exporter: Exporter(counts: countsOnce(2, 2), make: { _ in try await gate.wait() }), isOffline: { true })
+        await model.followCounts()
+        let run = try #require(model.start())
+        await gate.finish(.success(try makeZip()))
+        await run.value
+        #expect(model.failure == nil)
+        #expect(model.exported != nil)
+        model.cancel()
+    }
+
+    @Test func onlineWithFilesToFetchExportRuns() async throws {
+        let gate = Gate()
+        let model = ExportDataModel(
+            exporter: Exporter(counts: countsOnce(0, 2, missing: 2), make: { _ in try await gate.wait() }),
+            isOffline: { false })
+        await model.followCounts()
+        let run = try #require(model.start())
+        await gate.finish(.success(try makeZip()))
+        await run.value
+        #expect(model.exported != nil)
+        model.cancel()
     }
 
     @Test func progressReadsCorrectlyForAnyTotal() {
@@ -96,13 +174,13 @@ private func countsOnce(_ onDevice: Int, _ total: Int) -> @Sendable () -> AsyncT
         let model = ExportDataModel(exporter: Exporter(counts: { updates }, make: { _ in throw DiskFull() }))
         let following = Task { await model.followCounts() }
 
-        continuation.yield(ExportCounts(onDevice: 1, total: 3))
-        for _ in 0..<1000 where model.note == nil { await Task.yield() }
-        #expect(model.note == ExportDataSheet.note(onDevice: 1, total: 3))
+        continuation.yield(ExportCounts(onDevice: 1, total: 3, missing: 2))
+        #expect(try await poll { model.counts != nil })
+        #expect(model.counts == ExportCounts(onDevice: 1, total: 3, missing: 2))
 
         continuation.yield(ExportCounts(onDevice: 3, total: 3))
-        for _ in 0..<1000 where model.note != ExportDataSheet.completeNote { await Task.yield() }
-        #expect(model.note == ExportDataSheet.completeNote)
+        #expect(try await poll { model.counts?.missing == 0 })
+        #expect(model.counts == ExportCounts(onDevice: 3, total: 3))
 
         continuation.finish()
         await following.value

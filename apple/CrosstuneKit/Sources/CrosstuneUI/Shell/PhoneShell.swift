@@ -122,6 +122,8 @@ enum TabSlot: Hashable {
         var body: some View {
             if destination == .lists {
                 NavigationStack(path: $place.listPath) { root }
+            } else if destination == .settings {
+                NavigationStack(path: $place.settingsPath) { root }
             } else {
                 NavigationStack { root }
             }

@@ -482,6 +482,58 @@ import Testing
         ]
     }
 
+    // MARK: Plan
+
+    @Test func aFreePlanRequestsNoRecordingSlotAndKeepsTheFileWaiting() async throws {
+        try await storeEntitlement(store, source: nil)
+        try await captured("r1")
+        let engine = engine()
+
+        await engine.transfer()
+
+        #expect(api.transfers.isEmpty)
+        let file = try #require(try await file("r1"))
+        #expect(file.localState == .captured)
+        #expect(file.error == nil)
+        #expect(engine.transferStatus == .idle)
+    }
+
+    @Test func aPlanRefusalOfASlotLeavesTheFileAndEndsOnlyTheRecordingUploads() async throws {
+        let sink = RecordingAnalyticsSink()
+        try await store.setMeta(.keepOffline, to: true)
+        try await captured("r1", attempts: 1)
+        try await captured("r2")
+        try await ready("d1")
+        try await store.write { writer in try writer.updateFile("r1") { $0.error = "earlier" } }
+        api.transferFailures["slot r1"] = APIStatusError(
+            status: 403, problemType: premiumRequiredProblem, detail: "Premium required.")
+        let engine = engine(analytics: sink.client)
+
+        await engine.transfer()
+
+        // r2 waits for the next pass; the download pass after the uploads still runs.
+        #expect(api.transfers == ["slot r1", "url d1", "get d1"])
+        let file = try #require(try await file("r1"))
+        #expect(file.localState == .captured)
+        #expect(file.error == "earlier")
+        #expect(file.uploadAttempts == 1)
+        #expect(try await self.file("r2")?.localState == .captured)
+        #expect(engine.transferStatus == .idle)
+        #expect(engine.status != .unauthorized)
+        #expect(sink.captures.isEmpty)
+    }
+
+    @Test func keepOfflineDownloadsNoRecordingWhileFree() async throws {
+        try await storeEntitlement(store, source: nil)
+        try await store.setMeta(.keepOffline, to: true)
+        try await ready("d1")
+
+        await engine().transfer()
+
+        #expect(api.transfers.isEmpty)
+        #expect(try await file("d1") == nil)
+    }
+
     // MARK: Download
 
     @Test func keepOfflineDownloadsEveryReadyRecordingWithoutAFile() async throws {

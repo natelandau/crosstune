@@ -60,6 +60,7 @@ private struct RefusingSyncAPI: SyncAPI {
     func push(_ changes: [Change]) async throws -> [PushResult] { [] }
     func pull(since: Int64) async throws -> PullPage { PullPage(rows: [], nextSince: since, hasMore: false) }
     func events(since: Int64) async throws -> EventsPage { EventsPage(rows: [], nextSince: since, hasMore: false) }
+    func recordNotice(_ notice: PlanNotice) async throws {}
     func storage() async throws -> StorageFigures { StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0) }
     func resolveLink(url: String) async throws -> ResolvedLink { throw URLError(.badURL) }
     func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
@@ -329,6 +330,17 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func ordersOriginsByVocabularyWithUnknownLast() {
         #expect(
             RecordingsModel.sortedOrigins(["zeta", "slippery_hill", "alpha"]) == ["slippery_hill", "alpha", "zeta"])
+    }
+
+    @Test func measuresStorageAgainstAKnownPlansQuota() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await store.setMeta(.storage, to: StorageFigures(usedBytes: 5, quotaBytes: 1_000, maxFileBytes: 4))
+        let model = RecordingsModel(store: store)
+        try await eventually { model.arrangement(.default) != nil }
+        let free = Plan(kind: .free, quotaBytes: 50, scansOnly: true)
+        #expect(model.storage(plan: free) == StorageFigures(usedBytes: 5, quotaBytes: 50, maxFileBytes: 4))
+        #expect(model.storage(plan: .unknown)?.quotaBytes == 1_000)
     }
 
     @Test func hidesStorageUntilTheServerSaysWhatTheQuotaIs() async throws {
@@ -1178,5 +1190,63 @@ private struct RefusingSyncAPI: SyncAPI {
         let row = RecordingRowContent(recording: recording, file: nil, tuneTitle: nil, opensScreen: true)
         #expect(row.verb == RecordingRowContent.download)
         #expect(row.tap == .download)
+    }
+}
+
+@Suite struct RecordingRowPremiumTests {
+    private let recording = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
+    private let held = RecordingFile(id: "r1", localState: .downloaded, fileName: "r1.m4a")
+
+    @Test func aFreePlanDimsTheRowAndSendsItsTapToTheGate() {
+        let row = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, recordingsPlay: false)
+        #expect(row.isDimmed)
+        #expect(row.tap == .premium)
+        let opens = RecordingRowContent(
+            recording: recording, file: held, tuneTitle: nil, opensScreen: true, recordingsPlay: false)
+        #expect(opens.isDimmed && opens.tap == .premium)
+    }
+
+    @Test func theGatedRowsWordsMatchTheWeb() {
+        #expect(RecordingText.subscribeToPlay == "Subscribe to play")
+    }
+
+    @MainActor
+    @Test func aFreePlanSpeaksNoVerbAndNamesPremium() {
+        let title = RecordingText.title(recording, tuneTitle: nil)
+        for file in [held, nil] {
+            let row = RecordingRowContent(recording: recording, file: file, tuneTitle: nil, recordingsPlay: false)
+            #expect(row.verb == nil)
+            #expect(row.spokenNotice == RecordingText.subscribeToPlay)
+            let names = MediaRow(recording: row, perform: { _ in }, onRetry: { _ in }).controlNames
+            #expect(names == ["\(title), \(row.meta), \(RecordingText.subscribeToPlay)"])
+        }
+        let plays = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, recordingsPlay: true)
+        #expect(plays.verb == MediaText.play && plays.spokenNotice == nil)
+    }
+
+    @Test func aFreePlanNeverDownloadsFromATap() {
+        let row = RecordingRowContent(recording: recording, file: nil, tuneTitle: nil, recordingsPlay: false)
+        #expect(row.isDimmed)
+        #expect(row.tap == .premium)
+    }
+
+    @Test func aStuckUploadStillRetriesOnAFreePlan() {
+        let stuck = RecordingFile(id: "r1", localState: .failedUpload)
+        let pending = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "pending")
+        let row = RecordingRowContent(recording: pending, file: stuck, tuneTitle: nil, recordingsPlay: false)
+        #expect(row.tap == .retry(.upload))
+    }
+
+    @Test func aPlanThatPlaysLeavesTheRowAsItWas() {
+        let row = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, recordingsPlay: true)
+        #expect(!row.isDimmed)
+        #expect(row.tap == .play)
+    }
+
+    @Test func theRecordingsLineCountsTheRecordings() {
+        #expect(RecordingText.recordingsLine(count: 1) == "1 recording, subscribe to play")
+        #expect(RecordingText.recordingsLine(count: 3) == "3 recordings, subscribe to play")
+        #expect(RecordingText.recordingsLineExpanded == "Expanded")
+        #expect(RecordingText.recordingsLineCollapsed == "Collapsed")
     }
 }

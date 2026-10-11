@@ -17,6 +17,9 @@ public struct RecordingRowContent: Hashable, Sendable {
         case download
         /// A stuck row with nothing to play retries, so the row still answers a tap.
         case retry(RecordingText.Retry)
+        /// The plan holds recordings back, so the tap offers Premium in place of a play, an
+        /// open, or a download.
+        case premium
     }
 
     public let glyph: MediaGlyph
@@ -34,17 +37,22 @@ public struct RecordingRowContent: Hashable, Sendable {
     /// The red third line: why a stuck upload was refused, or that the last download this row
     /// asked for fetched nothing.
     public let error: String?
-    /// A download that cannot start offline, or a play while a take is recorded, keeps its name
-    /// and tap but reads dimmed.
+    /// Reads dimmed: a download that cannot start offline or a play while a take is recorded,
+    /// each of which keeps its name and tap, and any recording the plan holds back, whose tap
+    /// offers Premium.
     public let isDimmed: Bool
     /// Why a dimmed play does nothing, under the second line.
     public let notice: String?
+    /// What a tap offers in place of the row's own action, spoken after the row's lines and
+    /// never shown: Premium, for a recording the plan holds back.
+    public let spokenNotice: String?
 
     public init(
         recording: Recording, file: RecordingFile?, tuneTitle: String?, tuneNamedAbove: Bool = false,
         loaded: Bool = false, downloading: Bool = false, downloadFailed: Bool = false, offline: Bool = false,
         playBlocked: Bool = false, storage: StorageFigures? = nil, sort: RecordingSort? = nil,
-        opensScreen: Bool = false, locale: Locale = .current, timeZone: TimeZone = .current
+        opensScreen: Bool = false, heldForPremium: Bool = false, recordingsPlay: Bool = true,
+        locale: Locale = .current, timeZone: TimeZone = .current
     ) {
         let title = RecordingText.title(
             recording, tuneTitle: tuneTitle, tuneNamedAbove: tuneNamedAbove, locale: locale, timeZone: timeZone)
@@ -54,10 +62,11 @@ public struct RecordingRowContent: Hashable, Sendable {
         meta = RecordingText.meta(
             recording, file: file, storage: storage, offline: offlineDownload,
             dateInTitle: RecordingText.titleIsDate(recording, tuneTitle: tuneTitle, tuneNamedAbove: tuneNamedAbove),
-            sort: sort, locale: locale, timeZone: timeZone
+            // A hold lifts only on the next push, but a Premium plan sends the take on it.
+            sort: sort, heldForPremium: heldForPremium && !recordingsPlay, locale: locale, timeZone: timeZone
         ).joined(separator: " · ")
         let blockedPlay = playBlocked && control == .play
-        isDimmed = offlineDownload || blockedPlay
+        isDimmed = offlineDownload || blockedPlay || !recordingsPlay
         notice = blockedPlay ? MediaText.stopRecordingToPlay : nil
         retry = RecordingText.retry(recording, file: file)
         let retryVerb: String? =
@@ -72,19 +81,31 @@ public struct RecordingRowContent: Hashable, Sendable {
         error =
             (retry == .upload ? file?.error : nil)
             ?? (downloadFailed && control == .download ? RecordingText.downloadFailed : nil)
+        let shownVerb: String?
+        let shown: Tap?
         switch control {
         // A row that opens the practice view opens it whether or not the player holds it.
-        case .play where opensScreen, .close where opensScreen: (glyph, verb, tap) = (.play, MediaText.open, .open)
-        case .play: (glyph, verb, tap) = (.play, MediaText.play, .play)
-        case .close: (glyph, verb, tap) = (.stop, MediaText.closePlayer, .close)
-        case .download: (glyph, verb, tap) = (.download, Self.download, .download)
-        case .downloading: (glyph, verb, tap) = (.downloading, RecordingText.downloading, nil)
+        case .play where opensScreen, .close where opensScreen:
+            (glyph, shownVerb, shown) = (.play, MediaText.open, .open)
+        case .play: (glyph, shownVerb, shown) = (.play, MediaText.play, .play)
+        case .close: (glyph, shownVerb, shown) = (.stop, MediaText.closePlayer, .close)
+        case .download: (glyph, shownVerb, shown) = (.download, Self.download, .download)
+        case .downloading: (glyph, shownVerb, shown) = (.downloading, RecordingText.downloading, nil)
         case .none:
             if let retry {
-                (glyph, verb, tap) = (.attention, retryVerb, .retry(retry))
+                (glyph, shownVerb, shown) = (.attention, retryVerb, .retry(retry))
             } else {
-                (glyph, verb, tap) = (.waiting, nil, nil)
+                (glyph, shownVerb, shown) = (.waiting, nil, nil)
             }
         }
+        let gated: Bool
+        switch shown {
+        case .play?, .close?, .open?, .download?: gated = !recordingsPlay
+        case .retry?, .premium?, nil: gated = false
+        }
+        // A gated tap opens the Premium sheet, so the row offers a subscription rather than the play.
+        tap = gated ? .premium : shown
+        verb = gated ? nil : shownVerb
+        spokenNotice = gated ? RecordingText.subscribeToPlay : nil
     }
 }

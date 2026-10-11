@@ -86,8 +86,11 @@ private struct RecordingsContent: View {
     @Environment(\.spacing) private var spacing
     @Environment(\.openURL) private var openURL
     @Environment(\.openSheets) private var openSheets
+    @Environment(\.plan) private var planModel: PlanModel?
+    @Environment(\.premium) private var premium
     @AppStorage(RecordingSortChoice.storageKey) private var sort = RecordingSortChoice.default
     @FocusState private var searchFocused: Bool
+    private var plan: Plan { planModel?.plan ?? .unknown }
     @State private var isShown = false
     @State private var pushed: String?
     /// Whether the pushed tune opened from its tune label line, the one place that marks a zoom
@@ -139,7 +142,7 @@ private struct RecordingsContent: View {
                     .listRowSeparator(.hidden)
                     .selectionDisabled()
                 }
-                if let storage = model.storage {
+                if let storage = model.storage(plan: plan) {
                     StorageSummary(storage: storage)
                         .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 8, trailing: 8))
                         .listRowSeparator(.hidden)
@@ -181,7 +184,7 @@ private struct RecordingsContent: View {
                     case .tunes:
                         arrangement.map { filedSection($0.filed, listHeader: $0.unfiled.isEmpty ? $0 : nil) }
                     case .storage:
-                        if let storage = model.storage {
+                        if let storage = model.storage(plan: plan) {
                             StorageSummary(storage: storage)
                                 .listRowInsets(
                                     EdgeInsets(
@@ -248,7 +251,7 @@ private struct RecordingsContent: View {
             .textInputAutocapitalization(.never)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button(RecordingImport.upload, systemImage: "plus") { importing = true }
+                    Button(RecordingImport.upload, systemImage: "plus") { upload() }
                     .accessibilityLabel(RecordingImport.uploadAudio)
                 }
             }
@@ -265,7 +268,7 @@ private struct RecordingsContent: View {
             .dropDestination(for: URL.self) { urls, _ in
                 // A link dragged from a browser arrives as a URL too, and has no file to add.
                 let files = urls.filter(\.isFileURL)
-                guard !files.isEmpty else { return false }
+                guard !files.isEmpty, premium?.gate(.recordings, from: .upload) ?? true else { return false }
                 Task { await model.importAudio(from: files) }
                 return true
             } isTargeted: {
@@ -431,11 +434,16 @@ private struct RecordingsContent: View {
         }
 
         private var uploadButton: some View {
-            Button(RecordingImport.upload, systemImage: "square.and.arrow.down") { importing = true }
+            Button(RecordingImport.upload, systemImage: "square.and.arrow.down") { upload() }
                 .help(RecordingImport.uploadAudio)
                 .accessibilityLabel(RecordingImport.uploadAudio)
         }
     #endif
+
+    /// Opens the file picker, or the Premium sheet when the plan holds recordings back.
+    private func upload() {
+        importing = premium?.gate(.recordings, from: .upload) ?? true
+    }
 
     /// The recording whose practice view the Mac detail column shows, as the list's selection,
     /// so its row reads as the open one and the arrow keys open its neighbors. Nil elsewhere.
@@ -448,7 +456,8 @@ private struct RecordingsContent: View {
                 }
                 return item.id
             } set: { id in
-                guard let id, let view = model.view(id) else { return }
+                // The row's own tap offers Premium instead.
+                guard plan.recordingsPlay, let id, let view = model.view(id) else { return }
                 player.open(
                     .recording(view.recording, tuneTitle: view.tuneTitle), in: window, playing: false,
                     source: .recordingsList)
@@ -468,7 +477,7 @@ private struct RecordingsContent: View {
             let opensScreen = false
         #endif
         return RecordingItem(
-            view: view, source: .recordingsList, tuneNamedAbove: view.tuneID != nil, storage: model.storage,
+            view: view, source: .recordingsList, tuneNamedAbove: view.tuneID != nil, storage: model.storage(plan: plan),
             sort: sort.sort,
             onOpenTune: opensTune ? open : nil, opensScreen: opensScreen
         ) { kind in
@@ -478,8 +487,12 @@ private struct RecordingsContent: View {
         .mediaRowInsets()
         .tag(view.id)
         // A row with no audio here downloads or retries on a click, so selecting it, or arrowing
-        // past it, must not open its practice view and fetch it.
-        .selectionDisabled(!RecordingText.holdsAudio(view.file) && player?.holds(.recording, id: view.id) != true)
+        // past it, must not open its practice view and fetch it. A plan that holds recordings
+        // back sends the click to the Premium sheet.
+        .selectionDisabled(
+            !plan.recordingsPlay
+                || (!RecordingText.holdsAudio(view.file) && player?.holds(.recording, id: view.id) != true)
+        )
         .recordingRowActions(
             filed: view.tuneID != nil,
             originLabel: RecordingText.originLabel(view.recording.origin),

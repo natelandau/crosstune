@@ -9,6 +9,17 @@ private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "tra
 /// The problem type the API answers a slot request with when the recording would pass the
 /// account's quota.
 let quotaProblem = "urn:crosstune:quota-exceeded"
+/// The problem type of a 403 refusing what only Premium may add, such as a recording's upload.
+let premiumRequiredProblem = "urn:crosstune:premium-required"
+/// The problem type of a 403 refusing a free account's scan on a second tune.
+let scanTuneOnlyProblem = "urn:crosstune:scan-tune-only"
+
+/// The server refusing what the plan does not allow, which a subscription lifts. Never a session
+/// problem.
+func isPlanRefusal(_ error: any Error) -> Bool {
+    guard let refusal = underlying(error) as? APIStatusError, refusal.status == 403 else { return false }
+    return refusal.problemType == premiumRequiredProblem || refusal.problemType == scanTuneOnlyProblem
+}
 
 /// How many recordings the download pass fetches at once. Uploads stay one at a time.
 let downloadConcurrency = 3
@@ -92,13 +103,6 @@ func fileSize(_ url: URL) throws -> Int64 {
     return (attributes[.size] as? NSNumber)?.int64Value ?? 0
 }
 
-/// The type without codec parameters, which is what the signed upload is pinned to.
-func baseContentType(_ contentType: String?) -> String {
-    let base = contentType?.split(separator: ";", maxSplits: 1).first?.trimmingCharacters(in: .whitespaces)
-    guard let base, !base.isEmpty else { return "application/octet-stream" }
-    return base.lowercased()
-}
-
 /// A value the server sent, such as an ID or a revision, refused as part of a local file name.
 struct UnsafeFileNamePart: Error {
     let value: String
@@ -114,18 +118,9 @@ func fileNamePart(_ value: String) throws -> String {
 
 /// The name a downloaded recording's file takes in the audio folder, tagged with the revision it
 /// was downloaded for so a re-download after a trim writes a new file rather than overwriting one
-/// a player may still hold open. The extension lets the player tell the container without
-/// sniffing it.
+/// a player may still hold open.
 func downloadedFileName(_ recordingID: String, rev: String, contentType: String?) throws -> String {
-    let ext =
-        switch baseContentType(contentType) {
-        case "audio/mpeg": "mp3"
-        case "audio/webm": "webm"
-        case "audio/ogg": "ogg"
-        case "audio/wav", "audio/x-wav": "wav"
-        default: "m4a"
-        }
-    return "\(try fileNamePart(recordingID))-\(try fileNamePart(rev)).\(ext)"
+    "\(try fileNamePart(recordingID))-\(try fileNamePart(rev)).\(playbackFileExtension(contentType))"
 }
 
 /// The name a fetched waveform takes in the audio folder, tagged with the revision it was
@@ -180,6 +175,8 @@ struct Transfers {
     let store: CrosstuneStore
     let api: any SyncAPI
     let checkStopped: @MainActor () throws -> Void
+    /// The clock the plan is judged by.
+    var now: @MainActor () -> Date = Date.init
     var downloadRetries = DownloadRetries()
     var analytics = AnalyticsClient.noop
 
@@ -187,11 +184,13 @@ struct Transfers {
 
     /// Uploads every file waiting to go. A file's own transient failure does not stop the rest;
     /// the first one is returned, nil when every file settled, so the run can still fail. A stop
-    /// or an auth failure ends the pass at once.
+    /// or an auth failure ends the pass at once. While the plan is free nothing is sent, and a
+    /// plan refusal ends only this pass's uploads; either way the files keep their state.
     func uploadPass() async throws -> (any Error)? {
         // Before the quota skip below, so a blocked file whose recording was deleted elsewhere is
         // cleaned up instead of being skipped forever by the figures check.
         try await dropTombstonedFiles()
+        guard try await store.plan(at: now()).recordingsPlay else { return nil }
 
         let waiting: [LocalFileState] = [.captured, .blockedQuota, .uploading]
         let files = try await store.read { db in
@@ -211,6 +210,9 @@ struct Transfers {
             if let next = file.nextAttemptAt, next > now { continue }
             do {
                 try await uploadOne(file.id)
+            } catch is RefusedByPlan {
+                // Every later recording would draw the same refusal.
+                break
             } catch {
                 if endsThePass(error) { throw error }
                 firstError = firstError ?? error
@@ -218,6 +220,9 @@ struct Transfers {
         }
         return firstError
     }
+
+    /// The server refused a recording's upload as Premium only.
+    private struct RefusedByPlan: Error {}
 
     private func uploadOne(_ id: String) async throws {
         let found = try await store.read { db -> (RecordingFile, String, Recording, Bool)? in
@@ -257,6 +262,10 @@ struct Transfers {
         } catch let stop as RunStopped {
             throw stop
         } catch {
+            if isPlanRefusal(error) {
+                try await restore(file)
+                throw RefusedByPlan()
+            }
             if let refusal = underlying(error) as? APIStatusError {
                 if refusal.problemType == quotaProblem {
                     try await settleUpload(id, .blockedQuota, error: refusal.message)
@@ -294,6 +303,10 @@ struct Transfers {
         } catch let stop as RunStopped {
             throw stop
         } catch {
+            if isPlanRefusal(error) {
+                try await restore(file)
+                throw RefusedByPlan()
+            }
             switch (underlying(error) as? APIStatusError)?.status {
             case 409:
                 // The slot expired or the file never landed; the next pass asks for a fresh one.
@@ -305,6 +318,17 @@ struct Transfers {
             default:
                 try await scheduleRetry(id, after: error)
                 throw error
+            }
+        }
+    }
+
+    /// Puts a file back as it was before this attempt, so a refusal the plan lifts costs it no
+    /// try and no message.
+    private func restore(_ file: RecordingFile) async throws {
+        try await store.write { writer in
+            try writer.updateFile(file.id) { stored in
+                stored.localState = file.localState
+                stored.error = file.error
             }
         }
     }
@@ -403,15 +427,17 @@ struct Transfers {
 
     // MARK: Download
 
-    /// When this device keeps recordings offline, fetches the audio and waveform of every ready
-    /// recording whose copy is missing or stale, as after a trim, up to
+    /// When this device keeps recordings offline and the plan plays them, fetches the audio and
+    /// waveform of every ready recording whose copy is missing or stale, as after a trim, up to
     /// ``downloadConcurrency`` recordings at a time. `fetch` and `fetchPeaksFor` share one
     /// attempt per recording with a play or another caller that asks for it.
     func downloadPass(
         fetch: @escaping @MainActor (String) async throws -> URL?,
         fetchPeaksFor: @escaping @MainActor (String) async throws -> Data?
     ) async throws {
-        guard try await store.meta(.keepOffline, as: Bool.self) == true else { return }
+        guard try await store.meta(.keepOffline, as: Bool.self) == true,
+            try await store.plan(at: now()).recordingsPlay
+        else { return }
         let (rows, files) = try await store.read { db -> ([Recording], [String: RecordingFile]) in
             let rows = try Recording.fetchAll(db, sql: Self.needingDownloadSQL)
             let files = Dictionary(
@@ -619,6 +645,11 @@ final class DownloadRetries {
 }
 
 extension CrosstuneStore {
+    /// The account's plan at `now`, judged from the stored entitlements row.
+    func plan(at now: Date) async throws -> Plan {
+        try await read { db in Plan.from(try Entitlement.current(db), now: now) }
+    }
+
     /// The file a recording's row names, when it holds finished audio that is still on disk.
     public func localAudio(_ file: RecordingFile?) -> URL? {
         guard let file, let name = file.fileName, file.localState != .capturing, file.localState != .downloading

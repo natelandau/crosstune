@@ -32,6 +32,9 @@ public enum ScanCopy {
     /// Shown on a scan the server refused outright; the sync layer stores the code
     /// ``ScanFile/refusedError``.
     public static let refused = "Could not upload. Delete this scan and add it again."
+    /// Shown on a scan the server refused because a free account's scans stay on one tune; the
+    /// sync layer stores the code ``ScanFile/scanTuneOnlyError``.
+    public static let scanTuneOnly = "Not uploaded. Scans on more than one tune are part of Premium."
     /// Shown on a scan captured here whose upload failed for a reason with no label of its own.
     public static let notUploaded = "Not uploaded yet"
     /// Shown on a scan another device captured and has not uploaded yet.
@@ -39,6 +42,13 @@ public enum ScanCopy {
 
     public static func scan(_ index: Int) -> String { "Scan \(index + 1)" }
     public static func openScan(_ index: Int) -> String { "Open scan \(index + 1)" }
+    /// What a thumbnail the plan does not open says instead of opening.
+    nonisolated public static let subscribeToOpen = "Subscribe to open"
+    /// A thumbnail's spoken name. One the plan does not open promises no viewer, since a tap
+    /// offers Premium.
+    public static func thumbnailName(_ index: Int, opens: Bool) -> String {
+        opens ? openScan(index) : "\(scan(index)), \(subscribeToOpen)"
+    }
     public static func deleteScan(_ index: Int) -> String { "Delete scan \(index + 1)" }
     public static func reorderScan(_ index: Int) -> String { "Reorder scan \(index + 1)" }
     public static func moveScan(_ index: Int) -> String { "Move scan \(index + 1)" }
@@ -55,6 +65,7 @@ public enum ScanCopy {
         switch file.error {
         case ScanFile.storageFullError: storageFull
         case ScanFile.refusedError: refused
+        case ScanFile.scanTuneOnlyError: scanTuneOnly
         case .some(let error) where !error.isEmpty && file.origin == .captured: notUploaded
         default: nil
         }

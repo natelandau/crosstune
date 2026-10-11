@@ -273,10 +273,28 @@ public final class CrosstuneStore: Sendable {
         try await database.read { db in try OutboxEntry.edits.fetchCount(db) }
     }
 
-    /// The oldest pending changes, in the order they were first queued.
-    public func pendingChanges(limit: Int) async throws -> [OutboxEntry] {
+    /// The oldest pending changes, in the order they were first queued. While `premium` is false
+    /// the upsert of a recording held for Premium is left out, with every upsert that names it in
+    /// `recording_id`, which the server would refuse without it; a delete never is, so deleting a
+    /// held take still reaches the server. The recordings in `skipping` are left out the same
+    /// way whatever the plan.
+    public func pendingChanges(limit: Int, premium: Bool = true, skipping: Set<String> = []) async throws
+        -> [OutboxEntry]
+    {
         try await database.read { db in
-            try OutboxEntry.order(OutboxEntry.CodingKeys.seq).limit(limit).fetchAll(db)
+            var request = OutboxEntry.order(OutboxEntry.CodingKeys.seq)
+            let held = (premium ? [] : try StoreWriter.premiumHolds(in: db)).union(skipping)
+            if !held.isEmpty {
+                typealias Column = OutboxEntry.CodingKeys
+                let upsert = Column.op == OutboxEntry.Operation.upsert.rawValue
+                let recordingID = SQL("json_extract(\(Column.data), '$.recording_id')").sqlExpression
+                request = request.filter(
+                    !(Column.tableName == SyncTable.recordings.rawValue && upsert && held.contains(Column.rowID)))
+                request = request.filter(
+                    !(SyncTable.recordingDependents.map(\.rawValue).contains(Column.tableName) && upsert
+                        && held.contains(recordingID)))
+            }
+            return try request.limit(limit).fetchAll(db)
         }
     }
 

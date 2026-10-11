@@ -34,7 +34,7 @@ private func count(_ table: SyncTable, in store: CrosstuneStore) async throws ->
         let root = TemporaryRoot()
         let store = try await MarketingCatalog.makeStore(fixture: fixture, root: root.url)
         let object = try fixtureObject()
-        for table in SyncTable.allCases where !table.isEvent {
+        for table in SyncTable.allCases where !table.isEvent && table != .entitlements {
             #expect(try await count(table, in: store) == rows(table, in: object).count, "\(table.rawValue)")
         }
     }
@@ -66,6 +66,18 @@ private func count(_ table: SyncTable, in store: CrosstuneStore) async throws ->
         let store = try await MarketingCatalog.makeStore(fixture: fixture, root: root.url)
         let settings = try await store.read { try UserSettings.fetchAll($0) }
         #expect(settings.map(\.id) == [settingsID(clerkUserID: MarketingCatalog.userID)])
+    }
+
+    @Test func refusesATableTheServerWrites() async throws {
+        let source = TemporaryRoot()
+        try FileManager.default.createDirectory(at: source.url, withIntermediateDirectories: true)
+        let copied = source.url.appending(path: "catalog.json")
+        try Data(#"{"entitlements": []}"#.utf8).write(to: copied)
+        let root = TemporaryRoot()
+
+        await #expect(throws: MarketingCatalog.FixtureError.unknownKey("entitlements")) {
+            _ = try await MarketingCatalog.makeStore(fixture: copied, root: root.url)
+        }
     }
 
     @Test func removesItsFolderWhenLoadingFails() async throws {

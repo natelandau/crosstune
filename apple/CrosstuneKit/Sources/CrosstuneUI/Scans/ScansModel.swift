@@ -36,17 +36,25 @@ public struct Scan: Hashable, Sendable, Identifiable {
     }
 }
 
-/// What the Scans section shows for a number of scans.
+/// What the Scans section shows for a number of scans, and whether the plan opens them.
 public struct ScansSectionLayout: Equatable, Sendable {
     public let scanCount: Int
+    /// False for a free account's tune other than its scan tune.
+    public let opens: Bool
 
-    public init(scanCount: Int) {
+    public init(scanCount: Int, opens: Bool = true) {
         self.scanCount = scanCount
+        self.opens = opens
     }
 
     public var showsEmptyState: Bool { scanCount == 0 }
     /// Edit reorders and deletes, so it waits for a scan to act on.
     public var showsEdit: Bool { scanCount > 0 }
+    /// Scans that do not open still delete, but a reorder would only arrange what cannot be read.
+    public var showsReorder: Bool { opens }
+    public var dimsScans: Bool { !opens }
+    /// Add offers Premium in place of the pickers.
+    public var gatesAdd: Bool { !opens }
     public var canAdd: Bool { scanCount < maxScansPerTune }
     public var limitNote: String? { canAdd ? nil : ScanCopy.limitNote }
 }
@@ -90,6 +98,9 @@ public final class ScansModel {
     public private(set) var announcement: ListModel.Announcement?
     /// True while picked images are being prepared and stored.
     public private(set) var isAdding = false
+    /// The open store's plan, which decides whether this tune's scans open. The screen keeps it
+    /// current, since the plan is replaced when the account changes.
+    public var plan: PlanModel?
 
     private let store: CrosstuneStore
     private let tuneID: String
@@ -102,10 +113,11 @@ public final class ScansModel {
     @ObservationIgnored private var following: Task<Void, Never>?
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "scans")
 
-    init(store: CrosstuneStore, tuneID: String, analytics: AnalyticsClient = .noop) {
+    init(store: CrosstuneStore, tuneID: String, analytics: AnalyticsClient = .noop, plan: PlanModel? = nil) {
         self.store = store
         self.tuneID = tuneID
         self.analytics = analytics
+        self.plan = plan
         let query = LiveQuery<[Scan]?>(store, initial: nil) { db in
             try Scan.fetch(db, tuneID: tuneID)
         }
@@ -134,7 +146,13 @@ public final class ScansModel {
         return moves.apply(to: read.map(\.id)).compactMap { byID[$0] }
     }
 
-    public var layout: ScansSectionLayout { ScansSectionLayout(scanCount: scans.count) }
+    /// Whether the plan opens this tune's scans. With no plan, as outside a store, they open.
+    public var opens: Bool {
+        guard let plan else { return true }
+        return PlanRules.scanOpens(plan.plan, tuneID: tuneID, scanTune: plan.scanTune)
+    }
+
+    public var layout: ScansSectionLayout { ScansSectionLayout(scanCount: scans.count, opens: opens) }
 
     /// Prepares and stores picked images one at a time, in the order picked, so each scan shows
     /// as soon as it is ready and a pick past the limit stops where the tune is full. An image

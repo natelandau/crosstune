@@ -13,6 +13,19 @@ public enum RecordingText {
     public static let downloadFailed = "Couldn't download"
     public static let processing = "Processing"
     public static let processFailed = "Couldn't process"
+    /// A take the server refused as Premium only, which waits here until the account subscribes.
+    public static let heldForPremium = "On this device only. Syncs when you subscribe."
+
+    /// What a recording row the plan holds back says instead of its play.
+    nonisolated public static let subscribeToPlay = "Subscribe to play"
+    /// Whether a tune page's recordings line shows the rows below it, spoken as its value.
+    nonisolated public static let recordingsLineExpanded = "Expanded"
+    nonisolated public static let recordingsLineCollapsed = "Collapsed"
+
+    /// The line a tune page shows on a free plan in place of its recordings.
+    public static func recordingsLine(count: Int) -> String {
+        count == 1 ? "1 recording, subscribe to play" : "\(count) recordings, subscribe to play"
+    }
 
     /// What the row's leading control does.
     public enum Control: Equatable, Sendable {
@@ -151,15 +164,16 @@ public enum RecordingText {
     /// that needs nothing shows a date in place of a status, unless `dateInTitle` says its title
     /// already shows the same one. Under Date added the date is when the recording was added;
     /// under every other sort, or none, it is when it was played. `offline` marks a download that
-    /// cannot start, and replaces the status. The file's own length stands in until the server
-    /// reports the recording's.
+    /// cannot start, and replaces the status. A take held for Premium says so in place of its
+    /// status. The file's own length stands in until the server reports the recording's.
     public static func meta(
         _ recording: Recording, file: RecordingFile?, storage: StorageFigures? = nil, offline: Bool = false,
-        dateInTitle: Bool = false, sort: RecordingSort? = nil, locale: Locale = .current,
-        timeZone: TimeZone = .current
+        dateInTitle: Bool = false, sort: RecordingSort? = nil, heldForPremium: Bool = false,
+        locale: Locale = .current, timeZone: TimeZone = .current
     ) -> [String] {
         let length = duration(milliseconds: recording.durationMs ?? file?.localDurationMs)
         if offline { return [length, SyncStatus.offlineLabel].compactMap { $0 } }
+        if heldForPremium { return [length, Self.heldForPremium].compactMap { $0 } }
         // The title's date is the recorded one when known, so under Date added it differs and stays.
         let titleShowsSameDate = dateInTitle && (sort != .added || recording.knownRecordedDate == nil)
         let date: String? =

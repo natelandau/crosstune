@@ -55,7 +55,7 @@ public final class TuneModel {
     private var deletingTitle: String?
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "tune")
 
-    public init(store: CrosstuneStore, tuneID: String, analytics: AnalyticsClient = .noop) {
+    public init(store: CrosstuneStore, tuneID: String, analytics: AnalyticsClient = .noop, plan: PlanModel? = nil) {
         self.store = store
         self.tuneID = tuneID
         self.analytics = analytics
@@ -63,7 +63,7 @@ public final class TuneModel {
         detail = LiveQuery(store, initial: nil) { db in
             .some(try TuneDetail.fetch(db, tuneID: tuneID, settingsID: settingsRow))
         }
-        scans = ScansModel(store: store, tuneID: tuneID, analytics: analytics)
+        scans = ScansModel(store: store, tuneID: tuneID, analytics: analytics, plan: plan)
     }
 
     public var phase: Phase {

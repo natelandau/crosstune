@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneStore
 import SwiftUI
 
 /// The verbs a tune row offers, on every screen that offers them.
@@ -20,21 +21,28 @@ public enum TuneRowActions {
     }
 
     /// The row's Scans action, which opens the viewer at the first scan, or nil when the tune
-    /// has no live scan to show.
+    /// has no live scan to show or the plan does not open its scans.
     static func scansAction(
-        tuneID: String, tunesWithScans: Set<String>, open: @escaping @MainActor (String) -> Void
+        tuneID: String, tunesWithScans: Set<String>, plan: Plan, scanTune: String?,
+        open: @escaping @MainActor (String) -> Void
     ) -> (@MainActor () -> Void)? {
-        tunesWithScans.contains(tuneID) ? { @MainActor in open(tuneID) } : nil
+        guard tunesWithScans.contains(tuneID), PlanRules.scanOpens(plan, tuneID: tuneID, scanTune: scanTune)
+        else { return nil }
+        return { @MainActor in open(tuneID) }
     }
 
     /// The row's Scans action from what the shell supplies, nil outside it. `origin` is where
-    /// the look at the scans is logged as opened from.
+    /// the look at the scans is logged as opened from. With no plan, scans open on every tune.
     @MainActor
     static func scansAction(
-        tuneID: String, tunesWithScans: ScanTunes?, origin: ScanViewOrigin, actions: TuneScreenActions
+        tuneID: String, tunesWithScans: ScanTunes?, plan: PlanModel?, origin: ScanViewOrigin,
+        actions: TuneScreenActions
     ) -> (@MainActor () -> Void)? {
         guard let tunesWithScans, let view = actions.viewScans else { return nil }
-        return scansAction(tuneID: tuneID, tunesWithScans: tunesWithScans.ids) { view($0, 0, origin) }
+        return scansAction(
+            tuneID: tuneID, tunesWithScans: tunesWithScans.ids, plan: plan?.plan ?? .unknown,
+            scanTune: plan?.scanTune
+        ) { view($0, 0, origin) }
     }
 }
 

@@ -21,6 +21,8 @@ public enum PlaylistSkip: Hashable, Sendable {
     case needsConnection
     /// The tune's recordings are its only source a list can play, and none has audio here now.
     case recordingsNotHere
+    /// The tune's recordings are its only source a list can play, and the plan holds them back.
+    case premium
 }
 
 public enum PlaylistChoice: Hashable, Sendable {
@@ -39,17 +41,24 @@ private func liveSources(
     )
 }
 
+/// Whether the user tune's tune holds a live recording, by the rule a pin and a list follow.
+public func hasLiveRecording(userTune: UserTune, recordings: [Recording]) -> Bool {
+    !liveSources(of: userTune, recordings: recordings, links: []).recordings.isEmpty
+}
+
 private func isAppleMusicSong(_ link: RecordingLink) -> Bool {
     guard link.provider == "apple_music", case .song = appleMusicKind(link.url) else { return false }
     return true
 }
 
 /// What a list row plays for a tune: a valid pin, else the user's play-first choice, else
-/// whatever exists. A pin counts only when its row is live and belongs to this tune.
+/// whatever exists. A pin counts only when its row is live and belongs to this tune. With
+/// `recordingsPlay` false no recording counts, so a pinned one passes over to the links.
 public func rowSource(
-    userTune: UserTune, recordings: [Recording], links: [RecordingLink], playFirst: String
+    userTune: UserTune, recordings: [Recording], links: [RecordingLink], playFirst: String, recordingsPlay: Bool
 ) -> TuneSource? {
-    let (recordings, links) = liveSources(of: userTune, recordings: recordings, links: links)
+    let (live, links) = liveSources(of: userTune, recordings: recordings, links: links)
+    let recordings = recordingsPlay ? live : []
 
     if let pinned = recordings.first(where: { $0.id == userTune.playRecordingID }) { return .recording(pinned) }
     if let pinned = links.first(where: { $0.id == userTune.playLinkID }) { return .link(pinned) }
@@ -63,13 +72,14 @@ public func rowSource(
 
 /// What a list plays for a tune, or why it skips it. Only recordings and Apple Music songs
 /// play in a list, and only the recordings in `playable`, the IDs with audio this device can
-/// play now. A pin that cannot play here passes over to the next choice.
+/// play now, none of them while `recordingsPlay` is false. A pin that cannot play here passes
+/// over to the next choice.
 public func playlistSource(
     userTune: UserTune, recordings: [Recording], playable: Set<String>, links: [RecordingLink],
-    playFirst: String, fullTracks: Bool, online: Bool
+    playFirst: String, fullTracks: Bool, online: Bool, recordingsPlay: Bool
 ) -> PlaylistChoice {
     let (live, links) = liveSources(of: userTune, recordings: recordings, links: links)
-    let recordings = live.filter { playable.contains($0.id) }
+    let recordings = recordingsPlay ? live.filter { playable.contains($0.id) } : []
     let songs = links.filter(isAppleMusicSong)
     let playableSongs = fullTracks && online ? songs : []
 
@@ -83,7 +93,7 @@ public func playlistSource(
     if let song = playableSongs.first { return .play(.link(song)) }
 
     if songs.isEmpty {
-        if !live.isEmpty { return .skip(.recordingsNotHere) }
+        if !live.isEmpty { return .skip(recordingsPlay ? .recordingsNotHere : .premium) }
         return .skip(links.isEmpty ? .nothing : .noCapableLink)
     }
     return .skip(fullTracks ? .needsConnection : .needsSubscription)

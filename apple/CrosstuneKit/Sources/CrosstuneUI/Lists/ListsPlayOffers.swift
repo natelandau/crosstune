@@ -26,9 +26,9 @@ enum ListsPlayOffers {
     /// The report for each list with a tune that plays, by list id. A list missing here offers no
     /// Play. Empty until `snapshot` and `fullTracks` have read, so a count never flashes a
     /// subscription skip, and while `canStart` is false: a take records, or no playlist player
-    /// is there.
+    /// is there. `recordingsPlay` false plays no recording, as on a free plan.
     static func reports(
-        _ snapshot: Snapshot?, canStart: Bool, fullTracks: Bool?, online: Bool
+        _ snapshot: Snapshot?, canStart: Bool, fullTracks: Bool?, online: Bool, recordingsPlay: Bool = true
     ) -> [String: PlaylistReport] {
         guard let snapshot, let fullTracks, canStart else { return [:] }
         var reports: [String: PlaylistReport] = [:]
@@ -36,7 +36,7 @@ enum ListsPlayOffers {
             let shown = snapshot.showArchived ? contents.entries : contents.entries.filter { !$0.isArchived }
             let report = playlistReport(
                 entries: shown.map { $0.playlistEntry(online: online) }, playFirst: snapshot.playFirst,
-                fullTracks: fullTracks, online: online)
+                fullTracks: fullTracks, online: online, recordingsPlay: recordingsPlay)
             if !report.playable.isEmpty { reports[contents.list.id] = report }
         }
         return reports

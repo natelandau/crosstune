@@ -88,6 +88,8 @@ public enum AnalyticsEvent: Sendable, Equatable {
     case usageSharingDisabled
 
     case storageLimitReached(bytesUsed: Int64)
+    case premiumSheetShown(reason: PremiumReason, from: PremiumEntry)
+    case noticeShown(notice: NoticeKind)
     case uploadFailed(reason: FailureReason, origin: RecordingOrigin)
     case syncFailed(reason: FailureReason)
 
@@ -151,6 +153,8 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .settingChanged: "setting_changed"
         case .usageSharingDisabled: "usage_sharing_disabled"
         case .storageLimitReached: "storage_limit_reached"
+        case .premiumSheetShown: "premium_sheet_shown"
+        case .noticeShown: "notice_shown"
         case .uploadFailed: "upload_failed"
         case .syncFailed: "sync_failed"
         case .exportCompleted: "export_completed"
@@ -262,6 +266,10 @@ public enum AnalyticsEvent: Sendable, Equatable {
             ["setting": .string(change.name), "value": change.value]
         case .storageLimitReached(let bytesUsed):
             ["storage_used": .string(Bucket.bytes(bytesUsed))]
+        case .premiumSheetShown(let reason, let from):
+            ["reason": .string(reason.rawValue), "from": .string(from.rawValue)]
+        case .noticeShown(let notice):
+            ["notice": .string(notice.rawValue)]
         case .uploadFailed(let reason, let origin):
             ["failure_reason": .string(reason.rawValue), "origin": .string(origin.rawValue)]
         case .syncFailed(let reason):

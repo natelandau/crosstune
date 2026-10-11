@@ -1,23 +1,18 @@
 import CoreTransferable
 import CrosstuneAnalytics
 import CrosstuneStore
+import CrosstuneSync
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Zips the tunes, lists, and every recording and scan this device holds, then hands the zip to the
-/// share sheet on iPhone or a save panel on the Mac. Held open while an export runs, so Cancel
-/// is the one way out and nothing it abandons is handed off.
+/// Zips the tunes, lists, and every recording and scan, fetching those this device does not hold,
+/// then hands the zip to the share sheet on iPhone or a save panel on the Mac. Held open while an
+/// export runs, so Cancel is the one way out and nothing it abandons is handed off.
 public struct ExportDataSheet: View {
     public static let title = "Export data"
     public static let action = "Export"
     public static let completeNote =
         "Exports your tunes and lists as spreadsheets, with every recording and scan, in one zip file."
-
-    public static func note(onDevice: Int, total: Int) -> String {
-        guard onDevice < total else { return completeNote }
-        return
-            "\(onDevice) of \(total) \(total == 1 ? "recording is" : "recordings are") on this device. Only those are exported. To include every recording, turn on \(SettingsModel.keepOffline) and wait for the downloads to finish."
-    }
 
     public static func progress(done: Int, total: Int) -> String {
         "Preparing file \(done) of \(total)"
@@ -29,8 +24,15 @@ public struct ExportDataSheet: View {
         @State private var panelShown = false
     #endif
 
-    public init(store: CrosstuneStore?, analytics: AnalyticsClient) {
-        _model = State(initialValue: ExportDataModel(exporter: store.map(Exporter.live), analytics: analytics))
+    /// - Parameter isOffline: Whether the device has no connection, so files it does not hold
+    ///   cannot be fetched.
+    public init(
+        store: CrosstuneStore?, engine: SyncEngine?, isOffline: @escaping @MainActor () -> Bool,
+        analytics: AnalyticsClient
+    ) {
+        _model = State(
+            initialValue: ExportDataModel(
+                exporter: store.map { Exporter.live($0, engine: engine) }, isOffline: isOffline, analytics: analytics))
     }
 
     public var body: some View {
@@ -76,7 +78,7 @@ public struct ExportDataSheet: View {
         #else
             .coversShell(model.exported != nil)
             .fileExporter(
-                isPresented: $panelShown, item: model.exported.map(ExportFile.init), contentTypes: [.zip],
+                isPresented: $panelShown, item: model.exported.map(ExportZip.init), contentTypes: [.zip],
                 defaultFilename: model.exported?.lastPathComponent,
                 onCompletion: { _ in finishHandOff() }, onCancellation: { finishHandOff() }
             )
@@ -103,8 +105,17 @@ public struct ExportDataSheet: View {
     }
 }
 
+/// The export sheet's copy that the model and tests share.
+public enum ExportText {
+    nonisolated public static let fetchFailed = "Couldn't download a file. Try exporting again."
+    nonisolated public static func needsConnection(missing: Int) -> String {
+        let files = missing == 1 ? "file that is" : "files that are"
+        return "Connect to the internet to export \(missing) \(files) not on this device."
+    }
+}
+
 /// The zip as a file a save panel copies from where it already is.
-private struct ExportFile: Transferable {
+private struct ExportZip: Transferable {
     let url: URL
 
     static var transferRepresentation: some TransferRepresentation {

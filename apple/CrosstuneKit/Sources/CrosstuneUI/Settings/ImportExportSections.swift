@@ -1,9 +1,10 @@
 import CrosstuneAnalytics
+import CrosstuneAuth
 import CrosstuneStore
 import SwiftUI
 
-/// Bringing tunes in and taking them out, each group with its help above its row. Both read only
-/// the local store, so neither needs a connection.
+/// Bringing tunes in and taking them out, each group with its help above its row. Import reads
+/// only the local store; export needs a connection only for files this device does not hold.
 struct ImportExportSections: View {
     nonisolated static let title = "Import and export"
     nonisolated static let importHeader = "Import"
@@ -24,6 +25,7 @@ struct ImportExportSections: View {
 
     @Environment(\.store) private var store
     @Environment(\.analytics) private var analytics
+    @Environment(AccountSession.self) private var session: AccountSession?
     @State private var showsImport = false
     @State private var showsExport = false
 
@@ -41,7 +43,10 @@ struct ImportExportSections: View {
             Button(ExportDataSheet.title) { showsExport = true }
                 .disabled(store == nil)
                 .sheet(isPresented: $showsExport) {
-                    ExportDataSheet(store: store, analytics: analytics)
+                    ExportDataSheet(
+                        store: store, engine: session?.syncEngine,
+                        isOffline: { [session] in session?.isOffline ?? true },
+                        analytics: analytics)
                 }
         } header: {
             SettingsHelp(Self.exportHelp, title: Self.exportHeader)

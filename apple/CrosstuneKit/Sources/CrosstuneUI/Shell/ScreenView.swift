@@ -5,6 +5,9 @@ extension EnvironmentValues {
     /// Where views report analytics. The app sets the live client at the root of each scene;
     /// previews and tests that set nothing send nowhere.
     @Entry public var analytics: AnalyticsClient = .noop
+    /// The signed-in account's plan. The app sets it at the root of each scene while a store is
+    /// open; nil reads as unknown, which gates nothing.
+    @Entry public var plan: PlanModel?
 }
 
 extension View {

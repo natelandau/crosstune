@@ -117,7 +117,10 @@
         private static func tableRows(_ object: JSONObject) throws -> [SyncTable: [JSONObject]] {
             var tables: [SyncTable: [JSONObject]] = [:]
             for (key, value) in object where key != filesKey {
-                guard let table = SyncTable(rawValue: key), !table.isEvent else { throw FixtureError.unknownKey(key) }
+                // The server writes the entitlements row, so a fixture never holds one.
+                guard let table = SyncTable(rawValue: key), !table.isEvent, table != .entitlements else {
+                    throw FixtureError.unknownKey(key)
+                }
                 guard case .array(let values) = value else { throw FixtureError.notARow(table: key) }
                 tables[table] = try values.map {
                     guard case .object(let row) = $0 else { throw FixtureError.notARow(table: key) }

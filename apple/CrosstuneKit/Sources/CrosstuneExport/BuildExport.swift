@@ -3,7 +3,7 @@ import CrosstuneStore
 import CrosstuneVocabulary
 import Foundation
 
-/// A recording whose audio this device holds in full.
+/// A recording whose audio the export holds: on this device in full, or fetched for it.
 public struct LocalAudio: Sendable, Hashable {
     public var recordingID: String
     public var fileExtension: String
@@ -32,7 +32,7 @@ public struct ExportInput: Sendable {
     public var recordings: [Recording]
     public var localAudio: [LocalAudio]
     public var scans: [ScanRecord]
-    /// Ids of the scans whose image this device holds.
+    /// Ids of the scans whose image the export holds, on this device or fetched for it.
     public var localScans: Set<String>
 
     public init(

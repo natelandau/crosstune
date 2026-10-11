@@ -14,11 +14,12 @@ enum RecordingMenuItem: Hashable {
     case delete
 
     /// The menu in order: Trim, Edit, filing under or out of a tune, Open on when the
-    /// recording has a page to open, then Delete.
+    /// recording has a page to open, then Delete. `trims` false leaves Trim out, as on a free
+    /// plan.
     static func items(
-        inTune: Bool, trimBlocker: String?, openOrigin: RecordingMenuItem? = nil
+        inTune: Bool, trimBlocker: String?, openOrigin: RecordingMenuItem? = nil, trims: Bool = true
     ) -> [RecordingMenuItem] {
-        [.trim(blocker: trimBlocker), .edit, inTune ? .removeFromTune : .addToTune]
+        (trims ? [.trim(blocker: trimBlocker)] : []) + [.edit, inTune ? .removeFromTune : .addToTune]
             + (openOrigin.map { [$0] } ?? []) + [.delete]
     }
 

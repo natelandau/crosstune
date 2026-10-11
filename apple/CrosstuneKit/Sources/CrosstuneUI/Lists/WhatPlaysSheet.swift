@@ -13,6 +13,7 @@ public enum WhatPlaysText {
     public static let needsSubscription = "Apple Music needs a subscription on this device"
     public static let needsConnection = "Apple Music needs a connection"
     public static let recordingsNotHere = "Recordings that aren't on this device yet"
+    public static let premium = "Recordings need Premium, so tunes with only recordings were skipped."
     public static let allow = "Allow Apple Music"
     public static let openSettings = "Open Settings"
     public static let done = "Done"
@@ -24,13 +25,14 @@ public enum WhatPlaysText {
         case .needsSubscription: needsSubscription
         case .needsConnection: needsConnection
         case .recordingsNotHere: recordingsNotHere
+        case .premium: premium
         }
     }
 
     /// The groups in the order the sheet shows them, without the empty ones.
     static func groups(_ report: PlaylistReport) -> [(reason: PlaylistSkip, tuneIDs: [String])] {
         let order: [PlaylistSkip] = [
-            .nothing, .noCapableLink, .needsSubscription, .needsConnection, .recordingsNotHere,
+            .nothing, .noCapableLink, .needsSubscription, .needsConnection, .recordingsNotHere, .premium,
         ]
         return order.compactMap { reason in
             guard let ids = report.skipped[reason], !ids.isEmpty else { return nil }

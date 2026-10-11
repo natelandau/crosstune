@@ -11,6 +11,10 @@ struct CrosstuneApp: App {
     @State private var listPlayback: ListPlayback
     @State private var stage = EmbedStage()
     @State private var recorders = RecorderHost()
+    /// The open store's plan, made again for each store so another account starts unknown.
+    @State private var plan: PlanModel?
+    /// Which window shows the plan notices, made again with each store's plan.
+    @State private var noticeClaim: NoticeClaim?
     private let analytics: AnalyticsClient
     @Environment(\.scenePhase) private var scenePhase
 
@@ -43,6 +47,8 @@ struct CrosstuneApp: App {
         WindowGroup(id: AppCommands.mainWindow) {
             content
                 .environment(\.analytics, analytics)
+                .environment(\.plan, plan)
+                .environment(\.noticeClaim, noticeClaim)
                 .followsDisplaySettings()
                 .tint(BrandStyle.accent)
         }
@@ -53,12 +59,20 @@ struct CrosstuneApp: App {
         .onChange(of: scenePhase, initial: true) {
             session.sceneActivityChanged(isActive: scenePhase == .active)
             if scenePhase == .background { player.leftForeground() }
+            // A trial may have ended while the app was away.
+            if scenePhase == .active { plan?.judgeAgain() }
+        }
+        .onChange(of: session.store?.userID, initial: true) {
+            let bound = StorePlan.bind(session.store, player: player)
+            plan = bound.plan
+            noticeClaim = bound.noticeClaim
         }
 
         #if os(macOS)
             Settings {
                 settings
                     .environment(\.analytics, analytics)
+                    .environment(\.plan, plan)
                     .environment(\.store, session.store)
                     .environment(session.syncEngine)
                     .environment(session)
@@ -73,7 +87,7 @@ struct CrosstuneApp: App {
         @ViewBuilder private var settings: some View {
             #if DEBUG
                 if CommandLine.arguments.contains("-SampleShell") {
-                    SampleSettings()
+                    SampleSettings(plan: SamplePlan.fromArguments())
                 } else {
                     MacSettingsTabs()
                 }
@@ -94,7 +108,8 @@ struct CrosstuneApp: App {
                 // Shows the shell over sample data without signing in, for screenshots.
                 SampleShell(
                     playing: CommandLine.arguments.contains("-SamplePlaying"),
-                    playingRecording: CommandLine.arguments.contains("-SamplePlayingRecording"))
+                    playingRecording: CommandLine.arguments.contains("-SamplePlayingRecording"),
+                    plan: SamplePlan.fromArguments())
             } else {
                 root
             }
