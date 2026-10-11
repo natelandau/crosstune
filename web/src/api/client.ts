@@ -87,15 +87,20 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
   }
 
   // fetch consumes a request's body, so each attempt but the last sends a clone to keep the
-  // body intact for a resend. The timeout signal also bounds the body read that follows.
+  // body intact for a resend. The timeout signal also bounds the body read that follows, and
+  // the caller's own signal still stops it.
   async function withGatewayRetries(input: Request): Promise<Response> {
     const attempt = (request: Request) =>
-      baseFetch(new Request(request, { signal: AbortSignal.timeout(apiTimeoutMs) }))
+      baseFetch(
+        new Request(request, {
+          signal: AbortSignal.any([AbortSignal.timeout(apiTimeoutMs), request.signal]),
+        }),
+      )
     for (const delayMs of gatewayRetryDelaysMs) {
       const response = await attempt(input.clone())
       if (!GATEWAY_STATUSES.has(response.status)) return response
       discardBody(response)
-      await new Promise((resolve) => setTimeout(resolve, delayMs))
+      await wait(delayMs, input.signal)
     }
     return attempt(input)
   }
@@ -149,6 +154,9 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     async deleteAccount() {
       return unwrapEmpty(client.DELETE('/v1/me'))
     },
+    async recordNotice(notice) {
+      return unwrapEmpty(client.POST('/v1/me/notices', { body: { notice } }))
+    },
     async requestUploadSlot(recordingId, body) {
       return unwrap(
         client.POST('/v1/recordings/{recording_id}/upload-slot', {
@@ -167,8 +175,13 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
         client.POST('/v1/recordings/{recording_id}/retry', byRecording(recordingId)),
       )
     },
-    async downloadUrl(recordingId) {
-      return unwrap(client.GET('/v1/recordings/{recording_id}/download', byRecording(recordingId)))
+    async downloadUrl(recordingId, signal) {
+      return unwrap(
+        client.GET('/v1/recordings/{recording_id}/download', {
+          ...byRecording(recordingId),
+          signal,
+        }),
+      )
     },
     async peaksUrl(recordingId) {
       return unwrap(client.GET('/v1/recordings/{recording_id}/peaks', byRecording(recordingId)))
@@ -179,8 +192,8 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     async scanUploadFinished(scanId) {
       return unwrapEmpty(client.POST('/v1/scans/{scan_id}/uploaded', byScan(scanId)))
     },
-    async scanDownloadUrl(scanId) {
-      return unwrap(client.GET('/v1/scans/{scan_id}/download', byScan(scanId)))
+    async scanDownloadUrl(scanId, signal) {
+      return unwrap(client.GET('/v1/scans/{scan_id}/download', { ...byScan(scanId), signal }))
     },
     async putObject(url, blob, contentType) {
       // A blob read back from IndexedDB is file-backed on iOS, and an iOS home-screen web
@@ -197,9 +210,10 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
         }),
       )
     },
-    async getObject(url) {
+    async getObject(url, signal) {
+      const timeout = AbortSignal.timeout(getTimeoutMs)
       const response = await transfer(
-        new Request(url, { signal: AbortSignal.timeout(getTimeoutMs) }),
+        new Request(url, { signal: signal ? AbortSignal.any([timeout, signal]) : timeout }),
       )
       // Reading the body can still time out or drop, so it needs its own wrapper.
       return withNetworkErrors(() => response.blob())
@@ -241,11 +255,28 @@ async function withNetworkErrors<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn()
   } catch (error) {
+    // Matched by name: an abort reason can come from another realm's DOMException.
     const isTimeout =
-      error instanceof DOMException &&
+      (error instanceof DOMException || error instanceof Error) &&
       (error.name === 'TimeoutError' || error.name === 'AbortError')
     throw error instanceof TypeError || isTimeout ? new NetworkError(error) : error
   }
+}
+
+/** Resolves after `ms`, or rejects with the signal's reason as soon as it aborts. */
+function wait(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    signal.throwIfAborted()
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(signal.reason)
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
 }
 
 // An unread body holds its connection until garbage collection.

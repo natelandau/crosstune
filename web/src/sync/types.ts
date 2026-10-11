@@ -35,6 +35,12 @@ export interface SyncEngine {
   download(recordingId: string): Promise<Blob | null>
   /** Fetch one recording's waveform now, storing it locally. Null when it cannot be fetched. */
   peaks(recordingId: string): Promise<Uint8Array | null>
+  /**
+   * Read one recording's audio or one scan's image from the server, storing nothing on this
+   * device. Tries once more after a dropped connection or a server error, and rejects when it
+   * still cannot be read, offline included, or when `signal` aborts.
+   */
+  fetchFile(kind: 'recording' | 'scan', id: string, signal?: AbortSignal): Promise<Blob>
   /** Ask the server to transcode a failed recording again. */
   retry(recordingId: string): Promise<void>
   deleteAccount(): Promise<void>

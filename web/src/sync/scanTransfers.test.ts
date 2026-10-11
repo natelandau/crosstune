@@ -8,14 +8,16 @@ import { appendChunk, beginCapture, finishCapture } from '../commands/recordings
 import { createTune, deleteTune } from '../commands/tunes'
 import { newId } from '../commands/write'
 import { setStorage } from '../db/meta'
-import { SCAN_REFUSED_ERROR, SCAN_STORAGE_FULL_ERROR } from '../db/scans'
-import { pendingFor } from '../db/outbox'
+import { SCAN_REFUSED_ERROR, SCAN_STORAGE_FULL_ERROR, SCAN_TUNE_ONLY_ERROR } from '../db/scans'
+import { pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { transfersSettled } from '../test/transfers'
 import { createFakeApi, serverTune } from '../test/fakeApi'
-import { applyPullPage } from './apply'
+import { entitlementRow } from '../test/rows'
+import { applyPullPage, applyPushResults } from './apply'
 import { createSyncEngine } from './engine'
+import { SCAN_TUNE_ONLY_PROBLEM, SCAN_TUNE_ONLY_REASON } from './errors'
 import { dropTombstonedScanFiles, scanDownloadPass, scanUploadPass } from './scanTransfers'
 import { createDownloadRetries, QUOTA_PROBLEM, retryDelayMs } from './transfers'
 
@@ -280,6 +282,234 @@ describe('scanUploadPass', () => {
     const refused = new ApiError(401, null)
     fake.failSlot(refused)
     await expect(scanUploadPass(db, fake.api)).rejects.toBe(refused)
+  })
+})
+
+describe('scan transfers under the plan', () => {
+  const scanTuneOnly = () =>
+    new ApiError(403, { type: SCAN_TUNE_ONLY_PROBLEM, title: 't', status: 403, detail: 'd' })
+
+  /** A stored scan on tune-y, older than any captured here, which makes tune-y the scan tune. */
+  async function olderScanElsewhere(): Promise<void> {
+    await applyPullPage(
+      db,
+      [
+        { table: 'tunes', row: serverTune({ id: 'tune-y' }) },
+        {
+          table: 'scans',
+          row: serverScan({ id: 'older', tune_id: 'tune-y', created_at: '2026-01-01T00:00:00Z' }),
+        },
+      ],
+      5,
+    )
+  }
+
+  it('marks a scan refused for being off the scan tune, and retries it once the plan is premium', async () => {
+    await olderScanElsewhere()
+    const { scanId } = await capturedScan()
+    await pushedEverything()
+    fake.failSlot(scanTuneOnly())
+    expect(await scanUploadPass(db, fake.api)).toBeNull()
+    expect(await db.scan_files.get(scanId)).toMatchObject({
+      origin: 'captured',
+      error: SCAN_TUNE_ONLY_ERROR,
+      next_attempt_at: null,
+    })
+
+    fake.failSlot(null)
+    const slot = vi.spyOn(fake.api, 'requestScanUploadSlot')
+    await db.entitlements.put(entitlementRow())
+    await scanUploadPass(db, fake.api)
+    expect(slot).not.toHaveBeenCalled()
+    expect((await db.scan_files.get(scanId))?.error).toBe(SCAN_TUNE_ONLY_ERROR)
+
+    await db.entitlements.put(entitlementRow({ premium_source: 'comp' }))
+    await scanUploadPass(db, fake.api)
+    expect(slot).toHaveBeenCalledOnce()
+    expect(await db.scan_files.get(scanId)).toMatchObject({ origin: 'downloaded', error: null })
+  })
+
+  it('retries a stored scan refused a slot once its tune becomes the scan tune, once per scan tune', async () => {
+    await olderScanElsewhere()
+    const { scanId } = await capturedScan()
+    await pushedEverything()
+    // The trial lapsed after the push stored the row, so its slot is refused.
+    await db.entitlements.put(
+      entitlementRow({ premium_source: 'trial', premium_expires_at: '2026-02-01T00:00:00.000Z' }),
+    )
+    fake.failSlot(scanTuneOnly())
+    await scanUploadPass(db, fake.api)
+    expect((await db.scan_files.get(scanId))?.error).toBe(SCAN_TUNE_ONLY_ERROR)
+
+    const slot = vi.spyOn(fake.api, 'requestScanUploadSlot')
+    await scanUploadPass(db, fake.api)
+    expect(slot).not.toHaveBeenCalled()
+
+    // The server stored this scan, so it counts toward the scan tune here as it does there.
+    await deleteScan(db, 'older')
+    await db.outbox.clear()
+    await scanUploadPass(db, fake.api)
+    expect(slot).toHaveBeenCalledOnce()
+    expect((await db.scan_files.get(scanId))?.error).toBe(SCAN_TUNE_ONLY_ERROR)
+
+    await scanUploadPass(db, fake.api)
+    expect(slot).toHaveBeenCalledOnce()
+  })
+
+  /** A scan the server stores on tune-y, which makes tune-y the scan tune, and a scan added
+   * offline on another tune that the server refused on push. */
+  async function refusedOffTune(): Promise<string> {
+    await applyPullPage(
+      db,
+      [
+        { table: 'tunes', row: serverTune({ id: 'tune-y' }) },
+        {
+          table: 'scans',
+          row: serverScan({ id: 'kept', tune_id: 'tune-y', created_at: '2026-01-01T00:00:00Z' }),
+        },
+      ],
+      5,
+    )
+    const { scanId } = await capturedScan()
+    await db.outbox.clear()
+    await db.scan_files.update(scanId, { error: SCAN_TUNE_ONLY_ERROR })
+    return scanId
+  }
+
+  /** The server refuses the queued scan row again. */
+  async function refusedAgain(scanId: string): Promise<void> {
+    const sent = (await pendingBatch(db)).filter((entry) => entry.table === 'scans')
+    await applyPushResults(db, sent, [
+      { table: 'scans', id: scanId, status: 'invalid', reason: SCAN_TUNE_ONLY_REASON },
+    ])
+  }
+
+  it('queues a scan the server refused on push again once per grant that opens it', async () => {
+    const scanId = await refusedOffTune()
+    const slot = vi.spyOn(fake.api, 'requestScanUploadSlot')
+
+    // Unknown, and free with the scan off the scan tune, both leave it waiting.
+    await scanUploadPass(db, fake.api)
+    await db.entitlements.put(entitlementRow())
+    await scanUploadPass(db, fake.api)
+    expect(await pendingFor(db, 'scans', scanId)).toBeUndefined()
+    expect((await db.scan_files.get(scanId))?.error).toBe(SCAN_TUNE_ONLY_ERROR)
+
+    await db.entitlements.put(entitlementRow({ premium_source: 'comp' }))
+    await scanUploadPass(db, fake.api)
+    // The server never stored the row, so it has to reach the server before a slot can.
+    expect(slot).not.toHaveBeenCalled()
+    expect(await pendingFor(db, 'scans', scanId)).toBeDefined()
+    expect((await db.scan_files.get(scanId))?.error).toBeNull()
+
+    // The server still refuses, as for a device that judges Premium before the server does.
+    await refusedAgain(scanId)
+    await scanUploadPass(db, fake.api)
+    expect(await pendingFor(db, 'scans', scanId)).toBeUndefined()
+    expect((await db.scan_files.get(scanId))?.error).toBe(SCAN_TUNE_ONLY_ERROR)
+
+    await db.entitlements.put(
+      entitlementRow({ premium_source: 'stripe', premium_expires_at: '2099-01-01T00:00:00.000Z' }),
+    )
+    await scanUploadPass(db, fake.api)
+    expect(await pendingFor(db, 'scans', scanId)).toBeDefined()
+    expect(slot).not.toHaveBeenCalled()
+  })
+
+  it('queues a refused scan again when the same grant returns after a free spell', async () => {
+    const scanId = await refusedOffTune()
+    await db.entitlements.put(entitlementRow({ premium_source: 'comp' }))
+    await scanUploadPass(db, fake.api)
+    await refusedAgain(scanId)
+
+    await db.entitlements.put(entitlementRow())
+    await scanUploadPass(db, fake.api)
+    expect(await pendingFor(db, 'scans', scanId)).toBeUndefined()
+
+    await db.entitlements.put(entitlementRow({ premium_source: 'comp' }))
+    await scanUploadPass(db, fake.api)
+    expect(await pendingFor(db, 'scans', scanId)).toBeDefined()
+    expect((await db.scan_files.get(scanId))?.error).toBeNull()
+  })
+
+  it('queues a refused scan again on a free plan once no scan tune is left, once per scan tune', async () => {
+    const scanId = await refusedOffTune()
+    await db.entitlements.put(entitlementRow())
+    await scanUploadPass(db, fake.api)
+    expect(await pendingFor(db, 'scans', scanId)).toBeUndefined()
+
+    await deleteScan(db, 'kept')
+    await db.outbox.clear()
+    await scanUploadPass(db, fake.api)
+    expect(await pendingFor(db, 'scans', scanId)).toBeDefined()
+    expect((await db.scan_files.get(scanId))?.error).toBeNull()
+
+    // The server has not heard of the delete yet, so it still refuses.
+    await refusedAgain(scanId)
+    await scanUploadPass(db, fake.api)
+    expect(await pendingFor(db, 'scans', scanId)).toBeUndefined()
+    expect((await db.scan_files.get(scanId))?.error).toBe(SCAN_TUNE_ONLY_ERROR)
+
+    // A new scan on the refused scan's own tune makes it the scan tune.
+    const tuneId = (await db.scans.get(scanId))!.tune_id
+    await addScans(db, tuneId, [
+      { blob: new Blob([IMAGE], { type: 'image/jpeg' }), width: 800, height: 1200 },
+    ])
+    await db.outbox.clear()
+    await scanUploadPass(db, fake.api)
+    expect(await pendingFor(db, 'scans', scanId)).toBeDefined()
+  })
+
+  it('downloads only the scans on the scan tune while the plan is free', async () => {
+    await db.entitlements.put(entitlementRow())
+    await applyPullPage(
+      db,
+      [
+        { table: 'tunes', row: serverTune({ id: 'tune-a' }) },
+        { table: 'tunes', row: serverTune({ id: 'tune-b' }) },
+        {
+          table: 'scans',
+          row: serverScan({ id: 'on', tune_id: 'tune-a', created_at: '2026-10-01T00:00:00Z' }),
+        },
+        {
+          table: 'scans',
+          row: serverScan({ id: 'off', tune_id: 'tune-b', created_at: '2026-10-02T00:00:00Z' }),
+        },
+      ],
+      5,
+    )
+    for (const id of ['on', 'off']) {
+      fake.scanStates.set(id, 'ready')
+      fake.objects.set(`${id}/scan.jpg`, new Blob([IMAGE], { type: 'image/jpeg' }))
+    }
+    const url = vi.spyOn(fake.api, 'scanDownloadUrl')
+    await scanDownloadPass(db, fake.api, createDownloadRetries())
+    expect(url.mock.calls.map(([id]) => id)).toEqual(['on'])
+    expect(await db.scan_files.get('on')).toMatchObject({ origin: 'downloaded' })
+    expect(await db.scan_files.get('off')).toBeUndefined()
+  })
+
+  it('leaves a scan the server refused for its tune out of the scan tune it downloads for', async () => {
+    await db.entitlements.put(entitlementRow())
+    const { scanId } = await capturedScan()
+    await db.scans.update(scanId, { created_at: '2026-09-01T00:00:00.000Z' })
+    await db.scan_files.update(scanId, { error: SCAN_TUNE_ONLY_ERROR })
+    await applyPullPage(
+      db,
+      [
+        { table: 'tunes', row: serverTune({ id: 'tune-a' }) },
+        {
+          table: 'scans',
+          row: serverScan({ id: 'on', tune_id: 'tune-a', created_at: '2026-10-01T00:00:00Z' }),
+        },
+      ],
+      5,
+    )
+    fake.scanStates.set('on', 'ready')
+    fake.objects.set('on/scan.jpg', new Blob([IMAGE], { type: 'image/jpeg' }))
+    const url = vi.spyOn(fake.api, 'scanDownloadUrl')
+    await scanDownloadPass(db, fake.api, createDownloadRetries())
+    expect(url.mock.calls.map(([id]) => id)).toEqual(['on'])
   })
 })
 

@@ -11,6 +11,7 @@ import type {
   TableName,
   UserTuneRow,
 } from '../api/types'
+import type { NoticeKind } from '../billing/plan'
 import { isEventTable } from '../db/types'
 
 function conflict(detail?: string): ApiError {
@@ -67,6 +68,8 @@ export function createFakeApi() {
   let confirmError: unknown = null
   let putError: unknown = null
   let putErrorId: string | null = null
+  const notices: NoticeKind[] = []
+  let noticeError: unknown = null
 
   /** Echo a pushed change back the way the server does, so the store path runs in tests. */
   function appliedRow(change: Change): Record<string, unknown> {
@@ -137,6 +140,10 @@ export function createFakeApi() {
       }
     },
     async deleteAccount() {},
+    async recordNotice(notice) {
+      if (noticeError) throw noticeError
+      notices.push(notice)
+    },
     async requestUploadSlot(recordingId, body) {
       if (slotError && (slotErrorId === null || slotErrorId === recordingId)) throw slotError
       const state = recordingStates.get(recordingId) ?? 'pending_upload'
@@ -237,6 +244,8 @@ export function createFakeApi() {
     scanSlots,
     /** The Content-Type each object was PUT with, by key. */
     putTypes,
+    /** Every notice recorded, in order. */
+    notices,
     respondToPush(fn: PushResponder) {
       respond = fn
     },
@@ -260,6 +269,10 @@ export function createFakeApi() {
     /** Throws once from the next uploadFinished call, then behaves normally again. */
     failConfirm(error: unknown) {
       confirmError = error
+    },
+    /** Every recordNotice call fails with this until it is cleared with null. */
+    failNotice(error: unknown) {
+      noticeError = error
     },
     /** With no id, every object PUT fails; with one, only that recording's does. */
     failPut(error: unknown, recordingId: string | null = null) {

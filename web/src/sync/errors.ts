@@ -2,9 +2,30 @@ import { ApiError, NoTokenError } from '../api/client'
 
 export const QUOTA_PROBLEM = 'urn:crosstune:quota-exceeded'
 
+/** The problem types a 403 carries when the account's plan, not its session, refuses. */
+export const PREMIUM_REQUIRED_PROBLEM = 'urn:crosstune:premium-required'
+export const SCAN_TUNE_ONLY_PROBLEM = 'urn:crosstune:scan-tune-only'
+
+/** The push reasons the server gives a change the account's plan refuses. */
+export const PREMIUM_REQUIRED_REASON = 'premium required'
+export const SCAN_TUNE_ONLY_REASON = 'scans are limited to one tune'
+/** The push reason for a row whose recording the server does not have, as for a loop on a take
+ * held for Premium. */
+export const MISSING_RECORDING_REASON = 'recording_id does not reference one of your recordings'
+
+/** A 403 that refuses what the free plan does not include, which signing in again never changes. */
+export function isPlanRefusal(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status === 403 &&
+    (error.problemType === PREMIUM_REQUIRED_PROBLEM || error.problemType === SCAN_TUNE_ONLY_PROBLEM)
+  )
+}
+
 /** No session token, or the server refusing one: nothing past this point can succeed
  * until the user signs in again. */
 export function isAuthFailure(error: unknown): boolean {
+  if (isPlanRefusal(error)) return false
   return (
     error instanceof NoTokenError ||
     (error instanceof ApiError && (error.status === 401 || error.status === 403))
@@ -20,5 +41,17 @@ export function isAccountDeleted(error: unknown): boolean {
     error instanceof ApiError &&
     error.status === 401 &&
     error.problemType === ACCOUNT_DELETED_PROBLEM
+  )
+}
+
+/** A refusal that a later attempt can turn around: the server's own fault, an auth failure, a
+ * timeout, or a rate limit. Any other 4xx refuses the request itself and will not succeed as-is. */
+export function isRetryableRefusal(error: ApiError): boolean {
+  if (isPlanRefusal(error)) return false
+  return (
+    error.status < 400 ||
+    error.status >= 500 ||
+    isAuthFailure(error) ||
+    [408, 429].includes(error.status)
   )
 }

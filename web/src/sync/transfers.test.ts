@@ -21,10 +21,12 @@ import { newId } from '../commands/write'
 import { openTestDb } from '../test/db'
 import { transfersSettled } from '../test/transfers'
 import { createFakeApi, serverRecording, serverTune } from '../test/fakeApi'
+import { entitlementRow } from '../test/rows'
 import { applyPullPage } from './apply'
 import { FakeLockManager } from '../test/fakeLocks'
 import { acquireCaptureLock } from './captureLock'
 import { createSyncEngine } from './engine'
+import { PREMIUM_REQUIRED_PROBLEM } from './errors'
 import type { SyncEngine } from './types'
 import {
   CAPTURE_LOCK_GRACE_MS,
@@ -564,6 +566,63 @@ describe('uploadPass', () => {
     await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect(await db.recording_chunks.where('recording_id').equals('ghost').count()).toBe(0)
     expect(await db.recording_chunks.where('recording_id').equals(id).count()).toBe(0)
+  })
+})
+
+describe('transfers under the plan', () => {
+  const premiumRequired = () =>
+    new ApiError(403, { type: PREMIUM_REQUIRED_PROBLEM, title: 't', status: 403, detail: 'd' })
+
+  it('requests no slot for a captured recording while the plan is free', async () => {
+    await db.entitlements.put(entitlementRow())
+    const id = await captured()
+    await db.outbox.clear()
+    const slot = vi.spyOn(fake.api, 'requestUploadSlot')
+    expect(await uploadPass(db, fake.api, createUploadReports(noopAnalytics))).toBeNull()
+    expect(slot).not.toHaveBeenCalled()
+    expect(await db.recording_files.get(id)).toMatchObject({
+      local_state: 'captured',
+      error: null,
+      upload_attempts: 0,
+    })
+  })
+
+  it('leaves a recording refused for Premium as it was and carries on with the pass', async () => {
+    const first = await captured()
+    const second = await captured()
+    await readyOnServer('r1')
+    await setKeepOffline(db, true)
+    fake.failSlot(premiumRequired())
+    const slot = vi.spyOn(fake.api, 'requestUploadSlot')
+    const analytics = recordingAnalytics()
+    const engine = createSyncEngine({ analytics, db, api: fake.api, isOnline: () => true })
+    await syncAndTransfer(engine)
+    engine.stop()
+
+    expect(engine.status()).toBe('idle')
+    expect(engine.transferStatus()).toBe('idle')
+    expect(analytics.sends()).toEqual([])
+    // The refusal speaks for the plan, so the rest of the recordings wait too.
+    expect(slot).toHaveBeenCalledTimes(1)
+    for (const id of [first, second]) {
+      expect(await db.recording_files.get(id)).toMatchObject({
+        local_state: 'captured',
+        error: null,
+        upload_attempts: 0,
+        next_attempt_at: null,
+      })
+    }
+    expect(await (await db.recording_files.get('r1'))?.blob?.text()).toBe('xyz')
+  })
+
+  it('downloads no recording for Keep offline while the plan is free', async () => {
+    await db.entitlements.put(entitlementRow())
+    await readyOnServer('r1')
+    await setKeepOffline(db, true)
+    const spy = vi.spyOn(fake.api, 'downloadUrl')
+    await downloadPass(db, fake.api)
+    expect(spy).not.toHaveBeenCalled()
+    expect(await db.recording_files.get('r1')).toBeUndefined()
   })
 })
 

@@ -1,9 +1,11 @@
 import * as Sentry from '@sentry/react'
+import { recordingsPlayable } from '../billing/plan'
+import { readPlan } from '../billing/entitlement'
 import type { AnalyticsClient } from '../usage/client'
 import { bytesBucket } from '../usage/buckets'
 import { failureReason } from '../usage/failure'
 import { recordingOrigin } from '../usage/origin'
-import { ApiError, NetworkError, NoTokenError } from '../api/client'
+import { ApiError, NetworkError, NoTokenError, TransferError } from '../api/client'
 import type { SyncApi } from '../api/types'
 import {
   cancelCapture,
@@ -27,7 +29,7 @@ import type { CrosstuneDb } from '../db/schema'
 import { liveTune } from '../db/tunes'
 import type { LocalRecording } from '../db/types'
 import { defaultLocks, heldCaptureIds } from './captureLock'
-import { isAuthFailure, QUOTA_PROBLEM } from './errors'
+import { isAuthFailure, isPlanRefusal, isRetryableRefusal, QUOTA_PROBLEM } from './errors'
 
 export { QUOTA_PROBLEM }
 
@@ -84,17 +86,6 @@ const RETRY_MAX_MS = 30 * 60_000
 /** How long a transfer that failed `attempts` times in a row waits before the next try. */
 export function retryDelayMs(attempts: number): number {
   return Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** attempts)
-}
-
-/** A refusal that a later attempt can turn around: the server's own fault, an auth failure, a
- * timeout, or a rate limit. Any other 4xx refuses the request itself and will not succeed as-is. */
-export function isRetryableRefusal(error: ApiError): boolean {
-  return (
-    error.status < 400 ||
-    error.status >= 500 ||
-    isAuthFailure(error) ||
-    [408, 429].includes(error.status)
-  )
 }
 
 /** A transient failure goes back to captured for the next pass, but not before a backoff
@@ -202,6 +193,10 @@ async function uploadOne(
   try {
     slot = await api.requestUploadSlot(id, { bytes: file.blob.size, content_type: contentType })
   } catch (error) {
+    if (isPlanRefusal(error)) {
+      await db.recording_files.update(id, { local_state: file.local_state, error: file.error })
+      throw error
+    }
     if (error instanceof ApiError) {
       if (error.problemType === QUOTA_PROBLEM) {
         await settleUpload(db, reports, id, 'blocked_quota', error.message)
@@ -324,6 +319,7 @@ export async function uploadPass(
   // Run before the quota skip below, so a blocked row whose recording was deleted
   // elsewhere is cleaned up instead of being skipped forever by the figures check.
   await dropTombstonedFiles(db, reports)
+  if (!recordingsPlayable(await readPlan(db, new Date()))) return null
 
   const waiting = await db.recording_files
     .where('local_state')
@@ -346,6 +342,9 @@ export async function uploadPass(
     try {
       await uploadOne(db, api, reports, file.id)
     } catch (error) {
+      // The server's plan refuses every recording alike, so the rest wait for the next pass
+      // without failing this one.
+      if (isPlanRefusal(error)) break
       // Only an auth failure stops the whole pass; every other failure, including one
       // that never reached the network, is this row's problem alone and must not
       // block pull or the rest of the queue.
@@ -418,6 +417,40 @@ export async function downloadOne(db: CrosstuneDb, api: SyncApi, id: string): Pr
   }
 }
 
+/** A failure a second try might not meet: a dropped connection or a server error. */
+function isTransient(error: unknown): boolean {
+  return (
+    error instanceof NetworkError ||
+    ((error instanceof ApiError || error instanceof TransferError) && error.status >= 500)
+  )
+}
+
+/**
+ * Read a recording's audio or a scan's image through a signed URL, storing nothing. A transient
+ * failure gets one more try; anything else, or an abort of `signal`, rejects at once.
+ */
+export async function fetchUnstored(
+  api: SyncApi,
+  kind: 'recording' | 'scan',
+  id: string,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const once = async () => {
+    const signed =
+      kind === 'recording'
+        ? await api.downloadUrl(id, signal)
+        : await api.scanDownloadUrl(id, signal)
+    return api.getObject(signed.url, signal)
+  }
+  try {
+    return await once()
+  } catch (error) {
+    signal?.throwIfAborted()
+    if (!isTransient(error)) throw error
+    return once()
+  }
+}
+
 /**
  * Fetch the waveform for a recording's current revision, once. A row whose peaks have not
  * been built yet keeps whatever it already has (capture-time peaks, or none) until they have.
@@ -480,6 +513,7 @@ export async function downloadPass(
   fetchPeaksFor: (id: string) => Promise<Uint8Array | null> = (id) => fetchPeaks(db, api, id),
 ): Promise<void> {
   if (!(await getKeepOffline(db))) return
+  if (!recordingsPlayable(await readPlan(db, new Date()))) return
   const rows = await db.recordings.filter((r) => !r.deleted_at && r.state === 'ready').toArray()
   const files = await db.recording_files.bulkGet(rows.map((r) => r.id))
   for (const [i, row] of rows.entries()) {

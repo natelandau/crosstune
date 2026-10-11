@@ -1,6 +1,14 @@
 import type { Table } from 'dexie'
 import type { ChangeResult, EventRow, PullRow } from '../api/types'
-import { setEventsCursor, setPullCursor } from '../db/meta'
+import {
+  getPremiumHolds,
+  holdForPremium,
+  releasePremiumHolds,
+  setEventsCursor,
+  setPullCursor,
+} from '../db/meta'
+import { dependentRecordingId } from '../db/outbox'
+import { SCAN_TUNE_ONLY_ERROR } from '../db/scans'
 import { eventTables, rowsTable, syncTables, type CrosstuneDb } from '../db/schema'
 import {
   isEventTable,
@@ -8,8 +16,10 @@ import {
   stripOwnership,
   type LocalRow,
   type OutboxEntry,
+  type StoredTableName,
   type TableName,
 } from '../db/types'
+import { MISSING_RECORDING_REASON, PREMIUM_REQUIRED_REASON, SCAN_TUNE_ONLY_REASON } from './errors'
 
 /** A push the server refused, so the local edit will never reach it. */
 export interface InvalidChange {
@@ -26,11 +36,10 @@ export function toLocalRow(row: object): LocalRow {
   return stripOwnership(row) as LocalRow
 }
 
-/** The store a pushed row's result lands in: its synced table, its event store, or none
- * for a table this device does not store. */
-function storeFor(db: CrosstuneDb, table: TableName): Table<object, string> | undefined {
-  if (isSyncTable(table)) return rowsTable(db, table)
-  return isEventTable(table) ? db[table] : undefined
+/** The store a row of the given table lands in. */
+function storeFor(db: CrosstuneDb, table: StoredTableName): Table<object, string> {
+  if (table === 'entitlements') return db.entitlements
+  return isSyncTable(table) ? rowsTable(db, table) : db[table]
 }
 
 function rowKey(table: string, id: string): string {
@@ -43,30 +52,50 @@ async function pendingByRow(db: CrosstuneDb): Promise<Map<string, OutboxEntry>> 
   return new Map(entries.map((entry) => [rowKey(entry.table, entry.row_id), entry]))
 }
 
+/** A recording's upsert the server refused for Premium waits in the outbox; every other result
+ * settles its entry. */
+function isHeld(entry: OutboxEntry, result: ChangeResult): boolean {
+  return (
+    result.status === 'invalid' &&
+    result.reason === PREMIUM_REQUIRED_REASON &&
+    entry.table === 'recordings' &&
+    entry.op !== 'delete'
+  )
+}
+
+/** The recording a refused row waits on: one that names a recording the server lacks. */
+function awaitedRecording(entry: OutboxEntry, result: ChangeResult): string | null {
+  if (result.status !== 'invalid' || result.reason !== MISSING_RECORDING_REASON) return null
+  return dependentRecordingId(entry)
+}
+
+/**
+ * Store what the server answered for a sent batch. `held` lists the recordings it refused for
+ * Premium: their entries stay queued and uncounted, since the device can judge Premium before
+ * the server's grant agrees and the change is not lost. A row refused because its recording is
+ * held stays queued the same way, to go out with it, and its recording is listed in `held` too.
+ */
 export async function applyPushResults(
   db: CrosstuneDb,
   sent: OutboxEntry[],
   results: ChangeResult[],
-): Promise<{ invalid: InvalidChange[]; settled: number }> {
+): Promise<{ invalid: InvalidChange[]; settled: number; held: string[] }> {
   const invalid: InvalidChange[] = []
+  const held: string[] = []
   let settled = 0
   const byKey = new Map(results.map((r) => [rowKey(r.table, r.id), r]))
-  await db.transaction('rw', [...syncTables(db), ...eventTables(db), db.outbox], async () => {
+  const tables = [...syncTables(db), ...eventTables(db), db.outbox, db.meta, db.scan_files]
+  await db.transaction('rw', tables, async () => {
     // A row keeps its seq when re-queued, so the sent seqs find each row's current entry.
     const pending = await db.outbox.bulkGet(sent.map((entry) => entry.seq!))
     const stores = new Map<TableName, object[]>()
     const settledSeqs: number[] = []
     const rejectedEvents = new Map<TableName, string[]>()
-    for (const [i, entry] of sent.entries()) {
-      const result = byKey.get(rowKey(entry.table, entry.row_id))
-      if (!result) continue
-      const current = pending[i]
-      // A write queued after the batch left keeps its entry; the next push settles it.
-      const unchanged =
-        current !== undefined &&
-        current.seq === entry.seq &&
-        current.updated_at === entry.updated_at
-      if (!unchanged) continue
+    const released: string[] = []
+    const offScanTune: string[] = []
+    const waiting: { entry: OutboxEntry; result: ChangeResult; recordingId: string }[] = []
+
+    function settle(entry: OutboxEntry, result: ChangeResult) {
       if (result.status === 'invalid') {
         if (isEventTable(entry.table)) {
           // A refused event is not stored for this user, so its local copy would only ever
@@ -74,6 +103,9 @@ export async function applyPushResults(
           const ids = rejectedEvents.get(entry.table) ?? []
           ids.push(entry.row_id)
           rejectedEvents.set(entry.table, ids)
+        } else if (entry.table === 'scans' && result.reason === SCAN_TUNE_ONLY_REASON) {
+          // The scan keeps its file and says why on its own status line, so nothing is lost.
+          if (entry.op !== 'delete') offScanTune.push(entry.row_id)
         } else if (entry.op !== 'delete') {
           // The server refuses a delete only for a row it never stored, which is what a row
           // created and deleted between pushes looks like: nothing was lost on either side.
@@ -87,11 +119,51 @@ export async function applyPushResults(
       settledSeqs.push(entry.seq!)
       settled++
     }
-    for (const [table, rows] of stores) await storeFor(db, table)?.bulkPut(rows)
-    for (const [table, ids] of rejectedEvents) await storeFor(db, table)?.bulkDelete(ids)
+
+    for (const [i, entry] of sent.entries()) {
+      const result = byKey.get(rowKey(entry.table, entry.row_id))
+      if (!result) continue
+      const current = pending[i]
+      // A write queued after the batch left keeps its entry; the next push settles it.
+      const unchanged =
+        current !== undefined &&
+        current.seq === entry.seq &&
+        current.updated_at === entry.updated_at
+      if (!unchanged) continue
+      if (isHeld(entry, result)) {
+        held.push(entry.row_id)
+        continue
+      }
+      const recordingId = awaitedRecording(entry, result)
+      if (recordingId !== null) {
+        // Judged once the whole batch is read, since its recording's result may come later.
+        waiting.push({ entry, result, recordingId })
+        continue
+      }
+      if (entry.table === 'recordings') released.push(entry.row_id)
+      settle(entry, result)
+    }
+
+    const stillHeld = await getPremiumHolds(db)
+    for (const id of held) stillHeld.add(id)
+    for (const id of released) stillHeld.delete(id)
+    const keptFor = new Set<string>()
+    for (const { entry, result, recordingId } of waiting) {
+      if (stillHeld.has(recordingId)) keptFor.add(recordingId)
+      else settle(entry, result)
+    }
+
+    for (const [table, rows] of stores) await storeFor(db, table).bulkPut(rows)
+    for (const [table, ids] of rejectedEvents) await storeFor(db, table).bulkDelete(ids)
     await db.outbox.bulkDelete(settledSeqs)
+    await holdForPremium(db, held)
+    await releasePremiumHolds(db, released)
+    for (const id of offScanTune) {
+      await db.scan_files.update(id, { error: SCAN_TUNE_ONLY_ERROR })
+    }
+    for (const id of keptFor) if (!held.includes(id)) held.push(id)
   })
-  return { invalid, settled }
+  return { invalid, settled, held }
 }
 
 export async function applyPullPage(
@@ -99,7 +171,7 @@ export async function applyPullPage(
   rows: PullRow[],
   nextSince: number,
 ): Promise<void> {
-  await db.transaction('rw', [...syncTables(db), db.outbox, db.meta], async () => {
+  await db.transaction('rw', [...syncTables(db), db.entitlements, db.outbox, db.meta], async () => {
     const pending = await pendingByRow(db)
     const stores = new Map<TableName, LocalRow[]>()
     const supersededSeqs: number[] = []
@@ -117,7 +189,8 @@ export async function applyPullPage(
       }
     }
     for (const [table, stored] of stores) {
-      if (isSyncTable(table)) await rowsTable(db, table).bulkPut(stored)
+      // A table from a newer server has no store here; skipping it keeps the cursor moving.
+      if (isSyncTable(table) || table === 'entitlements') await storeFor(db, table).bulkPut(stored)
     }
     await db.outbox.bulkDelete(supersededSeqs)
     await setPullCursor(db, nextSince)

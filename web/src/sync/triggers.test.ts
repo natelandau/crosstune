@@ -62,6 +62,7 @@ function fakeEngine(): SyncEngine & { calls: number } {
     searchRecordings: async () => ({ kind: 'failed' as const }),
     download: async () => null,
     peaks: async () => null,
+    fetchFile: async () => new Blob(),
     retry: async () => {},
     deleteAccount: async () => {},
     onAccountDeleted: () => () => {},
