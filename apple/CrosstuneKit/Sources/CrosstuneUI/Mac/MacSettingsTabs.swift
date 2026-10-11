@@ -46,7 +46,7 @@
             var sections: SettingsScreen.Sections {
                 switch self {
                 case .general: [.appearance, .recording, .downloads, .sync, .storage, .about]
-                case .account: [.account, .stats]
+                case .account: [.plan, .account, .stats]
                 case .instruments: [.instruments]
                 case .newTunes: [.newTunes]
                 case .musicServices: [.musicServices, .appleMusic]
@@ -58,6 +58,11 @@
         /// The tab last shown, so the window opens where the musician left it, as Mac Settings
         /// windows do.
         static let tabStorageKey = "macSettingsTab"
+
+        /// Picks the tab the window shows, now if it is open or else when it next opens.
+        static func select(_ pane: Pane, in defaults: UserDefaults = .standard) {
+            defaults.set(pane.rawValue, forKey: tabStorageKey)
+        }
 
         private let version: String?
         @AppStorage(Self.tabStorageKey) private var selection: Pane = .general

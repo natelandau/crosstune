@@ -160,6 +160,8 @@ private let samples: [AnalyticsEvent] = [
     .settingChanged(.audioQuality(AudioQuality("high")!)),
     .usageSharingDisabled,
     .storageLimitReached(bytesUsed: 600_000_000),
+    .premiumSheetShown(reason: .recordings, from: .addToRecordings),
+    .noticeShown(notice: .trialReminder),
     .uploadFailed(reason: .storageFull, origin: .recorded),
     .syncFailed(reason: .network),
     .exportCompleted(format: .zip),
@@ -179,7 +181,7 @@ private func hasASample(_ event: AnalyticsEvent) {
         .recordingTrimmed, .linkAdded, .linkRemoved, .linkOpenedExternally, .findRecordingsUsed, .appleMusicAuthorized,
         .playbackEnded, .playlistStarted, .practiceEnded, .loopSet, .speedChanged, .pitchChanged, .scanAdded,
         .scanViewed, .scanDeleted, .scansReordered, .settingChanged, .usageSharingDisabled, .storageLimitReached,
-        .uploadFailed, .syncFailed, .exportCompleted, .exportFailed:
+        .premiumSheetShown, .noticeShown, .uploadFailed, .syncFailed, .exportCompleted, .exportFailed:
         break
     }
 }
@@ -276,6 +278,9 @@ private let pairedEnums: [(name: String, rawValues: [String])] = [
     ("tune_status", Vocabulary.statuses),
     ("instrument", Vocabulary.instruments),
     ("assistive_tech", AssistiveTechnology.allCases.map(\.rawValue)),
+    ("premium_reason", PremiumReason.allCases.map(\.rawValue)),
+    ("premium_entry", PremiumEntry.allCases.map(\.rawValue)),
+    ("plan_notice", NoticeKind.allCases.map(\.rawValue)),
 ]
 
 @Test(arguments: pairedEnums)

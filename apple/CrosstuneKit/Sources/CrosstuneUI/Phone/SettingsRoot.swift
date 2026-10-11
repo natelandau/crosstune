@@ -200,7 +200,7 @@ struct SettingsPageScreen: View {
         switch page {
         case .account:
             SettingsScreen(
-                version: nil, sections: [.account], title: AccountSections.title, opensStatsInSheet: false,
+                version: nil, sections: [.plan, .account], title: AccountSections.title, opensStatsInSheet: false,
                 registersStats: false
             )
             .toolbarTitleDisplayMode(.inline)

@@ -63,7 +63,10 @@ public struct MediaRow: View {
     private let tuneLine: TuneLine?
     private let error: String?
     private let notice: String?
+    private let spokenNotice: String?
     private let retry: Retry?
+    /// How far a row that cannot act fades. Scans the plan does not open fade the same.
+    static let dimmedOpacity = 0.6
     private let isDimmed: Bool
 
     @ScaledMetric(relativeTo: .headline) private var scaledSlot: CGFloat = 44
@@ -72,11 +75,12 @@ public struct MediaRow: View {
 
     /// `verb` names what the row does or would do, "Play" or "Downloading"; with no `action` the
     /// row is inert. `dimmed` marks a row whose control cannot act right now, such as a download
-    /// offline.
+    /// offline. `spokenNotice` is spoken after the row's lines and never shown.
     public init(
         glyph: MediaGlyph, title: String, secondLine: SecondLine?, verb: String? = nil,
         action: (() -> Void)? = nil, sourceLine: SourceLine? = nil, tuneLine: TuneLine? = nil,
-        error: String? = nil, notice: String? = nil, retry: Retry? = nil, dimmed: Bool = false
+        error: String? = nil, notice: String? = nil, spokenNotice: String? = nil, retry: Retry? = nil,
+        dimmed: Bool = false
     ) {
         self.glyph = glyph
         self.title = title
@@ -87,6 +91,7 @@ public struct MediaRow: View {
         self.tuneLine = tuneLine
         self.error = error
         self.notice = notice
+        self.spokenNotice = spokenNotice
         self.retry = retry
         isDimmed = dimmed
     }
@@ -144,7 +149,7 @@ public struct MediaRow: View {
                 innerControl(control)
             }
         }
-        .opacity(isDimmed ? 0.6 : 1)
+        .opacity(isDimmed ? Self.dimmedOpacity : 1)
         // The whole row answers a tap, under the link out and Retry, which keep their own.
         .background { rowControl }
         .accessibilityElement(children: .contain)
@@ -294,6 +299,7 @@ public struct MediaRow: View {
         if case .text(let meta) = secondLine { details.append(meta) }
         if let notice { details.append(notice) }
         if let error { details.append(error) }
+        if let spokenNotice { details.append(spokenNotice) }
         return Self.accessibilityName(verb: verb, title: title, details: details)
     }
 
@@ -386,7 +392,7 @@ extension MediaRow {
         self.init(
             glyph: row.glyph, title: row.title, secondLine: .text(row.meta), verb: row.verb,
             action: row.tap.map { tap in { perform(tap) } }, sourceLine: sourceLine, tuneLine: tuneLine,
-            error: row.error, notice: row.notice,
+            error: row.error, notice: row.notice, spokenNotice: row.spokenNotice,
             retry: row.retry.flatMap { retry in row.retryName.map { Retry(name: $0) { onRetry(retry) } } },
             dimmed: row.isDimmed)
     }

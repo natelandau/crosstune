@@ -261,7 +261,8 @@ private struct ScanViewRig {
 
         for origin in [ScanViewOrigin.row, .list(id: "l1")] {
             let action = try #require(
-                TuneRowActions.scansAction(tuneID: tuneID, tunesWithScans: tunes, origin: origin, actions: actions))
+                TuneRowActions.scansAction(
+                    tuneID: tuneID, tunesWithScans: tunes, plan: nil, origin: origin, actions: actions))
             action()
         }
 

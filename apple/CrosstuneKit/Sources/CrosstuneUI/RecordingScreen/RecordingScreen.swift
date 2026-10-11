@@ -202,6 +202,7 @@ struct RecordingScreenContent: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.practiceGround) private var ground
     @Environment(\.standHasReading) private var standHasReading
+    @Environment(\.plan) private var plan
     /// The mode last used on this device, kept here; the screen's model is what the panel reads.
     @AppStorage(PracticeMode.storageKey) private var mode: PracticeMode = .loops
     @State private var peaks: LoadedPeaks?
@@ -545,6 +546,9 @@ struct RecordingScreenContent: View {
             file: rows.file, downloading: transfers?.isDownloading(rows.recording.id) == true)
     }
 
+    /// Whether the plan lets recordings play, which practice and trim need.
+    private var recordingsPlay: Bool { plan?.plan.recordingsPlay ?? true }
+
     private var trimBlocker: String? {
         let downloading = transfers?.isDownloading(rows.recording.id) == true
         return RecordingScreenText.trimBlocker(
@@ -558,7 +562,7 @@ struct RecordingScreenContent: View {
             ForEach(
                 RecordingMenuItem.items(
                     inTune: view.tuneID != nil, trimBlocker: trimBlocker,
-                    openOrigin: RecordingMenuItem.openOrigin(for: rows.recording)),
+                    openOrigin: RecordingMenuItem.openOrigin(for: rows.recording), trims: recordingsPlay),
                 id: \.self
             ) { item in
                 if item == .delete { Divider() }
@@ -595,6 +599,7 @@ struct RecordingScreenContent: View {
     /// Makes the screen's model once the commands it writes through are at hand, and carries on
     /// the visit, which showing again after the trim screen leaves as it was.
     private func openPractice() {
+        guard recordingsPlay else { return }
         if practice == nil, let commands {
             let model = PracticeModel(
                 player: player, recording: rows.recording, file: rows.file, writer: .commands(commands), mode: mode)
@@ -605,7 +610,7 @@ struct RecordingScreenContent: View {
     }
 
     private func openTrim() {
-        guard path.isEmpty, trimBlocker == nil, let commands else { return }
+        guard recordingsPlay, path.isEmpty, trimBlocker == nil, let commands else { return }
         let id = rows.recording.id
         let model = TrimModel(
             recording: rows.recording, file: rows.file,

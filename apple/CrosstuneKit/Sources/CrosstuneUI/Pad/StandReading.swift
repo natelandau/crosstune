@@ -11,6 +11,14 @@ struct StandReading: Equatable, Sendable {
 
     var isEmpty: Bool { scans.isEmpty && lyrics == nil }
 
+    /// The reading without its scans when the plan does not open them, nil when that leaves
+    /// nothing to read.
+    func withScans(opening opens: Bool) -> StandReading? {
+        guard !opens, !scans.isEmpty else { return self }
+        let rest = StandReading(tuneID: tuneID, scans: [], lyrics: lyrics)
+        return rest.isEmpty ? nil : rest
+    }
+
     /// The tune a playing list is on, else the loaded recording's or link's tune.
     nonisolated static func tuneID(_ db: Database, item: PlayerItem?, listTuneID: String?) throws -> String? {
         if let listTuneID { return listTuneID }

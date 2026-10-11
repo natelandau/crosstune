@@ -56,14 +56,20 @@ public enum ListRowPlay {
     /// What the button does for the entry, or nil when the tune has no recording or link to use.
     /// `loaded` says whether the player holds a recording, which keeps its stop control through
     /// the fetch the player starts; `downloading` says whether a fetch of a recording is under way.
+    /// With `recordingsPlay` false no recording plays, and a tune with only recordings is inert.
     public static func action(
         for entry: ListEntry, playFirst: String, loaded: (String) -> Bool = { _ in false },
-        downloading: (String) -> Bool = { _ in false }
+        downloading: (String) -> Bool = { _ in false }, recordingsPlay: Bool = true
     ) -> Action? {
         guard
             let source = rowSource(
-                userTune: entry.userTune, recordings: entry.recordings, links: entry.links, playFirst: playFirst)
-        else { return nil }
+                userTune: entry.userTune, recordings: entry.recordings, links: entry.links, playFirst: playFirst,
+                recordingsPlay: recordingsPlay)
+        else {
+            // Inert rather than nil, which would read as a tune with nothing at all.
+            return !recordingsPlay && hasLiveRecording(userTune: entry.userTune, recordings: entry.recordings)
+                ? .inert : nil
+        }
         switch source {
         case .recording(let recording):
             let control = RecordingText.control(

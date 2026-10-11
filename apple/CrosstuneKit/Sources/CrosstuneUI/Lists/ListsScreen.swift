@@ -22,6 +22,7 @@ public struct ListsScreen: View {
     @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
+    @Environment(\.plan) private var plan
     @State private var playable: LiveQuery<ListsPlayOffers.Snapshot?>?
     /// Whether this device plays Apple Music in full, nil until read.
     @State private var appleMusic: AppleMusicAccessState?
@@ -101,7 +102,8 @@ public struct ListsScreen: View {
         let fullTracks: Bool? = player?.appleMusic?.access == nil ? false : appleMusic.map { $0 == .fullTracks }
         return ListsPlayOffers.reports(
             playable?.value ?? nil, canStart: listPlayback != nil && !(recorders?.isCapturing ?? false),
-            fullTracks: fullTracks, online: session?.hasNetwork ?? true)
+            fullTracks: fullTracks, online: session?.hasNetwork ?? true,
+            recordingsPlay: plan?.plan.recordingsPlay ?? true)
     }
 
     private func start(_ summary: ListSummary, report: PlaylistReport, shuffled: Bool) {

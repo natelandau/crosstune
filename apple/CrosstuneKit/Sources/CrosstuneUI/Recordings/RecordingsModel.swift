@@ -223,6 +223,11 @@ public final class RecordingsModel {
         return storage
     }
 
+    /// The account's storage measured against the plan's quota when the plan is known.
+    public func storage(plan: Plan) -> StorageFigures? {
+        storage?.measured(against: plan)
+    }
+
     /// What a delete costs: a recording the server has never seen exists only on this device.
     nonisolated public static func deleteMessage(_ view: RecordingView) -> String {
         let notUploaded = view.file?.localState.isNotUploaded ?? false

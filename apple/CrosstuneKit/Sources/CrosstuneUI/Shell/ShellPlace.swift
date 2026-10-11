@@ -1,4 +1,5 @@
 import Observation
+import SwiftUI
 
 /// Where the musician is in one window: the destination, the list, and the tune on screen. The
 /// shell keeps it above the layout switch, and the iPhone and iPad shells read the same tab
@@ -30,13 +31,37 @@ final class ShellPlace {
 
     /// The page open in the iPad Settings tab's detail column.
     var settingsPage: SettingsPage?
+    /// The pages pushed on the iPhone Settings tab.
+    var settingsPath = NavigationPath() {
+        didSet {
+            // A page popped on iPhone must not come back in the iPad detail column when the
+            // window widens.
+            if settingsPath.isEmpty { settingsPage = nil }
+        }
+    }
 
     /// Shows `destination` in the iPhone and iPad tabs: its tab, with nothing open.
     func showTabRoot(_ destination: Destination) {
         tabTunes[destination] = nil
         if destination == .lists { tabList = nil }
-        if destination == .settings { settingsPage = nil }
+        if destination == .settings {
+            settingsPage = nil
+            settingsPath = NavigationPath()
+        }
         tab = destination
+    }
+
+    /// Opens `page` on the Settings tab, from the root, in both the iPhone and iPad shells.
+    func showSettingsPage(_ page: SettingsPage) {
+        showTabRoot(.settings)
+        settingsPage = page
+        settingsPath.append(page)
+    }
+
+    /// Rebuilds the iPhone Settings stack from the iPad detail column's page as the window
+    /// narrows, since the iPad shell never pushes or pops that stack.
+    func narrowed() {
+        settingsPath = settingsPage.map { NavigationPath([$0]) } ?? NavigationPath()
     }
 
     /// Shows `destination`'s row in the Mac sidebar. The Lists root and Settings, which the Mac

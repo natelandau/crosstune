@@ -54,15 +54,21 @@ public enum ScanAddChoice: String, Hashable, Sendable, Identifiable {
 }
 
 /// The Scans header's add control: a menu of the ways this device adds scans, or a plain
-/// button where there is only one.
+/// button where there is only one. With `onGate`, a plain button that calls it in place of
+/// any picker.
 struct ScanAddMenu: View {
     let isEnabled: Bool
     @Binding var choice: ScanAddChoice?
+    var onGate: (@MainActor () -> Void)?
 
     var body: some View {
         let choices = ScanAddChoice.onThisDevice
         Group {
-            if choices.count == 1, let only = choices.first {
+            if let onGate {
+                Button(action: onGate) {
+                    label
+                }
+            } else if choices.count == 1, let only = choices.first {
                 Button {
                     choice = only
                 } label: {

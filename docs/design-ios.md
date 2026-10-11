@@ -85,6 +85,8 @@ there where they differ. Regular-width iPad reads this page, then
   no segment chosen.
 - Settings: root led by account identity and sync state. Each category is
   a pushed page.
+- A link to a Settings group (See plan) switches to the Settings tab and
+  pushes the group's page over the root, so Back returns to the root.
 - Category row: slate SF Symbol, name, value summary where one exists. No
   colored tiles.
 - A set answered once (instruments, music services) is chosen in place on

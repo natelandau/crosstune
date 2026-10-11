@@ -89,6 +89,20 @@ public final class PlayerModel {
     /// from every window's record sheet; the audio player also stays silent during a take.
     @ObservationIgnored public var isCapturing: @MainActor () -> Bool = { false }
 
+    /// The open store's plan, which the app sets as each store opens. While it holds recordings
+    /// back, no recording loads, and one already loaded closes. Nil holds nothing back.
+    @ObservationIgnored public var plan: PlanModel? {
+        didSet {
+            guard plan !== oldValue else { return }
+            followPlan()
+        }
+    }
+    /// Follows the plan, so a trial that ends while a recording plays stops it then.
+    @ObservationIgnored private var followingPlan: Task<Void, Never>?
+
+    /// Whether the plan lets recordings play.
+    public var recordingsPlay: Bool { plan?.plan.recordingsPlay ?? true }
+
     /// How long a speed or pitch holds still before it is written.
     @ObservationIgnored var settleDelay: Duration = .seconds(1)
 
@@ -184,6 +198,19 @@ public final class PlayerModel {
 
     isolated deinit {
         following?.cancel()
+        followingPlan?.cancel()
+    }
+
+    private func followPlan() {
+        followingPlan?.cancel()
+        followingPlan = nil
+        guard let plan else { return }
+        followingPlan = Task { [weak self] in
+            for await plays in Observations({ @MainActor in plan.plan.recordingsPlay }) where !plays {
+                guard let self, self.item?.kind == .recording else { continue }
+                self.close()
+            }
+        }
     }
 
     /// What the activity log follows, read from the transport that plays the loaded item.
@@ -285,14 +312,15 @@ public final class PlayerModel {
     /// full, since its provider's player is what plays it; a recording and a link MusicKit plays
     /// play from the bar, and a tap on the one already loaded resumes it, carrying on its play.
     /// `origin` is where the play is logged as asked for, and `source` where it is reported as
-    /// started from. Refused, returning false, while a take is being recorded.
+    /// started from. Refused, returning false, while a take is being recorded, and for a
+    /// recording while the plan holds recordings back.
     @discardableResult
     public func play(_ item: PlayerItem, origin: PlayOrigin = .dock, source: ActionSource = .dock) -> Bool {
         load(item, origin: origin, playing: true, source: source)
     }
 
     private func load(_ item: PlayerItem, origin: PlayOrigin, playing: Bool, source: ActionSource) -> Bool {
-        guard !isCapturing() else { return false }
+        guard !isCapturing(), item.kind != .recording || recordingsPlay else { return false }
         opensUnplayed = false
         let same = holds(item.kind, id: item.id)
         activity.begin(
@@ -326,8 +354,9 @@ public final class PlayerModel {
     /// as it was, since the queue's controls live there. A track that cannot play here, which
     /// never falls back to an embed, closes the item and reaches
     /// ``PlayerQueue/playerCouldNotPlay()``. Refused, returning false, while a take is being
-    /// recorded. A song with `autoplay` false loads paused at its start. Each load is a new play,
-    /// logged as asked for from `origin` and reported as a list's track that `trigger` started.
+    /// recorded, and for a recording while the plan holds recordings back. A song with
+    /// `autoplay` false loads paused at its start. Each load is a new play, logged as asked for
+    /// from `origin` and reported as a list's track that `trigger` started.
     @discardableResult
     public func playQueued(
         _ item: PlayerItem, nowPlaying: NowPlaying, autoplay: Bool = true, origin: PlayOrigin = .dock,
@@ -342,7 +371,7 @@ public final class PlayerModel {
         _ item: PlayerItem, nowPlaying: NowPlaying, autoplay: Bool, origin: PlayOrigin, trigger: PlaybackTrigger,
         keepsPlay: Bool
     ) -> Bool {
-        guard !isCapturing() else { return false }
+        guard !isCapturing(), item.kind != .recording || recordingsPlay else { return false }
         opensUnplayed = false
         let same = holds(item.kind, id: item.id)
         activity.begin(
@@ -407,7 +436,8 @@ public final class PlayerModel {
     /// Shows a recording's screen in `window`, loading the recording first when it is not the
     /// one loaded: started, or paused at its start when `playing` is false. One loaded paused
     /// and closed before it ever plays is unloaded. Refused, returning false, while a take is
-    /// being recorded. `source` is where the screen was asked for.
+    /// being recorded or the plan holds recordings back. `source` is where the screen was asked
+    /// for.
     @discardableResult
     public func open(
         _ item: PlayerItem, in window: UUID? = nil, playing: Bool = true, source: ActionSource = .dock

@@ -29,19 +29,20 @@ private func userTune(recording: String? = nil, link: String? = nil) -> UserTune
 
 private func row(
     _ pin: UserTune = userTune(), recordings: [Recording] = [], links: [RecordingLink] = [],
-    playFirst: String = UserSettings.playFirstRecordings
+    playFirst: String = UserSettings.playFirstRecordings, recordingsPlay: Bool = true
 ) -> TuneSource? {
-    rowSource(userTune: pin, recordings: recordings, links: links, playFirst: playFirst)
+    rowSource(
+        userTune: pin, recordings: recordings, links: links, playFirst: playFirst, recordingsPlay: recordingsPlay)
 }
 
 private func choice(
     _ pin: UserTune = userTune(), recordings: [Recording] = [], playable: Set<String>? = nil,
     links: [RecordingLink] = [], playFirst: String = UserSettings.playFirstRecordings, fullTracks: Bool = true,
-    online: Bool = true
+    online: Bool = true, recordingsPlay: Bool = true
 ) -> PlaylistChoice {
     playlistSource(
         userTune: pin, recordings: recordings, playable: playable ?? Set(recordings.map(\.id)), links: links,
-        playFirst: playFirst, fullTracks: fullTracks, online: online)
+        playFirst: playFirst, fullTracks: fullTracks, online: online, recordingsPlay: recordingsPlay)
 }
 
 @Suite struct RowSourceTests {
@@ -138,6 +139,19 @@ private func choice(
 
     @Test func returnsNilWithNothingToPlay() {
         #expect(row() == nil)
+    }
+
+    @Test func aPinnedRecordingFallsBackToALinkWhileRecordingsCannotPlay() {
+        let l1 = link("l1", "youtube")
+        let result = row(userTune(recording: "r1"), recordings: [rec("r1")], links: [l1], recordingsPlay: false)
+        #expect(result == .link(l1))
+    }
+
+    @Test func recordingsAloneGiveNothingWhileRecordingsCannotPlay() {
+        #expect(row(recordings: [rec("r1")], recordingsPlay: false) == nil)
+        #expect(
+            row(recordings: [rec("r1")], links: [link("l1", "apple_music")], recordingsPlay: true)
+                == .recording(rec("r1")))
     }
 }
 
@@ -240,6 +254,20 @@ private func choice(
         #expect(
             choice(recordings: [rec("r1")], playable: [], links: links, fullTracks: false) == .skip(.needsSubscription))
         #expect(choice(recordings: [rec("r1")], playable: [], links: links, online: false) == .skip(.needsConnection))
+    }
+
+    @Test func aPinnedRecordingFallsBackToASongWhileRecordingsCannotPlay() {
+        let song = link("l1", "apple_music")
+        let result = choice(userTune(recording: "r1"), recordings: [rec("r1")], links: [song], recordingsPlay: false)
+        #expect(result == .play(.link(song)))
+    }
+
+    @Test func skipsATuneWithOnlyRecordingsForPremium() {
+        #expect(choice(recordings: [rec("r1")], recordingsPlay: false) == .skip(.premium))
+        // A link that cannot play in a list leaves the recordings as the reason.
+        #expect(
+            choice(recordings: [rec("r1")], links: [link("l1", "spotify")], recordingsPlay: false) == .skip(.premium))
+        #expect(choice(recordings: [rec("r1")], recordingsPlay: true) == .play(.recording(rec("r1"))))
     }
 
     @Test func aDeletedRecordingWithNoAudioHereCountsAsNothing() {

@@ -172,6 +172,25 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
         #expect(meta == ["0:42", "Storage full", "1.9 GB of 2 GB used"])
     }
 
+    @Test func saysAHeldTakeSyncsOnSubscribingInPlaceOfItsStatus() {
+        #expect(RecordingText.heldForPremium == "On this device only. Syncs when you subscribe.")
+        var waiting = file(.captured)
+        waiting.uploadAttempts = 2
+        let held = RecordingText.meta(recording(state: "pending_upload"), file: waiting, heldForPremium: true)
+        #expect(held == ["0:42", RecordingText.heldForPremium])
+        let row = RecordingRowContent(
+            recording: recording(state: "pending_upload"), file: file(.captured), tuneTitle: nil, heldForPremium: true,
+            recordingsPlay: false)
+        #expect(row.meta == "0:42 · \(RecordingText.heldForPremium)")
+    }
+
+    @Test func leavesTheHeldLabelOffOncePremium() {
+        let row = RecordingRowContent(
+            recording: recording(state: "pending_upload"), file: file(.captured), tuneTitle: nil, heldForPremium: true,
+            recordingsPlay: true)
+        #expect(!row.meta.contains(RecordingText.heldForPremium))
+    }
+
     @Test func saysOfflineForADownloadThatCannotStart() {
         #expect(RecordingText.meta(recording(), file: nil, offline: true) == ["0:42", SyncStatus.offlineLabel])
     }

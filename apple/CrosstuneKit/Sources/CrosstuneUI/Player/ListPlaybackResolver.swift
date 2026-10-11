@@ -7,11 +7,11 @@ extension ListPlayback {
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "list-playback")
 
     /// Resolves a tune of a list from `store` the way the list plays it: its pin, else the
-    /// play-first choice, within what this device can play now. Nil for a tune that is gone, no
-    /// longer in the list, or has nothing to play.
+    /// play-first choice, within what this device can play now and the plan lets play. Nil for a
+    /// tune that is gone, no longer in the list, or has nothing to play.
     public static func resolver(
         store: CrosstuneStore, access: any AppleMusicAccess, online: @escaping @MainActor () -> Bool,
-        playFirst: @escaping @MainActor () -> String
+        playFirst: @escaping @MainActor () -> String, recordingsPlay: @escaping @MainActor () -> Bool = { true }
     ) -> @MainActor (_ listID: String, _ tuneID: String) async -> Turn? {
         { listID, tuneID in
             let entry: ListEntry?
@@ -31,7 +31,8 @@ extension ListPlayback {
             let sources = entry.playlistEntry(online: isOnline)
             let choice = playlistSource(
                 userTune: sources.userTune, recordings: sources.recordings, playable: sources.playable,
-                links: sources.links, playFirst: playFirst(), fullTracks: fullTracks, online: isOnline)
+                links: sources.links, playFirst: playFirst(), fullTracks: fullTracks, online: isOnline,
+                recordingsPlay: recordingsPlay())
             let title = entry.tune.title
             switch choice {
             case .play(.recording(let recording)):

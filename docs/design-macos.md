@@ -111,6 +111,8 @@ differ. iPhone and iPad never take a rule from here.
 - Form: centered sheet, grouped form style, native controls (bordered
   buttons, segmented controls, pop-up buttons). Never the iOS capsule
   fills.
+- A sheet with no Cancel (a plan notice) still dismisses on Escape, while
+  Return stays on its default action.
 - Closed choice: native pop-up button, except colored values (key pill
   grid).
 - Closed choice where re-picking the shown value must register (time
@@ -121,6 +123,8 @@ differ. iPhone and iPad never take a rule from here.
   no segment chosen.
 - A segmented control keeps its chosen value visible in an inactive window.
 - Settings is a window of tabs, opening on the last tab shown.
+- A link to a Settings group (See plan) opens the Settings window on the
+  group's tab, and switches tabs when the window is already open.
 - Every Settings tab is one fixed size, and a long tab scrolls. Resizing
   per tab saves the frame during layout, which makes AppKit throw.
 - Nothing pushes inside a Settings tab, since a push puts Back among the

@@ -11,6 +11,24 @@ import Testing
     import WebKit
 #endif
 
+private func entitlement(source: String?, trialEndsAt: Date? = nil) -> Entitlement {
+    Entitlement(
+        id: "entitlement-1", createdAt: noon, premiumSource: source,
+        premiumExpiresAt: trialEndsAt.map(Timestamp.init), autoRenews: false,
+        trialEndsAt: trialEndsAt.map(Timestamp.init), premiumQuotaBytes: 10_000, freeQuotaBytes: 1_000)
+}
+
+@MainActor
+private func planModel(
+    _ row: Entitlement, clock: PlanClock = PlanClock(), root: TemporaryRoot = TemporaryRoot()
+) async throws -> PlanModel {
+    let store = try root.open()
+    try await store.write { writer in try row.upsert(writer.db) }
+    let model = PlanModel(store: store, now: { clock.now }, sleep: { try await clock.sleep($0) })
+    _ = try await poll { model.plan.kind != .unknown }
+    return model
+}
+
 private func link(_ provider: String, _ providerRef: String?, url: String = "https://example.com/x") -> RecordingLink {
     RecordingLink(id: "l1", tuneID: "t1", url: url, provider: provider, providerRef: providerRef)
 }
@@ -327,6 +345,85 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         player.play(PlayerItem(kind: .recording, id: "l1", title: "Kitchen Girl"))
         player.linkChanged(id: "l1", to: nil)
         #expect(player.holds(.recording, id: "l1"))
+    }
+
+    @Test func refusesARecordingWhileThePlanIsFree() async throws {
+        let root = TemporaryRoot()
+        let plan = try await planModel(entitlement(source: nil), root: root)
+        #expect(plan.plan.kind == .free)
+        let player = PlayerModel()
+        player.plan = plan
+
+        #expect(!player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")))
+        #expect(!player.open(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl"), playing: false))
+        #expect(!player.isLoaded)
+        // Links are not Premium's to hold.
+        #expect(player.play(try #require(PlayerItem.link(youtube()))))
+    }
+
+    /// The trial runs out while a recording plays, with no sync to say so.
+    @Test func stopsAndUnloadsAPlayingRecordingWhenThePlanTurnsFree() async throws {
+        let root = TemporaryRoot()
+        let clock = PlanClock()
+        let end = clock.now.addingTimeInterval(10)
+        let plan = try await planModel(entitlement(source: "trial", trialEndsAt: end), clock: clock, root: root)
+        #expect(plan.plan.kind == .premium)
+        let audio = FakeAudio()
+        let player = PlayerModel(audio: audio)
+        player.audioSource = { _ in
+            RecordingAudioFile(
+                url: URL(filePath: "/tmp/r1.m4a"), file: RecordingFile(id: "r1", localState: .downloaded))
+        }
+        player.plan = plan
+        let recording = Recording(id: "r1", tuneID: "t1", source: "microphone", addedAt: noon, state: "ready")
+        #expect(player.play(.recording(recording, tuneTitle: "Kitchen Girl")))
+        #expect(try await poll { audio.isPlaying })
+
+        clock.now = end
+        #expect(try await poll { !player.isLoaded })
+        #expect(!audio.isPlaying)
+        #expect(audio.loaded == nil)
+    }
+
+    /// Another account's store brings a fresh plan, unknown until its first pull, which holds
+    /// nothing back whatever the last account's plan was.
+    @Test func followsANewStoresPlanInPlaceOfTheLast() async throws {
+        let first = TemporaryRoot()
+        let store = try first.open()
+        try await store.write { writer in try entitlement(source: nil).upsert(writer.db) }
+        let free = PlanModel(store: store)
+        #expect(try await poll { free.plan.kind == .free })
+        let player = PlayerModel()
+        player.plan = free
+        #expect(!player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")))
+
+        let second = TemporaryRoot()
+        let unknown = PlanModel(store: try second.open("user_b"))
+        player.plan = unknown
+        #expect(try await poll { unknown.isLoaded })
+        #expect(unknown.plan.kind == .unknown)
+        #expect(player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")))
+
+        // The last store's plan turns free again; a follower left on it would close the recording.
+        try await store.write { writer in try entitlement(source: "comp").upsert(writer.db) }
+        #expect(try await poll { free.plan.kind == .premium })
+        try await store.write { writer in try entitlement(source: nil).upsert(writer.db) }
+        #expect(try await poll { free.plan.kind == .free })
+        #expect(player.holds(.recording, id: "r1"))
+    }
+
+    @Test func leavesALoadedLinkPlayingWhenThePlanTurnsFree() async throws {
+        let root = TemporaryRoot()
+        let clock = PlanClock()
+        let end = clock.now.addingTimeInterval(10)
+        let plan = try await planModel(entitlement(source: "trial", trialEndsAt: end), clock: clock, root: root)
+        let player = PlayerModel()
+        player.plan = plan
+        player.play(try #require(PlayerItem.link(youtube())))
+
+        clock.now = end
+        _ = try await poll { plan.plan.kind == .free }
+        #expect(player.holds(.link, id: "l1"))
     }
 }
 

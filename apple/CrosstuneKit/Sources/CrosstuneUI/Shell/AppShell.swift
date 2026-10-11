@@ -21,6 +21,11 @@ public struct AppShell: View {
     @Environment(\.analytics) private var analytics
     @Environment(\.scenePhase) private var scenePhase
     @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
+    @Environment(\.plan) private var plan
+    @Environment(\.noticeClaim) private var noticeClaim
+    #if os(macOS)
+        @Environment(\.openSettings) private var openSettings
+    #endif
     @State private var catalog: CatalogModel?
     @State private var recordings: RecordingsModel?
     @State private var counts: LiveQuery<CatalogCounts?>?
@@ -35,6 +40,12 @@ public struct AppShell: View {
     @State private var playerWindow = UUID()
     @State private var standVisit = StandVisit()
     @State private var recentTake = RecentTake()
+    /// Made again for each plan, which is made again for each store.
+    @State private var premium: PremiumPresenter?
+    /// Made again for each plan, as `premium` is.
+    @State private var notices: NoticeModel?
+    /// Stands in when the app shares no claim across windows, as in previews.
+    @State private var ownNoticeClaim = NoticeClaim()
     #if os(iOS)
         @Environment(\.horizontalSizeClass) private var sizeClass
         @SceneStorage("shell.tab") private var savedTab: Destination = .catalog
@@ -53,6 +64,11 @@ public struct AppShell: View {
 
     public var body: some View {
         layout
+            #if os(iOS)
+                .onChange(of: sizeClass) { _, next in
+                    if next == .compact { place.narrowed() }
+                }
+            #endif
             .modifier(TuneFormSheets())
             .modifier(ListSheets())
             .modifier(LinkSheets())
@@ -61,6 +77,8 @@ public struct AppShell: View {
                     take: $take, host: recorders, store: store, record: { startRecording(tuneID: $0, source: .tune) },
                     showRecordings: { recordingsShown += 1 })
             )
+            .modifier(PremiumSheets(presenter: premium, onSeePlan: seePlan))
+            .modifier(NoticeSheets(model: notices, onSeePlan: seePlan))
             .modifier(LyricsScreens())
             .modifier(ScanScreens())
             .modifier(RecordingTransfers(store: store, player: player))
@@ -78,6 +96,7 @@ public struct AppShell: View {
             .environment(\.openSheets, openSheets)
             .environment(\.recordCover, recordCover)
             .environment(\.selecting, selecting)
+            .environment(\.premium, premium)
             .environment(\.playerWindow, playerWindow)
             .environment(\.standVisit, standVisit)
             .environment(\.openCatalogRoot, MenuAction(id: ShellActionID.openCatalogRoot) { showCatalogRoot() })
@@ -107,8 +126,26 @@ public struct AppShell: View {
                 recordings = RecordingsModel(store: store, analytics: analytics)
                 counts = LiveQuery(store, initial: nil) { try CatalogCounts.fetch($0) }
             }
+            .onChange(of: plan.map(ObjectIdentifier.init), initial: true) {
+                premium = plan.map { PremiumPresenter(plan: $0, analytics: analytics) }
+                notices?.leave()
+                notices = plan.map {
+                    NoticeModel(store: store, plan: $0, analytics: analytics, claim: noticeClaim ?? ownNoticeClaim)
+                }
+                notices?.coverChanged(covered: isNoticeCovered, capturing: recorders.isCapturing)
+            }
+            .onChange(of: isShellCovered) {
+                notices?.coverChanged(covered: isNoticeCovered, capturing: recorders.isCapturing)
+            }
+            .onChange(of: recorders.isCapturing) {
+                notices?.coverChanged(covered: isNoticeCovered, capturing: recorders.isCapturing)
+            }
+            // A closed window hands a notice it showed, unseen, to another window.
+            .onDisappear { notices?.leave() }
+            .onAppear { notices?.rejoin() }
             .onChange(of: scenePhase) {
                 if scenePhase == .background { catalog?.leftForeground() }
+                notices?.coverChanged(covered: isNoticeCovered, capturing: recorders.isCapturing)
             }
             #if os(macOS)
                 .onAppQuit {
@@ -135,6 +172,22 @@ public struct AppShell: View {
         #else
             nil
         #endif
+    }
+
+    /// Whether a sheet, dialog, or selection is over the shell, which a plan notice waits out.
+    private var isShellCovered: Bool {
+        openSheets.isCovered || selecting.isCovered
+    }
+
+    private var isNoticeCovered: Bool {
+        Self.noticeCovered(shellCovered: isShellCovered, phase: scenePhase)
+    }
+
+    /// Whether a plan notice waits: while something covers the shell, or while the window is not
+    /// the active one, so a notice never lands in a background or minimized window that another
+    /// window could show it in.
+    static func noticeCovered(shellCovered: Bool, phase: ScenePhase) -> Bool {
+        shellCovered || phase != .active
     }
 
     private var canRecord: Bool {
@@ -169,11 +222,13 @@ public struct AppShell: View {
         startRecording(tuneID: nil, source: .dock)
     }
 
-    /// Opens the record sheet, unless another window's sheet has the microphone. The sheet
-    /// takes the recorder only once it shows, so a presentation refused while another sheet
-    /// is up holds nothing.
+    /// Opens the record sheet, unless another window's sheet has the microphone or the plan
+    /// holds recordings back, which shows the Premium sheet instead. The sheet takes the
+    /// recorder only once it shows, so a presentation refused while another sheet is up holds
+    /// nothing.
     private func startRecording(tuneID: String?, source: ActionSource) {
         guard RecordTake.mayReplace(take), recorders.isFree(for: store) else { return }
+        guard premium?.gate(.recordings, from: .record) ?? true else { return }
         // Playback would be recorded along with the instrument.
         PlayerBar.closePlayer(player, listPlayback)
         let model = RecordSheetModel(
@@ -182,6 +237,18 @@ public struct AppShell: View {
         take = RecordTake(model: model)
         #if os(iOS)
             Task { await model.loadTuneTitle(from: store) }
+        #endif
+    }
+
+    /// Closes the Premium sheet, if it is up, and opens the Plan group: the Settings window's
+    /// Account tab on the Mac, Settings › Account elsewhere.
+    private func seePlan() {
+        premium?.presented = nil
+        #if os(macOS)
+            MacSettingsTabs.select(.account)
+            openSettings()
+        #else
+            place.showSettingsPage(.account)
         #endif
     }
 

@@ -32,14 +32,15 @@ public struct PlaylistEntry: Sendable {
 }
 
 /// Sorts a list's tunes into those a playlist plays and those it skips, by reason.
+/// `recordingsPlay` false plays no recording, as on a free plan.
 public func playlistReport(
-    entries: [PlaylistEntry], playFirst: String, fullTracks: Bool, online: Bool
+    entries: [PlaylistEntry], playFirst: String, fullTracks: Bool, online: Bool, recordingsPlay: Bool = true
 ) -> PlaylistReport {
     var report = PlaylistReport(playable: [], skipped: [:], total: entries.count)
     for entry in entries {
         let choice = playlistSource(
             userTune: entry.userTune, recordings: entry.recordings, playable: entry.playable, links: entry.links,
-            playFirst: playFirst, fullTracks: fullTracks, online: online)
+            playFirst: playFirst, fullTracks: fullTracks, online: online, recordingsPlay: recordingsPlay)
         switch choice {
         case .play: report.playable.append(entry.userTune.tuneID)
         case .skip(let reason): report.skipped[reason, default: []].append(entry.userTune.tuneID)

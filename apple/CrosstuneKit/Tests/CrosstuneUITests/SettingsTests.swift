@@ -21,6 +21,7 @@ private struct SilentSyncAPI: SyncAPI {
     func push(_ changes: [Change]) async throws -> [PushResult] { [] }
     func pull(since: Int64) async throws -> PullPage { PullPage(rows: [], nextSince: since, hasMore: false) }
     func events(since: Int64) async throws -> EventsPage { EventsPage(rows: [], nextSince: since, hasMore: false) }
+    func recordNotice(_ notice: PlanNotice) async throws {}
     func storage() async throws -> StorageFigures { StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0) }
     func resolveLink(url: String) async throws -> ResolvedLink { throw URLError(.badURL) }
     func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
@@ -188,6 +189,23 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         #expect(model.instrumentSummary == "Not set")
         #expect(model.audioQuality == "standard")
         #expect(model.storage == nil)
+    }
+
+    @Test func takesTheQuotaFromAKnownPlan() async throws {
+        let store = try await SampleCatalog.makeStore()
+        let model = try await loadedModel(store)
+        let free = Plan(kind: .free, quotaBytes: 50_000_000, scansOnly: true)
+        #expect(model.storageQuota(plan: free) == 50_000_000)
+        #expect(model.storage(plan: free)?.quotaBytes == 50_000_000)
+        #expect(model.storage(plan: free)?.usedBytes == SampleCatalog.storage.usedBytes)
+        #expect(SampleCatalog.storage.quotaBytes != 50_000_000)
+    }
+
+    @Test func fallsBackToTheMetaQuotaWhileThePlanIsUnknown() async throws {
+        let store = try await SampleCatalog.makeStore()
+        let model = try await loadedModel(store)
+        #expect(model.storageQuota(plan: .unknown) == Int64(SampleCatalog.storage.quotaBytes))
+        #expect(model.storage(plan: .unknown) == SampleCatalog.storage)
     }
 
     @Test func hidesStorageUntilTheServerHasNamedAQuota() async throws {
@@ -509,7 +527,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     @Test func everySettingsSectionHasOneHomeOnPhone() {
         // The two cards, then what each category's page declares.
         var homes: [SettingsScreen.Sections] = SettingsCategory.allCases.flatMap { [$0.sections, $0.pageRows] }
-        homes += [[.account], [.stats]]
+        homes += [[.plan, .account], [.stats]]
         var seen: SettingsScreen.Sections = []
         for home in homes {
             #expect(seen.isDisjoint(with: home), "\(home) repeats a section")
@@ -589,6 +607,10 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
             #expect(MacSettingsTabs.Pane.importExport.systemImage == "arrow.up.arrow.down")
             #expect(MacSettingsTabs.Pane.importExport.sections == [.importExport])
             #expect(MacSettingsTabs.Pane(rawValue: "import-export") == .importExport)
+        }
+
+        @Test func theAccountTabLeadsWithThePlan() {
+            #expect(MacSettingsTabs.Pane.account.sections == [.plan, .account, .stats])
         }
 
         @Test func macGeneralTabIsUnchanged() {

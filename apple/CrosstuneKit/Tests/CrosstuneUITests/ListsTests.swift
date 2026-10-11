@@ -602,6 +602,18 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
                 == .play(PlayerItem.link(pinned)!))
     }
 
+    @Test func leavesATuneWithOnlyRecordingsInertWhileRecordingsCannotPlay() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let joy = try await entry("Soldier's Joy", in: store)
+        let recordingsOnly = ListEntry(
+            item: joy.item, tune: joy.tune, userTune: joy.userTune, recordings: joy.recordings, files: joy.files,
+            links: [])
+        #expect(!recordingsOnly.recordings.isEmpty)
+        #expect(
+            ListRowPlay.action(for: recordingsOnly, playFirst: UserSettings.playFirstRecordings, recordingsPlay: false)
+                == .inert)
+    }
+
     @Test func playsTheFirstRecordingByDefault() async throws {
         let store = try await SampleCatalog.makeStore(root: root.url)
         let joy = try await entry("Soldier's Joy", in: store)
@@ -914,6 +926,15 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
             playable: [], skipped: [.recordingsNotHere: ["e"], .needsConnection: ["d"], .nothing: ["a"]], total: 3)
         #expect(WhatPlaysText.groups(report).map(\.reason) == [.nothing, .needsConnection, .recordingsNotHere])
         #expect(WhatPlaysText.groupTitle(.recordingsNotHere) == "Recordings that aren't on this device yet")
+    }
+
+    @Test func listsTunesSkippedForPremiumAfterTheOthers() {
+        let report = PlaylistReport(
+            playable: [], skipped: [.premium: ["f"], .recordingsNotHere: ["e"], .nothing: ["a"]], total: 3)
+        #expect(WhatPlaysText.groups(report).map(\.reason) == [.nothing, .recordingsNotHere, .premium])
+        #expect(
+            WhatPlaysText.groupTitle(.premium)
+                == "Recordings need Premium, so tunes with only recordings were skipped.")
     }
 }
 

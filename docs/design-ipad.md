@@ -77,7 +77,8 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 - Detail placeholder: "+" on touch, "⌘N" with a hardware keyboard.
 - Settings: root in the content column, page in the detail column. A root
   row, account card, or stats card replaces the detail page, never pushes
-  over the root.
+  over the root. A link to a Settings group (See plan) replaces the
+  detail page with that group's page.
 - A grid that scrolls sideways on iPhone spreads to fit in the split.
 
 ## Rows and selection

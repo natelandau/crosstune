@@ -23,6 +23,8 @@ struct RecordingItem: View {
     /// True where a tap opens the recording's practice view, paused, rather than playing or
     /// stopping it from the row.
     var opensScreen = false
+    /// Where a free plan's tap on the row is reported as coming from.
+    var premiumEntry: PremiumEntry = .recordingRow
     /// Retries a stuck upload or transcode; the row's tap and its Retry both land here.
     let onRetry: (RecordingText.Retry) -> Void
 
@@ -31,6 +33,8 @@ struct RecordingItem: View {
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.playerWindow) private var window
+    @Environment(\.plan) private var plan
+    @Environment(\.premium) private var premium
 
     var body: some View {
         let id = view.id
@@ -39,7 +43,9 @@ struct RecordingItem: View {
             recording: view.recording, file: view.file, tuneTitle: view.tuneTitle, tuneNamedAbove: tuneNamedAbove,
             loaded: player?.holds(.recording, id: id) ?? false, downloading: transfers?.isDownloading(id) ?? false,
             downloadFailed: transfers?.failedDownloads.contains(id) ?? false, offline: offline,
-            playBlocked: recorders?.isCapturing ?? false, storage: storage, sort: sort, opensScreen: opensScreen)
+            playBlocked: recorders?.isCapturing ?? false, storage: storage, sort: sort, opensScreen: opensScreen,
+            heldForPremium: plan?.heldForPremium.contains(id) ?? false,
+            recordingsPlay: plan?.plan.recordingsPlay ?? true)
         MediaRow(
             recording: row,
             sourceLine: MediaRow.SourceLine(recording: view.recording),
@@ -54,9 +60,15 @@ struct RecordingItem: View {
                 // name; Offline in the meta line says why.
                 case .download: if !offline { Task { await transfers?.download(id) } }
                 case .retry(let kind): onRetry(kind)
+                case .premium: offerPremium(premium)
                 }
             },
             onRetry: onRetry)
+    }
+
+    /// Shows the Premium sheet for a tap the plan holds back.
+    func offerPremium(_ premium: PremiumPresenter?) {
+        _ = premium?.gate(.recordings, from: premiumEntry)
     }
 }
 

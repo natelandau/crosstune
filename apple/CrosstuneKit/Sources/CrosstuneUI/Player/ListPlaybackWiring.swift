@@ -29,7 +29,8 @@ struct ListPlaybackWiring: ViewModifier {
             playback?.resolve = ListPlayback.resolver(
                 store: store, access: player.appleMusic?.access ?? NoAppleMusic(),
                 online: { session?.hasNetwork ?? true },
-                playFirst: { choice.value ?? UserSettings.defaultPlayFirst })
+                playFirst: { choice.value ?? UserSettings.defaultPlayFirst },
+                recordingsPlay: { [player] in player.recordingsPlay })
         }
     }
 }
