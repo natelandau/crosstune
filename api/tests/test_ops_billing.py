@@ -298,6 +298,54 @@ def test_the_e2e_database_is_refused() -> None:
         billing.check_target(e2e, yes=True)
 
 
+E2E_SETTINGS = Settings.model_construct(
+    environment="development", database_url="postgresql+asyncpg://u@localhost/crosstune_e2e"
+)
+
+
+def test_e2e_flag_admits_only_the_e2e_database() -> None:
+    billing.check_target(E2E_SETTINGS, yes=False, e2e=True)
+    development = Settings.model_construct(
+        environment="development", database_url="postgresql+asyncpg://u@localhost/crosstune"
+    )
+    with pytest.raises(billing.BillingCommandError, match="--e2e"):
+        billing.check_target(development, yes=False, e2e=True)
+
+
+@pytest.mark.parametrize("command", ["trial", "comp"])
+def test_main_refuses_the_e2e_database_without_the_flag(
+    command: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(billing, "load_settings", lambda: E2E_SETTINGS)
+    argv = ["trial", "user_x", "--ended"] if command == "trial" else ["comp", "user_x", "--revoke"]
+    assert billing.main(argv) == 1
+    assert "e2e" in capsys.readouterr().err
+
+
+async def test_main_with_the_e2e_flag_ends_a_trial_on_the_e2e_database(
+    committed_settings: Settings, verify_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(Settings, "e2e_database", property(lambda _self: True))
+    user = await get_or_create_user(
+        verify_session, "user_main", "m@example.com", committed_settings
+    )
+    await verify_session.commit()
+
+    code = await anyio.to_thread.run_sync(billing.main, ["trial", "user_main", "--ended", "--e2e"])
+
+    assert code == 0
+    assert (await _entitlement(verify_session, user)).premium_source is None
+
+
+async def test_main_refuses_the_e2e_flag_on_another_database(
+    committed_settings: Settings, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert not committed_settings.e2e_database
+    code = await anyio.to_thread.run_sync(billing.main, ["trial", "user_main", "--ended", "--e2e"])
+    assert code == 1
+    assert "--e2e" in capsys.readouterr().err
+
+
 def test_comp_needs_a_reason_unless_revoking() -> None:
     with pytest.raises(SystemExit):
         billing.main(["comp", "user_x"])

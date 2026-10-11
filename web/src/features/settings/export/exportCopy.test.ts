@@ -1,15 +1,16 @@
 import { expect, test } from 'vitest'
-import { KEEP_OFFLINE_LABEL } from '../recordingCopy'
-import { exportMissingNote, exportProgress } from './exportCopy'
+import { exportNeedsConnection, exportProgress } from './exportCopy'
 
-const rest = `Only those are exported. To include every recording, turn on ${KEEP_OFFLINE_LABEL} and wait for the downloads to finish.`
-
-test('the missing note agrees with a total of one', () => {
-  expect(exportMissingNote(0, 1)).toBe(`0 of 1 recording is on this device. ${rest}`)
+test('the connection note agrees with one missing file', () => {
+  expect(exportNeedsConnection(1)).toBe(
+    'Connect to the internet to export 1 file that is not on this device.',
+  )
 })
 
-test('the missing note agrees with any other total', () => {
-  expect(exportMissingNote(12, 30)).toBe(`12 of 30 recordings are on this device. ${rest}`)
+test('the connection note agrees with any other count', () => {
+  expect(exportNeedsConnection(12)).toBe(
+    'Connect to the internet to export 12 files that are not on this device.',
+  )
 })
 
 test('progress reads correctly for any total', () => {

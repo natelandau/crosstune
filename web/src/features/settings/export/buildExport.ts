@@ -15,8 +15,8 @@ import { tuningDisplay } from '../../../domain/instruments'
 import { csvDocument } from './csv'
 import { NameAllocator } from './safeName'
 
-/** A recording whose audio this device holds in full. */
-export interface LocalAudio {
+/** A recording whose audio the export holds, from this device or fetched for the export. */
+export interface ExportAudio {
   recordingId: string
   contentType: string | null
 }
@@ -30,10 +30,10 @@ export interface ExportInput {
   listItems: readonly LocalListItem[]
   links: readonly LocalRecordingLink[]
   recordings: readonly LocalRecording[]
-  localAudio: readonly LocalAudio[]
+  audio: readonly ExportAudio[]
   scans: readonly LocalScan[]
-  /** Ids of the scans whose image this device holds. */
-  localScans: ReadonlySet<string>
+  /** Ids of the scans whose image the export holds, from this device or fetched for it. */
+  scanIds: ReadonlySet<string>
 }
 
 export interface ExportPlan {
@@ -151,21 +151,57 @@ interface ExportedTune {
   userTune: LocalUserTune
 }
 
+/** Every user-tune not deleted whose tune is present, in storage order. */
+function liveTunes(input: Pick<ExportInput, 'tunes' | 'userTunes'>): ExportedTune[] {
+  const tunesById = new Map(input.tunes.map((tune) => [tune.id, tune]))
+  return input.userTunes.flatMap((userTune) => {
+    const tune = userTune.deleted_at ? null : liveTune(tunesById.get(userTune.tune_id))
+    return tune ? [{ tune, userTune }] : []
+  })
+}
+
+/** What the export holds before any of it is named or ordered. */
+export type ExportSelectionInput = Pick<
+  ExportInput,
+  'tunes' | 'userTunes' | 'recordings' | 'audio' | 'scans' | 'scanIds'
+>
+
+/**
+ * The recordings and scans an export holds, in no particular order: each live recording whose
+ * audio it has, filed or not, and each live scan whose image it has on a tune it exports.
+ */
+export function selectExportFiles(input: ExportSelectionInput): {
+  recordings: LocalRecording[]
+  scans: LocalScan[]
+} {
+  return selectFiles(input, liveTunes(input))
+}
+
+function selectFiles(
+  input: ExportSelectionInput,
+  tunes: readonly ExportedTune[],
+): { recordings: LocalRecording[]; scans: LocalScan[] } {
+  const withAudio = new Set(input.audio.map((audio) => audio.recordingId))
+  const tuneIds = new Set(tunes.map(({ tune }) => tune.id))
+  return {
+    recordings: input.recordings.filter(
+      (recording) => !recording.deleted_at && withAudio.has(recording.id),
+    ),
+    scans: input.scans.filter(
+      (scan) => !scan.deleted_at && input.scanIds.has(scan.id) && tuneIds.has(scan.tune_id),
+    ),
+  }
+}
+
 /** Every user-tune not deleted whose tune is present, in the CSV's order. */
 function exportedTunes(input: ExportInput): ExportedTune[] {
-  const tunesById = new Map(input.tunes.map((tune) => [tune.id, tune]))
   const collator = new Intl.Collator('en', { sensitivity: 'base', numeric: true })
-  return input.userTunes
-    .flatMap((userTune) => {
-      const tune = userTune.deleted_at ? null : liveTune(tunesById.get(userTune.tune_id))
-      return tune ? [{ tune, userTune }] : []
-    })
-    .sort(
-      (a, b) =>
-        collator.compare(a.tune.title, b.tune.title) ||
-        time(a.userTune.created_at) - time(b.userTune.created_at) ||
-        byCodeUnits(a.userTune.id, b.userTune.id),
-    )
+  return liveTunes(input).sort(
+    (a, b) =>
+      collator.compare(a.tune.title, b.tune.title) ||
+      time(a.userTune.created_at) - time(b.userTune.created_at) ||
+      byCodeUnits(a.userTune.id, b.userTune.id),
+  )
 }
 
 /**
@@ -176,14 +212,13 @@ function exportedTunes(input: ExportInput): ExportedTune[] {
 function planAudio(
   input: ExportInput,
   tunes: readonly ExportedTune[],
+  recordings: readonly LocalRecording[],
   dateOf: (timestamp: string) => string,
 ): { audio: { recordingId: string; path: string }[]; pathsByTune: Map<string, string[]> } {
-  const audioById = new Map(input.localAudio.map((audio) => [audio.recordingId, audio]))
+  const audioById = new Map(input.audio.map((audio) => [audio.recordingId, audio]))
   const filedTuneIds = new Set(tunes.map(({ tune }) => tune.id))
-  const groups = groupBy(
-    input.recordings.filter((recording) => !recording.deleted_at && audioById.has(recording.id)),
-    (recording) =>
-      recording.tune_id && filedTuneIds.has(recording.tune_id) ? recording.tune_id : null,
+  const groups = groupBy(recordings, (recording) =>
+    recording.tune_id && filedTuneIds.has(recording.tune_id) ? recording.tune_id : null,
   )
 
   const audio: { recordingId: string; path: string }[] = []
@@ -220,13 +255,10 @@ function planAudio(
 
 /** Archive paths for each exported scan: a folder per tune, scans numbered in reading order. */
 function planScans(
-  input: ExportInput,
   tunes: readonly ExportedTune[],
+  selected: readonly LocalScan[],
 ): { scanId: string; path: string }[] {
-  const scansByTune = groupBy(
-    input.scans.filter((scan) => !scan.deleted_at && input.localScans.has(scan.id)),
-    (scan) => scan.tune_id,
-  )
+  const scansByTune = groupBy(selected, (scan) => scan.tune_id)
   const folders = new NameAllocator()
   const scans: { scanId: string; path: string }[] = []
   const seen = new Set<string>()
@@ -277,8 +309,9 @@ export function buildExport(input: ExportInput): ExportPlan {
   const dateOf = (timestamp: string) => format(new Date(time(timestamp)))
 
   const tunes = exportedTunes(input)
-  const { audio, pathsByTune } = planAudio(input, tunes, dateOf)
-  const scans = planScans(input, tunes)
+  const selected = selectFiles(input, tunes)
+  const { audio, pathsByTune } = planAudio(input, tunes, selected.recordings, dateOf)
+  const scans = planScans(tunes, selected.scans)
   const linksByTune = groupBy(
     input.links.filter((link) => !link.deleted_at),
     (link) => link.tune_id,

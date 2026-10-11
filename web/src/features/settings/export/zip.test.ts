@@ -243,3 +243,44 @@ test('stops before the next entry when aborted between entries', async () => {
   ).rejects.toThrow('cancelled')
   expect(read).not.toHaveBeenCalled()
 })
+
+test('reads a deferred entry only when the writer reaches it', async () => {
+  const order: string[] = []
+  const zip = await buildZip(
+    [
+      { path: 'a', data: new Blob(['a']) },
+      {
+        path: 'b',
+        data: async () => {
+          order.push('read b')
+          return new Blob(['bb'])
+        },
+      },
+    ],
+    { modified: new Date(), onEntry: (done) => order.push(`entry ${done}`) },
+  )
+  expect(order).toEqual(['entry 1', 'read b', 'entry 2'])
+  const files = unzipSync(new Uint8Array(await zip.arrayBuffer()))
+  expect(files['b']).toEqual(new Uint8Array([98, 98]))
+})
+
+test('fails with a deferred entry that cannot be read', async () => {
+  await expect(
+    buildZip([{ path: 'b', data: () => Promise.reject(new Error('gone')) }], {
+      modified: new Date(),
+    }),
+  ).rejects.toThrow('gone')
+})
+
+test('rejects with the abort reason while a deferred entry is still being read', async () => {
+  const controller = new AbortController()
+  const read = vi.fn((_signal?: AbortSignal) => new Promise<Blob>(() => {}))
+  const building = buildZip([{ path: 'b', data: read }], {
+    modified: new Date(),
+    signal: controller.signal,
+  })
+  await expect.poll(() => read.mock.calls.length).toBe(1)
+  expect(read.mock.calls[0]![0]).toBe(controller.signal)
+  controller.abort(new Error('cancelled'))
+  await expect(building).rejects.toThrow('cancelled')
+})
