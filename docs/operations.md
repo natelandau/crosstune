@@ -203,7 +203,9 @@ and fails instead in CI, where the `API` workflow always starts it.
   lints, type checks, tests, builds, and checks the generated types.
   `Site` lints, type checks, tests the built pages, and validates the
   Worker config with a dry run. `Analytics` checks the tracking plan and
-  tests its checker.
+  tests its checker. On a push to `main`, it then syncs the plan to the
+  PostHog event definitions, with the key from the `posthog` GitHub
+  environment.
   All four start on every PR, skip their jobs when it touches nothing
   they cover, and are required checks. A skipped job passes a required
   check.

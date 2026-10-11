@@ -69,8 +69,10 @@ two audiences.
    the plan differ in either direction. CI reruns each one when the plan
    changes, so a new client's workflow lists
    `analytics/tracking-plan.json` in its path filters.
-5. Run `just analytics::sync`. It pushes the description and tags of each
-   event to the PostHog event definitions.
+5. Merge. Each push to `main` that starts the `Analytics` workflow runs
+   `just analytics::sync`, which pushes the description and tags of each
+   event to the PostHog event definitions. Every change to the plan starts
+   it. Run the sync by hand to sync before a merge.
 
 Run `just analytics::audit` to compare PostHog with the plan. It lists
 the events that PostHog received in the last 30 days but the plan does
