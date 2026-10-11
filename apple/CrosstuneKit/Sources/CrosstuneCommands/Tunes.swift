@@ -265,6 +265,7 @@ extension StoreWriter {
             try tombstoneLoops(recordingID: recording.id, at: time, enqueueDelete: false)
             try RecordingFile.deleteOne(db, key: recording.id)
         }
+        try releasePremiumHolds(recordings.map(\.id))
     }
 }
 

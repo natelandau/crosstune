@@ -69,6 +69,14 @@ public struct LiveSyncAPI: SyncAPI {
         }
     }
 
+    public func recordNotice(_ notice: PlanNotice) async throws {
+        switch try await client.recordNoticeV1MeNoticesPost(.init(body: .json(.init(notice: notice.rawValue)))) {
+        case .noContent: return
+        case .unprocessableContent: throw APIStatusError(status: 422)
+        case .undocumented(let status, _): throw APIStatusError(status: status)
+        }
+    }
+
     public func resolveLink(url: String) async throws -> ResolvedLink {
         switch try await client.resolveV1LinksResolvePost(.init(body: .json(.init(url: url)))) {
         case .ok(let response):

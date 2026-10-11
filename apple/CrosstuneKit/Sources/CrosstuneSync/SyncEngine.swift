@@ -31,6 +31,8 @@ public final class SyncEngine {
     private let isOffline: @MainActor () -> Bool
     private let batchSize: Int
     private let analytics: AnalyticsClient
+    /// The clock the plan is judged by.
+    private let now: @MainActor () -> Date
     private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "sync")
 
     private let sleep: Sleeper
@@ -74,28 +76,30 @@ public final class SyncEngine {
     }
     @ObservationIgnored private lazy var transfers = Transfers(
         store: store, api: api,
-        checkStopped: transferStopCheck,
+        checkStopped: transferStopCheck, now: now,
         downloadRetries: downloadRetries, analytics: analytics)
     @ObservationIgnored private lazy var scans = ScanTransfers(
         store: store, api: api,
-        checkStopped: transferStopCheck)
+        checkStopped: transferStopCheck, now: now)
 
     /// - Parameters:
     ///   - isOffline: Whether the device has no connection. A run while offline ends as
     ///     `offline` without a request.
     ///   - sleep: Waits out a retry's backoff.
     ///   - analytics: Where a sync that fails, and an upload that is refused, are reported.
+    ///   - now: The clock the account's plan is judged by.
     public convenience init(
         store: CrosstuneStore,
         api: any SyncAPI,
         isOffline: @escaping @MainActor () -> Bool,
         batchSize: Int = SyncEngine.pushBatchSize,
         sleep: @escaping Sleeper = { try await Task.sleep(for: $0) },
-        analytics: AnalyticsClient = .noop
+        analytics: AnalyticsClient = .noop,
+        now: @escaping @MainActor () -> Date = Date.init
     ) {
         self.init(
             store: store, api: api, isOffline: isOffline, batchSize: batchSize, sleep: sleep, transferPass: nil,
-            analytics: analytics)
+            analytics: analytics, now: now)
     }
 
     /// - Parameter transferPass: One run of the transfer loop, in place of the upload and
@@ -107,10 +111,12 @@ public final class SyncEngine {
         batchSize: Int,
         sleep: @escaping Sleeper,
         transferPass: (@MainActor () async throws -> Void)?,
-        analytics: AnalyticsClient = .noop
+        analytics: AnalyticsClient = .noop,
+        now: @escaping @MainActor () -> Date = Date.init
     ) {
         self.store = store
         self.analytics = analytics
+        self.now = now
         self.api = api
         self.isOffline = isOffline
         self.batchSize = batchSize
@@ -191,6 +197,24 @@ public final class SyncEngine {
             return await store.localAudio(recordingID: recordingID)
         }
         return try? await fetchOne(recordingID)
+    }
+
+    /// Fetches a ready recording's playback file into `destination` and nowhere else: the store
+    /// never learns of it, so a file the plan keeps off this device stays off it.
+    public func fetchRecordingCopy(_ recordingID: String, to destination: URL) async throws {
+        try checkStopped()
+        let signed = try await api.downloadURL(recordingID: recordingID)
+        try checkStopped()
+        try await api.getObject(signed.url, to: destination)
+    }
+
+    /// Fetches a ready scan's image into `destination` and nowhere else, as
+    /// ``fetchRecordingCopy(_:to:)`` does for a recording.
+    public func fetchScanCopy(_ scanID: String, to destination: URL) async throws {
+        try checkStopped()
+        let signed = try await api.scanDownload(scanID: scanID)
+        try checkStopped()
+        try await api.getObject(signed.url, to: destination)
     }
 
     /// The recording's current waveform. Fetched from the server first when this device's copy
@@ -300,6 +324,7 @@ public final class SyncEngine {
 
     private func syncOnce() async throws {
         try await push()
+        try await postSeenNotices()
         try await pull()
         var storedFigures = false
         do {
@@ -331,21 +356,49 @@ public final class SyncEngine {
     }
 
     private func push() async throws {
+        let premium = try await store.plan(at: now()).recordingsPlay
+        // Takes the server held during this push. Read past, so a device that judges Premium
+        // before the server agrees neither resends them nor lets them starve the edits behind.
+        var heldThisPush: Set<String> = []
         while true {
-            let batch = try await store.pendingChanges(limit: batchSize)
+            let batch = try await store.pendingChanges(limit: batchSize, premium: premium, skipping: heldThisPush)
             if batch.isEmpty { return }
             try checkStopped()
             let results = try await api.push(batch.map(Change.init))
-            let (invalid, settled) = try await store.write { writer in
+            let (invalid, settled, held) = try await store.write { writer in
                 try writer.applyPushResults(sent: batch, results: results)
             }
+            heldThisPush.formUnion(held)
             for change in invalid {
                 logger.warning(
                     "Change rejected: \(change.table.rawValue, privacy: .public) \(change.id, privacy: .public) \(change.reason ?? "", privacy: .public)"
                 )
             }
-            // A batch that settles nothing would send the same entries forever.
-            if settled == 0 || batch.count < batchSize { return }
+            // A batch that settles nothing and holds nothing would send the same entries forever.
+            if (settled == 0 && held.isEmpty) || batch.count < batchSize { return }
+        }
+    }
+
+    /// Tells the server about each notice dismissed here that the stored row does not carry yet.
+    /// A failed post stays seen on this device and is sent again on the next run, unless the
+    /// server refused the request itself, which a resend would only draw again. Only an auth
+    /// failure fails this run, as it would the pull.
+    private func postSeenNotices() async throws {
+        let unposted = try await store.write { writer in try writer.unpostedNotices() }
+        for notice in unposted.sorted(by: { $0.rawValue < $1.rawValue }) {
+            try checkStopped()
+            do {
+                try await api.recordNotice(notice)
+            } catch  where endsThePass(error) {
+                throw error
+            } catch {
+                if let refusal = underlying(error) as? APIStatusError, refusesTheRequestItself(refusal) {
+                    try await store.write { writer in try writer.markNoticeRefused(notice) }
+                }
+                logger.warning(
+                    "Notice post failed: \(notice.rawValue, privacy: .public) \(logDescription(of: error), privacy: .public)"
+                )
+            }
         }
     }
 

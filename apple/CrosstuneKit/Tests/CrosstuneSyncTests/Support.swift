@@ -67,6 +67,19 @@ func serverTune(id: String, title: String = "Server Tune", serverSeq: Int64) -> 
     ]
 }
 
+/// The account's entitlements row as the pull sends it: a trial ending a day after noon.
+func serverEntitlement(serverSeq: Int64, recordingNoticeSeen: Bool = false) -> JSONObject {
+    [
+        "id": .string("entitlement-1"), "created_at": .string(noon.iso), "updated_at": .string(noon.iso),
+        "deleted_at": .null, "server_seq": .integer(serverSeq), "user_id": .string("server-user"),
+        "premium_source": .string("trial"), "premium_expires_at": .string(later(86_400_000).iso),
+        "auto_renews": .bool(false), "trial_ends_at": .string(later(86_400_000).iso),
+        "premium_quota_bytes": .integer(10_000), "free_quota_bytes": .integer(1_000),
+        "recording_notice_seen_at": recordingNoticeSeen ? .string(later(1_000).iso) : .null,
+        "trial_reminder_seen_at": .null, "trial_end_seen_at": .null,
+    ]
+}
+
 /// A server that answers from memory, recording every request.
 @MainActor
 final class FakeSyncAPI: SyncAPI {
@@ -119,6 +132,17 @@ final class FakeSyncAPI: SyncAPI {
         eventPulls.append(since)
         return try eventsQueue.isEmpty
             ? EventsPage(rows: [], nextSince: since, hasMore: false) : eventsQueue.removeFirst().get()
+    }
+
+    /// Every notice post in order, including those that failed.
+    var noticeRequests: [PlanNotice] = []
+    /// Thrown by a notice post alone while set.
+    var noticeFailure: (any Error)?
+
+    func recordNotice(_ notice: PlanNotice) async throws {
+        noticeRequests.append(notice)
+        if let failure { throw failure }
+        if let noticeFailure { throw noticeFailure }
     }
 
     func storage() async throws -> StorageFigures {

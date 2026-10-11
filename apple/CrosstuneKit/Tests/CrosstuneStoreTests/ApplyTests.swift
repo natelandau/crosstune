@@ -251,6 +251,135 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         let tuneSent = sent.first { $0.rowID == tune.id }
         #expect(pending!.updatedAt > tuneSent!.updatedAt)
     }
+
+    // MARK: Plan refusals
+
+    private func take(_ store: CrosstuneStore, id: String = "r1") async throws {
+        try await store.write { writer in
+            try writer.put(
+                Recording(
+                    id: id, createdAt: noon, tuneID: nil, source: "microphone", addedAt: noon,
+                    state: "pending_upload"), at: noon)
+        }
+    }
+
+    private func holds(_ store: CrosstuneStore) async throws -> Set<String> {
+        try await store.read { db in try StoreWriter.premiumHolds(in: db) }
+    }
+
+    @Test func holdsATakeTheServerRefusedForPremiumAndKeepsItsEntry() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await take(store)
+        let sent = try await store.pendingChanges(limit: 10)
+
+        let result = try await store.write { writer in
+            try writer.applyPushResults(
+                sent: sent,
+                results: [PushResult(table: .recordings, id: "r1", status: .invalid, reason: premiumRequiredReason)])
+        }
+
+        #expect(result.invalid == [])
+        #expect(result.settled == 0)
+        #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["r1"])
+        #expect(try await holds(store) == ["r1"])
+        #expect(try await store.meta(.invalidChanges, as: Int.self) == nil)
+    }
+
+    @Test func aPullThatSupersedesAHeldTakeReleasesItsStoredHold() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await take(store)
+        try await store.write { writer in try writer.holdForPremium(["r1"]) }
+        let pulled: JSONObject = [
+            "id": .string("r1"), "created_at": .string(noon.iso), "updated_at": .string(later(60_000).iso),
+            "deleted_at": .null, "server_seq": .integer(5), "source": .string("microphone"),
+            "added_at": .string(noon.iso), "recorded_at": .string(noon.iso), "recorded_precision": .string("time"),
+            "position": .integer(0), "state": .string("ready"),
+        ]
+
+        try await store.write { writer in try writer.applyPullPage(rows: [(.recordings, pulled)], nextSince: 5) }
+
+        #expect(try await store.pendingChangeCount() == 0)
+        #expect(try await store.meta(.premiumHolds, as: [String].self) == [])
+    }
+
+    @Test func anAppliedResultReleasesAHeldTake() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await take(store)
+        try await take(store, id: "r2")
+        try await store.write { writer in try writer.holdForPremium(["r1", "r2"]) }
+        let sent = try await store.pendingChanges(limit: 10)
+
+        try await store.write { writer in
+            try writer.applyPushResults(
+                sent: sent,
+                results: [
+                    PushResult(table: .recordings, id: "r1", status: .applied),
+                    PushResult(table: .recordings, id: "r2", status: .invalid, reason: premiumRequiredReason),
+                ])
+        }
+
+        #expect(try await holds(store) == ["r2"])
+        #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["r2"])
+    }
+
+    @Test func aRefusedDeleteOfAHeldTakeTheServerNeverStoredReleasesIt() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await take(store)
+        try await store.write { writer in
+            try writer.holdForPremium(["r1"])
+            try writer.tombstone(Recording.self, id: "r1", at: later(1_000))
+        }
+        let sent = try await store.pendingChanges(limit: 10, premium: false)
+
+        let result = try await store.write { writer in
+            try writer.applyPushResults(
+                sent: sent, results: [PushResult(table: .recordings, id: "r1", status: .invalid, reason: "not found")])
+        }
+
+        #expect(sent.map(\.op) == [.delete])
+        #expect(result.invalid == [])
+        #expect(result.settled == 1)
+        #expect(try await store.pendingChangeCount() == 0)
+        #expect(try await holds(store).isEmpty)
+    }
+
+    @Test func aScanRefusedForItsTuneSettlesAndMarksItsFile() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await store.write { writer in
+            try writer.put(ScanRecord(id: "p1", createdAt: noon, tuneID: "t2", width: 600, height: 800), at: noon)
+            try ScanFile(scanID: "p1", fileName: "p1.jpg", origin: .captured).insert(writer.db)
+        }
+        let sent = try await store.pendingChanges(limit: 10)
+
+        let result = try await store.write { writer in
+            try writer.applyPushResults(
+                sent: sent,
+                results: [PushResult(table: .scans, id: "p1", status: .invalid, reason: scanTuneOnlyReason)])
+        }
+
+        #expect(result.invalid == [InvalidChange(table: .scans, id: "p1", reason: scanTuneOnlyReason)])
+        #expect(result.settled == 1)
+        #expect(try await store.pendingChangeCount() == 0)
+        let file = try await store.read { db in try ScanFile.fetchOne(db, key: "p1") }
+        #expect(file?.error == ScanFile.scanTuneOnlyError)
+    }
+
+    @Test func aFreeReadOfTheOutboxLeavesOutAHeldUpsertButNeverItsDelete() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await take(store)
+        try await take(store, id: "r2")
+        try await store.write { writer in try writer.holdForPremium(["r1", "r2"]) }
+        try await store.write { writer in try writer.tombstone(Recording.self, id: "r2", at: later(1_000)) }
+
+        #expect(try await store.pendingChanges(limit: 10, premium: false).map(\.rowID) == ["r2"])
+        #expect(try await store.pendingChanges(limit: 10, premium: true).map(\.rowID) == ["r1", "r2"])
+    }
 }
 
 @Suite struct ApplyPullPageTests {
@@ -271,6 +400,32 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         let stored = try #require(try await store.read { db in try RecordingLoop.fetchOne(db, key: "loop-1") })
         #expect(stored.label == "B part")
         #expect(stored.extra == ["tempo": .integer(96)])
+    }
+
+    @Test func storesAPulledEntitlementsRowWithoutOwnershipAndQueuesNothing() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let row: JSONObject = [
+            "id": .string("entitlement-1"), "created_at": .string(noon.iso), "updated_at": .string(noon.iso),
+            "deleted_at": .null, "server_seq": .integer(12), "user_id": .string("server-user"),
+            "premium_source": .string("trial"), "premium_expires_at": .string(later(86_400_000).iso),
+            "auto_renews": .bool(false), "trial_ends_at": .string(later(86_400_000).iso),
+            "premium_quota_bytes": .integer(10_000), "free_quota_bytes": .integer(1_000),
+            "recording_notice_seen_at": .null, "trial_reminder_seen_at": .null, "trial_end_seen_at": .null,
+            "storage_addon": .bool(true),
+        ]
+
+        try await store.write { writer in
+            try writer.applyPullPage(rows: [(.entitlements, row)], nextSince: 12)
+        }
+
+        let stored = try #require(try await store.read { db in try Entitlement.current(db) })
+        #expect(stored.premiumSource == "trial")
+        #expect(stored.trialEndsAt == later(86_400_000))
+        #expect(stored.premiumQuotaBytes == 10_000)
+        #expect(stored.extra == ["storage_addon": .bool(true)])
+        #expect(try await store.pendingChangeCount() == 0)
+        #expect(try await store.meta(.pullCursor, as: Int64.self) == 12)
     }
 
     @Test func storesRowsWithoutOwnershipDropsOlderPendingEntriesAndAdvancesTheCursor() async throws {

@@ -541,6 +541,10 @@ private struct V4Fixture {
     }
     let outbox = "SELECT seq, row_id, op, updated_at, data, table_name FROM outbox ORDER BY seq"
     let before = try await pool.read { db in try Row.fetchAll(db, sql: outbox).map { Array($0.databaseValues) } }
+    try Schema.migrator.migrate(pool, upTo: "v13")
+    // Read before the store opens, since a later migration pulls every row again.
+    let cursor = try await pool.read { db in try MetaKey.pullCursor.value(in: db, as: Int.self) }
+    #expect(cursor == 4, "the rows move, so nothing is pulled again")
     try pool.close()
     try Data([1]).write(to: scans.appending(path: "p-1-a.jpg"))
 
@@ -562,7 +566,6 @@ private struct V4Fixture {
     #expect(after.map { String.fromDatabaseValue($0.last!) } == ["tunes", "scans", "scans", "lists"])
     let queued = try await store.pendingChanges(limit: 10)
     #expect(queued.map(\.tableName) == [.tunes, .scans, .scans, .lists])
-    #expect(try await store.meta(.pullCursor, as: Int.self) == 4, "the rows move, so nothing is pulled again")
 }
 
 /// Same promise as `v4`'s, for the migration that renames notation pages to scans.
@@ -954,3 +957,73 @@ private let v7UserSettingsSchema = """
             ])
     }
 }
+
+@Test func theV16MigrationAddsEntitlementsAndPullsEveryRowAgain() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v15")
+    let time = "2026-09-25T12:00:00.000Z"
+    try queue.write { db in
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data)
+                VALUES ('tunes', 't-1', 'upsert', ?, '{"title":"Jam"}')
+                """,
+            arguments: [time])
+        try db.execute(sql: "INSERT INTO meta (key, value) VALUES ('pull_cursor', '40'), ('events_cursor', '9')")
+    }
+    let outbox = "SELECT * FROM outbox ORDER BY seq"
+    let before = try queue.read { db in try Row.fetchAll(db, sql: outbox) }
+
+    try Schema.migrator.migrate(queue, upTo: "v16")
+
+    try queue.read { (db: Database) throws in
+        #expect(try db.tableExists("entitlements"))
+        #expect(try Int.fetchOne(db, sql: "SELECT count(*) FROM entitlements") == 0)
+        // The row was pulled, and skipped, before this build knew the table.
+        #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'pull_cursor'") == nil)
+        #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'events_cursor'") == "9")
+        #expect(try Row.fetchAll(db, sql: outbox) == before)
+    }
+}
+
+/// Same promise as `v4`'s, for the migration that adds the entitlements table, which is all it adds.
+@Test func theV16MigrationNeverChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v15")
+    let objects = """
+        SELECT type, name, sql FROM sqlite_master
+        WHERE name NOT LIKE 'sqlite_%' AND name != 'grdb_migrations' AND sql IS NOT NULL
+        ORDER BY name
+        """
+    let before = try queue.read { db in try Row.fetchAll(db, sql: objects) }
+    try Schema.migrator.migrate(queue, upTo: "v16")
+    let after = try queue.read { db in try Row.fetchAll(db, sql: objects) }
+    #expect(after.filter { before.contains($0) }.count == before.count, "nothing is removed or changed")
+    let added = after.filter { !before.contains($0) }
+        .map { row -> String in
+            let type: String = row["type"]
+            let name: String = row["name"]
+            let sql: String = row["sql"]
+            return "\(type) \(name): \(sql.replacingOccurrences(of: ", ", with: ",\n  "))"
+        }
+        .joined(separator: "\n")
+    #expect(added == v16Schema)
+}
+
+private let v16Schema = """
+    table entitlements: CREATE TABLE "entitlements" ("id" TEXT PRIMARY KEY NOT NULL,
+      "created_at" TEXT NOT NULL,
+      "updated_at" TEXT NOT NULL,
+      "deleted_at" TEXT,
+      "server_seq" INTEGER NOT NULL,
+      "premium_source" TEXT,
+      "premium_expires_at" TEXT,
+      "auto_renews" BOOLEAN NOT NULL,
+      "trial_ends_at" TEXT,
+      "premium_quota_bytes" INTEGER NOT NULL,
+      "free_quota_bytes" INTEGER NOT NULL,
+      "recording_notice_seen_at" TEXT,
+      "trial_reminder_seen_at" TEXT,
+      "trial_end_seen_at" TEXT,
+      "extra" TEXT NOT NULL)
+    """

@@ -18,16 +18,36 @@ import Testing
         store = try root.open()
     }
 
-    func engine(isOffline: @escaping @MainActor () -> Bool = { false }, batchSize: Int = SyncEngine.pushBatchSize)
-        -> SyncEngine
-    {
+    func engine(
+        isOffline: @escaping @MainActor () -> Bool = { false }, batchSize: Int = SyncEngine.pushBatchSize,
+        now: @escaping @MainActor () -> Date = Date.init
+    ) -> SyncEngine {
         // The transfer loop has its own suite; a real pass here would add its own backoff sleeps.
         SyncEngine(
-            store: store, api: api, isOffline: isOffline, batchSize: batchSize, sleep: sleeper.sleep, transferPass: {})
+            store: store, api: api, isOffline: isOffline, batchSize: batchSize, sleep: sleeper.sleep, transferPass: {},
+            now: now)
     }
 
     func tuneCount() async throws -> Int {
         try await store.read { db in try Tune.fetchCount(db) }
+    }
+
+    @Test func copiesForExportLandOnlyWhereAsked() async throws {
+        let engine = engine()
+        let folder = root.url.appending(path: "export-copies-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+
+        try await engine.fetchRecordingCopy("r1", to: folder.appending(path: "r1.m4a"))
+        try await engine.fetchScanCopy("s1", to: folder.appending(path: "s1.jpg"))
+
+        #expect(api.transfers == ["url r1", "get r1", "scan-url s1", "get s1"])
+        #expect(try Data(contentsOf: folder.appending(path: "r1.m4a")) == api.objectData)
+        #expect(try Data(contentsOf: folder.appending(path: "s1.jpg")) == api.objectData)
+        #expect(
+            try FileManager.default.contentsOfDirectory(atPath: store.audioFolder.path(percentEncoded: false)).isEmpty)
+        #expect(
+            try FileManager.default.contentsOfDirectory(atPath: store.scansFolder.path(percentEncoded: false)).isEmpty)
+        #expect(try await store.read { db in try RecordingFile.fetchCount(db) + ScanFile.fetchCount(db) } == 0)
     }
 
     @Test func pushesTheOutboxThenPullsUntilHasMoreIsFalse() async throws {
@@ -541,9 +561,357 @@ import Testing
         #expect(engine.status == .idle)
         #expect(engine.lastSyncedAt != nil)
     }
+
+    // MARK: Plan
+
+    func putTake(_ id: String) async throws {
+        try await store.write { writer in
+            try writer.put(
+                Recording(
+                    id: id, createdAt: noon, tuneID: nil, source: "microphone", addedAt: noon,
+                    state: "pending_upload"), at: noon)
+        }
+    }
+
+    func holds() async throws -> Set<String> {
+        try await store.read { db in try StoreWriter.premiumHolds(in: db) }
+    }
+
+    @Test func aFreePlanLeavesAHeldTakeOutButSendsItsDelete() async throws {
+        try await storeEntitlement(store, source: nil)
+        let tune = try await createTune(store, title: "X")
+        try await putTake("r1")
+        try await store.write { writer in try writer.holdForPremium(["r1"]) }
+        let engine = engine()
+
+        await engine.sync()
+
+        #expect(api.pushes.count == 1)
+        #expect(api.pushes[0].contains { $0.id == tune.id })
+        #expect(!api.pushes[0].contains { $0.id == "r1" })
+        #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["r1"])
+
+        try await store.write { writer in try writer.tombstone(Recording.self, id: "r1", at: later(1_000)) }
+        await engine.sync()
+
+        #expect(api.pushes.count == 2)
+        #expect(api.pushes[1].map(\.id) == ["r1"])
+        #expect(api.pushes[1].first?.op == .delete)
+        #expect(try await store.pendingChangeCount() == 0)
+        #expect(try await holds().isEmpty)
+    }
+
+    @Test func aPremiumPlanJudgedByTheEnginesClockSendsAHeldTake() async throws {
+        // Ended by the real clock, but not by the engine's.
+        try await storeEntitlement(store, source: "trial", expiresAt: later(3_600_000))
+        try await putTake("r1")
+        try await store.write { writer in try writer.holdForPremium(["r1"]) }
+        api.respondToPush = { changes in changes.map { PushResult(table: $0.table, id: $0.id, status: .applied) } }
+        let engine = engine(now: { noon.date })
+
+        await engine.sync()
+
+        #expect(api.pushes.first?.map(\.id) == ["r1"])
+        #expect(engine.status == .idle)
+        #expect(try await store.pendingChangeCount() == 0)
+        #expect(try await holds().isEmpty)
+    }
+
+    @Test func aHeldTakesDeleteTheServerNeverStoredStillReleasesItsHold() async throws {
+        try await storeEntitlement(store, source: nil)
+        try await putTake("r1")
+        try await store.write { writer in
+            try writer.holdForPremium(["r1"])
+            try writer.tombstone(Recording.self, id: "r1", at: later(1_000))
+        }
+        api.respondToPush = { changes in
+            changes.map { PushResult(table: $0.table, id: $0.id, status: .invalid, reason: "not found") }
+        }
+
+        await engine().sync()
+
+        #expect(api.pushes.first?.map(\.op) == [.delete])
+        #expect(try await store.pendingChangeCount() == 0)
+        #expect(try await holds().isEmpty)
+    }
+
+    @Test func heldTakesFillingWholeBatchesDoNotStarveTheEditsBehindThem() async throws {
+        for id in ["r1", "r2", "r3"] { try await putTake(id) }
+        let tune = try await createTune(store, title: "X")
+        api.respondToPush = { changes in
+            changes.map { change in
+                change.table == .recordings
+                    ? PushResult(table: change.table, id: change.id, status: .invalid, reason: premiumRequiredReason)
+                    : PushResult(table: change.table, id: change.id, status: .applied)
+            }
+        }
+        let engine = engine(batchSize: 2)
+
+        await engine.sync()
+
+        let sent = api.pushes.flatMap { $0.map(\.id) }
+        #expect(sent.contains(tune.id))
+        #expect(sent.filter { ["r1", "r2", "r3"].contains($0) } == ["r1", "r2", "r3"])
+        #expect(engine.status == .idle)
+        #expect(Set(try await store.pendingChanges(limit: 10).map(\.rowID)) == ["r1", "r2", "r3"])
+        #expect(try await holds() == ["r1", "r2", "r3"])
+    }
+
+    func putLoop(_ id: String, on recordingID: String) async throws {
+        try await store.write { writer in
+            try writer.put(
+                RecordingLoop(id: id, createdAt: noon, recordingID: recordingID, startMs: 0, endMs: 1_000, color: 0),
+                at: noon)
+        }
+    }
+
+    @Test func aHeldTakesLoopStaysQueuedWithItAndGoesOutOnceReleased() async throws {
+        try await putTake("r1")
+        try await putLoop("l1", on: "r1")
+        api.respondToPush = { changes in
+            changes.map { change in
+                PushResult(
+                    table: change.table, id: change.id, status: .invalid,
+                    reason: change.table == .recordings ? premiumRequiredReason : missingRecordingReason)
+            }
+        }
+        let engine = engine()
+
+        await engine.sync()
+
+        #expect(api.pushes.map { $0.map(\.id) } == [["r1", "l1"]])
+        #expect(Set(try await store.pendingChanges(limit: 10).map(\.rowID)) == ["r1", "l1"])
+        #expect(try await store.meta(.invalidChanges, as: Int.self) == nil)
+        #expect(try await store.read { db in try RecordingLoop.fetchCount(db) } == 1)
+
+        api.respondToPush = { changes in changes.map { PushResult(table: $0.table, id: $0.id, status: .applied) } }
+        await engine.sync()
+
+        #expect(api.pushes.last.map { Set($0.map(\.id)) } == ["r1", "l1"])
+        #expect(try await store.pendingChangeCount() == 0)
+        #expect(try await holds().isEmpty)
+    }
+
+    @Test func aFreePlanLeavesAHeldTakesLoopOut() async throws {
+        try await storeEntitlement(store, source: nil)
+        let tune = try await createTune(store, title: "X")
+        try await putTake("r1")
+        try await putLoop("l1", on: "r1")
+        try await store.write { writer in try writer.holdForPremium(["r1"]) }
+
+        await engine().sync()
+
+        let sent = api.pushes.flatMap { $0.map(\.id) }
+        #expect(sent.contains(tune.id))
+        #expect(!sent.contains("r1") && !sent.contains("l1"))
+        #expect(Set(try await store.pendingChanges(limit: 10).map(\.rowID)) == ["r1", "l1"])
+    }
+
+    func recordPractice(_ id: String, on recordingID: String) async throws {
+        try await store.write { writer in
+            try writer.record(
+                PracticeSession(
+                    id: id, createdAt: noon, recordingID: recordingID, startedAt: noon, durationMs: 60_000,
+                    speedPercent: 100, pitchCents: 0))
+        }
+    }
+
+    /// Refuses every recording as Premium only and every row that names one as missing it.
+    func refuseTakesAndTheirRows() {
+        api.respondToPush = { changes in
+            changes.map { change in
+                PushResult(
+                    table: change.table, id: change.id, status: .invalid,
+                    reason: change.table == .recordings ? premiumRequiredReason : missingRecordingReason)
+            }
+        }
+    }
+
+    @Test func aHeldTakesPlayAndPracticeStayQueuedWithItAndGoOutOnceReleased() async throws {
+        try await putTake("r1")
+        try await recordPlay(store, id: "e1")
+        try await recordPractice("s1", on: "r1")
+        refuseTakesAndTheirRows()
+        let engine = engine()
+
+        await engine.sync()
+
+        #expect(Set(try await store.pendingChanges(limit: 10).map(\.rowID)) == ["r1", "e1", "s1"])
+        #expect(try await store.read { db in try PlayEvent.fetchCount(db) + PracticeSession.fetchCount(db) } == 2)
+
+        api.respondToPush = { changes in changes.map { PushResult(table: $0.table, id: $0.id, status: .applied) } }
+        await engine.sync()
+
+        #expect(api.pushes.last.map { Set($0.map(\.id)) } == ["r1", "e1", "s1"])
+        #expect(try await store.pendingChangeCount() == 0)
+        #expect(try await holds().isEmpty)
+    }
+
+    @Test func aRowMissingARecordingThatIsNotHeldSettles() async throws {
+        try await recordPlay(store, id: "e1")
+        try await putLoop("l1", on: "r1")
+        refuseTakesAndTheirRows()
+
+        await engine().sync()
+
+        #expect(try await store.pendingChangeCount() == 0)
+        #expect(try await store.read { db in try PlayEvent.fetchCount(db) } == 0)
+        #expect(try await store.meta(.invalidChanges, as: Int.self) == 1)
+    }
+
+    @Test func aHeldTakesDeleteReleasesItsRowsInTheSameBatch() async throws {
+        try await putTake("r1")
+        try await recordPlay(store, id: "e1")
+        try await store.write { writer in
+            try writer.holdForPremium(["r1"])
+            try writer.tombstone(Recording.self, id: "r1", at: later(1_000))
+        }
+        api.respondToPush = { changes in
+            changes.map { change in
+                change.table == .recordings
+                    ? PushResult(table: change.table, id: change.id, status: .applied)
+                    : PushResult(table: change.table, id: change.id, status: .invalid, reason: missingRecordingReason)
+            }
+        }
+
+        await engine().sync()
+
+        #expect(api.pushes.map { Set($0.map(\.id)) } == [["r1", "e1"]])
+        #expect(try await store.pendingChangeCount() == 0)
+        #expect(try await holds().isEmpty)
+    }
+
+    /// A tune's delete drops its recordings' queued changes rather than queuing their deletes,
+    /// as the server's cascade covers them.
+    @Test(arguments: [nil, "comp"])
+    func aHeldTakeDroppedByACascadeLetsItsRowsSettle(source: String?) async throws {
+        try await storeEntitlement(store, source: source)
+        try await putTake("r1")
+        try await recordPlay(store, id: "e1")
+        try await store.write { writer in
+            try writer.holdForPremium(["r1"])
+            try writer.tombstone(Recording.self, id: "r1", at: later(1_000), enqueueDelete: false)
+        }
+        refuseTakesAndTheirRows()
+
+        await engine().sync()
+
+        #expect(try await holds().isEmpty)
+        #expect(try await store.pendingChangeCount() == 0)
+        #expect(try await store.read { db in try PlayEvent.fetchCount(db) } == 0)
+    }
+
+    @Test func aPushWhoseResultsAreAllHeldEnds() async throws {
+        try await putTake("r1")
+        api.respondToPush = { changes in
+            changes.map {
+                PushResult(table: $0.table, id: $0.id, status: .invalid, reason: premiumRequiredReason)
+            }
+        }
+        let engine = engine(batchSize: 1)
+
+        await engine.sync()
+
+        #expect(api.pushes.count == 1)
+        #expect(engine.status == .idle)
+        #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["r1"])
+        #expect(try await holds() == ["r1"])
+    }
+
+    // MARK: Seen notices
+
+    @Test func postsASeenNoticeOnceAndDropsItOnceThePulledRowCarriesIt() async throws {
+        try await storeEntitlement(store, source: "trial", expiresAt: later(86_400_000))
+        try await store.write { writer in try writer.markNoticeSeen(.firstRecording) }
+        api.pullQueue = [
+            PullPage(
+                rows: [
+                    PulledRow(table: .entitlements, row: serverEntitlement(serverSeq: 5, recordingNoticeSeen: true))
+                ],
+                nextSince: 5, hasMore: false)
+        ]
+        let engine = engine()
+
+        await engine.sync()
+        #expect(api.noticeRequests == [.firstRecording])
+
+        await engine.sync()
+        #expect(api.noticeRequests == [.firstRecording])
+        #expect(try await store.seenNotices().isEmpty)
+        #expect(engine.status == .idle)
+    }
+
+    @Test func anAuthFailureFromANoticePostEndsTheRun() async throws {
+        try await storeEntitlement(store, source: "trial", expiresAt: later(86_400_000))
+        try await store.write { writer in try writer.markNoticeSeen(.trialReminder) }
+        api.noticeFailure = APIStatusError(status: 401)
+        let engine = engine()
+
+        await engine.sync()
+
+        #expect(api.noticeRequests == [.trialReminder])
+        #expect(engine.status == .unauthorized)
+        #expect(api.pulls.isEmpty)
+        #expect(engine.lastSyncedAt == nil)
+        engine.stop()
+    }
+
+    @Test func aNoticePostRefusedForGoodStaysSeenAndIsNeverSentAgain() async throws {
+        try await storeEntitlement(store, source: "trial", expiresAt: later(86_400_000))
+        try await store.write { writer in try writer.markNoticeSeen(.trialReminder) }
+        api.noticeFailure = APIStatusError(status: 422)
+        let engine = engine()
+
+        await engine.sync()
+        #expect(engine.status == .idle)
+        await engine.sync()
+
+        #expect(api.noticeRequests == [.trialReminder])
+        #expect(try await store.seenNotices() == [.trialReminder])
+    }
+
+    @Test func aFailedNoticePostLeavesTheSyncCleanAndRetriesOnTheNext() async throws {
+        try await storeEntitlement(store, source: "trial", expiresAt: later(86_400_000))
+        try await store.write { writer in try writer.markNoticeSeen(.trialReminder) }
+        api.noticeFailure = APIStatusError(status: 500)
+        let engine = engine()
+
+        await engine.sync()
+        #expect(api.noticeRequests == [.trialReminder])
+        #expect(engine.status == .idle)
+        #expect(engine.lastSyncedAt != nil)
+        #expect(api.pulls == [0])
+        #expect(try await store.seenNotices() == [.trialReminder])
+
+        api.noticeFailure = nil
+        await engine.sync()
+        #expect(api.noticeRequests == [.trialReminder, .trialReminder])
+    }
 }
 
 @Suite struct ClassifyFailureTests {
+    @Test func aPlanRefusalIsNotAnAuthFailure() {
+        let premium = APIStatusError(status: 403, problemType: premiumRequiredProblem)
+        let scanTune = APIStatusError(status: 403, problemType: scanTuneOnlyProblem)
+        #expect(isPlanRefusal(premium))
+        #expect(isPlanRefusal(scanTune))
+        #expect(!isPlanRefusal(APIStatusError(status: 403)))
+        #expect(!isPlanRefusal(APIStatusError(status: 413, problemType: quotaProblem)))
+        #expect(!isAuthFailure(premium))
+        #expect(!isAuthFailure(scanTune))
+        #expect(isAuthFailure(APIStatusError(status: 403)))
+        #expect(classifyFailure(premium, isOffline: false) == .error)
+        #expect(syncFailureReason(premium) == .other)
+    }
+
+    @Test func namesThePlanRefusalsAsTheServerDoes() {
+        #expect(premiumRequiredProblem == "urn:crosstune:premium-required")
+        #expect(scanTuneOnlyProblem == "urn:crosstune:scan-tune-only")
+        #expect(premiumRequiredReason == "premium required")
+        #expect(scanTuneOnlyReason == "scans are limited to one tune")
+        #expect(missingRecordingReason == "recording_id does not reference one of your recordings")
+    }
+
     @Test func mapsFailuresToStatuses() {
         #expect(classifyFailure(APIStatusError(status: 500), isOffline: true) == .offline)
         #expect(classifyFailure(NotSignedIn(), isOffline: false) == .offline)

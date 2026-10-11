@@ -49,6 +49,7 @@ enum Outbox {
         _ db: Database, table: SyncTable, rowID: String, op: OutboxEntry.Operation,
         updatedAt: Timestamp, data: JSONObject?
     ) throws {
+        assert(table != .entitlements, "the server writes the entitlements row; the client never pushes it")
         let entry = OutboxEntry(tableName: table, rowID: rowID, op: op, updatedAt: updatedAt, data: data)
         try entry.upsert(db)
     }

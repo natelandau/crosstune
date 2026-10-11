@@ -61,11 +61,11 @@ func underlying(_ error: any Error) -> any Error {
 }
 
 /// No session token, or the server refusing one: nothing past this point can succeed until the
-/// user signs in again.
+/// user signs in again. A 403 refusing what the plan allows is not one.
 func isAuthFailure(_ error: any Error) -> Bool {
     switch underlying(error) {
     case is NotSignedIn: true
-    case let status as APIStatusError: status.status == 401 || status.status == 403
+    case let status as APIStatusError: status.status == 401 || (status.status == 403 && !isPlanRefusal(status))
     default: false
     }
 }

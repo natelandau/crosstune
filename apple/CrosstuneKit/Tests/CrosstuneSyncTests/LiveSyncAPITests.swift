@@ -137,7 +137,7 @@ private func json(_ data: Data?) throws -> JSONObject {
         #expect(list.updatedAt == Timestamp(iso: "2026-09-19T21:30:00Z"))
     }
 
-    @Test func skipsPulledRowsFromTablesThisBuildDoesNotStore() async throws {
+    @Test func keepsEntitlementsAndSkipsPulledRowsFromTablesThisBuildDoesNotStore() async throws {
         let transport = RecordingTransport(
             body: """
                 {"rows": [
@@ -155,7 +155,7 @@ private func json(_ data: Data?) throws -> JSONObject {
 
         let page = try await api(transport).pull(since: 49)
 
-        #expect(page.rows.map(\.table) == [.lists])
+        #expect(page.rows.map(\.table) == [.entitlements, .lists])
         #expect(page.nextSince == 52)
         #expect(!page.hasMore)
     }

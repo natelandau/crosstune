@@ -281,3 +281,32 @@ private func wire(_ json: String) throws -> JSONObject {
         #expect(record == [:])
     }
 }
+
+@Test func aWireEntitlementsRowDropsOwnershipAndKeepsWhatThisBuildDoesNotKnow() throws {
+    let row = try Entitlement(
+        wire: wire(
+            #"""
+            {
+              "id": "entitlement-1", "created_at": "2026-09-20T18:04:11Z", "updated_at": "2026-09-21T02:15:40.123456Z",
+              "deleted_at": null, "server_seq": 9, "user_id": "owner-1",
+              "premium_source": "apple", "premium_expires_at": "2026-10-20T18:04:11.5Z", "auto_renews": true,
+              "trial_ends_at": "2026-10-01T00:00:00Z", "premium_quota_bytes": 53687091200,
+              "free_quota_bytes": 104857600, "recording_notice_seen_at": "2026-09-22T10:00:00Z",
+              "trial_reminder_seen_at": null, "trial_end_seen_at": null, "storage_addon": true
+            }
+            """#))
+    #expect(row.id == "entitlement-1")
+    #expect(row.updatedAt == Timestamp(iso: "2026-09-21T02:15:40.123Z"))
+    #expect(row.premiumSource == "apple")
+    #expect(row.premiumExpiresAt == Timestamp(iso: "2026-10-20T18:04:11.500Z"))
+    #expect(row.autoRenews)
+    #expect(row.trialEndsAt == Timestamp(iso: "2026-10-01T00:00:00.000Z"))
+    #expect(row.premiumQuotaBytes == 53_687_091_200)
+    #expect(row.freeQuotaBytes == 104_857_600)
+    #expect(row.recordingNoticeSeenAt == Timestamp(iso: "2026-09-22T10:00:00.000Z"))
+    #expect(row.trialReminderSeenAt == nil)
+    #expect(row.trialEndSeenAt == nil)
+    #expect(row.extra == ["storage_addon": .bool(true)])
+    #expect(Entitlement.table == .entitlements)
+    #expect(!SyncTable.entitlements.isEvent)
+}

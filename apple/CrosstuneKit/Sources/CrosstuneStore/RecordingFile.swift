@@ -132,3 +132,22 @@ extension RecordingFile {
         nextAttemptAt = nil
     }
 }
+
+/// The type without codec parameters, which is what the signed upload is pinned to.
+public func baseContentType(_ contentType: String?) -> String {
+    let base = contentType?.split(separator: ";", maxSplits: 1).first?.trimmingCharacters(in: .whitespaces)
+    guard let base, !base.isEmpty else { return "application/octet-stream" }
+    return base.lowercased()
+}
+
+/// The extension a playback file of `contentType` takes, so a player can tell the container
+/// without sniffing it.
+public func playbackFileExtension(_ contentType: String?) -> String {
+    switch baseContentType(contentType) {
+    case "audio/mpeg": "mp3"
+    case "audio/webm": "webm"
+    case "audio/ogg": "ogg"
+    case "audio/wav", "audio/x-wav": "wav"
+    default: "m4a"
+    }
+}

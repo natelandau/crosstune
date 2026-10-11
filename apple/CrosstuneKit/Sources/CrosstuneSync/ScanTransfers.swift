@@ -10,8 +10,8 @@ let scanContentType = "image/jpeg"
 func downloadedScanName(_ scanID: String) throws -> String { "\(try fileNamePart(scanID)).jpg" }
 
 /// One run's scan work: uploads every captured image whose scan row has reached the
-/// server, and downloads every ready scan with no image here. Scans download whatever keep
-/// offline says: a scan is small, and the reading view has to work with no signal.
+/// server, and downloads every ready scan with no image here that the plan opens. Scans download
+/// whatever keep offline says: a scan is small, and the reading view has to work with no signal.
 ///
 /// Every request is preceded by `checkStopped`, as in ``Transfers``.
 @MainActor
@@ -19,6 +19,8 @@ struct ScanTransfers {
     let store: CrosstuneStore
     let api: any SyncAPI
     let checkStopped: @MainActor () throws -> Void
+    /// The clock the plan is judged by.
+    var now: @MainActor () -> Date = Date.init
 
     // MARK: Upload
 
@@ -35,12 +37,21 @@ struct ScanTransfers {
             return files.map { ($0, serverSeqs[$0.scanID] ?? 0) }
         }
         let storage = try await store.meta(.storage, as: StorageFigures.self)
+        let anyTune = try await store.plan(at: self.now()).scansOnAnyTune
         let now = Timestamp.now
         var firstError: (any Error)?
         for (file, serverSeq) in waiting {
             // A refused row the server has since stored, as after a later edit's push, can take
             // a slot after all.
             if file.error == ScanFile.refusedError, serverSeq == 0 { continue }
+            if file.error == ScanFile.scanTuneOnlyError {
+                guard anyTune else { continue }
+                // A row refused on push never reached the server, which gives no slot without it.
+                if serverSeq == 0 {
+                    try await requeue(file.scanID)
+                    continue
+                }
+            }
             // Only the figures a sync refreshes free a scan refused for quota; asking for a slot
             // before they show room would draw the same refusal.
             if file.error == ScanFile.storageFullError, let storage {
@@ -104,6 +115,11 @@ struct ScanTransfers {
                     try await settleUpload(id, error: ScanFile.storageFullError)
                     return
                 }
+                // A scan's only plan limit is its tune.
+                if isPlanRefusal(refusal) {
+                    try await settleUpload(id, error: ScanFile.scanTuneOnlyError)
+                    return
+                }
                 switch refusal.status {
                 case 409:
                     // Already past pending on the server, so an earlier confirmation landed.
@@ -157,6 +173,26 @@ struct ScanTransfers {
         try store.applyBackupRule(toScanFile: file.fileName, origin: .downloaded)
     }
 
+    /// Queues a scan's row again and clears its file's refusal, so the next push stores the row
+    /// and the upload after it can take a slot. Once per scan per grant: the device may judge
+    /// Premium within the offline leeway while the server already judges the account free.
+    private func requeue(_ id: String) async throws {
+        try await store.write { writer in
+            guard var file = try ScanFile.fetchOne(writer.db, key: id),
+                let scan = try ScanRecord.fetchOne(writer.db, key: id), scan.deletedAt == nil
+            else { return }
+            let grant = ScanRequeues.grant(of: try Entitlement.current(writer.db))
+            var requeues = try MetaKey.scanRequeues.value(in: writer.db, as: ScanRequeues.self) ?? ScanRequeues()
+            if requeues.grant != grant { requeues = ScanRequeues(grant: grant) }
+            guard !requeues.scanIDs.contains(id) else { return }
+            requeues.scanIDs.append(id)
+            try writer.setMeta(.scanRequeues, to: requeues)
+            try writer.put(scan)
+            file.error = nil
+            try file.update(writer.db)
+        }
+    }
+
     /// Leaves the retry loop with `error`, or none, starting the try count fresh. False when the
     /// file row is gone.
     @discardableResult
@@ -196,19 +232,25 @@ struct ScanTransfers {
 
     // MARK: Download
 
-    /// Fetches the image of every ready scan with none here, a few at a time. A stop, no
-    /// connection, or a refused session ends the pass; any other failure is that scan's alone, so
-    /// it backs off in `retries` and the rest still download.
+    /// Fetches the image of every ready scan with none here that the plan opens, a few at a
+    /// time. A stop, no connection, or a refused session ends the pass; any other failure is that
+    /// scan's alone, so it backs off in `retries` and the rest still download.
     func downloadPass(retries: DownloadRetries) async throws {
+        let instant = now()
         let ids = try await store.read { db in
-            try String.fetchAll(
+            let plan = Plan.from(try Entitlement.current(db), now: instant)
+            let scanTune = try ScanRecord.scanTuneID(db)
+            let rows = try Row.fetchAll(
                 db,
                 sql: """
-                    SELECT s.id FROM scans s
+                    SELECT s.id, s.tune_id FROM scans s
                     LEFT JOIN scan_files f ON f.scan_id = s.id
                     WHERE s.state = ? AND f.scan_id IS NULL AND s.id IN (\(ScanRecord.liveIDsSQL))
                     """,
                 arguments: [ScanRecord.ready])
+            return rows.compactMap { row -> String? in
+                PlanRules.scanOpens(plan, tuneID: row["tune_id"], scanTune: scanTune) ? row["id"] : nil
+            }
         }
         try await forEachDownload(ids.filter { !retries.isWaiting($0) }) { [self] id in
             do {
@@ -246,5 +288,18 @@ struct ScanTransfers {
             try? FileManager.default.removeItem(at: destination)
             throw error
         }
+    }
+}
+
+/// The scans queued again under one grant, stored under ``MetaKey/scanRequeues``.
+struct ScanRequeues: Codable, Sendable {
+    var grant: String = ""
+    var scanIDs: [String] = []
+
+    /// What names the grant a plan was judged under. The row's server sequence changes with each
+    /// write of it, so a grant revoked and given again on the same terms still reads as new.
+    static func grant(of row: Entitlement?) -> String {
+        guard let row else { return "unknown" }
+        return "\(row.serverSeq) \(row.premiumSource ?? "none") \(row.premiumExpiresAt?.iso ?? "never")"
     }
 }
