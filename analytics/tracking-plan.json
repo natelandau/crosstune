@@ -271,7 +271,8 @@
     ],
     "premium_reason": [
       "recordings",
-      "scans"
+      "scans",
+      "plan"
     ],
     "premium_entry": [
       "record",
@@ -280,7 +281,18 @@
       "recording_row",
       "recordings_line",
       "scan",
-      "add_scan"
+      "add_scan",
+      "plan_group",
+      "trial_reminder",
+      "trial_ended"
+    ],
+    "purchase_period": [
+      "annual",
+      "monthly"
+    ],
+    "purchase_failure": [
+      "cancelled",
+      "error"
     ],
     "plan_notice": [
       "first_recording",
@@ -526,6 +538,7 @@
     "distinct_tunes_practiced": "How many different tunes does a person practice each week?",
     "practice_time_by_platform": "How long do people practice, on each platform?",
     "free_tier_pressure": "How soon do people reach the free storage limit?",
+    "purchase_funnel": "What leads people to subscribe, and where do purchases stop?",
     "friction_and_churn": "Do failed uploads, syncs, and exports drive people away?",
     "account_churn": "How many people sign out or start to delete their account, and how many back out?",
     "default_settings": "Are the default settings the ones people keep?",
@@ -1665,7 +1678,8 @@
         "web"
       ],
       "answers": [
-        "free_tier_pressure"
+        "free_tier_pressure",
+        "purchase_funnel"
       ],
       "properties": {
         "reason": {
@@ -1693,6 +1707,64 @@
         "notice": {
           "type": "string",
           "enum": "plan_notice",
+          "required": true
+        }
+      }
+    },
+    "purchase_started": {
+      "description": "A person started a Premium purchase",
+      "clients": [
+        "web"
+      ],
+      "answers": [
+        "purchase_funnel"
+      ],
+      "properties": {
+        "period": {
+          "type": "string",
+          "enum": "purchase_period",
+          "required": true
+        },
+        "from": {
+          "type": "string",
+          "enum": "premium_entry",
+          "required": true
+        }
+      }
+    },
+    "purchase_completed": {
+      "description": "A Premium purchase completed",
+      "clients": [
+        "web"
+      ],
+      "answers": [
+        "purchase_funnel"
+      ],
+      "properties": {
+        "period": {
+          "type": "string",
+          "enum": "purchase_period",
+          "required": true
+        }
+      }
+    },
+    "purchase_failed": {
+      "description": "A Premium purchase was cancelled or failed",
+      "clients": [
+        "web"
+      ],
+      "answers": [
+        "purchase_funnel"
+      ],
+      "properties": {
+        "period": {
+          "type": "string",
+          "enum": "purchase_period",
+          "required": true
+        },
+        "reason": {
+          "type": "string",
+          "enum": "purchase_failure",
           "required": true
         }
       }

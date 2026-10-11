@@ -178,10 +178,11 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
     }
 
     @Test func theEntriesAndReasonsNameThePlansValues() {
-        #expect(PremiumReason.allCases.map(\.rawValue) == ["recordings", "scans"])
+        #expect(PremiumReason.allCases.map(\.rawValue) == ["recordings", "scans", "plan"])
         #expect(
             PremiumEntry.allCases.map(\.rawValue) == [
                 "record", "upload", "add_to_recordings", "recording_row", "recordings_line", "scan", "add_scan",
+                "plan_group", "trial_reminder", "trial_ended",
             ])
     }
 }

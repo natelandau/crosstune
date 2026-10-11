@@ -75,7 +75,8 @@
             try await SamplePlan.free.store(in: store, now: now)
             let plan = PlanModel(store: store, now: { [now] in now })
             #expect(try await poll { plan.scanTune != nil })
-            for reason in PremiumReason.allCases {
+            // The Mac sheet has no body for the Plan reason.
+            for reason in PremiumReason.allCases where reason != .plan {
                 await sheetSnapshot("mac-plan-premium-\(reason.rawValue)") {
                     PremiumSheet(reason: reason, onSeePlan: {})
                         .environment(\.plan, plan)
