@@ -17,6 +17,7 @@ export type SearchGroup = Schemas['SearchGroup']
 export type SearchResult = Schemas['SearchResult']
 export type Problem = Schemas['Problem']
 
+export type EntitlementRow = Schemas['EntitlementRow']
 export type TuneRow = Schemas['TuneRow']
 export type UserTuneRow = Schemas['UserTuneRow']
 export type RecordingLinkRow = Schemas['RecordingLinkRow']
@@ -36,6 +37,7 @@ export type DownloadUrl = Schemas['DownloadUrl']
 export type PeaksUrl = Schemas['PeaksUrl']
 export type UploadSlotRequest = Schemas['UploadSlotRequest']
 export type ScanUploadSlotRequest = Schemas['ScanUploadSlotRequest']
+export type Notice = Schemas['NoticeRequest']['notice']
 
 export interface SyncApi {
   push(changes: Change[]): Promise<PushResponse>
@@ -46,19 +48,26 @@ export interface SyncApi {
   searchRecordings(q: string, providers: Provider[], country: string): Promise<SearchResponse>
   me(): Promise<MeResponse>
   deleteAccount(): Promise<void>
+  /** Records that the user saw a one-time notice, so no device shows it again. */
+  recordNotice(notice: Notice): Promise<void>
   requestUploadSlot(recordingId: string, body: UploadSlotRequest): Promise<SignedUrl>
   uploadFinished(recordingId: string): Promise<void>
   retryRecording(recordingId: string): Promise<void>
   /** The revision and start it carries are what the server signed the URL for, which can
-   * already be newer than the row this client has pulled. */
-  downloadUrl(recordingId: string): Promise<DownloadUrl>
+   * already be newer than the row this client has pulled. An abort of `signal` stops the
+   * request. */
+  downloadUrl(recordingId: string, signal?: AbortSignal): Promise<DownloadUrl>
   /** The revision it carries is what the server signed the URL for. */
   peaksUrl(recordingId: string): Promise<PeaksUrl>
   requestScanUploadSlot(scanId: string, body: ScanUploadSlotRequest): Promise<SignedUrl>
   scanUploadFinished(scanId: string): Promise<void>
-  scanDownloadUrl(scanId: string): Promise<SignedUrl>
+  /** An abort of `signal` stops the request. */
+  scanDownloadUrl(scanId: string, signal?: AbortSignal): Promise<SignedUrl>
   /** PUT bytes to a presigned URL. No bearer token: the signature is the credential. */
   putObject(url: string, blob: Blob, contentType: string): Promise<void>
-  /** GET bytes from a presigned URL. No bearer token: the signature is the credential. */
-  getObject(url: string): Promise<Blob>
+  /**
+   * GET bytes from a presigned URL. No bearer token: the signature is the credential. An abort
+   * of `signal` stops the read like its timeout does.
+   */
+  getObject(url: string, signal?: AbortSignal): Promise<Blob>
 }

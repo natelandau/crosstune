@@ -1,6 +1,7 @@
 import type { ScanFile } from '../db/scans'
 import type { RecordingFile } from '../db/recordings'
 import type {
+  LocalEntitlement,
   LocalPlayEvent,
   LocalScanView,
   LocalPracticeSession,
@@ -233,6 +234,27 @@ export function practiceSessionRow(
     loop_ids: [],
     speed_percent: 100,
     pitch_cents: 0,
+    ...extra,
+  }
+}
+
+/** A stored entitlements row: a free account with no grant and no trial. */
+export function entitlementRow(extra: Partial<LocalEntitlement> = {}): LocalEntitlement {
+  return {
+    id: 'entitlement-1',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    deleted_at: null,
+    server_seq: 1,
+    premium_source: null,
+    premium_expires_at: null,
+    auto_renews: false,
+    trial_ends_at: null,
+    premium_quota_bytes: 10_000,
+    free_quota_bytes: 1_000,
+    recording_notice_seen_at: null,
+    trial_reminder_seen_at: null,
+    trial_end_seen_at: null,
     ...extra,
   }
 }
