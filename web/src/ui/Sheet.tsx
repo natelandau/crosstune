@@ -26,7 +26,8 @@ import { CANCEL, CLOSE } from './confirmCopy'
 import { useLatest } from './useLatest'
 import { useStampedDensity } from '../platform/density'
 import { DURATION, EASE, SPRING } from '../theme/motion'
-import { Button, type ButtonVariant } from './Button'
+import { Button } from './Button'
+import { TONE_VARIANT, type ActionTone } from './toneVariant'
 import { PointerOverlay } from './PointerOverlay'
 import { recede } from './recede'
 import { growScale, originBox, releaseTarget, scrim, SHEET } from './sheetGeometry'
@@ -44,8 +45,7 @@ export interface SheetAction {
 }
 
 export interface SheetPrimary extends SheetAction {
-  /** `danger` for a destructive action, `warning` for a cautionary one. */
-  tone?: 'danger' | 'warning'
+  tone?: ActionTone
 }
 
 export interface SheetCancel {
@@ -159,11 +159,6 @@ function SheetHeader({
   )
 }
 
-const PRIMARY_VARIANT = {
-  danger: 'destructiveFill',
-  warning: 'warningFill',
-} as const satisfies Record<NonNullable<SheetPrimary['tone']>, ButtonVariant>
-
 /**
  * The sheet's actions: a quiet tertiary leading, then Cancel and the filled primary trailing.
  * On touch, Cancel and the primary split the width into two equal targets, and a lone action
@@ -224,7 +219,7 @@ function SheetFooter({
       {primary && (
         <div className={slot}>
           <Button
-            variant={primary.tone ? PRIMARY_VARIANT[primary.tone] : 'primary'}
+            variant={primary.tone ? TONE_VARIANT[primary.tone] : 'primary'}
             fullWidth
             label={primary.label}
             icon={primary.icon}
@@ -371,6 +366,9 @@ function useFittedHeight(column: HTMLElement | null): number | null {
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(content)
+    // The chrome around the content changes too: a rotation rewraps the title, and the keyboard
+    // pads the column's foot.
+    observer.observe(column)
     return () => observer.disconnect()
   }, [column])
   return fitted
@@ -432,13 +430,12 @@ function TouchSheet(props: SheetProps) {
   const partY = closedY - viewport.height * SHEET.partRatio
   const [column, setColumn] = useState<HTMLDivElement | null>(null)
   const fitted = useFittedHeight(height === 'fit' ? column : null)
-  const openY =
-    height === 'part'
-      ? partY
-      : height === 'fit'
-        ? Math.max(partY, closedY - (fitted ?? closedY - partY))
-        : 0
-  const detents = height === 'part' ? [0, openY] : [openY]
+  // Content taller than part height rests there and drags to full, as a part-height sheet does.
+  const fittedY = fitted === null ? partY : closedY - fitted
+  const fitsPart = fittedY >= partY
+  const openY = height === 'part' ? partY : height === 'fit' ? Math.max(partY, fittedY) : 0
+  const detents = height === 'part' || (height === 'fit' && !fitsPart) ? [0, openY] : [openY]
+  const canRiseFull = detents.includes(0)
   const y = useMotionValue(reduceMotion ? openY : closedY)
 
   const dragControls = useDragControls()
@@ -477,11 +474,11 @@ function TouchSheet(props: SheetProps) {
 
   useEffect(() => {
     // The keyboard covers most of a part-height sheet, so typing raises it to full.
-    if (keyboard > 0) detent.current = 'full'
-    const target = detent.current === 'full' ? 0 : openY
+    if (keyboard > 0 && canRiseFull) detent.current = 'full'
+    const target = detent.current === 'full' && canRiseFull ? 0 : openY
     if (reduceMotion) y.jump(target)
     else animate(y, target, { duration: DURATION.long, ease: EASE })
-  }, [y, openY, reduceMotion, keyboard])
+  }, [y, openY, reduceMotion, keyboard, canRiseFull])
 
   // A parent may refuse to close; a sheet still here once it has had time to answer a closing
   // release goes back up. An answer after an await would otherwise spring up before it exits.

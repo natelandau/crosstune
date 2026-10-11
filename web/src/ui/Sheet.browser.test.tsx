@@ -199,7 +199,19 @@ it('a fitted sheet rests at its content height, its footer at the window foot', 
     page.getByRole('button', { name: 'Save' }).element().getBoundingClientRect().bottom
   // Rising from below the window, the footer reaches its rest inside the window's foot.
   await expect.poll(() => saveBottom() <= 844 && saveBottom() > 844 - 40).toBe(true)
-  expect(sheetTop()).toBeGreaterThan(844 / 2)
+  await expect.poll(sheetTop).toBeGreaterThan(844 / 2)
+})
+
+it('a fitted sheet taller than part height rests there and drags to full', async () => {
+  renderWithProviders(
+    <Sheet isOpen onOpenChange={() => {}} title="Edit tune" height="fit">
+      <div style={{ height: 600 }} />
+    </Sheet>,
+    { density: 'touch' },
+  )
+  await expect.poll(sheetTop).toBe(844 / 2)
+  await drag(page.getByRole('heading', { name: 'Edit tune' }), 0, -300)
+  await expect.poll(sheetTop).toBe(SHEET.topMargin)
 })
 
 it("keeps a part-height sheet's footer at the window foot", async () => {
@@ -236,7 +248,7 @@ it('runs the primary from the footer, after Cancel, and shows Cancel alone witho
   )
   const save = page.getByRole('button', { name: 'Save' })
   await save.click()
-  expect(onPress).toHaveBeenCalledOnce()
+  await expect.poll(() => onPress).toHaveBeenCalledOnce()
   const cancel = page.getByRole('button', { name: 'Cancel' }).element()
   expect(cancel.compareDocumentPosition(save.element()) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
     Node.DOCUMENT_POSITION_FOLLOWING,
@@ -263,7 +275,7 @@ it('closes from a header button when it has no actions', async () => {
   await expect.element(close).toBeVisible()
   expect(close.element().closest('header')).not.toBeNull()
   await close.click()
-  expect(onOpenChange).toHaveBeenCalledWith(false)
+  await expect.poll(() => onOpenChange).toHaveBeenCalledWith(false)
 })
 
 it('is a 480px dialog on pointer', async () => {

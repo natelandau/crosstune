@@ -13,9 +13,10 @@ import {
 import { Dialog, Heading } from 'react-aria-components'
 import { CANCEL } from './confirmCopy'
 import { useStampedDensity } from '../platform/density'
-import { Button, type ButtonVariant } from './Button'
+import { Button } from './Button'
 import { PointerOverlay } from './PointerOverlay'
 import { Sheet } from './Sheet'
+import { TONE_VARIANT, type ActionTone } from './toneVariant'
 
 export { CANCEL, DELETE } from './confirmCopy'
 
@@ -24,8 +25,7 @@ export interface ConfirmOptions {
   message: string
   /** The confirming button's label, a bare verb: Delete, Remove. */
   action: string
-  /** `danger` for a destructive action, `warning` for a cautionary one. */
-  tone?: 'danger' | 'warning'
+  tone?: ActionTone
   /** Aborting withdraws the question, answering no, if it is still the one on screen. */
   signal?: AbortSignal
 }
@@ -46,11 +46,6 @@ interface ConfirmApi {
 }
 
 const ConfirmContext = createContext<ConfirmApi | null>(null)
-
-const ACTION_VARIANT = {
-  danger: 'destructiveFill',
-  warning: 'warningFill',
-} as const satisfies Record<NonNullable<ConfirmOptions['tone']>, ButtonVariant>
 
 /**
  * Returns a function that asks a destructive question and resolves true only when the named
@@ -115,7 +110,7 @@ function PointerAlert({
           </div>
           <div className="flex min-w-0 flex-1">
             <Button
-              variant={ACTION_VARIANT[tone]}
+              variant={TONE_VARIANT[tone]}
               fullWidth
               label={action}
               onPress={() => onAnswer(true)}

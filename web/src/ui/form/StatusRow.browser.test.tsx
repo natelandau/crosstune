@@ -27,7 +27,7 @@ it('trails the text with its action on pointer', async () => {
   expect(button().left).toBeGreaterThan(title().right)
   expect(button().top).toBeLessThan(title().bottom)
   await page.getByRole('button', { name: 'Sync now' }).click()
-  expect(onPress).toHaveBeenCalledOnce()
+  await expect.poll(() => onPress).toHaveBeenCalledOnce()
 })
 
 it('runs its action full width under the text on touch', async () => {
