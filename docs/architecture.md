@@ -168,10 +168,36 @@ Grants decide what an account may add. The server enforces the limits on
 additions; clients gate playback, practice, and opening a scan from the
 synced entitlements row.
 
-- Grants are the source of truth and never leave the server. One grant per
-  kind (`premium`, `storage_addon`) and source (`trial`, `apple`,
+- Grants are the source of truth and never leave the server. A grant has
+  a kind (`premium`, `storage_addon`) and a source (`trial`, `apple`,
   `stripe`, `comp`). An account is Premium while any Premium grant has no
   expiry or expires later than now. The server never applies leeway.
+- A kind has one `trial` grant and one `comp` grant. It has one `apple` or
+  `stripe` grant per store subscription, so two subscriptions are two grants.
+- RevenueCat is the source for paid grants. The webhook and
+  `POST /v1/me/billing/refresh` both re-read the account's subscriptions
+  from RevenueCat and never trust a webhook payload.
+- Every grant records its environment, `production` or `sandbox`. A sandbox
+  `apple` grant counts on every API, since TestFlight and App Review buy
+  with sandbox money. A sandbox `stripe` subscription counts only where the
+  API is configured to accept it, so test money never buys Premium in
+  production.
+- Without RevenueCat settings, refresh fails with 503
+  `urn:crosstune:billing-unavailable`. When RevenueCat does not answer, it
+  fails with 502 `urn:crosstune:billing-failed`.
+- Refresh is limited per user, since its RevenueCat requests share one
+  rate limit with the webhook. Past it, refresh answers 429 with
+  `Retry-After`.
+- Deleting an account first cancels its live Stripe subscriptions, active
+  or still renewing after access lapsed, and deletes its RevenueCat
+  customer. It leaves `apple` grants alone, since the app cannot cancel an
+  App Store subscription.
+  - `DELETE /v1/me` fails with 503 when a live Stripe subscription exists
+    and Stripe is not configured. It fails with 502 when Stripe or RevenueCat
+    does not confirm. Neither has a `billing-*` type. RevenueCat is skipped
+    when it is not configured.
+  - The Clerk `user.deleted` webhook maps both to 503
+    `urn:crosstune:billing-unavailable`, so Svix retries.
 - The entitlements row is the grants' resolved copy: one per user,
   server-written, read-only to clients. A push to it is `invalid` with
   reason `server-written`. It reports the Premium grant that lasts
@@ -575,6 +601,9 @@ API.
   `_DEVELOPMENT`, `_PREVIEW`.
 - A GitHub variable or secret that feeds one app variable has that
   variable's name.
+- The API refuses to start with only one of the RevenueCat project ID and
+  secret key. The webhook value may be set alone. The Stripe cancel key is
+  needed only to cancel a Stripe subscription when its account is deleted.
 - The hosted values live in the host dashboards. The maintainer keeps the
   record of them outside this repository.
 
