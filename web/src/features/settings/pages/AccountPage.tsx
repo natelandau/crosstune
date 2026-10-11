@@ -5,9 +5,10 @@ import { useAccountSettings } from '../useAccountSettings'
 import { ActionRow } from '../../../ui/form/ActionRow'
 import { Group } from '../../../ui/form/Group'
 import { PlanGroup } from '../PlanGroup'
+import { UsageSharingRow } from '../UsageSharingRow'
 import { DeleteAccountSheet } from './DeleteAccountSheet'
 
-/** Who is signed in, and the way out. */
+/** Who is signed in, the way out, and whether this device shares usage data. */
 export function AccountPage() {
   const { identity, label, offline, error, pending, signOut } = useAccountSettings()
   const [deleting, setDeleting] = useState(false)
@@ -29,6 +30,7 @@ export function AccountPage() {
           onPress={() => setDeleting(true)}
         />
       </Group>
+      <UsageSharingRow />
       <DeleteAccountSheet open={deleting} onClosed={() => setDeleting(false)} />
     </>
   )
