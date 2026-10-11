@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, case, func, or_, select, update
@@ -72,7 +72,7 @@ class JobRunner:
         sessionmaker: async_sessionmaker[AsyncSession],
         store: ObjectStore,
         *,
-        orphan_sweep_seconds: float = 43_200.0,
+        orphan_sweep_seconds: float | None = 43_200.0,
         work_root: Path | None = None,
         http_client: httpx2.AsyncClient | None = None,
         analytics_persons: AnalyticsPersons | None = None,
@@ -89,8 +89,12 @@ class JobRunner:
             work_root=work_root,
             http_client=http_client,
         )
+        # None turns sweeps off, for a one-off runner that needs only its own jobs: a
+        # sweep lists the whole bucket.
         self._orphan_sweep_seconds = orphan_sweep_seconds
-        self._next_orphan_sweep = utc_now()
+        self._next_orphan_sweep = (
+            utc_now() if orphan_sweep_seconds is not None else datetime.max.replace(tzinfo=UTC)
+        )
         self._stopping = asyncio.Event()
         self._wake = asyncio.Event()
         self.task: asyncio.Task[None] | None = None
@@ -215,7 +219,7 @@ class JobRunner:
             done += await analytics.delete_due_person(self._sessionmaker, self._analytics_persons)
         done += await release_abandoned_slots(self._sessionmaker, self._store)
         # Last, so a bucket listing that fails cannot starve the transcodes and purges.
-        if utc_now() >= self._next_orphan_sweep:
+        if self._orphan_sweep_seconds is not None and utc_now() >= self._next_orphan_sweep:
             self._next_orphan_sweep = utc_now() + timedelta(seconds=self._orphan_sweep_seconds)
             done += await self.sweep_orphans()
         return done

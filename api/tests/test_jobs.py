@@ -1030,6 +1030,18 @@ async def test_run_once_sweeps_orphans_once_per_interval(
     assert store.keys() == []
 
 
+async def test_run_once_skips_orphan_sweeps_when_off(engine, settings: Settings) -> None:
+    store = FakeObjectStore()
+    runner = JobRunner(
+        make_sessionmaker(engine), store, orphan_sweep_seconds=None, settings=settings
+    )
+    store.put_bytes(playback_key(new_uuid7(), "r1", REV), b"a", "audio/mp4")
+
+    assert await runner.run_once() == 0
+    assert len(store.keys()) == 1
+    assert await runner.next_due() > utc_now() + timedelta(days=365)
+
+
 async def test_sweep_removes_recording_prefixes_with_no_row(runner, verify_session) -> None:
     """A recording prefix with no row under a live user is garbage, like a user prefix with no user."""
     job_runner, store = runner

@@ -1,0 +1,267 @@
+# The standard test data fixture for `just api::testdata`.
+#
+# Each tune is titled "<first> <second>" from [names] and takes one value at random
+# from each list in [tunes]. Every list but `status` also has an unset choice, so
+# some tunes leave that field empty; an empty or missing list never sets it. The
+# seed keeps the titles and picks the same on every run.
+
+# first_created is the first tune's created_at. Later tunes follow a day apart, or
+# closer so the last is not after today.
+first_created = 2025-06-01
+seed          = 7
+
+[files]
+    audio        = "take.m4a"
+    image        = "scan.jpg"
+    image_height = 2200
+    image_width  = 1700
+
+# The kinds are proportions, scaled when --recordings asks for another count.
+[recordings]
+    count = 10
+    labels = ["Jam take", "Practice take", "Slow run-through", "Up to tempo", "With the band"]
+    microphone = 5
+    slippery_hill = 2
+    slippery_hill_urls = [
+        "https://www.slippery-hill.com/system/files/recordings/bonapartesretreat_williamstamper.mp3",
+        "https://www.slippery-hill.com/system/files/recordings/sailawayladies_unclebunttstamper.mp3",
+        "https://www.slippery-hill.com/system/files/recordings/soldiersjoy_gidtannerskilletlickers.mp3",
+    ]
+    unfiled = 3
+    upload = 3
+
+[scans]
+    count = 5
+
+# Tune titles are "<first> <second>".
+[names]
+    first = [
+        "Amelia's Waltz",
+        "Ashokan Farewell",
+        "Backstep Cindy",
+        "Bibb County Hoedown",
+        "Big Eyed Man",
+        "Big Footed Man in the Sandy Patch",
+        "Big Hoedown",
+        "Big Sandy",
+        "Big Scioto",
+        "Birchfield's Sally Ann",
+        "Black Jack Grove",
+        "Black Mountain",
+        "Blackberry Blossom",
+        "Blackberry Blosssom",
+        "Blackest Crow",
+        "Boatman",
+        "Bob Tailed Mule",
+        "Bonaparte Crossing the Rhine",
+        "Bonaparte's Retreat",
+        "Booth Shot Lincoln",
+        "Boys Them Buzzards Are Flying",
+        "Breaking Up Christmas",
+        "Brushy Fork",
+        "Catletsburg",
+        "Cherokee Maiden",
+        "Chinquapin Hunting",
+        "Cider Mill",
+        "Clinch Mountain",
+        "Coal Creek",
+        "Cripple Creek",
+        "Cumberland",
+        "Dance All Night",
+        "Dance Around Molly",
+        "Devil's Dream",
+        "Devlish Mary",
+        "Duck River",
+        "Dull Chisel",
+        "Elk River",
+        "Feed My Horse on Corn and Hay",
+        "Fire on the Mountain",
+        "Five Miles from Town",
+        "Flatwoods",
+        "Forked Deer",
+        "Garfield's Blackberry Blossom",
+        "Georgia Horseshoe",
+        "Going Back to Fielden",
+        "Going to Hamburg",
+        "Golden Ticket",
+        "Gray Owl",
+        "Greasy Coat",
+        "Green Mountain",
+        "Grub Springs",
+        "Gunboat",
+        "Half Irish",
+        "Half Past Four",
+        "Hangman's Reel",
+        "Happy Hollow",
+        "Hawks and Eagles",
+        "Hog Eye",
+        "Ida Red",
+        "Indian Ridge",
+        "Jimmy Johnson",
+        "Jimmy in the Swamp",
+        "John Brown's Dream",
+        "Johnny Booker",
+        "Judge Parker",
+        "Jump Fingers",
+        "Kanawha",
+        "Last Chance",
+        "Last of Callahan",
+        "Last of Harris",
+        "Late for the Dance",
+        "Laurel Hill",
+        "Lazy John",
+        "Liza Jane",
+        "Lost Girl",
+        "Lost Indian",
+        "Magnolia One Step",
+        "Midnight on the Water",
+        "Money Musk",
+        "Money in Both Pockets",
+        "Muddy Roads",
+        "New Broom",
+        "New Cut",
+        "Newport",
+        "Old Joe",
+        "Old Sport",
+        "Ookpik Waltz",
+        "Peachbottom",
+        "Pig Ankle Rag",
+        "Polecat",
+        "Possum",
+        "Possume on a Rail",
+        "Rebel Raid",
+        "Red Bird",
+        "Red Prairie Dawn",
+        "Road to Malvern",
+        "Rochester Schottishe",
+        "Rocky Pallet",
+        "Run Mountain",
+        "Sail Away Ladies",
+        "Sally Ann",
+        "Salt Creek",
+        "Salty River",
+        "Shady Grove",
+        "Shortening Bread",
+        "Snake's Wild Tune",
+        "Soldier's Joy",
+        "Speed the Plow",
+        "Stay All Night",
+        "Step Around Johnny",
+        "Sugar Hill",
+        "Sugar Tree",
+        "Swamp Cat",
+        "Tater Patch",
+        "Tennessee Girls",
+        "The Butterfly",
+        "The Kesh",
+        "The Silver Spear",
+        "Three Forks of Cumberland",
+        "Twin Sisters",
+        "Walk Along John to Kansas",
+        "Waynesboro",
+        "West Fork Gals",
+        "Westphalia Waltz",
+        "Whiskey Before Breakfast",
+        "Wild Goose",
+        "Winder Slide",
+        "Yellow Barber",
+    ]
+    second = [
+        "Blues",
+        "Breakdown",
+        "Crossing",
+        "Gap",
+        "Getaway",
+        "Hoedown",
+        "Holler",
+        "Hollow",
+        "Hop",
+        "Hornpipe",
+        "Jig",
+        "March",
+        "Polka",
+        "Promenade",
+        "Quickstep",
+        "Rag",
+        "Rambler",
+        "Reel",
+        "Ridge",
+        "Run",
+        "Schottische",
+        "Shuffle",
+        "Special",
+        "Stomp",
+        "Turnaround",
+        "Two-Step",
+        "Waltz",
+    ]
+
+# Field names match the sync schema. `modes` and `alternate_titles` pick one entry.
+# `status` and `notes` belong to the user's tune; `status` is always set.
+[tunes]
+    alternate_titles = ["Love Somebody", "Sail Away Lady", "Salt River"]
+    composer = ["Gary Harrison", "Jay Ungar", "Lauchlin Shaw"]
+    count = 20
+    genre = ["Bluegrass", "Irish", "Old-time"]
+    is_crooked = [true]
+    key = ["A", "C", "D", "G"]
+    lyrics = ["""
+Ever I get my new house done,
+Sail away, ladies, sail away,
+Give the old one to my son,
+Sail away, ladies, sail away.
+
+Don't she rock 'em, die-dee-oh,
+Don't she rock 'em, die-dee-oh."""]
+    modes = ["major", "modal"]
+    notes = [
+        "Crooked: the A part drops a beat before the turnaround.",
+        "Joe plays the B part an octave down the second time through.",
+        "Lead with the shuffle; the B part sits high on the A string.",
+        "Modal and crooked; count the extra beat in the B part.",
+        "Practice the B part slow, then bring it back to tempo.",
+    ]
+    part_structure = ["AABB", "AABBCC", "AB"]
+    status = ["known", "learning", "want_to_learn"]
+    time_signature = ["3/4", "4/4"]
+    tune_type = ["Breakdown", "Reel"]
+
+    # One pick per instrument: a tuning name, or a table with a capo.
+    [tunes.tunings]
+        five_string_banjo = [
+            "Open A (aEAC#E)",
+            "Open G (gDGBD)",
+            { capo = 2, tuning = "Double C (gCGCD)" },
+            { capo = 2, tuning = "Open G (gDGBD)" },
+        ]
+        violin = ["Cross A (AEAE)", "Standard (GDAE)"]
+
+# Each list takes a different name from `names` and holds min_size to max_size
+# tunes. --lists overrides count; past the names, a name is reused with a random
+# five-character tag.
+[lists]
+    count = 4
+    max_size = 10
+    min_size = 4
+    names = [
+        "Clifftop 2022",
+        "Clifftop 2023",
+        "Clifftop 2024",
+        "Clifftop 2025",
+        "Clifftop 2026",
+        "Crooked tunes",
+        "Custom playlist",
+        "Fiddling Bear",
+        "Jigs",
+        "Learn next",
+        "Next Week's Session",
+        "Practice tunes",
+        "Reels",
+        "Saturday session",
+        "Square Dance tunes",
+        "Swannanoa 2026",
+        "Tuesday jam",
+        "Tunes I love",
+        "Waltzes",
+        "Wedding set",
+    ]

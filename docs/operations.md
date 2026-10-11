@@ -106,6 +106,10 @@ which deletes every file that has no user row or no recording or
 scan row in the local database. `docker compose down -v`
 removes the Postgres and RustFS volumes; `just dev-down` keeps them.
 
+`just api::testdata <account>` seeds, clears, and sets the billing state of
+a local development account. It refuses to run unless `api/.env` sets
+`CROSSTUNE_TESTDATA_ENABLED=true`.
+
 ## Test
 
 | Command                       | Runs                                                                                                                                                     |
@@ -364,7 +368,6 @@ capture setup for store screenshots. It reads one fixture,
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `just apple::capture-test [names…]` | Runs the tests in `apple/CrosstuneMarketingUITests/` and exports their attachments to `apple/.build/capture/`.                 |
 | `just apple::capture-mac`           | Runs the signed Mac app on the fixture and saves its window. The screen must be unlocked.                                      |
-| `just api::seed-marketing`          | Seeds the marketing account on the Clerk development instance from the fixture, for web screenshots. Running it twice is safe. |
 
 - A capture name is a test method without its `test` prefix.
 - The recipe makes two simulators on the newest installed iOS runtime,
