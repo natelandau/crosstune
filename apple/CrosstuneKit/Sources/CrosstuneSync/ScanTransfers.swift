@@ -187,7 +187,8 @@ struct ScanTransfers {
             let scanTune = try ScanRecord.scanTuneID(writer.db)
             guard PlanRules.scanOpens(plan, tuneID: scan.tuneID, scanTune: scanTune) else { return }
             let grant = ScanRequeues.grant(of: try Entitlement.current(writer.db))
-            var requeues = try MetaKey.scanRequeues.value(in: writer.db, as: ScanRequeues.self) ?? ScanRequeues()
+            // A list in a shape this build cannot read is replaced, so it never fails the pass.
+            var requeues = (try? MetaKey.scanRequeues.value(in: writer.db, as: ScanRequeues.self)) ?? ScanRequeues()
             if requeues.grant != grant { requeues = ScanRequeues(grant: grant) }
             let attempt = ScanRequeues.attempt(scanID: id, scanTune: scanTune)
             guard !requeues.attempts.contains(attempt) else { return }

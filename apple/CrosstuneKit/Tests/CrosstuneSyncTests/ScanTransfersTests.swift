@@ -625,6 +625,19 @@ import Testing
         #expect(try await file("p1")?.error == nil)
     }
 
+    @Test func aStoredRetryListItCannotReadIsReplacedAndTheScanQueuedAgain() async throws {
+        try await storeEntitlement(store, source: "comp")
+        try await capturedScan("p1", serverSeq: 0, error: ScanFile.scanTuneOnlyError)
+        try await store.setMeta(.scanRequeues, to: ["p1": "legacy"])
+
+        await engine().transfer()
+
+        let queued = try await store.pendingChanges(limit: 10)
+        #expect(queued.map(\.rowID) == ["p1"])
+        let stored = try await store.read { try MetaKey.scanRequeues.value(in: $0, as: ScanRequeues.self) }
+        #expect(stored?.attempts.count == 1)
+    }
+
     @Test func aScanTheServerStillRefusesIsQueuedAgainOnlyOncePerPlan() async throws {
         // Premium here, while the server judges the account free.
         try await storeEntitlement(store, source: "comp")
