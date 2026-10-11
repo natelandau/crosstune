@@ -63,3 +63,33 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: just check
       - run: just test
+
+  # The plan on main is always safe to sync: an event enters the plan before any client
+  # sends it, and the site deploys from main rather than from a release.
+  sync:
+    needs: check
+    if: github.event_name == 'push'
+    name: Sync the plan to PostHog
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The environment admits main only, so no pull request can read the key.
+    environment: posthog
+    # Two syncs at once could both create the same new definition.
+    concurrency:
+      group: analytics-sync
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: analytics
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - uses: extractions/setup-just@v4
+      - run: just sync
+        env:
+          POSTHOG_DEFINITIONS_KEY: ${{ secrets.POSTHOG_DEFINITIONS_KEY }}
+          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
