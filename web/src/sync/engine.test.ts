@@ -1,20 +1,43 @@
+import * as Sentry from '@sentry/react'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { noopAnalytics } from '../usage/client'
 import { recordingAnalytics } from '../usage/testing'
-import { ApiError, NetworkError, NoTokenError } from '../api/client'
+import { ApiError, NetworkError, NoTokenError, TransferError } from '../api/client'
 import { recordEvent } from '../commands/events'
-import { createTune, deleteTune, updateTune } from '../commands/tunes'
-import { getEventsCursor, getInvalidChangeCount, getPullCursor } from '../db/meta'
-import { pendingBatch } from '../db/outbox'
+import { createTune, deleteTune, setPlaySource, updateTune } from '../commands/tunes'
+import { addLoop } from '../commands/loops'
+import { deleteRecording } from '../commands/recordings'
+import { addScans } from '../commands/scans'
+import {
+  getEventsCursor,
+  getInvalidChangeCount,
+  getPremiumHolds,
+  getPullCursor,
+  holdForPremium,
+} from '../db/meta'
+import { pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { createFakeApi, serverTune } from '../test/fakeApi'
-import { playEventRow, scanViewRow } from '../test/rows'
+import { captureRecording } from '../test/recordings'
+import { entitlementRow, playEventRow, scanViewRow } from '../test/rows'
+import { dueUnseenNotice, markNoticeSeen, seenNotices } from '../billing/notices'
 import { BACKOFF_MS, classifyFailure, createSyncEngine } from './engine'
-import { ACCOUNT_DELETED_PROBLEM } from './errors'
+import {
+  ACCOUNT_DELETED_PROBLEM,
+  MISSING_RECORDING_REASON,
+  PREMIUM_REQUIRED_PROBLEM,
+  PREMIUM_REQUIRED_REASON,
+  SCAN_TUNE_ONLY_REASON,
+} from './errors'
 import type { Provider } from '../api/vocabulary'
-import type { EventRow } from '../api/types'
+import type { Change, ChangeResult, EventRow, PullRow } from '../api/types'
 import type { SyncApi, SyncStatus } from './types'
+
+vi.mock('@sentry/react', async (importOriginal) => ({
+  ...(await importOriginal<typeof Sentry>()),
+  captureException: vi.fn(),
+}))
 
 let db: CrosstuneDb
 let fake: ReturnType<typeof createFakeApi>
@@ -378,6 +401,193 @@ describe('createSyncEngine', () => {
     expect(await pendingBatch(db)).toHaveLength(2)
   })
 
+  describe('under the plan', () => {
+    const premiumRequired = (changes: Change[]): ChangeResult[] =>
+      changes.map((c) =>
+        c.table === 'recordings'
+          ? { table: c.table, id: c.id, status: 'invalid', reason: PREMIUM_REQUIRED_REASON }
+          : { table: c.table, id: c.id, status: 'applied' },
+      )
+
+    function engineFor(batchSize?: number) {
+      return createSyncEngine({
+        analytics: noopAnalytics,
+        db,
+        api: fake.api,
+        isOnline: () => true,
+        batchSize,
+      })
+    }
+
+    it('leaves a held take out while free, still sends its delete, and holds nothing after', async () => {
+      await db.entitlements.put(entitlementRow())
+      const id = await captureRecording(db)
+      await holdForPremium(db, [id])
+      const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+      const engine = engineFor()
+      await engine.sync()
+      expect(fake.pushes.flat().map((c) => c.id)).toContain(tuneId)
+      expect(fake.pushes.flat().map((c) => c.id)).not.toContain(id)
+      expect(await pendingFor(db, 'recordings', id)).toBeDefined()
+
+      await deleteRecording(db, id)
+      // The server never stored the take, so it refuses the delete.
+      fake.respondToPush((changes) =>
+        changes.map((c) => ({ table: c.table, id: c.id, status: 'invalid', reason: 'not found' })),
+      )
+      await engine.sync()
+      expect(fake.pushes.at(-1)).toEqual([expect.objectContaining({ id, op: 'delete' })])
+      expect(await pendingBatch(db)).toHaveLength(0)
+      expect(await getPremiumHolds(db)).toEqual(new Set())
+      expect(await getInvalidChangeCount(db)).toBe(0)
+      engine.stop()
+    })
+
+    it('sends a held take once the plan is premium, and releases it when applied', async () => {
+      await db.entitlements.put(entitlementRow({ premium_source: 'comp' }))
+      const id = await captureRecording(db)
+      await holdForPremium(db, [id])
+      const engine = engineFor()
+      await engine.sync()
+      expect(fake.pushes.flat().map((c) => c.id)).toContain(id)
+      expect(await pendingFor(db, 'recordings', id)).toBeUndefined()
+      expect(await getPremiumHolds(db)).toEqual(new Set())
+      engine.stop()
+    })
+
+    it('never reports or counts a scan refused for being off the scan tune', async () => {
+      const { tuneId } = await createTune(db, { title: 'Angeline' }, { status: 'known' })
+      const [scanId] = await addScans(db, tuneId, [
+        { blob: new Blob(['jpeg'], { type: 'image/jpeg' }), width: 800, height: 1200 },
+      ])
+      fake.respondToPush((changes) =>
+        changes.map((c) =>
+          c.table === 'scans'
+            ? { table: c.table, id: c.id, status: 'invalid', reason: SCAN_TUNE_ONLY_REASON }
+            : { table: c.table, id: c.id, status: 'applied' },
+        ),
+      )
+      const onInvalid = vi.fn()
+      const engine = createSyncEngine({
+        analytics: noopAnalytics,
+        db,
+        api: fake.api,
+        isOnline: () => true,
+        onInvalid,
+      })
+      await engine.sync()
+      engine.stop()
+      expect(fake.pushes.flat().map((c) => c.id)).toContain(scanId)
+      expect(onInvalid).not.toHaveBeenCalled()
+      expect(await getInvalidChangeCount(db)).toBe(0)
+    })
+
+    it("keeps a held take's loop and play with it, and sends them once Premium", async () => {
+      await db.entitlements.put(entitlementRow())
+      const { tuneId, userTuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+      const id = await captureRecording(db, { tuneId })
+      const loopId = await addLoop(db, id, { start_ms: 1_000, end_ms: 5_000 })
+      await recordEvent(db, 'play_events', playEventRow('play-1', { recording_id: id }))
+      await setPlaySource(db, userTuneId, { kind: 'recording', id })
+      // The server refuses the new take and every row that needs it, and takes the pin, whose
+      // recording it never checks.
+      fake.respondToPush((changes) =>
+        changes.map((c) => {
+          if (c.table === 'recordings') {
+            return { table: c.table, id: c.id, status: 'invalid', reason: PREMIUM_REQUIRED_REASON }
+          }
+          if (c.table === 'recording_loops' || c.table === 'play_events') {
+            return { table: c.table, id: c.id, status: 'invalid', reason: MISSING_RECORDING_REASON }
+          }
+          return { table: c.table, id: c.id, status: 'applied' }
+        }),
+      )
+      const onInvalid = vi.fn()
+      const engine = createSyncEngine({
+        analytics: noopAnalytics,
+        db,
+        api: fake.api,
+        isOnline: () => true,
+        onInvalid,
+      })
+      await engine.sync()
+      expect(fake.pushes.flat().map((c) => c.id)).toEqual(
+        expect.arrayContaining([id, loopId, 'play-1', userTuneId]),
+      )
+      expect(onInvalid).not.toHaveBeenCalled()
+      expect(await getInvalidChangeCount(db)).toBe(0)
+      expect(await pendingFor(db, 'user_tunes', userTuneId)).toBeUndefined()
+      expect((await pendingBatch(db)).map((entry) => entry.row_id).toSorted()).toEqual(
+        [id, loopId, 'play-1'].toSorted(),
+      )
+
+      // Still free: the take and its rows wait out the next push.
+      const pushed = fake.pushes.length
+      await engine.sync()
+      expect(fake.pushes.slice(pushed).flat()).toEqual([])
+
+      await db.entitlements.put(entitlementRow({ premium_source: 'comp' }))
+      fake.respondToPush((changes) =>
+        changes.map((c) => ({ table: c.table, id: c.id, status: 'applied' })),
+      )
+      await engine.sync()
+      engine.stop()
+      expect(
+        fake.pushes
+          .slice(pushed)
+          .flat()
+          .map((c) => c.id),
+      ).toEqual([id, loopId, 'play-1'])
+      expect(await pendingBatch(db)).toHaveLength(0)
+      expect(await getPremiumHolds(db)).toEqual(new Set())
+    })
+
+    it('drops a hold whose take has nothing left in the outbox', async () => {
+      await holdForPremium(db, ['gone'])
+      const engine = engineFor()
+      await engine.sync()
+      engine.stop()
+      expect(await getPremiumHolds(db)).toEqual(new Set())
+    })
+
+    it('ends a push whose results are all held instead of resending them', async () => {
+      const takes = [
+        await captureRecording(db),
+        await captureRecording(db),
+        await captureRecording(db),
+      ]
+      fake.respondToPush(premiumRequired)
+      const engine = engineFor(2)
+      await engine.sync()
+      expect(fake.pushes.map((batch) => batch.map((c) => c.id))).toEqual([
+        takes.slice(0, 2),
+        [takes[2]],
+      ])
+      expect(await getPremiumHolds(db)).toEqual(new Set(takes))
+      expect(await getInvalidChangeCount(db)).toBe(0)
+      engine.stop()
+    })
+
+    it('still pushes an edit queued behind a full batch of held takes', async () => {
+      const takes = [
+        await captureRecording(db),
+        await captureRecording(db),
+        await captureRecording(db),
+      ]
+      const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+      fake.respondToPush(premiumRequired)
+      const engine = engineFor(2)
+      await engine.sync()
+      const sent = fake.pushes.flat().map((c) => c.id)
+      expect(sent).toContain(tuneId)
+      // Each held take goes out once per push.
+      for (const take of takes) expect(sent.filter((id) => id === take)).toHaveLength(1)
+      expect(await pendingFor(db, 'tunes', tuneId)).toBeUndefined()
+      expect((await pendingBatch(db)).map((entry) => entry.row_id)).toEqual(takes)
+      engine.stop()
+    })
+  })
+
   it('pushes the outbox in batches until it is empty', async () => {
     await createTune(db, { title: 'X' }, { status: 'known' })
     await createTune(db, { title: 'Y' }, { status: 'known' })
@@ -430,6 +640,131 @@ describe('createSyncEngine', () => {
       isOnline: () => false,
     })
     await expect(offline.resolveLink('https://x')).resolves.toBeNull()
+  })
+
+  it('fetchFile reads a recording or a scan through its signed URL and stores neither', async () => {
+    const audio = new Blob([new Uint8Array([1, 2])], { type: 'audio/mp4' })
+    const image = new Blob([new Uint8Array([3])], { type: 'image/jpeg' })
+    fake.recordingStates.set('r1', 'ready')
+    fake.objects.set('r1/playback.m4a', audio)
+    fake.scanStates.set('p1', 'ready')
+    fake.objects.set('p1/scan.jpg', image)
+    const engine = createSyncEngine({ analytics: noopAnalytics, db, api: fake.api })
+
+    await expect(engine.fetchFile('recording', 'r1')).resolves.toBe(audio)
+    await expect(engine.fetchFile('scan', 'p1')).resolves.toBe(image)
+    expect(await db.recording_files.count()).toBe(0)
+    expect(await db.scan_files.count()).toBe(0)
+  })
+
+  it("fetchFile asks for the signed URL under the caller's signal", async () => {
+    fake.recordingStates.set('r1', 'ready')
+    fake.objects.set('r1/playback.m4a', new Blob([new Uint8Array([1])]))
+    fake.scanStates.set('p1', 'ready')
+    fake.objects.set('p1/scan.jpg', new Blob([new Uint8Array([3])]))
+    const recording = vi.spyOn(fake.api, 'downloadUrl')
+    const scan = vi.spyOn(fake.api, 'scanDownloadUrl')
+    const engine = createSyncEngine({ analytics: noopAnalytics, db, api: fake.api })
+    const { signal } = new AbortController()
+
+    await engine.fetchFile('recording', 'r1', signal)
+    await engine.fetchFile('scan', 'p1', signal)
+    expect(recording).toHaveBeenCalledWith('r1', signal)
+    expect(scan).toHaveBeenCalledWith('p1', signal)
+  })
+
+  it('fetchFile rejects with the failure rather than settling for nothing', async () => {
+    const engine = createSyncEngine({ analytics: noopAnalytics, db, api: fake.api })
+    fake.fail(new NetworkError(new TypeError('Failed to fetch')))
+    await expect(engine.fetchFile('recording', 'r1')).rejects.toBeInstanceOf(NetworkError)
+  })
+
+  describe('fetchFile retries', () => {
+    const audio = new Blob([new Uint8Array([1])])
+
+    /** An engine whose `step` of the fetch fails once with `error`, then works. */
+    function failingOnce(step: 'downloadUrl' | 'getObject', error: unknown) {
+      fake.recordingStates.set('r1', 'ready')
+      fake.objects.set('r1/playback.m4a', audio)
+      const real = fake.api[step] as (...args: never[]) => Promise<unknown>
+      let calls = 0
+      const failing = vi.fn(async (...args: never[]) => {
+        calls += 1
+        if (calls === 1) throw error
+        return real(...args)
+      })
+      const engine = createSyncEngine({
+        analytics: noopAnalytics,
+        db,
+        api: { ...fake.api, [step]: failing },
+      })
+      return { engine, failing }
+    }
+
+    it.each([
+      ['a network error', 'getObject', new NetworkError(new TypeError('Failed to fetch'))],
+      ['a 5xx from the object store', 'getObject', new TransferError(503)],
+      ['a 5xx from the API', 'downloadUrl', new ApiError(502, null)],
+    ] as const)('tries once more after %s', async (_name, step, error) => {
+      const { engine, failing } = failingOnce(step, error)
+      await expect(engine.fetchFile('recording', 'r1')).resolves.toBe(audio)
+      expect(failing).toHaveBeenCalledTimes(2)
+    })
+
+    it('gives up after the second failure', async () => {
+      const error = new TransferError(503)
+      const getObject = vi.fn(async () => {
+        throw error
+      })
+      fake.recordingStates.set('r1', 'ready')
+      const engine = createSyncEngine({
+        analytics: noopAnalytics,
+        db,
+        api: { ...fake.api, getObject },
+      })
+      await expect(engine.fetchFile('recording', 'r1')).rejects.toBe(error)
+      expect(getObject).toHaveBeenCalledTimes(2)
+    })
+
+    it.each([
+      ['a 404 from the object store', 'getObject', new TransferError(404)],
+      ['a 409 from the API', 'downloadUrl', new ApiError(409, null)],
+    ] as const)('fails at once on %s', async (_name, step, error) => {
+      const { engine, failing } = failingOnce(step, error)
+      await expect(engine.fetchFile('recording', 'r1')).rejects.toBe(error)
+      expect(failing).toHaveBeenCalledOnce()
+    })
+
+    it('never retries a fetch its caller aborted', async () => {
+      const controller = new AbortController()
+      const getObject = vi.fn(async () => {
+        controller.abort(new Error('cancelled'))
+        throw new NetworkError(new DOMException('aborted', 'AbortError'))
+      })
+      fake.recordingStates.set('r1', 'ready')
+      const engine = createSyncEngine({
+        analytics: noopAnalytics,
+        db,
+        api: { ...fake.api, getObject },
+      })
+      await expect(engine.fetchFile('recording', 'r1', controller.signal)).rejects.toThrow(
+        'cancelled',
+      )
+      expect(getObject).toHaveBeenCalledOnce()
+    })
+
+    it('hands the signal to the object read', async () => {
+      const getObject = vi.fn(async (_url: string, _signal?: AbortSignal) => audio)
+      fake.recordingStates.set('r1', 'ready')
+      const engine = createSyncEngine({
+        analytics: noopAnalytics,
+        db,
+        api: { ...fake.api, getObject },
+      })
+      const controller = new AbortController()
+      await engine.fetchFile('recording', 'r1', controller.signal)
+      expect(getObject.mock.calls[0]![1]).toBe(controller.signal)
+    })
   })
 
   describe('searchRecordings', () => {
@@ -713,6 +1048,140 @@ describe('events', () => {
     release()
     await Promise.all([syncing, pulling])
     expect(order).toEqual(['push', 'events'])
+  })
+})
+
+describe('seen notices', () => {
+  const TRIAL_ENDS = '2026-10-20T00:00:00.000Z'
+  const trial = entitlementRow({
+    premium_source: 'trial',
+    premium_expires_at: TRIAL_ENDS,
+    trial_ends_at: TRIAL_ENDS,
+  })
+
+  function engineFor() {
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
+    onTestFinished(() => engine.stop())
+    return engine
+  }
+
+  /** The server's row once it has stamped the notice, as the next pull brings it. */
+  function stamped(): PullRow {
+    const row = { ...trial, recording_notice_seen_at: '2026-10-10T00:00:00.000Z', server_seq: 2 }
+    return { table: 'entitlements', row: { ...row, user_id: 'server-user' } } as unknown as PullRow
+  }
+
+  it('posts a notice seen on this device once, and forgets it once the row carries it', async () => {
+    await db.entitlements.put(trial)
+    await markNoticeSeen(db, 'first_recording')
+    const engine = engineFor()
+
+    fake.queuePull({ rows: [stamped()], next_since: 2, has_more: false })
+    await engine.sync()
+    expect(fake.notices).toEqual(['first_recording'])
+    expect(await seenNotices(db)).toEqual(new Set(['first_recording']))
+
+    await engine.sync()
+    await engine.sync()
+    expect(fake.notices).toEqual(['first_recording'])
+    expect(await seenNotices(db)).toEqual(new Set())
+  })
+
+  it('keeps a notice whose post failed and posts it on the next sync, with the sync clean', async () => {
+    await db.entitlements.put(trial)
+    await markNoticeSeen(db, 'first_recording')
+    const analytics = recordingAnalytics()
+    const engine = createSyncEngine({ analytics, db, api: fake.api, isOnline: () => true })
+    onTestFinished(() => engine.stop())
+
+    const failure = new ApiError(500, null)
+    fake.failNotice(failure)
+    vi.mocked(Sentry.captureException).mockClear()
+    await engine.sync()
+    expect(engine.status()).toBe('idle')
+    expect(Sentry.captureException).toHaveBeenCalledExactlyOnceWith(failure, { level: 'warning' })
+    expect(fake.notices).toEqual([])
+    expect(await seenNotices(db)).toEqual(new Set(['first_recording']))
+    expect(analytics.sends()).toEqual([])
+
+    fake.failNotice(null)
+    await engine.sync()
+    expect(fake.notices).toEqual(['first_recording'])
+  })
+
+  it('reports a failing notice post once per streak of failed syncs', async () => {
+    await db.entitlements.put(trial)
+    await markNoticeSeen(db, 'first_recording')
+    const engine = engineFor()
+    const failure = new ApiError(500, null)
+    vi.mocked(Sentry.captureException).mockClear()
+
+    fake.failNotice(failure)
+    await engine.sync()
+    await engine.sync()
+    expect(Sentry.captureException).toHaveBeenCalledOnce()
+
+    fake.failNotice(null)
+    await engine.sync()
+    expect(fake.notices).toEqual(['first_recording'])
+    await markNoticeSeen(db, 'trial_reminder')
+    fake.failNotice(failure)
+    await engine.sync()
+    expect(Sentry.captureException).toHaveBeenCalledTimes(2)
+  })
+
+  it('stops posting a notice the server refuses for good, and keeps it seen here', async () => {
+    await db.entitlements.put(trial)
+    await markNoticeSeen(db, 'first_recording')
+    const engine = engineFor()
+    const recordNotice = vi.spyOn(fake.api, 'recordNotice')
+
+    fake.failNotice(new ApiError(422, null))
+    await engine.sync()
+    expect(engine.status()).toBe('idle')
+    expect(recordNotice).toHaveBeenCalledOnce()
+
+    fake.failNotice(null)
+    await engine.sync()
+    expect(recordNotice).toHaveBeenCalledOnce()
+    expect(fake.notices).toEqual([])
+    expect(await seenNotices(db)).toEqual(new Set(['first_recording']))
+    expect(
+      dueUnseenNotice(trial, new Date('2026-10-10T00:00:00.000Z'), true, await seenNotices(db)),
+    ).toBeNull()
+  })
+
+  it('stops posting a notice the plan refuses, without failing the sync', async () => {
+    await db.entitlements.put(trial)
+    await markNoticeSeen(db, 'first_recording')
+    const engine = engineFor()
+    const recordNotice = vi.spyOn(fake.api, 'recordNotice')
+
+    fake.failNotice(
+      new ApiError(403, { type: PREMIUM_REQUIRED_PROBLEM, title: 't', status: 403, detail: 'd' }),
+    )
+    await engine.sync()
+    expect(engine.status()).toBe('idle')
+
+    fake.failNotice(null)
+    await engine.sync()
+    expect(recordNotice).toHaveBeenCalledOnce()
+    expect(await seenNotices(db)).toEqual(new Set(['first_recording']))
+  })
+
+  it('fails the sync as unauthorized when the notice post is refused for the session', async () => {
+    await db.entitlements.put(trial)
+    await markNoticeSeen(db, 'first_recording')
+    const engine = engineFor()
+
+    fake.failNotice(new ApiError(401, null))
+    await engine.sync()
+    expect(engine.status()).toBe('unauthorized')
   })
 })
 

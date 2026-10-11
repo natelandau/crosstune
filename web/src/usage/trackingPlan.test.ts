@@ -1,9 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
+import type { Notice } from '../api/types'
 import { bytesBucket, countBucket, durationBucket, listenedBucket, speedBucket } from './buckets'
 import {
   ENUMS,
+  type PLAN_NOTICES,
   SCREENS,
   SETTING_NAMES,
   type EventName,
@@ -169,6 +171,8 @@ const SAMPLES: { [N in EventName]: EventProps[N] } = {
   setting_changed: { setting: 'appearance', value: 'dark' },
   usage_sharing_disabled: {},
   storage_limit_reached: { storage_used: '500MB+' },
+  premium_sheet_shown: { reason: 'recordings', from: 'record' },
+  notice_shown: { notice: 'first_recording' },
   upload_failed: { failure_reason: 'storage_full', origin: 'recorded' },
   sync_failed: { failure_reason: 'server_error' },
   export_completed: { format: 'zip' },
@@ -234,6 +238,10 @@ function settingSpec(setting: string): PropSpec {
 }
 
 describe('tracking plan', () => {
+  it('names every notice the API records', () => {
+    expectTypeOf<(typeof PLAN_NOTICES)[number]>().toEqualTypeOf<Notice>()
+  })
+
   it("the plan's web events equal the client's events", () => {
     const listed = Object.entries(plan.events)
       .filter(

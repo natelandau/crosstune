@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { usePlan } from '../../billing/usePlan'
 import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
 import { formatBytes } from '../../text/format'
@@ -12,12 +13,19 @@ export interface StorageSummary {
   label: string
 }
 
-/** How much of the account's audio quota is spent; null until the server has said what it is. */
+/**
+ * How much of the account's quota is spent; null until the server has said what it is. The quota
+ * comes from the plan when it is known, so it stays right offline after a plan lapses; the used
+ * bytes come from the server's last figure.
+ */
 export function useStorageSummary(): StorageSummary | null {
   const db = useDb()
+  const plan = usePlan()
   const figures = useLiveQuery(() => getStorage(db), [db])
-  if (!figures || figures.quota_bytes <= 0) return null
-  const { used_bytes: used, quota_bytes: quota } = figures
+  if (!figures) return null
+  const used = figures.used_bytes
+  const quota = plan.quotaBytes ?? figures.quota_bytes
+  if (quota <= 0) return null
   return {
     used,
     quota,

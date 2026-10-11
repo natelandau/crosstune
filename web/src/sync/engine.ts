@@ -3,7 +3,10 @@ import type { AnalyticsClient } from '../usage/client'
 import { syncFailureReason } from '../usage/failure'
 import { ApiError, NetworkError, NoTokenError } from '../api/client'
 import type { Change, ResolveResponse } from '../api/types'
-import { countInvalidChanges, getEventsCursor, getPullCursor } from '../db/meta'
+import { readPlan } from '../billing/entitlement'
+import { recordingsPlayable } from '../billing/plan'
+import { postSeenNotices } from '../billing/notices'
+import { countInvalidChanges, getEventsCursor, getPullCursor, prunePremiumHolds } from '../db/meta'
 import { PUSH_BATCH_SIZE, pendingBatch } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { applyEventsPage, applyPullPage, applyPushResults, type InvalidChange } from './apply'
@@ -13,6 +16,7 @@ import {
   createUploadReports,
   downloadOne,
   downloadPass,
+  fetchUnstored,
   fetchPeaks,
   recoverInterruptedCaptures,
   refreshStorage,
@@ -186,10 +190,16 @@ export function createSyncEngine({
   let accountDeleted = false
   const accountDeletedListeners = new Set<() => void>()
   let syncedAt: string | null = null
+  let noticeFailureReported = false
 
   async function push(): Promise<void> {
+    await prunePremiumHolds(db)
+    const premium = recordingsPlayable(await readPlan(db, new Date()))
+    // Held this push: each is sent at most once, so a full batch of them never stops the
+    // entries queued behind.
+    const heldNow = new Set<string>()
     for (;;) {
-      const batch = await pendingBatch(db, batchSize)
+      const batch = await pendingBatch(db, batchSize, { premium, skip: heldNow })
       if (batch.length === 0) return
       const changes: Change[] = batch.map((entry) => ({
         table: entry.table,
@@ -199,11 +209,12 @@ export function createSyncEngine({
         data: entry.data,
       }))
       const response = await api.push(changes)
-      const { invalid, settled } = await applyPushResults(db, batch, response.results)
+      const { invalid, settled, held } = await applyPushResults(db, batch, response.results)
       for (const change of invalid) onInvalid(change)
       if (invalid.length > 0) await countInvalidChanges(db, invalid.length)
-      // A batch that settles nothing would send the same entries forever.
-      if (settled === 0 || batch.length < batchSize) return
+      for (const id of held) heldNow.add(id)
+      // A batch that neither settles nor holds anything would send the same entries forever.
+      if ((settled === 0 && held.length === 0) || batch.length < batchSize) return
     }
   }
 
@@ -307,6 +318,19 @@ export function createSyncEngine({
               // lock, falling back to last-chunk staleness where there is no lock manager.
               await recoverInterruptedCaptures(db)
               await push()
+              try {
+                await postSeenNotices(db, api)
+                noticeFailureReported = false
+              } catch (error) {
+                // A notice that failed to post waits for the next sync; only an auth failure
+                // fails this one.
+                if (isAuthFailure(error)) throw error
+                // Reported once per streak: a retry that fails the same way adds nothing.
+                if (!noticeFailureReported && classifyFailure(error, isOnline) !== 'offline') {
+                  noticeFailureReported = true
+                  Sentry.captureException(error, { level: 'warning' })
+                }
+              }
               await pull()
               try {
                 await refreshStorage(db, api)
@@ -384,6 +408,7 @@ export function createSyncEngine({
         return null
       }
     },
+    fetchFile: (kind, id, signal) => fetchUnstored(api, kind, id, signal),
     async retry(recordingId: string): Promise<void> {
       await api.retryRecording(recordingId)
       void syncing.trigger()

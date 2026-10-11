@@ -23,6 +23,10 @@ import { useSchemeSync } from '../theme/scheme'
 import { TuneFormLauncherProvider, type TuneFormLauncher } from '../features/tune/formLauncher'
 import { TuneFormProvider } from '../features/tune/TuneFormProvider'
 import { ConfirmProvider } from '../ui/Confirm'
+import { NoticeHost } from '../features/plan/NoticeHost'
+import { PremiumSheetProvider, usePremiumSheet } from '../features/plan/PremiumSheetProvider'
+import { recordingsPlayable } from '../billing/plan'
+import { usePlanOrUnknown } from '../billing/usePlan'
 import { ToastProvider } from '../ui/Toast'
 import type { BackAdapter } from '../platform/backHandler'
 import { BackStackProvider } from './BackStackProvider'
@@ -94,15 +98,18 @@ export function App({
       <AppMotion>
         <ConfirmProvider>
           <ToastProvider>
-            {/* Outside the router, so a loaded item keeps playing across every navigation.
-                The player reaches the engine to prime it inside a play tap. */}
-            {playbackEngine ? (
-              <PlaybackEngineContext.Provider value={playbackEngine}>
-                {played}
-              </PlaybackEngineContext.Provider>
-            ) : (
-              <PlaybackEngineProvider>{played}</PlaybackEngineProvider>
-            )}
+            <PremiumSheetProvider navigate={(to) => void router.navigate(to)}>
+              {/* Outside the router, so a loaded item keeps playing across every navigation.
+                  The player reaches the engine to prime it inside a play tap. */}
+              {playbackEngine ? (
+                <PlaybackEngineContext.Provider value={playbackEngine}>
+                  {played}
+                </PlaybackEngineContext.Provider>
+              ) : (
+                <PlaybackEngineProvider>{played}</PlaybackEngineProvider>
+              )}
+              <NoticeHost navigate={(to) => void router.navigate(to)} />
+            </PremiumSheetProvider>
           </ToastProvider>
         </ConfirmProvider>
       </AppMotion>
@@ -110,10 +117,21 @@ export function App({
   )
 }
 
-/** Hands the recorder's start to the shell's Record controls and the tune page. */
+/**
+ * Hands the recorder's start to the shell's Record controls and the tune page. On a free plan
+ * the controls stay in place and answer with the Premium sheet instead.
+ */
 function RecordLauncher({ children }: { children: ReactNode }) {
   const { start } = useRecordState()
-  const launcher = useMemo<Launcher>(() => ({ start, available: true }), [start])
+  const playable = recordingsPlayable(usePlanOrUnknown())
+  const premium = usePremiumSheet()
+  const launcher = useMemo<Launcher>(
+    () => ({
+      start: playable ? start : () => premium.open('recordings', 'record'),
+      available: true,
+    }),
+    [playable, premium, start],
+  )
   return (
     <RecordLauncherContext.Provider value={launcher}>{children}</RecordLauncherContext.Provider>
   )

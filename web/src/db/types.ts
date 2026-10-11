@@ -1,4 +1,5 @@
 import type {
+  EntitlementRow,
   ListItemRow,
   ListRow,
   PlayEventRow,
@@ -29,8 +30,8 @@ import {
 export type { TableName }
 
 /** The tables the main pull syncs and the device stores row by row. The event tables
- * arrive through their own pull and are written only by inserts. The main pull also
- * carries entitlements, which this device has no store for and skips. */
+ * arrive through their own pull and are written only by inserts. Entitlements arrive in
+ * the main pull too but are stored apart, one row the server alone writes. */
 export type SyncTableName = Exclude<
   TableName,
   'play_events' | 'practice_sessions' | 'scan_views' | 'entitlements'
@@ -63,6 +64,9 @@ export type EventTable = (typeof EVENT_TABLES)[number]
 export function isEventTable(name: TableName): name is EventTable {
   return (EVENT_TABLES as readonly string[]).includes(name)
 }
+
+/** Every table this device stores: the synced ones, the event stores, and entitlements. */
+export type StoredTableName = SyncTableName | EventTable | 'entitlements'
 
 export function isInstrument(value: unknown): value is Instrument {
   return typeof value === 'string' && (INSTRUMENTS as readonly string[]).includes(value)
@@ -97,6 +101,7 @@ export type LocalRecording = Local<Omit<RecordingRow, 'recorded_at' | 'recorded_
   Local<Required<Pick<RecordingRow, 'recorded_at' | 'recorded_precision'>>>
 export type LocalRecordingLoop = Local<RecordingLoopRow>
 export type LocalScan = Local<ScanRow>
+export type LocalEntitlement = Local<EntitlementRow>
 
 // An event recorded here has no server_seq until its push result writes the stored row back.
 type Unpushed<Row> = Omit<Local<Row>, 'server_seq'> & { server_seq?: number }

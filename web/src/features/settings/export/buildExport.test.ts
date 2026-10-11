@@ -51,8 +51,8 @@ function fromFixture(data: Fixture): ExportInput {
     links: data.recording_links.map(stripOwnership),
     recordings: data.recordings.map(stripOwnership),
     scans: data.scans.map(stripOwnership),
-    localScans: new Set(data.local_scans),
-    localAudio: data.local_files.map((file) => ({
+    scanIds: new Set(data.local_scans),
+    audio: data.local_files.map((file) => ({
       recordingId: file.recording_id,
       contentType: file.content_type,
     })),
@@ -69,9 +69,9 @@ function emptyInput(): ExportInput {
     listItems: [],
     links: [],
     recordings: [],
-    localAudio: [],
+    audio: [],
     scans: [],
-    localScans: new Set(),
+    scanIds: new Set(),
   }
 }
 
@@ -144,7 +144,7 @@ test('names a recording by when it was added, whatever its recorded date', () =>
       recording('a', { recorded_at: '1937-01-01T00:00:00.000Z', recorded_precision: 'year' }),
       recording('b', { recorded_at: null, recorded_precision: null }),
     ],
-    localAudio: [
+    audio: [
       { recordingId: 'a', contentType: 'audio/mp4' },
       { recordingId: 'b', contentType: 'audio/mp4' },
     ],
@@ -220,7 +220,7 @@ test('leaves out a user-tune whose tune is deleted or missing', () => {
     tunes: [tuneRow('t1', 'Gone', { deleted_at: '2026-01-02T00:00:00Z' })],
     userTunes: [userTuneRow('u1', 't1'), userTuneRow('u2', 'missing')],
     recordings: [recordingRow('r1', { tune_id: 't1' })],
-    localAudio: [{ recordingId: 'r1', contentType: 'audio/mp4' }],
+    audio: [{ recordingId: 'r1', contentType: 'audio/mp4' }],
   })
   expect(plan.tunesCsv).toBe(csvDocument([TUNES_HEADER]))
   expect(plan.audio.map((a) => a.path)).toEqual(['recordings/Unfiled/2026-01-01.m4a'])
@@ -232,7 +232,7 @@ test('gives a tune titled Unfiled its own folder', () => {
     tunes: [tuneRow('t1', 'Unfiled')],
     userTunes: [userTuneRow('u1', 't1')],
     recordings: [recordingRow('r1', { tune_id: 't1' }), recordingRow('r2')],
-    localAudio: [
+    audio: [
       { recordingId: 'r1', contentType: 'audio/mp4' },
       { recordingId: 'r2', contentType: 'audio/mp4' },
     ],
@@ -261,6 +261,6 @@ test('leaves out scans of a tune that is not exported', () => {
   input.tunes = [tuneRow('t1', 'Gone', { deleted_at: '2026-01-02T00:00:00.000Z' })]
   input.userTunes = [userTuneRow('u1', 't1')]
   input.scans = [scanRow('p1', 't1'), scanRow('p2', 'missing')]
-  input.localScans = new Set(['p1', 'p2'])
+  input.scanIds = new Set(['p1', 'p2'])
   expect(buildExport(input).scans).toEqual([])
 })

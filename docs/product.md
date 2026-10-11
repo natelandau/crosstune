@@ -26,8 +26,10 @@ The tools they have do not fit that:
 - Musicians who learn by ear, in old-time, bluegrass, Irish, klezmer, and
   other folk traditions. They play alone, in small sessions, and at large
   jams.
-- Free at launch. Paid access comes later, so accounts and data must support
-  billing without a rewrite.
+- Free keeps the catalog, lists, sync, offline, import, and export, plus
+  scans on one tune. Premium adds recordings, scans on any tune, and 5 GB of
+  storage. Every new account starts with a 30-day Premium trial, and a
+  lapsed account keeps every file.
 - Success is musicians using Crosstune as their one place for tunes,
   recordings, and practice, in place of paper lists and voice memo apps, and
   other players asking for an account.
@@ -87,7 +89,8 @@ for Android and every browser. The parts that matter:
   it is ready. Every recording reaches the musician's other devices. A
   recording can be trimmed for good, and plays at a slower or faster speed
   and a shifted pitch on every device. A recording keeps labeled practice
-  loops that repeat. Free accounts hold 50 MB and Premium accounts 5 GB.
+  loops that repeat. Recordings need Premium. Storage is 50 MB of scans on
+  a free account, 100 MB during the trial, and 5 GB on Premium.
 - Lyrics. A full-screen reading view that keeps the screen awake.
 - Browse. The catalog filtered by status and attributes, with text search.
   Filters persist.
@@ -101,15 +104,16 @@ for Android and every browser. The parts that matter:
 - Scans. Images attached to a tune: written music, a lyric sheet, or
   handwritten notes. Scan them on iPhone and iPad, or add an image from a
   file on Mac and the web. View, reorder, and delete them on every device.
-  Every scan downloads to every device and counts toward the same storage
+  A free account keeps scans on one tune. Every scan the plan opens
+  downloads to every device, and every scan counts toward the same storage
   as recordings.
 - Offline. The full catalog is on the device. Reads and writes work offline
   and sync when a connection returns.
 - Import. Paste a tune list, or open a text file, from Settings or the
   empty catalog. Review the tunes, with tunes already in the catalog shown
   unchecked, and add them all at once.
-- Export. One zip from Settings: tunes and lists as spreadsheets, plus the
-  recordings and scans on the device.
+- Export. One zip from Settings: tunes and lists as spreadsheets, plus
+  every recording and scan, on any plan.
 - Stats. A page from Settings counts the catalog and its recordings, shows
   when the musician added and played, and finds rarities and anniversaries.
   It shows only the attributes the musician uses.
@@ -121,7 +125,6 @@ Each has a place in the data model and no code:
 - A shared canonical catalog across users, with deduplication
 - Sharing tunes, lists, and recordings between users
 - Melody transcription
-- Paid access
 
 ## Constraints for every release
 

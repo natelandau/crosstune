@@ -16,6 +16,9 @@ export function fakeEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
     searchRecordings: async () => ({ kind: 'failed' }),
     download: async () => null,
     peaks: async () => null,
+    fetchFile: async () => {
+      throw new Error('fetchFile is not faked')
+    },
     retry: async () => {},
     deleteAccount: async () => {},
     onAccountDeleted: () => () => {},

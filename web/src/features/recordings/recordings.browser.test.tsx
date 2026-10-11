@@ -24,7 +24,10 @@ import { SORT_LABELS } from './sortCopy'
 
 import { ADD_NEW_TUNE, NEW_TUNE_TITLE } from '../tune/tuneFormCopy'
 import { openTestDb } from '../../test/db'
-import { recordingRow, tuneRow, userTuneRow } from '../../test/rows'
+import { entitlementRow, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
+import { PREMIUM_RECORDINGS_TITLE } from '../plan/planCopy'
+import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
+import { recordingAnalytics } from '../../usage/testing'
 import { DONE } from '../../ui/confirmCopy'
 import { FILTERS, filtersLabel, removeFilterLabel, RESET } from '../../ui/filterCopy'
 import { SORT_BY } from '../../ui/sortCopy'
@@ -34,7 +37,7 @@ import { renderApp } from '../../test/renderApp'
 import { TUNE } from '../tune/tunePageCopy'
 import { UNDO } from '../../ui/Toast'
 import { DROP_TO_IMPORT } from './DropOverlay'
-import { ADD_TO_TUNE } from './recordingCopy'
+import { ADD_TO_TUNE, SUBSCRIBE_TO_PLAY } from './recordingCopy'
 
 const PHONE = { width: 390, height: 844 }
 const WIDE = { width: 1280, height: 800 }
@@ -395,4 +398,34 @@ it('outlines the column under the pane bar while files are dragged over it', asy
     .toBe(true)
   drag('dragleave', [], document.body)
   await expect.element(overlay).not.toBeInTheDocument()
+})
+
+it('dims every recording on a free plan, filed and unfiled, and answers a tap with Premium', async () => {
+  await db.entitlements.put(entitlementRow())
+  await db.tunes.put(tuneRow('hen', 'Cluck Old Hen'))
+  await db.user_tunes.put(userTuneRow('u-hen', 'hen'))
+  await db.recordings.put(recordingRow('r1', { label: 'Jam recording', state: 'ready' }))
+  await db.recordings.put(recordingRow('r2', { label: 'Hen take', tune_id: 'hen', state: 'ready' }))
+  const analytics = recordingAnalytics()
+  listRole = 'region'
+  await renderApp({
+    path: RECORDINGS.root,
+    db,
+    frame: WIDE,
+    wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
+  })
+  for (const name of ['Jam recording', 'Hen take']) {
+    // Named without Play, since the tap opens the Premium sheet instead.
+    await expect.element(column().getByRole('row', { name: new RegExp(`^${name}`) })).toBeVisible()
+    await expect.element(row(name)).toHaveAccessibleDescription(SUBSCRIBE_TO_PLAY)
+    await expect.poll(() => Number(getComputedStyle(row(name).element()).opacity)).toBeLessThan(1)
+  }
+  await row('Hen take').click()
+  await expect.element(page.getByRole('dialog', { name: PREMIUM_RECORDINGS_TITLE })).toBeVisible()
+  await expect
+    .poll(() => analytics.sends().filter((send) => send.name === 'premium_sheet_shown'))
+    .toEqual([
+      { name: 'premium_sheet_shown', props: { reason: 'recordings', from: 'recording_row' } },
+    ])
+  expect(await db.recording_files.get('r2')).toBeUndefined()
 })

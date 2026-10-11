@@ -4,6 +4,7 @@ import { ACCOUNT_OFFLINE, SIGN_OUT } from '../settingsCopy'
 import { useAccountSettings } from '../useAccountSettings'
 import { ActionRow } from '../../../ui/form/ActionRow'
 import { Group } from '../../../ui/form/Group'
+import { PlanGroup } from '../PlanGroup'
 import { DeleteAccountSheet } from './DeleteAccountSheet'
 
 /** Who is signed in, and the way out. */
@@ -12,6 +13,7 @@ export function AccountPage() {
   const [deleting, setDeleting] = useState(false)
   return (
     <>
+      <PlanGroup />
       <Group error={error ?? undefined} footer={offline ? ACCOUNT_OFFLINE : undefined}>
         <div className="flex min-h-(--target) flex-col justify-center px-4 py-2">
           <span className="t-body truncate">{identity?.name ?? label}</span>

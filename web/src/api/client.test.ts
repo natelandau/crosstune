@@ -147,6 +147,17 @@ describe('createApiClient', () => {
     await expect(makeClient(fetchMock).deleteAccount()).resolves.toBeUndefined()
   })
 
+  it('posts a seen notice to /v1/me/notices and resolves on 204', async () => {
+    const fetchMock = vi.fn<FetchMock>(async (input) => {
+      expect(input.method).toBe('POST')
+      expect(input.url).toBe('http://api.test/v1/me/notices')
+      expect(await input.json()).toEqual({ notice: 'trial_reminder' })
+      return new Response(null, { status: 204 })
+    })
+    await expect(makeClient(fetchMock).recordNotice('trial_reminder')).resolves.toBeUndefined()
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
   it('throws ApiError when deleteAccount gets a 502', async () => {
     const fetchMock = vi.fn<FetchMock>(async () => problemResponse(502, 'down'))
     const api = makeClient(fetchMock, { gatewayRetryDelaysMs: [] })
@@ -281,6 +292,40 @@ describe('createApiClient', () => {
     await expect(api.getObject('https://r2/get')).rejects.toSatisfy(
       (error) => error instanceof TransferError && error.status === 404,
     )
+  })
+
+  it("stops a GET when its caller's signal aborts", async () => {
+    const fetchMock = vi.fn(stalledFetch)
+    const api = makeClient(fetchMock)
+    const controller = new AbortController()
+    const got = api.getObject('https://r2/get', controller.signal)
+    await expect.poll(() => fetchMock.mock.calls.length).toBe(1)
+    controller.abort()
+    await expect(got).rejects.toBeInstanceOf(NetworkError)
+  })
+
+  it.each(['downloadUrl', 'scanDownloadUrl'] as const)(
+    "stops %s when its caller's signal aborts",
+    async (method) => {
+      const fetchMock = vi.fn(stalledFetch)
+      const api = makeClient(fetchMock)
+      const controller = new AbortController()
+      const got = api[method]('r1', controller.signal)
+      await expect.poll(() => fetchMock.mock.calls.length).toBe(1)
+      controller.abort()
+      await expect(got).rejects.toBeInstanceOf(NetworkError)
+    },
+  )
+
+  it("stops waiting between gateway retries when its caller's signal aborts", async () => {
+    const fetchMock = vi.fn<FetchMock>(async () => problemResponse(502))
+    const api = makeClient(fetchMock, { gatewayRetryDelaysMs: [60_000] })
+    const controller = new AbortController()
+    const got = api.downloadUrl('r1', controller.signal)
+    await expect.poll(() => fetchMock.mock.calls.length).toBe(1)
+    controller.abort()
+    await expect(got).rejects.toBeInstanceOf(NetworkError)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('aborts a stalled GET once its timeout elapses and reports it as a network error', async () => {

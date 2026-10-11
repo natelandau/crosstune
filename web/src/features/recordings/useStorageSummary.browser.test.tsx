@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { setStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { entitlementRow } from '../../test/rows'
 import { dataProviders } from '../../test/providers'
 import { useStorageSummary } from './useStorageSummary'
 
@@ -40,5 +41,14 @@ describe('useStorageSummary', () => {
     // The read settles to the same null it starts at, so wait on the stored row instead.
     await expect.poll(async () => (await db.meta.count()) > 0).toBe(true)
     expect(result.current).toBeNull()
+  })
+})
+
+describe('useStorageSummary with a plan', () => {
+  it('takes the quota from the entitlements row and the used bytes from the server figure', async () => {
+    await db.entitlements.put(entitlementRow({ free_quota_bytes: 50_000_000 }))
+    await setStorage(db, { used_bytes: 12_000_000, quota_bytes: 1_000_000_000, max_file_bytes: 1 })
+    const { result } = setup()
+    await expect.poll(() => result.current?.label).toBe('12 MB of 50 MB used')
   })
 })

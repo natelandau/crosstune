@@ -2,8 +2,9 @@ import type { LocalRecording, LocalRecordingLink } from '../../db/types'
 import { liveRows } from './tuneSource'
 import type { PlayerItem } from '../../domain/playerItem'
 
-/** Why a playing list passes over a tune. */
-export type SkipReason = 'nothing' | 'linksOnly' | 'notHere'
+/** Why a playing list passes over a tune. `premium`: it holds only recordings, which the plan
+ * does not play. */
+export type SkipReason = 'nothing' | 'linksOnly' | 'notHere' | 'premium'
 
 export type PlaylistRecording = Pick<LocalRecording, 'id' | 'tune_id' | 'deleted_at' | 'state'>
 export type PlaylistLink = Pick<LocalRecordingLink, 'id' | 'tune_id' | 'deleted_at'>
@@ -23,6 +24,8 @@ export interface Availability {
   online: boolean
   /** True when this device holds the recording's audio. */
   hasAudio: (recordingId: string) => boolean
+  /** False while the plan plays no recording. */
+  recordingsPlay: boolean
 }
 
 export type PlaylistChoice = { item: PlayerItem } | { skip: SkipReason }
@@ -40,16 +43,21 @@ export interface PlaylistReport {
  * embedded link cannot report its end. A recording can play with its audio held here, or
  * online once the server holds a copy to send. A pin that cannot play here passes over to the
  * first recording that can. Only live rows of this tune count, so a pin to a deleted row or to
- * another tune's row never plays.
+ * another tune's row never plays. While the plan plays no recording, a tune's recordings count
+ * as missing, unless they are all it holds.
  */
 export function playlistSource(input: PlaylistEntry & Availability): PlaylistChoice {
-  const { tuneId, online, hasAudio } = input
+  const { tuneId, online, hasAudio, recordingsPlay } = input
   const recordings = liveRows(input.recordings, tuneId)
+  const hasLinks = liveRows(input.links, tuneId).length > 0
+  if (!recordingsPlay) {
+    if (recordings.length > 0 && !hasLinks) return { skip: 'premium' }
+    return { skip: hasLinks ? 'linksOnly' : 'nothing' }
+  }
   const playable = recordings.filter((r) => hasAudio(r.id) || (online && r.state === 'ready'))
   const chosen = playable.find((r) => r.id === input.pin.recordingId) ?? playable[0]
   if (chosen) return { item: { kind: 'recording', id: chosen.id } }
   if (recordings.length > 0) return { skip: 'notHere' }
-  const hasLinks = liveRows(input.links, tuneId).length > 0
   return { skip: hasLinks ? 'linksOnly' : 'nothing' }
 }
 
@@ -64,7 +72,7 @@ export function playlistReport(
 ): PlaylistReport {
   const report: PlaylistReport = {
     playable: [],
-    skipped: { nothing: [], linksOnly: [], notHere: [] },
+    skipped: { nothing: [], linksOnly: [], notHere: [], premium: [] },
     total: entries.length,
   }
   for (const entry of entries) {

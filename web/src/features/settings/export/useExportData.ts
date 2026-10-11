@@ -4,8 +4,9 @@ import { useAnalytics } from '../../../usage/AnalyticsProvider'
 import { failureReason } from '../../../usage/failure'
 import { useAuthSession } from '../../../auth/AuthContext'
 import { useDb } from '../../../db/DbProvider'
+import { useOnline, useSyncEngine } from '../../../sync/SyncProvider'
 import { useAction } from '../../../ui/useAction'
-import { EXPORT_COMPLETE_NOTE, exportMissingNote, exportProgress } from './exportCopy'
+import { EXPORT_COMPLETE_NOTE, exportNeedsConnection, exportProgress } from './exportCopy'
 import { createExport, downloadBlob, exportCounts } from './runExport'
 
 export interface ExportData {
@@ -13,8 +14,9 @@ export interface ExportData {
   counts: Awaited<ReturnType<typeof exportCounts>> | undefined
   /** Files prepared so far while an export runs, or null before the first. */
   progress: { done: number; total: number; label: string } | null
-  /** What the export will hold, or null until the counts are read. */
+  /** What the export will hold, or why it cannot run; null until the counts are read. */
   note: string | null
+  /** Starts the export, unless offline with files this device does not hold. */
   run: () => void
   /** Stops an export in progress so it never downloads. */
   abandon: () => void
@@ -27,13 +29,16 @@ export interface ExportData {
 }
 
 /**
- * Zips the tunes, lists, and every recording and scan this device holds into one download.
+ * Zips the tunes, lists, and every recording and scan into one download, fetching each file
+ * this device does not hold.
  * Reopening resets the last run's progress and error; unmounting abandons a run.
  */
 export function useExportData(open: boolean): ExportData {
   const db = useDb()
   const { userId } = useAuthSession()
   const analytics = useAnalytics()
+  const engine = useSyncEngine()
+  const online = useOnline()
   const { error, pending, runThen, clear } = useAction()
   const [closing, setClosing] = useState(false)
   const [openedFor, setOpenedFor] = useState(open)
@@ -54,8 +59,10 @@ export function useExportData(open: boolean): ExportData {
 
   const abandon = () => controller.current?.abort()
 
+  const needsConnection = !online && (counts?.missing ?? 0) > 0
+
   const run = () => {
-    if (controller.current) return
+    if (controller.current || needsConnection) return
     const abort = new AbortController()
     controller.current = abort
     setProgress(null)
@@ -66,6 +73,7 @@ export function useExportData(open: boolean): ExportData {
           const { fileName, blob } = await createExport(db, userId, {
             now: new Date(),
             timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            fetchMissing: engine.fetchFile,
             signal: abort.signal,
             onProgress: (done, total) => {
               if (controller.current === abort) setProgress(total > 0 ? { done, total } : null)
@@ -90,8 +98,8 @@ export function useExportData(open: boolean): ExportData {
   }
 
   const note = counts
-    ? counts.onDevice < counts.total
-      ? exportMissingNote(counts.onDevice, counts.total)
+    ? needsConnection
+      ? exportNeedsConnection(counts.missing)
       : EXPORT_COMPLETE_NOTE
     : null
 

@@ -5,14 +5,19 @@ import type { CrosstuneDb } from './schema'
 
 // Replaced whole on every change, so `useSyncExternalStore` sees a failure as a new snapshot
 // even when the value stays the same.
-interface Snapshot<T> {
+export interface Snapshot<T> {
   value: T | undefined
   failure?: { caught: unknown }
 }
 
-interface Shared<T> {
+export interface Shared<T> {
   get: () => Snapshot<T>
   subscribe: (listener: () => void) => () => void
+}
+
+/** The hook, plus the store behind it for one database, for a store built on top of it. */
+export type SharedLiveQuery<T> = (() => T | undefined) & {
+  sharedFor: (db: CrosstuneDb) => Shared<T>
 }
 
 /**
@@ -23,7 +28,7 @@ interface Shared<T> {
  */
 export function createSharedLiveQuery<T>(
   query: (db: CrosstuneDb) => Promise<T>,
-): () => T | undefined {
+): SharedLiveQuery<T> {
   const byDb = new WeakMap<CrosstuneDb, Shared<T>>()
 
   function sharedFor(db: CrosstuneDb): Shared<T> {
@@ -67,11 +72,12 @@ export function createSharedLiveQuery<T>(
     return shared
   }
 
-  return function useSharedLiveQuery() {
+  function useSharedLiveQuery() {
     const shared = sharedFor(useDb())
     const { value, failure } = useSyncExternalStore(shared.subscribe, shared.get)
     // Thrown during render, as `useLiveQuery` does, so an error boundary sees a failed read.
     if (failure) throw failure.caught
     return value
   }
+  return Object.assign(useSharedLiveQuery, { sharedFor })
 }

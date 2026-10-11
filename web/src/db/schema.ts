@@ -4,6 +4,7 @@ import type { RecordingChunk, RecordingFile } from './recordings'
 import type { ScanFile } from './scans'
 import {
   TABLE_NAMES,
+  type LocalEntitlement,
   type LocalList,
   type LocalListItem,
   type LocalPlayEvent,
@@ -99,6 +100,7 @@ export class CrosstuneDb extends Dexie {
   practice_sessions!: Table<LocalPracticeSession, string>
   status_changes!: Table<LocalStatusChange, string>
   scan_views!: Table<LocalScanView, string>
+  entitlements!: Table<LocalEntitlement, string>
   outbox!: EntityTable<OutboxEntry, 'seq'>
   meta!: Table<MetaEntry, string>
   private newerChecked: Promise<void> | undefined
@@ -261,6 +263,11 @@ export class CrosstuneDb extends Dexie {
       })
 
     this.version(15).stores({ scan_views: 'id, started_at' })
+
+    this.version(16).stores({ entitlements: 'id' }).upgrade(repull)
+
+    // Finds the scans refused for their tune without reading their images.
+    this.version(17).stores({ scan_files: 'id, origin, error' })
   }
 
   // Dexie's auto-open on the first query calls this method too.

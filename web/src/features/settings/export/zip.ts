@@ -8,7 +8,11 @@
 
 export interface ZipEntry {
   path: string
-  data: Blob
+  /**
+   * The bytes, or a read of them that runs only when the writer reaches this entry. The read is
+   * handed the build's signal; the build rejects on abort without waiting for the read to stop.
+   */
+  data: Blob | ((signal?: AbortSignal) => Promise<Blob>)
 }
 
 export interface ZipOptions {
@@ -175,9 +179,20 @@ function centralHeader(record: ZipRecord, time: number, date: number): Uint8Arra
   return w.bytes
 }
 
+/** Settles as `promise` does, or rejects with `signal.reason` as soon as it aborts. */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (!signal) return promise
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason)
+    if (signal.aborted) return onAbort()
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort))
+  })
+}
+
 /**
  * Build a zip of stored entries. Directory entries are not written; entry paths imply them.
- * Throws `signal.reason` when aborted.
+ * Throws `signal.reason` when aborted, and whatever a deferred entry's read throws.
  */
 export async function buildZip(entries: readonly ZipEntry[], options: ZipOptions): Promise<Blob> {
   const { modified, signal, onEntry } = options
@@ -190,16 +205,18 @@ export async function buildZip(entries: readonly ZipEntry[], options: ZipOptions
   let offset = 0
   for (const entry of entries) {
     signal?.throwIfAborted()
-    const size = entry.data.size
+    const data =
+      typeof entry.data === 'function' ? await untilAborted(entry.data(signal), signal) : entry.data
+    const size = data.size
     const record: ZipRecord = {
       name: encoder.encode(entry.path),
-      crc: await crc32OfBlob(entry.data, signal),
+      crc: await crc32OfBlob(data, signal),
       size,
       offset,
       zip64: size >= threshold || offset >= threshold,
     }
     const header = localHeader(record, time, date)
-    parts.push(header, entry.data)
+    parts.push(header, data)
     records.push(record)
     offset += header.length + size
     onEntry?.(records.length, entries.length)

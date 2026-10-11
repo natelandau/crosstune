@@ -239,9 +239,10 @@ One row component per platform for every list of tunes.
   the musician's own recordings first.
 - An action that leaves the app is menu-only, never a swipe action.
 - A pinned item plays first in lists and shows a pin mark.
-- A recording a free account cannot play is dimmed as a whole and keeps
-  its menu. On a tune page a free account's recordings collapse to one
-  line, "N recordings, subscribe to play", which expands in place to the
+- A recording with audio a free account cannot play is dimmed as a whole
+  and keeps its menu. One with nothing to play yet is not dimmed. On a
+  tune page a free account's recordings collapse to one line,
+  "N recordings, subscribe to play", which expands in place to the
   dimmed rows.
 
 ## Tune data

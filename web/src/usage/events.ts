@@ -5,6 +5,7 @@ import type {
   ListenedBucket,
   SpeedBucket,
 } from './buckets'
+import type { Notice } from '../api/types'
 import { DISPLAY_MODES, FORM_FACTORS } from './superProperties'
 
 export const SOURCES = [
@@ -86,6 +87,21 @@ export const PLAY_FIRSTS = ['recordings', 'apple_music'] as const
 export const IMPORT_ENTRIES = ['settings', 'empty_catalog'] as const
 export const IMPORT_READERS = ['plain'] as const
 export const IMPORT_LISTS = ['none', 'new', 'existing'] as const
+export const PREMIUM_REASONS = ['recordings', 'scans'] as const
+export const PREMIUM_ENTRIES = [
+  'record',
+  'upload',
+  'add_to_recordings',
+  'recording_row',
+  'recordings_line',
+  'scan',
+  'add_scan',
+] as const
+export const PLAN_NOTICES = [
+  'first_recording',
+  'trial_reminder',
+  'trial_ended',
+] as const satisfies readonly Notice[]
 export const APPEARANCES = ['system', 'light', 'dark'] as const
 export const TUNE_STATUSES = ['known', 'learning', 'want_to_learn'] as const
 export const INSTRUMENTS = [
@@ -154,6 +170,9 @@ export const ENUMS = {
   import_entry: IMPORT_ENTRIES,
   import_reader: IMPORT_READERS,
   import_list: IMPORT_LISTS,
+  premium_reason: PREMIUM_REASONS,
+  premium_entry: PREMIUM_ENTRIES,
+  plan_notice: PLAN_NOTICES,
   tune_status: TUNE_STATUSES,
   instrument: INSTRUMENTS,
 } as const
@@ -182,6 +201,9 @@ export type PlayFirst = (typeof PLAY_FIRSTS)[number]
 export type ImportEntry = (typeof IMPORT_ENTRIES)[number]
 export type ImportReader = (typeof IMPORT_READERS)[number]
 export type ImportList = (typeof IMPORT_LISTS)[number]
+export type PremiumReason = (typeof PREMIUM_REASONS)[number]
+export type PremiumEntry = (typeof PREMIUM_ENTRIES)[number]
+export type PlanNotice = Notice
 export type Appearance = (typeof APPEARANCES)[number]
 export type TuneStatus = (typeof TUNE_STATUSES)[number]
 export type Instrument = (typeof INSTRUMENTS)[number]
@@ -318,6 +340,8 @@ export interface EventProps {
   setting_changed: SettingChange
   usage_sharing_disabled: Empty
   storage_limit_reached: { storage_used: BytesBucket }
+  premium_sheet_shown: { reason: PremiumReason; from: PremiumEntry }
+  notice_shown: { notice: PlanNotice }
   upload_failed: { failure_reason: FailureReason; origin: Origin }
   sync_failed: { failure_reason: FailureReason }
   export_completed: { format: ExportFormat }

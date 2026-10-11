@@ -178,6 +178,12 @@ comp *args:
 trial *args:
     uv run python -m crosstune.ops.billing trial "$@"
 
+# End or move the trial of an account in the e2e database, for the e2e suite
+[group('billing')]
+[positional-arguments]
+e2e-trial *args:
+    {{ e2e_env }} uv run python -m crosstune.ops.billing trial "$@" --e2e
+
 # Export the OpenAPI schema every client generates its types from
 [group('contract')]
 contract:

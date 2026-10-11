@@ -16,6 +16,7 @@ import {
   rowControl,
   titleIsDate,
 } from './recordingRow'
+import { HELD_FOR_PREMIUM } from './recordingCopy'
 
 function view(
   overrides: {
@@ -166,6 +167,13 @@ describe('originLink', () => {
 })
 
 describe('recordingMeta', () => {
+  it('says a held take waits on this device in place of its status', () => {
+    const result = recordingMeta(view({ recording: { duration_ms: 42_000 } }), null, {
+      held: true,
+    })
+    expect(result).toEqual(['0:42', HELD_FOR_PREMIUM])
+  })
+
   it('names no site for an imported recording', () => {
     const result = recordingMeta(
       view({
@@ -409,6 +417,14 @@ describe('retryKind', () => {
         }),
       ),
     ).toBe('upload')
+  })
+
+  it('asks for no upload retry while uploads wait for Premium, but still for a transcode', () => {
+    const failedUpload = recordingFile('r1', { local_state: 'failed_upload' })
+    expect(retryKind(view({ file: failedUpload }), { uploads: false })).toBeNull()
+    expect(
+      retryKind(view({ recording: { state: 'failed' }, file: failedUpload }), { uploads: false }),
+    ).toBe('transcode')
   })
 
   it('asks for nothing when the row is not stuck', () => {

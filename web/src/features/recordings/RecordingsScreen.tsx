@@ -44,6 +44,9 @@ import { EditRecordingSheet } from './EditRecordingSheet'
 import { RecordingsFilterSheet } from './RecordingsFilterSheet'
 import { StorageSummary } from './StorageSummary'
 import { useHadContent } from '../../ui/useHadContent'
+import { recordingsPlayable } from '../../billing/plan'
+import { usePlanOrUnknown } from '../../billing/usePlan'
+import { usePremiumSheet } from '../plan/PremiumSheetProvider'
 
 const RECORDINGS = destination('recordings')
 
@@ -89,7 +92,12 @@ export function RecordingsScreen() {
     sortCommand(RECORDING_SORT_OPTIONS, sort, screen.setSort),
     listShown && ready && screen.listed > 0,
   )
-  const drop = useFileDrop(pointer ? (files) => void screen.importFiles(files) : undefined)
+  const premium = usePremiumSheet()
+  // On a free plan Upload and a drop stay in place and answer with the Premium sheet.
+  const uploads = recordingsPlayable(usePlanOrUnknown())
+  const held = uploads ? undefined : () => premium.open('recordings', 'upload')
+  const importFiles = (files: File[]) => (held ? held() : void screen.importFiles(files))
+  const drop = useFileDrop(pointer ? importFiles : undefined)
 
   const row = (view: RecordingView, { grouped }: { grouped: boolean }) => (
     <RecordingRow
@@ -98,7 +106,7 @@ export function RecordingsScreen() {
         view,
         pinned: false,
         actions: actionsFor(view),
-        error: retryKind(view) === 'upload' ? view.file?.error : null,
+        error: retryKind(view, { uploads }) === 'upload' ? view.file?.error : null,
       }}
       tuneNamedAbove={grouped}
       sort={sort.sort}
@@ -112,7 +120,7 @@ export function RecordingsScreen() {
     <div {...drop.handlers} className="flex min-h-full flex-col">
       <PaneBar
         title={RECORDINGS.label}
-        trailing={<UploadControl onFiles={(files) => void screen.importFiles(files)} />}
+        trailing={<UploadControl onFiles={importFiles} onHeld={held} />}
       />
       <DropOverlay shown={drop.over} />
       <ColumnTitle title={RECORDINGS.label} titleRef={titleRef} />
@@ -293,12 +301,26 @@ function TuneHeading({
   )
 }
 
-/** Upload, the screen's Add verb: it opens the system picker for audio files. */
-function UploadControl({ onFiles }: { onFiles: (files: File[]) => void }) {
+/**
+ * Upload, the screen's Add verb: it opens the system picker for audio files, or, while uploads
+ * are held, answers with `onHeld` instead.
+ */
+function UploadControl({
+  onFiles,
+  onHeld,
+}: {
+  onFiles: (files: File[]) => void
+  onHeld?: () => void
+}) {
   const picker = useRef<HTMLInputElement>(null)
   return (
     <>
-      <Button icon={Upload} label={UPLOAD_AUDIO} iconOnly onPress={() => picker.current?.click()} />
+      <Button
+        icon={Upload}
+        label={UPLOAD_AUDIO}
+        iconOnly
+        onPress={() => (onHeld ? onHeld() : picker.current?.click())}
+      />
       {/* The native picker cannot be styled, so it hides behind the button, out of the tab
           order and the tree, which the button already names. */}
       <input

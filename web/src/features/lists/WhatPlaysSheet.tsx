@@ -2,6 +2,7 @@ import { Button as AriaButton } from 'react-aria-components'
 import { useNavigate } from 'react-router'
 import { listTunePath } from '../../app/tuneHome'
 import {
+  PLAYLIST_SKIP_PREMIUM,
   SKIP_LINKS_ONLY,
   SKIP_NOT_HERE,
   SKIP_NOTHING,
@@ -20,6 +21,7 @@ const GROUPS: readonly { reason: SkipReason; heading: string }[] = [
   { reason: 'nothing', heading: SKIP_NOTHING },
   { reason: 'linksOnly', heading: SKIP_LINKS_ONLY },
   { reason: 'notHere', heading: SKIP_NOT_HERE },
+  { reason: 'premium', heading: PLAYLIST_SKIP_PREMIUM },
 ]
 
 /** The tunes a list passes over when it plays, grouped by why. A tune opens its page. */

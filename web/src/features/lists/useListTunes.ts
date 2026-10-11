@@ -6,7 +6,7 @@ import type { PlayFirst } from '../../api/vocabulary'
 import type { MenuItem } from '../../ui/menuTypes'
 import { movedAnnouncement } from '../../ui/reorderCopy'
 import { useLatest } from '../../ui/useLatest'
-import { useScanTuneIds } from '../scans/useScans'
+import { useViewableScanTunes } from '../scans/useScans'
 import { useSettingsRow } from '../settings/useSettingsRow'
 import { moveMenuItems } from '../../ui/moveMenu'
 import type { ListItemView } from './useLists'
@@ -26,7 +26,7 @@ export interface ListTunes {
   announcement: string
   /** The user's play-first choice, undefined until the settings row has been read. */
   playFirst: PlayFirst | undefined
-  /** Tunes with scans, for the row's scan marker. */
+  /** Tunes with scans the plan opens, for the row's Scans action. */
   scanTunes: ReadonlySet<string>
 }
 
@@ -55,7 +55,7 @@ export function useListTunes({
   const analytics = useAnalytics()
   const settings = useSettingsRow()
   const playFirst = settings === undefined ? undefined : storedPlayFirst(settings)
-  const scanTunes = useScanTuneIds()
+  const scanTunes = useViewableScanTunes()
   const { ordered, move, announcement } = useReplayedOrder({
     items,
     idOf: itemIdOf,

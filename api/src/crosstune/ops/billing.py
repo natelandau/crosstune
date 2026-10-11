@@ -1,7 +1,8 @@
 """Operator commands that comp an account or move its trial end.
 
 Run as `just api::comp` and `just api::trial`. Each prints the environment and database
-it will write to, refuses production without `--yes`, and refuses the e2e database.
+it will write to, refuses production without `--yes`, and refuses the e2e database unless
+`--e2e` names it, as only the e2e suite's own recipe does.
 """
 
 from __future__ import annotations
@@ -75,17 +76,21 @@ def load_settings() -> Settings:
     return Settings()
 
 
-def check_target(settings: Settings, *, yes: bool) -> None:
-    """Print where the command will write, and refuse the e2e database and unconfirmed production.
+def check_target(settings: Settings, *, yes: bool, e2e: bool = False) -> None:
+    """Print where the command will write, and refuse a database the flags do not name.
 
     Raises:
-        BillingCommandError: The database is the e2e one, or the environment is
-            production and `--yes` was not given.
+        BillingCommandError: The database is the e2e one and `--e2e` was not given,
+            `--e2e` was given for any other database, or the environment is production
+            and `--yes` was not given.
     """
     host = urlsplit(settings.database_url).hostname
     print(f"environment {settings.environment}, database {settings.database_name} on {host}")
-    if settings.e2e_database:
+    if settings.e2e_database and not e2e:
         msg = f"refusing {settings.database_name}: the e2e suite owns and resets it"
+        raise BillingCommandError(msg)
+    if e2e and not settings.e2e_database:
+        msg = f"refusing {settings.database_name}: --e2e writes only to the e2e database"
         raise BillingCommandError(msg)
     if settings.environment == "production" and not yes:
         msg = "this is production: pass --yes to write"
@@ -242,12 +247,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     for sub in (comp_parser, trial_parser):
         sub.add_argument("--yes", action="store_true", help="confirm writing to production")
+        sub.add_argument("--e2e", action="store_true", help="write to the e2e database")
     return parser
 
 
 async def run(settings: Settings, args: argparse.Namespace) -> None:
     """Check the target, run the command in one transaction, and print its result."""
-    check_target(settings, yes=args.yes)
+    check_target(settings, yes=args.yes, e2e=args.e2e)
     command = comp if args.command == "comp" else trial
     engine = make_engine(settings.database_url)
     try:

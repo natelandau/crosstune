@@ -19,15 +19,18 @@ interface Input {
   /** In the order the tune screen shows them. */
   links: LocalRecordingLink[]
   playFirst: PlayFirst
+  /** False while the plan plays no recording. */
+  recordingsPlay: boolean
 }
 
 /**
  * What a list row plays for a tune: a valid pin, else the user's play-first choice, else
- * whatever exists. A pin counts only when its row is live and belongs to this tune.
+ * whatever exists. A pin counts only when its row is live and belongs to this tune. While the
+ * plan plays no recording, the tune's recordings count as missing, so a pinned one falls back.
  */
 export function chooseRowSource(input: Input): PlayerItem | null {
   const { tuneId, pin } = input
-  const recordings = liveRows(input.recordings, tuneId)
+  const recordings = input.recordingsPlay ? liveRows(input.recordings, tuneId) : []
   const links = liveRows(input.links, tuneId)
 
   const pinnedRecording = recordings.find((r) => r.id === pin.recordingId)

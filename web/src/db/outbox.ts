@@ -1,3 +1,4 @@
+import { getPremiumHolds } from './meta'
 import type { CrosstuneDb } from './schema'
 import { isEventTable, type OutboxEntry, type TableName } from './types'
 
@@ -26,9 +27,43 @@ export function pendingFor(
   return db.outbox.where('[table+row_id]').equals([table, rowId]).first()
 }
 
-/** The oldest queued changes first, at most `limit`. */
-export function pendingBatch(db: CrosstuneDb, limit = PUSH_BATCH_SIZE): Promise<OutboxEntry[]> {
-  return db.outbox.orderBy('seq').limit(limit).toArray()
+/** The tables whose rows name a recording in `recording_id`, which the server refuses while it
+ * does not have that recording. */
+const RECORDING_DEPENDENTS: readonly TableName[] = [
+  'recording_loops',
+  'play_events',
+  'practice_sessions',
+]
+
+/** The recording a queued upsert of a recording-dependent row names, if any. */
+export function dependentRecordingId(entry: OutboxEntry): string | null {
+  if (entry.op === 'delete' || !RECORDING_DEPENDENTS.includes(entry.table)) return null
+  const id = entry.data?.recording_id
+  return typeof id === 'string' ? id : null
+}
+
+/**
+ * The oldest queued changes first, at most `limit`. While not `premium`, a recording's upsert the
+ * server refused for Premium stays out; so does any upsert of a recording in `skip`. Every upsert
+ * that names a recording left out stays out with it, since the server refuses it without that
+ * recording. A delete always goes, so a held take never blocks its own removal.
+ */
+export async function pendingBatch(
+  db: CrosstuneDb,
+  limit = PUSH_BATCH_SIZE,
+  { premium, skip }: { premium: boolean; skip?: ReadonlySet<string> } = { premium: true },
+): Promise<OutboxEntry[]> {
+  const left = new Set(skip)
+  if (!premium) for (const id of await getPremiumHolds(db)) left.add(id)
+  const entries = db.outbox.orderBy('seq')
+  if (left.size === 0) return entries.limit(limit).toArray()
+  return entries
+    .filter((entry) => {
+      const recordingId = entry.table === 'recordings' ? entry.row_id : dependentRecordingId(entry)
+      return entry.op === 'delete' || recordingId === null || !left.has(recordingId)
+    })
+    .limit(limit)
+    .toArray()
 }
 
 /**

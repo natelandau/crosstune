@@ -216,7 +216,18 @@ disabled recording can still be renamed, filed, or deleted.
 
 - `premium required` on a new recording row is not final. The client
   keeps the row and its outbox entry, and pushes it again once the
-  entitlements row says Premium.
+  entitlements row says Premium. The take's loops, play events, and
+  practice sessions wait with it. A delete is never held.
+- `scans are limited to one tune` marks the scan's file, and the client
+  leaves that scan out of its own scan tune. It pushes the scan again once
+  per chance the server could take it: each Premium grant, or on a free
+  plan each scan tune that is the scan's own tune or none.
+- `scan-tune-only` on an upload slot marks the file the same way, but the
+  server stored the row, so the scan still counts toward the client's scan
+  tune. On a free plan the client asks for the slot again once per scan
+  tune that is the scan's own tune or none.
+- A free client downloads no recording audio and no scan off the scan
+  tune. An export fetches them.
 - A restored soft-deleted recording adds nothing and is allowed. A
   restored scan off the scan tune is refused like a new one.
 - A free account's trim is never refused. When a pushed trim differs from
@@ -227,7 +238,9 @@ disabled recording can still be renamed, filed, or deleted.
 The first-recording notice, the three-day trial reminder, and the trial
 end notice are timestamps on the entitlements row, set once by
 `POST /v1/me/notices` and never by a settings upsert, so a device that
-predates a notice cannot reset it.
+predates a notice cannot reset it. A post refused with a 4xx that is not
+an auth failure, a timeout, or a rate limit is not sent again, and the
+notice stays seen on the device.
 
 ## Sign-in
 
@@ -457,8 +470,9 @@ predates a notice cannot reset it.
 - The Apple app excludes a downloaded recording's file from the device
   backup; a captured file is not excluded, since it is the only copy until
   it uploads.
-- A data export reads only the local store and the audio and scan image
-  files the device holds. It never fetches either.
+- A data export reads the local store and takes each audio and scan image
+  file the device holds. It fetches the rest through the signed URLs
+  downloads use, writes them into the archive, and never stores them.
 - The original upload is a backup. It is never modified, no endpoint serves
   it, and it never counts against a user's quota. A trim cuts from it.
 - A saved trim is clamped on push to the recording's current playback

@@ -12,7 +12,7 @@ import { useReplayedOrder } from '../lists/useReplayedOrder'
 import { scanErrorLabel, scanMovedAnnouncement, SCAN_WAITING } from './scanCopy'
 import { useAddScans } from './useAddScans'
 import { useDeleteScan } from './useDeleteScan'
-import { useScans } from './useScans'
+import { useScans, useScansOpen } from './useScans'
 
 const NO_SCANS: LocalScan[] = []
 const NO_FILES = new Map<string, ScanFile>()
@@ -21,6 +21,8 @@ const scanIdOf = (scan: LocalScan) => scan.id
 export interface ScansEditor {
   /** False until the first read of the tune's scans lands. */
   loaded: boolean
+  /** The plan opens this tune's scans; a free plan opens one tune's only. */
+  opens: boolean
   /** The tune's scans in the order shown, with any move in flight already applied. */
   scans: LocalScan[]
   files: Map<string, ScanFile>
@@ -86,8 +88,13 @@ export function useScansEditor(
   const scansRef = useLatest(scans)
   const { adding, error: addError, add } = useAddScans(tuneId, scans.length)
 
+  const opens = useScansOpen(tuneId)
+  // A viewer the plan closes stays closed, rather than coming back once the scans open again.
+  if (!opens && viewing !== null) setViewing(null)
+
   return {
     loaded: data !== undefined,
+    opens,
     scans,
     files,
     editing,

@@ -35,6 +35,9 @@ import {
   RECORDINGS_SECTION,
 } from './tuneScreenCopy'
 import { useTuneMedia } from './useTuneMedia'
+import { RecordingsLine } from './RecordingsLine'
+import { recordingsPlayable } from '../../billing/plan'
+import { usePlanOrUnknown } from '../../billing/usePlan'
 import { useTuneScreen, type TuneScreenData } from './useTuneScreen'
 import { DELETING } from '../../ui/confirmCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
@@ -313,6 +316,10 @@ function TuneSections({
   const learned = learnedLine(screen.learnedFrom, screen.learnedOn)
   const hadMedia = useHadContent(!media.empty)
   const hadNotes = useHadContent(Boolean(screen.notes || screen.learned))
+  // A free plan folds its recordings into one line; opening it lasts for this visit only.
+  const folded = !recordingsPlayable(usePlanOrUnknown()) && media.recordingRows.length > 0
+  const [unfolded, setUnfolded] = useState(false)
+  const recordingRows = folded && !unfolded ? [] : media.recordingRows
   return (
     <>
       <PageSection
@@ -333,18 +340,30 @@ function TuneSections({
             hint={NO_TUNE_RECORDINGS_HINT}
           />
         ) : (
-          <MediaList label={RECORDINGS_SECTION}>
-            {media.recordingRows.map((row) => (
-              <RecordingRow
-                key={row.view.recording.id}
-                row={row}
-                onRetry={(kind) => media.retry(row.view, kind)}
+          <>
+            {folded && (
+              <RecordingsLine
+                count={media.recordingRows.length}
+                expanded={unfolded}
+                onToggle={() => setUnfolded((open) => !open)}
               />
-            ))}
-            {media.linkRows.map((row) => (
-              <LinkRow key={row.link.id} row={row} />
-            ))}
-          </MediaList>
+            )}
+            {recordingRows.length + media.linkRows.length > 0 && (
+              <MediaList label={RECORDINGS_SECTION}>
+                {recordingRows.map((row) => (
+                  <RecordingRow
+                    key={row.view.recording.id}
+                    row={row}
+                    onRetry={(kind) => media.retry(row.view, kind)}
+                    premiumFrom={folded ? 'recordings_line' : undefined}
+                  />
+                ))}
+                {media.linkRows.map((row) => (
+                  <LinkRow key={row.link.id} row={row} />
+                ))}
+              </MediaList>
+            )}
+          </>
         )}
         <ErrorLine error={media.error} place="inline" />
       </PageSection>

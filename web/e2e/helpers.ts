@@ -1,8 +1,11 @@
 import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { ADD_TUNE, TUNE_LIST } from '../src/features/catalog/catalogCopy'
 import { PLAYER_REGION } from '../src/features/player/playerCopy'
 import { NEW_RECORDING, STOP } from '../src/features/capture/recordCopy'
+import { FIRST_RECORDING_TITLE, NOTICE_OK } from '../src/features/plan/noticeCopy'
 import { EDIT, RECORDING_NAME_LABEL } from '../src/features/recordings/recordingCopy'
 import { EDIT_RECORDING_TITLE, UNFILED_HEADER } from '../src/features/recordings/recordingsCopy'
 import {
@@ -41,6 +44,14 @@ export async function signIn(page: Page): Promise<void> {
   if (!emailAddress) {
     throw new Error(`E2E_CLERK_USER_EMAILS names ${emails.length} users, too few for this worker`)
   }
+  // A worker's account sees the first-recording notice once, after whichever of its tests
+  // records first, so no single test can wait for it. Close it whenever it is in the way, at
+  // most once per page.
+  await page.addLocatorHandler(
+    page.getByRole('dialog', { name: FIRST_RECORDING_TITLE }),
+    (notice) => notice.getByRole('button', { name: NOTICE_OK, exact: true }).click(),
+    { times: 1 },
+  )
   await signInAs(page, emailAddress)
 }
 
@@ -97,6 +108,16 @@ export async function removeClerkUser(id: string): Promise<void> {
   if (!response.ok && response.status !== 404) {
     throw new Error(`Clerk answered ${response.status} deleting ${id}`)
   }
+}
+
+const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url))
+
+/** End the trial of a user in the e2e database now, which leaves the account on the free plan. */
+export function endTrial(clerkUserId: string): void {
+  execFileSync('just', ['api::e2e-trial', clerkUserId, '--ended'], {
+    cwd: REPO_ROOT,
+    stdio: 'pipe',
+  })
 }
 
 /** The phone's bottom bar, which holds the four destinations and the Record disc. */

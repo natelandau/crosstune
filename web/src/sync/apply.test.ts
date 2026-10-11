@@ -1,14 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { recordEvent } from '../commands/events'
 import { createTune, deleteTune, updateTune } from '../commands/tunes'
-import { getEventsCursor, getPullCursor } from '../db/meta'
+import { deleteRecording } from '../commands/recordings'
+import { addScans } from '../commands/scans'
+import { addLoop } from '../commands/loops'
+import {
+  getEventsCursor,
+  getInvalidChangeCount,
+  getPremiumHolds,
+  getPullCursor,
+  holdForPremium,
+} from '../db/meta'
+import { SCAN_TUNE_ONLY_ERROR } from '../db/scans'
 import { pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { serverTune, serverUserTune } from '../test/fakeApi'
-import { playEventRow, scanViewRow } from '../test/rows'
-import type { EventRow } from '../api/types'
+import { captureRecording } from '../test/recordings'
+import { entitlementRow, playEventRow, scanViewRow } from '../test/rows'
+import type { EventRow, PullRow } from '../api/types'
 import { applyEventsPage, applyPullPage, applyPushResults, compareTimestamps } from './apply'
+import { MISSING_RECORDING_REASON, PREMIUM_REQUIRED_REASON, SCAN_TUNE_ONLY_REASON } from './errors'
 
 let db: CrosstuneDb
 
@@ -151,6 +163,112 @@ describe('applyPushResults', () => {
   })
 })
 
+describe('applyPushResults under the plan', () => {
+  const heldResult = (id: string) =>
+    ({ table: 'recordings', id, status: 'invalid', reason: PREMIUM_REQUIRED_REASON }) as const
+
+  it('keeps a take the server refused for Premium queued and holds it, uncounted', async () => {
+    const id = await captureRecording(db)
+    const sent = await pendingBatch(db)
+    const { invalid, settled, held } = await applyPushResults(db, sent, [heldResult(id)])
+    expect(invalid).toEqual([])
+    expect(settled).toBe(0)
+    expect(held).toEqual([id])
+    expect(await pendingFor(db, 'recordings', id)).toBeDefined()
+    expect(await getPremiumHolds(db)).toEqual(new Set([id]))
+    expect(await getInvalidChangeCount(db)).toBe(0)
+  })
+
+  it('releases a hold once the take is applied', async () => {
+    const id = await captureRecording(db)
+    await holdForPremium(db, [id])
+    const sent = await pendingBatch(db)
+    await applyPushResults(db, sent, [{ table: 'recordings', id, status: 'applied' }])
+    expect(await getPremiumHolds(db)).toEqual(new Set())
+    expect(await pendingFor(db, 'recordings', id)).toBeUndefined()
+  })
+
+  it("releases a hold when the held take's delete is refused for a row never stored", async () => {
+    const id = await captureRecording(db)
+    await holdForPremium(db, [id])
+    await deleteRecording(db, id)
+    const sent = await pendingBatch(db)
+    const { invalid, settled } = await applyPushResults(db, sent, [
+      { table: 'recordings', id, status: 'invalid', reason: 'not found' },
+    ])
+    expect(invalid).toEqual([])
+    expect(settled).toBe(1)
+    expect(await getPremiumHolds(db)).toEqual(new Set())
+    expect(await pendingBatch(db)).toHaveLength(0)
+  })
+
+  it("keeps a held take's loop and play queued with it, uncounted", async () => {
+    const id = await captureRecording(db)
+    const loopId = await addLoop(db, id, { start_ms: 1_000, end_ms: 5_000 })
+    await recordEvent(db, 'play_events', playEventRow('play-1', { recording_id: id }))
+    const sent = await pendingBatch(db)
+    const missing = (table: 'recording_loops' | 'play_events', rowId: string) =>
+      ({ table, id: rowId, status: 'invalid', reason: MISSING_RECORDING_REASON }) as const
+    const { invalid, settled, held } = await applyPushResults(db, sent, [
+      heldResult(id),
+      missing('recording_loops', loopId),
+      missing('play_events', 'play-1'),
+    ])
+    expect(invalid).toEqual([])
+    expect(settled).toBe(0)
+    expect(held).toEqual([id])
+    expect(await pendingFor(db, 'recording_loops', loopId)).toBeDefined()
+    expect(await pendingFor(db, 'play_events', 'play-1')).toBeDefined()
+    expect(await db.play_events.get('play-1')).toBeDefined()
+    expect(await getInvalidChangeCount(db)).toBe(0)
+  })
+
+  it('keeps a loop whose take an earlier push held, even when the take is not in the batch', async () => {
+    const id = await captureRecording(db)
+    await holdForPremium(db, [id])
+    const loopId = await addLoop(db, id, { start_ms: 1_000, end_ms: 5_000 })
+    const sent = (await pendingBatch(db)).filter((entry) => entry.table === 'recording_loops')
+    const { invalid, settled, held } = await applyPushResults(db, sent, [
+      { table: 'recording_loops', id: loopId, status: 'invalid', reason: MISSING_RECORDING_REASON },
+    ])
+    expect(invalid).toEqual([])
+    expect(settled).toBe(0)
+    expect(held).toEqual([id])
+    expect(await pendingFor(db, 'recording_loops', loopId)).toBeDefined()
+  })
+
+  it('settles a refused loop once its take is no longer held', async () => {
+    const id = await captureRecording(db)
+    const loopId = await addLoop(db, id, { start_ms: 1_000, end_ms: 5_000 })
+    const sent = (await pendingBatch(db)).filter((entry) => entry.table === 'recording_loops')
+    const { invalid, settled } = await applyPushResults(db, sent, [
+      { table: 'recording_loops', id: loopId, status: 'invalid', reason: MISSING_RECORDING_REASON },
+    ])
+    expect(invalid).toEqual([
+      { table: 'recording_loops', id: loopId, reason: MISSING_RECORDING_REASON },
+    ])
+    expect(settled).toBe(1)
+    expect(await pendingFor(db, 'recording_loops', loopId)).toBeUndefined()
+  })
+
+  it('settles a scan refused for being off the scan tune, unreported, and marks its file', async () => {
+    const { tuneId } = await createTune(db, { title: 'Angeline' }, { status: 'known' })
+    const [scanId] = await addScans(db, tuneId, [
+      { blob: new Blob(['jpeg'], { type: 'image/jpeg' }), width: 800, height: 1200 },
+    ])
+    const sent = (await pendingBatch(db)).filter((entry) => entry.table === 'scans')
+    const { invalid, settled, held } = await applyPushResults(db, sent, [
+      { table: 'scans', id: scanId!, status: 'invalid', reason: SCAN_TUNE_ONLY_REASON },
+    ])
+    expect(invalid).toEqual([])
+    expect(settled).toBe(1)
+    expect(held).toEqual([])
+    expect(await pendingFor(db, 'scans', scanId!)).toBeUndefined()
+    expect((await db.scan_files.get(scanId!))?.error).toBe(SCAN_TUNE_ONLY_ERROR)
+    expect(await getInvalidChangeCount(db)).toBe(0)
+  })
+})
+
 describe('applyPullPage', () => {
   it('stores rows without ownership, drops older pending entries, and advances the cursor', async () => {
     const { tuneId, userTuneId } = await createTune(db, { title: 'local' }, { status: 'known' })
@@ -205,6 +323,24 @@ describe('applyPullPage', () => {
     expect((await db.tunes.get(tuneId))?.title).toBe('newer local')
     expect(await pendingFor(db, 'tunes', tuneId)).toBeDefined()
     expect(await getPullCursor(db)).toBe(9)
+  })
+})
+
+describe('applyPullPage entitlements', () => {
+  it('stores a pulled entitlements row without its ownership keys and advances the cursor', async () => {
+    const row = { ...entitlementRow({ premium_source: 'comp' }), user_id: 'server-user' }
+    await applyPullPage(db, [{ table: 'entitlements', row } as unknown as PullRow], 12)
+    const stored = await db.entitlements.get(row.id)
+    expect(stored?.premium_source).toBe('comp')
+    expect('user_id' in stored!).toBe(false)
+    expect(await getPullCursor(db)).toBe(12)
+  })
+
+  it('skips a table this client does not store and still advances the cursor', async () => {
+    const unknown = { table: 'jam_sessions', row: { id: 'jam-1', server_seq: 5 } }
+    await applyPullPage(db, [unknown as unknown as PullRow], 5)
+    expect(await getPullCursor(db)).toBe(5)
+    expect(await db.entitlements.count()).toBe(0)
   })
 })
 
