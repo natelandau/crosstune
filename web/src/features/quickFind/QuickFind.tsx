@@ -165,6 +165,7 @@ export function QuickFind({ navigate }: { navigate: QuickFindNavigate }) {
         }}
         title={QUICK_FIND}
         height="full"
+        cancel={null}
         onClosed={settle}
       >
         {body}

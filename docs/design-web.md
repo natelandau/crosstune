@@ -142,13 +142,15 @@ folder. Compose it, never rebuild it.
 | Overlay    | Touch                                      | Pointer                                       |
 | ---------- | ------------------------------------------ | --------------------------------------------- |
 | Sheet      | Bottom sheet, grabber, part or full height | Centered dialog, 480px                        |
-| Menu       | Bottom action sheet                        | Popover at its control, or at the right-click |
-| Confirm    | Action sheet                               | Alert dialog                                  |
+| Menu       | Bottom action sheet, fitted                | Popover at its control, or at the right-click |
+| Confirm    | Action sheet, fitted                       | Alert dialog                                  |
 | Quick Find | Full-height sheet                          | Centered field, window's upper third          |
 
 - Touch sheet follows the finger and settles with release velocity.
   `sheetGeometry.ts` holds detents and the release rule. The page behind
   recedes slightly.
+- Fitted: the sheet's height is its content's, up to part height, for a
+  short question or a menu.
 - Lyrics reader and scan viewer cover the whole window.
 - A sheet that can lose typed work sets `locked`.
 - A long list behind a sheet is virtualized or short: opening a sheet costs
@@ -170,6 +172,24 @@ folder. Compose it, never rebuild it.
   a list says what plays, it names recordings.
 - Capture offers no control the session cannot honor. A take resumes by
   itself after an interruption, so no Resume, and the message says so.
+
+### Sheet actions
+
+Web form of the toolbar rule in `design.md`: actions sit at the foot.
+
+- Header: the title, leading. A sheet with no actions closes from an X
+  trailing the title.
+- Footer: a tertiary action (Reset, Back) leading, then Cancel and the
+  primary trailing, Cancel first.
+- Weight: primary filled. Destructive primary filled red, cautionary
+  filled warning. Cancel bordered, so it never reads as a primary that is
+  off. Tertiary plain.
+- Touch: Cancel and the primary split the width. A lone action runs full
+  width. The footer stays at the window's foot at part height and above
+  the on-screen keyboard.
+- A hairline sets the header or footer apart only while content scrolls
+  under it.
+- Alert: Cancel and the action in equal shares, focus on Cancel.
 
 ## Forms
 

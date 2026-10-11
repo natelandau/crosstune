@@ -54,7 +54,8 @@ export function CatalogFilterSheet({
       onOpenChange={onOpenChange}
       onClosed={onClosed}
       title={FILTERS}
-      leading={{
+      cancel={null}
+      tertiary={{
         label: RESET,
         onPress: () => onChange(sheet.reset),
         isDisabled: sheet.count === 0,

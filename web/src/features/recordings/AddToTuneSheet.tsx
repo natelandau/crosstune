@@ -3,7 +3,6 @@ import { SEARCH_TUNES } from '../catalog/catalogCopy'
 import { ADD_TO_TUNE_TITLE, addToTuneName } from './recordingsCopy'
 import { useAddToTune } from './useAddToTune'
 import type { RecordingView } from './useRecordings'
-import { CANCEL } from '../../ui/confirmCopy'
 import { useTuneFormLauncher } from '../tune/formLauncher'
 import { Sheet } from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
@@ -48,7 +47,7 @@ export function AddToTuneSheet({
       title={ADD_TO_TUNE_TITLE}
       height="full"
       locked={add.pending}
-      leading={{ label: CANCEL, onPress: add.cancel, isDisabled: add.pending }}
+      cancel={{ onPress: add.cancel, isDisabled: add.pending }}
     >
       <TuneSearchList
         label={SEARCH_TUNES}

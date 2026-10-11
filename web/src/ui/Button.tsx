@@ -6,7 +6,15 @@ import { iconMotion } from './iconMotion'
 import { PRESS } from './press'
 import { Tip, TipTrigger } from './Tip'
 
-export type ButtonVariant = 'primary' | 'plain' | 'tinted' | 'destructive' | 'warning'
+export type ButtonVariant =
+  | 'primary'
+  | 'plain'
+  | 'tinted'
+  | 'bordered'
+  | 'destructive'
+  | 'warning'
+  | 'destructiveFill'
+  | 'warningFill'
 
 export interface ButtonProps extends Omit<
   AriaButtonProps,
@@ -35,16 +43,25 @@ const VARIANT: Record<ButtonVariant, string> = {
   primary: `bg-accent font-semibold text-on-accent shadow-[inset_0_1px_0_rgb(255_255_255/0.16)] hover:bg-accent-hover ${OFF}`,
   plain: 'text-action hover:bg-tint-hover',
   tinted: `bg-tint font-semibold text-action hover:bg-tint-strong ${OFF}`,
+  // An outline, so a secondary action never reads like a filled button that is off.
+  bordered: 'text-action ring-1 ring-tint-strong ring-inset hover:bg-tint',
   destructive: 'text-danger hover:bg-danger/15',
   warning: 'text-warning hover:bg-warning/15',
+  // The on-slate label inverts with the scheme, as the accent's does: white on red in light, the
+  // dark ground on a lighter red in dark. Hover mixes toward ink, darker in light, lighter in dark.
+  destructiveFill: `bg-danger font-semibold text-on-slate hover:bg-[color-mix(in_srgb,var(--danger),var(--ink)_12%)] ${OFF}`,
+  warningFill: `bg-warning font-semibold text-on-slate hover:bg-[color-mix(in_srgb,var(--warning),var(--ink)_12%)] ${OFF}`,
 }
 
 const FILLED: Record<ButtonVariant, boolean> = {
   primary: true,
   plain: false,
   tinted: true,
+  bordered: false,
   destructive: false,
   warning: false,
+  destructiveFill: true,
+  warningFill: true,
 }
 
 export function Button({

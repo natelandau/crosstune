@@ -37,7 +37,8 @@ export function RecordingsFilterSheet({
       onOpenChange={onOpenChange}
       onClosed={onClosed}
       title={FILTERS}
-      leading={{ label: RESET, onPress: () => onChange('all'), isDisabled: choice === 'all' }}
+      cancel={null}
+      tertiary={{ label: RESET, onPress: () => onChange('all'), isDisabled: choice === 'all' }}
       primary={{ label: DONE, onPress: () => onOpenChange(false) }}
     >
       <Group>

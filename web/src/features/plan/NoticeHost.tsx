@@ -92,9 +92,9 @@ export function NoticeHost({ navigate }: { navigate: (to: string) => void }) {
         if (!next) dismiss()
       }}
       title={title}
-      height="part"
+      height="fit"
       describedBy={bodyId}
-      cancelLabel={NOTICE_OK}
+      cancel={{ label: NOTICE_OK }}
       primary={
         store && (kind === 'trial_reminder' || kind === 'trial_ended')
           ? {

@@ -52,7 +52,7 @@ export function WhatPlaysSheet({
       onOpenChange={onOpenChange}
       title={WHAT_PLAYS_TITLE}
       height="part"
-      leading={null}
+      cancel={null}
       primary={{ label: DONE, onPress: close }}
     >
       <div className="pb-4">

@@ -15,7 +15,6 @@ import { savedRecordingPath } from './savedRecordingPath'
 import { DONE, FILING_UNDER, INTERRUPTED_MESSAGE, NEW_RECORDING, STOP } from './recordCopy'
 import { type RecordTarget, useRecordState } from './RecordState'
 import { type RecordSession, type SavedRecording, useRecordSession } from './useRecordSession'
-import { CANCEL } from '../../ui/confirmCopy'
 import { useLatest } from '../../ui/useLatest'
 import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
@@ -115,11 +114,8 @@ function Take({
       locked={refuseDismiss}
       asksOnBack={live}
       origin={recordControl}
-      leading={
-        ended
-          ? { label: DONE, onPress: () => close(null) }
-          : { label: CANCEL, onPress: () => void discard(), isDisabled: !live }
-      }
+      cancel={ended ? null : { onPress: () => void discard(), isDisabled: !live }}
+      primary={ended ? { label: DONE, onPress: () => close(null) } : undefined}
       onClosed={() => onClosed(target)}
     >
       <Recorder tuneId={tuneId} session={session} />

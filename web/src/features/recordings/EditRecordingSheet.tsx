@@ -10,7 +10,6 @@ import {
 } from './recordingsCopy'
 import { useEditRecording } from './useEditRecording'
 import type { RecordingView } from './useRecordings'
-import { CANCEL } from '../../ui/confirmCopy'
 import { Group } from '../../ui/form/Group'
 import { PartialDateField } from '../../ui/form/PartialDateField'
 import { TextField } from '../../ui/form/TextField'
@@ -48,7 +47,7 @@ export function EditRecordingSheet({
       title={EDIT_RECORDING_TITLE}
       height="part"
       locked={edit.dirty || edit.pending}
-      leading={{ label: CANCEL, onPress: edit.close, isDisabled: edit.pending }}
+      cancel={{ onPress: edit.close, isDisabled: edit.pending }}
       primary={{
         label: SAVE_RECORDING,
         onPress: edit.save,

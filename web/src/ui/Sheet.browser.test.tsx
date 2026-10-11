@@ -26,7 +26,7 @@ function Harness({
   onClosed,
 }: {
   locked?: boolean
-  height?: 'part' | 'full'
+  height?: 'part' | 'full' | 'fit'
   primary?: boolean
   onOpenChange?: (open: boolean) => void
   onClosed?: () => void
@@ -192,6 +192,24 @@ it('a full-height sheet opens full', async () => {
   await expect.poll(sheetTop).toBe(34)
 })
 
+it('a fitted sheet rests at its content height, its footer at the window foot', async () => {
+  renderWithProviders(<Harness height="fit" />, { density: 'touch' })
+  await open()
+  const saveBottom = () =>
+    page.getByRole('button', { name: 'Save' }).element().getBoundingClientRect().bottom
+  // Rising from below the window, the footer reaches its rest inside the window's foot.
+  await expect.poll(() => saveBottom() <= 844 && saveBottom() > 844 - 40).toBe(true)
+  expect(sheetTop()).toBeGreaterThan(844 / 2)
+})
+
+it("keeps a part-height sheet's footer at the window foot", async () => {
+  renderWithProviders(<Harness />, { density: 'touch' })
+  await openSettled()
+  const save = page.getByRole('button', { name: 'Save' }).element()
+  expect(save.getBoundingClientRect().bottom).toBeLessThanOrEqual(844)
+  expect(save.getBoundingClientRect().bottom).toBeGreaterThan(844 - 40)
+})
+
 it('Cancel closes and returns focus to the opener', async () => {
   renderWithProviders(<Harness locked />, { density: 'pointer' })
   await page.getByRole('button', { name: 'Edit tune' }).click()
@@ -208,7 +226,7 @@ it('Cancel closes a locked touch sheet', async () => {
   await expect.element(page.getByRole('button', { name: 'Edit tune' })).toHaveFocus()
 })
 
-it('runs the primary from the header, and shows Cancel alone without one', async () => {
+it('runs the primary from the footer, after Cancel, and shows Cancel alone without one', async () => {
   const onPress = vi.fn()
   const { rerender } = renderWithProviders(
     <Sheet isOpen onOpenChange={() => {}} title="Edit tune" primary={{ label: 'Save', onPress }}>
@@ -216,15 +234,36 @@ it('runs the primary from the header, and shows Cancel alone without one', async
     </Sheet>,
     { density: 'pointer' },
   )
-  await page.getByRole('button', { name: 'Save' }).click()
+  const save = page.getByRole('button', { name: 'Save' })
+  await save.click()
   expect(onPress).toHaveBeenCalledOnce()
+  const cancel = page.getByRole('button', { name: 'Cancel' }).element()
+  expect(cancel.compareDocumentPosition(save.element()) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+    Node.DOCUMENT_POSITION_FOLLOWING,
+  )
+  expect(save.element().closest('footer')).not.toBeNull()
   rerender(
-    <Sheet isOpen onOpenChange={() => {}} title="Edit tune" cancelLabel="Close">
+    <Sheet isOpen onOpenChange={() => {}} title="Edit tune" cancel={{ label: 'Close' }}>
       <p>Body</p>
     </Sheet>,
   )
   await expect.element(page.getByRole('button', { name: 'Save' })).not.toBeInTheDocument()
   await expect.element(page.getByRole('button', { name: 'Close' })).toBeVisible()
+})
+
+it('closes from a header button when it has no actions', async () => {
+  const onOpenChange = vi.fn()
+  renderWithProviders(
+    <Sheet isOpen onOpenChange={onOpenChange} title="Key" cancel={null}>
+      <p>Body</p>
+    </Sheet>,
+    { density: 'pointer' },
+  )
+  const close = page.getByRole('button', { name: 'Close' })
+  await expect.element(close).toBeVisible()
+  expect(close.element().closest('header')).not.toBeNull()
+  await close.click()
+  expect(onOpenChange).toHaveBeenCalledWith(false)
 })
 
 it('is a 480px dialog on pointer', async () => {
@@ -470,7 +509,8 @@ it('never springs back when its parent closes after the close window opens', asy
   const { tops, stop } = recordTops()
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   try {
-    await dragDown(dialog(), 400)
+    // The body, since the dialog's center falls on the footer at part height.
+    await dragDown(page.getByText('Body'), 400)
     const pending = vi.getTimerCount()
     await expect.poll(() => asked).toHaveBeenCalledWith(false)
     // The close window starts in an effect after React commits the release.
@@ -505,7 +545,7 @@ it('goes back up once the close window passes with no answer', async () => {
   await expect.poll(sheetTop).toBe(844 / 2)
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   try {
-    await dragDown(dialog(), 400)
+    await dragDown(page.getByText('Body'), 400)
     // The drag's end handler has run, and the close window it asks for starts in an effect
     // after React commits, so the clock may only advance once that timer exists.
     const pending = vi.getTimerCount()

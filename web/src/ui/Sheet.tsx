@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react'
+import { X, type LucideIcon } from 'lucide-react'
 import {
   AnimatePresence,
   animate,
@@ -8,6 +8,7 @@ import {
   useMotionValue,
   useReducedMotionConfig,
   useTransform,
+  type MotionStyle,
   type MotionValue,
   type PanInfo,
 } from 'motion/react'
@@ -21,11 +22,11 @@ import {
   type ReactNode,
 } from 'react'
 import { Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components'
-import { CANCEL } from './confirmCopy'
+import { CANCEL, CLOSE } from './confirmCopy'
 import { useLatest } from './useLatest'
 import { useStampedDensity } from '../platform/density'
 import { DURATION, EASE, SPRING } from '../theme/motion'
-import { Button } from './Button'
+import { Button, type ButtonVariant } from './Button'
 import { PointerOverlay } from './PointerOverlay'
 import { recede } from './recede'
 import { growScale, originBox, releaseTarget, scrim, SHEET } from './sheetGeometry'
@@ -35,10 +36,22 @@ import { clamp } from '../math'
 const MotionModalOverlay = motion.create(ModalOverlay)
 const MotionModal = motion.create(Modal)
 
-export interface SheetPrimary {
+export interface SheetAction {
   label: string
   icon?: LucideIcon
   onPress: () => void
+  isDisabled?: boolean
+}
+
+export interface SheetPrimary extends SheetAction {
+  /** `danger` for a destructive action, `warning` for a cautionary one. */
+  tone?: 'danger' | 'warning'
+}
+
+export interface SheetCancel {
+  label?: string
+  /** Closes the sheet by default. */
+  onPress?: () => void
   isDisabled?: boolean
 }
 
@@ -47,8 +60,11 @@ export interface SheetProps {
   onOpenChange: (open: boolean) => void
   /** The header title and the dialog's accessible name. */
   title: string
-  /** Touch only: open at part height, draggable to full, or open full for a long form. */
-  height?: 'part' | 'full'
+  /**
+   * Touch only: open at part height, draggable to full; open full for a long form; or fit the
+   * content, up to part height, for a short question such as a confirmation.
+   */
+  height?: 'part' | 'full' | 'fit'
   /** Refuse backdrop tap, drag down, and Escape, so typed work survives; Cancel still closes. */
   locked?: boolean
   /**
@@ -56,15 +72,17 @@ export interface SheetProps {
    * before it loses work rather than refusing.
    */
   asksOnBack?: boolean
-  cancelLabel?: string
   /** The id of the element that describes the dialog, for assistive tech. */
   describedBy?: string
+  /** The footer's trailing, filled action. */
   primary?: SheetPrimary
   /**
-   * Takes Cancel's place, for a sheet whose choices apply at once, such as Reset. Null leaves
-   * the place empty, for such a sheet with nothing to put there: Cancel would claim to undo.
+   * Cancel, beside the primary. Null leaves it out, for a sheet whose choices apply at once:
+   * Cancel would claim to undo them.
    */
-  leading?: SheetPrimary | null
+  cancel?: SheetCancel | null
+  /** A quiet action at the footer's leading end, such as Reset or Back. */
+  tertiary?: SheetAction
   /** Runs once the sheet has finished closing and left the page. */
   onClosed?: () => void
   /** The control the sheet grows out of and closes back into, such as the Record disc. */
@@ -73,8 +91,9 @@ export interface SheetProps {
 }
 
 /**
- * A bottom sheet with a grabber on touch and a centered dialog on pointer, headed by Cancel,
- * the title, and an optional primary. Focus returns to the opener on close.
+ * A bottom sheet with a grabber on touch and a centered dialog on pointer: the title heads it
+ * and its actions sit in a footer, the primary trailing. A sheet with no actions takes a close
+ * button in its header instead. Focus returns to the opener on close.
  */
 export function Sheet(props: SheetProps) {
   const density = useStampedDensity()
@@ -109,65 +128,179 @@ function isTextInput(target: EventTarget): boolean {
   )
 }
 
+/** Whether the sheet shows a footer; one without shows a close button in its header. */
+function hasFooter({ primary, cancel, tertiary }: SheetProps): boolean {
+  return primary !== undefined || tertiary !== undefined || cancel !== null
+}
+
 function SheetHeader({
   title,
-  cancelLabel,
-  onCancel,
-  primary,
-  leading,
+  edge,
+  onClose,
 }: {
   title: string
-  cancelLabel: string
-  onCancel: () => void
-  primary?: SheetPrimary
-  leading?: SheetPrimary | null
+  /** Content has scrolled up under the header, so a hairline sets it apart. */
+  edge: boolean
+  /** Shown as a close button, for a sheet with no footer. */
+  onClose?: () => void
 }) {
   return (
-    // Side columns grow equally so the title stays centered; it wraps rather than clips. The body
-    // takes 4px of the gap below, so the ring of a field at its top is not clipped.
-    <header className="grid grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-2 px-2 pt-2 pb-1">
-      <div className="justify-self-start">
-        {leading === null ? null : leading ? (
-          <Button
-            label={leading.label}
-            icon={leading.icon}
-            onPress={leading.onPress}
-            isDisabled={leading.isDisabled}
-          />
-        ) : (
-          <Button label={cancelLabel} onPress={onCancel} />
-        )}
-      </div>
-      <Heading slot="title" className="t-heading text-center break-words">
+    // The body takes 4px of the gap below, so the ring of a field at its top is not clipped.
+    <header
+      className={`flex min-h-(--target-control) items-center gap-3 border-b px-4 pt-3 pb-2 transition-colors duration-(--dur-short) ${
+        edge ? 'border-hairline' : 'border-transparent'
+      }`}
+    >
+      <Heading slot="title" className="t-heading min-w-0 flex-1 break-words">
         {title}
       </Heading>
-      <div className="justify-self-end">
-        {primary && (
+      {onClose && <Button iconOnly icon={X} label={CLOSE} onPress={onClose} />}
+    </header>
+  )
+}
+
+const PRIMARY_VARIANT = {
+  danger: 'destructiveFill',
+  warning: 'warningFill',
+} as const satisfies Record<NonNullable<SheetPrimary['tone']>, ButtonVariant>
+
+/**
+ * The sheet's actions: a quiet tertiary leading, then Cancel and the filled primary trailing.
+ * On touch, Cancel and the primary split the width into two equal targets, and a lone action
+ * runs full width.
+ */
+function SheetFooter({
+  primary,
+  cancel,
+  tertiary,
+  onClose,
+  touch,
+  edge,
+  className = '',
+  style,
+}: {
+  primary?: SheetPrimary
+  cancel?: SheetCancel | null
+  tertiary?: SheetAction
+  onClose: () => void
+  touch: boolean
+  /** Content runs on under the footer, so a hairline sets it apart. */
+  edge: boolean
+  className?: string
+  style?: MotionStyle
+}) {
+  // A wrapper sizes each button: equal shares on touch, a floor on pointer so a short label such
+  // as OK still reads as a button.
+  const slot = touch ? 'flex min-w-0 flex-1' : 'flex min-w-20'
+  return (
+    <motion.footer
+      className={`bg-ground flex items-center gap-2 border-t px-4 pt-3 transition-colors duration-(--dur-short) ${
+        edge ? 'border-hairline' : 'border-transparent'
+      } ${className}`}
+      style={style}
+    >
+      {tertiary && (
+        <div className="me-auto flex">
           <Button
-            variant="primary"
+            label={tertiary.label}
+            icon={tertiary.icon}
+            onPress={tertiary.onPress}
+            isDisabled={tertiary.isDisabled}
+          />
+        </div>
+      )}
+      {!tertiary && !touch && <div className="me-auto" />}
+      {cancel !== null && (
+        <div className={slot}>
+          <Button
+            variant="bordered"
+            fullWidth
+            label={cancel?.label ?? CANCEL}
+            onPress={cancel?.onPress ?? onClose}
+            isDisabled={cancel?.isDisabled}
+          />
+        </div>
+      )}
+      {primary && (
+        <div className={slot}>
+          <Button
+            variant={primary.tone ? PRIMARY_VARIANT[primary.tone] : 'primary'}
+            fullWidth
             label={primary.label}
             icon={primary.icon}
             onPress={primary.onPress}
             isDisabled={primary.isDisabled}
           />
-        )}
-      </div>
-    </header>
+        </div>
+      )}
+    </motion.footer>
   )
 }
 
-function PointerDialog({
-  onOpenChange,
-  title,
-  locked = false,
-  asksOnBack = false,
-  cancelLabel = CANCEL,
-  describedBy,
-  primary,
-  leading,
-  origin,
-  children,
-}: SheetProps) {
+/**
+ * Where a scrolling body meets the header and footer: whether content has scrolled up under the
+ * header, and whether more runs on below the footer. `covered` is how much of the body's foot a
+ * raised footer hides, so content under it counts as running on.
+ */
+function useScrollEdges(
+  element: HTMLElement | null,
+  covered?: MotionValue<number>,
+): { overflows: boolean; top: boolean; bottom: boolean } {
+  const [edges, setEdges] = useState({ overflows: false, top: false, bottom: false })
+  useLayoutEffect(() => {
+    if (!element) return
+    const measure = () => {
+      const { scrollTop, scrollHeight, clientHeight } = element
+      // Where the content ends, not the scroller: a part-height sheet's scroller runs on past
+      // the window's foot with nothing in it.
+      const end = element.firstElementChild?.getBoundingClientRect().bottom ?? 0
+      const visibleEnd = element.getBoundingClientRect().bottom - (covered?.get() ?? 0)
+      const next = {
+        overflows: scrollHeight > clientHeight,
+        top: scrollTop > 0,
+        bottom: end > visibleEnd + 1,
+      }
+      setEdges((current) =>
+        current.overflows === next.overflows &&
+        current.top === next.top &&
+        current.bottom === next.bottom
+          ? current
+          : next,
+      )
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    // The content's one wrapper grows with whatever it holds.
+    if (element.firstElementChild) observer.observe(element.firstElementChild)
+    element.addEventListener('scroll', measure, { passive: true })
+    const stop = covered?.on('change', measure)
+    return () => {
+      observer.disconnect()
+      element.removeEventListener('scroll', measure)
+      stop?.()
+    }
+  }, [element, covered])
+  return edges
+}
+
+function PointerDialog(props: SheetProps) {
+  const {
+    onOpenChange,
+    title,
+    locked = false,
+    asksOnBack = false,
+    describedBy,
+    primary,
+    cancel,
+    tertiary,
+    origin,
+    children,
+  } = props
+  const [content, setContent] = useState<HTMLDivElement | null>(null)
+  const edges = useScrollEdges(content)
+  const close = () => onOpenChange(false)
+  const footer = hasFooter(props)
   return (
     <PointerOverlay
       origin={origin}
@@ -179,14 +312,21 @@ function PointerDialog({
       style={{ width: SHEET.width }}
     >
       <Dialog aria-describedby={describedBy} className="flex max-h-full min-h-0 flex-col">
-        <SheetHeader
-          title={title}
-          cancelLabel={cancelLabel}
-          onCancel={() => onOpenChange(false)}
-          primary={primary}
-          leading={leading}
-        />
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-4">{children}</div>
+        <SheetHeader title={title} edge={edges.top} onClose={footer ? undefined : close} />
+        <div ref={setContent} className="min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-4">
+          <div>{children}</div>
+        </div>
+        {footer && (
+          <SheetFooter
+            primary={primary}
+            cancel={cancel}
+            tertiary={tertiary}
+            onClose={close}
+            touch={false}
+            edge={edges.bottom}
+            className="pb-4"
+          />
+        )}
       </Dialog>
     </PointerOverlay>
   )
@@ -206,35 +346,73 @@ function useRecede(y: MotionValue<number>, closedY: number): void {
   }, [y, closedY])
 }
 
-/** Whether the element's content overflows it, so it scrolls instead of dragging the sheet. */
-function useOverflows(element: HTMLElement | null): boolean {
-  const [overflows, setOverflows] = useState(false)
+/**
+ * The height the sheet's column needs to show all of its content: the column less the room its
+ * scroller has, plus the room the scroller's content takes. Null until measured.
+ */
+function useFittedHeight(column: HTMLElement | null): number | null {
+  const [fitted, setFitted] = useState<number | null>(null)
   useLayoutEffect(() => {
-    if (!element) return
-    const measure = () => setOverflows(element.scrollHeight > element.clientHeight)
+    const scroller = column?.querySelector<HTMLElement>('[data-sheet-content]')
+    const content = scroller?.firstElementChild
+    if (!column || !scroller || !content) return
+    const measure = () => {
+      const style = getComputedStyle(scroller)
+      const padding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom)
+      setFitted(
+        Math.ceil(
+          column.offsetHeight -
+            scroller.clientHeight +
+            content.getBoundingClientRect().height +
+            padding,
+        ),
+      )
+    }
     measure()
     const observer = new ResizeObserver(measure)
-    observer.observe(element)
-    // The content's one wrapper grows with whatever it holds.
-    if (element.firstElementChild) observer.observe(element.firstElementChild)
+    observer.observe(content)
     return () => observer.disconnect()
-  }, [element])
-  return overflows
+  }, [column])
+  return fitted
 }
 
-function TouchSheet({
-  onOpenChange,
-  title,
-  height = 'part',
-  locked = false,
-  asksOnBack = false,
-  cancelLabel = CANCEL,
-  describedBy,
-  primary,
-  leading,
-  origin,
-  children,
-}: SheetProps) {
+function subscribeKeyboard(onChange: () => void): () => void {
+  const viewport = window.visualViewport
+  viewport?.addEventListener('resize', onChange)
+  viewport?.addEventListener('scroll', onChange)
+  return () => {
+    viewport?.removeEventListener('resize', onChange)
+    viewport?.removeEventListener('scroll', onChange)
+  }
+}
+
+/**
+ * How far the on-screen keyboard reaches up the window, in px. A browser that overlays the
+ * keyboard shrinks only the visual viewport, so the sheet's foot would sit under it. A pinch zoom
+ * shrinks it too, and is not a keyboard.
+ */
+function useKeyboardInset(): number {
+  return useSyncExternalStore(subscribeKeyboard, () => {
+    const viewport = window.visualViewport
+    if (!viewport || viewport.scale > 1.01) return 0
+    return Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop))
+  })
+}
+
+function TouchSheet(props: SheetProps) {
+  const {
+    onOpenChange,
+    title,
+    height = 'part',
+    locked = false,
+    asksOnBack = false,
+    describedBy,
+    primary,
+    cancel,
+    tertiary,
+    origin,
+    children,
+  } = props
   useOverlayClaim({
     coversShell: true,
     close: () => onOpenChange(false),
@@ -251,17 +429,46 @@ function TouchSheet({
   }
   // `y` is the sheet's offset from full height: 0 is full, closedY is off screen.
   const closedY = viewport.height - SHEET.topMargin
-  const openY = height === 'part' ? closedY - viewport.height * SHEET.partRatio : 0
-  const detents = height === 'part' ? [0, openY] : [0]
+  const partY = closedY - viewport.height * SHEET.partRatio
+  const [column, setColumn] = useState<HTMLDivElement | null>(null)
+  const fitted = useFittedHeight(height === 'fit' ? column : null)
+  const openY =
+    height === 'part'
+      ? partY
+      : height === 'fit'
+        ? Math.max(partY, closedY - (fitted ?? closedY - partY))
+        : 0
+  const detents = height === 'part' ? [0, openY] : [openY]
   const y = useMotionValue(reduceMotion ? openY : closedY)
-  const backdrop = useTransform(y, (value) => scrim(1 - clamp(value / closedY, 0, 1)))
+
   const dragControls = useDragControls()
+  // The sheet slides down to part height rather than shrinking, so its foot sits off screen
+  // there. The footer rises by that much to stay at the window's foot, and no more, so a drag to
+  // close carries it off with the sheet.
+  const openAt = useMotionValue(openY)
+  useLayoutEffect(() => openAt.set(openY), [openAt, openY])
+  const covered = useTransform([y, openAt], ([value, at]: number[]) => clamp(value!, 0, at!))
+  // The page dims as the sheet rises. A fitted sheet rests low, so it dims fully at its rest, as
+  // an alert does.
+  const fit = height === 'fit'
+  const backdrop = useTransform([y, openAt], ([value, at]: number[]) =>
+    scrim(
+      fit
+        ? clamp((closedY - value!) / Math.max(1, closedY - at!), 0, 1)
+        : 1 - clamp(value! / closedY, 0, 1),
+    ),
+  )
+  const footerY = useTransform(covered, (value) => -value)
   const [content, setContent] = useState<HTMLDivElement | null>(null)
-  const contentScrolls = useOverflows(content)
+  const edges = useScrollEdges(content, covered)
+  const contentScrolls = edges.overflows
+  const keyboard = useKeyboardInset()
+  const footer = hasFooter(props)
+  const close = () => onOpenChange(false)
   useRecede(y, closedY)
 
   // Where the sheet rests, so a new window size, such as a rotation, keeps it there.
-  const detent = useRef<'part' | 'full'>(height)
+  const detent = useRef<'part' | 'full'>(height === 'full' ? 'full' : 'part')
   const settle = (target: number, velocity = 0) => {
     detent.current = target === 0 ? 'full' : 'part'
     if (reduceMotion) y.jump(target)
@@ -269,10 +476,12 @@ function TouchSheet({
   }
 
   useEffect(() => {
+    // The keyboard covers most of a part-height sheet, so typing raises it to full.
+    if (keyboard > 0) detent.current = 'full'
     const target = detent.current === 'full' ? 0 : openY
     if (reduceMotion) y.jump(target)
     else animate(y, target, { duration: DURATION.long, ease: EASE })
-  }, [y, openY, reduceMotion])
+  }, [y, openY, reduceMotion, keyboard])
 
   // A parent may refuse to close; a sheet still here once it has had time to answer a closing
   // release goes back up. An answer after an await would otherwise spring up before it exits.
@@ -340,36 +549,48 @@ function TouchSheet({
         dragListener={false}
         dragControls={dragControls}
         dragMomentum={false}
-        dragConstraints={{ top: 0, bottom: locked ? Math.max(...detents) : closedY }}
+        dragConstraints={{
+          top: Math.min(...detents),
+          bottom: locked ? Math.max(...detents) : closedY,
+        }}
         dragElastic={{ top: 0.05, bottom: locked ? SHEET.lockedElastic : 0 }}
         onDragEnd={onDragEnd}
       >
         <Dialog aria-describedby={describedBy} className="h-full">
           <div
+            ref={setColumn}
             className="flex h-full flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]"
+            style={{ paddingBottom: keyboard }}
             onPointerDown={startDrag}
           >
             <div className="flex touch-none justify-center pt-2" aria-hidden>
               <div className="bg-silver h-1.5 w-10 rounded-(--radius-capsule)" />
             </div>
             <div className="touch-none">
-              <SheetHeader
-                title={title}
-                cancelLabel={cancelLabel}
-                onCancel={() => onOpenChange(false)}
-                primary={primary}
-                leading={leading}
-              />
+              <SheetHeader title={title} edge={edges.top} onClose={footer ? undefined : close} />
             </div>
             <div
               ref={setContent}
               data-sheet-content
-              className={`min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))] ${
-                contentScrolls ? 'touch-pan-y' : 'touch-none'
-              }`}
+              className={`min-h-0 flex-1 overflow-y-auto px-4 pt-1 ${
+                footer ? 'pb-4' : 'pb-[max(1rem,env(safe-area-inset-bottom))]'
+              } ${contentScrolls ? 'touch-pan-y' : 'touch-none'}`}
             >
               <div>{children}</div>
             </div>
+            {footer && (
+              <SheetFooter
+                primary={primary}
+                cancel={cancel}
+                tertiary={tertiary}
+                onClose={close}
+                touch
+                edge={edges.bottom}
+                // The keyboard covers the home indicator, so its safe area only applies without it.
+                className={`touch-none ${keyboard > 0 ? 'pb-3' : 'pb-[max(0.75rem,env(safe-area-inset-bottom))]'}`}
+                style={{ y: footerY }}
+              />
+            )}
           </div>
         </Dialog>
       </MotionModal>
