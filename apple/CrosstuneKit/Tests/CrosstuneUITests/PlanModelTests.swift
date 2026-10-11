@@ -189,4 +189,18 @@ private func pull(_ row: Entitlement, into store: CrosstuneStore) async throws {
         }
         try await eventually { model.scanTune == "tune-b" }
     }
+
+    @Test func keepsAStoredScanWhoseSlotWasRefusedInTheScanTune() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let model = PlanModel(store: store)
+        try await store.write { writer in
+            try writer.put(ScanRecord(id: "b", createdAt: later(1), tuneID: "tune-b", width: 1, height: 1), at: noon)
+            try writer.put(
+                ScanRecord(id: "a", createdAt: noon, serverSeq: 3, tuneID: "tune-a", width: 1, height: 1), at: noon)
+            try ScanFile(scanID: "a", fileName: "a.jpg", origin: .captured, error: ScanFile.scanTuneOnlyError)
+                .insert(writer.db)
+        }
+        try await eventually { model.scanTune == "tune-a" }
+    }
 }

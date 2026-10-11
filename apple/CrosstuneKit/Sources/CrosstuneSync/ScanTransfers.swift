@@ -50,7 +50,9 @@ struct ScanTransfers {
                     try await requeue(file.scanID, plan: plan)
                     continue
                 }
-                guard plan.scansOnAnyTune else { continue }
+                if !plan.scansOnAnyTune {
+                    guard try await requeue(file.scanID, plan: plan) else { continue }
+                }
             }
             // Only the figures a sync refreshes free a scan refused for quota; asking for a slot
             // before they show room would draw the same refusal.
@@ -173,30 +175,32 @@ struct ScanTransfers {
         try store.applyBackupRule(toScanFile: file.fileName, origin: .downloaded)
     }
 
-    /// Queues a scan's row again, once the plan opens its tune, and clears its file's refusal, so
-    /// the next push stores the row and the upload after it can take a slot. Once per scan per
-    /// grant and scan tune: the device may judge Premium within the offline leeway while the
-    /// server already judges the account free, and the server's scan tune may differ from this
-    /// device's.
-    private func requeue(_ id: String, plan: Plan) async throws {
+    /// Clears a scan's tune refusal once the plan opens its tune, so it tries again, and queues
+    /// its row when the server never stored it, so the next push stores it before the upload asks
+    /// for a slot. Once per scan per grant and scan tune: the device may judge Premium within the
+    /// offline leeway while the server already judges the account free, and the server's scan
+    /// tune may differ from this device's. True when the refusal was cleared.
+    @discardableResult
+    private func requeue(_ id: String, plan: Plan) async throws -> Bool {
         try await store.write { writer in
             guard var file = try ScanFile.fetchOne(writer.db, key: id),
                 let scan = try ScanRecord.fetchOne(writer.db, key: id), scan.deletedAt == nil
-            else { return }
+            else { return false }
             // Read in this write, since queuing an earlier scan can make it the scan tune.
             let scanTune = try ScanRecord.scanTuneID(writer.db)
-            guard PlanRules.scanOpens(plan, tuneID: scan.tuneID, scanTune: scanTune) else { return }
+            guard PlanRules.scanOpens(plan, tuneID: scan.tuneID, scanTune: scanTune) else { return false }
             let grant = ScanRequeues.grant(of: try Entitlement.current(writer.db))
             // A list in a shape this build cannot read is replaced, so it never fails the pass.
             var requeues = (try? MetaKey.scanRequeues.value(in: writer.db, as: ScanRequeues.self)) ?? ScanRequeues()
             if requeues.grant != grant { requeues = ScanRequeues(grant: grant) }
             let attempt = ScanRequeues.attempt(scanID: id, scanTune: scanTune)
-            guard !requeues.attempts.contains(attempt) else { return }
+            guard !requeues.attempts.contains(attempt) else { return false }
             requeues.attempts.append(attempt)
             try writer.setMeta(.scanRequeues, to: requeues)
-            try writer.put(scan)
+            if scan.serverSeq == 0 { try writer.put(scan) }
             file.error = nil
             try file.update(writer.db)
+            return true
         }
     }
 

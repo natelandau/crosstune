@@ -159,12 +159,14 @@ extension Entitlement {
 }
 
 extension ScanRecord {
-    /// The scan tune, read from the store: see ``PlanRules/scanTuneID(_:)``. A scan the server
-    /// refused for its tune is left out, since the server never counts it.
+    /// The scan tune, read from the store: see ``PlanRules/scanTuneID(_:)``. A row the server
+    /// refused for its tune and never stored is left out, since the server never counts it. A
+    /// stored row whose upload slot was refused still counts, as the server counts every stored
+    /// scan.
     public static func scanTuneID(_ db: Database) throws -> String? {
         let earliest = try ScanRecord.filter(CodingKeys.deletedAt == nil)
             .filter(
-                sql: "id NOT IN (SELECT scan_id FROM scan_files WHERE error = ?)",
+                sql: "NOT (server_seq = 0 AND id IN (SELECT scan_id FROM scan_files WHERE error = ?))",
                 arguments: [ScanFile.scanTuneOnlyError]
             )
             .order(CodingKeys.createdAt, CodingKeys.id)

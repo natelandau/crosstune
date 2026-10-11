@@ -572,8 +572,10 @@ import Testing
     @Test func aScanTuneRefusalMarksTheScanUntilThePlanIsPremium() async throws {
         try await storeEntitlement(store, source: nil)
         try await capturedScan("p1")
+        try await scanOnAnotherTune("p0", createdAt: later(-1_000))
         api.transferFailures["scan-slot p1"] = APIStatusError(status: 403, problemType: scanTuneOnlyProblem)
         let engine = engine()
+        func transfersOfP1() -> [String] { api.transfers.filter { $0.hasSuffix(" p1") } }
 
         await engine.transfer()
 
@@ -583,23 +585,24 @@ import Testing
 
         api.transferFailures = [:]
         await engine.transfer()
-        #expect(api.transfers == ["scan-slot p1"])
+        #expect(transfersOfP1() == ["scan-slot p1"])
 
         try await storeEntitlement(store, source: "comp")
         await engine.transfer()
 
-        #expect(api.transfers == ["scan-slot p1", "scan-slot p1", "put p1", "scan-confirm p1"])
+        #expect(transfersOfP1() == ["scan-slot p1", "scan-slot p1", "put p1", "scan-confirm p1"])
         let file = try #require(try await file("p1"))
         #expect(file.origin == .downloaded)
         #expect(file.error == nil)
     }
 
     /// A ready scan on a second tune, so a free plan's scan tune is not the captured scans'.
-    func scanOnAnotherTune(_ id: String) async throws {
+    func scanOnAnotherTune(_ id: String, createdAt: Timestamp = later(1_000)) async throws {
         try await store.write { writer in
-            try Tune(id: "t2", createdAt: noon, serverSeq: 2, title: "Bonaparte's Retreat").insert(writer.db)
+            try Tune(id: "t2", createdAt: noon, serverSeq: 2, title: "Bonaparte's Retreat").insert(
+                writer.db, onConflict: .ignore)
             try ScanRecord(
-                id: id, createdAt: later(1_000), serverSeq: 4, tuneID: "t2", width: 600, height: 800,
+                id: id, createdAt: createdAt, serverSeq: 4, tuneID: "t2", width: 600, height: 800,
                 state: ScanRecord.ready
             ).insert(writer.db)
         }
@@ -722,6 +725,46 @@ import Testing
         await engine.sync()
 
         #expect(pushesOfP1() == 2)
+    }
+
+    @Test func aStoredScanWhoseSlotWasRefusedStillHoldsTheScanTune() async throws {
+        try await capturedScan("p1", error: ScanFile.scanTuneOnlyError)
+        try await scanOnAnotherTune("p2")
+
+        #expect(try await store.read { db in try ScanRecord.scanTuneID(db) } == "t1")
+    }
+
+    @Test func aFreePlanRetriesAStoredScansRefusedSlotOnTheScanTune() async throws {
+        try await storeEntitlement(store, source: nil)
+        try await capturedScan("p1", error: ScanFile.scanTuneOnlyError)
+
+        await engine().transfer()
+
+        #expect(api.transfers == ["scan-slot p1", "put p1", "scan-confirm p1"])
+        #expect(try await file("p1")?.origin == .downloaded)
+    }
+
+    @Test func aFreePlanRetriesAStoredScansRefusedSlotOnlyOnce() async throws {
+        try await storeEntitlement(store, source: nil)
+        try await capturedScan("p1", error: ScanFile.scanTuneOnlyError)
+        api.transferFailures["scan-slot p1"] = APIStatusError(status: 403, problemType: scanTuneOnlyProblem)
+        let engine = engine()
+
+        for _ in 0..<3 { await engine.transfer() }
+
+        #expect(api.transfers == ["scan-slot p1"])
+        #expect(try await file("p1")?.error == ScanFile.scanTuneOnlyError)
+    }
+
+    @Test func aFreePlanLeavesAStoredScansRefusedSlotOffTheScanTune() async throws {
+        try await storeEntitlement(store, source: nil)
+        try await capturedScan("p1", error: ScanFile.scanTuneOnlyError)
+        try await scanOnAnotherTune("p0", createdAt: later(-1_000))
+
+        await engine().transfer()
+
+        #expect(!api.transfers.contains { $0.hasSuffix(" p1") })
+        #expect(try await file("p1")?.error == ScanFile.scanTuneOnlyError)
     }
 
     @Test func aScanRefusedForItsTuneIsNotTheScanTune() async throws {
