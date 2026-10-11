@@ -413,17 +413,17 @@ async def test_delete_cancels_stripe_and_deletes_customer(
         await original_delete(clerk_user_id)
 
     clerk.delete_user = recording_delete
-    await _grant(client, auth_headers, verify_session, "stripe", "sub_123", None)
+    await _grant(client, auth_headers, verify_session, "stripe", "si_123", None)
     response = await client.delete("/v1/me", headers=auth_headers("user_a"))
     assert response.status_code == 204
-    assert events == ["sub_123", "user_a", "clerk"]
+    assert events == ["si_123", "user_a", "clerk"]
 
 
 async def test_delete_stripe_failure_keeps_account(
     client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
 ) -> None:
     app.state.stripe = FakeStripe(error=StripeUnavailableError())
-    await _grant(client, auth_headers, verify_session, "stripe", "sub_123", None)
+    await _grant(client, auth_headers, verify_session, "stripe", "si_123", None)
     response = await client.delete("/v1/me", headers=auth_headers("user_a"))
     assert response.status_code == 502
     assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
@@ -446,7 +446,7 @@ async def test_delete_without_stripe_client_but_stripe_grant_is_503(
     client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
 ) -> None:
     app.state.stripe = None
-    await _grant(client, auth_headers, verify_session, "stripe", "sub_123", None)
+    await _grant(client, auth_headers, verify_session, "stripe", "si_123", None)
     response = await client.delete("/v1/me", headers=auth_headers("user_a"))
     assert response.status_code == 503
     assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
@@ -467,7 +467,7 @@ async def test_delete_expired_stripe_grant_cancels_nothing(
     client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
 ) -> None:
     expired = utc_now() - timedelta(days=1)
-    await _grant(client, auth_headers, verify_session, "stripe", "sub_old", expired)
+    await _grant(client, auth_headers, verify_session, "stripe", "si_old", expired)
     response = await client.delete("/v1/me", headers=auth_headers("user_a"))
     assert response.status_code == 204
     assert app.state.stripe.cancelled == []
@@ -482,7 +482,7 @@ async def test_delete_cancels_a_lapsed_stripe_subscription_still_renewing(
             user_id=uuid.UUID(me["id"]),
             kind="premium",
             source="stripe",
-            external_id="sub_retrying",
+            external_id="si_retrying",
             expires_at=utc_now() - timedelta(days=1),
             auto_renews=True,
         )
@@ -490,4 +490,4 @@ async def test_delete_cancels_a_lapsed_stripe_subscription_still_renewing(
     await verify_session.commit()
     response = await client.delete("/v1/me", headers=auth_headers("user_a"))
     assert response.status_code == 204
-    assert app.state.stripe.cancelled == ["sub_retrying"]
+    assert app.state.stripe.cancelled == ["si_retrying"]

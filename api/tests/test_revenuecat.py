@@ -46,8 +46,8 @@ async def test_maps_active_stripe_subscription(mock_http) -> None:
 
     subs = _by_id(await _client(mock_http).subscriptions("cust_1"))
 
-    assert subs["sub_1StripeActive"] == PaidSubscription(
-        store_id="sub_1StripeActive",
+    assert subs["si_StripeActive"] == PaidSubscription(
+        store_id="si_StripeActive",
         source=GrantSource.STRIPE,
         kind=GrantKind.PREMIUM,
         environment=GrantEnvironment.PRODUCTION,
@@ -75,13 +75,13 @@ async def test_maps_expired_subscription_capped_at_now(mock_http) -> None:
 
     subs = _by_id(await _client(mock_http).subscriptions("cust_1"))
 
-    assert subs["sub_1StripeExpired"].expires_at == datetime(2020, 3, 1, tzinfo=UTC)
-    assert subs["sub_1StripeExpired"].auto_renews is False
+    assert subs["si_StripeExpired"].expires_at == datetime(2020, 3, 1, tzinfo=UTC)
+    assert subs["si_StripeExpired"].auto_renews is False
 
     expired["ends_at"] = _ms(datetime.now(UTC) + timedelta(days=30))
     expired["current_period_ends_at"] = None
     _serve(mock_http, payload)
-    capped = _by_id(await _client(mock_http).subscriptions("cust_1"))["sub_1StripeExpired"]
+    capped = _by_id(await _client(mock_http).subscriptions("cust_1"))["si_StripeExpired"]
     assert capped.expires_at is not None
     assert capped.expires_at <= datetime.now(UTC)
 
@@ -94,7 +94,7 @@ async def test_skips_subscriptions_without_premium(mock_http) -> None:
 
     subs = await _client(mock_http).subscriptions("cust_1")
 
-    assert [sub.store_id for sub in subs] == ["sub_1StripeExpired"]
+    assert [sub.store_id for sub in subs] == ["si_StripeExpired"]
 
 
 async def test_reads_every_page(mock_http) -> None:
@@ -110,7 +110,7 @@ async def test_reads_every_page(mock_http) -> None:
 
     subs = await _client(mock_http).subscriptions("cust_1")
 
-    assert [sub.store_id for sub in subs] == ["sub_1StripeActive", "2000000123456789"]
+    assert [sub.store_id for sub in subs] == ["si_StripeActive", "2000000123456789"]
 
 
 async def test_missing_customer_is_empty(mock_http) -> None:
