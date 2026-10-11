@@ -46,7 +46,7 @@
       },
       "environment": "production",
       "store": "stripe",
-      "store_subscription_identifier": "sub_1StripeActive",
+      "store_subscription_identifier": "si_StripeActive",
       "country": "US",
       "management_url": null
     },
@@ -144,7 +144,7 @@
       },
       "environment": "production",
       "store": "stripe",
-      "store_subscription_identifier": "sub_1StripeExpired",
+      "store_subscription_identifier": "si_StripeExpired",
       "country": "US",
       "management_url": null
     }

@@ -59,13 +59,13 @@ async def end_billing(
             )
         )
     ).all()
-    subscription_ids = [external_id for external_id in external_ids if external_id is not None]
-    if subscription_ids and stripe is None:
+    store_ids = [external_id for external_id in external_ids if external_id is not None]
+    if store_ids and stripe is None:
         raise AccountDeletionUnavailableError(_CANNOT_END_BILLING)
     try:
         if stripe is not None:
-            for subscription_id in subscription_ids:
-                await stripe.cancel(subscription_id)
+            for store_id in store_ids:
+                await stripe.cancel(store_id)
         if revenuecat is not None:
             await revenuecat.delete_customer(user.clerk_user_id)
     except (StripeUnavailableError, RevenueCatUnavailableError) as exc:

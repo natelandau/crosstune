@@ -366,7 +366,7 @@ async def _stripe_subscriber(client, auth_headers, verify_session: AsyncSession)
             user_id=uuid.UUID(me["id"]),
             kind="premium",
             source="stripe",
-            external_id="sub_123",
+            external_id="si_123",
         )
     )
     await verify_session.commit()
@@ -378,7 +378,7 @@ async def test_clerk_user_deleted_ends_billing(
     await _stripe_subscriber(client, auth_headers, verify_session)
     response = await _post_user_deleted(client, "user_gone")
     assert response.status_code == 204
-    assert app.state.stripe.cancelled == ["sub_123"]
+    assert app.state.stripe.cancelled == ["si_123"]
     assert app.state.revenuecat.deleted == ["user_gone"]
     assert (
         await verify_session.scalar(select(User).where(User.clerk_user_id == "user_gone")) is None

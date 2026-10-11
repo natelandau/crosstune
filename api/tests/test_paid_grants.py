@@ -68,7 +68,7 @@ async def test_mirror_writes_one_grant_per_subscription(
 ) -> None:
     user = await _user(session, settings)
     apple = _sub("1000", GrantSource.APPLE, environment=GrantEnvironment.SANDBOX)
-    stripe = _sub("sub_abc", GrantSource.STRIPE, days=365, auto_renews=False)
+    stripe = _sub("si_abc", GrantSource.STRIPE, days=365, auto_renews=False)
 
     await mirror_paid_grants(session, user.id, [apple, stripe], NOW)
 
@@ -77,7 +77,7 @@ async def test_mirror_writes_one_grant_per_subscription(
         (r.source, r.external_id, r.kind, r.environment, r.expires_at, r.auto_renews) for r in rows
     ] == [
         ("apple", "1000", "premium", "sandbox", apple.expires_at, True),
-        ("stripe", "sub_abc", "premium", "production", stripe.expires_at, False),
+        ("stripe", "si_abc", "premium", "production", stripe.expires_at, False),
     ]
 
 
@@ -101,7 +101,7 @@ async def test_mirror_expires_a_vanished_subscription(
     await mirror_paid_grants(
         session,
         user.id,
-        [_sub("1000"), _sub("sub_old", GrantSource.STRIPE, days=-3), _sub("2000", days=None)],
+        [_sub("1000"), _sub("si_old", GrantSource.STRIPE, days=-3), _sub("2000", days=None)],
         NOW - timedelta(days=10),
     )
 
@@ -112,7 +112,7 @@ async def test_mirror_expires_a_vanished_subscription(
         for r in await _grants(session, user, GrantSource.APPLE, GrantSource.STRIPE)
     }
     assert rows["1000"].expires_at == NOW
-    assert rows["sub_old"].expires_at == old
+    assert rows["si_old"].expires_at == old
     assert rows["2000"].expires_at is None
 
 

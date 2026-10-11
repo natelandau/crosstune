@@ -3,6 +3,7 @@ import {
   addTune,
   escapeRegExp,
   expectNoOverlay,
+  expectSettled,
   expectSynced,
   openRowMenu,
   openTab,
@@ -123,7 +124,11 @@ test('select tunes in a search, set their violin tuning, and undo', async ({ pag
 
   await edit.click()
   await expect(sheet).toBeVisible()
-  await sheet.getByRole('combobox', { name: 'Violin tuning' }).click()
+  const tuning = sheet.getByRole('combobox', { name: 'Violin tuning' })
+  // Clicking while the sheet still rises scrolls its body to reach the field, and that scroll
+  // event lands after the click opens the list, which closes on any scroll around it.
+  await expectSettled(tuning)
+  await tuning.click()
   await page.getByRole('option', { name: 'Cross A (AEAE)', exact: true }).click()
   await sheet.getByRole('button', { name: SAVE_EDIT, exact: true }).click()
 

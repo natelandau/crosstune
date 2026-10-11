@@ -64,11 +64,11 @@ class FakeStripe:
         self.cancelled = cancelled if cancelled is not None else []
         self.error = error
 
-    async def cancel(self, subscription_id: str) -> None:
+    async def cancel(self, store_id: str) -> None:
         """Record the id, or raise the configured error instead of cancelling."""
         if self.error is not None:
             raise self.error
-        self.cancelled.append(subscription_id)
+        self.cancelled.append(store_id)
 
 
 class FakeAnalyticsPersons:

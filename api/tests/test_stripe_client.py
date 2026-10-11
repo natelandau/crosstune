@@ -8,6 +8,7 @@ from crosstune.billing.stripe import StripeRest, StripeUnavailableError
 BASE = "https://stripe.example.test/v1"
 KEY = "sk_test_fixture"  # gitleaks:allow -- fixture, not a credential
 URL = f"{BASE}/subscriptions/sub_1"
+ITEM_URL = f"{BASE}/subscription_items/si_1"
 
 pytestmark = pytest.mark.anyio
 
@@ -23,10 +24,63 @@ async def test_cancel_sends_no_proration(mock_http) -> None:
     assert call.content == b"prorate=false&invoice_now=false"
 
 
-async def test_cancel_accepts_missing(mock_http) -> None:
-    mock_http.add(URL, httpx2.Response(404, json={"error": {"code": "resource_missing"}}))
+async def test_cancel_of_a_missing_subscription_raises() -> None:
+    missing = httpx2.Response(404, json={"error": {"code": "resource_missing"}})
+    client = _by_method({"DELETE": missing, "GET": missing}, [])
 
-    await StripeRest(mock_http.client(), KEY, base_url=BASE).cancel("sub_1")
+    with pytest.raises(StripeUnavailableError):
+        await StripeRest(client, KEY, base_url=BASE).cancel("sub_1")
+
+
+def _by_route(
+    responses: dict[tuple[str, str], httpx2.Response], calls: list[httpx2.Request]
+) -> httpx2.AsyncClient:
+    def handle(request: httpx2.Request) -> httpx2.Response:
+        calls.append(request)
+        return responses[(request.method, str(request.url))]
+
+    return httpx2.AsyncClient(transport=httpx2.MockTransport(handle))
+
+
+async def test_cancel_resolves_an_item_to_its_subscription() -> None:
+    calls: list[httpx2.Request] = []
+    client = _by_route(
+        {
+            ("GET", ITEM_URL): httpx2.Response(
+                200, json={"id": "si_1", "object": "subscription_item", "subscription": "sub_1"}
+            ),
+            ("DELETE", URL): httpx2.Response(200, json={"id": "sub_1", "status": "canceled"}),
+        },
+        calls,
+    )
+
+    await StripeRest(client, KEY, base_url=BASE).cancel("si_1")
+
+    assert [(call.method, str(call.url)) for call in calls] == [
+        ("GET", ITEM_URL),
+        ("DELETE", URL),
+    ]
+    assert all(call.headers["Authorization"] == f"Bearer {KEY}" for call in calls)
+    assert calls[1].content == b"prorate=false&invoice_now=false"
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        httpx2.Response(404, json={"error": {"code": "resource_missing"}}),
+        httpx2.Response(403, json={"error": {"type": "invalid_request_error"}}),
+        httpx2.Response(200, json={"id": "si_1"}),
+        httpx2.Response(200, text="<html>"),
+    ],
+)
+async def test_cancel_raises_when_an_item_names_no_subscription(item: httpx2.Response) -> None:
+    calls: list[httpx2.Request] = []
+    client = _by_route({("GET", ITEM_URL): item}, calls)
+
+    with pytest.raises(StripeUnavailableError):
+        await StripeRest(client, KEY, base_url=BASE).cancel("si_1")
+
+    assert [call.method for call in calls] == ["GET"]
 
 
 def _by_method(
