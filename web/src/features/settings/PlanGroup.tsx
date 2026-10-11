@@ -1,35 +1,59 @@
+import { canSubscribe, type Plan } from '../../billing/plan'
+import { storeConfig } from '../../billing/storeConfig'
+import { useStore } from '../../billing/StoreProvider'
 import { usePlan } from '../../billing/usePlan'
+import { ActionRow } from '../../ui/form/ActionRow'
 import { FieldRow } from '../../ui/form/FieldRow'
 import { Group } from '../../ui/form/Group'
 import { useNow } from '../../ui/useNow'
 import {
+  APP_STORE_SUBSCRIPTIONS_URL,
   FREE_HELP,
   FREE_STORAGE_HELP,
+  MANAGE_APP_STORE,
+  MANAGE_SUBSCRIPTION,
   PLAN_FREE,
   PLAN_GROUP,
   PLAN_PREMIUM,
   PLAN_TRIAL,
   premiumUntil,
+  SUBSCRIBE,
   trialLeft,
 } from '../plan/planCopy'
+import { usePremiumSheet } from '../plan/PremiumSheetProvider'
 import { StorageSummary } from '../recordings/StorageSummary'
+
+/** The plan's name and its end, as the Plan row shows them. */
+function planLine(plan: Plan, now: Date): { name: string; detail?: string } {
+  if (plan.kind !== 'premium') return { name: PLAN_FREE }
+  if (plan.source === 'trial') {
+    const end = plan.trialEndsAt ?? plan.premiumEndsAt
+    return { name: PLAN_TRIAL, detail: end ? trialLeft(end, now) : undefined }
+  }
+  return {
+    name: PLAN_PREMIUM,
+    detail: plan.premiumEndsAt ? premiumUntil(plan.premiumEndsAt) : undefined,
+  }
+}
+
+/** Where a paid account manages its subscription, or null when this app has nowhere to send it. */
+function manageAction(plan: Plan, portalUrl: string): { label: string; url: string } | null {
+  if (plan.source === 'stripe' && portalUrl) return { label: MANAGE_SUBSCRIPTION, url: portalUrl }
+  if (plan.source === 'apple') return { label: MANAGE_APP_STORE, url: APP_STORE_SUBSCRIPTIONS_URL }
+  return null
+}
 
 /** The account's plan and how much of its storage is spent. Nothing shows until a plan is known. */
 export function PlanGroup() {
   const plan = usePlan()
   const now = useNow()
+  const store = useStore()
+  const premium = usePremiumSheet()
   if (plan.kind === 'unknown') return null
-  const trial = plan.kind === 'premium' && plan.source === 'trial'
-  const trialEnd = plan.trialEndsAt ?? plan.premiumEndsAt
-  let name = PLAN_FREE
-  let detail: string | undefined
-  if (trial) {
-    name = PLAN_TRIAL
-    detail = trialEnd ? trialLeft(trialEnd, new Date(now)) : undefined
-  } else if (plan.kind === 'premium') {
-    name = PLAN_PREMIUM
-    detail = plan.premiumEndsAt ? premiumUntil(plan.premiumEndsAt) : undefined
-  }
+  const { name, detail } = planLine(plan, new Date(now))
+  const manage = manageAction(plan, storeConfig().portalUrl)
+  const open = (url: string) => window.open(url, '_blank', 'noopener')
+  const subscribe = store !== null && canSubscribe(plan)
   return (
     <>
       <Group
@@ -44,6 +68,10 @@ export function PlanGroup() {
         }
       >
         <FieldRow label={name} value={detail} />
+        {subscribe && (
+          <ActionRow label={SUBSCRIBE} onPress={() => premium.open('plan', 'plan_group')} />
+        )}
+        {manage && <ActionRow label={manage.label} onPress={() => open(manage.url)} />}
       </Group>
       <StorageSummary />
     </>

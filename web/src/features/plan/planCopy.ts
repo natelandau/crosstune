@@ -13,6 +13,31 @@ export const PREMIUM_SCANS_TITLE = 'Scans on more than one tune are part of Prem
 export const PREMIUM_RECORDINGS_BODY =
   'Premium keeps your recordings on our servers, so they play on every device. Every recording you already have stays: you can rename, file, delete, and export it on any plan.'
 export const SEE_PLAN = 'See your plan'
+export const PREMIUM_PLAN_TITLE = 'Crosstune Premium'
+export const PREMIUM_PLAN_BODY =
+  'Recordings that play on every device, practice mode, scans on every tune, and 5 GB of storage.'
+export const SUBSCRIBE = 'Subscribe'
+export const MANAGE_SUBSCRIPTION = 'Manage subscription'
+export const MANAGE_APP_STORE = 'Manage in App Store settings'
+export const APP_STORE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions'
+export const PERIOD_ANNUAL = 'Annual'
+export const PERIOD_MONTHLY = 'Monthly'
+export const BILLING_PERIOD = 'Billing period'
+export const BILLING_STARTS_TODAY = 'Billing starts today. The rest of your trial is not added on.'
+export const RENEWS_UNTIL_CANCELLED = 'Renews until you cancel.'
+export const SUBSCRIBE_OFFLINE = 'Subscribing needs a connection.'
+export const SUBSCRIBED = "You're on Premium."
+export const SUBSCRIBE_FAILED = "Subscribing didn't finish. Try again in a moment."
+
+/** An annual plan's price as RevenueCat formats it, per year. */
+export function annualPrice(price: string): string {
+  return `${price} a year`
+}
+
+/** A monthly plan's price as RevenueCat formats it, per month. */
+export function monthlyPrice(price: string): string {
+  return `${price} a month`
+}
 
 /** Why scans on other tunes are held, naming the one tune they open on. */
 export function premiumScansBody(tuneTitle: string): string {

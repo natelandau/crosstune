@@ -157,6 +157,9 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     async recordNotice(notice) {
       return unwrapEmpty(client.POST('/v1/me/notices', { body: { notice } }))
     },
+    async refreshBilling() {
+      return unwrapEmpty(client.POST('/v1/me/billing/refresh'))
+    },
     async requestUploadSlot(recordingId, body) {
       return unwrap(
         client.POST('/v1/recordings/{recording_id}/upload-slot', {

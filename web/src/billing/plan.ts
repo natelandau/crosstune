@@ -75,6 +75,11 @@ export function planOf(row: LocalEntitlement | null | undefined, premium: boolea
   }
 }
 
+/** Only an account with no paid grant can buy one: free, or a trial. */
+export function canSubscribe(plan: Plan): boolean {
+  return plan.kind === 'free' || (plan.kind === 'premium' && plan.source === 'trial')
+}
+
 export function recordingsPlayable(plan: Plan): boolean {
   return plan.kind !== 'free'
 }

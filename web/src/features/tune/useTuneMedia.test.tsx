@@ -12,6 +12,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { captureRecording } from '../../test/recordings'
 import { dataProviders, fakeEngine, fakePlayer, testSession } from '../../test/providers'
+import { ToastProvider } from '../../ui/Toast'
 import { PlayerContext } from '../player/usePlayer'
 import {
   ADD_TO_RECORDINGS,
@@ -55,9 +56,11 @@ function mount({
   const Data = dataProviders({ db, engine, analytics })
   const wrapper = ({ children }: { children: ReactNode }) => (
     <Data>
-      <PremiumSheetProvider navigate={() => {}}>
-        <PlayerContext.Provider value={fakePlayer()}>{children}</PlayerContext.Provider>
-      </PremiumSheetProvider>
+      <ToastProvider>
+        <PremiumSheetProvider navigate={() => {}}>
+          <PlayerContext.Provider value={fakePlayer()}>{children}</PlayerContext.Provider>
+        </PremiumSheetProvider>
+      </ToastProvider>
     </Data>
   )
   const hook = renderHook(

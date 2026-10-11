@@ -1,18 +1,35 @@
 import { useAuth } from '@clerk/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
-import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { useAuthSession } from '../../auth/AuthContext'
+import type { Plan } from '../../billing/plan'
+import { usePlanOrUnknown } from '../../billing/usePlan'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { useAction } from '../../ui/useAction'
+import { useAnalytics } from '../../usage/AnalyticsProvider'
+import { APP_STORE_SUBSCRIPTIONS_URL } from '../plan/planCopy'
 import {
   confirmMatches,
   countAccountData,
   deleteAccountAndForget,
   deleteOutcomeUnknown,
 } from './deleteAccount'
-import { DELETE_FAILED, DELETE_UNCONFIRMED, SETTINGS_LINE } from './deleteAccountCopy'
+import {
+  APPLE_SUBSCRIPTION_LINE,
+  DELETE_FAILED,
+  DELETE_UNCONFIRMED,
+  SETTINGS_LINE,
+  STRIPE_SUBSCRIPTION_LINE,
+} from './deleteAccountCopy'
+
+/** What deleting does to each kind of paid subscription, and where to cancel one it leaves. */
+const SUBSCRIPTIONS: Partial<
+  Record<NonNullable<Plan['source']>, { line: string; link: string | null }>
+> = {
+  stripe: { line: STRIPE_SUBSCRIPTION_LINE, link: null },
+  apple: { line: APPLE_SUBSCRIPTION_LINE, link: APP_STORE_SUBSCRIPTIONS_URL },
+}
 
 /** One count line, or none for a zero count. */
 function countLine(count: number, singular: string, plural: string): string | null {
@@ -37,6 +54,10 @@ export interface DeleteAccount {
   countLines: string[] | null
   /** True until the local counts have been read or have failed to read. */
   loading: boolean
+  /** What happens to the account's paid subscription, or null when it has none to cancel. */
+  subscriptionLine: string | null
+  /** Where an App Store subscriber cancels, or null for any other account. */
+  subscriptionLink: string | null
   confirmed: boolean
   /** Does nothing until the confirmation text matches and the counts have settled. */
   run: () => void
@@ -57,6 +78,8 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
   const { signOut } = useAuth()
   const engine = useSyncEngine()
   const analytics = useAnalytics()
+  const { source } = usePlanOrUnknown()
+  const subscription = source === null ? undefined : SUBSCRIPTIONS[source]
   const { error, pending, runThen, clear } = useAction()
   const [text, setText] = useState('')
   const [closing, setClosing] = useState(false)
@@ -120,6 +143,8 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
     },
     countLines: counts ? linesFor(counts) : null,
     loading,
+    subscriptionLine: subscription?.line ?? null,
+    subscriptionLink: subscription?.link ?? null,
     confirmed,
     run,
     error,

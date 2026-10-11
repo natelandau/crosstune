@@ -413,6 +413,9 @@ export function createSyncEngine({
       await api.retryRecording(recordingId)
       void syncing.trigger()
     },
+    async refreshBilling(): Promise<void> {
+      await api.refreshBilling()
+    },
     async deleteAccount(): Promise<void> {
       await api.deleteAccount()
     },

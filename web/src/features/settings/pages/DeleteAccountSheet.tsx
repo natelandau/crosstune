@@ -1,5 +1,11 @@
-import { TriangleAlert } from 'lucide-react'
+import { ArrowUpRight, TriangleAlert } from 'lucide-react'
 import { useId } from 'react'
+import { Button } from '../../../ui/Button'
+import { CANCEL, DELETING } from '../../../ui/confirmCopy'
+import { Group } from '../../../ui/form/Group'
+import { TextField } from '../../../ui/form/TextField'
+import { Sheet } from '../../../ui/Sheet'
+import { MANAGE_APP_STORE } from '../../plan/planCopy'
 import {
   CANNOT_UNDO,
   CONFIRM_LABEL,
@@ -10,11 +16,6 @@ import {
   UNSYNCED_LINE,
 } from '../deleteAccountCopy'
 import { useDeleteAccount } from '../useDeleteAccount'
-import { CANCEL, DELETING } from '../../../ui/confirmCopy'
-import { Button } from '../../../ui/Button'
-import { Group } from '../../../ui/form/Group'
-import { TextField } from '../../../ui/form/TextField'
-import { Sheet } from '../../../ui/Sheet'
 
 /**
  * The last stop before an account and everything in it, on every device, is gone for good.
@@ -22,8 +23,20 @@ import { Sheet } from '../../../ui/Sheet'
  * partway through erasing an account.
  */
 export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed: () => void }) {
-  const { text, setText, countLines, loading, confirmed, run, error, pending, closing, close } =
-    useDeleteAccount(open)
+  const {
+    text,
+    setText,
+    countLines,
+    loading,
+    subscriptionLink,
+    subscriptionLine,
+    confirmed,
+    run,
+    error,
+    pending,
+    closing,
+    close,
+  } = useDeleteAccount(open)
   const leadId = useId()
   return (
     <Sheet
@@ -54,6 +67,25 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
         </ul>
       )}
       {!loading && <p className="t-body pt-2">{UNSYNCED_LINE}</p>}
+      {subscriptionLine && (
+        <p className="t-body pt-2">
+          {subscriptionLine}
+          {subscriptionLink && (
+            <>
+              {' '}
+              <a
+                href={subscriptionLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-action inline-flex items-center gap-0.5"
+              >
+                {MANAGE_APP_STORE}
+                <ArrowUpRight className="size-3.5 shrink-0" aria-hidden />
+              </a>
+            </>
+          )}
+        </p>
+      )}
       <p className="t-body pt-2">
         <strong>{CANNOT_UNDO}</strong>
         {NO_RECOVERY}

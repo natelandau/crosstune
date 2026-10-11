@@ -50,6 +50,8 @@ export interface SyncApi {
   deleteAccount(): Promise<void>
   /** Records that the user saw a one-time notice, so no device shows it again. */
   recordNotice(notice: Notice): Promise<void>
+  /** Asks the server to re-read the user's purchases, so a new subscription takes effect now. */
+  refreshBilling(): Promise<void>
   requestUploadSlot(recordingId: string, body: UploadSlotRequest): Promise<SignedUrl>
   uploadFinished(recordingId: string): Promise<void>
   retryRecording(recordingId: string): Promise<void>

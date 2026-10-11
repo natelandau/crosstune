@@ -29,7 +29,8 @@ The tools they have do not fit that:
 - Free keeps the catalog, lists, sync, offline, import, and export, plus
   scans on one tune. Premium adds recordings, scans on any tune, and 5 GB of
   storage. Every new account starts with a 30-day Premium trial, and a
-  lapsed account keeps every file.
+  lapsed account keeps every file. Premium is one subscription for every
+  device, bought on the web or in the App Store at the same price.
 - Success is musicians using Crosstune as their one place for tunes,
   recordings, and practice, in place of paper lists and voice memo apps, and
   other players asking for an account.

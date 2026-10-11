@@ -16,9 +16,11 @@
   outline: none;
 }
 
-/* A switch or checkbox takes focus on a hidden input, so its visible shape draws the ring. */
+/* A switch, checkbox, or radio row takes focus on a hidden input, so its visible shape draws
+   the ring. */
 [data-focus-visible] > .switch-track,
-[data-focus-visible]:has(> .check-mark) {
+[data-focus-visible]:has(> .check-mark),
+.radio-row[data-focus-visible] {
   outline: 2px solid var(--slate);
   outline-offset: 2px;
 }

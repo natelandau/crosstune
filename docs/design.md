@@ -418,6 +418,7 @@ One row component per platform for every list of tunes.
 - A sheet that can lose typed work refuses backdrop tap, drag down, and
   Escape. Cancel is the way out. Any sheet refuses while its own write is
   pending.
+
 ### Settings
 
 Settings is a root list of categories. Each category opens its own page of
@@ -448,8 +449,9 @@ presents.
   named action resolves true. Button: bare verb. Message names the
   consequence and says when data cannot come back:
   `Delete "Soldier's Joy"? This removes its links and list entries.`
-- Toast: only for Undo, or an error that arrives after the musician left
-  the screen. One at a time, above the bottom chrome.
+- Toast: only for Undo, an error that arrives after the musician left
+  the screen, or how a store checkout ended. One at a time, above the
+  bottom chrome.
 - A question the app must have answered: no Cancel, waits for a clean
   sync, never opens over another modal.
 - A destructive edit that needs more room than a confirmation (trimming a
@@ -458,6 +460,12 @@ presents.
 - A gated control stays in place and answers a tap with the Premium
   sheet, whose headline names what was tapped. The Premium sheet links to
   the Plan group.
+- The Premium sheet sells only to a free or trial account, and only once
+  the store has answered with its prices. Subscribe never shows without a
+  plan the store can sell; otherwise the Plan link stays the primary
+  action.
+- During a trial the sheet says billing starts today, since the rest of
+  the trial is not added on.
 - A one-time notice (first recording, trial reminder, trial end) is a
   sheet, one at a time, never during a capture and never over another
   modal. Dismissing it marks it seen for the account.
