@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from crosstune.config import Settings
 
 
-def _accepted(subscriptions: list[PaidSubscription], settings: Settings) -> list[PaidSubscription]:
+def accepted(subscriptions: list[PaidSubscription], settings: Settings) -> list[PaidSubscription]:
     """Drop sandbox Stripe subscriptions unless this API accepts them; sandbox Apple always counts.
 
     A dropped subscription reads as gone, so the mirror also ends any grant it had.
@@ -83,7 +83,7 @@ async def refresh_many_purchases(
     """
     # Locks last to the end of the transaction, so every network call comes before the first.
     fetched = [
-        (user, _accepted(await revenuecat.subscriptions(user.clerk_user_id, now=now), settings))
+        (user, accepted(await revenuecat.subscriptions(user.clerk_user_id, now=now), settings))
         for user in users
     ]
     refreshed = {user.id for user in users}

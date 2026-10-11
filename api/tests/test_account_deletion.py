@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from crosstune.billing.grants import PaidSubscription
 from crosstune.billing.revenuecat import RevenueCatUnavailableError
 from crosstune.billing.stripe import StripeUnavailableError
 from crosstune.db.base import utc_now
@@ -37,6 +38,7 @@ from crosstune.models import (
     UserTune,
 )
 from crosstune.users.clerk import ClerkBackendUsers, ClerkUnavailableError
+from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantSource
 from tests.fakes import FakeObjectStore, FakeRevenueCat, FakeStripe
 from tests.helpers import T0, change, push, sign, uid
 from tests.helpers import recording as recording_change
@@ -399,12 +401,30 @@ async def _grant(
     await verify_session.commit()
 
 
+def _sub(
+    store_id: str,
+    *,
+    source: GrantSource = GrantSource.STRIPE,
+    environment: GrantEnvironment = GrantEnvironment.PRODUCTION,
+    expires_in: timedelta | None = timedelta(days=30),
+    auto_renews: bool = True,
+) -> PaidSubscription:
+    return PaidSubscription(
+        store_id=store_id,
+        source=source,
+        kind=GrantKind.PREMIUM,
+        environment=environment,
+        expires_at=None if expires_in is None else utc_now() + expires_in,
+        auto_renews=auto_renews,
+    )
+
+
 async def test_delete_cancels_stripe_and_deletes_customer(
-    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+    client: httpx2.AsyncClient, app, auth_headers
 ) -> None:
     events: list[str] = []
     app.state.stripe = FakeStripe(cancelled=events)
-    app.state.revenuecat = FakeRevenueCat(deleted=events)
+    app.state.revenuecat = FakeRevenueCat({"user_a": [_sub("si_123")]}, deleted=events)
     clerk = app.state.clerk_users
     original_delete = clerk.delete_user
 
@@ -413,17 +433,83 @@ async def test_delete_cancels_stripe_and_deletes_customer(
         await original_delete(clerk_user_id)
 
     clerk.delete_user = recording_delete
-    await _grant(client, auth_headers, verify_session, "stripe", "si_123", None)
+    await client.get("/v1/me", headers=auth_headers("user_a"))
     response = await client.delete("/v1/me", headers=auth_headers("user_a"))
     assert response.status_code == 204
     assert events == ["si_123", "user_a", "clerk"]
+
+
+async def test_delete_cancels_what_revenuecat_reports_not_a_stale_grant(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    # A plan change replaced the subscription item, and no webhook has updated the grant since.
+    await _grant(client, auth_headers, verify_session, "stripe", "si_before_switch", None)
+    app.state.revenuecat = FakeRevenueCat({"user_a": [_sub("si_after_switch")]})
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.cancelled == ["si_after_switch"]
+
+
+async def test_delete_cancels_nothing_revenuecat_reports_ended(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _grant(client, auth_headers, verify_session, "stripe", "si_123", None)
+    ended = _sub("si_123", expires_in=timedelta(minutes=-1), auto_renews=False)
+    app.state.revenuecat = FakeRevenueCat({"user_a": [ended]})
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.cancelled == []
+    assert app.state.revenuecat.deleted == ["user_a"]
+
+
+async def test_delete_cancels_a_lapsed_stripe_subscription_still_renewing(
+    client: httpx2.AsyncClient, app, auth_headers
+) -> None:
+    retrying = _sub("si_retrying", expires_in=timedelta(days=-1), auto_renews=True)
+    app.state.revenuecat = FakeRevenueCat({"user_a": [retrying]})
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.cancelled == ["si_retrying"]
+
+
+@pytest.mark.parametrize(("accept", "cancelled"), [(False, []), (True, ["si_sandbox"])])
+async def test_delete_cancels_sandbox_stripe_only_where_accepted(
+    client: httpx2.AsyncClient,
+    app,
+    auth_headers,
+    accept: bool,  # noqa: FBT001
+    cancelled: list[str],
+) -> None:
+    app.state.settings = app.state.settings.model_copy(
+        update={"billing_accept_sandbox_stripe": accept}
+    )
+    sandbox = _sub("si_sandbox", environment=GrantEnvironment.SANDBOX)
+    app.state.revenuecat = FakeRevenueCat({"user_a": [sandbox]})
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.cancelled == cancelled
+
+
+async def test_delete_apple_subscriber_cancels_nothing(
+    client: httpx2.AsyncClient, app, auth_headers
+) -> None:
+    apple = _sub("2000000123", source=GrantSource.APPLE)
+    app.state.revenuecat = FakeRevenueCat({"user_a": [apple]})
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.cancelled == []
+    assert app.state.revenuecat.deleted == ["user_a"]
 
 
 async def test_delete_stripe_failure_keeps_account(
     client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
 ) -> None:
     app.state.stripe = FakeStripe(error=StripeUnavailableError())
-    await _grant(client, auth_headers, verify_session, "stripe", "si_123", None)
+    app.state.revenuecat = FakeRevenueCat({"user_a": [_sub("si_123")]})
+    await client.get("/v1/me", headers=auth_headers("user_a"))
     response = await client.delete("/v1/me", headers=auth_headers("user_a"))
     assert response.status_code == 502
     assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
@@ -440,54 +526,50 @@ async def test_delete_revenuecat_failure_keeps_account(
     assert response.status_code == 502
     assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
     assert app.state.clerk_users.deleted == []
+    assert app.state.stripe.cancelled == []
 
 
-async def test_delete_without_stripe_client_but_stripe_grant_is_503(
+async def test_delete_without_stripe_client_but_live_subscription_is_503(
     client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
 ) -> None:
     app.state.stripe = None
-    await _grant(client, auth_headers, verify_session, "stripe", "si_123", None)
+    app.state.revenuecat = FakeRevenueCat({"user_a": [_sub("si_123")]})
+    await client.get("/v1/me", headers=auth_headers("user_a"))
     response = await client.delete("/v1/me", headers=auth_headers("user_a"))
     assert response.status_code == 503
     assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
     assert app.state.clerk_users.deleted == []
 
 
-async def test_delete_apple_subscriber_cancels_nothing(
+async def test_delete_without_revenuecat_cancels_live_stripe_grants(
     client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
 ) -> None:
-    await _grant(client, auth_headers, verify_session, "apple", "2000000123", None)
-    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
-    assert response.status_code == 204
-    assert app.state.stripe.cancelled == []
-    assert app.state.revenuecat.deleted == ["user_a"]
-
-
-async def test_delete_expired_stripe_grant_cancels_nothing(
-    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
-) -> None:
-    expired = utc_now() - timedelta(days=1)
-    await _grant(client, auth_headers, verify_session, "stripe", "si_old", expired)
-    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
-    assert response.status_code == 204
-    assert app.state.stripe.cancelled == []
-
-
-async def test_delete_cancels_a_lapsed_stripe_subscription_still_renewing(
-    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
-) -> None:
+    app.state.revenuecat = None
     me = (await client.get("/v1/me", headers=auth_headers("user_a"))).json()
-    verify_session.add(
-        Grant(
-            user_id=uuid.UUID(me["id"]),
-            kind="premium",
-            source="stripe",
-            external_id="si_retrying",
-            expires_at=utc_now() - timedelta(days=1),
-            auto_renews=True,
-        )
+    user_id = uuid.UUID(me["id"])
+    yesterday = utc_now() - timedelta(days=1)
+    verify_session.add_all(
+        [
+            Grant(user_id=user_id, kind="premium", source="stripe", external_id="si_live"),
+            Grant(
+                user_id=user_id,
+                kind="premium",
+                source="stripe",
+                external_id="si_ended",
+                expires_at=yesterday,
+            ),
+            Grant(
+                user_id=user_id,
+                kind="premium",
+                source="stripe",
+                external_id="si_retrying",
+                expires_at=yesterday,
+                auto_renews=True,
+            ),
+            Grant(user_id=user_id, kind="premium", source="apple", external_id="2000000123"),
+        ]
     )
     await verify_session.commit()
     response = await client.delete("/v1/me", headers=auth_headers("user_a"))
     assert response.status_code == 204
-    assert app.state.stripe.cancelled == ["si_retrying"]
+    assert sorted(app.state.stripe.cancelled) == ["si_live", "si_retrying"]
