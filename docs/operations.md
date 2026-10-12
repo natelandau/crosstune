@@ -85,15 +85,15 @@ worktree; `run` waits while another worktree holds it. For a Simulator,
 open `apple/Crosstune.xcodeproj` and run the `Crosstune` scheme. Recordings need `just dev`: the local
 API signs recording URLs as `/storage/...`, and the app sends them through
 the web dev server's proxy on port 5173, as a browser does. The local API listens on the Mac only,
-so a device needs another API. Create `apple/Config/Local.xcconfig`, which
-git ignores and only Debug builds read, and point it at the development
-API:
-
-```text
-CROSSTUNE_API_ORIGIN = https:/$()/crosstune-development.up.railway.app
-```
-
-An xcconfig reads `//` as a comment, so `$()` splits the slashes.
+so a device build reaches it through Tailscale Serve: run `just dev`, then
+`tailscale serve 5173`, and list `.ts.net` in `LOCAL_ALLOWED_HOSTS` in
+`web/.env`. The dev server proxies `/v1` to the API and `/storage` to
+RustFS, so one URL serves both. The device's origins live in
+`apple/Config/Local.xcconfig`, which git ignores and only Debug builds
+read. `just apple::setup` writes it with this Mac's Tailscale hostname
+(`scripts/apple-local-xcconfig.sh`), and `just worktree` copies the main
+checkout's copy into each worktree. Its settings carry `[sdk=iphoneos*]`,
+so the Simulator and the Mac keep localhost.
 
 RustFS holds local recordings. Its console is at http://localhost:9001,
 sign in with `crosstune` and `crosstune-local-secret`. List objects with

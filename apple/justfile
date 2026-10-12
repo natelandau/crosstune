@@ -375,11 +375,12 @@ update:
     {{ swift }} package update --package-path CrosstuneKit
     {{ swift }} package update --package-path Tools
 
-# Create .env and Config/Secrets.xcconfig from their examples if absent
+# Create .env and Config/Secrets.xcconfig from their examples, and Config/Local.xcconfig for this Mac, if absent
 [group('maintenance')]
 setup:
     test -e .env || cp .env.example .env
     test -e Config/Secrets.xcconfig || cp Config/Secrets.xcconfig.example Config/Secrets.xcconfig
+    test -e Config/Local.xcconfig || ../scripts/apple-local-xcconfig.sh > Config/Local.xcconfig
 
 # Remove build artifacts and caches
 [group('maintenance')]

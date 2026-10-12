@@ -67,8 +67,9 @@ every label. The glossary in `docs/product.md` has the reasons.
   `just api::worktree-db reset` takes a fresh copy.
 - Do all work in a worktree, never in the main checkout.
 - Create a worktree with `just worktree <branch>`, never `git worktree add`.
-  It adds `.worktrees/<branch>`, copies every module's `.env` and
-  `apple/Config/Secrets.xcconfig` from the main checkout, runs
+  It adds `.worktrees/<branch>`, copies every module's `.env`,
+  `apple/Config/Secrets.xcconfig`, and `apple/Config/Local.xcconfig` from
+  the main checkout, runs
   `just setup` so `just e2e` works there, and makes the worktree's
   database and bucket. In a worktree made any other way, run
   `just worktree-env`, then `just setup`; `just dev` makes the database

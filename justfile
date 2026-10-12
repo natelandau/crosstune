@@ -92,7 +92,7 @@ dev-setup: setup
     uv run --project api prek install --config .pre-commit-config.yaml
     docker compose up -d
 
-# Create .worktrees/<branch> with main's .env and secrets files, its dependencies, and its own database and bucket
+# Create .worktrees/<branch> with main's .env, secrets, and local override files, its dependencies, and its own database and bucket
 worktree branch:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -111,7 +111,7 @@ worktree branch:
     just --justfile '{{ justfile() }}' apple::prune-derived-data
     echo "worktree ready at $path"
 
-# Copy the main checkout's .env files and Apple secrets into this worktree, replacing any already here
+# Copy the main checkout's .env files, Apple secrets, and Apple local overrides into this worktree, replacing any already here
 worktree-env:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -121,7 +121,7 @@ worktree-env:
         echo "this is the main checkout; run this in a worktree" >&2
         exit 1
     fi
-    for file in "$main"/*/.env "$main/apple/Config/Secrets.xcconfig"; do
+    for file in "$main"/*/.env "$main/apple/Config/Secrets.xcconfig" "$main/apple/Config/Local.xcconfig"; do
         [ -e "$file" ] || continue
         relative="${file#"$main"/}"
         # A branch cut before a file was gitignored would otherwise commit it.
