@@ -21,6 +21,7 @@ from crosstune.errors import ACCOUNT_DELETED_PROBLEM, PROBLEM_JSON
 from crosstune.models import (
     DeletedAccount,
     Grant,
+    InactivityNotice,
     Job,
     List,
     ListItem,
@@ -111,7 +112,7 @@ async def _seed(
             viewed_ms=8_000,
         ),
     )
-    # Jobs and upload slots are server bookkeeping that no push creates directly.
+    # Jobs, upload slots, and inactivity notices are server bookkeeping that no push creates.
     user_id = uuid.UUID(me["id"])
     verify_session.add_all(
         [
@@ -122,6 +123,13 @@ async def _seed(
                 declared_bytes=1,
                 content_type="audio/mp4",
                 expires_at=T0,
+            ),
+            InactivityNotice(
+                user_id=user_id,
+                active_since=T0,
+                first_sent_at=T0,
+                second_sent_at=None,
+                deletion_due_at=T0 + timedelta(days=30),
             ),
         ]
     )
@@ -149,6 +157,7 @@ async def test_delete_me_removes_everything_and_the_clerk_user(
         StatusChange,
         Job,
         UploadSlot,
+        InactivityNotice,
     )
     for model in owned:
         assert await verify_session.scalar(select(func.count()).select_from(model)) == 1, model

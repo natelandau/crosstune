@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 import sentry_sdk
 from fastapi import FastAPI
+from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber
 
 from crosstune import __version__
 from crosstune.analytics.posthog import PostHogPersons
@@ -17,6 +18,7 @@ from crosstune.billing.stripe import StripeRest
 from crosstune.body import BodyAdmission
 from crosstune.config import Settings, get_settings
 from crosstune.db.engine import IdlePoolCloser, make_engine, make_sessionmaker
+from crosstune.email.resend import ResendMailer
 from crosstune.errors import install_error_handlers
 from crosstune.http import public_only_client
 from crosstune.jobs.media import hide_from_media_tools
@@ -52,6 +54,16 @@ def _build_clerk_users(app: FastAPI, settings: Settings) -> None:
     if app.state.clerk_users is None and settings.clerk_secret_key.get_secret_value():
         app.state.clerk_users = ClerkBackendUsers(
             app.state.http_client, settings.clerk_secret_key.get_secret_value()
+        )
+
+
+def _build_mailer(app: FastAPI, settings: Settings) -> None:
+    """Set app.state.mailer when a Resend key is configured and nothing built it yet."""
+    if app.state.mailer is None and settings.mail_configured:
+        app.state.mailer = ResendMailer(
+            app.state.http_client,
+            settings.resend_api_key.get_secret_value(),
+            settings.email_from,
         )
 
 
@@ -149,6 +161,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     if app.state.jwks is None:
         app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
     _build_clerk_users(app, settings)
+    _build_mailer(app, settings)
     _build_billing_clients(app, settings)
     _build_analytics_persons(app, settings)
     _build_object_store(app, settings)
@@ -161,6 +174,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             orphan_sweep_seconds=settings.orphan_sweep_seconds,
             http_client=app.state.http_client,
             analytics_persons=app.state.analytics_persons,
+            mailer=app.state.mailer,
+            clerk_users=app.state.clerk_users,
             settings=settings,
         )
         app.state.job_runner.start()
@@ -197,6 +212,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             release=__version__,
             environment=settings.environment,
             traces_sample_rate=0.0,
+            # Error reports carry stack locals, and an account's address is personal data.
+            event_scrubber=EventScrubber(denylist=[*DEFAULT_DENYLIST, "email"], recursive=True),
         )
 
     # The committed contract is generated from app.openapi(), which needs none of these routes.
@@ -216,6 +233,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.http_client = None
     app.state.jwks = None
     app.state.clerk_users = None
+    app.state.mailer = None
     app.state.revenuecat = None
     app.state.stripe = None
     app.state.analytics_persons = None

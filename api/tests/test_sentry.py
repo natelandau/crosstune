@@ -14,6 +14,17 @@ def test_sentry_is_tagged_with_the_environment(mocker) -> None:
     assert init.call_args.kwargs["dsn"] == DSN
 
 
+def test_sentry_scrubs_email_fields_at_any_depth(mocker) -> None:
+    init = mocker.patch("crosstune.main.sentry_sdk.init")
+    create_app(Settings(sentry_dsn=DSN))
+    scrubber = init.call_args.kwargs["event_scrubber"]
+    frame = {"vars": {"email": "a@example.com", "user": {"email": "b@example.com"}}}
+    event = {"exception": {"values": [{"stacktrace": {"frames": [frame]}}]}}
+    scrubber.scrub_event(event)
+    assert "example.com" not in str(event)
+    assert "password" in scrubber.denylist
+
+
 def test_sentry_defaults_to_the_development_environment(mocker) -> None:
     init = mocker.patch("crosstune.main.sentry_sdk.init")
     create_app(Settings(sentry_dsn=DSN))

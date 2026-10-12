@@ -11,6 +11,12 @@ from typing import TYPE_CHECKING
 from sqlalchemy import and_, case, func, or_, select, update
 
 from crosstune.db.base import utc_now
+from crosstune.inactivity.sweep import (
+    RUN_EVERY,
+    claim_inactivity_run,
+    next_inactivity_run,
+    run_inactivity,
+)
 from crosstune.jobs import analytics
 from crosstune.jobs.attempt import (
     LOCK_SECONDS,
@@ -41,7 +47,9 @@ if TYPE_CHECKING:
 
     from crosstune.analytics.posthog import AnalyticsPersons
     from crosstune.config import Settings
+    from crosstune.email.resend import Mailer
     from crosstune.storage.store import ObjectStore
+    from crosstune.users.clerk import ClerkUsers
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +75,7 @@ def _claimable(now: datetime) -> ColumnElement[bool]:
 class JobRunner:
     """A background loop over the jobs table. One instance per process."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 -- the optional clients are keyword-only
         self,
         sessionmaker: async_sessionmaker[AsyncSession],
         store: ObjectStore,
@@ -76,9 +84,21 @@ class JobRunner:
         work_root: Path | None = None,
         http_client: httpx2.AsyncClient | None = None,
         analytics_persons: AnalyticsPersons | None = None,
+        mailer: Mailer | None = None,
+        clerk_users: ClerkUsers | None = None,
         settings: Settings,
     ) -> None:
         self._sessionmaker = sessionmaker
+        self._settings = settings
+        # Without both, no account can be warned, so the inactivity pass never runs and
+        # nothing is ever deleted for inactivity.
+        self._warning_clients: tuple[Mailer, ClerkUsers] | None = (
+            (mailer, clerk_users) if mailer is not None and clerk_users is not None else None
+        )
+        # Read from the database once, then moved on by each claim, so an idle loop
+        # writes nothing until the pass falls due.
+        self._inactivity_due: datetime | None = None
+        self.inactivity_task: asyncio.Task[None] | None = None
         # Without it, queued analytics deletions wait in their table until it is configured.
         self._analytics_persons = analytics_persons
         self._store = store
@@ -105,22 +125,21 @@ class JobRunner:
         return self.task
 
     async def stop(self) -> None:
-        """Ask the loop to finish its current job and exit, waiting only so long.
+        """Ask the loop to finish its current job and the inactivity pass, waiting only so long.
 
         A job cancelled at the deadline hands its claim straight back, uncounted, so
         the next process retries it without waiting out the lock. A recording it
-        moved to processing stays there until that retry.
+        moved to processing stays there until that retry. An inactivity pass cancelled
+        at the deadline rolls back the account it was on, and the next pass takes it
+        up again.
         """
         self._stopping.set()
         self._wake.set()
-        if self.task is None:
-            return
-        try:
-            await asyncio.wait_for(self.task, timeout=STOP_TIMEOUT_SECONDS)
-        except TimeoutError:
-            self.task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self.task
+        deadline = asyncio.get_running_loop().time() + STOP_TIMEOUT_SECONDS
+        if self.task is not None:
+            await _finish_by(self.task, deadline)
+        if self.inactivity_task is not None:
+            await _finish_by(self.inactivity_task, deadline)
 
     def wake(self) -> None:
         """Start a pass now, for work a request has just committed."""
@@ -170,8 +189,8 @@ class JobRunner:
         """The earliest time a pass could find work that no wake announces.
 
         That is a backed-off or expired job or analytics deletion lock, an upload slot of a pending or
-        deleted row passing its abandonment grace, or the next orphan sweep, which
-        bounds the sleep to `orphan_sweep_seconds`. Other purges have no due time;
+        deleted row passing its abandonment grace, the daily inactivity pass, or the next orphan
+        sweep, which bounds the sleep to `orphan_sweep_seconds`. Other purges have no due time;
         the delete that makes one wakes the runner.
 
         Returns:
@@ -196,15 +215,21 @@ class JobRunner:
             deletion_due = (
                 await analytics.next_due(session) if self._analytics_persons is not None else None
             )
+        # A running pass wakes the loop when it ends, so it sets no due time of its own.
+        inactivity_due = (
+            await self._inactivity_due_at(utc_now())
+            if self._warning_clients is not None and not self._inactivity_running()
+            else None
+        )
         candidates = [self._next_orphan_sweep]
-        candidates += [due for due in (job_due, deletion_due) if due is not None]
+        candidates += [due for due in (job_due, deletion_due, inactivity_due) if due is not None]
         candidates += [
             expiry + ABANDONED_SLOT_GRACE for expiry in slot_expiries if expiry is not None
         ]
         return min(candidates)
 
     async def run_once(self) -> int:
-        """Run one job and one analytics deletion, purge deleted rows, and sweep orphans when due.
+        """Run one job and one analytics deletion, purge deleted rows, and run due periodic passes.
 
         Returns:
             int: How many units of work were done, so the loop knows whether to sleep.
@@ -218,11 +243,57 @@ class JobRunner:
         if self._analytics_persons is not None:
             done += await analytics.delete_due_person(self._sessionmaker, self._analytics_persons)
         done += await release_abandoned_slots(self._sessionmaker, self._store)
+        done += await self._start_inactivity()
         # Last, so a bucket listing that fails cannot starve the transcodes and purges.
         if self._orphan_sweep_seconds is not None and utc_now() >= self._next_orphan_sweep:
             self._next_orphan_sweep = utc_now() + timedelta(seconds=self._orphan_sweep_seconds)
             done += await self.sweep_orphans()
         return done
+
+    async def _inactivity_due_at(self, now: datetime) -> datetime:
+        """When this process next tries to claim the inactivity pass; `now` if it never ran."""
+        if self._inactivity_due is None:
+            async with self._sessionmaker() as session:
+                self._inactivity_due = await next_inactivity_run(session) or now
+        return self._inactivity_due
+
+    async def _start_inactivity(self) -> int:
+        """Start the inactivity pass as its own task when it is due and this process claims it.
+
+        The pass makes a Clerk lookup and a Resend send per account, so it runs beside
+        the loop rather than in it, one at a time, and queued jobs never wait on it.
+
+        Returns:
+            int: 1 when this call started the pass, else 0.
+        """
+        if self._warning_clients is None or self._stopping.is_set() or self._inactivity_running():
+            return 0
+        now = utc_now()
+        if now < await self._inactivity_due_at(now):
+            return 0
+        if not await claim_inactivity_run(self._sessionmaker, now):
+            # Another process claimed it; read the due time that claim stored.
+            self._inactivity_due = None
+            return 0
+        self._inactivity_due = now + RUN_EVERY
+        mailer, clerk_users = self._warning_clients
+        self.inactivity_task = asyncio.create_task(
+            self._run_inactivity(mailer, clerk_users, now), name="inactivity-pass"
+        )
+        return 1
+
+    def _inactivity_running(self) -> bool:
+        return self.inactivity_task is not None and not self.inactivity_task.done()
+
+    async def _run_inactivity(self, mailer: Mailer, clerk_users: ClerkUsers, now: datetime) -> None:
+        """Run one claimed inactivity pass, then wake the loop to purge what it deleted."""
+        try:
+            await run_inactivity(
+                self._sessionmaker, mailer, clerk_users, self._settings, now, clock=utc_now
+            )
+        except Exception:
+            log.exception("inactivity pass failed")
+        self.wake()
 
     async def sweep_orphans(self) -> int:
         """Delete the bucket prefixes of users, recordings, and scans that have no row."""
@@ -307,3 +378,26 @@ class JobRunner:
                 )
         except Exception:  # noqa: BLE001 -- the lock expiry still frees the job
             log.warning("could not release a cancelled job", extra={"job": str(job.id)})
+
+
+async def _finish_by(task: asyncio.Task[None], deadline: float) -> None:
+    """Wait for the task until the loop clock reaches `deadline`, then cancel it.
+
+    Never raises for the task's own outcome, so one task's failure or cancellation
+    cannot keep the caller from finishing the next.
+    """
+    try:
+        if not task.done():
+            try:
+                async with asyncio.timeout_at(deadline):
+                    await asyncio.shield(task)
+            except TimeoutError:
+                task.cancel()
+        # A done task returns at once; one cancelled at the deadline is awaited here.
+        await task
+    except asyncio.CancelledError:
+        # Raised by a cancelled task, but also when stop() itself is cancelled.
+        if not task.cancelled():
+            raise
+    except Exception:
+        log.exception("job runner task failed", extra={"task": task.get_name()})

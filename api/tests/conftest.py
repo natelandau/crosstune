@@ -32,6 +32,7 @@ from crosstune.ops import local_storage
 from tests.fakes import (
     FakeAnalyticsPersons,
     FakeClerkUsers,
+    FakeMailer,
     FakeObjectStore,
     FakeRevenueCat,
     FakeRunner,
@@ -554,6 +555,7 @@ def app(settings: Settings, engine, mock_http: MockHttp, object_store: FakeObjec
     app.state.http_client = mock_http.client()
     app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
     app.state.clerk_users = FakeClerkUsers()
+    app.state.mailer = FakeMailer()
     app.state.revenuecat = FakeRevenueCat()
     app.state.stripe = FakeStripe()
     app.state.analytics_persons = FakeAnalyticsPersons()
