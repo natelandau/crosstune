@@ -12,8 +12,8 @@ from sqlalchemy import func, select
 
 from crosstune.billing.access import access_for, refresh_entitlement
 from crosstune.billing.grants import grant_comp, set_trial_end
+from crosstune.db.base import utc_now
 from crosstune.models import Entitlement, Grant, Job, Recording, Scan
-from crosstune.models.user import utc_now
 from crosstune.ops.testdata.errors import DataCommandError
 from crosstune.ops.testdata.fixture import (
     DEFAULT_FIXTURES_DIR,

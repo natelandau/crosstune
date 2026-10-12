@@ -10,9 +10,9 @@ from sqlalchemy import delete, select, text
 
 from crosstune.billing.access import access_for, refresh_entitlement
 from crosstune.billing.grants import grant_comp
+from crosstune.db.base import utc_now
 from crosstune.db.locks import advisory_lock_key
 from crosstune.models import Entitlement, Grant
-from crosstune.models.user import utc_now
 from crosstune.ops.testdata.errors import DataCommandError
 from crosstune.ops.testdata.seed import GRANTED_BY
 from crosstune.ops.testdata.state import PREMIUM_REASON, AccountState, apply_state

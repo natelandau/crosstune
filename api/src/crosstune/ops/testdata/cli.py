@@ -19,6 +19,7 @@ from urllib.parse import urlsplit
 from pydantic import ValidationError
 from sqlalchemy import func, select
 
+from crosstune.db.base import utc_now
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.db.locks import lock_user
 from crosstune.errors import AccountDeletedError
@@ -27,7 +28,6 @@ from crosstune.jobs.media import hide_from_media_tools
 from crosstune.jobs.runner import JobRunner
 from crosstune.main import make_object_store
 from crosstune.models import Entitlement, List, Recording, Tune, User
-from crosstune.models.user import utc_now
 from crosstune.ops.billing import load_settings
 from crosstune.ops.testdata.clear import clear_account
 from crosstune.ops.testdata.errors import DataCommandError
