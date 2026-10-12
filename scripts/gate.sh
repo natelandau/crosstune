@@ -8,7 +8,13 @@ set -euo pipefail
 
 name="$1"
 shift
-gate_cache="$(dirname "$0")/../api/.venv/bin/gate-cache"
+root="$(cd "$(dirname "$0")/.." && pwd)"
+gate_cache="$root/api/.venv/bin/gate-cache"
+# Git hands hooks in a linked worktree GIT_DIR alone, which makes git take the current
+# directory, a module here, for the top of the tree and see every other file as changed.
+if [[ -n "${GIT_DIR:-}" && -z "${GIT_WORK_TREE:-}" ]]; then
+  export GIT_WORK_TREE="$root"
+fi
 if [[ -z "${CI:-}" && -x "$gate_cache" ]]; then
   exec "$gate_cache" --name "$name" -- "$@"
 fi
