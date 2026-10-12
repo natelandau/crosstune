@@ -175,10 +175,12 @@ def _map_subscription(
     """Map one subscription, or None when it is not a premium one from a store we mirror."""
     source = _SOURCES.get(item.get("store"))
     environment = item.get("environment")
+    subscription_id = item.get("id")
     store_id = item.get("store_subscription_identifier")
     if (
         source is None
         or environment not in {e.value for e in GrantEnvironment}
+        or subscription_id in (None, "")
         or store_id in (None, "")
     ):
         return None
@@ -211,6 +213,7 @@ def _map_subscription(
         expires_at = min(ended, now) if ended else now
 
     return PaidSubscription(
+        subscription_id=str(subscription_id),
         store_id=str(store_id),
         source=source,
         kind=GrantKind.PREMIUM,

@@ -38,7 +38,7 @@ def _serve(mock_http, subscriptions: dict, customer: dict | None = None) -> None
 
 
 def _by_id(subs: list[PaidSubscription]) -> dict[str, PaidSubscription]:
-    return {sub.store_id: sub for sub in subs}
+    return {sub.subscription_id: sub for sub in subs}
 
 
 async def test_maps_active_stripe_subscription(mock_http) -> None:
@@ -46,7 +46,8 @@ async def test_maps_active_stripe_subscription(mock_http) -> None:
 
     subs = _by_id(await _client(mock_http).subscriptions("cust_1"))
 
-    assert subs["si_StripeActive"] == PaidSubscription(
+    assert subs["sub_active"] == PaidSubscription(
+        subscription_id="sub_active",
         store_id="si_StripeActive",
         source=GrantSource.STRIPE,
         kind=GrantKind.PREMIUM,
@@ -63,6 +64,7 @@ async def test_maps_apple_grace_to_entitlement_expiry(mock_http) -> None:
 
     assert sub.source is GrantSource.APPLE
     assert sub.environment is GrantEnvironment.SANDBOX
+    assert sub.subscription_id == "sub_grace"
     assert sub.store_id == "2000000123456789"
     # The premium entitlement, not the add-on that expires earlier.
     assert sub.expires_at == datetime(2099, 1, 1, tzinfo=UTC)
@@ -75,13 +77,13 @@ async def test_maps_expired_subscription_capped_at_now(mock_http) -> None:
 
     subs = _by_id(await _client(mock_http).subscriptions("cust_1"))
 
-    assert subs["si_StripeExpired"].expires_at == datetime(2020, 3, 1, tzinfo=UTC)
-    assert subs["si_StripeExpired"].auto_renews is False
+    assert subs["sub_expired"].expires_at == datetime(2020, 3, 1, tzinfo=UTC)
+    assert subs["sub_expired"].auto_renews is False
 
     expired["ends_at"] = _ms(datetime.now(UTC) + timedelta(days=30))
     expired["current_period_ends_at"] = None
     _serve(mock_http, payload)
-    capped = _by_id(await _client(mock_http).subscriptions("cust_1"))["si_StripeExpired"]
+    capped = _by_id(await _client(mock_http).subscriptions("cust_1"))["sub_expired"]
     assert capped.expires_at is not None
     assert capped.expires_at <= datetime.now(UTC)
 
@@ -94,7 +96,17 @@ async def test_skips_subscriptions_without_premium(mock_http) -> None:
 
     subs = await _client(mock_http).subscriptions("cust_1")
 
-    assert [sub.store_id for sub in subs] == ["si_StripeExpired"]
+    assert [sub.subscription_id for sub in subs] == ["sub_expired"]
+
+
+async def test_skips_a_subscription_without_an_id(mock_http) -> None:
+    payload = _load("subscriptions.json")
+    del payload["items"][0]["id"]
+    _serve(mock_http, payload)
+
+    subs = await _client(mock_http).subscriptions("cust_1")
+
+    assert [sub.subscription_id for sub in subs] == ["sub_grace", "sub_expired"]
 
 
 async def test_reads_every_page(mock_http) -> None:
@@ -110,7 +122,7 @@ async def test_reads_every_page(mock_http) -> None:
 
     subs = await _client(mock_http).subscriptions("cust_1")
 
-    assert [sub.store_id for sub in subs] == ["si_StripeActive", "2000000123456789"]
+    assert [sub.subscription_id for sub in subs] == ["sub_active", "sub_grace"]
 
 
 async def test_missing_customer_is_empty(mock_http) -> None:

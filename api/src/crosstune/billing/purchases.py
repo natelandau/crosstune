@@ -42,7 +42,7 @@ async def _holders(
     session: AsyncSession, fetched: list[tuple[User, list[PaidSubscription]]]
 ) -> set[uuid.UUID]:
     """The accounts that hold any of the fetched subscriptions now, which the mirror may move."""
-    pairs = [(sub.source.value, sub.store_id) for _, subs in fetched for sub in subs]
+    pairs = [(sub.source.value, sub.subscription_id) for _, subs in fetched for sub in subs]
     if not pairs:
         return set()
     return set(
