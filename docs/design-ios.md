@@ -95,6 +95,12 @@ there where they differ. Regular-width iPad reads this page, then
   as new.
 - Labels match the Mac's Settings window. Only grouping differs.
 
+## Sheets
+
+- A sheet's actions pin to its bottom edge: a full-width prominent
+  primary over centered borderless secondaries.
+- Close is the system close button, the glass xmark.
+
 ## Player and practice
 
 - The now-playing accessory shows in the tab bar only while something is

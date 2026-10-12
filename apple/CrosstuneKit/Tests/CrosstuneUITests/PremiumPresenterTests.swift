@@ -269,6 +269,16 @@ private let offers = [PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffe
         #expect(PremiumSheet.seePlanLeads(.subscribed) == false)
     }
 
+    @Test func thePinnedLineIsTheOutcomeOrTheSettledLine() {
+        #expect(PremiumSheet.pinnedLine(.choice(offers), line: nil) == nil)
+        #expect(PremiumSheet.pinnedLine(.choice(offers), line: .failed) == PlanText.line(.failed))
+        #expect(PremiumSheet.pinnedLine(.subscribed, line: .restored) == PlanText.restored)
+        #expect(PremiumSheet.pinnedLine(.subscribed, line: .subscribed) == PlanText.subscribed)
+        #expect(PremiumSheet.pinnedLine(.offline, line: nil) == nil)
+        #expect(PremiumSheet.pinnedLine(.offline, line: .nothingToRestore) == PlanText.line(.nothingToRestore))
+        #expect(PremiumSheet.pinnedLine(.notSelling, line: .restoreFailed) == PlanText.line(.restoreFailed))
+    }
+
     @Test func eachPeriodShowsItsPrice() {
         #expect(
             PremiumSheet.options(offers.reversed()) == [

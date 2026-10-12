@@ -174,26 +174,41 @@ struct PremiumSheet: View {
                     switch (sale, purchase) {
                     case (.choice(let offers), let purchase?):
                         product
-                        choice(offers, sale: sale, purchase: purchase, plan: currentPlan)
+                        choice(offers, purchase: purchase, plan: currentPlan)
                     case (.subscribed, _):
                         product
-                        paragraph(Self.settledLine(purchase?.line))
-                        Button(Self.close) { dismiss() }
-                            .buttonStyle(.slateProminent)
-                        seePlanAndRestore(sale)
                     case (.offline, _), (.notSelling, _), (.choice, nil):
                         if sale == .offline {
                             paragraph(PlanText.subscribeOffline).foregroundStyle(.secondary)
                         }
-                        seePlanAndRestore(sale)
+                    }
+                    if !PageStyle.pinsSheetActions {
+                        inlineActions(sale)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
             }
+            .sheetActions(line: Self.pinnedLine(sale, line: purchase?.line)) {
+                switch (sale, purchase) {
+                case (.choice, let purchase?): subscribeButton(purchase)
+                case (.subscribed, _): Button(Self.close) { dismiss() }
+                case (.offline, _), (.notSelling, _): seePlanButton
+                case (.choice, nil): EmptyView()
+                }
+            } secondary: {
+                if !Self.seePlanLeads(sale) {
+                    seePlanButton
+                }
+                restoreButton(sale)
+            } footer: {
+                if case .choice = sale, purchase != nil {
+                    links
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(Self.close) { dismiss() }
+                    SheetCloseButton(Self.close) { dismiss() }
                 }
             }
         }
@@ -219,8 +234,9 @@ struct PremiumSheet: View {
         Text(text).fixedSize(horizontal: false, vertical: true)
     }
 
+    /// The period to buy and its terms.
     @ViewBuilder
-    private func choice(_ offers: [PurchaseOffer], sale: Sale, purchase: PurchaseModel, plan: Plan) -> some View {
+    private func choice(_ offers: [PurchaseOffer], purchase: PurchaseModel, plan: Plan) -> some View {
         PeriodChoice(
             options: Self.options(offers),
             period: Binding {
@@ -234,15 +250,62 @@ struct PremiumSheet: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    /// The actions in the sheet's own content, where they do not pin to its bottom edge.
+    @ViewBuilder
+    private func inlineActions(_ sale: Sale) -> some View {
+        switch (sale, purchase) {
+        case (.choice, let purchase?):
+            subscribeButton(purchase)
+                .buttonStyle(.slateProminent)
+            if let line = purchase.line {
+                paragraph(PlanText.line(line))
+            }
+            seePlanAndRestore(sale)
+            links
+        case (.subscribed, _):
+            paragraph(Self.settledLine(purchase?.line))
+            Button(Self.close) { dismiss() }
+                .buttonStyle(.slateProminent)
+            seePlanAndRestore(sale)
+        case (.offline, _), (.notSelling, _), (.choice, nil):
+            seePlanAndRestore(sale)
+        }
+    }
+
+    /// The line above pinned actions: the outcome while the store sells, the settled line once
+    /// subscribed, and otherwise a restore's outcome.
+    nonisolated static func pinnedLine(_ sale: Sale, line: PurchaseModel.Line?) -> String? {
+        switch sale {
+        case .choice: line.map(PlanText.line)
+        case .subscribed: settledLine(line)
+        case .offline, .notSelling: offersRestore(sale) ? line.map(PlanText.line) : nil
+        }
+    }
+
+    private func subscribeButton(_ purchase: PurchaseModel) -> some View {
         Button(PlanText.subscribe) {
             Task { await Self.subscribe(purchase, from: entry) }
         }
-        .buttonStyle(.slateProminent)
         .disabled(purchase.isWorking)
-        if let line = purchase.line {
-            paragraph(PlanText.line(line))
+    }
+
+    private var seePlanButton: some View {
+        Button(PlanText.seePlan, action: onSeePlan)
+    }
+
+    @ViewBuilder
+    private func restoreButton(_ sale: Sale) -> some View {
+        if let purchase, Self.offersRestore(sale) {
+            Button(PlanText.restorePurchases) {
+                Task { await purchase.restore() }
+            }
+            .disabled(purchase.isWorking)
         }
-        seePlanAndRestore(sale)
+    }
+
+    private var links: some View {
         HStack(spacing: 16) {
             ForEach(Self.links, id: \.url) { link in
                 Link(link.label, destination: link.url)
@@ -257,20 +320,15 @@ struct PremiumSheet: View {
     private func seePlanAndRestore(_ sale: Sale) -> some View {
         let primary = Self.seePlanLeads(sale)
         if primary {
-            Button(PlanText.seePlan, action: onSeePlan)
+            seePlanButton
                 .buttonStyle(.slateProminent)
         } else {
-            Button(PlanText.seePlan, action: onSeePlan)
+            seePlanButton
         }
-        if let purchase, Self.offersRestore(sale) {
-            Button(PlanText.restorePurchases) {
-                Task { await purchase.restore() }
-            }
-            .disabled(purchase.isWorking)
-            // In the choice, a line sits under Subscribe instead.
-            if primary, let line = purchase.line {
-                paragraph(PlanText.line(line))
-            }
+        restoreButton(sale)
+        // In the choice, a line sits under Subscribe instead.
+        if let purchase, Self.offersRestore(sale), primary, let line = purchase.line {
+            paragraph(PlanText.line(line))
         }
     }
 
