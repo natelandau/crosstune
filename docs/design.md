@@ -469,8 +469,8 @@ presents.
 - On Apple a checkout's outcome shows as a line in the Premium sheet,
   never a toast. Restore purchases sits on the paywall and in the Plan
   group.
-- During a trial the sheet says billing starts today, since the rest of
-  the trial is not added on.
+- The sheet does not explain trial billing. The terms of use say that a
+  purchase during a trial starts billing that day.
 - A one-time notice (first recording, trial reminder, trial end) is a
   sheet, one at a time, never during a capture and never over another
   modal. Dismissing it marks it seen for the account.

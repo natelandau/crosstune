@@ -150,12 +150,6 @@ struct PremiumSheet: View {
         }
     }
 
-    /// The terms under the price. A trial's rest is not added on, so it says billing starts now.
-    nonisolated static func terms(_ plan: Plan) -> [String] {
-        return plan.isTrial
-            ? [PlanText.renewsUntilCancelled, PlanText.billingStartsToday] : [PlanText.renewsUntilCancelled]
-    }
-
     /// Buys the chosen period, or the one the store sells when it sells only one.
     static func subscribe(_ purchase: PurchaseModel, from entry: PremiumEntry) async {
         if case .ready(let offers) = purchase.offers {
@@ -191,7 +185,7 @@ struct PremiumSheet: View {
                     switch (sale, purchase) {
                     case (.choice(let offers), let purchase?):
                         product
-                        choice(offers, purchase: purchase, plan: currentPlan)
+                        choice(offers, purchase: purchase)
                     case (.subscribed, _):
                         product
                     case (.offline, _), (.notSelling, _), (.choice, nil):
@@ -253,7 +247,7 @@ struct PremiumSheet: View {
 
     /// The period to buy and its terms.
     @ViewBuilder
-    private func choice(_ offers: [PurchaseOffer], purchase: PurchaseModel, plan: Plan) -> some View {
+    private func choice(_ offers: [PurchaseOffer], purchase: PurchaseModel) -> some View {
         PeriodChoice(
             options: Self.options(offers),
             period: Binding {
@@ -261,12 +255,10 @@ struct PremiumSheet: View {
             } set: {
                 purchase.period = $0
             })
-        ForEach(Self.terms(plan), id: \.self) { term in
-            Text(term)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
+        Text(PlanText.renewsUntilCancelled)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     /// The actions in the sheet's own content, where they do not pin to its bottom edge.

@@ -22,7 +22,6 @@ public enum PlanText {
     nonisolated public static let periodAnnual = "Annual"
     nonisolated public static let periodMonthly = "Monthly"
     nonisolated public static let billingPeriod = "Billing period"
-    nonisolated public static let billingStartsToday = "Billing starts today. The rest of your trial is not added on."
     nonisolated public static let renewsUntilCancelled = "Renews until you cancel."
     nonisolated public static let subscribeOffline = "Subscribing needs a connection."
     nonisolated public static let subscribed = "You're on Premium."

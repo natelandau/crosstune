@@ -139,7 +139,6 @@ private let offers = [PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffe
             ("PERIOD_ANNUAL", PlanText.periodAnnual),
             ("PERIOD_MONTHLY", PlanText.periodMonthly),
             ("BILLING_PERIOD", PlanText.billingPeriod),
-            ("BILLING_STARTS_TODAY", PlanText.billingStartsToday),
             ("RENEWS_UNTIL_CANCELLED", PlanText.renewsUntilCancelled),
             ("SUBSCRIBE_OFFLINE", PlanText.subscribeOffline),
             ("SUBSCRIBED", PlanText.subscribed),
@@ -328,13 +327,6 @@ private let offers = [PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffe
         #expect(client.purchased == [.monthly])
     }
 
-    @Test func aTrialSaysBillingStartsToday() {
-        #expect(
-            PremiumSheet.terms(Plan(kind: .premium, source: .trial))
-                == [PlanText.renewsUntilCancelled, PlanText.billingStartsToday])
-        #expect(PremiumSheet.terms(Plan(kind: .free)) == [PlanText.renewsUntilCancelled])
-    }
-
     @Test func theDisclosuresAreThere() throws {
         #expect(PremiumSheet.title(.plan) == PlanText.premiumPlanTitle)
         #expect(PremiumSheet.message(.plan, scanTuneTitle: nil) == PlanText.premiumPlanBody)
@@ -342,7 +334,6 @@ private let offers = [PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffe
         #expect(PremiumSheet.periodLabel(.monthly) == PlanText.periodMonthly)
         #expect(PremiumSheet.priceLine(offers[0]) == "A$1 a year")
         #expect(PremiumSheet.priceLine(offers[1]) == "M$1 a month")
-        #expect(PremiumSheet.terms(Plan(kind: .free)).contains(PlanText.renewsUntilCancelled))
         #expect(
             PremiumSheet.links == [
                 .init(label: PlanText.termsOfUse, url: try #require(URL(string: "https://crosstune.app/terms"))),

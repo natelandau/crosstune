@@ -17,7 +17,6 @@ import { useResetOnChange } from '../../ui/useResetOnChange'
 import {
   annualPrice,
   BILLING_PERIOD,
-  BILLING_STARTS_TODAY,
   monthlyPrice,
   PERIOD_ANNUAL,
   PERIOD_MONTHLY,
@@ -131,7 +130,6 @@ export function PremiumSheet({
   // Annual by default, or the one period the store sells when it sells only one.
   const chosen = choice?.some((offer) => offer.period === period) ? period : choice?.[0]?.period
   const offline = buyer && !choice && (!online || offers.kind === 'failed')
-  const trial = plan.kind === 'premium' && plan.source === 'trial'
   return (
     <Sheet
       isOpen={open && ready}
@@ -157,7 +155,6 @@ export function PremiumSheet({
         <>
           <PeriodChoice offers={choice} period={chosen ?? period} onChange={setPeriod} />
           <p className="t-secondary text-ink-2 px-4 pt-2">{RENEWS_UNTIL_CANCELLED}</p>
-          {trial && <p className="t-secondary text-ink-2 px-4 pt-1">{BILLING_STARTS_TODAY}</p>}
           <div className="pt-2">
             <Button label={SEE_PLAN} onPress={onSeePlan} />
           </div>

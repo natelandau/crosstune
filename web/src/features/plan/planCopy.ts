@@ -23,7 +23,6 @@ export const APP_STORE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subsc
 export const PERIOD_ANNUAL = 'Annual'
 export const PERIOD_MONTHLY = 'Monthly'
 export const BILLING_PERIOD = 'Billing period'
-export const BILLING_STARTS_TODAY = 'Billing starts today. The rest of your trial is not added on.'
 export const RENEWS_UNTIL_CANCELLED = 'Renews until you cancel.'
 export const SUBSCRIBE_OFFLINE = 'Subscribing needs a connection.'
 export const SUBSCRIBED = "You're on Premium."
