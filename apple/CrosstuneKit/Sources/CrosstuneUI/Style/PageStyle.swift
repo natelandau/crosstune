@@ -34,6 +34,8 @@ enum PageStyle {
         /// AppKit draws a prominent button's fill, gray in an inactive window, so its label
         /// keeps the system's color.
         static let prominentLabelOnSlate = false
+        /// A Mac sheet keeps its actions in its form, with the platform's own buttons.
+        static let pinsSheetActions = false
     #else
         static let body = Font.body
         static let secondary = Font.subheadline
@@ -64,6 +66,9 @@ enum PageStyle {
         /// The key grid keeps its natural width and scrolls sideways once it outgrows the row.
         static let keyGridSpreads = false
         static let prominentLabelOnSlate = true
+        /// A sheet's actions pin to its bottom edge, a full-width primary over centered
+        /// secondaries, and Close is the system close button.
+        static let pinsSheetActions = true
     #endif
 
     /// The space between lines of tokens drawn at ``smallControlHeight``: at least `base`, and

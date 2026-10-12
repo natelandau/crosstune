@@ -17,7 +17,7 @@ struct PlanSection: View {
     /// Apple's subscription settings show as a system sheet over the shell on iPhone and iPad.
     @State private var managing = false
 
-    /// A row the group adds after the plan and storage.
+    /// A row in the section the group adds under the plan and storage.
     enum Action: Hashable {
         case subscribe
         case manageAppStore
@@ -88,18 +88,21 @@ struct PlanSection: View {
                 if let storage {
                     StorageMeter(storage: storage)
                 }
-                ForEach(
-                    Self.actions(plan, sells: purchase != nil, storefront: storefront, portalURL: portalURL), id: \.self
-                ) { action in
-                    row(action)
-                }
             } header: {
                 SettingsHelp(
                     plan.kind == .free ? "\(PlanText.freeHelp) \(PlanText.freeStorageHelp)" : nil,
                     title: PlanText.group)
-            } footer: {
-                if let purchase, let line = Self.restoreLine(purchase) {
-                    Text(line)
+            }
+            let actions = Self.actions(plan, sells: purchase != nil, storefront: storefront, portalURL: portalURL)
+            if !actions.isEmpty {
+                Section {
+                    ForEach(actions, id: \.self) { action in
+                        row(action)
+                    }
+                } footer: {
+                    if let purchase, let line = Self.restoreLine(purchase) {
+                        Text(line)
+                    }
                 }
             }
         }

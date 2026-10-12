@@ -58,20 +58,21 @@ struct NoticeSheet: View {
                     Text($0)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                HStack {
-                    if let onSubscribe {
-                        Button(PlanText.subscribe, action: onSubscribe)
-                    } else {
-                        Button(PlanText.seePlan, action: onSeePlan)
+                if !PageStyle.pinsSheetActions {
+                    HStack {
+                        secondary
+                        Spacer()
+                        ok.buttonStyle(.slateProminent)
                     }
-                    Spacer()
-                    Button(NoticeText.ok, action: onOK)
-                        .buttonStyle(.slateProminent)
-                        .keyboardShortcut(.defaultAction)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
+        }
+        .sheetActions {
+            ok
+        } secondary: {
+            secondary
         }
         .background {
             // Escape counts as OK, while Return stays on the visible OK.
@@ -83,6 +84,20 @@ struct NoticeSheet: View {
         .macSheetFrame(.form(minHeight: 220))
         .presentationDetents([.medium, .large])
         .shellSheet()
+    }
+
+    private var ok: some View {
+        Button(NoticeText.ok, action: onOK)
+            .keyboardShortcut(.defaultAction)
+    }
+
+    /// Subscribe where the store can sell, otherwise See your plan.
+    @ViewBuilder private var secondary: some View {
+        if let onSubscribe {
+            Button(PlanText.subscribe, action: onSubscribe)
+        } else {
+            Button(PlanText.seePlan, action: onSeePlan)
+        }
     }
 }
 

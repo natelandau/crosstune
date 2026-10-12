@@ -29,7 +29,6 @@ import { TUNE } from '../tune/tunePageCopy'
 import {
   annualPrice,
   BILLING_PERIOD,
-  BILLING_STARTS_TODAY,
   monthlyPrice,
   PERIOD_ANNUAL,
   PERIOD_MONTHLY,
@@ -310,14 +309,13 @@ it('free account sees annual selected with its price and Subscribe', async () =>
   await expect.element(premiumSheet().getByText(RENEWS_UNTIL_CANCELLED)).toBeVisible()
   await expect.element(premiumSheet().getByRole('button', { name: SUBSCRIBE })).toBeVisible()
   await expect.element(premiumSheet().getByRole('button', { name: SEE_PLAN })).toBeVisible()
-  await expect.element(premiumSheet().getByText(BILLING_STARTS_TODAY)).not.toBeInTheDocument()
 })
 
-it('trial account sees Billing starts today', async () => {
+it('trial account can subscribe', async () => {
   await openPaywall({ row: PAYWALL_TRIAL })
 
   await expect.element(annual()).toBeChecked()
-  await expect.element(premiumSheet().getByText(BILLING_STARTS_TODAY)).toBeVisible()
+  await expect.element(premiumSheet().getByRole('button', { name: SUBSCRIBE })).toBeVisible()
 })
 
 it('no store keeps See your plan and no choice', async () => {

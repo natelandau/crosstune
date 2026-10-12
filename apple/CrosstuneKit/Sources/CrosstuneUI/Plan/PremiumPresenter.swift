@@ -25,6 +25,10 @@ final class PremiumPresenter {
         self.purchase = purchase
     }
 
+    /// Whether the sheet can offer a purchase when it opens, so it opens at full height and its
+    /// pinned Subscribe sits under the whole choice.
+    var mayOfferPurchase: Bool { purchase != nil && plan.plan.canSubscribe }
+
     /// Whether the tapped action may go ahead. When the plan holds it back, shows the Premium
     /// sheet for `reason` and returns false. An unknown plan gates nothing.
     func gate(_ reason: PremiumReason, from entry: PremiumEntry) -> Bool {

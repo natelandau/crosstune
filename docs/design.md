@@ -433,6 +433,8 @@ groups.
   segments. The default status for new tunes is a picker row, not the
   status segments.
 - The Plan group sits on the Account page.
+- The Plan group's purchase actions sit in their own section, under
+  its plan and storage rows.
 - Kept on the device and through sign-out: the appearance, text size, and
   recording channels settings, and every list's sort choice.
 
@@ -467,8 +469,8 @@ presents.
 - On Apple a checkout's outcome shows as a line in the Premium sheet,
   never a toast. Restore purchases sits on the paywall and in the Plan
   group.
-- During a trial the sheet says billing starts today, since the rest of
-  the trial is not added on.
+- The sheet does not explain trial billing. The terms of use say that a
+  purchase during a trial starts billing that day.
 - A one-time notice (first recording, trial reminder, trial end) is a
   sheet, one at a time, never during a capture and never over another
   modal. Dismissing it marks it seen for the account.

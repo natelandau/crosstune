@@ -7,7 +7,7 @@ path: /terms
 
 # Terms of use
 
-Last updated: 2026-10-10
+Last updated: 2026-10-12
 
 Crosstune is run by Nathaniel Landau, an individual. By using Crosstune, you agree to these terms. Questions go to [support@crosstune.app](mailto:support@crosstune.app).
 
@@ -34,6 +34,8 @@ Crosstune is free to use. Crosstune Premium is a paid subscription that adds mor
 ### Free trial
 
 Every new account gets 30 days of Premium for free. The trial needs no card and never turns into a paid subscription. When the trial ends, your account becomes a Free account.
+
+If you subscribe during the trial, billing starts on the day you subscribe. The rest of the trial is not added to your subscription.
 
 ### Where you buy
 
