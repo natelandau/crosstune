@@ -433,6 +433,8 @@ groups.
   segments. The default status for new tunes is a picker row, not the
   status segments.
 - The Plan group sits on the Account page.
+- The Plan group's purchase actions sit in their own section, under
+  its plan and storage rows.
 - Kept on the device and through sign-out: the appearance, text size, and
   recording channels settings, and every list's sort choice.
 
