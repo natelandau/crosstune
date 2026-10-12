@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
@@ -35,13 +36,14 @@ REFRESH = "/v1/me/billing/refresh"
 
 
 def _stripe_sub(
-    store_id: str = "si_1",
+    subscription_id: str = "sub_1",
     *,
     source: GrantSource = GrantSource.STRIPE,
     environment: GrantEnvironment = GrantEnvironment.PRODUCTION,
 ) -> PaidSubscription:
     return PaidSubscription(
-        store_id=store_id,
+        subscription_id=subscription_id,
+        store_id=f"si_{subscription_id}",
         source=source,
         kind=GrantKind.PREMIUM,
         environment=environment,
@@ -92,6 +94,20 @@ async def test_refresh_moving_a_subscription_refreshes_its_old_account(
     app.state.revenuecat = FakeRevenueCat({"user_a": [_stripe_sub()]})
     await client.post(REFRESH, headers=auth_headers("user_a"))
     app.state.revenuecat = FakeRevenueCat({"user_b": [_stripe_sub()]})
+
+    assert (await client.post(REFRESH, headers=auth_headers("user_b"))).status_code == 204
+
+    assert _entitlement(await pull(client, auth_headers("user_b")))["premium_source"] == "stripe"
+    assert _entitlement(await pull(client, auth_headers("user_a")))["premium_source"] != "stripe"
+
+
+async def test_refresh_finds_a_moved_subscription_by_its_id_not_its_store_id(
+    client, app, auth_headers
+) -> None:
+    app.state.revenuecat = FakeRevenueCat({"user_a": [_stripe_sub()]})
+    await client.post(REFRESH, headers=auth_headers("user_a"))
+    renewed = replace(_stripe_sub(), store_id="si_renewed")
+    app.state.revenuecat = FakeRevenueCat({"user_b": [renewed]})
 
     assert (await client.post(REFRESH, headers=auth_headers("user_b"))).status_code == 204
 
@@ -190,7 +206,7 @@ async def test_webhook_accepts_the_secret(client, webhook_app) -> None:
 async def test_webhook_refreshes_each_known_id(client, webhook_app, auth_headers) -> None:
     await _sign_up(client, auth_headers, "user_a", "user_b", "user_c", "user_d")
     fake = FakeRevenueCat(
-        {name: [_stripe_sub(f"si_{name}")] for name in ("user_a", "user_b", "user_c", "user_d")}
+        {name: [_stripe_sub(f"sub_{name}")] for name in ("user_a", "user_b", "user_c", "user_d")}
     )
     calls: list[str] = []
     original = fake.subscriptions
@@ -295,7 +311,7 @@ async def test_webhook_reads_every_user_before_locking_any(
 
 async def test_webhook_refreshes_only_the_known_user(client, webhook_app, auth_headers) -> None:
     await _sign_up(client, auth_headers, "user_a")
-    fake = FakeRevenueCat({"user_a": [_stripe_sub()], "ghost": [_stripe_sub("si_ghost")]})
+    fake = FakeRevenueCat({"user_a": [_stripe_sub()], "ghost": [_stripe_sub("sub_ghost")]})
     calls: list[str] = []
     original = fake.subscriptions
 
@@ -355,7 +371,7 @@ async def test_refresh_skips_a_user_deleted_before_the_lock(
 
 
 def _sandbox_stripe() -> PaidSubscription:
-    return _stripe_sub("si_sandbox", environment=GrantEnvironment.SANDBOX)
+    return _stripe_sub("sub_sandbox", environment=GrantEnvironment.SANDBOX)
 
 
 def _accept_sandbox_stripe(app: FastAPI, *, accept: bool) -> None:

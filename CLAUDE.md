@@ -127,8 +127,10 @@ every label. The glossary in `docs/product.md` has the reasons.
   `apple/CrosstuneKit/Sources/CrosstuneUI` claims the shell while it shows:
   a sheet's root view carries `.shellSheet()` or `.partHeightSheet()`; a
   dialog, alert, or file picker has no root view of its own, so the view
-  presenting it carries `.coversShell(_:)` on the line before. A test in
-  `CrosstuneUITests` enforces both, so the record control and the shell's
+  presenting it carries `.coversShell(_:)` on the line before; a view that
+  asks for a sheet ahead of its showing holds the menus with
+  `.coversShellMenus(_:)`. A test in
+  `CrosstuneUITests` enforces each, so the record control and the shell's
   menu commands stand down behind every presentation.
 - Every view in `CrosstuneUI` that shows user content carries
   `.contentMask()`, so session replays never show it. A test in

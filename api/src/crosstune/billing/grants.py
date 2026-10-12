@@ -30,8 +30,13 @@ _PAID_SOURCES = text("source in ('apple', 'stripe')")
 
 @dataclass(frozen=True)
 class PaidSubscription:
-    """One billing-provider subscription, as the provider reports it."""
+    """One billing-provider subscription, as the provider reports it.
 
+    `subscription_id` is RevenueCat's own ID, which holds across renewals and keys the grant.
+    `store_id` is the store's identifier, which Apple renews, so it is only for cancelling Stripe.
+    """
+
+    subscription_id: str
     store_id: str
     source: GrantSource
     kind: GrantKind
@@ -125,7 +130,7 @@ async def mirror_paid_grants(
                 await session.scalars(
                     select(Grant.user_id).where(
                         tuple_(Grant.source, Grant.external_id).in_(
-                            [(sub.source.value, sub.store_id) for sub in subscriptions]
+                            [(sub.source.value, sub.subscription_id) for sub in subscriptions]
                         ),
                         Grant.user_id != user_id,
                     )
@@ -142,7 +147,7 @@ async def mirror_paid_grants(
         }
         await session.execute(
             insert(Grant)
-            .values(source=sub.source.value, external_id=sub.store_id, **values)
+            .values(source=sub.source.value, external_id=sub.subscription_id, **values)
             .on_conflict_do_update(
                 index_elements=[Grant.source, Grant.external_id],
                 index_where=_PAID_SOURCES,
@@ -154,7 +159,7 @@ async def mirror_paid_grants(
         .where(
             Grant.user_id == user_id,
             Grant.source.in_([GrantSource.APPLE.value, GrantSource.STRIPE.value]),
-            Grant.external_id.not_in([sub.store_id for sub in subscriptions]),
+            Grant.external_id.not_in([sub.subscription_id for sub in subscriptions]),
             (Grant.expires_at.is_(None)) | (Grant.expires_at > now),
         )
         .values(expires_at=now, auto_renews=False, updated_at=now)

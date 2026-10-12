@@ -257,15 +257,18 @@ private let day: TimeInterval = 86_400
         let background = try await model(claim: claim)
         let active = try await model(claim: claim)
         background.coverChanged(
-            covered: AppShell.noticeCovered(shellCovered: false, phase: .background), capturing: false)
-        active.coverChanged(covered: AppShell.noticeCovered(shellCovered: false, phase: .active), capturing: false)
+            covered: AppShell.noticeCovered(shellCovered: false, premiumRequested: false, phase: .background),
+            capturing: false)
+        active.coverChanged(
+            covered: AppShell.noticeCovered(shellCovered: false, premiumRequested: false, phase: .active),
+            capturing: false)
 
         try await addRecording()
 
         try await eventually { active.showing == .firstRecording }
         #expect(background.showing == nil)
-        #expect(AppShell.noticeCovered(shellCovered: false, phase: .inactive))
-        #expect(AppShell.noticeCovered(shellCovered: true, phase: .active))
+        #expect(AppShell.noticeCovered(shellCovered: false, premiumRequested: false, phase: .inactive))
+        #expect(AppShell.noticeCovered(shellCovered: true, premiumRequested: false, phase: .active))
     }
 
     @Test func aClosingWindowHandsTheNoticeToAnotherWithoutASecondEvent() async throws {
@@ -324,6 +327,50 @@ private let day: TimeInterval = 86_400
         #expect(NoticeSheet.title(.trialEnded, endsAt: ends) == NoticeText.trialEndedTitle)
         #expect(
             NoticeSheet.paragraphs(.trialEnded, endsAt: ends, holdsRecordings: true) == [NoticeText.trialEndedBody])
+    }
+
+    @Test func aRequestedPremiumSheetHoldsTheNextNotice() async throws {
+        try await pull(trial(endingIn: 2))
+        try await addRecording()
+        let model = try await model()
+        try await eventually { model.showing == .trialReminder }
+
+        // The notice's own sheet covers the shell while it is up.
+        model.coverChanged(
+            covered: AppShell.noticeCovered(shellCovered: true, premiumRequested: false, phase: .active),
+            capturing: false)
+
+        // Subscribe on the reminder: the notice's sheet goes and the Premium sheet is asked for,
+        // before that sheet has shown and claimed the shell.
+        model.dismiss()
+        model.coverChanged(
+            covered: AppShell.noticeCovered(shellCovered: false, premiumRequested: true, phase: .active),
+            capturing: false)
+
+        #expect(model.showing == nil)
+        model.coverChanged(
+            covered: AppShell.noticeCovered(shellCovered: false, premiumRequested: false, phase: .active),
+            capturing: false)
+        #expect(model.showing == .firstRecording)
+    }
+
+    @Test func theNoticesOfferSubscribeOnlyWhenTheyCanSell() {
+        let trial = Plan(kind: .premium, source: .trial)
+        let free = Plan(kind: .free)
+        #expect(NoticeSheet.subscribeEntry(.trialReminder, plan: trial, sells: true) == .trialReminder)
+        #expect(NoticeSheet.subscribeEntry(.trialEnded, plan: free, sells: true) == .trialEnded)
+        // The first recording keeps See your plan.
+        #expect(NoticeSheet.subscribeEntry(.firstRecording, plan: trial, sells: true) == nil)
+        // A build that offers no purchase keeps See your plan.
+        #expect(NoticeSheet.subscribeEntry(.trialReminder, plan: trial, sells: false) == nil)
+        #expect(NoticeSheet.subscribeEntry(.trialEnded, plan: free, sells: false) == nil)
+        // An account already paying, or comped, is sold nothing.
+        for source: PlanSource in [.apple, .stripe, .comp] {
+            let plan = Plan(kind: .premium, source: source)
+            #expect(NoticeSheet.subscribeEntry(.trialEnded, plan: plan, sells: true) == nil)
+            #expect(NoticeSheet.subscribeEntry(.trialReminder, plan: plan, sells: true) == nil)
+        }
+        #expect(NoticeSheet.subscribeEntry(.trialEnded, plan: .unknown, sells: true) == nil)
     }
 
     @Test func theNoticesNameThePlansValues() {

@@ -365,6 +365,7 @@ async def _stripe_subscriber(client, app, auth_headers) -> None:
     await client.get("/v1/me", headers=auth_headers("user_gone"))
     app.state.revenuecat.subscriptions_by_customer["user_gone"] = [
         PaidSubscription(
+            subscription_id="sub_123",
             store_id="si_123",
             source=GrantSource.STRIPE,
             kind=GrantKind.PREMIUM,

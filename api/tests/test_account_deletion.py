@@ -410,6 +410,7 @@ def _sub(
     auto_renews: bool = True,
 ) -> PaidSubscription:
     return PaidSubscription(
+        subscription_id=f"sub_{store_id}",
         store_id=store_id,
         source=source,
         kind=GrantKind.PREMIUM,
@@ -541,35 +542,56 @@ async def test_delete_without_stripe_client_but_live_subscription_is_503(
     assert app.state.clerk_users.deleted == []
 
 
-async def test_delete_without_revenuecat_cancels_live_stripe_grants(
-    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+async def _grants_without_revenuecat(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession, *grants: Grant
 ) -> None:
     app.state.revenuecat = None
     me = (await client.get("/v1/me", headers=auth_headers("user_a"))).json()
-    user_id = uuid.UUID(me["id"])
-    yesterday = utc_now() - timedelta(days=1)
-    verify_session.add_all(
-        [
-            Grant(user_id=user_id, kind="premium", source="stripe", external_id="si_live"),
-            Grant(
-                user_id=user_id,
-                kind="premium",
-                source="stripe",
-                external_id="si_ended",
-                expires_at=yesterday,
-            ),
-            Grant(
-                user_id=user_id,
-                kind="premium",
-                source="stripe",
-                external_id="si_retrying",
-                expires_at=yesterday,
-                auto_renews=True,
-            ),
-            Grant(user_id=user_id, kind="premium", source="apple", external_id="2000000123"),
-        ]
-    )
+    for grant in grants:
+        grant.user_id = uuid.UUID(me["id"])
+    verify_session.add_all(grants)
     await verify_session.commit()
+
+
+@pytest.mark.parametrize(
+    "grant",
+    [
+        Grant(kind="premium", source="stripe", external_id="sub_live"),
+        Grant(
+            kind="premium",
+            source="stripe",
+            external_id="sub_retrying",
+            expires_at=utc_now() - timedelta(days=1),
+            auto_renews=True,
+        ),
+    ],
+)
+async def test_delete_without_revenuecat_but_live_stripe_grant_is_503(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession, grant: Grant
+) -> None:
+    await _grants_without_revenuecat(client, app, auth_headers, verify_session, grant)
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 503
+    assert app.state.stripe.cancelled == []
+    assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
+
+
+async def test_delete_without_revenuecat_ignores_ended_stripe_and_apple_grants(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _grants_without_revenuecat(
+        client,
+        app,
+        auth_headers,
+        verify_session,
+        Grant(
+            kind="premium",
+            source="stripe",
+            external_id="sub_ended",
+            expires_at=utc_now() - timedelta(days=1),
+        ),
+        Grant(kind="premium", source="apple", external_id="sub_apple"),
+    )
     response = await client.delete("/v1/me", headers=auth_headers("user_a"))
     assert response.status_code == 204
-    assert sorted(app.state.stripe.cancelled) == ["si_live", "si_retrying"]
+    assert app.state.stripe.cancelled == []

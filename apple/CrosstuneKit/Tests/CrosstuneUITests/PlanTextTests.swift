@@ -25,6 +25,25 @@ import Testing
         #expect(PlanText.freeStorageHelp == "On the free plan, storage counts scans only.")
     }
 
+    @Test func holdsTheAppleOnlyCopy() {
+        #expect(
+            PlanText.subscribePending == "Your purchase is waiting for approval. Premium starts once it goes through.")
+        #expect(PlanText.restorePurchases == "Restore purchases")
+        #expect(PlanText.restored == "Your App Store subscription is restored.")
+        #expect(PlanText.nothingToRestore == "This Apple Account has no Crosstune subscription to restore.")
+        #expect(
+            PlanText.otherAccount
+                == "This App Store subscription belongs to another Crosstune account. Sign out, then sign in with the account that subscribed."
+        )
+        #expect(PlanText.restoreFailed == "Restoring didn't finish. Try again in a moment.")
+        #expect(PlanText.manageOnTheWeb == "Manage on the web")
+        #expect(PlanText.manageAtWebsite == "Manage your subscription at my.crosstune.app.")
+        #expect(PlanText.termsOfUse == "Terms of Use")
+        #expect(PlanText.privacyPolicy == "Privacy Policy")
+        #expect(PlanText.termsURL == "https://crosstune.app/terms")
+        #expect(PlanText.privacyURL == "https://crosstune.app/privacy")
+    }
+
     @Test func countsTheDaysLeftInATrial() {
         let ends = Self.now.addingTimeInterval(5 * 86_400)
         #expect(
@@ -54,26 +73,26 @@ import Testing
     @Test func namesThePlanByKindAndSource() {
         #expect(PlanText.name(.unknown) == nil)
         #expect(PlanText.name(Plan(kind: .free)) == "Free")
-        #expect(PlanText.name(Plan(kind: .premium, source: "trial")) == "Premium trial")
-        #expect(PlanText.name(Plan(kind: .premium, source: "comp")) == "Premium")
-        #expect(PlanText.name(Plan(kind: .premium, source: "apple")) == "Premium")
+        #expect(PlanText.name(Plan(kind: .premium, source: .trial)) == "Premium trial")
+        #expect(PlanText.name(Plan(kind: .premium, source: .comp)) == "Premium")
+        #expect(PlanText.name(Plan(kind: .premium, source: .apple)) == "Premium")
     }
 
     @Test func detailsATrialByItsEndAndFallsBackToTheGrantEnd() {
         let ends = Self.now.addingTimeInterval(5 * 86_400)
         let expected = "Ends Oct 15, 2026, 5 days left"
-        let byTrial = Plan(kind: .premium, source: "trial", trialEndsAt: ends)
-        let byGrant = Plan(kind: .premium, source: "trial", premiumEndsAt: ends)
+        let byTrial = Plan(kind: .premium, source: .trial, trialEndsAt: ends)
+        let byGrant = Plan(kind: .premium, source: .trial, premiumEndsAt: ends)
         for plan in [byTrial, byGrant] {
             #expect(PlanText.detail(plan, now: Self.now, calendar: Self.calendar, locale: Self.locale) == expected)
         }
     }
 
     @Test func detailsAGrantByItsEndOrNotAtAll() {
-        let comp = Plan(kind: .premium, source: "comp", premiumEndsAt: Self.now)
+        let comp = Plan(kind: .premium, source: .comp, premiumEndsAt: Self.now)
         #expect(
             PlanText.detail(comp, now: Self.now, calendar: Self.calendar, locale: Self.locale) == "Until Oct 10, 2026")
-        let open = Plan(kind: .premium, source: "comp")
+        let open = Plan(kind: .premium, source: .comp)
         #expect(PlanText.detail(open, now: Self.now, calendar: Self.calendar, locale: Self.locale) == nil)
         #expect(PlanText.detail(Plan(kind: .free), now: Self.now) == nil)
         #expect(PlanText.detail(.unknown, now: Self.now) == nil)

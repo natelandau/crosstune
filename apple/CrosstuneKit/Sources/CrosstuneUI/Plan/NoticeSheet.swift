@@ -1,13 +1,29 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 
-/// A one-time plan notice: what the trial means for recordings, and the way to the Plan group.
+/// A one-time plan notice: what the trial means for recordings, and the way to the Plan group,
+/// or to Subscribe where the store can sell.
 struct NoticeSheet: View {
     let notice: PlanNotice
     let endsAt: Date?
     let holdsRecordings: Bool
     let onOK: @MainActor () -> Void
     let onSeePlan: @MainActor () -> Void
+    /// Stands in for See your plan when set.
+    var onSubscribe: (@MainActor () -> Void)?
+
+    /// Where Subscribe on `notice` opens the Premium sheet from, nil when the notice keeps See
+    /// your plan: the first recording always does, and the trial notices do unless the build
+    /// sells and the plan can subscribe.
+    nonisolated static func subscribeEntry(_ notice: PlanNotice, plan: Plan, sells: Bool) -> PremiumEntry? {
+        guard sells, plan.canSubscribe else { return nil }
+        switch notice {
+        case .firstRecording: return nil
+        case .trialReminder: return .trialReminder
+        case .trialEnded: return .trialEnded
+        }
+    }
 
     nonisolated static func title(_ notice: PlanNotice, endsAt: Date?) -> String {
         switch notice {
@@ -43,7 +59,11 @@ struct NoticeSheet: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 HStack {
-                    Button(PlanText.seePlan, action: onSeePlan)
+                    if let onSubscribe {
+                        Button(PlanText.subscribe, action: onSubscribe)
+                    } else {
+                        Button(PlanText.seePlan, action: onSeePlan)
+                    }
                     Spacer()
                     Button(NoticeText.ok, action: onOK)
                         .buttonStyle(.slateProminent)
@@ -69,7 +89,16 @@ struct NoticeSheet: View {
 /// Presents the plan notice the model shows. Swiping it away or pressing Escape counts as OK.
 struct NoticeSheets: ViewModifier {
     let model: NoticeModel?
+    let plan: Plan
+    /// Whether the build offers purchases.
+    let sells: Bool
     let onSeePlan: @MainActor () -> Void
+    /// Opens the Premium sheet for the plan, from the notice's entry.
+    let onSubscribe: @MainActor (PremiumEntry) -> Void
+
+    /// Subscribe's entry, held until the notice's sheet has gone, since a sheet asked for while
+    /// another is leaving does not show. It covers the shell meanwhile, so the next notice waits.
+    @State private var subscribing: PremiumEntry?
 
     /// One showing of the notice, for `sheet(item:)`.
     private struct Showing: Identifiable {
@@ -79,7 +108,8 @@ struct NoticeSheets: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .sheet(item: shown) { showing in
+            .coversShell(subscribing != nil)
+            .sheet(item: shown, onDismiss: openSubscribe) { showing in
                 NoticeSheet(
                     notice: showing.notice, endsAt: model?.trialEndsAt,
                     holdsRecordings: model?.holdsRecordings ?? false,
@@ -87,8 +117,26 @@ struct NoticeSheets: ViewModifier {
                     onSeePlan: {
                         model?.dismiss()
                         onSeePlan()
-                    })
+                    },
+                    onSubscribe: subscribe(showing.notice))
             }
+    }
+
+    /// Subscribe for `notice`, nil when it keeps See your plan.
+    private func subscribe(_ notice: PlanNotice) -> (@MainActor () -> Void)? {
+        guard let entry = NoticeSheet.subscribeEntry(notice, plan: plan, sells: sells) else { return nil }
+        return {
+            subscribing = entry
+            model?.dismiss()
+        }
+    }
+
+    private func openSubscribe() {
+        guard let entry = subscribing else { return }
+        // The Premium sheet's request holds the menus before this cover lets go. The record slot
+        // returns until that sheet appears and claims it.
+        onSubscribe(entry)
+        subscribing = nil
     }
 
     private var shown: Binding<Showing?> {

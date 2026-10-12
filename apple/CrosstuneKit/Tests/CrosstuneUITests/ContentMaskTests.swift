@@ -38,6 +38,8 @@ import Testing
     /// Reads whose property or method is named like content but hold the app's own words.
     static let notContent: Set = [
         "category.title", "TextSize.valueLabel", "RecordingText.added", "action.title",
+        // The Premium sheet's name for what it sells.
+        "product.title",
     ]
 
     /// Views that show their argument. One whose argument reads a content property is masked.

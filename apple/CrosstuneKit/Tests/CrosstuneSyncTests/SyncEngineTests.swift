@@ -416,6 +416,17 @@ import Testing
         engine.stop()
     }
 
+    @Test func refreshesBillingOnceAndThrowsTheAPIsError() async throws {
+        let engine = engine()
+
+        try await engine.refreshBilling()
+        #expect(api.billingRefreshes == 1)
+
+        api.failure = APIStatusError(status: 502)
+        await #expect(throws: APIStatusError(status: 502)) { try await engine.refreshBilling() }
+        #expect(api.billingRefreshes == 2)
+    }
+
     @Test func stopsPushingWhenAFullBatchSettlesNothing() async throws {
         try await createTune(store, title: "X")
         api.respondToPush = { _ in [] }

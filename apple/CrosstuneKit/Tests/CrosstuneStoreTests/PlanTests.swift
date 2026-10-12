@@ -40,7 +40,7 @@ private func scan(_ id: String, _ tuneID: String, _ createdAt: String, deletedAt
         #expect(
             plan
                 == Plan(
-                    kind: .premium, source: "trial", premiumEndsAt: at(day).date, trialEndsAt: at(day).date,
+                    kind: .premium, source: .trial, premiumEndsAt: at(day).date, trialEndsAt: at(day).date,
                     quotaBytes: 10_000, scansOnly: false))
     }
 
@@ -72,7 +72,7 @@ private func scan(_ id: String, _ tuneID: String, _ createdAt: String, deletedAt
     @Test func isPremiumForACompWithNoExpiry() {
         let plan = Plan.from(row(source: "comp"), now: now)
         #expect(plan.kind == .premium)
-        #expect(plan.source == "comp")
+        #expect(plan.source == .comp)
         #expect(plan.premiumEndsAt == nil)
     }
 
@@ -243,5 +243,32 @@ private func scan(_ id: String, _ tuneID: String, _ createdAt: String, deletedAt
         let live = row(source: "trial", expiresAt: at(day))
         try await store.write { writer in try live.insert(writer.db) }
         #expect(try await store.read { db in try Entitlement.current(db) } == live)
+    }
+}
+
+@Suite struct PlanCanSubscribeTests {
+    @Test func isTrueForFreeAndForATrial() {
+        #expect(Plan(kind: .free).canSubscribe)
+        #expect(Plan(kind: .premium, source: .trial).canSubscribe)
+    }
+
+    @Test func isFalseForEveryOtherPlan() {
+        #expect(Plan(kind: .premium, source: .comp).canSubscribe == false)
+        #expect(Plan(kind: .premium, source: .apple).canSubscribe == false)
+        #expect(Plan(kind: .premium, source: .stripe).canSubscribe == false)
+        #expect(Plan(kind: .premium, source: nil).canSubscribe == false)
+        #expect(Plan.unknown.canSubscribe == false)
+    }
+}
+
+@Suite struct PlanIsTrialTests {
+    @Test func isTrueOnlyForAPremiumTrial() {
+        #expect(Plan(kind: .premium, source: .trial).isTrial)
+        #expect(Plan(kind: .premium, source: .apple).isTrial == false)
+        #expect(Plan(kind: .premium, source: nil).isTrial == false)
+        #expect(Plan(kind: .free).isTrial == false)
+        // A free plan never carries a source, but one built with it is still not a trial.
+        #expect(Plan(kind: .free, source: .trial).isTrial == false)
+        #expect(Plan.unknown.isTrial == false)
     }
 }

@@ -5,6 +5,7 @@
 CROSSTUNE_API_ORIGIN = https:/$()/api.crosstune.app
 // A publishable key is public by design: every build of the app carries it.
 CLERK_PUBLISHABLE_KEY = pk_live_Y2xlcmsuY3Jvc3N0dW5lLmFwcCQ // gitleaks:allow
+STRIPE_PORTAL_URL = https:/$()/billing.stripe.com/p/login/eVqaEXc2C7WZ7gWbvxdAk00
 POSTHOG_HOST = https:/$()/relay.crosstune.app
 
 // POSTHOG_PROJECT_TOKEN, kept out of the repository. Gitignored; `just apple::setup` creates it

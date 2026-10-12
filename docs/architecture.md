@@ -174,6 +174,10 @@ synced entitlements row.
   expiry or expires later than now. The server never applies leeway.
 - A kind has one `trial` grant and one `comp` grant. It has one `apple` or
   `stripe` grant per store subscription, so two subscriptions are two grants.
+  A paid grant is keyed by RevenueCat's subscription ID, which holds across
+  Apple renewals. The store identifier changes with each Apple transaction
+  and with each Stripe plan change, so keying on it would turn a renewal
+  into a second grant.
 - RevenueCat is the source for paid grants. The webhook and
   `POST /v1/me/billing/refresh` both re-read the account's subscriptions
   from RevenueCat and never trust a webhook payload.
@@ -188,15 +192,21 @@ synced entitlements row.
 - Refresh is limited per user, since its RevenueCat requests share one
   rate limit with the webhook. Past it, refresh answers 429 with
   `Retry-After`.
+- The Apple app identifies a RevenueCat customer by the Clerk user ID,
+  set after sign-in and switched with `logIn`. It never logs out, since
+  that would mint an anonymous customer and a purchase made there would
+  not reach the account. After a purchase or restore it calls refresh,
+  then syncs.
 - Deleting an account first cancels its live Stripe subscriptions, active
   or still renewing after access lapsed, and deletes its RevenueCat
   customer. It leaves `apple` grants alone, since the app cannot cancel an
   App Store subscription.
   - RevenueCat, read at deletion time, names the subscriptions to cancel,
     not the stored grants. A plan change in Stripe replaces the
-    subscription item that a grant's `external_id` names, and a grant
-    still reads as live until a webhook updates it. Without RevenueCat
-    configured, the grants decide.
+    subscription item, and a grant still reads as live until a webhook
+    updates it. A grant's `external_id` is RevenueCat's subscription ID,
+    which Stripe cannot cancel, so without RevenueCat configured a live
+    Stripe grant makes deletion fail with 503.
   - `DELETE /v1/me` fails with 503 when a live Stripe subscription exists
     and Stripe is not configured. It fails with 502 when Stripe or RevenueCat
     does not confirm. Neither has a `billing-*` type. RevenueCat is skipped

@@ -1,5 +1,7 @@
 import CrosstuneAnalytics
 import CrosstuneAudio
+import CrosstuneAuth
+import CrosstuneBilling
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneSync
@@ -18,11 +20,13 @@ public struct AppShell: View {
     private let recorders: RecorderHost
 
     @Environment(SyncEngine.self) private var engine: SyncEngine?
+    @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(\.analytics) private var analytics
     @Environment(\.scenePhase) private var scenePhase
     @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
     @Environment(\.plan) private var plan
     @Environment(\.noticeClaim) private var noticeClaim
+    @Environment(\.purchases) private var purchases
     #if os(macOS)
         @Environment(\.openSettings) private var openSettings
     #endif
@@ -42,6 +46,8 @@ public struct AppShell: View {
     @State private var recentTake = RecentTake()
     /// Made again for each plan, which is made again for each store.
     @State private var premium: PremiumPresenter?
+    /// Made again for each plan, as `premium` is, and only in a build that offers purchases.
+    @State private var purchase: PurchaseModel?
     /// Made again for each plan, as `premium` is.
     @State private var notices: NoticeModel?
     /// Stands in when the app shares no claim across windows, as in previews.
@@ -77,8 +83,14 @@ public struct AppShell: View {
                     take: $take, host: recorders, store: store, record: { startRecording(tuneID: $0, source: .tune) },
                     showRecordings: { recordingsShown += 1 })
             )
-            .modifier(PremiumSheets(presenter: premium, onSeePlan: seePlan))
-            .modifier(NoticeSheets(model: notices, onSeePlan: seePlan))
+            // The sheet claims the shell only once it shows; this holds the menus from the request.
+            .coversShellMenus(premium?.presented != nil)
+            .modifier(PremiumSheets(presenter: premium, purchase: purchase, onSeePlan: seePlan))
+            .modifier(
+                NoticeSheets(
+                    model: notices, plan: plan?.plan ?? .unknown, sells: purchase != nil, onSeePlan: seePlan,
+                    onSubscribe: { premium?.present(.plan, from: $0) })
+            )
             .modifier(LyricsScreens())
             .modifier(ScanScreens())
             .modifier(RecordingTransfers(store: store, player: player))
@@ -97,6 +109,7 @@ public struct AppShell: View {
             .environment(\.recordCover, recordCover)
             .environment(\.selecting, selecting)
             .environment(\.premium, premium)
+            .environment(\.purchase, purchase)
             .environment(\.playerWindow, playerWindow)
             .environment(\.standVisit, standVisit)
             .environment(\.openCatalogRoot, MenuAction(id: ShellActionID.openCatalogRoot) { showCatalogRoot() })
@@ -127,14 +140,15 @@ public struct AppShell: View {
                 counts = LiveQuery(store, initial: nil) { try CatalogCounts.fetch($0) }
             }
             .onChange(of: plan.map(ObjectIdentifier.init), initial: true) {
-                premium = plan.map { PremiumPresenter(plan: $0, analytics: analytics) }
+                (premium, purchase) = PremiumPresenter.forPlan(
+                    plan, purchases: purchases, engine: engine, session: session, analytics: analytics)
                 notices?.leave()
                 notices = plan.map {
                     NoticeModel(store: store, plan: $0, analytics: analytics, claim: noticeClaim ?? ownNoticeClaim)
                 }
                 notices?.coverChanged(covered: isNoticeCovered, capturing: recorders.isCapturing)
             }
-            .onChange(of: isShellCovered) {
+            .onChange(of: isNoticeCovered) {
                 notices?.coverChanged(covered: isNoticeCovered, capturing: recorders.isCapturing)
             }
             .onChange(of: recorders.isCapturing) {
@@ -145,7 +159,6 @@ public struct AppShell: View {
             .onAppear { notices?.rejoin() }
             .onChange(of: scenePhase) {
                 if scenePhase == .background { catalog?.leftForeground() }
-                notices?.coverChanged(covered: isNoticeCovered, capturing: recorders.isCapturing)
             }
             #if os(macOS)
                 .onAppQuit {
@@ -180,14 +193,15 @@ public struct AppShell: View {
     }
 
     private var isNoticeCovered: Bool {
-        Self.noticeCovered(shellCovered: isShellCovered, phase: scenePhase)
+        Self.noticeCovered(shellCovered: isShellCovered, premiumRequested: premium?.presented != nil, phase: scenePhase)
     }
 
-    /// Whether a plan notice waits: while something covers the shell, or while the window is not
-    /// the active one, so a notice never lands in a background or minimized window that another
-    /// window could show it in.
-    static func noticeCovered(shellCovered: Bool, phase: ScenePhase) -> Bool {
-        shellCovered || phase != .active
+    /// Whether a plan notice waits: while something covers the shell, while the Premium sheet is
+    /// asked for, or while the window is not the active one, so a notice never lands in a
+    /// background or minimized window that another window could show it in. The request is read
+    /// from the presenter because a cover's claim lands only in the update after it.
+    static func noticeCovered(shellCovered: Bool, premiumRequested: Bool, phase: ScenePhase) -> Bool {
+        shellCovered || premiumRequested || phase != .active
     }
 
     private var canRecord: Bool {

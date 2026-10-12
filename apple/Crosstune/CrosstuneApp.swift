@@ -1,5 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneAuth
+import CrosstuneBilling
 import CrosstuneExport
 import CrosstuneUI
 import SwiftUI
@@ -16,6 +17,9 @@ struct CrosstuneApp: App {
     /// Which window shows the plan notices, made again with each store's plan.
     @State private var noticeClaim: NoticeClaim?
     private let analytics: AnalyticsClient
+    /// Nil in a build with no RevenueCat key, which offers no purchase.
+    private let purchases: (any PurchaseClient)?
+    private let stripePortalURL: URL?
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -26,6 +30,8 @@ struct CrosstuneApp: App {
             configuration.postHogHost.map { Analytics.start(token: configuration.postHogToken, host: $0) } ?? .noop
         UsageData.launch(analytics)
         self.analytics = analytics
+        purchases = configuration.revenueCatAPIKey.map { RevenueCatPurchases(apiKey: $0) }
+        stripePortalURL = configuration.stripePortalURL
         // Before any window can start an export, so only zips a past run left behind go.
         ExportArchive.removeLeftovers()
         let player = PlayerModel.device(analytics: analytics)
@@ -49,6 +55,8 @@ struct CrosstuneApp: App {
                 .environment(\.analytics, analytics)
                 .environment(\.plan, plan)
                 .environment(\.noticeClaim, noticeClaim)
+                .environment(\.purchases, purchases)
+                .environment(\.stripePortalURL, stripePortalURL)
                 .followsDisplaySettings()
                 .tint(BrandStyle.accent)
         }
@@ -63,7 +71,7 @@ struct CrosstuneApp: App {
             if scenePhase == .active { plan?.judgeAgain() }
         }
         .onChange(of: session.store?.userID, initial: true) {
-            let bound = StorePlan.bind(session.store, player: player)
+            let bound = StorePlan.bind(session.store, player: player, purchases: purchases)
             plan = bound.plan
             noticeClaim = bound.noticeClaim
         }
@@ -73,6 +81,8 @@ struct CrosstuneApp: App {
                 settings
                     .environment(\.analytics, analytics)
                     .environment(\.plan, plan)
+                    .environment(\.purchases, purchases)
+                    .environment(\.stripePortalURL, stripePortalURL)
                     .environment(\.store, session.store)
                     .environment(session.syncEngine)
                     .environment(session)

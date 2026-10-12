@@ -31,16 +31,18 @@ NOW = T0
 
 
 def _sub(
-    store_id: str,
+    subscription_id: str,
     source: GrantSource = GrantSource.APPLE,
     *,
     days: int | None = 30,
     kind: GrantKind = GrantKind.PREMIUM,
     environment: GrantEnvironment = GrantEnvironment.PRODUCTION,
     auto_renews: bool = True,
+    store_id: str | None = None,
 ) -> PaidSubscription:
     return PaidSubscription(
-        store_id=store_id,
+        subscription_id=subscription_id,
+        store_id=store_id or subscription_id,
         source=source,
         kind=kind,
         environment=environment,
@@ -220,7 +222,7 @@ async def test_mirror_writes_an_environment_change(
     assert row.environment == "production"
 
 
-async def test_a_store_id_listed_twice_leaves_one_row(
+async def test_a_subscription_listed_twice_leaves_one_row(
     session: AsyncSession, settings: Settings
 ) -> None:
     user = await _user(session, settings)
@@ -229,3 +231,26 @@ async def test_a_store_id_listed_twice_leaves_one_row(
 
     (row,) = await _grants(session, user, GrantSource.APPLE)
     assert row.expires_at == NOW + timedelta(days=45)
+
+
+async def test_an_apple_renewal_updates_one_grant(
+    session: AsyncSession, settings: Settings
+) -> None:
+    user = await _user(session, settings)
+    await mirror_paid_grants(
+        session,
+        user.id,
+        [_sub("sub_apple", store_id="2000000000000001")],
+        NOW,
+    )
+
+    await mirror_paid_grants(
+        session,
+        user.id,
+        [_sub("sub_apple", days=60, store_id="2000000000000002")],
+        NOW,
+    )
+
+    (row,) = await _grants(session, user, GrantSource.APPLE)
+    assert row.external_id == "sub_apple"
+    assert row.expires_at == NOW + timedelta(days=60)

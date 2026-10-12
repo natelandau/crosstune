@@ -10,6 +10,10 @@ struct AppConfiguration {
     /// Set only by a Release build, so no other build sends analytics.
     let postHogToken: String?
     let postHogHost: URL?
+    /// Nil leaves the app with no purchases.
+    let revenueCatAPIKey: String?
+    /// Where a subscription bought on the web is managed.
+    let stripePortalURL: URL?
 
     static let main = AppConfiguration(bundle: .main)
 
@@ -33,5 +37,7 @@ struct AppConfiguration {
         storageOrigin = optional("CrosstuneStorageOrigin").flatMap(URL.init(string:))
         postHogToken = optional("PostHogProjectToken")
         postHogHost = optional("PostHogHost").flatMap(URL.init(string:))
+        revenueCatAPIKey = optional("RevenueCatAPIKey")
+        stripePortalURL = optional("StripePortalURL").flatMap(URL.init(string:))
     }
 }

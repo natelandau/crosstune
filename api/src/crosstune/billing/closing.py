@@ -39,9 +39,9 @@ async def end_billing(
     A subscription is live while it is active or still renews, as one in a payment retry does
     after its access lapsed.
 
-    RevenueCat, when configured, names the subscriptions to cancel. A grant's stored ID goes
-    stale when a plan change replaces the Stripe subscription item and no webhook has arrived
-    since, and an ended subscription would still read as live there.
+    RevenueCat names the subscriptions to cancel, read at deletion time. A grant's ID is
+    RevenueCat's subscription ID, which Stripe cannot cancel, so without RevenueCat a live
+    Stripe grant blocks deletion.
 
     Apple subscriptions are left alone: the app cannot cancel an App Store subscription.
 
@@ -54,22 +54,22 @@ async def end_billing(
         now: The instant that decides which subscriptions are still live.
 
     Raises:
-        AccountDeletionUnavailableError: A live Stripe subscription exists and Stripe is not configured.
+        AccountDeletionUnavailableError: A live Stripe subscription exists and Stripe is not configured,
+            or RevenueCat is not configured and the user holds a live Stripe grant.
         AccountDeletionFailedError: Stripe or RevenueCat did not confirm.
     """
     try:
-        store_ids = (
-            await _live_from_revenuecat(user, revenuecat, settings, now)
-            if revenuecat is not None
-            else await _live_from_grants(session, user, now)
-        )
+        if revenuecat is None:
+            if await _has_live_stripe_grant(session, user, now):
+                raise AccountDeletionUnavailableError(_CANNOT_END_BILLING)
+            return
+        store_ids = await _live_from_revenuecat(user, revenuecat, settings, now)
         if store_ids and stripe is None:
             raise AccountDeletionUnavailableError(_CANNOT_END_BILLING)
         if stripe is not None:
             for store_id in store_ids:
                 await stripe.cancel(store_id)
-        if revenuecat is not None:
-            await revenuecat.delete_customer(user.clerk_user_id)
+        await revenuecat.delete_customer(user.clerk_user_id)
     except (StripeUnavailableError, RevenueCatUnavailableError) as exc:
         raise AccountDeletionFailedError(_CANNOT_END_BILLING) from exc
 
@@ -86,14 +86,16 @@ async def _live_from_revenuecat(
     ]
 
 
-async def _live_from_grants(session: AsyncSession, user: User, now: datetime) -> list[str]:
-    external_ids = (
-        await session.scalars(
-            select(Grant.external_id).where(
+async def _has_live_stripe_grant(session: AsyncSession, user: User, now: datetime) -> bool:
+    return (
+        await session.scalar(
+            select(Grant.id)
+            .where(
                 Grant.user_id == user.id,
                 Grant.source == GrantSource.STRIPE.value,
                 or_(Grant.expires_at.is_(None), Grant.expires_at > now, Grant.auto_renews),
             )
+            .limit(1)
         )
-    ).all()
-    return [external_id for external_id in external_ids if external_id is not None]
+        is not None
+    )

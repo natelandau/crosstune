@@ -1,4 +1,5 @@
 import CrosstuneStore
+import Foundation
 import Testing
 
 @testable import CrosstuneUI
@@ -52,6 +53,51 @@ import Testing
     @Test func deleteIsEnabledOnceConfirmedWithAvailableCounts() {
         let state = DeleteAccountSheet.CountsState.available(AccountCounts(tunes: 0, lists: 0, recordings: 0))
         #expect(DeleteAccountSheet.deleteEnabled(state, text: "DELETE", pending: false))
+    }
+
+    @Test func theSubscriptionLineFollowsTheSource() {
+        #expect(
+            DeleteAccountSheet.subscriptionLine(Plan(kind: .premium, source: .apple))
+                == DeleteAccountSheet.appleSubscriptionLine)
+        #expect(
+            DeleteAccountSheet.subscriptionLine(Plan(kind: .premium, source: .stripe))
+                == DeleteAccountSheet.stripeSubscriptionLine)
+        for plan in [
+            Plan(kind: .free), Plan(kind: .premium, source: .trial), Plan(kind: .premium, source: .comp), .unknown,
+        ] {
+            #expect(DeleteAccountSheet.subscriptionLine(plan) == nil)
+        }
+    }
+
+    @Test func onlyAnAppStoreSubscriberIsSentToAppStoreSettings() {
+        let apple = Plan(kind: .premium, source: .apple)
+        #expect(DeleteAccountSheet.appStoreSettings(apple, hasClient: true) == .button)
+        // A build with no purchase client still links to Apple's subscription settings.
+        #expect(
+            DeleteAccountSheet.appStoreSettings(apple, hasClient: false)
+                == .link(URL(string: "https://apps.apple.com/account/subscriptions")!))
+        #expect(DeleteAccountSheet.appStoreSettings(Plan(kind: .premium, source: .stripe), hasClient: true) == nil)
+        #expect(DeleteAccountSheet.appStoreSettings(Plan(kind: .free), hasClient: true) == nil)
+    }
+
+    @Test func theCopyMatchesTheWeb() throws {
+        let web = try webCopy("web/src/features/settings/deleteAccountCopy.ts")
+        let shared: [(String, String)] = [
+            ("DELETE_ACCOUNT", DeleteAccountSheet.title),
+            ("DELETE_ACCOUNT_TITLE", DeleteAccountSheet.heading),
+            ("DELETE_ACCOUNT_LEAD", DeleteAccountSheet.lead),
+            ("SETTINGS_LINE", DeleteAccountSheet.settingsLine),
+            ("UNSYNCED_LINE", DeleteAccountSheet.unsyncedLine),
+            ("CANNOT_UNDO", DeleteAccountSheet.cannotUndo),
+            ("NO_RECOVERY", DeleteAccountSheet.noRecovery),
+            ("DELETE_CONFIRMATION_TEXT", DeleteAccountSheet.confirmationText),
+            ("STRIPE_SUBSCRIPTION_LINE", DeleteAccountSheet.stripeSubscriptionLine),
+            ("APPLE_SUBSCRIPTION_LINE", DeleteAccountSheet.appleSubscriptionLine),
+        ]
+        for (name, value) in shared {
+            let expected = try #require(web[name], "deleteAccountCopy.ts has no constant \(name)")
+            #expect(value == expected, "\(name)")
+        }
     }
 
     @Test func deleteStaysDisabledWithoutConfirmationOrWhilePending() {
