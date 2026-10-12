@@ -22,11 +22,14 @@ describe.each(pages)('%s', (path) => {
 describe('/privacy', () => {
   const text = readPage('/privacy').body.textContent ?? ''
 
-  it.each(['Clerk', 'Neon', 'Railway', 'Cloudflare', 'Sentry', 'PostHog'])('names %s', (name) => {
-    expect(text).toContain(name)
-  })
+  it.each(['Clerk', 'Neon', 'Railway', 'Cloudflare', 'Fastmail', 'Resend', 'Sentry', 'PostHog'])(
+    'names %s',
+    (name) => {
+      expect(text).toContain(name)
+    },
+  )
 
-  it.each(['Email Routing', 'sets cookies'])('discloses "%s"', (phrase) => {
+  it.each(['sets cookies'])('discloses "%s"', (phrase) => {
     expect(text).toContain(phrase)
   })
 
