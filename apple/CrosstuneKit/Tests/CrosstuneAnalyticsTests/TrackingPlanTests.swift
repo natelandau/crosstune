@@ -162,6 +162,10 @@ private let samples: [AnalyticsEvent] = [
     .storageLimitReached(bytesUsed: 600_000_000),
     .premiumSheetShown(reason: .recordings, from: .addToRecordings),
     .noticeShown(notice: .trialReminder),
+    .purchaseStarted(period: .annual, from: .planGroup),
+    .purchaseCompleted(period: .monthly),
+    .purchaseFailed(period: .annual, reason: .pending),
+    .purchaseRestored(outcome: .otherAccount),
     .uploadFailed(reason: .storageFull, origin: .recorded),
     .syncFailed(reason: .network),
     .exportCompleted(format: .zip),
@@ -181,7 +185,8 @@ private func hasASample(_ event: AnalyticsEvent) {
         .recordingTrimmed, .linkAdded, .linkRemoved, .linkOpenedExternally, .findRecordingsUsed, .appleMusicAuthorized,
         .playbackEnded, .playlistStarted, .practiceEnded, .loopSet, .speedChanged, .pitchChanged, .scanAdded,
         .scanViewed, .scanDeleted, .scansReordered, .settingChanged, .usageSharingDisabled, .storageLimitReached,
-        .premiumSheetShown, .noticeShown, .uploadFailed, .syncFailed, .exportCompleted, .exportFailed:
+        .premiumSheetShown, .noticeShown, .purchaseStarted, .purchaseCompleted, .purchaseFailed, .purchaseRestored,
+        .uploadFailed, .syncFailed, .exportCompleted, .exportFailed:
         break
     }
 }
@@ -281,6 +286,9 @@ private let pairedEnums: [(name: String, rawValues: [String])] = [
     ("premium_reason", PremiumReason.allCases.map(\.rawValue)),
     ("premium_entry", PremiumEntry.allCases.map(\.rawValue)),
     ("plan_notice", NoticeKind.allCases.map(\.rawValue)),
+    ("purchase_period", PurchasePeriod.allCases.map(\.rawValue)),
+    ("purchase_failure", PurchaseFailure.allCases.map(\.rawValue)),
+    ("restore_outcome", RestoreOutcome.allCases.map(\.rawValue)),
 ]
 
 @Test(arguments: pairedEnums)

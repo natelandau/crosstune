@@ -101,7 +101,7 @@ export const PREMIUM_ENTRIES = [
   'trial_ended',
 ] as const
 export const PURCHASE_PERIODS = ['annual', 'monthly'] as const
-export const PURCHASE_FAILURES = ['cancelled', 'error'] as const
+export const PURCHASE_FAILURES = ['cancelled', 'error', 'pending'] as const
 export const PLAN_NOTICES = [
   'first_recording',
   'trial_reminder',

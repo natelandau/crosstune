@@ -90,6 +90,10 @@ public enum AnalyticsEvent: Sendable, Equatable {
     case storageLimitReached(bytesUsed: Int64)
     case premiumSheetShown(reason: PremiumReason, from: PremiumEntry)
     case noticeShown(notice: NoticeKind)
+    case purchaseStarted(period: PurchasePeriod, from: PremiumEntry)
+    case purchaseCompleted(period: PurchasePeriod)
+    case purchaseFailed(period: PurchasePeriod, reason: PurchaseFailure)
+    case purchaseRestored(outcome: RestoreOutcome)
     case uploadFailed(reason: FailureReason, origin: RecordingOrigin)
     case syncFailed(reason: FailureReason)
 
@@ -155,6 +159,10 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .storageLimitReached: "storage_limit_reached"
         case .premiumSheetShown: "premium_sheet_shown"
         case .noticeShown: "notice_shown"
+        case .purchaseStarted: "purchase_started"
+        case .purchaseCompleted: "purchase_completed"
+        case .purchaseFailed: "purchase_failed"
+        case .purchaseRestored: "purchase_restored"
         case .uploadFailed: "upload_failed"
         case .syncFailed: "sync_failed"
         case .exportCompleted: "export_completed"
@@ -270,6 +278,14 @@ public enum AnalyticsEvent: Sendable, Equatable {
             ["reason": .string(reason.rawValue), "from": .string(from.rawValue)]
         case .noticeShown(let notice):
             ["notice": .string(notice.rawValue)]
+        case .purchaseStarted(let period, let from):
+            ["period": .string(period.rawValue), "from": .string(from.rawValue)]
+        case .purchaseCompleted(let period):
+            ["period": .string(period.rawValue)]
+        case .purchaseFailed(let period, let reason):
+            ["period": .string(period.rawValue), "reason": .string(reason.rawValue)]
+        case .purchaseRestored(let outcome):
+            ["outcome": .string(outcome.rawValue)]
         case .uploadFailed(let reason, let origin):
             ["failure_reason": .string(reason.rawValue), "origin": .string(origin.rawValue)]
         case .syncFailed(let reason):

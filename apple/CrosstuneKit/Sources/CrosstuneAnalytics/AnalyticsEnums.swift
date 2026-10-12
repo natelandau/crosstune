@@ -260,3 +260,24 @@ public enum NoticeKind: String, CaseIterable, Sendable {
     case trialReminder = "trial_reminder"
     case trialEnded = "trial_ended"
 }
+
+/// The billing period of a Premium purchase.
+public enum PurchasePeriod: String, CaseIterable, Sendable {
+    case annual
+    case monthly
+}
+
+/// Why a Premium purchase did not complete.
+public enum PurchaseFailure: String, CaseIterable, Sendable {
+    case cancelled
+    case error
+    case pending
+}
+
+/// What a restore of App Store purchases found.
+public enum RestoreOutcome: String, CaseIterable, Sendable {
+    case restored
+    case nothing
+    case otherAccount = "other_account"
+    case error
+}

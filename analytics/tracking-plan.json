@@ -292,6 +292,13 @@
     ],
     "purchase_failure": [
       "cancelled",
+      "error",
+      "pending"
+    ],
+    "restore_outcome": [
+      "restored",
+      "nothing",
+      "other_account",
       "error"
     ],
     "plan_notice": [
@@ -1714,6 +1721,7 @@
     "purchase_started": {
       "description": "A person started a Premium purchase",
       "clients": [
+        "apple",
         "web"
       ],
       "answers": [
@@ -1735,6 +1743,7 @@
     "purchase_completed": {
       "description": "A Premium purchase completed",
       "clients": [
+        "apple",
         "web"
       ],
       "answers": [
@@ -1751,6 +1760,7 @@
     "purchase_failed": {
       "description": "A Premium purchase was cancelled or failed",
       "clients": [
+        "apple",
         "web"
       ],
       "answers": [
@@ -1765,6 +1775,22 @@
         "reason": {
           "type": "string",
           "enum": "purchase_failure",
+          "required": true
+        }
+      }
+    },
+    "purchase_restored": {
+      "description": "A person restored App Store purchases",
+      "clients": [
+        "apple"
+      ],
+      "answers": [
+        "purchase_funnel"
+      ],
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": "restore_outcome",
           "required": true
         }
       }
