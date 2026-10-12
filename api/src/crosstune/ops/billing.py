@@ -24,10 +24,10 @@ from sqlalchemy.dialects.postgresql import insert
 from crosstune.billing.access import refresh_entitlement
 from crosstune.billing.grants import grant_comp, revoke_comp, set_trial_end
 from crosstune.config import Settings
+from crosstune.db.base import utc_now
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.db.locks import lock_user
 from crosstune.models import Grant, PendingComp, User
-from crosstune.models.user import utc_now
 from crosstune.vocabulary import GrantKind, GrantSource
 
 if TYPE_CHECKING:
@@ -97,7 +97,12 @@ def check_target(settings: Settings, *, yes: bool, e2e: bool = False) -> None:
         raise BillingCommandError(msg)
 
 
-async def _find_user(session: AsyncSession, account: str) -> User | None:
+async def find_user(session: AsyncSession, account: str) -> User | None:
+    """The account a Clerk user ID or an email names, or None when none does.
+
+    Raises:
+        BillingCommandError: `account` is neither, or an email matches several accounts.
+    """
     if "@" in account:
         stmt = select(User).where(func.lower(User.email) == account.lower())
     elif account.startswith("user_"):
@@ -142,7 +147,7 @@ async def comp(session: AsyncSession, settings: Settings, args: argparse.Namespa
     if expires_at is not None and expires_at <= now:
         msg = f"--until {args.until} is in the past: use --revoke to end a comp"
         raise BillingCommandError(msg)
-    user = await _find_user(session, args.account)
+    user = await find_user(session, args.account)
     if user is None:
         if "@" not in args.account:
             msg = f"no account has Clerk user ID {args.account}"
@@ -206,7 +211,7 @@ async def trial(session: AsyncSession, settings: Settings, args: argparse.Namesp
         BillingCommandError: The account is unknown or has no trial.
     """
     now = utc_now()
-    user = await _find_user(session, args.account)
+    user = await find_user(session, args.account)
     if user is None:
         msg = f"no account matches {args.account}"
         raise BillingCommandError(msg)

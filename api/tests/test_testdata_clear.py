@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 import pytest
 from sqlalchemy import func, select
 
+from crosstune.db.base import utc_now
 from crosstune.models import DeletedAccount, Entitlement, User
-from crosstune.models.user import utc_now
 from crosstune.ops.testdata.clear import clear_account
 from crosstune.ops.testdata.fixture import (
     DEFAULT_FIXTURES_DIR,

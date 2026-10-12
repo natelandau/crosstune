@@ -18,6 +18,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from crosstune.db.base import new_uuid7, utc_now
 from crosstune.db.engine import make_sessionmaker
 from crosstune.files.quota import slot_for_recording
+from crosstune.inactivity.sweep import (
+    INACTIVITY_RUN,
+    RUN_EVERY,
+    claim_inactivity_run,
+    next_inactivity_run,
+)
 from crosstune.jobs import attempt as attempt_module
 from crosstune.jobs import media
 from crosstune.jobs import peaks_job as peaks_job_module
@@ -40,7 +46,7 @@ from crosstune.jobs.runner import JobRunner
 from crosstune.jobs.sweep import ABANDONED_SLOT_GRACE
 from crosstune.jobs.transcode import transcode
 from crosstune.jobs.trim import trim
-from crosstune.models import Job, Recording, RecordingLoop, UploadSlot, User
+from crosstune.models import Job, Recording, RecordingLoop, ScheduledRun, UploadSlot, User
 from crosstune.recordings.service import attach_playback, enqueue_job, ensure_trim_job
 from crosstune.storage.prefixed import PrefixedStore
 from crosstune.storage.store import (
@@ -54,7 +60,7 @@ from crosstune.storage.store import (
     upload_revision,
 )
 from crosstune.vocabulary import JobKind
-from tests.fakes import FakeObjectStore
+from tests.fakes import FakeClerkUsers, FakeMailer, FakeObjectStore
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -1451,6 +1457,282 @@ async def test_next_due_failure_waits_and_continues(runner, monkeypatch) -> None
     await asyncio.wait_for(second_call.wait(), timeout=2)
     assert not task.done()
     await job_runner.stop()
+
+
+def _inactivity_runner(
+    engine, settings: Settings, *, mailer: FakeMailer | None, clerk: FakeClerkUsers | None
+) -> JobRunner:
+    return JobRunner(
+        make_sessionmaker(engine),
+        FakeObjectStore(),
+        orphan_sweep_seconds=None,
+        mailer=mailer,
+        clerk_users=clerk,
+        settings=settings,
+    )
+
+
+@pytest.mark.parametrize("missing", ["mailer", "clerk"])
+async def test_the_inactivity_pass_never_runs_without_mail_or_clerk(
+    engine, settings: Settings, verify_session, monkeypatch, missing: str
+) -> None:
+    passes = AsyncMock(return_value=0)
+    monkeypatch.setattr(runner_module, "run_inactivity", passes)
+    job_runner = _inactivity_runner(
+        engine,
+        settings,
+        mailer=None if missing == "mailer" else FakeMailer(),
+        clerk=None if missing == "clerk" else FakeClerkUsers(),
+    )
+
+    assert await job_runner.run_once() == 0
+    assert await job_runner.next_due() == datetime.max.replace(tzinfo=UTC)
+    passes.assert_not_awaited()
+    assert await verify_session.scalar(select(ScheduledRun)) is None
+
+
+async def test_the_inactivity_pass_runs_once_a_day(
+    engine, settings: Settings, verify_session, monkeypatch
+) -> None:
+    passes = AsyncMock(return_value=0)
+    monkeypatch.setattr(runner_module, "run_inactivity", passes)
+    mailer, clerk = FakeMailer(), FakeClerkUsers()
+    job_runner = _inactivity_runner(engine, settings, mailer=mailer, clerk=clerk)
+    assert await job_runner.next_due() <= utc_now()
+
+    before = utc_now()
+    assert await job_runner.run_once() == 1
+    first_pass = job_runner.inactivity_task
+    assert first_pass is not None
+    await first_pass
+    assert await job_runner.run_once() == 0
+    assert job_runner.inactivity_task is first_pass
+
+    passes.assert_awaited_once()
+    args = passes.await_args.args
+    assert args[1:4] == (mailer, clerk, settings)
+    assert passes.await_args.kwargs == {"clock": utc_now}
+    assert before <= args[4] <= utc_now()
+    stored = await verify_session.scalar(
+        select(ScheduledRun.next_run_at).where(ScheduledRun.name == INACTIVITY_RUN)
+    )
+    assert stored == args[4] + RUN_EVERY
+    assert await job_runner.next_due() == stored
+
+
+async def test_a_running_inactivity_pass_never_holds_up_queued_work(
+    engine, settings: Settings, verify_session, monkeypatch
+) -> None:
+    started, release = asyncio.Event(), asyncio.Event()
+
+    async def slow_pass(*_args: object, **_kwargs: object) -> int:
+        started.set()
+        await release.wait()
+        return 0
+
+    monkeypatch.setattr(runner_module, "run_inactivity", slow_pass)
+    claims = AsyncMock(wraps=claim_inactivity_run)
+    monkeypatch.setattr(runner_module, "claim_inactivity_run", claims)
+    job_runner = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+
+    assert await job_runner.run_once() == 1
+    running = job_runner.inactivity_task
+    assert running is not None
+    await asyncio.wait_for(started.wait(), timeout=5)
+
+    # A job that exhausted its attempts is dropped by the loop while the pass is blocked.
+    user = await make_user(verify_session)
+    rec = await add_recording(verify_session, user, "processing")
+    verify_session.add(Job(recording_id=rec.id, user_id=user.id, attempts=MAX_ATTEMPTS))
+    await verify_session.commit()
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert rec.state == "failed"
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == rec.id)) is None
+    assert not running.done()
+
+    # The loop goes on while the pass waits, and never starts a second one.
+    assert await job_runner.run_once() == 0
+    assert job_runner.inactivity_task is running
+    assert claims.await_count == 1
+
+    release.set()
+    await running
+    assert job_runner._wake.is_set()
+
+
+async def test_a_not_yet_due_inactivity_pass_writes_nothing(
+    engine, settings: Settings, verify_session, monkeypatch
+) -> None:
+    due = utc_now() + timedelta(hours=1)
+    verify_session.add(ScheduledRun(name=INACTIVITY_RUN, next_run_at=due))
+    await verify_session.commit()
+    passes = AsyncMock(return_value=0)
+    monkeypatch.setattr(runner_module, "run_inactivity", passes)
+    claims = AsyncMock(wraps=claim_inactivity_run)
+    monkeypatch.setattr(runner_module, "claim_inactivity_run", claims)
+    job_runner = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+
+    for _ in range(3):
+        assert await job_runner.run_once() == 0
+    assert await job_runner.next_due() == due
+
+    claims.assert_not_awaited()
+    passes.assert_not_awaited()
+    assert job_runner.inactivity_task is None
+
+
+async def test_a_lost_inactivity_claim_rereads_the_due_time_once(
+    engine, settings: Settings, truncate_all: None, monkeypatch
+) -> None:
+    passes = AsyncMock(return_value=0)
+    monkeypatch.setattr(runner_module, "run_inactivity", passes)
+    claims = AsyncMock(wraps=claim_inactivity_run)
+    monkeypatch.setattr(runner_module, "claim_inactivity_run", claims)
+    loser = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+    winner = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+    # The loser reads "never run" before the winner claims.
+    assert await loser.next_due() <= utc_now()
+
+    assert await winner.run_once() == 1
+    assert winner.inactivity_task is not None
+    await winner.inactivity_task
+    assert await loser.run_once() == 0
+    assert await loser.run_once() == 0
+
+    assert claims.await_count == 2
+    passes.assert_awaited_once()
+    assert loser.inactivity_task is None
+    assert await loser.next_due() == await winner.next_due()
+
+
+async def test_stop_cancels_an_inactivity_pass_that_will_not_finish(
+    engine, settings: Settings, truncate_all: None, monkeypatch
+) -> None:
+    monkeypatch.setattr(runner_module, "STOP_TIMEOUT_SECONDS", 0.1)
+    started = asyncio.Event()
+
+    async def stuck_pass(*_args: object, **_kwargs: object) -> int:
+        started.set()
+        await asyncio.Event().wait()
+        return 0
+
+    monkeypatch.setattr(runner_module, "run_inactivity", stuck_pass)
+    job_runner = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+    job_runner.start()
+    await asyncio.wait_for(started.wait(), timeout=5)
+    running = job_runner.inactivity_task
+    assert running is not None
+
+    await asyncio.wait_for(job_runner.stop(), timeout=5)
+    assert running.cancelled()
+    assert job_runner.task is not None
+    assert job_runner.task.done()
+
+
+async def test_stop_waits_for_an_inactivity_pass_that_finishes_in_time(
+    engine, settings: Settings, truncate_all: None, monkeypatch
+) -> None:
+    started, release = asyncio.Event(), asyncio.Event()
+    finished: list[bool] = []
+
+    async def short_pass(*_args: object, **_kwargs: object) -> int:
+        started.set()
+        await release.wait()
+        finished.append(True)
+        return 0
+
+    monkeypatch.setattr(runner_module, "run_inactivity", short_pass)
+    job_runner = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+    job_runner.start()
+    await asyncio.wait_for(started.wait(), timeout=5)
+    running = job_runner.inactivity_task
+    assert running is not None
+
+    stopping = asyncio.create_task(job_runner.stop())
+    await asyncio.wait_for(job_runner.task, timeout=5)
+    assert not stopping.done()
+    release.set()
+    await asyncio.wait_for(stopping, timeout=5)
+    assert finished == [True]
+    assert not running.cancelled()
+
+
+async def test_stop_twice_in_a_row_is_safe(
+    engine, settings: Settings, truncate_all: None, monkeypatch
+) -> None:
+    monkeypatch.setattr(runner_module, "STOP_TIMEOUT_SECONDS", 0.1)
+    started = asyncio.Event()
+
+    async def stuck_pass(*_args: object, **_kwargs: object) -> int:
+        started.set()
+        await asyncio.Event().wait()
+        return 0
+
+    monkeypatch.setattr(runner_module, "run_inactivity", stuck_pass)
+    job_runner = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+    job_runner.start()
+    await asyncio.wait_for(started.wait(), timeout=5)
+
+    await asyncio.wait_for(job_runner.stop(), timeout=5)
+    await asyncio.wait_for(job_runner.stop(), timeout=5)
+    assert job_runner.inactivity_task is not None
+    assert job_runner.inactivity_task.cancelled()
+
+
+async def test_stop_finishes_the_inactivity_pass_after_the_loop_task_raised(
+    engine, settings: Settings, truncate_all: None, monkeypatch, caplog
+) -> None:
+    monkeypatch.setattr(runner_module, "STOP_TIMEOUT_SECONDS", 0.1)
+    started = asyncio.Event()
+
+    async def stuck_pass() -> None:
+        started.set()
+        await asyncio.Event().wait()
+
+    async def failing_loop() -> None:
+        msg = "loop failed"
+        raise RuntimeError(msg)
+
+    job_runner = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+    pass_task = asyncio.create_task(stuck_pass())
+    job_runner.inactivity_task = pass_task
+    await asyncio.wait_for(started.wait(), timeout=5)
+    loop_task = asyncio.create_task(failing_loop())
+    job_runner.task = loop_task
+    await asyncio.wait({loop_task}, timeout=5)
+
+    with caplog.at_level(logging.ERROR, logger=runner_module.log.name):
+        await asyncio.wait_for(job_runner.stop(), timeout=5)
+    assert pass_task.cancelled()
+    assert "job runner task failed" in caplog.text
+
+
+async def test_claiming_the_inactivity_run_is_due_once_per_day(engine, verify_session) -> None:
+    sessionmaker = make_sessionmaker(engine)
+    at = datetime(2027, 3, 1, 9, 0, tzinfo=UTC)
+    async with sessionmaker() as session:
+        assert await next_inactivity_run(session) is None
+
+    assert await claim_inactivity_run(sessionmaker, at) is True
+    assert await claim_inactivity_run(sessionmaker, at) is False
+    assert await claim_inactivity_run(sessionmaker, at + RUN_EVERY - timedelta(seconds=1)) is False
+    async with sessionmaker() as session:
+        assert await next_inactivity_run(session) == at + RUN_EVERY
+
+    assert await claim_inactivity_run(sessionmaker, at + RUN_EVERY) is True
+    async with sessionmaker() as session:
+        assert await next_inactivity_run(session) == at + 2 * RUN_EVERY
+
+
+async def test_two_processes_never_claim_the_same_inactivity_run(engine, verify_session) -> None:
+    sessionmaker = make_sessionmaker(engine)
+    at = datetime(2027, 3, 1, 9, 0, tzinfo=UTC)
+    for day in range(3):
+        claims = await asyncio.gather(
+            *(claim_inactivity_run(sessionmaker, at + day * RUN_EVERY) for _ in range(4))
+        )
+        assert sorted(claims) == [False, False, False, True]
 
 
 class _WriteTrackingStore(FakeObjectStore):

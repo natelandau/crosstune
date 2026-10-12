@@ -178,6 +178,18 @@ comp *args:
 trial *args:
     uv run python -m crosstune.ops.billing trial "$@"
 
+# Preview, test-send, or run the inactive-account warnings (preview, send-test, run)
+[group('billing')]
+[positional-arguments]
+inactivity *args:
+    uv run python -m crosstune.ops.inactivity "$@"
+
+# Preview, test-send, or run the inactive-account warnings on Railway development
+[group('billing')]
+[positional-arguments]
+inactivity-railway *args:
+    railway ssh --environment development --service crosstune -- python -m crosstune.ops.inactivity "$@"
+
 # End or move the trial of an account in the e2e database, for the e2e suite
 [group('billing')]
 [positional-arguments]

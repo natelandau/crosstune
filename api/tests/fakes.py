@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from crosstune.storage.store import ListedObject, ObjectInfo
+from crosstune.users.clerk import ClerkUser
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -13,14 +14,20 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from crosstune.billing.grants import PaidSubscription
+    from crosstune.email.resend import EmailMessage
 
 
 class FakeClerkUsers:
-    """A ClerkUsers stand-in. Set `error` to make the next delete_user raise it."""
+    """A ClerkUsers stand-in. While `error` is set, every call raises it.
 
-    def __init__(self) -> None:
+    `users` maps each Clerk user ID that `find_user` knows to its email, or None.
+    """
+
+    def __init__(self, users: dict[str, str | None] | None = None) -> None:
         self.deleted: list[str] = []
         self.error: Exception | None = None
+        self.users: dict[str, str | None] = users if users is not None else {}
+        self.looked_up: list[str] = []
 
     async def delete_user(self, clerk_user_id: str) -> None:
         """Record the id, or raise the configured error instead of deleting."""
@@ -28,9 +35,32 @@ class FakeClerkUsers:
             raise self.error
         self.deleted.append(clerk_user_id)
 
+    async def find_user(self, account: str) -> ClerkUser | None:
+        """The configured user for a Clerk user ID, or raise the configured error instead."""
+        self.looked_up.append(account)
+        if self.error is not None:
+            raise self.error
+        if account not in self.users:
+            return None
+        return ClerkUser(account, self.users[account])
+
+
+class FakeMailer:
+    """A Mailer stand-in. While `error` is set, every send raises it."""
+
+    def __init__(self) -> None:
+        self.sent: list[tuple[EmailMessage, str]] = []
+        self.error: Exception | None = None
+
+    async def send(self, message: EmailMessage, *, idempotency_key: str) -> None:
+        """Record the message and its key, or raise the configured error instead."""
+        if self.error is not None:
+            raise self.error
+        self.sent.append((message, idempotency_key))
+
 
 class FakeRevenueCat:
-    """A RevenueCat stand-in. Set `error` to make the next call raise it."""
+    """A RevenueCat stand-in. While `error` is set, every call raises it."""
 
     def __init__(
         self,
@@ -58,7 +88,7 @@ class FakeRevenueCat:
 
 
 class FakeStripe:
-    """A StripeSubscriptions stand-in. Set `error` to make the next cancel raise it."""
+    """A StripeSubscriptions stand-in. While `error` is set, every cancel raises it."""
 
     def __init__(self, cancelled: list[str] | None = None, error: Exception | None = None) -> None:
         self.cancelled = cancelled if cancelled is not None else []
@@ -72,7 +102,7 @@ class FakeStripe:
 
 
 class FakeAnalyticsPersons:
-    """An AnalyticsPersons stand-in. Set `error` to make the next delete_person raise it."""
+    """An AnalyticsPersons stand-in. While `error` is set, every delete_person raises it."""
 
     def __init__(self) -> None:
         self.deleted: list[str] = []

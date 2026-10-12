@@ -429,7 +429,7 @@ async def _delete(
             execution_options={"populate_existing": True},
         )
     ).scalar_one()
-    await _cascade(session, spec, [change.id], change.updated_at, user_id)
+    await cascade_delete(session, spec, [change.id], change.updated_at, user_id)
     if _reaches_files(spec):
         # A deleted row that owns files, or one the cascade reached, has files only the
         # runner's purge removes, and a purge has no due time to wake it.
@@ -437,7 +437,7 @@ async def _delete(
     return _result(spec, change, "applied", current)
 
 
-async def _cascade(
+async def cascade_delete(
     session: AsyncSession,
     spec: TableSpec,
     parent_ids: Iterable[uuid.UUID] | Select[tuple[uuid.UUID]],
@@ -456,7 +456,7 @@ async def _cascade(
         child_ids = select(model.id).where(
             getattr(model, fk_column).in_(parent_ids), child.owned_by(user_id)
         )
-        await _cascade(session, child, child_ids, at, user_id)
+        await cascade_delete(session, child, child_ids, at, user_id)
         await session.execute(
             update(model)
             .where(model.id.in_(child_ids), model.deleted_at.is_(None))

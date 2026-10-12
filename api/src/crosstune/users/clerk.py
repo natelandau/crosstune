@@ -16,10 +16,14 @@ _USER_ID = re.compile(r"user_[A-Za-z0-9]+")
 
 
 class ClerkUsers(Protocol):
-    """What `DELETE /v1/me` needs from Clerk, held on `app.state` so tests can fake it."""
+    """What account deletion and inactivity warnings need from Clerk, held on `app.state`."""
 
     async def delete_user(self, clerk_user_id: str) -> None:
         """Delete the Clerk user. A user already gone counts as deleted, not an error."""
+        ...
+
+    async def find_user(self, account: str) -> ClerkUser | None:
+        """Look up a user by email address or Clerk user ID, or None when there is none."""
         ...
 
 

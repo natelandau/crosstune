@@ -12,9 +12,9 @@ from sqlalchemy import func, select
 
 from crosstune.billing.access import refresh_entitlement
 from crosstune.config import Settings
+from crosstune.db.base import utc_now
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.models import Entitlement, Grant, List, PendingComp, Tune, User
-from crosstune.models.user import utc_now
 from crosstune.ops.testdata import cli
 from crosstune.ops.testdata.errors import DataCommandError
 from crosstune.ops.testdata.fixture import DEFAULT_FIXTURES_DIR, FixtureError, load_fixture

@@ -83,6 +83,8 @@
     CROSSTUNE_REVENUECAT_WEBHOOK_AUTH            = ""
     CROSSTUNE_STRIPE_CANCEL_KEY                  = ""
     CROSSTUNE_BILLING_ACCEPT_SANDBOX_STRIPE      = "false"
+    # Pinned empty so a developer's api/.env Resend key cannot leak into the suite.
+    CROSSTUNE_RESEND_API_KEY                     = ""
     # Pinned empty so a developer's api/.env DSN cannot leak into the suite.
     CROSSTUNE_SENTRY_DSN                         = ""
     # Pinned empty so a developer's api/.env storage settings cannot leak into the suite.

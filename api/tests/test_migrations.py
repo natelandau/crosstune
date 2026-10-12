@@ -2995,3 +2995,78 @@ async def test_0038_adds_the_nullable_trial_end_column_and_downgrade_drops_it(
     assert before == []
     assert [tuple(row) for row in after] == [("YES",)]
     assert dropped == []
+
+
+async def test_0040_creates_inactivity_tables_and_downgrade_drops_them(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    query = text(
+        "select table_name, column_name, is_nullable from information_schema.columns "
+        "where table_name in ('inactivity_notices', 'scheduled_runs') "
+        "order by table_name, column_name"
+    )
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0039")
+        async with engine.connect() as conn:
+            before = (await conn.execute(query)).all()
+        await anyio.to_thread.run_sync(command.upgrade, config, "0040")
+        async with engine.connect() as conn:
+            after = [tuple(row) for row in (await conn.execute(query)).all()]
+        await anyio.to_thread.run_sync(command.downgrade, config, "0039")
+        async with engine.connect() as conn:
+            dropped = (await conn.execute(query)).all()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert before == []
+    assert after == [
+        ("inactivity_notices", "active_since", "NO"),
+        ("inactivity_notices", "deletion_due_at", "YES"),
+        ("inactivity_notices", "first_sent_at", "YES"),
+        ("inactivity_notices", "second_sent_at", "YES"),
+        ("inactivity_notices", "user_id", "NO"),
+        ("scheduled_runs", "name", "NO"),
+        ("scheduled_runs", "next_run_at", "NO"),
+    ]
+    assert dropped == []
+
+
+async def test_0040_keys_and_types(session: AsyncSession) -> None:
+    types = (
+        await session.execute(
+            text(
+                "select table_name, column_name, data_type from information_schema.columns "
+                "where table_name in ('inactivity_notices', 'scheduled_runs') "
+                "order by table_name, column_name"
+            )
+        )
+    ).all()
+    assert [tuple(row) for row in types] == [
+        ("inactivity_notices", "active_since", "timestamp with time zone"),
+        ("inactivity_notices", "deletion_due_at", "timestamp with time zone"),
+        ("inactivity_notices", "first_sent_at", "timestamp with time zone"),
+        ("inactivity_notices", "second_sent_at", "timestamp with time zone"),
+        ("inactivity_notices", "user_id", "uuid"),
+        ("scheduled_runs", "name", "character varying"),
+        ("scheduled_runs", "next_run_at", "timestamp with time zone"),
+    ]
+    constraints = (
+        await session.execute(
+            text(
+                "select c.conrelid::regclass::text, c.contype::text, "
+                "c.confrelid::regclass::text, c.confdeltype::text, "
+                "array(select a.attname from unnest(c.conkey) k "
+                "join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k) "
+                "from pg_constraint c "
+                "where c.conrelid in ('inactivity_notices'::regclass, 'scheduled_runs'::regclass) "
+                "and c.contype in ('p', 'f') "
+                "order by 1, 2"
+            )
+        )
+    ).all()
+    assert [tuple(row) for row in constraints] == [
+        ("inactivity_notices", "f", "users", "c", ["user_id"]),
+        ("inactivity_notices", "p", "-", " ", ["user_id"]),
+        ("scheduled_runs", "p", "-", " ", ["name"]),
+    ]

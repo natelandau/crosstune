@@ -4,6 +4,7 @@ from crosstune.models.analytics_deletion import AnalyticsDeletion
 from crosstune.models.deleted_account import DeletedAccount
 from crosstune.models.entitlement import Entitlement
 from crosstune.models.grant import Grant
+from crosstune.models.inactivity import InactivityNotice, ScheduledRun
 from crosstune.models.job import Job, UploadSlot
 from crosstune.models.list import List, ListItem
 from crosstune.models.pending_comp import PendingComp
@@ -25,6 +26,7 @@ __all__ = [
     "DeletedAccount",
     "Entitlement",
     "Grant",
+    "InactivityNotice",
     "Job",
     "List",
     "ListItem",
@@ -36,6 +38,7 @@ __all__ = [
     "RecordingLoop",
     "Scan",
     "ScanView",
+    "ScheduledRun",
     "StatusChange",
     "Tune",
     "UploadSlot",

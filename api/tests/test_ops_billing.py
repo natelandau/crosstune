@@ -13,9 +13,9 @@ from sqlalchemy import select, text
 from crosstune.billing.access import refresh_entitlement
 from crosstune.billing.grants import grant_comp, set_trial_end
 from crosstune.config import Settings
+from crosstune.db.base import utc_now
 from crosstune.db.locks import advisory_lock_key
 from crosstune.models import Entitlement, Grant, PendingComp
-from crosstune.models.user import utc_now
 from crosstune.ops import billing
 from crosstune.users.service import get_or_create_user
 from crosstune.vocabulary import GrantSource

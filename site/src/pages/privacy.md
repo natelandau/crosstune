@@ -7,7 +7,7 @@ path: /privacy
 
 # Privacy policy
 
-Last updated: 2026-10-10
+Last updated: 2026-10-12
 
 Crosstune is run by Nathaniel Landau, an individual. This page explains what data the service holds and who handles it. Questions go to [support@crosstune.app](mailto:support@crosstune.app).
 
@@ -24,7 +24,9 @@ Crosstune is run by Nathaniel Landau, an individual. This page explains what dat
 - Clerk handles sign-in. It holds your email address, your name and profile details, and your session data.
 - Neon hosts the database that holds your catalog and your activity.
 - Railway runs the Crosstune API.
-- Cloudflare serves this site and the web app. It also stores your recordings and scans in its R2 storage and forwards email sent to support@crosstune.app through Cloudflare Email Routing.
+- Cloudflare serves this site and the web app. It also stores your recordings and scans in its R2 storage.
+- Fastmail receives email sent to support@crosstune.app.
+- Resend sends the emails that warn you before Crosstune deletes the recordings and scans of an account that is not on Premium and has not synced for a year. It receives your email address and the content of those emails.
 - Sentry receives error reports from the API and the web app.
 - PostHog Cloud, in the United States, receives usage analytics from this site, the web app, and the iPhone, iPad, and Mac apps. See Usage analytics below for what it receives.
 - Apple sells Premium in the App Store. Apple holds your payment details, and Crosstune never receives them.

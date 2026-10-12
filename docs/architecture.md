@@ -283,6 +283,32 @@ predates a notice cannot reset it. A post refused with a 4xx that is not
 an auth failure, a timeout, or a rate limit is not sent again, and the
 notice stays seen on the device.
 
+### Inactive accounts
+
+An account with no active Premium grant that has not synced for 365 days
+loses its recordings and scans. The account, its tunes, lists, and settings
+stay. Activity is the last sync, or the creation time for an account that
+never synced.
+
+- The job runner runs the pass once a day, as a task beside its job loop, so
+  queued jobs never wait on it. A stored due time in `scheduled_runs` is
+  claimed with one upsert, so one process runs each pass.
+- The pass warns only an account that holds a live recording or scan. It
+  sends the first warning 30 days before deletion and the second 7 days
+  before, to the primary email address that Clerk holds at send time.
+- Sent times count from when Resend accepted each warning, and each recorded
+  send sets the deletion date: no sooner than 30 days after the first warning
+  and 7 days after the second. Deletion needs both warnings recorded, the
+  deletion date reached, and 7 days since the second warning.
+- A sync, a Premium grant, or the loss of every file clears the stored
+  warnings, and the count starts again.
+- Without a Resend key or a Clerk client, the pass does nothing. No warning
+  goes out, so no account loses a file.
+- Deletion is a server-side soft delete. It re-checks the account under
+  `lock_user`, then tombstones its recordings, their loops, and its scans as a
+  client delete does. Devices drop them on their next pull, and the purge
+  removes the files.
+
 ## Sign-in
 
 - Clerk's UI runs in the client. Before each request the client asks Clerk
