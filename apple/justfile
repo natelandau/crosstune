@@ -11,7 +11,7 @@ derived_data := ".build/DerivedData"
 xcodebuild := "../scripts/scrub-env.sh xcodebuild"
 swift := "../scripts/scrub-env.sh swift"
 # Runs a lint or test gate through gate-cache when it is installed
-gate := "../scripts/gate.sh"
+gate := "../scripts/gate-cache.sh"
 # Marketing captures land here: each simulator pass's result bundle and exported attachments,
 # and the Mac window still. `capture-test` clears it, so it only ever holds the latest run.
 capture := ".build/capture"
@@ -28,7 +28,7 @@ sources:
 # Check formatting and lint rules with swift format
 [group('lint')]
 format:
-    {{ gate }} apple-swift-format bash -c 'just sources | xargs swift format lint --strict'
+    {{ gate }} apple-swift-format --tool 'swift --version' bash -c 'just sources | xargs swift format lint --strict'
 
 # Spell check the Apple client
 [group('lint')]
@@ -38,7 +38,7 @@ typos:
 # Fail when the committed Swift client or vocabulary no longer match the OpenAPI schema
 [group('lint')]
 contract-check:
-    {{ gate }} apple-contract-check just _contract-check
+    {{ gate }} apple-contract-check --tool 'swift --version' just _contract-check
 
 [private]
 _contract-check:
@@ -73,7 +73,7 @@ fix:
 [group('test')]
 [positional-arguments]
 test *args:
-    if [ "$#" -eq 0 ]; then {{ gate }} apple-test {{ swift }} test --package-path CrosstuneKit; else {{ swift }} test --package-path CrosstuneKit "$@"; fi
+    if [ "$#" -eq 0 ]; then {{ gate }} apple-test --tool 'swift --version' {{ swift }} test --package-path CrosstuneKit; else {{ swift }} test --package-path CrosstuneKit "$@"; fi
 
 # The compilation cache is keyed on content rather than file dates, so CI restores it into a
 # fresh checkout and still hits.

@@ -128,19 +128,27 @@ a local development account. It refuses to run unless `api/.env` sets
 
 A lint or test recipe runs through
 [gate-cache](https://github.com/natelandau/gate-cache), an API dev
-dependency. It records a pass against the git tree of the tracked files,
-and skips when the recipe runs again on the same tree. Hooks, people, and
+dependency. It records a pass against the git tree of every file git does
+not ignore, committed or not, and skips when the recipe runs again on the
+same tree. Hooks, people, and
 agents run the same recipes, so a pass from one skips the gate for the
-others, in every worktree. CI never skips a gate.
+others, in every worktree. gate-cache turns itself off when `CI` is set,
+so CI never skips a gate.
 
 - A recipe run with args always runs and records nothing.
-- With unstaged changes or untracked files, nothing skips or records.
-  Stage your work before you run a gate, and the pass covers the commit,
-  so the pre-push hook skips that gate.
-- `just gate status --name <gate>` says whether a gate would skip. Each
-  recipe names its gate after `gate.sh`.
+- A pass on uncommitted work covers the commit of that work, so the commit
+  and pre-push hooks skip the gate.
+- A gate that reads an ignored file, such as a module's `.env`, names it
+  with `--file` after the gate name. One whose result depends on a tool
+  no lockfile pins, such as Node, ffmpeg, or Xcode's Swift, names the
+  command that prints its version with `--tool`. A hash of both joins
+  the gate name, so a change to either runs the gate again.
+- `just gate status` lists the gates that passed on the current tree and
+  the gates that ran on it without a pass. `just gate status --name <gate>`
+  says whether one gate would skip; a gate keyed with `--file` or
+  `--tool` carries its hash, as in `web-test@3f9a1c2b7d10`.
 - `GATE_CACHE_DISABLE=1 just <recipe>` forces a full run.
-- After a change git does not track, such as a tool or Xcode upgrade, run
+- After a change to any other input git does not track, run
   `just gate clear`.
 
 The end-to-end suite:

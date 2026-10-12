@@ -8,7 +8,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 e2e_api := "http://localhost:8001"
 
 # Runs a lint or test gate through gate-cache when it is installed
-gate := "../scripts/gate.sh"
+gate := "../scripts/gate-cache.sh"
 
 [private]
 default:
@@ -71,19 +71,19 @@ fix:
 [group('test')]
 [positional-arguments]
 test *args:
-    if [ "$#" -eq 0 ]; then {{ gate }} web-test pnpm vitest run; else pnpm vitest run "$@"; fi
+    if [ "$#" -eq 0 ]; then {{ gate }} web-test --file .env --tool 'node --version' pnpm vitest run; else pnpm vitest run "$@"; fi
 
 # Run only the jsdom unit project
 [group('test')]
 [positional-arguments]
 test-unit *args:
-    if [ "$#" -eq 0 ]; then {{ gate }} web-test-unit pnpm vitest run --project unit; else pnpm vitest run --project unit "$@"; fi
+    if [ "$#" -eq 0 ]; then {{ gate }} web-test-unit --file .env --tool 'node --version' pnpm vitest run --project unit; else pnpm vitest run --project unit "$@"; fi
 
 # Run only the browser projects: Chromium, and WebKit
 [group('test')]
 [positional-arguments]
 test-browser *args:
-    if [ "$#" -eq 0 ]; then {{ gate }} web-test-browser pnpm vitest run --project browser --project browser-webkit; else pnpm vitest run --project browser --project browser-webkit "$@"; fi
+    if [ "$#" -eq 0 ]; then {{ gate }} web-test-browser --file .env --tool 'node --version' pnpm vitest run --project browser --project browser-webkit; else pnpm vitest run --project browser --project browser-webkit "$@"; fi
 
 # Run tests shuffled, a new order each run, and list the seeds that failed; SEED=<n> replays one
 [group('test')]
