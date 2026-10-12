@@ -3,6 +3,9 @@
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
+# Runs a lint or test gate through gate-cache when it is installed
+gate := "../scripts/gate.sh"
+
 [private]
 default:
     @just --list analytics
@@ -10,13 +13,13 @@ default:
 # Check the tracking plan for naming, enum, bucket, and content-rule problems
 [group('lint')]
 check:
-    uv run --project ../api python plan.py check
+    {{ gate }} analytics-check uv run --project ../api python plan.py check
 
 # Run the checker's tests and the plan's own test; extra args go to pytest
 [group('test')]
 [positional-arguments]
 test *args:
-    uv run --project ../api python -m pytest test_plan.py -q "$@"
+    if [ "$#" -eq 0 ]; then {{ gate }} analytics-test uv run --project ../api python -m pytest test_plan.py -q; else uv run --project ../api python -m pytest test_plan.py -q "$@"; fi
 
 # Push each planned event's description and tags to PostHog and mark it verified
 [group('analytics')]

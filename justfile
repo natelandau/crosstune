@@ -30,7 +30,12 @@ lint-repo:
 
 # Spell check the whole repository, or only the given paths
 typos *paths:
-    uv run --project api --only-group typos typos --config .typos.toml {{ paths }}
+    if [ -z '{{ paths }}' ]; then scripts/gate.sh typos uv run --project api --only-group typos typos --config .typos.toml; else uv run --project api --only-group typos typos --config .typos.toml {{ paths }}; fi
+
+# Run gate-cache: `status --name <gate>` says whether a gate would skip, `clear` forgets every pass
+[positional-arguments]
+gate *args:
+    uv run --project api gate-cache "$@"
 
 # Check formatting in every module
 format: api::format web::format site::format apple::format

@@ -90,6 +90,16 @@ every label. The glossary in `docs/product.md` has the reasons.
   `apple/justfile`,
   tagged with a `[group(...)]` that matches their neighbors. A root
   aggregate calls every module.
+- Lint and test recipes skip a gate that already passed on the same
+  tree (gate-cache; `docs/operations.md`). Run the recipe again rather than
+  judging whether it needs to run. Stage every change (`git add`) before
+  a gate runs: with unstaged or untracked files it records nothing, so the
+  pre-push hook runs it again. `just gate status --name <gate>`
+  checks without running, `GATE_CACHE_DISABLE=1 just <recipe>` forces a
+  run, and `just gate clear` follows a change git does not track, such
+  as a tool upgrade. A new lint or test recipe runs its bare form, never
+  a run with args, through `{{ gate }}` under a name no other gate uses.
+  Never put a check through it that reads anything git does not track.
 - Spell check with `just typos [paths]`. Never run typos or any other tool
   through `uvx`. Do not add another task runner.
 

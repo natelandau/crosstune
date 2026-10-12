@@ -126,6 +126,23 @@ a local development account. It refuses to run unless `api/.env` sets
 | `just typos [paths]`          | Spell check.                                                                                                                                             |
 | `just e2e [args]`             | The Playwright suite. Args go to Playwright.                                                                                                             |
 
+A lint or test recipe runs through
+[gate-cache](https://github.com/natelandau/gate-cache), an API dev
+dependency. It records a pass against the git tree of the tracked files,
+and skips when the recipe runs again on the same tree. Hooks, people, and
+agents run the same recipes, so a pass from one skips the gate for the
+others, in every worktree. CI never skips a gate.
+
+- A recipe run with args always runs and records nothing.
+- With unstaged changes or untracked files, nothing skips or records.
+  Stage your work before you run a gate, and the pass covers the commit,
+  so the pre-push hook skips that gate.
+- `just gate status --name <gate>` says whether a gate would skip. Each
+  recipe names its gate after `gate.sh`.
+- `GATE_CACHE_DISABLE=1 just <recipe>` forces a full run.
+- After a change git does not track, such as a tool or Xcode upgrade, run
+  `just gate clear`.
+
 The end-to-end suite:
 
 - Signs in through the Clerk development instance and spends its usage
