@@ -17,7 +17,9 @@ const APPEARANCE = {
     colorBackground: 'var(--ground)',
     colorInput: 'var(--ground)',
     colorInputForeground: 'var(--ink)',
-    colorBorder: 'var(--hairline)',
+    // Clerk fades this to about a tenth for input borders, so it takes an opaque color; the
+    // already translucent hairline would vanish.
+    colorBorder: 'var(--ink)',
     colorDanger: 'var(--danger)',
     colorNeutral: 'var(--ink)',
     fontFamily: 'var(--font-sans)',
