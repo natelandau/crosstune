@@ -326,7 +326,7 @@ requires-dist = [
 dev = [
     { name = "anyio", specifier = ">=4.15.1" },
     { name = "commitizen", specifier = ">=4.18.0" },
-    { name = "gate-cache", specifier = ">=0.1.0" },
+    { name = "gate-cache", specifier = ">=0.4.0" },
     { name = "honcho", specifier = ">=2.0.0" },
     { name = "prek", specifier = ">=0.5.2" },
     { name = "pytest", specifier = ">=9.1.1" },
@@ -465,15 +465,16 @@ wheels = [
 
 [[package]]
 name = "gate-cache"
-version = "0.1.0"
+version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cyclopts" },
     { name = "nclutils" },
+    { name = "platformdirs" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0a/3e/b3040c0bb56e5c35d23e712376a01c12082f766cb6de8bd642dada367595/gate_cache-0.1.0.tar.gz", hash = "sha256:4edf66db798dbd6ae9cb53062140665cd1e9da4ef450a56ca71435586cf384b9", size = 15439, upload-time = "2026-10-12T00:26:49.281Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/37/17/3bd4899dbae5bca537d50b836b28529d6d021e37c62335ad4fc921c0b2ad/gate_cache-0.4.0.tar.gz", hash = "sha256:29484e4d21373db47e39d2703e1bf47a0f43c6717f70dad499bfc35f2d1e26de", size = 22899, upload-time = "2026-10-12T14:41:31.734Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/88/08/433321b8b9c713ab1c74c7464fe743e94584baf3c97a2c52d8d80a66e0d9/gate_cache-0.1.0-py3-none-any.whl", hash = "sha256:6ab0e2cd045657b2acfb3189531a2e03f009c18dfbfc95ea030657f296191dbc", size = 15378, upload-time = "2026-10-12T00:26:48.196Z" },
+    { url = "https://files.pythonhosted.org/packages/93/a6/d987c80b56c2b7780cc4c65b845c1089841d2468763ce6ada6ea56ca1186/gate_cache-0.4.0-py3-none-any.whl", hash = "sha256:7b06d21cdbe7b39c762199fbe47cdeb593db84a85d2effcd85ac2c6d6f47ae45", size = 23800, upload-time = "2026-10-12T14:41:30.893Z" },
 ]
 
 [[package]]
@@ -711,6 +712,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/5a/82/42f767fc1c1143d6fd36efb827202a2d997a375e160a71eb2888a925aac1/pathspec-1.1.1.tar.gz", hash = "sha256:17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a", size = 135180, upload-time = "2026-04-27T01:46:08.907Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/d9/7fb5aa316bc299258e68c73ba3bddbc499654a07f151cba08f6153988714/pathspec-1.1.1-py3-none-any.whl", hash = "sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189", size = 57328, upload-time = "2026-04-27T01:46:07.06Z" },
+]
+
+[[package]]
+name = "platformdirs"
+version = "4.13.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/80/a8/66d45abadff219e36e2a824181b8f6a67e7ed4572934d6252c71c29d5731/platformdirs-4.13.0.tar.gz", hash = "sha256:1aa0b0d3f224c1f07c295121e312a5a24a180d6ae5a8425ea1784b3e3863e9c0", size = 61094, upload-time = "2026-10-11T02:05:24.109Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8d/15/1633010b26e88e872c93b67c0b6c5e174fb74cb6fb5c1472b4d51d4a8f22/platformdirs-4.13.0-py3-none-any.whl", hash = "sha256:3dbcf4cd708f21cf876c4eaa90e58412bc4f033d87143f41b1493ff77c25b7e1", size = 32724, upload-time = "2026-10-11T02:05:22.776Z" },
 ]
 
 [[package]]

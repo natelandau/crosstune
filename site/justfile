@@ -4,7 +4,7 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 # Runs a lint or test gate through gate-cache when it is installed
-gate := "../scripts/gate.sh"
+gate := "../scripts/gate-cache.sh"
 
 [private]
 default:
@@ -44,7 +44,7 @@ fix:
 [group('test')]
 [positional-arguments]
 test *args:
-    if [ "$#" -eq 0 ]; then {{ gate }} site-test just _test; else just _test "$@"; fi
+    if [ "$#" -eq 0 ]; then {{ gate }} site-test --file .env --tool 'node --version' just _test; else just _test "$@"; fi
 
 [private]
 [positional-arguments]

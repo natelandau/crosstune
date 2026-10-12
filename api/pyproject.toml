@@ -28,7 +28,7 @@
     dev = [
         "anyio>=4.15.1",
         "commitizen>=4.18.0",
-        "gate-cache>=0.1.0",
+        "gate-cache>=0.4.0",
         "honcho>=2.0.0",
         "prek>=0.5.2",
         "pytest-cov>=7.1.0",

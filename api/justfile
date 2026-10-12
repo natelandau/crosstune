@@ -5,7 +5,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 py_src := "src/ tests/"
 # Runs a lint or test gate through gate-cache when it is installed
-gate := "../scripts/gate.sh"
+gate := "../scripts/gate-cache.sh"
 
 # The database the end-to-end suite owns, beside the development database in the
 # server compose.yml starts. The e2e recipes name only this one, so the data a
@@ -53,7 +53,7 @@ lint: ruff format ty typos contract-check
 [group('test')]
 [positional-arguments]
 test *args:
-    if [ "$#" -eq 0 ]; then {{ gate }} api-test just _test; else just _test "$@"; fi
+    if [ "$#" -eq 0 ]; then {{ gate }} api-test --tool 'ffmpeg -version' just _test; else just _test "$@"; fi
 
 [private]
 [positional-arguments]

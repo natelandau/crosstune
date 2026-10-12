@@ -92,14 +92,16 @@ every label. The glossary in `docs/product.md` has the reasons.
   aggregate calls every module.
 - Lint and test recipes skip a gate that already passed on the same
   tree (gate-cache; `docs/operations.md`). Run the recipe again rather than
-  judging whether it needs to run. Stage every change (`git add`) before
-  a gate runs: with unstaged or untracked files it records nothing, so the
-  pre-push hook runs it again. `just gate status --name <gate>`
-  checks without running, `GATE_CACHE_DISABLE=1 just <recipe>` forces a
-  run, and `just gate clear` follows a change git does not track, such
-  as a tool upgrade. A new lint or test recipe runs its bare form, never
-  a run with args, through `{{ gate }}` under a name no other gate uses.
-  Never put a check through it that reads anything git does not track.
+  judging whether it needs to run. A pass on uncommitted work also covers
+  its commit. `just gate status` lists what passed and failed on the tree
+  without running, `GATE_CACHE_DISABLE=1 just <recipe>` forces a run, and
+  `just gate clear` follows a change to an input no gate is keyed on. A new
+  lint or test recipe runs its bare form, never a run with args, through
+  `{{ gate }}` under a name no other gate uses. A gate that reads an ignored
+  file names it with `--file`, and one that depends on a tool no lockfile
+  pins names its version command with `--tool` (`scripts/gate-cache.sh`).
+  Never put a check through it that reads a service or anything else
+  neither can name.
 - Spell check with `just typos [paths]`. Never run typos or any other tool
   through `uvx`. Do not add another task runner.
 
