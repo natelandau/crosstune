@@ -104,6 +104,9 @@ class Settings(BaseSettings):
     clerk_authorized_party_regex: str = ""
     clerk_webhook_secret: SecretStr = SecretStr("")
     clerk_secret_key: SecretStr = SecretStr("")
+    resend_api_key: SecretStr = SecretStr("")
+    email_from: str = "Crosstune <no-reply@mail.crosstune.app>"
+    web_origin: str = "https://my.crosstune.app"
     sentry_dsn: str = ""
     posthog_api_host: str = "https://us.posthog.com"
     posthog_project_id: str = ""
@@ -210,6 +213,11 @@ class Settings(BaseSettings):
     def revenuecat_configured(self) -> bool:
         """Whether the RevenueCat project and its secret key are both set."""
         return bool(self.revenuecat_project_id and self.revenuecat_secret_key.get_secret_value())
+
+    @property
+    def mail_configured(self) -> bool:
+        """Whether the Resend API key is set."""
+        return bool(self.resend_api_key.get_secret_value())
 
     @property
     def stripe_configured(self) -> bool:
