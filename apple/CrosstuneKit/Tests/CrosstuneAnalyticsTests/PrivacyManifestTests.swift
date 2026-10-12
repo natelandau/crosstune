@@ -56,4 +56,17 @@ struct PrivacyManifestTests {
         // Camera scans and photo library uploads, stored with the account.
         #expect(declared["NSPrivacyCollectedDataTypePhotosorVideos"] == functionality)
     }
+
+    @Test func declaresThePurchaseHistoryRevenueCatKeeps() throws {
+        let declared = try Self.declared()
+
+        let purposes: Set = [
+            "NSPrivacyCollectedDataTypePurposeAppFunctionality", "NSPrivacyCollectedDataTypePurposeAnalytics",
+        ]
+
+        // RevenueCat keys purchases by the signed-in user's ID, so they link to the person.
+        #expect(
+            declared["NSPrivacyCollectedDataTypePurchaseHistory"]
+                == Declared(linked: true, tracking: false, purposes: purposes))
+    }
 }

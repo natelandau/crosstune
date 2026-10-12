@@ -13,6 +13,9 @@ public protocol SyncAPI: Sendable {
     func recordNotice(_ notice: PlanNotice) async throws
     /// The account's recording storage figures.
     func storage() async throws -> StorageFigures
+    /// Asks the server to read the account's purchases from the billing provider now, rather than
+    /// wait for its webhook.
+    func refreshBilling() async throws
     /// The provider, canonical URL, title, and artwork for a pasted link.
     func resolveLink(url: String) async throws -> ResolvedLink
     /// Recordings matching `q` on each of `providers`, one group per service in the server's

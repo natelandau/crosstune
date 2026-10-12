@@ -1,5 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneAuth
+import CrosstuneBilling
 import CrosstuneStore
 import SwiftUI
 
@@ -16,6 +17,10 @@ public struct DeleteAccountSheet: View {
     public static let noRecovery = " There is no way to recover your account or anything in it."
     public static let confirmLabel = "Type \(confirmationText) to confirm"
     public static let deleting = "Deleting…"
+    public static let appleSubscriptionLine =
+        "Your App Store subscription keeps billing until you cancel it in App Store settings."
+    public static let stripeSubscriptionLine =
+        "Your Premium subscription is cancelled now, with no refund for the rest of the period."
 
     static let confirmationText = "DELETE"
 
@@ -25,10 +30,13 @@ public struct DeleteAccountSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.spacing) private var spacing
     @Environment(\.analytics) private var analytics
+    @Environment(\.plan) private var planModel
+    @Environment(\.purchases) private var purchases
     @State private var visit = AccountDeletionVisit()
     @State private var text = ""
     @State private var pending = false
     @State private var failure: String?
+    @State private var managing = false
 
     public init(session: AccountSession, counts: CountsState) {
         self.session = session
@@ -71,6 +79,28 @@ public struct DeleteAccountSheet: View {
         return true
     }
 
+    /// What deleting does to a paid subscription: the server cancels a web one, while only the
+    /// buyer can cancel an App Store one. Nil for any other plan.
+    static func subscriptionLine(_ plan: Plan) -> String? {
+        switch plan.source {
+        case .apple: appleSubscriptionLine
+        case .stripe: stripeSubscriptionLine
+        default: nil
+        }
+    }
+
+    /// How an App Store subscriber reaches their subscription settings: the system sheet when
+    /// the build has a purchase client, Apple's page otherwise. Nil for any other plan.
+    enum AppStoreSettings: Equatable {
+        case button
+        case link(URL)
+    }
+
+    static func appStoreSettings(_ plan: Plan, hasClient: Bool) -> AppStoreSettings? {
+        guard plan.source == .apple else { return nil }
+        return hasClient ? .button : .link(RevenueCatPurchases.appleSubscriptionsURL)
+    }
+
     private static func countLine(_ count: Int, _ singular: String, _ plural: String) -> String? {
         guard count > 0 else { return nil }
         return "\(count) \(count == 1 ? singular : plural)"
@@ -104,6 +134,25 @@ public struct DeleteAccountSheet: View {
                     ForEach(Self.listLines(counts), id: \.self) { Text($0) }
                     if Self.showsUnsyncedLine(counts) {
                         Text(Self.unsyncedLine)
+                    }
+                    let plan = planModel?.plan ?? .unknown
+                    if let line = Self.subscriptionLine(plan) {
+                        Text(line)
+                    }
+                    switch Self.appStoreSettings(plan, hasClient: purchases != nil) {
+                    case .button:
+                        Button(PlanText.manageAppStore) {
+                            managing = true
+                            Task {
+                                await purchases?.showManageSubscriptions()
+                                managing = false
+                            }
+                        }
+                        .disabled(pending || managing)
+                    case .link(let url):
+                        Link(PlanText.manageAppStore, destination: url)
+                    case nil:
+                        EmptyView()
                     }
                     Text("**\(Self.cannotUndo)**\(Self.noRecovery)")
                 }

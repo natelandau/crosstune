@@ -90,6 +90,17 @@ import Testing
         #expect(missing.isEmpty, "Mark the sheet's root with .shellSheet() or .partHeightSheet(): \(missing)")
     }
 
+    /// The Premium sheet claims the shell only once it shows, after the presenter asks for it, so
+    /// the shell holds its menus from the request, or a menu command could open another sheet in
+    /// between.
+    @Test func theShellIsCoveredFromThePremiumSheetsRequest() throws {
+        let shell = try #require(try Self.readSources().first { $0.name == "AppShell.swift" })
+        let index = try #require(
+            shell.lines.firstIndex { $0.trimmingCharacters(in: .whitespaces).hasPrefix(".modifier(PremiumSheets(") })
+        let previous = shell.lines[..<index].last { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+        #expect(previous?.trimmingCharacters(in: .whitespaces) == ".coversShellMenus(premium?.presented != nil)")
+    }
+
     /// The scan pickers and viewer are presentations the checks above must see, so a rename
     /// that hid them from the scan fails here rather than passing quietly.
     @Test func theScanPickersAndViewerAreChecked() throws {

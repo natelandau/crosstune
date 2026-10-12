@@ -235,6 +235,13 @@ public final class SyncEngine {
         Task { await sync() }
     }
 
+    /// Asks the server to read the account's purchases now. The new plan reaches this device with
+    /// the next sync.
+    public func refreshBilling() async throws {
+        try checkStopped()
+        try await api.refreshBilling()
+    }
+
     /// What the server finds at a pasted link, or nil when offline or the lookup fails.
     public func resolveLink(_ url: String) async -> ResolvedLink? {
         guard !isOffline() else { return nil }

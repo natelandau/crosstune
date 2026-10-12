@@ -8,14 +8,21 @@ import SwiftUI
 @Observable
 final class PremiumPresenter {
     /// The reason the Premium sheet is up for, nil while it is not.
-    var presented: PremiumReason?
+    var presented: PremiumReason? {
+        didSet { if presented == nil { presentedFrom = nil } }
+    }
+    /// Where the showing sheet was opened from, so a purchase in it reports its entry.
+    private(set) var presentedFrom: PremiumEntry?
 
     private let plan: PlanModel
     private let analytics: AnalyticsClient
+    /// The sheet's purchase model, nil in a build that offers no purchase.
+    private let purchase: PurchaseModel?
 
-    init(plan: PlanModel, analytics: AnalyticsClient) {
+    init(plan: PlanModel, analytics: AnalyticsClient, purchase: PurchaseModel? = nil) {
         self.plan = plan
         self.analytics = analytics
+        self.purchase = purchase
     }
 
     /// Whether the tapped action may go ahead. When the plan holds it back, shows the Premium
@@ -26,16 +33,23 @@ final class PremiumPresenter {
             switch reason {
             case .recordings: current.recordingsPlay
             case .scans: current.scansOnAnyTune
-            // Nothing in this app opens the Plan reason, so there is nothing to hold back.
+            // The Plan reason holds nothing back; `present` opens it.
             case .plan: true
             }
         if allowed { return true }
-        // A second tap behind the sheet already up is not another showing.
-        if presented == nil {
-            presented = reason
-            analytics.send(.premiumSheetShown(reason: reason, from: entry))
-        }
+        present(reason, from: entry)
         return false
+    }
+
+    /// Shows the Premium sheet for `reason`, opened from `entry`.
+    func present(_ reason: PremiumReason, from entry: PremiumEntry) {
+        // A second tap behind the sheet already up is not another showing.
+        guard presented == nil else { return }
+        // Before the sheet first renders, so an earlier outcome never shows in it for a frame.
+        purchase?.clearLine()
+        presented = reason
+        presentedFrom = entry
+        analytics.send(.premiumSheetShown(reason: reason, from: entry))
     }
 }
 

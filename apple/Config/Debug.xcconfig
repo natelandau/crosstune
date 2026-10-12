@@ -9,6 +9,7 @@ CROSSTUNE_API_ORIGIN = http:/$()/localhost:8000
 CROSSTUNE_STORAGE_ORIGIN = http:/$()/localhost:5173
 // A publishable key is public by design: every build of the app carries it.
 CLERK_PUBLISHABLE_KEY = pk_test_cHVtcGVkLXBvbGVjYXQtMTg2MC5jbGVyay5hY2NvdW50cy5kZXYk // gitleaks:allow
+STRIPE_PORTAL_URL = https:/$()/billing.stripe.com/p/login/test_6oU9AM9MA1VGg2b3iL77O00
 // Only a Release build sends analytics, so development never reaches the production project.
 POSTHOG_PROJECT_TOKEN =
 POSTHOG_HOST =

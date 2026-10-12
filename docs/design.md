@@ -450,7 +450,7 @@ presents.
   consequence and says when data cannot come back:
   `Delete "Soldier's Joy"? This removes its links and list entries.`
 - Toast: only for Undo, an error that arrives after the musician left
-  the screen, or how a store checkout ended. One at a time, above the
+  the screen, or how a web checkout ended. One at a time, above the
   bottom chrome.
 - A question the app must have answered: no Cancel, waits for a clean
   sync, never opens over another modal.
@@ -464,6 +464,9 @@ presents.
   the store has answered with its prices. Subscribe never shows without a
   plan the store can sell; otherwise the Plan link stays the primary
   action.
+- On Apple a checkout's outcome shows as a line in the Premium sheet,
+  never a toast. Restore purchases sits on the paywall and in the Plan
+  group.
 - During a trial the sheet says billing starts today, since the rest of
   the trial is not added on.
 - A one-time notice (first recording, trial reminder, trial end) is a

@@ -145,6 +145,14 @@ final class FakeSyncAPI: SyncAPI {
         if let noticeFailure { throw noticeFailure }
     }
 
+    /// Every billing refresh, including those that failed.
+    var billingRefreshes = 0
+
+    func refreshBilling() async throws {
+        billingRefreshes += 1
+        if let failure { throw failure }
+    }
+
     func storage() async throws -> StorageFigures {
         onRequest()
         if let failure { throw failure }

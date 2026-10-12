@@ -54,7 +54,7 @@ private func pull(_ row: Entitlement, into store: CrosstuneStore) async throws {
 
         // A comp with no trial has no turning point ahead, so it asks for no new sleep.
         try await pull(entitlement(source: "comp"), into: store)
-        try await eventually { model.plan.source == "comp" && clock.cancelled == 1 }
+        try await eventually { model.plan.source == .comp && clock.cancelled == 1 }
         #expect(clock.sleeps == [10])
         #expect(model.plan.kind == .premium)
     }
@@ -98,16 +98,16 @@ private func pull(_ row: Entitlement, into store: CrosstuneStore) async throws {
         let root = TemporaryRoot()
         let player = PlayerModel()
 
-        let first = StorePlan.bind(try root.open("user_a"), player: player)
+        let first = StorePlan.bind(try root.open("user_a"), player: player, purchases: nil)
         #expect(first.plan != nil && first.noticeClaim != nil)
         #expect(player.plan === first.plan)
 
-        let second = StorePlan.bind(try root.open("user_b"), player: player)
+        let second = StorePlan.bind(try root.open("user_b"), player: player, purchases: nil)
         #expect(second.plan != nil && second.plan !== first.plan)
         #expect(second.noticeClaim != nil && second.noticeClaim !== first.noticeClaim)
         #expect(player.plan === second.plan)
 
-        let none = StorePlan.bind(nil, player: player)
+        let none = StorePlan.bind(nil, player: player, purchases: nil)
         #expect(none.plan == nil && none.noticeClaim == nil)
         #expect(player.plan == nil)
     }

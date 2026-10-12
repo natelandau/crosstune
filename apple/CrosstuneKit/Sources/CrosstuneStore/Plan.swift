@@ -16,12 +16,21 @@ public enum PlanNotice: String, Sendable, CaseIterable {
     case trialEnded = "trial_ended"
 }
 
+/// Where the live Premium grant came from, as the server names it.
+public enum PlanSource: String, Sendable {
+    case trial
+    case apple
+    case stripe
+    case comp
+}
+
 /// What the account may use at one instant, judged on the device from the stored entitlements
 /// row and the device clock, so an offline device still turns free on time.
 public struct Plan: Sendable, Equatable {
     public var kind: PlanKind
-    /// The live grant's source, `trial`, `apple`, `stripe`, or `comp`; nil unless Premium.
-    public var source: String?
+    /// The live grant's source; nil unless Premium, or when the server names a source this build
+    /// does not know.
+    public var source: PlanSource?
     /// The reported grant's expiry, before any leeway.
     public var premiumEndsAt: Date?
     public var trialEndsAt: Date?
@@ -30,12 +39,25 @@ public struct Plan: Sendable, Equatable {
     /// Free: the quota counts scans only.
     public var scansOnly: Bool
 
+    /// Whether the account is on a Premium trial.
+    public var isTrial: Bool { kind == .premium && source == .trial }
+
+    /// Whether buying Premium makes sense: a free account, or one still on a trial. A grant that
+    /// is paid, comped, or of unknown source is not replaced by a purchase.
+    public var canSubscribe: Bool {
+        switch kind {
+        case .free: true
+        case .premium: isTrial
+        case .unknown: false
+        }
+    }
+
     public var recordingsPlay: Bool { kind != .free }
     /// Whether scans open, upload, and download on every tune, not only the scan tune.
     public var scansOnAnyTune: Bool { kind != .free }
 
     public init(
-        kind: PlanKind, source: String? = nil, premiumEndsAt: Date? = nil, trialEndsAt: Date? = nil,
+        kind: PlanKind, source: PlanSource? = nil, premiumEndsAt: Date? = nil, trialEndsAt: Date? = nil,
         quotaBytes: Int64? = nil, scansOnly: Bool = false
     ) {
         self.kind = kind
@@ -48,15 +70,13 @@ public struct Plan: Sendable, Equatable {
 
     public static let unknown = Plan(kind: .unknown)
 
-    private static let sources: Set<String> = ["trial", "apple", "stripe", "comp"]
-
     public static func from(_ row: Entitlement?, now: Date) -> Plan {
         guard let row else { return .unknown }
         let premium = PlanRules.isPremium(row, now: now)
         let source = row.premiumSource
         return Plan(
             kind: premium ? .premium : .free,
-            source: premium ? source.flatMap { sources.contains($0) ? $0 : nil } : nil,
+            source: premium ? source.flatMap(PlanSource.init(rawValue:)) : nil,
             premiumEndsAt: source == nil ? nil : row.premiumExpiresAt?.date,
             trialEndsAt: row.trialEndsAt?.date,
             quotaBytes: premium ? row.premiumQuotaBytes : row.freeQuotaBytes,
@@ -105,7 +125,7 @@ public enum PlanRules {
         {
             return .trialEnded
         }
-        guard row.premiumSource == "trial", plan.kind == .premium else { return nil }
+        guard plan.isTrial else { return nil }
         if let trialEnd, now < trialEnd, now >= trialEnd.addingTimeInterval(-trialReminder),
             row.trialReminderSeenAt == nil
         {

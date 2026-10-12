@@ -77,6 +77,21 @@ public struct LiveSyncAPI: SyncAPI {
         }
     }
 
+    public func refreshBilling() async throws {
+        switch try await client.refreshBillingV1MeBillingRefreshPost(.init()) {
+        case .noContent: return
+        case .unauthorized(let response): throw Self.refusal(401, try? response.body.applicationProblemJson)
+        case .unprocessableContent(let response):
+            throw Self.refusal(422, try? response.body.applicationProblemJson)
+        case .tooManyRequests(let response):
+            throw APIStatusError(status: 429, retryAfterSeconds: Self.seconds(response.headers.retryAfter))
+        case .badGateway(let response): throw Self.refusal(502, try? response.body.applicationProblemJson)
+        case .serviceUnavailable(let response):
+            throw Self.refusal(503, try? response.body.applicationProblemJson)
+        case .undocumented(let status, _): throw APIStatusError(status: status)
+        }
+    }
+
     public func resolveLink(url: String) async throws -> ResolvedLink {
         switch try await client.resolveV1LinksResolvePost(.init(body: .json(.init(url: url)))) {
         case .ok(let response):

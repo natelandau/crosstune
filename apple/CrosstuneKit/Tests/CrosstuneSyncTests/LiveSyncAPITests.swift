@@ -368,6 +368,54 @@ private func json(_ data: Data?) throws -> JSONObject {
         #expect(transport.requests.map(\.request.method) == [.post, .post])
     }
 
+    @Test func refreshesBilling() async throws {
+        let transport = RecordingTransport(status: .noContent, body: "")
+
+        try await api(transport).refreshBilling()
+
+        #expect(transport.requests.map(\.request.path) == ["/v1/me/billing/refresh"])
+        #expect(transport.requests.map(\.request.method) == [.post])
+    }
+
+    @Test(arguments: [
+        (HTTPResponse.Status.unauthorized, 401), (.unprocessableContent, 422), (.badGateway, 502),
+        (.serviceUnavailable, 503),
+    ])
+    func readsTheProblemOfARefusedBillingRefresh(status: HTTPResponse.Status, code: Int) async throws {
+        let transport = RecordingTransport(
+            status: status,
+            body: """
+                {"type": "urn:crosstune:billing-\(code)", "title": "x", "status": \(code),
+                 "detail": "Refused with \(code)."}
+                """)
+
+        await #expect(
+            throws: APIStatusError(
+                status: code, problemType: "urn:crosstune:billing-\(code)", detail: "Refused with \(code).")
+        ) {
+            try await api(transport).refreshBilling()
+        }
+    }
+
+    @Test func readsTheWaitOfARateLimitedBillingRefresh() async throws {
+        var headers = HTTPFields()
+        headers[.retryAfter] = "7"
+        let transport = RecordingTransport(
+            status: .tooManyRequests,
+            body: #"{"type": "about:blank", "title": "x", "status": 429, "detail": "x"}"#, headers: headers)
+
+        await #expect(throws: APIStatusError(status: 429, retryAfterSeconds: 7)) {
+            try await api(transport).refreshBilling()
+        }
+    }
+
+    @Test func throwsTheStatusOfAnUndocumentedBillingRefreshFailure() async throws {
+        let transport = RecordingTransport(
+            status: .internalServerError, body: #"{"type": "about:blank", "title": "x", "status": 500, "detail": "x"}"#)
+
+        await #expect(throws: APIStatusError(status: 500)) { try await api(transport).refreshBilling() }
+    }
+
     @Test func resolvesARelativeSignedURLAgainstTheStorageOrigin() async throws {
         let transport = RecordingTransport(
             body: #"""

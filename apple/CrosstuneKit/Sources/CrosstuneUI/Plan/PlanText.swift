@@ -15,6 +15,49 @@ public enum PlanText {
     nonisolated public static let premiumRecordingsBody =
         "Premium keeps your recordings on our servers, so they play on every device. Every recording you already have stays: you can rename, file, delete, and export it on any plan."
     nonisolated public static let seePlan = "See your plan"
+    nonisolated public static let premiumPlanTitle = "Crosstune Premium"
+    nonisolated public static let premiumPlanBody =
+        "Recordings that play on every device, practice mode, scans on every tune, and 5 GB of storage."
+    nonisolated public static let subscribe = "Subscribe"
+    nonisolated public static let periodAnnual = "Annual"
+    nonisolated public static let periodMonthly = "Monthly"
+    nonisolated public static let billingPeriod = "Billing period"
+    nonisolated public static let billingStartsToday = "Billing starts today. The rest of your trial is not added on."
+    nonisolated public static let renewsUntilCancelled = "Renews until you cancel."
+    nonisolated public static let subscribeOffline = "Subscribing needs a connection."
+    nonisolated public static let subscribed = "You're on Premium."
+    nonisolated public static let subscribeFailed = "Subscribing didn't finish. Try again in a moment."
+    nonisolated public static let subscribePending =
+        "Your purchase is waiting for approval. Premium starts once it goes through."
+    nonisolated public static let restorePurchases = "Restore purchases"
+    nonisolated public static let restored = "Your App Store subscription is restored."
+    nonisolated public static let nothingToRestore = "This Apple Account has no Crosstune subscription to restore."
+    nonisolated public static let otherAccount =
+        "This App Store subscription belongs to another Crosstune account. Sign out, then sign in with the account that subscribed."
+    nonisolated public static let restoreFailed = "Restoring didn't finish. Try again in a moment."
+    nonisolated public static let manageAppStore = "Manage in App Store settings"
+    nonisolated public static let manageOnTheWeb = "Manage on the web"
+    nonisolated public static let manageAtWebsite = "Manage your subscription at my.crosstune.app."
+    nonisolated public static let termsOfUse = "Terms of Use"
+    nonisolated public static let privacyPolicy = "Privacy Policy"
+    nonisolated public static let termsURL = "https://crosstune.app/terms"
+    nonisolated public static let privacyURL = "https://crosstune.app/privacy"
+
+    /// The words for a purchase or restore outcome.
+    nonisolated public static func line(_ line: PurchaseModel.Line) -> String {
+        switch line {
+        case .subscribed: subscribed
+        case .pending: subscribePending
+        case .failed: subscribeFailed
+        case .restored: restored
+        case .nothingToRestore: nothingToRestore
+        case .otherAccount: otherAccount
+        case .restoreFailed: restoreFailed
+        }
+    }
+
+    nonisolated public static func annualPrice(_ price: String) -> String { "\(price) a year" }
+    nonisolated public static func monthlyPrice(_ price: String) -> String { "\(price) a month" }
 
     /// Names the one tune a free account's scans open on.
     nonisolated public static func premiumScansBody(tuneTitle: String) -> String {
@@ -45,7 +88,7 @@ public enum PlanText {
         switch plan.kind {
         case .unknown: nil
         case .free: free
-        case .premium: plan.source == "trial" ? trial : premium
+        case .premium: plan.isTrial ? trial : premium
         }
     }
 
@@ -54,7 +97,7 @@ public enum PlanText {
         _ plan: Plan, now: Date, calendar: Calendar = .current, locale: Locale = .current
     ) -> String? {
         guard plan.kind == .premium else { return nil }
-        if plan.source == "trial" {
+        if plan.isTrial {
             return (plan.trialEndsAt ?? plan.premiumEndsAt).map {
                 trialLeft(endsAt: $0, now: now, calendar: calendar, locale: locale)
             }

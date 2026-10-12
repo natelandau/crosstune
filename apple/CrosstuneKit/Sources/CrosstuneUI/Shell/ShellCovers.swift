@@ -65,6 +65,14 @@ extension View {
             .modifier(Covers(cover: \.openSheets, isCovering: isPresenting))
     }
 
+    /// Stands the shell's menu commands down while `isRequesting` is true and this view shows. Put
+    /// it on the view that asks for a sheet whose root claims the shell only once it shows, to
+    /// close the gap in between. The record slot is left to the sheet, which hands it back as
+    /// the sheet starts down rather than once it has gone.
+    func coversShellMenus(_ isRequesting: Bool) -> some View {
+        modifier(Covers(cover: \.openSheets, isCovering: isRequesting))
+    }
+
     /// Marks this screen as selecting while `isSelecting` is true: the record slot and record
     /// button give way to the selection's toolbar, and New tune stands down.
     func claimsSelection(_ isSelecting: Bool) -> some View {
