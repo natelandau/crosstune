@@ -3,6 +3,9 @@
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
+# Runs a lint or test gate through gate-cache when it is installed
+gate := "../scripts/gate.sh"
+
 [private]
 default:
     @just --list site
@@ -10,22 +13,22 @@ default:
 # Lint with eslint
 [group('lint')]
 eslint:
-    pnpm eslint --max-warnings 0 .
+    {{ gate }} site-eslint pnpm eslint --max-warnings 0 .
 
 # Check formatting with prettier
 [group('lint')]
 format:
-    pnpm prettier --check .
+    {{ gate }} site-prettier pnpm prettier --check .
 
 # Type check with astro check
 [group('lint')]
 tsc:
-    pnpm astro check
+    {{ gate }} site-tsc pnpm astro check
 
 # Spell check the site and the brand sources it is built from
 [group('lint')]
 typos:
-    uv run --project ../api --only-group typos typos --config ../.typos.toml . ../brand
+    {{ gate }} site-typos uv run --project ../api --only-group typos typos --config ../.typos.toml . ../brand
 
 # Run all linters
 [group('lint')]
@@ -41,6 +44,11 @@ fix:
 [group('test')]
 [positional-arguments]
 test *args:
+    if [ "$#" -eq 0 ]; then {{ gate }} site-test just _test; else just _test "$@"; fi
+
+[private]
+[positional-arguments]
+_test *args:
     pnpm astro build
     pnpm vitest run "$@"
 

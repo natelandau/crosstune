@@ -7,6 +7,9 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 # `just dev` run side by side.
 e2e_api := "http://localhost:8001"
 
+# Runs a lint or test gate through gate-cache when it is installed
+gate := "../scripts/gate.sh"
+
 [private]
 default:
     @just --list web
@@ -14,26 +17,30 @@ default:
 # Lint with eslint
 [group('lint')]
 eslint:
-    pnpm eslint --max-warnings 0 .
+    {{ gate }} web-eslint pnpm eslint --max-warnings 0 .
 
 # Check formatting with prettier
 [group('lint')]
 format:
-    pnpm prettier --check .
+    {{ gate }} web-prettier pnpm prettier --check .
 
 # Type check with tsc
 [group('lint')]
 tsc:
-    pnpm tsc --noEmit
+    {{ gate }} web-tsc pnpm tsc --noEmit
 
 # Spell check the client and the brand sources it is built from
 [group('lint')]
 typos:
-    uv run --project ../api --only-group typos typos --config ../.typos.toml . ../brand
+    {{ gate }} web-typos uv run --project ../api --only-group typos typos --config ../.typos.toml . ../brand
 
 # Fail when the committed client types no longer match the committed OpenAPI schema
 [group('lint')]
 contract-check:
+    {{ gate }} web-contract-check just _contract-check
+
+[private]
+_contract-check:
     #!/usr/bin/env bash
     set -euo pipefail
     case "${CI:-}" in 1|true|yes) echo "skipping contract check: CI runs it as its own job"; exit 0 ;; esac
@@ -64,19 +71,19 @@ fix:
 [group('test')]
 [positional-arguments]
 test *args:
-    pnpm vitest run "$@"
+    if [ "$#" -eq 0 ]; then {{ gate }} web-test pnpm vitest run; else pnpm vitest run "$@"; fi
 
 # Run only the jsdom unit project
 [group('test')]
 [positional-arguments]
 test-unit *args:
-    pnpm vitest run --project unit "$@"
+    if [ "$#" -eq 0 ]; then {{ gate }} web-test-unit pnpm vitest run --project unit; else pnpm vitest run --project unit "$@"; fi
 
 # Run only the browser projects: Chromium, and WebKit
 [group('test')]
 [positional-arguments]
 test-browser *args:
-    pnpm vitest run --project browser --project browser-webkit "$@"
+    if [ "$#" -eq 0 ]; then {{ gate }} web-test-browser pnpm vitest run --project browser --project browser-webkit; else pnpm vitest run --project browser --project browser-webkit "$@"; fi
 
 # Run tests shuffled, a new order each run, and list the seeds that failed; SEED=<n> replays one
 [group('test')]
