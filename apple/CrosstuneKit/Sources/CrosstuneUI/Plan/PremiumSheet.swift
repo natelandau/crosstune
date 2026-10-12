@@ -19,6 +19,18 @@ struct PremiumSheet: View {
     @Environment(\.plan) private var plan
     @Environment(\.store) private var store
     @State private var scanTuneTitle: String?
+    @State private var detent: PresentationDetent
+
+    init(
+        reason: PremiumReason, entry: PremiumEntry, purchase: PurchaseModel?, mayOfferPurchase: Bool = false,
+        onSeePlan: @escaping @MainActor () -> Void
+    ) {
+        self.reason = reason
+        self.entry = entry
+        self.purchase = purchase
+        self.onSeePlan = onSeePlan
+        _detent = State(initialValue: Self.openingDetent(mayOfferPurchase: mayOfferPurchase))
+    }
 
     /// What the sheet offers to buy.
     enum Sale: Equatable {
@@ -155,6 +167,11 @@ struct PremiumSheet: View {
     /// Room to grow, so the sheet's words never clip at the largest text sizes.
     nonisolated static let detents: Set<PresentationDetent> = [.medium, .large]
 
+    /// Full height when the sheet can sell, since the choice and its disclosures fill a phone.
+    nonisolated static func openingDetent(mayOfferPurchase: Bool) -> PresentationDetent {
+        mayOfferPurchase ? .large : .medium
+    }
+
     var body: some View {
         let currentPlan = plan?.plan ?? .unknown
         let sale = Self.sale(plan: currentPlan, offers: purchase?.offers, line: purchase?.line)
@@ -216,7 +233,7 @@ struct PremiumSheet: View {
         // Asks again when the connection comes back.
         .task(id: purchase?.isOffline) { await purchase?.loadOffers() }
         .macSheetFrame(.form(minHeight: 220))
-        .presentationDetents(Self.detents)
+        .presentationDetents(Self.detents, selection: $detent)
         .shellSheet()
     }
 
@@ -417,7 +434,9 @@ struct PremiumSheets: ViewModifier {
     func body(content: Content) -> some View {
         content
             .sheet(item: shown) { showing in
-                PremiumSheet(reason: showing.reason, entry: showing.entry, purchase: purchase, onSeePlan: onSeePlan)
+                PremiumSheet(
+                    reason: showing.reason, entry: showing.entry, purchase: purchase,
+                    mayOfferPurchase: presenter?.mayOfferPurchase ?? false, onSeePlan: onSeePlan)
             }
     }
 

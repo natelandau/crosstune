@@ -63,6 +63,16 @@ private let offers = [PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffe
         #expect(purchase.line == nil)
     }
 
+    @Test func onlyAPlanThatCanSubscribeInABuildThatSellsMayOfferAPurchase() async throws {
+        let purchase = PurchaseModel(client: FakePurchaseClient(), refresh: {}, sync: {}, analytics: sink.client)
+        let free = try await plan(entitlement(source: nil), kind: .free)
+        #expect(PremiumPresenter(plan: free, analytics: sink.client, purchase: purchase).mayOfferPurchase)
+        // A build without a RevenueCat key has no purchase model.
+        #expect(PremiumPresenter(plan: free, analytics: sink.client).mayOfferPurchase == false)
+        let comp = try await plan(entitlement(source: "comp"), kind: .premium)
+        #expect(PremiumPresenter(plan: comp, analytics: sink.client, purchase: purchase).mayOfferPurchase == false)
+    }
+
     @Test func aFreePlanGatesScansOffTheirTune() async throws {
         let presenter = PremiumPresenter(
             plan: try await plan(entitlement(source: nil), kind: .free), analytics: sink.client)
@@ -399,6 +409,11 @@ private let offers = [PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffe
 
     @Test func theSheetScrollsAndGrowsForLargeText() {
         #expect(PremiumSheet.detents == [.medium, .large])
+    }
+
+    @Test func aSheetThatCanSellOpensAtFullHeight() {
+        #expect(PremiumSheet.openingDetent(mayOfferPurchase: true) == .large)
+        #expect(PremiumSheet.openingDetent(mayOfferPurchase: false) == .medium)
     }
 
     @Test func theEntriesAndReasonsNameThePlansValues() {
