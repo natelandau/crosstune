@@ -13,7 +13,7 @@ from crosstune.jobs.media import probe
 from crosstune.jobs.peaks import build_peaks
 from crosstune.recordings.loops import reclamp_recording_loops
 from crosstune.recordings.service import attach_peaks
-from crosstune.recordings.trim import clamp_stored_trim
+from crosstune.recordings.trim_rules import clamp_stored_trim
 from crosstune.storage.store import PEAKS_MIME, delete_best_effort, peaks_key, upload_revision
 
 if TYPE_CHECKING:

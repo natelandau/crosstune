@@ -20,7 +20,7 @@ from crosstune.recordings.loops import (
     reclamp_recording_loops,
 )
 from crosstune.recordings.service import ensure_trim_job, start_import
-from crosstune.recordings.trim import clamp_trim
+from crosstune.recordings.trim_rules import clamp_trim
 from crosstune.vocabulary import (
     MAX_LOOPS_PER_RECORDING,
     MAX_SCANS_PER_TUNE,

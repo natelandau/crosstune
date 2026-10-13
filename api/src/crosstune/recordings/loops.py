@@ -9,7 +9,7 @@ from sqlalchemy import select, update
 
 from crosstune.db.base import next_server_seq
 from crosstune.models import RecordingLoop
-from crosstune.recordings.trim import effective_end
+from crosstune.recordings.trim_rules import effective_end
 from crosstune.vocabulary import MIN_LOOP_MS
 
 if TYPE_CHECKING:

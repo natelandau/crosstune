@@ -14,7 +14,7 @@ from crosstune.jobs.peaks import build_peaks, slice_peaks
 from crosstune.jobs.recut import recut_playback
 from crosstune.recordings.loops import reclamp_recording_loops
 from crosstune.recordings.service import attach_peaks, attach_playback
-from crosstune.recordings.trim import clamp_trim, effective_end
+from crosstune.recordings.trim_rules import clamp_trim, effective_end
 from crosstune.storage.store import (
     PEAKS_MIME,
     PLAYBACK_MIME,

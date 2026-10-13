@@ -20,7 +20,7 @@ from crosstune.jobs.attempt import (
 from crosstune.jobs.trim import trim
 from crosstune.models import Job, Recording
 from crosstune.recordings.service import ensure_trim_job
-from crosstune.recordings.trim import needs_trim
+from crosstune.recordings.trim_rules import needs_trim
 from crosstune.storage.store import PLAYBACK_MIME, delete_best_effort, original_key
 
 if TYPE_CHECKING:

@@ -26,7 +26,7 @@ from crosstune.inactivity.sweep import (
 )
 from crosstune.jobs import attempt as attempt_module
 from crosstune.jobs import media
-from crosstune.jobs import peaks_job as peaks_job_module
+from crosstune.jobs import recording_peaks as recording_peaks_module
 from crosstune.jobs import recut as recut_module
 from crosstune.jobs import reencode as reencode_module
 from crosstune.jobs import runner as runner_module
@@ -41,7 +41,7 @@ from crosstune.jobs.handlers import transcode as transcode_handler
 from crosstune.jobs.handlers import trim as trim_handler
 from crosstune.jobs.media import probe
 from crosstune.jobs.peaks import decode_peaks
-from crosstune.jobs.peaks_job import build_recording_peaks
+from crosstune.jobs.recording_peaks import build_recording_peaks
 from crosstune.jobs.runner import JobRunner
 from crosstune.jobs.sweep import ABANDONED_SLOT_GRACE
 from crosstune.jobs.transcode import transcode
@@ -269,7 +269,7 @@ async def test_peaks_job_keeps_a_known_length(
     async def record_probe(path) -> None:
         probed.append(path)
 
-    monkeypatch.setattr(peaks_job_module, "probe", record_probe)
+    monkeypatch.setattr(recording_peaks_module, "probe", record_probe)
     backfill_dir = tmp_path / "backfill"
     backfill_dir.mkdir()
     await build_recording_peaks(session, store, rec, backfill_dir)
@@ -525,7 +525,7 @@ async def test_run_once_preserves_a_trim_pushed_during_a_peaks_job(
     """A trim saved while a peaks job runs must still reach ensure_trim_job's comparison."""
     job_runner, store = runner
     rec = await seed_ready_for_peaks(verify_session, store, media_fixtures, tmp_path)
-    real_build_peaks = peaks_job_module.build_peaks
+    real_build_peaks = recording_peaks_module.build_peaks
 
     async def push_trim_then_build(source) -> bytes:
         sessionmaker = make_sessionmaker(engine)
@@ -536,7 +536,7 @@ async def test_run_once_preserves_a_trim_pushed_during_a_peaks_job(
             await pusher.commit()
         return await real_build_peaks(source)
 
-    monkeypatch.setattr(peaks_job_module, "build_peaks", push_trim_then_build)
+    monkeypatch.setattr(recording_peaks_module, "build_peaks", push_trim_then_build)
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
     assert (rec.trim_start_ms, rec.trim_end_ms) == (200, 1800)
@@ -606,7 +606,7 @@ async def test_run_once_survives_a_peaks_failure_after_the_transaction_began(
     job_runner, store = runner
     rec = await seed_ready_for_peaks(verify_session, store, media_fixtures, tmp_path)
     before_keys = set(store.keys())
-    real_lock_user = peaks_job_module.lock_user
+    real_lock_user = recording_peaks_module.lock_user
     uploaded: set[str] = set()
 
     async def lock_then_fail(session, user_id) -> None:
@@ -615,7 +615,7 @@ async def test_run_once_survives_a_peaks_failure_after_the_transaction_began(
         msg = "boom after the lock"
         raise RuntimeError(msg)
 
-    monkeypatch.setattr(peaks_job_module, "lock_user", lock_then_fail)
+    monkeypatch.setattr(recording_peaks_module, "lock_user", lock_then_fail)
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
     assert rec.peaks_rev is None
@@ -639,7 +639,7 @@ async def test_peaks_job_aborts_when_playback_changes_during_the_job(
     rec.peaks_rev = None
     rec.peaks_bytes = None
     await session.flush()
-    real_build_peaks = peaks_job_module.build_peaks
+    real_build_peaks = recording_peaks_module.build_peaks
 
     async def build_then_supersede(source) -> bytes:
         data = await real_build_peaks(source)
@@ -647,7 +647,7 @@ async def test_peaks_job_aborts_when_playback_changes_during_the_job(
         await session.flush()
         return data
 
-    monkeypatch.setattr(peaks_job_module, "build_peaks", build_then_supersede)
+    monkeypatch.setattr(recording_peaks_module, "build_peaks", build_then_supersede)
     backfill_dir = tmp_path / "abort"
     backfill_dir.mkdir()
     keys_before = set(store.keys())
@@ -1207,7 +1207,7 @@ async def test_peaks_cancelled_after_its_upload_deletes_the_object(
         uploaded.update(set(store.keys()) - before_keys)
         await asyncio.sleep(60)
 
-    monkeypatch.setattr(peaks_job_module, "lock_user", hang_at_the_lock)
+    monkeypatch.setattr(recording_peaks_module, "lock_user", hang_at_the_lock)
     task = asyncio.create_task(job_runner.run_once())
     for _ in range(500):
         if uploaded:
@@ -2187,7 +2187,7 @@ async def test_a_superseded_peaks_failure_leaves_the_new_claim_alone(
     rec = await seed_ready_for_peaks(verify_session, store, media_fixtures, tmp_path)
     reclaimed_until = utc_now() + timedelta(hours=1)
     monkeypatch.setattr(
-        peaks_job_module, "build_peaks", _reclaim_then_fail(engine, rec.id, reclaimed_until)
+        recording_peaks_module, "build_peaks", _reclaim_then_fail(engine, rec.id, reclaimed_until)
     )
     assert await job_runner.run_once() == 1
     job = await verify_session.scalar(select(Job).where(Job.recording_id == rec.id))
@@ -2228,7 +2228,7 @@ async def test_a_peaks_failure_after_another_pass_finished_the_job_is_quiet(
     job_runner, store = runner
     rec = await seed_ready_for_peaks(verify_session, store, media_fixtures, tmp_path)
     monkeypatch.setattr(
-        peaks_job_module, "build_peaks", _finish_elsewhere_then_fail(engine, rec.id)
+        recording_peaks_module, "build_peaks", _finish_elsewhere_then_fail(engine, rec.id)
     )
     assert await job_runner.run_once() == 1
     assert await verify_session.scalar(select(Job).where(Job.recording_id == rec.id)) is None
