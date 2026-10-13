@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from functools import partial
@@ -150,11 +151,11 @@ async def _cut_and_upload(
         current = work_dir / "current-peaks.bin"
         await store.download(recording.peaks_key, current)
         # The current peaks file starts where the current playback file does.
-        peaks_path.write_bytes(
-            slice_peaks(current.read_bytes(), start_ms - files.start_ms, end_ms - files.start_ms)
-        )
+        full = await asyncio.to_thread(current.read_bytes)
+        data = slice_peaks(full, start_ms - files.start_ms, end_ms - files.start_ms)
     else:
-        peaks_path.write_bytes(await build_peaks(target))
+        data = await build_peaks(target)
+    await asyncio.to_thread(peaks_path.write_bytes, data)
 
     peaks = await upload_revision(
         store,

@@ -32,7 +32,6 @@ NO_AUDIO = "Couldn't find the audio on Slippery-Hill"
 TOO_LARGE = "File too large"
 OVER_QUOTA = "Storage quota exceeded"
 PREMIUM_REQUIRED_IMPORT = "Premium required"
-UNREACHABLE = "Couldn't reach Slippery-Hill"
 
 
 @dataclass(frozen=True)

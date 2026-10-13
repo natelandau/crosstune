@@ -11,7 +11,7 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-from crosstune.storage.store import ListedObject, ObjectInfo
+from crosstune.storage.store import DEFAULT_CONTENT_TYPE, ListedObject, ObjectInfo
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -120,7 +120,7 @@ class R2Store:
                 raise
             return ObjectInfo(
                 size=int(response["ContentLength"]),
-                content_type=response.get("ContentType", "application/octet-stream"),
+                content_type=response.get("ContentType", DEFAULT_CONTENT_TYPE),
             )
 
         return await asyncio.to_thread(run)
@@ -131,14 +131,14 @@ class R2Store:
 
     async def upload(self, path: Path, key: str, content_type: str) -> int:
         """Store a local file. Returns the byte count stored."""
-        await asyncio.to_thread(
-            self._client.upload_file,
-            str(path),
-            self._bucket,
-            key,
-            ExtraArgs={"ContentType": content_type},
-        )
-        return await asyncio.to_thread(lambda: path.stat().st_size)
+
+        def run() -> int:
+            self._client.upload_file(
+                str(path), self._bucket, key, ExtraArgs={"ContentType": content_type}
+            )
+            return path.stat().st_size
+
+        return await asyncio.to_thread(run)
 
     async def copy(self, source: str, target: str) -> None:
         """Copy an object within the bucket.

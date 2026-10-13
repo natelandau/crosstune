@@ -163,14 +163,14 @@ def _cursor(next_page: Any) -> str | None:
     return values[0]
 
 
-def _from_ms(value: Any) -> datetime | None:
+def _from_ms(value: object) -> datetime | None:
     if not isinstance(value, int | float) or isinstance(value, bool):
         return None
     return datetime.fromtimestamp(value / 1000, UTC)
 
 
 def _map_subscription(
-    item: dict[str, Any], active: dict[Any, Any], now: datetime
+    item: dict[str, Any], active: dict[object, object], now: datetime
 ) -> PaidSubscription | None:
     """Map one subscription, or None when it is not a premium one from a store we mirror."""
     source = _SOURCES.get(item.get("store"))

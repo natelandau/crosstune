@@ -28,7 +28,7 @@ CORS_ORIGINS = ["http://localhost:5173", "http://localhost:4173"]
 
 def client() -> S3Client:
     """A client for the local RustFS."""
-    return s3_client(ENDPOINT, ACCESS_KEY, SECRET_KEY)
+    return s3_client(endpoint_url=ENDPOINT, access_key_id=ACCESS_KEY, secret_access_key=SECRET_KEY)
 
 
 def wait_until_ready(client: S3Client, timeout: float = 60) -> None:

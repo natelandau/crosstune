@@ -15,7 +15,6 @@ from botocore.exceptions import BotoCoreError, ClientError
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
 from crosstune.http import BlockedAddressError
-from crosstune.jobs.importer import UNREACHABLE
 from crosstune.jobs.media import SUBPROCESS_TIMEOUT_SECONDS, MediaError
 from crosstune.models import Job, Recording
 from crosstune.storage.store import delete_best_effort
@@ -49,6 +48,8 @@ RETRY_BACKOFF_SECONDS = 30
 LAST_ERROR_CHARS = 500
 # What a client shows for a failure the server has no better phrase for.
 PROCESSING_FAILED = "Processing failed"
+# Of a recording's jobs, only an import makes HTTP requests, all to Slippery Hill.
+UNREACHABLE = "Couldn't reach Slippery-Hill"
 
 _STORAGE_ERRORS = (BotoCoreError, ClientError)
 

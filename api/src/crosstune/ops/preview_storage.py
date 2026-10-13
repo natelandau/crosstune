@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from crosstune.config import PREVIEW_BUCKET
 from crosstune.storage.r2 import R2Store, s3_client
+from crosstune.storage.store import DEFAULT_CONTENT_TYPE
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -90,7 +91,7 @@ def seed(
                 body,
                 target_bucket,
                 prefix + key,
-                ExtraArgs={"ContentType": obj.get("ContentType", "application/octet-stream")},
+                ExtraArgs={"ContentType": obj.get("ContentType", DEFAULT_CONTENT_TYPE)},
             )
         copied += 1
     return copied
