@@ -11,7 +11,8 @@ from urllib.parse import urlsplit, urlunsplit
 import httpx2
 
 from crosstune.links.detect import SLIPPERY_HILL_ORIGIN, slippery_hill_file_url
-from crosstune.links.resolve import MAX_PAGE_BYTES, unresolved_link
+from crosstune.links.fetch import read_page_text
+from crosstune.links.resolve import unresolved_link
 from crosstune.links.slippery_hill import parse_tune_page
 from crosstune.vocabulary import IMPORTABLE_PROVIDERS
 
@@ -151,18 +152,11 @@ async def _file_ref(
         return None, None
     if link.provider_ref is not None:
         return link.provider_ref, None
-    chunks: list[bytes] = []
-    read = 0
     # Any host the detector calls Slippery-Hill serves the same page, and `_get` only
     # requests the canonical one.
     page = urlunsplit(urlsplit(link.url)._replace(scheme="https", netloc=IMPORT_HOST))
     async with _get(client, page, timeout) as response:
-        async for chunk in response.aiter_bytes():
-            chunks.append(chunk)
-            read += len(chunk)
-            if read >= MAX_PAGE_BYTES:
-                break
-    html = b"".join(chunks)[:MAX_PAGE_BYTES].decode("utf-8", errors="replace")
+        html = await read_page_text(response)
     page_info = await asyncio.to_thread(parse_tune_page, html)
     return page_info.ref, page_info.year
 

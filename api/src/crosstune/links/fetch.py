@@ -1,4 +1,4 @@
-"""Bounded JSON fetches from third-party services."""
+"""Bounded reads of pages and JSON bodies from third-party services."""
 
 from __future__ import annotations
 
@@ -11,6 +11,29 @@ if TYPE_CHECKING:
     import httpx2
 
 MAX_JSON_BYTES = 256_000
+MAX_PAGE_BYTES = 512_000
+
+
+async def read_page_text(response: httpx2.Response) -> str:
+    """Read at most MAX_PAGE_BYTES of a streamed page as text.
+
+    A page is an arbitrary third-party document whose useful data sits near the top, so
+    the rest is never downloaded, and bytes that are not UTF-8 never fail the read.
+
+    Args:
+        response: An open streamed response whose status the caller has checked.
+
+    Returns:
+        str: The page's first MAX_PAGE_BYTES, decoded.
+    """
+    chunks: list[bytes] = []
+    read = 0
+    async for chunk in response.aiter_bytes():
+        chunks.append(chunk)
+        read += len(chunk)
+        if read >= MAX_PAGE_BYTES:
+            break
+    return b"".join(chunks)[:MAX_PAGE_BYTES].decode("utf-8", errors="replace")
 
 
 async def get_json(

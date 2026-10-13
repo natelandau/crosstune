@@ -8,7 +8,7 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from crosstune.links.detect import detect_provider, normalize_url
-from crosstune.links.fetch import get_json
+from crosstune.links.fetch import get_json, read_page_text
 from crosstune.links.opengraph import PageMeta, parse_open_graph
 from crosstune.links.slippery_hill import parse_tune_page
 from crosstune.vocabulary import LIMITS
@@ -26,7 +26,6 @@ OEMBED_ENDPOINTS = {
 ITUNES_LOOKUP = "https://itunes.apple.com/lookup"
 ARCHIVE_METADATA = "https://archive.org/metadata/{identifier}/metadata"
 ARCHIVE_ARTWORK = "https://archive.org/services/img/{identifier}"
-MAX_PAGE_BYTES = 512_000
 # How many per-phase timeouts one whole resolve may take, redirects and all.
 RESOLVE_DEADLINE_TIMEOUTS = 3
 LINK_LIMITS = LIMITS["recording_links"]
@@ -168,20 +167,11 @@ async def _read_page(
     url: str,
     timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
 ) -> str:
-    # Streamed and capped: the page is an arbitrary third-party URL and the data
-    # a resolver needs is near the top.
-    chunks: list[bytes] = []
-    read = 0
     async with client.stream(
         "GET", url, timeout=timeout, headers={"Accept": "text/html"}
     ) as response:
         response.raise_for_status()
-        async for chunk in response.aiter_bytes():
-            chunks.append(chunk)
-            read += len(chunk)
-            if read >= MAX_PAGE_BYTES:
-                break
-    return b"".join(chunks)[:MAX_PAGE_BYTES].decode("utf-8", errors="replace")
+        return await read_page_text(response)
 
 
 async def _open_graph(

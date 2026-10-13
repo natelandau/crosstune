@@ -10,9 +10,9 @@ import httpx2
 import pytest
 
 from crosstune.links import resolve as resolve_module
-from crosstune.links.fetch import MAX_JSON_BYTES
+from crosstune.links.fetch import MAX_JSON_BYTES, MAX_PAGE_BYTES
 from crosstune.links.opengraph import PageMeta, parse_open_graph
-from crosstune.links.resolve import MAX_PAGE_BYTES, resolve_link
+from crosstune.links.resolve import resolve_link
 from crosstune.vocabulary import LIMITS
 from tests.helpers import OEMBED, T0, change, og_html, push, uid
 
