@@ -46,7 +46,6 @@ public enum ImportCopy {
 
     /// The default name of a list made by an import: "Imported" and the local date.
     public static func listName(on date: Date, calendar: Calendar = .current) -> String {
-        let parts = calendar.dateComponents([.year, .month, .day], from: date)
-        return String(format: "Imported %04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+        "Imported \(CalendarDay.day(date, calendar: calendar))"
     }
 }

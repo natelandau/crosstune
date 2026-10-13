@@ -23,16 +23,9 @@ struct PlainDate {
         self.day = day
     }
 
-    // Howard Hinnant's days_from_civil and civil_from_days, for the proleptic Gregorian calendar.
-    var daysSinceEpoch: Int {
-        let y = month <= 2 ? year - 1 : year
-        let era = (y >= 0 ? y : y - 399) / 400
-        let yearOfEra = y - era * 400
-        let dayOfYear = (153 * (month + (month > 2 ? -3 : 9)) + 2) / 5 + day - 1
-        let dayOfEra = yearOfEra * 365 + yearOfEra / 4 - yearOfEra / 100 + dayOfYear
-        return era * 146_097 + dayOfEra - 719_468
-    }
+    var daysSinceEpoch: Int { daysFromCivil(year: year, month: month, day: day) }
 
+    // Howard Hinnant's civil_from_days, the inverse of ``daysFromCivil(year:month:day:)``.
     init(daysSinceEpoch days: Int) {
         let z = days + 719_468
         let era = (z >= 0 ? z : z - 146_096) / 146_097
@@ -54,10 +47,6 @@ struct PlainDate {
 
 func floorMod(_ value: Int, _ divisor: Int) -> Int {
     ((value % divisor) + divisor) % divisor
-}
-
-func isLeapYear(_ year: Int) -> Bool {
-    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
 /// The local date of an ISO 8601 instant in `zone`.

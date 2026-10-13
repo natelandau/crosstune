@@ -88,16 +88,9 @@ extension Timestamp {
             let fraction = number(20, 3),
             year >= 1900, (1...12).contains(month), hour < 24, minute < 60, second < 60
         else { return nil }
-        let isLeap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
-        let monthLengths: [Int64] = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        let monthLengths: [Int64] = [31, isLeapYear(Int(year)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
         guard day >= 1, day <= monthLengths[Int(month - 1)] else { return nil }
-        // Howard Hinnant's days_from_civil, with March as the first month of the year.
-        let shiftedYear = month <= 2 ? year - 1 : year
-        let era = shiftedYear / 400
-        let yearOfEra = shiftedYear - era * 400
-        let dayOfYear = (153 * (month > 2 ? month - 3 : month + 9) + 2) / 5 + day - 1
-        let dayOfEra = yearOfEra * 365 + yearOfEra / 4 - yearOfEra / 100 + dayOfYear
-        let days = era * 146_097 + dayOfEra - 719_468
+        let days = Int64(daysFromCivil(year: Int(year), month: Int(month), day: Int(day)))
         return ((days * 24 + hour) * 60 + minute) * 60_000 + second * 1000 + fraction
     }
 
