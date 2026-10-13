@@ -17,8 +17,6 @@ export interface WaitlistClient {
   join(params: { emailAddress: string }): Promise<unknown>
 }
 
-const STATUS_ID = 'waitlist-status'
-
 // Clerk rejects with `errors[0].longMessage`, written for the person who typed the email.
 function messageFor(error: unknown): string {
   const first = (error as { errors?: { longMessage?: string; message?: string }[] } | null)
@@ -106,7 +104,6 @@ export function mountWaitlist(
   const button = form.querySelector<HTMLButtonElement>('button[type="submit"]')!
   const status = form.querySelector<HTMLElement>('[data-waitlist-status]')!
   const label = button.textContent
-  status.id ||= STATUS_ID
 
   let client: Promise<WaitlistClient> | null = null
   let attempted = false

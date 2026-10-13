@@ -39,7 +39,7 @@ beforeEach(() => {
     <form data-waitlist>
       <input id="waitlist-email" type="email" name="email" required />
       <button type="submit">${JOIN_WAITLIST}</button>
-      <p data-waitlist-status aria-live="polite"></p>
+      <p id="waitlist-status" data-waitlist-status aria-live="polite"></p>
     </form>`
   form = document.querySelector('form')!
   input = form.querySelector('input')!

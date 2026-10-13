@@ -1,7 +1,7 @@
 // HTML string builders for the recreated app screens. Pure functions, so Astro renders a demo's
 // first frame at build time and the client rebuilds the same markup each time a demo loops.
 
-export type Status = 'known' | 'learning' | 'unknown'
+type Status = 'known' | 'learning' | 'unknown'
 
 /** A tune as a row shows it: title, key, mode, status, and an optional tuning note. */
 export type Tune = { t: string; k: string; m?: string; s: Status; tu?: string }

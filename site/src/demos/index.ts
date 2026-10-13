@@ -9,7 +9,7 @@ import { tunePage } from './tunePage'
 import { tunes } from './tunes'
 import type { DemoDef, DemoName } from './types'
 
-export type { DemoDef, DemoName } from './types'
+export type { DemoName } from './types'
 
 export const DEMOS: Record<DemoName, DemoDef> = {
   hero,
