@@ -59,19 +59,12 @@ struct RecordingsGroupHeading: View {
     let title: String
 
     var body: some View {
-        #if os(macOS)
-            Text(title)
-                .font(MacStyle.sectionHeading)
-                .foregroundStyle(.primary)
-                .padding(.top, 8)
-                .accessibilityAddTraits(.isHeader)
-        #else
-            Text(title)
-                .font(PageStyle.sectionHeading)
-                .foregroundStyle(.primary)
-                .textCase(nil)
-                .accessibilityAddTraits(.isHeader)
-        #endif
+        Text(title)
+            .font(PageStyle.sectionHeading)
+            .foregroundStyle(.primary)
+            .textCase(nil)
+            .padding(.top, PageStyle.groupHeadingTop)
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
