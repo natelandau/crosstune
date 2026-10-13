@@ -16,7 +16,7 @@ from crosstune.links.slippery_hill import parse_tune_page
 from crosstune.vocabulary import IMPORTABLE_PROVIDERS
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncGenerator
     from pathlib import Path
 
     from crosstune.models import Recording
@@ -173,7 +173,7 @@ async def _get(
     client: httpx2.AsyncClient,
     url: str,
     timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
-) -> AsyncIterator[httpx2.Response]:
+) -> AsyncGenerator[httpx2.Response]:
     """Stream a GET, following redirects only while they stay on Slippery-Hill's host.
 
     The client's own redirect handling would request the next hop before anyone could

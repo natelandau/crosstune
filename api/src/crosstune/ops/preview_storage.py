@@ -53,8 +53,12 @@ def pr_prefix(pr_name: str) -> str:
 
 
 def _listing(client: S3Client, bucket: str, prefix: str = "") -> dict[str, tuple[int, datetime]]:
-    scope = {"Prefix": prefix} if prefix else {}
-    pages = client.get_paginator("list_objects_v2").paginate(Bucket=bucket, **scope)
+    paginator = client.get_paginator("list_objects_v2")
+    pages = (
+        paginator.paginate(Bucket=bucket, Prefix=prefix)
+        if prefix
+        else paginator.paginate(Bucket=bucket)
+    )
     return {
         obj["Key"][len(prefix) :]: (obj["Size"], obj["LastModified"])
         for page in pages

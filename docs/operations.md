@@ -10,7 +10,7 @@ Configuration section of `architecture.md`.
 | --------------------------------------------- | -------------- | ------------------------------------------------------------------------------- |
 | [uv](https://docs.astral.sh/uv/)              | any            | Installs Python 3.13, the API's dependencies, and the git hooks.                |
 | [Node.js](https://nodejs.org/)                | 22.22 or newer | Runs the web toolchain.                                                         |
-| [pnpm](https://pnpm.io/)                      | 12.4.1         | Pinned in `web/package.json`. `corepack enable` installs it.                    |
+| [pnpm](https://pnpm.io/)                      | 12.11.2        | Pinned in `web/package.json`. `corepack enable` installs it.                    |
 | [just](https://just.systems)                  | any            | The task runner. `just --list` shows every recipe.                              |
 | [Docker](https://docs.docker.com/get-docker/) | any            | Runs Postgres 18 and RustFS for development and the API tests. Must be running. |
 | [ffmpeg](https://ffmpeg.org/)                 | any            | Transcodes recordings. Without it the API tests that use audio skip.            |

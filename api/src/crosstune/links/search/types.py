@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Iterable, Iterator
+from collections.abc import Awaitable, Callable, Generator, Iterable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Protocol
@@ -51,7 +51,7 @@ class _Token(Protocol):
 
 
 @contextmanager
-def auth_errors(token: _Token) -> Iterator[None]:
+def auth_errors(token: _Token) -> Generator[None]:
     """Turn a 401 or 403 into SearchAuthError and drop the token the service refused.
 
     Args:
