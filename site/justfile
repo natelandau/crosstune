@@ -30,9 +30,14 @@ tsc:
 typos:
     {{ gate }} site-typos uv run --project ../api --only-group typos typos --config ../.typos.toml . ../brand
 
+# Find unused files, exports, and dependencies with knip
+[group('lint')]
+deadcode:
+    {{ gate }} site-knip pnpm knip
+
 # Run all linters
 [group('lint')]
-lint: eslint format tsc typos
+lint: eslint format tsc typos deadcode
 
 # Fix lint and formatting where tools can
 [group('lint')]
