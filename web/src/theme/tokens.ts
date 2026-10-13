@@ -31,7 +31,7 @@ export const PALETTE: Record<Scheme, Palette> = {
   light: {
     ground: '#FFFFFF',
     ink: '#1D2230',
-    ink2: '#6B7280',
+    ink2: '#686F7D',
     slate: '#4F5D75',
     onSlate: '#FFFFFF',
     coral: '#EF8354',

@@ -17,6 +17,7 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
   it.each([
     ['ink', p.ink, p.ground, 4.5],
     ['secondary ink', p.ink2, p.ground, 4.5],
+    ['secondary ink on a card', p.ink2, p.fill, 4.5],
     ['slate', p.slate, p.ground, 4.5],
     ['label on slate', p.onSlate, p.slate, 4.5],
     ['known glyph', p.known, p.ground, 3],
