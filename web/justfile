@@ -36,7 +36,7 @@ typos:
 
 # Find unused files, exports, and dependencies with knip
 [group('lint')]
-knip:
+deadcode:
     {{ gate }} web-knip pnpm knip --no-progress
 
 # Fail when the committed client types no longer match the committed OpenAPI schema
@@ -60,7 +60,7 @@ _contract-check:
 
 # Run all linters
 [group('lint')]
-lint: eslint format tsc typos knip contract-check
+lint: eslint format tsc typos deadcode contract-check
 
 # Fix lint and formatting where tools can
 [group('lint')]
