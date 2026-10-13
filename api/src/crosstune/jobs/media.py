@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable
+    from collections.abc import AsyncGenerator, Callable
     from pathlib import Path
 
 MAX_PLAYBACK_CHANNELS = 2
@@ -91,7 +91,7 @@ def playback_bitrate(channels: int, source_bit_rate: int | None) -> int:
 
 
 @contextlib.asynccontextmanager
-async def _media_process(argv: tuple[str, ...]) -> AsyncIterator[asyncio.subprocess.Process]:
+async def _media_process(argv: tuple[str, ...]) -> AsyncGenerator[asyncio.subprocess.Process]:
     """Start a tool with piped output, and kill and reap it on any exit it has not finished by.
 
     Covers a timeout, an error in the caller, and a cancelled job alike, so no ffmpeg

@@ -214,7 +214,11 @@ class R2Store:
 
     def _contents(self, prefix: str) -> Iterator[ObjectTypeDef]:
         """Walk every listing page under `prefix`, yielding each entry that has a key."""
-        scope = {"Prefix": prefix} if prefix else {}
         paginator = self._client.get_paginator("list_objects_v2")
-        for page in paginator.paginate(Bucket=self._bucket, **scope):
+        pages = (
+            paginator.paginate(Bucket=self._bucket, Prefix=prefix)
+            if prefix
+            else paginator.paginate(Bucket=self._bucket)
+        )
+        for page in pages:
             yield from (obj for obj in page.get("Contents", []) if "Key" in obj)

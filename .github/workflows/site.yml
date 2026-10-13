@@ -59,7 +59,7 @@ jobs:
       - uses: ./.github/actions/setup-node
         with:
           module: site
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v10.3.0
       - run: just lint
       - run: just test
       - run: just build

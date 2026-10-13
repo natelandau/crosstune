@@ -1,13 +1,13 @@
 {
-  "originHash" : "f031c51809c53a1f376d5fa8ef4ee44f6d66af1515694e8ad943d27ef8bd7c74",
+  "originHash" : "598b053c3459eb299bd3791138a3e40474dc6a326e71f39b53042f0328744222",
   "pins" : [
     {
       "identity" : "clerk-ios",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/clerk/clerk-ios",
       "state" : {
-        "revision" : "55b70c27ae525b4f49c9bd08e69d8bec35352593",
-        "version" : "1.5.8"
+        "revision" : "173d9382073d6a7a9b439c1e810c42c9ec77a25f",
+        "version" : "1.6.1"
       }
     },
     {
@@ -22,7 +22,7 @@
     {
       "identity" : "nuke",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/kean/Nuke.git",
+      "location" : "https://github.com/kean/Nuke",
       "state" : {
         "revision" : "30f7a7e72e0607d304fbf69c799474bd5fb6d1ce",
         "version" : "13.2.0"
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/PhoneNumberKit/PhoneNumberKit",
       "state" : {
-        "revision" : "faf1703e6fc71c699e911ff0e306c58ad7c756c0",
-        "version" : "5.0.11"
+        "revision" : "df3bcccd1d88ba96fb89cccf51b84b7b6f7f53fe",
+        "version" : "5.0.12"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/PostHog/posthog-ios",
       "state" : {
-        "revision" : "2f6db7d9ccfac0307722c9a2a4029bf534985e2f",
-        "version" : "3.90.2"
+        "revision" : "835f624c2618d72d73650d0ed0029325232f5b0a",
+        "version" : "3.92.0"
       }
     },
     {
@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/RevenueCat/purchases-ios-spm",
       "state" : {
-        "revision" : "d654b8b85143c29e5bb73d0ff92f5f5766fbbedc",
-        "version" : "5.91.0"
+        "revision" : "95ad250230efa7fc3e811c158ed264832aed2e79",
+        "version" : "5.95.0"
       }
     },
     {
@@ -60,8 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-collections",
       "state" : {
-        "revision" : "98ef3c98609a1e31b7e157b5b619579001a789d6",
-        "version" : "1.7.1"
+        "revision" : "35a1edcb8ebd2bfe251d587f0b69e62af28f508c",
+        "version" : "1.7.3"
       }
     },
     {
@@ -78,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-openapi-runtime",
       "state" : {
-        "revision" : "62595194f7d5951ef32129b15c0790ef24886867",
-        "version" : "1.12.2"
+        "revision" : "50ad7976f18fec6c09466d2aebf7be3dc9476cfb",
+        "version" : "1.13.0"
       }
     },
     {

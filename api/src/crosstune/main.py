@@ -44,7 +44,7 @@ from crosstune.users.clerk import ClerkBackendUsers
 from crosstune.users.router import router as users_router
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncGenerator
 
     from crosstune.storage.store import ObjectStore
 
@@ -146,7 +146,7 @@ def _publish_push_data_schemas(app: FastAPI) -> None:
 
 
 @asynccontextmanager
-async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
     settings: Settings = app.state.settings
     # Tests inject these before startup; only build (and later tear down) what is absent,
     # so an injected resource outlives the lifespan under whoever owns it.
