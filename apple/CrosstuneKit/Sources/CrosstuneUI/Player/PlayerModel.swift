@@ -101,7 +101,7 @@ public final class PlayerModel {
     @ObservationIgnored private var followingPlan: Task<Void, Never>?
 
     /// Whether the plan lets recordings play.
-    public var recordingsPlay: Bool { plan?.plan.recordingsPlay ?? true }
+    public var recordingsPlay: Bool { plan.recordingsPlay }
 
     /// How long a speed or pitch holds still before it is written.
     @ObservationIgnored var settleDelay: Duration = .seconds(1)

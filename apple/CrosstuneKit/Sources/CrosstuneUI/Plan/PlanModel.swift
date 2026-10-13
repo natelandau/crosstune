@@ -90,3 +90,9 @@ public final class PlanModel {
         }
     }
 }
+
+@MainActor
+extension PlanModel? {
+    /// Whether recordings play. Until a plan model is around the plan is unknown, which plays them.
+    var recordingsPlay: Bool { self?.plan.recordingsPlay ?? Plan.unknown.recordingsPlay }
+}

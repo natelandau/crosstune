@@ -103,7 +103,7 @@ public struct ListsScreen: View {
         return ListsPlayOffers.reports(
             playable?.value ?? nil, canStart: listPlayback != nil && !(recorders?.isCapturing ?? false),
             fullTracks: fullTracks, online: session?.hasNetwork ?? true,
-            recordingsPlay: plan?.plan.recordingsPlay ?? true)
+            recordingsPlay: plan.recordingsPlay)
     }
 
     private func start(_ summary: ListSummary, report: PlaylistReport, shuffled: Bool) {

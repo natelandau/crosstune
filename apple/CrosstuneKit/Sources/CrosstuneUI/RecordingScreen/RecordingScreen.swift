@@ -547,7 +547,7 @@ struct RecordingScreenContent: View {
     }
 
     /// Whether the plan lets recordings play, which practice and trim need.
-    private var recordingsPlay: Bool { plan?.plan.recordingsPlay ?? true }
+    private var recordingsPlay: Bool { plan.recordingsPlay }
 
     private var trimBlocker: String? {
         let downloading = transfers?.isDownloading(rows.recording.id) == true

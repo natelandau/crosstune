@@ -315,7 +315,7 @@ private struct ListTunes: View {
         appleMusic = await access.current()
     }
 
-    private var recordingsPlay: Bool { plan?.plan.recordingsPlay ?? true }
+    private var recordingsPlay: Bool { plan.recordingsPlay }
 
     private func playReport(_ rows: [ListEntry]) -> PlaylistReport {
         let online = session?.hasNetwork ?? true

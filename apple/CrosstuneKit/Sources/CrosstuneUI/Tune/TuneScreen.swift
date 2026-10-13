@@ -410,7 +410,7 @@ struct TuneMediaRows: View {
     @State private var showsRecordings = false
 
     var body: some View {
-        let collapses = !(plan?.plan.recordingsPlay ?? true) && !detail.recordings.isEmpty
+        let collapses = !plan.recordingsPlay && !detail.recordings.isEmpty
         if collapses {
             RecordingsLine(count: detail.recordings.count, isExpanded: $showsRecordings)
                 .pageRowWidth()
