@@ -298,9 +298,7 @@ public final class CrosstuneStore: Sendable {
             return try request.limit(limit).fetchAll(db)
         }
     }
-
-    // periphery:ignore:parameters type - only fixes `Value` for a caller that cannot infer it
-    public func meta<Value: Decodable & Sendable>(_ key: MetaKey, as type: Value.Type = Value.self) async throws
+    public func meta<Value: Decodable & Sendable>(_ key: MetaKey, as _: Value.Type = Value.self) async throws
         -> Value?
     {
         try await database.read { db in try Meta.value(db, key) }
@@ -386,9 +384,7 @@ public struct StoreWriter {
             try Outbox.drop(db, table: Record.table, rowID: id)
         }
     }
-
-    // periphery:ignore:parameters type - only fixes `Value` for a caller that cannot infer it
-    public func meta<Value: Decodable>(_ key: MetaKey, as type: Value.Type = Value.self) throws -> Value? {
+    public func meta<Value: Decodable>(_ key: MetaKey, as _: Value.Type = Value.self) throws -> Value? {
         try Meta.value(db, key)
     }
 

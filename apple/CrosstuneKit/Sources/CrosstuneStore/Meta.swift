@@ -34,17 +34,14 @@ public enum MetaKey: String, Sendable {
     /// under. Each is queued again at most once per grant, so a server that still refuses never
     /// sees it every sync.
     case scanRequeues = "scan_requeues"
-
-    // periphery:ignore:parameters type - only fixes `Value` for a caller that cannot infer it
     /// The value stored under this key, read inside a transaction or a `LiveQuery` fetch.
-    public func value<Value: Decodable>(in db: Database, as type: Value.Type = Value.self) throws -> Value? {
+    public func value<Value: Decodable>(in db: Database, as _: Value.Type = Value.self) throws -> Value? {
         try Meta.value(db, self)
     }
 }
 
 enum Meta {
-    // periphery:ignore:parameters type - only fixes `Value` for a caller that cannot infer it
-    static func value<Value: Decodable>(_ db: Database, _ key: MetaKey, as type: Value.Type = Value.self) throws
+    static func value<Value: Decodable>(_ db: Database, _ key: MetaKey, as _: Value.Type = Value.self) throws
         -> Value?
     {
         guard let text = try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = ?", arguments: [key.rawValue])
