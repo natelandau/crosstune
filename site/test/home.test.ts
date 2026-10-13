@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { JSDOM } from 'jsdom'
 import { describe, expect, it } from 'vitest'
 import {
   ALREADY_SIGNED_UP,
@@ -34,7 +33,7 @@ import {
 } from '../src/components/pricing'
 import { PROBLEM_BODY, PROBLEM_TITLE } from '../src/components/problem'
 import { HOME_DESCRIPTION, HOME_TITLE, OG_IMAGE_ALT, STRUCTURED_DATA } from '../src/components/seo'
-import { readDist, readPage } from './dist'
+import { parseHtml, readDist, readPage } from './dist'
 
 const doc = readPage('/')
 const text = (el: Element | null | undefined) => el?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
@@ -308,7 +307,7 @@ describe('home page head', () => {
 })
 
 describe('404 page', () => {
-  const page = new JSDOM(readDist('/404.html')).window.document
+  const page = parseHtml(readDist('/404.html'))
 
   it('stays out of search results', () => {
     expect(page.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex')

@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { HOME_TITLE } from '../src/components/seo'
-import { JSDOM } from 'jsdom'
-import { readDist, readPage } from './dist'
+import { parseHtml, readDist, readPage } from './dist'
 import { runInNewContext } from 'node:vm'
 import { APP_URL, SIGN_IN } from '../src/components/actions'
 import { JOINED_KEY, JOIN_EVENT_KEY, THANKS_PATH } from '../src/scripts/waitlist'
@@ -43,7 +42,7 @@ describe('home page shell', () => {
 
 describe('404 page', () => {
   it('exists, links to the app, and links home', () => {
-    const doc = new JSDOM(readDist('/404.html')).window.document
+    const doc = parseHtml(readDist('/404.html'))
     const hrefs = [...doc.querySelectorAll('main a')].map((a) => a.getAttribute('href'))
     expect(hrefs).toContain(APP_URL)
     expect(hrefs).toContain('/')

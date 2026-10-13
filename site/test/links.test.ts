@@ -1,17 +1,19 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { JSDOM } from 'jsdom'
 import { describe, expect, it } from 'vitest'
+import { dist, htmlFiles, parseHtml } from './dist'
 
-const dist = resolve(import.meta.dirname, '../dist')
 const origin = 'https://crosstune.app'
 
-function htmlFiles(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name)
-    if (statSync(path).isDirectory()) return htmlFiles(path)
-    return name.endsWith('.html') ? [path] : []
-  })
+// Every page links into the home page's sections, so each page is parsed once and shared.
+const docs = new Map<string, Document>()
+function docFor(file: string): Document {
+  let doc = docs.get(file)
+  if (!doc) {
+    doc = parseHtml(readFileSync(file, 'utf8'))
+    docs.set(file, doc)
+  }
+  return doc
 }
 
 // Maps a same-origin pathname to the built file that serves it, or null when none does.
@@ -31,7 +33,7 @@ const redirects = new Map(
     .map(([from, to]) => [from, to] as const),
 )
 
-const pages = htmlFiles(dist)
+const pages = htmlFiles()
 
 describe('built links', () => {
   it('finds the built pages', () => {
@@ -40,7 +42,7 @@ describe('built links', () => {
 
   it.each(pages)('%s has no broken same-origin link', (file) => {
     const pageUrl = `${origin}/${file.slice(dist.length + 1).replace(/(^|\/)index\.html$/, '$1')}`
-    const doc = new JSDOM(readFileSync(file, 'utf8')).window.document
+    const doc = docFor(file)
     const broken: string[] = []
 
     for (const el of doc.querySelectorAll('[href], [src]')) {
@@ -58,9 +60,7 @@ describe('built links', () => {
       }
       if (url.hash.length > 1) {
         const id = decodeURIComponent(url.hash.slice(1))
-        const targetDoc =
-          target === file ? doc : new JSDOM(readFileSync(target, 'utf8')).window.document
-        if (!targetDoc.getElementById(id)) broken.push(ref)
+        if (!docFor(target).getElementById(id)) broken.push(ref)
       }
     }
 
