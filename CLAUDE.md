@@ -103,7 +103,8 @@ every label. The glossary in `docs/product.md` has the reasons.
   file names it with `--file`, and one that depends on a tool no lockfile
   pins names its version command with `--tool` (`scripts/gate-cache.sh`).
   Never put a check through it that reads a service or anything else
-  neither can name.
+  neither can name. `api-test` is the one exception: its Postgres
+  databases are made from the tree on every run (`docs/operations.md`).
 - Spell check with `just typos [paths]`. Never run typos or any other tool
   through `uvx`. Do not add another task runner.
 

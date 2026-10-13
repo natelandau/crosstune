@@ -145,6 +145,10 @@ so CI never skips a gate.
   no lockfile pins, such as Node, ffmpeg, or Xcode's Swift, names the
   command that prints its version with `--tool`. A hash of both joins
   the gate name, so a change to either runs the gate again.
+- A gate never reads a service, since gate-cache cannot see one change.
+  `api-test` is the one exception: it starts the compose Postgres, but
+  every run creates and migrates databases of its own from the tree and
+  drops them after, so nothing Postgres already holds reaches the result.
 - `just gate status` lists the gates that passed on the current tree and
   the gates that ran on it without a pass. `just gate status --name <gate>`
   says whether one gate would skip; a gate keyed with `--file` or
