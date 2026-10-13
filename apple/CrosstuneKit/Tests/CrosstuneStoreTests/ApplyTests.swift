@@ -409,8 +409,9 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
             "id": .string("entitlement-1"), "created_at": .string(noon.iso), "updated_at": .string(noon.iso),
             "deleted_at": .null, "server_seq": .integer(12), "user_id": .string("server-user"),
             "premium_source": .string("trial"), "premium_expires_at": .string(later(86_400_000).iso),
-            "auto_renews": .bool(false), "trial_ends_at": .string(later(86_400_000).iso),
-            "premium_quota_bytes": .integer(10_000), "free_quota_bytes": .integer(1_000),
+            "auto_renews": .bool(false), "trial_starts_at": .string(noon.iso),
+            "trial_ends_at": .string(later(86_400_000).iso), "premium_quota_bytes": .integer(10_000),
+            "free_quota_bytes": .integer(1_000),
             "recording_notice_seen_at": .null, "trial_reminder_seen_at": .null, "trial_end_seen_at": .null,
             "storage_addon": .bool(true),
         ]
@@ -421,6 +422,7 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
 
         let stored = try #require(try await store.read { db in try Entitlement.current(db) })
         #expect(stored.premiumSource == "trial")
+        #expect(stored.trialStartsAt == noon)
         #expect(stored.trialEndsAt == later(86_400_000))
         #expect(stored.premiumQuotaBytes == 10_000)
         #expect(stored.extra == ["storage_addon": .bool(true)])

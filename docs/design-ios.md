@@ -85,8 +85,9 @@ there where they differ. Regular-width iPad reads this page, then
   no segment chosen.
 - Settings: root led by account identity and sync state. Each category is
   a pushed page.
-- A link to a Settings group (See plan) switches to the Settings tab and
-  pushes the group's page over the root, so Back returns to the root.
+- A link to a Settings group (the first-recording notice's See your
+  plan) switches to the Settings tab and pushes the group's page over the
+  root, so Back returns to the root.
 - Category row: slate SF Symbol, name, value summary where one exists. No
   colored tiles.
 - A set answered once (instruments, music services) is chosen in place on
@@ -100,6 +101,9 @@ there where they differ. Regular-width iPad reads this page, then
 - A sheet's actions pin to its bottom edge: a full-width prominent
   primary over centered borderless secondaries.
 - Close is the system close button, the glass xmark.
+- The Plan sheet pins nothing: its period choice, Subscribe, and
+  disclosures close its scrolling page, so the comparison is never
+  covered.
 
 ## Player and practice
 

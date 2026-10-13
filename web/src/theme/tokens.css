@@ -3,7 +3,7 @@
 :root {
   --ground: #ffffff;
   --ink: #1d2230;
-  --ink-2: #6b7280;
+  --ink-2: #686f7d;
   --slate: #4f5d75;
   --on-slate: #ffffff;
   /* The fill of a solid control, such as a primary button or an on switch, and its hover. */
@@ -45,6 +45,14 @@
   --play-wash: color-mix(in srgb, var(--slate) 6%, transparent);
   --set-fill: color-mix(in srgb, var(--slate) 14%, transparent);
   --set-label: var(--action);
+  /* What marks Premium on a sheet that sells it: dark ink on coral in either appearance, since
+     coral text or glyphs on a light ground fall under 3:1. The column below the coral header
+     takes a wash, and its values an ink, that keep 4.5:1 on that wash. */
+  --on-coral: #1d2230;
+  --premium-wash: color-mix(in srgb, var(--slate) 18%, transparent);
+  --premium-ink: var(--slate);
+  /* The faintest glyph that still clears 3:1 on a fill, for a mark that means absence. */
+  --glyph-faint: #848a94;
   /* The navigation surfaces' tint, the Mac sidebar's: slate at 15% over the ground, 20% in
      dark, flattened so tests can measure it. Secondary ink and the unknown ring darken on it to
      keep their contrast. */
@@ -159,6 +167,11 @@
   --play-wash: color-mix(in srgb, var(--slate) 12%, transparent);
   --set-fill: color-mix(in srgb, var(--slate) 28%, transparent);
   --set-label: var(--ink);
+  --on-coral: #1d2230;
+  --premium-wash: color-mix(in srgb, var(--slate) 28%, transparent);
+  /* Slate text falls under 4.5:1 on the dark wash. */
+  --premium-ink: var(--ink);
+  --glyph-faint: #6e7482;
   --nav: #2e323b;
   --nav-ink-2: var(--ink-2);
   --nav-unknown: var(--unknown);
@@ -266,6 +279,10 @@
   --color-wash: var(--wash);
   --color-set-fill: var(--set-fill);
   --color-set-label: var(--set-label);
+  --color-on-coral: var(--on-coral);
+  --color-premium-wash: var(--premium-wash);
+  --color-premium-ink: var(--premium-ink);
+  --color-glyph-faint: var(--glyph-faint);
   --color-nav: var(--nav);
 }
 

@@ -71,7 +71,8 @@ private struct SheetActionBar<Primary: View, Secondary: View, Footer: View>: Vie
     }
 }
 
-private struct SheetPrimaryButtonStyle: PrimitiveButtonStyle {
+/// A sheet's primary button: full width and slate prominent.
+struct SheetPrimaryButtonStyle: PrimitiveButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         Button(role: configuration.role, action: configuration.trigger) {
             configuration.label.frame(maxWidth: .infinity)

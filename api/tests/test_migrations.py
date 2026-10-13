@@ -2997,6 +2997,89 @@ async def test_0038_adds_the_nullable_trial_end_column_and_downgrade_drops_it(
     assert dropped == []
 
 
+async def test_0041_backfills_the_trial_start_and_downgrade_drops_it(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    trial_user = "018f0000-0000-7000-8000-000000000093"
+    comp_user = "018f0000-0000-7000-8000-000000000094"
+    column = text(
+        "select count(*) from information_schema.columns "
+        "where table_name = 'entitlements' and column_name = 'trial_starts_at'"
+    )
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0040")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, :clerk, now(), now())"
+                ),
+                [{"id": trial_user, "clerk": "user_t"}, {"id": comp_user, "clerk": "user_c"}],
+            )
+            await conn.execute(
+                text(
+                    "insert into grants (id, user_id, kind, source, environment, expires_at, "
+                    "auto_renews, created_at, updated_at) values (gen_random_uuid(), :user, "
+                    "'premium', :source, 'production', :expires, false, :created, now())"
+                ),
+                [
+                    {
+                        "user": trial_user,
+                        "source": "trial",
+                        "expires": datetime(2026, 3, 1, tzinfo=UTC),
+                        "created": datetime(2026, 1, 1, tzinfo=UTC),
+                    },
+                    {
+                        "user": comp_user,
+                        "source": "comp",
+                        "expires": None,
+                        "created": datetime(2026, 2, 1, tzinfo=UTC),
+                    },
+                ],
+            )
+            await conn.execute(
+                text(
+                    "insert into entitlements (id, user_id, auto_renews, premium_quota_bytes, "
+                    "free_quota_bytes, created_at, updated_at) "
+                    "select gen_random_uuid(), id, false, 0, 0, now(), now() from users"
+                )
+            )
+            before = {
+                row.user_id: row
+                for row in (
+                    await conn.execute(
+                        text("select user_id::text, server_seq, updated_at from entitlements")
+                    )
+                ).all()
+            }
+        await anyio.to_thread.run_sync(command.upgrade, config, "0041")
+        async with engine.connect() as conn:
+            after = {
+                row.user_id: row
+                for row in (
+                    await conn.execute(
+                        text(
+                            "select user_id::text, trial_starts_at, server_seq, updated_at "
+                            "from entitlements"
+                        )
+                    )
+                ).all()
+            }
+        await anyio.to_thread.run_sync(command.downgrade, config, "0040")
+        async with engine.connect() as conn:
+            dropped = (await conn.execute(column)).scalar_one()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert after[trial_user].trial_starts_at == datetime(2026, 1, 1, tzinfo=UTC)
+    assert after[trial_user].server_seq > before[trial_user].server_seq
+    assert after[trial_user].updated_at == before[trial_user].updated_at
+    assert after[comp_user].trial_starts_at is None
+    assert after[comp_user].server_seq == before[comp_user].server_seq
+    assert dropped == 0
+
+
 async def test_0040_creates_inactivity_tables_and_downgrade_drops_them(
     engine, database_url: str, truncate_all: None
 ) -> None:

@@ -17,8 +17,11 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
   it.each([
     ['ink', p.ink, p.ground, 4.5],
     ['secondary ink', p.ink2, p.ground, 4.5],
+    ['secondary ink on a card', p.ink2, p.fill, 4.5],
     ['slate', p.slate, p.ground, 4.5],
     ['label on slate', p.onSlate, p.slate, 4.5],
+    ['label on coral', p.onCoral, p.coral, 4.5],
+    ['absence mark on a card', p.glyphFaint, p.fill, 3],
     ['known glyph', p.known, p.ground, 3],
     ['unknown ring', p.unknown, p.ground, 3],
     ['record', p.record, p.ground, 3],
@@ -76,7 +79,8 @@ const normal = (color: string) =>
 
 const property = (key: string) => `--${key.replace(/[A-Z]|\d+/g, (m) => `-${m.toLowerCase()}`)}`
 
-describe.each(['light', 'dark'] as const)('tokens.css in %s', (scheme) => {
+/** Every token tokens.css sets in a scheme, with a value that names another token resolved. */
+function tokens(scheme: 'light' | 'dark'): Map<string, string> {
   const light = declared(':root')
   // A dark value falls back to the light one where the dark block does not set it.
   const set =
@@ -87,7 +91,11 @@ describe.each(['light', 'dark'] as const)('tokens.css in %s', (scheme) => {
     const named = ref === undefined ? undefined : set.get(ref)
     return named === undefined ? value : resolve(named)
   }
-  const values = new Map([...set].map(([name, value]) => [name, resolve(value)]))
+  return new Map([...set].map(([name, value]) => [name, resolve(value)]))
+}
+
+describe.each(['light', 'dark'] as const)('tokens.css in %s', (scheme) => {
+  const values = tokens(scheme)
   it.each(Object.keys(PALETTE[scheme]) as (keyof Palette)[])('matches tokens.ts for %s', (key) => {
     expect(normal(values.get(property(key)) ?? 'missing')).toBe(normal(PALETTE[scheme][key]))
   })
@@ -97,4 +105,34 @@ it("gives practice the dark scheme's danger in either appearance", () => {
   expect(normal(declared(':root').get('--danger-dark') ?? 'missing')).toBe(
     normal(PALETTE.dark.danger),
   )
+})
+
+/** The hex color a translucent wash token paints over an opaque ground. */
+function washOver(values: Map<string, string>, wash: string, ground: string): string {
+  const match = /^color-mix\(in srgb, var\((--[\w-]+)\) (\d+)%, transparent\)$/.exec(
+    values.get(wash) ?? '',
+  )
+  if (!match) throw new Error(`${wash} is not a color-mix of a token with transparent`)
+  const [color, alpha] = [values.get(match[1]!)!, Number(match[2]) / 100]
+  const channels = (hex: string) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16))
+  const under = channels(ground)
+  const mixed = channels(color).map((c, i) => Math.round(c * alpha + under[i]! * (1 - alpha)))
+  return `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`
+}
+
+describe.each(['light', 'dark'] as const)('washes in %s', (scheme) => {
+  const values = tokens(scheme)
+  const token = (name: string) => values.get(name)!
+  it.each([
+    // The comparison's Premium column: the wash over the card it sits on.
+    ['Premium value on its wash', '--premium-ink', '--premium-wash', '--fill', 4.5],
+    ['Premium check on its wash', '--slate', '--premium-wash', '--fill', 3],
+    // A feature's icon tile, on the card its row sits on.
+    ['feature icon on its tile', '--slate', '--tint', '--fill', 3],
+    // The trial card: the tint over the sheet, with the nav's secondary ink the card takes.
+    ['trial card secondary ink on its tint', '--nav-ink-2', '--tint', '--ground', 4.5],
+    ['trial card ink on its tint', '--ink', '--tint', '--ground', 4.5],
+  ])('%s passes', (_, ink, wash, ground, min) => {
+    expect(ratio(token(ink), washOver(values, wash, token(ground)))).toBeGreaterThanOrEqual(min)
+  })
 })

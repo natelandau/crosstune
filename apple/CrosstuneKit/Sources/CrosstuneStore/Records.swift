@@ -728,6 +728,8 @@ public struct Entitlement: SyncedRecord, Hashable {
     /// When the reported grant ends, nil when it never does.
     public var premiumExpiresAt: Timestamp?
     public var autoRenews: Bool
+    /// When the account's trial began, nil when it never had one.
+    public var trialStartsAt: Timestamp?
     public var trialEndsAt: Timestamp?
     public var premiumQuotaBytes: Int64
     public var freeQuotaBytes: Int64
@@ -745,6 +747,7 @@ public struct Entitlement: SyncedRecord, Hashable {
         case premiumSource = "premium_source"
         case premiumExpiresAt = "premium_expires_at"
         case autoRenews = "auto_renews"
+        case trialStartsAt = "trial_starts_at"
         case trialEndsAt = "trial_ends_at"
         case premiumQuotaBytes = "premium_quota_bytes"
         case freeQuotaBytes = "free_quota_bytes"
@@ -757,9 +760,10 @@ public struct Entitlement: SyncedRecord, Hashable {
     public init(
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
         deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, premiumSource: String? = nil,
-        premiumExpiresAt: Timestamp? = nil, autoRenews: Bool = false, trialEndsAt: Timestamp? = nil,
-        premiumQuotaBytes: Int64, freeQuotaBytes: Int64, recordingNoticeSeenAt: Timestamp? = nil,
-        trialReminderSeenAt: Timestamp? = nil, trialEndSeenAt: Timestamp? = nil, extra: JSONObject = [:]
+        premiumExpiresAt: Timestamp? = nil, autoRenews: Bool = false, trialStartsAt: Timestamp? = nil,
+        trialEndsAt: Timestamp? = nil, premiumQuotaBytes: Int64, freeQuotaBytes: Int64,
+        recordingNoticeSeenAt: Timestamp? = nil, trialReminderSeenAt: Timestamp? = nil,
+        trialEndSeenAt: Timestamp? = nil, extra: JSONObject = [:]
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -769,6 +773,7 @@ public struct Entitlement: SyncedRecord, Hashable {
         self.premiumSource = premiumSource
         self.premiumExpiresAt = premiumExpiresAt
         self.autoRenews = autoRenews
+        self.trialStartsAt = trialStartsAt
         self.trialEndsAt = trialEndsAt
         self.premiumQuotaBytes = premiumQuotaBytes
         self.freeQuotaBytes = freeQuotaBytes

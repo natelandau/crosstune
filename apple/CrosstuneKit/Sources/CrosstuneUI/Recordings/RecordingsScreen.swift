@@ -440,7 +440,7 @@ private struct RecordingsContent: View {
         }
     #endif
 
-    /// Opens the file picker, or the Premium sheet when the plan holds recordings back.
+    /// Opens the file picker, or the Plan sheet when the plan holds recordings back.
     private func upload() {
         importing = premium?.gate(.recordings, from: .upload) ?? true
     }
@@ -488,7 +488,7 @@ private struct RecordingsContent: View {
         .tag(view.id)
         // A row with no audio here downloads or retries on a click, so selecting it, or arrowing
         // past it, must not open its practice view and fetch it. A plan that holds recordings
-        // back sends the click to the Premium sheet.
+        // back sends the click to the Plan sheet.
         .selectionDisabled(
             !plan.recordingsPlay
                 || (!RecordingText.holdsAudio(view.file) && player?.holds(.recording, id: view.id) != true)

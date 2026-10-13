@@ -30,7 +30,9 @@
                 }
             return Entitlement(
                 id: "sample-entitlement", premiumSource: self == .free ? nil : "trial",
-                premiumExpiresAt: trialEnd.map(Timestamp.init), trialEndsAt: trialEnd.map(Timestamp.init),
+                premiumExpiresAt: trialEnd.map(Timestamp.init),
+                trialStartsAt: trialEnd.map { Timestamp($0.addingTimeInterval(-30 * day)) },
+                trialEndsAt: trialEnd.map(Timestamp.init),
                 premiumQuotaBytes: 10_000_000_000, freeQuotaBytes: 1_000_000_000)
         }
 

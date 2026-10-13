@@ -22,7 +22,7 @@ export const EDIT_SCANS = 'Edit scans'
 export const DONE_EDITING_SCANS = 'Done editing scans'
 export const DELETE_SCAN_TITLE = 'Delete this scan?'
 export const SCAN_UNREADABLE = 'This scan cannot be shown'
-/** Heard on a free plan's scan off its one tune, whose tap opens the Premium sheet. */
+/** Heard on a free plan's scan off its one tune, whose tap opens the Plan sheet. */
 export const SUBSCRIBE_TO_OPEN = 'Subscribe to open'
 
 /** Shown on a scan whose upload the server refused for quota; the sync layer stores the code

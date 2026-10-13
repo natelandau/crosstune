@@ -94,6 +94,17 @@ async def test_trial_restarts_after_comp(session: AsyncSession, settings: Settin
     )
 
 
+async def test_trial_restart_moves_the_start_too(session: AsyncSession, settings: Settings) -> None:
+    user = await _user(session, settings, "trial_restart")
+    later = utc_now() + timedelta(days=10)
+
+    await apply_state(session, user.id, AccountState.TRIAL, settings, later)
+
+    row = await _entitlement(session, user)
+    assert row.trial_starts_at == later
+    assert row.trial_ends_at == later + timedelta(days=settings.trial_days)
+
+
 async def test_premium_is_open_ended_comp(session: AsyncSession, settings: Settings) -> None:
     user = await _user(session, settings, "premium")
 

@@ -10,13 +10,15 @@ private let day: TimeInterval = 86_400
 private func at(_ offset: TimeInterval) -> Timestamp { Timestamp(now.addingTimeInterval(offset)) }
 
 private func row(
-    source: String? = nil, expiresAt: Timestamp? = nil, autoRenews: Bool = false, trialEndsAt: Timestamp? = nil,
-    recordingNoticeSeenAt: Timestamp? = nil, trialReminderSeenAt: Timestamp? = nil, trialEndSeenAt: Timestamp? = nil
+    source: String? = nil, expiresAt: Timestamp? = nil, autoRenews: Bool = false, trialStartsAt: Timestamp? = nil,
+    trialEndsAt: Timestamp? = nil, recordingNoticeSeenAt: Timestamp? = nil, trialReminderSeenAt: Timestamp? = nil,
+    trialEndSeenAt: Timestamp? = nil
 ) -> Entitlement {
     Entitlement(
         id: "entitlement-1", createdAt: Timestamp(iso: "2026-01-01T00:00:00.000Z")!, premiumSource: source,
-        premiumExpiresAt: expiresAt, autoRenews: autoRenews, trialEndsAt: trialEndsAt, premiumQuotaBytes: 10_000,
-        freeQuotaBytes: 1_000, recordingNoticeSeenAt: recordingNoticeSeenAt, trialReminderSeenAt: trialReminderSeenAt,
+        premiumExpiresAt: expiresAt, autoRenews: autoRenews, trialStartsAt: trialStartsAt, trialEndsAt: trialEndsAt,
+        premiumQuotaBytes: 10_000, freeQuotaBytes: 1_000, recordingNoticeSeenAt: recordingNoticeSeenAt,
+        trialReminderSeenAt: trialReminderSeenAt,
         trialEndSeenAt: trialEndSeenAt)
 }
 
@@ -27,21 +29,31 @@ private func scan(_ id: String, _ tuneID: String, _ createdAt: String, deletedAt
 }
 
 @Suite struct PlanFromTests {
+    @Test func carriesAutoRenewsForAPremiumRowOnly() {
+        #expect(Plan.from(row(source: "apple", expiresAt: at(day), autoRenews: true), now: now).autoRenews)
+        #expect(!Plan.from(row(source: "apple", expiresAt: at(day), autoRenews: false), now: now).autoRenews)
+        #expect(!Plan.from(row(source: "apple", expiresAt: at(-30 * day), autoRenews: true), now: now).autoRenews)
+        #expect(!Plan.from(row(), now: now).autoRenews)
+        #expect(!Plan.from(nil, now: now).autoRenews)
+    }
+
     @Test func isUnknownWithNoRowAndGatesNothing() {
         let plan = Plan.from(nil, now: now)
         #expect(plan.kind == .unknown)
+        #expect(plan.trialStartsAt == nil)
         #expect(plan.quotaBytes == nil)
         #expect(plan.scansOnly == false)
         #expect(plan.recordingsPlay)
     }
 
     @Test func isPremiumDuringATrialWithThePremiumQuota() {
-        let plan = Plan.from(row(source: "trial", expiresAt: at(day), trialEndsAt: at(day)), now: now)
+        let plan = Plan.from(
+            row(source: "trial", expiresAt: at(day), trialStartsAt: at(-13 * day), trialEndsAt: at(day)), now: now)
         #expect(
             plan
                 == Plan(
-                    kind: .premium, source: .trial, premiumEndsAt: at(day).date, trialEndsAt: at(day).date,
-                    quotaBytes: 10_000, scansOnly: false))
+                    kind: .premium, source: .trial, premiumEndsAt: at(day).date, trialStartsAt: at(-13 * day).date,
+                    trialEndsAt: at(day).date, quotaBytes: 10_000, scansOnly: false))
     }
 
     @Test func isFreeOnceATrialExpiredASecondAgoWithTheFreeQuotaCountingScansOnly() {

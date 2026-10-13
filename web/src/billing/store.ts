@@ -6,6 +6,8 @@ export type { PurchasePeriod }
 export interface StoreOffer {
   period: PurchasePeriod
   price: string
+  /** The store price in millionths of the currency, for comparing offers, never for display. */
+  amountMicros: number
 }
 
 export type PurchaseOutcome = 'completed' | 'cancelled'

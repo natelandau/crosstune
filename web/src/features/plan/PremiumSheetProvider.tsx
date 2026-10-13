@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -7,18 +8,26 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { planMode } from '../../billing/plan'
+import { usePlanOrUnknown } from '../../billing/usePlan'
+import { useDb } from '../../db/DbProvider'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
 import type { PremiumEntry, PremiumReason, PurchasePeriod } from '../../usage/events'
 import { useLatest } from '../../ui/useLatest'
-import { settingsPagePath } from '../settings/settingsPaths'
-import { PremiumSheet } from './PremiumSheet'
+import { useResetOnChange } from '../../ui/useResetOnChange'
+import { PlanSheet } from './PlanSheet'
 import { usePurchase } from './usePurchase'
 
 export type { PremiumEntry, PremiumReason }
 
 export interface PremiumSheetLauncher {
-  /** Shows the Premium sheet for what a free account tapped, or for the plan itself, and from where. */
+  /** Shows the Plan sheet for what a free account tapped, or for the plan itself, and from where. */
   open: (reason: PremiumReason, from: PremiumEntry) => void
+  /**
+   * Opens the store's checkout at once, for a caller whose own sheet has already left. A purchase
+   * that goes through settles the Plan sheet, as one bought from it does.
+   */
+  checkout: (period: PurchasePeriod, from: PremiumEntry) => Promise<void>
 }
 
 interface Checkout {
@@ -26,20 +35,26 @@ interface Checkout {
   from: PremiumEntry
 }
 
-const NOTHING: PremiumSheetLauncher = { open: () => {} }
+const NOTHING: PremiumSheetLauncher = { open: () => {}, checkout: async () => {} }
 
 const PremiumSheetContext = createContext<PremiumSheetLauncher>(NOTHING)
 
-/** Holds the one Premium sheet, so any gated control can answer a tap with it. */
-export function PremiumSheetProvider({
-  navigate,
-  children,
-}: {
-  navigate: (to: string) => void
-  children: ReactNode
-}) {
+// Apart from the launcher, so the launcher keeps its identity while a checkout comes and goes.
+const CheckoutOpenContext = createContext(false)
+
+/** Holds the one Plan sheet, so any gated control can answer a tap with it. */
+export function PremiumSheetProvider({ children }: { children: ReactNode }) {
   const analytics = useAnalytics()
   const purchase = usePurchase()
+  const mode = planMode(usePlanOrUnknown())
+  // The database is per account, so it names whose purchase went through.
+  const db = useDb()
+  const dbRef = useLatest(db)
+  // A purchase that went through, held until the synced plan changes, so the sheet never sells
+  // again to an account that just bought. Another account never inherits it.
+  const [settled, setSettled] = useState(false)
+  useResetOnChange(mode, () => setSettled(false))
+  useResetOnChange(db, () => setSettled(false))
   const [shown, setShown] = useState<{
     reason: PremiumReason | null
     from: PremiumEntry | null
@@ -48,10 +63,22 @@ export function PremiumSheetProvider({
   const chosen = useRef<Checkout | null>(null)
   // Set once the sheet has left, so RevenueCat's checkout never opens under its inert backdrop.
   const [checkout, setCheckout] = useState<Checkout | null>(null)
+  // Checkouts asked for and not yet answered, counted from the moment one is asked for, so
+  // nothing opens over the store's window in the commit before it appears.
+  const [inFlight, setInFlight] = useState(0)
+  const settle = useCallback(() => setInFlight((count) => count - 1), [])
   const purchaseRef = useLatest(purchase)
+  const buy = useCallback(
+    async ({ period, from }: Checkout) => {
+      const buyer = dbRef.current
+      const completed = await purchaseRef.current.start(period, from)
+      if (completed && dbRef.current === buyer) setSettled(true)
+    },
+    [purchaseRef, dbRef],
+  )
   useEffect(() => {
-    if (checkout) purchaseRef.current.start(checkout.period, checkout.from)
-  }, [checkout, purchaseRef])
+    if (checkout) void buy(checkout).finally(settle)
+  }, [checkout, buy, settle])
   const close = () => setShown((current) => ({ ...current, open: false }))
   const launcher = useMemo<PremiumSheetLauncher>(
     () => ({
@@ -60,25 +87,29 @@ export function PremiumSheetProvider({
         setShown({ reason: next, from, open: true })
         analytics.send('premium_sheet_shown', { reason: next, from })
       },
+      checkout: (period, from) => {
+        setInFlight((count) => count + 1)
+        return buy({ period, from }).finally(settle)
+      },
     }),
-    [analytics],
+    [analytics, buy, settle],
   )
   return (
     <PremiumSheetContext value={launcher}>
-      {children}
-      <PremiumSheet
+      <CheckoutOpenContext value={inFlight > 0}>{children}</CheckoutOpenContext>
+      <PlanSheet
         open={shown.open}
         reason={shown.reason}
+        settled={settled}
         onClose={close}
         // A sheet asked for again while it was leaving keeps its reason.
         onClosed={() => {
           setShown((current) => (current.open ? current : { ...current, reason: null }))
-          if (chosen.current) setCheckout(chosen.current)
+          if (chosen.current) {
+            setInFlight((count) => count + 1)
+            setCheckout(chosen.current)
+          }
           chosen.current = null
-        }}
-        onSeePlan={() => {
-          close()
-          navigate(settingsPagePath('account'))
         }}
         onSubscribe={(period) => {
           if (shown.from) chosen.current = { period, from: shown.from }
@@ -89,7 +120,13 @@ export function PremiumSheetProvider({
   )
 }
 
-/** The Premium sheet's launcher, which does nothing in a tree with no provider. */
+/** Whether a checkout is open, or asked for and about to open, from the Plan sheet or a notice. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useCheckoutOpen(): boolean {
+  return useContext(CheckoutOpenContext)
+}
+
+/** The Plan sheet's launcher, which does nothing in a tree with no provider. */
 // A context module pairs its provider component with the hook that reads it.
 // eslint-disable-next-line react-refresh/only-export-components
 export function usePremiumSheet(): PremiumSheetLauncher {

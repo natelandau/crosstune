@@ -249,6 +249,7 @@ export function entitlementRow(extra: Partial<LocalEntitlement> = {}): LocalEnti
     premium_source: null,
     premium_expires_at: null,
     auto_renews: false,
+    trial_starts_at: null,
     trial_ends_at: null,
     premium_quota_bytes: 10_000,
     free_quota_bytes: 1_000,

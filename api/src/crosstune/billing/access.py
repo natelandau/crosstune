@@ -46,6 +46,7 @@ class Resolution:
     premium_source: GrantSource | None
     premium_expires_at: datetime | None
     auto_renews: bool
+    trial_starts_at: datetime | None
     trial_ends_at: datetime | None
     premium_quota_bytes: int
     free_quota_bytes: int
@@ -75,14 +76,13 @@ def resolve(grants: Sequence[Grant], now: datetime, settings: Settings) -> Resol
     """
     premium = [g for g in grants if g.kind == GrantKind.PREMIUM and _active(g, now)]
     addon = any(g.kind == GrantKind.STORAGE_ADDON and _active(g, now) for g in grants)
-    trial_ends_at = next(
-        (
-            g.expires_at
-            for g in grants
-            if g.kind == GrantKind.PREMIUM and g.source == GrantSource.TRIAL
-        ),
+    trial = next(
+        (g for g in grants if g.kind == GrantKind.PREMIUM and g.source == GrantSource.TRIAL),
         None,
     )
+    # The grant's creation is the trial's start, so a moved end changes the trial's length.
+    trial_starts_at = trial.created_at if trial else None
+    trial_ends_at = trial.expires_at if trial else None
 
     if not premium:
         return Resolution(
@@ -92,6 +92,7 @@ def resolve(grants: Sequence[Grant], now: datetime, settings: Settings) -> Resol
             premium_source=None,
             premium_expires_at=None,
             auto_renews=False,
+            trial_starts_at=trial_starts_at,
             trial_ends_at=trial_ends_at,
             premium_quota_bytes=settings.trial_quota_bytes,
             free_quota_bytes=settings.free_scan_quota_bytes,
@@ -110,6 +111,7 @@ def resolve(grants: Sequence[Grant], now: datetime, settings: Settings) -> Resol
         premium_source=GrantSource(reported.source),
         premium_expires_at=reported.expires_at,
         auto_renews=reported.auto_renews,
+        trial_starts_at=trial_starts_at,
         trial_ends_at=trial_ends_at,
         premium_quota_bytes=premium_quota,
         free_quota_bytes=settings.free_scan_quota_bytes,
@@ -145,6 +147,7 @@ async def refresh_entitlement(
         "premium_source": resolution.premium_source.value if resolution.premium_source else None,
         "premium_expires_at": resolution.premium_expires_at,
         "auto_renews": resolution.auto_renews,
+        "trial_starts_at": resolution.trial_starts_at,
         "trial_ends_at": resolution.trial_ends_at,
         "premium_quota_bytes": resolution.premium_quota_bytes,
         "free_quota_bytes": resolution.free_quota_bytes,

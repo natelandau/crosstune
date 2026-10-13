@@ -2,12 +2,12 @@ import CrosstuneAnalytics
 import Observation
 import SwiftUI
 
-/// Answers a tap on something Premium holds: lets it act, or shows the Premium sheet in its
+/// Answers a tap on something Premium holds: lets it act, or shows the Plan sheet in its
 /// place. Made for one `PlanModel`, so it follows the open store's plan.
 @MainActor
 @Observable
 final class PremiumPresenter {
-    /// The reason the Premium sheet is up for, nil while it is not.
+    /// The reason the Plan sheet is up for, nil while it is not.
     var presented: PremiumReason? {
         didSet { if presented == nil { presentedFrom = nil } }
     }
@@ -25,12 +25,8 @@ final class PremiumPresenter {
         self.purchase = purchase
     }
 
-    /// Whether the sheet can offer a purchase when it opens, so it opens at full height and its
-    /// pinned Subscribe sits under the whole choice.
-    var mayOfferPurchase: Bool { purchase != nil && plan.plan.canSubscribe }
-
-    /// Whether the tapped action may go ahead. When the plan holds it back, shows the Premium
-    /// sheet for `reason` and returns false. An unknown plan gates nothing.
+    /// Whether the tapped action may go ahead. When the plan holds it back, shows the Plan sheet
+    /// for `reason` and returns false. An unknown plan gates nothing.
     func gate(_ reason: PremiumReason, from entry: PremiumEntry) -> Bool {
         let current = plan.plan
         let allowed =
@@ -45,12 +41,14 @@ final class PremiumPresenter {
         return false
     }
 
-    /// Shows the Premium sheet for `reason`, opened from `entry`.
+    /// Shows the Plan sheet for `reason`, opened from `entry`.
     func present(_ reason: PremiumReason, from entry: PremiumEntry) {
         // A second tap behind the sheet already up is not another showing.
         guard presented == nil else { return }
-        // Before the sheet first renders, so an earlier outcome never shows in it for a frame.
+        // Before the sheet first renders, so an earlier outcome or choice never shows in it for
+        // a frame. Every showing opens on Annual.
         purchase?.clearLine()
+        purchase?.period = .annual
         presented = reason
         presentedFrom = entry
         analytics.send(.premiumSheetShown(reason: reason, from: entry))

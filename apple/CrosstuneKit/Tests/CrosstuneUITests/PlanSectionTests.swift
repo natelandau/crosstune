@@ -6,122 +6,41 @@ import Testing
 
 @testable import CrosstuneUI
 
-private let portal = URL(string: "https://billing.example.com/portal")!
-
 @MainActor
 @Suite struct PlanSectionTests {
     private let root = TemporaryRoot()
-    private let sink = RecordingAnalyticsSink()
 
-    private let free = Plan(kind: .free)
-    private let trial = Plan(kind: .premium, source: .trial)
-    private let apple = Plan(kind: .premium, source: .apple)
-    private let stripe = Plan(kind: .premium, source: .stripe)
-    private let comp = Plan(kind: .premium, source: .comp)
-
-    /// The rows for a web subscriber on the fake store's storefront.
-    private func stripeActions(storefront: String?, portalURL: URL?) async -> [PlanSection.Action] {
-        let client = FakePurchaseClient()
-        client.storefront = storefront
-        let read = await PlanSection.storefront(for: stripe, client: client)
-        return PlanSection.actions(stripe, sells: true, storefront: .read(read), portalURL: portalURL)
-    }
-
-    @Test func aBuildWithoutPurchasesAddsNoRows() {
-        for plan in [free, trial, apple, stripe, comp] {
-            #expect(PlanSection.actions(plan, sells: false, storefront: .read("USA"), portalURL: portal) == [])
-        }
-    }
-
-    @Test func aFreeOrTrialAccountCanSubscribeAndRestore() {
-        #expect(
-            PlanSection.actions(free, sells: true, storefront: .read(nil), portalURL: nil) == [.subscribe, .restore])
-        #expect(
-            PlanSection.actions(trial, sells: true, storefront: .read(nil), portalURL: nil) == [.subscribe, .restore])
-    }
-
-    @Test func anAppStoreSubscriberManagesInAppStoreSettings() {
-        #expect(
-            PlanSection.actions(apple, sells: true, storefront: .read("USA"), portalURL: portal) == [
-                .manageAppStore, .restore,
-            ])
-    }
-
-    @Test func aWebSubscriberInTheUSGetsTheLink() async {
-        #expect(await stripeActions(storefront: "USA", portalURL: portal) == [.manageOnTheWeb(portal), .restore])
-    }
-
-    @Test func aWebSubscriberOutsideTheUSGetsNoLink() async {
-        #expect(await stripeActions(storefront: "GBR", portalURL: portal) == [.manageAtWebsite, .restore])
-    }
-
-    @Test func aWebSubscriberGetsNoLinkWithoutAPortalOrAStorefront() async {
-        #expect(await stripeActions(storefront: "USA", portalURL: nil) == [.manageAtWebsite, .restore])
-        #expect(await stripeActions(storefront: nil, portalURL: portal) == [.manageAtWebsite, .restore])
-    }
-
-    @Test func aWebSubscriberGetsNoManageRowUntilTheStorefrontIsRead() {
-        #expect(PlanSection.actions(stripe, sells: true, storefront: .unread, portalURL: portal) == [.restore])
-        #expect(
-            PlanSection.actions(free, sells: true, storefront: .unread, portalURL: portal) == [.subscribe, .restore])
-        #expect(
-            PlanSection.actions(apple, sells: true, storefront: .unread, portalURL: portal) == [
-                .manageAppStore, .restore,
-            ])
-    }
-
-    @Test func onlyAWebSubscriberReadsTheStorefront() async {
-        let client = FakePurchaseClient()
-        #expect(await PlanSection.storefront(for: stripe, client: client) == "USA")
-        for plan in [free, trial, apple, comp] {
-            #expect(await PlanSection.storefront(for: plan, client: client) == nil)
-        }
-        #expect(await PlanSection.storefront(for: stripe, client: nil) == nil)
-    }
-
-    @Test func aCompAccountOnlyRestores() {
-        #expect(PlanSection.actions(comp, sells: true, storefront: .read("USA"), portalURL: portal) == [.restore])
-    }
-
-    @Test func subscribeOpensThePremiumSheetForThePlan() async throws {
+    /// A plan model over a store holding an entitlements row from `source`, once it has judged it.
+    private func plan(source: String?) async throws -> PlanModel {
         let store = try root.open()
-        let presenter = PremiumPresenter(plan: PlanModel(store: store), analytics: sink.client)
+        let ends = noon.date.addingTimeInterval(30 * 86_400)
+        let row = Entitlement(
+            id: "entitlement-\(source ?? "free")", createdAt: noon, premiumSource: source,
+            premiumExpiresAt: source == nil || source == "comp" ? nil : Timestamp(ends), autoRenews: source != nil,
+            trialEndsAt: source == "trial" ? Timestamp(ends) : nil, premiumQuotaBytes: 10_000, freeQuotaBytes: 1_000)
+        try await store.write { writer in try row.upsert(writer.db) }
+        let model = PlanModel(store: store, now: { noon.date })
+        #expect(try await poll { model.isLoaded && model.plan.kind != .unknown })
+        return model
+    }
 
-        PlanSection.subscribe(presenter)
+    @Test(arguments: [nil, "trial", "comp", "apple", "stripe"] as [String?])
+    func thePlanRowOpensThePlanSheetForEveryAccount(source: String?) async throws {
+        let sink = RecordingAnalyticsSink()
+        let presenter = PremiumPresenter(plan: try await plan(source: source), analytics: sink.client)
+
+        PlanSection.open(presenter)
 
         #expect(presenter.presented == .plan)
         #expect(presenter.presentedFrom == .planGroup)
+        #expect(
+            sink.captures == [
+                .init(
+                    name: "premium_sheet_shown", properties: ["reason": .string("plan"), "from": .string("plan_group")])
+            ])
     }
 
-    @Test func manageOpensAppleSubscriptionSettings() async {
-        let client = FakePurchaseClient()
-
-        await PlanSection.manage(client)
-
-        #expect(client.manageShown == 1)
-    }
-
-    @Test func restoreShowsItsLineUnderIt() async {
-        let client = FakePurchaseClient()
-        client.restoreResult = .nothing
-        let model = PurchaseModel(client: client, refresh: {}, sync: {}, analytics: sink.client)
-
-        await model.restore()
-
-        #expect(client.restores == 1)
-        #expect(PlanSection.restoreLine(model) == PlanText.nothingToRestore)
-    }
-
-    @Test func aLaterPurchaseLineIsNotShownUnderRestore() async {
-        let client = FakePurchaseClient()
-        client.restoreResult = .nothing
-        client.purchaseResult = .failed
-        let model = PurchaseModel(client: client, refresh: {}, sync: {}, analytics: sink.client)
-        await model.restore()
-
-        await model.buy(from: .record)
-
-        #expect(model.line == .failed)
-        #expect(PlanSection.restoreLine(model) == nil)
+    @Test func thePlanRowSaysItOpensThePlan() {
+        #expect(PlanSection.hint == PlanText.seePlan)
     }
 }

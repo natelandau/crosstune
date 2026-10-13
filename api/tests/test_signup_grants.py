@@ -35,6 +35,8 @@ async def test_first_request_starts_a_trial(client, auth_headers, verify_session
     entitlement = await verify_session.scalar(select(Entitlement))
     assert entitlement.premium_source == GrantSource.TRIAL
     assert entitlement.trial_ends_at == grant.expires_at
+    assert entitlement.trial_starts_at == grant.created_at
+    assert grant.expires_at - grant.created_at == timedelta(days=30)
 
 
 async def test_pending_comp_replaces_the_trial(

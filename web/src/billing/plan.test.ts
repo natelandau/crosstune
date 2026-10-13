@@ -5,10 +5,12 @@ import {
   nextPlanChange,
   OFFLINE_LEEWAY_MS,
   planFrom,
+  planMode,
   recordingsPlayable,
   scanOpens,
   scanTuneId,
   TRIAL_REMINDER_MS,
+  trialProgress,
 } from './plan'
 
 const NOW = new Date('2026-10-10T12:00:00.000Z')
@@ -17,9 +19,21 @@ const iso = (ms: number) => new Date(ms).toISOString()
 const at = (offsetMs: number) => iso(NOW.getTime() + offsetMs)
 
 describe('planFrom', () => {
+  it('carries autoRenews for a premium row only', () => {
+    const grant = { premium_source: 'apple', premium_expires_at: at(DAY), auto_renews: true }
+    expect(planFrom(entitlementRow(grant), NOW).autoRenews).toBe(true)
+    expect(planFrom(entitlementRow({ ...grant, auto_renews: false }), NOW).autoRenews).toBe(false)
+    expect(
+      planFrom(entitlementRow({ ...grant, premium_expires_at: at(-30 * DAY) }), NOW).autoRenews,
+    ).toBe(false)
+    expect(planFrom(entitlementRow({ auto_renews: true }), NOW).autoRenews).toBe(false)
+    expect(planFrom(null, NOW).autoRenews).toBe(false)
+  })
+
   it('is unknown with no row, and gates nothing', () => {
     const plan = planFrom(null, NOW)
     expect(plan.kind).toBe('unknown')
+    expect(plan.trialStartsAt).toBeNull()
     expect(plan.quotaBytes).toBeNull()
     expect(plan.scansOnly).toBe(false)
     expect(planFrom(undefined, NOW).kind).toBe('unknown')
@@ -31,6 +45,7 @@ describe('planFrom', () => {
       entitlementRow({
         premium_source: 'trial',
         premium_expires_at: at(DAY),
+        trial_starts_at: at(-13 * DAY),
         trial_ends_at: at(DAY),
       }),
       NOW,
@@ -41,6 +56,7 @@ describe('planFrom', () => {
       quotaBytes: 10_000,
       scansOnly: false,
       premiumEndsAt: new Date(at(DAY)),
+      trialStartsAt: new Date(at(-13 * DAY)),
       trialEndsAt: new Date(at(DAY)),
     })
   })
@@ -299,5 +315,48 @@ describe('nextPlanChange', () => {
     const before = new Date(change.getTime() - 1)
     expect(dueNotice(row, before, false)).toBeNull()
     expect(dueNotice(row, change, false)).toBe('trial_reminder')
+  })
+})
+
+describe('planMode', () => {
+  it('confirms a paid or comped plan and sells to every other', () => {
+    const mode = (row: Parameters<typeof entitlementRow>[0] | null) =>
+      planMode(planFrom(row === null ? null : entitlementRow(row), NOW))
+    expect(mode(null)).toBe('selling')
+    expect(mode({})).toBe('selling')
+    expect(mode({ premium_source: 'trial', premium_expires_at: at(DAY) })).toBe('selling')
+    expect(mode({ premium_source: 'stripe', premium_expires_at: at(DAY) })).toBe('member')
+    expect(mode({ premium_source: 'apple', premium_expires_at: at(DAY) })).toBe('member')
+    expect(mode({ premium_source: 'comp', premium_expires_at: null })).toBe('member')
+    expect(mode({ premium_source: 'stripe', premium_expires_at: at(-DAY) })).toBe('selling')
+  })
+})
+
+describe('trialProgress', () => {
+  const start = (days: number) => new Date(NOW.getTime() - days * DAY)
+  const end = (days: number) => new Date(NOW.getTime() + days * DAY)
+
+  it('measures a 14, 30, and 60 day trial by its own length', () => {
+    expect(trialProgress(start(0), end(14), NOW)).toBe(0)
+    expect(trialProgress(start(7), end(7), NOW)).toBe(0.5)
+    expect(trialProgress(start(15), end(15), NOW)).toBe(0.5)
+    expect(trialProgress(start(30), end(0), NOW)).toBe(1)
+    expect(trialProgress(start(15), end(45), NOW)).toBe(0.25)
+  })
+
+  it('follows an end moved after the trial started', () => {
+    expect(trialProgress(start(30), end(30), NOW)).toBe(0.5)
+  })
+
+  it('clamps a trial not yet started or already over', () => {
+    expect(trialProgress(end(1), end(31), NOW)).toBe(0)
+    expect(trialProgress(start(31), start(1), NOW)).toBe(1)
+  })
+
+  it('is 0 without both dates, or with an end not after the start', () => {
+    expect(trialProgress(null, end(14), NOW)).toBe(0)
+    expect(trialProgress(start(14), null, NOW)).toBe(0)
+    expect(trialProgress(null, null, NOW)).toBe(0)
+    expect(trialProgress(start(1), start(1), NOW)).toBe(0)
   })
 })

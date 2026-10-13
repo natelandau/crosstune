@@ -286,6 +286,18 @@
             ],
             "title": "Trial Reminder Seen At"
           },
+          "trial_starts_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Starts At"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -307,6 +319,7 @@
           "premium_source",
           "premium_expires_at",
           "auto_renews",
+          "trial_starts_at",
           "trial_ends_at",
           "premium_quota_bytes",
           "free_quota_bytes",

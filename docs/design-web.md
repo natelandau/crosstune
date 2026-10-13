@@ -160,8 +160,9 @@ folder. Compose it, never rebuild it.
 - Sheets, dialogs, menus, and Quick Find share one modal layer, and the
   page behind is inert. The toast sits above it and outside the inert page,
   so Undo stays in reach behind a sheet.
-- The store's checkout opens only after the Premium sheet has left, never
-  over it: its window would sit under the sheet's inert page.
+- The store's checkout opens only after the sheet that asked for it (the
+  Plan sheet or a trial notice) has left, and no notice opens over it: its
+  window would sit under the sheet's inert page.
 - Quick Find finds tunes, lists, recordings, and runs existing commands,
   each showing its key. Sort by is a second step. Escape or back leaves the
   step, keeping the query, before closing.
@@ -178,9 +179,17 @@ folder. Compose it, never rebuild it.
 Web form of the toolbar rule in `design.md`: actions sit at the foot.
 
 - Header: the title, leading. A sheet with no actions closes from an X
-  trailing the title.
+  trailing the title, as does one whose actions all lead on and none
+  closes (a trial notice, the Plan sheet). A sheet that opens on its own
+  headline (the Plan sheet) shows no title, and the X keeps its place.
 - Footer: a tertiary action (Reset, Back) leading, then Cancel and the
   primary trailing, Cancel first.
+- A sheet that leads to one action has no Cancel and runs the primary
+  full width and taller. A secondary sits beneath it as centered plain
+  text, and any footnote lines follow, centered (a trial notice).
+- The Plan sheet pins nothing: its period choice, Subscribe, and terms
+  end its scrolling page on every layout, so the comparison is never
+  covered.
 - Weight: primary filled. Destructive primary filled red, cautionary
   filled warning. Cancel bordered, so it never reads as a primary that is
   off. Tertiary plain.

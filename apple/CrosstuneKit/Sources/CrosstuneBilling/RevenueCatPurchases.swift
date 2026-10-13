@@ -48,7 +48,10 @@ import StoreKit
         let offering = try await Purchases.shared.offerings().current
         let offers = [(PurchasePeriod.annual, offering?.annual), (.monthly, offering?.monthly)].compactMap {
             period, package in
-            package.map { PurchaseOffer(period: period, price: $0.storeProduct.localizedPriceString) }
+            package.map {
+                PurchaseOffer(
+                    period: period, price: $0.storeProduct.localizedPriceString, amount: $0.storeProduct.price)
+            }
         }
         guard !offers.isEmpty else { throw StoreUnavailable() }
         return offers

@@ -220,6 +220,8 @@ extension Components {
             public var trialEndsAt: Foundation.Date?
             /// - Remark: Generated from `#/components/schemas/EntitlementRow/trial_reminder_seen_at`.
             public var trialReminderSeenAt: Foundation.Date?
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/trial_starts_at`.
+            public var trialStartsAt: Foundation.Date?
             /// - Remark: Generated from `#/components/schemas/EntitlementRow/updated_at`.
             public var updatedAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/EntitlementRow/user_id`.
@@ -240,6 +242,7 @@ extension Components {
             ///   - trialEndSeenAt:
             ///   - trialEndsAt:
             ///   - trialReminderSeenAt:
+            ///   - trialStartsAt:
             ///   - updatedAt:
             ///   - userId:
             public init(
@@ -256,6 +259,7 @@ extension Components {
                 trialEndSeenAt: Foundation.Date? = nil,
                 trialEndsAt: Foundation.Date? = nil,
                 trialReminderSeenAt: Foundation.Date? = nil,
+                trialStartsAt: Foundation.Date? = nil,
                 updatedAt: Foundation.Date,
                 userId: Swift.String
             ) {
@@ -272,6 +276,7 @@ extension Components {
                 self.trialEndSeenAt = trialEndSeenAt
                 self.trialEndsAt = trialEndsAt
                 self.trialReminderSeenAt = trialReminderSeenAt
+                self.trialStartsAt = trialStartsAt
                 self.updatedAt = updatedAt
                 self.userId = userId
             }
@@ -289,6 +294,7 @@ extension Components {
                 case trialEndSeenAt = "trial_end_seen_at"
                 case trialEndsAt = "trial_ends_at"
                 case trialReminderSeenAt = "trial_reminder_seen_at"
+                case trialStartsAt = "trial_starts_at"
                 case updatedAt = "updated_at"
                 case userId = "user_id"
             }

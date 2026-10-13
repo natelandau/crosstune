@@ -45,34 +45,9 @@ class PaidSubscription:
     auto_renews: bool
 
 
-async def _upsert_server_grant(
-    session: AsyncSession,
-    user_id: uuid.UUID,
-    kind: GrantKind,
-    source: GrantSource,
-    *,
-    expires_at: datetime | None,
-    audit: Mapping[str, str | None] | None = None,
-    keep_existing: bool = False,
+async def _server_grant(
+    session: AsyncSession, user_id: uuid.UUID, kind: GrantKind, source: GrantSource
 ) -> Grant:
-    audit = audit or {"granted_by": None, "reason": None}
-    stmt = insert(Grant).values(
-        user_id=user_id, kind=kind.value, source=source.value, expires_at=expires_at, **audit
-    )
-    target = [Grant.user_id, Grant.kind, Grant.source]
-    if keep_existing:
-        stmt = stmt.on_conflict_do_nothing(index_elements=target, index_where=_SERVER_SOURCES)
-    else:
-        stmt = stmt.on_conflict_do_update(
-            index_elements=target,
-            index_where=_SERVER_SOURCES,
-            set_={
-                "expires_at": expires_at,
-                **audit,
-                "updated_at": func.now(),
-            },
-        )
-    await session.execute(stmt)
     return (
         await session.execute(
             select(Grant)
@@ -82,18 +57,58 @@ async def _upsert_server_grant(
     ).scalar_one()
 
 
+async def _upsert_server_grant(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    kind: GrantKind,
+    source: GrantSource,
+    *,
+    expires_at: datetime | None,
+    audit: Mapping[str, str | None] | None = None,
+) -> Grant:
+    audit = audit or {"granted_by": None, "reason": None}
+    stmt = (
+        insert(Grant)
+        .values(
+            user_id=user_id, kind=kind.value, source=source.value, expires_at=expires_at, **audit
+        )
+        .on_conflict_do_update(
+            index_elements=[Grant.user_id, Grant.kind, Grant.source],
+            index_where=_SERVER_SOURCES,
+            set_={
+                "expires_at": expires_at,
+                **audit,
+                "updated_at": func.now(),
+            },
+        )
+    )
+    await session.execute(stmt)
+    return await _server_grant(session, user_id, kind, source)
+
+
 async def start_trial(
     session: AsyncSession, user_id: uuid.UUID, settings: Settings, now: datetime
 ) -> Grant:
-    """Give the user their one trial; an existing trial is left as it is."""
-    return await _upsert_server_grant(
-        session,
-        user_id,
-        GrantKind.PREMIUM,
-        GrantSource.TRIAL,
-        expires_at=now + timedelta(days=settings.trial_days),
-        keep_existing=True,
+    """Give the user their one trial; an existing trial is left as it is.
+
+    The grant's `created_at` is the trial's start, which clients measure its progress from.
+    """
+    await session.execute(
+        insert(Grant)
+        .values(
+            user_id=user_id,
+            kind=GrantKind.PREMIUM.value,
+            source=GrantSource.TRIAL.value,
+            expires_at=now + timedelta(days=settings.trial_days),
+            created_at=now,
+            updated_at=now,
+        )
+        .on_conflict_do_nothing(
+            index_elements=[Grant.user_id, Grant.kind, Grant.source],
+            index_where=_SERVER_SOURCES,
+        )
     )
+    return await _server_grant(session, user_id, GrantKind.PREMIUM, GrantSource.TRIAL)
 
 
 async def end_trial(session: AsyncSession, user_id: uuid.UUID, now: datetime) -> None:
@@ -236,8 +251,17 @@ async def revoke_comp(session: AsyncSession, user_id: uuid.UUID, now: datetime) 
     return await _expire_comps(session, user_id, now)
 
 
-async def set_trial_end(session: AsyncSession, user_id: uuid.UUID, ends_at: datetime) -> Grant:
-    """Move the end of the user's trial.
+async def set_trial_end(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    ends_at: datetime,
+    *,
+    starts_at: datetime | None = None,
+) -> Grant:
+    """Move the end of the user's trial, and its start when `starts_at` is given.
+
+    Moving only the end lengthens or shortens the trial the user already had;
+    moving both restarts it.
 
     Raises:
         LookupError: The user has no trial grant.
@@ -253,6 +277,8 @@ async def set_trial_end(session: AsyncSession, user_id: uuid.UUID, ends_at: date
         msg = f"user {user_id} has no trial grant"
         raise LookupError(msg)
     grant.expires_at = ends_at
+    if starts_at is not None:
+        grant.created_at = starts_at
     await session.flush()
     return grant
 

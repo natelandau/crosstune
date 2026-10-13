@@ -48,8 +48,8 @@ extension PremiumPresenter {
     }
 }
 
-/// The Premium sheet and the purchase model for a window outside the shell, so its Plan group
-/// can subscribe and restore. Made again for each plan, as the shell's are.
+/// The Plan sheet and the purchase model for a window outside the shell, so its plan row opens
+/// a Plan sheet that can buy and restore. Made again for each plan, as the shell's are.
 struct PlanPurchases: ViewModifier {
     @Environment(\.plan) private var plan
     @Environment(\.purchases) private var purchases
@@ -61,8 +61,7 @@ struct PlanPurchases: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            // The Plan group is already on screen, so See your plan only closes the sheet.
-            .modifier(PremiumSheets(presenter: premium, purchase: purchase, onSeePlan: { premium?.presented = nil }))
+            .modifier(PlanSheets(presenter: premium, purchase: purchase))
             .environment(\.premium, premium)
             .environment(\.purchase, purchase)
             .onChange(of: plan.map(ObjectIdentifier.init), initial: true) {

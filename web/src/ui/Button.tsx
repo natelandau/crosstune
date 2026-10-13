@@ -32,6 +32,8 @@ export interface ButtonProps extends Omit<
   /** A drawn glyph in place of `icon`, such as play and pause that morph into each other. */
   glyph?: ReactNode
   fullWidth?: boolean
+  /** A taller target with a larger label, for the one action a page leads to. */
+  large?: boolean
   ref?: Ref<HTMLButtonElement>
 }
 
@@ -73,6 +75,7 @@ export function Button({
   solidIcon,
   glyph,
   fullWidth,
+  large,
   ...rest
 }: ButtonProps) {
   const density = useStampedDensity()
@@ -82,11 +85,11 @@ export function Button({
       aria-label={iconOnly ? label : name}
       // A filled button rises under the pointer; controls.css holds the lift.
       data-lift={FILLED[variant] || undefined}
-      className={`t-body inline-flex min-h-(--target-control) shrink-0 items-center justify-center gap-2 rounded-(--radius-capsule) select-none ${PRESS} ${
+      className={`t-body inline-flex shrink-0 items-center justify-center gap-2 rounded-(--radius-capsule) select-none ${PRESS} ${
         FILLED[variant]
           ? ''
           : 'font-medium disabled:opacity-40 disabled:hover:bg-transparent aria-disabled:opacity-40 aria-disabled:hover:bg-transparent'
-      } ${iconOnly ? 'min-w-(--target-control)' : 'px-4'} ${fullWidth ? 'w-full' : ''} ${VARIANT[variant]}`}
+      } ${large ? 'min-h-14 text-lg!' : 'min-h-(--target-control)'} ${iconOnly ? 'min-w-(--target-control)' : large ? 'px-6' : 'px-4'} ${fullWidth ? 'w-full' : ''} ${VARIANT[variant]}`}
     >
       {glyph}
       {Icon &&

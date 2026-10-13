@@ -265,6 +265,19 @@ enum Schema {
             // The row was pulled, and skipped, before this build stored the table.
             try repull(db)
         }
+        migrator.registerMigration("v17") { db in
+            // The server gives the row a new server_seq along with the field, so no repull is
+            // needed.
+            try db.alter(table: "entitlements") { t in t.add(column: "trial_starts_at", .text) }
+            // A row pulled from a server that already had the field kept it in `extra`.
+            try db.execute(
+                sql: """
+                    UPDATE entitlements
+                    SET trial_starts_at = json_extract(extra, '$.trial_starts_at')
+                    WHERE json_type(extra, '$.trial_starts_at') = 'text'
+                    """)
+            try db.execute(sql: "UPDATE entitlements SET extra = json_remove(extra, '$.trial_starts_at')")
+        }
         return migrator
     }()
 

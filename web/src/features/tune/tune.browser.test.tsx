@@ -303,7 +303,13 @@ it("folds a free plan's recordings into one line that opens to dimmed rows", asy
   await expect.element(page.getByRole('menuitem', { name: EDIT })).not.toBeInTheDocument()
 
   await take.click()
-  await expect.element(page.getByRole('dialog', { name: PREMIUM_RECORDINGS_TITLE })).toBeVisible()
+  await expect
+    .element(
+      page
+        .getByRole('dialog', { name: PREMIUM_RECORDINGS_TITLE })
+        .getByRole('heading', { name: PREMIUM_RECORDINGS_TITLE }),
+    )
+    .toBeVisible()
   expect(player.play).not.toHaveBeenCalled()
   await expect
     .poll(() => analytics.sends().filter((send) => send.name === 'premium_sheet_shown'))

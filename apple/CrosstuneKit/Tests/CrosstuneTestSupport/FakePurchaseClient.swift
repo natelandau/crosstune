@@ -4,7 +4,8 @@ import CrosstuneBilling
 /// A store that answers with whatever a test sets and keeps every call, for a test to read back.
 @MainActor public final class FakePurchaseClient: PurchaseClient {
     public var offersResult: Result<[PurchaseOffer], any Error> = .success([
-        PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffer(period: .monthly, price: "M$1"),
+        PurchaseOffer(period: .annual, price: "A$1", amount: 49.99),
+        PurchaseOffer(period: .monthly, price: "M$1", amount: 4.99),
     ])
     public var purchaseResult: PurchaseResult = .completed
     public var restoreResult: RestoreResult = .restored

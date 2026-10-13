@@ -93,7 +93,7 @@ export function RecordingsScreen() {
     listShown && ready && screen.listed > 0,
   )
   const premium = usePremiumSheet()
-  // On a free plan Upload and a drop stay in place and answer with the Premium sheet.
+  // On a free plan Upload and a drop stay in place and answer with the Plan sheet.
   const uploads = recordingsPlayable(usePlanOrUnknown())
   const held = uploads ? undefined : () => premium.open('recordings', 'upload')
   const importFiles = (files: File[]) => (held ? held() : void screen.importFiles(files))

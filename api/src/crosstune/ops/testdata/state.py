@@ -108,7 +108,12 @@ async def apply_state(
         case AccountState.TRIAL:
             await revoke_comp(session, user_id, now)
             try:
-                await set_trial_end(session, user_id, now + timedelta(days=settings.trial_days))
+                await set_trial_end(
+                    session,
+                    user_id,
+                    now + timedelta(days=settings.trial_days),
+                    starts_at=now,
+                )
             except LookupError:
                 await start_trial(session, user_id, settings, now)
         case AccountState.PREMIUM:

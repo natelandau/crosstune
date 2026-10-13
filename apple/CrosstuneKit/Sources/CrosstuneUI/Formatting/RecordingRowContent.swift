@@ -103,7 +103,7 @@ public struct RecordingRowContent: Hashable, Sendable {
         case .play?, .close?, .open?, .download?: gated = !recordingsPlay
         case .retry?, .premium?, nil: gated = false
         }
-        // A gated tap opens the Premium sheet, so the row offers a subscription rather than the play.
+        // A gated tap opens the Plan sheet, so the row offers a subscription rather than the play.
         tap = gated ? .premium : shown
         verb = gated ? nil : shownVerb
         spokenNotice = gated ? RecordingText.subscribeToPlay : nil

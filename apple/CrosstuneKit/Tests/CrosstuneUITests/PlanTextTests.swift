@@ -13,6 +13,28 @@ import Testing
     }()
     private static let now = Date(timeIntervalSince1970: 1_791_633_600)  // 2026-10-10 12:00 GMT
 
+    @Test func savesSeventeenPercentOnTheStorePrices() {
+        #expect(PlanText.saving(annual: 49.99, monthly: 4.99) == 17)
+        #expect(PlanText.saving(annual: 59.88, monthly: 4.99) == nil)
+        #expect(PlanText.saving(annual: 70, monthly: 4.99) == nil)
+    }
+
+    @Test func roundsTheSavingToTheNearestWholePercent() {
+        // Against twelve months at 10: 114 saves 5%, 114.6 saves 4.5%, which rounds up, and 114.61
+        // saves 4.49%.
+        #expect(PlanText.saving(annual: 114, monthly: 10) == 5)
+        #expect(PlanText.saving(annual: 114.6, monthly: 10) == 5)
+        #expect(PlanText.saving(annual: 114.61, monthly: 10) == 4)
+        // Half a percent rounds up to the one percent the badge needs; under it shows nothing.
+        #expect(PlanText.saving(annual: 119.4, monthly: 10) == 1)
+        #expect(PlanText.saving(annual: 119.41, monthly: 10) == nil)
+    }
+
+    @Test func savesNothingAgainstAFreeOrNegativeMonth() {
+        #expect(PlanText.saving(annual: 49.99, monthly: 0) == nil)
+        #expect(PlanText.saving(annual: 49.99, monthly: -4.99) == nil)
+    }
+
     @Test func namesThePlansAndHelp() {
         #expect(PlanText.group == "Plan")
         #expect(PlanText.free == "Free")
@@ -65,9 +87,43 @@ import Testing
                 == "Ends today")
     }
 
-    @Test func namesTheDayAGrantEnds() {
-        #expect(
-            PlanText.premiumUntil(Self.now, calendar: Self.calendar, locale: Self.locale) == "Until Oct 10, 2026")
+    @Test func trialDaysCountsWholeCalendarDays() {
+        let days = { (offset: TimeInterval) in
+            PlanText.trialDays(endsAt: Self.now.addingTimeInterval(offset), now: Self.now, calendar: Self.calendar)
+        }
+        #expect(days(3 * 86_400) == 3)
+        // Midnight tomorrow is a day away, however few hours that is.
+        #expect(days(12 * 3_600) == 1)
+        #expect(days(8 * 3_600) == 0)
+        #expect(days(-16 * 3_600) == -1)
+    }
+
+    @Test func theTrialCardCountsTheDaysLeft() {
+        let left = { (days: Double) in
+            PlanText.trialDaysLeft(
+                endsAt: Self.now.addingTimeInterval(days * 86_400), now: Self.now, calendar: Self.calendar)
+        }
+        #expect(left(5) == "5 days left")
+        #expect(left(1) == "1 day left")
+        // Later the same calendar day is the last day.
+        #expect(left(3_600 / 86_400) == PlanText.trialEndsToday)
+        #expect(left(-1) == PlanText.trialEndsToday)
+        #expect(PlanText.trialEndsToday == "Ends today")
+    }
+
+    @Test func theTrialCardNamesTheDayItEnds() {
+        let ends = Self.now.addingTimeInterval(5 * 86_400)
+        #expect(PlanText.trialEnds(ends, calendar: Self.calendar, locale: Self.locale) == "Ends Oct 15, 2026")
+    }
+
+    @Test func theSettingsLineJoinsTheCardsTwoLines() {
+        for days in [1.0, 5, 29] {
+            let ends = Self.now.addingTimeInterval(days * 86_400)
+            #expect(
+                PlanText.trialLeft(endsAt: ends, now: Self.now, calendar: Self.calendar, locale: Self.locale)
+                    == "\(PlanText.trialEnds(ends, calendar: Self.calendar, locale: Self.locale)), \(PlanText.trialDaysLeft(endsAt: ends, now: Self.now, calendar: Self.calendar))"
+            )
+        }
     }
 
     @Test func namesThePlanByKindAndSource() {
@@ -91,11 +147,24 @@ import Testing
     @Test func detailsAGrantByItsEndOrNotAtAll() {
         let comp = Plan(kind: .premium, source: .comp, premiumEndsAt: Self.now)
         #expect(
-            PlanText.detail(comp, now: Self.now, calendar: Self.calendar, locale: Self.locale) == "Until Oct 10, 2026")
+            PlanText.detail(comp, now: Self.now, calendar: Self.calendar, locale: Self.locale) == "Ends Oct 10, 2026")
         let open = Plan(kind: .premium, source: .comp)
         #expect(PlanText.detail(open, now: Self.now, calendar: Self.calendar, locale: Self.locale) == nil)
         #expect(PlanText.detail(Plan(kind: .free), now: Self.now) == nil)
         #expect(PlanText.detail(.unknown, now: Self.now) == nil)
+    }
+
+    @Test func detailsASubscriptionAsThePlanSheetDoes() {
+        for source in [PlanSource.apple, .stripe] {
+            let renewing = Plan(kind: .premium, source: source, premiumEndsAt: Self.now, autoRenews: true)
+            #expect(
+                PlanText.detail(renewing, now: Self.now, calendar: Self.calendar, locale: Self.locale)
+                    == "Renews Oct 10, 2026")
+            let lapsing = Plan(kind: .premium, source: source, premiumEndsAt: Self.now, autoRenews: false)
+            #expect(
+                PlanText.detail(lapsing, now: Self.now, calendar: Self.calendar, locale: Self.locale)
+                    == "Ends Oct 10, 2026")
+        }
     }
 
     @Test func picksTheQuotaFromThePlanOrTheReportedFigures() {

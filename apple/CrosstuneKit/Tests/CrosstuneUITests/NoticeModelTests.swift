@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneBilling
 import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
@@ -77,7 +78,7 @@ private let day: TimeInterval = 86_400
         try await addRecording()
 
         try await eventually { model.showing == .firstRecording }
-        #expect(model.holdsRecordings)
+        #expect(model.facts?.holdsRecordings == true)
     }
 
     @Test func waitsWhileTheShellIsCoveredOrCapturing() async throws {
@@ -133,7 +134,7 @@ private let day: TimeInterval = 86_400
         clock.now = clock.now.addingTimeInterval(day)
 
         try await eventually { model.showing == .trialReminder }
-        #expect(model.holdsRecordings == false)
+        #expect(model.facts?.holdsRecordings == false)
     }
 
     @Test func theReminderKnowsWhenTheAccountHoldsRecordings() async throws {
@@ -143,7 +144,7 @@ private let day: TimeInterval = 86_400
         let model = try await model()
 
         try await eventually { model.showing == .trialReminder }
-        #expect(model.holdsRecordings)
+        #expect(model.facts?.holdsRecordings == true)
         #expect(model.trialEndsAt == clock.now.addingTimeInterval(2 * day))
     }
 
@@ -295,44 +296,56 @@ private let day: TimeInterval = 86_400
                 == "Your Premium trial ends Oct 13, 2026. After that, every recording stays and exports, but it won't play in the app until you subscribe."
         )
         #expect(NoticeText.trialReminderTitle(endsAt: "Oct 13, 2026") == "Your trial ends Oct 13, 2026")
-        #expect(
-            NoticeText.trialReminderBody
-                == "Premium keeps recordings playing, practice mode, and scans on every tune.")
-        #expect(
-            NoticeText.trialReminderRecordings
-                == "Your recordings stay and export after that, but stop playing in the app until you subscribe.")
         #expect(NoticeText.trialEndedTitle == "Your trial has ended")
-        #expect(
-            NoticeText.trialEndedBody
-                == "Every recording you made is kept. Export includes them, and they play again the moment you subscribe. Scans stay open on one tune."
-        )
         #expect(NoticeText.ok == "OK")
+    }
+
+    @Test func theNewNoticeCopyIsExact() {
+        #expect(NoticeText.daysLeft(1) == "1 day left of Premium")
+        #expect(NoticeText.daysLeft(3) == "3 days left of Premium")
+        #expect(NoticeText.daysLeft(0) == PlanText.trialEndsToday)
+        #expect(NoticeText.daysLeft(-1) == PlanText.trialEndsToday)
+        #expect(NoticeText.losePlayback == "Recordings don't play in the app")
+        #expect(NoticeText.loseRecording == "No new recordings or practice mode")
+        #expect(NoticeText.loseScans == "Scans open on one tune only")
+        #expect(
+            NoticeText.keeps
+                == "Every recording and scan stays, and export always includes them. Subscribe and they play again at once."
+        )
+        #expect(NoticeText.subscribeAnnual("$49.99") == "Subscribe for $49.99 a year")
     }
 
     @Test func theSheetSaysWhatTheNoticeIs() throws {
         let ends = try #require(Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 13, hour: 12)))
+        let now = ends.addingTimeInterval(-2 * day)
         let date = PlanText.day(ends)
 
         #expect(NoticeSheet.title(.firstRecording, endsAt: ends) == NoticeText.firstRecordingTitle)
-        #expect(
-            NoticeSheet.paragraphs(.firstRecording, endsAt: ends, holdsRecordings: true)
-                == [NoticeText.firstRecordingBody(endsAt: date)])
+        #expect(NoticeSheet.firstRecordingBody(endsAt: ends) == NoticeText.firstRecordingBody(endsAt: date))
+        #expect(NoticeSheet.firstRecordingBody(endsAt: nil) == nil)
         #expect(NoticeSheet.title(.trialReminder, endsAt: ends) == NoticeText.trialReminderTitle(endsAt: date))
-        #expect(
-            NoticeSheet.paragraphs(.trialReminder, endsAt: ends, holdsRecordings: false)
-                == [NoticeText.trialReminderBody])
-        #expect(
-            NoticeSheet.paragraphs(.trialReminder, endsAt: ends, holdsRecordings: true)
-                == [NoticeText.trialReminderBody, NoticeText.trialReminderRecordings])
+        #expect(NoticeSheet.subtitle(.trialReminder, endsAt: ends, now: now) == NoticeText.daysLeft(2))
         #expect(NoticeSheet.title(.trialEnded, endsAt: ends) == NoticeText.trialEndedTitle)
+        #expect(NoticeSheet.subtitle(.trialEnded, endsAt: ends, now: now) == nil)
         #expect(
-            NoticeSheet.paragraphs(.trialEnded, endsAt: ends, holdsRecordings: true) == [NoticeText.trialEndedBody])
+            NoticeSheet.loses == [NoticeText.losePlayback, NoticeText.loseRecording, NoticeText.loseScans])
     }
 
-    @Test func aRequestedPremiumSheetHoldsTheNextNotice() async throws {
+    @Test func theReminderSaysTheTrialEndsTodayOnItsLastDay() throws {
+        let ends = try #require(Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 13, hour: 18)))
+        let lastDay = try #require(Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 13, hour: 9)))
+        let dayBefore = lastDay.addingTimeInterval(-day)
+
+        #expect(NoticeSheet.subtitle(.trialReminder, endsAt: ends, now: lastDay) == PlanText.trialEndsToday)
+        #expect(NoticeSheet.subtitle(.trialReminder, endsAt: ends, now: dayBefore) == NoticeText.daysLeft(1))
+    }
+
+    @Test func comparePlansOpensThePlanSheetFromTheNotice() async throws {
         try await pull(trial(endingIn: 2))
         try await addRecording()
         let model = try await model()
+        let plan = PlanModel(store: store, now: { [clock] in clock.now })
+        let presenter = PremiumPresenter(plan: plan, analytics: sink.client)
         try await eventually { model.showing == .trialReminder }
 
         // The notice's own sheet covers the shell while it is up.
@@ -340,37 +353,182 @@ private let day: TimeInterval = 86_400
             covered: AppShell.noticeCovered(shellCovered: true, premiumRequested: false, phase: .active),
             capturing: false)
 
-        // Subscribe on the reminder: the notice's sheet goes and the Premium sheet is asked for,
-        // before that sheet has shown and claimed the shell.
+        // Compare plans on the reminder: the notice's sheet goes, and once it has, the Plan
+        // sheet is asked for from the notice, before that sheet has shown and claimed the shell.
+        let entry = try #require(NoticeSheet.entry(.trialReminder))
         model.dismiss()
+        presenter.present(.plan, from: entry)
         model.coverChanged(
-            covered: AppShell.noticeCovered(shellCovered: false, premiumRequested: true, phase: .active),
+            covered: AppShell.noticeCovered(
+                shellCovered: false, premiumRequested: presenter.presented != nil, phase: .active),
             capturing: false)
 
+        #expect(presenter.presented == .plan)
+        #expect(presenter.presentedFrom == .trialReminder)
+        #expect(
+            sink.captures.contains(
+                .init(
+                    name: "premium_sheet_shown",
+                    properties: ["reason": .string("plan"), "from": .string("trial_reminder")])))
         #expect(model.showing == nil)
+        presenter.presented = nil
         model.coverChanged(
             covered: AppShell.noticeCovered(shellCovered: false, premiumRequested: false, phase: .active),
             capturing: false)
         #expect(model.showing == .firstRecording)
     }
 
-    @Test func theNoticesOfferSubscribeOnlyWhenTheyCanSell() {
+    @Test func theTrialNoticesSellOnlyWithAPurchaseModelAndAPlanThatCanSubscribe() {
         let trial = Plan(kind: .premium, source: .trial)
         let free = Plan(kind: .free)
-        #expect(NoticeSheet.subscribeEntry(.trialReminder, plan: trial, sells: true) == .trialReminder)
-        #expect(NoticeSheet.subscribeEntry(.trialEnded, plan: free, sells: true) == .trialEnded)
-        // The first recording keeps See your plan.
-        #expect(NoticeSheet.subscribeEntry(.firstRecording, plan: trial, sells: true) == nil)
-        // A build that offers no purchase keeps See your plan.
-        #expect(NoticeSheet.subscribeEntry(.trialReminder, plan: trial, sells: false) == nil)
-        #expect(NoticeSheet.subscribeEntry(.trialEnded, plan: free, sells: false) == nil)
+        let purchase = PurchaseModel(client: FakePurchaseClient(), refresh: {}, sync: {}, analytics: sink.client)
+        #expect(NoticeSheet.sells(.trialReminder, plan: trial, purchase: purchase))
+        #expect(NoticeSheet.sells(.trialEnded, plan: free, purchase: purchase))
+        // The first recording informs and never sells.
+        #expect(NoticeSheet.sells(.firstRecording, plan: trial, purchase: purchase) == false)
+        // A build that offers no purchase sells nothing.
+        #expect(NoticeSheet.sells(.trialReminder, plan: trial, purchase: nil) == false)
+        #expect(NoticeSheet.sells(.trialEnded, plan: free, purchase: nil) == false)
         // An account already paying, or comped, is sold nothing.
         for source: PlanSource in [.apple, .stripe, .comp] {
             let plan = Plan(kind: .premium, source: source)
-            #expect(NoticeSheet.subscribeEntry(.trialEnded, plan: plan, sells: true) == nil)
-            #expect(NoticeSheet.subscribeEntry(.trialReminder, plan: plan, sells: true) == nil)
+            #expect(NoticeSheet.sells(.trialEnded, plan: plan, purchase: purchase) == false)
+            #expect(NoticeSheet.sells(.trialReminder, plan: plan, purchase: purchase) == false)
         }
-        #expect(NoticeSheet.subscribeEntry(.trialEnded, plan: .unknown, sells: true) == nil)
+        #expect(NoticeSheet.sells(.trialEnded, plan: .unknown, purchase: purchase) == false)
+        // Compare plans reports where it came from, whether or not the notice sells.
+        #expect(NoticeSheet.entry(.trialReminder) == .trialReminder)
+        #expect(NoticeSheet.entry(.trialEnded) == .trialEnded)
+        #expect(NoticeSheet.entry(.firstRecording) == nil)
+    }
+
+    private let annual = PurchaseOffer(period: .annual, price: "$49.99", amount: 49.99)
+    private let monthly = PurchaseOffer(period: .monthly, price: "$4.99", amount: 4.99)
+
+    @Test func aNoticeThatSellsLeadsWithSubscribeForAnnual() {
+        #expect(NoticeSheet.annualOffer(.ready([monthly, annual])) == annual)
+        #expect(
+            NoticeSheet.offer(sells: true, offers: .ready([annual, monthly]), line: nil)
+                == .init(primary: .subscribe("$49.99"), secondary: .comparePlans))
+        #expect(NoticeSheet.Offer(primary: .subscribe("$49.99"), secondary: .comparePlans).discloses)
+    }
+
+    @Test func withoutPricesTheNoticeLeadsWithComparePlans() {
+        let comparePlans = NoticeSheet.Offer(primary: .comparePlans, secondary: nil)
+        #expect(comparePlans.discloses == false)
+        #expect(NoticeSheet.annualOffer(.loading) == nil)
+        #expect(NoticeSheet.annualOffer(.unavailable) == nil)
+        #expect(NoticeSheet.annualOffer(.ready([monthly])) == nil)
+        for offers: PurchaseModel.Offers in [.unavailable, .ready([monthly]), .ready([])] {
+            #expect(NoticeSheet.offer(sells: true, offers: offers, line: nil) == comparePlans)
+        }
+        // A notice that cannot sell offers the comparison alone, prices or not.
+        #expect(NoticeSheet.offer(sells: false, offers: .ready([annual]), line: nil) == comparePlans)
+        #expect(NoticeSheet.offer(sells: false, offers: nil, line: nil) == comparePlans)
+        // A failed try keeps the choice, with its line above it.
+        #expect(
+            NoticeSheet.offer(sells: true, offers: .ready([annual]), line: .failed)
+                == .init(primary: .subscribe("$49.99"), secondary: .comparePlans))
+    }
+
+    @Test func aPurchaseOnTheNoticeSettlesOnClose() {
+        let settled = NoticeSheet.Offer(primary: .close, secondary: nil)
+        #expect(NoticeSheet.offer(sells: true, offers: .ready([annual]), line: .subscribed) == settled)
+        // The plan turns Premium once the sync lands, while the notice may still be up.
+        #expect(NoticeSheet.offer(sells: false, offers: .ready([annual]), line: .subscribed) == settled)
+        #expect(settled.discloses == false)
+    }
+
+    @Test func subscribeOnANoticeBuysAnnualFromTheNotice() async {
+        let client = FakePurchaseClient()
+        let purchase = PurchaseModel(client: client, refresh: {}, sync: {}, analytics: sink.client)
+        await purchase.loadOffers()
+        purchase.period = .monthly
+
+        await NoticeSheet.subscribe(purchase, from: .trialReminder)
+
+        #expect(client.purchased == [.annual])
+        #expect(purchase.line == .subscribed)
+        #expect(
+            sink.captures.contains(
+                .init(
+                    name: "purchase_started",
+                    properties: ["period": .string("annual"), "from": .string("trial_reminder")])))
+    }
+
+    @Test func aCancelledNoticePurchaseKeepsSubscribeWithNoLine() async {
+        let client = FakePurchaseClient()
+        client.purchaseResult = .cancelled
+        let purchase = PurchaseModel(client: client, refresh: {}, sync: {}, analytics: sink.client)
+        await purchase.loadOffers()
+
+        await NoticeSheet.subscribe(purchase, from: .trialReminder)
+
+        #expect(client.purchased == [.annual])
+        #expect(purchase.line == nil)
+        let offer = NoticeSheet.offer(sells: true, offers: purchase.offers, line: purchase.line)
+        #expect(offer.primary == .subscribe("A$1"))
+        #expect(offer.outcome(purchase.line) == nil)
+    }
+
+    @Test func whileOffersLoadSubscribesPlaceWaitsUnderCompareAlreadyInPlace() {
+        let loading = NoticeSheet.offer(sells: true, offers: .loading, line: nil)
+        #expect(loading == .init(primary: .waiting, secondary: .comparePlans))
+        #expect(loading.discloses == false)
+        // Once the store answers, the choice settles without Compare plans moving up first.
+        #expect(
+            NoticeSheet.offer(sells: true, offers: .ready([annual]), line: nil)
+                == .init(primary: .subscribe("$49.99"), secondary: .comparePlans))
+        #expect(
+            NoticeSheet.offer(sells: true, offers: .unavailable, line: nil)
+                == .init(primary: .comparePlans, secondary: nil))
+        // A notice that cannot sell never waits on the store.
+        #expect(
+            NoticeSheet.offer(sells: false, offers: .loading, line: nil)
+                == .init(primary: .comparePlans, secondary: nil))
+    }
+
+    @Test func onlyAChoiceOrASettledPurchaseShowsTheOutcome() {
+        let subscribe = NoticeSheet.Offer(primary: .subscribe("$49.99"), secondary: .comparePlans)
+        #expect(subscribe.outcome(.failed) == PlanText.line(.failed))
+        #expect(subscribe.outcome(nil) == nil)
+        #expect(NoticeSheet.Offer(primary: .close, secondary: nil).outcome(.subscribed) == PlanText.subscribed)
+        // A failure from before the device went offline does not sit over Compare plans.
+        #expect(NoticeSheet.Offer(primary: .comparePlans, secondary: nil).outcome(.failed) == nil)
+        #expect(NoticeSheet.Offer(primary: .waiting, secondary: .comparePlans).outcome(.failed) == nil)
+    }
+
+    @Test func returnNeverBuys() {
+        #expect(NoticeSheet.Action.subscribe("$49.99").isDefault == false)
+        #expect(NoticeSheet.Action.waiting.isDefault == false)
+        #expect(NoticeSheet.Action.comparePlans.isDefault)
+        #expect(NoticeSheet.Action.close.isDefault)
+    }
+
+    @Test func comparePlansHoldsTheEntryUntilTheNoticeHasGone() {
+        let handoff = CompareHandoff()
+        var steps: [String] = []
+
+        handoff.compare(.trialReminder) { steps.append("dismiss, holding \(handoff.entry == .trialReminder)") }
+        #expect(steps == ["dismiss, holding true"])
+
+        // The Plan sheet is asked for while the cover still holds, then the cover lets go.
+        handoff.noticeLeft { entry in
+            steps.append("open \(entry == .trialReminder), holding \(handoff.entry != nil)")
+        }
+        #expect(steps == ["dismiss, holding true", "open true, holding true"])
+        #expect(handoff.entry == nil)
+    }
+
+    @Test func aNoticeLeavingWithoutCompareOpensNothing() {
+        let handoff = CompareHandoff()
+        var opened: [PremiumEntry] = []
+
+        handoff.noticeLeft { opened.append($0) }
+        handoff.compare(nil) {}
+        handoff.noticeLeft { opened.append($0) }
+
+        #expect(opened.isEmpty)
     }
 
     @Test func theNoticesNameThePlansValues() {

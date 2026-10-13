@@ -134,7 +134,7 @@ export function RecordingRow({
   onOpenTune?: () => void
   /** Where a play from the row counts as asked for; a tune's page by default. */
   playOrigin?: PlayOrigin
-  /** Where a tap on a disabled row counts as opening the Premium sheet from. */
+  /** Where a tap on a disabled row counts as opening the Plan sheet from. */
   premiumFrom?: PremiumEntry
 }) {
   const data = useRecordingRow(view, {

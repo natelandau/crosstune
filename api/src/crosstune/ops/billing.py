@@ -202,7 +202,7 @@ async def _pending_comp(
 
 
 async def trial(session: AsyncSession, settings: Settings, args: argparse.Namespace) -> str:
-    """Move the end of an account's trial.
+    """Move the end of an account's trial, restarting it when it had already ended.
 
     Returns:
         The line to print.
@@ -223,8 +223,17 @@ async def trial(session: AsyncSession, settings: Settings, args: argparse.Namesp
             "would outrank: revoke that grant first, or use --ended"
         )
         raise BillingCommandError(msg)
+    current_end = await session.scalar(
+        select(Grant.expires_at).where(
+            Grant.user_id == user.id,
+            Grant.kind == GrantKind.PREMIUM.value,
+            Grant.source == GrantSource.TRIAL.value,
+        )
+    )
+    # Reopening an ended trial starts it over; moving a running trial's end only extends it.
+    revived = current_end is not None and current_end <= now < ends_at
     try:
-        await set_trial_end(session, user.id, ends_at)
+        await set_trial_end(session, user.id, ends_at, starts_at=now if revived else None)
     except LookupError as exc:
         raise BillingCommandError(str(exc)) from None
     await refresh_entitlement(session, user.id, settings, now)

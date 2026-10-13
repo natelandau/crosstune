@@ -120,12 +120,58 @@ func snapshot(
         }
     }
 
+    /// One step of ``liveSheetSnapshots(_:_:)``: a change made while the sheet stays up, and the
+    /// name its render is written under.
+    struct LiveStep {
+        let name: String
+        let change: @MainActor () async throws -> Void
+    }
+
+    /// Presents `content` once as a real sheet over a hidden window, then makes each step's change
+    /// with the sheet still up and renders it to `<name>-light.png` and `<name>-dark.png`. Returns
+    /// each step's light render, nil where it could not be drawn.
     @MainActor
-    private func write(_ view: NSView, to name: String) {
-        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
-        view.cacheDisplay(in: view.bounds, to: rep)
-        if let data = rep.representation(using: .png, properties: [:]) {
-            try? data.write(to: snapshotFolder.appending(path: "\(name).png"))
+    func liveSheetSnapshots(
+        _ steps: [LiveStep], @ViewBuilder _ content: @escaping () -> some View
+    ) async throws -> [Data?] {
+        try? FileManager.default.createDirectory(at: snapshotFolder, withIntermediateDirectories: true)
+        var renders: [Data?] = []
+        for (appearance, suffix) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
+            let size = CGSize(width: 800, height: 700)
+            let window = hiddenWindow(size: size, styleMask: [.titled], appearance: appearance)
+            window.contentView = NSHostingView(
+                rootView: Color.clear
+                    .frame(width: size.width, height: size.height)
+                    .sheet(isPresented: .constant(true)) { content().environment(\.drawsGlass, false) })
+            window.orderFrontRegardless()
+            var sheet: NSWindow?
+            for _ in 0..<20 where sheet == nil {
+                try? await Task.sleep(for: .milliseconds(50))
+                sheet = window.attachedSheet
+            }
+            sheet?.alphaValue = 0
+            for step in steps {
+                try await step.change()
+                // Let the sheet's layout follow the change.
+                try? await Task.sleep(for: .milliseconds(400))
+                let render = (sheet?.contentView?.superview).flatMap { write($0, to: "\(step.name)-\(suffix)") }
+                if appearance == .aqua { renders.append(render) }
+            }
+            if let sheet { window.endSheet(sheet) }
+            window.orderOut(nil)
+            window.close()
         }
+        return renders
+    }
+
+    /// Writes `view`'s render to `<name>.png` and returns it, nil when it could not be drawn.
+    @MainActor
+    @discardableResult
+    private func write(_ view: NSView, to name: String) -> Data? {
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        guard let data = rep.representation(using: .png, properties: [:]) else { return nil }
+        try? data.write(to: snapshotFolder.appending(path: "\(name).png"))
+        return data
     }
 #endif

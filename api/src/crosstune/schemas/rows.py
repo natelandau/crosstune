@@ -490,6 +490,7 @@ class EntitlementRow(EntitlementData, _Row):
     premium_source: GrantSource | None
     premium_expires_at: datetime | None
     auto_renews: bool
+    trial_starts_at: datetime | None
     trial_ends_at: datetime | None
     premium_quota_bytes: int
     free_quota_bytes: int

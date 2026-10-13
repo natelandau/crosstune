@@ -16,8 +16,6 @@ public enum PlanText {
         "Premium keeps your recordings on our servers, so they play on every device. Every recording you already have stays: you can rename, file, delete, and export it on any plan."
     nonisolated public static let seePlan = "See your plan"
     nonisolated public static let premiumPlanTitle = "Crosstune Premium"
-    nonisolated public static let premiumPlanBody =
-        "Recordings that play on every device, practice mode, scans on every tune, and 5 GB of storage."
     nonisolated public static let subscribe = "Subscribe"
     nonisolated public static let periodAnnual = "Annual"
     nonisolated public static let periodMonthly = "Monthly"
@@ -41,6 +39,52 @@ public enum PlanText {
     nonisolated public static let privacyPolicy = "Privacy Policy"
     nonisolated public static let termsURL = "https://crosstune.app/terms"
     nonisolated public static let privacyURL = "https://crosstune.app/privacy"
+    nonisolated public static let premiumPitch =
+        "Your recordings live on our servers, so they play on every device. Premium pays for that."
+    nonisolated public static let trialStorage = "100 MB of storage during the trial."
+    nonisolated public static let trialKeeps = "Everything you make stays and exports after."
+    nonisolated public static let trialEndsToday = "Ends today"
+    nonisolated public static let compareFree = "Free"
+    nonisolated public static let comparePremium = "Premium"
+    nonisolated public static let featureCatalog = "Tunes, lists, links, lyrics"
+    nonisolated public static let featureSync = "Sync and export"
+    nonisolated public static let featureRecord = "Record and upload"
+    nonisolated public static let featurePlay = "Play recordings"
+    nonisolated public static let featurePractice = "Practice: speed, pitch, loops"
+    nonisolated public static let featureScans = "Scans"
+    nonisolated public static let scansFree = "1 tune"
+    nonisolated public static let scansPremium = "Every tune"
+    nonisolated public static let featureStorage = "Storage"
+    nonisolated public static let storageFree = "50 MB"
+    nonisolated public static let storagePremium = "5 GB"
+    nonisolated public static let onPremium = "You're on Premium"
+    nonisolated public static let thanks = "Thanks for keeping Crosstune going."
+    nonisolated public static let renews = "Renews"
+    nonisolated public static let ends = "Ends"
+    nonisolated public static let compGrant = "Premium from Crosstune"
+    nonisolated public static let included = "What's included"
+    nonisolated public static let includedRecord = "Record and upload"
+    nonisolated public static let includedRecordDetail = "From any device, saved to your tunes"
+    nonisolated public static let includedEveryDevice = "Recordings on every device"
+    nonisolated public static let includedEveryDeviceDetail = "Stored on our servers, 5 GB"
+    nonisolated public static let includedPractice = "Practice mode"
+    nonisolated public static let includedPracticeDetail = "Speed, pitch, and loops"
+    nonisolated public static let includedScans = "Scans on every tune"
+    nonisolated public static let includedScansDetail = "Up to 20 pages a tune"
+    nonisolated public static let comparePlans = "Compare plans"
+
+    nonisolated public static func save(_ percent: Int) -> String { "Save \(percent)%" }
+
+    /// How much the annual price saves against twelve monthly ones, as a whole percent. Nil when it
+    /// saves less than one percent, so no badge claims a saving that is not there.
+    nonisolated public static func saving(annual: Decimal, monthly: Decimal) -> Int? {
+        guard monthly > 0 else { return nil }
+        var percent = (1 - annual / (monthly * 12)) * 100
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &percent, 0, .plain)
+        let whole = NSDecimalNumber(decimal: rounded).intValue
+        return whole >= 1 ? whole : nil
+    }
 
     /// The words for a purchase or restore outcome.
     nonisolated public static func line(_ line: PurchaseModel.Line) -> String {
@@ -55,8 +99,10 @@ public enum PlanText {
         }
     }
 
-    nonisolated public static func annualPrice(_ price: String) -> String { "\(price) a year" }
-    nonisolated public static func monthlyPrice(_ price: String) -> String { "\(price) a month" }
+    nonisolated public static let perYear = "a year"
+    nonisolated public static let perMonth = "a month"
+    nonisolated public static func annualPrice(_ price: String) -> String { "\(price) \(perYear)" }
+    nonisolated public static func monthlyPrice(_ price: String) -> String { "\(price) \(perMonth)" }
 
     /// Names the one tune a free account's scans open on.
     nonisolated public static func premiumScansBody(tuneTitle: String) -> String {
@@ -67,19 +113,29 @@ public enum PlanText {
     nonisolated public static func trialLeft(
         endsAt: Date, now: Date, calendar: Calendar = .current, locale: Locale = .current
     ) -> String {
-        let days =
-            calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: endsAt))
-            .day ?? 0
-        if days <= 0 { return "Ends today" }
-        let left = days == 1 ? "1 day left" : "\(days) days left"
-        return "Ends \(day(endsAt, calendar: calendar, locale: locale)), \(left)"
+        let left = trialDaysLeft(endsAt: endsAt, now: now, calendar: calendar)
+        guard trialDays(endsAt: endsAt, now: now, calendar: calendar) > 0 else { return left }
+        return "\(trialEnds(endsAt, calendar: calendar, locale: locale)), \(left)"
     }
 
-    /// The end of a comp or paid grant.
-    nonisolated public static func premiumUntil(
-        _ date: Date, calendar: Calendar = .current, locale: Locale = .current
+    /// The trial card's headline: the calendar days left, or "Ends today" on the last day.
+    nonisolated public static func trialDaysLeft(endsAt: Date, now: Date, calendar: Calendar = .current) -> String {
+        let days = trialDays(endsAt: endsAt, now: now, calendar: calendar)
+        if days <= 0 { return trialEndsToday }
+        return days == 1 ? "1 day left" : "\(days) days left"
+    }
+
+    /// The day a trial ends, as the trial card's date line.
+    nonisolated public static func trialEnds(
+        _ endsAt: Date, calendar: Calendar = .current, locale: Locale = .current
     ) -> String {
-        "Until \(day(date, calendar: calendar, locale: locale))"
+        "Ends \(day(endsAt, calendar: calendar, locale: locale))"
+    }
+
+    /// Calendar days from `now` to a trial's end, zero or less on its last day.
+    nonisolated static func trialDays(endsAt: Date, now: Date, calendar: Calendar = .current) -> Int {
+        calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: endsAt))
+            .day ?? 0
     }
 
     /// The plan row's name for a plan, nil while it is unknown.
@@ -91,7 +147,8 @@ public enum PlanText {
         }
     }
 
-    /// The plan row's detail: a trial's days left, or when a comp or paid grant ends.
+    /// The plan row's detail, worded as the Plan sheet's membership row: a trial's days left, or
+    /// when a paid grant renews or a comp or paid grant ends.
     nonisolated static func detail(
         _ plan: Plan, now: Date, calendar: Calendar = .current, locale: Locale = .current
     ) -> String? {
@@ -101,7 +158,10 @@ public enum PlanText {
                 trialLeft(endsAt: $0, now: now, calendar: calendar, locale: locale)
             }
         }
-        return plan.premiumEndsAt.map { premiumUntil($0, calendar: calendar, locale: locale) }
+        guard let row = PlanSheet.membership(plan, calendar: calendar, locale: locale), !row.value.isEmpty else {
+            return nil
+        }
+        return "\(row.label) \(row.value)"
     }
 
     /// A day in the app's date format.

@@ -52,7 +52,10 @@ private struct RefreshFailed: Error {}
         await model.loadOffers()
         #expect(
             model.offers
-                == .ready([PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffer(period: .monthly, price: "M$1")])
+                == .ready([
+                    PurchaseOffer(period: .annual, price: "A$1", amount: 49.99),
+                    PurchaseOffer(period: .monthly, price: "M$1", amount: 4.99),
+                ])
         )
     }
 
@@ -95,7 +98,10 @@ private struct RefreshFailed: Error {}
         await model.loadOffers()
         #expect(
             model.offers
-                == .ready([PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffer(period: .monthly, price: "M$1")])
+                == .ready([
+                    PurchaseOffer(period: .annual, price: "A$1", amount: 49.99),
+                    PurchaseOffer(period: .monthly, price: "M$1", amount: 4.99),
+                ])
         )
     }
 
@@ -187,7 +193,7 @@ private struct RefreshFailed: Error {}
         #expect(model.offers == .loading)
         held.finish()
         await retry.value
-        #expect(model.offers == .ready([PurchaseOffer(period: .annual, price: "A$1")]))
+        #expect(model.offers == .ready([PurchaseOffer(period: .annual, price: "A$1", amount: 49.99)]))
     }
 
     @Test func clearingTheLineForgetsTheLastOutcome() async {
@@ -347,7 +353,7 @@ private struct RefreshFailed: Error {}
         }
         if asks == 1 { throw Offline() }
         if holding { await withCheckedContinuation { release = $0 } }
-        return [PurchaseOffer(period: .annual, price: "A$1")]
+        return [PurchaseOffer(period: .annual, price: "A$1", amount: 49.99)]
     }
     func purchase(_ period: PurchasePeriod) async -> PurchaseResult { .cancelled }
     func restore() async -> RestoreResult { .nothing }

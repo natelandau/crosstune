@@ -268,6 +268,19 @@ export class CrosstuneDb extends Dexie {
 
     // Finds the scans refused for their tune without reading their images.
     this.version(17).stores({ scan_files: 'id, origin, error' })
+
+    // A row stored before the trial's start was synced reads as having none until the server's
+    // copy, which carries it, arrives.
+    this.version(18)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx
+          .table('entitlements')
+          .toCollection()
+          .modify((row: Record<string, unknown>) => {
+            row.trial_starts_at ??= null
+          })
+      })
   }
 
   // Dexie's auto-open on the first query calls this method too.

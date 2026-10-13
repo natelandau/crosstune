@@ -9,6 +9,7 @@ public func storeEntitlement(
 ) async throws {
     let row = Entitlement(
         id: "entitlement-1", createdAt: noon, serverSeq: serverSeq, premiumSource: source, premiumExpiresAt: expiresAt,
+        trialStartsAt: source == "trial" ? expiresAt.map { Timestamp($0.date.addingTimeInterval(-30 * 86_400)) } : nil,
         trialEndsAt: source == "trial" ? expiresAt : nil, premiumQuotaBytes: 10_000, freeQuotaBytes: 1_000)
     try await store.write { writer in try row.upsert(writer.db) }
 }

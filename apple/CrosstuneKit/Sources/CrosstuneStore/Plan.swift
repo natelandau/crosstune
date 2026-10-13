@@ -33,11 +33,14 @@ public struct Plan: Sendable, Equatable {
     public var source: PlanSource?
     /// The reported grant's expiry, before any leeway.
     public var premiumEndsAt: Date?
+    public var trialStartsAt: Date?
     public var trialEndsAt: Date?
     /// The Premium or free quota; nil while the plan is unknown.
     public var quotaBytes: Int64?
     /// Free: the quota counts scans only.
     public var scansOnly: Bool
+    /// Whether the live Premium grant renews on its own; false unless Premium.
+    public var autoRenews: Bool
 
     /// Whether the account is on a Premium trial.
     public var isTrial: Bool { kind == .premium && source == .trial }
@@ -57,15 +60,17 @@ public struct Plan: Sendable, Equatable {
     public var scansOnAnyTune: Bool { kind != .free }
 
     public init(
-        kind: PlanKind, source: PlanSource? = nil, premiumEndsAt: Date? = nil, trialEndsAt: Date? = nil,
-        quotaBytes: Int64? = nil, scansOnly: Bool = false
+        kind: PlanKind, source: PlanSource? = nil, premiumEndsAt: Date? = nil, trialStartsAt: Date? = nil,
+        trialEndsAt: Date? = nil, quotaBytes: Int64? = nil, scansOnly: Bool = false, autoRenews: Bool = false
     ) {
         self.kind = kind
         self.source = source
         self.premiumEndsAt = premiumEndsAt
+        self.trialStartsAt = trialStartsAt
         self.trialEndsAt = trialEndsAt
         self.quotaBytes = quotaBytes
         self.scansOnly = scansOnly
+        self.autoRenews = autoRenews
     }
 
     public static let unknown = Plan(kind: .unknown)
@@ -78,9 +83,11 @@ public struct Plan: Sendable, Equatable {
             kind: premium ? .premium : .free,
             source: premium ? source.flatMap(PlanSource.init(rawValue:)) : nil,
             premiumEndsAt: source == nil ? nil : row.premiumExpiresAt?.date,
+            trialStartsAt: row.trialStartsAt?.date,
             trialEndsAt: row.trialEndsAt?.date,
             quotaBytes: premium ? row.premiumQuotaBytes : row.freeQuotaBytes,
-            scansOnly: !premium)
+            scansOnly: !premium,
+            autoRenews: premium && row.autoRenews)
     }
 }
 

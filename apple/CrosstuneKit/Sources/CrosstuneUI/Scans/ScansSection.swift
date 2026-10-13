@@ -21,7 +21,7 @@ enum ScansSection {
         actions.viewScans?(tuneID, index, .tune)
     }
 
-    /// A thumbnail's tap: the viewer for a scan the plan opens, else the Premium sheet.
+    /// A thumbnail's tap: the viewer for a scan the plan opens, else the Plan sheet.
     @MainActor
     static func tap(opens: Bool, tuneID: String, index: Int, actions: TuneScreenActions, premium: PremiumPresenter?) {
         if opens {
