@@ -1,24 +1,14 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { JSDOM } from 'jsdom'
 import { describe, expect, it } from 'vitest'
 import { FONT_CHARS } from '../src/styles/fontChars'
-
-const dist = resolve(import.meta.dirname, '../dist')
-
-function htmlFiles(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name)
-    if (statSync(path).isDirectory()) return htmlFiles(path)
-    return name.endsWith('.html') ? [path] : []
-  })
-}
+import { dist, htmlFiles, parseHtml } from './dist'
 
 describe('subset fonts', () => {
-  it.each(htmlFiles(dist).map((file) => file.slice(dist.length)))(
+  it.each(htmlFiles().map((file) => file.slice(dist.length)))(
     '%s uses only characters the subsets keep',
     (file) => {
-      const doc = new JSDOM(readFileSync(join(dist, file), 'utf8')).window.document
+      const doc = parseHtml(readFileSync(join(dist, file), 'utf8'))
       for (const el of doc.querySelectorAll('script, style')) el.remove()
       const shown = [
         doc.body.textContent ?? '',

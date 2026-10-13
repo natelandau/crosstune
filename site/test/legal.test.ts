@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { SUPPORT_EMAIL } from '../src/components/actions'
 import { readPage } from './dist'
 
 const pages = ['/privacy', '/terms', '/support']
@@ -11,7 +12,7 @@ describe.each(pages)('%s', (path) => {
   })
 
   it('links the support address', () => {
-    expect(doc.querySelector('a[href="mailto:support@crosstune.app"]')).not.toBeNull()
+    expect(doc.querySelector(`a[href="mailto:${SUPPORT_EMAIL}"]`)).not.toBeNull()
   })
 
   it('shows a last updated date', () => {

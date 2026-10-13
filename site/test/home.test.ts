@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { JSDOM } from 'jsdom'
 import { describe, expect, it } from 'vitest'
 import {
   ALREADY_SIGNED_UP,
@@ -10,6 +9,7 @@ import {
   NATE_EMAIL,
   SECTIONS,
   SIGN_IN,
+  SUPPORT_EMAIL,
   WAITLIST_ID,
 } from '../src/components/actions'
 import { CLOSING_LEDE, CLOSING_TITLE } from '../src/components/closing'
@@ -32,8 +32,14 @@ import {
   PRICING_TITLE,
 } from '../src/components/pricing'
 import { PROBLEM_BODY, PROBLEM_TITLE } from '../src/components/problem'
-import { HOME_DESCRIPTION, HOME_TITLE, OG_IMAGE_ALT, STRUCTURED_DATA } from '../src/components/seo'
-import { readDist, readPage } from './dist'
+import {
+  HOME_DESCRIPTION,
+  HOME_TITLE,
+  OG_IMAGE_ALT,
+  STRUCTURED_DATA,
+  scriptJson,
+} from '../src/components/seo'
+import { parseHtml, readDist, readPage } from './dist'
 
 const doc = readPage('/')
 const text = (el: Element | null | undefined) => el?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
@@ -168,7 +174,7 @@ describe('home page waitlist forms', () => {
 
   it.each([0, 1])('form %i falls back to a mailto link without JavaScript', (i) => {
     const noscript = forms[i].parentElement?.querySelector('noscript')
-    expect(noscript?.innerHTML).toContain('href="mailto:support@crosstune.app"')
+    expect(noscript?.innerHTML).toContain(`href="mailto:${SUPPORT_EMAIL}"`)
     expect(noscript?.innerHTML).toContain('form[data-waitlist]')
     expect(noscript?.innerHTML).toMatch(/display:\s*none/)
   })
@@ -273,6 +279,12 @@ describe('home page head', () => {
     }
   })
 
+  it('escapes markup in inline JSON so copy cannot close the script', () => {
+    const json = scriptJson({ answer: '</script><p>' })
+    expect(json).not.toContain('<')
+    expect(JSON.parse(json)).toEqual({ answer: '</script><p>' })
+  })
+
   it('describes the site and the app as structured data', () => {
     const block = doc.querySelector('script[type="application/ld+json"]')
     const data = JSON.parse(block?.textContent ?? '{}')
@@ -307,7 +319,7 @@ describe('home page head', () => {
 })
 
 describe('404 page', () => {
-  const page = new JSDOM(readDist('/404.html')).window.document
+  const page = parseHtml(readDist('/404.html'))
 
   it('stays out of search results', () => {
     expect(page.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex')

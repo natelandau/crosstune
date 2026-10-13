@@ -12,22 +12,15 @@ import '../styles/demos.css'
 interface Props {
   name: DemoName
   side?: 'left' | 'right'
-  class?: string
 }
 
-const { name, side, class: className } = Astro.props
+const { name, side } = Astro.props
 const def = DEMOS[name]
 const panel = name === 'hero' ? 'hero-panel' : name === 'platforms' ? 'plat-panel' : 'panel'
 ---
 
 <div
-  class:list={[
-    panel,
-    className,
-    `tint-${name}`,
-    side && `bleed-${side}`,
-    name === 'record' && 'contained',
-  ]}
+  class:list={[panel, `tint-${name}`, side && `bleed-${side}`, name === 'record' && 'contained']}
   data-demo={name}
 >
   <div

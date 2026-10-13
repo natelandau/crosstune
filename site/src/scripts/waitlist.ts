@@ -1,8 +1,8 @@
+import { SUPPORT_EMAIL } from '../components/actions'
 import { startAnalytics, trackWaitlistJoined } from './analytics'
 
 export const JOINED = "You're on the list. We'll email you when your account is ready."
-export const UNREACHABLE =
-  "The waitlist can't be reached right now. Try again, or email support@crosstune.app."
+export const UNREACHABLE = `The waitlist can't be reached right now. Try again, or email ${SUPPORT_EMAIL}.`
 export const PENDING = 'Joining…'
 export const THANKS_PATH = '/waitlist/thanks'
 // Set on join and cleared by the thanks page, so the page shows once per join. It holds the
@@ -16,8 +16,6 @@ export const ACQUISITION_KEYS = ['$referrer', '$referring_domain', ...UTM_KEYS]
 export interface WaitlistClient {
   join(params: { emailAddress: string }): Promise<unknown>
 }
-
-const STATUS_ID = 'waitlist-status'
 
 // Clerk rejects with `errors[0].longMessage`, written for the person who typed the email.
 function messageFor(error: unknown): string {
@@ -106,7 +104,6 @@ export function mountWaitlist(
   const button = form.querySelector<HTMLButtonElement>('button[type="submit"]')!
   const status = form.querySelector<HTMLElement>('[data-waitlist-status]')!
   const label = button.textContent
-  status.id ||= STATUS_ID
 
   let client: Promise<WaitlistClient> | null = null
   let attempted = false

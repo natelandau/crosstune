@@ -1,0 +1,5 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["scripts/*.{ts,mjs}", "public/sw.js", "src/layouts/Legal.astro"],
+  "ignoreDependencies": ["@astrojs/check", "@fontsource*"]
+}

@@ -11,6 +11,33 @@ const VISIBLE = 0.35
 
 type Playable = { play(): void; pause(): void; userPaused: boolean }
 
+/** Scatters the five places to their `data-from` offsets until they first come into view. */
+function mountPlaces(places: HTMLElement): { playable: Playable; settle(): void } {
+  const scraps = [...places.querySelectorAll<HTMLElement>('[data-from]')]
+  for (const s of scraps) {
+    const [x, y, r] = (s.dataset.from ?? '0,0,0').split(',').map(Number)
+    s.style.translate = `${x}px ${y}px`
+    s.style.rotate = `${r}deg`
+  }
+  const settle = () => {
+    for (const s of scraps) {
+      s.style.translate = ''
+      s.style.rotate = ''
+    }
+  }
+  let done = false
+  const playable = {
+    userPaused: false,
+    play() {
+      if (done) return
+      done = true
+      settle()
+    },
+    pause() {},
+  }
+  return { playable, settle }
+}
+
 export function mountDemos(
   root: ParentNode,
   { reducedMotion }: { reducedMotion: boolean },
@@ -65,28 +92,9 @@ export function mountDemos(
     else byTarget.set(cam, demo)
   }
 
-  const places = root.querySelector<HTMLElement>('[data-places]')
-  const scraps = places ? [...places.querySelectorAll<HTMLElement>('[data-from]')] : []
-  if (places && !reducedMotion) {
-    for (const s of scraps) {
-      const [x, y, r] = (s.dataset.from ?? '0,0,0').split(',').map(Number)
-      s.style.translate = `${x}px ${y}px`
-      s.style.rotate = `${r}deg`
-    }
-    let done = false
-    byTarget.set(places, {
-      userPaused: false,
-      play() {
-        if (done) return
-        done = true
-        for (const s of scraps) {
-          s.style.translate = ''
-          s.style.rotate = ''
-        }
-      },
-      pause() {},
-    })
-  }
+  const places = reducedMotion ? null : root.querySelector<HTMLElement>('[data-places]')
+  const drift = places && mountPlaces(places)
+  if (places && drift) byTarget.set(places, drift.playable)
 
   const seen = new IntersectionObserver(
     (entries) => {
@@ -113,9 +121,6 @@ export function mountDemos(
     for (const controls of root.querySelectorAll<HTMLElement>('[data-demo] .demo-ctl')) {
       controls.hidden = true
     }
-    for (const s of scraps) {
-      s.style.translate = ''
-      s.style.rotate = ''
-    }
+    drift?.settle()
   }
 }

@@ -28,6 +28,8 @@ export class Demo {
   readonly instant: boolean
   cursor: HTMLElement | null = null
   onChange: () => void = () => {}
+  private cursorX = 0
+  private cursorY = 0
   private token = 0
   private started = false
   private timers = new Set<ReturnType<typeof setTimeout>>()
@@ -96,7 +98,7 @@ export class Demo {
     if (!c) return
     const p = this.pos(el)
     c.style.opacity = '1'
-    c.style.transform = `translate(${p.x - 5 + dx}px, ${p.y - 4 + dy}px)`
+    this.moveCursor(c, p.x - 5 + dx, p.y - 4 + dy)
     await this.wait(760)
   }
 
@@ -104,10 +106,13 @@ export class Demo {
   nudge(dx: number, dy: number): void {
     const c = this.cursor
     if (!c) return
-    c.style.transform = c.style.transform.replace(
-      /translate\(([-\d.]+)px, ([-\d.]+)px\)/,
-      (_, x: string, y: string) => `translate(${parseFloat(x) + dx}px, ${parseFloat(y) + dy}px)`,
-    )
+    this.moveCursor(c, this.cursorX + dx, this.cursorY + dy)
+  }
+
+  private moveCursor(c: HTMLElement, x: number, y: number): void {
+    this.cursorX = x
+    this.cursorY = y
+    c.style.transform = `translate(${x}px, ${y}px)`
   }
 
   press(down: boolean): void {
@@ -153,16 +158,20 @@ export class Demo {
     }
   }
 
-  /** Rebuilds the first frame and puts the pointer back at its resting place. */
-  reset(): void {
+  private drawFirstFrame(): void {
     this.stage.innerHTML = this.def.markup()
     place(this.cam)
     this.cursor = null
+  }
+
+  /** Rebuilds the first frame and puts the pointer back at its resting place. */
+  reset(): void {
+    this.drawFirstFrame()
     if (this.instant) return
     const cursor = document.createElement('div')
     cursor.className = 'cursor'
     cursor.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cursor"/></svg>'
-    cursor.style.transform = `translate(${this.stage.offsetWidth * 0.62}px, ${this.stage.offsetHeight * 0.92}px)`
+    this.moveCursor(cursor, this.stage.offsetWidth * 0.62, this.stage.offsetHeight * 0.92)
     this.stage.appendChild(cursor)
     this.cursor = cursor
   }
@@ -230,8 +239,6 @@ export class Demo {
     this.timers.clear()
     this.unpark()
     this.stage.classList.remove('paused', 'fading')
-    this.stage.innerHTML = this.def.markup()
-    place(this.cam)
-    this.cursor = null
+    this.drawFirstFrame()
   }
 }
