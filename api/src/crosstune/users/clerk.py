@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
-import httpx2
+from crosstune.rest import DEFAULT_TIMEOUT_SECONDS, NOT_FOUND_STATUS, SUCCESS_STATUSES, send_bearer
 
-from crosstune.rest import DEFAULT_TIMEOUT_SECONDS, NOT_FOUND_STATUS, SUCCESS_STATUSES
+if TYPE_CHECKING:
+    import httpx2
 
 DEFAULT_BASE_URL = "https://api.clerk.com"
 # Checked before the ID goes into a URL path, so no input can reach another endpoint.
@@ -62,18 +63,14 @@ class ClerkBackendUsers:
             ClerkUnavailableError: Clerk answered with anything but 2xx or 404, or the
                 request itself failed (a timeout, a closed connection, and so on).
         """
-        try:
-            response = await self._client.delete(
-                f"{self._base_url}/v1/users/{clerk_user_id}",
-                headers={"Authorization": f"Bearer {self._secret_key}"},
-                timeout=self._timeout,
-                # The shared client follows redirects for link resolution; a delete must
-                # not, since a same-origin redirect would replay as a GET with the bearer
-                # header still attached and a 200 there would read as a successful delete.
-                follow_redirects=False,
-            )
-        except httpx2.HTTPError as exc:
-            raise ClerkUnavailableError from exc
+        response = await send_bearer(
+            self._client,
+            "DELETE",
+            f"{self._base_url}/v1/users/{clerk_user_id}",
+            token=self._secret_key,
+            timeout=self._timeout,
+            unavailable=ClerkUnavailableError,
+        )
         if (
             response.status_code not in SUCCESS_STATUSES
             and response.status_code != NOT_FOUND_STATUS
@@ -108,20 +105,23 @@ class ClerkBackendUsers:
         raise ValueError(msg)
 
     async def _send(
-        self, method: str, suffix: str = "", *, allow_not_found: bool = False, **kwargs: Any
+        self,
+        method: str,
+        suffix: str = "",
+        *,
+        allow_not_found: bool = False,
+        params: dict[str, str] | None = None,
     ) -> Any:
         path = f"/v1/users{suffix}"
-        try:
-            response = await self._client.request(
-                method,
-                f"{self._base_url}{path}",
-                headers={"Authorization": f"Bearer {self._secret_key}"},
-                timeout=self._timeout,
-                follow_redirects=False,
-                **kwargs,
-            )
-        except httpx2.HTTPError as exc:
-            raise ClerkUnavailableError from exc
+        response = await send_bearer(
+            self._client,
+            method,
+            f"{self._base_url}{path}",
+            token=self._secret_key,
+            timeout=self._timeout,
+            unavailable=ClerkUnavailableError,
+            params=params,
+        )
         if allow_not_found and response.status_code == NOT_FOUND_STATUS:
             return None
         if response.status_code not in SUCCESS_STATUSES:

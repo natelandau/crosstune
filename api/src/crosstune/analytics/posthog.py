@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-import httpx2
+from crosstune.rest import DEFAULT_TIMEOUT_SECONDS, SUCCESS_STATUSES, send_bearer
 
-from crosstune.rest import DEFAULT_TIMEOUT_SECONDS, SUCCESS_STATUSES
+if TYPE_CHECKING:
+    import httpx2
 
 DEFAULT_BASE_URL = "https://us.posthog.com"
 
@@ -52,22 +53,19 @@ class PostHogPersons:
                 deletion errors, or the request itself failed (a timeout, a closed
                 connection, and so on).
         """
-        try:
-            response = await self._client.post(
-                f"{self._base_url}/api/projects/{self._project_id}/persons/bulk_delete/",
-                headers={"Authorization": f"Bearer {self._delete_key}"},
-                json={
-                    "distinct_ids": [distinct_id],
-                    "delete_events": True,
-                    "delete_recordings": True,
-                },
-                timeout=self._timeout,
-                # The shared client follows redirects for link resolution; a redirect
-                # would replay the bearer header against another address.
-                follow_redirects=False,
-            )
-        except httpx2.HTTPError as exc:
-            raise AnalyticsUnavailableError from exc
+        response = await send_bearer(
+            self._client,
+            "POST",
+            f"{self._base_url}/api/projects/{self._project_id}/persons/bulk_delete/",
+            token=self._delete_key,
+            timeout=self._timeout,
+            unavailable=AnalyticsUnavailableError,
+            json={
+                "distinct_ids": [distinct_id],
+                "delete_events": True,
+                "delete_recordings": True,
+            },
+        )
         if response.status_code not in SUCCESS_STATUSES:
             msg = f"PostHog answered {response.status_code} deleting {distinct_id}"
             raise AnalyticsUnavailableError(msg)

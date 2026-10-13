@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import parse_qs, quote, urlsplit
 
-import httpx2
-
 from crosstune.billing.grants import PaidSubscription
-from crosstune.rest import DEFAULT_TIMEOUT_SECONDS, NOT_FOUND_STATUS, SUCCESS_STATUSES
+from crosstune.rest import DEFAULT_TIMEOUT_SECONDS, NOT_FOUND_STATUS, SUCCESS_STATUSES, send_bearer
 from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantSource
+
+if TYPE_CHECKING:
+    import httpx2
 
 PREMIUM_ENTITLEMENT = "premium"
 DEFAULT_BASE_URL = "https://api.revenuecat.com/v2"
@@ -120,18 +121,15 @@ class RevenueCatRest:
         missing_ok: bool = False,
     ) -> httpx2.Response:
         """Send one request, raising on any status but 2xx, or a 404 when `missing_ok`."""
-        try:
-            response = await self._client.request(
-                method,
-                url,
-                params=params,
-                headers={"Authorization": f"Bearer {self._secret_key}"},
-                timeout=self._timeout,
-                # A redirect would replay the bearer header against whatever it names.
-                follow_redirects=False,
-            )
-        except httpx2.HTTPError as exc:
-            raise RevenueCatUnavailableError from exc
+        response = await send_bearer(
+            self._client,
+            method,
+            url,
+            token=self._secret_key,
+            timeout=self._timeout,
+            unavailable=RevenueCatUnavailableError,
+            params=params,
+        )
         if response.status_code not in SUCCESS_STATUSES and not (
             missing_ok and response.status_code == NOT_FOUND_STATUS
         ):
