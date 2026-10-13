@@ -156,8 +156,8 @@ private struct ListTunes: View {
                 .listStyle(.plain)
             #endif
             .overlay {
-                if let showArchived = model.showArchived {
-                    emptyState(rows, showArchived: showArchived)
+                if model.showArchived != nil {
+                    emptyState(rows)
                 }
             }
             .safeAreaInset(edge: .top, spacing: 0) {
@@ -505,7 +505,7 @@ private struct ListTunes: View {
         model.move(from: from, to: MovePlace.dropTarget(from: from, offset: offset))
     }
 
-    @ViewBuilder private func emptyState(_ rows: [ListEntry], showArchived: Bool) -> some View {
+    @ViewBuilder private func emptyState(_ rows: [ListEntry]) -> some View {
         if model.entries.isEmpty {
             ContentUnavailableView {
                 Label(ListScreen.emptyTitle, systemImage: Destination.lists.systemImage)

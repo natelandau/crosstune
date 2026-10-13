@@ -1,6 +1,5 @@
 import CrosstuneStore
 import CrosstuneSync
-import CrosstuneTestSupport
 import Foundation
 import Testing
 

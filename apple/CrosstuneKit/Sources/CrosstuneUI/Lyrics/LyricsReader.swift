@@ -20,7 +20,6 @@ public struct LyricsReader: View {
 
     @Environment(\.store) private var store
     @Environment(\.analytics) private var analytics
-    @Environment(\.dismiss) private var dismiss
     @State private var model: LyricsReaderModel?
 
     public init(tuneID: String) {

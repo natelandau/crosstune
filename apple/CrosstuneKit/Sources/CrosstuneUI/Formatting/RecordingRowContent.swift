@@ -1,5 +1,4 @@
 import CrosstuneStore
-import CrosstuneSync
 import Foundation
 
 /// Everything a recording's row shows, worked out from the recording, its local file, and

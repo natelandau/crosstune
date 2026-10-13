@@ -22,11 +22,12 @@ struct CatalogStandIn: View {
         let visible = CatalogSearch.filter(entries, by: filters, query: query)
         let outcome = SearchOutcome(entries: entries, visible: visible, query: query, archivedShown: filters.archived)
         let values = CatalogSearch.facetValues(entries)
-        let total = CatalogSearch.hidingArchived(entries, shown: filters.archived).count
+        let archivedCount = entries.count(where: \.isArchived)
         return CatalogResults(
             entries: entries, instruments: SampleCatalog.instruments, filters: filters, facetValues: values,
             facets: CatalogSearch.visibleFacets(values, instruments: SampleCatalog.instruments), visible: visible,
-            outcome: outcome, total: total, archivedCount: entries.count(where: \.isArchived),
+            outcome: outcome, total: filters.archived ? entries.count : entries.count - archivedCount,
+            archivedCount: archivedCount,
             missingChoices: CatalogSearch.missingChoices(entries))
     }
 

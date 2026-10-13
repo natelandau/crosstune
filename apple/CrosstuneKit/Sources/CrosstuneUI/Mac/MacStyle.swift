@@ -8,12 +8,6 @@
         public static let accentLight = BrandStyle.accentLight
         /// Slate's dark-mode hex, from ``BrandStyle``.
         public static let accentDark = BrandStyle.accentDark
-        /// Coral's hex, from ``BrandStyle``.
-        public static let coralHex = BrandStyle.coralHex
-        /// The light-mode label on slate, from ``BrandStyle``.
-        public static let onAccentLight = BrandStyle.onAccentLight
-        /// The dark-mode label on slate, from ``BrandStyle``.
-        public static let onAccentDark = BrandStyle.onAccentDark
 
         /// Slate, lighter in dark mode so text on the window keeps its contrast.
         public static var accent: Color { BrandStyle.accent }
@@ -22,14 +16,6 @@
 
         /// A label on a slate fill in `scheme`.
         public static func onAccent(_ scheme: ColorScheme) -> Color { BrandStyle.onAccent(scheme) }
-        /// How strongly a set filter's slate wash shows over the window.
-        public static func setFillOpacity(_ scheme: ColorScheme) -> Double {
-            BrandStyle.setFillOpacity(scheme)
-        }
-        /// Whether a set filter's label is slate rather than the primary label color.
-        public static func setLabelIsSlate(_ scheme: ColorScheme) -> Bool {
-            BrandStyle.setLabelIsSlate(scheme)
-        }
         /// A set filter's wash, the fill of a filter control or token once it narrows the list.
         public static func setFill(_ scheme: ColorScheme) -> Color { BrandStyle.setFill(scheme) }
         /// A set filter's label on its wash.
@@ -72,8 +58,6 @@
         public static let stopDiameter: CGFloat = 80
         /// The inset around a sheet's content, as Mac sheets lay out.
         public static let sheetMargin: CGFloat = 20
-        /// The grouped form style's own inset at each side.
-        public static let groupedFormInset: CGFloat = 20
         /// Puts a sidebar status row's glyph under the Catalog row's name, the row it narrows.
         public static let sidebarStatusIndent: CGFloat = 21
         /// How far the inset list style draws its selection in from a column's edges.

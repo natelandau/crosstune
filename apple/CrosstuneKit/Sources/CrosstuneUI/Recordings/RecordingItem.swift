@@ -1,7 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneAuth
 import CrosstuneStore
-import CrosstuneSync
 import SwiftUI
 
 /// The one row every list of recordings shows: it plays what this device holds, fetches what it

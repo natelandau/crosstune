@@ -37,12 +37,6 @@ public protocol MusicPlayback: PlaybackTransport {
     func settleAfterPrevious() async
 }
 
-extension MusicPlayback {
-    public func load(_ kind: AppleMusicKind) async -> Bool {
-        await load(kind, guarded: false)
-    }
-}
-
 /// What the player needs to play Apple Music links in full. Without it every link plays in its
 /// provider's embed.
 @MainActor

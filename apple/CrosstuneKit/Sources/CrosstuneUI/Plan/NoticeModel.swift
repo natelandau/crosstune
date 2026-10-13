@@ -73,7 +73,6 @@ final class NoticeModel {
     }
 
     private let store: CrosstuneStore
-    private let plan: PlanModel
     private let analytics: AnalyticsClient
     private let claim: NoticeClaim
     private let now: @MainActor () -> Date
@@ -91,7 +90,6 @@ final class NoticeModel {
         now: @escaping @MainActor () -> Date = Date.init
     ) {
         self.store = store
-        self.plan = plan
         self.analytics = analytics
         self.claim = claim
         self.now = now

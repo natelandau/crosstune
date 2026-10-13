@@ -63,19 +63,6 @@ import Testing
         snapshot("tune-rows-sized", size: size) { tuneRows(instruments: SampleCatalog.instruments) }
     }
 
-    @Test(arguments: [DynamicTypeSize.small, .large, .xxLarge, .accessibility2])
-    func railsAtEachSize(size: DynamicTypeSize) {
-        snapshot("rails", size: size) {
-            VStack(alignment: .leading, spacing: 0) {
-                Rail(chosen: "D") {
-                    ForEach(keys, id: \.self) { KeyPill($0, chosen: $0 == "D").id($0) }
-                }
-                Divider()
-                tuneRows(instruments: SampleCatalog.instruments)
-            }
-        }
-    }
-
     @Test func listRows() {
         snapshot("list-rows") {
             rows(Array(SampleCatalog.entries.prefix(5).enumerated()), id: \.element.tune.id) { index, entry in

@@ -1,7 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
-import CrosstuneVocabulary
 import Foundation
 import GRDB
 import Observation

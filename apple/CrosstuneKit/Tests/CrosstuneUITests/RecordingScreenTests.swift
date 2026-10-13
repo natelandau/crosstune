@@ -35,7 +35,7 @@ private final class Writes {
     private(set) var made: [PlaybackSettings] = []
     var refusal: (any Error)?
 
-    func save(_ recordingID: String, _ change: PlaybackSettings) async throws {
+    func save(_: String, _ change: PlaybackSettings) async throws {
         if let refusal { throw refusal }
         made.append(change)
     }

@@ -1,7 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
-import CrosstuneVocabulary
 import Foundation
 import GRDB
 import Observation
@@ -191,9 +190,6 @@ public final class ListModel {
         showArchived == true ? entries : entries.filter { !$0.isArchived }
     }
 
-    /// The musician's rows of the tunes in the list, which a picker marks as already in it.
-    public var members: Set<String> { Set(entries.map(\.userTune.id)) }
-
     /// The moves that go somewhere from this row among the rows on screen.
     func places(for entry: ListEntry) -> [MovePlace] {
         let rows = rows
@@ -263,12 +259,6 @@ public final class ListModel {
         if await run({ try await $0.removeFromList(entry.item.id) }) {
             analytics.send(.tunesRemovedFromList(listID: listID, count: 1))
         }
-    }
-
-    /// Adds a tune to the end of the list, or leaves it where it is when it is already there.
-    public func add(userTuneID: String) async {
-        let listID = listID
-        await run { try await $0.addToList(listID, userTuneID: userTuneID) }
     }
 
     /// Shows or hides archived tunes on every list screen.

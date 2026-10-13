@@ -262,10 +262,6 @@ public enum CatalogSearch {
         titlesInclude(entry.titles, query)
     }
 
-    public static func hidingArchived(_ entries: [CatalogEntry], shown: Bool) -> [CatalogEntry] {
-        shown ? entries : entries.filter { !$0.isArchived }
-    }
-
     /// The entries the filters and the query let through, in catalog order. The query matches
     /// anywhere in a title, an alternate title, the composer, or who it was learned from.
     public static func filter(_ entries: [CatalogEntry], by filters: CatalogFilters, query: String = "")

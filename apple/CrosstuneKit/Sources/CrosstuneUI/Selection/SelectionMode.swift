@@ -237,7 +237,7 @@ private struct SelectionMode: ViewModifier {
                     BulkActionText.archive(true, count: toArchive),
                     systemImage: TuneRowActions.archiveSystemImage(archived: false)
                 ) {
-                    run(bulk) { await bulk.setArchived(true, entries) }
+                    run { await bulk.setArchived(true, entries) }
                 }
             }
             if toUnarchive > 0 {
@@ -245,12 +245,12 @@ private struct SelectionMode: ViewModifier {
                     BulkActionText.archive(false, count: toUnarchive),
                     systemImage: TuneRowActions.archiveSystemImage(archived: true)
                 ) {
-                    run(bulk) { await bulk.setArchived(false, entries) }
+                    run { await bulk.setArchived(false, entries) }
                 }
             }
             if let list, !itemIDs.isEmpty {
                 Button(BulkActionText.remove(itemIDs.count), systemImage: "text.badge.xmark", role: .destructive) {
-                    run(bulk) { await bulk.remove(itemIDs: itemIDs, from: list.name, listID: list.id) }
+                    run { await bulk.remove(itemIDs: itemIDs, from: list.name, listID: list.id) }
                 }
             }
             if !entries.isEmpty {
@@ -265,7 +265,7 @@ private struct SelectionMode: ViewModifier {
         .disabled(bulk.isPending)
     }
 
-    private func run(_ bulk: BulkActions, _ action: @escaping @MainActor () async -> Bool) {
+    private func run(_ action: @escaping @MainActor () async -> Bool) {
         Task {
             if await action() { selection.exit() }
         }
