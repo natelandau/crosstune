@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import select, update
 
 from crosstune.models import Scan, Tune, UploadSlot
-from crosstune.storage.store import SCAN_MIME, legacy_scan_key, scan_key
+from crosstune.storage.store import SCAN_MIME, legacy_scan_key, scan_key, scan_prefix
 from tests.helpers import push, uid
 from tests.test_scans_sync import scan, tune_change
 
@@ -48,12 +48,19 @@ async def download(client, headers, scan_id: str):
 
 
 async def put_object(object_store, verify_session, scan_id: str, size: int) -> str:
-    key = scan_key(await owner_id(verify_session, scan_id), scan_id)
+    """PUT an image where the scan's open slot signed, or its served key when it has none."""
+    key = await verify_session.scalar(
+        select(UploadSlot.object_key).where(UploadSlot.scan_id == scan_id)
+    ) or scan_key(await owner_id(verify_session, scan_id), scan_id)
     object_store.put_bytes(key, b"x" * size, SCAN_MIME)
     return key
 
 
-async def test_slot_signs_put_to_scan_key(
+async def served_key(verify_session, scan_id: str) -> str:
+    return scan_key(await owner_id(verify_session, scan_id), scan_id)
+
+
+async def test_slot_signs_put_to_a_key_of_its_own(
     client, auth_headers, object_store, verify_session
 ) -> None:
     _, scan_id = await make_scan(client, auth_headers)
@@ -62,8 +69,55 @@ async def test_slot_signs_put_to_scan_key(
     body = response.json()
     assert "content_type=image/jpeg" in body["url"]
     assert datetime.fromisoformat(body["expires_at"]) > datetime.now(UTC)
-    expected = scan_key(await owner_id(verify_session, scan_id), scan_id)
-    assert object_store.presigned[-1] == ("put", expected)
+    first = object_store.presigned[-1][1]
+    assert first != await served_key(verify_session, scan_id)
+    assert first.startswith(scan_prefix(await owner_id(verify_session, scan_id), scan_id))
+    await slot(client, auth_headers(USER_A), scan_id)
+    assert object_store.presigned[-1][1] not in (first, await served_key(verify_session, scan_id))
+
+
+async def test_a_put_under_a_reissued_slots_old_url_is_never_confirmed(
+    client, auth_headers, object_store, verify_session
+) -> None:
+    _, scan_id = await make_scan(client, auth_headers)
+    await slot(client, auth_headers(USER_A), scan_id, bytes_=1000)
+    old = object_store.presigned[-1][1]
+    await slot(client, auth_headers(USER_A), scan_id, bytes_=10)
+    object_store.put_bytes(old, b"x" * 1000, SCAN_MIME)
+    assert (await uploaded(client, auth_headers(USER_A), scan_id)).status_code == 409
+    await put_object(object_store, verify_session, scan_id, 10)
+    assert (await uploaded(client, auth_headers(USER_A), scan_id)).status_code == 204
+    stored = await verify_session.scalar(select(Scan).where(Scan.id == scan_id))
+    assert stored.file_bytes == 10
+    assert (await object_store.head(await served_key(verify_session, scan_id))).size == 10
+
+
+async def test_a_put_after_confirmation_never_reaches_the_served_image(
+    client, auth_headers, object_store, verify_session
+) -> None:
+    _, scan_id = await make_scan(client, auth_headers)
+    await slot(client, auth_headers(USER_A), scan_id, bytes_=1000)
+    staged = await put_object(object_store, verify_session, scan_id, 1000)
+    assert (await uploaded(client, auth_headers(USER_A), scan_id)).status_code == 204
+    assert await object_store.head(staged) is None
+    object_store.put_bytes(staged, b"y" * 1000, SCAN_MIME)
+    served = await served_key(verify_session, scan_id)
+    assert object_store.get_bytes(served) == b"x" * 1000
+
+
+async def test_a_slot_signed_for_the_served_key_keeps_its_image(
+    client, auth_headers, object_store, verify_session
+) -> None:
+    _, scan_id = await make_scan(client, auth_headers)
+    await slot(client, auth_headers(USER_A), scan_id, bytes_=1000)
+    served = await served_key(verify_session, scan_id)
+    await verify_session.execute(
+        update(UploadSlot).where(UploadSlot.scan_id == scan_id).values(object_key=served)
+    )
+    await verify_session.commit()
+    await put_object(object_store, verify_session, scan_id, 1000)
+    assert (await uploaded(client, auth_headers(USER_A), scan_id)).status_code == 204
+    assert object_store.get_bytes(served) == b"x" * 1000
 
 
 async def test_slot_refuses_png(client, auth_headers) -> None:
@@ -143,10 +197,11 @@ async def test_uploaded_marks_ready(client, auth_headers, object_store, verify_s
     before = await verify_session.scalar(select(Scan).where(Scan.id == scan_id))
     seq_before = before.server_seq
     await slot(client, auth_headers(USER_A), scan_id, bytes_=1000)
-    key = await put_object(object_store, verify_session, scan_id, 990)
+    await put_object(object_store, verify_session, scan_id, 990)
     response = await uploaded(client, auth_headers(USER_A), scan_id)
     assert response.status_code == 204
     await verify_session.refresh(before)
+    key = await served_key(verify_session, scan_id)
     assert (before.state, before.file_key, before.file_bytes) == ("ready", key, 990)
     assert before.server_seq > seq_before
     assert (
@@ -161,9 +216,9 @@ async def test_uploaded_deletes_an_unconfirmed_legacy_object(
     legacy = legacy_scan_key(await owner_id(verify_session, scan_id), scan_id)
     object_store.put_bytes(legacy, b"x" * 10, SCAN_MIME)
     await slot(client, auth_headers(USER_A), scan_id, bytes_=1000)
-    key = await put_object(object_store, verify_session, scan_id, 1000)
+    await put_object(object_store, verify_session, scan_id, 1000)
     assert (await uploaded(client, auth_headers(USER_A), scan_id)).status_code == 204
-    assert object_store.keys() == [key]
+    assert object_store.keys() == [await served_key(verify_session, scan_id)]
 
 
 async def test_uploaded_succeeds_when_the_legacy_delete_fails(
@@ -171,7 +226,7 @@ async def test_uploaded_succeeds_when_the_legacy_delete_fails(
 ) -> None:
     _, scan_id = await make_scan(client, auth_headers)
     await slot(client, auth_headers(USER_A), scan_id, bytes_=1000)
-    key = await put_object(object_store, verify_session, scan_id, 1000)
+    await put_object(object_store, verify_session, scan_id, 1000)
 
     async def failing_delete(*keys: str) -> None:
         raise OSError(keys)
@@ -179,7 +234,7 @@ async def test_uploaded_succeeds_when_the_legacy_delete_fails(
     monkeypatch.setattr(object_store, "delete", failing_delete)
     assert (await uploaded(client, auth_headers(USER_A), scan_id)).status_code == 204
     stored = await verify_session.scalar(select(Scan).where(Scan.id == scan_id))
-    assert (stored.state, stored.file_key) == ("ready", key)
+    assert (stored.state, stored.file_key) == ("ready", await served_key(verify_session, scan_id))
 
 
 async def test_uploaded_twice_is_204(client, auth_headers, object_store, verify_session) -> None:
@@ -296,8 +351,9 @@ async def test_download_ready_scan(client, auth_headers, object_store, verify_se
     _, scan_id = await make_scan(client, auth_headers)
     assert (await download(client, auth_headers(USER_A), scan_id)).status_code == 409
     await slot(client, auth_headers(USER_A), scan_id, bytes_=100)
-    key = await put_object(object_store, verify_session, scan_id, 100)
+    await put_object(object_store, verify_session, scan_id, 100)
     await uploaded(client, auth_headers(USER_A), scan_id)
+    key = await served_key(verify_session, scan_id)
     response = await download(client, auth_headers(USER_A), scan_id)
     assert response.status_code == 200, response.text
     assert response.json()["url"].startswith(f"https://fake.r2/{key}")

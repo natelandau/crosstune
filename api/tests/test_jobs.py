@@ -56,6 +56,7 @@ from crosstune.storage.store import (
     peaks_key,
     playback_key,
     recording_prefix,
+    staged_upload_key,
     upload_key,
     upload_revision,
 )
@@ -807,6 +808,7 @@ async def test_run_once_purges_an_upload_deleted_before_it_was_confirmed(
             user_id=user.id,
             declared_bytes=3,
             content_type="audio/mp4",
+            object_key=staged_upload_key(user.id, rec.id),
             expires_at=utc_now() - ABANDONED_SLOT_GRACE - timedelta(minutes=1),
         )
     )
@@ -863,6 +865,7 @@ async def _pending_with_slot(
             user_id=user.id,
             declared_bytes=3,
             content_type="audio/mp4",
+            object_key=staged_upload_key(user.id, rec.id),
             expires_at=utc_now() - expired_for,
         )
     )
@@ -1107,6 +1110,33 @@ async def test_sweep_removes_old_revisions_a_live_row_does_not_name(runner, veri
     assert await job_runner.sweep_orphans() == 2
     assert store.keys() == sorted([*named, *rewritten_in_place, in_flight])
     assert await job_runner.sweep_orphans() == 0
+
+
+async def test_sweep_removes_old_staged_uploads_no_slot_names(runner, verify_session) -> None:
+    """A URL that outlived its slot can only have written where nothing reads."""
+    job_runner, store = runner
+    user = await make_user(verify_session)
+    rec = await add_recording(verify_session, user, "pending_upload")
+    named = staged_upload_key(user.id, rec.id)
+    verify_session.add(
+        UploadSlot(
+            recording_id=rec.id,
+            user_id=user.id,
+            declared_bytes=1,
+            content_type="audio/mp4",
+            object_key=named,
+            expires_at=utc_now() + timedelta(minutes=5),
+        )
+    )
+    await verify_session.commit()
+    stray = staged_upload_key(user.id, rec.id)
+    for key in (named, stray):
+        store.put_bytes(key, b"a", "audio/mp4")
+        store.age(key, runner_module.STRAY_REVISION_AGE + timedelta(minutes=1))
+    young = staged_upload_key(user.id, rec.id)
+    store.put_bytes(young, b"a", "audio/mp4")
+    assert await job_runner.sweep_orphans() == 1
+    assert store.keys() == sorted([named, young])
 
 
 def test_a_claim_outlasts_the_longest_attempt() -> None:

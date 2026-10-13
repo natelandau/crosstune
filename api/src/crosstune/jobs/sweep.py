@@ -16,6 +16,7 @@ from crosstune.storage.store import (
     LEGACY_SCAN_SEGMENT,
     SCAN_SEGMENT,
     is_revision_key,
+    is_staged_key,
     legacy_scan_key,
     recording_prefix,
     scan_key,
@@ -137,10 +138,12 @@ async def sweep_orphans(
     name is garbage too once it is older than `stray_after`: every job attempt mints
     its own revision keys and only that attempt's commit names them, so one older
     than any attempt can run was left by an attempt that failed, was cancelled, or
-    died before it could clean up. Originals and uploads are left alone, since jobs
-    rewrite those keys in place and a sweep could race the write.
+    died before it could clean up. A staged upload no open slot names is garbage once
+    it is as old, since only a slot's own URL writes there and a confirmation copies it
+    out first. Originals and confirmed uploads are left alone, since jobs rewrite those
+    keys in place and a sweep could race the write.
 
-    One listing and three queries per sweep, however many users the bucket holds.
+    One listing and four queries per sweep, however many users the bucket holds.
 
     Args:
         sessionmaker: Opens the read-only session the row checks use.
@@ -161,7 +164,11 @@ async def sweep_orphans(
         scan_candidates = {prefix: pair for prefix, pair in scans.items() if pair[0] in live}
         known: set[tuple[uuid.UUID, uuid.UUID]] = set()
         known_scans: set[tuple[uuid.UUID, uuid.UUID]] = set()
-        named: set[str] = set()
+        named: set[str] = set(
+            await session.scalars(
+                select(UploadSlot.object_key).where(UploadSlot.user_id == _any_uuid(live))
+            )
+        )
         if candidates:
             rows = await session.execute(
                 select(
@@ -185,10 +192,18 @@ async def sweep_orphans(
     strays = [
         obj.key
         for obj in objects
-        if is_revision_key(obj.key)
-        and obj.key not in named
+        if obj.key not in named
         and obj.modified < cutoff
-        and _recording_of(obj.key) in known
+        and (
+            (is_revision_key(obj.key) and _recording_of(obj.key) in known)
+            or (
+                is_staged_key(obj.key)
+                and (
+                    _recording_of(obj.key) in known
+                    or scans.get(obj.key.rpartition("/")[0] + "/") in known_scans
+                )
+            )
+        )
     ]
     await asyncio.gather(*(store.delete_prefix(prefix) for prefix in orphans))
     if strays:
@@ -216,17 +231,20 @@ async def _release_recording_slots(
 ) -> int:
     cutoff = utc_now() - ABANDONED_SLOT_GRACE
     stmt = (
-        select(Recording)
+        select(Recording, UploadSlot.object_key)
         .join(UploadSlot, UploadSlot.recording_id == Recording.id)
         .where(UploadSlot.expires_at < cutoff, live_pending_slot())
         .limit(PURGE_BATCH)
     )
     async with sessionmaker() as session:
         async with session.begin():
-            rows = list(await session.scalars(stmt))
-        if not rows:
+            found = list((await session.execute(stmt)).tuples())
+        if not found:
             return 0
-        await store.delete(*(upload_key(r.user_id, r.id) for r in rows))
+        rows = [recording for recording, _ in found]
+        await store.delete(
+            *{key for r, staged in found for key in (upload_key(r.user_id, r.id), staged)}
+        )
         async with session.begin():
             await _lock_users(session, rows)
             # Re-checked under the locks, so a slot reissued meanwhile stays open and its
@@ -262,16 +280,18 @@ async def _release_scan_slots(
     """
     cutoff = utc_now() - ABANDONED_SLOT_GRACE
     stmt = (
-        select(Scan)
+        select(Scan, UploadSlot.object_key)
         .join(UploadSlot, UploadSlot.scan_id == Scan.id)
         .where(UploadSlot.expires_at < cutoff, live_pending_scan_slot())
         .limit(PURGE_BATCH)
     )
     async with sessionmaker() as session:
         async with session.begin():
-            rows = list(await session.scalars(stmt))
-        if not rows:
+            found = list((await session.execute(stmt)).tuples())
+        if not found:
             return 0
+        rows = [scan for scan, _ in found]
+        staged = {scan.id: key for scan, key in found}
         async with session.begin():
             await _lock_users(session, rows)
             abandoned = set(
@@ -291,6 +311,7 @@ async def _release_scan_slots(
                         for key in (
                             scan_key(scan.user_id, scan.id),
                             legacy_scan_key(scan.user_id, scan.id),
+                            staged[scan.id],
                         )
                     )
                 )

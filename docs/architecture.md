@@ -517,8 +517,12 @@ never synced.
 - A 404 or 410 on the file fails the import at once. A network failure
   retries, then ends as "Couldn't reach Slippery-Hill".
 - The PUT signature covers the declared size, so the bucket refuses a file
-  of any other length. A slot expired for more than an hour without a
-  confirmation is released, and the runner deletes whatever its PUT left.
+  of any other length. Each slot, and each reissue of one, signs a key of
+  its own. Confirming copies that object to where the server reads it, so a
+  URL used again after its slot is reissued or confirmed writes where
+  nothing reads, and the orphan sweep deletes it. A slot expired for more
+  than an hour without a confirmation is released, and the runner deletes
+  whatever its PUT left.
 - Scans move the same way: an upload slot, a PUT to R2, then a confirm.
   One quota, sized by the user's plan, covers recordings and scans; a free
   plan's covers scans only. A scan's image goes under the user's `scans/`
@@ -549,8 +553,9 @@ never synced.
 - A data export reads the local store and takes each audio and scan image
   file the device holds. It fetches the rest through the signed URLs
   downloads use, writes them into the archive, and never stores them.
-- The original upload is a backup. It is never modified, no endpoint serves
-  it, and it never counts against a user's quota. A trim cuts from it.
+- The original upload is kept for trims, which cut from it. It is never
+  modified, no endpoint serves it, and it counts against the user's quota
+  while the recording lives.
 - A saved trim is clamped on push to the recording's current playback
   range, and to at least 1000 ms. At most one trim job is queued per
   recording at a time; a trim saved while one runs is queued once it

@@ -122,6 +122,7 @@ async def _seed(
                 user_id=user_id,
                 declared_bytes=1,
                 content_type="audio/mp4",
+                object_key="staged",
                 expires_at=T0,
             ),
             InactivityNotice(

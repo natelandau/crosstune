@@ -106,3 +106,5 @@ class UploadSlot(Base):
     declared_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     content_type: Mapped[str] = mapped_column(String(100), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # The key this slot's PUT URL is signed for, new on every issue.
+    object_key: Mapped[str] = mapped_column(String(512), nullable=False)

@@ -52,6 +52,25 @@ async def test_used_bytes_sums_recordings_and_scans(client, auth_headers, verify
     assert await used_bytes(verify_session, user_id) == 1300
 
 
+async def test_used_bytes_counts_kept_originals_of_live_recordings(
+    client, auth_headers, verify_session
+) -> None:
+    user_id, rec, _ = await _seed(client, auth_headers, verify_session)
+    await verify_session.execute(
+        update(Recording).where(Recording.id == rec).values(original_bytes=2000)
+    )
+    await verify_session.commit()
+    assert await used_bytes(verify_session, user_id) == 3300
+    assert await used_bytes(verify_session, user_id, include_recordings=False) == 300
+    assert await used_bytes(verify_session, user_id, exclude=rec) == 300
+
+    await verify_session.execute(
+        update(Recording).where(Recording.id == rec).values(deleted_at=utc_now())
+    )
+    await verify_session.commit()
+    assert await used_bytes(verify_session, user_id) == 300
+
+
 async def test_open_scan_slot_replaces_its_stored_bytes(
     client, auth_headers, verify_session
 ) -> None:
@@ -62,6 +81,7 @@ async def test_open_scan_slot_replaces_its_stored_bytes(
             user_id=user_id,
             declared_bytes=500,
             content_type="image/jpeg",
+            object_key="staged",
             expires_at=utc_now() + timedelta(minutes=5),
         )
     )
@@ -92,6 +112,7 @@ async def test_open_slot_replaces_stored_bytes_of_a_users_only_scan(
             user_id=user_id,
             declared_bytes=500,
             content_type="image/jpeg",
+            object_key="staged",
             expires_at=utc_now() + timedelta(minutes=5),
         )
     )
@@ -109,6 +130,7 @@ async def test_expired_scan_slot_counts_stored_bytes_again(
             user_id=user_id,
             declared_bytes=500,
             content_type="image/jpeg",
+            object_key="staged",
             expires_at=utc_now() - timedelta(minutes=5),
         )
     )
@@ -136,6 +158,7 @@ async def test_slot_needs_exactly_one_owner(client, auth_headers, verify_session
             user_id=user_id,
             declared_bytes=1,
             content_type="image/jpeg",
+            object_key="staged",
             expires_at=utc_now(),
         )
     )

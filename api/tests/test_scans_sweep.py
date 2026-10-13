@@ -13,10 +13,16 @@ from crosstune.db.base import new_uuid7, utc_now
 from crosstune.db.engine import make_sessionmaker
 from crosstune.files.quota import slot_for_scan
 from crosstune.jobs import sweep as sweep_module
-from crosstune.jobs.runner import JobRunner
+from crosstune.jobs.runner import STRAY_REVISION_AGE, JobRunner
 from crosstune.jobs.sweep import ABANDONED_SLOT_GRACE
 from crosstune.models import Scan, Tune, UploadSlot, User
-from crosstune.storage.store import SCAN_MIME, SCAN_SEGMENT, legacy_scan_key, scan_key
+from crosstune.storage.store import (
+    SCAN_MIME,
+    SCAN_SEGMENT,
+    legacy_scan_key,
+    scan_key,
+    staged_scan_key,
+)
 from tests.fakes import FakeObjectStore
 from tests.helpers import T1, change, push
 from tests.test_scans_api import make_scan, put_object
@@ -70,6 +76,7 @@ async def add_slot(session, scan: Scan, *, expired_for: timedelta) -> None:
             user_id=scan.user_id,
             declared_bytes=3,
             content_type=SCAN_MIME,
+            object_key=staged_scan_key(scan.user_id, scan.id),
             expires_at=utc_now() - expired_for,
         )
     )
@@ -101,6 +108,17 @@ async def test_sweep_removes_scan_prefix_with_no_row(runner, verify_session) -> 
     assert await job_runner.sweep_orphans() == 1
     assert store.keys() == [kept.file_key]
     assert await job_runner.sweep_orphans() == 0
+
+
+async def test_sweep_removes_an_old_staged_image_no_slot_names(runner, verify_session) -> None:
+    job_runner, store = runner
+    user = await make_user(verify_session)
+    kept = await ready_scan(verify_session, store, user)
+    stray = staged_scan_key(user.id, kept.id)
+    store.put_bytes(stray, b"abc", SCAN_MIME)
+    store.age(stray, STRAY_REVISION_AGE + timedelta(minutes=1))
+    assert await job_runner.sweep_orphans() == 1
+    assert store.keys() == [kept.file_key]
 
 
 async def test_sweep_leaves_non_uuid_scan_keys(runner, verify_session) -> None:
