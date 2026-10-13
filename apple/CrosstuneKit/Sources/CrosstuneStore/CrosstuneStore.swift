@@ -46,7 +46,8 @@ public final class CrosstuneStore: Sendable {
         scansAtOpen = Self.fileNames(in: folder.appending(path: "scans", directoryHint: .isDirectory))
     }
 
-    private static func fileNames(in folder: URL) -> Set<String> {
+    /// The names in `folder`, empty when it is missing.
+    public static func fileNames(in folder: URL) -> Set<String> {
         Set((try? FileManager.default.contentsOfDirectory(atPath: folder.path(percentEncoded: false))) ?? [])
     }
 

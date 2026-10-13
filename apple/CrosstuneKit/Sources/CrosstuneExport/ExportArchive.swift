@@ -79,9 +79,10 @@ public enum ExportArchive {
     /// have a live user-tune. A download writes its file before its row, so the row's change
     /// finds the file in place.
     static func counts(_ db: Database, audioFolder: URL, scansFolder: URL) throws -> ExportCounts {
-        func held(_ fileName: String?, in folder: URL) -> Bool {
-            guard let fileName else { return false }
-            return FileManager.default.fileExists(atPath: folder.appending(path: fileName).path(percentEncoded: false))
+        let audioNames = CrosstuneStore.fileNames(in: audioFolder)
+        let scanNames = CrosstuneStore.fileNames(in: scansFolder)
+        func held(_ fileName: String?, in names: Set<String>) -> Bool {
+            fileName.map(names.contains) ?? false
         }
         let recordings = try Row.fetchAll(
             db,
@@ -91,7 +92,7 @@ public enum ExportArchive {
                 WHERE r.deleted_at IS NULL
                 """,
             arguments: [LocalFileState.capturing]
-        ).map { row in (ready: row["state"] as String? == "ready", held: held(row["file_name"], in: audioFolder)) }
+        ).map { row in (ready: row["state"] as String? == "ready", held: held(row["file_name"], in: audioNames)) }
         let scans = try Row.fetchAll(
             db,
             sql: """
@@ -100,7 +101,7 @@ public enum ExportArchive {
                 AND EXISTS (SELECT 1 FROM user_tunes u WHERE u.tune_id = s.tune_id AND u.deleted_at IS NULL)
                 """
         ).map { row in
-            (ready: row["state"] as String? == ScanRecord.ready, held: held(row["file_name"], in: scansFolder))
+            (ready: row["state"] as String? == ScanRecord.ready, held: held(row["file_name"], in: scanNames))
         }
         let files = recordings + scans
         return ExportCounts(
