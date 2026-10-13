@@ -391,7 +391,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         try await eventually { player.linkAudio == .native }
         #expect(music.cancelledLoads == [.song(id: "1440833090")])
         #expect(player.holds(.link, id: "l2"))
-        #expect(music.calls.filter { $0 == "play" }.count == 1)
+        #expect(music.calls.count(where: { $0 == "play" }) == 1)
     }
 
     @Test func closeWhileThePromptIsUpNeverLoads() async throws {
@@ -466,7 +466,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
             id: "l1", to: appleLink(url: "https://music.apple.com/us/song/the-mason-s-apron/1440833095"))
         try await eventually { player.linkAudio == .native }
         #expect(music.loaded.last == .song(id: "1440833095"))
-        #expect(music.calls.filter { $0 == "play" }.count == 1)
+        #expect(music.calls.count(where: { $0 == "play" }) == 1)
         #expect(!player.isExpanded)
     }
 

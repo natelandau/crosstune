@@ -595,11 +595,11 @@ import Testing
         await engine.transfer()
         api.transferFailures = [:]
         await engine.transfer()
-        #expect(api.transfers.filter { $0 == "url d1" }.count == 1)
+        #expect(api.transfers.count(where: { $0 == "url d1" }) == 1)
 
         now = now.advanced(by: uploadBackoff(attempts: 0))
         await engine.transfer()
-        #expect(api.transfers.filter { $0 == "url d1" }.count == 2)
+        #expect(api.transfers.count(where: { $0 == "url d1" }) == 2)
         #expect(try await file("d1")?.localState == .downloaded)
     }
 
@@ -629,7 +629,7 @@ import Testing
             if entry.hasPrefix("get ") { await held.hold() }
         }
         let engine = engine()
-        let urls = { self.api.transfers.filter { $0.hasPrefix("url ") }.count }
+        let urls = { self.api.transfers.count(where: { $0.hasPrefix("url ") }) }
 
         let pass = Task { await engine.transfer() }
         try await waitUntil { held.count == downloadConcurrency }
