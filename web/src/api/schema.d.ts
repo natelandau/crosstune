@@ -478,6 +478,8 @@ export interface components {
             trial_ends_at: string | null;
             /** Trial Reminder Seen At */
             trial_reminder_seen_at: string | null;
+            /** Trial Starts At */
+            trial_starts_at: string | null;
             /**
              * Updated At
              * Format: date-time

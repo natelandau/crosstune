@@ -7,10 +7,13 @@ public struct PurchaseOffer: Equatable, Sendable {
     public let period: PurchasePeriod
     /// The store's localized price, never a figure of our own.
     public let price: String
+    /// The store's price as a number, for comparing offers, never for display.
+    public let amount: Decimal
 
-    public init(period: PurchasePeriod, price: String) {
+    public init(period: PurchasePeriod, price: String, amount: Decimal) {
         self.period = period
         self.price = price
+        self.amount = amount
     }
 }
 

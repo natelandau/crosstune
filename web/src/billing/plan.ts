@@ -1,5 +1,6 @@
 import type { Notice } from '../api/types'
 import type { LocalEntitlement } from '../db/types'
+import { clamp } from '../math'
 
 /** How long past its reported expiry an auto-renewing grant still counts, for a device that
  * has not synced the renewal. */
@@ -16,11 +17,14 @@ export interface Plan {
   source: PlanSource | null
   /** The expiry the row reports for its grant, before the leeway; null for no grant or one that never expires. It is kept after the grant lapses. */
   premiumEndsAt: Date | null
+  trialStartsAt: Date | null
   trialEndsAt: Date | null
   /** The premium or free quota; null while the plan is unknown. */
   quotaBytes: number | null
   /** Free: the quota counts scans only. */
   scansOnly: boolean
+  /** Whether the live premium grant renews on its own; false unless premium. */
+  autoRenews: boolean
 }
 
 const SOURCES: readonly string[] = ['trial', 'apple', 'stripe', 'comp']
@@ -59,9 +63,11 @@ export function planOf(row: LocalEntitlement | null | undefined, premium: boolea
       kind: 'unknown',
       source: null,
       premiumEndsAt: null,
+      trialStartsAt: null,
       trialEndsAt: null,
       quotaBytes: null,
       scansOnly: false,
+      autoRenews: false,
     }
   }
   const source = row.premium_source
@@ -69,15 +75,35 @@ export function planOf(row: LocalEntitlement | null | undefined, premium: boolea
     kind: premium ? 'premium' : 'free',
     source: premium && source !== null && SOURCES.includes(source) ? (source as PlanSource) : null,
     premiumEndsAt: source === null ? null : dateOf(row.premium_expires_at),
+    trialStartsAt: dateOf(row.trial_starts_at),
     trialEndsAt: dateOf(row.trial_ends_at),
     quotaBytes: premium ? row.premium_quota_bytes : row.free_quota_bytes,
     scansOnly: !premium,
+    autoRenews: premium && row.auto_renews,
   }
 }
 
 /** Only an account with no paid grant can buy one: free, or a trial. */
 export function canSubscribe(plan: Plan): boolean {
   return plan.kind === 'free' || (plan.kind === 'premium' && plan.source === 'trial')
+}
+
+/** Whether the Plan sheet sells to the plan or confirms it. */
+export type PlanMode = 'selling' | 'member'
+
+/** A paid or comped plan is confirmed; every other plan, unknown and trial included, is sold to. */
+export function planMode(plan: Plan): PlanMode {
+  return plan.kind === 'premium' && plan.source !== 'trial' ? 'member' : 'selling'
+}
+
+/** How much of a trial has passed, from 0 at its start to 1 at its end and after. The server
+ * sets the trial's length and can move its end, so both instants come from the row; without
+ * them, or with an end not after the start, nothing has passed. */
+export function trialProgress(startsAt: Date | null, endsAt: Date | null, now: Date): number {
+  if (startsAt === null || endsAt === null) return 0
+  const length = endsAt.getTime() - startsAt.getTime()
+  if (length <= 0) return 0
+  return clamp((now.getTime() - startsAt.getTime()) / length, 0, 1)
 }
 
 export function recordingsPlayable(plan: Plan): boolean {

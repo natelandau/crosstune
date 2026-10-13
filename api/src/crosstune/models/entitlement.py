@@ -44,6 +44,7 @@ class Entitlement(SyncColumns, Base):
         DateTime(timezone=True), nullable=True
     )
     auto_renews: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    trial_starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     premium_quota_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     free_quota_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)

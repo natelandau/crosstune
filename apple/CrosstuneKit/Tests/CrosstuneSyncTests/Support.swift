@@ -73,8 +73,9 @@ func serverEntitlement(serverSeq: Int64, recordingNoticeSeen: Bool = false) -> J
         "id": .string("entitlement-1"), "created_at": .string(noon.iso), "updated_at": .string(noon.iso),
         "deleted_at": .null, "server_seq": .integer(serverSeq), "user_id": .string("server-user"),
         "premium_source": .string("trial"), "premium_expires_at": .string(later(86_400_000).iso),
-        "auto_renews": .bool(false), "trial_ends_at": .string(later(86_400_000).iso),
-        "premium_quota_bytes": .integer(10_000), "free_quota_bytes": .integer(1_000),
+        "auto_renews": .bool(false), "trial_starts_at": .string(noon.iso),
+        "trial_ends_at": .string(later(86_400_000).iso), "premium_quota_bytes": .integer(10_000),
+        "free_quota_bytes": .integer(1_000),
         "recording_notice_seen_at": recordingNoticeSeen ? .string(later(1_000).iso) : .null,
         "trial_reminder_seen_at": .null, "trial_end_seen_at": .null,
     ]

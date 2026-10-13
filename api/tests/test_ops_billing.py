@@ -189,6 +189,36 @@ async def test_trial_ends_moves_the_trial(session: AsyncSession, settings: Setti
     assert timedelta(days=1, hours=23) < row.trial_ends_at - before < timedelta(days=2, minutes=5)
 
 
+async def test_trial_ends_extends_a_running_trial_from_its_start(
+    session: AsyncSession, settings: Settings
+) -> None:
+    user = await _user(session, settings)
+    started = (await _trial(session, user)).created_at
+
+    await _run(session, settings, "trial", FREE_USER, "--ends", "60d")
+
+    row = await _entitlement(session, user)
+    assert row.trial_starts_at == started
+    assert (await _trial(session, user)).created_at == started
+
+
+async def test_trial_ends_restarts_an_ended_trial(
+    session: AsyncSession, settings: Settings
+) -> None:
+    user = await _user(session, settings)
+    started = (await _trial(session, user)).created_at
+    await set_trial_end(session, user.id, utc_now() - timedelta(days=1))
+    before = utc_now()
+
+    await _run(session, settings, "trial", FREE_USER, "--ends", "14d")
+
+    row = await _entitlement(session, user)
+    assert row.trial_starts_at is not None
+    assert row.trial_starts_at >= before > started
+    assert row.trial_ends_at is not None
+    assert timedelta(days=13, hours=23) < row.trial_ends_at - row.trial_starts_at
+
+
 async def test_trial_ends_is_refused_while_a_comp_holds_premium(
     session: AsyncSession, settings: Settings
 ) -> None:

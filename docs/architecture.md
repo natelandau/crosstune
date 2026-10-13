@@ -217,9 +217,14 @@ synced entitlements row.
   server-written, read-only to clients. A push to it is `invalid` with
   reason `server-written`. It reports the Premium grant that lasts
   longest, with its source, expiry, and `auto_renews`, plus
-  `trial_ends_at`, `premium_quota_bytes`, and `free_quota_bytes`.
-  `premium_quota_bytes` is that grant's quota: the trial's when it is
-  the trial, else Premium's plus any active storage add-on.
+  `trial_starts_at`, `trial_ends_at`, `premium_quota_bytes`, and
+  `free_quota_bytes`. `premium_quota_bytes` is that grant's quota: the
+  trial's when it is the trial, else Premium's plus any active storage
+  add-on.
+- The trial's start is when its grant was created, and its end is the
+  grant's expiry, so a client measures how much of a trial has passed
+  from the two, never from a fixed length. Moving a trial's end changes
+  its length.
 - Writing a comp or paid grant ends any running trial, since the rest of
   the trial is not added on.
 - A client that starts storing entitlements resets its pull cursor to 0,

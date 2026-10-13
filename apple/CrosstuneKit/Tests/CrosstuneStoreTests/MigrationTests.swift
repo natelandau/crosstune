@@ -1027,3 +1027,29 @@ private let v16Schema = """
       "trial_end_seen_at" TEXT,
       "extra" TEXT NOT NULL)
     """
+
+@Test func theV17MigrationAddsTheTrialStartAndKeepsThePullCursor() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v16")
+    let time = "2026-09-25T12:00:00.000Z"
+    try queue.write { db in
+        try db.execute(
+            sql: """
+                INSERT INTO entitlements (id, created_at, updated_at, server_seq, auto_renews,
+                    premium_quota_bytes, free_quota_bytes, extra)
+                VALUES ('e-1', ?, ?, 1, 0, 10, 1, '{"trial_starts_at":"2026-09-01T00:00:00.000Z","storage_addon":true}'),
+                       ('e-2', ?, ?, 2, 0, 10, 1, '{}')
+                """,
+            arguments: [time, time, time, time])
+        try db.execute(sql: "INSERT INTO meta (key, value) VALUES ('pull_cursor', '40')")
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v17")
+
+    try queue.read { db in
+        let rows = try Row.fetchAll(db, sql: "SELECT trial_starts_at, extra FROM entitlements ORDER BY id")
+        #expect(rows.map { $0["trial_starts_at"] as String? } == ["2026-09-01T00:00:00.000Z", nil])
+        #expect(rows.map { $0["extra"] as String } == [#"{"storage_addon":true}"#, "{}"])
+        #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'pull_cursor'") == "40")
+    }
+}

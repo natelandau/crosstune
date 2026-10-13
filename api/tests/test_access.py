@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from crosstune.billing.access import access_for, refresh_entitlement, resolve, scan_tune_id
+from crosstune.billing.grants import set_trial_end, start_trial
 from crosstune.models import Grant, Scan, Tune, User
 from crosstune.vocabulary import GrantKind, GrantSource
 from tests.helpers import T0
@@ -55,6 +56,17 @@ def test_active_trial_is_premium_with_trial_quota(settings: Settings) -> None:
     assert result.premium_source == GrantSource.TRIAL
     assert result.premium_expires_at == ends
     assert result.trial_ends_at == ends
+
+
+def test_trial_start_is_the_trial_grants_creation(settings: Settings) -> None:
+    started = NOW - timedelta(days=9)
+    trial = _premium(GrantSource.TRIAL, NOW + timedelta(days=5))
+    trial.created_at = started
+
+    result = resolve([trial, _premium(GrantSource.COMP)], NOW, settings)
+
+    assert result.trial_starts_at == started
+    assert resolve([_premium(GrantSource.COMP)], NOW, settings).trial_starts_at is None
 
 
 def test_expired_trial_with_open_comp_reports_comp(settings: Settings) -> None:
@@ -220,6 +232,25 @@ async def test_refresh_bumps_server_seq_only_on_change(session, settings: Settin
     assert row.server_seq > first_seq
     assert row.premium_source == "comp"
     assert row.premium_quota_bytes == PREMIUM
+
+
+async def test_refresh_fills_the_trial_window_and_follows_a_moved_end(
+    session, settings: Settings
+) -> None:
+    user_id = await _user(session)
+    await start_trial(session, user_id, settings, NOW)
+
+    row = await refresh_entitlement(session, user_id, settings, NOW)
+    first_seq = row.server_seq
+    assert row.trial_starts_at == NOW
+    assert row.trial_ends_at == NOW + timedelta(days=settings.trial_days)
+
+    extended = NOW + timedelta(days=60)
+    await set_trial_end(session, user_id, extended)
+    row = await refresh_entitlement(session, user_id, settings, NOW)
+    assert row.trial_starts_at == NOW
+    assert row.trial_ends_at == extended
+    assert row.server_seq > first_seq
 
 
 async def _tune_with_scan(

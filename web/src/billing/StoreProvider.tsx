@@ -7,7 +7,7 @@ import { storeConfig } from './storeConfig'
 const StoreContext = createContext<Store | null>(null)
 
 /**
- * Offers the web store to the Premium sheet. With no `store`, it builds RevenueCat's for the
+ * Offers the web store to the Plan sheet. With no `store`, it builds RevenueCat's for the
  * signed-in user, or none when the build has no web key.
  */
 export function StoreProvider({

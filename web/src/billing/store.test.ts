@@ -40,8 +40,8 @@ vi.mock('@revenuecat/purchases-js', () => ({
 
 import { revenueCatStore } from './revenueCatStore'
 
-function pack(identifier: string, formattedPrice: string) {
-  return { identifier, webBillingProduct: { price: { formattedPrice } } }
+function pack(identifier: string, formattedPrice: string, amountMicros: number) {
+  return { identifier, webBillingProduct: { price: { formattedPrice, amountMicros } } }
 }
 
 beforeEach(() => {
@@ -50,7 +50,10 @@ beforeEach(() => {
   vi.clearAllMocks()
   sdk.instance.getOfferings.mockResolvedValue({
     current: {
-      availablePackages: [pack('$rc_monthly', '$4.99'), pack('$rc_annual', '$49.99')],
+      availablePackages: [
+        pack('$rc_monthly', '$4.99', 4_990_000),
+        pack('$rc_annual', '$49.99', 49_990_000),
+      ],
     },
   })
   sdk.instance.purchase.mockResolvedValue({})
@@ -60,8 +63,8 @@ describe('revenueCatStore', () => {
   it('offers maps annual then monthly with their formatted prices', async () => {
     const store = revenueCatStore('rcb_key', 'user_1')
     expect(await store.offers()).toEqual([
-      { period: 'annual', price: '$49.99' },
-      { period: 'monthly', price: '$4.99' },
+      { period: 'annual', price: '$49.99', amountMicros: 49_990_000 },
+      { period: 'monthly', price: '$4.99', amountMicros: 4_990_000 },
     ])
     expect(sdk.configure).toHaveBeenCalledWith({ apiKey: 'rcb_key', appUserId: 'user_1' })
   })

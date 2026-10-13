@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, get_args
 
 import pytest
@@ -61,6 +61,14 @@ async def test_pull_carries_the_entitlements_row_once(
 
     again = await pull(client, headers, since=first["next_since"])
     assert _entitlement_rows(again) == []
+
+
+async def test_pull_carries_the_trial_window(client, auth_headers, settings) -> None:
+    (row,) = _entitlement_rows(await pull(client, auth_headers("user_a")))
+
+    starts = datetime.fromisoformat(row["trial_starts_at"])
+    ends = datetime.fromisoformat(row["trial_ends_at"])
+    assert ends - starts == timedelta(days=settings.trial_days)
 
 
 async def test_push_to_entitlements_is_refused(

@@ -5,6 +5,7 @@ import { noopAnalytics } from '../usage/client'
 import { openTestDb } from '../test/db'
 import { createFakeApi } from '../test/fakeApi'
 import {
+  entitlementRow,
   linkRow,
   loopRow,
   playEventRow,
@@ -109,7 +110,7 @@ describe('schema', () => {
     expect(db.tables.map((t) => t.name)).toEqual(
       expect.arrayContaining(['recordings', 'recording_files', 'recording_chunks']),
     )
-    expect(db.verno).toBe(17)
+    expect(db.verno).toBe(18)
   })
 
   const CURRENT_STORES = [
@@ -180,7 +181,7 @@ describe('schema', () => {
     const upgraded = new CrosstuneDb(name)
     try {
       await upgraded.open()
-      expect(upgraded.verno).toBe(17)
+      expect(upgraded.verno).toBe(18)
       expect(Array.from(upgraded.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       for (const table of upgraded.tables) {
         if (table.name !== 'meta') expect(await table.count(), table.name).toBe(0)
@@ -282,7 +283,7 @@ describe('schema', () => {
       ])
       expect(await getPullCursor(opened)).toBe(0)
       expect(await opened.recording_loops.count()).toBe(0)
-      expect(opened.verno).toBe(17)
+      expect(opened.verno).toBe(18)
     } finally {
       await opened.delete()
     }
@@ -466,6 +467,56 @@ describe('schema', () => {
       expect(
         await opened.scan_files.where('error').equals(SCAN_TUNE_ONLY_ERROR).primaryKeys(),
       ).toEqual(['refused'])
+    } finally {
+      await opened.delete()
+    }
+  })
+
+  it('version 18 fills a missing trial start with null, keeps a synced one, and keeps the pull cursor', async () => {
+    const name = `crosstune-test-${crypto.randomUUID()}`
+    const v17 = new Dexie(name)
+    v17.version(17).stores({
+      tunes: 'id, title',
+      user_tunes: 'id, tune_id',
+      recording_links: 'id, tune_id',
+      lists: 'id',
+      list_items: 'id, list_id, user_tune_id',
+      user_settings: 'id',
+      recordings: 'id, tune_id, state',
+      recording_loops: 'id, recording_id',
+      scans: 'id, tune_id, state',
+      scan_files: 'id, origin, error',
+      recording_files: 'id, local_state',
+      recording_chunks: '[recording_id+idx], recording_id',
+      play_events: 'id, started_at',
+      practice_sessions: 'id, started_at',
+      status_changes: 'id, changed_at',
+      scan_views: 'id, started_at',
+      entitlements: 'id',
+      outbox: '++seq, &[table+row_id]',
+      meta: 'key',
+    })
+    const legacy: Record<string, unknown> = entitlementRow({
+      trial_ends_at: '2026-11-01T00:00:00.000Z',
+    })
+    delete legacy.trial_starts_at
+    const synced = entitlementRow({
+      id: 'entitlement-2',
+      trial_starts_at: '2026-10-01T00:00:00.000Z',
+      trial_ends_at: '2026-11-01T00:00:00.000Z',
+    })
+    await v17.table('entitlements').bulkPut([legacy, synced])
+    await v17.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v17.close()
+
+    const opened = new CrosstuneDb(name)
+    try {
+      await opened.open()
+      expect(await getPullCursor(opened)).toBe(42)
+      expect(await opened.entitlements.get(legacy.id as string)).toEqual(
+        entitlementRow({ trial_ends_at: '2026-11-01T00:00:00.000Z' }),
+      )
+      expect(await opened.entitlements.get(synced.id)).toEqual(synced)
     } finally {
       await opened.delete()
     }
@@ -960,17 +1011,17 @@ describe('schema', () => {
 
   it('deletes a database a newer client wrote and opens it fresh', async () => {
     const name = `crosstune-test-${crypto.randomUUID()}`
-    const v18 = new Dexie(name)
-    v18.version(18).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
-    await v18.table('tunes').put({ id: tune.id, title: tune.title })
-    await v18.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
-    v18.close()
+    const v19 = new Dexie(name)
+    v19.version(19).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
+    await v19.table('tunes').put({ id: tune.id, title: tune.title })
+    await v19.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v19.close()
 
     const older = new CrosstuneDb(name)
     try {
       // A query auto-opens, the path the app takes.
       expect(await older.tunes.count()).toBe(0)
-      expect(older.backendDB().version).toBe(170)
+      expect(older.backendDB().version).toBe(180)
       expect(Array.from(older.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       expect(await getPullCursor(older)).toBe(0)
     } finally {

@@ -53,7 +53,9 @@ export function revenueCatStore(apiKey: string, appUserId: string): Store {
       const { found } = await packages()
       return PERIODS.flatMap((period) => {
         const item = found.get(period)
-        return item ? [{ period, price: item.webBillingProduct.price.formattedPrice }] : []
+        if (!item) return []
+        const { formattedPrice, amountMicros } = item.webBillingProduct.price
+        return [{ period, price: formattedPrice, amountMicros }]
       })
     },
 
