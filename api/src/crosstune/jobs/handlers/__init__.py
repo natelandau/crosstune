@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from crosstune.jobs.attempt import fail_abandoned_recording
 from crosstune.jobs.handlers import imports, peaks, reencode, transcode, trim
+from crosstune.jobs.recovery import release_backup_copy
 from crosstune.vocabulary import JobKind
 
 if TYPE_CHECKING:
@@ -33,7 +34,7 @@ class JobHandler:
 HANDLERS: dict[JobKind, JobHandler] = {
     JobKind.TRANSCODE: JobHandler(run=transcode.run, abandon=fail_abandoned_recording),
     JobKind.PEAKS: JobHandler(run=peaks.run),
-    JobKind.TRIM: JobHandler(run=trim.run, abandon=trim.release_backup_copy),
+    JobKind.TRIM: JobHandler(run=trim.run, abandon=release_backup_copy),
     JobKind.IMPORT: JobHandler(run=imports.run, abandon=fail_abandoned_recording),
     JobKind.REENCODE: JobHandler(run=reencode.run, background=True),
 }

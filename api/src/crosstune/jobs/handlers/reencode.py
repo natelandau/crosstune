@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from crosstune.jobs.attempt import attempt_timeout, changed, load_claimed
-from crosstune.jobs.handlers.trim import recover_failed_recut
+from crosstune.jobs.recovery import recover_failed_recut
 from crosstune.jobs.reencode import reencode
 
 if TYPE_CHECKING:
