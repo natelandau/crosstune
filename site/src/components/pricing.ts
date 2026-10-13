@@ -22,11 +22,10 @@ export const PLAN_FREE = {
   price: '$0',
   per: 'forever',
   bullets: [
-    'Unlimited tunes, with lyrics, tunings, and filters',
+    'Unlimited tunes and lists, with lyrics, tunings, and filters',
     'Links to every music service, playing inside the app',
     'Offline use, sync to all your devices, and export',
-    '5 recordings, scans on one tune, and one list',
-    '50 MB of storage, enough for your 5 recordings at any quality',
+    'Scans on one tune, with 50 MB of storage',
   ],
 }
 
