@@ -134,7 +134,7 @@ async def _other_premium(session: AsyncSession, user_id: uuid.UUID, now: datetim
 
 
 async def comp(session: AsyncSession, settings: Settings, args: argparse.Namespace) -> str:
-    """Grant, replace, or revoke a comp, or the pending comp promised to an email.
+    """Grant, replace, or revoke a comp, or save or delete the pending comp promised to an email.
 
     Returns:
         The line to print.
@@ -147,12 +147,20 @@ async def comp(session: AsyncSession, settings: Settings, args: argparse.Namespa
     if expires_at is not None and expires_at <= now:
         msg = f"--until {args.until} is in the past: use --revoke to end a comp"
         raise BillingCommandError(msg)
+    if args.pending:
+        return await _delete_pending_comp(session, args.account)
     user = await find_user(session, args.account)
     if user is None:
         if "@" not in args.account:
             msg = f"no account has Clerk user ID {args.account}"
             raise BillingCommandError(msg)
-        return await _pending_comp(session, args, expires_at)
+        if args.revoke:
+            msg = (
+                f"no account has the email {args.account}: to delete a pending comp for it, "
+                "add --pending"
+            )
+            raise BillingCommandError(msg)
+        return await _save_pending_comp(session, args, expires_at)
 
     await lock_user(session, user.id)
     if args.revoke:
@@ -175,15 +183,30 @@ async def comp(session: AsyncSession, settings: Settings, args: argparse.Namespa
     )
 
 
-async def _pending_comp(
+async def _delete_pending_comp(session: AsyncSession, email: str) -> str:
+    """Delete only the comp promised to an email, never an account's comp.
+
+    A pending comp outlives its purpose when an existing account takes the email, since
+    only an account's first sign-in claims one, so the account is named but left alone.
+    """
+    deleted = await session.scalar(
+        delete(PendingComp).where(PendingComp.email == email.lower()).returning(PendingComp.id)
+    )
+    message = "pending comp deleted" if deleted else "no pending comp to delete"
+    # Naming the accounts is advice, so an email several accounts share must not undo the delete.
+    try:
+        user = await find_user(session, email)
+    except BillingCommandError as error:
+        return f"{message}; {error}, and each keeps its comp"
+    if user is not None:
+        message += f"; account {user.clerk_user_id} has this email and keeps its comp"
+    return message
+
+
+async def _save_pending_comp(
     session: AsyncSession, args: argparse.Namespace, expires_at: datetime | None
 ) -> str:
     email = args.account.lower()
-    if args.revoke:
-        deleted = await session.scalar(
-            delete(PendingComp).where(PendingComp.email == email).returning(PendingComp.id)
-        )
-        return "pending comp deleted" if deleted else "no pending comp to delete"
     values = {
         "expires_at": expires_at,
         "storage_addon": args.addon,
@@ -250,6 +273,11 @@ def build_parser() -> argparse.ArgumentParser:
     comp_parser.add_argument("--until", help="end of the comp; omit for open-ended")
     comp_parser.add_argument("--addon", action="store_true", help="include the storage add-on")
     comp_parser.add_argument("--revoke", action="store_true", help="end the comp")
+    comp_parser.add_argument(
+        "--pending",
+        action="store_true",
+        help="with --revoke: delete the pending comp promised to an email, not an account's comp",
+    )
     comp_parser.add_argument("--reason", help="why; required unless revoking")
     comp_parser.add_argument("--by", default=None, help="who grants it; defaults to the login")
 
@@ -285,6 +313,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "comp":
         if args.revoke and (args.until or args.addon):
             parser.error("--revoke takes neither --until nor --addon")
+        if args.pending and not (args.revoke and "@" in args.account):
+            parser.error("--pending takes --revoke and an email")
         if not args.revoke and not args.reason:
             parser.error("--reason is required unless --revoke")
         args.by = args.by or getpass.getuser()

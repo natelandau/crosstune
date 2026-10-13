@@ -90,10 +90,61 @@ async def test_comp_by_unknown_email_saves_a_lowercased_pending_comp(
     assert [(p.reason, p.storage_addon) for p in pending] == [("again", True)]
 
 
-async def test_revoke_deletes_a_pending_comp(session: AsyncSession, settings: Settings) -> None:
+async def test_revoke_pending_deletes_a_pending_comp(
+    session: AsyncSession, settings: Settings
+) -> None:
     await _run(session, settings, "comp", "new@example.com", "--reason", "press")
-    await _run(session, settings, "comp", "new@example.com", "--revoke")
+    message = await _run(session, settings, "comp", "New@example.com", "--revoke", "--pending")
+    assert message == "pending comp deleted"
     assert (await session.scalars(select(PendingComp))).all() == []
+
+
+async def test_revoke_without_pending_refuses_an_email_no_account_has(
+    session: AsyncSession, settings: Settings
+) -> None:
+    await _run(session, settings, "comp", "new@example.com", "--reason", "press")
+    with pytest.raises(billing.BillingCommandError, match="--pending"):
+        await _run(session, settings, "comp", "new@example.com", "--revoke")
+    assert len((await session.scalars(select(PendingComp))).all()) == 1
+
+
+async def test_revoke_pending_leaves_the_comp_of_an_account_with_that_email(
+    session: AsyncSession, settings: Settings
+) -> None:
+    user = await get_or_create_user(session, FREE_USER, "old@example.com", settings)
+    await _run(session, settings, "comp", FREE_USER, "--reason", "friend")
+    await _run(session, settings, "comp", EMAIL, "--reason", "press")
+    await get_or_create_user(session, FREE_USER, EMAIL, settings)
+    message = await _run(session, settings, "comp", EMAIL, "--revoke", "--pending")
+    assert message.startswith("pending comp deleted")
+    assert FREE_USER in message
+    assert (await session.scalars(select(PendingComp))).all() == []
+    assert (await _entitlement(session, user)).premium_source == "comp"
+
+
+async def test_revoke_pending_deletes_when_several_accounts_share_the_email(
+    session: AsyncSession, settings: Settings
+) -> None:
+    await get_or_create_user(session, FREE_USER, EMAIL, settings)
+    await get_or_create_user(session, "user_other", EMAIL, settings)
+    session.add(PendingComp(email=EMAIL.lower(), reason="press"))
+    await session.flush()
+    message = await _run(session, settings, "comp", EMAIL, "--revoke", "--pending")
+    assert message.startswith("pending comp deleted")
+    assert "user_other" in message
+    assert (await session.scalars(select(PendingComp))).all() == []
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["comp", "x@example.com", "--pending"],
+        ["comp", "user_x", "--revoke", "--pending"],
+    ],
+)
+def test_pending_takes_revoke_and_an_email(argv: list[str]) -> None:
+    with pytest.raises(SystemExit):
+        billing.main(argv)
 
 
 async def test_revoke_ends_the_comp(session: AsyncSession, settings: Settings) -> None:
