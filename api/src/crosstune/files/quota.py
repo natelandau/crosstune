@@ -11,6 +11,7 @@ from crosstune.db.base import utc_now
 from crosstune.errors import ConflictError, QuotaExceededError
 from crosstune.files.urls import UPLOAD_SIZE_TOLERANCE, UPLOAD_URL_TTL_SECONDS, file_too_large
 from crosstune.models import Recording, Scan, UploadSlot
+from crosstune.storage.store import staged_scan_key, staged_upload_key
 
 if TYPE_CHECKING:
     import uuid
@@ -36,9 +37,9 @@ async def used_bytes(
     """The bytes that count against a user's quota.
 
     A live recording or scan counts its open upload slot's declared size when it has
-    one, otherwise its stored bytes. The slot stands in for, never adds to, the object
-    already at the upload key: the PUT it signs overwrites that object, and once the
-    slot expires unused the object is still there and counts again.
+    one, otherwise its stored bytes. The slot stands in for, never adds to, the stored
+    file: confirming the upload replaces that file, and once the slot expires unused the
+    file is still there and counts again. A recording's kept original counts as well.
 
     Args:
         session: The session to query through.
@@ -58,6 +59,8 @@ async def used_bytes(
         _usage(model, stored_column, owner_column, user_id=user_id, now=now, exclude=exclude)
         for model, stored_column, owner_column in counted
     ]
+    if include_recordings:
+        usage.append(_originals(user_id=user_id, exclude=exclude))
     # One statement, since callers hold the user's lock while it runs.
     total = await session.scalar(select(sum(usage[1:], start=usage[0])))
     return int(total or 0)
@@ -92,6 +95,16 @@ def _usage(
     return stored + reserved
 
 
+def _originals(*, user_id: uuid.UUID, exclude: uuid.UUID | None) -> ColumnElement[int]:
+    """The live recordings' kept originals, which outlast every upload and transcode."""
+    live = [Recording.user_id == user_id, Recording.deleted_at.is_(None)]
+    if exclude is not None:
+        live.append(Recording.id != exclude)
+    return (
+        select(func.coalesce(func.sum(Recording.original_bytes), 0)).where(*live).scalar_subquery()
+    )
+
+
 async def slot_for_recording(session: AsyncSession, recording_id: uuid.UUID) -> UploadSlot | None:
     """The upload slot a recording holds, or None."""
     return await session.scalar(select(UploadSlot).where(UploadSlot.recording_id == recording_id))
@@ -117,12 +130,13 @@ async def reserve_slot(
     max_file_bytes: int,
     quota_bytes: int,
     include_recordings: bool = True,
-) -> datetime:
+) -> UploadSlot:
     """Open or renew the owner's upload slot once the file cap and the quota allow it.
 
     Every route that signs a PUT goes through here, so one file type can never get a
     looser quota check than another. The caller holds the user's lock and has checked
-    the owner's state.
+    the owner's state. Each issue gets a new key to sign, so a URL from an earlier issue
+    can never land a file the confirmation reads.
 
     Args:
         session: The session to write through.
@@ -134,7 +148,7 @@ async def reserve_slot(
         include_recordings: Whether recordings count toward `quota_bytes`.
 
     Returns:
-        datetime: When the slot, and the URL signed for it, expires.
+        UploadSlot: The open slot, with the key to sign and when the URL expires.
     """
     if declared_bytes > max_file_bytes:
         raise file_too_large(max_file_bytes)
@@ -149,24 +163,65 @@ async def reserve_slot(
         raise QuotaExceededError(msg)
 
     expires_at = now + timedelta(seconds=UPLOAD_URL_TTL_SECONDS)
+    if isinstance(owner, Recording):
+        object_key = staged_upload_key(owner.user_id, owner.id)
+    else:
+        object_key = staged_scan_key(owner.user_id, owner.id)
     if existing is None:
         owner_id = (
             {"recording_id": owner.id} if isinstance(owner, Recording) else {"scan_id": owner.id}
         )
-        session.add(
-            UploadSlot(
-                **owner_id,
-                user_id=owner.user_id,
-                declared_bytes=declared_bytes,
-                content_type=content_type,
-                expires_at=expires_at,
-            )
+        existing = UploadSlot(
+            **owner_id,
+            user_id=owner.user_id,
+            declared_bytes=declared_bytes,
+            content_type=content_type,
+            expires_at=expires_at,
+            object_key=object_key,
         )
+        session.add(existing)
     else:
         existing.declared_bytes = declared_bytes
         existing.content_type = content_type
         existing.expires_at = expires_at
-    return expires_at
+        existing.object_key = object_key
+    return existing
+
+
+async def head_slot(store: ObjectStore, slot: UploadSlot | None) -> ObjectInfo | None:
+    """What landed under the slot's key, read before the caller takes the user's lock."""
+    return None if slot is None else await store.head(slot.object_key)
+
+
+async def accept_upload(
+    session: AsyncSession,
+    store: ObjectStore,
+    slot: UploadSlot | None,
+    info: ObjectInfo | None,
+    *,
+    target: str,
+    max_file_bytes: int,
+) -> int:
+    """Check what landed under the slot, then copy it to `target`, where the server reads it.
+
+    The caller holds the user's lock and read `info` with `head_slot` before taking it.
+    A slot reissued since then is read again, since its URL signs another key. The staged
+    object is left for the caller to delete once the confirmation commits.
+
+    Returns:
+        int: The size of the accepted object.
+    """
+    key = target
+    if slot is not None:
+        signed = slot.object_key
+        await session.refresh(slot)
+        key = slot.object_key
+        if key != signed:
+            info = await store.head(key)
+    size = await verify_upload(store, key, info, slot, max_file_bytes=max_file_bytes)
+    if key != target:
+        await store.copy(key, target)
+    return size
 
 
 async def verify_upload(

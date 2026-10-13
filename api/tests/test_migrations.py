@@ -2997,6 +2997,66 @@ async def test_0038_adds_the_nullable_trial_end_column_and_downgrade_drops_it(
     assert dropped == []
 
 
+async def test_0043_backfills_the_key_each_open_slot_signed(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000098"
+    rec = "018f0000-0000-7000-8000-000000000099"
+    tune = "018f0000-0000-7000-8000-00000000009a"
+    scan = "018f0000-0000-7000-8000-00000000009b"
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0042")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_slots', now(), now())"
+                ),
+                {"id": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into recordings (id, user_id, source, added_at, state, created_at, "
+                    "updated_at) values (:id, :user, 'upload', now(), 'pending_upload', now(), "
+                    "now())"
+                ),
+                {"id": rec, "user": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into tunes (id, owner_user_id, title, created_at, updated_at) "
+                    "values (:id, :user, 'X', now(), now())"
+                ),
+                {"id": tune, "user": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into scans (id, user_id, tune_id, width, height, created_at, "
+                    "updated_at) values (:id, :user, :tune, 1, 1, now(), now())"
+                ),
+                {"id": scan, "user": user, "tune": tune},
+            )
+            await conn.execute(
+                text(
+                    "insert into upload_slots (id, recording_id, scan_id, user_id, "
+                    "declared_bytes, content_type, expires_at) values "
+                    "(gen_random_uuid(), :rec, null, :user, 1, 'audio/mp4', now()), "
+                    "(gen_random_uuid(), null, :scan, :user, 1, 'image/jpeg', now())"
+                ),
+                {"rec": rec, "scan": scan, "user": user},
+            )
+        await anyio.to_thread.run_sync(command.upgrade, config, "0043")
+        async with engine.connect() as conn:
+            keys = sorted(
+                (await conn.execute(text("select object_key from upload_slots"))).scalars()
+            )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert keys == sorted([f"{user}/{rec}/upload", f"{user}/scans/{scan}/scan.jpg"])
+
+
 async def test_0042_backfills_active_paid_grants_and_downgrade_drops_them(
     engine, database_url: str, truncate_all: None
 ) -> None:

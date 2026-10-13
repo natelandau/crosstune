@@ -35,7 +35,10 @@ async def test_slot_returns_a_presigned_put(client, auth_headers, object_store) 
     assert body["url"].startswith("https://fake.r2/")
     assert "content_type=audio/mp4" in body["url"]
     assert datetime.fromisoformat(body["expires_at"]) > datetime.now(UTC)
-    assert object_store.presigned[-1][1].endswith(f"/{rec}/upload")
+    first = object_store.presigned[-1][1]
+    assert f"/{rec}/upload-" in first
+    await slot(client, auth_headers("user_a"), rec)
+    assert object_store.presigned[-1][1] not in (first, first.rpartition("/")[0] + "/upload")
 
 
 async def test_slot_needs_an_owned_pending_recording(client, auth_headers) -> None:
@@ -220,6 +223,56 @@ async def test_uploaded_moves_to_uploaded_and_queues_a_job(
     )
     job = await verify_session.scalar(select(Job).where(Job.recording_id == rec))
     assert job is not None
+    assert object_store.get_bytes(upload_key(before.user_id, before.id)) == b"abc"
+    assert await object_store.head(key) is None
+
+
+async def test_a_put_under_a_reissued_slots_old_url_is_never_confirmed(
+    client, auth_headers, object_store, verify_session
+) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await slot(client, auth_headers("user_a"), rec, bytes_=300)
+    old = object_store.presigned[-1][1]
+    await slot(client, auth_headers("user_a"), rec, bytes_=3)
+    object_store.put_bytes(old, b"x" * 300, "audio/mp4")
+    assert (await uploaded(client, auth_headers("user_a"), rec)).status_code == 409
+    object_store.put_bytes(object_store.presigned[-1][1], b"abc", "audio/mp4")
+    assert (await uploaded(client, auth_headers("user_a"), rec)).status_code == 204
+    stored = await verify_session.scalar(select(Recording).where(Recording.id == rec))
+    assert stored.playback_bytes == 3
+    assert object_store.get_bytes(upload_key(stored.user_id, stored.id)) == b"abc"
+
+
+async def test_a_put_after_confirmation_never_reaches_the_transcoded_source(
+    client, auth_headers, object_store, verify_session
+) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await slot(client, auth_headers("user_a"), rec, bytes_=3)
+    staged = object_store.presigned[-1][1]
+    object_store.put_bytes(staged, b"abc", "audio/mp4")
+    assert (await uploaded(client, auth_headers("user_a"), rec)).status_code == 204
+    object_store.put_bytes(staged, b"xyz", "audio/mp4")
+    stored = await verify_session.scalar(select(Recording).where(Recording.id == rec))
+    assert object_store.get_bytes(upload_key(stored.user_id, stored.id)) == b"abc"
+
+
+async def test_a_slot_signed_for_the_upload_key_keeps_its_file(
+    client, auth_headers, object_store, verify_session
+) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await slot(client, auth_headers("user_a"), rec, bytes_=3)
+    stored = await verify_session.scalar(select(Recording).where(Recording.id == rec))
+    key = upload_key(stored.user_id, stored.id)
+    await verify_session.execute(
+        update(UploadSlot).where(UploadSlot.recording_id == rec).values(object_key=key)
+    )
+    await verify_session.commit()
+    object_store.put_bytes(key, b"abc", "audio/mp4")
+    assert (await uploaded(client, auth_headers("user_a"), rec)).status_code == 204
+    assert object_store.get_bytes(key) == b"abc"
 
 
 async def test_confirm_wakes_the_runner(client, auth_headers, object_store, fake_runner) -> None:

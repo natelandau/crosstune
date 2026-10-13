@@ -19,7 +19,7 @@ from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
 from crosstune.errors import ConflictError, ScanTuneOnlyError, problem_responses
-from crosstune.files.quota import reserve_slot, slot_for_scan, verify_upload
+from crosstune.files.quota import accept_upload, head_slot, reserve_slot, slot_for_scan
 from crosstune.files.urls import UPLOAD_URL_TTL_SECONDS, SignedUrl, presign_get, require_store
 from crosstune.scans.service import owned_scan, require_live, require_state
 from crosstune.storage.store import delete_best_effort, legacy_scan_key, scan_key
@@ -57,7 +57,7 @@ async def upload_slot(
     access = await access_for(session, user.id, settings)
     if not access.premium and await scan_tune_id(session, user.id) != scan.tune_id:
         raise ScanTuneOnlyError
-    expires_at = await reserve_slot(
+    slot = await reserve_slot(
         session,
         scan,
         declared_bytes=body.bytes,
@@ -67,10 +67,8 @@ async def upload_slot(
         include_recordings=access.counts_recordings,
     )
     await session.flush()
-    url = store.presign_put(
-        scan_key(user.id, scan.id), body.content_type, body.bytes, UPLOAD_URL_TTL_SECONDS
-    )
-    return SignedUrl(url=url, expires_at=expires_at)
+    url = store.presign_put(slot.object_key, body.content_type, body.bytes, UPLOAD_URL_TTL_SECONDS)
+    return SignedUrl(url=url, expires_at=slot.expires_at)
 
 
 @router.post(
@@ -89,7 +87,7 @@ async def upload_finished(
     key = scan_key(user.id, scan_id)
     scan = await owned_scan(session, user.id, scan_id)
     # The bucket round trip happens before the lock so it never holds up the caller's other writes.
-    info = await store.head(key)
+    info = await head_slot(store, await slot_for_scan(session, scan.id))
     await lock_user(session, user.id)
     # Re-read under the lock: another request may have confirmed or deleted this scan,
     # or deleted its tune, meanwhile.
@@ -100,7 +98,11 @@ async def upload_finished(
         # A retried call after a lost response: the first one consumed the slot.
         return Response(status_code=204)
     require_state(scan, ScanState.PENDING_UPLOAD)
-    size = await verify_upload(store, key, info, slot, max_file_bytes=settings.scan_max_file_bytes)
+    size = await accept_upload(
+        session, store, slot, info, target=key, max_file_bytes=settings.scan_max_file_bytes
+    )
+    # A slot issued before staged keys signed the served key itself, which must survive.
+    staged = slot.object_key if slot is not None and slot.object_key != key else None
 
     scan.state = ScanState.READY.value
     scan.file_key = key
@@ -110,13 +112,13 @@ async def upload_finished(
     await session.flush()
     # A PUT under a slot issued for the legacy key was never confirmed, so no row names
     # it and no sweep would ever remove it. It runs after the commit so the bucket call
-    # never holds the user's lock.
+    # never holds the user's lock; a staged image left over is a stray the sweep removes.
     background.add_task(
         delete_best_effort,
         store,
-        [legacy_scan_key(user.id, scan.id)],
+        [legacy_scan_key(user.id, scan.id), staged],
         log=log,
-        message="could not delete a legacy scan object",
+        message="could not delete a legacy or staged scan object",
     )
     return Response(status_code=204)
 

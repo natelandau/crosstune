@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import uuid  # noqa: TC003 -- FastAPI resolves path parameter annotations at runtime
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Request, Response
 from pydantic import BaseModel, Field
 
 from crosstune.auth.deps import (
@@ -24,7 +25,7 @@ from crosstune.errors import (
     PremiumRequiredError,
     problem_responses,
 )
-from crosstune.files.quota import reserve_slot, slot_for_recording, verify_upload
+from crosstune.files.quota import accept_upload, head_slot, reserve_slot, slot_for_recording
 from crosstune.files.urls import UPLOAD_URL_TTL_SECONDS, SignedUrl, presign_get, require_store
 from crosstune.recordings.service import (
     enqueue_transcode,
@@ -32,10 +33,12 @@ from crosstune.recordings.service import (
     require_state,
     start_import,
 )
-from crosstune.storage.store import upload_key
+from crosstune.storage.store import delete_best_effort, upload_key
 
 if TYPE_CHECKING:
     from crosstune.models import Recording
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/recordings", tags=["recordings"])
 
@@ -94,7 +97,7 @@ async def upload_slot(
     access = await access_for(session, user.id, settings)
     if not access.premium:
         raise PremiumRequiredError
-    expires_at = await reserve_slot(
+    slot = await reserve_slot(
         session,
         recording,
         declared_bytes=body.bytes,
@@ -109,10 +112,8 @@ async def upload_slot(
         recording.error = None
         bump_server_seq(recording)
     await session.flush()
-    url = store.presign_put(
-        upload_key(user.id, recording.id), body.content_type, body.bytes, UPLOAD_URL_TTL_SECONDS
-    )
-    return SignedUrl(url=url, expires_at=expires_at)
+    url = store.presign_put(slot.object_key, body.content_type, body.bytes, UPLOAD_URL_TTL_SECONDS)
+    return SignedUrl(url=url, expires_at=slot.expires_at)
 
 
 @router.post(
@@ -123,14 +124,14 @@ async def upload_finished(
     request: Request,
     user: CurrentUser,
     session: DbSession,
+    background: BackgroundTasks,
 ) -> Response:
     """Confirm the object landed and queue its transcode. Repeating the call changes nothing."""
     store = require_store(request)
     settings = request.app.state.settings
-    key = upload_key(user.id, recording_id)
     recording = await owned_recording(session, user.id, recording_id)
     # The bucket round trip happens before the lock so it never holds up the caller's other writes.
-    info = await store.head(key)
+    info = await head_slot(store, await slot_for_recording(session, recording.id))
     await lock_user(session, user.id)
     # Re-read under the lock: another request may have confirmed, failed, or deleted this
     # recording meanwhile.
@@ -143,9 +144,17 @@ async def upload_finished(
         # and queued the job.
         return Response(status_code=204)
     require_state(recording, "pending_upload")
-    size = await verify_upload(
-        store, key, info, slot, max_file_bytes=settings.recording_max_file_bytes
+    target = upload_key(user.id, recording.id)
+    size = await accept_upload(
+        session,
+        store,
+        slot,
+        info,
+        target=target,
+        max_file_bytes=settings.recording_max_file_bytes,
     )
+    # A slot issued before staged keys signed the target itself, which must survive.
+    staged = slot.object_key if slot is not None and slot.object_key != target else None
 
     recording.state = "uploaded"
     # The upload counts against quota from this moment; the transcoder replaces the figure.
@@ -154,6 +163,11 @@ async def upload_finished(
     bump_server_seq(recording)
     await enqueue_transcode(session, recording)
     await session.flush()
+    # After the commit, so the bucket call never holds the user's lock; a leftover is a
+    # stray the orphan sweep removes.
+    background.add_task(
+        delete_best_effort, store, [staged], log=log, message="could not delete a staged upload"
+    )
     return Response(status_code=204)
 
 

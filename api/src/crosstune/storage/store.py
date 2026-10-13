@@ -20,6 +20,7 @@ SCAN_SEGMENT = "scans"
 # Images stored under this older segment keep their keys; purges and sweeps look in both.
 LEGACY_SCAN_SEGMENT = "notation"
 SCAN_MIME = "image/jpeg"
+STAGED_PREFIX = "upload-"
 
 _EXTENSIONS: dict[str, str] = {
     "audio/mp4": "m4a",
@@ -65,8 +66,17 @@ def recording_prefix(user_id: object, recording_id: object) -> str:
 
 
 def upload_key(user_id: object, recording_id: object) -> str:
-    """Where a client PUTs the raw file."""
+    """Where a confirmed upload or an import's file waits for its transcode."""
     return f"{recording_prefix(user_id, recording_id)}upload"
+
+
+def staged_upload_key(user_id: object, recording_id: object) -> str:
+    """Where one upload slot lets a client PUT a recording's raw file.
+
+    Every slot signs a key of its own, so a URL that outlives its slot writes where
+    nothing reads.
+    """
+    return f"{recording_prefix(user_id, recording_id)}{STAGED_PREFIX}{new_rev()}"
 
 
 def scan_prefix(user_id: object, scan_id: object, segment: str = SCAN_SEGMENT) -> str:
@@ -80,8 +90,18 @@ def scan_prefixes(user_id: object, scan_id: object) -> tuple[str, str]:
 
 
 def scan_key(user_id: object, scan_id: object) -> str:
-    """Where a client PUTs a scan's image, and where it is served from."""
+    """Where a scan's image is served from."""
     return f"{scan_prefix(user_id, scan_id)}scan.jpg"
+
+
+def staged_scan_key(user_id: object, scan_id: object) -> str:
+    """Where one upload slot lets a client PUT a scan's image, as for a recording."""
+    return f"{scan_prefix(user_id, scan_id)}{STAGED_PREFIX}{new_rev()}.jpg"
+
+
+def is_staged_key(key: str) -> bool:
+    """Whether `key` is where an upload slot let a client PUT a file."""
+    return key.rpartition("/")[2].startswith(STAGED_PREFIX)
 
 
 def legacy_scan_key(user_id: object, scan_id: object) -> str:
