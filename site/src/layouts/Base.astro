@@ -8,6 +8,7 @@ import {
   JOIN_WAITLIST_SHORT,
   SECTIONS,
   SIGN_IN,
+  SITE_URL,
   WAITLIST_ID,
 } from '../components/actions'
 // The headline face, preloaded because the hero headline is the page's largest paint.
@@ -24,10 +25,10 @@ interface Props {
 }
 
 const { title, description, path, noindex = false } = Astro.props
-const canonical = `https://crosstune.app${path}`
+const canonical = `${SITE_URL}${path}`
 // Off the home page the section links point back to it.
 const home = path === '/' ? '' : '/'
-const image = 'https://crosstune.app/og.png'
+const image = `${SITE_URL}/og.png`
 const imageAlt = OG_IMAGE_ALT
 ---
 

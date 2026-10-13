@@ -1,7 +1,7 @@
 // The home page's search title, description, and schema.org description of the site, its
 // plans, and its questions.
 // Search copy says fiddle, the word players type.
-import { APP_URL, NATE_EMAIL, SUPPORT_EMAIL } from './actions'
+import { APP_URL, NATE_EMAIL, SITE_URL, SUPPORT_EMAIL } from './actions'
 import { FAQ } from './faq'
 import { HERO_TITLE } from './hero'
 import { MAKER_BAND } from './maker'
@@ -14,7 +14,7 @@ export const HOME_DESCRIPTION =
 /** Describes `public/og.png`, which `just site::og` takes from the hero. */
 export const OG_IMAGE_ALT = `The Crosstune headline, "${HERO_TITLE}," above the tune catalog in a web browser and Soldier's Joy on an iPhone.`
 
-const SITE = 'https://crosstune.app/'
+const SITE = `${SITE_URL}/`
 
 const amount = (price: string) => price.replace(/^\$/, '')
 const premium = (price: string, unitCode: 'MON' | 'ANN') => ({

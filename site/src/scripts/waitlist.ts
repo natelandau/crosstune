@@ -1,8 +1,8 @@
+import { SUPPORT_EMAIL } from '../components/actions'
 import { startAnalytics, trackWaitlistJoined } from './analytics'
 
 export const JOINED = "You're on the list. We'll email you when your account is ready."
-export const UNREACHABLE =
-  "The waitlist can't be reached right now. Try again, or email support@crosstune.app."
+export const UNREACHABLE = `The waitlist can't be reached right now. Try again, or email ${SUPPORT_EMAIL}.`
 export const PENDING = 'Joining…'
 export const THANKS_PATH = '/waitlist/thanks'
 // Set on join and cleared by the thanks page, so the page shows once per join. It holds the

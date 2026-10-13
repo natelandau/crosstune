@@ -5,7 +5,7 @@ const PRODUCTION_APP_URL = 'https://my.crosstune.app'
 export const resolveAppUrl = (value: string | undefined) =>
   value?.trim().replace(/\/+$/, '') || PRODUCTION_APP_URL
 
-export const APP_URL = resolveAppUrl(import.meta.env.PUBLIC_APP_URL)
+export const APP_URL = /* @__PURE__ */ resolveAppUrl(import.meta.env.PUBLIC_APP_URL)
 export const SIGN_IN = 'Sign in'
 export const ALREADY_SIGNED_UP = 'Already have an account?'
 export const HOME_LINK = 'Crosstune home'
@@ -14,6 +14,8 @@ export const JOIN_WAITLIST = 'Join the waitlist'
 /** The nav button's label where the full one does not fit. */
 export const JOIN_WAITLIST_SHORT = 'Join waitlist'
 export const SUPPORT_EMAIL = 'support@crosstune.app'
+/** The site's own origin, with no trailing slash. */
+export const SITE_URL = 'https://crosstune.app'
 /** The nav's links to the home page's sections: label, then section id. */
 export const SECTIONS = [
   ['Features', 'features'],

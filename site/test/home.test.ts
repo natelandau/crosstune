@@ -10,6 +10,7 @@ import {
   NATE_EMAIL,
   SECTIONS,
   SIGN_IN,
+  SUPPORT_EMAIL,
   WAITLIST_ID,
 } from '../src/components/actions'
 import { CLOSING_LEDE, CLOSING_TITLE } from '../src/components/closing'
@@ -168,7 +169,7 @@ describe('home page waitlist forms', () => {
 
   it.each([0, 1])('form %i falls back to a mailto link without JavaScript', (i) => {
     const noscript = forms[i].parentElement?.querySelector('noscript')
-    expect(noscript?.innerHTML).toContain('href="mailto:support@crosstune.app"')
+    expect(noscript?.innerHTML).toContain(`href="mailto:${SUPPORT_EMAIL}"`)
     expect(noscript?.innerHTML).toContain('form[data-waitlist]')
     expect(noscript?.innerHTML).toMatch(/display:\s*none/)
   })
