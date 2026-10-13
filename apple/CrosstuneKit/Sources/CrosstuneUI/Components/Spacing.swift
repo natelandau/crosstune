@@ -74,6 +74,12 @@ extension View {
     func scaledRowInsets() -> some View {
         modifier(ScaledRowInsets())
     }
+
+    /// A list row that is not one of the list's items, such as a heading, a control, or a note:
+    /// no separator, no background, and no selection.
+    func plainListRow() -> some View {
+        listRowSeparator(.hidden).listRowBackground(Color.clear).selectionDisabled()
+    }
 }
 
 private struct MeasuredTapTarget: ViewModifier {

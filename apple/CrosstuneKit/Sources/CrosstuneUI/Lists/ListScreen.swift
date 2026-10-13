@@ -260,16 +260,12 @@ private struct ListTunes: View {
                     // With no pane bar above it at rest, the title keeps its own room under the
                     // toolbar.
                     .listRowInsets(MacStyle.columnRowInsets(top: 4, bottom: 8))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .selectionDisabled()
+                    .plainListRow()
                 #else
                     if let play = playOffer(rows) {
                         ListPlayControls(offer: play)
                             .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
-                            .selectionDisabled()
+                            .plainListRow()
                     }
                 #endif
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, entry in

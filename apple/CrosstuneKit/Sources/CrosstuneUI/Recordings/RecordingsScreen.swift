@@ -122,9 +122,7 @@ private struct RecordingsContent: View {
             #if os(macOS)
                 ColumnTitle(Destination.recordings.title)
                     .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .selectionDisabled()
+                    .plainListRow()
             #endif
             #if os(macOS)
                 if model.filterCount > 0 {
@@ -138,9 +136,7 @@ private struct RecordingsContent: View {
                 if let storage = model.storage(plan: plan) {
                     StorageSummary(storage: storage)
                         .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 8, trailing: 8))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .selectionDisabled()
+                        .plainListRow()
                 }
             #else
                 if model.showsFilters {
