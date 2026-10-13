@@ -42,7 +42,7 @@ export const FACET_LABELS: Record<Facet, string> = {
  * Every value an entry holds for a facet: one mode per part, one instrument's tuning from the
  * map, the user's own learned from, or a tune column's one value.
  */
-export function facetValuesOf(
+function facetValuesOf(
   { tune, userTune }: CatalogEntry,
   facet: Facet,
 ): readonly (string | null | undefined)[] {
@@ -352,7 +352,7 @@ export function hiddenResets(
 }
 
 /** Facets with their own control on the filter bar; every other visible facet lives in the sheet. */
-export const BAR_FACETS: readonly Facet[] = ['key', 'tune_type']
+const BAR_FACETS: readonly Facet[] = ['key', 'tune_type']
 
 /**
  * Facets with their own control on the filter row, which matches the Apple apps:

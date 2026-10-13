@@ -121,7 +121,7 @@ export function endTrial(clerkUserId: string): void {
 }
 
 /** The phone's bottom bar, which holds the four destinations and the Record disc. */
-export const tabBar = (page: Page): Locator => page.getByRole('navigation', { name: TAB_BAR })
+const tabBar = (page: Page): Locator => page.getByRole('navigation', { name: TAB_BAR })
 
 /** The landmark that holds a tune's page. */
 export const tunePage = (page: Page): Locator => page.getByRole('main', { name: TUNE })
@@ -407,8 +407,7 @@ export async function waitForReady(
 }
 
 /** The practice overlay, which names itself for the recording, as the trim view does for trim. */
-export const practiceOverlay = (page: Page): Locator =>
-  page.locator('[data-practice]').getByRole('dialog')
+const practiceOverlay = (page: Page): Locator => page.locator('[data-practice]').getByRole('dialog')
 
 /**
  * Play a recording row the way a musician does: a press plays it, and on a device that does not

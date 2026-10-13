@@ -24,9 +24,9 @@ export const QUEUES = ['single', 'playlist'] as const
 export const TRIGGERS = ['tap', 'auto_advance', 'skip'] as const
 export const ENDED_BYS = ['finished', 'skipped', 'paused', 'closed'] as const
 export const REPEATS = ['off', 'list', 'tune'] as const
-export const FILED_SOURCES = ['unfiled', 'other_tune'] as const
-export const SORTS = ['title', 'added', 'modified', 'played'] as const
-export const BULK_ACTIONS = ['status', 'edit', 'archive', 'delete'] as const
+const FILED_SOURCES = ['unfiled', 'other_tune'] as const
+const SORTS = ['title', 'added', 'modified', 'played'] as const
+const BULK_ACTIONS = ['status', 'edit', 'archive', 'delete'] as const
 export const FAILURE_REASONS = [
   'network',
   'storage_full',
@@ -45,8 +45,8 @@ export const SERVICES = [
   'slippery_hill',
   'other',
 ] as const
-export const LINK_VIAS = ['paste', 'find'] as const
-export const SCAN_VIAS = ['camera', 'document_scanner', 'photo_library', 'file'] as const
+const LINK_VIAS = ['paste', 'find'] as const
+const SCAN_VIAS = ['camera', 'document_scanner', 'photo_library', 'file'] as const
 export const TUNE_FIELDS = [
   'title',
   'alternate_titles',
@@ -80,13 +80,13 @@ export const FILTERS = [
   'missing',
 ] as const
 export const AUDIO_FORMATS = ['m4a', 'mp3', 'wav', 'aiff', 'flac', 'other'] as const
-export const EXPORT_FORMATS = ['zip'] as const
-export const ARCHIVE_SOURCES = ['slippery_hill'] as const
+const EXPORT_FORMATS = ['zip'] as const
+const ARCHIVE_SOURCES = ['slippery_hill'] as const
 export const AUDIO_QUALITIES = ['low', 'standard', 'high', 'highest'] as const
 export const PLAY_FIRSTS = ['recordings', 'apple_music'] as const
 export const IMPORT_ENTRIES = ['settings', 'empty_catalog'] as const
-export const IMPORT_READERS = ['plain'] as const
-export const IMPORT_LISTS = ['none', 'new', 'existing'] as const
+const IMPORT_READERS = ['plain'] as const
+const IMPORT_LISTS = ['none', 'new', 'existing'] as const
 export const PREMIUM_REASONS = ['recordings', 'scans', 'plan'] as const
 export const PREMIUM_ENTRIES = [
   'record',
@@ -101,13 +101,13 @@ export const PREMIUM_ENTRIES = [
   'trial_ended',
 ] as const
 export const PURCHASE_PERIODS = ['annual', 'monthly'] as const
-export const PURCHASE_FAILURES = ['cancelled', 'error', 'pending'] as const
+const PURCHASE_FAILURES = ['cancelled', 'error', 'pending'] as const
 export const PLAN_NOTICES = [
   'first_recording',
   'trial_reminder',
   'trial_ended',
 ] as const satisfies readonly Notice[]
-export const APPEARANCES = ['system', 'light', 'dark'] as const
+const APPEARANCES = ['system', 'light', 'dark'] as const
 export const TUNE_STATUSES = ['known', 'learning', 'want_to_learn'] as const
 export const INSTRUMENTS = [
   'violin',

@@ -29,7 +29,7 @@ import { deleteRecordingMessage, originLink } from './recordingRow'
 import type { RecordingView } from './useRecordings'
 import { openExternal } from '../../platform/openExternal'
 
-export const DELETE_RECORDING_TITLE = 'Delete this recording?'
+const DELETE_RECORDING_TITLE = 'Delete this recording?'
 export const REMOVE_FROM_TUNE = 'Remove from tune'
 
 export interface RecordingActions {

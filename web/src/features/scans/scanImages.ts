@@ -15,7 +15,7 @@ export type DecodedImage = { kind: 'loading' } | { kind: 'ready'; url: string } 
  * the blob's identity cannot say whether the image changed; a scan's file never changes once
  * stored, so its id and size can.
  */
-export function imageKey(file: ScanFile | undefined): string | undefined {
+function imageKey(file: ScanFile | undefined): string | undefined {
   return file ? `${file.id}:${file.blob.size}` : undefined
 }
 

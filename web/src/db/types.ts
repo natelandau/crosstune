@@ -77,7 +77,7 @@ export function isRecordingPrecision(value: unknown): value is RecordingPrecisio
 }
 
 // The server sets ownership from the token; local rows never carry it.
-export const OWNERSHIP_KEYS = ['owner_user_id', 'user_id', 'added_by_user_id'] as const
+const OWNERSHIP_KEYS = ['owner_user_id', 'user_id', 'added_by_user_id'] as const
 type OwnershipKey = (typeof OWNERSHIP_KEYS)[number]
 
 // A pulled row may carry a value from a server newer than this client, so the local copy

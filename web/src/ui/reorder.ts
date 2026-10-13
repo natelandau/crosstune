@@ -44,7 +44,7 @@ export function dropIndex(from: number, target: number, side: 'before' | 'after'
 }
 
 /** How close to the scroller's visible edge, in px, a dragging finger starts it scrolling. */
-export const AUTOSCROLL_EDGE_PX = 48
+const AUTOSCROLL_EDGE_PX = 48
 // px/ms at the very edge; slower the farther in the finger is.
 const AUTOSCROLL_SPEED = 0.8
 // How far in from each edge to look for a bar laid over the scroller, in steps of this size.
@@ -54,7 +54,7 @@ const OVERLAY_PROBE_STEP_PX = 4
 export type FrameSource = (step: (deltaMs: number) => void) => () => void
 
 /** Motion's frame loop, which the rest of the app's motion runs on. */
-export const motionFrames: FrameSource = (step) => {
+const motionFrames: FrameSource = (step) => {
   const run = ({ delta }: FrameData) => step(delta)
   frame.update(run, true)
   return () => cancelFrame(run)

@@ -47,7 +47,7 @@ export interface ExportPlan {
   totalRecordings: number
 }
 
-export const MODE_LABELS: Record<Mode, string> = {
+const MODE_LABELS: Record<Mode, string> = {
   major: 'Major',
   minor: 'Minor',
   mixolydian: 'Mixolydian',
@@ -111,7 +111,7 @@ function partLetter(index: number): string {
 }
 
 /** Formats each instant as `YYYY-MM-DD`, as a clock in `timeZone` shows it. */
-export function dateFormatter(timeZone: string): (date: Date) => string {
+function dateFormatter(timeZone: string): (date: Date) => string {
   const format = new Intl.DateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',

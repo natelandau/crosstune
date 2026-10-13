@@ -5,8 +5,8 @@ import type { KeyPlatform } from '../../platform/keyPlatform'
 
 export const QUICK_FIND = 'Quick Find'
 export const SHORTCUTS_TITLE = 'Keyboard shortcuts'
-export const PLAY_OR_PAUSE = 'Play or pause'
-export const STEP_OUT = 'Step out'
+const PLAY_OR_PAUSE = 'Play or pause'
+const STEP_OUT = 'Step out'
 /** The group of shortcuts that go to a destination, and the words before each one's name. */
 export const GO_TO = 'Go to'
 

@@ -1,7 +1,7 @@
 import { AudibleSpan } from '../player/activity'
 
 /** Audio a practice session needs before it is written. */
-export const PRACTICE_THRESHOLD_MS = 10_000
+const PRACTICE_THRESHOLD_MS = 10_000
 const DEFAULT_SPEED_PERCENT = 100
 const DEFAULT_PITCH_CENTS = 0
 

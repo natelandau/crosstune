@@ -12,7 +12,7 @@ type MaskRequest = NonNullable<
 // this hook, and returning nothing would drop the entry and break playback. Headers and bodies
 // are always removed, whatever the project's replay settings enable, because API bodies carry
 // tune titles, lyrics, and notes.
-export const maskCapturedRequest: MaskRequest = (request) => {
+const maskCapturedRequest: MaskRequest = (request) => {
   const rest = { ...request }
   delete rest.requestHeaders
   delete rest.requestBody

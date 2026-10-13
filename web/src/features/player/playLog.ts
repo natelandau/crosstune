@@ -3,7 +3,7 @@ import type { PlayContext } from '../../api/vocabulary'
 import { AudibleSpan } from './activity'
 
 /** Audible time a play needs, unless the item itself is shorter. */
-export const PLAY_THRESHOLD_MS = 10_000
+const PLAY_THRESHOLD_MS = 10_000
 
 /** How a play reports to analytics: the surface that started it and whether a list did. */
 export interface PlayAttribution {

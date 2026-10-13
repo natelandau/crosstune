@@ -7,7 +7,7 @@ import { KeyCap } from './KeyCap'
 import { useShortcutSheet } from './shortcutSheetLauncher'
 
 /** Between the keys of a sequence, which are pressed one after another rather than together. */
-export const THEN = 'then'
+const THEN = 'then'
 
 const GROUPS = [...new Set(SHORTCUTS.map((shortcut) => shortcut.group))]
 

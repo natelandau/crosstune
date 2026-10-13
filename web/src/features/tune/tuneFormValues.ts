@@ -63,7 +63,7 @@ export function emptyValues(): TuneFormValues {
 
 // A server row can carry a facet value from a schema version this client predates;
 // fall back rather than trust it as one of this client's known options.
-export const asMode = (value: string | null | undefined): Mode | '' =>
+const asMode = (value: string | null | undefined): Mode | '' =>
   MODES.find((mode) => mode === value) ?? ''
 
 export const asTimeSignature = (value: string | null | undefined): TimeSignature | '' =>

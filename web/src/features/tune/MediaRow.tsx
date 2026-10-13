@@ -51,7 +51,7 @@ export function MediaList({ label, children }: { label: string; children: ReactN
  * the title, then its details in secondary. The row is the control, and its name is the verb
  * plus the lines it shows. The loaded item's glyph takes slate.
  */
-export function MediaRow({
+function MediaRow({
   id,
   name,
   glyph,

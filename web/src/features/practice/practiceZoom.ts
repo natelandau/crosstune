@@ -59,7 +59,7 @@ export function rubberBand(overshoot: number, reach: number): number {
 }
 
 /** The overshoot that `rubberBand` draws at `drawn`, its inverse. */
-export function unRubberBand(drawn: number, reach: number): number {
+function unRubberBand(drawn: number, reach: number): number {
   const over = Math.min(Math.abs(drawn), reach * 0.999)
   return Math.sign(drawn) * (reach / RUBBER_GIVE) * (1 / (1 - over / reach) - 1)
 }

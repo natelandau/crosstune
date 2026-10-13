@@ -15,7 +15,7 @@ import { useLatest } from './useLatest'
 import { Button } from './Button'
 
 /** How long a toast stays when nothing holds it open. */
-export const TOAST_MS = 8000
+const TOAST_MS = 8000
 export { UNDO } from './toastCopy'
 
 interface ToastState {

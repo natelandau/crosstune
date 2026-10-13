@@ -10,8 +10,8 @@ import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { usePracticeOverlay, type HeldSettings } from './usePracticeOverlay'
 import { useSettledWrite } from './useSettledWrite'
 
-export const SPEED_NOT_SAVED = 'The speed could not be saved.'
-export const PITCH_NOT_SAVED = 'The pitch could not be saved.'
+const SPEED_NOT_SAVED = 'The speed could not be saved.'
+const PITCH_NOT_SAVED = 'The pitch could not be saved.'
 
 /**
  * The recording's speed and pitch as practice plays them: applied to the engine at once,

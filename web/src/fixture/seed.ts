@@ -251,7 +251,7 @@ async function sheetBlob(seed: number, paper: string): Promise<Blob> {
 }
 
 /** The take this device holds, with loops, so practice opens on it. */
-export const FIXTURE_PRACTICE_TAKE = 'rec-joy-2'
+const FIXTURE_PRACTICE_TAKE = 'rec-joy-2'
 const PRACTICE_TAKE_MS = 212_000
 
 /** A silent 8-bit mono WAV, which every browser plays, at a rate low enough to stay small. */

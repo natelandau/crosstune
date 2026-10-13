@@ -4,7 +4,7 @@ import type { Embed } from './embed'
 import { EmbedFrame } from './EmbedFrame'
 
 /** The share of the pane an embed may take, so the page above it stays in view. */
-export const EMBED_SHARE = 0.4
+const EMBED_SHARE = 0.4
 
 /**
  * A provider's player, growing up out of the now-playing bar. It never takes more than

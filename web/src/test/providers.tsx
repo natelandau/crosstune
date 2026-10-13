@@ -44,7 +44,7 @@ export function fakePlayer(overrides: Partial<Player> = {}): Player {
   return { item: null, play: vi.fn(), close: vi.fn(), returnFocus: vi.fn(), ...overrides }
 }
 
-export const realClock: EngineClock = {
+const realClock: EngineClock = {
   every: (ms, fn) => {
     const id = setInterval(fn, ms)
     return () => clearInterval(id)

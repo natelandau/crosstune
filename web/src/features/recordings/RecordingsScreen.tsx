@@ -51,7 +51,7 @@ import { usePremiumSheet } from '../plan/PremiumSheetProvider'
 const RECORDINGS = destination('recordings')
 
 /** The name of the row that holds the Recordings filter control and its set source. */
-export const RECORDINGS_FILTER_ROW = 'Filter recordings'
+const RECORDINGS_FILTER_ROW = 'Filter recordings'
 
 const tunePath = (tuneId: string) => `${RECORDINGS.root}/${tuneId}`
 

@@ -1,6 +1,6 @@
 /** The waveform peaks file: one byte per 20 ms window, the amplitude both clients draw. */
 
-export const PEAKS_VERSION = 1
+const PEAKS_VERSION = 1
 export const PEAKS_PER_SECOND = 50
 const HEADER_SIZE = 3
 const MS_PER_WINDOW = 1000 / PEAKS_PER_SECOND

@@ -58,10 +58,7 @@ function previous<T extends object>(row: T, changed: Partial<T>): Partial<T> {
  * Write back each snapshot's fields onto the row as it is now, so edits made to other
  * fields since the bulk write survive. A row deleted since is skipped.
  */
-export async function restoreFields(
-  db: CrosstuneDb,
-  snapshots: readonly Snapshot[],
-): Promise<void> {
+async function restoreFields(db: CrosstuneDb, snapshots: readonly Snapshot[]): Promise<void> {
   if (snapshots.length === 0) return
   await writeTx(db, async () => {
     const at = now()

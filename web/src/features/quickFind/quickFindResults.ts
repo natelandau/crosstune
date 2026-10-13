@@ -109,7 +109,7 @@ function ranked<T>(items: readonly T[], texts: (item: T) => string[], needle: st
     .map(({ item }) => item)
 }
 
-export function commandItem(command: QuickFindCommand): QuickFindItem {
+function commandItem(command: QuickFindCommand): QuickFindItem {
   return { kind: 'command', key: `command:${command.id}`, title: command.label, command }
 }
 

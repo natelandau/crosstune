@@ -54,7 +54,7 @@ export function validSlipperyHillRef(ref: string): boolean {
 }
 
 /** The file ref of a Slippery-Hill `/system/files/` path, or null when it is not a safe MP3. */
-export function slipperyHillRef(path: string): string | null {
+function slipperyHillRef(path: string): string | null {
   if (!path.startsWith(SLIPPERY_HILL_FILES)) return null
   const ref = path.slice(SLIPPERY_HILL_FILES.length)
   return validSlipperyHillRef(ref) ? ref : null

@@ -15,11 +15,11 @@ import {
 /** Wording shared by the filter sheet, the filter bar's pills, and the tests that query them. */
 export const SHOW_UNHEARD = 'Only unheard'
 export const MISSING_LABEL = 'Missing'
-export const UNHEARD_PILL = 'Unheard'
+const UNHEARD_PILL = 'Unheard'
 export const ARCHIVED_SHOWN = 'Archived shown'
 
 /** A facet value as a musician reads it: the no-key filter is named in words. */
-export function facetValueLabel(facet: Facet, value: string): string {
+function facetValueLabel(facet: Facet, value: string): string {
   return facet === 'key' && value === NO_KEY ? UNKNOWN_KEY : value
 }
 
@@ -45,7 +45,7 @@ export interface FilterToken {
 }
 
 /** Every set sheet filter, in sheet order. A facet in `bar` shows on its own control instead. */
-export function filterTokens(
+function filterTokens(
   filters: CatalogFilters,
   visible: readonly Facet[],
   bar?: readonly Facet[],

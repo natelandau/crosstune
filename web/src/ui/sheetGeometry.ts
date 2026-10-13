@@ -1,7 +1,7 @@
 import { clamp } from '../math'
 
 /** How dark the backdrop behind every sheet, dialog, and alert gets when it shows fully. */
-export const SCRIM_OPACITY = 0.4
+const SCRIM_OPACITY = 0.4
 
 /** The backdrop color at `shown`, 0 hidden to 1 fully shown. */
 export function scrim(shown: number): string {
