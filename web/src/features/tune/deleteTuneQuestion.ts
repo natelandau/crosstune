@@ -1,8 +1,8 @@
 import { activeRecordingsForTune } from '../../commands/recordings'
 import type { CrosstuneDb } from '../../db/schema'
-import type { CatalogEntry } from '../catalog/filters'
 import { countTunes } from '../../text/format'
 import { DELETE_TUNE_TITLE, deleteTuneMessage, deleteTunesMessage } from './deleteTuneMessage'
+import type { CatalogEntry } from '../../db/types'
 
 /**
  * The question that confirms deleting `entries`, counting the recordings it takes with them.

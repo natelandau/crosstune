@@ -14,10 +14,9 @@ import {
 } from '../../commands/tunes'
 import { useDb } from '../../db/DbProvider'
 import { messageFor, useAction } from '../../ui/useAction'
-import type { CatalogEntry } from '../catalog/filters'
 import { useCatalog } from '../catalog/useCatalog'
 import { instrumentsFrom, tuningInstruments } from '../../domain/instruments'
-import { storedNewTuneGenre, storedNewTuneStatus } from '../../db/types'
+import { storedNewTuneGenre, storedNewTuneStatus, type CatalogEntry } from '../../db/types'
 import { useSettingsRow } from '../settings/useSettingsRow'
 import { reportRecordingFiled } from '../recordings/reportRecordingFiled'
 import {

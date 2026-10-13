@@ -2,7 +2,7 @@ import { SearchX } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { Button } from '../ui/Button'
 import { EmptyState } from '../ui/EmptyState'
-import { destination } from './destinations'
+import { destination } from '../layout/destinations'
 
 export const NOT_FOUND_TITLE = 'Page not found'
 const NOT_FOUND_HINT = 'Nothing in Crosstune lives at this address.'

@@ -36,9 +36,9 @@ import { recordingFile, recordingRow, tuneRow, userTuneRow } from '../../test/ro
 import { CANCEL, DONE } from '../../ui/confirmCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { movedAnnouncement } from '../../ui/reorderCopy'
-import { destination } from '../../app/destinations'
+import { destination } from '../../layout/destinations'
 
-import { CHOOSE_OR_PRESS_N, NO_TUNE_SELECTED } from '../../app/DetailEmpty'
+import { CHOOSE_OR_PRESS_N, NO_TUNE_SELECTED } from '../../layout/DetailEmpty'
 import { NEW_LIST, SIDEBAR } from '../../app/Sidebar'
 
 import { renderApp } from '../../test/renderApp'
@@ -49,7 +49,7 @@ import { moveRowLabel } from '../../ui/reorder'
 import { UNDO } from '../../ui/Toast'
 import { FixedNow } from '../../ui/useNow'
 import { CHOOSE_A_LIST, NO_LIST_SELECTED } from './ListsLayout'
-import { TAB_BAR } from '../../app/tabs'
+import { TAB_BAR } from '../../layout/tabs'
 
 vi.mock('../../commands/lists', { spy: true })
 

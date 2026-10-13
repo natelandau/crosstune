@@ -1,7 +1,7 @@
 import type { SortChoice } from '../../ui/sortChoice'
 import type { SortOptions } from '../../ui/sortTypes'
-import type { CatalogEntry } from './filters'
 import { compareNames } from '../../text/collate'
+import type { CatalogEntry } from '../../db/types'
 
 export type CatalogSort = 'title' | 'added' | 'modified' | 'played'
 

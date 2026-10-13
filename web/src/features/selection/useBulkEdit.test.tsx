@@ -5,8 +5,8 @@ import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
-import type { CatalogEntry } from '../catalog/filters'
 import { useBulkEdit } from './useBulkEdit'
+import type { CatalogEntry } from '../../db/types'
 
 const violin = new Set<Instrument>(['violin'])
 

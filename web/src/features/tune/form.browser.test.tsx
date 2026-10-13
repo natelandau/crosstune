@@ -1,6 +1,6 @@
 import { page, userEvent, type Locator } from 'vitest/browser'
 import { expect, it, vi } from 'vitest'
-import { listTunePath, tuneHomePath } from '../../app/tuneHome'
+import { listTunePath, tuneHomePath } from '../../layout/tuneHome'
 import { recordingAnalytics } from '../../usage/testing'
 import type { Source } from '../../usage/events'
 import { createList } from '../../commands/lists'

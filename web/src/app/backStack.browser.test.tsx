@@ -1,6 +1,6 @@
 import { page } from 'vitest/browser'
 import { expect, it } from 'vitest'
-import { RECORD_LABEL } from './tabs'
+import { RECORD_LABEL } from '../layout/tabs'
 import { addToList, createList } from '../commands/lists'
 import { createTune } from '../commands/tunes'
 import type { CrosstuneDb } from '../db/schema'

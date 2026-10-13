@@ -1,7 +1,7 @@
 import { act, useState, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import { page } from 'vitest/browser'
-import { destination } from '../../app/destinations'
+import { destination } from '../../layout/destinations'
 import { openTestDb } from '../../test/db'
 import { FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
 import { entitlementRow, recordingFile, recordingRow } from '../../test/rows'

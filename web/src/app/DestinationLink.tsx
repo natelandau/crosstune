@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useDestination } from './useDestination'
-import type { Destination } from './destinations'
+import type { Destination } from '../layout/destinations'
 
 /**
  * A link to a destination. A plain click goes through `go`, so the destination reopens where

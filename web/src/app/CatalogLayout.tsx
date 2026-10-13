@@ -1,10 +1,10 @@
 import { useOutlet } from 'react-router'
 import { CatalogScreen } from '../features/catalog/CatalogScreen'
 import { useStampedDensity } from '../platform/density'
-import { Columns } from './Columns'
-import { CHOOSE_OR_PRESS_N, CHOOSE_OR_TAP_PLUS, DetailEmpty } from './DetailEmpty'
+import { Columns } from '../layout/Columns'
+import { CHOOSE_OR_PRESS_N, CHOOSE_OR_TAP_PLUS, DetailEmpty } from '../layout/DetailEmpty'
 import { TUNE } from '../features/tune/tunePageCopy'
-import { destination } from './destinations'
+import { destination } from '../layout/destinations'
 
 const CATALOG = destination('catalog')
 

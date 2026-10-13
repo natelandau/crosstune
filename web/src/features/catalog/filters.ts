@@ -1,5 +1,5 @@
 import { STATUSES, type Instrument, type TuneStatus } from '../../api/vocabulary'
-import type { LocalTune, LocalUserTune } from '../../db/types'
+import type { CatalogEntry, HeardEntry, LocalTune, LocalUserTune } from '../../db/types'
 import { containsText, foldText, sameText } from '../../text/fold'
 import { groupByFold } from '../../text/spelling'
 import { countTunes } from '../../text/format'
@@ -112,16 +112,6 @@ export const DEFAULT_FILTERS: CatalogFilters = {
 export const NO_KEY = 'none'
 
 export const META_CATALOG_FILTERS = 'catalog_filters'
-
-export interface CatalogEntry {
-  tune: LocalTune
-  userTune: LocalUserTune
-}
-
-/** A catalog entry that knows whether the tune has a recording or a link, deleted ones aside. */
-export interface HeardEntry extends CatalogEntry {
-  heard: boolean
-}
 
 function isStatus(value: unknown): value is TuneStatus {
   return typeof value === 'string' && (STATUSES as readonly string[]).includes(value)

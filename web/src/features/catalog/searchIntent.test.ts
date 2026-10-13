@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { tuneRow, userTuneRow } from '../../test/rows'
-import { catalogEntries, type CatalogEntry } from './filters'
+import { catalogEntries } from './filters'
 import { enterAction, offeredOutcome, searchOutcome, type SearchOutcome } from './searchIntent'
+import type { CatalogEntry } from '../../db/types'
 
 const entries = catalogEntries(
   [

@@ -265,3 +265,14 @@ export function stripOwnership<Row extends object>(row: Row): Local<Row> {
   for (const key of OWNERSHIP_KEYS) delete local[key]
   return local as Local<Row>
 }
+
+/** A tune with this account's row for it, as the catalog and every tune list show it. */
+export interface CatalogEntry {
+  tune: LocalTune
+  userTune: LocalUserTune
+}
+
+/** A catalog entry that knows whether the tune has a recording or a link, deleted ones aside. */
+export interface HeardEntry extends CatalogEntry {
+  heard: boolean
+}

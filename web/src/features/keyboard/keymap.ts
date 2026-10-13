@@ -1,4 +1,4 @@
-import { RECORD_TEXT, tabLabel } from '../../app/tabs'
+import { RECORD_TEXT, tabLabel } from '../../layout/tabs'
 import { SEARCH_TUNES } from '../catalog/catalogCopy'
 import { NEW_TUNE_TITLE } from '../tune/tuneFormCopy'
 import type { KeyPlatform } from '../../platform/keyPlatform'

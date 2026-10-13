@@ -1,10 +1,10 @@
 import { motion, useIsPresent } from 'motion/react'
 import { DURATION, EASE } from '../theme/motion'
-import { destination, type Destination } from './destinations'
+import { destination, type Destination } from '../layout/destinations'
 import { useDestination } from './useDestination'
 import { DestinationLink } from './DestinationLink'
 import { RecordControl } from './RecordControl'
-import { TAB_BAR } from './tabs'
+import { TAB_BAR } from '../layout/tabs'
 
 function Tab({ id }: { id: Destination }) {
   const { current } = useDestination()

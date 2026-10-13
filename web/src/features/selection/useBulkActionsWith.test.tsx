@@ -12,7 +12,6 @@ import { dataProviders } from '../../test/providers'
 import { captureRecording } from '../../test/recordings'
 import { recordingRow } from '../../test/rows'
 import { DELETE } from '../../ui/confirmCopy'
-import type { CatalogEntry } from '../catalog/filters'
 import { isNotUploaded } from '../../db/recordings'
 import { deleteTunesMessage } from '../tune/deleteTuneMessage'
 import { countTunes } from '../../text/format'
@@ -26,6 +25,7 @@ import {
   setStatusLabel,
 } from './selectionCopy'
 import { useBulkActionsWith, type SelectionContext } from './useBulkActionsWith'
+import type { CatalogEntry } from '../../db/types'
 
 vi.mock('../../commands/bulk', { spy: true })
 

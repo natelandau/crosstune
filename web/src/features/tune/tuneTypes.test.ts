@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { TYPE_TIME_SIGNATURES } from '../../constants'
-import type { CatalogEntry } from '../catalog/filters'
 import {
   TRADITIONAL,
   catalogComposers,
@@ -8,6 +7,7 @@ import {
   orderedTypes,
   timeSignatureFor,
 } from './tuneTypes'
+import type { CatalogEntry } from '../../db/types'
 
 function entry(fields: Partial<CatalogEntry['tune']>): CatalogEntry {
   return {

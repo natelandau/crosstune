@@ -18,7 +18,7 @@ import { keySpoken, QUICK_FIND, SHORTCUTS, SHORTCUTS_TITLE } from './keymap'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { YEAR_LABEL } from '../../ui/partialDate'
 import { useBackEntry } from '../../ui/backEntries'
-import { destination } from '../../app/destinations'
+import { destination } from '../../layout/destinations'
 
 import type { AppRouter } from '../../app/router'
 import { SIDEBAR } from '../../app/Sidebar'

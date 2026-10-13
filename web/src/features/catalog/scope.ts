@@ -1,7 +1,7 @@
 import type { TuneStatus } from '../../api/vocabulary'
 import { STATUS_LABELS } from '../../constants'
 import { ANY } from '../../ui/filterCopy'
-import { destination } from '../../app/destinations'
+import { destination } from '../../layout/destinations'
 
 /** The name of the status scope's menu, on the phone title and the filter row's Status capsule. */
 export const STATUS_SCOPE = 'Status'

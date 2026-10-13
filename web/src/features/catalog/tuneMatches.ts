@@ -1,4 +1,5 @@
-import { DEFAULT_FILTERS, filterCatalog, type HeardEntry } from './filters'
+import { DEFAULT_FILTERS, filterCatalog } from './filters'
+import type { HeardEntry } from '../../db/types'
 
 // Archived tunes are searchable in every picker, so each filter is open and only the query narrows.
 const PICKER_FILTERS = { ...DEFAULT_FILTERS, archived: true }

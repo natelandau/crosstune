@@ -1,7 +1,7 @@
 import { useOutlet } from 'react-router'
-import { destination } from '../../app/destinations'
-import { Columns } from '../../app/Columns'
-import { CHOOSE_FROM_RECORDING, DetailEmpty } from '../../app/DetailEmpty'
+import { destination } from '../../layout/destinations'
+import { Columns } from '../../layout/Columns'
+import { CHOOSE_FROM_RECORDING, DetailEmpty } from '../../layout/DetailEmpty'
 import { TUNE } from '../tune/tunePageCopy'
 import { RecordingsScreen } from './RecordingsScreen'
 

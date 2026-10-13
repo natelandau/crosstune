@@ -3,7 +3,6 @@ import { MODES, TIME_SIGNATURES, TUNE_LIMITS, type Instrument } from '../../api/
 import type { BulkPatch } from '../../commands/bulk'
 import { GENRES, PART_STRUCTURES, QUICK_KEYS, TUNE_TYPES, TUNINGS } from '../../constants'
 import { useResetOnChange } from '../../ui/useResetOnChange'
-import type { CatalogEntry } from '../catalog/filters'
 import { useCatalog } from '../catalog/useCatalog'
 import { byTuningKey } from '../../domain/instruments'
 import { catalogComposers, catalogLearnedFrom } from '../tune/tuneTypes'
@@ -18,6 +17,7 @@ import {
   type Touched,
   type TouchedValue,
 } from './batchEdit'
+import type { CatalogEntry } from '../../db/types'
 
 /** A field's choices, and whether it takes a value outside them. */
 export interface EditPick {

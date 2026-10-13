@@ -23,7 +23,7 @@ import {
 } from '../src/features/tune/tuneFormCopy'
 import { TUNE } from '../src/features/tune/tunePageCopy'
 import { MORE_ACTIONS } from '../src/ui/menuCopy'
-import { RECORD_LABEL, TABS, tabLabel, TAB_BAR } from '../src/app/tabs'
+import { RECORD_LABEL, TABS, tabLabel, TAB_BAR } from '../src/layout/tabs'
 import { STATUS_LABELS } from '../src/constants'
 import { e2eUserEmails } from './users'
 import { KEY } from '../src/ui/keyName'

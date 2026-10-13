@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import type { Key } from 'react-aria-components'
 import type { Instrument } from '../../api/vocabulary'
 import { STATUS_LABELS } from '../../constants'
-import { effectiveStatus, type CatalogEntry } from './filters'
+import { effectiveStatus } from './filters'
 import { SELECT } from '../selection/selectionCopy'
 import { playedTunings } from '../../domain/instruments'
 import { ARCHIVE, ARCHIVED, UNARCHIVE } from '../tune/archiveLabels'
@@ -15,6 +15,7 @@ import { KeyPill } from '../../ui/KeyPill'
 import { Row, type RowAction } from '../../ui/Row'
 import { scansAction } from '../scans/scansAction'
 import { StatusGlyph } from '../../ui/StatusGlyph'
+import type { CatalogEntry } from '../../db/types'
 
 // Parts that sit apart only visually run together for a screen reader, so a hidden comma
 // marks each boundary.

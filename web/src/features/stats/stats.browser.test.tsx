@@ -25,7 +25,7 @@ import {
 import type { Day, Heatmap as HeatmapData } from './types'
 import { openTestDb } from '../../test/db'
 import { tuneRow, userTuneRow } from '../../test/rows'
-import { destination } from '../../app/destinations'
+import { destination } from '../../layout/destinations'
 import { SIDEBAR } from '../../app/Sidebar'
 import { TUNE } from '../tune/tunePageCopy'
 import { renderWithProviders } from '../../test/render'

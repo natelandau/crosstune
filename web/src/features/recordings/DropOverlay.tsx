@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useLayoutEffect, useRef } from 'react'
-import { usePane } from '../../app/pane'
+import { usePane } from '../../layout/pane'
 import { DURATION, EASE } from '../../theme/motion'
 
 export const DROP_TO_IMPORT = 'Drop to import'

@@ -2,7 +2,6 @@ import { useId, useState } from 'react'
 import { MODES, STATUSES, TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
 import { INSTRUMENT_LABELS, STATUS_LABELS } from '../../constants'
-import type { CatalogEntry } from '../catalog/filters'
 import {
   EDIT_FIELD_LABELS,
   FIELD_KINDS,
@@ -33,6 +32,7 @@ import { KeyGrid } from '../../ui/KeyGrid'
 import { Sheet } from '../../ui/Sheet'
 import { useEndOnClose } from '../../ui/useEndOnClose'
 import { useResetOnChange } from '../../ui/useResetOnChange'
+import type { CatalogEntry } from '../../db/types'
 
 // No option can be this: options are stored values, which never hold a NUL.
 const CLEAR = '\u0000clear'

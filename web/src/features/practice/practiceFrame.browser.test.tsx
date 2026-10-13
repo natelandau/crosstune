@@ -21,7 +21,7 @@ import { renderApp } from '../../test/renderApp'
 import { SIDEBAR } from '../../app/Sidebar'
 
 import { DELETE_LOOP, LOOP_NAME_SUGGESTIONS, NEW_LOOP } from './practiceCopy'
-import { TAB_BAR } from '../../app/tabs'
+import { TAB_BAR } from '../../layout/tabs'
 
 const dialog = () => page.getByRole('dialog', { name: TAKE })
 const box = (selector: string) =>

@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
-import type { CatalogEntry } from './filters'
 import { searchOutcome, type SearchOutcome } from './searchIntent'
 import { matchTunes } from './tuneMatches'
 import { useCatalog } from './useCatalog'
+import type { CatalogEntry } from '../../db/types'
 
 // An unread catalog looks exactly like a catalog holding no such tune, so the search offers
 // nothing until it has been read; otherwise a query typed as the picker opens offers to create a

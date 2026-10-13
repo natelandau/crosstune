@@ -1,5 +1,5 @@
 import { replace, type RouteObject } from 'react-router'
-import { tuneHomePath } from './tuneHome'
+import { tuneHomePath } from '../layout/tuneHome'
 import { ListsLayout } from '../features/lists/ListsLayout'
 import { RecordingsLayout } from '../features/recordings/RecordingsLayout'
 import { SettingsLayout } from '../features/settings/SettingsLayout'
@@ -10,7 +10,7 @@ import { CatalogLayout } from './CatalogLayout'
 import { DestinationTracker } from './DestinationTracker'
 import { NOT_FOUND } from './notFound'
 import { NotFoundPage } from './NotFoundPage'
-import { destination } from './destinations'
+import { destination } from '../layout/destinations'
 
 // Each redirect replaces its entry, so Back never lands on an address that sends it forward again.
 const tuneHome: RouteObject['loader'] = ({ params }) => replace(tuneHomePath(params.tuneId))

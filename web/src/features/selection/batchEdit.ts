@@ -1,6 +1,5 @@
 import { TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
-import type { CatalogEntry } from '../catalog/filters'
 import { isTuneStatus } from '../../domain/status'
 import {
   byTuningKey,
@@ -12,6 +11,7 @@ import {
 } from '../../domain/instruments'
 import { DETAIL_LABELS } from '../tune/detailFields'
 import { isMode } from '../tune/keyMode'
+import type { CatalogEntry } from '../../db/types'
 
 export const EDIT_FIELDS = [
   'status',

@@ -1,7 +1,7 @@
 import { frameData, MotionGlobalConfig } from 'motion/react'
 import { page, userEvent } from 'vitest/browser'
 import { expect, it, onTestFinished } from 'vitest'
-import { TAB_BAR } from '../../app/tabs'
+import { TAB_BAR } from '../../layout/tabs'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'

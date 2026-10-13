@@ -2,7 +2,7 @@ import { useParams } from 'react-router'
 import { SETTINGS_STATS_PATH } from '../settings/settingsPaths'
 import { useActiveLists } from '../lists/useLists'
 import { STATS_TITLE } from '../stats/copy'
-import { destination } from '../../app/destinations'
+import { destination } from '../../layout/destinations'
 import { TunePage } from './TunePage'
 
 /** A tune opened from the catalog, in the catalog's detail column. */
