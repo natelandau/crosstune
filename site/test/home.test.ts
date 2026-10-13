@@ -32,7 +32,13 @@ import {
   PRICING_TITLE,
 } from '../src/components/pricing'
 import { PROBLEM_BODY, PROBLEM_TITLE } from '../src/components/problem'
-import { HOME_DESCRIPTION, HOME_TITLE, OG_IMAGE_ALT, STRUCTURED_DATA } from '../src/components/seo'
+import {
+  HOME_DESCRIPTION,
+  HOME_TITLE,
+  OG_IMAGE_ALT,
+  STRUCTURED_DATA,
+  scriptJson,
+} from '../src/components/seo'
 import { parseHtml, readDist, readPage } from './dist'
 
 const doc = readPage('/')
@@ -271,6 +277,12 @@ describe('home page head', () => {
         existsSync(resolve(import.meta.dirname, '../dist', `.${icon.getAttribute('href')}`)),
       ).toBe(true)
     }
+  })
+
+  it('escapes markup in inline JSON so copy cannot close the script', () => {
+    const json = scriptJson({ answer: '</script><p>' })
+    expect(json).not.toContain('<')
+    expect(JSON.parse(json)).toEqual({ answer: '</script><p>' })
   })
 
   it('describes the site and the app as structured data', () => {
