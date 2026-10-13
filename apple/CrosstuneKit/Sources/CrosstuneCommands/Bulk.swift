@@ -219,6 +219,7 @@ extension StoreWriter {
     }
 
     /// Appends the tunes missing from a list, in the order given, skipping ones already members.
+    @discardableResult
     public func addTunesToList(listID: String, userTuneIDs: [String], at time: Timestamp = .now) throws
         -> AddedToList
     {

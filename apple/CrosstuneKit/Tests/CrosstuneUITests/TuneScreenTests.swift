@@ -318,7 +318,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(TunePageColumn.sections(full) == [.recordings, .scans, .lyrics, .notes, .lists])
     }
 
-    @Test func emptySectionsSayWhatIsMissingInTheWebClientsWords() {
+    @MainActor @Test func emptySectionsSayWhatIsMissingInTheWebClientsWords() {
         #expect(TuneScreen.noMediaTitle == "No recordings yet")
         #expect(TuneScreen.noMediaHint == "Record one, paste a link, or find one on a music service.")
         #expect(TuneScreen.noNotesTitle == "No notes yet")
