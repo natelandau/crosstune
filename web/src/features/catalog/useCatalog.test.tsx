@@ -19,9 +19,6 @@ function wrapper({ children }: { children: ReactNode }) {
   return <DbContext.Provider value={db}>{children}</DbContext.Provider>
 }
 
-/** Long enough for a live query to run, so "it never ran" is a claim about more than timing. */
-const rest = () => new Promise((resolve) => setTimeout(resolve, 50))
-
 describe('useCatalog', () => {
   it('marks a tune heard only while a recording or link of it is live', async () => {
     const tuneId = (await db.tunes.toArray())[0]!.id
@@ -60,15 +57,17 @@ describe('useCatalog', () => {
 
   it('stands the query down while disabled, and runs it once enabled', async () => {
     const reads = vi.spyOn(db.tunes, 'toArray')
-    const { result, rerender } = renderHook(({ on }: { on: boolean }) => useCatalog(on), {
-      wrapper,
-      initialProps: { on: false },
-    })
-    await rest()
-    expect(reads).not.toHaveBeenCalled()
-    expect(result.current).toBeUndefined()
+    // An enabled twin mounts in the same commit, so once its read lands the disabled query has
+    // had the same chance to run, and the single read is the twin's alone.
+    const { result, rerender } = renderHook(
+      ({ on }: { on: boolean }) => ({ gated: useCatalog(on), twin: useCatalog(true) }),
+      { wrapper, initialProps: { on: false } },
+    )
+    await waitFor(() => expect(result.current.twin).toHaveLength(1))
+    expect(reads).toHaveBeenCalledTimes(1)
+    expect(result.current.gated).toBeUndefined()
     rerender({ on: true })
-    await waitFor(() => expect(result.current).toHaveLength(1))
-    expect(reads).toHaveBeenCalled()
+    await waitFor(() => expect(result.current.gated).toHaveLength(1))
+    expect(reads).toHaveBeenCalledTimes(2)
   })
 })
