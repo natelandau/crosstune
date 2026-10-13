@@ -6,15 +6,16 @@ Configuration section of `architecture.md`.
 
 ## Prerequisites
 
-| Tool                                          | Version        | Notes                                                                           |
-| --------------------------------------------- | -------------- | ------------------------------------------------------------------------------- |
-| [uv](https://docs.astral.sh/uv/)              | any            | Installs Python 3.13, the API's dependencies, and the git hooks.                |
-| [Node.js](https://nodejs.org/)                | 22.22 or newer | Runs the web toolchain.                                                         |
-| [pnpm](https://pnpm.io/)                      | 12.11.2        | Pinned in `web/package.json`. `corepack enable` installs it.                    |
-| [just](https://just.systems)                  | any            | The task runner. `just --list` shows every recipe.                              |
-| [Docker](https://docs.docker.com/get-docker/) | any            | Runs Postgres 18 and RustFS for development and the API tests. Must be running. |
-| [ffmpeg](https://ffmpeg.org/)                 | any            | Transcodes recordings. Without it the API tests that use audio skip.            |
-| [Xcode](https://developer.apple.com/xcode/)   | 27             | Builds and tests the Apple app. Root `lint`, `format`, and `test` need it.      |
+| Tool                                                   | Version        | Notes                                                                           |
+| ------------------------------------------------------ | -------------- | ------------------------------------------------------------------------------- |
+| [uv](https://docs.astral.sh/uv/)                       | any            | Installs Python 3.13, the API's dependencies, and the git hooks.                |
+| [Node.js](https://nodejs.org/)                         | 22.22 or newer | Runs the web toolchain.                                                         |
+| [pnpm](https://pnpm.io/)                               | 12.11.2        | Pinned in `web/package.json`. `corepack enable` installs it.                    |
+| [just](https://just.systems)                           | any            | The task runner. `just --list` shows every recipe.                              |
+| [Docker](https://docs.docker.com/get-docker/)          | any            | Runs Postgres 18 and RustFS for development and the API tests. Must be running. |
+| [ffmpeg](https://ffmpeg.org/)                          | any            | Transcodes recordings. Without it the API tests that use audio skip.            |
+| [Xcode](https://developer.apple.com/xcode/)            | 27             | Builds and tests the Apple app. Root `lint`, `format`, and `test` need it.      |
+| [Periphery](https://github.com/peripheryapp/periphery) | 3.8            | Finds unused Swift code for `just apple::deadcode`.                             |
 
 You also need a free [Clerk](https://clerk.com) development instance with
 email verification code sign-in enabled. From its dashboard, copy the Frontend API
@@ -123,6 +124,7 @@ a local development account. It refuses to run unless `api/.env` sets
 | `just apple::test [args]`     | Swift package tests on the Mac. Args go to `swift test`.                                                                                                 |
 | `just analytics::test [args]` | Tracking plan checker tests. Args go to pytest.                                                                                                          |
 | `just apple::build`           | The app for the iOS Simulator and macOS, unsigned.                                                                                                       |
+| `just apple::deadcode`        | Builds the app and the Swift package, then fails on unused code. `// periphery:ignore - <why>` above a declaration keeps one the index cannot see used.   |
 | `just typos [paths]`          | Spell check.                                                                                                                                             |
 | `just e2e [args]`             | The Playwright suite. Args go to Playwright.                                                                                                             |
 
@@ -245,9 +247,10 @@ and fails instead in CI, where the `API` workflow always starts it.
   they cover, and are required checks. A skipped job passes a required
   check.
   `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift
-  package tests, builds for the iOS Simulator and macOS, and checks the
-  generated Swift client and vocabulary file. It runs only when `apple/`,
-  the contract, or the tracking plan changes, and no host deploys from it. It is not a required
+  package tests, builds for the iOS Simulator and macOS, checks for unused
+  code, and checks the generated Swift client and vocabulary file. It runs
+  only when `apple/`, the contract, or the tracking plan changes, and no host
+  deploys from it. It is not a required
   check, because a required check must run on every PR and macOS minutes
   cost more. `E2E` runs Playwright on a PR that changes `web/` or `api/`
   beyond their unit and browser tests, test helpers, and Markdown, and on

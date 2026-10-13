@@ -92,6 +92,11 @@ jobs:
           lookup-only: true
       - run: just build
         if: ${{ !inputs.skip_build }}
+      # The dead-code check reads the index stores the test and build steps leave behind.
+      - run: brew install periphery
+        if: ${{ !inputs.skip_build }}
+      - run: just deadcode
+        if: ${{ !inputs.skip_build }}
       - uses: actions/cache/save@v6
         id: xcode-save
         if: ${{ !inputs.skip_build && github.ref == 'refs/heads/main' && steps.xcode-saved.outputs.cache-hit != 'true' }}

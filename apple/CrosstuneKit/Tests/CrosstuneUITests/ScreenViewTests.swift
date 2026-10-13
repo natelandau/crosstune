@@ -95,6 +95,7 @@ import Testing
 
     private struct SwappingPage: View {
         let page: Page
+        // periphery:ignore - read through its binding
         @State private var visit = false
 
         var body: some View {

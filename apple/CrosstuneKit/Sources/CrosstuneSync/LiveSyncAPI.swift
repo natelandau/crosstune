@@ -277,6 +277,7 @@ public struct LiveSyncAPI: SyncAPI {
 
     /// A signed URL the server sent that does not parse.
     struct InvalidSignedURL: Error {
+        // periphery:ignore - shown when the error is printed
         let value: String
     }
 
@@ -364,6 +365,7 @@ enum WireFormat {
     }
 
     struct UnknownPushStatus: Error {
+        // periphery:ignore - shown when the error is printed
         let status: String
     }
 

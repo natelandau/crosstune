@@ -153,6 +153,7 @@ private struct TuneContent: View {
     @State private var confirmsDelete = false
     /// Whether this visit's screen view is sent, so a page back from a failed delete is not
     /// counted again.
+    // periphery:ignore - read through its binding
     @State private var visited = false
     @Environment(\.tunePageLeaving) private var leaving
 

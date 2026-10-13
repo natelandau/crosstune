@@ -35,6 +35,7 @@ public enum MetaKey: String, Sendable {
     /// sees it every sync.
     case scanRequeues = "scan_requeues"
 
+    // periphery:ignore:parameters type - only fixes `Value` for a caller that cannot infer it
     /// The value stored under this key, read inside a transaction or a `LiveQuery` fetch.
     public func value<Value: Decodable>(in db: Database, as type: Value.Type = Value.self) throws -> Value? {
         try Meta.value(db, self)
@@ -42,6 +43,7 @@ public enum MetaKey: String, Sendable {
 }
 
 enum Meta {
+    // periphery:ignore:parameters type - only fixes `Value` for a caller that cannot infer it
     static func value<Value: Decodable>(_ db: Database, _ key: MetaKey, as type: Value.Type = Value.self) throws
         -> Value?
     {

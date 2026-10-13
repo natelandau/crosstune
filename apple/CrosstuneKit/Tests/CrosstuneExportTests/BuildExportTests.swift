@@ -20,7 +20,10 @@ private func fixtureBytes(_ name: String) throws -> [UInt8] {
     Array(try Data(contentsOf: fixtureDirectory.appending(path: name)))
 }
 
-private struct FixtureError: Error { let message: String }
+private struct FixtureError: Error {
+    // periphery:ignore - shown when the error is printed
+    let message: String
+}
 
 private func fixtureInput() throws -> ExportInput {
     let data = try Data(contentsOf: fixtureDirectory.appending(path: "input.json"))

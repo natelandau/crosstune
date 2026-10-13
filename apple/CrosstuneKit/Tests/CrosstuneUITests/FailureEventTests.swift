@@ -7,6 +7,7 @@ import Testing
 @testable import CrosstuneUI
 
 private struct DiskFull: Error {
+    // periphery:ignore - the text the failure event must not carry
     let text = "Disk full at /Users/someone/Music/Take 1.m4a"
 }
 

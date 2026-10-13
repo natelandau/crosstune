@@ -105,6 +105,7 @@ func fileSize(_ url: URL) throws -> Int64 {
 
 /// A value the server sent, such as an ID or a revision, refused as part of a local file name.
 struct UnsafeFileNamePart: Error {
+    // periphery:ignore - shown when the error is printed
     let value: String
 }
 

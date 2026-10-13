@@ -634,6 +634,7 @@ private struct RowStack<Item, ID: Hashable, Row: View>: View {
 /// read from the sample catalog with its scans.
 @MainActor
 private struct TunePageSamples {
+    // periphery:ignore - keeps the store's folder until the samples go
     let root: TemporaryRoot
     let full: (model: TuneModel, detail: TuneDetail)
     let sparse: (model: TuneModel, detail: TuneDetail)

@@ -298,6 +298,7 @@ public final class CrosstuneStore: Sendable {
         }
     }
 
+    // periphery:ignore:parameters type - only fixes `Value` for a caller that cannot infer it
     public func meta<Value: Decodable & Sendable>(_ key: MetaKey, as type: Value.Type = Value.self) async throws
         -> Value?
     {
@@ -385,6 +386,7 @@ public struct StoreWriter {
         }
     }
 
+    // periphery:ignore:parameters type - only fixes `Value` for a caller that cannot infer it
     public func meta<Value: Decodable>(_ key: MetaKey, as type: Value.Type = Value.self) throws -> Value? {
         try Meta.value(db, key)
     }

@@ -353,6 +353,7 @@ final class EngineRunner: @unchecked Sendable {
         struct StereoRequest: Sendable {}
 
         // No session on macOS, but the steps still take their place in line.
+        // periphery:ignore:parameters stereo - matches the iOS signature
         nonisolated(nonsending) func activateSession(stereo: StereoRequest?) async throws {
             try await run("activate") {}
         }
