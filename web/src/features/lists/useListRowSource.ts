@@ -2,12 +2,12 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import type { PlayFirst } from '../../api/vocabulary'
 import { recordingsPlayable } from '../../billing/plan'
 import { usePlanOrUnknown } from '../../billing/usePlan'
-import { activeLinksForTune } from '../../commands/links'
 import { useDb } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecordingLink } from '../../db/types'
+import { readTuneSources } from '../player/readPlaylist'
 import { chooseRowSource } from '../player/tuneSource'
-import { readRecordingsWithFiles, type RecordingView } from '../recordings/useRecordings'
+import type { RecordingView } from '../recordings/useRecordings'
 import type { ListItemView } from './useLists'
 
 export type RowSource =
@@ -23,16 +23,26 @@ async function readTuneMedia(
   db: CrosstuneDb,
   tuneIds: readonly string[],
 ): Promise<ReadonlyMap<string, TuneMedia>> {
-  const read = await Promise.all(
-    tuneIds.map(async (tuneId) => {
-      const [views, links] = await Promise.all([
-        readRecordingsWithFiles(db, { tuneId }),
-        activeLinksForTune(db, tuneId),
-      ])
-      return [tuneId, { views, links }] as const
-    }),
-  )
-  return new Map(read)
+  const sources = await readTuneSources(db, tuneIds)
+  const recordings = [...sources.recordings.values()].flat()
+  const [files, tunes] = await Promise.all([
+    db.recording_files.bulkGet(recordings.map((recording) => recording.id)),
+    db.tunes.bulkGet([...tuneIds]),
+  ])
+  const fileOf = new Map(recordings.map((recording, i) => [recording.id, files[i]] as const))
+  const media = new Map<string, TuneMedia>()
+  for (const [i, tuneId] of tuneIds.entries()) {
+    const tune = tunes[i]
+    const live = tune && !tune.deleted_at ? tune : undefined
+    const views = (sources.recordings.get(tuneId) ?? []).map((recording) => ({
+      recording,
+      file: fileOf.get(recording.id),
+      tuneId: live?.id ?? null,
+      tuneTitle: live?.title ?? null,
+    }))
+    media.set(tuneId, { views, links: [...(sources.links.get(tuneId) ?? [])] })
+  }
+  return media
 }
 
 function rowSource(

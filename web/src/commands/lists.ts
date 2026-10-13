@@ -100,15 +100,18 @@ export async function restoreListItems(db: CrosstuneDb, itemIds: readonly string
   if (itemIds.length === 0) return
   await writeTx(db, async () => {
     const at = now()
-    const restorable: LocalListItem[] = []
-    for (const id of itemIds) {
-      const item = await db.list_items.get(id)
-      if (!item || !item.deleted_at) continue
-      const list = await db.lists.get(item.list_id)
-      const userTune = await db.user_tunes.get(item.user_tune_id)
-      if (!list || list.deleted_at || !userTune || userTune.deleted_at) continue
-      restorable.push(item)
-    }
+    const removed = (await db.list_items.bulkGet([...itemIds])).filter(
+      (item): item is LocalListItem => !!item?.deleted_at,
+    )
+    const liveIds = (rows: ({ id: string; deleted_at: string | null } | undefined)[]) =>
+      new Set(rows.flatMap((row) => (row && !row.deleted_at ? [row.id] : [])))
+    const listIds = new Set(removed.map((item) => item.list_id))
+    const userTuneIds = new Set(removed.map((item) => item.user_tune_id))
+    const liveLists = liveIds(await db.lists.bulkGet([...listIds]))
+    const liveTunes = liveIds(await db.user_tunes.bulkGet([...userTuneIds]))
+    const restorable = removed.filter(
+      (item) => liveLists.has(item.list_id) && liveTunes.has(item.user_tune_id),
+    )
     const byList = new Map<string, LocalListItem[]>()
     for (const item of restorable) {
       const items = byList.get(item.list_id) ?? []

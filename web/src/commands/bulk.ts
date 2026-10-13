@@ -1,4 +1,5 @@
 import { INSTRUMENTS, type Instrument } from '../api/vocabulary'
+import type { Table } from 'dexie'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalTune, LocalUserTune } from '../db/types'
 import { activeItems, createList, deleteList, restoreListItems } from './lists'
@@ -24,6 +25,19 @@ export type Snapshot =
 
 function unique(ids: readonly string[]): string[] {
   return [...new Set(ids)]
+}
+
+/** Every row for `ids` in one read, in order; throws `missing` when any is absent or deleted. */
+async function liveRows<T extends { deleted_at: string | null }>(
+  table: Table<T, string>,
+  ids: readonly string[],
+  missing: string,
+): Promise<T[]> {
+  const rows = await table.bulkGet([...ids])
+  return rows.map((row) => {
+    if (!row || row.deleted_at) throw new Error(missing)
+    return row
+  })
 }
 
 /** Equal values, comparing arrays such as a tune's modes element by element. */
@@ -143,9 +157,8 @@ export async function setArchivedMany(
   const snapshots: Snapshot[] = []
   await writeTx(db, async () => {
     const at = now()
-    for (const id of unique(userTuneIds)) {
-      const userTune = await db.user_tunes.get(id)
-      if (!userTune || userTune.deleted_at) throw new Error(TUNE_NOT_FOUND)
+    for (const userTune of await liveRows(db.user_tunes, unique(userTuneIds), TUNE_NOT_FOUND)) {
+      const { id } = userTune
       if ((userTune.archived_at !== null) === archived) continue
       snapshots.push({ table: 'user_tunes', id, before: { archived_at: userTune.archived_at } })
       await putRow(db, 'user_tunes', {
@@ -168,12 +181,8 @@ export async function deleteTunes(
 ): Promise<number> {
   return recordingTx(db, async () => {
     const at = now()
-    const tuneIds = new Set<string>()
-    for (const id of unique(userTuneIds)) {
-      const userTune = await db.user_tunes.get(id)
-      if (!userTune || userTune.deleted_at) throw new Error(TUNE_NOT_FOUND)
-      tuneIds.add(userTune.tune_id)
-    }
+    const userTunes = await liveRows(db.user_tunes, unique(userTuneIds), TUNE_NOT_FOUND)
+    const tuneIds = new Set(userTunes.map((userTune) => userTune.tune_id))
     for (const tuneId of tuneIds) await tombstoneTune(db, tuneId, at)
     return tuneIds.size
   })
@@ -192,10 +201,9 @@ export async function addTunesToList(
     const members = new Set(items.map((item) => item.user_tune_id))
     let position = nextPosition(items)
     const at = now()
-    for (const userTuneId of unique(userTuneIds)) {
-      if (members.has(userTuneId)) continue
-      const userTune = await db.user_tunes.get(userTuneId)
-      if (!userTune || userTune.deleted_at) throw new Error(TUNE_NOT_FOUND)
+    const toAdd = unique(userTuneIds).filter((userTuneId) => !members.has(userTuneId))
+    await liveRows(db.user_tunes, toAdd, TUNE_NOT_FOUND)
+    for (const userTuneId of toAdd) {
       const id = newId()
       await putRow(db, 'list_items', {
         id,
@@ -208,7 +216,6 @@ export async function addTunesToList(
         position,
       })
       position += 1
-      members.add(userTuneId)
       created.push(id)
     }
   })
@@ -244,9 +251,9 @@ export async function removeTunesFromList(
   const removed: string[] = []
   await writeTx(db, async () => {
     const at = now()
-    for (const id of unique(itemIds)) {
-      const item = await db.list_items.get(id)
-      if (!item || item.deleted_at) throw new Error(TUNE_NOT_IN_LIST)
+    const ids = unique(itemIds)
+    await liveRows(db.list_items, ids, TUNE_NOT_IN_LIST)
+    for (const id of ids) {
       await tombstone(db, 'list_items', id, at)
       removed.push(id)
     }
