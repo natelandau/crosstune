@@ -153,7 +153,7 @@ async def upload_finished(
         target=target,
         max_file_bytes=settings.recording_max_file_bytes,
     )
-    # A slot issued before staged keys signed the target itself, which must survive.
+    # A slot whose key is the target holds the confirmed file, so only a staged key is deleted.
     staged = slot.object_key if slot is not None and slot.object_key != target else None
 
     recording.state = "uploaded"

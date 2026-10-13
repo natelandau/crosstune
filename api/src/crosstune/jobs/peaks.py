@@ -23,14 +23,13 @@ _FULL_SCALE = 32_768  # magnitude of the most negative sample in signed 16-bit P
 async def build_peaks(source: Path) -> bytes:
     """Decode `source` to mono 8 kHz PCM and reduce it to one peak byte per 20 ms window.
 
+    Fails with ffmpeg's `MediaError`, most often because the file cannot be decoded.
+
     Args:
         source: A local audio file.
 
     Returns:
         bytes: A full peaks file, header and all.
-
-    Raises:
-        MediaError: ffmpeg failed, most often because the file cannot be decoded.
     """
     reducer = _PeakReducer()
     await stream_media_tool(
@@ -155,10 +154,6 @@ def slice_peaks(data: bytes, start_ms: int, end_ms: int) -> bytes:
 
     Returns:
         bytes: A standalone peaks file, header and all, covering only that range.
-
-    Raises:
-        ValueError: `data`'s header names a different version or points-per-second
-            than this format.
     """
     values = decode_peaks(data)
     start = start_ms * PEAKS_PER_SECOND // 1000

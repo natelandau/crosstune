@@ -113,7 +113,7 @@ async def _media_process(argv: tuple[str, ...]) -> AsyncGenerator[asyncio.subpro
 
 
 def _limited(*argv: str) -> tuple[str, ...]:
-    """Run `argv` under memory, CPU, and file-size limits.
+    """Prefix `argv` with a `prlimit` call that caps memory, CPU, and file size.
 
     Only on Linux, which production and CI run: macOS cannot limit address space.
     """
@@ -353,12 +353,11 @@ async def _to_mp4(
 async def remux(source: Path, target: Path) -> None:
     """Rewrite the container only.
 
+    Fails with ffmpeg's `MediaError`, most often because the codec cannot live in MP4.
+
     Args:
         source: The file to read.
         target: The MP4 file to write.
-
-    Raises:
-        MediaError: ffmpeg failed, most often because the codec cannot live in MP4.
     """
     await _to_mp4(source, target, "-c:a", "copy")
 
@@ -370,13 +369,13 @@ async def _info(source: Path, info: Probe | None) -> Probe:
 async def encode(source: Path, target: Path, *, info: Probe | None = None) -> None:
     """Encode to AAC-LC in MP4 at the playback bit rate for the source.
 
+    Fails with ffprobe's or ffmpeg's `MediaError`, most often because the file cannot be
+    decoded.
+
     Args:
         source: The file to read.
         target: The MP4 file to write.
         info: The probe of `source`, when one has already read it.
-
-    Raises:
-        MediaError: ffprobe or ffmpeg failed, most often because the file cannot be decoded.
     """
     await _to_mp4(source, target, *_playback_codec_args(await _info(source, info)))
 
@@ -388,7 +387,8 @@ async def cut(
 
     Always re-encodes from the original, even when it is already AAC: `-ss`/`-to`
     placed before `-i` seek the demuxer to the nearest keyframe, which a
-    stream copy could not trim to an exact sample.
+    stream copy could not trim to an exact sample. Fails with ffprobe's or ffmpeg's
+    `MediaError`, most often because the file cannot be decoded.
 
     Args:
         source: The file to read.
@@ -396,9 +396,6 @@ async def cut(
         start_ms: Where the kept range starts, in milliseconds.
         end_ms: Where the kept range ends, in milliseconds.
         info: The probe of `source`, when one has already read it.
-
-    Raises:
-        MediaError: ffprobe or ffmpeg failed, most often because the file cannot be decoded.
     """
     await _to_mp4(
         source,

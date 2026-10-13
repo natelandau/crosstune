@@ -71,8 +71,8 @@ def seed(
 ) -> int:
     """Copy every source object missing, resized, or rewritten since its copy, keeping its type.
 
-    A key can be rewritten in place, as when a failed recording gets a fresh upload
-    URL on the same key, so a matching size alone does not prove a copy is current.
+    A key can be rewritten in place, as when a re-uploaded recording is confirmed over
+    the same key, so a matching size alone does not prove a copy is current.
 
     Returns:
         int: How many objects were copied.

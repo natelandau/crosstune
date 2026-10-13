@@ -101,7 +101,7 @@ async def upload_finished(
     size = await accept_upload(
         session, store, slot, info, target=key, max_file_bytes=settings.scan_max_file_bytes
     )
-    # A slot issued before staged keys signed the served key itself, which must survive.
+    # A slot whose key is the served key holds the confirmed image, so only a staged key is deleted.
     staged = slot.object_key if slot is not None and slot.object_key != key else None
 
     scan.state = ScanState.READY.value
@@ -110,9 +110,9 @@ async def upload_finished(
     bump_server_seq(scan)
     await session.delete(slot)
     await session.flush()
-    # A PUT under a slot issued for the legacy key was never confirmed, so no row names
-    # it and no sweep would ever remove it. It runs after the commit so the bucket call
-    # never holds the user's lock; a staged image left over is a stray the sweep removes.
+    # No row names an object a legacy-key PUT left, so no sweep removes it; delete it here.
+    # After the commit, so the bucket call never holds the user's lock; a staged image
+    # left over is a stray the sweep removes.
     background.add_task(
         delete_best_effort,
         store,
