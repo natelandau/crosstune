@@ -9,6 +9,7 @@ export interface Palette {
   slate: string
   onSlate: string
   coral: string
+  onCoral: string
   jet: string
   record: string
   known: string
@@ -25,6 +26,7 @@ export interface Palette {
   switchOff: string
   switchOn: string
   knob: string
+  glyphFaint: string
 }
 
 export const PALETTE: Record<Scheme, Palette> = {
@@ -35,6 +37,7 @@ export const PALETTE: Record<Scheme, Palette> = {
     slate: '#4F5D75',
     onSlate: '#FFFFFF',
     coral: '#EF8354',
+    onCoral: '#1D2230',
     jet: '#2D3142',
     record: '#FF3B30',
     known: '#248A3D',
@@ -51,6 +54,7 @@ export const PALETTE: Record<Scheme, Palette> = {
     switchOff: '#848A94',
     switchOn: '#2D3142',
     knob: '#FFFFFF',
+    glyphFaint: '#848A94',
   },
   dark: {
     ground: '#16181D',
@@ -59,6 +63,7 @@ export const PALETTE: Record<Scheme, Palette> = {
     slate: '#8E9BB3',
     onSlate: '#16181D',
     coral: '#EF8354',
+    onCoral: '#1D2230',
     jet: '#1E212C',
     record: '#FF453A',
     known: '#30D158',
@@ -75,5 +80,6 @@ export const PALETTE: Record<Scheme, Palette> = {
     switchOff: '#6E7482',
     switchOn: '#8390A8',
     knob: '#FFFFFF',
+    glyphFaint: '#6E7482',
   },
 }

@@ -415,13 +415,19 @@ it('dims every recording on a free plan, filed and unfiled, and answers a tap wi
     wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
   })
   for (const name of ['Jam recording', 'Hen take']) {
-    // Named without Play, since the tap opens the Premium sheet instead.
+    // Named without Play, since the tap opens the Plan sheet instead.
     await expect.element(column().getByRole('row', { name: new RegExp(`^${name}`) })).toBeVisible()
     await expect.element(row(name)).toHaveAccessibleDescription(SUBSCRIBE_TO_PLAY)
     await expect.poll(() => Number(getComputedStyle(row(name).element()).opacity)).toBeLessThan(1)
   }
   await row('Hen take').click()
-  await expect.element(page.getByRole('dialog', { name: PREMIUM_RECORDINGS_TITLE })).toBeVisible()
+  await expect
+    .element(
+      page
+        .getByRole('dialog', { name: PREMIUM_RECORDINGS_TITLE })
+        .getByRole('heading', { name: PREMIUM_RECORDINGS_TITLE }),
+    )
+    .toBeVisible()
   await expect
     .poll(() => analytics.sends().filter((send) => send.name === 'premium_sheet_shown'))
     .toEqual([

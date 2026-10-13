@@ -28,6 +28,7 @@ import { DOUBLE_TAP_MS } from './useScanViewer'
 import { EDIT_TUNE } from '../tune/tuneScreenCopy'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
+import { planSheet } from '../../test/planSheet'
 import { entitlementRow, jpegBlob, scanFile, scanRow, tuneRow, userTuneRow } from '../../test/rows'
 import { PREMIUM_SCANS_TITLE, premiumScansBody } from '../plan/planCopy'
 import { useEntitlement } from '../../billing/usePlan'
@@ -464,7 +465,7 @@ describe('on a free plan, scans open on one tune', () => {
     return { ...app, db, analytics }
   }
 
-  const premium = () => page.getByRole('dialog', { name: PREMIUM_SCANS_TITLE })
+  const premium = planSheet
   const otherViewer = () => page.getByRole('dialog', { name: scanViewerName(OTHER) })
   const sheetsShown = (analytics: ReturnType<typeof recordingAnalytics>) =>
     analytics.sends().filter((send) => send.name === 'premium_sheet_shown')
@@ -476,7 +477,7 @@ describe('on a free plan, scans open on one tune', () => {
   const otherRow = () =>
     page.getByRole('grid', { name: TUNE_LIST }).getByRole('row', { name: new RegExp(`^${OTHER}`) })
 
-  it("dims another tune's scans, and a tap or Add opens the Premium sheet", async () => {
+  it("dims another tune's scans, and a tap or Add opens the Plan sheet", async () => {
     const { analytics } = await mountPlan('/catalog/t2')
     await expect.element(gated(0)).toBeVisible()
     await expect.element(gated(0)).toHaveAccessibleDescription(SUBSCRIBE_TO_OPEN)
@@ -484,7 +485,9 @@ describe('on a free plan, scans open on one tune', () => {
     await expect.poll(() => opacity(gated(1))).toBeLessThan(1)
 
     await gated(0).click()
-    await expect.element(premium()).toBeVisible()
+    await expect
+      .element(premium().getByRole('heading', { name: PREMIUM_SCANS_TITLE }))
+      .toBeVisible()
     await expect.element(premium()).toHaveAccessibleDescription(premiumScansBody(TITLE))
     expect(otherViewer().elements()).toHaveLength(0)
     await expect

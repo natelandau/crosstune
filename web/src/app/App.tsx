@@ -104,7 +104,7 @@ export function App({
         <ConfirmProvider>
           <ToastProvider>
             <StoreProvider store={store}>
-              <PremiumSheetProvider navigate={(to) => void router.navigate(to)}>
+              <PremiumSheetProvider>
                 {/* Outside the router, so a loaded item keeps playing across every navigation.
                     The player reaches the engine to prime it inside a play tap. */}
                 {playbackEngine ? (
@@ -126,7 +126,7 @@ export function App({
 
 /**
  * Hands the recorder's start to the shell's Record controls and the tune page. On a free plan
- * the controls stay in place and answer with the Premium sheet instead.
+ * the controls stay in place and answer with the Plan sheet instead.
  */
 function RecordLauncher({ children }: { children: ReactNode }) {
   const { start } = useRecordState()

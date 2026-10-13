@@ -1,23 +1,20 @@
-import { ArrowUpRight } from 'lucide-react'
-import { canSubscribe, type Plan } from '../../billing/plan'
-import { storeConfig } from '../../billing/storeConfig'
-import { useStore } from '../../billing/StoreProvider'
+import { ChevronRight } from 'lucide-react'
+import { useId } from 'react'
+import { Button as AriaButton } from 'react-aria-components'
+import type { Plan } from '../../billing/plan'
 import { usePlan } from '../../billing/usePlan'
 import { Group } from '../../ui/form/Group'
-import { StatusRow } from '../../ui/form/StatusRow'
+import { FIELD_ROW_PRESSABLE } from '../../ui/form/FieldRow'
 import { useNow } from '../../ui/useNow'
+import { membership } from '../plan/membership'
 import {
-  APP_STORE_SUBSCRIPTIONS_URL,
   FREE_HELP,
   FREE_STORAGE_HELP,
-  MANAGE_APP_STORE,
-  MANAGE_SUBSCRIPTION,
   PLAN_FREE,
   PLAN_GROUP,
   PLAN_PREMIUM,
   PLAN_TRIAL,
-  premiumUntil,
-  SUBSCRIBE,
+  SEE_PLAN,
   trialLeft,
 } from '../plan/planCopy'
 import { usePremiumSheet } from '../plan/PremiumSheetProvider'
@@ -30,30 +27,24 @@ function planLine(plan: Plan, now: Date): { name: string; detail?: string } {
     const end = plan.trialEndsAt ?? plan.premiumEndsAt
     return { name: PLAN_TRIAL, detail: end ? trialLeft(end, now) : undefined }
   }
+  const member = membership(plan)
   return {
     name: PLAN_PREMIUM,
-    detail: plan.premiumEndsAt ? premiumUntil(plan.premiumEndsAt) : undefined,
+    detail: member?.value ? `${member.label} ${member.value}` : undefined,
   }
 }
 
-/** Where a paid account manages its subscription, or null when this app has nowhere to send it. */
-function manageAction(plan: Plan, portalUrl: string): { label: string; url: string } | null {
-  if (plan.source === 'stripe' && portalUrl) return { label: MANAGE_SUBSCRIPTION, url: portalUrl }
-  if (plan.source === 'apple') return { label: MANAGE_APP_STORE, url: APP_STORE_SUBSCRIPTIONS_URL }
-  return null
-}
-
-/** The account's plan and how much of its storage is spent. Nothing shows until a plan is known. */
+/**
+ * The account's plan, as a row that opens the Plan sheet, and how much of its storage is spent.
+ * Buying and managing happen in the sheet. Nothing shows until a plan is known.
+ */
 export function PlanGroup() {
   const plan = usePlan()
   const now = useNow()
-  const store = useStore()
   const premium = usePremiumSheet()
+  const hintId = useId()
   if (plan.kind === 'unknown') return null
   const { name, detail } = planLine(plan, new Date(now))
-  const manage = manageAction(plan, storeConfig().portalUrl)
-  const open = (url: string) => window.open(url, '_blank', 'noopener')
-  const subscribe = store !== null && canSubscribe(plan)
   return (
     <>
       <Group
@@ -67,21 +58,20 @@ export function PlanGroup() {
           ) : undefined
         }
       >
-        <StatusRow
-          title={name}
-          detail={detail}
-          action={
-            subscribe
-              ? {
-                  label: SUBSCRIBE,
-                  prominent: true,
-                  onPress: () => premium.open('plan', 'plan_group'),
-                }
-              : manage
-                ? { label: manage.label, icon: ArrowUpRight, onPress: () => open(manage.url) }
-                : undefined
-          }
-        />
+        <AriaButton
+          aria-describedby={hintId}
+          onPress={() => premium.open('plan', 'plan_group')}
+          className={`${FIELD_ROW_PRESSABLE} py-2`}
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block">{name}</span>
+            {detail && <span className="t-secondary text-ink-2 block">{detail}</span>}
+          </span>
+          <ChevronRight className="text-ink-2 size-4 shrink-0" aria-hidden />
+          <span id={hintId} hidden>
+            {SEE_PLAN}
+          </span>
+        </AriaButton>
       </Group>
       <StorageSummary />
     </>

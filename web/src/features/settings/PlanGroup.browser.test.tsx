@@ -9,13 +9,15 @@ import type { LocalEntitlement } from '../../db/types'
 import { openTestDb } from '../../test/db'
 import { fakeStore } from '../../test/fakeStore'
 import { dataProviders } from '../../test/providers'
+import { planSheet } from '../../test/planSheet'
 import { renderWithProviders } from '../../test/render'
 import { entitlementRow } from '../../test/rows'
 import { FixedNow } from '../../ui/useNow'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
+import { addedDay } from '../../text/format'
 import {
-  APP_STORE_SUBSCRIPTIONS_URL,
+  ENDS,
   FREE_HELP,
   FREE_STORAGE_HELP,
   MANAGE_APP_STORE,
@@ -24,7 +26,8 @@ import {
   PLAN_GROUP,
   PLAN_PREMIUM,
   PLAN_TRIAL,
-  premiumUntil,
+  RENEWS,
+  SEE_PLAN,
   SUBSCRIBE,
   trialLeft,
 } from '../plan/planCopy'
@@ -62,7 +65,7 @@ async function mount(row?: Partial<LocalEntitlement>, store: Store | null = fake
     <Providers>
       <AnalyticsProvider client={analytics}>
         <StoreProvider store={store}>
-          <PremiumSheetProvider navigate={() => {}}>
+          <PremiumSheetProvider>
             <FixedNow value={NOW.getTime()}>
               <PlanGroup />
               <SettledProbe />
@@ -79,7 +82,7 @@ const trialRow = (): Partial<LocalEntitlement> => {
   const ends = new Date(NOW.getTime() + 5 * DAY).toISOString()
   return { premium_source: 'trial', premium_expires_at: ends, trial_ends_at: ends }
 }
-const row = (name: string) => page.getByRole('button', { name, exact: true })
+const row = (name: string) => page.getByRole('button', { name })
 
 describe('PlanGroup', () => {
   it('shows a trial with its days left', async () => {
@@ -105,14 +108,33 @@ describe('PlanGroup', () => {
   it('shows a comp with no end as Premium with no detail', async () => {
     await mount({ premium_source: 'comp' })
     await expect.element(page.getByText(PLAN_PREMIUM, { exact: true })).toBeVisible()
-    expect(page.getByText(/^Until /).elements()).toHaveLength(0)
+    expect(page.getByText(/^(Ends|Renews) /).elements()).toHaveLength(0)
     expect(page.getByText(FREE_HELP).elements()).toHaveLength(0)
   })
 
   it('shows when a comp with an end stops', async () => {
     const ends = new Date(NOW.getTime() + 30 * DAY)
     await mount({ premium_source: 'comp', premium_expires_at: ends.toISOString() })
-    await expect.element(page.getByText(premiumUntil(ends), { exact: true })).toBeVisible()
+    await expect
+      .element(page.getByText(`${ENDS} ${addedDay(ends.toISOString())}`, { exact: true }))
+      .toBeVisible()
+  })
+
+  it.each([
+    ['an App Store subscription that renews', 'apple', true, RENEWS],
+    ['an App Store subscription that ends', 'apple', false, ENDS],
+    ['a web subscription that renews', 'stripe', true, RENEWS],
+    ['a web subscription that ends', 'stripe', false, ENDS],
+  ] as const)('shows when %s', async (_name, source, autoRenews, label) => {
+    const ends = new Date(NOW.getTime() + 30 * DAY)
+    await mount({
+      premium_source: source,
+      premium_expires_at: ends.toISOString(),
+      auto_renews: autoRenews,
+    })
+    await expect
+      .element(page.getByText(`${label} ${addedDay(ends.toISOString())}`, { exact: true }))
+      .toBeVisible()
   })
 
   it('takes a premium quota from the row over the stored server quota', async () => {
@@ -130,47 +152,44 @@ describe('PlanGroup', () => {
   it.each([
     ['a free account', {}],
     ['a trial', trialRow()],
-  ])('opens the Premium sheet from Subscribe for %s', async (_name, entitlement) => {
-    const { analytics } = await mount(entitlement)
-    await row(SUBSCRIBE).click()
+    ['an App Store subscriber', { premium_source: 'apple' }],
+    ['a web subscriber', { premium_source: 'stripe' }],
+    ['a comp', { premium_source: 'comp' }],
+  ] as [string, Partial<LocalEntitlement>][])(
+    'the plan row opens the Plan sheet for %s',
+    async (_name, entitlement) => {
+      config.portalUrl = 'https://billing.example.com/portal'
+      const { analytics } = await mount(entitlement)
+      const planRow = page
+        .getByRole('region', { name: PLAN_GROUP })
+        .getByRole('button', { name: /^(Free|Premium)/ })
+      await expect.element(planRow).toHaveAccessibleDescription(SEE_PLAN)
+      await planRow.click()
+      await expect
+        .poll(() => analytics.sends().filter((send) => send.name === 'premium_sheet_shown'))
+        .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'plan', from: 'plan_group' } }])
+      await expect.element(planSheet()).toBeVisible()
+    },
+  )
+
+  it('opens the plan row with no store configured', async () => {
+    const { analytics } = await mount({}, null)
+    await row(PLAN_FREE).click()
     await expect
       .poll(() => analytics.sends().filter((send) => send.name === 'premium_sheet_shown'))
       .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'plan', from: 'plan_group' } }])
+    await expect.element(planSheet()).toBeVisible()
   })
 
-  it('hides Subscribe when no store is configured', async () => {
-    await mount({}, null)
-    await expect.element(page.getByText(PLAN_FREE, { exact: true })).toBeVisible()
-    expect(row(SUBSCRIBE).elements()).toHaveLength(0)
-  })
-
-  it('opens the billing portal in a new tab from Manage subscription', async () => {
+  it('offers no buying or managing in the group', async () => {
     config.portalUrl = 'https://billing.example.com/portal'
-    const open = vi.spyOn(window, 'open').mockReturnValue(null)
     await mount({ premium_source: 'stripe' })
-    await row(MANAGE_SUBSCRIPTION).click()
-    expect(open).toHaveBeenCalledWith('https://billing.example.com/portal', '_blank', 'noopener')
-    expect(row(SUBSCRIBE).elements()).toHaveLength(0)
-  })
-
-  it('shows no Manage subscription row without a portal URL', async () => {
-    await mount({ premium_source: 'stripe' })
-    await expect.element(page.getByText(PLAN_PREMIUM, { exact: true })).toBeVisible()
-    expect(row(MANAGE_SUBSCRIPTION).elements()).toHaveLength(0)
-  })
-
-  it('opens App Store settings from Manage in App Store settings', async () => {
-    const open = vi.spyOn(window, 'open').mockReturnValue(null)
-    await mount({ premium_source: 'apple' })
-    await row(MANAGE_APP_STORE).click()
-    expect(open).toHaveBeenCalledWith(APP_STORE_SUBSCRIPTIONS_URL, '_blank', 'noopener')
-    expect(row(SUBSCRIBE).elements()).toHaveLength(0)
-  })
-
-  it('offers a comp neither Subscribe nor Manage', async () => {
-    config.portalUrl = 'https://billing.example.com/portal'
-    await mount({ premium_source: 'comp' })
-    await expect.element(page.getByText(PLAN_PREMIUM, { exact: true })).toBeVisible()
-    expect(page.getByRole('button').elements()).toHaveLength(0)
+    await expect.element(row(PLAN_PREMIUM)).toBeVisible()
+    expect(
+      page.getByRole('region', { name: PLAN_GROUP }).getByRole('button').elements(),
+    ).toHaveLength(1)
+    expect(page.getByText(SUBSCRIBE, { exact: true }).elements()).toHaveLength(0)
+    expect(page.getByText(MANAGE_SUBSCRIPTION, { exact: true }).elements()).toHaveLength(0)
+    expect(page.getByText(MANAGE_APP_STORE, { exact: true }).elements()).toHaveLength(0)
   })
 })

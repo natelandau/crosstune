@@ -278,6 +278,76 @@ it('closes from a header button when it has no actions', async () => {
   await expect.poll(() => onOpenChange).toHaveBeenCalledWith(false)
 })
 
+it.each(['pointer', 'touch'] as const)(
+  'pins an accessory above the actions and a footnote below them on %s',
+  async (density) => {
+    renderWithProviders(
+      <Sheet
+        isOpen
+        onOpenChange={() => {}}
+        title="Plan"
+        primary={{ label: 'Save', onPress: () => {} }}
+        accessory={<p>Above</p>}
+        footnote={<p>Below</p>}
+      >
+        <p>Body</p>
+      </Sheet>,
+      { density },
+    )
+    const save = page.getByRole('button', { name: 'Save' })
+    await expect.element(save).toBeVisible()
+    const footer = save.element().closest('footer')!
+    const above = page.getByText('Above').element()
+    const below = page.getByText('Below').element()
+    expect(footer.contains(above) && footer.contains(below)).toBe(true)
+    expect(above.compareDocumentPosition(save.element()) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+    expect(save.element().compareDocumentPosition(below) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+  },
+)
+
+it.each(['pointer', 'touch'] as const)(
+  'closes from the header beside actions that all lead on, when asked, on %s',
+  async (density) => {
+    const onOpenChange = vi.fn()
+    renderWithProviders(
+      <Sheet
+        isOpen
+        onOpenChange={onOpenChange}
+        title="Notice"
+        cancel={null}
+        closeButton
+        primary={{ label: 'Go on', onPress: () => {} }}
+      >
+        <p>Body</p>
+      </Sheet>,
+      { density },
+    )
+    const close = page.getByRole('button', { name: 'Close' })
+    await expect.element(close).toBeVisible()
+    expect(close.element().closest('header')).not.toBeNull()
+    expect(page.getByRole('button', { name: 'Go on' }).element().closest('footer')).not.toBeNull()
+    await close.click()
+    await expect.poll(() => onOpenChange).toHaveBeenCalledWith(false)
+  },
+)
+
+it('pins an accessory with no actions and still closes from the header', async () => {
+  renderWithProviders(
+    <Sheet isOpen onOpenChange={() => {}} title="Plan" cancel={null} accessory={<p>Line</p>}>
+      <p>Body</p>
+    </Sheet>,
+    { density: 'pointer' },
+  )
+  const close = page.getByRole('button', { name: 'Close' })
+  await expect.element(close).toBeVisible()
+  expect(close.element().closest('header')).not.toBeNull()
+  expect(page.getByText('Line').element().closest('footer')).not.toBeNull()
+})
+
 it('is a 480px dialog on pointer', async () => {
   await page.viewport(1280, 800)
   renderWithProviders(<Harness />, { density: 'pointer' })
@@ -636,3 +706,227 @@ it('keeps the page receded when a sheet under another leaves', async () => {
   rerender(<div data-sheet-root />)
   await expect.poll(() => root.getAttribute('style') ?? '').toBe('')
 })
+
+it('treats a false accessory as nothing to pin', async () => {
+  renderWithProviders(
+    <Sheet isOpen onOpenChange={() => {}} title="Plan" cancel={null} accessory={false}>
+      <p>Body</p>
+    </Sheet>,
+    { density: 'pointer' },
+  )
+  const close = page.getByRole('button', { name: 'Close' })
+  await expect.element(close).toBeVisible()
+  expect(close.element().closest('header')).not.toBeNull()
+  expect(page.getByRole('dialog').element().querySelector('footer')).toBeNull()
+})
+
+/** Waits for the sheet to finish moving in, so the boxes inside it read where they rest. */
+async function settled(sheet: Element): Promise<void> {
+  await expect
+    .poll(() => sheet.getBoundingClientRect().width)
+    .toBeCloseTo((sheet as HTMLElement).offsetWidth, 0)
+}
+
+/** Where an element sits on screen. */
+const box = (element: Element) => element.getBoundingClientRect()
+const middle = (element: Element) => box(element).left + box(element).width / 2
+
+/**
+ * The width inside an element's padding, as laid out. A pointer dialog scales in, so this
+ * matches a child's on-screen width only once the dialog has settled.
+ */
+function innerWidth(element: Element): number {
+  const { paddingLeft, paddingRight } = getComputedStyle(element)
+  return (element as HTMLElement).offsetWidth - parseFloat(paddingLeft) - parseFloat(paddingRight)
+}
+
+/** The nearest ancestor that scrolls vertically. */
+function scroller(element: Element): Element | null {
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    if (getComputedStyle(node).overflowY === 'auto') return node
+  }
+  return null
+}
+
+it.each(['pointer', 'touch'] as const)(
+  'a sheet with none of the page options titles its header and pins Cancel beside the primary on %s',
+  async (density) => {
+    renderWithProviders(
+      <Sheet
+        isOpen
+        onOpenChange={() => {}}
+        title="Edit tune"
+        primary={{ label: 'Save', onPress: () => {} }}
+        footnote={<p>Below</p>}
+      >
+        <p>Body</p>
+      </Sheet>,
+      { density },
+    )
+    const save = page.getByRole('button', { name: 'Save' })
+    await expect.element(save).toBeVisible()
+    await settled(dialog().element())
+    const header = dialog().element().querySelector('header')!
+    expect(header.querySelector('h2')?.textContent).toBe('Edit tune')
+    expect(dialog().getByRole('button', { name: 'Close' }).query()).toBeNull()
+    const cancel = dialog().getByRole('button', { name: 'Cancel' }).element()
+    const footer = save.element().closest('footer')!
+    expect(footer).not.toBeNull()
+    expect(footer.contains(cancel)).toBe(true)
+    expect(footer.contains(page.getByText('Below').element())).toBe(true)
+    expect(box(cancel).top).toBeCloseTo(box(save.element()).top, 0)
+    expect(box(cancel).height).toBeCloseTo(box(save.element()).height, 0)
+  },
+)
+
+it.each(['pointer', 'touch'] as const)(
+  'a sheet named by a heading in its content shows no title and keeps its close at the trailing edge on %s',
+  async (density) => {
+    renderWithProviders(
+      <Sheet
+        isOpen
+        onOpenChange={() => {}}
+        labelledBy="headline"
+        cancel={null}
+        closeButton
+        primary={{ label: 'Go on', onPress: () => {} }}
+      >
+        <h4 id="headline">Crosstune Premium</h4>
+      </Sheet>,
+      { density },
+    )
+    const sheet = page.getByRole('dialog', { name: 'Crosstune Premium' })
+    await expect.element(sheet).toBeVisible()
+    await settled(sheet.element())
+    const header = sheet.element().querySelector('header')!
+    expect(header.querySelector('h1, h2, h3, h4, [role="heading"]')).toBeNull()
+    const close = sheet.getByRole('button', { name: 'Close' }).element()
+    expect(header.contains(close)).toBe(true)
+    expect(box(header).right - box(close).right).toBeLessThan(box(close).width)
+  },
+)
+
+it.each(['pointer', 'touch'] as const)(
+  'a large primary runs the width of the actions and stands taller on %s',
+  async (density) => {
+    const sheet = (primaryLarge: boolean) => (
+      <Sheet
+        isOpen
+        onOpenChange={() => {}}
+        title="Edit tune"
+        cancel={null}
+        closeButton
+        primaryLarge={primaryLarge}
+        primary={{ label: 'Save', onPress: () => {} }}
+      >
+        <p>Body</p>
+      </Sheet>
+    )
+    const { rerender } = renderWithProviders(sheet(false), { density })
+    const save = page.getByRole('button', { name: 'Save' })
+    await expect.element(save).toBeVisible()
+    const plain = box(save.element()).height
+    rerender(sheet(true))
+    await expect.poll(() => box(save.element()).height).toBeGreaterThan(plain)
+    const footer = save.element().closest('footer')!
+    await expect.poll(() => box(save.element()).width).toBeCloseTo(innerWidth(footer), 0)
+  },
+)
+
+it.each(['pointer', 'touch'] as const)(
+  'ends the scrolling content with the accessory, actions, and footnote when they go inline on %s',
+  async (density) => {
+    renderWithProviders(
+      <Sheet
+        isOpen
+        onOpenChange={() => {}}
+        title="Edit tune"
+        cancel={null}
+        closeButton
+        inlineActions
+        primary={{ label: 'Save', onPress: () => {} }}
+        accessory={<p>Above</p>}
+        footnote={<p>Below</p>}
+      >
+        <p>Body</p>
+      </Sheet>,
+      { density },
+    )
+    const save = page.getByRole('button', { name: 'Save' })
+    await expect.element(save).toBeVisible()
+    await settled(dialog().element())
+    expect(dialog().element().querySelector('footer')).toBeNull()
+    const order = ['Body', 'Above'].map((text) => page.getByText(text).element())
+    order.push(save.element(), page.getByText('Below').element())
+    const content = scroller(order[0]!)
+    expect(content).not.toBeNull()
+    for (const [i, element] of order.entries()) {
+      expect(scroller(element)).toBe(content)
+      if (i > 0) expect(box(order[i - 1]!).bottom).toBeLessThanOrEqual(box(element).top)
+    }
+    await expect.element(dialog().getByRole('button', { name: 'Close' })).toBeVisible()
+  },
+)
+
+it.each(['pointer', 'touch'] as const)(
+  'stacks a large full-width primary over a centered plain tertiary and the footnote on %s',
+  async (density) => {
+    renderWithProviders(
+      <Sheet
+        isOpen
+        onOpenChange={() => {}}
+        title="Edit tune"
+        cancel={null}
+        closeButton
+        stackedActions
+        primary={{ label: 'Save', onPress: () => {} }}
+        tertiary={{ label: 'Compare', onPress: () => {} }}
+        footnote={<p className="text-center">Below</p>}
+      >
+        <p>Body</p>
+      </Sheet>,
+      { density },
+    )
+    const save = page.getByRole('button', { name: 'Save' })
+    await expect.element(save).toBeVisible()
+    await settled(dialog().element())
+    const tertiary = page.getByRole('button', { name: 'Compare' }).element()
+    const below = page.getByText('Below').element()
+    const footer = save.element().closest('footer')!
+    await expect.poll(() => box(save.element()).width).toBeCloseTo(innerWidth(footer), 0)
+    expect(box(save.element()).height).toBeGreaterThan(box(tertiary).height)
+    expect(box(save.element()).bottom).toBeLessThanOrEqual(box(tertiary).top)
+    expect(box(tertiary).bottom).toBeLessThanOrEqual(box(below).top)
+    expect(Math.abs(middle(tertiary) - middle(save.element()))).toBeLessThanOrEqual(1)
+    expect(getComputedStyle(tertiary).backgroundColor).toBe('rgba(0, 0, 0, 0)')
+    expect(dialog().getByRole('button', { name: 'Cancel' }).query()).toBeNull()
+  },
+)
+
+it.each(['pointer', 'touch'] as const)(
+  'drops the header close beside actions unless asked, inline or pinned, on %s',
+  async (density) => {
+    const sheet = (closeButton: boolean, inlineActions: boolean) => (
+      <Sheet
+        isOpen
+        onOpenChange={() => {}}
+        title="Edit tune"
+        cancel={null}
+        closeButton={closeButton}
+        inlineActions={inlineActions}
+        primary={{ label: 'Save', onPress: () => {} }}
+      >
+        <p>Body</p>
+      </Sheet>
+    )
+    const { rerender } = renderWithProviders(sheet(false, true), { density })
+    const close = () => dialog().getByRole('button', { name: 'Close' })
+    await expect.element(page.getByRole('button', { name: 'Save' })).toBeVisible()
+    expect(close().query()).toBeNull()
+    for (const inline of [true, false]) {
+      rerender(sheet(true, inline))
+      await expect.element(close()).toBeVisible()
+      expect(close().element().closest('header')).not.toBeNull()
+    }
+  },
+)

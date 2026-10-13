@@ -35,10 +35,10 @@ export interface RecordingRowData {
   /** A download offered while offline: the row keeps its tap and dims, and says Offline. */
   offlineDownload: boolean
   /** A recording the plan does not play that has something to play: the row dims and its tap
-   * opens the Premium sheet. */
+   * opens the Plan sheet. */
   disabled: boolean
   /** What a tap on the row does and the verb that names it; undefined when it does nothing. A
-   * disabled row's tap opens the Premium sheet, so it has no verb: its name must not promise a
+   * disabled row's tap opens the Plan sheet, so it has no verb: its name must not promise a
    * play it will not do. */
   open: { onOpen: () => void; openName: string | null } | undefined
   retry: 'upload' | 'transcode' | null
@@ -67,7 +67,7 @@ export function useRecordingRow(
     error?: string | null
     /** Where a play from this row counts as asked for. */
     origin?: PlayOrigin
-    /** Where a tap on a disabled row counts as opening the Premium sheet from. */
+    /** Where a tap on a disabled row counts as opening the Plan sheet from. */
     premiumFrom?: PremiumEntry
   } = {},
 ): RecordingRowData {

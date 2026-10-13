@@ -63,6 +63,26 @@ it('keeps a capsule hit area at the filter target on touch', async () => {
   await expect.poll(hit).toBe('44px')
 })
 
+it.each(['touch', 'pointer'] as const)(
+  'a large button is taller, with a larger label, than a plain one on %s',
+  async (density) => {
+    renderWithProviders(
+      <>
+        <Button label="Save" variant="primary" />
+        <Button label="Subscribe" variant="primary" large />
+      </>,
+      { density },
+    )
+    const plain = page.getByRole('button', { name: 'Save' })
+    const large = page.getByRole('button', { name: 'Subscribe' })
+    await expect.element(large).toBeVisible()
+    const height = (button: typeof plain) => button.element().getBoundingClientRect().height
+    const size = (button: typeof plain) => parseFloat(getComputedStyle(button.element()).fontSize)
+    await expect.poll(() => height(large)).toBeGreaterThan(height(plain))
+    await expect.poll(() => size(large)).toBeGreaterThan(size(plain))
+  },
+)
+
 it('sets a primary button in semibold over the body role', async () => {
   renderWithProviders(<Button label="Save" variant="primary" />)
   const weight = () =>

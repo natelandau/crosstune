@@ -57,7 +57,7 @@ function mount({
   const wrapper = ({ children }: { children: ReactNode }) => (
     <Data>
       <ToastProvider>
-        <PremiumSheetProvider navigate={() => {}}>
+        <PremiumSheetProvider>
           <PlayerContext.Provider value={fakePlayer()}>{children}</PlayerContext.Provider>
         </PremiumSheetProvider>
       </ToastProvider>
@@ -273,7 +273,7 @@ describe('useTuneMedia', () => {
       ])
   })
 
-  it('answers Add to recordings on a free plan with the Premium sheet, saving nothing', async () => {
+  it('answers Add to recordings on a free plan with the Plan sheet, saving nothing', async () => {
     const analytics = recordingAnalytics()
     await db.entitlements.put(entitlementRow())
     await addLink(db, ids.tuneId, {

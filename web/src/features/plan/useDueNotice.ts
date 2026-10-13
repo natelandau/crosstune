@@ -10,7 +10,8 @@ export interface DueNotice {
    * has answered. */
   kind: NoticeKind | null | undefined
   row: LocalEntitlement | null | undefined
-  holdsRecordings: boolean
+  /** The time the notice is judged at. */
+  now: Date
 }
 
 const NONE: ReadonlySet<NoticeKind> = new Set()
@@ -36,5 +37,5 @@ export function useDueNotice(dismissed: ReadonlySet<NoticeKind> = NONE): DueNoti
   if (row === undefined || holdsRecordings === undefined || seen === undefined) kind = undefined
   else if (holdsRecordings === null || seen === null) kind = null
   else kind = dueUnseenNotice(row, now, holdsRecordings, new Set([...seen, ...dismissed]))
-  return { kind, row, holdsRecordings: holdsRecordings ?? false }
+  return { kind, row, now }
 }

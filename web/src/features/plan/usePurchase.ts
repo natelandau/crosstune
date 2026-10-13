@@ -8,8 +8,12 @@ import type { PremiumEntry } from '../../usage/events'
 import { SUBSCRIBE_FAILED, SUBSCRIBED } from './planCopy'
 
 export interface Purchase {
-  /** Opens the store's checkout for a period, then brings the new plan to this device. */
-  start(period: PurchasePeriod, from: PremiumEntry): void
+  /**
+   * Opens the store's checkout for a period, then brings the new plan to this device. Resolves
+   * true as soon as the store says the purchase went through, before the plan is refreshed, and
+   * false for a cancel or a failure.
+   */
+  start(period: PurchasePeriod, from: PremiumEntry): Promise<boolean>
 }
 
 /** Buys Premium through the web store, saying only whether it finished. */
@@ -21,30 +25,33 @@ export function usePurchase(): Purchase {
   return useMemo<Purchase>(
     () => ({
       start(period, from) {
-        if (!store) return
+        if (!store) return Promise.resolve(false)
         analytics.send('purchase_started', { period, from })
-        void (async () => {
+        return (async () => {
           let outcome
           try {
             outcome = await store.purchase(period)
           } catch {
             analytics.send('purchase_failed', { period, reason: 'error' })
             toast.show(SUBSCRIBE_FAILED)
-            return
+            return false
           }
           if (outcome === 'cancelled') {
             analytics.send('purchase_failed', { period, reason: 'cancelled' })
-            return
+            return false
           }
           analytics.send('purchase_completed', { period })
-          try {
-            await engine.refreshBilling()
-          } catch (caught) {
-            // The store's webhook grants the plan too, and a later sync brings it.
-            console.warn('billing: could not refresh after a purchase', caught)
-          }
-          void engine.sync()
-          toast.show(SUBSCRIBED)
+          void (async () => {
+            try {
+              await engine.refreshBilling()
+            } catch (caught) {
+              // The store's webhook grants the plan too, and a later sync brings it.
+              console.warn('billing: could not refresh after a purchase', caught)
+            }
+            void engine.sync()
+            toast.show(SUBSCRIBED)
+          })()
+          return true
         })()
       },
     }),

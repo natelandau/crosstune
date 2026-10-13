@@ -18,6 +18,7 @@ import {
 import { IMPORT_AND_EXPORT } from '../src/features/settings/settingsCopy'
 import { ADD_RECORDING } from '../src/features/tune/tuneMediaCopy'
 import { RECORDINGS_SECTION, recordingsLine } from '../src/features/tune/tuneScreenCopy'
+import { CLOSE } from '../src/ui/confirmCopy'
 import {
   addTune,
   createThrowawayUser,
@@ -90,11 +91,12 @@ function deviceFiles(page: Page): Promise<DeviceFiles> {
   })
 }
 
-/** Close a plan notice, which opens on its own once nothing else is on screen. */
-async function dismissNotice(page: Page, title: string): Promise<void> {
+/** Close a plan notice, which opens on its own once nothing else is on screen, with the action
+ * that closes it. */
+async function dismissNotice(page: Page, title: string, button = NOTICE_OK): Promise<void> {
   await page
     .getByRole('dialog', { name: title })
-    .getByRole('button', { name: NOTICE_OK, exact: true })
+    .getByRole('button', { name: button, exact: true })
     .click()
   await expectNoOverlay(page)
 }
@@ -174,7 +176,7 @@ test('an account whose trial has ended exports every recording and scan', async 
     try {
       const page2 = await freshDevice.newPage()
       await signInAs(page2, emailAddress)
-      await dismissNotice(page2, TRIAL_ENDED_TITLE)
+      await dismissNotice(page2, TRIAL_ENDED_TITLE, CLOSE)
       await page2.goto(firstUrl)
       await expect(tunePage(page2).getByText(recordingsLine(1), { exact: true })).toBeVisible()
       // Both scan rows have arrived, the scan tune's image has downloaded, and neither the

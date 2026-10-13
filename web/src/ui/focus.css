@@ -20,7 +20,7 @@
    the ring. */
 [data-focus-visible] > .switch-track,
 [data-focus-visible]:has(> .check-mark),
-.radio-row[data-focus-visible] {
+.radio-tile[data-focus-visible] {
   outline: 2px solid var(--slate);
   outline-offset: 2px;
 }

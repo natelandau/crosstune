@@ -58,8 +58,13 @@ export interface SheetCancel {
 export interface SheetProps {
   isOpen: boolean
   onOpenChange: (open: boolean) => void
-  /** The header title and the dialog's accessible name. */
-  title: string
+  /** The header title and the dialog's accessible name. Leave out when `labelledBy` names it. */
+  title?: string
+  /**
+   * The id of a heading in the content that names the dialog, for a sheet whose content opens on
+   * its own headline. The header then shows no title and keeps its close button in place.
+   */
+  labelledBy?: string
   /**
    * Touch only: open at part height, draggable to full; open full for a long form; or fit the
    * content, up to part height, for a short question such as a confirmation.
@@ -81,8 +86,30 @@ export interface SheetProps {
    * Cancel would claim to undo them.
    */
   cancel?: SheetCancel | null
+  /**
+   * Keeps the header's close button beside footer actions, for a sheet whose actions all lead on
+   * somewhere and none simply closes it.
+   */
+  closeButton?: boolean
+  /** Makes the primary a full-width, taller button, for a sheet that leads to one action. */
+  primaryLarge?: boolean
+  /**
+   * The accessory, actions, and footnote end the scrolling content instead of pinning to the
+   * sheet's foot, so the sheet reads as one page.
+   */
+  inlineActions?: boolean
+  /**
+   * Stacks the actions in a column: the full-width primary, then the tertiary centered beneath it
+   * as plain text. Implies `primaryLarge`, and ignores `cancel`: a stacked sheet closes from its
+   * header.
+   */
+  stackedActions?: boolean
   /** A quiet action at the footer's leading end, such as Reset or Back. */
   tertiary?: SheetAction
+  /** Above the actions, such as a choice the primary acts on. */
+  accessory?: ReactNode
+  /** Below the actions, such as the terms of a sale. */
+  footnote?: ReactNode
   /** Runs once the sheet has finished closing and left the page. */
   onClosed?: () => void
   /** The control the sheet grows out of and closes back into, such as the Record disc. */
@@ -128,9 +155,18 @@ function isTextInput(target: EventTarget): boolean {
   )
 }
 
-/** Whether the sheet shows a footer; one without shows a close button in its header. */
-function hasFooter({ primary, cancel, tertiary }: SheetProps): boolean {
+/** Whether the sheet has footer actions; one without shows a close button in its header. */
+function hasActions({
+  primary,
+  cancel,
+  tertiary,
+}: Pick<SheetProps, 'primary' | 'cancel' | 'tertiary'>): boolean {
   return primary !== undefined || tertiary !== undefined || cancel !== null
+}
+
+/** Whether the sheet pins anything to its foot: actions, or content beside them. */
+function hasFooter(props: SheetProps): boolean {
+  return hasActions(props) || Boolean(props.accessory) || Boolean(props.footnote)
 }
 
 function SheetHeader({
@@ -138,7 +174,7 @@ function SheetHeader({
   edge,
   onClose,
 }: {
-  title: string
+  title?: string
   /** Content has scrolled up under the header, so a hairline sets it apart. */
   edge: boolean
   /** Shown as a close button, for a sheet with no footer. */
@@ -151,9 +187,13 @@ function SheetHeader({
         edge ? 'border-hairline' : 'border-transparent'
       }`}
     >
-      <Heading slot="title" className="t-heading min-w-0 flex-1 break-words">
-        {title}
-      </Heading>
+      {title === undefined ? (
+        <div className="min-w-0 flex-1" />
+      ) : (
+        <Heading slot="title" className="t-heading min-w-0 flex-1 break-words">
+          {title}
+        </Heading>
+      )}
       {onClose && <Button iconOnly icon={X} label={CLOSE} onPress={onClose} />}
     </header>
   )
@@ -162,72 +202,142 @@ function SheetHeader({
 /**
  * The sheet's actions: a quiet tertiary leading, then Cancel and the filled primary trailing.
  * On touch, Cancel and the primary split the width into two equal targets, and a lone action
- * runs full width.
+ * runs full width. Stacked, they form a column with no Cancel.
  */
-function SheetFooter({
+function SheetActions({
   primary,
+  primaryLarge = false,
+  stacked = false,
   cancel,
   tertiary,
+  accessory,
+  footnote,
   onClose,
   touch,
+}: {
+  primary?: SheetPrimary
+  primaryLarge?: boolean
+  stacked?: boolean
+  cancel?: SheetCancel | null
+  tertiary?: SheetAction
+  accessory?: ReactNode
+  footnote?: ReactNode
+  onClose: () => void
+  touch: boolean
+}) {
+  // A wrapper sizes each button: equal shares on touch, a floor on pointer so a short label such
+  // as OK still reads as a button.
+  const slot = primaryLarge ? 'flex w-full' : touch ? 'flex min-w-0 flex-1' : 'flex min-w-20'
+  const actions = hasActions({ primary, cancel, tertiary })
+  if (stacked) {
+    return (
+      <>
+        {accessory}
+        {actions && (
+          <div className="flex flex-col items-stretch gap-1">
+            {primary && (
+              <Button
+                variant={primary.tone ? TONE_VARIANT[primary.tone] : 'primary'}
+                fullWidth
+                large
+                label={primary.label}
+                icon={primary.icon}
+                onPress={primary.onPress}
+                isDisabled={primary.isDisabled}
+              />
+            )}
+            {tertiary && (
+              <div className="flex justify-center">
+                <Button
+                  label={tertiary.label}
+                  icon={tertiary.icon}
+                  onPress={tertiary.onPress}
+                  isDisabled={tertiary.isDisabled}
+                />
+              </div>
+            )}
+          </div>
+        )}
+        {footnote}
+      </>
+    )
+  }
+  return (
+    <>
+      {accessory}
+      {actions && (
+        <div className="flex items-center gap-2">
+          {tertiary && (
+            <div className="me-auto flex">
+              <Button
+                label={tertiary.label}
+                icon={tertiary.icon}
+                onPress={tertiary.onPress}
+                isDisabled={tertiary.isDisabled}
+              />
+            </div>
+          )}
+          {!tertiary && !touch && !primaryLarge && <div className="me-auto" />}
+          {cancel !== null && (
+            <div className={slot}>
+              <Button
+                variant="bordered"
+                fullWidth
+                label={cancel?.label ?? CANCEL}
+                onPress={cancel?.onPress ?? onClose}
+                isDisabled={cancel?.isDisabled}
+              />
+            </div>
+          )}
+          {primary && (
+            <div className={slot}>
+              <Button
+                variant={primary.tone ? TONE_VARIANT[primary.tone] : 'primary'}
+                fullWidth
+                large={primaryLarge}
+                label={primary.label}
+                icon={primary.icon}
+                onPress={primary.onPress}
+                isDisabled={primary.isDisabled}
+              />
+            </div>
+          )}
+        </div>
+      )}
+      {footnote}
+    </>
+  )
+}
+
+/** The sheet's actions at the end of its scrolling content, for a sheet that reads as one page. */
+function InlineActions(actions: Parameters<typeof SheetActions>[0]) {
+  return (
+    <div className="flex flex-col gap-3 pt-4">
+      <SheetActions {...actions} />
+    </div>
+  )
+}
+
+/** The sheet's actions, pinned to its foot. */
+function SheetFooter({
   edge,
   className = '',
   style,
-}: {
-  primary?: SheetPrimary
-  cancel?: SheetCancel | null
-  tertiary?: SheetAction
-  onClose: () => void
-  touch: boolean
+  ...actions
+}: Parameters<typeof SheetActions>[0] & {
   /** Content runs on under the footer, so a hairline sets it apart. */
   edge: boolean
   className?: string
   style?: MotionStyle
 }) {
-  // A wrapper sizes each button: equal shares on touch, a floor on pointer so a short label such
-  // as OK still reads as a button.
-  const slot = touch ? 'flex min-w-0 flex-1' : 'flex min-w-20'
   return (
     <motion.footer
-      className={`bg-ground flex items-center gap-2 border-t px-4 pt-3 transition-colors duration-(--dur-short) ${
+      className={`bg-ground flex flex-col gap-3 border-t px-4 pt-3 transition-colors duration-(--dur-short) ${
         edge ? 'border-hairline' : 'border-transparent'
       } ${className}`}
       style={style}
     >
-      {tertiary && (
-        <div className="me-auto flex">
-          <Button
-            label={tertiary.label}
-            icon={tertiary.icon}
-            onPress={tertiary.onPress}
-            isDisabled={tertiary.isDisabled}
-          />
-        </div>
-      )}
-      {!tertiary && !touch && <div className="me-auto" />}
-      {cancel !== null && (
-        <div className={slot}>
-          <Button
-            variant="bordered"
-            fullWidth
-            label={cancel?.label ?? CANCEL}
-            onPress={cancel?.onPress ?? onClose}
-            isDisabled={cancel?.isDisabled}
-          />
-        </div>
-      )}
-      {primary && (
-        <div className={slot}>
-          <Button
-            variant={primary.tone ? TONE_VARIANT[primary.tone] : 'primary'}
-            fullWidth
-            label={primary.label}
-            icon={primary.icon}
-            onPress={primary.onPress}
-            isDisabled={primary.isDisabled}
-          />
-        </div>
-      )}
+      <SheetActions {...actions} />
     </motion.footer>
   )
 }
@@ -283,12 +393,19 @@ function PointerDialog(props: SheetProps) {
   const {
     onOpenChange,
     title,
+    labelledBy,
     locked = false,
     asksOnBack = false,
     describedBy,
     primary,
     cancel,
+    closeButton = false,
+    primaryLarge = false,
+    stackedActions = false,
+    inlineActions = false,
     tertiary,
+    accessory,
+    footnote,
     origin,
     children,
   } = props
@@ -296,6 +413,8 @@ function PointerDialog(props: SheetProps) {
   const edges = useScrollEdges(content)
   const close = () => onOpenChange(false)
   const footer = hasFooter(props)
+  const pinned = footer && !inlineActions
+  const actions = hasActions(props)
   return (
     <PointerOverlay
       origin={origin}
@@ -306,16 +425,43 @@ function PointerDialog(props: SheetProps) {
       className="bg-ground flex max-h-full max-w-full flex-col overflow-hidden rounded-(--radius-surface) shadow-(--shadow-float)"
       style={{ width: SHEET.width }}
     >
-      <Dialog aria-describedby={describedBy} className="flex max-h-full min-h-0 flex-col">
-        <SheetHeader title={title} edge={edges.top} onClose={footer ? undefined : close} />
+      <Dialog
+        aria-labelledby={labelledBy}
+        aria-describedby={describedBy}
+        className="flex max-h-full min-h-0 flex-col"
+      >
+        <SheetHeader
+          title={title}
+          edge={edges.top}
+          onClose={actions && !closeButton ? undefined : close}
+        />
         <div ref={setContent} className="min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-4">
-          <div>{children}</div>
+          <div>
+            {children}
+            {footer && inlineActions && (
+              <InlineActions
+                primary={primary}
+                primaryLarge={primaryLarge}
+                stacked={stackedActions}
+                cancel={cancel}
+                tertiary={tertiary}
+                accessory={accessory}
+                footnote={footnote}
+                onClose={close}
+                touch={false}
+              />
+            )}
+          </div>
         </div>
-        {footer && (
+        {pinned && (
           <SheetFooter
             primary={primary}
+            primaryLarge={primaryLarge}
+            stacked={stackedActions}
             cancel={cancel}
             tertiary={tertiary}
+            accessory={accessory}
+            footnote={footnote}
             onClose={close}
             touch={false}
             edge={edges.bottom}
@@ -401,13 +547,20 @@ function TouchSheet(props: SheetProps) {
   const {
     onOpenChange,
     title,
+    labelledBy,
     height = 'part',
     locked = false,
     asksOnBack = false,
     describedBy,
     primary,
     cancel,
+    closeButton = false,
+    primaryLarge = false,
+    stackedActions = false,
+    inlineActions = false,
     tertiary,
+    accessory,
+    footnote,
     origin,
     children,
   } = props
@@ -461,6 +614,8 @@ function TouchSheet(props: SheetProps) {
   const contentScrolls = edges.overflows
   const keyboard = useKeyboardInset()
   const footer = hasFooter(props)
+  const pinned = footer && !inlineActions
+  const actions = hasActions(props)
   const close = () => onOpenChange(false)
   useRecede(y, closedY)
 
@@ -553,7 +708,7 @@ function TouchSheet(props: SheetProps) {
         dragElastic={{ top: 0.05, bottom: locked ? SHEET.lockedElastic : 0 }}
         onDragEnd={onDragEnd}
       >
-        <Dialog aria-describedby={describedBy} className="h-full">
+        <Dialog aria-labelledby={labelledBy} aria-describedby={describedBy} className="h-full">
           <div
             ref={setColumn}
             className="flex h-full flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]"
@@ -564,22 +719,45 @@ function TouchSheet(props: SheetProps) {
               <div className="bg-silver h-1.5 w-10 rounded-(--radius-capsule)" />
             </div>
             <div className="touch-none">
-              <SheetHeader title={title} edge={edges.top} onClose={footer ? undefined : close} />
+              <SheetHeader
+                title={title}
+                edge={edges.top}
+                onClose={actions && !closeButton ? undefined : close}
+              />
             </div>
             <div
               ref={setContent}
               data-sheet-content
               className={`min-h-0 flex-1 overflow-y-auto px-4 pt-1 ${
-                footer ? 'pb-4' : 'pb-[max(1rem,env(safe-area-inset-bottom))]'
+                pinned ? 'pb-4' : 'pb-[max(1rem,env(safe-area-inset-bottom))]'
               } ${contentScrolls ? 'touch-pan-y' : 'touch-none'}`}
             >
-              <div>{children}</div>
+              <div>
+                {children}
+                {footer && inlineActions && (
+                  <InlineActions
+                    primary={primary}
+                    primaryLarge={primaryLarge}
+                    stacked={stackedActions}
+                    cancel={cancel}
+                    tertiary={tertiary}
+                    accessory={accessory}
+                    footnote={footnote}
+                    onClose={close}
+                    touch
+                  />
+                )}
+              </div>
             </div>
-            {footer && (
+            {pinned && (
               <SheetFooter
                 primary={primary}
+                primaryLarge={primaryLarge}
+                stacked={stackedActions}
                 cancel={cancel}
                 tertiary={tertiary}
+                accessory={accessory}
+                footnote={footnote}
                 onClose={close}
                 touch
                 edge={edges.bottom}
