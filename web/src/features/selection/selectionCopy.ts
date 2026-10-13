@@ -1,7 +1,7 @@
 import type { TuneStatus } from '../../api/vocabulary'
 import { STATUS_LABELS } from '../../constants'
 import { ARCHIVE, UNARCHIVE } from '../tune/archiveLabels'
-import { countTunes } from './copy'
+import { countTunes } from '../../text/format'
 
 export const SELECT_ALL = 'Select all'
 export const DESELECT_ALL = 'Deselect all'

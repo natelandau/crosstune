@@ -23,7 +23,7 @@ import { DEFAULT_FILTERS, META_CATALOG_FILTERS, normalizeFilters, tuneCountLabel
 import { CATALOG_SORT_OPTIONS } from './catalogSort'
 import { setCatalogSort } from './useCatalogSort'
 import { IMPORT_TUNES } from '../import/importCopy'
-import { countTunes } from '../selection/copy'
+import { countTunes } from '../../text/format'
 import { selectedTitle } from '../selection/selectionCopy'
 import { ARCHIVE, ARCHIVED } from '../tune/archiveLabels'
 import { DELETE_TUNE_TITLE, deleteTuneMessage } from '../tune/deleteTuneMessage'

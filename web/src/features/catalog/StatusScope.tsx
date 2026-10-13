@@ -2,7 +2,7 @@ import type { ReactElement } from 'react'
 import { STATUSES, type TuneStatus } from '../../api/vocabulary'
 import { STATUS_LABELS } from '../../constants'
 import type { LiveTuneCounts } from './useStatusCounts'
-import { countTunes } from '../selection/copy'
+import { countTunes } from '../../text/format'
 import { Menu, type MenuTriggerProps } from '../../ui/Menu'
 import { CATALOG_SCOPE, STATUS_SCOPE } from './scope'
 

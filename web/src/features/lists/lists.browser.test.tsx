@@ -26,7 +26,7 @@ import {
 } from './listsCopy'
 import type { Player } from '../player/usePlayer'
 import { closeRecordingName, playName } from '../recordings/recordingNames'
-import { countTunes } from '../selection/copy'
+import { countTunes } from '../../text/format'
 import { removedFromListToast, selectedTitle } from '../selection/selectionCopy'
 import { EDIT_TUNE } from '../tune/tuneScreenCopy'
 import { applyPullPage } from '../../sync/apply'

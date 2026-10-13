@@ -1,6 +1,7 @@
 import { TUNE_LIMITS } from '../../api/vocabulary'
 import { SITE_URL } from '../../auth/links'
-import { countTunes } from '../selection/copy'
+import { countTunes } from '../../text/format'
+import { localIsoDate } from '../../text/localDate'
 import { DETAIL_LABELS } from '../tune/detailFields'
 import { STATUS_HEADER } from '../tune/tuneFormCopy'
 import { IMPORT_LIMIT } from './review'
@@ -42,6 +43,5 @@ export function addedTunesToast(n: number): string {
 
 /** The default name of a list made by an import: "Imported" and the local date. */
 export function importListName(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `Imported ${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+  return `Imported ${localIsoDate(date)}`
 }

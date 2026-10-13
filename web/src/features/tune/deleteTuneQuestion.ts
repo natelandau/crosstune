@@ -1,7 +1,7 @@
 import { activeRecordingsForTune } from '../../commands/recordings'
 import type { CrosstuneDb } from '../../db/schema'
 import type { CatalogEntry } from '../catalog/filters'
-import { countTunes } from '../selection/copy'
+import { countTunes } from '../../text/format'
 import { DELETE_TUNE_TITLE, deleteTuneMessage, deleteTunesMessage } from './deleteTuneMessage'
 
 /**

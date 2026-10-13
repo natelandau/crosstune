@@ -1,4 +1,4 @@
-import { countTunes } from './copy'
+import { countTunes } from '../../text/format'
 import { DESELECT_ALL, SELECT_ALL, selectedTitle } from './selectionCopy'
 
 export interface SelectionTitle {

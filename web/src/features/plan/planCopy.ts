@@ -1,4 +1,5 @@
 import { addedDay } from '../../text/format'
+import { localDaysBetween } from '../../text/localDate'
 
 export const PLAN_GROUP = 'Plan'
 export const PLAN_FREE = 'Free'
@@ -93,16 +94,9 @@ export function premiumScansBody(tuneTitle: string): string {
   return `On the free plan, scans open on one tune, "${tuneTitle}". Pages on other tunes stay: you can delete or export them.`
 }
 
-const DAY_MS = 86_400_000
-
-function startOfDay(date: Date): number {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
-}
-
 /** Local calendar days from `now` to `endsAt`: 0 on the day itself, negative after it. */
 export function calendarDaysLeft(endsAt: Date, now: Date): number {
-  // Rounding absorbs the 23 or 25 hour days around a daylight saving change.
-  return Math.round((startOfDay(endsAt) - startOfDay(now)) / DAY_MS)
+  return localDaysBetween(now, endsAt)
 }
 
 /** What is left of the trial in local calendar days, or that it ends today. */

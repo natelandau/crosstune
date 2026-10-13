@@ -2,6 +2,7 @@ import { RECORDING_LIMITS, type RecordingPrecision } from '../api/vocabulary'
 import type { LocalFileState, RecordingFile } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
+import { localIsoDate, localIsoTime } from '../text/localDate'
 import {
   LINK_NOT_FOUND,
   RECORDED_DATE_FUTURE,
@@ -134,8 +135,7 @@ export async function appendChunk(
 /** The name a new recording gets: when it started, as the local `YYYY-MM-DD HH:MM`. */
 export function defaultRecordingLabel(recordedAt: string | Date): string {
   const d = new Date(recordedAt)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return `${localIsoDate(d)} ${localIsoTime(d)}`
 }
 
 export async function finishCapture(

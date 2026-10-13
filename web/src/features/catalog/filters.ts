@@ -2,7 +2,7 @@ import { STATUSES, type Instrument, type TuneStatus } from '../../api/vocabulary
 import type { LocalTune, LocalUserTune } from '../../db/types'
 import { containsText, foldText, sameText } from '../../text/fold'
 import { groupByFold } from '../../text/spelling'
-import { countTunes } from '../selection/copy'
+import { countTunes } from '../../text/format'
 import { KEY } from '../../ui/keyName'
 import { DETAIL_LABELS } from '../tune/detailFields'
 import {

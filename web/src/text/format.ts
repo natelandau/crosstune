@@ -118,3 +118,7 @@ export function fileStateLabel(
   if (local !== undefined) return local
   return SERVER_LABELS[row.state] ?? ''
 }
+
+export function countTunes(n: number): string {
+  return n === 1 ? '1 tune' : `${n} tunes`
+}

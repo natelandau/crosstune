@@ -5,6 +5,7 @@ import { countBucket } from '../../usage/buckets'
 import { addToList } from '../../commands/lists'
 import { useDb } from '../../db/DbProvider'
 import { messageFor, useAction } from '../../ui/useAction'
+import { useResetOnChange } from '../../ui/useResetOnChange'
 import { useTuneMatches, type TuneMatches } from '../catalog/useTuneMatches'
 
 export interface TunePicker {
@@ -59,7 +60,6 @@ export function useTunePicker(
   const { error, run, clear } = useAction()
   const [query, setQuery] = useState('')
   const [closing, setClosing] = useState(false)
-  const [wasOpen, setWasOpen] = useState(open)
   // Tunes whose add is in flight. A ref, because two taps in one tick both read the same state.
   const adding = useRef(new Set<string>())
   const creating = useRef<string | null>(null)
@@ -70,14 +70,13 @@ export function useTunePicker(
 
   // Reset during render, not an effect, so the next open already starts clean instead of
   // flashing the previous visit's search for a frame.
-  if (open !== wasOpen) {
-    setWasOpen(open)
+  useResetOnChange(open, () => {
     if (open) {
       setQuery('')
       setClosing(false)
       clear()
     }
-  }
+  })
 
   useLayoutEffect(() => {
     if (open) visit.current = newVisit()

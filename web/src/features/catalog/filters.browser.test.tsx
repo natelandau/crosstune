@@ -20,7 +20,7 @@ import {
   type Facet,
   type FacetValues,
 } from './filters'
-import { countTunes } from '../selection/copy'
+import { countTunes } from '../../text/format'
 import { withInstrumentLabel } from '../../domain/instruments'
 import { openTestDb } from '../../test/db'
 import { DONE } from '../../ui/confirmCopy'
