@@ -81,7 +81,7 @@
                 }
             }
             .tabViewStyle(.automatic)
-            // A window of its own, so the shell's Premium sheet and purchase model never reach it.
+            // A window of its own, so the shell's Plan sheet and purchase model never reach it.
             .modifier(PlanPurchases())
             // The window rather than each tab, so opening Settings reports once.
             .screenView(.settings)

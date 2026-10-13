@@ -59,6 +59,56 @@ import Testing
         }
     }
 
+    /// Coral and its ink are fixed colors, so the Premium tab and the Save badge read the same
+    /// in both appearances.
+    @Test func inkOnCoralPassesContrast() {
+        #expect(contrastRatio(BrandStyle.onCoralHex, BrandStyle.coralHex) >= 4.5)
+    }
+
+    /// The Premium column's checks and values on the column's wash over the card.
+    @Test(arguments: PlanSurface.all)
+    func premiumColumnPassesContrastOnItsWash(surface: PlanSurface) {
+        let wash = blend(
+            BrandStyle.accentHex(surface.scheme), over: surface.card, opacity: BrandStyle.setFillOpacity(surface.scheme)
+        )
+        let ink = surface.scheme == .dark ? surface.primary(over: wash) : BrandStyle.premiumInkLight
+        #expect(contrastRatio(ink, wash) >= 3, "check, \(surface)")
+        #expect(contrastRatio(ink, wash) >= 4.5, "value, \(surface)")
+    }
+
+    /// A feature tile's symbol, in the set filter's label color on its wash over the card.
+    @Test(arguments: PlanSurface.all)
+    func featureTileGlyphPassesContrast(surface: PlanSurface) {
+        let wash = blend(
+            BrandStyle.accentHex(surface.scheme), over: surface.card, opacity: BrandStyle.setFillOpacity(surface.scheme)
+        )
+        let ink =
+            BrandStyle.setLabelIsSlate(surface.scheme)
+            ? BrandStyle.accentHex(surface.scheme) : surface.primary(over: wash)
+        #expect(contrastRatio(ink, wash) >= 3, "\(surface)")
+    }
+
+    /// The Free column's checks and minus marks, in the secondary label color on the card.
+    @Test(arguments: PlanSurface.all)
+    func freeColumnGlyphsPassContrast(surface: PlanSurface) {
+        #expect(contrastRatio(surface.secondary(over: surface.card), surface.card) >= 3, "\(surface)")
+    }
+
+    /// The Free column's values, which are text, on the card.
+    @Test(arguments: PlanSurface.all)
+    func freeColumnValuesPassContrast(surface: PlanSurface) {
+        #expect(contrastRatio(BrandStyle.washSecondaryHex(surface.scheme), surface.card) >= 4.5, "\(surface)")
+    }
+
+    /// The trial card's secondary lines on its slate wash, which lies on the sheet's ground.
+    @Test(arguments: PlanSurface.all)
+    func trialCardTextPassesContrastOnItsWash(surface: PlanSurface) {
+        let wash = blend(
+            BrandStyle.accentHex(surface.scheme), over: surface.ground,
+            opacity: BrandStyle.setFillOpacity(surface.scheme))
+        #expect(contrastRatio(BrandStyle.washSecondaryHex(surface.scheme), wash) >= 4.5, "\(surface)")
+    }
+
     @Test func statusGlyphColorsAreTheStatusColors() {
         #expect(StatusGlyph.color(for: "known") == .green)
         #expect(StatusGlyph.color(for: "learning") == .orange)
@@ -90,4 +140,48 @@ import Testing
             }
         }
     #endif
+}
+
+/// Where the Plan sheet draws: the sheet's ground and its cards, with the system label colors
+/// over them, on the Mac and on iPhone in each appearance. A Mac sheet draws a shade off its
+/// window background, so the Mac's grounds cover both; its card is the quinary label color over
+/// the ground.
+struct PlanSurface: CustomStringConvertible, Sendable {
+    let name: String
+    let scheme: ColorScheme
+    let ground: String
+    let card: String
+    /// The secondary label as a color and opacity.
+    let secondaryInk: (String, Double)
+    /// The primary label as a color and opacity.
+    let primaryInk: (String, Double)
+
+    var description: String { name }
+
+    func secondary(over background: String) -> String {
+        blend(secondaryInk.0, over: background, opacity: secondaryInk.1)
+    }
+
+    func primary(over background: String) -> String {
+        blend(primaryInk.0, over: background, opacity: primaryInk.1)
+    }
+
+    static func mac(_ scheme: ColorScheme, ground: String) -> PlanSurface {
+        let ink = scheme == .dark ? "#FFFFFF" : "#000000"
+        return PlanSurface(
+            name: "Mac \(scheme) on \(ground)", scheme: scheme, ground: ground,
+            card: blend(ink, over: ground, opacity: 0.047),
+            secondaryInk: (ink, scheme == .dark ? 0.549 : 0.498), primaryInk: (ink, 0.847))
+    }
+
+    static let all: [PlanSurface] = [
+        mac(.light, ground: "#FFFFFF"), mac(.light, ground: "#F0F0F0"),
+        mac(.dark, ground: "#1E1E1E"), mac(.dark, ground: "#282828"),
+        PlanSurface(
+            name: "iPhone light", scheme: .light, ground: "#F2F2F7", card: "#FFFFFF",
+            secondaryInk: ("#3C3C43", 0.6), primaryInk: ("#000000", 1)),
+        PlanSurface(
+            name: "iPhone dark", scheme: .dark, ground: "#000000", card: "#1C1C1E",
+            secondaryInk: ("#EBEBF5", 0.6), primaryInk: ("#FFFFFF", 1)),
+    ]
 }

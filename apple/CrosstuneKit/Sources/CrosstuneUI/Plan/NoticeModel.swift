@@ -66,7 +66,6 @@ final class NoticeModel {
 
     /// The latest facts read from the store, nil before the first read.
     var facts: NoticeFacts? { query.value ?? nil }
-    var holdsRecordings: Bool { facts?.holdsRecordings ?? false }
     /// When the trial ends, for the notices that name the day.
     var trialEndsAt: Date? {
         guard let row = facts?.row else { return nil }

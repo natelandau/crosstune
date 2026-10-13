@@ -38,8 +38,10 @@ import Testing
     /// Reads whose property or method is named like content but hold the app's own words.
     static let notContent: Set = [
         "category.title", "TextSize.valueLabel", "RecordingText.added", "action.title",
-        // The Premium sheet's name for what it sells.
-        "product.title",
+        // A row of the Plan sheet's comparison or included list, named by the app.
+        "feature.title",
+        // The date a member's plan renews or ends.
+        "membership.value",
     ]
 
     /// Views that show their argument. One whose argument reads a content property is masked.
@@ -330,8 +332,8 @@ import Testing
         ("Import/ImportSheet.swift", "Picker(ImportCopy.listLabel"),
         // A file read's failure, which can name the file.
         ("Import/ImportSheet.swift", "Text(failure)"),
-        // The Premium sheet's scans body, which names the scan tune.
-        ("Plan/PremiumSheet.swift", "Text(message)"),
+        // The Plan sheet's scans body, which names the scan tune.
+        ("Plan/PlanSheet.swift", "Text(message)"),
     ]
 
     @Test func everyHandMaskStaysInPlace() throws {

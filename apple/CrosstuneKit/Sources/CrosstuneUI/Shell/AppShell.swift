@@ -85,11 +85,11 @@ public struct AppShell: View {
             )
             // The sheet claims the shell only once it shows; this holds the menus from the request.
             .coversShellMenus(premium?.presented != nil)
-            .modifier(PremiumSheets(presenter: premium, purchase: purchase, onSeePlan: seePlan))
+            .modifier(PlanSheets(presenter: premium, purchase: purchase))
             .modifier(
                 NoticeSheets(
-                    model: notices, plan: plan?.plan ?? .unknown, sells: purchase != nil, onSeePlan: seePlan,
-                    onSubscribe: { premium?.present(.plan, from: $0) })
+                    model: notices, plan: plan?.plan ?? .unknown, purchase: purchase, onSeePlan: seePlan,
+                    onComparePlans: { premium?.present(.plan, from: $0) })
             )
             .modifier(LyricsScreens())
             .modifier(ScanScreens())
@@ -196,7 +196,7 @@ public struct AppShell: View {
         Self.noticeCovered(shellCovered: isShellCovered, premiumRequested: premium?.presented != nil, phase: scenePhase)
     }
 
-    /// Whether a plan notice waits: while something covers the shell, while the Premium sheet is
+    /// Whether a plan notice waits: while something covers the shell, while the Plan sheet is
     /// asked for, or while the window is not the active one, so a notice never lands in a
     /// background or minimized window that another window could show it in. The request is read
     /// from the presenter because a cover's claim lands only in the update after it.
@@ -237,7 +237,7 @@ public struct AppShell: View {
     }
 
     /// Opens the record sheet, unless another window's sheet has the microphone or the plan
-    /// holds recordings back, which shows the Premium sheet instead. The sheet takes the
+    /// holds recordings back, which shows the Plan sheet instead. The sheet takes the
     /// recorder only once it shows, so a presentation refused while another sheet is up holds
     /// nothing.
     private func startRecording(tuneID: String?, source: ActionSource) {
@@ -254,10 +254,9 @@ public struct AppShell: View {
         #endif
     }
 
-    /// Closes the Premium sheet, if it is up, and opens the Plan group: the Settings window's
-    /// Account tab on the Mac, Settings › Account elsewhere.
+    /// Opens the Plan group: the Settings window's Account tab on the Mac, Settings › Account
+    /// elsewhere.
     private func seePlan() {
-        premium?.presented = nil
         #if os(macOS)
             MacSettingsTabs.select(.account)
             openSettings()

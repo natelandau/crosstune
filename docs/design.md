@@ -76,8 +76,11 @@ Decide any case the rules below do not name.
 - A solid control (primary button, a loaded transport disc) fills with
   jet in light and alabaster in dark, its label in the on-accent token.
 - Coral: the mark, the selected sidebar row's glyph, the playhead of
-  anything that plays back, every loop handle. Nothing else. An editing
-  strip's playhead (trim) stays plain.
+  anything that plays back, every loop handle, and what marks Premium on a
+  sheet that sells it. Nothing else. An editing strip's playhead (trim)
+  stays plain.
+- Premium's coral is a fill with dark ink in both appearances, never coral
+  text or a coral glyph on a light ground, which fall under 3:1.
 - Loop handle: coral whatever the loop's color. Loop color stays on its
   band and tab.
 - Recording red: Record control, live waveform, Stop. Never a destructive
@@ -433,8 +436,9 @@ groups.
   segments. The default status for new tunes is a picker row, not the
   status segments.
 - The Plan group sits on the Account page.
-- The Plan group's purchase actions sit in their own section, under
-  its plan and storage rows.
+- The Plan group holds only the plan row, which opens the Plan sheet for
+  every account, and the storage meter. Buying, managing, and restoring
+  happen in the Plan sheet.
 - Kept on the device and through sign-out: the appearance, text size, and
   recording channels settings, and every list's sort choice.
 
@@ -444,7 +448,8 @@ Each overlay is one component per platform. Platform pages say how it
 presents.
 
 - Sheet opens part height, or full height for a long body or many fields.
-  Its title names the dialog.
+  Its title names the dialog. A sheet that opens on its own headline (the
+  Plan sheet) shows no title, and the headline names it.
 - Menu: destructive items last, red, after a separator. Cautionary items in
   warning color.
 - A destructive action confirms through the app's own overlay. Only the
@@ -459,21 +464,27 @@ presents.
 - A destructive edit that needs more room than a confirmation (trimming a
   recording): its own screen, `Cancel` and bold `Save`. Save confirms,
   naming what the edit keeps.
-- A gated control stays in place and answers a tap with the Premium
-  sheet, whose headline names what was tapped. The Premium sheet links to
-  the Plan group.
-- The Premium sheet sells only to a free or trial account, and only once
-  the store has answered with its prices. Subscribe never shows without a
-  plan the store can sell; otherwise the Plan link stays the primary
-  action.
-- On Apple a checkout's outcome shows as a line in the Premium sheet,
-  never a toast. Restore purchases sits on the paywall and in the Plan
-  group.
-- The sheet does not explain trial billing. The terms of use say that a
-  purchase during a trial starts billing that day.
+- A gated control stays in place and answers a tap with the Plan sheet,
+  whose headline names what was tapped.
+- The Plan sheet opens full height. It sells to a free or trial account
+  and shows a Premium account its plan.
+- A sheet sells only once the store has answered with its prices.
+  Subscribe never shows without a plan the store can sell, and a sheet
+  that cannot sell still shows what Premium holds.
+- While the store loads, a disabled Subscribe holds its place in the Plan
+  sheet and in a trial notice, so a fast tap never lands on a control
+  that moved.
+- On Apple a checkout's outcome shows as a line by the button that
+  started it, never a toast. Restore purchases sits in the Plan sheet.
+- No sheet explains trial billing. The terms of use say that a purchase
+  during a trial starts billing that day.
 - A one-time notice (first recording, trial reminder, trial end) is a
   sheet, one at a time, never during a capture and never over another
   modal. Dismissing it marks it seen for the account.
+- A trial notice sells in place: its primary buys Annual at the store's
+  price, and Compare plans opens the Plan sheet. A trial notice that
+  cannot sell offers only Compare plans. The first-recording notice does
+  not sell.
 - A live recording refuses swipe dismissal. Discarding captured audio
   confirms.
 

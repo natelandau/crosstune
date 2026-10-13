@@ -13,6 +13,10 @@ public enum BrandStyle {
     public static let coralHex = "#EF8354"
     public static let onAccentLight = "#FFFFFF"
     public static let onAccentDark = "#16181D"
+    public static let onCoralHex = "#1D2230"
+    public static let washSecondaryLight = "#555B66"
+    public static let washSecondaryDark = "#BAC0CA"
+    public static let premiumInkLight = "#465369"
 
     /// Slate, lighter in dark mode so text on the window keeps its contrast.
     public static var accent: Color {
@@ -30,6 +34,9 @@ public enum BrandStyle {
     }
 
     public static var coral: Color { color(hex: coralHex) }
+
+    /// Ink on a coral fill: dark in both appearances, since coral is a light color in both.
+    public static var onCoral: Color { color(hex: onCoralHex) }
 
     /// A label on a slate fill: white on the light slate, near-black on the dark slate, which
     /// is a light color.
@@ -51,6 +58,28 @@ public enum BrandStyle {
     /// A set filter's wash, the fill of a filter control or token once it narrows the list.
     public static func setFill(_ scheme: ColorScheme) -> Color {
         accent.opacity(setFillOpacity(scheme))
+    }
+
+    /// A slate wash a step stronger than a set filter's, so a track drawn on that wash still shows.
+    public static func tintStrong(_ scheme: ColorScheme) -> Color {
+        accent.opacity(scheme == .dark ? 0.5 : 0.3)
+    }
+
+    /// Secondary text on a slate wash or a Plan sheet card, darker in light mode and lighter in
+    /// dark mode than the system's secondary label, which falls short of 4.5:1 on either.
+    public static func washSecondary(_ scheme: ColorScheme) -> Color {
+        color(hex: washSecondaryHex(scheme))
+    }
+
+    static func washSecondaryHex(_ scheme: ColorScheme) -> String {
+        scheme == .dark ? washSecondaryDark : washSecondaryLight
+    }
+
+    /// The Premium column's checks and values on its wash. Light mode takes a deeper slate, since
+    /// the Mac's card darkens the wash enough to leave slate short of 4.5:1; dark mode takes the
+    /// primary label, as a set filter does.
+    public static func premiumInk(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? .primary : color(hex: premiumInkLight)
     }
 
     /// A set filter's label on its wash.

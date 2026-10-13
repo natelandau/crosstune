@@ -240,7 +240,7 @@ public enum PremiumReason: String, CaseIterable, Sendable {
     case plan
 }
 
-/// The control a free account tapped that opened the Premium sheet.
+/// The control a free account tapped that opened the Plan sheet.
 public enum PremiumEntry: String, CaseIterable, Sendable {
     case record
     case upload

@@ -20,8 +20,6 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
         freeQuotaBytes: 1_000)
 }
 
-private let offers = [PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffer(period: .monthly, price: "M$1")]
-
 @MainActor
 @Suite struct PremiumPresenterTests {
     private let root = TemporaryRoot()
@@ -63,14 +61,17 @@ private let offers = [PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffe
         #expect(purchase.line == nil)
     }
 
-    @Test func onlyAPlanThatCanSubscribeInABuildThatSellsMayOfferAPurchase() async throws {
+    @Test func everyShowingOpensOnAnnual() async throws {
         let purchase = PurchaseModel(client: FakePurchaseClient(), refresh: {}, sync: {}, analytics: sink.client)
-        let free = try await plan(entitlement(source: nil), kind: .free)
-        #expect(PremiumPresenter(plan: free, analytics: sink.client, purchase: purchase).mayOfferPurchase)
-        // A build without a RevenueCat key has no purchase model.
-        #expect(PremiumPresenter(plan: free, analytics: sink.client).mayOfferPurchase == false)
-        let comp = try await plan(entitlement(source: "comp"), kind: .premium)
-        #expect(PremiumPresenter(plan: comp, analytics: sink.client, purchase: purchase).mayOfferPurchase == false)
+        let presenter = PremiumPresenter(
+            plan: try await plan(entitlement(source: nil), kind: .free), analytics: sink.client, purchase: purchase)
+        presenter.present(.plan, from: .planGroup)
+        purchase.period = .monthly
+        presenter.presented = nil
+
+        presenter.present(.recordings, from: .record)
+
+        #expect(purchase.period == .annual)
     }
 
     @Test func aFreePlanGatesScansOffTheirTune() async throws {
@@ -133,7 +134,6 @@ private let offers = [PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffe
             ("PREMIUM_RECORDINGS_BODY", PlanText.premiumRecordingsBody),
             ("SEE_PLAN", PlanText.seePlan),
             ("PREMIUM_PLAN_TITLE", PlanText.premiumPlanTitle),
-            ("PREMIUM_PLAN_BODY", PlanText.premiumPlanBody),
             ("SUBSCRIBE", PlanText.subscribe),
             ("MANAGE_APP_STORE", PlanText.manageAppStore),
             ("PERIOD_ANNUAL", PlanText.periodAnnual),
@@ -144,11 +144,60 @@ private let offers = [PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffe
             ("SUBSCRIBED", PlanText.subscribed),
             ("SUBSCRIBE_FAILED", PlanText.subscribeFailed),
             ("APP_STORE_SUBSCRIPTIONS_URL", RevenueCatPurchases.appleSubscriptionsURL.absoluteString),
+            ("PREMIUM_PITCH", PlanText.premiumPitch),
+            ("TRIAL_STORAGE", PlanText.trialStorage),
+            ("TRIAL_KEEPS", PlanText.trialKeeps),
+            ("TRIAL_ENDS_TODAY", PlanText.trialEndsToday),
+            ("COMPARE_FREE", PlanText.compareFree),
+            ("COMPARE_PREMIUM", PlanText.comparePremium),
+            ("FEATURE_CATALOG", PlanText.featureCatalog),
+            ("FEATURE_SYNC", PlanText.featureSync),
+            ("FEATURE_RECORD", PlanText.featureRecord),
+            ("FEATURE_PLAY", PlanText.featurePlay),
+            ("FEATURE_PRACTICE", PlanText.featurePractice),
+            ("FEATURE_SCANS", PlanText.featureScans),
+            ("SCANS_FREE", PlanText.scansFree),
+            ("SCANS_PREMIUM", PlanText.scansPremium),
+            ("FEATURE_STORAGE", PlanText.featureStorage),
+            ("STORAGE_FREE", PlanText.storageFree),
+            ("STORAGE_PREMIUM", PlanText.storagePremium),
+            ("ON_PREMIUM", PlanText.onPremium),
+            ("THANKS", PlanText.thanks),
+            ("RENEWS", PlanText.renews),
+            ("ENDS", PlanText.ends),
+            ("COMP_GRANT", PlanText.compGrant),
+            ("INCLUDED", PlanText.included),
+            ("INCLUDED_RECORD", PlanText.includedRecord),
+            ("INCLUDED_RECORD_DETAIL", PlanText.includedRecordDetail),
+            ("INCLUDED_EVERY_DEVICE", PlanText.includedEveryDevice),
+            ("INCLUDED_EVERY_DEVICE_DETAIL", PlanText.includedEveryDeviceDetail),
+            ("INCLUDED_PRACTICE", PlanText.includedPractice),
+            ("INCLUDED_PRACTICE_DETAIL", PlanText.includedPracticeDetail),
+            ("INCLUDED_SCANS", PlanText.includedScans),
+            ("INCLUDED_SCANS_DETAIL", PlanText.includedScansDetail),
+            ("COMPARE_PLANS", PlanText.comparePlans),
+            ("TERMS_OF_USE", PlanText.termsOfUse),
+            ("PRIVACY_POLICY", PlanText.privacyPolicy),
+            ("TERMS_URL", PlanText.termsURL),
+            ("PRIVACY_URL", PlanText.privacyURL),
         ]
         for (name, value) in shared {
             let expected = try #require(web[name], "planCopy.ts has no constant \(name)")
             #expect(value == expected, "\(name)")
         }
+        let notices = try webCopy("web/src/features/plan/noticeCopy.ts")
+        let sharedNotices: [(String, String)] = [
+            ("LOSE_PLAYBACK", NoticeText.losePlayback),
+            ("LOSE_RECORDING", NoticeText.loseRecording),
+            ("LOSE_SCANS", NoticeText.loseScans),
+            ("NOTICE_KEEPS", NoticeText.keeps),
+        ]
+        for (name, value) in sharedNotices {
+            let expected = try #require(notices[name], "noticeCopy.ts has no constant \(name)")
+            #expect(value == expected, "\(name)")
+        }
+        #expect(PlanText.save(17) == "Save 17%")
+        #expect(NoticeText.subscribeAnnual("$49.99") == "Subscribe for $49.99 a year")
         // The web builds these and the next from functions, so they are compared by shape.
         #expect(
             PlanText.premiumScansBody(tuneTitle: "Soldier's Joy")
@@ -156,6 +205,17 @@ private let offers = [PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffe
         )
         #expect(PlanText.annualPrice("$10") == "$10 a year")
         #expect(PlanText.monthlyPrice("$1") == "$1 a month")
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .gmt
+        let now = Date(timeIntervalSince1970: 1_791_633_600)  // 2026-10-10 12:00 GMT
+        let ends = now.addingTimeInterval(5 * 86_400)
+        let locale = Locale(identifier: "en_US")
+        #expect(PlanText.trialDaysLeft(endsAt: ends, now: now, calendar: calendar) == "5 days left")
+        #expect(
+            PlanText.trialDaysLeft(endsAt: now.addingTimeInterval(86_400), now: now, calendar: calendar) == "1 day left"
+        )
+        #expect(PlanText.trialDaysLeft(endsAt: now, now: now, calendar: calendar) == "Ends today")
+        #expect(PlanText.trialEnds(ends, calendar: calendar, locale: locale) == "Ends Oct 15, 2026")
     }
 
     @Test func seePlanOpensTheAccountPageFromTheSettingsRoot() {
@@ -208,163 +268,6 @@ private let offers = [PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffe
         #expect(presenter.presentedFrom == nil)
     }
 
-    @Test func theSheetSellsOnlyWithReadyOffers() {
-        let free = Plan(kind: .free)
-        #expect(PremiumSheet.sale(plan: free, offers: .ready(offers), line: nil) == .choice(offers))
-        #expect(
-            PremiumSheet.sale(plan: Plan(kind: .premium, source: .trial), offers: .ready(offers), line: nil)
-                == .choice(offers))
-        #expect(PremiumSheet.sale(plan: free, offers: .loading, line: nil) == .notSelling)
-        #expect(PremiumSheet.sale(plan: free, offers: .ready([]), line: nil) == .notSelling)
-        #expect(PremiumSheet.sale(plan: free, offers: nil, line: nil) == .notSelling)
-        #expect(PremiumSheet.sale(plan: .unknown, offers: .ready(offers), line: nil) == .notSelling)
-        let comp = Plan(kind: .premium, source: .comp)
-        #expect(PremiumSheet.sale(plan: comp, offers: .ready(offers), line: nil) == .notSelling)
-        #expect(PremiumSheet.sale(plan: comp, offers: .unavailable, line: nil) == .notSelling)
-        #expect(PremiumSheet.sale(plan: free, offers: .unavailable, line: nil) == .offline)
-        // A line from an earlier try keeps the choice up for another.
-        #expect(PremiumSheet.sale(plan: free, offers: .ready(offers), line: .failed) == .choice(offers))
-    }
-
-    @Test func aPurchaseReplacesTheChoiceWithItsLine() {
-        // The plan may turn Premium before the sheet closes; the line stays.
-        let premium = Plan(kind: .premium, source: .apple)
-        #expect(PremiumSheet.sale(plan: premium, offers: .ready(offers), line: .subscribed) == .subscribed)
-        #expect(PlanText.line(.subscribed) == PlanText.subscribed)
-        #expect(PlanText.line(.pending) == PlanText.subscribePending)
-        #expect(PlanText.line(.failed) == PlanText.subscribeFailed)
-        #expect(PlanText.line(.restored) == PlanText.restored)
-        #expect(PlanText.line(.nothingToRestore) == PlanText.nothingToRestore)
-        #expect(PlanText.line(.otherAccount) == PlanText.otherAccount)
-        #expect(PlanText.line(.restoreFailed) == PlanText.restoreFailed)
-    }
-
-    @Test func aRestoreSettlesTheSheetAsAPurchaseDoes() {
-        // Until the sync turns the plan Premium, the sheet must not sell under the restored line.
-        let free = Plan(kind: .free)
-        #expect(PremiumSheet.sale(plan: free, offers: .ready(offers), line: .restored) == .subscribed)
-        #expect(PremiumSheet.sale(plan: free, offers: .unavailable, line: .restored) == .subscribed)
-        let premium = Plan(kind: .premium, source: .apple)
-        #expect(PremiumSheet.sale(plan: premium, offers: .ready(offers), line: .restored) == .subscribed)
-        #expect(PremiumSheet.settledLine(.restored) == PlanText.restored)
-        #expect(PremiumSheet.settledLine(.subscribed) == PlanText.subscribed)
-        // A restore that found nothing leaves the choice up.
-        #expect(PremiumSheet.sale(plan: free, offers: .ready(offers), line: .nothingToRestore) == .choice(offers))
-    }
-
-    @Test func aGatesSheetNamesTheProductItSells() throws {
-        for reason in [PremiumReason.recordings, .scans] {
-            let product = try #require(PremiumSheet.product(reason))
-            #expect(product.title == PlanText.premiumPlanTitle)
-            #expect(product.body == PlanText.premiumPlanBody)
-        }
-        // The plan's own title and body already are the product's.
-        #expect(PremiumSheet.product(.plan) == nil)
-        #expect(PremiumSheet.title(.plan) == PlanText.premiumPlanTitle)
-    }
-
-    @Test func aPurchaseLeavesNoRestore() {
-        // A restore could replace the subscribed line and bring Subscribe back before the sync.
-        #expect(PremiumSheet.offersRestore(.subscribed) == false)
-        #expect(PremiumSheet.offersRestore(.choice(offers)))
-        #expect(PremiumSheet.offersRestore(.offline))
-        #expect(PremiumSheet.offersRestore(.notSelling))
-    }
-
-    @Test func seePlanLeadsOnlyWhenNothingIsForSale() {
-        #expect(PremiumSheet.seePlanLeads(.notSelling))
-        #expect(PremiumSheet.seePlanLeads(.offline))
-        #expect(PremiumSheet.seePlanLeads(.choice(offers)) == false)
-        #expect(PremiumSheet.seePlanLeads(.subscribed) == false)
-    }
-
-    @Test func thePinnedLineIsTheOutcomeOrTheSettledLine() {
-        #expect(PremiumSheet.pinnedLine(.choice(offers), line: nil) == nil)
-        #expect(PremiumSheet.pinnedLine(.choice(offers), line: .failed) == PlanText.line(.failed))
-        #expect(PremiumSheet.pinnedLine(.subscribed, line: .restored) == PlanText.restored)
-        #expect(PremiumSheet.pinnedLine(.subscribed, line: .subscribed) == PlanText.subscribed)
-        #expect(PremiumSheet.pinnedLine(.offline, line: nil) == nil)
-        #expect(PremiumSheet.pinnedLine(.offline, line: .nothingToRestore) == PlanText.line(.nothingToRestore))
-        #expect(PremiumSheet.pinnedLine(.notSelling, line: .restoreFailed) == PlanText.line(.restoreFailed))
-    }
-
-    @Test func eachPeriodShowsItsPrice() {
-        #expect(
-            PremiumSheet.options(offers.reversed()) == [
-                .init(period: .annual, label: PlanText.periodAnnual, price: "A$1 a year"),
-                .init(period: .monthly, label: PlanText.periodMonthly, price: "M$1 a month"),
-            ])
-    }
-
-    @Test func annualIsTheDefault() {
-        let model = PurchaseModel(client: FakePurchaseClient(), refresh: {}, sync: {}, analytics: sink.client)
-        #expect(model.period == .annual)
-        #expect(PremiumSheet.options(offers.reversed()).map(\.period) == [.annual, .monthly])
-        #expect(PremiumSheet.chosen(.annual, in: offers) == .annual)
-        // A store that sells one period has it chosen.
-        #expect(PremiumSheet.chosen(.annual, in: [offers[1]]) == .monthly)
-    }
-
-    @Test func subscribeBuysTheChosenPeriod() async {
-        let client = FakePurchaseClient()
-        let model = PurchaseModel(client: client, refresh: {}, sync: {}, analytics: sink.client)
-        await model.loadOffers()
-
-        model.period = .monthly
-        await PremiumSheet.subscribe(model, from: .record)
-
-        #expect(client.purchased == [.monthly])
-    }
-
-    @Test func subscribeBuysTheOnePeriodTheStoreSells() async {
-        let client = FakePurchaseClient()
-        client.offersResult = .success([offers[1]])
-        let model = PurchaseModel(client: client, refresh: {}, sync: {}, analytics: sink.client)
-        await model.loadOffers()
-
-        await PremiumSheet.subscribe(model, from: .record)
-
-        #expect(client.purchased == [.monthly])
-    }
-
-    @Test func theDisclosuresAreThere() throws {
-        #expect(PremiumSheet.title(.plan) == PlanText.premiumPlanTitle)
-        #expect(PremiumSheet.message(.plan, scanTuneTitle: nil) == PlanText.premiumPlanBody)
-        #expect(PremiumSheet.periodLabel(.annual) == PlanText.periodAnnual)
-        #expect(PremiumSheet.periodLabel(.monthly) == PlanText.periodMonthly)
-        #expect(PremiumSheet.priceLine(offers[0]) == "A$1 a year")
-        #expect(PremiumSheet.priceLine(offers[1]) == "M$1 a month")
-        #expect(
-            PremiumSheet.links == [
-                .init(label: PlanText.termsOfUse, url: try #require(URL(string: "https://crosstune.app/terms"))),
-                .init(label: PlanText.privacyPolicy, url: try #require(URL(string: "https://crosstune.app/privacy"))),
-            ])
-    }
-
-    @Test func aPurchaseReportsWhereTheSheetCameFrom() async throws {
-        let presenter = PremiumPresenter(
-            plan: try await plan(entitlement(source: nil), kind: .free), analytics: sink.client)
-        let model = PurchaseModel(client: FakePurchaseClient(), refresh: {}, sync: {}, analytics: sink.client)
-        await model.loadOffers()
-
-        _ = presenter.gate(.recordings, from: .record)
-        await PremiumSheet.subscribe(model, from: try #require(presenter.presentedFrom))
-
-        #expect(
-            sink.captures.contains(
-                .init(name: "purchase_started", properties: ["period": .string("annual"), "from": .string("record")])))
-    }
-
-    @Test func theSheetSaysWhatWasTapped() {
-        #expect(PremiumSheet.title(.recordings) == PlanText.premiumRecordingsTitle)
-        #expect(PremiumSheet.title(.scans) == PlanText.premiumScansTitle)
-        #expect(PremiumSheet.message(.recordings, scanTuneTitle: nil) == PlanText.premiumRecordingsBody)
-        #expect(PremiumSheet.message(.scans, scanTuneTitle: nil) == nil)
-        #expect(
-            PremiumSheet.message(.scans, scanTuneTitle: "Kitchen Girl")
-                == PlanText.premiumScansBody(tuneTitle: "Kitchen Girl"))
-    }
-
     @Test func aDimmedRowUnderTheTunePagesRecordingsLineReportsTheLine() async throws {
         let presenter = PremiumPresenter(
             plan: try await plan(entitlement(source: nil), kind: .free), analytics: sink.client)
@@ -396,15 +299,6 @@ private let offers = [PurchaseOffer(period: .annual, price: "A$1"), PurchaseOffe
                     name: "premium_sheet_shown",
                     properties: ["reason": .string("recordings"), "from": .string("recording_row")])
             ])
-    }
-
-    @Test func theSheetScrollsAndGrowsForLargeText() {
-        #expect(PremiumSheet.detents == [.medium, .large])
-    }
-
-    @Test func aSheetThatCanSellOpensAtFullHeight() {
-        #expect(PremiumSheet.openingDetent(mayOfferPurchase: true) == .large)
-        #expect(PremiumSheet.openingDetent(mayOfferPurchase: false) == .medium)
     }
 
     @Test func theEntriesAndReasonsNameThePlansValues() {

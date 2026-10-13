@@ -66,7 +66,7 @@ struct RecordingItem: View {
             onRetry: onRetry)
     }
 
-    /// Shows the Premium sheet for a tap the plan holds back.
+    /// Shows the Plan sheet for a tap the plan holds back.
     func offerPremium(_ premium: PremiumPresenter?) {
         _ = premium?.gate(.recordings, from: premiumEntry)
     }

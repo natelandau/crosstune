@@ -90,13 +90,13 @@ import Testing
         #expect(missing.isEmpty, "Mark the sheet's root with .shellSheet() or .partHeightSheet(): \(missing)")
     }
 
-    /// The Premium sheet claims the shell only once it shows, after the presenter asks for it, so
+    /// The Plan sheet claims the shell only once it shows, after the presenter asks for it, so
     /// the shell holds its menus from the request, or a menu command could open another sheet in
     /// between.
-    @Test func theShellIsCoveredFromThePremiumSheetsRequest() throws {
+    @Test func theShellIsCoveredFromThePlanSheetsRequest() throws {
         let shell = try #require(try Self.readSources().first { $0.name == "AppShell.swift" })
         let index = try #require(
-            shell.lines.firstIndex { $0.trimmingCharacters(in: .whitespaces).hasPrefix(".modifier(PremiumSheets(") })
+            shell.lines.firstIndex { $0.trimmingCharacters(in: .whitespaces).hasPrefix(".modifier(PlanSheets(") })
         let previous = shell.lines[..<index].last { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
         #expect(previous?.trimmingCharacters(in: .whitespaces) == ".coversShellMenus(premium?.presented != nil)")
     }

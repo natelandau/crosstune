@@ -1679,7 +1679,7 @@
       }
     },
     "premium_sheet_shown": {
-      "description": "The Premium sheet opened because a free account tapped something Premium holds",
+      "description": "The Plan sheet opened: for a locked tap, from the plan row in Settings, or from Compare plans on a trial notice",
       "clients": [
         "apple",
         "web"
