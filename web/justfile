@@ -34,6 +34,11 @@ tsc:
 typos:
     {{ gate }} web-typos uv run --project ../api --only-group typos typos --config ../.typos.toml . ../brand
 
+# Find unused files, exports, and dependencies with knip
+[group('lint')]
+knip:
+    {{ gate }} web-knip pnpm knip --no-progress
+
 # Fail when the committed client types no longer match the committed OpenAPI schema
 [group('lint')]
 contract-check:
@@ -55,7 +60,7 @@ _contract-check:
 
 # Run all linters
 [group('lint')]
-lint: eslint format tsc typos contract-check
+lint: eslint format tsc typos knip contract-check
 
 # Fix lint and formatting where tools can
 [group('lint')]
