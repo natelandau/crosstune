@@ -113,13 +113,6 @@ class AccountDeletedError(UnauthorizedError):
         )
 
 
-class ForbiddenError(AppError):
-    """The caller is authenticated but not allowed to do this."""
-
-    def __init__(self, detail: str = "Not allowed") -> None:
-        super().__init__(403, "Forbidden", detail)
-
-
 class PremiumRequiredError(AppError):
     """The addition is one only Premium allows."""
 

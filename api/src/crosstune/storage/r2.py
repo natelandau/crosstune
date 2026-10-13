@@ -192,14 +192,6 @@ class R2Store:
             )
             raise ObjectDeleteError(msg)
 
-    async def list_keys(self, prefix: str = "") -> list[str]:
-        """Every key under `prefix`, each in full, or every key in the bucket."""
-
-        def run() -> list[str]:
-            return [obj["Key"] for obj in self._contents(prefix)]
-
-        return await asyncio.to_thread(run)
-
     async def list_objects(self, prefix: str = "") -> list[ListedObject]:
         """Every object under `prefix`, or in the bucket, with its last write time."""
 

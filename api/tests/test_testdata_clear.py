@@ -45,14 +45,14 @@ async def test_clear_removes_rows_and_files(session: AsyncSession, settings: Set
     store = FakeObjectStore()
     old = await _seeded(session, settings, store)
     old_id = old.id
-    assert await store.list_keys(user_prefix(old_id))
+    assert [obj.key for obj in await store.list_objects(user_prefix(old_id))]
 
     cleared = await clear_account(session, CLERK_ID, EMAIL, settings)
 
     assert cleared.old_user_id == old_id
     assert cleared.user.id != old_id
     # The caller deletes the files once the clear commits.
-    assert await store.list_keys(user_prefix(old_id))
+    assert [obj.key for obj in await store.list_objects(user_prefix(old_id))]
     for name, spec in TABLES.items():
         count = await session.scalar(
             select(func.count()).select_from(spec.model).where(spec.owned_by(cleared.user.id))

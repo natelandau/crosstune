@@ -35,6 +35,9 @@ from tests.fakes import FakeObjectStore
 pytestmark = pytest.mark.anyio
 
 
+_WRITTEN = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
+
+
 def store() -> R2Store:
     return R2Store(
         endpoint_url="https://acct.r2.cloudflarestorage.com",
@@ -179,42 +182,50 @@ async def test_fake_store_lists_every_key() -> None:
     fake.put_bytes("u2/r1/playback.m4a", b"c", "audio/mp4")
     fake.put_bytes("u1/r1/upload", b"a", "audio/mp4")
     fake.put_bytes("u1/r2/playback.m4a", b"b", "audio/mp4")
-    assert await fake.list_keys() == ["u1/r1/upload", "u1/r2/playback.m4a", "u2/r1/playback.m4a"]
-    assert await fake.list_keys("u1/r2/") == ["u1/r2/playback.m4a"]
-    assert await fake.list_keys("u3/") == []
+    assert [obj.key for obj in await fake.list_objects()] == [
+        "u1/r1/upload",
+        "u1/r2/playback.m4a",
+        "u2/r1/playback.m4a",
+    ]
+    assert [obj.key for obj in await fake.list_objects("u1/r2/")] == ["u1/r2/playback.m4a"]
+    assert [obj.key for obj in await fake.list_objects("u3/")] == []
 
 
-async def test_r2_list_keys_collects_every_page() -> None:
+async def test_r2_list_objects_collects_every_page() -> None:
     r2 = store()
     stub = Stubber(r2._client)  # the client is the seam boto3 offers for stubbing
     stub.add_response(
         "list_objects_v2",
-        {"IsTruncated": True, "NextContinuationToken": "t", "Contents": [{"Key": "u1/r1/a"}]},
+        {
+            "IsTruncated": True,
+            "NextContinuationToken": "t",
+            "Contents": [{"Key": "u1/r1/a", "LastModified": _WRITTEN}],
+        },
         {"Bucket": "crosstune-test"},
     )
     stub.add_response(
         "list_objects_v2",
-        {"IsTruncated": False, "Contents": [{"Key": "u2/r1/a"}]},
+        {"IsTruncated": False, "Contents": [{"Key": "u2/r1/a", "LastModified": _WRITTEN}]},
         {"Bucket": "crosstune-test", "ContinuationToken": "t"},
     )
     with stub:
-        assert await r2.list_keys() == ["u1/r1/a", "u2/r1/a"]
+        assert [obj.key for obj in await r2.list_objects()] == ["u1/r1/a", "u2/r1/a"]
 
 
-async def test_r2_list_keys_below_a_prefix() -> None:
+async def test_r2_list_objects_below_a_prefix() -> None:
     r2 = store()
     stub = Stubber(r2._client)  # the client is the seam boto3 offers for stubbing
     stub.add_response(
         "list_objects_v2",
-        {"IsTruncated": False, "Contents": [{"Key": "u1/r1/a"}]},
+        {"IsTruncated": False, "Contents": [{"Key": "u1/r1/a", "LastModified": _WRITTEN}]},
         {"Bucket": "crosstune-test", "Prefix": "u1/"},
     )
     stub.add_response(
         "list_objects_v2", {"IsTruncated": False}, {"Bucket": "crosstune-test", "Prefix": "u9/"}
     )
     with stub:
-        assert await r2.list_keys("u1/") == ["u1/r1/a"]
-        assert await r2.list_keys("u9/") == []
+        assert [obj.key for obj in await r2.list_objects("u1/")] == ["u1/r1/a"]
+        assert [obj.key for obj in await r2.list_objects("u9/")] == []
 
 
 async def test_r2_copy_never_names_a_storage_class() -> None:

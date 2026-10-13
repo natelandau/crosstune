@@ -569,8 +569,8 @@ async def test_run_failed_seed_leaves_the_account_cleared(
     counts, source, _ = await _state(db)
     assert {table: n for table, n in counts.items() if n} == {"entitlements": 1}
     assert source == "trial"
-    assert await store.list_keys(user_prefix(old_id)) == []
-    assert await store.list_keys(user_prefix(new_id)) == []
+    assert [obj.key for obj in await store.list_objects(user_prefix(old_id))] == []
+    assert [obj.key for obj in await store.list_objects(user_prefix(new_id))] == []
 
 
 @pytest.mark.usefixtures("clerk", "store")

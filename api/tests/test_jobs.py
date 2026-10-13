@@ -2026,7 +2026,9 @@ async def test_trim_skips_deleted_recording(
     assert store.written == []
     assert await verify_session.scalar(select(Job).where(Job.recording_id == rec.id)) is None
     await job_runner.run_once()
-    assert await store.list_keys(recording_prefix(rec.user_id, rec.id)) == []
+    assert [
+        obj.key for obj in await store.list_objects(recording_prefix(rec.user_id, rec.id))
+    ] == []
 
 
 async def test_trim_skips_a_recording_that_already_matches(
@@ -2113,7 +2115,9 @@ async def test_trim_commits_nothing_when_deleted_during_job(
 
     del job_runner._purge
     await job_runner.run_once()
-    assert await store.list_keys(recording_prefix(rec.user_id, rec.id)) == []
+    assert [
+        obj.key for obj in await store.list_objects(recording_prefix(rec.user_id, rec.id))
+    ] == []
 
 
 async def test_a_superseded_trim_failure_leaves_the_new_claim_alone(
