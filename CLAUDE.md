@@ -97,8 +97,9 @@ every label. The glossary in `docs/product.md` has the reasons.
   its commit. `just gate status` lists what passed and failed on the tree
   without running, `GATE_CACHE_DISABLE=1 just <recipe>` forces a run, and
   `just gate clear` follows a change to an input no gate is keyed on. A new
-  lint or test recipe runs its bare form, never a run with args, through
-  `{{ gate }}` under a name no other gate uses. A gate that reads an ignored
+  lint or test recipe runs through `{{ gate }}` under a name no other gate
+  uses; one that forwards args passes `--argc "$#"`, so only its bare form
+  is cached. A gate that reads an ignored
   file names it with `--file`, and one that depends on a tool no lockfile
   pins names its version command with `--tool` (`scripts/gate-cache.sh`).
   Never put a check through it that reads a service or anything else

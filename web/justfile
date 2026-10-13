@@ -5,7 +5,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 # Where `just api::run-e2e` serves. Not the :8000 of a dev session, so the suite and
 # `just dev` run side by side.
-e2e_api := "http://localhost:8001"
+e2e_api := "http://localhost:" + trim(read("../api/e2e-port"))
 
 # Runs a lint or test gate through gate-cache when it is installed
 gate := "../scripts/gate-cache.sh"
@@ -39,7 +39,6 @@ typos:
 contract-check:
     {{ gate }} web-contract-check just _contract-check
 
-[private]
 _contract-check:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -47,10 +46,7 @@ _contract-check:
     out=.cache/contract-check
     rm -rf "$out" && mkdir -p "$out"
     trap 'rm -rf "$out"' EXIT
-    pnpm --silent openapi-typescript ../api/openapi.json -o "$out/schema.d.ts" > /dev/null
-    node scripts/vocabulary.mjs ../api/openapi.json "$out/vocabulary.raw.ts"
-    # Formatted as the committed file's path so prettier applies that file's config.
-    pnpm --silent exec prettier --stdin-filepath src/api/vocabulary.ts < "$out/vocabulary.raw.ts" > "$out/vocabulary.ts"
+    just _generate "$out"
     stale=0
     for f in schema.d.ts vocabulary.ts; do
         diff -u "src/api/$f" "$out/$f" || stale=1
@@ -71,19 +67,19 @@ fix:
 [group('test')]
 [positional-arguments]
 test *args:
-    if [ "$#" -eq 0 ]; then {{ gate }} web-test --file .env --tool 'node --version' pnpm vitest run; else pnpm vitest run "$@"; fi
+    {{ gate }} web-test --argc "$#" --file .env --tool 'node --version' pnpm vitest run "$@"
 
 # Run only the jsdom unit project
 [group('test')]
 [positional-arguments]
 test-unit *args:
-    if [ "$#" -eq 0 ]; then {{ gate }} web-test-unit --file .env --tool 'node --version' pnpm vitest run --project unit; else pnpm vitest run --project unit "$@"; fi
+    {{ gate }} web-test-unit --argc "$#" --file .env --tool 'node --version' pnpm vitest run --project unit "$@"
 
-# Run only the browser projects: Chromium, and WebKit
+# Run only the browser projects: Chromium and WebKit
 [group('test')]
 [positional-arguments]
 test-browser *args:
-    if [ "$#" -eq 0 ]; then {{ gate }} web-test-browser --file .env --tool 'node --version' pnpm vitest run --project browser --project browser-webkit; else pnpm vitest run --project browser --project browser-webkit "$@"; fi
+    {{ gate }} web-test-browser --argc "$#" --file .env --tool 'node --version' pnpm vitest run --project browser --project browser-webkit "$@"
 
 # Run tests shuffled, a new order each run, and list the seeds that failed; SEED=<n> replays one
 [group('test')]
@@ -154,12 +150,27 @@ icons:
     cp ../brand/icon-dark.svg public/logo.svg
     pnpm pwa-assets-generator
 
-# Regenerate the typed client from the committed OpenAPI contract
+# Regenerate the typed client and the vocabulary from the committed OpenAPI contract
 [group('contract')]
 contract:
-    pnpm openapi-typescript ../api/openapi.json -o src/api/schema.d.ts
-    node scripts/vocabulary.mjs ../api/openapi.json src/api/vocabulary.ts
-    pnpm exec prettier --write src/api/vocabulary.ts > /dev/null
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out=.cache/contract
+    rm -rf "$out" && mkdir -p "$out"
+    trap 'rm -rf "$out"' EXIT
+    just _generate "$out"
+    mv "$out/schema.d.ts" "$out/vocabulary.ts" src/api/
+
+# Write the typed client and the vocabulary into `out`; `contract` and `contract-check` share
+# it, so the check compares exactly what `contract` would commit
+_generate $out:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pnpm --silent openapi-typescript ../api/openapi.json -o "$out/schema.d.ts" > /dev/null
+    node scripts/vocabulary.mjs ../api/openapi.json "$out/vocabulary.raw.ts"
+    # Formatted as the committed file's path so prettier applies that file's config.
+    pnpm --silent exec prettier --stdin-filepath src/api/vocabulary.ts < "$out/vocabulary.raw.ts" > "$out/vocabulary.ts"
+    rm "$out/vocabulary.raw.ts"
 
 # Upgrade dependencies, holding the majors .github/dependabot.yml ignores to their range
 [group('maintenance')]

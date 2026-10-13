@@ -6,6 +6,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 py_src := "src/ tests/"
 # Runs a lint or test gate through gate-cache when it is installed
 gate := "../scripts/gate-cache.sh"
+compose := "docker compose -f ../compose.yml"
 
 # The database the end-to-end suite owns, beside the development database in the
 # server compose.yml starts. The e2e recipes name only this one, so the data a
@@ -19,7 +20,7 @@ e2e_env := "CROSSTUNE_DATABASE_URL='" + e2e_database_url + "' CROSSTUNE_STORAGE_
 
 # Not the :8000 `just dev` serves, so the suite runs without stopping a dev session. The root
 # justfile starts this port and web/justfile points the preview proxy at it.
-e2e_port := "8001"
+e2e_port := trim(read("e2e-port"))
 
 [private]
 default:
@@ -53,13 +54,12 @@ lint: ruff format ty typos contract-check
 [group('test')]
 [positional-arguments]
 test *args:
-    if [ "$#" -eq 0 ]; then {{ gate }} api-test --tool 'ffmpeg -version' just _test; else just _test "$@"; fi
+    {{ gate }} api-test --argc "$#" --tool 'ffmpeg -version' just _test "$@"
 
-[private]
 [positional-arguments]
 _test *args:
     docker info > /dev/null 2>&1 || { echo "Docker is not running" >&2; exit 1; }
-    docker compose -f ../compose.yml up -d --wait postgres
+    {{ compose }} up -d --wait postgres
     if [ "$#" -eq 0 ]; then set -- tests/ --cov --cov-config=pyproject.toml --cov-report=xml --cov-report=term; fi; uv run pytest -c pyproject.toml --color=yes "$@"
 
 # Run the API with reload
@@ -72,12 +72,11 @@ run:
 run-e2e: e2e-db storage-setup _serve-e2e
 
 # Serve the end-to-end database as it stands; `just e2e` prepares it first
-[private]
 _serve-e2e:
     @echo "serving {{ e2e_db }} on :{{ e2e_port }}"
     {{ e2e_env }} uv run uvicorn crosstune.main:app --port {{ e2e_port }}
 
-# Wait for the e2e API at `pid` to answer, or print `log` and fail once it exits or 90 seconds pass
+# Wait for the e2e API started as process `pid` to answer, or print `log` and fail once it exits or 90 seconds pass
 [group('run')]
 wait-e2e pid log:
     #!/usr/bin/env bash
@@ -106,8 +105,9 @@ storage *args:
 
 # Delete every object in a local bucket, the one api/.env names by default
 [group('storage')]
+[positional-arguments]
 storage-reset *bucket:
-    uv run python -m crosstune.ops.local_storage reset {{ bucket }}
+    uv run python -m crosstune.ops.local_storage reset "$@"
 
 # Apply pending migrations
 [group('db')]
@@ -116,8 +116,8 @@ migrate:
 
 # Generate a migration from model changes; review it before committing
 [group('db')]
-makemigrations message='auto':
-    uv run alembic revision --autogenerate -m '{{ message }}'
+makemigrations $message='auto':
+    uv run alembic revision --autogenerate -m "$message"
 
 # Create the end-to-end database if it is absent and migrate it to head
 [group('db')]
@@ -137,7 +137,7 @@ worktree-db mode='keep':
         reset) flags=(--reset) ;;
         *) echo "mode is keep or reset, not '{{ mode }}'" >&2; exit 1 ;;
     esac
-    docker compose -f ../compose.yml up -d --wait postgres rustfs
+    {{ compose }} up -d --wait postgres rustfs
     # bash 3.2 treats an empty array as unbound under set -u.
     uv run python -m crosstune.ops.local_worktree provision ${flags[@]+"${flags[@]}"}
     if ! uv run alembic upgrade head; then
@@ -150,16 +150,13 @@ worktree-db mode='keep':
 # Drop the database and bucket of every worktree that no longer exists
 [group('db')]
 prune-worktree-dbs:
-    docker compose -f ../compose.yml up -d --wait postgres rustfs
+    {{ compose }} up -d --wait postgres rustfs
     uv run python -m crosstune.ops.local_worktree prune
 
-# _e2e-db also takes "drop", which leaves no database behind. It has no recipe of its own,
-# because `just e2e` drops what it created and nothing else has a database to drop.
-
-[private]
 _e2e-db mode:
     #!/usr/bin/env bash
     set -euo pipefail
+    # "drop" has no public recipe: only `just e2e` creates a database it must remove.
     uv run python -m crosstune.ops.local_e2e_db '{{ mode }}' '{{ e2e_database_url }}'
     if [ '{{ mode }}' != "drop" ]; then
         {{ e2e_env }} uv run alembic upgrade head
@@ -200,7 +197,7 @@ e2e-trial *args:
 [group('testdata')]
 [positional-arguments]
 testdata *args:
-    docker compose -f ../compose.yml up -d --wait postgres rustfs
+    {{ compose }} up -d --wait postgres rustfs
     uv run python -m crosstune.ops.testdata "$@"
 
 # Seed, clear, or set the billing state of a Railway development account
@@ -227,7 +224,6 @@ contract:
 contract-check:
     {{ gate }} api-contract-check just _contract-check
 
-[private]
 _contract-check:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -257,5 +253,5 @@ clean:
 setup:
     uv sync
     test -e .env || cp .env.example .env
-    docker compose -f ../compose.yml up -d --wait rustfs
+    {{ compose }} up -d --wait rustfs
     just storage-setup
