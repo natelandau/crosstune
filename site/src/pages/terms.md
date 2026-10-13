@@ -7,7 +7,7 @@ path: /terms
 
 # Terms of use
 
-Last updated: 2026-10-12
+Last updated: 2026-10-13
 
 Crosstune is run by Nathaniel Landau, an individual. By using Crosstune, you agree to these terms. Questions go to [support@crosstune.app](mailto:support@crosstune.app).
 
@@ -29,11 +29,11 @@ Keep your sign-in details private. You can delete your account at any time from 
 
 ## Crosstune Premium
 
-Crosstune is free to use. Crosstune Premium is a paid subscription that adds more recordings, scans, lists, practice tools, and storage. The [pricing section](/#pricing) shows the features and the prices for each plan.
+Crosstune is free to use. Crosstune Premium is a paid subscription that adds recordings that play on every device, practice mode, scans on every tune, and 5 GB of storage. The [pricing section](/#pricing) shows the features and the prices for each plan.
 
 ### Free trial
 
-Every new account gets 30 days of Premium for free. The trial needs no card and never turns into a paid subscription. When the trial ends, your account becomes a Free account.
+Every new account gets 30 days of Premium for free, with 100 MB of storage. The trial needs no card and never turns into a paid subscription. When the trial ends, your account becomes a Free account.
 
 If you subscribe during the trial, billing starts on the day you subscribe. The rest of the trial is not added to your subscription.
 
@@ -57,7 +57,7 @@ Cancel where you bought the subscription:
 - For the App Store, cancel in the subscription settings of your Apple Account.
 - For the web, cancel at [link.com](https://link.com) or from the link in your Link receipt email.
 
-After you cancel, you keep Premium until the end of the period that you paid for. Cancel before you delete your Crosstune account, because deleting the account does not cancel an App Store subscription.
+After you cancel, you keep Premium until the end of the period that you paid for. Cancel an App Store subscription before you delete your Crosstune account, because deleting the account does not cancel it. Deleting your Crosstune account cancels a web subscription at once, with no refund for the rest of the period.
 
 ### Refunds
 
@@ -68,7 +68,7 @@ To ask for a refund, use the same place that sold the subscription:
 
 ### When Premium ends
 
-When a trial or a subscription ends, your account becomes a Free account. You keep everything that you made. You can play every recording, view every scan, and open and play every list. You cannot add more than the Free limits allow until you subscribe again.
+When a trial or a subscription ends, your account becomes a Free account. You keep everything that you made, and an export always includes every recording and scan. Until you subscribe again, recordings do not play in the app and scans open on one tune only. Lists still open and play their links. You cannot add more than the Free limits allow until you subscribe again.
 
 If an account is not on Premium and no device syncs it for 12 months, we delete its recordings and scans. We send two emails before we delete them, each with a link to export your data. A sync from any device stops the deletion. Your account, tunes, and lists stay.
 
