@@ -27,7 +27,7 @@ function planLine(plan: Plan, now: Date): { name: string; detail?: string } {
     const end = plan.trialEndsAt ?? plan.premiumEndsAt
     return { name: PLAN_TRIAL, detail: end ? trialLeft(end, now) : undefined }
   }
-  const member = membership(plan)
+  const member = membership(plan, now)
   return {
     name: PLAN_PREMIUM,
     detail: member?.value ? `${member.label} ${member.value}` : undefined,

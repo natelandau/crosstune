@@ -284,3 +284,31 @@ private func scan(_ id: String, _ tuneID: String, _ createdAt: String, deletedAt
         #expect(Plan.unknown.isTrial == false)
     }
 }
+
+@Suite struct PaidSourcesTests {
+    private func comp(over grants: [PaidGrant]) -> Entitlement {
+        var entitlement = row(source: "comp")
+        entitlement.paidGrants = grants
+        return entitlement
+    }
+
+    @Test func listsAStoreUnderACompUntilItsGrantEndsWithTheLeewayWhenItRenews() {
+        let lapsing = comp(over: [PaidGrant(source: "stripe", expiresAt: at(-day))])
+        let renewing = comp(over: [PaidGrant(source: "stripe", expiresAt: at(-day), autoRenews: true)])
+        let lapsed = comp(over: [PaidGrant(source: "stripe", expiresAt: at(-8 * day), autoRenews: true)])
+        #expect(Plan.from(lapsing, now: now).paidSources.isEmpty)
+        #expect(Plan.from(renewing, now: now).paidSources == [.stripe])
+        #expect(Plan.from(lapsed, now: now).paidSources.isEmpty)
+    }
+
+    @Test func theNextChangeIncludesAPaidGrantsEnd() {
+        let entitlement = comp(over: [PaidGrant(source: "apple", expiresAt: at(day))])
+        #expect(PlanRules.nextChange(entitlement, now: now) == at(day).date)
+    }
+
+    @Test func aFreeRowListsNoStores() {
+        var entitlement = row()
+        entitlement.paidGrants = [PaidGrant(source: "apple")]
+        #expect(Plan.from(entitlement, now: now).paidSources.isEmpty)
+    }
+}

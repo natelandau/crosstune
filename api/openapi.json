@@ -208,6 +208,13 @@
             "title": "Id",
             "type": "string"
           },
+          "paid_grants": {
+            "items": {
+              "$ref": "#/components/schemas/PaidGrantRow"
+            },
+            "title": "Paid Grants",
+            "type": "array"
+          },
           "premium_expires_at": {
             "anyOf": [
               {
@@ -323,6 +330,7 @@
           "trial_ends_at",
           "premium_quota_bytes",
           "free_quota_bytes",
+          "paid_grants",
           "recording_notice_seen_at",
           "trial_reminder_seen_at",
           "trial_end_seen_at"
@@ -796,6 +804,37 @@
           "notice"
         ],
         "title": "NoticeRequest",
+        "type": "object"
+      },
+      "PaidGrantRow": {
+        "description": "One store still billing the account, judged by clients as the reported grant is.",
+        "properties": {
+          "auto_renews": {
+            "title": "Auto Renews",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "source": {
+            "$ref": "#/components/schemas/GrantSource"
+          }
+        },
+        "required": [
+          "source",
+          "expires_at",
+          "auto_renews"
+        ],
+        "title": "PaidGrantRow",
         "type": "object"
       },
       "PeaksUrl": {

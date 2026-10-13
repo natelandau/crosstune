@@ -278,6 +278,21 @@ enum Schema {
                     """)
             try db.execute(sql: "UPDATE entitlements SET extra = json_remove(extra, '$.trial_starts_at')")
         }
+        migrator.registerMigration("v18") { db in
+            // The server gives the row a new server_seq along with the field, so no repull is
+            // needed.
+            try db.alter(table: "entitlements") { t in
+                t.add(column: "paid_grants", .jsonText).notNull().defaults(sql: "'[]'")
+            }
+            // A row pulled from a server that already had the field kept it in `extra`.
+            try db.execute(
+                sql: """
+                    UPDATE entitlements
+                    SET paid_grants = json_extract(extra, '$.paid_grants')
+                    WHERE json_type(extra, '$.paid_grants') = 'array'
+                    """)
+            try db.execute(sql: "UPDATE entitlements SET extra = json_remove(extra, '$.paid_grants')")
+        }
         return migrator
     }()
 

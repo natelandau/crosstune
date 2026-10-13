@@ -8,7 +8,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from crosstune.billing.access import access_for, refresh_entitlement, resolve, scan_tune_id
+from crosstune.billing.access import (
+    PaidGrant,
+    access_for,
+    refresh_entitlement,
+    resolve,
+    scan_tune_id,
+)
 from crosstune.billing.grants import set_trial_end, start_trial
 from crosstune.models import Grant, Scan, Tune, User
 from crosstune.vocabulary import GrantKind, GrantSource
@@ -135,6 +141,37 @@ def test_reported_grant_is_the_longest_lasting(settings: Settings) -> None:
     assert open_ended.premium_expires_at is None
 
 
+def test_paid_grants_list_each_stores_longest_subscription_under_the_reported_grant(
+    settings: Settings,
+) -> None:
+    soon, later = NOW + timedelta(days=2), NOW + timedelta(days=9)
+    result = resolve(
+        [
+            _premium(GrantSource.STRIPE, later, auto_renews=True),
+            _premium(GrantSource.APPLE, soon),
+            _premium(GrantSource.APPLE, later, auto_renews=True),
+            _premium(GrantSource.APPLE, NOW - timedelta(days=1)),
+            _premium(GrantSource.COMP),
+        ],
+        NOW,
+        settings,
+    )
+
+    assert result.premium_source == GrantSource.COMP
+    assert result.paid_grants == (
+        PaidGrant(GrantSource.APPLE, later, auto_renews=True),
+        PaidGrant(GrantSource.STRIPE, later, auto_renews=True),
+    )
+
+
+def test_paid_grants_skip_lapsed_subscriptions(settings: Settings) -> None:
+    lapsed = resolve([_premium(GrantSource.STRIPE, NOW - timedelta(days=1))], NOW, settings)
+    comp = resolve([_premium(GrantSource.COMP)], NOW, settings)
+
+    assert lapsed.paid_grants == ()
+    assert comp.paid_grants == ()
+
+
 def test_equal_expiry_prefers_billing_then_comp_then_trial(settings: Settings) -> None:
     ends = NOW + timedelta(days=3)
     grants = [
@@ -232,6 +269,28 @@ async def test_refresh_bumps_server_seq_only_on_change(session, settings: Settin
     assert row.server_seq > first_seq
     assert row.premium_source == "comp"
     assert row.premium_quota_bytes == PREMIUM
+
+
+async def test_refresh_stores_paid_grants_and_leaves_them_unchanged_next_time(
+    session, settings: Settings
+) -> None:
+    user_id = await _user(session)
+    ends = NOW + timedelta(days=30)
+    for grant in (_premium(GrantSource.STRIPE, ends, auto_renews=True), _premium(GrantSource.COMP)):
+        grant.user_id = user_id
+        if grant.source == GrantSource.STRIPE:
+            grant.external_id = "sub_1"
+        session.add(grant)
+    await session.flush()
+
+    row = await refresh_entitlement(session, user_id, settings, NOW)
+    first_seq = row.server_seq
+    assert row.premium_source == "comp"
+    assert row.paid_grants == [
+        {"source": "stripe", "expires_at": ends.isoformat(), "auto_renews": True}
+    ]
+    row = await refresh_entitlement(session, user_id, settings, NOW)
+    assert row.server_seq == first_seq
 
 
 async def test_refresh_fills_the_trial_window_and_follows_a_moved_end(

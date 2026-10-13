@@ -155,11 +155,14 @@ import Testing
     }
 
     @Test func detailsASubscriptionAsThePlanSheetDoes() {
+        let later = Self.now.addingTimeInterval(3600)
         for source in [PlanSource.apple, .stripe] {
-            let renewing = Plan(kind: .premium, source: source, premiumEndsAt: Self.now, autoRenews: true)
+            let renewing = Plan(kind: .premium, source: source, premiumEndsAt: later, autoRenews: true)
             #expect(
                 PlanText.detail(renewing, now: Self.now, calendar: Self.calendar, locale: Self.locale)
                     == "Renews Oct 10, 2026")
+            let inLeeway = Plan(kind: .premium, source: source, premiumEndsAt: Self.now, autoRenews: true)
+            #expect(PlanText.detail(inLeeway, now: Self.now, calendar: Self.calendar, locale: Self.locale) == nil)
             let lapsing = Plan(kind: .premium, source: source, premiumEndsAt: Self.now, autoRenews: false)
             #expect(
                 PlanText.detail(lapsing, now: Self.now, calendar: Self.calendar, locale: Self.locale)

@@ -2997,6 +2997,95 @@ async def test_0038_adds_the_nullable_trial_end_column_and_downgrade_drops_it(
     assert dropped == []
 
 
+async def test_0042_backfills_active_paid_grants_and_downgrade_drops_them(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    both = "018f0000-0000-7000-8000-000000000095"
+    lapsed = "018f0000-0000-7000-8000-000000000096"
+    comp = "018f0000-0000-7000-8000-000000000097"
+    column = text(
+        "select count(*) from information_schema.columns "
+        "where table_name = 'entitlements' and column_name = 'paid_grants'"
+    )
+    later = datetime(2999, 1, 1, tzinfo=UTC)
+    past = datetime(2001, 1, 1, tzinfo=UTC)
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0041")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, :clerk, now(), now())"
+                ),
+                [
+                    {"id": both, "clerk": "user_both"},
+                    {"id": lapsed, "clerk": "user_lapsed"},
+                    {"id": comp, "clerk": "user_comp"},
+                ],
+            )
+            await conn.execute(
+                text(
+                    "insert into grants (id, user_id, kind, source, environment, expires_at, "
+                    "auto_renews, external_id, created_at, updated_at) values "
+                    "(gen_random_uuid(), :user, 'premium', :source, 'production', :expires, "
+                    "false, :external, now(), now())"
+                ),
+                [
+                    {"user": both, "source": "stripe", "expires": later, "external": "s1"},
+                    {"user": both, "source": "apple", "expires": later, "external": "a1"},
+                    {"user": both, "source": "apple", "expires": None, "external": "a3"},
+                    {"user": both, "source": "comp", "expires": None, "external": None},
+                    {"user": lapsed, "source": "apple", "expires": past, "external": "a2"},
+                    {"user": comp, "source": "comp", "expires": None, "external": None},
+                ],
+            )
+            await conn.execute(
+                text(
+                    "insert into entitlements (id, user_id, auto_renews, premium_quota_bytes, "
+                    "free_quota_bytes, created_at, updated_at) "
+                    "select gen_random_uuid(), id, false, 0, 0, now(), now() from users"
+                )
+            )
+            before = {
+                row.user_id: row
+                for row in (
+                    await conn.execute(
+                        text("select user_id::text, server_seq, updated_at from entitlements")
+                    )
+                ).all()
+            }
+        await anyio.to_thread.run_sync(command.upgrade, config, "0042")
+        async with engine.connect() as conn:
+            after = {
+                row.user_id: row
+                for row in (
+                    await conn.execute(
+                        text(
+                            "select user_id::text, paid_grants, server_seq, updated_at "
+                            "from entitlements"
+                        )
+                    )
+                ).all()
+            }
+        await anyio.to_thread.run_sync(command.downgrade, config, "0041")
+        async with engine.connect() as conn:
+            dropped = (await conn.execute(column)).scalar_one()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert [(g["source"], g["expires_at"]) for g in after[both].paid_grants] == [
+        ("apple", None),
+        ("stripe", "2999-01-01T00:00:00+00:00"),
+    ]
+    assert after[both].server_seq > before[both].server_seq
+    assert after[both].updated_at == before[both].updated_at
+    for user in (lapsed, comp):
+        assert after[user].paid_grants == []
+        assert after[user].server_seq == before[user].server_seq
+    assert dropped == 0
+
+
 async def test_0041_backfills_the_trial_start_and_downgrade_drops_it(
     engine, database_url: str, truncate_all: None
 ) -> None:

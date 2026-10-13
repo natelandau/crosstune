@@ -5,7 +5,14 @@ import type { CrosstuneDb } from '../db/schema'
 import type { LocalEntitlement } from '../db/types'
 import { useFixedNow } from '../ui/useNow'
 import { liveEntitlement } from './entitlement'
-import { isPremium, nextPlanChange, planOf, type Plan } from './plan'
+import {
+  isPremium,
+  livePaidSources,
+  nextPlanChange,
+  planOf,
+  type PaidSource,
+  type Plan,
+} from './plan'
 
 // setTimeout fires at once for a delay past a signed 32-bit integer.
 const MAX_TIMER_MS = 2_147_483_647
@@ -18,11 +25,12 @@ export const useEntitlement = createSharedLiveQuery(liveEntitlement)
 
 type Failure = Snapshot<LocalEntitlement | null>['failure']
 
-/** The row and its premium state on the device clock. Replaced only when either changes, or the
- * read fails, so a check that finds the same answer renders no plan reader. */
+/** The row, its premium state, and its live paid stores on the device clock. Replaced only when
+ * one changes, or the read fails, so a check that finds the same answer renders no plan reader. */
 interface Judged {
   row: LocalEntitlement | null | undefined
   premium: boolean
+  paid: PaidSource[]
   failure: Failure
 }
 
@@ -39,7 +47,7 @@ interface PlanClock {
   subscribe: (listener: () => void) => () => void
 }
 
-const UNJUDGED: Judged = { row: undefined, premium: false, failure: undefined }
+const UNJUDGED: Judged = { row: undefined, premium: false, paid: [], failure: undefined }
 
 /**
  * One clock every plan reader shares: it judges the row again at the next instant the plan or a
@@ -82,10 +90,16 @@ function createPlanClock(rows: Shared<LocalEntitlement | null>): PlanClock {
     const { value: row, failure } = rows.get()
     const now = new Date()
     const premium = row ? isPremium(row, now) : false
+    const paid = row ? livePaidSources(row, now) : []
     const next = nextPlanChange(row, now)?.getTime() ?? null
     let changed = false
-    if (row !== judged.row || premium !== judged.premium || failure !== judged.failure) {
-      judged = { row, premium, failure }
+    if (
+      row !== judged.row ||
+      premium !== judged.premium ||
+      paid.join() !== judged.paid.join() ||
+      failure !== judged.failure
+    ) {
+      judged = { row, premium, paid, failure }
       changed = true
     }
     if (row !== check.row || next !== checkUntil || failure !== check.failure) {
@@ -228,8 +242,14 @@ function usePlanRead(rethrow: boolean): Plan {
   const row = failed ? null : read
   const premium =
     fixedMs === undefined ? live.premium : row ? isPremium(row, new Date(fixedMs)) : false
-  // Rebuilt only when the row or its premium state changes, so a consumer can depend on it.
-  return useMemo(() => planOf(row, premium), [row, premium])
+  const livePaid = live.paid
+  // Rebuilt only when the row, its premium state, or its live paid stores change, so a consumer
+  // can depend on it.
+  return useMemo(() => {
+    const paid =
+      fixedMs === undefined ? livePaid : row ? livePaidSources(row, new Date(fixedMs)) : []
+    return planOf(row, premium, paid)
+  }, [row, premium, livePaid, fixedMs])
 }
 
 /**

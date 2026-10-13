@@ -463,6 +463,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Paid Grants */
+            paid_grants: components["schemas"]["PaidGrantRow"][];
             /** Premium Expires At */
             premium_expires_at: string | null;
             /** Premium Quota Bytes */
@@ -719,6 +721,17 @@ export interface components {
              * @enum {string}
              */
             notice: "first_recording" | "trial_reminder" | "trial_ended";
+        };
+        /**
+         * PaidGrantRow
+         * @description One store still billing the account, judged by clients as the reported grant is.
+         */
+        PaidGrantRow: {
+            /** Auto Renews */
+            auto_renews: boolean;
+            /** Expires At */
+            expires_at: string | null;
+            source: components["schemas"]["GrantSource"];
         };
         /**
          * PeaksUrl

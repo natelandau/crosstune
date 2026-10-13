@@ -158,7 +158,8 @@ public enum PlanText {
                 trialLeft(endsAt: $0, now: now, calendar: calendar, locale: locale)
             }
         }
-        guard let row = PlanSheet.membership(plan, calendar: calendar, locale: locale), !row.value.isEmpty else {
+        guard let row = PlanSheet.membership(plan, now: now, calendar: calendar, locale: locale), !row.value.isEmpty
+        else {
             return nil
         }
         return "\(row.label) \(row.value)"

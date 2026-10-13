@@ -27,8 +27,7 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
     setText,
     countLines,
     loading,
-    subscriptionLink,
-    subscriptionLine,
+    subscriptions,
     confirmed,
     run,
     error,
@@ -77,14 +76,14 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
       )}
       <div className="t-secondary text-ink-2 flex flex-col gap-2 px-4 pt-3">
         {!loading && <p>{UNSYNCED_LINE}</p>}
-        {subscriptionLine && (
-          <p>
-            {subscriptionLine}
-            {subscriptionLink && (
+        {subscriptions.map(({ line, link }) => (
+          <p key={line}>
+            {line}
+            {link && (
               <>
                 {' '}
                 <a
-                  href={subscriptionLink}
+                  href={link}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-action inline-flex items-center gap-0.5"
@@ -95,7 +94,7 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
               </>
             )}
           </p>
-        )}
+        ))}
         <p>
           <strong className="text-ink font-semibold">{CANNOT_UNDO}</strong>
           {NO_RECOVERY}

@@ -281,6 +281,19 @@ export class CrosstuneDb extends Dexie {
             row.trial_starts_at ??= null
           })
       })
+
+    // A row stored before paid grants were synced reads as having none until the server's
+    // copy, which carries them, arrives.
+    this.version(19)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx
+          .table('entitlements')
+          .toCollection()
+          .modify((row: Record<string, unknown>) => {
+            row.paid_grants ??= []
+          })
+      })
   }
 
   // Dexie's auto-open on the first query calls this method too.

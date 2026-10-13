@@ -13,8 +13,9 @@ from sqlalchemy import (
     ForeignKey,
     String,
     UniqueConstraint,
+    text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns, new_uuid7
@@ -48,6 +49,10 @@ class Entitlement(SyncColumns, Base):
     trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     premium_quota_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     free_quota_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # Each store's longest active paid grant, as PaidGrant.as_row writes it.
+    paid_grants: Mapped[list[dict[str, object]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'"), default=list
+    )
     recording_notice_seen_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

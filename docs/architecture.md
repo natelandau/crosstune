@@ -220,7 +220,11 @@ synced entitlements row.
   `trial_starts_at`, `trial_ends_at`, `premium_quota_bytes`, and
   `free_quota_bytes`. `premium_quota_bytes` is that grant's quota: the
   trial's when it is the trial, else Premium's plus any active storage
-  add-on.
+  add-on. `paid_grants` holds each store's active paid grant that lasts
+  longest, with its expiry and `auto_renews`, so a client can show where to
+  manage, and what deleting does to, a subscription the reported grant
+  outlasts, such as one under an open-ended comp. A client judges each
+  entry's expiry as it judges the reported grant's.
 - The trial's start is when its grant was created, and its end is the
   grant's expiry, so a client measures how much of a trial has passed
   from the two, never from a fixed length. Moving a trial's end changes

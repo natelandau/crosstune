@@ -10,9 +10,10 @@ export interface Membership {
 
 /**
  * The membership card's row: a comp's grant, or when a grant renews or ends. Null for a plan the
- * sheet sells to, or a paid grant with no date.
+ * sheet sells to, or a paid grant with no date. A renewing grant past its reported expiry is in
+ * its offline leeway, where the next renewal is unknown until a sync, so it shows no date.
  */
-export function membership(plan: Plan): Membership | null {
+export function membership(plan: Plan, now: Date): Membership | null {
   if (planMode(plan) !== 'member') return null
   const end = plan.premiumEndsAt
   switch (plan.source) {
@@ -20,7 +21,8 @@ export function membership(plan: Plan): Membership | null {
       return end ? { label: ENDS, value: day(end) } : { label: COMP_GRANT, value: '' }
     case 'apple':
     case 'stripe':
-      return end ? { label: plan.autoRenews ? RENEWS : ENDS, value: day(end) } : null
+      if (!end || (plan.autoRenews && end <= now)) return null
+      return { label: plan.autoRenews ? RENEWS : ENDS, value: day(end) }
     default:
       return null
   }
@@ -30,11 +32,13 @@ function day(date: Date): string {
   return addedDay(date.toISOString())
 }
 
-/** Where a member manages what they pay for, or null when this app has nowhere to send them. */
+/** Where a member manages something they pay for. */
 export type Manage = { kind: 'portal'; url: string } | { kind: 'appStore' }
 
-export function manage(plan: Plan, portalUrl: string): Manage | null {
-  if (plan.source === 'stripe' && portalUrl) return { kind: 'portal', url: portalUrl }
-  if (plan.source === 'apple') return { kind: 'appStore' }
-  return null
+/** One place per store still billing the account, skipping one this app has nowhere to send. */
+export function manage(plan: Plan, portalUrl: string): Manage[] {
+  return plan.paidSources.flatMap((source): Manage[] => {
+    if (source === 'apple') return [{ kind: 'appStore' }]
+    return portalUrl ? [{ kind: 'portal', url: portalUrl }] : []
+  })
 }

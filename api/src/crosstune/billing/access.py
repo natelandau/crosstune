@@ -39,6 +39,23 @@ class Access:
 
 
 @dataclass(frozen=True)
+class PaidGrant:
+    """One store's subscription as clients see it, so each judges its expiry as for the reported grant."""
+
+    source: GrantSource
+    expires_at: datetime | None
+    auto_renews: bool
+
+    def as_row(self) -> dict[str, object]:
+        """The JSON the entitlements row stores and syncs."""
+        return {
+            "source": self.source.value,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "auto_renews": self.auto_renews,
+        }
+
+
+@dataclass(frozen=True)
 class Resolution:
     """Access plus the facts the entitlements row reports to clients."""
 
@@ -50,6 +67,12 @@ class Resolution:
     trial_ends_at: datetime | None
     premium_quota_bytes: int
     free_quota_bytes: int
+    # Each store's longest active paid grant, which the reported grant alone can hide: an
+    # open-ended comp outlasts a subscription that still bills.
+    paid_grants: tuple[PaidGrant, ...] = ()
+
+
+_PAID_SOURCES = (GrantSource.APPLE, GrantSource.STRIPE)
 
 
 def _active(grant: Grant, now: datetime) -> bool:
@@ -98,6 +121,15 @@ def resolve(grants: Sequence[Grant], now: datetime, settings: Settings) -> Resol
             free_quota_bytes=settings.free_scan_quota_bytes,
         )
 
+    paid_grants = tuple(
+        PaidGrant(GrantSource(longest.source), longest.expires_at, longest.auto_renews)
+        for source in _PAID_SOURCES
+        if (
+            longest := max(
+                (g for g in premium if g.source == source), key=_lasts_longest, default=None
+            )
+        )
+    )
     reported = max(premium, key=_lasts_longest)
     # The quota follows the reported grant, so the row's quota and expiry describe one grant.
     if reported.source == GrantSource.TRIAL:
@@ -115,6 +147,7 @@ def resolve(grants: Sequence[Grant], now: datetime, settings: Settings) -> Resol
         trial_ends_at=trial_ends_at,
         premium_quota_bytes=premium_quota,
         free_quota_bytes=settings.free_scan_quota_bytes,
+        paid_grants=paid_grants,
     )
 
 
@@ -151,6 +184,7 @@ async def refresh_entitlement(
         "trial_ends_at": resolution.trial_ends_at,
         "premium_quota_bytes": resolution.premium_quota_bytes,
         "free_quota_bytes": resolution.free_quota_bytes,
+        "paid_grants": [grant.as_row() for grant in resolution.paid_grants],
     }
 
     row = await session.scalar(select(Entitlement).where(Entitlement.user_id == user_id))
