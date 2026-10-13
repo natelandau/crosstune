@@ -712,10 +712,32 @@ public struct UserSettings: SyncedRecord, Hashable {
     }
 }
 
+/// One store's subscription on the entitlements row, judged against the clock as the reported
+/// grant is.
+public struct PaidGrant: Codable, Hashable, Sendable {
+    /// `apple` or `stripe`.
+    public var source: String
+    public var expiresAt: Timestamp?
+    public var autoRenews: Bool
+
+    public init(source: String, expiresAt: Timestamp? = nil, autoRenews: Bool = false) {
+        self.source = source
+        self.expiresAt = expiresAt
+        self.autoRenews = autoRenews
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case source
+        case expiresAt = "expires_at"
+        case autoRenews = "auto_renews"
+    }
+}
+
 /// What the account's grants allow, as the server resolved them: one row per user, pulled and
 /// stored, never written here and never pushed. ``Plan`` judges it against the device clock.
 public struct Entitlement: SyncedRecord, Hashable {
     public static let table = SyncTable.entitlements
+    public static var wireDefaults: JSONObject { ["paid_grants": .array([])] }
 
     public var id: String
     public var createdAt: Timestamp
@@ -733,6 +755,8 @@ public struct Entitlement: SyncedRecord, Hashable {
     public var trialEndsAt: Timestamp?
     public var premiumQuotaBytes: Int64
     public var freeQuotaBytes: Int64
+    /// Each store's longest live paid grant, which the reported grant alone can hide.
+    public var paidGrants: [PaidGrant]
     public var recordingNoticeSeenAt: Timestamp?
     public var trialReminderSeenAt: Timestamp?
     public var trialEndSeenAt: Timestamp?
@@ -751,6 +775,7 @@ public struct Entitlement: SyncedRecord, Hashable {
         case trialEndsAt = "trial_ends_at"
         case premiumQuotaBytes = "premium_quota_bytes"
         case freeQuotaBytes = "free_quota_bytes"
+        case paidGrants = "paid_grants"
         case recordingNoticeSeenAt = "recording_notice_seen_at"
         case trialReminderSeenAt = "trial_reminder_seen_at"
         case trialEndSeenAt = "trial_end_seen_at"
@@ -762,7 +787,7 @@ public struct Entitlement: SyncedRecord, Hashable {
         deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, premiumSource: String? = nil,
         premiumExpiresAt: Timestamp? = nil, autoRenews: Bool = false, trialStartsAt: Timestamp? = nil,
         trialEndsAt: Timestamp? = nil, premiumQuotaBytes: Int64, freeQuotaBytes: Int64,
-        recordingNoticeSeenAt: Timestamp? = nil, trialReminderSeenAt: Timestamp? = nil,
+        paidGrants: [PaidGrant] = [], recordingNoticeSeenAt: Timestamp? = nil, trialReminderSeenAt: Timestamp? = nil,
         trialEndSeenAt: Timestamp? = nil, extra: JSONObject = [:]
     ) {
         self.id = id
@@ -777,6 +802,7 @@ public struct Entitlement: SyncedRecord, Hashable {
         self.trialEndsAt = trialEndsAt
         self.premiumQuotaBytes = premiumQuotaBytes
         self.freeQuotaBytes = freeQuotaBytes
+        self.paidGrants = paidGrants
         self.recordingNoticeSeenAt = recordingNoticeSeenAt
         self.trialReminderSeenAt = trialReminderSeenAt
         self.trialEndSeenAt = trialEndSeenAt

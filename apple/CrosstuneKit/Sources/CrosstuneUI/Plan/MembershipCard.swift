@@ -18,25 +18,28 @@ extension PlanSheet {
         case atWebsite
     }
 
-    /// How `plan` is managed, nil for a plan with nothing to manage. A web subscriber is linked to
-    /// the portal only on the US storefront, where the App Store allows it, and gets nothing
-    /// until the storefront is read, so the action never changes under the musician.
-    nonisolated static func manage(_ plan: Plan, storefront: StorefrontRead, portalURL: URL?) -> Manage? {
-        switch plan.source {
-        case .apple: return .appStore
-        case .stripe:
-            switch (storefront, portalURL) {
-            case (.unread, _): return nil
-            case (.read("USA"), let portalURL?): return .onTheWeb(portalURL)
-            case (.read, _): return .atWebsite
+    /// Where each store billing `plan` is managed, empty for a plan with nothing to manage. A web
+    /// subscription is linked to the portal only on the US storefront, where the App Store allows
+    /// it, and shows nothing until the storefront is read, so the action never changes under the
+    /// musician.
+    nonisolated static func manage(_ plan: Plan, storefront: StorefrontRead, portalURL: URL?) -> [Manage] {
+        plan.paidSources.compactMap { source in
+            switch source {
+            case .apple: return .appStore
+            case .stripe:
+                switch (storefront, portalURL) {
+                case (.unread, _): return nil
+                case (.read("USA"), let portalURL?): return .onTheWeb(portalURL)
+                case (.read, _): return .atWebsite
+                }
+            case .comp, .trial: return nil
             }
-        case .comp, .trial, nil: return nil
         }
     }
 
     /// The storefront, read only for a web subscriber, the one plan whose action depends on it.
     static func storefront(for plan: Plan, client: (any PurchaseClient)?) async -> String? {
-        guard plan.source == .stripe, let client else { return nil }
+        guard plan.paidSources.contains(.stripe), let client else { return nil }
         return await client.storefrontCountryCode()
     }
 
@@ -45,9 +48,11 @@ extension PlanSheet {
     }
 
     /// The membership card's row: a comp's grant, or when a grant renews or ends. An empty value
-    /// shows the label alone. Nil for a plan the sheet sells to, or a grant with no date.
+    /// shows the label alone. Nil for a plan the sheet sells to, or a grant with no date. A
+    /// renewing grant past its reported expiry is in its offline leeway, where the next renewal is
+    /// unknown until a sync, so it shows no date.
     nonisolated static func membership(
-        _ plan: Plan, calendar: Calendar = .current, locale: Locale = .current
+        _ plan: Plan, now: Date, calendar: Calendar = .current, locale: Locale = .current
     ) -> (label: String, value: String)? {
         guard mode(plan) == .member else { return nil }
         let day = { PlanText.day($0, calendar: calendar, locale: locale) }
@@ -55,7 +60,8 @@ extension PlanSheet {
         case .comp:
             return plan.premiumEndsAt.map { (PlanText.ends, day($0)) } ?? (PlanText.compGrant, "")
         case .apple, .stripe:
-            return plan.premiumEndsAt.map { (plan.autoRenews ? PlanText.renews : PlanText.ends, day($0)) }
+            guard let end = plan.premiumEndsAt, !(plan.autoRenews && end <= now) else { return nil }
+            return (plan.autoRenews ? PlanText.renews : PlanText.ends, day(end))
         case .trial, nil:
             return nil
         }
@@ -72,7 +78,7 @@ extension PlanSheet {
 /// No price or period, since the synced entitlement carries neither.
 struct MembershipCard: View {
     let membership: (label: String, value: String)?
-    let manage: PlanSheet.Manage?
+    let manage: [PlanSheet.Manage]
 
     @Environment(\.purchases) private var purchases
     /// Apple's subscription settings show as a system sheet on iPhone and iPad, which claims the
@@ -85,11 +91,11 @@ struct MembershipCard: View {
                 membershipRow(membership)
                     .padding()
             }
-            if let manage {
-                if membership != nil {
+            ForEach(Array(manage.enumerated()), id: \.element) { index, place in
+                if membership != nil || index > 0 {
                     Divider().padding(.leading)
                 }
-                manageRow(manage)
+                manageRow(place)
                     .padding()
             }
         }

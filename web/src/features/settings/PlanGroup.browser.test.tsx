@@ -137,6 +137,16 @@ describe('PlanGroup', () => {
       .toBeVisible()
   })
 
+  it('shows no date for a renewing subscription in its offline leeway', async () => {
+    await mount({
+      premium_source: 'stripe',
+      premium_expires_at: new Date(NOW.getTime() - 2 * DAY).toISOString(),
+      auto_renews: true,
+    })
+    await expect.element(page.getByText(PLAN_PREMIUM, { exact: true })).toBeVisible()
+    expect(page.getByText(/^(Ends|Renews) /).elements()).toHaveLength(0)
+  })
+
   it('takes a premium quota from the row over the stored server quota', async () => {
     await mount({ premium_source: 'comp', premium_quota_bytes: 5_000_000_000 })
     await expect.element(page.getByText('12 MB of 5 GB used')).toBeVisible()

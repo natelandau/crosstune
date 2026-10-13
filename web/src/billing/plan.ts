@@ -10,6 +10,7 @@ export const TRIAL_REMINDER_MS = 259_200_000
 
 export type PlanKind = 'unknown' | 'premium' | 'free'
 type PlanSource = 'trial' | 'apple' | 'stripe' | 'comp'
+export type PaidSource = 'apple' | 'stripe'
 
 export interface Plan {
   kind: PlanKind
@@ -25,18 +26,43 @@ export interface Plan {
   scansOnly: boolean
   /** Whether the live premium grant renews on its own; false unless premium. */
   autoRenews: boolean
+  /** Every store still billing the account, the reported grant's included; empty unless
+   * premium. A comp that outlasts a subscription is reported over it. */
+  paidSources: PaidSource[]
 }
 
 const SOURCES: readonly string[] = ['trial', 'apple', 'stripe', 'comp']
+const PAID_SOURCES: readonly PaidSource[] = ['apple', 'stripe']
 
 function dateOf(value: string | null): Date | null {
   return value === null ? null : new Date(value)
 }
 
 /** The instant a grant stops counting, or null when it never expires. */
+function endOf(expiresAt: string | null, autoRenews: boolean): number | null {
+  if (expiresAt === null) return null
+  return Date.parse(expiresAt) + (autoRenews ? OFFLINE_LEEWAY_MS : 0)
+}
+
 function grantEnd(row: LocalEntitlement): number | null {
-  if (row.premium_expires_at === null) return null
-  return Date.parse(row.premium_expires_at) + (row.auto_renews ? OFFLINE_LEEWAY_MS : 0)
+  return endOf(row.premium_expires_at, row.auto_renews)
+}
+
+/** The row's paid grants, none for a row pulled from a server older than the field. */
+function paidGrants(row: LocalEntitlement): LocalEntitlement['paid_grants'] {
+  return row.paid_grants ?? []
+}
+
+/** The stores still billing the account at `now`, each judged as the reported grant is. */
+export function livePaidSources(row: LocalEntitlement, now: Date): PaidSource[] {
+  if (!isPremium(row, now)) return []
+  const live = paidGrants(row)
+    .filter((grant) => {
+      const end = endOf(grant.expires_at, grant.auto_renews)
+      return end === null || end > now.getTime()
+    })
+    .map((grant) => grant.source)
+  return PAID_SOURCES.filter((paid) => paid === row.premium_source || live.includes(paid))
 }
 
 export function isPremium(row: LocalEntitlement, now: Date): boolean {
@@ -52,12 +78,16 @@ export function isPremium(row: LocalEntitlement, now: Date): boolean {
  * rows.
  */
 export function planFrom(row: LocalEntitlement | null | undefined, now: Date): Plan {
-  return planOf(row, row ? isPremium(row, now) : false)
+  return planOf(row, row ? isPremium(row, now) : false, row ? livePaidSources(row, now) : [])
 }
 
-/** The plan for a row once its premium state is known, so a hook can rebuild it only when
- * the row or that state changes. */
-export function planOf(row: LocalEntitlement | null | undefined, premium: boolean): Plan {
+/** The plan for a row once its premium state and live paid stores are known, so a hook can
+ * rebuild it only when the row or either changes. */
+export function planOf(
+  row: LocalEntitlement | null | undefined,
+  premium: boolean,
+  paidSources: PaidSource[],
+): Plan {
   if (!row) {
     return {
       kind: 'unknown',
@@ -68,6 +98,7 @@ export function planOf(row: LocalEntitlement | null | undefined, premium: boolea
       quotaBytes: null,
       scansOnly: false,
       autoRenews: false,
+      paidSources: [],
     }
   }
   const source = row.premium_source
@@ -80,6 +111,7 @@ export function planOf(row: LocalEntitlement | null | undefined, premium: boolea
     quotaBytes: premium ? row.premium_quota_bytes : row.free_quota_bytes,
     scansOnly: !premium,
     autoRenews: premium && row.auto_renews,
+    paidSources: premium ? paidSources : [],
   }
 }
 
@@ -179,6 +211,10 @@ export function nextPlanChange(row: LocalEntitlement | null | undefined, now: Da
   if (row.premium_source !== null) {
     const end = grantEnd(row)
     if (end !== null) candidates.push(end)
+    for (const grant of paidGrants(row)) {
+      const paidEnd = endOf(grant.expires_at, grant.auto_renews)
+      if (paidEnd !== null) candidates.push(paidEnd)
+    }
   }
   // Only a trial, or no grant, has trial instants; dueNotice never shows a comp or purchase any.
   if (

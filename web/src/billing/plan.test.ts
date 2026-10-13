@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import type { LocalEntitlement } from '../db/types'
 import { entitlementRow } from '../test/rows'
 import {
   dueNotice,
+  livePaidSources,
   nextPlanChange,
   OFFLINE_LEEWAY_MS,
   planFrom,
@@ -358,5 +360,34 @@ describe('trialProgress', () => {
     expect(trialProgress(start(14), null, NOW)).toBe(0)
     expect(trialProgress(null, null, NOW)).toBe(0)
     expect(trialProgress(start(1), start(1), NOW)).toBe(0)
+  })
+})
+
+describe('paid stores', () => {
+  const stripe = (expires: number, autoRenews: boolean) => ({
+    source: 'stripe' as const,
+    expires_at: at(expires),
+    auto_renews: autoRenews,
+  })
+
+  it('lists a store under a comp until its grant ends, with the leeway when it renews', () => {
+    const lapsing = entitlementRow({ premium_source: 'comp', paid_grants: [stripe(-DAY, false)] })
+    const renewing = entitlementRow({ premium_source: 'comp', paid_grants: [stripe(-DAY, true)] })
+    const lapsed = entitlementRow({ premium_source: 'comp', paid_grants: [stripe(-8 * DAY, true)] })
+    expect(livePaidSources(lapsing, NOW)).toEqual([])
+    expect(livePaidSources(renewing, NOW)).toEqual(['stripe'])
+    expect(livePaidSources(lapsed, NOW)).toEqual([])
+    expect(planFrom(renewing, NOW).paidSources).toEqual(['stripe'])
+  })
+
+  it('wakes the plan clock when a paid grant under a comp ends', () => {
+    const row = entitlementRow({ premium_source: 'comp', paid_grants: [stripe(DAY, false)] })
+    expect(nextPlanChange(row, NOW)).toEqual(new Date(at(DAY)))
+  })
+
+  it('reads a row with no paid grants from an older server as none', () => {
+    const row: Record<string, unknown> = entitlementRow({ premium_source: 'apple' })
+    delete row.paid_grants
+    expect(livePaidSources(row as unknown as LocalEntitlement, NOW)).toEqual(['apple'])
   })
 })

@@ -204,6 +204,8 @@ extension Components {
             public var freeQuotaBytes: Swift.Int
             /// - Remark: Generated from `#/components/schemas/EntitlementRow/id`.
             public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/paid_grants`.
+            public var paidGrants: [Components.Schemas.PaidGrantRow]
             /// - Remark: Generated from `#/components/schemas/EntitlementRow/premium_expires_at`.
             public var premiumExpiresAt: Foundation.Date?
             /// - Remark: Generated from `#/components/schemas/EntitlementRow/premium_quota_bytes`.
@@ -234,6 +236,7 @@ extension Components {
             ///   - deletedAt:
             ///   - freeQuotaBytes:
             ///   - id:
+            ///   - paidGrants:
             ///   - premiumExpiresAt:
             ///   - premiumQuotaBytes:
             ///   - premiumSource:
@@ -251,6 +254,7 @@ extension Components {
                 deletedAt: Foundation.Date? = nil,
                 freeQuotaBytes: Swift.Int,
                 id: Swift.String,
+                paidGrants: [Components.Schemas.PaidGrantRow],
                 premiumExpiresAt: Foundation.Date? = nil,
                 premiumQuotaBytes: Swift.Int,
                 premiumSource: Components.Schemas.GrantSource? = nil,
@@ -268,6 +272,7 @@ extension Components {
                 self.deletedAt = deletedAt
                 self.freeQuotaBytes = freeQuotaBytes
                 self.id = id
+                self.paidGrants = paidGrants
                 self.premiumExpiresAt = premiumExpiresAt
                 self.premiumQuotaBytes = premiumQuotaBytes
                 self.premiumSource = premiumSource
@@ -286,6 +291,7 @@ extension Components {
                 case deletedAt = "deleted_at"
                 case freeQuotaBytes = "free_quota_bytes"
                 case id
+                case paidGrants = "paid_grants"
                 case premiumExpiresAt = "premium_expires_at"
                 case premiumQuotaBytes = "premium_quota_bytes"
                 case premiumSource = "premium_source"
@@ -908,6 +914,37 @@ extension Components {
             }
             public enum CodingKeys: String, CodingKey {
                 case notice
+            }
+        }
+        /// One store still billing the account, judged by clients as the reported grant is.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PaidGrantRow`.
+        public struct PaidGrantRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PaidGrantRow/auto_renews`.
+            public var autoRenews: Swift.Bool
+            /// - Remark: Generated from `#/components/schemas/PaidGrantRow/expires_at`.
+            public var expiresAt: Foundation.Date?
+            /// - Remark: Generated from `#/components/schemas/PaidGrantRow/source`.
+            public var source: Components.Schemas.GrantSource
+            /// Creates a new `PaidGrantRow`.
+            ///
+            /// - Parameters:
+            ///   - autoRenews:
+            ///   - expiresAt:
+            ///   - source:
+            public init(
+                autoRenews: Swift.Bool,
+                expiresAt: Foundation.Date? = nil,
+                source: Components.Schemas.GrantSource
+            ) {
+                self.autoRenews = autoRenews
+                self.expiresAt = expiresAt
+                self.source = source
+            }
+            public enum CodingKeys: String, CodingKey {
+                case autoRenews = "auto_renews"
+                case expiresAt = "expires_at"
+                case source
             }
         }
         /// A presigned GET for the waveform file, tagged with the revision it was signed for.

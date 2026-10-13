@@ -1053,3 +1053,34 @@ private let v16Schema = """
         #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'pull_cursor'") == "40")
     }
 }
+
+@Test func theV18MigrationAddsThePaidGrantsAndKeepsThePullCursor() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v17")
+    let time = "2026-10-13T12:00:00.000Z"
+    try queue.write { db in
+        try db.execute(
+            sql: """
+                INSERT INTO entitlements (id, created_at, updated_at, server_seq, auto_renews,
+                    premium_quota_bytes, free_quota_bytes, extra)
+                VALUES ('e-1', ?, ?, 1, 0, 10, 1, '{"paid_grants":[{"source":"stripe","expires_at":null,"auto_renews":true}],"storage_addon":true}'),
+                       ('e-2', ?, ?, 2, 0, 10, 1, '{}')
+                """,
+            arguments: [time, time, time, time])
+        try db.execute(sql: "INSERT INTO meta (key, value) VALUES ('pull_cursor', '40')")
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v18")
+
+    try queue.read { db in
+        let rows = try Row.fetchAll(db, sql: "SELECT paid_grants, extra FROM entitlements ORDER BY id")
+        #expect(
+            rows.map { $0["paid_grants"] as String } == [
+                #"[{"source":"stripe","expires_at":null,"auto_renews":true}]"#, "[]",
+            ])
+        #expect(rows.map { $0["extra"] as String } == [#"{"storage_addon":true}"#, "{}"])
+        #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'pull_cursor'") == "40")
+        let stored = try Entitlement.fetchOne(db, key: "e-1")
+        #expect(stored?.paidGrants == [PaidGrant(source: "stripe", autoRenews: true)])
+    }
+}

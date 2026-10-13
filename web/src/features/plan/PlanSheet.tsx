@@ -11,6 +11,7 @@ import { useOnline } from '../../sync/SyncProvider'
 import type { PremiumReason, PurchasePeriod } from '../../usage/events'
 import { Mark } from '../../ui/Mark'
 import { Sheet, type SheetPrimary } from '../../ui/Sheet'
+import { useNow } from '../../ui/useNow'
 import { useResetOnChange } from '../../ui/useResetOnChange'
 import { IncludedList } from './IncludedList'
 import { manage, membership } from './membership'
@@ -200,6 +201,7 @@ export function PlanSheet({
 
 /** A Premium account's plan: the mark and thanks, the membership, and what Premium includes. */
 function Member({ plan, headlineId }: { plan: Plan; headlineId: string }) {
+  const now = useNow()
   return (
     <div className="flex flex-col gap-4 pt-2">
       <div className="flex flex-col items-center gap-1 text-center">
@@ -210,7 +212,7 @@ function Member({ plan, headlineId }: { plan: Plan; headlineId: string }) {
         <p className="t-body text-ink-2">{THANKS}</p>
       </div>
       <MembershipCard
-        membership={membership(plan)}
+        membership={membership(plan, new Date(now))}
         manage={manage(plan, storeConfig().portalUrl)}
       />
       <IncludedList />

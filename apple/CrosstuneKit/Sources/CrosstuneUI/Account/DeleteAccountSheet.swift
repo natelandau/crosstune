@@ -79,13 +79,15 @@ public struct DeleteAccountSheet: View {
         return true
     }
 
-    /// What deleting does to a paid subscription: the server cancels a web one, while only the
-    /// buyer can cancel an App Store one. Nil for any other plan.
-    static func subscriptionLine(_ plan: Plan) -> String? {
-        switch plan.source {
-        case .apple: appleSubscriptionLine
-        case .stripe: stripeSubscriptionLine
-        default: nil
+    /// What deleting does to each subscription still billing the account: the server cancels a
+    /// web one, while only the buyer can cancel an App Store one.
+    static func subscriptionLines(_ plan: Plan) -> [String] {
+        plan.paidSources.compactMap { source in
+            switch source {
+            case .apple: appleSubscriptionLine
+            case .stripe: stripeSubscriptionLine
+            case .comp, .trial: nil
+            }
         }
     }
 
@@ -97,7 +99,7 @@ public struct DeleteAccountSheet: View {
     }
 
     static func appStoreSettings(_ plan: Plan, hasClient: Bool) -> AppStoreSettings? {
-        guard plan.source == .apple else { return nil }
+        guard plan.paidSources.contains(.apple) else { return nil }
         return hasClient ? .button : .link(RevenueCatPurchases.appleSubscriptionsURL)
     }
 
@@ -136,9 +138,7 @@ public struct DeleteAccountSheet: View {
                         Text(Self.unsyncedLine)
                     }
                     let plan = planModel?.plan ?? .unknown
-                    if let line = Self.subscriptionLine(plan) {
-                        Text(line)
-                    }
+                    ForEach(Self.subscriptionLines(plan), id: \.self) { Text($0) }
                     switch Self.appStoreSettings(plan, hasClient: purchases != nil) {
                     case .button:
                         Button(PlanText.manageAppStore) {

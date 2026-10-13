@@ -22,6 +22,9 @@ public enum PlanSource: String, Sendable {
     case apple
     case stripe
     case comp
+
+    /// The billing providers, in the order the account's subscriptions are listed.
+    public static let paid: [PlanSource] = [.apple, .stripe]
 }
 
 /// What the account may use at one instant, judged on the device from the stored entitlements
@@ -41,6 +44,9 @@ public struct Plan: Sendable, Equatable {
     public var scansOnly: Bool
     /// Whether the live Premium grant renews on its own; false unless Premium.
     public var autoRenews: Bool
+    /// Every store still billing the account, the reported grant's included; empty unless
+    /// Premium. A comp that outlasts a subscription is reported over it.
+    public var paidSources: [PlanSource]
 
     /// Whether the account is on a Premium trial.
     public var isTrial: Bool { kind == .premium && source == .trial }
@@ -61,7 +67,8 @@ public struct Plan: Sendable, Equatable {
 
     public init(
         kind: PlanKind, source: PlanSource? = nil, premiumEndsAt: Date? = nil, trialStartsAt: Date? = nil,
-        trialEndsAt: Date? = nil, quotaBytes: Int64? = nil, scansOnly: Bool = false, autoRenews: Bool = false
+        trialEndsAt: Date? = nil, quotaBytes: Int64? = nil, scansOnly: Bool = false, autoRenews: Bool = false,
+        paidSources: [PlanSource] = []
     ) {
         self.kind = kind
         self.source = source
@@ -71,6 +78,8 @@ public struct Plan: Sendable, Equatable {
         self.quotaBytes = quotaBytes
         self.scansOnly = scansOnly
         self.autoRenews = autoRenews
+        let billed = Set(paidSources + [source].compactMap { $0 })
+        self.paidSources = kind == .premium ? PlanSource.paid.filter(billed.contains) : []
     }
 
     public static let unknown = Plan(kind: .unknown)
@@ -87,7 +96,8 @@ public struct Plan: Sendable, Equatable {
             trialEndsAt: row.trialEndsAt?.date,
             quotaBytes: premium ? row.premiumQuotaBytes : row.freeQuotaBytes,
             scansOnly: !premium,
-            autoRenews: premium && row.autoRenews)
+            autoRenews: premium && row.autoRenews,
+            paidSources: premium ? PlanRules.livePaidSources(row, now: now) : [])
     }
 }
 
@@ -100,7 +110,18 @@ public enum PlanRules {
 
     /// The instant a grant stops counting, or nil when it never expires.
     private static func grantEnd(_ row: Entitlement) -> Date? {
-        row.premiumExpiresAt.map { $0.date.addingTimeInterval(row.autoRenews ? offlineLeeway : 0) }
+        end(row.premiumExpiresAt, autoRenews: row.autoRenews)
+    }
+
+    private static func end(_ expiresAt: Timestamp?, autoRenews: Bool) -> Date? {
+        expiresAt.map { $0.date.addingTimeInterval(autoRenews ? offlineLeeway : 0) }
+    }
+
+    /// The stores whose paid grant still counts at `now`, each judged as the reported grant is.
+    static func livePaidSources(_ row: Entitlement, now: Date) -> [PlanSource] {
+        row.paidGrants
+            .filter { grant in end(grant.expiresAt, autoRenews: grant.autoRenews).map { $0 > now } ?? true }
+            .compactMap { PlanSource(rawValue: $0.source) }
     }
 
     static func isPremium(_ row: Entitlement, now: Date) -> Bool {
@@ -147,7 +168,10 @@ public enum PlanRules {
     public static func nextChange(_ row: Entitlement?, now: Date) -> Date? {
         guard let row else { return nil }
         var candidates: [Date] = []
-        if row.premiumSource != nil, let end = grantEnd(row) { candidates.append(end) }
+        if row.premiumSource != nil {
+            if let end = grantEnd(row) { candidates.append(end) }
+            candidates += row.paidGrants.compactMap { end($0.expiresAt, autoRenews: $0.autoRenews) }
+        }
         if let trialEnd = row.trialEndsAt?.date {
             candidates.append(trialEnd)
             candidates.append(trialEnd.addingTimeInterval(-trialReminder))

@@ -232,7 +232,7 @@ struct PlanSheet: View {
             }
         }
         .task(id: plan?.scanTune) { await readScanTuneTitle() }
-        .task(id: currentPlan.source) {
+        .task(id: currentPlan.paidSources) {
             storefront = .unread
             storefront = .read(await Self.storefront(for: currentPlan, client: purchases))
         }
@@ -289,9 +289,9 @@ struct PlanSheet: View {
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity)
-        let membership = Self.membership(plan)
+        let membership = Self.membership(plan, now: now ?? .now)
         let manage = Self.manage(plan, storefront: storefront, portalURL: portalURL)
-        if membership != nil || manage != nil {
+        if membership != nil || !manage.isEmpty {
             MembershipCard(membership: membership, manage: manage)
         }
         IncludedList()

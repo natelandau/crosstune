@@ -947,6 +947,33 @@ it('an App Store member manages in App Store settings', async () => {
     .toHaveAttribute('target', '_blank')
 })
 
+it('a comp member still billed by both stores manages each', async () => {
+  config.portalUrl = PORTAL
+  onTestFinished(() => {
+    config.portalUrl = ''
+  })
+  await openPaywall({
+    row: {
+      premium_source: 'comp',
+      paid_grants: [
+        { source: 'apple', expires_at: RENEWAL, auto_renews: true },
+        { source: 'stripe', expires_at: RENEWAL, auto_renews: true },
+      ],
+    },
+    reason: 'plan',
+    from: 'plan_group',
+  })
+
+  await expectMemberView()
+  await expect.element(planSheet().getByText(COMP_GRANT, { exact: true })).toBeVisible()
+  await expect
+    .element(planSheet().getByRole('link', { name: MANAGE_APP_STORE }))
+    .toHaveAttribute('href', APP_STORE_SUBSCRIPTIONS_URL)
+  await expect
+    .element(planSheet().getByRole('link', { name: MANAGE_SUBSCRIPTION }))
+    .toHaveAttribute('href', PORTAL)
+})
+
 it('a comp member sees Premium from Crosstune and no manage action', async () => {
   config.portalUrl = PORTAL
   onTestFinished(() => {

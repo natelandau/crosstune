@@ -378,6 +378,16 @@ class ScanViewData(_Data):
         return self
 
 
+class PaidGrantRow(BaseModel):
+    """One store still billing the account, judged by clients as the reported grant is."""
+
+    model_config = ConfigDict(extra="ignore", use_enum_values=True)
+
+    source: GrantSource
+    expires_at: datetime | None
+    auto_renews: bool
+
+
 class EntitlementData(_Data):
     """No client-editable fields: the server writes every entitlements column."""
 
@@ -494,6 +504,7 @@ class EntitlementRow(EntitlementData, _Row):
     trial_ends_at: datetime | None
     premium_quota_bytes: int
     free_quota_bytes: int
+    paid_grants: list[PaidGrantRow]
     recording_notice_seen_at: datetime | None
     trial_reminder_seen_at: datetime | None
     trial_end_seen_at: datetime | None

@@ -55,17 +55,20 @@ import Testing
         #expect(DeleteAccountSheet.deleteEnabled(state, text: "DELETE", pending: false))
     }
 
-    @Test func theSubscriptionLineFollowsTheSource() {
+    @Test func theSubscriptionLinesFollowEveryPaidSource() {
         #expect(
-            DeleteAccountSheet.subscriptionLine(Plan(kind: .premium, source: .apple))
-                == DeleteAccountSheet.appleSubscriptionLine)
+            DeleteAccountSheet.subscriptionLines(Plan(kind: .premium, source: .apple))
+                == [DeleteAccountSheet.appleSubscriptionLine])
         #expect(
-            DeleteAccountSheet.subscriptionLine(Plan(kind: .premium, source: .stripe))
-                == DeleteAccountSheet.stripeSubscriptionLine)
+            DeleteAccountSheet.subscriptionLines(Plan(kind: .premium, source: .stripe))
+                == [DeleteAccountSheet.stripeSubscriptionLine])
+        #expect(
+            DeleteAccountSheet.subscriptionLines(Plan(kind: .premium, source: .comp, paidSources: [.apple, .stripe]))
+                == [DeleteAccountSheet.appleSubscriptionLine, DeleteAccountSheet.stripeSubscriptionLine])
         for plan in [
             Plan(kind: .free), Plan(kind: .premium, source: .trial), Plan(kind: .premium, source: .comp), .unknown,
         ] {
-            #expect(DeleteAccountSheet.subscriptionLine(plan) == nil)
+            #expect(DeleteAccountSheet.subscriptionLines(plan).isEmpty)
         }
     }
 
@@ -78,6 +81,8 @@ import Testing
                 == .link(URL(string: "https://apps.apple.com/account/subscriptions")!))
         #expect(DeleteAccountSheet.appStoreSettings(Plan(kind: .premium, source: .stripe), hasClient: true) == nil)
         #expect(DeleteAccountSheet.appStoreSettings(Plan(kind: .free), hasClient: true) == nil)
+        let compOverApple = Plan(kind: .premium, source: .comp, paidSources: [.apple])
+        #expect(DeleteAccountSheet.appStoreSettings(compOverApple, hasClient: true) == .button)
     }
 
     @Test func theCopyMatchesTheWeb() throws {

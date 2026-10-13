@@ -2,7 +2,7 @@ import { useAuth } from '@clerk/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { useAuthSession } from '../../auth/AuthContext'
-import type { Plan } from '../../billing/plan'
+import type { PaidSource } from '../../billing/plan'
 import { usePlanOrUnknown } from '../../billing/usePlan'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
@@ -23,10 +23,14 @@ import {
   STRIPE_SUBSCRIPTION_LINE,
 } from './deleteAccountCopy'
 
+/** What deleting does to a subscription, and where an App Store subscriber cancels it. */
+export interface SubscriptionNote {
+  line: string
+  link: string | null
+}
+
 /** What deleting does to each kind of paid subscription, and where to cancel one it leaves. */
-const SUBSCRIPTIONS: Partial<
-  Record<NonNullable<Plan['source']>, { line: string; link: string | null }>
-> = {
+const SUBSCRIPTIONS: Record<PaidSource, SubscriptionNote> = {
   stripe: { line: STRIPE_SUBSCRIPTION_LINE, link: null },
   apple: { line: APPLE_SUBSCRIPTION_LINE, link: APP_STORE_SUBSCRIPTIONS_URL },
 }
@@ -54,10 +58,8 @@ export interface DeleteAccount {
   countLines: string[] | null
   /** True until the local counts have been read or have failed to read. */
   loading: boolean
-  /** What happens to the account's paid subscription, or null when it has none to cancel. */
-  subscriptionLine: string | null
-  /** Where an App Store subscriber cancels, or null for any other account. */
-  subscriptionLink: string | null
+  /** What happens to each subscription still billing the account. */
+  subscriptions: SubscriptionNote[]
   confirmed: boolean
   /** Does nothing until the confirmation text matches and the counts have settled. */
   run: () => void
@@ -78,8 +80,8 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
   const { signOut } = useAuth()
   const engine = useSyncEngine()
   const analytics = useAnalytics()
-  const { source } = usePlanOrUnknown()
-  const subscription = source === null ? undefined : SUBSCRIPTIONS[source]
+  const { paidSources } = usePlanOrUnknown()
+  const subscriptions = paidSources.map((source) => SUBSCRIPTIONS[source])
   const { error, pending, runThen, clear } = useAction()
   const [text, setText] = useState('')
   const [closing, setClosing] = useState(false)
@@ -143,8 +145,7 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
     },
     countLines: counts ? linesFor(counts) : null,
     loading,
-    subscriptionLine: subscription?.line ?? null,
-    subscriptionLink: subscription?.link ?? null,
+    subscriptions,
     confirmed,
     run,
     error,

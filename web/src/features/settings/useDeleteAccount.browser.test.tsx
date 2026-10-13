@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../../api/client'
 import type { CrosstuneDb } from '../../db/schema'
+import type { LocalEntitlement } from '../../db/types'
 import { openTestDb } from '../../test/db'
 import { dataProviders, fakeEngine } from '../../test/providers'
 import { page } from 'vitest/browser'
@@ -17,7 +18,7 @@ import {
   SETTINGS_LINE,
   STRIPE_SUBSCRIPTION_LINE,
 } from './deleteAccountCopy'
-import { useDeleteAccount } from './useDeleteAccount'
+import { useDeleteAccount, type SubscriptionNote } from './useDeleteAccount'
 
 const clerk = vi.hoisted(() => ({ signOut: vi.fn(async () => {}) }))
 
@@ -50,22 +51,38 @@ describe('useDeleteAccount', () => {
     await expect.poll(() => result.current.error).toBe(DELETE_FAILED)
   })
 
-  it.each([
-    ['stripe', STRIPE_SUBSCRIPTION_LINE, null],
-    ['apple', APPLE_SUBSCRIPTION_LINE, APP_STORE_SUBSCRIPTIONS_URL],
-    ['comp', null, null],
-    ['trial', null, null],
-    [null, null, null],
-  ] as const)('names the subscription for a %s account', async (source, line, link) => {
-    await db.entitlements.put(entitlementRow({ premium_source: source }))
+  const STRIPE = { line: STRIPE_SUBSCRIPTION_LINE, link: null }
+  const APPLE = { line: APPLE_SUBSCRIPTION_LINE, link: APP_STORE_SUBSCRIPTIONS_URL }
+  const billing = (source: 'apple' | 'stripe', expires_at: string | null = null) => ({
+    source,
+    expires_at,
+    auto_renews: false,
+  })
+  it.each<[string, Partial<LocalEntitlement>, SubscriptionNote[]]>([
+    ['a stripe account', { premium_source: 'stripe', paid_grants: [billing('stripe')] }, [STRIPE]],
+    ['an apple account', { premium_source: 'apple', paid_grants: [billing('apple')] }, [APPLE]],
+    [
+      'a comp over both stores',
+      { premium_source: 'comp', paid_grants: [billing('apple'), billing('stripe')] },
+      [APPLE, STRIPE],
+    ],
+    [
+      'a comp over a lapsed web subscription',
+      { premium_source: 'comp', paid_grants: [billing('stripe', '2001-01-01T00:00:00.000Z')] },
+      [],
+    ],
+    ['a comp', { premium_source: 'comp', paid_grants: [] }, []],
+    ['a trial', { premium_source: 'trial', paid_grants: [] }, []],
+    ['a free account', { paid_grants: [] }, []],
+  ])('names every subscription for %s', async (_name, row, subscriptions) => {
+    await db.entitlements.put(entitlementRow(row))
     const { result } = renderHook(
       () => ({ deletion: useDeleteAccount(true), plan: usePlanOrUnknown() }),
       { wrapper: dataProviders({ db }) },
     )
     await expect.poll(() => result.current.plan.kind).not.toBe('unknown')
     await expect.poll(() => result.current.deletion.loading).toBe(false)
-    expect(result.current.deletion.subscriptionLine).toBe(line)
-    expect(result.current.deletion.subscriptionLink).toBe(link)
+    expect(result.current.deletion.subscriptions).toEqual(subscriptions)
   })
 
   it('shows the Apple line and its settings link in the sheet', async () => {

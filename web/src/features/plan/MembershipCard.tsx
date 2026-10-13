@@ -14,9 +14,9 @@ export function MembershipCard({
   manage,
 }: {
   membership: Membership | null
-  manage: Manage | null
+  manage: Manage[]
 }) {
-  if (!membership && !manage) return null
+  if (!membership && manage.length === 0) return null
   return (
     <div className="bg-fill flex flex-col rounded-(--radius-surface) *:first:rounded-t-(--radius-surface) *:last:rounded-b-(--radius-surface)">
       {membership && (
@@ -27,19 +27,20 @@ export function MembershipCard({
           )}
         </p>
       )}
-      {manage && (
+      {manage.map((place) => (
         <a
+          key={place.kind}
           className={MANAGE_ROW}
-          href={manage.kind === 'portal' ? manage.url : APP_STORE_SUBSCRIPTIONS_URL}
+          href={place.kind === 'portal' ? place.url : APP_STORE_SUBSCRIPTIONS_URL}
           target="_blank"
           rel="noopener noreferrer"
         >
           <span className="flex-1">
-            {manage.kind === 'portal' ? MANAGE_SUBSCRIPTION : MANAGE_APP_STORE}
+            {place.kind === 'portal' ? MANAGE_SUBSCRIPTION : MANAGE_APP_STORE}
           </span>
           <ArrowUpRight className="size-4 shrink-0" aria-hidden />
         </a>
-      )}
+      ))}
     </div>
   )
 }

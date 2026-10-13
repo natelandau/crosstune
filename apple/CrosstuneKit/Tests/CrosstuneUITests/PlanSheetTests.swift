@@ -314,7 +314,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
     private let comp = Plan(kind: .premium, source: .comp)
 
     /// The manage action for a web subscriber on the fake store's storefront.
-    private func stripeManage(storefront: String?, portalURL: URL?) async -> PlanSheet.Manage? {
+    private func stripeManage(storefront: String?, portalURL: URL?) async -> [PlanSheet.Manage] {
         let client = FakePurchaseClient()
         client.storefront = storefront
         let read = await PlanSheet.storefront(for: stripe, client: client)
@@ -322,31 +322,38 @@ private let portal = URL(string: "https://billing.example.com/portal")!
     }
 
     @Test func anAppStoreSubscriberManagesInAppStoreSettings() {
-        #expect(PlanSheet.manage(apple, storefront: .read("USA"), portalURL: portal) == .appStore)
-        #expect(PlanSheet.manage(apple, storefront: .unread, portalURL: nil) == .appStore)
+        #expect(PlanSheet.manage(apple, storefront: .read("USA"), portalURL: portal) == [.appStore])
+        #expect(PlanSheet.manage(apple, storefront: .unread, portalURL: nil) == [.appStore])
     }
 
     @Test func aWebSubscriberInTheUSGetsTheLink() async {
-        #expect(await stripeManage(storefront: "USA", portalURL: portal) == .onTheWeb(portal))
+        #expect(await stripeManage(storefront: "USA", portalURL: portal) == [.onTheWeb(portal)])
     }
 
     @Test func aWebSubscriberOutsideTheUSGetsNoLink() async {
-        #expect(await stripeManage(storefront: "GBR", portalURL: portal) == .atWebsite)
+        #expect(await stripeManage(storefront: "GBR", portalURL: portal) == [.atWebsite])
     }
 
     @Test func aWebSubscriberGetsNoLinkWithoutAPortalOrAStorefront() async {
-        #expect(await stripeManage(storefront: "USA", portalURL: nil) == .atWebsite)
-        #expect(await stripeManage(storefront: nil, portalURL: portal) == .atWebsite)
+        #expect(await stripeManage(storefront: "USA", portalURL: nil) == [.atWebsite])
+        #expect(await stripeManage(storefront: nil, portalURL: portal) == [.atWebsite])
     }
 
     @Test func aWebSubscriberGetsNoManageActionUntilTheStorefrontIsRead() {
-        #expect(PlanSheet.manage(stripe, storefront: .unread, portalURL: portal) == nil)
+        #expect(PlanSheet.manage(stripe, storefront: .unread, portalURL: portal).isEmpty)
     }
 
     @Test func aCompATrialAndAFreePlanHaveNothingToManage() {
         for plan in [comp, Plan(kind: .premium, source: .trial), Plan(kind: .free), .unknown] {
-            #expect(PlanSheet.manage(plan, storefront: .read("USA"), portalURL: portal) == nil)
+            #expect(PlanSheet.manage(plan, storefront: .read("USA"), portalURL: portal).isEmpty)
         }
+    }
+
+    @Test func aCompStillBilledByBothStoresManagesEach() async {
+        let both = Plan(kind: .premium, source: .comp, paidSources: [.stripe, .apple])
+        #expect(await PlanSheet.storefront(for: both, client: FakePurchaseClient()) == "USA")
+        #expect(
+            PlanSheet.manage(both, storefront: .read("USA"), portalURL: portal) == [.appStore, .onTheWeb(portal)])
     }
 
     @Test func onlyAWebSubscriberReadsTheStorefront() async {
@@ -367,14 +374,15 @@ private let portal = URL(string: "https://billing.example.com/portal")!
     }
 
     @Test func aCompShowsPremiumFromCrosstune() throws {
-        let row = try #require(PlanSheet.membership(comp))
+        let row = try #require(PlanSheet.membership(comp, now: instant))
         #expect(row.label == PlanText.compGrant)
         #expect(row.value == "")
     }
 
     @Test func aCompWithAnEndShowsItsEnd() throws {
         let ends = instant.addingTimeInterval(90 * day)
-        let row = try #require(PlanSheet.membership(Plan(kind: .premium, source: .comp, premiumEndsAt: ends)))
+        let row = try #require(
+            PlanSheet.membership(Plan(kind: .premium, source: .comp, premiumEndsAt: ends), now: instant))
         #expect(row.label == PlanText.ends)
         #expect(row.value == PlanText.day(ends))
     }
@@ -383,17 +391,24 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         let ends = instant.addingTimeInterval(30 * day)
         for source in [PlanSource.apple, .stripe] {
             let renewing = try #require(
-                PlanSheet.membership(Plan(kind: .premium, source: source, premiumEndsAt: ends, autoRenews: true)))
+                PlanSheet.membership(
+                    Plan(kind: .premium, source: source, premiumEndsAt: ends, autoRenews: true), now: instant))
             #expect(renewing.label == PlanText.renews)
             #expect(renewing.value == PlanText.day(ends))
             let lapsing = try #require(
-                PlanSheet.membership(Plan(kind: .premium, source: source, premiumEndsAt: ends, autoRenews: false)))
+                PlanSheet.membership(
+                    Plan(kind: .premium, source: source, premiumEndsAt: ends, autoRenews: false), now: instant))
             #expect(lapsing.label == PlanText.ends)
             #expect(lapsing.value == PlanText.day(ends))
         }
+        // The next renewal is unknown during the offline leeway.
+        let lapsed = instant.addingTimeInterval(-2 * day)
+        #expect(
+            PlanSheet.membership(
+                Plan(kind: .premium, source: .stripe, premiumEndsAt: lapsed, autoRenews: true), now: instant) == nil)
         // Nothing to show for a plan the sheet sells to.
-        #expect(PlanSheet.membership(Plan(kind: .free)) == nil)
-        #expect(PlanSheet.membership(Plan(kind: .premium, source: .trial, premiumEndsAt: ends)) == nil)
+        #expect(PlanSheet.membership(Plan(kind: .free), now: instant) == nil)
+        #expect(PlanSheet.membership(Plan(kind: .premium, source: .trial, premiumEndsAt: ends), now: instant) == nil)
     }
 
     @Test func theIncludedListNamesTheFourPremiumFeatures() {
