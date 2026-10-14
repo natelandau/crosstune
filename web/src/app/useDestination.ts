@@ -1,7 +1,12 @@
 import { useCallback, useContext } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { AppRouterContext } from './appRouterContext'
-import { DESTINATIONS, destinationOf, rememberedLocation, type Destination } from './destinations'
+import {
+  DESTINATIONS,
+  destinationOf,
+  rememberedLocation,
+  type Destination,
+} from '../layout/destinations'
 
 const ROOTS = Object.fromEntries(DESTINATIONS.map((d) => [d.id, d.root])) as Record<
   Destination,

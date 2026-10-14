@@ -103,7 +103,7 @@ export default defineConfig((env) =>
             extends: true,
             test: {
               name: 'browser-webkit',
-              include: ['src/app/columns.browser.test.tsx'],
+              include: ['src/layout/columns.browser.test.tsx'],
               setupFiles: ['./src/test/setupBrowser.ts'],
               retry: browserRetry,
               browser: { ...browserBase(), instances: [{ browser: 'webkit' as const }] },

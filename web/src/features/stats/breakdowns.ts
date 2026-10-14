@@ -38,7 +38,7 @@ function tally(values: readonly (string | null | undefined)[]): Value[] {
     .sort(byCountThenValue)
 }
 
-export function tuningOf(tune: StatsTune, instrument: string): string | null {
+function tuningOf(tune: StatsTune, instrument: string): string | null {
   const entry = tuningsMap(tune.tunings)[instrument]
   if (typeof entry !== 'object' || entry === null) return null
   const tuning = (entry as { tuning?: unknown }).tuning

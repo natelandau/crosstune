@@ -1,12 +1,12 @@
 import { containsText, foldText } from '../../text/fold'
-import { tabLabel } from '../../app/tabs'
+import { tabLabel } from '../../layout/tabs'
 import { GO_TO, type ShortcutId } from '../keyboard/keymap'
-import type { HeardEntry } from '../catalog/filters'
 import { matchTunes, MAX_RESULTS } from '../catalog/tuneMatches'
 import { recordingLabel, recordingMatches } from '../recordings/recordingMatch'
 import { recordingTitle } from '../recordings/recordingRow'
 import type { RecordingView } from '../recordings/useRecordings'
 import { compareNames } from '../../text/collate'
+import type { HeardEntry } from '../../db/types'
 
 export const QUICK_FIND_PLACEHOLDER = 'Find tunes, lists, and recordings'
 export const NO_MATCHES = 'No matches'
@@ -109,7 +109,7 @@ function ranked<T>(items: readonly T[], texts: (item: T) => string[], needle: st
     .map(({ item }) => item)
 }
 
-export function commandItem(command: QuickFindCommand): QuickFindItem {
+function commandItem(command: QuickFindCommand): QuickFindItem {
   return { kind: 'command', key: `command:${command.id}`, title: command.label, command }
 }
 

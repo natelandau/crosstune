@@ -2,7 +2,8 @@ import type { Table } from 'dexie'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useDb } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
-import { catalogEntries, type HeardEntry } from './filters'
+import { catalogEntries } from './filters'
+import type { HeardEntry } from '../../db/types'
 
 /**
  * The ids of tunes holding a live recording or link. The `tune_id` index skips unfiled

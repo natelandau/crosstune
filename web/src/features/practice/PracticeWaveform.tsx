@@ -49,7 +49,7 @@ export const ARROW_STEP_MS = 1000
 export const ARROW_LARGE_STEP_MS = 5000
 
 /** `0:58 of 3:00`, the playhead's place on the trimmed timeline. */
-export function POSITION_TEXT(ms: number, lengthMs: number): string {
+function POSITION_TEXT(ms: number, lengthMs: number): string {
   return `${formatDuration(ms)} of ${formatDuration(lengthMs)}`
 }
 

@@ -2,8 +2,8 @@ import { useEffect } from 'react'
 import { Outlet, useLocation, useMatches } from 'react-router'
 import { useAnalytics } from '../usage/AnalyticsProvider'
 import { screenFor } from '../usage/screens'
-import { useBackTrail } from './backTrail'
-import { destinationOf, rememberLocation } from './destinations'
+import { useBackTrail } from '../layout/backTrail'
+import { destinationOf, rememberLocation } from '../layout/destinations'
 import { isNotFound } from './notFound'
 
 /**

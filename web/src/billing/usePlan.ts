@@ -3,6 +3,7 @@ import { useDb } from '../db/DbProvider'
 import { createSharedLiveQuery, type Shared, type Snapshot } from '../db/sharedLiveQuery'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalEntitlement } from '../db/types'
+import { clamp } from '../math'
 import { useFixedNow } from '../ui/useNow'
 import { liveEntitlement } from './entitlement'
 import {
@@ -81,7 +82,7 @@ function createPlanClock(rows: Shared<LocalEntitlement | null>): PlanClock {
         armedFor = null
         recheck()
       },
-      Math.min(Math.max(next - Date.now(), 0), MAX_TIMER_MS),
+      clamp(next - Date.now(), 0, MAX_TIMER_MS),
     )
   }
 

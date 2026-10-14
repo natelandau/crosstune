@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import cases from '../../../../fixtures/import/review.json'
 import { tuneRow, userTuneRow } from '../../test/rows'
-import type { CatalogEntry } from '../catalog/filters'
 import type { PlainListRead } from './plainList'
 import {
   buildReview,
@@ -12,6 +11,7 @@ import {
   type ImportReview,
   type ImportRow,
 } from './review'
+import type { CatalogEntry } from '../../db/types'
 
 interface CatalogCase {
   title: string

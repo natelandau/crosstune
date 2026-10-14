@@ -1,11 +1,6 @@
 import { CircleSlash } from 'lucide-react'
 import type { ReactNode } from 'react'
 
-/** The slot before a row's title, sized to the row's touch target whatever it holds. */
-export function Slot({ children }: { children?: ReactNode }) {
-  return <span className="flex size-11 shrink-0 items-center justify-center">{children}</span>
-}
-
 // A bare triangle at a row's edge reads as a disclosure arrow, so a row's transport glyph sits
 // in a disc: tinted while idle, solid once it holds what plays.
 const DISC =

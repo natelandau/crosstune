@@ -43,7 +43,7 @@ export const PART_MODE_LABELS = ['Mode', 'B part mode', 'C part mode', 'D part m
 
 export const ADD_PART_MODE = 'Add mode for another part'
 
-export const CROOKED_HELP = 'An odd number of beats or bars in a part.'
+const CROOKED_HELP = 'An odd number of beats or bars in a part.'
 
 /** The Details card's own footer. The rule governs one field but belongs to the card, because
  *  help text inside a card reads as another row. */

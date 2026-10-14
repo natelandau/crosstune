@@ -13,7 +13,7 @@ export const EMPTY_FILE_ERROR = 'This file is empty.'
 export const refusedFile = (name: string, message: string) => `${name}: ${message}`
 
 /** Adds an audio file already on the device as a recording, filed under `tuneId` or unfiled. */
-export async function addAudioFile(db: CrosstuneDb, file: File, tuneId: string | null) {
+async function addAudioFile(db: CrosstuneDb, file: File, tuneId: string | null) {
   // The server refuses all three of these permanently; storing them would only leave a row
   // stuck waiting on an upload that can never succeed.
   if (!file.type.startsWith('audio/')) throw new Error(NOT_AUDIO_ERROR)

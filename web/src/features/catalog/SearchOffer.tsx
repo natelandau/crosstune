@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { Button as AriaButton } from 'react-aria-components'
 import { OPEN, addOfferLabel, hiddenMatchText, openTuneName } from './catalogCopy'
 import type { SearchOutcome } from './searchIntent'
-import { destination } from '../../app/destinations'
+import { destination } from '../../layout/destinations'
 import { ROW_PRESS } from '../../ui/press'
 
 const CATALOG = destination('catalog')

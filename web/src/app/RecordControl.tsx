@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
-import { RECORD_LABEL, RECORD_TEXT } from './tabs'
+import { RECORD_LABEL, RECORD_TEXT } from '../layout/tabs'
 import { useShellCovered } from '../ui/overlayClaim'
 import { RECORD_UNAVAILABLE, useRecordLauncher } from './recordLauncher'
 import { PRESS } from '../ui/press'

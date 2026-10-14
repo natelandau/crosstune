@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { tuneRow as tune, userTuneRow as userTune } from '../../test/rows'
 import { lastPlayedByTune, sortCatalog, type CatalogSort } from './catalogSort'
-import type { CatalogEntry } from './filters'
+import type { CatalogEntry } from '../../db/types'
 
 function entry(
   id: string,

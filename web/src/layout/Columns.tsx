@@ -22,7 +22,7 @@ import { readStored, writeStored } from '../platform/storage'
 export const COLUMN_WIDTH = 'Column width'
 
 export const COLUMN_MIN = 280
-export const COLUMN_MAX = 480
+const COLUMN_MAX = 480
 export const COLUMN_DEFAULT = 340
 const STEP = 16
 const WIDTH_KEY = 'crosstune.columnWidth'

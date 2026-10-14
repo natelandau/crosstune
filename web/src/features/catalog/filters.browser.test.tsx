@@ -20,13 +20,13 @@ import {
   type Facet,
   type FacetValues,
 } from './filters'
-import { countTunes } from '../selection/copy'
+import { countTunes } from '../../text/format'
 import { withInstrumentLabel } from '../../domain/instruments'
 import { openTestDb } from '../../test/db'
 import { DONE } from '../../ui/confirmCopy'
 import { ANY, FILTERS, filtersLabel, RESET, removeFilterLabel } from '../../ui/filterCopy'
 import { KEY } from '../../ui/keyName'
-import { destination } from '../../app/destinations'
+import { destination } from '../../layout/destinations'
 import { renderWithProviders } from '../../test/render'
 import { renderApp } from '../../test/renderApp'
 import { CatalogFilterRow, FILTER_ROW } from './CatalogFilterRow'

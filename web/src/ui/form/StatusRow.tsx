@@ -10,8 +10,6 @@ export interface StatusAction {
   icon?: LucideIcon
   /** A drawn glyph in place of `icon`, such as one that spins while the action runs. */
   glyph?: ReactNode
-  /** Filled, for the one action the row exists to offer, such as Subscribe. */
-  prominent?: boolean
 }
 
 /**
@@ -47,7 +45,7 @@ export function StatusRow({
       {action && (
         <div className={`flex ${touch ? '' : 'shrink-0'}`}>
           <Button
-            variant={action.prominent ? 'primary' : 'bordered'}
+            variant="bordered"
             fullWidth={touch}
             label={action.label}
             icon={action.icon}

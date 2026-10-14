@@ -1,4 +1,4 @@
-import { countTunes } from '../selection/copy'
+import { countTunes } from '../../text/format'
 
 export const ADD_TO_LIST = 'Add to list'
 /** A picker row's note for a list that holds none of the tunes being added. */

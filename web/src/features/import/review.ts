@@ -1,7 +1,7 @@
 import { TUNE_LIMITS } from '../../api/vocabulary'
 import { foldText } from '../../text/fold'
-import type { CatalogEntry } from '../catalog/filters'
 import type { PlainListRead } from './plainList'
+import type { CatalogEntry } from '../../db/types'
 
 export const IMPORT_LIMIT = 500
 

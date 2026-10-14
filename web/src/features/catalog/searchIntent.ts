@@ -1,4 +1,5 @@
-import { titleMatches, type CatalogEntry } from './filters'
+import { titleMatches } from './filters'
+import type { CatalogEntry } from '../../db/types'
 
 export interface HiddenMatch {
   entry: CatalogEntry

@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from 'react'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
-import { RECORD_LABEL } from '../../app/tabs'
+import { RECORD_LABEL } from '../../layout/tabs'
 import { seenNotices } from '../../billing/notices'
 import type { Store } from '../../billing/store'
 import { StoreProvider } from '../../billing/StoreProvider'

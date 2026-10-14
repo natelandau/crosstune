@@ -7,8 +7,6 @@ import { isAuthFailure, isRetryableRefusal } from '../sync/errors'
 import { liveEntitlement } from './entitlement'
 import { dueNotice, type NoticeKind } from './plan'
 
-export { META_SEEN_NOTICES }
-
 /** The row column the server stamps when the account has seen each notice. */
 const SEEN_COLUMN = {
   first_recording: 'recording_notice_seen_at',

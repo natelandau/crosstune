@@ -1,8 +1,8 @@
 import type { TimeSignature } from '../../api/vocabulary'
 import { GENRE_TYPES, TUNE_TYPES, TYPE_TIME_SIGNATURES } from '../../constants'
 import { sameText } from '../../text/fold'
-import type { CatalogEntry } from '../catalog/filters'
 import { compareNames } from '../../text/collate'
+import type { CatalogEntry } from '../../db/types'
 
 /** The composer a player writes for a tune with no known author. */
 export const TRADITIONAL = 'Traditional'

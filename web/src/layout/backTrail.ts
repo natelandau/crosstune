@@ -45,7 +45,7 @@ function record(key: string, from: string) {
 const trimSlash = (path: string) => (path.length > 1 ? path.replace(/\/+$/, '') : path)
 
 /** The pathname of the entry behind the one with `key`, when this session saw it pushed. */
-export function enteredFrom(key: string): string | undefined {
+function enteredFrom(key: string): string | undefined {
   return entered.get(key)
 }
 

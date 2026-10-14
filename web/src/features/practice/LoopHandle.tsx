@@ -26,7 +26,7 @@ export const LOOP_START = 'Loop start'
 export const LOOP_END = 'Loop end'
 
 /** `B part start, 0:58`, a handle's place on the trimmed timeline. */
-export function HANDLE_TEXT(name: string, edge: 'start' | 'end', trimmedMs: number): string {
+function HANDLE_TEXT(name: string, edge: 'start' | 'end', trimmedMs: number): string {
   return `${name} ${edge}, ${formatDuration(trimmedMs)}`
 }
 

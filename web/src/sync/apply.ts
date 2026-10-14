@@ -32,7 +32,7 @@ export function compareTimestamps(a: string, b: string): number {
   return Date.parse(a) - Date.parse(b)
 }
 
-export function toLocalRow(row: object): LocalRow {
+function toLocalRow(row: object): LocalRow {
   return stripOwnership(row) as LocalRow
 }
 

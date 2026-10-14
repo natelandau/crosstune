@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { MODES, TIME_SIGNATURES, TUNE_LIMITS, type Instrument } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
 import { GENRES, PART_STRUCTURES, QUICK_KEYS, TUNE_TYPES, TUNINGS } from '../../constants'
-import type { CatalogEntry } from '../catalog/filters'
+import { useResetOnChange } from '../../ui/useResetOnChange'
 import { useCatalog } from '../catalog/useCatalog'
 import { byTuningKey } from '../../domain/instruments'
 import { catalogComposers, catalogLearnedFrom } from '../tune/tuneTypes'
@@ -17,6 +17,7 @@ import {
   type Touched,
   type TouchedValue,
 } from './batchEdit'
+import type { CatalogEntry } from '../../db/types'
 
 /** A field's choices, and whether it takes a value outside them. */
 export interface EditPick {
@@ -99,7 +100,6 @@ export function useBulkEdit({
 }: BulkEditOptions): BulkEdit {
   const [touched, setTouched] = useState<Touched>({})
   const [closing, setClosing] = useState(false)
-  const [wasOpen, setWasOpen] = useState(open)
   const [session, setSession] = useState(0)
   // The session the sheet was presented for. Every way out ends here, including Escape, a
   // backdrop tap, a drag to the bottom, and the Android back button, which dismiss with the
@@ -110,14 +110,13 @@ export function useBulkEdit({
 
   // Reset during render, not in an effect, so the sheet's first frame is already clean rather
   // than flashing the previous session's values.
-  if (open !== wasOpen) {
-    setWasOpen(open)
+  useResetOnChange(open, () => {
     if (open) {
       setTouched({})
       setClosing(false)
       setSession((current) => current + 1)
     }
-  }
+  })
 
   // Lifted once the caller reports the write settled, so a failed edit can be tried again.
   useEffect(() => {

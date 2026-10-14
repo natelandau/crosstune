@@ -17,7 +17,6 @@ import { DELETE } from '../../ui/confirmCopy'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import type { MenuItem } from '../../ui/menuTypes'
 import { useAction, type Action } from '../../ui/useAction'
-import type { CatalogEntry } from '../catalog/filters'
 import type { ListAddition } from '../lists/useListPicker'
 import { deleteTunesQuestion } from '../tune/deleteTuneQuestion'
 import {
@@ -31,6 +30,7 @@ import {
   removeFromListLabel,
   setStatusLabel,
 } from './selectionCopy'
+import type { CatalogEntry } from '../../db/types'
 
 /** Where the selection is being made, since a list offers one action the catalog cannot. */
 export type SelectionContext =

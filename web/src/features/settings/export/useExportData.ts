@@ -6,6 +6,7 @@ import { useAuthSession } from '../../../auth/AuthContext'
 import { useDb } from '../../../db/DbProvider'
 import { useOnline, useSyncEngine } from '../../../sync/SyncProvider'
 import { useAction } from '../../../ui/useAction'
+import { useResetOnChange } from '../../../ui/useResetOnChange'
 import { EXPORT_COMPLETE_NOTE, exportNeedsConnection, exportProgress } from './exportCopy'
 import { createExport, downloadBlob, exportCounts } from './runExport'
 
@@ -41,19 +42,17 @@ export function useExportData(open: boolean): ExportData {
   const online = useOnline()
   const { error, pending, runThen, clear } = useAction()
   const [closing, setClosing] = useState(false)
-  const [openedFor, setOpenedFor] = useState(open)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const controller = useRef<AbortController | null>(null)
   const counts = useLiveQuery(() => (open ? exportCounts(db) : undefined), [db, open])
 
-  if (open !== openedFor) {
-    setOpenedFor(open)
+  useResetOnChange(open, () => {
     if (open) {
       setClosing(false)
       setProgress(null)
       clear()
     }
-  }
+  })
 
   useEffect(() => () => controller.current?.abort(), [])
 

@@ -1,10 +1,10 @@
 import { INSTRUMENTS } from '../api/vocabulary'
 import type { BulkPatch } from '../commands/bulk'
 import type { TuneInput, UserTuneInput } from '../commands/tunes'
-import type { CatalogEntry } from '../features/catalog/filters'
 import { tuningEntry } from '../domain/instruments'
 import { emptyValues, inputsFromValues, valuesFromRows } from '../features/tune/tuneFormValues'
 import { TUNE_FIELDS, type TuneField } from './events'
+import type { CatalogEntry } from '../db/types'
 
 type Inputs = { tune: TuneInput; userTune: UserTuneInput }
 

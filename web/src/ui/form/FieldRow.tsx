@@ -10,7 +10,7 @@ export const FIELD_LABEL = 'shrink-0'
 /** The trailing value's shape, which elides before the label shrinks. */
 export const FIELD_VALUE_SHAPE = 'min-w-0 flex-1 truncate text-end'
 /** The trailing value of a row that only reads. */
-export const FIELD_VALUE = `${FIELD_VALUE_SHAPE} text-ink-2`
+const FIELD_VALUE = `${FIELD_VALUE_SHAPE} text-ink-2`
 
 /** A labeled row: the label leads, and the value or a control trails. */
 export function FieldRow({

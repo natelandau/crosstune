@@ -2,7 +2,6 @@ import { Plus } from 'lucide-react'
 import { useRef } from 'react'
 import type { Instrument } from '../../api/vocabulary'
 import { pickRowName, TUNE_LIST } from '../catalog/catalogCopy'
-import type { CatalogEntry } from '../catalog/filters'
 import { enterAction } from '../catalog/searchIntent'
 import { MAX_RESULTS } from '../catalog/tuneMatches'
 import type { TuneMatches } from '../catalog/useTuneMatches'
@@ -13,6 +12,7 @@ import { TuneRowView } from '../catalog/TuneRow'
 import { ErrorLine } from '../../ui/ErrorLine'
 import { RowList } from '../../ui/RowList'
 import { SearchField } from '../../ui/SearchField'
+import type { CatalogEntry } from '../../db/types'
 
 // A row shows no tunings until the settings row is read, rather than the results waiting on it.
 const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()

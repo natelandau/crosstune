@@ -2,6 +2,7 @@ import { animate, cancelFrame, frame, type FrameData } from 'motion/react'
 import { createContext, createElement, useCallback, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import type { Key } from 'react-aria-components'
+import { clamp } from '../math'
 import { SPRING } from '../theme/motion'
 
 /** The name of a reorderable row's keyboard drag button. */
@@ -44,7 +45,7 @@ export function dropIndex(from: number, target: number, side: 'before' | 'after'
 }
 
 /** How close to the scroller's visible edge, in px, a dragging finger starts it scrolling. */
-export const AUTOSCROLL_EDGE_PX = 48
+const AUTOSCROLL_EDGE_PX = 48
 // px/ms at the very edge; slower the farther in the finger is.
 const AUTOSCROLL_SPEED = 0.8
 // How far in from each edge to look for a bar laid over the scroller, in steps of this size.
@@ -54,7 +55,7 @@ const OVERLAY_PROBE_STEP_PX = 4
 export type FrameSource = (step: (deltaMs: number) => void) => () => void
 
 /** Motion's frame loop, which the rest of the app's motion runs on. */
-export const motionFrames: FrameSource = (step) => {
+const motionFrames: FrameSource = (step) => {
   const run = ({ delta }: FrameData) => step(delta)
   frame.update(run, true)
   return () => cancelFrame(run)
@@ -178,7 +179,7 @@ export function beginReorderDrag(
     const half = self.offsetHeight / 2
     // Only the row's picture is held inside the list: drawn past its end it would grow what
     // the scroller can scroll, and the edge would keep scrolling after it.
-    const shown = Math.min(listBottom - half, Math.max(listTop + half, center))
+    const shown = clamp(center, listTop + half, listBottom - half)
     let top = listTop
     for (const row of order) {
       if (row === self) shift(row, shown - half - row.offsetTop, true)
@@ -204,7 +205,7 @@ export function beginReorderDrag(
           : 0
     if (depth === 0) return
     const before = scroller.scrollTop
-    const reach = Math.max(-1, Math.min(1, depth / AUTOSCROLL_EDGE_PX))
+    const reach = clamp(depth / AUTOSCROLL_EDGE_PX, -1, 1)
     // At least a pixel a frame, so a finger barely inside the edge still moves the page.
     scroller.scrollTop =
       before + (Math.round(reach * AUTOSCROLL_SPEED * deltaMs) || Math.sign(reach))

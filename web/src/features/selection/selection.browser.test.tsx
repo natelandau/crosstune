@@ -1,7 +1,7 @@
 import { page, userEvent } from 'vitest/browser'
 import { expect, it } from 'vitest'
 import type { PullRow } from '../../api/types'
-import { RECORD_LABEL, TAB_BAR } from '../../app/tabs'
+import { RECORD_LABEL, TAB_BAR } from '../../layout/tabs'
 import { createList } from '../../commands/lists'
 import { setInstruments } from '../../commands/settings'
 import { createTune } from '../../commands/tunes'
@@ -35,7 +35,7 @@ import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { NOT_SET } from '../../ui/fieldCopy'
 import { YEAR_LABEL } from '../../ui/partialDate'
 
-import { COLUMN_DEFAULT, COLUMN_MIN } from '../../app/Columns'
+import { COLUMN_DEFAULT, COLUMN_MIN } from '../../layout/Columns'
 
 import { longPress, tap } from '../../test/gestures'
 import { renderApp } from '../../test/renderApp'

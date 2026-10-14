@@ -1,4 +1,4 @@
-export const LAST_SYNCED = 'Last synced'
+const LAST_SYNCED = 'Last synced'
 export const JUST_NOW = 'Just now'
 export const NOT_SYNCED_YET = 'Not synced yet'
 

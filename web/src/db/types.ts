@@ -77,7 +77,7 @@ export function isRecordingPrecision(value: unknown): value is RecordingPrecisio
 }
 
 // The server sets ownership from the token; local rows never carry it.
-export const OWNERSHIP_KEYS = ['owner_user_id', 'user_id', 'added_by_user_id'] as const
+const OWNERSHIP_KEYS = ['owner_user_id', 'user_id', 'added_by_user_id'] as const
 type OwnershipKey = (typeof OWNERSHIP_KEYS)[number]
 
 // A pulled row may carry a value from a server newer than this client, so the local copy
@@ -264,4 +264,15 @@ export function stripOwnership<Row extends object>(row: Row): Local<Row> {
   const local: Record<string, unknown> = { ...(row as Record<string, unknown>) }
   for (const key of OWNERSHIP_KEYS) delete local[key]
   return local as Local<Row>
+}
+
+/** A tune with this account's row for it, as the catalog and every tune list show it. */
+export interface CatalogEntry {
+  tune: LocalTune
+  userTune: LocalUserTune
+}
+
+/** A catalog entry that knows whether the tune has a recording or a link, deleted ones aside. */
+export interface HeardEntry extends CatalogEntry {
+  heard: boolean
 }

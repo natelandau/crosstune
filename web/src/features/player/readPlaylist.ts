@@ -34,12 +34,13 @@ export function playlistAvailability(
 
 /**
  * Each tune's recordings, in tune-screen order (own takes first, each group by position), and
- * its links, from one query per table whatever the number of tunes.
+ * its links, from one query per table whatever the number of tunes. A tune with neither is
+ * absent from both maps.
  */
-export async function readPlaylistMedia(
+export async function readTuneSources(
   db: CrosstuneDb,
   tuneIds: readonly string[],
-): Promise<PlaylistMedia> {
+): Promise<Omit<PlaylistMedia, 'held'>> {
   const unique = [...new Set(tuneIds)]
   const [recordingRows, linkRows] = await Promise.all([
     db.recordings.where('tune_id').anyOf(unique).toArray(),
@@ -55,6 +56,15 @@ export async function readPlaylistMedia(
   }
   const links = new Map<string, LocalRecordingLink[]>()
   for (const [tuneId, rows] of groupByTune(linkRows)) links.set(tuneId, activeByPosition(rows))
+  return { recordings, links }
+}
+
+/** `readTuneSources`, plus which of those recordings this device holds. */
+export async function readPlaylistMedia(
+  db: CrosstuneDb,
+  tuneIds: readonly string[],
+): Promise<PlaylistMedia> {
+  const { recordings, links } = await readTuneSources(db, tuneIds)
   const live = [...recordings.values()].flat()
   const files = await db.recording_files.bulkGet(live.map((r) => r.id))
   const held = new Set(live.filter((_, i) => files[i]?.blob).map((r) => r.id))

@@ -30,7 +30,7 @@ const HEATMAP_WEEKS = 52
 const MIN_EQUIVALENCE_MS = 60_000
 
 /** A recording's length between its trim points, or zero before its duration is known. */
-export function trimmedLength(recording: StatsRecording): number {
+function trimmedLength(recording: StatsRecording): number {
   const end = recording.trim_end_ms ?? recording.duration_ms ?? 0
   return Math.max(0, end - recording.trim_start_ms)
 }

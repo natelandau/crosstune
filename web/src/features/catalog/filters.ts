@@ -1,8 +1,8 @@
 import { STATUSES, type Instrument, type TuneStatus } from '../../api/vocabulary'
-import type { LocalTune, LocalUserTune } from '../../db/types'
+import type { CatalogEntry, HeardEntry, LocalTune, LocalUserTune } from '../../db/types'
 import { containsText, foldText, sameText } from '../../text/fold'
 import { groupByFold } from '../../text/spelling'
-import { countTunes } from '../selection/copy'
+import { countTunes } from '../../text/format'
 import { KEY } from '../../ui/keyName'
 import { DETAIL_LABELS } from '../tune/detailFields'
 import {
@@ -42,7 +42,7 @@ export const FACET_LABELS: Record<Facet, string> = {
  * Every value an entry holds for a facet: one mode per part, one instrument's tuning from the
  * map, the user's own learned from, or a tune column's one value.
  */
-export function facetValuesOf(
+function facetValuesOf(
   { tune, userTune }: CatalogEntry,
   facet: Facet,
 ): readonly (string | null | undefined)[] {
@@ -112,16 +112,6 @@ export const DEFAULT_FILTERS: CatalogFilters = {
 export const NO_KEY = 'none'
 
 export const META_CATALOG_FILTERS = 'catalog_filters'
-
-export interface CatalogEntry {
-  tune: LocalTune
-  userTune: LocalUserTune
-}
-
-/** A catalog entry that knows whether the tune has a recording or a link, deleted ones aside. */
-export interface HeardEntry extends CatalogEntry {
-  heard: boolean
-}
 
 function isStatus(value: unknown): value is TuneStatus {
   return typeof value === 'string' && (STATUSES as readonly string[]).includes(value)
@@ -352,7 +342,7 @@ export function hiddenResets(
 }
 
 /** Facets with their own control on the filter bar; every other visible facet lives in the sheet. */
-export const BAR_FACETS: readonly Facet[] = ['key', 'tune_type']
+const BAR_FACETS: readonly Facet[] = ['key', 'tune_type']
 
 /**
  * Facets with their own control on the filter row, which matches the Apple apps:

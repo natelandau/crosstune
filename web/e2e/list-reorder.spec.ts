@@ -11,7 +11,7 @@ import {
   swipeLeft,
   unique,
 } from './helpers'
-import { tabLabel } from '../src/app/tabs'
+import { tabLabel } from '../src/layout/tabs'
 import {
   ADD_LIST,
   ADD_TUNES,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { RECORD_TEXT, TABS } from '../../app/tabs'
+import { RECORD_TEXT, TABS } from '../../layout/tabs'
 import { SEARCH_TUNES } from '../catalog/catalogCopy'
 import { NEW_TUNE_TITLE } from '../tune/tuneFormCopy'
 import {

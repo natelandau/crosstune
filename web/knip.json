@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "e2e/global.setup.ts",
+    "scripts/kit-shots.mjs",
+    "src/features/scans/fixtures/generate.mjs"
+  ],
+  "ignoreBinaries": ["just", "sips"],
+  "ignoreExportsUsedInFile": true,
+  "ignoreIssues": {
+    "src/api/vocabulary.ts": ["exports", "types"]
+  },
+  "rules": {
+    "types": "off"
+  }
+}

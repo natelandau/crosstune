@@ -4,6 +4,7 @@ import { countBucket } from '../../usage/buckets'
 import { addTunesToList, createListWithTunes, type Undo } from '../../commands/bulk'
 import { useDb } from '../../db/DbProvider'
 import { useAction } from '../../ui/useAction'
+import { useResetOnChange } from '../../ui/useResetOnChange'
 import { NONE_IN_IT } from './listPickerCopy'
 import { useActiveLists, useMembershipCounts } from './useLists'
 
@@ -75,19 +76,17 @@ export function useListPicker(
   // A click handler reads `pending` before React commits the state from an earlier click in
   // the same tick, so the same-tick guard needs a ref instead.
   const busy = useRef(false)
-  const [wasOpen, setWasOpen] = useState(open)
 
   // Reset during render, not an effect, so the sheet's next open already starts clean instead
   // of flashing the previous session's half-typed name for a frame.
-  if (open !== wasOpen) {
-    setWasOpen(open)
+  useResetOnChange(open, () => {
     if (!open) {
       setCreating(false)
       setName('')
       setClosing(false)
       clear()
     }
-  }
+  })
 
   const dismissed = () => {
     busy.current = false

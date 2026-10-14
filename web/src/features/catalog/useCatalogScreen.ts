@@ -18,11 +18,9 @@ import {
   tuneCountLabel,
   visibleFacets,
   type CatalogCounts,
-  type CatalogEntry,
   type CatalogFilters,
   type Facet,
   type FacetValues,
-  type HeardEntry,
   type MissingAttribute,
 } from './filters'
 import { sheetFilters, type SheetFilters } from './filterLabels'
@@ -32,6 +30,7 @@ import { useCatalog } from './useCatalog'
 import { useCatalogFilters } from './useCatalogFilters'
 import { setCatalogSort, useCatalogSort } from './useCatalogSort'
 import { useLastPlayed } from './useLastPlayed'
+import type { CatalogEntry, HeardEntry } from '../../db/types'
 
 const NO_ENTRIES: HeardEntry[] = []
 const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()

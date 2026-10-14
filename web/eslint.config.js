@@ -24,7 +24,7 @@ export default tseslint.config(
   {
     // The shared layers sit below the features and the app shell, so a feature can change
     // without reaching them. Tests may mount features to exercise a shared module.
-    files: ['src/{api,auth,commands,db,domain,platform,sync,text,theme,ui}/**/*.{ts,tsx}'],
+    files: ['src/{api,auth,commands,db,domain,layout,platform,sync,text,theme,ui}/**/*.{ts,tsx}'],
     ignores: ['**/*.test.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [

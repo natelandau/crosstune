@@ -1,4 +1,5 @@
 import type { Notice } from '../api/types'
+import { GRANT_SOURCES, type GrantSource } from '../api/vocabulary'
 import type { LocalEntitlement } from '../db/types'
 import { clamp } from '../math'
 
@@ -9,13 +10,12 @@ export const OFFLINE_LEEWAY_MS = 604_800_000
 export const TRIAL_REMINDER_MS = 259_200_000
 
 export type PlanKind = 'unknown' | 'premium' | 'free'
-type PlanSource = 'trial' | 'apple' | 'stripe' | 'comp'
 export type PaidSource = 'apple' | 'stripe'
 
 export interface Plan {
   kind: PlanKind
   /** The grant that makes the plan premium; null when the plan is free or unknown. */
-  source: PlanSource | null
+  source: GrantSource | null
   /** The expiry the row reports for its grant, before the leeway; null for no grant or one that never expires. It is kept after the grant lapses. */
   premiumEndsAt: Date | null
   trialStartsAt: Date | null
@@ -31,8 +31,11 @@ export interface Plan {
   paidSources: PaidSource[]
 }
 
-const SOURCES: readonly string[] = ['trial', 'apple', 'stripe', 'comp']
 const PAID_SOURCES: readonly PaidSource[] = ['apple', 'stripe']
+
+function isGrantSource(value: string): value is GrantSource {
+  return (GRANT_SOURCES as readonly string[]).includes(value)
+}
 
 function dateOf(value: string | null): Date | null {
   return value === null ? null : new Date(value)
@@ -104,7 +107,7 @@ export function planOf(
   const source = row.premium_source
   return {
     kind: premium ? 'premium' : 'free',
-    source: premium && source !== null && SOURCES.includes(source) ? (source as PlanSource) : null,
+    source: premium && source !== null && isGrantSource(source) ? source : null,
     premiumEndsAt: source === null ? null : dateOf(row.premium_expires_at),
     trialStartsAt: dateOf(row.trial_starts_at),
     trialEndsAt: dateOf(row.trial_ends_at),

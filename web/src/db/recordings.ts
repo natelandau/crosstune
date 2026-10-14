@@ -1,6 +1,6 @@
 import { AUDIO_QUALITIES, type AudioQuality } from '../api/vocabulary'
 
-export function isAudioQuality(value: unknown): value is AudioQuality {
+function isAudioQuality(value: unknown): value is AudioQuality {
   return typeof value === 'string' && (AUDIO_QUALITIES as readonly string[]).includes(value)
 }
 

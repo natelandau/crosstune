@@ -48,6 +48,7 @@ import { Switch } from '../../ui/form/Switch'
 import { TextField } from '../../ui/form/TextField'
 import { KeyGrid } from '../../ui/KeyGrid'
 import { Sheet } from '../../ui/Sheet'
+import { useResetOnChange } from '../../ui/useResetOnChange'
 import type { TuneFormOptions } from './formLauncher'
 
 type FieldRef = HTMLInputElement & HTMLTextAreaElement
@@ -73,11 +74,9 @@ const asOptions = (values: readonly string[]) =>
 export function TuneFormSheet(props: TuneFormSheetProps) {
   // Each open is a fresh form, so nothing typed in one open reaches the next.
   const [opens, setOpens] = useState(props.isOpen ? 1 : 0)
-  const [wasOpen, setWasOpen] = useState(props.isOpen)
-  if (props.isOpen !== wasOpen) {
-    setWasOpen(props.isOpen)
+  useResetOnChange(props.isOpen, () => {
     if (props.isOpen) setOpens((count) => count + 1)
-  }
+  })
   return <TuneFormBody key={opens} {...props} />
 }
 

@@ -4,6 +4,7 @@ import { updateTune } from '../../commands/tunes'
 import { useDb } from '../../db/DbProvider'
 import { useWakeLock } from '../../platform/wakeLock'
 import { useAction } from '../../ui/useAction'
+import { useResetOnChange } from '../../ui/useResetOnChange'
 import { lyricLines } from './lyricLines'
 import { LYRICS_STEPS, stepLyricsSize, useLyricsStep } from './lyricsSize'
 
@@ -69,9 +70,7 @@ export function useLyricsReader({
   // Cleared during render, so the first frame of an opening is already silent: the live region
   // holds its last text for as long as it is mounted, and a reader exploring the view would
   // find the step announced the time before and read it as if it had just been said.
-  const [wasOpen, setWasOpen] = useState(open)
-  if (open !== wasOpen) {
-    setWasOpen(open)
+  useResetOnChange(open, () => {
     if (open) {
       setAnnounced('')
       // The editor belongs to the reading it was opened from: a view that closes while it is
@@ -79,7 +78,7 @@ export function useLyricsReader({
       setEditing(false)
       clear()
     }
-  }
+  })
 
   const move = (by: number) => {
     if (by < 0 ? atSmallest : atLargest) return

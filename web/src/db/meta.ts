@@ -1,15 +1,15 @@
 import type { CrosstuneDb } from './schema'
 
 export const META_PULL_CURSOR = 'pull_cursor'
-export const META_EVENTS_CURSOR = 'events_cursor'
-export const META_INVALID_CHANGES = 'invalid_changes'
-export const META_STORAGE = 'storage'
+const META_EVENTS_CURSOR = 'events_cursor'
+const META_INVALID_CHANGES = 'invalid_changes'
+const META_STORAGE = 'storage'
 export const META_KEEP_OFFLINE = 'keep_offline'
 /** Which recordings the Recordings tab lists: 'all', 'own', or an import source. */
 export const META_RECORDINGS_ORIGIN = 'recordings_origin'
 export const META_SCAN_INVERT = 'scan_invert'
 /** Recordings the server refused for Premium: their changes wait in the outbox until it agrees. */
-export const META_PREMIUM_HOLDS = 'premium_holds'
+const META_PREMIUM_HOLDS = 'premium_holds'
 /** The seen notices whose post the server refused for good: they stay seen and are never
  * posted again. */
 export const META_REFUSED_NOTICES = 'refused_notices'

@@ -1,3 +1,5 @@
+import { clamp } from '../../math'
+
 export const BAR_WIDTH = 3
 export const BAR_GAP = 2
 export const MIN_BAR = 2
@@ -66,7 +68,7 @@ export function eachBar(
   const step = BAR_WIDTH + BAR_GAP
   const count = state.levels.length
   for (let i = 0; i < count; i++) {
-    const bar = Math.min(height, Math.max(MIN_BAR, state.levels[i]! * height * GAIN))
+    const bar = clamp(state.levels[i]! * height * GAIN, MIN_BAR, height)
     const x = state.mode === 'scrolling' ? width - (count - i) * step : i * step
     visit(x, (height - bar) / 2, BAR_WIDTH, bar)
   }

@@ -6,7 +6,7 @@ import { recordingRow, tuneRow, userTuneRow } from '../test/rows'
 import { SETTINGS_PAGES } from '../features/settings/settingsPages'
 import { renderApp } from '../test/renderApp'
 import { TUNE } from '../features/tune/tunePageCopy'
-import { destination } from './destinations'
+import { destination } from '../layout/destinations'
 import { NOT_FOUND_TITLE } from './NotFoundPage'
 
 // Settings reads who is signed in, and the tests mount no Clerk.

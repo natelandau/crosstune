@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { activeByPosition } from '../../commands/write'
 import { useDb } from '../../db/DbProvider'
+import { useResetOnChange } from '../../ui/useResetOnChange'
 import { useCatalog } from '../catalog/useCatalog'
 import { readRecordingsWithFiles } from '../recordings/useRecordings'
 import {
@@ -57,14 +58,12 @@ export function useQuickFind(
   const [queryBeforeStep, setQueryBeforeStep] = useState('')
 
   // Reset while rendering, not in an effect, so an opening never shows the last query.
-  const [wasOpen, setWasOpen] = useState(open)
-  if (wasOpen !== open) {
-    setWasOpen(open)
+  useResetOnChange(open, () => {
     if (open) {
       setQuery('')
       setStep(null)
     }
-  }
+  })
 
   const ready = tunes !== undefined && lists !== undefined && recordings !== undefined
   const sections = useMemo<QuickFindSection[]>(() => {

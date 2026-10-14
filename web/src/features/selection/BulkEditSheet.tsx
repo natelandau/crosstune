@@ -2,7 +2,6 @@ import { useId, useState } from 'react'
 import { MODES, STATUSES, TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
 import { INSTRUMENT_LABELS, STATUS_LABELS } from '../../constants'
-import type { CatalogEntry } from '../catalog/filters'
 import {
   EDIT_FIELD_LABELS,
   FIELD_KINDS,
@@ -32,6 +31,8 @@ import { SuggestField } from '../../ui/form/SuggestField'
 import { KeyGrid } from '../../ui/KeyGrid'
 import { Sheet } from '../../ui/Sheet'
 import { useEndOnClose } from '../../ui/useEndOnClose'
+import { useResetOnChange } from '../../ui/useResetOnChange'
+import type { CatalogEntry } from '../../db/types'
 
 // No option can be this: options are stored values, which never hold a NUL.
 const CLEAR = '\u0000clear'
@@ -70,11 +71,9 @@ export function BulkEditSheet(props: {
 }) {
   // Each open is a fresh body, so a date half typed in one open never reaches the next.
   const [opens, setOpens] = useState(props.isOpen ? 1 : 0)
-  const [wasOpen, setWasOpen] = useState(props.isOpen)
-  if (props.isOpen !== wasOpen) {
-    setWasOpen(props.isOpen)
+  useResetOnChange(props.isOpen, () => {
     if (props.isOpen) setOpens((count) => count + 1)
-  }
+  })
   return <BulkEditBody key={opens} {...props} />
 }
 

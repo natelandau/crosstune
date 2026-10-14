@@ -7,7 +7,7 @@ export const PITCH_UNAVAILABLE = "Pitch shift isn't available here"
 export const SPEED_LABEL = 'Speed'
 export const PITCH_LABEL = 'Pitch'
 export const ELAPSED_LABEL = 'Elapsed'
-export const REMAINING_LABEL = 'Remaining'
+const REMAINING_LABEL = 'Remaining'
 
 /** `Repeat B part`, what selecting a loop does. */
 export function REPEAT_LOOP(name: string): string {

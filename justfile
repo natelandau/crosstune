@@ -28,6 +28,9 @@ lint: api::lint web::lint site::lint apple::lint analytics::check lint-repo
 lint-repo:
     PREK_SKIP={{ module_hooks }} uv run --project api prek run --all-files --config .pre-commit-config.yaml
 
+# Find unused code in every module that has a dead-code check; the Apple one builds the app first
+deadcode: web::deadcode site::deadcode apple::deadcode
+
 # Spell check the whole repository, or only the given paths
 [positional-arguments]
 typos *paths:

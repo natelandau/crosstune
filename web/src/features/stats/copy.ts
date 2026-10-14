@@ -16,9 +16,9 @@ export const ON_THIS_DAY_HEADER = 'On this day'
 export const RARITIES_HEADER = 'Rarities'
 
 export const TUNES_LABEL = 'Tunes'
-export const LISTS_LABEL = 'Lists'
+const LISTS_LABEL = 'Lists'
 export const RECORDINGS_LABEL = 'Recordings'
-export const LINKS_LABEL = 'Links'
+const LINKS_LABEL = 'Links'
 export const LEARNING_LABEL = STATUS_LABELS.learning
 
 export const TUNES_ADDED_LABEL = 'Tunes added'

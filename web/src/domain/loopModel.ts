@@ -3,10 +3,10 @@ import { clamp } from '../math'
 
 export const MIN_LOOP_MS = 500
 export const MAX_LOOPS = 100
-export const LOOP_COLOR_COUNT = 6
-export const SNAP_PX = 8
+const LOOP_COLOR_COUNT = 6
+const SNAP_PX = 8
 export const DRAG_THRESHOLD_PX = 8
-export const NEW_LOOP_PAD_MS = 4000
+const NEW_LOOP_PAD_MS = 4000
 
 export type Span = { startMs: number; endMs: number }
 

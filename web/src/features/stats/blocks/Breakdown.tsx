@@ -59,7 +59,7 @@ export function Breakdowns({
  * `onOpen` gives an action to is a control; any other only reads. Past 8 values the rest wait
  * behind a Show all row, which expands the list in place.
  */
-export function Breakdown({
+function Breakdown({
   title,
   values,
   onOpen = () => undefined,

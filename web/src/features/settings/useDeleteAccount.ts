@@ -7,6 +7,7 @@ import { usePlanOrUnknown } from '../../billing/usePlan'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { useAction } from '../../ui/useAction'
+import { useResetOnChange } from '../../ui/useResetOnChange'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { APP_STORE_SUBSCRIPTIONS_URL } from '../plan/planCopy'
 import {
@@ -85,10 +86,9 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
   const { error, pending, runThen, clear } = useAction()
   const [text, setText] = useState('')
   const [closing, setClosing] = useState(false)
-  const [openedFor, setOpenedFor] = useState(open)
-  const deletedRef = useRef(false)
-  // Read by `close`, which a second call in the same tick reaches before `closing` renders.
-  const closedRef = useRef(false)
+  // Set once the account is deleted or the sheet is closed. Read by `close`, which a second
+  // call in the same tick reaches before `closing` renders.
+  const settledRef = useRef(false)
   // Undefined while loading; null when the local count could not be read, which must not
   // block a musician from deleting an account whose copy on this device is broken.
   const counts = useLiveQuery(
@@ -97,19 +97,16 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
   )
   const loading = counts === undefined
 
-  if (open !== openedFor) {
-    setOpenedFor(open)
-    if (open) {
-      setText('')
-      setClosing(false)
-      clear()
-    }
-  }
+  useResetOnChange(open, () => {
+    if (!open) return
+    setText('')
+    setClosing(false)
+    clear()
+  })
 
   useEffect(() => {
     if (!open) return
-    deletedRef.current = false
-    closedRef.current = false
+    settledRef.current = false
     analytics.send('account_deletion_started', {})
   }, [open, analytics])
 
@@ -131,7 +128,7 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
           })
         }),
       () => {
-        deletedRef.current = true
+        settledRef.current = true
         setClosing(true)
       },
     )
@@ -152,10 +149,8 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
     pending,
     closing,
     close: () => {
-      if (!deletedRef.current && !closedRef.current) {
-        analytics.send('account_deletion_cancelled', {})
-      }
-      closedRef.current = true
+      if (!settledRef.current) analytics.send('account_deletion_cancelled', {})
+      settledRef.current = true
       setClosing(true)
     },
   }
