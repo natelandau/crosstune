@@ -160,11 +160,7 @@ def _search_result(body: object) -> object:
     return data
 
 
-def _hit(
-    track_id: str | None, tracks: dict[str | None, object], artists: str | None
-) -> SearchHit | None:
-    if track_id is None or track_id not in tracks:
-        return None
+def _hit(track_id: str, tracks: dict[str | None, object], artists: str | None) -> SearchHit | None:
     attributes = tracks[track_id]
     title = text(field(attributes, "title"))
     version = text(field(attributes, "version"))

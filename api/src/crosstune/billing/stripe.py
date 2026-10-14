@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import quote
 
-import httpx2
+from crosstune.rest import DEFAULT_TIMEOUT_SECONDS, SUCCESS_STATUSES, send_bearer
 
-from crosstune.rest import DEFAULT_TIMEOUT_SECONDS, SUCCESS_STATUSES
+if TYPE_CHECKING:
+    import httpx2
 
 DEFAULT_BASE_URL = "https://api.stripe.com/v1"
 TERMINAL_STATUSES = frozenset({"canceled", "incomplete_expired"})
@@ -89,18 +90,15 @@ class StripeRest:
     async def _send(
         self, method: str, url: str, data: dict[str, str] | None = None
     ) -> httpx2.Response:
-        try:
-            return await self._client.request(
-                method,
-                url,
-                data=data,
-                headers={"Authorization": f"Bearer {self._secret_key}"},
-                timeout=self._timeout,
-                # A redirect would replay the bearer header against whatever it names.
-                follow_redirects=False,
-            )
-        except httpx2.HTTPError as exc:
-            raise StripeUnavailableError from exc
+        return await send_bearer(
+            self._client,
+            method,
+            url,
+            token=self._secret_key,
+            timeout=self._timeout,
+            unavailable=StripeUnavailableError,
+            data=data,
+        )
 
 
 def _field(response: httpx2.Response, name: str) -> Any:

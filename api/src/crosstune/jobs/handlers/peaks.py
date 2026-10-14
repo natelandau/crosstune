@@ -13,7 +13,7 @@ from crosstune.jobs.attempt import (
     retry_or_drop,
     still_claimed,
 )
-from crosstune.jobs.peaks_job import build_recording_peaks
+from crosstune.jobs.recording_peaks import build_recording_peaks
 from crosstune.models import Job, Recording
 from crosstune.recordings.service import ensure_trim_job
 

@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from crosstune.config import PREVIEW_BUCKET
 from crosstune.storage.r2 import R2Store, s3_client
+from crosstune.storage.store import DEFAULT_CONTENT_TYPE
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -71,8 +72,8 @@ def seed(
 ) -> int:
     """Copy every source object missing, resized, or rewritten since its copy, keeping its type.
 
-    A key can be rewritten in place, as when a failed recording gets a fresh upload
-    URL on the same key, so a matching size alone does not prove a copy is current.
+    A key can be rewritten in place, as when a re-uploaded recording is confirmed over
+    the same key, so a matching size alone does not prove a copy is current.
 
     Returns:
         int: How many objects were copied.
@@ -90,7 +91,7 @@ def seed(
                 body,
                 target_bucket,
                 prefix + key,
-                ExtraArgs={"ContentType": obj.get("ContentType", "application/octet-stream")},
+                ExtraArgs={"ContentType": obj.get("ContentType", DEFAULT_CONTENT_TYPE)},
             )
         copied += 1
     return copied

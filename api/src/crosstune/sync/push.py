@@ -97,9 +97,9 @@ async def _prefetch(session: AsyncSession, spec: TableSpec, changes: list[Change
     which the identity map then answers without a round trip each. Earlier groups have
     already written, so a parent this push created or changed loads as it now stands.
     """
-    wanted: dict[TableName, set[uuid.UUID]] = defaultdict(set)
     if not changes:
         return []
+    wanted: dict[TableName, set[uuid.UUID]] = defaultdict(set)
     wanted[spec.name].update(change.id for change in changes)
     for change in changes:
         for column, parent_table in spec.parents:
@@ -391,16 +391,13 @@ async def _current_and_status(
 
     A row the write skipped is either newer or someone else's, and only a read tells which.
     """
-    current = written
+    if written is not None:
+        return written, "applied"
+    current = await _fetch_owned(session, spec, change.id, user_id)
     if current is None:
-        current = await _fetch_owned(session, spec, change.id, user_id)
-        if current is None:
-            return None
-        await session.refresh(current)
-    status = (
-        "applied" if written is not None or current.updated_at == change.updated_at else "stale"
-    )
-    return current, status
+        return None
+    await session.refresh(current)
+    return current, "applied" if current.updated_at == change.updated_at else "stale"
 
 
 async def _delete(

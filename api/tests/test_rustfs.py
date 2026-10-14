@@ -151,7 +151,7 @@ async def test_listing_and_batch_deletes(rustfs_bucket: str, rustfs: S3Client) -
     r2 = store(rustfs_bucket)
     for key in ("u1/r1/a", "u1/r2/a", "u2/r1/a"):
         rustfs.put_object(Bucket=rustfs_bucket, Key=key, Body=b"x")
-    assert await r2.list_keys() == ["u1/r1/a", "u1/r2/a", "u2/r1/a"]
+    assert [obj.key for obj in await r2.list_objects()] == ["u1/r1/a", "u1/r2/a", "u2/r1/a"]
     await r2.delete("u2/r1/a", "u2/r1/never-there")
     await r2.delete_prefix("u1/r1/")
     remaining = rustfs.list_objects_v2(Bucket=rustfs_bucket).get("Contents", [])
@@ -213,11 +213,17 @@ def test_no_cli_test_names_the_real_local_or_e2e_bucket() -> None:
         assert literal not in scanned
 
 
-async def test_list_keys_lists_every_key_or_those_below_a_prefix(
+async def test_list_objects_lists_every_key_or_those_below_a_prefix(
     rustfs_bucket: str, rustfs: S3Client
 ) -> None:
     for key in ("u1/r1/a", "u1/r2/a", "u10/r1/a", "u2/r1/a", "loose"):
         rustfs.put_object(Bucket=rustfs_bucket, Key=key, Body=b"x")
     r2 = store(rustfs_bucket)
-    assert await r2.list_keys() == ["loose", "u1/r1/a", "u1/r2/a", "u10/r1/a", "u2/r1/a"]
-    assert await r2.list_keys("u1/") == ["u1/r1/a", "u1/r2/a"]
+    assert [obj.key for obj in await r2.list_objects()] == [
+        "loose",
+        "u1/r1/a",
+        "u1/r2/a",
+        "u10/r1/a",
+        "u2/r1/a",
+    ]
+    assert [obj.key for obj in await r2.list_objects("u1/")] == ["u1/r1/a", "u1/r2/a"]

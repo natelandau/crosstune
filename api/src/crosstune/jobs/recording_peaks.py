@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from functools import partial
 from typing import TYPE_CHECKING
@@ -12,7 +13,7 @@ from crosstune.jobs.media import probe
 from crosstune.jobs.peaks import build_peaks
 from crosstune.recordings.loops import reclamp_recording_loops
 from crosstune.recordings.service import attach_peaks
-from crosstune.recordings.trim import clamp_stored_trim
+from crosstune.recordings.trim_rules import clamp_stored_trim
 from crosstune.storage.store import PEAKS_MIME, delete_best_effort, peaks_key, upload_revision
 
 if TYPE_CHECKING:
@@ -56,7 +57,7 @@ async def build_recording_peaks(
     await store.download(playback_key_used, source)
     measured_ms = (await probe(source)).duration_ms if recording.playback_end_ms is None else None
     peaks_path = work_dir / "peaks.bin"
-    peaks_path.write_bytes(await build_peaks(source))
+    await asyncio.to_thread(peaks_path.write_bytes, await build_peaks(source))
     peaks = await upload_revision(
         store, peaks_path, PEAKS_MIME, partial(peaks_key, recording.user_id, recording.id)
     )

@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-import httpx2
+from crosstune.rest import DEFAULT_TIMEOUT_SECONDS, SUCCESS_STATUSES, send_bearer
 
-from crosstune.rest import DEFAULT_TIMEOUT_SECONDS, SUCCESS_STATUSES
+if TYPE_CHECKING:
+    import httpx2
 
 DEFAULT_BASE_URL = "https://api.resend.com"
 HTTP_TOO_MANY_REQUESTS = 429
@@ -69,27 +70,22 @@ class ResendMailer:
                 new message's id, or the request itself failed (a timeout, a closed
                 connection, and so on).
         """
-        try:
-            response = await self._client.post(
-                f"{self._base_url}/emails",
-                headers={
-                    "Authorization": f"Bearer {self._api_key}",
-                    "Idempotency-Key": idempotency_key,
-                },
-                json={
-                    "from": self._sender,
-                    "to": [message.to],
-                    "subject": message.subject,
-                    "text": message.text,
-                    "html": message.html,
-                },
-                timeout=self._timeout,
-                # The shared client follows redirects for link resolution; a redirect
-                # here would replay the bearer header elsewhere or read as a sent email.
-                follow_redirects=False,
-            )
-        except httpx2.HTTPError as exc:
-            raise MailerUnavailableError from exc
+        response = await send_bearer(
+            self._client,
+            "POST",
+            f"{self._base_url}/emails",
+            token=self._api_key,
+            timeout=self._timeout,
+            unavailable=MailerUnavailableError,
+            headers={"Idempotency-Key": idempotency_key},
+            json={
+                "from": self._sender,
+                "to": [message.to],
+                "subject": message.subject,
+                "text": message.text,
+                "html": message.html,
+            },
+        )
         if response.status_code == HTTP_TOO_MANY_REQUESTS:
             msg = "Resend answered 429 sending an email"
             raise MailerRateLimitedError(msg)

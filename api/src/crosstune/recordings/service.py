@@ -12,7 +12,7 @@ from crosstune.db.session import request_runner_wake
 from crosstune.errors import ConflictError, NotFoundError
 from crosstune.links.detect import detect_provider
 from crosstune.models import Job, Recording
-from crosstune.recordings.trim import needs_trim
+from crosstune.recordings.trim_rules import needs_trim
 from crosstune.storage.store import PLAYBACK_MIME
 from crosstune.vocabulary import IMPORTABLE_PROVIDERS, JobKind
 

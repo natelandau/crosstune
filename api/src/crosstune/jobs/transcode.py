@@ -13,8 +13,9 @@ from crosstune.jobs.media import cut, encode, needs_encode, probe, remux
 from crosstune.jobs.peaks import build_peaks
 from crosstune.recordings.loops import reclamp_recording_loops
 from crosstune.recordings.service import attach_peaks, attach_playback
-from crosstune.recordings.trim import clamp_stored_trim, clamp_trim
+from crosstune.recordings.trim_rules import clamp_stored_trim, clamp_trim
 from crosstune.storage.store import (
+    DEFAULT_CONTENT_TYPE,
     PEAKS_MIME,
     PLAYBACK_MIME,
     original_key,
@@ -62,7 +63,7 @@ async def _write_playback(
     source_key = upload_key(recording.user_id, recording.id)
     if needs_encode(info):
         uploaded = await store.head(source_key)
-        content_type = uploaded.content_type if uploaded else "application/octet-stream"
+        content_type = uploaded.content_type if uploaded else DEFAULT_CONTENT_TYPE
         kept = original_key(recording.user_id, recording.id, content_type)
         await store.copy(source_key, kept)
         recording.original_key = kept
@@ -92,7 +93,7 @@ async def _write_peaks(
 ) -> None:
     """Build the waveform peaks for `target` and set the recording's peaks columns."""
     peaks_path = work_dir / "peaks.bin"
-    peaks_path.write_bytes(await build_peaks(target))
+    await asyncio.to_thread(peaks_path.write_bytes, await build_peaks(target))
     attach_peaks(
         recording,
         await upload_revision(

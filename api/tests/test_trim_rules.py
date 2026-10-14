@@ -8,7 +8,7 @@ import pytest
 
 from crosstune.db.base import utc_now
 from crosstune.models import Recording
-from crosstune.recordings.trim import clamp_trim, needs_trim
+from crosstune.recordings.trim_rules import clamp_trim, needs_trim
 
 
 def make_recording(**overrides: object) -> Recording:

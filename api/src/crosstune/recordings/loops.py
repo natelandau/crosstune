@@ -9,7 +9,7 @@ from sqlalchemy import select, update
 
 from crosstune.db.base import next_server_seq
 from crosstune.models import RecordingLoop
-from crosstune.recordings.trim import effective_end
+from crosstune.recordings.trim_rules import effective_end
 from crosstune.vocabulary import MIN_LOOP_MS
 
 if TYPE_CHECKING:
@@ -47,8 +47,8 @@ def clamp_loop(start_ms: int, end_ms: int, *, low: int, high: int | None) -> tup
     Args:
         start_ms: The loop start.
         end_ms: The loop end.
-        low: The lowest the start may fall.
-        high: The highest the end may reach, or None if the range has no known end.
+        low: The lowest either end may fall.
+        high: The highest either end may reach, or None if the range has no known end.
 
     Returns:
         tuple[int, int] | None: The clamped start and end, or None if the loop no longer fits.

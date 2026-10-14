@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 PLAYBACK_MIME = "audio/mp4"
 BEST_EFFORT_DELETE_SECONDS = 3.0
+# The type an object gets when nothing says what it holds.
+DEFAULT_CONTENT_TYPE = "application/octet-stream"
 PEAKS_MIME = "application/octet-stream"
 SCAN_SEGMENT = "scans"
 # Images stored under this older segment keep their keys; purges and sweeps look in both.
@@ -236,10 +238,6 @@ class ObjectStore(Protocol):
 
     async def delete_prefix(self, prefix: str) -> None:
         """Remove every object under a prefix."""
-        ...
-
-    async def list_keys(self, prefix: str = "") -> list[str]:
-        """Every key under `prefix`, each in full, or every key in the bucket."""
         ...
 
     async def list_objects(self, prefix: str = "") -> list[ListedObject]:

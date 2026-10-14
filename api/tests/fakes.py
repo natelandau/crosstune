@@ -188,15 +188,11 @@ class FakeObjectStore:
         for key in [k for k in self._objects if k.startswith(prefix)]:
             del self._objects[key]
 
-    async def list_keys(self, prefix: str = "") -> list[str]:
-        """Every key under `prefix`, each in full, or every key in the bucket."""
-        return sorted(key for key in self._objects if key.startswith(prefix))
-
     async def list_objects(self, prefix: str = "") -> list[ListedObject]:
         """Every object under `prefix`, or in the bucket, with its last write time."""
         return [
             ListedObject(key=key, modified=self._modified[key])
-            for key in await self.list_keys(prefix)
+            for key in sorted(key for key in self._objects if key.startswith(prefix))
         ]
 
 
