@@ -218,27 +218,29 @@ import Testing
         .frame(maxWidth: .infinity)
     }
 
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sidebarRow(Destination.catalog.title, Destination.catalog.systemImage, chosen: true)
-            sidebarRow(Destination.recordings.title, Destination.recordings.systemImage)
-            Text(Destination.lists.title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                .padding(.top, 8)
-            ForEach(SampleCatalog.lists, id: \.id) { list in
-                sidebarRow(list.name, Destination.lists.systemImage)
+    #if !os(macOS)
+        private var sidebar: some View {
+            VStack(alignment: .leading, spacing: 12) {
+                sidebarRow(Destination.catalog.title, Destination.catalog.systemImage, chosen: true)
+                sidebarRow(Destination.recordings.title, Destination.recordings.systemImage)
+                Text(Destination.lists.title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    .padding(.top, 8)
+                ForEach(SampleCatalog.lists, id: \.id) { list in
+                    sidebarRow(list.name, Destination.lists.systemImage)
+                }
+                sidebarRow(SidebarItem.newList, "plus")
             }
-            sidebarRow(SidebarItem.newList, "plus")
+            .padding(12)
         }
-        .padding(12)
-    }
 
-    private func sidebarRow(_ title: String, _ systemImage: String, chosen: Bool = false) -> some View {
-        Label(title, systemImage: systemImage)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(chosen ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 8))
-    }
+        private func sidebarRow(_ title: String, _ systemImage: String, chosen: Bool = false) -> some View {
+            Label(title, systemImage: systemImage)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(chosen ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 8))
+        }
+    #endif
 }
 
 #if os(macOS)

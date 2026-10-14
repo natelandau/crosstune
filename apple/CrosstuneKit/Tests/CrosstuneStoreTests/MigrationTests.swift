@@ -648,7 +648,7 @@ private struct V4Fixture {
     let before = try queue.read { db in try Row.fetchAll(db, sql: objects) }
     try Schema.migrator.migrate(queue, upTo: "v14")
     let after = try queue.read { db in try Row.fetchAll(db, sql: objects) }
-    #expect(after.filter { before.contains($0) }.count == before.count, "nothing is removed or changed")
+    #expect(after.count(where: { before.contains($0) }) == before.count, "nothing is removed or changed")
     let added = after.filter { !before.contains($0) }
         .map { row -> String in
             let type: String = row["type"]
@@ -998,7 +998,7 @@ private let v7UserSettingsSchema = """
     let before = try queue.read { db in try Row.fetchAll(db, sql: objects) }
     try Schema.migrator.migrate(queue, upTo: "v16")
     let after = try queue.read { db in try Row.fetchAll(db, sql: objects) }
-    #expect(after.filter { before.contains($0) }.count == before.count, "nothing is removed or changed")
+    #expect(after.count(where: { before.contains($0) }) == before.count, "nothing is removed or changed")
     let added = after.filter { !before.contains($0) }
         .map { row -> String in
             let type: String = row["type"]

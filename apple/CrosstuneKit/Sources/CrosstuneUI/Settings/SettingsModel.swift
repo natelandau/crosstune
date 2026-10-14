@@ -460,12 +460,6 @@ public final class SettingsModel {
         return figures
     }
 
-    /// The quota storage is measured against: the plan's once the entitlements row is stored, so
-    /// the figure is right offline after a lapse, else the one the server last reported.
-    public func storageQuota(plan: Plan) -> Int64? {
-        StorageFigures.quota(plan: plan, reported: storage)
-    }
-
     /// The storage figures with the plan's quota in place of the reported one. Used bytes always
     /// come from the server.
     public func storage(plan: Plan) -> StorageFigures? {

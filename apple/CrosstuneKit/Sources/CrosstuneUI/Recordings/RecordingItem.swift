@@ -1,7 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneAuth
 import CrosstuneStore
-import CrosstuneSync
 import SwiftUI
 
 /// The one row every list of recordings shows: it plays what this device holds, fetches what it
@@ -45,7 +44,7 @@ struct RecordingItem: View {
             downloadFailed: transfers?.failedDownloads.contains(id) ?? false, offline: offline,
             playBlocked: recorders?.isCapturing ?? false, storage: storage, sort: sort, opensScreen: opensScreen,
             heldForPremium: plan?.heldForPremium.contains(id) ?? false,
-            recordingsPlay: plan?.plan.recordingsPlay ?? true)
+            recordingsPlay: plan.recordingsPlay)
         MediaRow(
             recording: row,
             sourceLine: MediaRow.SourceLine(recording: view.recording),

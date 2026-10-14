@@ -153,6 +153,7 @@ private struct TuneContent: View {
     @State private var confirmsDelete = false
     /// Whether this visit's screen view is sent, so a page back from a failed delete is not
     /// counted again.
+    // periphery:ignore - read through its binding
     @State private var visited = false
     @Environment(\.tunePageLeaving) private var leaving
 
@@ -409,7 +410,7 @@ struct TuneMediaRows: View {
     @State private var showsRecordings = false
 
     var body: some View {
-        let collapses = !(plan?.plan.recordingsPlay ?? true) && !detail.recordings.isEmpty
+        let collapses = !plan.recordingsPlay && !detail.recordings.isEmpty
         if collapses {
             RecordingsLine(count: detail.recordings.count, isExpanded: $showsRecordings)
                 .pageRowWidth()
@@ -511,43 +512,5 @@ extension View {
         #else
             self
         #endif
-    }
-}
-
-/// Opens a list from the tune it holds: in the split view's content column, or pushed where
-/// there is no split view. `label` is told which, since a pushed link draws its own chevron.
-struct OpensList<Label: View>: View {
-    let listID: String
-    @ViewBuilder let label: (_ inSplitView: Bool) -> Label
-
-    @Environment(\.sidebarSelection) private var sidebarSelection
-
-    var body: some View {
-        if let sidebarSelection {
-            Button {
-                sidebarSelection.value = .list(id: listID)
-            } label: {
-                label(true)
-            }
-            .buttonStyle(.plain)
-        } else {
-            NavigationLink {
-                ListScreen(listID: listID)
-            } label: {
-                label(false)
-            }
-        }
-    }
-}
-
-/// Takes the tune out of one of its lists.
-struct RemoveFromListButton: View {
-    let model: TuneModel
-    let membership: TuneMembership
-
-    var body: some View {
-        Button(TuneScreen.remove, systemImage: "text.badge.xmark", role: .destructive) {
-            Task { await model.removeFromList(itemID: membership.itemID, listID: membership.list.id) }
-        }
     }
 }

@@ -104,7 +104,7 @@ public enum RecordingText {
     }
 
     /// The recorded date, or nil when it is unknown or its precision is one this build predates.
-    public static func knownRecordedDate(
+    private static func knownRecordedDateText(
         _ recording: Recording, locale: Locale = .current, timeZone: TimeZone = .current
     ) -> String? {
         recording.knownRecordedDate.map {
@@ -116,7 +116,7 @@ public enum RecordingText {
     public static func date(
         _ recording: Recording, locale: Locale = .current, timeZone: TimeZone = .current
     ) -> String {
-        knownRecordedDate(recording, locale: locale, timeZone: timeZone)
+        knownRecordedDateText(recording, locale: locale, timeZone: timeZone)
             ?? added(recording.addedAt, locale: locale, timeZone: timeZone)
     }
 
@@ -130,7 +130,7 @@ public enum RecordingText {
         if let label = recording.label { return label }
         if !tuneNamedAbove, let tuneTitle { return tuneTitle }
         let date =
-            knownRecordedDate(recording, locale: locale, timeZone: timeZone)
+            knownRecordedDateText(recording, locale: locale, timeZone: timeZone)
             ?? addedDay(recording.addedAt, locale: locale, timeZone: timeZone)
         return "\(Self.recording), \(date)"
     }

@@ -61,6 +61,17 @@ _contract-check:
 [group('lint')]
 lint: format typos contract-check
 
+# Fail on unused code in the package, its tests, and the app. Builds both first, so it stays out
+# of `lint`; CI runs it after the build. Settings are in CrosstuneKit/.periphery.yml.
+[group('lint')]
+deadcode:
+    {{ gate }} apple-deadcode --tool 'periphery version' --tool 'swift --version' just _deadcode
+
+[private]
+_deadcode: build
+    {{ swift }} build --build-tests --quiet --package-path CrosstuneKit
+    cd CrosstuneKit && periphery scan --quiet
+
 # Fix formatting where swift format can
 [group('lint')]
 fix:

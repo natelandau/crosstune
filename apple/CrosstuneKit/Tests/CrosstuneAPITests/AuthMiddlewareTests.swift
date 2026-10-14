@@ -36,7 +36,7 @@ final class ScriptedServer: Sendable {
 
     var seen: [HTTPRequest] { state.withLock { $0.seen } }
 
-    func next(_ request: HTTPRequest, _ body: HTTPBody?, _ url: URL) async throws -> (HTTPResponse, HTTPBody?) {
+    func next(_ request: HTTPRequest, _: HTTPBody?, _: URL) async throws -> (HTTPResponse, HTTPBody?) {
         let status = state.withLock {
             $0.seen.append(request)
             return $0.statuses.removeFirst()

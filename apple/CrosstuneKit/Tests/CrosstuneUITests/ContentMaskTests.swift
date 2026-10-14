@@ -318,7 +318,7 @@ import Testing
     /// Views that show a value handed in, which the scan cannot trace, masked by hand. Each
     /// marker names every such view in its file.
     static let handMasks: [(file: String, marker: String)] = [
-        ("Components/FilterSearchField.swift", "Text(label)"),
+        ("Components/RemoveFilterCapsule.swift", "Text(label)"),
         ("Components/UndoBanner.swift", "Text(message)"),
         ("Catalog/SearchOffer.swift", "Label(label"),
         ("Catalog/SearchOffer.swift", "Text(match.note)"),

@@ -7,6 +7,8 @@ enum PageStyle {
         static let body = MacStyle.body
         static let secondary = MacStyle.secondary
         static let sectionHeading = MacStyle.sectionHeading
+        /// The space above a group's heading in a list of recordings.
+        static let groupHeadingTop: CGFloat = 8
         static let pageTitle = MacStyle.pageTitle
         static let sectionGap = MacStyle.sectionGap
         static let headingGap = MacStyle.headingGap
@@ -40,6 +42,7 @@ enum PageStyle {
         static let body = Font.body
         static let secondary = Font.subheadline
         static let sectionHeading = Font.title3.weight(.semibold)
+        static let groupHeadingTop: CGFloat = 0
         static let pageTitle = Font.largeTitle.bold()
         static let sectionGap: CGFloat = 28
         static let headingGap: CGFloat = 8

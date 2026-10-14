@@ -559,7 +559,7 @@ import Testing
 
         api.transferFailures = [:]
         await engine.transfer()
-        #expect(api.transfers.filter { $0 == "scan-url p1" }.count == 1)
+        #expect(api.transfers.count(where: { $0 == "scan-url p1" }) == 1)
 
         now = now.advanced(by: uploadBackoff(attempts: 0))
         await engine.transfer()
@@ -650,7 +650,7 @@ import Testing
         }
         let engine = SyncEngine(
             store: store, api: api, isOffline: { false }, sleep: sleeper.sleep, now: { noon.date })
-        func pushesOfP1() -> Int { api.pushes.filter { $0.contains { $0.id == "p1" } }.count }
+        func pushesOfP1() -> Int { api.pushes.count(where: { $0.contains { $0.id == "p1" } }) }
 
         for _ in 0..<3 {
             await engine.transfer()
@@ -679,7 +679,7 @@ import Testing
         }
         let engine = SyncEngine(
             store: store, api: api, isOffline: { false }, sleep: sleeper.sleep, now: { noon.date })
-        func pushesOfP1() -> Int { api.pushes.filter { $0.contains { $0.id == "p1" } }.count }
+        func pushesOfP1() -> Int { api.pushes.count(where: { $0.contains { $0.id == "p1" } }) }
 
         for _ in 0..<3 {
             await engine.transfer()
@@ -711,7 +711,7 @@ import Testing
         }
         let engine = SyncEngine(
             store: store, api: api, isOffline: { false }, sleep: sleeper.sleep, now: { noon.date })
-        func pushesOfP1() -> Int { api.pushes.filter { $0.contains { $0.id == "p1" } }.count }
+        func pushesOfP1() -> Int { api.pushes.count(where: { $0.contains { $0.id == "p1" } }) }
 
         await engine.transfer()
         await engine.sync()

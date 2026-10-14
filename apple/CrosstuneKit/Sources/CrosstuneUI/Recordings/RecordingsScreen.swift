@@ -33,45 +33,17 @@ public struct RecordingsScreen: View {
     }
 }
 
-/// How much of the account's audio quota is spent.
-struct StorageSummary: View {
-    let storage: StorageFigures
-
-    @Environment(\.spacing) private var spacing
-
-    var body: some View {
-        let text = RecordingText.storageUsed(storage)
-        VStack(alignment: .leading, spacing: spacing(6)) {
-            Text(text)
-                .font(.footnote)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-            ProgressView(value: SettingsModel.storageFraction(storage))
-                .accessibilityLabel(SettingsModel.storageUsed)
-                .accessibilityValue(text)
-        }
-        .accessibilityElement(children: .contain)
-    }
-}
-
 /// A group's title over its recordings, as a plain heading with no card behind it.
 struct RecordingsGroupHeading: View {
     let title: String
 
     var body: some View {
-        #if os(macOS)
-            Text(title)
-                .font(MacStyle.sectionHeading)
-                .foregroundStyle(.primary)
-                .padding(.top, 8)
-                .accessibilityAddTraits(.isHeader)
-        #else
-            Text(title)
-                .font(PageStyle.sectionHeading)
-                .foregroundStyle(.primary)
-                .textCase(nil)
-                .accessibilityAddTraits(.isHeader)
-        #endif
+        Text(title)
+            .font(PageStyle.sectionHeading)
+            .foregroundStyle(.primary)
+            .textCase(nil)
+            .padding(.top, PageStyle.groupHeadingTop)
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -129,9 +101,7 @@ private struct RecordingsContent: View {
             #if os(macOS)
                 ColumnTitle(Destination.recordings.title)
                     .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .selectionDisabled()
+                    .plainListRow()
             #endif
             #if os(macOS)
                 if model.filterCount > 0 {
@@ -145,9 +115,7 @@ private struct RecordingsContent: View {
                 if let storage = model.storage(plan: plan) {
                     StorageSummary(storage: storage)
                         .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 8, trailing: 8))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .selectionDisabled()
+                        .plainListRow()
                 }
             #else
                 if model.showsFilters {

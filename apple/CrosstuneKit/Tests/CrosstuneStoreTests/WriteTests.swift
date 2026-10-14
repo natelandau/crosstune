@@ -242,7 +242,7 @@ import Testing
     let root = TemporaryRoot()
     let store = try root.open()
     let commits = Mutex(0)
-    let observer = try DatabaseRegionObservation(tracking: Table("meta"))
+    let observer = DatabaseRegionObservation(tracking: Table("meta"))
         .start(in: store.database, onError: { _ in }, onChange: { _ in commits.withLock { $0 += 1 } })
 
     try await store.setMeta(.recordingsOrigin, to: "own")

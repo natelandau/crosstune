@@ -136,7 +136,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
     }
 
     private func loads(_ rig: Rig) -> Int {
-        rig.audio.calls.filter { $0 == "load" }.count
+        rig.audio.calls.count(where: { $0 == "load" })
     }
 
     @Test func standHeaderFollowsASkip() async throws {

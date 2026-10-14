@@ -134,8 +134,8 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         try await queueRecording(rig)
         rig.audio.end(.finished)
         rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.audio.calls.filter { $0 == "load" }.count == 2 && rig.audio.isPlaying }
-        #expect(rig.audio.calls.filter { $0 == "play" }.count == 2)
+        try await eventually { rig.audio.calls.count(where: { $0 == "load" }) == 2 && rig.audio.isPlaying }
+        #expect(rig.audio.calls.count(where: { $0 == "play" }) == 2)
     }
 
     @Test(arguments: [AppleMusicAccessState.noSubscription, .declined, .notAsked])

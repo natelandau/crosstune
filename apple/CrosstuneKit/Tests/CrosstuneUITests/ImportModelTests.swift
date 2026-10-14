@@ -186,7 +186,7 @@ import Testing
         #expect(model.step == .review)
         #expect(model.review?.rows.map(\.title) == ["Cluck Old Hen (A)", "Red Haired Boy"])
         #expect(model.review?.rows.map(\.included) == [true, false])
-        #expect(sink.captures.filter { $0.name == "import_reviewed" }.count == 1)
+        #expect(sink.captures.count(where: { $0.name == "import_reviewed" }) == 1)
     }
 
     @Test func aKeptReviewMarksATuneAddedSinceAsADuplicate() async throws {
@@ -409,7 +409,7 @@ import Testing
         async let second: Void = model.continueToReview()
         _ = await (first, second)
 
-        #expect(sink.captures.filter { $0.name == "import_reviewed" }.count == 1)
+        #expect(sink.captures.count(where: { $0.name == "import_reviewed" }) == 1)
         #expect(model.step == .review)
         #expect(!model.isReviewing)
     }

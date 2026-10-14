@@ -216,9 +216,7 @@ private struct CatalogContent: View {
             #if os(macOS)
                 ColumnTitle(Destination.catalog.title)
                     .listRowInsets(MacStyle.columnRowInsets(top: MacStyle.columnTitleTop))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .selectionDisabled()
+                    .plainListRow()
             #endif
             if let results {
                 CatalogFilterRow(
@@ -232,17 +230,13 @@ private struct CatalogContent: View {
                     .listRowInsets(
                         EdgeInsets(top: spacing.stackGap, leading: 16, bottom: spacing.stackGap, trailing: 16))
                 #endif
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .selectionDisabled()
+                .plainListRow()
             }
             if let results, results.visible.isEmpty {
                 emptyState(results)
                     .frame(maxWidth: .infinity)
                     .padding(.top, spacing(48))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .selectionDisabled()
+                    .plainListRow()
             }
             if let results, !results.visible.isEmpty {
                 ListHeader(count: results.countLabel, choice: selection.isActive ? nil : chosenSort)
@@ -251,9 +245,7 @@ private struct CatalogContent: View {
                     #else
                         .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                     #endif
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .selectionDisabled()
+                    .plainListRow()
                 ForEach(results.visible) { entry in
                     row(entry, instruments: results.instruments)
                 }

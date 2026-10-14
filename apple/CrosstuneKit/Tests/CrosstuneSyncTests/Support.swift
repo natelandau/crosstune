@@ -98,7 +98,6 @@ final class FakeSyncAPI: SyncAPI {
     }
     /// Called at the start of every push, pull, and storage call.
     var onRequest: @MainActor () -> Void = {}
-    private var serverSeq: Int64 = 0
 
     /// The push and events requests in the order they started and, for events, finished.
     var log: [String] = []

@@ -112,7 +112,7 @@ extension TransfersTests {
             .storage, to: StorageFigures(usedBytes: 40_000_000, quotaBytes: 10_000_000_000, maxFileBytes: 50))
         await engine.transfer()
         await engine.transfer()
-        #expect(api.transfers.filter { $0 == "slot r1" }.count == 3)
+        #expect(api.transfers.count(where: { $0 == "slot r1" }) == 3)
         #expect(sink.captures == [storageLimit(95_000_000)])
 
         try await captured("r2")

@@ -46,7 +46,8 @@ public final class CrosstuneStore: Sendable {
         scansAtOpen = Self.fileNames(in: folder.appending(path: "scans", directoryHint: .isDirectory))
     }
 
-    private static func fileNames(in folder: URL) -> Set<String> {
+    /// The names in `folder`, empty when it is missing.
+    public static func fileNames(in folder: URL) -> Set<String> {
         Set((try? FileManager.default.contentsOfDirectory(atPath: folder.path(percentEncoded: false))) ?? [])
     }
 
@@ -297,8 +298,7 @@ public final class CrosstuneStore: Sendable {
             return try request.limit(limit).fetchAll(db)
         }
     }
-
-    public func meta<Value: Decodable & Sendable>(_ key: MetaKey, as type: Value.Type = Value.self) async throws
+    public func meta<Value: Decodable & Sendable>(_ key: MetaKey, as _: Value.Type = Value.self) async throws
         -> Value?
     {
         try await database.read { db in try Meta.value(db, key) }
@@ -384,8 +384,7 @@ public struct StoreWriter {
             try Outbox.drop(db, table: Record.table, rowID: id)
         }
     }
-
-    public func meta<Value: Decodable>(_ key: MetaKey, as type: Value.Type = Value.self) throws -> Value? {
+    public func meta<Value: Decodable>(_ key: MetaKey, as _: Value.Type = Value.self) throws -> Value? {
         try Meta.value(db, key)
     }
 

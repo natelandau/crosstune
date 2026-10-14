@@ -196,7 +196,6 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         let store = try await SampleCatalog.makeStore()
         let model = try await loadedModel(store)
         let free = Plan(kind: .free, quotaBytes: 50_000_000, scansOnly: true)
-        #expect(model.storageQuota(plan: free) == 50_000_000)
         #expect(model.storage(plan: free)?.quotaBytes == 50_000_000)
         #expect(model.storage(plan: free)?.usedBytes == SampleCatalog.storage.usedBytes)
         #expect(SampleCatalog.storage.quotaBytes != 50_000_000)
@@ -205,7 +204,6 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     @Test func fallsBackToTheMetaQuotaWhileThePlanIsUnknown() async throws {
         let store = try await SampleCatalog.makeStore()
         let model = try await loadedModel(store)
-        #expect(model.storageQuota(plan: .unknown) == Int64(SampleCatalog.storage.quotaBytes))
         #expect(model.storage(plan: .unknown) == SampleCatalog.storage)
     }
 

@@ -47,7 +47,6 @@ public struct SettingsScreen: View {
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
     @AppStorage(TextSize.storageKey) private var textSizeOffset = 0
     @Environment(\.systemDynamicTypeSize) private var systemTextSize
-    @Environment(\.spacing) private var spacing
     @AppStorage(CaptureChannels.storageKey) private var channels: CaptureChannels = .mono
     @AppStorage(UsageData.storageKey) private var sharesUsageData = true
     @Environment(\.analytics) private var analytics
@@ -67,12 +66,8 @@ public struct SettingsScreen: View {
     @State private var musicServicesShowing = false
     @State private var showsStats = false
 
-    /// - Parameter version: The app's marketing version, which the About row names.
-    public init(version: String? = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) {
-        self.init(version: version, sections: .all, title: Destination.settings.title, opensStatsInSheet: false)
-    }
-
     /// - Parameters:
+    ///   - version: The app's marketing version, which the About row names.
     ///   - sections: The groups of rows shown.
     ///   - title: The navigation title.
     ///   - opensStatsInSheet: Shows the stats screen in a sheet rather than pushing it, for a

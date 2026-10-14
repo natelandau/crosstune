@@ -17,9 +17,6 @@ public enum StatsCopy {
     nonisolated public static let listsLabel = "Lists"
     nonisolated public static let recordingsLabel = "Recordings"
     nonisolated public static let linksLabel = "Links"
-    nonisolated public static let knownLabel = Vocabulary.statusLabels["known"]!
-    nonisolated public static let learningLabel = Vocabulary.statusLabels["learning"]!
-    nonisolated public static let unknownLabel = Vocabulary.statusLabels["want_to_learn"]!
 
     nonisolated public static let tunesAddedLabel = "Tunes added"
     /// The toggle that widens the month bars from the last 12 months to every month.

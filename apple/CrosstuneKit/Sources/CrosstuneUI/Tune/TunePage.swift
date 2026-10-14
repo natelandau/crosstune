@@ -14,9 +14,13 @@ struct TunePage: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var risen = false
     @State private var titleShows = true
+    // periphery:ignore - read through its binding
     @State private var editing: RecordingView?
+    // periphery:ignore - read through its binding
     @State private var deleting: RecordingView?
+    // periphery:ignore - read through its binding
     @State private var addingScans: ScanAddChoice?
+    // periphery:ignore - read through its binding
     @State private var deletingScan: Scan?
 
     init(model: TuneModel, detail: TuneDetail, onEdit: @escaping () -> Void) {

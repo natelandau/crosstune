@@ -273,7 +273,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
     @Test func spellsAKnownTypeTheCanonicalWayOnce() {
         let types = TuneSuggestions.types(genre: "", tunes: [tune("a", type: "polka")])
         #expect(types.first == "Polka")
-        #expect(types.filter { $0 == "Polka" }.count == 1)
+        #expect(types.count(where: { $0 == "Polka" }) == 1)
         #expect(!types.contains("polka"))
     }
 

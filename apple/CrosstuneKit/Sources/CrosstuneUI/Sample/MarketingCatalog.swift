@@ -20,7 +20,6 @@
         static let filesKey = "files"
 
         public enum FixtureError: Error, Equatable {
-            case notAnObject
             case unknownKey(String)
             case notARow(table: String)
             case missingFile(String)
