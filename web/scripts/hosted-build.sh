@@ -7,7 +7,7 @@ set -euo pipefail
 
 branch="${WORKERS_CI_BRANCH:?WORKERS_CI_BRANCH is not set; this script runs under Workers Builds}"
 
-if [ "$branch" = "production" ]; then
+if [[ "$branch" == "production" ]]; then
   export VITE_CLERK_PUBLISHABLE_KEY="${CLERK_PUBLISHABLE_KEY_PRODUCTION:?CLERK_PUBLISHABLE_KEY_PRODUCTION is not set}"
   export VITE_SENTRY_ENVIRONMENT=production
   # Only the production build reports usage; previews and development never get a key.

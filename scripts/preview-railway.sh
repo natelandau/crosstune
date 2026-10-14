@@ -5,9 +5,9 @@
 # Usage: preview-railway.sh up | hostname | down
 #
 # Every command needs PR_NAME, RAILWAY_API_TOKEN, RAILWAY_CLI_IMAGE, RAILWAY_PROJECT_ID,
-# RAILWAY_ENVIRONMENT_ID, and RAILWAY_API_SERVICE_ID. `up` also needs NEON_DB_URL,
-# HEAD_REF, STORAGE_ACCESS_KEY_ID_PREVIEW, and STORAGE_SECRET_ACCESS_KEY_PREVIEW.
-# `hostname` writes `hostname=<host>` to GITHUB_OUTPUT.
+# and RAILWAY_ENVIRONMENT_ID. `up` and `hostname` also need RAILWAY_API_SERVICE_ID, and
+# `up` needs NEON_DB_URL, HEAD_REF, STORAGE_ACCESS_KEY_ID_PREVIEW, and
+# STORAGE_SECRET_ACCESS_KEY_PREVIEW. `hostname` writes `hostname=<host>` to GITHUB_OUTPUT.
 set -euo pipefail
 
 railway() {

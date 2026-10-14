@@ -91,7 +91,7 @@ so a device build reaches it through Tailscale Serve: run `just dev`, then
 RustFS, so one URL serves both. The device's origins live in
 `apple/Config/Local.xcconfig`, which git ignores and only Debug builds
 read. `just apple::setup` writes it with this Mac's Tailscale hostname
-(`scripts/apple-local-xcconfig.sh`), and `just worktree` copies the main
+(`apple/scripts/apple-local-xcconfig.sh`), and `just worktree` copies the main
 checkout's copy into each worktree. Its settings carry `[sdk=iphoneos*]`,
 so the Simulator and the Mac keep localhost.
 
@@ -135,7 +135,9 @@ agents run the same recipes, so a pass from one skips the gate for the
 others, in every worktree. gate-cache turns itself off when `CI` is set,
 so CI never skips a gate.
 
-- A recipe run with args always runs and records nothing.
+- A recipe run with args always runs and records nothing. A recipe that
+  forwards its args passes their count to the gate with `--argc "$#"` and
+  appends them to the command, so it spells the command once.
 - A pass on uncommitted work covers the commit of that work, so the commit
   and pre-push hooks skip the gate.
 - A gate that reads an ignored file, such as a module's `.env`, names it
@@ -143,6 +145,10 @@ so CI never skips a gate.
   no lockfile pins, such as Node, ffmpeg, or Xcode's Swift, names the
   command that prints its version with `--tool`. A hash of both joins
   the gate name, so a change to either runs the gate again.
+- A gate never reads a service, since gate-cache cannot see one change.
+  `api-test` is the one exception: it starts the compose Postgres, but
+  every run creates and migrates databases of its own from the tree and
+  drops them after, so nothing Postgres already holds reaches the result.
 - `just gate status` lists the gates that passed on the current tree and
   the gates that ran on it without a pass. `just gate status --name <gate>`
   says whether one gate would skip; a gate keyed with `--file` or

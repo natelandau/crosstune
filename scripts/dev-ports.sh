@@ -29,7 +29,7 @@ honcho_above() {
 wait_free() {
   local port="$1"
   for _ in $(seq 1 20); do
-    lsof -tiTCP:"$1" -sTCP:LISTEN > /dev/null 2>&1 || return 0
+    lsof -tiTCP:"$port" -sTCP:LISTEN > /dev/null 2>&1 || return 0
     sleep 0.5
   done
   return 1

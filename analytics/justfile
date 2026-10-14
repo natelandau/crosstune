@@ -19,7 +19,7 @@ check:
 [group('test')]
 [positional-arguments]
 test *args:
-    if [ "$#" -eq 0 ]; then {{ gate }} analytics-test uv run --project ../api python -m pytest test_plan.py -q; else uv run --project ../api python -m pytest test_plan.py -q "$@"; fi
+    {{ gate }} analytics-test --argc "$#" uv run --project ../api python -m pytest test_plan.py -q "$@"
 
 # Push each planned event's description and tags to PostHog and mark it verified
 [group('analytics')]

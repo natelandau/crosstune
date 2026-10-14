@@ -18,6 +18,7 @@
         'web/package.json:"version"',
         "apple/Config/Version.xcconfig:^MARKETING_VERSION",
     ]
-    # uv.lock records the API package's own version, so refresh it after the
-    # version files change and stage it so the bump commit carries it.
+    # uv.lock and the OpenAPI contract both record the API package's version, so
+    # the hook regenerates them, and the web types built from the contract, after
+    # the version files change and stages them so the bump commit carries them.
     pre_bump_hooks = ["scripts/bump-lock.sh"]

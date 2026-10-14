@@ -10,27 +10,28 @@ mod site
 mod apple
 mod analytics
 
-# Where the end-to-end API serves, matching e2e_port in api/justfile and e2e_api in
-# web/justfile. Not the :8000 of a dev session, so `just e2e` runs while `just dev` does.
-e2e_api_port := "8001"
+# Where the end-to-end API serves. Not the :8000 of a dev session, so `just e2e` runs while
+# `just dev` does. api/e2e-port holds it for every justfile that needs it.
+e2e_api_port := trim(read("api/e2e-port"))
+
+# The prek hooks that only call a module's lint recipe, which `just lint` and CI run directly
+module_hooks := "ty,ruff-check,ruff-format,web-eslint,web-prettier,web-tsc,site-eslint,site-prettier,site-tsc,apple-swift-format,analytics-check"
 
 [private]
 default:
     @just --list
-
-# The prek hooks that only call a module's lint recipe, which `just lint` and CI run directly
-module_hooks := "ty,ruff-check,ruff-format,web-eslint,web-prettier,web-tsc,site-eslint,site-prettier,site-tsc,apple-swift-format,analytics-check"
 
 # Run every linter in every module, then the hooks no module covers
 lint: api::lint web::lint site::lint apple::lint analytics::check lint-repo
 
 # Run the prek hooks no module lint covers, such as the spell check, yamllint, and actionlint
 lint-repo:
-    PREK_SKIP=pytest,{{ module_hooks }} uv run --project api prek run --all-files --config .pre-commit-config.yaml
+    PREK_SKIP={{ module_hooks }} uv run --project api prek run --all-files --config .pre-commit-config.yaml
 
 # Spell check the whole repository, or only the given paths
+[positional-arguments]
 typos *paths:
-    if [ -z '{{ paths }}' ]; then scripts/gate-cache.sh typos uv run --project api --only-group typos typos --config .typos.toml; else uv run --project api --only-group typos typos --config .typos.toml {{ paths }}; fi
+    scripts/gate-cache.sh typos --argc "$#" uv run --project api --only-group typos typos --config .typos.toml "$@"
 
 # Run gate-cache: `status` lists the gates that passed or failed on this tree, `clear` forgets every pass
 [positional-arguments]
@@ -93,13 +94,13 @@ dev-setup: setup
     docker compose up -d
 
 # Create .worktrees/<branch> with main's .env, secrets, and local override files, its dependencies, and its own database and bucket
-worktree branch:
+worktree $branch:
     #!/usr/bin/env bash
     set -euo pipefail
     # The branch starts from the main checkout's HEAD, wherever this runs from.
     main="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
-    path="$main/.worktrees/{{ branch }}"
-    git -C "$main" worktree add "$path" -b '{{ branch }}'
+    path="$main/.worktrees/$branch"
+    git -C "$main" worktree add "$path" -b "$branch"
     # A rerun would fail on the existing branch, so a later failure says how to finish by hand.
     trap 'echo "worktree created at $path but setup failed; finish with: cd $path && just worktree-env && just setup && just api::worktree-db" >&2' ERR
     # This justfile, not the new checkout's, since a branch cut from an older commit may lack the recipe
