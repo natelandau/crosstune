@@ -61,7 +61,7 @@ _contract-check:
 [group('lint')]
 lint: format typos contract-check
 
-# Fail on unused code in the package, its tests, and the app. Builds both first, so it stays out
+# of `lint` and CI. Settings are in CrosstuneKit/.periphery.yml.
 # of `lint`; CI runs it after the build. Settings are in CrosstuneKit/.periphery.yml.
 [group('lint')]
 deadcode:
