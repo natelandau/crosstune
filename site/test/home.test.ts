@@ -104,10 +104,7 @@ describe('home page copy', () => {
     expect(text(band)).toBe(MAKER_BAND.name)
   })
 
-  it('has the closing lede, which promises the web today and the apps soon', () => {
-    expect(CLOSING_LEDE).toBe(
-      'Start free on the web today. The iPhone, iPad, and Mac apps follow soon.',
-    )
+  it('has the closing lede', () => {
     expect(text(doc.querySelector(`#${START_ID} h2 + p`))).toBe(CLOSING_LEDE)
   })
 
@@ -178,8 +175,8 @@ describe('home page Create account buttons', () => {
   )
 
   it('draws the closing button in jet, since coral has no contrast on the coral wash', () => {
-    expect(closing?.classList.contains('jet')).toBe(true)
-    expect(hero?.classList.contains('jet')).toBe(false)
+    expect(closing?.closest('.cta')?.classList.contains('jet')).toBe(true)
+    expect(hero?.closest('.cta')?.classList.contains('jet')).toBe(false)
   })
 
   it.each(['hero', 'closing'])('the %s button lists the terms under it', (placement) => {

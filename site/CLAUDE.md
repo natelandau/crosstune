@@ -21,8 +21,8 @@ design rules in `docs/design*.md` do not apply here.
 - Coral is the brand color and may be used freely; the app's color rules do not
   bind the page.
 - The app calls them scans, never notation. A test fails on "notation".
-- Every Create account button carries "Already have an account? Sign in", and
-  Sign in stays in the nav at every width.
+- The hero's and the closing band's Create account buttons carry "Already have
+  an account? Sign in", and Sign in stays in the nav at every width.
 
 ## Demos
 

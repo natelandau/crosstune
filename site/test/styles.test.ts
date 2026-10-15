@@ -9,7 +9,9 @@ const createAccount = /<style>([\s\S]*)<\/style>/.exec(read('components/CreateAc
 
 /** The body of the first `@media` block whose query is `query`, braces matched. */
 function mediaBody(css: string, query: string): string {
-  const open = css.indexOf('{', css.indexOf(`@media ${query}`))
+  const at = css.indexOf(`@media ${query}`)
+  if (at === -1) throw new Error(`no @media ${query}`)
+  const open = css.indexOf('{', at)
   let depth = 0
   for (let i = open; i < css.length; i += 1) {
     if (css[i] === '{') depth += 1
@@ -94,8 +96,8 @@ describe('Create account button', () => {
   })
 
   it('keeps the jet label at 4.5:1 or more, at rest and on hover', () => {
-    const label = color(declared(createAccount, '.create.jet', 'color')[0])
-    for (const selector of ['.create.jet', '.create.jet:hover']) {
+    const label = color(declared(createAccount, '.cta.jet .create', 'color')[0])
+    for (const selector of ['.cta.jet .create', '.cta.jet .create:hover']) {
       const background = declared(createAccount, selector, 'background')[0]
       expect(contrast(color(background), label), selector).toBeGreaterThanOrEqual(4.5)
     }

@@ -22,11 +22,7 @@ const { tone, placement } = Astro.props
 ---
 
 <div class:list={['cta', tone]}>
-  <a
-    class:list={['create', { jet: tone === 'jet' }]}
-    href={SIGN_UP_URL}
-    data-create-account={placement}
-  >
+  <a class="create" href={SIGN_UP_URL} data-create-account={placement}>
     {CREATE_FREE_ACCOUNT}
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <use href="#i-arrow" />
@@ -95,13 +91,13 @@ const { tone, placement } = Astro.props
     transform: translateX(3px);
   }
 
-  .create.jet {
+  .cta.jet .create {
     background: var(--jet);
     color: var(--white);
     box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--jet) 55%, transparent);
   }
 
-  .create.jet:hover {
+  .cta.jet .create:hover {
     background: var(--jet-hover);
   }
 
