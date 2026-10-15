@@ -8,6 +8,8 @@ import Foundation
 import GRDB
 import Network
 import Observation
+import OpenAPIRuntime
+import OpenAPIURLSession
 
 /// Who the app is open for, their on-device store and its sync, and whether the API still
 /// accepts their session.
@@ -93,19 +95,34 @@ public final class AccountSession {
 
     /// The API client every request goes through. A request the API refuses even with a fresh
     /// token sets ``needsSignIn``.
-    @ObservationIgnored public private(set) lazy var client: CrosstuneAPI.Client = .crosstune(
+    @ObservationIgnored public private(set) lazy var client: CrosstuneAPI.Client = Self.makeClient(
         origin: apiOrigin,
         tokens: ClerkTokens(),
         clientVersion: clientVersion,
+        analytics: analytics,
         onUnauthorized: { [weak self] in await self?.sessionRejected() },
         // Not awaited: leaving waits out the sync run whose request is reporting this.
         onAccountDeleted: { [weak self] in
             Task { @MainActor in await self?.accountDeletedElsewhere() }
-        },
-        onAccountCreated: { [weak self] trial in
-            self?.analytics.send(.accountCreated(trial: trial))
         }
     )
+
+    /// The API client ``client`` holds, which reports a created account to `analytics`.
+    /// `transport` stands in for URLSession in tests.
+    static func makeClient(
+        origin: URL,
+        tokens: any TokenProvider,
+        clientVersion: String,
+        analytics: AnalyticsClient,
+        transport: any ClientTransport = URLSessionTransport(),
+        onUnauthorized: @escaping @Sendable () async -> Void,
+        onAccountDeleted: @escaping @Sendable () async -> Void
+    ) -> CrosstuneAPI.Client {
+        .crosstune(
+            origin: origin, tokens: tokens, clientVersion: clientVersion, onUnauthorized: onUnauthorized,
+            onAccountDeleted: onAccountDeleted, onAccountCreated: { analytics.send(.accountCreated(trial: $0)) },
+            transport: transport)
+    }
 
     private let remembered: RememberedUser
     private let storeRoot: URL

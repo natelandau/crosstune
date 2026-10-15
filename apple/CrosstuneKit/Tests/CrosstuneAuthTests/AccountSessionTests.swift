@@ -5,6 +5,7 @@ import CrosstuneSync
 import CrosstuneTestSupport
 import Foundation
 import GRDB
+import HTTPTypes
 import OpenAPIRuntime
 import Testing
 
@@ -1102,4 +1103,30 @@ final class Offline {
         try await waitUntil { api.pulls == 1 }
         session.shutDown()
     }
+}
+
+/// Answers every request with an empty 204 that marks the request as the one that created a
+/// trial account.
+private struct TrialCreatedTransport: ClientTransport {
+    func send(
+        _ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String
+    ) async throws -> (HTTPResponse, HTTPBody?) {
+        (HTTPResponse(status: .noContent, headerFields: [HTTPField.Name("X-Account-Created")!: "trial"]), nil)
+    }
+}
+
+private struct FixedToken: TokenProvider {
+    func token(refresh: Bool) async throws -> String? { "token" }
+}
+
+@MainActor
+@Test func reportsACreatedTrialAccountToAnalytics() async throws {
+    let sink = RecordingAnalyticsSink()
+    let client = AccountSession.makeClient(
+        origin: URL(string: "https://api.example.com")!, tokens: FixedToken(), clientVersion: "0.7.0",
+        analytics: sink.client, transport: TrialCreatedTransport(), onUnauthorized: {}, onAccountDeleted: {})
+
+    _ = try await client.deleteMeV1MeDelete()
+
+    #expect(sink.calls == [.capture("account_created", ["trial": .bool(true)])])
 }

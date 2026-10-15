@@ -61,6 +61,8 @@ let package = Package(
                 "CrosstuneSync",
                 .product(name: "ClerkKit", package: "clerk-ios"),
                 .product(name: "ClerkKitUI", package: "clerk-ios"),
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+                .product(name: "OpenAPIURLSession", package: "swift-openapi-urlsession"),
             ]
         ),
         .target(
@@ -141,6 +143,7 @@ let package = Package(
             dependencies: [
                 "CrosstuneAnalytics", "CrosstuneAPI", "CrosstuneAuth", "CrosstuneStore", "CrosstuneTestSupport",
                 .product(name: "GRDB", package: "GRDB.swift"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
             ]
         ),

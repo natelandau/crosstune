@@ -1,5 +1,4 @@
 import CrosstuneAuth
-import Foundation
 import SwiftUI
 
 #if os(iOS)

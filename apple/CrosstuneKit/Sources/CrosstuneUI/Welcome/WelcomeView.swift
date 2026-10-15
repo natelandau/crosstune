@@ -1,9 +1,9 @@
 import CrosstuneAuth
 import SwiftUI
 
-/// The signed-out screen: what Crosstune is, then two paths, Create account and Sign in for
-/// anyone with an account. On iPhone and iPad the picture sits above the words; on the Mac the
-/// window splits, picture left and words right.
+/// The signed-out screen: what Crosstune is, then two paths, Create account for anyone new and
+/// Sign in for anyone with an account. On iPhone and iPad the picture sits above the words; on
+/// the Mac the window splits, picture left and words right.
 public struct WelcomeView: View {
     private let notice: String?
 
@@ -102,30 +102,39 @@ public struct WelcomeView: View {
     private var buttons: some View {
         VStack(spacing: spacing(4)) {
             ForEach(WelcomeButton.allCases) { button in
-                if button.isProminent {
-                    Button {
-                        authMode = button.mode
-                    } label: {
-                        Text(button.label)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.slateProminent)
-                } else {
-                    Button {
-                        authMode = button.mode
-                    } label: {
-                        Text(button.label)
-                            // A borderless button on the Mac draws in the label color, not the tint.
-                            .foregroundStyle(.tint)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, spacing.stackGap)
-                    }
-                    .buttonStyle(.borderless)
+                Button {
+                    authMode = button.mode
+                } label: {
+                    Text(button.label)
+                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(WelcomeButtonStyle(prominent: button.isProminent, padding: spacing.stackGap))
             }
         }
         .fontWeight(.semibold)
         .controlSize(.large)
+    }
+}
+
+/// The filled slate style for the prominent button, and a borderless one in the tint for the
+/// rest.
+private struct WelcomeButtonStyle: PrimitiveButtonStyle {
+    let prominent: Bool
+    /// The vertical padding a borderless label takes, which the filled style draws for itself.
+    let padding: CGFloat
+
+    @ViewBuilder func makeBody(configuration: Configuration) -> some View {
+        if prominent {
+            Button(configuration).buttonStyle(.slateProminent)
+        } else {
+            Button(role: configuration.role, action: configuration.trigger) {
+                configuration.label
+                    // A borderless button on the Mac draws in the label color, not the tint.
+                    .foregroundStyle(.tint)
+                    .padding(.vertical, padding)
+            }
+            .buttonStyle(.borderless)
+        }
     }
 }
 

@@ -70,7 +70,7 @@ func reportsNothingWithoutAKnownValue(_ value: String?) async throws {
 
 @Test func crosstuneClientReadsTheResponseAfterAGatewayRetry() async throws {
     let server = ResponseServer(
-        response(.badGateway, accountCreated: nil), response(.noContent, accountCreated: "comp"))
+        response(.badGateway, accountCreated: "trial"), response(.noContent, accountCreated: "comp"))
     let reports = AccountCreatedReports()
     let client = Client.crosstune(
         origin: baseURL, tokens: CountingTokens(), clientVersion: "0.7.0", onUnauthorized: {},
