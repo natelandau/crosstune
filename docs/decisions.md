@@ -243,7 +243,8 @@ reopens one without new information. Add a new entry at the end.
   caching to the app, which the split exists to avoid).
 - Sign-up is open, in Clerk's Public mode, with Clerk's own sign-up
   screen on the web and in the Apple app. A form of our own would
-  duplicate what Clerk already owns.
+  duplicate what Clerk already owns, so the site's calls to action link
+  to the web app's sign-up screen.
 - The site deploys production from `main`, not from a version tag. It
   calls no API and depends on no client version, so the release gate
   protects nothing for it and would hold copy changes until the next
