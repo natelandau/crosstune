@@ -573,6 +573,22 @@
       ],
       "properties": {}
     },
+    "account_created": {
+      "description": "This device's request created the account. The API decides it, so it is sent at most once per account.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "activation"
+      ],
+      "properties": {
+        "trial": {
+          "type": "bool",
+          "required": true
+        }
+      }
+    },
     "signed_out": {
       "description": "The user signed out.",
       "clients": [

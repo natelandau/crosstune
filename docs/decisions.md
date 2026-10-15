@@ -241,8 +241,9 @@ reopens one without new information. Add a new entry at the end.
 - Astro over plain HTML (shared header and footer copied across pages) and
   over a second Vite entry in `web/` (it couples the site's deploys and
   caching to the app, which the split exists to avoid).
-- The site holds no sign-up form of its own. Its calls to action link to
-  the web app's sign-up screen, since Clerk already owns sign-up.
+- Sign-up is open, in Clerk's Public mode, with Clerk's own sign-up
+  screen on the web and in the Apple app. A form of our own would
+  duplicate what Clerk already owns.
 - The site deploys production from `main`, not from a version tag. It
   calls no API and depends on no client version, so the release gate
   protects nothing for it and would hold copy changes until the next

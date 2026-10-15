@@ -4,7 +4,7 @@ import { appRoutes } from '../app/routes'
 import { screenFor } from './screens'
 
 // The addresses that show no screen: redirects, the component kit, and the not-found page.
-const NOT_SCREENS = ['/', '/kit', '/tunes/:tuneId', '/*']
+const NOT_SCREENS = ['/', '/sign-up', '/kit', '/tunes/:tuneId', '/*']
 
 function routePaths(routes: RouteObject[], parent = ''): string[] {
   return routes.flatMap((route) => {

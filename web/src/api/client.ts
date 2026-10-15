@@ -66,6 +66,8 @@ export interface ApiClientOptions {
   apiTimeoutMs?: number
   /** Override the waits between gateway retries in ms. Tests only. */
   gatewayRetryDelaysMs?: readonly number[]
+  /** Called when a response says its request created the account; `trial` is false for a claimed comp. */
+  onAccountCreated?: (trial: boolean) => void
 }
 
 export function createApiClient(options: ApiClientOptions): SyncApi {
@@ -113,7 +115,19 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     baseUrl: options.baseUrl || globalThis.location?.origin || '',
     fetch: withGatewayRetries,
   })
+  const accountCreated: Middleware = {
+    onResponse({ response }) {
+      const kind = response.headers.get('X-Account-Created')
+      if (kind !== 'trial' && kind !== 'comp') return
+      try {
+        options.onAccountCreated?.(kind === 'trial')
+      } catch {
+        // A report about the account must never fail the request that carried it.
+      }
+    },
+  }
   client.use(auth)
+  client.use(accountCreated)
 
   // Presigned URLs carry their own credential in the signature, so these bypass
   // openapi-fetch entirely and never receive the bearer token.

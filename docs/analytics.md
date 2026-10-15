@@ -51,7 +51,9 @@ two audiences.
   `before_send`, so no event carries a tune, list, or recording ID in a
   path or a query string.
 - **No milestone events.** A device cannot know that an action is the
-  first one for a person. Build "first time" in a PostHog funnel.
+  first one for a person. Build "first time" in a PostHog funnel. The one
+  exception is `account_created`: the API decides it and tells the client in
+  the response that created the account, so it is sent at most once per account.
 - **Named events only in the app.** Autocapture is off in the app on every
   platform.
 

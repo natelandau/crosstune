@@ -185,6 +185,29 @@ describe('startAnalytics', () => {
     expect(calls).toContainEqual(['identify', 'u1', {}, { signed_up_at: '2026-01-01T00:00:00Z' }])
   })
 
+  it('whenIdentified holds a report until identify, so it reaches the SDK after it', async () => {
+    const { client, calls, methods } = setup()
+    client.whenIdentified('u1', () => client.send('account_created', { trial: true }))
+    client.whenIdentified('u2', () => client.send('account_created', { trial: false }))
+    expect(calls.filter(([method]) => method === 'capture')).toEqual([])
+    client.identify('u1', {})
+    await expect.poll(() => methods()).toContain('capture')
+    const order = methods().filter((method) => method === 'identify' || method === 'capture')
+    expect(order).toEqual(['identify', 'capture'])
+    expect(calls.filter(([method]) => method === 'capture')).toEqual([
+      ['capture', 'account_created', { trial: true }],
+    ])
+  })
+
+  it('whenIdentified runs at once for a user already identified', async () => {
+    const { client, calls } = setup()
+    client.identify('u1', {})
+    const fn = vi.fn(() => client.send('account_created', { trial: true }))
+    client.whenIdentified('u1', fn)
+    expect(fn).toHaveBeenCalledOnce()
+    await expect.poll(() => calls).toContainEqual(['capture', 'account_created', { trial: true }])
+  })
+
   it('enableSharing while sharing is on neither opts in nor identifies again', async () => {
     const { client, methods } = setup()
     client.identify('u1', {})

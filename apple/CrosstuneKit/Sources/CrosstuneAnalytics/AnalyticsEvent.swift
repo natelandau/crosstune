@@ -20,6 +20,8 @@ public enum AnalyticsEvent: Sendable, Equatable {
     case accountDeletionStarted
     /// The confirmation closed without deleting.
     case accountDeletionCancelled
+    /// This device's request created the account; `trial` is false for a comped one.
+    case accountCreated(trial: Bool)
 
     case tuneCreated(source: ActionSource, fieldsSet: [TuneField], tuneID: String)
     case tuneEdited(fieldsChanged: [TuneField], tuneID: String)
@@ -107,6 +109,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .accountDeleted: "account_deleted"
         case .accountDeletionStarted: "account_deletion_started"
         case .accountDeletionCancelled: "account_deletion_cancelled"
+        case .accountCreated: "account_created"
         case .tuneCreated: "tune_created"
         case .tuneEdited: "tune_edited"
         case .tuneStatusChanged: "tune_status_changed"
@@ -175,6 +178,8 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .signedIn, .signedOut, .accountDeleted, .accountDeletionStarted, .accountDeletionCancelled,
             .usageSharingDisabled:
             [:]
+        case .accountCreated(let trial):
+            ["trial": .bool(trial)]
         case .tuneCreated(let source, let fields, let tuneID):
             ["source": .string(source.rawValue), "fields_set": .fields(fields), "tune_id": .string(tuneID)]
         case .tuneEdited(let fields, let tuneID):

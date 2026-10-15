@@ -2,9 +2,10 @@
 import { useEffect, type CSSProperties, type ReactNode } from 'react'
 
 // Stands in for `@clerk/react` in `just web::kit-shots`, which aliases the package to this
-// module, and in browser tests that mock the package with it, so the sign-in screen renders with no Clerk instance and no network. Clerk's own
-// form cannot render here; this one paints the same appearance variables the real form takes,
-// so a capture still shows whether each resolves against the app's tokens.
+// module, and in browser tests that mock the package with it, so the sign-in and sign-up
+// screens render with no Clerk instance and no network. Clerk's own form cannot render here;
+// this one paints the same appearance variables the real form takes, so a capture still shows
+// whether each resolves against the app's tokens.
 
 interface Appearance {
   variables?: Record<string, string>
@@ -13,7 +14,7 @@ interface Appearance {
 
 declare global {
   interface Window {
-    /** The appearance the sign-in screen passed, for the capture script to check. */
+    /** The appearance the sign-in or sign-up screen passed, for the capture script to check. */
     __clerkAppearance?: Appearance
   }
 }
@@ -46,6 +47,34 @@ export function useUser() {
 }
 
 export function SignIn({ appearance = {} }: { appearance?: Appearance }) {
+  return (
+    <StubForm
+      appearance={appearance}
+      title="Sign in to Crosstune"
+      subtitle="Welcome back! Please sign in to continue"
+    />
+  )
+}
+
+export function SignUp({ appearance = {} }: { appearance?: Appearance }) {
+  return (
+    <StubForm
+      appearance={appearance}
+      title="Create your account"
+      subtitle="Welcome! Please fill in the details to get started."
+    />
+  )
+}
+
+function StubForm({
+  appearance,
+  title,
+  subtitle,
+}: {
+  appearance: Appearance
+  title: string
+  subtitle: string
+}) {
   useEffect(() => {
     window.__clerkAppearance = appearance
   }, [appearance])
@@ -76,10 +105,8 @@ export function SignIn({ appearance = {} }: { appearance?: Appearance }) {
           }}
         >
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontWeight: 700, fontSize: '1.0625rem' }}>Sign in to Crosstune</div>
-            <div style={{ color: v.colorMutedForeground, fontSize: '0.8125rem' }}>
-              Welcome back! Please sign in to continue
-            </div>
+            <div style={{ fontWeight: 700, fontSize: '1.0625rem' }}>{title}</div>
+            <div style={{ color: v.colorMutedForeground, fontSize: '0.8125rem' }}>{subtitle}</div>
           </div>
           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
             <span style={{ fontSize: '0.8125rem', fontWeight: 500 }}>Email address</span>

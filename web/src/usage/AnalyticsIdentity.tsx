@@ -6,6 +6,7 @@ import { useAuthSession } from '../auth/AuthContext'
 import { getStorage } from '../db/meta'
 import { useDb } from '../db/DbProvider'
 import { useAnalytics } from './AnalyticsProvider'
+import type { PersonProperties } from './events'
 import { personProperties, readWebSettings } from './personProperties'
 
 /**
@@ -20,16 +21,19 @@ export function AnalyticsIdentity() {
   // Clerk has no user in an offline session; the ISO string keeps the effect from re-running
   // on a new Date instance for the same moment.
   const signedUpAt = user?.createdAt?.toISOString()
+  const missedFigures = useRef(false)
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      let person
+      // A failed read still identifies the person, without the properties it could not read.
+      let person: PersonProperties = {}
       try {
         person = await personProperties(db, await readWebSettings(db, userId))
       } catch (error) {
-        if (!cancelled) Sentry.captureException(error)
-        return
+        if (cancelled) return
+        Sentry.captureException(error)
+        missedFigures.current = true
       }
       if (cancelled) return
       if (!offline) {
@@ -51,7 +55,6 @@ export function AnalyticsIdentity() {
   // already held them was covered by the identify above. Until the person is set, each change
   // to the figures tries again.
   const storage = useLiveQuery(() => getStorage(db), [db])
-  const missedFigures = useRef(false)
   useEffect(() => {
     if (storage === undefined) return
     if (storage === null) {

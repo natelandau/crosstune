@@ -11,6 +11,7 @@ from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber
 
 from crosstune import __version__
 from crosstune.analytics.posthog import PostHogPersons
+from crosstune.auth.account_created import AccountCreatedHeader
 from crosstune.auth.jwks import JwksCache
 from crosstune.billing.revenuecat import RevenueCatRest
 from crosstune.billing.router import router as billing_router
@@ -256,6 +257,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     install_error_handlers(app)
+    app.add_middleware(AccountCreatedHeader)
     app.add_middleware(BodyAdmission)
     app.include_router(users_router)
     app.include_router(billing_router)
