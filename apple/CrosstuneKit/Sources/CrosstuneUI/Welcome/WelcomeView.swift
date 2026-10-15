@@ -1,14 +1,13 @@
 import CrosstuneAuth
 import SwiftUI
 
-/// The signed-out screen: what Crosstune is, then Sign in for anyone with an account and Join the
-/// waitlist for anyone without. On iPhone and iPad the picture sits above the words; on the Mac
-/// the window splits, picture left and words right.
+/// The signed-out screen: what Crosstune is, then two paths, Create account and Sign in for
+/// anyone with an account. On iPhone and iPad the picture sits above the words; on the Mac the
+/// window splits, picture left and words right.
 public struct WelcomeView: View {
     private let notice: String?
 
-    @State private var showsSignIn = false
-    @Environment(\.openURL) private var openURL
+    @State private var authMode: AuthMode?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.spacing) private var spacing
 
@@ -20,8 +19,8 @@ public struct WelcomeView: View {
     public var body: some View {
         layout
             .screenView(.welcome)
-            .sheet(isPresented: $showsSignIn) {
-                SignInSheet()
+            .sheet(item: $authMode) { mode in
+                SignInSheet(mode: mode)
             }
     }
 
@@ -102,23 +101,28 @@ public struct WelcomeView: View {
 
     private var buttons: some View {
         VStack(spacing: spacing(4)) {
-            Button {
-                showsSignIn = true
-            } label: {
-                Text(WelcomeCopy.signIn)
-                    .frame(maxWidth: .infinity)
+            ForEach(WelcomeButton.allCases) { button in
+                if button.isProminent {
+                    Button {
+                        authMode = button.mode
+                    } label: {
+                        Text(button.label)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.slateProminent)
+                } else {
+                    Button {
+                        authMode = button.mode
+                    } label: {
+                        Text(button.label)
+                            // A borderless button on the Mac draws in the label color, not the tint.
+                            .foregroundStyle(.tint)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, spacing.stackGap)
+                    }
+                    .buttonStyle(.borderless)
+                }
             }
-            .buttonStyle(.slateProminent)
-            Button {
-                openURL(WelcomeCopy.waitlistURL)
-            } label: {
-                Text(WelcomeCopy.joinWaitlist)
-                    // A borderless button on the Mac draws in the label color, not the tint.
-                    .foregroundStyle(.tint)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, spacing.stackGap)
-            }
-            .buttonStyle(.borderless)
         }
         .fontWeight(.semibold)
         .controlSize(.large)

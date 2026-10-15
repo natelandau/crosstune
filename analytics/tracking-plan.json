@@ -569,6 +569,7 @@
     "account_created": {
       "description": "This device's request created the account. The API decides it, so it is sent at most once per account.",
       "clients": [
+        "apple",
         "web"
       ],
       "answers": [

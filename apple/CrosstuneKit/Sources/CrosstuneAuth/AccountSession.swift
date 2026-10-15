@@ -101,6 +101,9 @@ public final class AccountSession {
         // Not awaited: leaving waits out the sync run whose request is reporting this.
         onAccountDeleted: { [weak self] in
             Task { @MainActor in await self?.accountDeletedElsewhere() }
+        },
+        onAccountCreated: { [weak self] trial in
+            self?.analytics.send(.accountCreated(trial: trial))
         }
     )
 

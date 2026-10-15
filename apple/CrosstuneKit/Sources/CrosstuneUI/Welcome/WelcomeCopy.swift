@@ -1,3 +1,4 @@
+import CrosstuneAuth
 import Foundation
 import SwiftUI
 
@@ -21,7 +22,7 @@ public enum WelcomeDevice: Sendable {
     }
 }
 
-/// The welcome screen's words, and where Join the waitlist goes.
+/// The welcome screen's words.
 public enum WelcomeCopy {
     /// The headline, ending in the device the player holds.
     public static func headline(for device: WelcomeDevice) -> String {
@@ -35,10 +36,33 @@ public enum WelcomeCopy {
     }
 
     public static let line = "The tunes you know and the tunes you're learning, with a recording one tap away."
+    public static let createAccount = "Create account"
     public static let signIn = "Sign in"
-    public static let joinWaitlist = "Join the waitlist"
-    /// The site's waitlist form. The Clerk SDK for Apple has no waitlist flow of its own.
-    public static let waitlistURL = URL(string: "https://crosstune.app/waitlist")!
+}
+
+/// The welcome screen's buttons, top to bottom, and the flow each opens.
+enum WelcomeButton: CaseIterable, Identifiable {
+    case createAccount
+    case signIn
+
+    var id: Self { self }
+
+    var label: String {
+        switch self {
+        case .createAccount: WelcomeCopy.createAccount
+        case .signIn: WelcomeCopy.signIn
+        }
+    }
+
+    var mode: AuthMode {
+        switch self {
+        case .createAccount: .signUp
+        case .signIn: .signIn
+        }
+    }
+
+    /// The one filled button; the rest are borderless.
+    var isProminent: Bool { self == .createAccount }
 }
 
 /// How the welcome screen fits Dynamic Type.
