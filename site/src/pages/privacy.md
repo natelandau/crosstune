@@ -21,7 +21,7 @@ Crosstune is run by Nathaniel Landau, an individual. This page explains what dat
 
 ## Who processes it
 
-- Clerk handles sign-in. It holds your email address, your name and profile details, and your session data. It sets cookies on crosstune.app to keep you signed in to the web app.
+- Clerk handles sign-in. It holds your email address, your name and profile details, and your session data. To keep you signed in to the web app at my.crosstune.app, it sets cookies on the crosstune.app domain.
 - Neon hosts the database that holds your catalog and your activity.
 - Railway runs the Crosstune API.
 - Cloudflare serves this site and the web app. It also stores your recordings and scans in its R2 storage.

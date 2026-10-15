@@ -1,0 +1,45 @@
+---
+// Astro rather than Markdown so the app links follow APP_URL, as the rest of the site does.
+import { APP_URL, SIGN_UP_URL, SUPPORT_EMAIL } from '../components/actions'
+import Legal from '../layouts/Legal.astro'
+
+const shown = (url: string) => url.replace(/^https?:\/\//, '')
+const frontmatter = {
+  title: 'Support',
+  description: 'Get help with Crosstune and find answers to common questions.',
+  path: '/support',
+}
+---
+
+<Legal frontmatter={frontmatter}>
+  <h1>Support</h1>
+  <p>Last updated: 2026-10-15</p>
+  <p>
+    For help, write to <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>. The answers below
+    cover the most common questions.
+  </p>
+
+  <h2>How do I create an account?</h2>
+  <p>
+    Go to <a href={SIGN_UP_URL}>{shown(SIGN_UP_URL)}</a>. A free account, with 30 days of Premium
+    included and no card.
+  </p>
+
+  <h2>How do I sign in?</h2>
+  <p>
+    Go to <a href={APP_URL}>{shown(APP_URL)}</a>. Sign in with an emailed code, with Google, or with
+    Apple.
+  </p>
+
+  <h2>How do I delete my account?</h2>
+  <p>
+    Open Settings in the app and delete your account. This deletes everything in it, including your
+    tunes, lists, notes, and recordings. The deletion cannot be undone.
+  </p>
+
+  <h2>How do I import my tunes?</h2>
+  <p>
+    Paste a list of tunes, or open a text file, from Settings or the empty catalog.{' '}
+    <a href="/help/import">Read how importing works</a>.
+  </p>
+</Legal>

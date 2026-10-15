@@ -108,14 +108,16 @@ describe('trackCreateAccount', () => {
 describe('trackCreateAccountClicks', () => {
   // A stand-in document: the listener reads only the click target's nearest placement.
   function page() {
-    let listener: ((event: { target: unknown }) => void) | undefined
+    type Listener = (event: { target: unknown; button: number }) => void
+    const listeners: Record<string, Listener> = {}
     const root = {
-      addEventListener: vi.fn((type: string, fn: typeof listener) => {
-        if (type === 'click') listener = fn
+      addEventListener: vi.fn((type: string, fn: Listener) => {
+        listeners[type] = fn
       }),
     }
-    const click = (placement: string | null) =>
-      listener!({
+    const click = (placement: string | null, type = 'click', button = 0) =>
+      listeners[type]!({
+        button,
         target: {
           closest: () => (placement === null ? null : { dataset: { createAccount: placement } }),
         },
@@ -128,7 +130,6 @@ describe('trackCreateAccountClicks', () => {
     await startAnalytics('phc_x')
     const { root, click } = page()
     trackCreateAccountClicks(root as unknown as Document)
-    expect(root.addEventListener).toHaveBeenCalledTimes(1)
     click('pricing_premium')
     expect(posthog.capture).toHaveBeenCalledWith(
       'create_account_clicked',
@@ -145,5 +146,21 @@ describe('trackCreateAccountClicks', () => {
     click(null)
     click('footer')
     expect(posthog.capture).not.toHaveBeenCalled()
+  })
+
+  it('counts a middle-click open, but no other auxiliary button', async () => {
+    const { startAnalytics, trackCreateAccountClicks } = await import('../src/scripts/analytics')
+    await startAnalytics('phc_x')
+    const { root, click } = page()
+    trackCreateAccountClicks(root as unknown as Document)
+    click('hero', 'auxclick', 2)
+    expect(posthog.capture).not.toHaveBeenCalled()
+    click('hero', 'auxclick', 1)
+    expect(posthog.capture).toHaveBeenCalledTimes(1)
+    expect(posthog.capture).toHaveBeenCalledWith(
+      'create_account_clicked',
+      { placement: 'hero' },
+      BEACON,
+    )
   })
 })

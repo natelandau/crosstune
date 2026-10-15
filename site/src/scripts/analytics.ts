@@ -78,9 +78,14 @@ export function trackCreateAccount(placement: Placement): void {
 
 /** Sends a Create account click from anywhere in `root`, by the link's placement. */
 export function trackCreateAccountClicks(root: Document): void {
-  root.addEventListener('click', (event) => {
+  const track = (event: MouseEvent) => {
     const link = (event.target as Element | null)?.closest?.<HTMLElement>('[data-create-account]')
     const placement = link?.dataset.createAccount
     if (isPlacement(placement)) trackCreateAccount(placement)
+  }
+  root.addEventListener('click', track)
+  // A middle-click opens the link in a new tab and fires only auxclick.
+  root.addEventListener('auxclick', (event) => {
+    if (event.button === 1) track(event)
   })
 }
