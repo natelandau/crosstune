@@ -226,8 +226,8 @@ reopens one without new information. Add a new entry at the end.
 
 - `<domain>` serves a static Astro site in `site/`, with its own Worker,
   pipeline, and Worker Previews. The web client is at `my.<domain>`. A
-  visitor who types the address sees what Crosstune is and can join the
-  waitlist. A player signs in at `my.`.
+  visitor who types the address sees what Crosstune is and can create an
+  account. A player signs in at `my.`.
 - `my.` shares Clerk's home domain, so a session carries across. "my
   Crosstune" reads naturally.
 - One URL split by session was rejected: the installed service worker
@@ -241,8 +241,9 @@ reopens one without new information. Add a new entry at the end.
 - Astro over plain HTML (shared header and footer copied across pages) and
   over a second Vite entry in `web/` (it couples the site's deploys and
   caching to the app, which the split exists to avoid).
-- The waitlist is Clerk's Waitlist mode, not a form of our own. Approval
-  and the invitation email are in Clerk, which already owns sign-up.
+- Sign-up is open, in Clerk's Public mode, with Clerk's own sign-up
+  screen on the web and in the Apple app. A form of our own would
+  duplicate what Clerk already owns.
 - The site deploys production from `main`, not from a version tag. It
   calls no API and depends on no client version, so the release gate
   protects nothing for it and would hold copy changes until the next
