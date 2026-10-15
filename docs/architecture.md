@@ -19,10 +19,11 @@ truth for each question, and how data moves. Deploys and releases are in
 | PostHog    | Usage analytics from the site, the web app, and the Apple apps. The API deletes a person's data when their account is deleted. | Cloudflare DNS for its proxy host      |
 | GitHub     | Source and CI. Both hosts deploy from it.                                                                                      |                                        |
 
-The apex `<domain>` is the static marketing site, served by its own
-Worker. It never calls the API. It sends page views to PostHog through the
-proxy host. It never calls Clerk: its calls to action link to the sign-up
-screen at `my.<domain>`. It embeds no third-party players.
+The apex `<domain>` is the static marketing and waitlist site, served by
+its own Worker. It never calls the API. It sends page views to PostHog
+through the proxy host. It reaches Clerk only when a visitor acts: the
+waitlist form loads Clerk's Frontend API once the email field is focused.
+It embeds no third-party players.
 
 Cloudflare also hosts the DNS zone for the product domain.
 

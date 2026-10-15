@@ -226,8 +226,8 @@ reopens one without new information. Add a new entry at the end.
 
 - `<domain>` serves a static Astro site in `site/`, with its own Worker,
   pipeline, and Worker Previews. The web client is at `my.<domain>`. A
-  visitor who types the address sees what Crosstune is and can create an
-  account. A player signs in at `my.`.
+  visitor who types the address sees what Crosstune is and can join the
+  waitlist. A player signs in at `my.`.
 - `my.` shares Clerk's home domain, so a session carries across. "my
   Crosstune" reads naturally.
 - One URL split by session was rejected: the installed service worker
