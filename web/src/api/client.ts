@@ -118,7 +118,12 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
   const accountCreated: Middleware = {
     onResponse({ response }) {
       const kind = response.headers.get('X-Account-Created')
-      if (kind === 'trial' || kind === 'comp') options.onAccountCreated?.(kind === 'trial')
+      if (kind !== 'trial' && kind !== 'comp') return
+      try {
+        options.onAccountCreated?.(kind === 'trial')
+      } catch {
+        // A report about the account must never fail the request that carried it.
+      }
     },
   }
   client.use(auth)

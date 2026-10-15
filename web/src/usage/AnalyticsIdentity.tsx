@@ -21,6 +21,7 @@ export function AnalyticsIdentity() {
   // Clerk has no user in an offline session; the ISO string keeps the effect from re-running
   // on a new Date instance for the same moment.
   const signedUpAt = user?.createdAt?.toISOString()
+  const missedFigures = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -30,7 +31,9 @@ export function AnalyticsIdentity() {
       try {
         person = await personProperties(db, await readWebSettings(db, userId))
       } catch (error) {
-        if (!cancelled) Sentry.captureException(error)
+        if (cancelled) return
+        Sentry.captureException(error)
+        missedFigures.current = true
       }
       if (cancelled) return
       if (!offline) {
@@ -52,7 +55,6 @@ export function AnalyticsIdentity() {
   // already held them was covered by the identify above. Until the person is set, each change
   // to the figures tries again.
   const storage = useLiveQuery(() => getStorage(db), [db])
-  const missedFigures = useRef(false)
   useEffect(() => {
     if (storage === undefined) return
     if (storage === null) {

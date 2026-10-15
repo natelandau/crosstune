@@ -202,10 +202,10 @@ describe('startAnalytics', () => {
   it('whenIdentified runs at once for a user already identified', async () => {
     const { client, calls } = setup()
     client.identify('u1', {})
-    const fn = vi.fn()
+    const fn = vi.fn(() => client.send('account_created', { trial: true }))
     client.whenIdentified('u1', fn)
     expect(fn).toHaveBeenCalledOnce()
-    await expect.poll(() => calls.length).toBeGreaterThan(0)
+    await expect.poll(() => calls).toContainEqual(['capture', 'account_created', { trial: true }])
   })
 
   it('enableSharing while sharing is on neither opts in nor identifies again', async () => {

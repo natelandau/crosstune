@@ -335,21 +335,24 @@ describe('AuthGate', () => {
     expect(hasAccountDeletedNotice()).toBe(false)
   })
 
-  it('shows the sign-up screen at the sign-up path when signed out', async () => {
-    history.replaceState(null, '', SIGN_UP_PATH)
-    renderWithProviders(
-      <AuthGate>
-        <p>signed in</p>
-      </AuthGate>,
-    )
-    await expect.element(page.getByText(SIGN_UP_LINE)).toBeVisible()
-    await expect
-      .element(page.getByRole('heading', { name: SIGN_IN_HEADLINE, level: 1 }))
-      .toBeVisible()
-    await expect.element(page.getByText(SIGN_IN_LINE)).toBeVisible()
-    await expect.element(page.getByText('Clerk sign-up form')).toBeVisible()
-    expect(screen.queryByText('Clerk sign-in form')).toBeNull()
-  })
+  it.each([SIGN_UP_PATH, `${SIGN_UP_PATH}/`])(
+    'shows the sign-up screen at %s when signed out',
+    async (path) => {
+      history.replaceState(null, '', path)
+      renderWithProviders(
+        <AuthGate>
+          <p>signed in</p>
+        </AuthGate>,
+      )
+      await expect.element(page.getByText(SIGN_UP_LINE)).toBeVisible()
+      await expect
+        .element(page.getByRole('heading', { name: SIGN_IN_HEADLINE, level: 1 }))
+        .toBeVisible()
+      await expect.element(page.getByText(SIGN_IN_LINE)).toBeVisible()
+      await expect.element(page.getByText('Clerk sign-up form')).toBeVisible()
+      expect(screen.queryByText('Clerk sign-in form')).toBeNull()
+    },
+  )
 
   it('shows the sign-in screen anywhere else when signed out', async () => {
     history.replaceState(null, '', '/catalog')

@@ -18,7 +18,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }
   if (state === 'signIn') {
     // Clerk's footer links leave by a full page load, so the address read here stays current.
-    return location.pathname === SIGN_UP_PATH ? (
+    return location.pathname.replace(/\/$/, '') === SIGN_UP_PATH ? (
       <SignUp staleSession={staleSession} />
     ) : (
       <SignIn staleSession={staleSession} />

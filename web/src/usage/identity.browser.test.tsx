@@ -121,6 +121,20 @@ describe('AnalyticsIdentity', () => {
     expect(analytics.calls[1]).toMatchObject({ userId: testSession.userId, person: {} })
   })
 
+  it('completes the person on the next figures change after the identify read failed', async () => {
+    const analytics = recordingAnalytics()
+    const db = openTestDb()
+    await setStorage(db, { used_bytes: 20_000_000, quota_bytes: 1, max_file_bytes: 1 })
+    person.failNext = true
+    render(<AnalyticsIdentity />, { wrapper: dataProviders({ db, analytics }) })
+    await expect.poll(() => types(analytics)).toContain('identify')
+    expect(person.failed).toBe(1)
+    expect(analytics.calls[1]).toMatchObject({ person: {} })
+    // Depending on which settles first, the retry runs on the stored figures or on this change.
+    await setStorage(db, { used_bytes: 60_000_000, quota_bytes: 1, max_file_bytes: 1 })
+    await expect.poll(() => types(analytics)).toEqual(['signed_in', 'identify', 'setPerson'])
+  })
+
   it('releases a report held for the user once identify has run', async () => {
     const analytics = recordingAnalytics()
     analytics.whenIdentified(testSession.userId, () =>

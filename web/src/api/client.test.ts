@@ -65,6 +65,16 @@ describe('account created header', () => {
     expect(onAccountCreated).not.toHaveBeenCalled()
   })
 
+  it('still returns the response when the callback throws', async () => {
+    const { api } = meWith(
+      'trial',
+      vi.fn(() => {
+        throw new Error('analytics failed')
+      }),
+    )
+    await expect(api.me()).resolves.toEqual({})
+  })
+
   it('ignores an unknown header value', async () => {
     const { api, onAccountCreated } = meWith('other')
     await api.me()
