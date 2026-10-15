@@ -39,7 +39,7 @@ function llmsText(): string {
       `Nate, a fiddle player in New York's old-time scene and a member of the ${MAKER_BAND.name} (${MAKER_BAND.url}). Feedback: ${NATE_EMAIL}.`,
       '## Links',
       list([
-        `[Home](${SITE_URL}/): features, pricing, and the waitlist`,
+        `[Home](${SITE_URL}/): features, pricing, and sign-up`,
         `[Sign in](${APP_URL}): the web app`,
         `[Import your tunes](${SITE_URL}/help/import): bring a tune list from Notes, a document, or a file`,
         `[Support](${SITE_URL}/support): help and contact, ${SUPPORT_EMAIL}`,

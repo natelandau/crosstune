@@ -1,0 +1,153 @@
+---
+// The big Create account button, the terms under it, and the sign-in line. The hero and the
+// closing band each hold one.
+import type { Placement } from '../scripts/analytics'
+import {
+  ALREADY_SIGNED_UP,
+  APP_URL,
+  CREATE_FREE_ACCOUNT,
+  NO_CARD,
+  PREMIUM_INCLUDED,
+  SIGN_IN,
+  SIGN_UP_URL,
+} from './actions'
+
+interface Props {
+  /** Jet on the closing band's coral wash, where a coral button has no contrast. */
+  tone: 'coral' | 'jet'
+  placement: Extract<Placement, 'hero' | 'closing'>
+}
+
+const { tone, placement } = Astro.props
+---
+
+<div class:list={['cta', tone]}>
+  <a class="create" href={SIGN_UP_URL} data-create-account={placement}>
+    {CREATE_FREE_ACCOUNT}
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <use href="#i-arrow" />
+    </svg>
+  </a>
+  <ul class="checks">
+    {[PREMIUM_INCLUDED, NO_CARD].map((item) => (
+      <li>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <use href="#i-tick" />
+        </svg>
+        {item}
+      </li>
+    ))}
+  </ul>
+  <p class="note">
+    {ALREADY_SIGNED_UP} <a href={APP_URL}>{SIGN_IN}</a>
+  </p>
+</div>
+
+<style>
+  .cta {
+    display: grid;
+    gap: 14px;
+    justify-items: start;
+  }
+
+  .create {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 58px;
+    padding: 0 26px 0 30px;
+    border-radius: 999px;
+    background: var(--coral);
+    color: var(--jet);
+    font: 700 18px/1 var(--font);
+    letter-spacing: -0.01em;
+    text-decoration: none;
+    white-space: nowrap;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.35),
+      0 6px 18px -6px color-mix(in srgb, var(--coral) 70%, transparent);
+    transition:
+      background 0.15s,
+      transform 0.15s,
+      box-shadow 0.15s;
+  }
+
+  .create:hover {
+    background: var(--coral-hover);
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.35),
+      0 10px 24px -8px color-mix(in srgb, var(--coral) 80%, transparent);
+  }
+
+  .create svg {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    transition: transform 0.18s;
+  }
+
+  .create:hover svg {
+    transform: translateX(3px);
+  }
+
+  .cta.jet .create {
+    background: var(--jet);
+    color: var(--white);
+    box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--jet) 55%, transparent);
+  }
+
+  .cta.jet .create:hover {
+    background: var(--jet-hover);
+  }
+
+  .checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 0;
+    padding: 0;
+    color: var(--ink-2);
+    font-size: var(--small);
+    list-style: none;
+  }
+
+  .checks li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .checks svg {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    color: var(--coral);
+  }
+
+  .cta.jet .checks svg {
+    color: var(--coral-deep);
+  }
+
+  .note {
+    color: var(--ink-2);
+    font-size: var(--small);
+  }
+
+  .note a {
+    font-weight: 600;
+  }
+
+  @media (max-width: 480px) {
+    .checks {
+      flex-direction: column;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .create:hover,
+    .create:hover svg {
+      transform: none;
+    }
+  }
+</style>

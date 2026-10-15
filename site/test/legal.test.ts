@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SUPPORT_EMAIL } from '../src/components/actions'
+import { APP_URL, SIGN_UP_URL, SUPPORT_EMAIL } from '../src/components/actions'
 import { readPage } from './dist'
 
 const pages = ['/privacy', '/terms', '/support']
@@ -30,7 +30,11 @@ describe('/privacy', () => {
     },
   )
 
-  it.each(['sets cookies'])('discloses "%s"', (phrase) => {
+  it.each([
+    // The web app's sign-in session, never the site itself, which counts visits without cookies.
+    'To keep you signed in to the web app at my.crosstune.app, it sets cookies on the crosstune.app domain',
+    'visits are counted without cookies',
+  ])('discloses "%s"', (phrase) => {
     expect(text).toContain(phrase)
   })
 
@@ -53,6 +57,12 @@ describe('/privacy', () => {
   })
 })
 
+describe.each(pages)('%s after the waitlist', (path) => {
+  it('never mentions the waitlist', () => {
+    expect(readPage(path).body.textContent).not.toMatch(/waitlist/i)
+  })
+})
+
 describe('/terms', () => {
   const text = readPage('/terms').body.textContent ?? ''
 
@@ -67,7 +77,15 @@ describe('/support', () => {
     (h) => h.textContent?.toLowerCase() ?? '',
   )
 
-  it.each([/waitlist/, /sign/, /delet/])('has a heading matching %s', (pattern) => {
+  it.each([/create an account/, /sign/, /delet/])('has a heading matching %s', (pattern) => {
     expect(headings.some((h) => pattern.test(h))).toBe(true)
+  })
+
+  it('links sign-up and sign-in to the app this build targets', () => {
+    const hrefs = [...readPage('/support').querySelectorAll('main a')].map((a) =>
+      a.getAttribute('href'),
+    )
+    expect(hrefs).toContain(SIGN_UP_URL)
+    expect(hrefs).toContain(APP_URL)
   })
 })

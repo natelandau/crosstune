@@ -2,9 +2,9 @@
 // Run through `just og`, which serves dist on the port this reads.
 import { chromium } from 'playwright'
 
-// The page's hero is taller than a preview, so the preview drops the lede and form, sets the
-// headline on one line, and lets the demo panel fill the rest of the frame. Reduced motion holds
-// the hero demo on its rest frame.
+// The page's hero is taller than a preview, so the preview drops the lede and Create account
+// button, sets the headline on one line, and lets the demo panel fill the rest of the frame.
+// Reduced motion holds the hero demo on its rest frame.
 const LAYOUT = `
   .nav .nav-actions, .nav nav { display: none !important; }
   .nav { position: absolute !important; top: 0; left: 0; right: 0; background: none !important; }

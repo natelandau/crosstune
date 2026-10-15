@@ -7,7 +7,7 @@ why. `docs/README.md` indexes every page under `docs/`.
 
 - `api/` The FastAPI service. Python, managed by uv.
 - `web/` The web client. TypeScript, managed by pnpm.
-- `site/` The marketing, waitlist, and legal site. Astro, managed by pnpm.
+- `site/` The marketing and legal site. Astro, managed by pnpm.
 - `apple/` The iOS and macOS app. Swift, built with Xcode.
 - `analytics/` The tracking plan every analytics event follows, with its
   checker and PostHog sync. Python, run through the api's uv project.

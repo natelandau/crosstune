@@ -3,8 +3,14 @@ import type { PostHog, PostHogConfig } from 'posthog-js'
 // First-party proxy host, so blockers keyed on PostHog's own domains do not drop events.
 export const ANALYTICS_HOST = 'https://relay.crosstune.app'
 
-// A beacon sent at once outlives a visitor who leaves the thanks page straight away.
-const WAITLIST_CAPTURE_OPTIONS = { send_instantly: true, transport: 'sendBeacon' } as const
+// A Create account click navigates away at once, and only a beacon sent at once outlives it.
+const CREATE_ACCOUNT_CAPTURE_OPTIONS = { send_instantly: true, transport: 'sendBeacon' } as const
+
+/** Where a Create account link sits, carried on each link as `data-create-account`. */
+export const PLACEMENTS = ['nav', 'hero', 'closing', 'pricing_free', 'pricing_premium'] as const
+export type Placement = (typeof PLACEMENTS)[number]
+
+const isPlacement = (value: unknown): value is Placement => PLACEMENTS.includes(value as Placement)
 
 // Registered on every event, so the site's events split from the apps' in one PostHog project.
 export const SITE_SUPER_PROPERTIES = { product: 'site', platform: 'site' } as const
@@ -60,14 +66,26 @@ async function load(token: string): Promise<void> {
   }
 }
 
-// The thanks page sends this with no acquisition of its own, so the caller passes on the join
-// page's, in PostHog's property names. A join reported while analytics is still loading is
-// sent once it has loaded.
-export async function trackWaitlistJoined(acquisition: Record<string, string>): Promise<void> {
-  await loading
+// PostHog adds the referrer and the landing URL's campaign tags itself, so only the placement is
+// passed. A click before analytics has loaded goes unrecorded, since the page is already leaving.
+export function trackCreateAccount(placement: Placement): void {
   try {
-    client?.capture('waitlist_joined', acquisition, WAITLIST_CAPTURE_OPTIONS)
+    client?.capture('create_account_clicked', { placement }, CREATE_ACCOUNT_CAPTURE_OPTIONS)
   } catch {
-    // The join already succeeded; a tracking failure must not look like one.
+    // The visitor is on the way to sign-up; a tracking failure must not stop them.
   }
+}
+
+/** Sends a Create account click from anywhere in `root`, by the link's placement. */
+export function trackCreateAccountClicks(root: Document): void {
+  const track = (event: MouseEvent) => {
+    const link = (event.target as Element | null)?.closest?.<HTMLElement>('[data-create-account]')
+    const placement = link?.dataset.createAccount
+    if (isPlacement(placement)) trackCreateAccount(placement)
+  }
+  root.addEventListener('click', track)
+  // A middle-click opens the link in a new tab and fires only auxclick.
+  root.addEventListener('auxclick', (event) => {
+    if (event.button === 1) track(event)
+  })
 }

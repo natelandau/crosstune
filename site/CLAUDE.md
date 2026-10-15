@@ -21,8 +21,8 @@ design rules in `docs/design*.md` do not apply here.
 - Coral is the brand color and may be used freely; the app's color rules do not
   bind the page.
 - The app calls them scans, never notation. A test fails on "notation".
-- Every waitlist form carries "Already have an account? Sign in", and Sign in
-  stays in the nav at every width.
+- The hero's and the closing band's Create account buttons carry "Already have
+  an account? Sign in", and Sign in stays in the nav at every width.
 
 ## Demos
 
@@ -41,10 +41,6 @@ design rules in `docs/design*.md` do not apply here.
 - Fonts are subsets of the fontsource files, committed in `src/assets/fonts/`.
   A character outside `FONT_CHARS` (`src/styles/fontChars.ts`) fails a test:
   add it there and run `just site::fonts`.
-- Clerk loads as its browser build from the instance's own host, pinned to the
-  installed `@clerk/clerk-js` version, only when a visitor focuses a waitlist
-  field. Local builds need `PUBLIC_CLERK_PUBLISHABLE_KEY` in `site/.env` to
-  join the waitlist.
 - `/llms.txt` is built from the same copy constants as the page. Add new copy
   as a constant so both stay in step.
 - A change to the hero needs `just site::og` to redraw the link preview.

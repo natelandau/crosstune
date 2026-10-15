@@ -1,4 +1,4 @@
-// The closing band's heading and the line beside its waitlist form.
+// The closing band's heading and the line beside its Create account button.
 export const CLOSING_TITLE = 'Bring every tune into one place'
 export const CLOSING_LEDE =
-  "Join the waitlist and we'll email you when Crosstune opens on iPhone, iPad, Mac, and the web."
+  'Start free on the web today. The iPhone, iPad, and Mac apps follow soon.'

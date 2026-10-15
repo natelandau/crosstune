@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { HOME_TITLE } from '../src/components/seo'
-import { parseHtml, readDist, readPage } from './dist'
-import { runInNewContext } from 'node:vm'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { join, relative } from 'node:path'
+import { dist, parseHtml, readDist, readPage } from './dist'
 import { APP_URL, SIGN_IN } from '../src/components/actions'
-import { JOINED_KEY, JOIN_EVENT_KEY, THANKS_PATH } from '../src/scripts/waitlist'
 
 describe('home page shell', () => {
   const doc = readPage('/')
@@ -49,57 +49,28 @@ describe('404 page', () => {
   })
 })
 
-describe('waitlist thanks page', () => {
-  const doc = readPage(THANKS_PATH)
-
-  // Runs the page's inline gate against a stand-in session store.
-  function gate(stored: string | null) {
-    const script = [...doc.head.querySelectorAll('script:not([src])')].find((s) =>
-      s.textContent?.includes('sessionStorage'),
-    )!
-    const store = new Map(stored === null ? [] : [[JOINED_KEY, stored]])
-    const sessionStorage = {
-      getItem: (k: string) => store.get(k) ?? null,
-      setItem: (k: string, v: string) => store.set(k, v),
-      removeItem: (k: string) => store.delete(k),
-    }
-    const location = { replace: vi.fn() }
-    runInNewContext(script.textContent!, { sessionStorage, location })
-    return { store, location }
-  }
-
-  it('stays out of search results and the sitemap', () => {
-    expect(doc.querySelector('meta[name=robots]')?.getAttribute('content')).toBe('noindex')
-    expect(readDist('/sitemap-0.xml')).not.toContain(THANKS_PATH)
-  })
-
-  it('links to the app and home', () => {
-    const hrefs = [...doc.querySelectorAll('main a')].map((a) => a.getAttribute('href'))
-    expect(hrefs).toContain(APP_URL)
-    expect(hrefs).toContain('/')
-  })
-
-  it('shows once after a join and clears the flag', () => {
-    const { store, location } = gate('{}')
-    expect(location.replace).not.toHaveBeenCalled()
-    expect(store.has(JOINED_KEY)).toBe(false)
-  })
-
-  it("hands the join's acquisition on for analytics to send", () => {
-    const { store } = gate('{"utm_source":"newsletter"}')
-    expect(store.get(JOIN_EVENT_KEY)).toBe('{"utm_source":"newsletter"}')
-  })
-
-  it('sends a visitor who did not just join to the home page', () => {
-    expect(gate(null).location.replace).toHaveBeenCalledWith('/')
-  })
-})
-
-describe('_redirects', () => {
-  it('sends /waitlist and /waitlist/ to the waitlist form', () => {
+describe('the retired waitlist', () => {
+  it("sends /waitlist and /waitlist/ to the web app's sign-up screen", () => {
     const rules = readDist('/_redirects')
-    expect(rules).toMatch(/^\/waitlist \/#waitlist 302$/m)
-    expect(rules).toMatch(/^\/waitlist\/ \/#waitlist 302$/m)
+    expect(rules).toMatch(/^\/waitlist https:\/\/my\.crosstune\.app\/sign-up 302$/m)
+    expect(rules).toMatch(/^\/waitlist\/ https:\/\/my\.crosstune\.app\/sign-up 302$/m)
+  })
+
+  it('builds no thanks page', () => {
+    expect(existsSync(join(dist, 'waitlist'))).toBe(false)
+  })
+
+  it('names the waitlist nowhere but the redirects', () => {
+    const files = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const path = join(dir, name)
+        return statSync(path).isDirectory() ? files(path) : [path]
+      })
+    const mentions = files(dist)
+      .filter((path) => /\.(html|txt|xml|js|css|json)$/.test(path))
+      .filter((path) => /waitlist/i.test(readFileSync(path, 'utf8')))
+      .map((path) => relative(dist, path))
+    expect(mentions).toEqual([])
   })
 })
 

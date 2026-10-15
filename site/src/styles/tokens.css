@@ -26,6 +26,9 @@
 /* Lightened rather than darkened, since a darker coral drops jet text below 4.5:1. */
 :root {
   --coral-hover: #f29468;
+  --jet-hover: #3a3f54;
+  /* Dark enough for an icon on --coral-wash to keep 3:1. */
+  --coral-deep: #c25a2b;
 }
 
 :root {

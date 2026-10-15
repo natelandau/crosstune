@@ -1,6 +1,6 @@
 ---
+import CreateAccount from './CreateAccount.astro'
 import DemoPanel from './DemoPanel.astro'
-import JoinForm from './JoinForm.astro'
 import { HERO_LEDE, HERO_LEDE_LEAD, HERO_TITLE } from './hero'
 ---
 
@@ -11,7 +11,7 @@ import { HERO_LEDE, HERO_LEDE_LEAD, HERO_TITLE } from './hero'
       <p class="lede">
         <strong>{HERO_LEDE_LEAD}</strong> {HERO_LEDE}
       </p>
-      <JoinForm id="hero" />
+      <CreateAccount tone="coral" placement="hero" />
     </div>
   </div>
   <DemoPanel name="hero" />
