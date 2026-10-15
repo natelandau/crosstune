@@ -112,6 +112,25 @@ describe('AnalyticsIdentity', () => {
     })
   })
 
+  it('identifies without person properties when they fail to read', async () => {
+    const analytics = recordingAnalytics()
+    person.failNext = true
+    mountIdentity(analytics)
+    await expect.poll(() => types(analytics)).toEqual(['signed_in', 'identify'])
+    expect(person.failed).toBe(1)
+    expect(analytics.calls[1]).toMatchObject({ userId: testSession.userId, person: {} })
+  })
+
+  it('releases a report held for the user once identify has run', async () => {
+    const analytics = recordingAnalytics()
+    analytics.whenIdentified(testSession.userId, () =>
+      analytics.send('account_created', { trial: true }),
+    )
+    expect(analytics.sends()).toEqual([])
+    mountIdentity(analytics)
+    await expect.poll(() => types(analytics)).toEqual(['signed_in', 'identify', 'account_created'])
+  })
+
   it('retries the figures on their next change after a failed read', async () => {
     const analytics = recordingAnalytics()
     const db = openTestDb()

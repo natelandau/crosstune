@@ -16,6 +16,11 @@ export interface AnalyticsClient {
   reset(): void
   /** The user ID last identified, or null after a reset. Read it before `identify`, which replaces it. */
   identifiedUser(): string | null
+  /**
+   * Runs `fn` once `identify` has run for `userId` on this page, at once if it already has. A
+   * report made inside `fn` is attributed to that person, which one sent earlier would not be.
+   */
+  whenIdentified(userId: string, fn: () => void): void
   disableSharing(): Promise<void>
   enableSharing(): Promise<void>
 }
@@ -27,6 +32,7 @@ export const noopAnalytics: AnalyticsClient = {
   setPerson() {},
   reset() {},
   identifiedUser: () => null,
+  whenIdentified() {},
   disableSharing: () => Promise.resolve(),
   enableSharing: () => Promise.resolve(),
 }
@@ -124,6 +130,7 @@ export function startAnalytics({
   let sharing = isSharingUsage(storage)
   let loading: Promise<PostHogLike | null> | null = null
   let identity: RememberedIdentity | null = null
+  let waiting: { userId: string; fn: () => void }[] = []
 
   const registerSuper = (ph: PostHogLike) => ph.register(webSuperProperties(readSuperPropertyEnv()))
 
@@ -178,6 +185,15 @@ export function startAnalytics({
       identity = { userId, person, ...(signedUpAt === undefined ? {} : { signedUpAt }) }
       rememberUser(storage, userId)
       whenSharing(applyIdentity)
+      // Reports queue behind the identify above, so they reach the SDK after it. A waiter for
+      // another user is stale once someone else is identified.
+      const ready = waiting.filter((waiter) => waiter.userId === userId)
+      waiting = []
+      for (const { fn } of ready) safely(fn)
+    },
+    whenIdentified(userId, fn) {
+      if (identity?.userId === userId) safely(fn)
+      else waiting.push({ userId, fn })
     },
     setPerson(person) {
       whenSharing((ph) => ph.setPersonProperties({ ...person }))

@@ -6,6 +6,7 @@ import { useAuthSession } from '../auth/AuthContext'
 import { getStorage } from '../db/meta'
 import { useDb } from '../db/DbProvider'
 import { useAnalytics } from './AnalyticsProvider'
+import type { PersonProperties } from './events'
 import { personProperties, readWebSettings } from './personProperties'
 
 /**
@@ -24,12 +25,12 @@ export function AnalyticsIdentity() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      let person
+      // A failed read still identifies the person, without the properties it could not read.
+      let person: PersonProperties = {}
       try {
         person = await personProperties(db, await readWebSettings(db, userId))
       } catch (error) {
         if (!cancelled) Sentry.captureException(error)
-        return
       }
       if (cancelled) return
       if (!offline) {

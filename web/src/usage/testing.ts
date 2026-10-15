@@ -22,6 +22,8 @@ export function recordingAnalytics({
 } {
   const calls: AnalyticsCall[] = []
   let remembered = user
+  let identified: string | null = null
+  let waiting: { userId: string; fn: () => void }[] = []
   return {
     calls,
     sends: () =>
@@ -32,16 +34,25 @@ export function recordingAnalytics({
     screen: (name) => void calls.push({ type: 'screen', name }),
     identify: (userId, person, signedUpAt) => {
       remembered = userId
+      identified = userId
       calls.push({
         type: 'identify',
         userId,
         person,
         ...(signedUpAt === undefined ? {} : { signedUpAt }),
       })
+      const ready = waiting.filter((waiter) => waiter.userId === userId)
+      waiting = []
+      for (const { fn } of ready) fn()
+    },
+    whenIdentified: (userId, fn) => {
+      if (identified === userId) fn()
+      else waiting.push({ userId, fn })
     },
     setPerson: (person) => void calls.push({ type: 'setPerson', person }),
     reset: () => {
       remembered = null
+      identified = null
       calls.push({ type: 'reset' })
     },
     identifiedUser: () => remembered,
