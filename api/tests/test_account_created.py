@@ -5,6 +5,7 @@ import asyncio
 import pytest
 
 from crosstune.models import PendingComp
+from tests.helpers import uid
 
 pytestmark = pytest.mark.anyio
 
@@ -46,3 +47,12 @@ async def test_concurrent_first_requests_mark_exactly_one(client, auth_headers) 
 async def test_an_unauthenticated_request_carries_no_header(client) -> None:
     response = await client.get("/healthz")
     assert HEADER not in response.headers
+
+
+async def test_a_failed_first_request_carries_no_header(client, auth_headers, object_store) -> None:
+    missing = await client.get(f"/v1/recordings/{uid()}/download", headers=auth_headers("user_a"))
+    assert missing.status_code == 404
+    assert HEADER not in missing.headers
+
+    response = await client.get("/v1/me", headers=auth_headers("user_a"))
+    assert response.headers[HEADER] == "trial"

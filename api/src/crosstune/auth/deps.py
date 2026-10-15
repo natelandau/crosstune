@@ -6,6 +6,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
+from crosstune.auth.account_created import ACCOUNT_CREATED_STATE_KEY
 from crosstune.auth.tokens import verify_clerk_token
 from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
@@ -58,7 +59,7 @@ async def current_user(request: Request, session: DbSession) -> User:
         settings=request.app.state.settings,
     )
     if started is not None:
-        request.state.account_created = started
+        setattr(request.state, ACCOUNT_CREATED_STATE_KEY, started)
     return user
 
 
