@@ -2,13 +2,11 @@ import { ApiError, NoTokenError } from '../api/client'
 
 export const QUOTA_PROBLEM = 'urn:crosstune:quota-exceeded'
 
-/** The problem types a 403 carries when the account's plan, not its session, refuses. */
+/** The problem type a 403 carries when the account's plan, not its session, refuses. */
 export const PREMIUM_REQUIRED_PROBLEM = 'urn:crosstune:premium-required'
-export const SCAN_TUNE_ONLY_PROBLEM = 'urn:crosstune:scan-tune-only'
 
-/** The push reasons the server gives a change the account's plan refuses. */
+/** The push reason the server gives a change the account's plan refuses. */
 export const PREMIUM_REQUIRED_REASON = 'premium required'
-export const SCAN_TUNE_ONLY_REASON = 'scans are limited to one tune'
 /** The push reason for a row whose recording the server does not have, as for a loop on a take
  * held for Premium. */
 export const MISSING_RECORDING_REASON = 'recording_id does not reference one of your recordings'
@@ -18,7 +16,7 @@ export function isPlanRefusal(error: unknown): boolean {
   return (
     error instanceof ApiError &&
     error.status === 403 &&
-    (error.problemType === PREMIUM_REQUIRED_PROBLEM || error.problemType === SCAN_TUNE_ONLY_PROBLEM)
+    error.problemType === PREMIUM_REQUIRED_PROBLEM
   )
 }
 

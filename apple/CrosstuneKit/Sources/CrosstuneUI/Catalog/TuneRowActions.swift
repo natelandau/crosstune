@@ -21,28 +21,27 @@ public enum TuneRowActions {
     }
 
     /// The row's Scans action, which opens the viewer at the first scan, or nil when the tune
-    /// has no live scan to show or the plan does not open its scans.
+    /// has no live scan to show.
     static func scansAction(
-        tuneID: String, tunesWithScans: Set<String>, plan: Plan, scanTune: String?,
-        open: @escaping @MainActor (String) -> Void
+        tuneID: String, tunesWithScans: Set<String>, open: @escaping @MainActor (String) -> Void
     ) -> (@MainActor () -> Void)? {
-        guard tunesWithScans.contains(tuneID), PlanRules.scanOpens(plan, tuneID: tuneID, scanTune: scanTune)
-        else { return nil }
+        guard tunesWithScans.contains(tuneID) else { return nil }
         return { @MainActor in open(tuneID) }
     }
 
     /// The row's Scans action from what the shell supplies, nil outside it. `origin` is where
-    /// the look at the scans is logged as opened from. With no plan, scans open on every tune.
+    /// the look at the scans is logged as opened from. When the plan does not open scans, the
+    /// action shows the Plan sheet instead; with no presenter, scans open.
     @MainActor
     static func scansAction(
-        tuneID: String, tunesWithScans: ScanTunes?, plan: PlanModel?, origin: ScanViewOrigin,
+        tuneID: String, tunesWithScans: ScanTunes?, premium: PremiumPresenter?, origin: ScanViewOrigin,
         actions: TuneScreenActions
     ) -> (@MainActor () -> Void)? {
         guard let tunesWithScans, let view = actions.viewScans else { return nil }
-        return scansAction(
-            tuneID: tuneID, tunesWithScans: tunesWithScans.ids, plan: plan?.plan ?? .unknown,
-            scanTune: plan?.scanTune
-        ) { view($0, 0, origin) }
+        return scansAction(tuneID: tuneID, tunesWithScans: tunesWithScans.ids) { tuneID in
+            guard premium?.gate(.scans, from: .scan) ?? true else { return }
+            view(tuneID, 0, origin)
+        }
     }
 }
 

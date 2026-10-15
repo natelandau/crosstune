@@ -33,21 +33,18 @@ private let portal = URL(string: "https://billing.example.com/portal")!
     }
 
     @Test func thePlanReasonLeadsWithThePitch() {
-        let headline = PlanSheet.headline(.plan, scanTuneTitle: nil)
+        let headline = PlanSheet.headline(.plan)
         #expect(headline.title == PlanText.premiumPlanTitle)
         #expect(headline.body == PlanText.premiumPitch)
     }
 
     @Test func aLockedTapLeadsWithWhatWasTapped() {
-        let recordings = PlanSheet.headline(.recordings, scanTuneTitle: nil)
+        let recordings = PlanSheet.headline(.recordings)
         #expect(recordings.title == PlanText.premiumRecordingsTitle)
         #expect(recordings.body == PlanText.premiumRecordingsBody)
-        // The scans body waits for the scan tune's title.
-        let unread = PlanSheet.headline(.scans, scanTuneTitle: nil)
-        #expect(unread.title == PlanText.premiumScansTitle)
-        #expect(unread.body == nil)
-        let scans = PlanSheet.headline(.scans, scanTuneTitle: "Kitchen Girl")
-        #expect(scans.body == PlanText.premiumScansBody(tuneTitle: "Kitchen Girl"))
+        let scans = PlanSheet.headline(.scans)
+        #expect(scans.title == PlanText.premiumScansTitle)
+        #expect(scans.body == PlanText.premiumScansBody)
     }
 
     @Test func theComparisonListsTheSpecsRowsInOrder() {
@@ -61,12 +58,10 @@ private let portal = URL(string: "https://billing.example.com/portal")!
                 .init(title: PlanText.featurePlay, free: .excluded, premium: .included, symbol: "play"),
                 .init(
                     title: PlanText.featurePractice, free: .excluded, premium: .included, symbol: "slider.horizontal.3"),
+                .init(title: PlanText.featureScans, free: .excluded, premium: .included, symbol: "doc.richtext"),
                 .init(
-                    title: PlanText.featureScans, free: .value(PlanText.scansFree),
-                    premium: .value(PlanText.scansPremium), symbol: "doc.richtext"),
-                .init(
-                    title: PlanText.featureStorage, free: .value(PlanText.storageFree),
-                    premium: .value(PlanText.storagePremium), symbol: "icloud"),
+                    title: PlanText.featureStorage, free: .excluded, premium: .value(PlanText.storagePremium),
+                    symbol: "icloud"),
             ])
     }
 
@@ -286,7 +281,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
     @Test func aPurchaseReportsWhereTheSheetCameFrom() async throws {
         let store = try root.open()
         try await store.write { writer in
-            try Entitlement(id: "entitlement-1", createdAt: noon, premiumQuotaBytes: 10_000, freeQuotaBytes: 1_000)
+            try Entitlement(id: "entitlement-1", createdAt: noon, premiumQuotaBytes: 10_000)
                 .upsert(writer.db)
         }
         let plan = PlanModel(store: store)
@@ -457,7 +452,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
                 id: "entitlement-1", createdAt: noon, premiumSource: source,
                 premiumExpiresAt: source == nil ? nil : ends, autoRenews: source == "apple",
                 trialStartsAt: Timestamp(instant.addingTimeInterval(-20 * day)), trialEndsAt: ends,
-                premiumQuotaBytes: 10_000, freeQuotaBytes: 1_000)
+                premiumQuotaBytes: 10_000)
             try await store.write { writer in try row.upsert(writer.db) }
         }
         try await write("trial")

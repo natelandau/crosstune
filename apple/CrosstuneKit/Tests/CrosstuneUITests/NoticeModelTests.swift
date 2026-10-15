@@ -33,7 +33,7 @@ private let day: TimeInterval = 86_400
         Entitlement(
             id: "entitlement-1", createdAt: noon, premiumSource: source,
             premiumExpiresAt: expiresAt.map(Timestamp.init), autoRenews: false,
-            trialEndsAt: trialEndsAt.map(Timestamp.init), premiumQuotaBytes: 10_000, freeQuotaBytes: 1_000,
+            trialEndsAt: trialEndsAt.map(Timestamp.init), premiumQuotaBytes: 10_000,
             trialEndSeenAt: trialEndSeen ? noon : nil)
     }
 
@@ -307,10 +307,10 @@ private let day: TimeInterval = 86_400
         #expect(NoticeText.daysLeft(-1) == PlanText.trialEndsToday)
         #expect(NoticeText.losePlayback == "Recordings don't play in the app")
         #expect(NoticeText.loseRecording == "No new recordings or practice mode")
-        #expect(NoticeText.loseScans == "Scans open on one tune only")
+        #expect(NoticeText.loseScans == "Scans don't open in the app")
         #expect(
             NoticeText.keeps
-                == "Every recording and scan stays, and export always includes them. Subscribe and they play again at once."
+                == "Every recording and scan stays, and export always includes them. Subscribe and they work again at once."
         )
         #expect(NoticeText.subscribeAnnual("$49.99") == "Subscribe for $49.99 a year")
     }

@@ -17,7 +17,7 @@ import Testing
         let row = Entitlement(
             id: "entitlement-\(source ?? "free")", createdAt: noon, premiumSource: source,
             premiumExpiresAt: source == nil || source == "comp" ? nil : Timestamp(ends), autoRenews: source != nil,
-            trialEndsAt: source == "trial" ? Timestamp(ends) : nil, premiumQuotaBytes: 10_000, freeQuotaBytes: 1_000)
+            trialEndsAt: source == "trial" ? Timestamp(ends) : nil, premiumQuotaBytes: 10_000)
         try await store.write { writer in try row.upsert(writer.db) }
         let model = PlanModel(store: store, now: { noon.date })
         #expect(try await poll { model.isLoaded && model.plan.kind != .unknown })

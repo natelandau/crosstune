@@ -332,8 +332,6 @@ import Testing
         ("Import/ImportSheet.swift", "Picker(ImportCopy.listLabel"),
         // A file read's failure, which can name the file.
         ("Import/ImportSheet.swift", "Text(failure)"),
-        // The Plan sheet's scans body, which names the scan tune.
-        ("Plan/PlanSheet.swift", "Text(message)"),
     ]
 
     @Test func everyHandMaskStaysInPlace() throws {

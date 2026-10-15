@@ -28,7 +28,6 @@ import {
   MISSING_RECORDING_REASON,
   PREMIUM_REQUIRED_PROBLEM,
   PREMIUM_REQUIRED_REASON,
-  SCAN_TUNE_ONLY_REASON,
 } from './errors'
 import type { Provider } from '../api/vocabulary'
 import type { Change, ChangeResult, EventRow, PullRow } from '../api/types'
@@ -455,7 +454,8 @@ describe('createSyncEngine', () => {
       engine.stop()
     })
 
-    it('never reports or counts a scan refused for being off the scan tune', async () => {
+    it('holds a scan refused for Premium unreported while free, and sends it once Premium', async () => {
+      await db.entitlements.put(entitlementRow())
       const { tuneId } = await createTune(db, { title: 'Angeline' }, { status: 'known' })
       const [scanId] = await addScans(db, tuneId, [
         { blob: new Blob(['jpeg'], { type: 'image/jpeg' }), width: 800, height: 1200 },
@@ -463,7 +463,7 @@ describe('createSyncEngine', () => {
       fake.respondToPush((changes) =>
         changes.map((c) =>
           c.table === 'scans'
-            ? { table: c.table, id: c.id, status: 'invalid', reason: SCAN_TUNE_ONLY_REASON }
+            ? { table: c.table, id: c.id, status: 'invalid', reason: PREMIUM_REQUIRED_REASON }
             : { table: c.table, id: c.id, status: 'applied' },
         ),
       )
@@ -476,10 +476,31 @@ describe('createSyncEngine', () => {
         onInvalid,
       })
       await engine.sync()
-      engine.stop()
       expect(fake.pushes.flat().map((c) => c.id)).toContain(scanId)
       expect(onInvalid).not.toHaveBeenCalled()
       expect(await getInvalidChangeCount(db)).toBe(0)
+      expect(await pendingFor(db, 'scans', scanId!)).toBeDefined()
+      expect(await getPremiumHolds(db)).toEqual(new Set([scanId]))
+
+      // Still free: the held scan stays out of the next push.
+      const sentBefore = fake.pushes.length
+      await engine.sync()
+      expect(
+        fake.pushes
+          .slice(sentBefore)
+          .flat()
+          .map((c) => c.id),
+      ).not.toContain(scanId)
+
+      await db.entitlements.put(entitlementRow({ premium_source: 'comp' }))
+      fake.respondToPush((changes) =>
+        changes.map((c) => ({ table: c.table, id: c.id, status: 'applied' })),
+      )
+      await engine.sync()
+      engine.stop()
+      expect(fake.pushes.at(-1)?.map((c) => c.id)).toContain(scanId)
+      expect(await pendingFor(db, 'scans', scanId!)).toBeUndefined()
+      expect(await getPremiumHolds(db)).toEqual(new Set())
     })
 
     it("keeps a held take's loop and play with it, and sends them once Premium", async () => {

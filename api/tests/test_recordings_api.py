@@ -694,4 +694,8 @@ async def test_me_reports_storage(client, app, auth_headers, verify_session) -> 
     )
     await verify_session.commit()
     body = (await client.get("/v1/me", headers=auth_headers("user_a"))).json()
-    assert body["storage"] == {"used_bytes": 1200, "quota_bytes": 5000, "max_file_bytes": 52428800}
+    assert body["storage"] == {
+        "used_bytes": 1200,
+        "quota_bytes": 5000,
+        "max_file_bytes": 50_000_000,
+    }

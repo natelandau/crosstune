@@ -259,8 +259,6 @@ export interface paths {
         /**
          * Upload Slot
          * @description A presigned PUT for one scan's image, once the file cap, the plan, and its quota allow it.
-         *
-         *     A free plan uploads only to its scan tune, and only scans count toward its quota.
          */
         post: operations["upload_slot_v1_scans__scan_id__upload_slot_post"];
         delete?: never;
@@ -456,8 +454,6 @@ export interface components {
             created_at: string;
             /** Deleted At */
             deleted_at: string | null;
-            /** Free Quota Bytes */
-            free_quota_bytes: number;
             /**
              * Id
              * Format: uuid
@@ -1000,7 +996,7 @@ export interface components {
             title: string;
             /**
              * Type
-             * @description `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:scan-tune-only` (403, a free account's scans stay on one tune), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured), `urn:crosstune:billing-failed` (502, the billing provider did not answer).
+             * @description `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured), `urn:crosstune:billing-failed` (502, the billing provider did not answer).
              * @default about:blank
              */
             type: string;

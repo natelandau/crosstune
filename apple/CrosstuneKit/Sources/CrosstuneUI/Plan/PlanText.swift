@@ -8,12 +8,13 @@ public enum PlanText {
     nonisolated public static let premium = "Premium"
     nonisolated public static let trial = "Premium trial"
     nonisolated public static let freeHelp =
-        "Free includes your catalog, lists, links, sync, and export. Recordings and scans on more than one tune are part of Premium."
-    nonisolated public static let freeStorageHelp = "On the free plan, storage counts scans only."
+        "Free includes your catalog, lists, links, sync, and export. Recordings and scans are part of Premium."
     nonisolated public static let premiumRecordingsTitle = "Recordings are part of Premium"
-    nonisolated public static let premiumScansTitle = "Scans on more than one tune are part of Premium"
+    nonisolated public static let premiumScansTitle = "Scans are part of Premium"
     nonisolated public static let premiumRecordingsBody =
         "Premium keeps your recordings on our servers, so they play on every device. Every recording you already have stays: you can rename, file, delete, and export it on any plan."
+    nonisolated public static let premiumScansBody =
+        "Premium keeps your scans on our servers, so they open on every device. Every scan you already have stays: you can delete and export it on any plan."
     nonisolated public static let seePlan = "See your plan"
     nonisolated public static let premiumPlanTitle = "Crosstune Premium"
     nonisolated public static let subscribe = "Subscribe"
@@ -52,11 +53,8 @@ public enum PlanText {
     nonisolated public static let featurePlay = "Play recordings"
     nonisolated public static let featurePractice = "Practice: speed, pitch, loops"
     nonisolated public static let featureScans = "Scans"
-    nonisolated public static let scansFree = "1 tune"
-    nonisolated public static let scansPremium = "Every tune"
     nonisolated public static let featureStorage = "Storage"
-    nonisolated public static let storageFree = "50 MB"
-    nonisolated public static let storagePremium = "5 GB"
+    nonisolated public static let storagePremium = "3 GB"
     nonisolated public static let onPremium = "You're on Premium"
     nonisolated public static let thanks = "Thanks for keeping Crosstune going."
     nonisolated public static let renews = "Renews"
@@ -66,10 +64,10 @@ public enum PlanText {
     nonisolated public static let includedRecord = "Record and upload"
     nonisolated public static let includedRecordDetail = "From any device, saved to your tunes"
     nonisolated public static let includedEveryDevice = "Recordings on every device"
-    nonisolated public static let includedEveryDeviceDetail = "Stored on our servers, 5 GB"
+    nonisolated public static let includedEveryDeviceDetail = "Stored on our servers, 3 GB"
     nonisolated public static let includedPractice = "Practice mode"
     nonisolated public static let includedPracticeDetail = "Speed, pitch, and loops"
-    nonisolated public static let includedScans = "Scans on every tune"
+    nonisolated public static let includedScans = "Scans"
     nonisolated public static let includedScansDetail = "Up to 20 pages a tune"
     nonisolated public static let comparePlans = "Compare plans"
 
@@ -103,11 +101,6 @@ public enum PlanText {
     nonisolated public static let perMonth = "a month"
     nonisolated public static func annualPrice(_ price: String) -> String { "\(price) \(perYear)" }
     nonisolated public static func monthlyPrice(_ price: String) -> String { "\(price) \(perMonth)" }
-
-    /// Names the one tune a free account's scans open on.
-    nonisolated public static func premiumScansBody(tuneTitle: String) -> String {
-        "On the free plan, scans open on one tune, \"\(tuneTitle)\". Pages on other tunes stay: you can delete or export them."
-    }
 
     /// A trial's end and what is left of it, counted in calendar days.
     nonisolated public static func trialLeft(

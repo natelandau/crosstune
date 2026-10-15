@@ -2,9 +2,9 @@ import CrosstuneStore
 import Foundation
 import Observation
 
-/// The signed-in account's plan, kept current as the entitlements row and the scans change and
-/// as the clock passes the row's next turning point. One per store, so another account's plan
-/// never carries over.
+/// The signed-in account's plan, kept current as the entitlements row changes and as the clock
+/// passes the row's next turning point. One per store, so another account's plan never carries
+/// over.
 @MainActor
 @Observable
 public final class PlanModel {
@@ -14,15 +14,12 @@ public final class PlanModel {
     public private(set) var judgedAt: Date?
     /// The stored row, nil until the first pull that carries it.
     public var entitlement: Entitlement? { row.value ?? nil }
-    /// The tune a free account's scans open for, nil while there is no live scan.
-    public var scanTune: String? { scans.value ?? nil }
     /// Whether the first read of the row has landed, so unknown is not claimed before it has.
     public var isLoaded: Bool { row.value != nil }
-    /// The takes the server refused as Premium only, which wait on this device.
+    /// The recordings and scans the server refused as Premium only, which wait on this device.
     public var heldForPremium: Set<String> { holds.value }
 
     private let row: LiveQuery<Entitlement??>
-    private let scans: LiveQuery<String??>
     private let holds: LiveQuery<Set<String>>
     private let now: @MainActor () -> Date
     private let sleep: @MainActor (TimeInterval) async throws -> Void
@@ -43,7 +40,6 @@ public final class PlanModel {
         self.notifications = notifications
         let row = LiveQuery<Entitlement??>(store, initial: nil) { db in .some(try Entitlement.current(db)) }
         self.row = row
-        scans = LiveQuery<String??>(store, initial: nil) { db in .some(try ScanRecord.scanTuneID(db)) }
         holds = LiveQuery<Set<String>>(store, initial: []) { db in try StoreWriter.premiumHolds(in: db) }
         following = Task { [weak self] in
             for await _ in Observations({ @MainActor in row.value }) {

@@ -1,20 +1,12 @@
 import { ApiError, NetworkError } from '../api/client'
-import { type Plan, scanOpens } from '../billing/plan'
+import { scansOpen } from '../billing/plan'
 import { readPlan } from '../billing/entitlement'
-import { now, putRow, writeTx } from '../commands/write'
 import type { SyncApi } from '../api/types'
-import { getMeta, getStorage, META_SCAN_REQUEUES, setMeta } from '../db/meta'
-import {
-  SCAN_REFUSED_ERROR,
-  SCAN_STORAGE_FULL_ERROR,
-  SCAN_TUNE_ONLY_ERROR,
-  readScanTune,
-  type ScanFile,
-  scansLive,
-} from '../db/scans'
+import { getStorage } from '../db/meta'
+import { SCAN_REFUSED_ERROR, SCAN_STORAGE_FULL_ERROR, type ScanFile, scansLive } from '../db/scans'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
-import { isAuthFailure, isRetryableRefusal, SCAN_TUNE_ONLY_PROBLEM } from './errors'
+import { isAuthFailure, isPlanRefusal, isRetryableRefusal } from './errors'
 import { type DownloadRetries, errorText, QUOTA_PROBLEM, retryDelayMs } from './transfers'
 
 const SCAN_CONTENT_TYPE = 'image/jpeg'
@@ -67,13 +59,11 @@ async function uploadOne(db: CrosstuneDb, api: SyncApi, id: string): Promise<voi
       content_type: SCAN_CONTENT_TYPE,
     })
   } catch (error) {
+    // The file waits as it is for a pass under a plan the server agrees is Premium.
+    if (isPlanRefusal(error)) throw error
     if (error instanceof ApiError) {
       if (error.problemType === QUOTA_PROBLEM) {
         await settleUpload(db, id, { error: SCAN_STORAGE_FULL_ERROR })
-        return
-      }
-      if (error.status === 403 && error.problemType === SCAN_TUNE_ONLY_PROBLEM) {
-        await settleUpload(db, id, { error: SCAN_TUNE_ONLY_ERROR })
         return
       }
       if (error.status === 409) {
@@ -116,63 +106,6 @@ async function uploadOne(db: CrosstuneDb, api: SyncApi, id: string): Promise<voi
   }
 }
 
-interface ScanRequeues {
-  /** What the refused scans were queued again under: a Premium grant or a free scan tune. */
-  basis: string
-  ids: string[]
-}
-
-/** The basis a refused row may be queued again under on this pass, or null when it must wait:
- * any scan under a Premium grant, and on a free plan a scan on the scan tune, or any scan while
- * there is none, since the server refuses only scans off it. */
-function requeueBasis(plan: Plan, tuneId: string, scanTune: string | null): string | null {
-  if (plan.kind === 'premium') {
-    return `premium ${plan.source ?? 'none'} ${plan.premiumEndsAt?.toISOString() ?? 'never'}`
-  }
-  if (plan.kind === 'free' && (scanTune === null || scanTune === tuneId)) {
-    return `tune ${scanTune ?? 'none'}`
-  }
-  return null
-}
-
-/**
- * Record one more chance for a refused scan under `basis`, or return false when it has had one.
- * Once per scan per basis: the device may judge Premium inside the offline leeway, or a scan tune
- * the server does not share yet, while the server still refuses, and would otherwise resend the
- * scan every sync. Callers run it inside a transaction that includes `meta`.
- */
-async function claimRequeue(db: CrosstuneDb, id: string, basis: string): Promise<boolean> {
-  const stored = await getMeta<ScanRequeues | null>(db, META_SCAN_REQUEUES, null)
-  const requeues = stored?.basis === basis ? stored : { basis, ids: [] }
-  if (requeues.ids.includes(id)) return false
-  await setMeta(db, META_SCAN_REQUEUES, { basis, ids: [...requeues.ids, id] })
-  return true
-}
-
-/** Queue a live scan row the server refused for its tune once more and clear its file's refusal,
- * so the next push stores it and the upload after can take a slot. Once per basis. */
-async function requeueRefusedScan(db: CrosstuneDb, id: string, basis: string): Promise<void> {
-  await writeTx(db, async () => {
-    const scan = await db.scans.get(id)
-    if (!scan || scan.deleted_at || scan.server_seq !== 0) return
-    if (!(await claimRequeue(db, id, basis))) return
-    if (!(await pendingFor(db, 'scans', id))) {
-      await putRow(db, 'scans', { ...scan, updated_at: now() })
-    }
-    await db.scan_files.update(id, { error: null })
-  }, [db.meta, db.scan_files])
-}
-
-/** Forget the scans queued again under a Premium grant once the plan is not Premium, so the
- * same grant returning, as a comp that never expires does, is a new chance. */
-async function endPremiumRequeues(db: CrosstuneDb, plan: Plan): Promise<void> {
-  if (plan.kind === 'premium') return
-  await db.transaction('rw', db.meta, async () => {
-    const stored = await getMeta<ScanRequeues | null>(db, META_SCAN_REQUEUES, null)
-    if (stored?.basis.startsWith('premium ')) await db.meta.delete(META_SCAN_REQUEUES)
-  })
-}
-
 /** Remove every scan file whose scan, or its tune, was deleted here or elsewhere, or is not here.
  * A captured file goes too: a deleted scan has no tune to come back to, unlike an unfiled
  * recording. */
@@ -186,40 +119,20 @@ export async function dropTombstonedScanFiles(db: CrosstuneDb): Promise<void> {
 }
 
 /**
- * Upload every captured scan whose row has reached the server. A row's own transient failure
- * does not stop the rest of the pass; the first one is returned (null when every row settled)
- * so the caller can still fail the transfer run. Only an auth failure is thrown.
+ * Upload every captured scan whose row has reached the server, while the plan includes scans. A
+ * row's own transient failure does not stop the rest of the pass; the first one is returned (null
+ * when every row settled) so the caller can still fail the transfer run. Only an auth failure is
+ * thrown.
  */
 export async function scanUploadPass(db: CrosstuneDb, api: SyncApi): Promise<unknown> {
   await dropTombstonedScanFiles(db)
+  if (!scansOpen(await readPlan(db, new Date()))) return null
 
   const waiting = await db.scan_files.where('origin').equals('captured').toArray()
   const storage = await getStorage(db)
-  const plan = await readPlan(db, new Date())
-  await endPremiumRequeues(db, plan)
-  const refusedOffTune = waiting.some((file) => file.error === SCAN_TUNE_ONLY_ERROR)
-  const scanTune = refusedOffTune && plan.kind === 'free' ? await readScanTune(db) : null
   const nowMs = Date.now()
   let firstError: unknown = null
   for (const file of waiting) {
-    if (file.error === SCAN_TUNE_ONLY_ERROR) {
-      const scan = await db.scans.get(file.id)
-      if (!scan) continue
-      const basis = requeueBasis(plan, scan.tune_id, scanTune)
-      // A row the server refused on push was never stored there, so it goes back out before
-      // its upload can be given a slot.
-      if (scan.server_seq === 0) {
-        if (basis !== null) await requeueRefusedScan(db, file.id, basis)
-        continue
-      }
-      // A stored row whose slot was refused asks again on a free plan once per basis, since the
-      // device's scan tune can open it before the server's does.
-      if (plan.kind === 'free') {
-        if (basis === null) continue
-        const claimed = await db.transaction('rw', db.meta, () => claimRequeue(db, file.id, basis))
-        if (!claimed) continue
-      }
-    }
     // Only the storage figures a sync refreshes free a refused scan; asking for a slot
     // before they show room would draw the same refusal.
     if (
@@ -239,6 +152,9 @@ export async function scanUploadPass(db: CrosstuneDb, api: SyncApi): Promise<unk
     try {
       await uploadOne(db, api, file.id)
     } catch (error) {
+      // The server's plan refuses every scan alike, so the rest wait for the next pass without
+      // failing this one.
+      if (isPlanRefusal(error)) break
       if (isAuthFailure(error)) throw error
       firstError ??= error
     }
@@ -264,22 +180,19 @@ async function storeDownloaded(db: CrosstuneDb, id: string, blob: Blob): Promise
   })
 }
 
-/** Fetch every ready scan with no local file. Scans always download, whatever keep offline says,
- * because a scan is small and the reading view has to work with no signal. */
+/** Fetch every ready scan with no local file, while the plan includes scans. Scans always
+ * download, whatever keep offline says, because a scan is small and the reading view has to work
+ * with no signal. */
 export async function scanDownloadPass(
   db: CrosstuneDb,
   api: SyncApi,
   retries: DownloadRetries,
 ): Promise<void> {
+  if (!scansOpen(await readPlan(db, new Date()))) return
   const readyScans = await db.scans.where('state').equals('ready').toArray()
   const live = await scansLive(db, readyScans)
-  const plan = await readPlan(db, new Date())
-  const scanTune = plan.kind === 'free' ? await readScanTune(db) : null
-  // A scan whose file the next pass would drop, or that the plan keeps closed, is not worth
-  // fetching.
-  const ready = readyScans
-    .filter((scan, i) => live[i] && scanOpens(plan, scan.tune_id, scanTune))
-    .map((scan) => scan.id)
+  // A scan whose file the next pass would drop is not worth fetching.
+  const ready = readyScans.filter((_, i) => live[i]).map((scan) => scan.id)
   const held = new Set(await db.scan_files.where(':id').anyOf(ready).primaryKeys())
   for (const id of ready) {
     if (held.has(id) || retries.isWaiting(id)) continue

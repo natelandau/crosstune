@@ -11,7 +11,6 @@ import {
   getPullCursor,
   holdForPremium,
 } from '../db/meta'
-import { SCAN_TUNE_ONLY_ERROR } from '../db/scans'
 import { pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
@@ -20,7 +19,7 @@ import { captureRecording } from '../test/recordings'
 import { entitlementRow, playEventRow, scanViewRow } from '../test/rows'
 import type { EventRow, PullRow } from '../api/types'
 import { applyEventsPage, applyPullPage, applyPushResults, compareTimestamps } from './apply'
-import { MISSING_RECORDING_REASON, PREMIUM_REQUIRED_REASON, SCAN_TUNE_ONLY_REASON } from './errors'
+import { MISSING_RECORDING_REASON, PREMIUM_REQUIRED_REASON } from './errors'
 
 let db: CrosstuneDb
 
@@ -251,21 +250,37 @@ describe('applyPushResults under the plan', () => {
     expect(await pendingFor(db, 'recording_loops', loopId)).toBeUndefined()
   })
 
-  it('settles a scan refused for being off the scan tune, unreported, and marks its file', async () => {
+  it('keeps a scan the server refused for Premium queued and holds it, uncounted', async () => {
     const { tuneId } = await createTune(db, { title: 'Angeline' }, { status: 'known' })
     const [scanId] = await addScans(db, tuneId, [
       { blob: new Blob(['jpeg'], { type: 'image/jpeg' }), width: 800, height: 1200 },
     ])
     const sent = (await pendingBatch(db)).filter((entry) => entry.table === 'scans')
     const { invalid, settled, held } = await applyPushResults(db, sent, [
-      { table: 'scans', id: scanId!, status: 'invalid', reason: SCAN_TUNE_ONLY_REASON },
+      { table: 'scans', id: scanId!, status: 'invalid', reason: PREMIUM_REQUIRED_REASON },
     ])
     expect(invalid).toEqual([])
+    expect(settled).toBe(0)
+    expect(held).toEqual([scanId])
+    expect(await pendingFor(db, 'scans', scanId!)).toBeDefined()
+    expect(await getPremiumHolds(db)).toEqual(new Set([scanId]))
+    expect((await db.scan_files.get(scanId!))?.error).toBeNull()
+    expect(await getInvalidChangeCount(db)).toBe(0)
+  })
+
+  it('releases a held scan once the server applies it', async () => {
+    const { tuneId } = await createTune(db, { title: 'Angeline' }, { status: 'known' })
+    const [scanId] = await addScans(db, tuneId, [
+      { blob: new Blob(['jpeg'], { type: 'image/jpeg' }), width: 800, height: 1200 },
+    ])
+    await holdForPremium(db, [scanId!])
+    const sent = (await pendingBatch(db)).filter((entry) => entry.table === 'scans')
+    const { settled, held } = await applyPushResults(db, sent, [
+      { table: 'scans', id: scanId!, status: 'applied' },
+    ])
     expect(settled).toBe(1)
     expect(held).toEqual([])
-    expect(await pendingFor(db, 'scans', scanId!)).toBeUndefined()
-    expect((await db.scan_files.get(scanId!))?.error).toBe(SCAN_TUNE_ONLY_ERROR)
-    expect(await getInvalidChangeCount(db)).toBe(0)
+    expect(await getPremiumHolds(db)).toEqual(new Set())
   })
 })
 

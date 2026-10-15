@@ -26,11 +26,12 @@ The tools they have do not fit that:
 - Musicians who learn by ear, in old-time, bluegrass, Irish, klezmer, and
   other folk traditions. They play alone, in small sessions, and at large
   jams.
-- Free keeps the catalog, lists, sync, offline, import, and export, plus
-  scans on one tune. Premium adds recordings, scans on any tune, and 5 GB of
-  storage. Every new account starts with a 30-day Premium trial, and a
-  lapsed account keeps every file until it goes a year without syncing. Then
-  it loses its recordings and scans after two warning emails. Premium is one
+- Free keeps the catalog, lists, sync, offline, import, and export.
+  Premium adds recordings, scans, and 3 GB of storage. Every new account
+  starts with a 30-day Premium trial. A lapsed account cannot play its
+  recordings or open its scans, but keeps every file until it goes a year
+  without syncing. Then it loses its recordings and scans after two warning
+  emails. Premium is one
   subscription for every device, bought on the web or in the App Store at the
   same price.
 - Success is musicians using Crosstune as their one place for tunes,
@@ -92,8 +93,8 @@ for Android and every browser. The parts that matter:
   it is ready. Every recording reaches the musician's other devices. A
   recording can be trimmed for good, and plays at a slower or faster speed
   and a shifted pitch on every device. A recording keeps labeled practice
-  loops that repeat. Recordings need Premium. Storage is 50 MB of scans on
-  a free account, 100 MB during the trial, and 5 GB on Premium.
+  loops that repeat. Recordings need Premium. Storage is 100 MB during the
+  trial and 3 GB on Premium.
 - Lyrics. A full-screen reading view that keeps the screen awake.
 - Browse. The catalog filtered by status and attributes, with text search.
   Filters persist.
@@ -107,9 +108,8 @@ for Android and every browser. The parts that matter:
 - Scans. Images attached to a tune: written music, a lyric sheet, or
   handwritten notes. Scan them on iPhone and iPad, or add an image from a
   file on Mac and the web. View, reorder, and delete them on every device.
-  A free account keeps scans on one tune. Every scan the plan opens
-  downloads to every device, and every scan counts toward the same storage
-  as recordings.
+  Scans need Premium. Every scan downloads to every device, and every
+  scan counts toward the same storage as recordings.
 - Offline. The full catalog is on the device. Reads and writes work offline
   and sync when a connection returns.
 - Import. Paste a tune list, or open a text file, from Settings or the

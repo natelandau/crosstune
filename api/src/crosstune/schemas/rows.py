@@ -503,7 +503,6 @@ class EntitlementRow(EntitlementData, _Row):
     trial_starts_at: datetime | None
     trial_ends_at: datetime | None
     premium_quota_bytes: int
-    free_quota_bytes: int
     paid_grants: list[PaidGrantRow]
     recording_notice_seen_at: datetime | None
     trial_reminder_seen_at: datetime | None

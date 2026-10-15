@@ -79,9 +79,7 @@ async def me(request: Request, user: CurrentUser, session: DbSession) -> MeRespo
         email=user.email,
         created_at=user.created_at,
         storage=StorageResponse(
-            used_bytes=await used_bytes(
-                session, user.id, include_recordings=access.counts_recordings
-            ),
+            used_bytes=await used_bytes(session, user.id),
             quota_bytes=access.quota_bytes,
             max_file_bytes=settings.recording_max_file_bytes,
         ),

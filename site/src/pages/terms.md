@@ -7,7 +7,7 @@ path: /terms
 
 # Terms of use
 
-Last updated: 2026-10-13
+Last updated: 2026-10-14
 
 Crosstune is run by Nathaniel Landau, an individual. By using Crosstune, you agree to these terms. Questions go to [support@crosstune.app](mailto:support@crosstune.app).
 
@@ -29,7 +29,7 @@ Keep your sign-in details private. You can delete your account at any time from 
 
 ## Crosstune Premium
 
-Crosstune is free to use. Crosstune Premium is a paid subscription that adds recordings that play on every device, practice mode, scans on every tune, and 5 GB of storage. The [pricing section](/#pricing) shows the features and the prices for each plan.
+Crosstune is free to use. Crosstune Premium is a paid subscription that adds recordings that play on every device, practice mode, scans, and 3 GB of storage. The [pricing section](/#pricing) shows the features and the prices for each plan.
 
 ### Free trial
 
@@ -68,7 +68,7 @@ To ask for a refund, use the same place that sold the subscription:
 
 ### When Premium ends
 
-When a trial or a subscription ends, your account becomes a Free account. You keep everything that you made, and an export always includes every recording and scan. Until you subscribe again, recordings do not play in the app and scans open on one tune only. Lists still open and play their links. You cannot add more than the Free limits allow until you subscribe again.
+When a trial or a subscription ends, your account becomes a Free account. You keep everything that you made, and an export always includes every recording and scan. Until you subscribe again, recordings do not play and scans do not open in the app. Lists still open and play their links. You cannot add more than the Free limits allow until you subscribe again.
 
 If an account is not on Premium and no device syncs it for 12 months, we delete its recordings and scans. We send two emails before we delete them, each with a link to export your data. A sync from any device stops the deletion. Your account, tunes, and lists stay.
 

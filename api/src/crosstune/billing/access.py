@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 
 from crosstune.db.base import bump_server_seq, utc_now
-from crosstune.models import Entitlement, Grant, Scan
+from crosstune.models import Entitlement, Grant
 from crosstune.vocabulary import GrantKind, GrantSource
 
 if TYPE_CHECKING:
@@ -35,7 +35,6 @@ class Access:
 
     premium: bool
     quota_bytes: int
-    counts_recordings: bool
 
 
 @dataclass(frozen=True)
@@ -66,7 +65,6 @@ class Resolution:
     trial_starts_at: datetime | None
     trial_ends_at: datetime | None
     premium_quota_bytes: int
-    free_quota_bytes: int
     # Each store's longest active paid grant, which the reported grant alone can hide: an
     # open-ended comp outlasts a subscription that still bills.
     paid_grants: tuple[PaidGrant, ...] = ()
@@ -109,16 +107,13 @@ def resolve(grants: Sequence[Grant], now: datetime, settings: Settings) -> Resol
 
     if not premium:
         return Resolution(
-            access=Access(
-                premium=False, quota_bytes=settings.free_scan_quota_bytes, counts_recordings=False
-            ),
+            access=Access(premium=False, quota_bytes=0),
             premium_source=None,
             premium_expires_at=None,
             auto_renews=False,
             trial_starts_at=trial_starts_at,
             trial_ends_at=trial_ends_at,
             premium_quota_bytes=settings.trial_quota_bytes,
-            free_quota_bytes=settings.free_scan_quota_bytes,
         )
 
     paid_grants = tuple(
@@ -139,14 +134,13 @@ def resolve(grants: Sequence[Grant], now: datetime, settings: Settings) -> Resol
             settings.storage_addon_bytes if addon else 0
         )
     return Resolution(
-        access=Access(premium=True, quota_bytes=premium_quota, counts_recordings=True),
+        access=Access(premium=True, quota_bytes=premium_quota),
         premium_source=GrantSource(reported.source),
         premium_expires_at=reported.expires_at,
         auto_renews=reported.auto_renews,
         trial_starts_at=trial_starts_at,
         trial_ends_at=trial_ends_at,
         premium_quota_bytes=premium_quota,
-        free_quota_bytes=settings.free_scan_quota_bytes,
         paid_grants=paid_grants,
     )
 
@@ -183,7 +177,6 @@ async def refresh_entitlement(
         "trial_starts_at": resolution.trial_starts_at,
         "trial_ends_at": resolution.trial_ends_at,
         "premium_quota_bytes": resolution.premium_quota_bytes,
-        "free_quota_bytes": resolution.free_quota_bytes,
         "paid_grants": [grant.as_row() for grant in resolution.paid_grants],
     }
 
@@ -202,13 +195,3 @@ async def refresh_entitlement(
     # Loads the server_seq the database assigned, so the row serializes without lazy loads.
     await session.refresh(row)
     return row
-
-
-async def scan_tune_id(session: AsyncSession, user_id: uuid.UUID) -> uuid.UUID | None:
-    """The tune holding the user's oldest live scan, the one tune free scans may use."""
-    return await session.scalar(
-        select(Scan.tune_id)
-        .where(Scan.user_id == user_id, Scan.deleted_at.is_(None))
-        .order_by(Scan.created_at, Scan.id)
-        .limit(1)
-    )

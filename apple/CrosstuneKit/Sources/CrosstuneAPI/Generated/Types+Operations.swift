@@ -3708,8 +3708,6 @@ public enum Operations {
     ///
     /// A presigned PUT for one scan's image, once the file cap, the plan, and its quota allow it.
     ///
-    /// A free plan uploads only to its scan tune, and only scans count toward its quota.
-    ///
     /// - Remark: HTTP `POST /v1/scans/{scan_id}/upload-slot`.
     /// - Remark: Generated from `#/paths//v1/scans/{scan_id}/upload-slot/post(upload_slot_v1_scans__scan_id__upload_slot_post)`.
     public enum UploadSlotV1ScansScanIdUploadSlotPost {

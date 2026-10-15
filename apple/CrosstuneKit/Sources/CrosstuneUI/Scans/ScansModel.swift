@@ -39,7 +39,7 @@ public struct Scan: Hashable, Sendable, Identifiable {
 /// What the Scans section shows for a number of scans, and whether the plan opens them.
 public struct ScansSectionLayout: Equatable, Sendable {
     public let scanCount: Int
-    /// False for a free account's tune other than its scan tune.
+    /// False on a free plan.
     public let opens: Bool
 
     public init(scanCount: Int, opens: Bool = true) {
@@ -146,10 +146,9 @@ public final class ScansModel {
         return moves.apply(to: read.map(\.id)).compactMap { byID[$0] }
     }
 
-    /// Whether the plan opens this tune's scans. With no plan, as outside a store, they open.
+    /// Whether the plan opens scans. With no plan, as outside a store, they open.
     public var opens: Bool {
-        guard let plan else { return true }
-        return PlanRules.scanOpens(plan.plan, tuneID: tuneID, scanTune: plan.scanTune)
+        plan?.plan.scansOpen ?? true
     }
 
     public var layout: ScansSectionLayout { ScansSectionLayout(scanCount: scans.count, opens: opens) }

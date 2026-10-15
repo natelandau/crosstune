@@ -21,8 +21,8 @@ public enum MetaKey: String, Sendable {
     case recordingsOrigin = "recordings_origin"
     /// When the last sync run finished.
     case lastSyncedAt = "last_synced_at"
-    /// The recordings whose upsert the server refused as Premium only. Their changes stay queued
-    /// and wait out a free plan, so they reach the server once the account subscribes.
+    /// The recordings and scans whose upsert the server refused as Premium only. Their changes
+    /// stay queued and wait out a free plan, so they reach the server once the account subscribes.
     case premiumHolds = "premium_holds"
     /// The one-time notices dismissed on this device that the pulled entitlements row does not
     /// carry yet. Each is posted after push, and dropped once a pull brings the row that has it.
@@ -30,10 +30,6 @@ public enum MetaKey: String, Sendable {
     /// The seen notices whose post the server refused for good. They stay seen here and are
     /// never posted again.
     case refusedNotices = "refused_notices"
-    /// The scans queued again after a refusal for their tune, and the grant they were queued
-    /// under. Each is queued again at most once per grant, so a server that still refuses never
-    /// sees it every sync.
-    case scanRequeues = "scan_requeues"
     /// The value stored under this key, read inside a transaction or a `LiveQuery` fetch.
     public func value<Value: Decodable>(in db: Database, as _: Value.Type = Value.self) throws -> Value? {
         try Meta.value(db, self)
@@ -62,8 +58,8 @@ enum Meta {
 }
 
 extension StoreWriter {
-    /// The recordings held for Premium, read inside a transaction or a `LiveQuery` fetch. A hold
-    /// counts only while its recording's upsert is still queued. A delete, or a parent's delete
+    /// The recordings and scans held for Premium, read inside a transaction or a `LiveQuery`
+    /// fetch. A hold counts only while its row's upsert is still queued. A delete, or a parent's delete
     /// that drops the entry, leaves nothing waiting on the plan, and may bring no result to
     /// release the hold.
     public static func premiumHolds(in db: Database) throws -> Set<String> {
@@ -73,7 +69,7 @@ extension StoreWriter {
         let queued = try String.fetchAll(
             db,
             OutboxEntry.select(Column.rowID).filter(
-                Column.tableName == SyncTable.recordings.rawValue
+                SyncTable.premiumOnly.map(\.rawValue).contains(Column.tableName)
                     && Column.op == OutboxEntry.Operation.upsert.rawValue && held.contains(Column.rowID)))
         return Set(queued)
     }

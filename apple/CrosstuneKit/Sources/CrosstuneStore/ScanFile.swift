@@ -21,9 +21,6 @@ public struct ScanFile: Codable, Hashable, Sendable, FetchableRecord, Persistabl
     /// not be given a slot. Deleting the scan clears it, and so does an upload that lands once a
     /// later push has stored the row.
     public static let refusedError = "refused"
-    /// The `error` a captured file carries while the server refuses it because a free account's
-    /// scans stay on one tune. The upload is tried again once the plan is Premium.
-    public static let scanTuneOnlyError = "scan_tune_only"
 
     public var scanID: String
     /// Relative to the user's `scans/` folder.

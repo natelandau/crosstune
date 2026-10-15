@@ -9,8 +9,7 @@ import {
   planFrom,
   planMode,
   recordingsPlayable,
-  scanOpens,
-  scanTuneId,
+  scansOpen,
   TRIAL_REMINDER_MS,
   trialProgress,
 } from './plan'
@@ -37,9 +36,9 @@ describe('planFrom', () => {
     expect(plan.kind).toBe('unknown')
     expect(plan.trialStartsAt).toBeNull()
     expect(plan.quotaBytes).toBeNull()
-    expect(plan.scansOnly).toBe(false)
     expect(planFrom(undefined, NOW).kind).toBe('unknown')
     expect(recordingsPlayable(plan)).toBe(true)
+    expect(scansOpen(plan)).toBe(true)
   })
 
   it('is premium during a trial, with the premium quota', () => {
@@ -56,20 +55,20 @@ describe('planFrom', () => {
       kind: 'premium',
       source: 'trial',
       quotaBytes: 10_000,
-      scansOnly: false,
       premiumEndsAt: new Date(at(DAY)),
       trialStartsAt: new Date(at(-13 * DAY)),
       trialEndsAt: new Date(at(DAY)),
     })
   })
 
-  it('is free once a trial expired a second ago, with the free quota counting scans only', () => {
+  it('is free once a trial expired a second ago, with no quota, recordings, or scans', () => {
     const plan = planFrom(
       entitlementRow({ premium_source: 'trial', premium_expires_at: at(-1000) }),
       NOW,
     )
-    expect(plan).toMatchObject({ kind: 'free', source: null, quotaBytes: 1_000, scansOnly: true })
+    expect(plan).toMatchObject({ kind: 'free', source: null, quotaBytes: null })
     expect(recordingsPlayable(plan)).toBe(false)
+    expect(scansOpen(plan)).toBe(false)
   })
 
   it('is free at the very instant a grant expires', () => {
@@ -106,82 +105,6 @@ describe('planFrom', () => {
 
   it('is free with no premium source', () => {
     expect(planFrom(entitlementRow(), NOW).kind).toBe('free')
-  })
-})
-
-describe('scanTuneId', () => {
-  const scan = (
-    id: string,
-    tune_id: string,
-    created_at: string,
-    deleted_at: string | null = null,
-  ) => ({
-    id,
-    tune_id,
-    created_at,
-    deleted_at,
-  })
-
-  it('picks the tune of the earliest live scan', () => {
-    expect(
-      scanTuneId([
-        scan('b', 'tune-b', '2026-02-01T00:00:00.000Z'),
-        scan('a', 'tune-a', '2026-01-01T00:00:00.000Z'),
-      ]),
-    ).toBe('tune-a')
-  })
-
-  it('breaks a created_at tie by id', () => {
-    expect(
-      scanTuneId([
-        scan('b', 'tune-b', '2026-01-01T00:00:00.000Z'),
-        scan('a', 'tune-a', '2026-01-01T00:00:00.000Z'),
-      ]),
-    ).toBe('tune-a')
-  })
-
-  it('ignores deleted scans', () => {
-    expect(
-      scanTuneId([
-        scan('a', 'tune-a', '2026-01-01T00:00:00.000Z', '2026-03-01T00:00:00.000Z'),
-        scan('b', 'tune-b', '2026-02-01T00:00:00.000Z'),
-      ]),
-    ).toBe('tune-b')
-  })
-
-  it('leaves out the scans in the excluded set', () => {
-    expect(
-      scanTuneId(
-        [
-          scan('a', 'tune-a', '2026-01-01T00:00:00.000Z'),
-          scan('b', 'tune-b', '2026-02-01T00:00:00.000Z'),
-        ],
-        new Set(['a']),
-      ),
-    ).toBe('tune-b')
-  })
-
-  it('is null with no live scan', () => {
-    expect(scanTuneId([])).toBeNull()
-    expect(
-      scanTuneId([scan('a', 'tune-a', '2026-01-01T00:00:00.000Z', '2026-03-01T00:00:00.000Z')]),
-    ).toBeNull()
-  })
-})
-
-describe('scanOpens', () => {
-  const free = planFrom(entitlementRow(), NOW)
-  const premium = planFrom(entitlementRow({ premium_source: 'comp' }), NOW)
-
-  it('opens any scan for premium and for an unknown plan', () => {
-    expect(scanOpens(premium, 'tune-b', 'tune-a')).toBe(true)
-    expect(scanOpens(planFrom(null, NOW), 'tune-b', 'tune-a')).toBe(true)
-  })
-
-  it('opens only the scan tune on free, or any tune while there is no scan tune', () => {
-    expect(scanOpens(free, 'tune-a', 'tune-a')).toBe(true)
-    expect(scanOpens(free, 'tune-b', 'tune-a')).toBe(false)
-    expect(scanOpens(free, 'tune-b', null)).toBe(true)
   })
 })
 

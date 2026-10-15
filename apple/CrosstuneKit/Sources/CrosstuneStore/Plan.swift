@@ -38,10 +38,8 @@ public struct Plan: Sendable, Equatable {
     public var premiumEndsAt: Date?
     public var trialStartsAt: Date?
     public var trialEndsAt: Date?
-    /// The Premium or free quota; nil while the plan is unknown.
+    /// The Premium quota; nil unless Premium, since a free account adds nothing the quota counts.
     public var quotaBytes: Int64?
-    /// Free: the quota counts scans only.
-    public var scansOnly: Bool
     /// Whether the live Premium grant renews on its own; false unless Premium.
     public var autoRenews: Bool
     /// Every store still billing the account, the reported grant's included; empty unless
@@ -62,12 +60,12 @@ public struct Plan: Sendable, Equatable {
     }
 
     public var recordingsPlay: Bool { kind != .free }
-    /// Whether scans open, upload, and download on every tune, not only the scan tune.
-    public var scansOnAnyTune: Bool { kind != .free }
+    /// Whether scans open, upload, and download.
+    public var scansOpen: Bool { kind != .free }
 
     public init(
         kind: PlanKind, source: PlanSource? = nil, premiumEndsAt: Date? = nil, trialStartsAt: Date? = nil,
-        trialEndsAt: Date? = nil, quotaBytes: Int64? = nil, scansOnly: Bool = false, autoRenews: Bool = false,
+        trialEndsAt: Date? = nil, quotaBytes: Int64? = nil, autoRenews: Bool = false,
         paidSources: [PlanSource] = []
     ) {
         self.kind = kind
@@ -76,7 +74,6 @@ public struct Plan: Sendable, Equatable {
         self.trialStartsAt = trialStartsAt
         self.trialEndsAt = trialEndsAt
         self.quotaBytes = quotaBytes
-        self.scansOnly = scansOnly
         self.autoRenews = autoRenews
         let billed = Set(paidSources + [source].compactMap { $0 })
         self.paidSources = kind == .premium ? PlanSource.paid.filter(billed.contains) : []
@@ -94,8 +91,7 @@ public struct Plan: Sendable, Equatable {
             premiumEndsAt: source == nil ? nil : row.premiumExpiresAt?.date,
             trialStartsAt: row.trialStartsAt?.date,
             trialEndsAt: row.trialEndsAt?.date,
-            quotaBytes: premium ? row.premiumQuotaBytes : row.freeQuotaBytes,
-            scansOnly: !premium,
+            quotaBytes: premium ? row.premiumQuotaBytes : nil,
             autoRenews: premium && row.autoRenews,
             paidSources: premium ? PlanRules.livePaidSources(row, now: now) : [])
     }
@@ -128,18 +124,6 @@ public enum PlanRules {
         guard row.premiumSource != nil else { return false }
         guard let end = grantEnd(row) else { return true }
         return end > now
-    }
-
-    /// The tune of the earliest live scan by creation time, then id: the one tune a free
-    /// account's scans open for. Nil while there is no live scan.
-    public static func scanTuneID(_ scans: [ScanRecord]) -> String? {
-        scans.filter { $0.deletedAt == nil }
-            .min { ($0.createdAt, $0.id) < ($1.createdAt, $1.id) }?
-            .tuneID
-    }
-
-    public static func scanOpens(_ plan: Plan, tuneID: String, scanTune: String?) -> Bool {
-        plan.scansOnAnyTune || scanTune == nil || tuneID == scanTune
     }
 
     /// The one notice to show now, in precedence order. Only a trial or a lapsed trial sees any.
@@ -206,23 +190,5 @@ extension Entitlement {
     /// The account's live row, nil until the first pull that carries it.
     public static func current(_ db: Database) throws -> Entitlement? {
         try Entitlement.filter(CodingKeys.deletedAt == nil).fetchOne(db)
-    }
-}
-
-extension ScanRecord {
-    /// The scan tune, read from the store: see ``PlanRules/scanTuneID(_:)``. A row the server
-    /// refused for its tune and never stored is left out, since the server never counts it. A
-    /// stored row whose upload slot was refused still counts, as the server counts every stored
-    /// scan.
-    public static func scanTuneID(_ db: Database) throws -> String? {
-        let earliest = try ScanRecord.filter(CodingKeys.deletedAt == nil)
-            .filter(
-                sql: "NOT (server_seq = 0 AND id IN (SELECT scan_id FROM scan_files WHERE error = ?))",
-                arguments: [ScanFile.scanTuneOnlyError]
-            )
-            .order(CodingKeys.createdAt, CodingKeys.id)
-            .limit(1)
-            .fetchAll(db)
-        return PlanRules.scanTuneID(earliest)
     }
 }

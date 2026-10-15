@@ -44,9 +44,8 @@ const ROW_THUMBNAIL_HEIGHT = 36
 
 /**
  * A tune's scans as a row of thumbnails that open the viewer, with Add taking image files from
- * the device. Edit turns them into rows to reorder and delete. On a tune whose scans the plan
- * does not open, the thumbnails are dimmed, they and Add open the Plan sheet, and edit only
- * deletes.
+ * the device. Edit turns them into rows to reorder and delete. On a plan that does not open
+ * scans, the thumbnails are dimmed, they and Add open the Plan sheet, and edit only deletes.
  */
 export function TuneScans({ tuneId }: { tuneId: string }) {
   const confirm = useConfirm()

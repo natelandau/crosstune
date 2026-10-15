@@ -1,15 +1,15 @@
 import CrosstuneStore
 
 extension StorageFigures {
-    /// The quota in force: the plan's when it is known, else the reported one when it names one.
-    nonisolated static func quota(plan: Plan, reported: StorageFigures?) -> Int64? {
-        if plan.kind != .unknown, let quota = plan.quotaBytes { return quota }
-        return reported.flatMap { $0.quotaBytes > 0 ? Int64($0.quotaBytes) : nil }
-    }
-
     /// These figures with the plan's quota in place of the reported one, once the plan is known.
+    /// A free plan has no quota, so its figures carry none, whatever an older report said.
     nonisolated func measured(against plan: Plan) -> StorageFigures {
-        guard plan.kind != .unknown, let quota = plan.quotaBytes else { return self }
-        return StorageFigures(usedBytes: usedBytes, quotaBytes: Int(quota), maxFileBytes: maxFileBytes)
+        let quota: Int
+        switch plan.kind {
+        case .unknown: return self
+        case .free: quota = 0
+        case .premium: quota = plan.quotaBytes.map { Int($0) } ?? quotaBytes
+        }
+        return StorageFigures(usedBytes: usedBytes, quotaBytes: quota, maxFileBytes: maxFileBytes)
     }
 }

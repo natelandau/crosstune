@@ -360,7 +360,7 @@ function ListTunes({
             onRemove={() => onRemove(view)}
             onSelect={() => onSelect(view)}
             onViewScans={
-              tunes.scanTunes.has(view.tune.id) ? () => scans.open(view.tune.id) : undefined
+              tunes.tunesWithScans.has(view.tune.id) ? () => scans.open(view.tune.id) : undefined
             }
             selecting={selecting}
             opening={!wide && view.item.id === opening}

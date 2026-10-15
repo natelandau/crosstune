@@ -19,7 +19,7 @@ import { renderApp } from '../../test/renderApp'
 import { dataProviders, fakeEngine } from '../../test/providers'
 import { contrastRatio, glyphInk, paintedBackground } from '../../test/contrast'
 import { renderWithProviders } from '../../test/render'
-import { entitlementRow, scanRow, tuneRow } from '../../test/rows'
+import { entitlementRow } from '../../test/rows'
 import type { SyncEngine } from '../../sync/types'
 import { Button } from '../../ui/Button'
 import { CANCEL, CLOSE } from '../../ui/confirmCopy'
@@ -54,8 +54,8 @@ import {
   PREMIUM_PLAN_TITLE,
   PREMIUM_RECORDINGS_BODY,
   PREMIUM_RECORDINGS_TITLE,
+  PREMIUM_SCANS_BODY,
   PREMIUM_SCANS_TITLE,
-  premiumScansBody,
   PRIVACY_POLICY,
   PRIVACY_URL,
   RENEWS,
@@ -228,10 +228,8 @@ function ScansOpener() {
   return <Button label="Open scans" onPress={() => premium.open('scans', 'scan')} />
 }
 
-it("opens the scans sheet already describing the scan tune's title", async () => {
+it('opens the scans sheet already describing why scans are held', async () => {
   const db = openTestDb()
-  await db.tunes.put(tuneRow('tune-1', 'Forked Deer'))
-  await db.scans.put(scanRow('scan-1', 'tune-1'))
   const analytics = recordingAnalytics()
   const Data = dataProviders({ db, analytics })
   // Records every description the dialog shows, so a sheet that opened before its body fails.
@@ -251,7 +249,7 @@ it("opens the scans sheet already describing the scan tune's title", async () =>
   )
   await page.getByRole('button', { name: 'Open scans' }).click()
 
-  await expect.element(planSheet()).toHaveAccessibleDescription(premiumScansBody('Forked Deer'))
+  await expect.element(planSheet()).toHaveAccessibleDescription(PREMIUM_SCANS_BODY)
   await expect.element(headline(PREMIUM_SCANS_TITLE)).toBeVisible()
   expect(descriptions).not.toContain(null)
   expect(analytics.sends()).toEqual([

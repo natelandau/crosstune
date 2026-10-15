@@ -205,7 +205,7 @@ export function RecordingsScreen() {
                   ))}
             </div>
           )}
-          {screen.total > 0 && <StorageSummary />}
+          {screen.total > 0 && uploads && <StorageSummary />}
           <RecordingsFilterSheet
             isOpen={filtersOpen}
             onOpenChange={setFiltersOpen}

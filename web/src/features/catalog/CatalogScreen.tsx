@@ -361,7 +361,7 @@ export function CatalogScreen() {
                     onDelete={() => void confirmDelete(entry)}
                     onSelect={() => fromRow(entry.tune.id)}
                     onViewScans={
-                      screen.scanTunes.has(entry.tune.id)
+                      screen.tunesWithScans.has(entry.tune.id)
                         ? () => scans.open(entry.tune.id)
                         : undefined
                     }

@@ -903,13 +903,10 @@ import Testing
 @Suite struct ClassifyFailureTests {
     @Test func aPlanRefusalIsNotAnAuthFailure() {
         let premium = APIStatusError(status: 403, problemType: premiumRequiredProblem)
-        let scanTune = APIStatusError(status: 403, problemType: scanTuneOnlyProblem)
         #expect(isPlanRefusal(premium))
-        #expect(isPlanRefusal(scanTune))
         #expect(!isPlanRefusal(APIStatusError(status: 403)))
         #expect(!isPlanRefusal(APIStatusError(status: 413, problemType: quotaProblem)))
         #expect(!isAuthFailure(premium))
-        #expect(!isAuthFailure(scanTune))
         #expect(isAuthFailure(APIStatusError(status: 403)))
         #expect(classifyFailure(premium, isOffline: false) == .error)
         #expect(syncFailureReason(premium) == .other)
@@ -917,9 +914,7 @@ import Testing
 
     @Test func namesThePlanRefusalsAsTheServerDoes() {
         #expect(premiumRequiredProblem == "urn:crosstune:premium-required")
-        #expect(scanTuneOnlyProblem == "urn:crosstune:scan-tune-only")
         #expect(premiumRequiredReason == "premium required")
-        #expect(scanTuneOnlyReason == "scans are limited to one tune")
         #expect(missingRecordingReason == "recording_id does not reference one of your recordings")
     }
 

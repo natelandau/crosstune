@@ -142,12 +142,11 @@ class Settings(BaseSettings):
     storage_prefix: str = ""
     local_storage_endpoint_url: str = ""
     local_storage_browser_endpoint_url: str = ""
-    trial_quota_bytes: int = 104_857_600
-    premium_quota_bytes: int = 5_368_709_120
-    storage_addon_bytes: int = 53_687_091_200
-    free_scan_quota_bytes: int = 52_428_800
+    trial_quota_bytes: int = 100_000_000
+    premium_quota_bytes: int = 3_000_000_000
+    storage_addon_bytes: int = 50_000_000_000
     trial_days: int = 30
-    recording_max_file_bytes: int = 52_428_800
+    recording_max_file_bytes: int = 50_000_000
     scan_max_file_bytes: int = 5_242_880
     # Each sweep wakes the database and lists the whole bucket, so an idle app pays
     # for it; orphans are garbage, so a late sweep costs nothing.

@@ -2997,6 +2997,70 @@ async def test_0038_adds_the_nullable_trial_end_column_and_downgrade_drops_it(
     assert dropped == []
 
 
+async def test_0044_drops_the_free_quota_and_rounds_quotas_and_downgrade_restores_both(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    users = {
+        "018f0000-0000-7000-8000-0000000000a1": ("comp", 5_368_709_120),
+        "018f0000-0000-7000-8000-0000000000a2": ("stripe", 5_368_709_120 + 53_687_091_200),
+        "018f0000-0000-7000-8000-0000000000a3": ("trial", 104_857_600),
+        "018f0000-0000-7000-8000-0000000000a4": (None, 104_857_600),
+        "018f0000-0000-7000-8000-0000000000a5": ("comp", 7_000_000_000),
+    }
+    column = text(
+        "select count(*) from information_schema.columns "
+        "where table_name = 'entitlements' and column_name = 'free_quota_bytes'"
+    )
+    quotas = text("select user_id::text, premium_quota_bytes, server_seq from entitlements")
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0043")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, :clerk, now(), now())"
+                ),
+                [{"id": user, "clerk": f"user_{user}"} for user in users],
+            )
+            await conn.execute(
+                text(
+                    "insert into entitlements (id, user_id, premium_source, auto_renews, "
+                    "premium_quota_bytes, free_quota_bytes, created_at, updated_at) values "
+                    "(gen_random_uuid(), :user, :source, false, :quota, 52428800, now(), now())"
+                ),
+                [
+                    {"user": user, "source": source, "quota": quota}
+                    for user, (source, quota) in users.items()
+                ],
+            )
+            before = {row.user_id: row for row in (await conn.execute(quotas)).all()}
+        await anyio.to_thread.run_sync(command.upgrade, config, "0044")
+        async with engine.connect() as conn:
+            after = {row.user_id: row for row in (await conn.execute(quotas)).all()}
+            dropped = (await conn.execute(column)).scalar_one()
+        await anyio.to_thread.run_sync(command.downgrade, config, "0043")
+        async with engine.connect() as conn:
+            restored = {row.user_id: row for row in (await conn.execute(quotas)).all()}
+            readded = (await conn.execute(column)).scalar_one()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert dropped == 0
+    assert readded == 1
+    assert {user: row.premium_quota_bytes for user, row in after.items()} == {
+        "018f0000-0000-7000-8000-0000000000a1": 3_000_000_000,
+        "018f0000-0000-7000-8000-0000000000a2": 53_000_000_000,
+        "018f0000-0000-7000-8000-0000000000a3": 100_000_000,
+        "018f0000-0000-7000-8000-0000000000a4": 100_000_000,
+        "018f0000-0000-7000-8000-0000000000a5": 7_000_000_000,
+    }
+    for user in users:
+        resized = user != "018f0000-0000-7000-8000-0000000000a5"
+        assert (after[user].server_seq > before[user].server_seq) is resized
+        assert restored[user].premium_quota_bytes == before[user].premium_quota_bytes
+
+
 async def test_0043_backfills_the_key_each_open_slot_signed(
     engine, database_url: str, truncate_all: None
 ) -> None:

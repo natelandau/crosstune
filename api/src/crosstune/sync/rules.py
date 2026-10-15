@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from sqlalchemy import func, select
 
-from crosstune.billing.access import scan_tune_id
 from crosstune.db.base import next_server_seq
 from crosstune.links.detect import detect_provider, normalize_url, valid_slippery_hill_ref
 from crosstune.links.resolve import unresolved_link
@@ -26,7 +25,6 @@ from crosstune.vocabulary import (
     MAX_SCANS_PER_TUNE,
     MIN_LOOP_MS,
     PREMIUM_REQUIRED,
-    SCAN_TUNE_ONLY,
     RecordingSource,
     TableName,
 )
@@ -288,22 +286,20 @@ class RecordingLoopRules(RowRules):
 
 
 class ScanRules(RowRules):
-    """Keep a scan on its tune, under the tune's limit, and a free plan's on its scan tune."""
+    """Keep a scan on its tune and under the tune's limit, and refuse a free plan's new scan."""
 
     async def prepare(self, data: dict[str, Any]) -> str | None:
-        """Refuse a scan that moves tune, passes the tune's limit, or leaves a free scan tune."""
+        """Refuse a scan that moves tune, passes the tune's limit, or is added without Premium."""
         stored = await self.session.get(Scan, self.change.id)
         if stored is not None and stored.user_id == self.user_id:
             if stored.tune_id != data["tune_id"]:
                 return "tune_id is fixed"
             if stored.updated_at >= self.change.updated_at or stored.deleted_at is None:
                 return None
+        if not self.access.premium:
+            return PREMIUM_REQUIRED
         if await self.live_siblings(Scan.tune_id, data["tune_id"]) >= MAX_SCANS_PER_TUNE:
             return "scan limit reached"
-        if not self.access.premium:
-            held = await scan_tune_id(self.session, self.user_id)
-            if held is not None and held != data["tune_id"]:
-                return SCAN_TUNE_ONLY
         return None
 
 

@@ -16,9 +16,6 @@ import {
   FEATURE_SCANS,
   FEATURE_STORAGE,
   FEATURE_SYNC,
-  SCANS_FREE,
-  SCANS_PREMIUM,
-  STORAGE_FREE,
   STORAGE_PREMIUM,
 } from './planCopy'
 
@@ -45,11 +42,11 @@ export const COMPARISON: readonly Feature[] = [
   { title: FEATURE_RECORD, icon: Mic, free: EXCLUDED, premium: INCLUDED },
   { title: FEATURE_PLAY, icon: Play, free: EXCLUDED, premium: INCLUDED },
   { title: FEATURE_PRACTICE, icon: SlidersHorizontal, free: EXCLUDED, premium: INCLUDED },
-  { title: FEATURE_SCANS, icon: FileText, free: value(SCANS_FREE), premium: value(SCANS_PREMIUM) },
+  { title: FEATURE_SCANS, icon: FileText, free: EXCLUDED, premium: INCLUDED },
   {
     title: FEATURE_STORAGE,
     icon: Cloud,
-    free: value(STORAGE_FREE),
+    free: EXCLUDED,
     premium: value(STORAGE_PREMIUM),
   },
 ]

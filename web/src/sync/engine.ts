@@ -4,7 +4,6 @@ import { syncFailureReason } from '../usage/failure'
 import { ApiError, NetworkError, NoTokenError } from '../api/client'
 import type { Change, ResolveResponse } from '../api/types'
 import { readPlan } from '../billing/entitlement'
-import { recordingsPlayable } from '../billing/plan'
 import { postSeenNotices } from '../billing/notices'
 import { countInvalidChanges, getEventsCursor, getPullCursor, prunePremiumHolds } from '../db/meta'
 import { PUSH_BATCH_SIZE, pendingBatch } from '../db/outbox'
@@ -194,7 +193,7 @@ export function createSyncEngine({
 
   async function push(): Promise<void> {
     await prunePremiumHolds(db)
-    const premium = recordingsPlayable(await readPlan(db, new Date()))
+    const premium = (await readPlan(db, new Date())).kind !== 'free'
     // Held this push: each is sent at most once, so a full batch of them never stops the
     // entries queued behind.
     const heldNow = new Set<string>()

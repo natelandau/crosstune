@@ -248,9 +248,7 @@ TableName = Literal[
 SERVER_WRITTEN: Final = "server-written"
 """The push reason for a change to a table only the server writes."""
 PREMIUM_REQUIRED: Final = "premium required"
-"""The push reason for an addition only Premium allows: a new recording."""
-SCAN_TUNE_ONLY: Final = "scans are limited to one tune"
-"""The push reason for a free account's new scan on a tune other than its scan tune."""
+"""The push reason for an addition only Premium allows: a new recording or scan."""
 
 # Maximum lengths, by table then field. A column with a width takes it from here, the
 # row schema publishes it, and the client stops input at it.

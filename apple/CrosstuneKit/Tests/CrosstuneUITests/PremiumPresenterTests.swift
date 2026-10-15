@@ -16,8 +16,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
 private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement {
     Entitlement(
         id: "entitlement-1", createdAt: noon, premiumSource: source, premiumExpiresAt: expiresAt.map(Timestamp.init),
-        autoRenews: false, trialEndsAt: expiresAt.map(Timestamp.init), premiumQuotaBytes: 10_000,
-        freeQuotaBytes: 1_000)
+        autoRenews: false, trialEndsAt: expiresAt.map(Timestamp.init), premiumQuotaBytes: 10_000)
 }
 
 @MainActor
@@ -74,7 +73,7 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
         #expect(purchase.period == .annual)
     }
 
-    @Test func aFreePlanGatesScansOffTheirTune() async throws {
+    @Test func aFreePlanGatesScans() async throws {
         let presenter = PremiumPresenter(
             plan: try await plan(entitlement(source: nil), kind: .free), analytics: sink.client)
 
@@ -128,10 +127,10 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
             ("PLAN_PREMIUM", PlanText.premium),
             ("PLAN_TRIAL", PlanText.trial),
             ("FREE_HELP", PlanText.freeHelp),
-            ("FREE_STORAGE_HELP", PlanText.freeStorageHelp),
             ("PREMIUM_RECORDINGS_TITLE", PlanText.premiumRecordingsTitle),
             ("PREMIUM_SCANS_TITLE", PlanText.premiumScansTitle),
             ("PREMIUM_RECORDINGS_BODY", PlanText.premiumRecordingsBody),
+            ("PREMIUM_SCANS_BODY", PlanText.premiumScansBody),
             ("SEE_PLAN", PlanText.seePlan),
             ("PREMIUM_PLAN_TITLE", PlanText.premiumPlanTitle),
             ("SUBSCRIBE", PlanText.subscribe),
@@ -156,10 +155,7 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
             ("FEATURE_PLAY", PlanText.featurePlay),
             ("FEATURE_PRACTICE", PlanText.featurePractice),
             ("FEATURE_SCANS", PlanText.featureScans),
-            ("SCANS_FREE", PlanText.scansFree),
-            ("SCANS_PREMIUM", PlanText.scansPremium),
             ("FEATURE_STORAGE", PlanText.featureStorage),
-            ("STORAGE_FREE", PlanText.storageFree),
             ("STORAGE_PREMIUM", PlanText.storagePremium),
             ("ON_PREMIUM", PlanText.onPremium),
             ("THANKS", PlanText.thanks),
@@ -199,10 +195,6 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
         #expect(PlanText.save(17) == "Save 17%")
         #expect(NoticeText.subscribeAnnual("$49.99") == "Subscribe for $49.99 a year")
         // The web builds these and the next from functions, so they are compared by shape.
-        #expect(
-            PlanText.premiumScansBody(tuneTitle: "Soldier's Joy")
-                == "On the free plan, scans open on one tune, \"Soldier's Joy\". Pages on other tunes stay: you can delete or export them."
-        )
         #expect(PlanText.annualPrice("$10") == "$10 a year")
         #expect(PlanText.monthlyPrice("$1") == "$1 a month")
         var calendar = Calendar(identifier: .gregorian)

@@ -29,8 +29,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.anyio
 
-FREE_SCAN_QUOTA = 52_428_800
-TRIAL_QUOTA = 104_857_600
+TRIAL_QUOTA = 100_000_000
 
 
 async def _user_id(client, headers) -> uuid.UUID:
@@ -188,27 +187,20 @@ async def test_free_restore_of_a_deleted_recording_applies(
     assert result["row"]["label"] == "Back"
 
 
-async def test_free_restore_of_a_scan_off_the_scan_tune_is_refused(
+async def test_free_restore_of_a_scan_is_refused(
     client, auth_headers, verify_session, settings
 ) -> None:
     headers = auth_headers("user_a")
-    tune_a, tune_b, scan_a, scan_b = uid(), uid(), uid(), uid()
-    await push(
-        client,
-        headers,
-        tune_change(tune_a),
-        tune_change(tune_b),
-        scan(scan_a, tune_a, T0),
-        scan(scan_b, tune_b, T1),
-    )
-    await push(client, headers, change("scans", scan_b, T1 + timedelta(seconds=1), op="delete"))
+    tune, scan_id = uid(), uid()
+    await push(client, headers, tune_change(tune), scan(scan_id, tune, T0))
+    await push(client, headers, change("scans", scan_id, T1, op="delete"))
     await _end_trial(client, headers, verify_session, settings)
 
-    (result,) = await push(client, headers, scan(scan_b, tune_b, T2))
+    (result,) = await push(client, headers, scan(scan_id, tune, T2))
 
     assert result["status"] == "invalid"
-    assert result["reason"] == "scans are limited to one tune"
-    stored = await verify_session.get(Scan, uuid.UUID(scan_b))
+    assert result["reason"] == "premium required"
+    stored = await verify_session.get(Scan, uuid.UUID(scan_id))
     await verify_session.refresh(stored)
     assert stored.deleted_at is not None
 
@@ -227,90 +219,89 @@ async def test_free_recording_slot_requires_premium(
     assert response.json()["type"] == "urn:crosstune:premium-required"
 
 
-async def test_free_scans_stay_on_the_scan_tune(
+async def test_free_push_of_a_new_scan_is_refused_until_premium(
     client, auth_headers, verify_session, settings
 ) -> None:
     headers = auth_headers("user_a")
-    tune_a, tune_b, scan_a, scan_b = uid(), uid(), uid(), uid()
-    await push(
-        client,
-        headers,
-        tune_change(tune_a),
-        tune_change(tune_b),
-        scan(scan_a, tune_a, T0),
-        scan(scan_b, tune_b, T1),
-    )
+    tune, kept, added = uid(), uid(), uid()
+    await push(client, headers, tune_change(tune), scan(kept, tune, T0))
     await _end_trial(client, headers, verify_session, settings)
 
-    (off_tune,) = await push(client, headers, scan(uid(), tune_b, T2))
-    assert off_tune["status"] == "invalid"
-    assert off_tune["reason"] == "scans are limited to one tune"
+    (refused,) = await push(client, headers, scan(added, tune, T2, position=1))
+    assert refused["status"] == "invalid"
+    assert refused["reason"] == "premium required"
+    assert await verify_session.get(Scan, uuid.UUID(added)) is None
 
-    on_tune_id = uid()
-    (on_tune,) = await push(client, headers, scan(on_tune_id, tune_a, T2))
-    assert on_tune["status"] == "applied"
+    (edited,) = await push(client, headers, scan(kept, tune, T2, position=2))
+    assert edited["status"] == "applied", edited
 
-    later = T2 + timedelta(seconds=10)
-    await push(
-        client,
-        headers,
-        change("scans", scan_a, later, op="delete"),
-        change("scans", on_tune_id, later, op="delete"),
+    user_id = await _user_id(client, headers)
+    now = utc_now()
+    await grant_comp(
+        verify_session,
+        user_id,
+        expires_at=None,
+        storage_addon=False,
+        granted_by="test",
+        reason="test",
+        now=now,
     )
-    (moved,) = await push(client, headers, scan(uid(), tune_b, later))
-    assert moved["status"] == "applied"
-
-
-async def test_free_scan_slot_counts_scans_only_against_the_free_quota(
-    client, auth_headers, verify_session, settings
-) -> None:
-    headers = auth_headers("user_a")
-    tune, held, pending, rec = uid(), uid(), uid(), uid()
-    await push(
-        client,
-        headers,
-        tune_change(tune),
-        scan(held, tune),
-        scan(pending, tune, position=1),
-        recording(rec),
-    )
-    await verify_session.execute(
-        update(Scan).where(Scan.id == held).values(state="ready", file_bytes=FREE_SCAN_QUOTA - 1000)
-    )
-    await verify_session.execute(
-        update(Recording)
-        .where(Recording.id == rec)
-        .values(state="ready", playback_bytes=10_000_000)
-    )
+    await refresh_entitlement(verify_session, user_id, settings, now)
     await verify_session.commit()
-    await _end_trial(client, headers, verify_session, settings)
 
-    over = await _scan_slot(client, headers, pending, bytes_=1001)
-    assert over.status_code == 413
-    assert over.json()["type"] == "urn:crosstune:quota-exceeded"
-    assert (await _scan_slot(client, headers, pending, bytes_=1000)).status_code == 200
+    (applied,) = await push(client, headers, scan(added, tune, T2, position=1))
+    assert applied["status"] == "applied", applied
 
 
-async def test_free_scan_slot_off_the_scan_tune_is_refused(
+async def test_free_scan_slot_requires_premium(
     client, auth_headers, verify_session, settings
 ) -> None:
     headers = auth_headers("user_a")
-    tune_a, tune_b, scan_a, scan_b = uid(), uid(), uid(), uid()
-    await push(
-        client,
-        headers,
-        tune_change(tune_a),
-        tune_change(tune_b),
-        scan(scan_a, tune_a, T0),
-        scan(scan_b, tune_b, T1),
-    )
+    tune, scan_id = uid(), uid()
+    await push(client, headers, tune_change(tune), scan(scan_id, tune))
     await _end_trial(client, headers, verify_session, settings)
 
-    response = await _scan_slot(client, headers, scan_b)
+    response = await _scan_slot(client, headers, scan_id)
 
     assert response.status_code == 403
-    assert response.json()["type"] == "urn:crosstune:scan-tune-only"
-    assert (await _scan_slot(client, headers, scan_a)).status_code == 200
+    assert response.json()["type"] == "urn:crosstune:premium-required"
+
+
+async def test_trial_adds_scans_on_any_tune_and_shares_one_quota_with_recordings(
+    client, auth_headers, verify_session
+) -> None:
+    headers = auth_headers("user_a")
+    tunes = [uid() for _ in range(3)]
+    stored, filling = uid(), uid()
+    others = [uid() for _ in tunes]
+    big, waiting = uid(), uid()
+    results = await push(
+        client,
+        headers,
+        *(tune_change(tune) for tune in tunes),
+        scan(stored, tunes[0]),
+        scan(filling, tunes[0], position=1),
+        *(scan(other, tune, position=2) for other, tune in zip(others, tunes, strict=True)),
+        recording(big),
+        recording(waiting),
+    )
+    assert {r["status"] for r in results} == {"applied"}, results
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == big)
+        .values(state="ready", playback_bytes=TRIAL_QUOTA - 3000)
+    )
+    await verify_session.execute(
+        update(Scan).where(Scan.id == stored).values(state="ready", file_bytes=1000)
+    )
+    await verify_session.commit()
+
+    storage = (await client.get("/v1/me", headers=headers)).json()["storage"]
+    assert (storage["quota_bytes"], storage["used_bytes"]) == (TRIAL_QUOTA, TRIAL_QUOTA - 2000)
+    assert (await _scan_slot(client, headers, filling, bytes_=2001)).status_code == 413
+    assert (await _scan_slot(client, headers, filling, bytes_=2000)).status_code == 200
+    assert (await _recording_slot(client, headers, waiting, bytes_=1)).status_code == 413
+    assert (await _scan_slot(client, headers, others[1], bytes_=1)).status_code == 413
 
 
 async def test_trial_at_quota_then_comp_raises_it(
@@ -405,7 +396,7 @@ async def test_import_job_for_a_free_account_fails(
     assert store.keys() == []
 
 
-async def test_me_reports_the_free_scan_quota(
+async def test_me_reports_no_quota_and_every_file_on_free(
     client, auth_headers, verify_session, settings
 ) -> None:
     headers = auth_headers("user_a")
@@ -422,8 +413,8 @@ async def test_me_reports_the_free_scan_quota(
 
     storage = (await client.get("/v1/me", headers=headers)).json()["storage"]
 
-    assert storage["quota_bytes"] == FREE_SCAN_QUOTA
-    assert storage["used_bytes"] == 700
+    assert storage["quota_bytes"] == 0
+    assert storage["used_bytes"] == 9700
 
 
 async def test_free_stale_trim_change_reports_stale(

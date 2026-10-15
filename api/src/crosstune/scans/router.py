@@ -12,13 +12,13 @@ from pydantic import BaseModel, Field
 from crosstune.auth.deps import (
     CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
-from crosstune.billing.access import access_for, scan_tune_id
+from crosstune.billing.access import access_for
 from crosstune.db.base import bump_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
-from crosstune.errors import ConflictError, ScanTuneOnlyError, problem_responses
+from crosstune.errors import ConflictError, PremiumRequiredError, problem_responses
 from crosstune.files.quota import accept_upload, head_slot, reserve_slot, slot_for_scan
 from crosstune.files.urls import UPLOAD_URL_TTL_SECONDS, SignedUrl, presign_get, require_store
 from crosstune.scans.service import owned_scan, require_live, require_state
@@ -45,18 +45,15 @@ async def upload_slot(
     user: CurrentUser,
     session: DbSession,
 ) -> SignedUrl:
-    """A presigned PUT for one scan's image, once the file cap, the plan, and its quota allow it.
-
-    A free plan uploads only to its scan tune, and only scans count toward its quota.
-    """
+    """A presigned PUT for one scan's image, once the file cap, the plan, and its quota allow it."""
     store = require_store(request)
     settings = request.app.state.settings
     await lock_user(session, user.id)
     scan = await owned_scan(session, user.id, scan_id)
     require_state(scan, ScanState.PENDING_UPLOAD)
     access = await access_for(session, user.id, settings)
-    if not access.premium and await scan_tune_id(session, user.id) != scan.tune_id:
-        raise ScanTuneOnlyError
+    if not access.premium:
+        raise PremiumRequiredError
     slot = await reserve_slot(
         session,
         scan,
@@ -64,7 +61,6 @@ async def upload_slot(
         content_type=body.content_type,
         max_file_bytes=settings.scan_max_file_bytes,
         quota_bytes=access.quota_bytes,
-        include_recordings=access.counts_recordings,
     )
     await session.flush()
     url = store.presign_put(slot.object_key, body.content_type, body.bytes, UPLOAD_URL_TTL_SECONDS)

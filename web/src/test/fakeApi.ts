@@ -62,7 +62,7 @@ export function createFakeApi() {
   const scanStates = new Map<string, 'pending_upload' | 'ready'>()
   const scanSlots = new Map<string, ScanUploadSlotRequest>()
   const putTypes = new Map<string, string>()
-  let storage = { used_bytes: 0, quota_bytes: 1_073_741_824, max_file_bytes: 52_428_800 }
+  let storage = { used_bytes: 0, quota_bytes: 1_073_741_824, max_file_bytes: 50_000_000 }
   let slotError: unknown = null
   let slotErrorId: string | null = null
   let confirmError: unknown = null

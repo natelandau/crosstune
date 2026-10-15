@@ -6,13 +6,14 @@ export const PLAN_FREE = 'Free'
 export const PLAN_PREMIUM = 'Premium'
 export const PLAN_TRIAL = 'Premium trial'
 export const FREE_HELP =
-  'Free includes your catalog, lists, links, sync, and export. Recordings and scans on more than one tune are part of Premium.'
+  'Free includes your catalog, lists, links, sync, and export. Recordings and scans are part of Premium.'
 export const TRIAL_ENDS_TODAY = 'Ends today'
-export const FREE_STORAGE_HELP = 'On the free plan, storage counts scans only.'
 export const PREMIUM_RECORDINGS_TITLE = 'Recordings are part of Premium'
-export const PREMIUM_SCANS_TITLE = 'Scans on more than one tune are part of Premium'
+export const PREMIUM_SCANS_TITLE = 'Scans are part of Premium'
 export const PREMIUM_RECORDINGS_BODY =
   'Premium keeps your recordings on our servers, so they play on every device. Every recording you already have stays: you can rename, file, delete, and export it on any plan.'
+export const PREMIUM_SCANS_BODY =
+  'Premium keeps your scans on our servers, so they open on every device. Every scan you already have stays: you can delete and export it on any plan.'
 export const SEE_PLAN = 'See your plan'
 export const PREMIUM_PLAN_TITLE = 'Crosstune Premium'
 export const SUBSCRIBE = 'Subscribe'
@@ -42,11 +43,8 @@ export const FEATURE_RECORD = 'Record and upload'
 export const FEATURE_PLAY = 'Play recordings'
 export const FEATURE_PRACTICE = 'Practice: speed, pitch, loops'
 export const FEATURE_SCANS = 'Scans'
-export const SCANS_FREE = '1 tune'
-export const SCANS_PREMIUM = 'Every tune'
 export const FEATURE_STORAGE = 'Storage'
-export const STORAGE_FREE = '50 MB'
-export const STORAGE_PREMIUM = '5 GB'
+export const STORAGE_PREMIUM = '3 GB'
 export const ON_PREMIUM = "You're on Premium"
 export const THANKS = 'Thanks for keeping Crosstune going.'
 export const RENEWS = 'Renews'
@@ -56,10 +54,10 @@ export const INCLUDED = "What's included"
 export const INCLUDED_RECORD = 'Record and upload'
 export const INCLUDED_RECORD_DETAIL = 'From any device, saved to your tunes'
 export const INCLUDED_EVERY_DEVICE = 'Recordings on every device'
-export const INCLUDED_EVERY_DEVICE_DETAIL = 'Stored on our servers, 5 GB'
+export const INCLUDED_EVERY_DEVICE_DETAIL = 'Stored on our servers, 3 GB'
 export const INCLUDED_PRACTICE = 'Practice mode'
 export const INCLUDED_PRACTICE_DETAIL = 'Speed, pitch, and loops'
-export const INCLUDED_SCANS = 'Scans on every tune'
+export const INCLUDED_SCANS = 'Scans'
 export const INCLUDED_SCANS_DETAIL = 'Up to 20 pages a tune'
 export const COMPARE_PLANS = 'Compare plans'
 
@@ -87,11 +85,6 @@ export function annualPrice(price: string): string {
 /** A monthly plan's price as RevenueCat formats it, per month. */
 export function monthlyPrice(price: string): string {
   return `${price} a month`
-}
-
-/** Why scans on other tunes are held, naming the one tune they open on. */
-export function premiumScansBody(tuneTitle: string): string {
-  return `On the free plan, scans open on one tune, "${tuneTitle}". Pages on other tunes stay: you can delete or export them.`
 }
 
 /** Local calendar days from `now` to `endsAt`: 0 on the day itself, negative after it. */

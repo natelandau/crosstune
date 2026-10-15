@@ -93,12 +93,6 @@ private func jpeg(width: Int, height: Int) -> Data {
                 scanID: pending.id, fileName: "a.jpg", origin: .captured, error: ScanFile.refusedError))
         #expect(ScanCopy.status(for: refused) == ScanCopy.refused)
 
-        let offTune = Scan(
-            record: pending,
-            file: ScanFile(
-                scanID: pending.id, fileName: "a.jpg", origin: .captured, error: ScanFile.scanTuneOnlyError))
-        #expect(ScanCopy.status(for: offTune) == ScanCopy.scanTuneOnly)
-
         let tooLarge = Scan(
             record: pending,
             file: ScanFile(
@@ -139,7 +133,6 @@ private func jpeg(width: Int, height: Int) -> Data {
         #expect(ScanCopy.refused == "Could not upload. Delete this scan and add it again.")
         #expect(ScanCopy.waiting == "Waiting for upload from another device")
         #expect(ScanCopy.notUploaded == "Not uploaded yet")
-        #expect(ScanCopy.scanTuneOnly == "Not uploaded. Scans on more than one tune are part of Premium.")
     }
 
     // The web adds scans through one file picker, so these choices have no web counterpart.
@@ -187,13 +180,13 @@ private func jpeg(width: Int, height: Int) -> Data {
 
         #expect(tunes == [withScans])
         #expect(
-            TuneRowActions.scansAction(tuneID: withScans, tunesWithScans: tunes, plan: .unknown, scanTune: nil) { _ in }
+            TuneRowActions.scansAction(tuneID: withScans, tunesWithScans: tunes) { _ in }
                 != nil)
         #expect(
-            TuneRowActions.scansAction(tuneID: without, tunesWithScans: tunes, plan: .unknown, scanTune: nil) { _ in }
+            TuneRowActions.scansAction(tuneID: without, tunesWithScans: tunes) { _ in }
                 == nil)
         #expect(
-            TuneRowActions.scansAction(tuneID: emptied, tunesWithScans: tunes, plan: .unknown, scanTune: nil) { _ in }
+            TuneRowActions.scansAction(tuneID: emptied, tunesWithScans: tunes) { _ in }
                 == nil)
     }
 
@@ -459,18 +452,17 @@ extension Database {
 private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement {
     Entitlement(
         id: "entitlement-1", createdAt: noon, premiumSource: source, premiumExpiresAt: expiresAt.map(Timestamp.init),
-        autoRenews: false, premiumQuotaBytes: 10_000, freeQuotaBytes: 1_000)
+        autoRenews: false, premiumQuotaBytes: 10_000)
 }
 
-/// A store with a plan row and a scan on each of two tunes, A's the older, so A is the scan tune.
+/// A store with a plan row and two scans on each of two tunes.
 @MainActor
-private struct TwoScanTunes {
+private struct ScannedTunes {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let plan: PlanModel
     let tuneA: String
     let tuneB: String
-    let scansA: [String]
 
     init(source: String?, expiresAt: Date? = nil) async throws {
         store = try root.open()
@@ -479,7 +471,7 @@ private struct TwoScanTunes {
         tuneA = try await makeTune(store, "Soldier's Joy")
         tuneB = try await makeTune(store, "Kitchen Girl")
         let commands = Commands(store: store)
-        scansA = try await commands.addScans(tuneID: tuneA, scans: [preparedScan, preparedScan], at: noon)
+        try await commands.addScans(tuneID: tuneA, scans: [preparedScan, preparedScan], at: noon)
         try await commands.addScans(tuneID: tuneB, scans: [preparedScan, preparedScan], at: later(1))
         plan = PlanModel(store: store)
     }
@@ -491,54 +483,39 @@ private struct TwoScanTunes {
 
 @MainActor
 @Suite struct ScansPlanTests {
-    @Test func aFreePlanOpensOnlyTheScanTune() async throws {
-        let fixture = try await TwoScanTunes(source: nil)
+    @Test func aFreePlanOpensNoScan() async throws {
+        let fixture = try await ScannedTunes(source: nil)
         let a = fixture.model(fixture.tuneA)
         let b = fixture.model(fixture.tuneB)
 
-        try await eventually { fixture.plan.plan.kind == .free && fixture.plan.scanTune == fixture.tuneA }
+        try await eventually { fixture.plan.plan.kind == .free }
         try await eventually { a.scans.scans.count == 2 && b.scans.scans.count == 2 }
-        #expect(a.scans.opens)
+        #expect(!a.scans.opens)
         #expect(!b.scans.opens)
 
-        let locked = b.scans.layout
+        let locked = a.scans.layout
         #expect(locked.dimsScans)
         #expect(locked.gatesAdd)
         #expect(!locked.showsReorder)
         // Edit mode still deletes.
         #expect(locked.showsEdit)
+    }
 
-        let open = a.scans.layout
+    @Test func aTrialOpensEveryTune() async throws {
+        let fixture = try await ScannedTunes(source: "trial", expiresAt: Date().addingTimeInterval(86_400 * 30))
+        let a = fixture.model(fixture.tuneA)
+        let b = fixture.model(fixture.tuneB)
+
+        try await eventually { fixture.plan.plan.kind == .premium }
+        #expect(a.scans.opens)
+        #expect(b.scans.opens)
+        let open = b.scans.layout
         #expect(!open.dimsScans)
         #expect(!open.gatesAdd)
         #expect(open.showsReorder)
     }
 
-    @Test func deletingEveryScanOnTheScanTuneOpensTheNext() async throws {
-        let fixture = try await TwoScanTunes(source: nil)
-        let b = fixture.model(fixture.tuneB)
-        try await eventually { fixture.plan.plan.kind == .free && fixture.plan.scanTune == fixture.tuneA }
-        #expect(!b.scans.opens)
-
-        let commands = Commands(store: fixture.store)
-        for id in fixture.scansA { try await commands.deleteScan(id, at: later(2)) }
-
-        try await eventually { b.scans.opens }
-        #expect(fixture.plan.scanTune == fixture.tuneB)
-    }
-
-    @Test func aTrialOpensEveryTune() async throws {
-        let fixture = try await TwoScanTunes(source: "trial", expiresAt: Date().addingTimeInterval(86_400 * 30))
-        let a = fixture.model(fixture.tuneA)
-        let b = fixture.model(fixture.tuneB)
-
-        try await eventually { fixture.plan.plan.kind == .premium && fixture.plan.scanTune == fixture.tuneA }
-        #expect(a.scans.opens)
-        #expect(b.scans.opens)
-        #expect(!b.scans.layout.gatesAdd)
-    }
-
-    @Test func withNoScanTuneAddWorksAnywhere() async throws {
+    @Test func aFreePlanGatesAddOnATuneWithNoScans() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let row = entitlement(source: nil)
@@ -548,8 +525,8 @@ private struct TwoScanTunes {
         let model = TuneModel(store: store, tuneID: tuneID, plan: plan)
 
         try await eventually { plan.plan.kind == .free && model.scans.isLoaded }
-        #expect(model.scans.opens)
-        #expect(!model.scans.layout.gatesAdd)
+        #expect(!model.scans.opens)
+        #expect(model.scans.layout.gatesAdd)
     }
 
     @Test func noPlanOpensEveryTune() async throws {
@@ -560,17 +537,34 @@ private struct TwoScanTunes {
         #expect(model.scans.opens)
     }
 
-    @Test func aRowOffersScansOnlyWhereTheyOpen() {
-        let free = Plan(kind: .free)
-        let tunes: Set<String> = ["a", "b"]
+    @Test func aRowsScansActionOffersPremiumOnAFreePlanAndOpensTheViewerOtherwise() async throws {
+        let fixture = try await ScannedTunes(source: nil)
+        try await eventually { fixture.plan.plan.kind == .free }
+        let tunes = ScanTunes(store: fixture.store)
+        try await eventually { tunes.ids.count == 2 }
+        let sink = RecordingAnalyticsSink()
+        let presenter = PremiumPresenter(plan: fixture.plan, analytics: sink.client)
+        var viewed: [String] = []
+        var actions = TuneScreenActions()
+        actions.viewScans = { tuneID, _, _ in viewed.append(tuneID) }
+
+        let action = try #require(
+            TuneRowActions.scansAction(
+                tuneID: fixture.tuneA, tunesWithScans: tunes, premium: presenter, origin: .row, actions: actions))
+        action()
+
+        #expect(viewed.isEmpty)
+        #expect(presenter.presented == .scans)
         #expect(
-            TuneRowActions.scansAction(tuneID: "a", tunesWithScans: tunes, plan: free, scanTune: "a") { _ in } != nil)
-        #expect(
-            TuneRowActions.scansAction(tuneID: "b", tunesWithScans: tunes, plan: free, scanTune: "a") { _ in } == nil)
-        let premium = Plan(kind: .premium)
-        #expect(
-            TuneRowActions.scansAction(tuneID: "b", tunesWithScans: tunes, plan: premium, scanTune: "a") { _ in } != nil
-        )
+            sink.captures == [
+                .init(name: "premium_sheet_shown", properties: ["reason": .string("scans"), "from": .string("scan")])
+            ])
+
+        let ungated = try #require(
+            TuneRowActions.scansAction(
+                tuneID: fixture.tuneB, tunesWithScans: tunes, premium: nil, origin: .row, actions: actions))
+        ungated()
+        #expect(viewed == [fixture.tuneB])
     }
 
     @Test func theStandLeavesOutScansThatDoNotOpen() {
@@ -592,9 +586,9 @@ private struct TwoScanTunes {
 @MainActor
 @Suite struct ScansPlanFollowTests {
     @Test func followsThePlanItIsGiven() async throws {
-        let fixture = try await TwoScanTunes(source: nil)
+        let fixture = try await ScannedTunes(source: nil)
         let b = TuneModel(store: fixture.store, tuneID: fixture.tuneB)
-        try await eventually { fixture.plan.plan.kind == .free && fixture.plan.scanTune == fixture.tuneA }
+        try await eventually { fixture.plan.plan.kind == .free }
         #expect(b.scans.opens)
 
         b.scans.plan = fixture.plan
@@ -606,7 +600,7 @@ private struct TwoScanTunes {
     }
 
     @Test func aLockedTileOffersPremiumFromTheScan() async throws {
-        let fixture = try await TwoScanTunes(source: nil)
+        let fixture = try await ScannedTunes(source: nil)
         try await eventually { fixture.plan.plan.kind == .free }
         let sink = RecordingAnalyticsSink()
         let presenter = PremiumPresenter(plan: fixture.plan, analytics: sink.client)
@@ -629,7 +623,7 @@ private struct TwoScanTunes {
     }
 
     @Test func aGatedAddOffersPremiumFromAddScan() async throws {
-        let fixture = try await TwoScanTunes(source: nil)
+        let fixture = try await ScannedTunes(source: nil)
         try await eventually { fixture.plan.plan.kind == .free }
         let sink = RecordingAnalyticsSink()
         let presenter = PremiumPresenter(plan: fixture.plan, analytics: sink.client)
@@ -645,7 +639,7 @@ private struct TwoScanTunes {
     }
 
     @Test func aTileWithNothingToDoIsDisabled() async throws {
-        let fixture = try await TwoScanTunes(source: nil)
+        let fixture = try await ScannedTunes(source: nil)
         let presenter = PremiumPresenter(plan: fixture.plan, analytics: .noop)
         var actions = TuneScreenActions()
         #expect(!ScansSection.tileActs(opens: true, actions: actions, premium: presenter))

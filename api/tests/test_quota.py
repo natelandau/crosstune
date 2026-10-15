@@ -61,7 +61,6 @@ async def test_used_bytes_counts_kept_originals_of_live_recordings(
     )
     await verify_session.commit()
     assert await used_bytes(verify_session, user_id) == 3300
-    assert await used_bytes(verify_session, user_id, include_recordings=False) == 300
     assert await used_bytes(verify_session, user_id, exclude=rec) == 300
 
     await verify_session.execute(

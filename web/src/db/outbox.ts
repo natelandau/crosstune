@@ -1,6 +1,6 @@
 import { getPremiumHolds } from './meta'
 import type { CrosstuneDb } from './schema'
-import { isEventTable, type OutboxEntry, type TableName } from './types'
+import { isEventTable, isPremiumTable, type OutboxEntry, type TableName } from './types'
 
 export const PUSH_BATCH_SIZE = 500
 
@@ -43,10 +43,10 @@ export function dependentRecordingId(entry: OutboxEntry): string | null {
 }
 
 /**
- * The oldest queued changes first, at most `limit`. While not `premium`, a recording's upsert the
- * server refused for Premium stays out; so does any upsert of a recording in `skip`. Every upsert
- * that names a recording left out stays out with it, since the server refuses it without that
- * recording. A delete always goes, so a held take never blocks its own removal.
+ * The oldest queued changes first, at most `limit`. While not `premium`, a recording's or scan's
+ * upsert the server refused for Premium stays out; so does any upsert of a row in `skip`. Every
+ * upsert that names a recording left out stays out with it, since the server refuses it without
+ * that recording. A delete always goes, so a held row never blocks its own removal.
  */
 export async function pendingBatch(
   db: CrosstuneDb,
@@ -59,8 +59,8 @@ export async function pendingBatch(
   if (left.size === 0) return entries.limit(limit).toArray()
   return entries
     .filter((entry) => {
-      const recordingId = entry.table === 'recordings' ? entry.row_id : dependentRecordingId(entry)
-      return entry.op === 'delete' || recordingId === null || !left.has(recordingId)
+      const heldId = isPremiumTable(entry.table) ? entry.row_id : dependentRecordingId(entry)
+      return entry.op === 'delete' || heldId === null || !left.has(heldId)
     })
     .limit(limit)
     .toArray()

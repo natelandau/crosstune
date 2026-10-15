@@ -65,6 +65,13 @@ export function isEventTable(name: TableName): name is EventTable {
   return (EVENT_TABLES as readonly string[]).includes(name)
 }
 
+/** The tables whose rows the server takes only from a Premium account. */
+export const PREMIUM_TABLES = ['recordings', 'scans'] as const satisfies readonly TableName[]
+
+export function isPremiumTable(name: TableName): boolean {
+  return (PREMIUM_TABLES as readonly string[]).includes(name)
+}
+
 /** Every table this device stores: the synced ones, the event stores, and entitlements. */
 export type StoredTableName = SyncTableName | EventTable | 'entitlements'
 

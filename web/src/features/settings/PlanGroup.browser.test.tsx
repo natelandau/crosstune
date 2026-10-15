@@ -19,7 +19,6 @@ import { addedDay } from '../../text/format'
 import {
   ENDS,
   FREE_HELP,
-  FREE_STORAGE_HELP,
   MANAGE_APP_STORE,
   MANAGE_SUBSCRIPTION,
   PLAN_FREE,
@@ -32,6 +31,7 @@ import {
   trialLeft,
 } from '../plan/planCopy'
 import { PremiumSheetProvider } from '../plan/PremiumSheetProvider'
+import { STORAGE_USED } from '../recordings/recordingsCopy'
 import { PlanGroup } from './PlanGroup'
 
 const config = vi.hoisted(() => ({ portalUrl: '' }))
@@ -97,12 +97,12 @@ describe('PlanGroup', () => {
     await expect.element(page.getByText(trialLeft(ends, NOW), { exact: true })).toBeVisible()
   })
 
-  it('shows the free plan with its help and the row quota', async () => {
-    await mount({ free_quota_bytes: 50_000_000 })
+  it('shows the free plan with its help and the storage used, with no quota or meter', async () => {
+    await mount({})
     await expect.element(page.getByText(PLAN_FREE, { exact: true })).toBeVisible()
     await expect.element(page.getByText(FREE_HELP)).toBeVisible()
-    await expect.element(page.getByText(FREE_STORAGE_HELP)).toBeVisible()
-    await expect.element(page.getByText('12 MB of 50 MB used')).toBeVisible()
+    await expect.element(page.getByText('12 MB used', { exact: true })).toBeVisible()
+    expect(page.getByRole('progressbar', { name: STORAGE_USED }).elements()).toHaveLength(0)
   })
 
   it('shows a comp with no end as Premium with no detail', async () => {
@@ -148,8 +148,9 @@ describe('PlanGroup', () => {
   })
 
   it('takes a premium quota from the row over the stored server quota', async () => {
-    await mount({ premium_source: 'comp', premium_quota_bytes: 5_000_000_000 })
-    await expect.element(page.getByText('12 MB of 5 GB used')).toBeVisible()
+    await mount({ premium_source: 'comp', premium_quota_bytes: 3_000_000_000 })
+    await expect.element(page.getByText('12 MB of 3 GB used')).toBeVisible()
+    await expect.element(page.getByRole('progressbar', { name: STORAGE_USED })).toBeVisible()
   })
 
   it('shows nothing without an entitlements row', async () => {

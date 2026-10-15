@@ -46,8 +46,8 @@ describe('/privacy', () => {
     'photo library',
     'the app stops collecting',
     'if Share usage data is on, the app then reports',
-    '50 MB',
-    '5 GB',
+    '100 MB',
+    '3 GB',
   ])('states "%s"', (phrase) => {
     expect(text.toLowerCase()).toContain(phrase.toLowerCase())
   })

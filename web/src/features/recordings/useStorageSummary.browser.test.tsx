@@ -35,20 +35,30 @@ describe('useStorageSummary', () => {
     await expect.poll(() => result.current?.fraction).toBe(1)
   })
 
-  it('shows nothing until the server has given a quota', async () => {
-    await setStorage(db, { used_bytes: 10, quota_bytes: 0, max_file_bytes: 1 })
+  it('says only how much is used when the server gives no quota', async () => {
+    await setStorage(db, { used_bytes: 10_000_000, quota_bytes: 0, max_file_bytes: 1 })
     const { result } = setup()
-    // The read settles to the same null it starts at, so wait on the stored row instead.
-    await expect.poll(async () => (await db.meta.count()) > 0).toBe(true)
-    expect(result.current).toBeNull()
+    await expect
+      .poll(() => result.current)
+      .toEqual({ used: 10_000_000, quota: null, fraction: null, label: '10 MB used' })
   })
 })
 
 describe('useStorageSummary with a plan', () => {
-  it('takes the quota from the entitlements row and the used bytes from the server figure', async () => {
-    await db.entitlements.put(entitlementRow({ free_quota_bytes: 50_000_000 }))
+  it('takes a premium quota from the entitlements row and the used bytes from the server figure', async () => {
+    await db.entitlements.put(
+      entitlementRow({ premium_source: 'comp', premium_quota_bytes: 50_000_000 }),
+    )
     await setStorage(db, { used_bytes: 12_000_000, quota_bytes: 1_000_000_000, max_file_bytes: 1 })
     const { result } = setup()
     await expect.poll(() => result.current?.label).toBe('12 MB of 50 MB used')
+  })
+
+  it('gives no quota on a free plan, whatever quota the server figure last held', async () => {
+    await db.entitlements.put(entitlementRow())
+    await setStorage(db, { used_bytes: 12_000_000, quota_bytes: 1_000_000_000, max_file_bytes: 1 })
+    const { result } = setup()
+    await expect.poll(() => result.current?.label).toBe('12 MB used')
+    expect(result.current).toMatchObject({ quota: null, fraction: null })
   })
 })

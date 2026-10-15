@@ -1,7 +1,7 @@
 import CrosstuneStore
 import SwiftUI
 
-/// Storage used against the quota: the figure over a bar.
+/// Storage used against the quota: the figure over a bar, or the figure alone with no quota.
 struct StorageMeter: View {
     let storage: StorageFigures
 
@@ -12,9 +12,11 @@ struct StorageMeter: View {
         VStack(alignment: .leading, spacing: spacing.stackGap) {
             Text(text)
                 .monospacedDigit()
-            ProgressView(value: SettingsModel.storageFraction(storage))
-                .accessibilityLabel(SettingsModel.storageUsed)
-                .accessibilityValue(text)
+            if storage.quotaBytes > 0 {
+                ProgressView(value: SettingsModel.storageFraction(storage))
+                    .accessibilityLabel(SettingsModel.storageUsed)
+                    .accessibilityValue(text)
+            }
         }
         .padding(.vertical, spacing(4))
     }
