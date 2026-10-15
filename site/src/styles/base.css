@@ -81,7 +81,7 @@ a {
   padding-inline: var(--gutter);
 }
 
-/* The legal, help, and thanks pages: one readable column. */
+/* The legal and help pages: one readable column. */
 .column {
   max-width: 1000px;
   margin-inline: auto;
@@ -198,10 +198,6 @@ a {
   text-decoration-color: var(--coral);
 }
 
-.nav .short {
-  display: none;
-}
-
 @media (max-width: 760px) {
   .nav nav {
     display: none;
@@ -218,22 +214,26 @@ a {
     gap: 12px;
   }
 
-  /* Still the button's accessible name; the short label is only what shows. */
-  .nav .long {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+  .nav .lockup {
+    font-size: 19px;
   }
+}
 
-  .nav .short {
-    display: inline;
+@media (max-width: 400px) {
+  .nav .button.small {
+    padding-inline: 12px;
+    font-size: 14px;
   }
 
   .nav .lockup {
-    font-size: 19px;
+    font-size: 17px;
+  }
+}
+
+/* The mark alone still names the home link through its aria-label. */
+@media (max-width: 359px) {
+  .nav .lockup span {
+    display: none;
   }
 }
 

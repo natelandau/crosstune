@@ -1,4 +1,4 @@
-// The hero's headline and the lines beside its waitlist form.
+// The hero's headline and the lines beside its Create account button.
 export const HERO_TITLE = 'The app for musicians who learn by ear'
 /** The lede's bold first sentence. */
 export const HERO_LEDE_LEAD = 'Your tune list, recordings, and practice tools in one app.'

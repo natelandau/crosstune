@@ -1,14 +1,17 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { SITE_POSTHOG_CONFIG, SITE_SUPER_PROPERTIES } from '../src/scripts/analytics'
-import { ACQUISITION_KEYS } from '../src/scripts/waitlist'
+import { PLACEMENTS, SITE_POSTHOG_CONFIG, SITE_SUPER_PROPERTIES } from '../src/scripts/analytics'
 
 interface Plan {
   enums: Record<string, string[]>
   super_properties: Record<string, { enum?: string; clients: string[] }>
   events: Record<
     string,
-    { clients: string[]; builtin?: boolean; properties: Record<string, unknown> }
+    {
+      clients: string[]
+      builtin?: boolean
+      properties: Record<string, { enum?: string; required?: boolean }>
+    }
   >
 }
 
@@ -43,7 +46,7 @@ describe('tracking plan', () => {
     const listed = Object.entries(plan.events)
       .filter(([, event]) => !event.builtin && event.clients.includes('site'))
       .map(([name]) => name)
-    expect(listed).toEqual(['waitlist_joined'])
+    expect(listed).toEqual(['create_account_clicked'])
   })
 
   it('turns on exactly the builtins the plan lists for the site', () => {
@@ -56,9 +59,9 @@ describe('tracking plan', () => {
     }
   })
 
-  it('waitlist_joined sends only plan properties', () => {
-    expect([...ACQUISITION_KEYS].sort()).toEqual(
-      Object.keys(plan.events.waitlist_joined!.properties).sort(),
-    )
+  it('create_account_clicked takes its placement from the plan', () => {
+    const placement = plan.events.create_account_clicked!.properties.placement!
+    expect(placement.required).toBe(true)
+    expect(plan.enums[placement.enum!]).toEqual([...PLACEMENTS])
   })
 })

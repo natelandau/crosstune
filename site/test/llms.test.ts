@@ -20,6 +20,10 @@ describe('/llms.txt', () => {
     for (const { question, answer } of FAQ) expect(text).toContain(`### ${question}\n\n${answer}`)
   })
 
+  it('links home for features, pricing, and sign-up', () => {
+    expect(text).toContain('[Home](https://crosstune.app/): features, pricing, and sign-up')
+  })
+
   it('never says notation or song', () => {
     expect(text).not.toMatch(/\bnotation\b|\bsong\b/i)
   })

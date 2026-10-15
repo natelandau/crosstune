@@ -74,59 +74,76 @@ describe('startAnalytics', () => {
   })
 })
 
-describe('trackWaitlistJoined', () => {
-  it('captures with the acquisition it is given, sent at once by beacon, after start', async () => {
-    const { startAnalytics, trackWaitlistJoined } = await import('../src/scripts/analytics')
+const BEACON = { send_instantly: true, transport: 'sendBeacon' }
+
+describe('trackCreateAccount', () => {
+  it('captures the placement, sent at once by beacon, after start', async () => {
+    const { startAnalytics, trackCreateAccount } = await import('../src/scripts/analytics')
     await startAnalytics('phc_x')
-    await trackWaitlistJoined({ $referrer: 'https://forum.example/', utm_source: 'newsletter' })
+    trackCreateAccount('hero')
     expect(posthog.capture).toHaveBeenCalledTimes(1)
     expect(posthog.capture).toHaveBeenCalledWith(
-      'waitlist_joined',
-      { $referrer: 'https://forum.example/', utm_source: 'newsletter' },
-      {
-        send_instantly: true,
-        transport: 'sendBeacon',
-      },
+      'create_account_clicked',
+      { placement: 'hero' },
+      BEACON,
     )
   })
 
-  it('sends a join made while analytics is still loading once it has loaded', async () => {
-    const idle = vi.fn<(cb: () => void, opts?: { timeout: number }) => void>()
-    vi.stubGlobal('requestIdleCallback', idle)
-    try {
-      const { startAnalytics, trackWaitlistJoined } = await import('../src/scripts/analytics')
-      const started = startAnalytics('phc_x')
-      const tracked = trackWaitlistJoined({})
-      expect(posthog.capture).not.toHaveBeenCalled()
-      idle.mock.calls[0]![0]()
-      await started
-      await tracked
-      expect(posthog.capture).toHaveBeenCalledTimes(1)
-      expect(posthog.capture).toHaveBeenCalledWith(
-        'waitlist_joined',
-        {},
-        {
-          send_instantly: true,
-          transport: 'sendBeacon',
-        },
-      )
-    } finally {
-      vi.unstubAllGlobals()
-    }
-  })
-
   it('does nothing before start', async () => {
-    const { trackWaitlistJoined } = await import('../src/scripts/analytics')
-    await trackWaitlistJoined({})
+    const { trackCreateAccount } = await import('../src/scripts/analytics')
+    trackCreateAccount('nav')
     expect(posthog.capture).not.toHaveBeenCalled()
   })
 
   it('swallows a capture that throws', async () => {
-    const { startAnalytics, trackWaitlistJoined } = await import('../src/scripts/analytics')
+    const { startAnalytics, trackCreateAccount } = await import('../src/scripts/analytics')
     await startAnalytics('phc_x')
     posthog.capture.mockImplementation(() => {
       throw new Error('boom')
     })
-    await expect(trackWaitlistJoined({})).resolves.toBeUndefined()
+    expect(() => trackCreateAccount('closing')).not.toThrow()
+  })
+})
+
+describe('trackCreateAccountClicks', () => {
+  // A stand-in document: the listener reads only the click target's nearest placement.
+  function page() {
+    let listener: ((event: { target: unknown }) => void) | undefined
+    const root = {
+      addEventListener: vi.fn((type: string, fn: typeof listener) => {
+        if (type === 'click') listener = fn
+      }),
+    }
+    const click = (placement: string | null) =>
+      listener!({
+        target: {
+          closest: () => (placement === null ? null : { dataset: { createAccount: placement } }),
+        },
+      })
+    return { root, click }
+  }
+
+  it('sends the placement of a clicked Create account link', async () => {
+    const { startAnalytics, trackCreateAccountClicks } = await import('../src/scripts/analytics')
+    await startAnalytics('phc_x')
+    const { root, click } = page()
+    trackCreateAccountClicks(root as unknown as Document)
+    expect(root.addEventListener).toHaveBeenCalledTimes(1)
+    click('pricing_premium')
+    expect(posthog.capture).toHaveBeenCalledWith(
+      'create_account_clicked',
+      { placement: 'pricing_premium' },
+      BEACON,
+    )
+  })
+
+  it('ignores other clicks and placements the plan does not list', async () => {
+    const { startAnalytics, trackCreateAccountClicks } = await import('../src/scripts/analytics')
+    await startAnalytics('phc_x')
+    const { root, click } = page()
+    trackCreateAccountClicks(root as unknown as Document)
+    click(null)
+    click('footer')
+    expect(posthog.capture).not.toHaveBeenCalled()
   })
 })

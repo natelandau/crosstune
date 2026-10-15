@@ -4,13 +4,16 @@ import { describe, expect, it } from 'vitest'
 import {
   ALREADY_SIGNED_UP,
   APP_URL,
+  CREATE_ACCOUNT,
+  CREATE_FREE_ACCOUNT,
   HOME_LINK,
-  JOIN_WAITLIST,
   NATE_EMAIL,
+  NO_CARD,
+  PREMIUM_INCLUDED,
   SECTIONS,
   SIGN_IN,
-  SUPPORT_EMAIL,
-  WAITLIST_ID,
+  SIGN_UP_URL,
+  START_ID,
 } from '../src/components/actions'
 import { CLOSING_LEDE, CLOSING_TITLE } from '../src/components/closing'
 import { FAQ, FAQ_TITLE } from '../src/components/faq'
@@ -39,6 +42,7 @@ import {
   STRUCTURED_DATA,
   scriptJson,
 } from '../src/components/seo'
+import { PLACEMENTS } from '../src/scripts/analytics'
 import { parseHtml, readDist, readPage } from './dist'
 
 const doc = readPage('/')
@@ -100,8 +104,11 @@ describe('home page copy', () => {
     expect(text(band)).toBe(MAKER_BAND.name)
   })
 
-  it('has the closing lede', () => {
-    expect(text(doc.querySelector(`#${WAITLIST_ID} h2 + p`))).toBe(CLOSING_LEDE)
+  it('has the closing lede, which promises the web today and the apps soon', () => {
+    expect(CLOSING_LEDE).toBe(
+      'Start free on the web today. The iPhone, iPad, and Mac apps follow soon.',
+    )
+    expect(text(doc.querySelector(`#${START_ID} h2 + p`))).toBe(CLOSING_LEDE)
   })
 
   it('reads attribute text from the page', () => {
@@ -121,18 +128,24 @@ describe('home page copy', () => {
     }
   })
 
-  it('nav links home, to the sections, to sign in, and to the waitlist', () => {
+  it('nav links home, to the sections, to sign in, and to sign up', () => {
     const nav = doc.querySelector('header.nav')
     const links = [...(nav?.querySelectorAll('a') ?? [])].map((a) => [
-      a.getAttribute('aria-label') ?? text(a.querySelector('.long') ?? a),
+      a.getAttribute('aria-label') ?? text(a),
       a.getAttribute('href'),
     ])
     expect(links).toEqual([
       [HOME_LINK, '/'],
       ...SECTIONS.map(([label, id]) => [label, `#${id}`]),
       [SIGN_IN, APP_URL],
-      [JOIN_WAITLIST, `#${WAITLIST_ID}`],
+      [CREATE_ACCOUNT, SIGN_UP_URL],
     ])
+  })
+
+  it("keeps the nav's Create account to one label at every width", () => {
+    const link = doc.querySelector('header.nav a[data-create-account="nav"]')
+    expect(link?.classList.contains('small')).toBe(true)
+    expect(link?.querySelector('.short, .long, svg')).toBeNull()
   })
 
   it('names every nav section that exists on the page', () => {
@@ -140,43 +153,77 @@ describe('home page copy', () => {
   })
 })
 
-describe('home page waitlist forms', () => {
-  const forms = [...doc.querySelectorAll('form[data-waitlist]')]
+describe('home page Create account buttons', () => {
+  const big = (placement: string) => doc.querySelector(`main a[data-create-account="${placement}"]`)
+  const hero = big('hero')
+  const closing = big('closing')
 
-  it('has one form in the hero and one in the closing band', () => {
-    expect(forms).toHaveLength(2)
-    expect(forms[0].closest('.hero')).not.toBeNull()
-    expect(forms[1].closest(`#${WAITLIST_ID}`)?.tagName).toBe('SECTION')
+  it('has one big button in the hero and one in the closing band', () => {
+    expect(hero?.closest('.hero')).not.toBeNull()
+    expect(closing?.closest(`#${START_ID}`)?.tagName).toBe('SECTION')
+    expect(doc.querySelectorAll('.hero a[data-create-account]')).toHaveLength(1)
+    expect(doc.querySelectorAll(`#${START_ID} a[data-create-account]`)).toHaveLength(1)
   })
 
-  it.each([0, 1])('form %i asks for an email and reports its status politely', (i) => {
-    const form = forms[i]
-    const input = form.querySelector('input[type="email"][name="email"]')
-    expect(input?.hasAttribute('required')).toBe(true)
-    expect(input?.getAttribute('autocomplete')).toBe('email')
-    expect(input?.id && doc.querySelector(`label[for="${input.id}"]`)).toBeTruthy()
-    expect(text(form.querySelector('button[type="submit"]'))).toBe(JOIN_WAITLIST)
-    const status = form.querySelector('p[data-waitlist-status]')
-    expect(status?.getAttribute('aria-live')).toBe('polite')
-    expect(text(status)).toBe('')
+  it.each(['hero', 'closing'])(
+    'the %s button names the free account and leads to sign-up',
+    (placement) => {
+      const link = big(placement)
+      expect(text(link)).toBe(CREATE_FREE_ACCOUNT)
+      expect(link?.getAttribute('href')).toBe(SIGN_UP_URL)
+      const icons = [...(link?.querySelectorAll('svg') ?? [])]
+      expect(icons).toHaveLength(1)
+      expect(icons[0]!.getAttribute('aria-hidden')).toBe('true')
+    },
+  )
+
+  it('draws the closing button in jet, since coral has no contrast on the coral wash', () => {
+    expect(closing?.classList.contains('jet')).toBe(true)
+    expect(hero?.classList.contains('jet')).toBe(false)
   })
 
-  it('gives each form its own ids', () => {
+  it.each(['hero', 'closing'])('the %s button lists the terms under it', (placement) => {
+    const items = [...(big(placement)?.parentElement?.querySelectorAll('.checks li') ?? [])]
+    expect(items.map(text)).toEqual([PREMIUM_INCLUDED, NO_CARD])
+    for (const item of items) {
+      expect(item.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
+    }
+  })
+
+  it.each(['hero', 'closing'])(
+    'the %s button offers sign in to people who already have an account',
+    (placement) => {
+      const note = big(placement)?.parentElement?.querySelector('.note')
+      expect(text(note)).toBe(`${ALREADY_SIGNED_UP} ${SIGN_IN}`)
+      expect(note?.querySelector('a')?.getAttribute('href')).toBe(APP_URL)
+    },
+  )
+
+  it('offers the free account on the Free card and an account on the Premium card', () => {
+    const free = doc.querySelector('#pricing a[data-create-account="pricing_free"]')
+    const premium = doc.querySelector('#pricing a[data-create-account="pricing_premium"]')
+    expect(text(free)).toBe(CREATE_FREE_ACCOUNT)
+    expect(free?.className).toBe('button quiet')
+    expect(text(premium)).toBe(CREATE_ACCOUNT)
+    expect(premium?.className).toBe('button')
+  })
+
+  it('sends every Create account link to sign-up, one per placement', () => {
+    const links = [...doc.querySelectorAll('[data-create-account]')]
+    expect(links.map((a) => a.getAttribute('data-create-account')).sort()).toEqual(
+      [...PLACEMENTS].sort(),
+    )
+    for (const link of links) expect(link.getAttribute('href')).toBe(SIGN_UP_URL)
+  })
+
+  it('has no form and no waitlist anchor', () => {
+    expect(doc.querySelector('form')).toBeNull()
+    expect(doc.getElementById('waitlist')).toBeNull()
+  })
+
+  it('gives every element its own id', () => {
     const ids = [...doc.querySelectorAll('[id]')].map((el) => el.id)
     expect(new Set(ids).size).toBe(ids.length)
-  })
-
-  it.each([0, 1])('form %i offers sign in to people who already have an account', (i) => {
-    const note = forms[i].parentElement?.querySelector('.note')
-    expect(text(note)).toBe(`${ALREADY_SIGNED_UP} ${SIGN_IN}`)
-    expect(note?.querySelector('a')?.getAttribute('href')).toBe(APP_URL)
-  })
-
-  it.each([0, 1])('form %i falls back to a mailto link without JavaScript', (i) => {
-    const noscript = forms[i].parentElement?.querySelector('noscript')
-    expect(noscript?.innerHTML).toContain(`href="mailto:${SUPPORT_EMAIL}"`)
-    expect(noscript?.innerHTML).toContain('form[data-waitlist]')
-    expect(noscript?.innerHTML).toMatch(/display:\s*none/)
   })
 
   it('ships the layout and page module scripts and one block of structured data', () => {
@@ -392,7 +439,7 @@ describe('home page outline and sections', () => {
       pricing,
       doc.getElementById('maker-title')?.closest('section'),
       faq,
-      doc.getElementById('waitlist'),
+      doc.getElementById(START_ID),
     ]
     for (let i = 0; i < order.length - 1; i += 1) {
       expect(order[i]!.compareDocumentPosition(order[i + 1]!) & 4).toBeTruthy()

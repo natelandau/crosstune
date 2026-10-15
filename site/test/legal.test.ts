@@ -53,6 +53,12 @@ describe('/privacy', () => {
   })
 })
 
+describe.each(pages)('%s after the waitlist', (path) => {
+  it('never mentions the waitlist', () => {
+    expect(readPage(path).body.textContent).not.toMatch(/waitlist/i)
+  })
+})
+
 describe('/terms', () => {
   const text = readPage('/terms').body.textContent ?? ''
 
@@ -67,7 +73,7 @@ describe('/support', () => {
     (h) => h.textContent?.toLowerCase() ?? '',
   )
 
-  it.each([/waitlist/, /sign/, /delet/])('has a heading matching %s', (pattern) => {
+  it.each([/create an account/, /sign/, /delet/])('has a heading matching %s', (pattern) => {
     expect(headings.some((h) => pattern.test(h))).toBe(true)
   })
 })

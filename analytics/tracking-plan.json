@@ -41,6 +41,13 @@
     ]
   },
   "enums": {
+    "placement": [
+      "nav",
+      "hero",
+      "closing",
+      "pricing_free",
+      "pricing_premium"
+    ],
     "product": [
       "site",
       "app"
@@ -532,7 +539,7 @@
     "usage_by_platform": "How much is the app used on each platform?",
     "retention": "Do people come back, week over week, on each platform?",
     "site_traffic": "How many visitors does the site get, and what do they read and click?",
-    "waitlist_sources": "Which referrers and campaigns lead to a waitlist join?",
+    "signup_sources": "Which referrers and campaigns lead to a Create account click?",
     "activation": "Do new people go from signing in to a tune, its audio, and practice?",
     "feature_usage": "Which features are used most and least?",
     "playback_source": "Where does playback start?",
@@ -1933,15 +1940,20 @@
       ],
       "builtin": true
     },
-    "waitlist_joined": {
-      "description": "A visitor joined the waitlist.",
+    "create_account_clicked": {
+      "description": "A visitor clicked a Create account link on the site, on the way to the web app's sign-up screen.",
       "clients": [
         "site"
       ],
       "answers": [
-        "waitlist_sources"
+        "signup_sources"
       ],
       "properties": {
+        "placement": {
+          "type": "string",
+          "enum": "placement",
+          "required": true
+        },
         "$referrer": {
           "type": "string",
           "format": "free",

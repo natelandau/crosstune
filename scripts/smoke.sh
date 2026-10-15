@@ -49,11 +49,11 @@ check "web serves the shell for a client-side route" body_has "$web/tunes/new" '
 # Site checks: the static site at the apex, which never proxies the API.
 if [ -n "$site" ]; then
   check "site serves the home page" body_has "$site/" 'id="hero-title"'
-  for page in privacy terms support waitlist/thanks; do
+  for page in privacy terms support; do
     check "site serves /$page" status_is "$site/$page" 200
   done
   for path in /waitlist /waitlist/; do
-    check "site redirects $path to the waitlist form" header_has "$site$path" 302 'location: .*/#waitlist'
+    check "site redirects $path to sign-up" header_has "$site$path" 302 'location: https://my\.crosstune\.app/sign-up'
   done
   check "site serves a service worker that revalidates on every visit" \
     header_has "$site/sw.js" 200 'cache-control: no-cache'

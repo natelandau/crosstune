@@ -5,6 +5,18 @@ import { describe, expect, it } from 'vitest'
 const read = (file: string) => readFileSync(resolve(import.meta.dirname, '../src', file), 'utf8')
 const base = read('styles/base.css')
 const tokens = read('styles/tokens.css')
+const createAccount = /<style>([\s\S]*)<\/style>/.exec(read('components/CreateAccount.astro'))![1]
+
+/** The body of the first `@media` block whose query is `query`, braces matched. */
+function mediaBody(css: string, query: string): string {
+  const open = css.indexOf('{', css.indexOf(`@media ${query}`))
+  let depth = 0
+  for (let i = open; i < css.length; i += 1) {
+    if (css[i] === '{') depth += 1
+    if (css[i] === '}' && --depth === 0) return css.slice(open + 1, i)
+  }
+  throw new Error(`no @media ${query}`)
+}
 
 /** A selector list's selectors, splitting only on commas outside parentheses. */
 const selectorList = (text: string) =>
@@ -69,6 +81,40 @@ describe('button colors', () => {
       const background = declared(base, selector, 'background')[0]
       expect(contrast(color(background), label), selector).toBeGreaterThanOrEqual(4.5)
     }
+  })
+})
+
+describe('Create account button', () => {
+  it('keeps the coral label at 4.5:1 or more, at rest and on hover', () => {
+    const label = color(declared(createAccount, '.create', 'color')[0])
+    for (const selector of ['.create', '.create:hover']) {
+      const background = declared(createAccount, selector, 'background')[0]
+      expect(contrast(color(background), label), selector).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  it('keeps the jet label at 4.5:1 or more, at rest and on hover', () => {
+    const label = color(declared(createAccount, '.create.jet', 'color')[0])
+    for (const selector of ['.create.jet', '.create.jet:hover']) {
+      const background = declared(createAccount, selector, 'background')[0]
+      expect(contrast(color(background), label), selector).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  it('keeps the check marks on the coral wash at 3:1 or more', () => {
+    const check = color(declared(createAccount, '.cta.jet .checks svg', 'color')[0])
+    expect(contrast(check, color('var(--coral-wash)'))).toBeGreaterThanOrEqual(3)
+  })
+
+  it('stands at least 44px tall', () => {
+    const heights = declared(createAccount, '.create', 'min-height').map(Number.parseFloat)
+    expect(Math.min(...heights)).toBeGreaterThanOrEqual(44)
+  })
+
+  it('neither lifts nor slides its arrow under reduced motion', () => {
+    const reduced = mediaBody(createAccount, '(prefers-reduced-motion: reduce)')
+    expect(declared(reduced, '.create:hover', 'transform')).toEqual(['none'])
+    expect(declared(reduced, '.create:hover svg', 'transform')).toEqual(['none'])
   })
 })
 

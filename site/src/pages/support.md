@@ -7,13 +7,13 @@ path: /support
 
 # Support
 
-Last updated: 2026-10-09
+Last updated: 2026-10-15
 
 For help, write to [support@crosstune.app](mailto:support@crosstune.app). The answers below cover the most common questions.
 
-## How do I join the waitlist?
+## How do I create an account?
 
-Enter your email address in the waitlist form on [crosstune.app](https://crosstune.app/#waitlist). You get an email when your account is ready.
+Go to [my.crosstune.app/sign-up](https://my.crosstune.app/sign-up). A free account, with 30 days of Premium included and no card.
 
 ## How do I sign in?
 

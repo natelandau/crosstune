@@ -1,5 +1,5 @@
 ---
-import { JOIN_WAITLIST, WAITLIST_ID } from './actions'
+import { CREATE_ACCOUNT, CREATE_FREE_ACCOUNT, SIGN_UP_URL } from './actions'
 import { BILLING, PLAN_FREE, PLAN_PREMIUM, PRICING_LEDE, PRICING_TITLE } from './pricing'
 ---
 
@@ -28,8 +28,8 @@ import { BILLING, PLAN_FREE, PLAN_PREMIUM, PRICING_LEDE, PRICING_TITLE } from '.
             <li>{bullet}</li>
           ))}
         </ul>
-        <a class="button quiet" href={`#${WAITLIST_ID}`}>
-          {JOIN_WAITLIST}
+        <a class="button quiet" href={SIGN_UP_URL} data-create-account="pricing_free">
+          {CREATE_FREE_ACCOUNT}
         </a>
       </article>
       <article class="plan pro">
@@ -46,8 +46,8 @@ import { BILLING, PLAN_FREE, PLAN_PREMIUM, PRICING_LEDE, PRICING_TITLE } from '.
             <li>{bullet}</li>
           ))}
         </ul>
-        <a class="button" href={`#${WAITLIST_ID}`}>
-          {JOIN_WAITLIST}
+        <a class="button" href={SIGN_UP_URL} data-create-account="pricing_premium">
+          {CREATE_ACCOUNT}
         </a>
       </article>
     </div>

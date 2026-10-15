@@ -4,12 +4,11 @@ import Lockup from '../components/Lockup.astro'
 import { OG_IMAGE_ALT } from '../components/seo'
 import {
   APP_URL,
-  JOIN_WAITLIST,
-  JOIN_WAITLIST_SHORT,
+  CREATE_ACCOUNT,
   SECTIONS,
   SIGN_IN,
+  SIGN_UP_URL,
   SITE_URL,
-  WAITLIST_ID,
 } from '../components/actions'
 // The headline face, preloaded because the hero headline is the page's largest paint.
 import headlineFont from '../assets/fonts/schibsted-grotesk.woff2?url'
@@ -79,11 +78,8 @@ const imageAlt = OG_IMAGE_ALT
           <a class="sign-in" href={APP_URL}>
             {SIGN_IN}
           </a>
-          <a class="button small" href={`${home}#${WAITLIST_ID}`}>
-            <span class="long">{JOIN_WAITLIST}</span>
-            <span class="short" aria-hidden="true">
-              {JOIN_WAITLIST_SHORT}
-            </span>
+          <a class="button small" href={SIGN_UP_URL} data-create-account="nav">
+            {CREATE_ACCOUNT}
           </a>
         </div>
       </div>
@@ -91,9 +87,10 @@ const imageAlt = OG_IMAGE_ALT
     <slot />
     <Footer />
     <script>
-      import { startAnalytics } from '../scripts/analytics'
+      import { startAnalytics, trackCreateAccountClicks } from '../scripts/analytics'
 
       startAnalytics(import.meta.env.PUBLIC_POSTHOG_TOKEN)
+      trackCreateAccountClicks(document)
 
       const nav = document.querySelector<HTMLElement>('[data-nav]')
       if (nav) {

@@ -7,7 +7,7 @@ path: /privacy
 
 # Privacy policy
 
-Last updated: 2026-10-14
+Last updated: 2026-10-15
 
 Crosstune is run by Nathaniel Landau, an individual. This page explains what data the service holds and who handles it. Questions go to [support@crosstune.app](mailto:support@crosstune.app).
 
@@ -21,7 +21,7 @@ Crosstune is run by Nathaniel Landau, an individual. This page explains what dat
 
 ## Who processes it
 
-- Clerk handles sign-in. It holds your email address, your name and profile details, and your session data.
+- Clerk handles sign-in. It holds your email address, your name and profile details, and your session data. It sets cookies on crosstune.app to keep you signed in to the web app.
 - Neon hosts the database that holds your catalog and your activity.
 - Railway runs the Crosstune API.
 - Cloudflare serves this site and the web app. It also stores your recordings and scans in its R2 storage.
@@ -33,10 +33,6 @@ Crosstune is run by Nathaniel Landau, an individual. This page explains what dat
 - Link, a service of Stripe, sells Premium on the web. Link holds your email address, your payment details, and your billing address. Crosstune never receives your card number.
 - RevenueCat keeps the record of your Premium subscription from Apple and Link. It holds your Crosstune account ID, what you bought, and when it renews or ends.
 
-## The waitlist
-
-The waitlist form loads Clerk when you focus the email field. Clerk sets cookies on crosstune.app. When you join the waitlist, Clerk holds your email address until we invite you or you ask us to remove it. To remove it, write to [support@crosstune.app](mailto:support@crosstune.app).
-
 ## Data on your devices
 
 The app stores your full catalog on your own devices so that it works offline. When you sign out, the app deletes that copy from the device.
@@ -47,7 +43,7 @@ This site, the web app, and the iPhone, iPad, and Mac apps send usage analytics 
 
 PostHog receives each request's IP address and uses it to estimate your approximate location, which is your country and city. It also receives which pages and features you use, and your device and software details. On this site, those details are your browser, operating system, screen size, time zone, and the page that referred you. In the web app, they are your browser, operating system, screen size, language, time zone, and the app version, and whether you use a phone, tablet, or computer and run the app installed or in a browser tab. In the iPhone, iPad, and Mac apps, they are your device model, operating system version, screen size, language, time zone, whether you are on Wi-Fi or cellular, and the app version. The apps also report whether assistive features, such as VoiceOver, are on. They never report what those features read. The apps also report when you install, update, open, and leave them.
 
-On this site, visits are counted without cookies, and the analytics are not linked to an account. When you join the waitlist, the site keeps the page that referred you and any campaign tags from the link in your browser's session storage, so the next page can send them with the join. That page then deletes them. The site also records your clicks and how fast its pages load. The site has no switch to turn them off, but a content blocker stops them.
+On this site, visits are counted without cookies, and the analytics are not linked to an account. When you click a Create account button, the site records which button you clicked, with the page that referred you and any campaign tags from the link. That record is not linked to the account you create. The site also records your clicks and how fast its pages load. The site has no switch to turn them off, but a content blocker stops them.
 
 The web app and the apps link this data to your account. They never send your email address or name to PostHog. Events can carry the internal IDs of tunes, lists, recordings, links, and scans. They never send tune names, notes, lyrics, scans, or recordings.
 

@@ -1,16 +1,16 @@
 ---
-import JoinForm from './JoinForm.astro'
-import { WAITLIST_ID } from './actions'
+import CreateAccount from './CreateAccount.astro'
+import { START_ID } from './actions'
 import { CLOSING_LEDE, CLOSING_TITLE } from './closing'
 ---
 
-<section id={WAITLIST_ID} class="closing wrap" aria-labelledby="waitlist-title">
+<section id={START_ID} class="closing wrap" aria-labelledby="start-title">
   <div class="panel">
     <div>
-      <h2 id="waitlist-title">{CLOSING_TITLE}</h2>
+      <h2 id="start-title">{CLOSING_TITLE}</h2>
       <p>{CLOSING_LEDE}</p>
     </div>
-    <JoinForm id="closing" />
+    <CreateAccount tone="jet" placement="closing" />
   </div>
 </section>
 
@@ -41,10 +41,6 @@ import { CLOSING_LEDE, CLOSING_TITLE } from './closing'
   p {
     max-width: 40ch;
     margin-top: 16px;
-    color: var(--slate);
-  }
-
-  .panel :global(.note) {
     color: var(--slate);
   }
 

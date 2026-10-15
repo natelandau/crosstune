@@ -1,5 +1,6 @@
 // The page's icon sprite, built from lucide's icon data at build time. Each symbol is `i-NAME`.
 import {
+  ArrowRight,
   ArrowUp,
   ArrowUpRight,
   AudioLines,
@@ -77,6 +78,9 @@ const ICONS: Record<string, Glyph> = {
   file: { icon: FileText },
   head: { icon: Headphones },
   gauge: { icon: Gauge },
+  // The Create account button's arrow and check marks.
+  arrow: { icon: ArrowRight, weight: 2.25 },
+  tick: { icon: Check, weight: 2.75 },
 }
 
 const attrs = (a: Record<string, string | number | undefined>) =>
