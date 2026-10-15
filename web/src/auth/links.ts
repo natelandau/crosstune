@@ -6,10 +6,13 @@ export const resolveSiteUrl = (value: string | undefined) =>
 
 // Playwright imports this module through AuthGate, where Vite has defined no import.meta.env.
 export const SITE_URL = resolveSiteUrl(import.meta.env?.VITE_SITE_URL)
-export const WAITLIST_URL = `${SITE_URL}/waitlist`
+
+export const SIGN_IN_PATH = '/'
+export const SIGN_UP_PATH = '/sign-up'
 
 export const SPLASH_LABEL = 'Loading'
 
 export const SIGN_IN_HEADLINE = 'The tune list in your case, rebuilt for your phone.'
 export const SIGN_IN_LINE =
   "The tunes you know and the tunes you're learning, with a recording one tap away."
+export const SIGN_UP_LINE = 'Free forever, with 30 days of Premium included. No card needed.'

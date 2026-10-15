@@ -2,7 +2,14 @@ import { act, renderHook, screen } from '@testing-library/react'
 import { page } from 'vitest/browser'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthSession } from '../auth/AuthContext'
-import { SIGN_IN_HEADLINE, SIGN_IN_LINE, SPLASH_LABEL, WAITLIST_URL } from '../auth/links'
+import {
+  SIGN_IN_HEADLINE,
+  SIGN_IN_LINE,
+  SIGN_IN_PATH,
+  SIGN_UP_LINE,
+  SIGN_UP_PATH,
+  SPLASH_LABEL,
+} from '../auth/links'
 import {
   ACCOUNT_DELETED,
   clearAccountDeletedNotice,
@@ -23,6 +30,9 @@ const clerk = vi.hoisted(() => ({
   userId: null as string | null,
   signOut: async () => {},
   token: 'token',
+  // The props each Clerk form last received.
+  signIn: {} as Record<string, unknown>,
+  signUp: {} as Record<string, unknown>,
 }))
 
 vi.mock('@clerk/react', () => ({
@@ -33,12 +43,21 @@ vi.mock('@clerk/react', () => ({
     getToken: async () => clerk.token,
     signOut: clerk.signOut,
   }),
-  SignIn: () => (
-    <div style={{ height: 600, width: '25rem', maxWidth: 'calc(100vw - 2.5rem)' }}>
-      Clerk sign-in form
-    </div>
-  ),
+  SignIn: (props: Record<string, unknown>) => {
+    clerk.signIn = props
+    return (
+      <div style={{ height: 600, width: '25rem', maxWidth: 'calc(100vw - 2.5rem)' }}>
+        Clerk sign-in form
+      </div>
+    )
+  },
+  SignUp: (props: Record<string, unknown>) => {
+    clerk.signUp = props
+    return <div>Clerk sign-up form</div>
+  },
 }))
+
+const START_URL = location.href
 
 /** A clock the test advances by hand, so the grace period never waits on real time. */
 function fakeClock() {
@@ -83,6 +102,8 @@ beforeEach(() => {
   clerk.userId = null
   clerk.signOut = async () => {}
   clerk.token = 'token'
+  clerk.signIn = {}
+  clerk.signUp = {}
   setOnline(true)
 })
 
@@ -90,6 +111,7 @@ afterEach(() => {
   // The mark lives in module memory as well as storage, so the setup's storage reset misses it.
   clearLocalSignOut()
   clearAccountDeletedNotice()
+  history.replaceState(null, '', START_URL)
   vi.restoreAllMocks()
 })
 
@@ -313,16 +335,64 @@ describe('AuthGate', () => {
     expect(hasAccountDeletedNotice()).toBe(false)
   })
 
-  // Clerk's own card footer links to the waitlist in Waitlist mode and turns into Sign up once
-  // sign-ups open, so a second link here would duplicate it now and contradict it later.
-  it('leaves the waitlist link to Clerk', async () => {
+  it('shows the sign-up screen at the sign-up path when signed out', async () => {
+    history.replaceState(null, '', SIGN_UP_PATH)
+    renderWithProviders(
+      <AuthGate>
+        <p>signed in</p>
+      </AuthGate>,
+    )
+    await expect.element(page.getByText(SIGN_UP_LINE)).toBeVisible()
+    await expect
+      .element(page.getByRole('heading', { name: SIGN_IN_HEADLINE, level: 1 }))
+      .toBeVisible()
+    await expect.element(page.getByText(SIGN_IN_LINE)).toBeVisible()
+    await expect.element(page.getByText('Clerk sign-up form')).toBeVisible()
+    expect(screen.queryByText('Clerk sign-in form')).toBeNull()
+  })
+
+  it('shows the sign-in screen anywhere else when signed out', async () => {
+    history.replaceState(null, '', '/catalog')
     renderWithProviders(
       <AuthGate>
         <p>signed in</p>
       </AuthGate>,
     )
     await expect.element(page.getByText('Clerk sign-in form')).toBeVisible()
-    expect(document.querySelector(`a[href="${WAITLIST_URL}"]`)).toBeNull()
+    expect(screen.queryByText(SIGN_UP_LINE)).toBeNull()
+    expect(screen.queryByText('Clerk sign-up form')).toBeNull()
+  })
+
+  it('links each Clerk form to the other screen', async () => {
+    const gate = (
+      <AuthGate>
+        <p>signed in</p>
+      </AuthGate>
+    )
+    const first = renderWithProviders(gate)
+    await expect.element(page.getByText('Clerk sign-in form')).toBeVisible()
+    expect(clerk.signIn).toMatchObject({ routing: 'hash', signUpUrl: SIGN_UP_PATH })
+    first.unmount()
+    history.replaceState(null, '', SIGN_UP_PATH)
+    renderWithProviders(gate)
+    await expect.element(page.getByText('Clerk sign-up form')).toBeVisible()
+    expect(clerk.signUp).toMatchObject({ routing: 'hash', signInUrl: SIGN_IN_PATH })
+  })
+
+  it('passes the same appearance to sign-up as to sign-in', async () => {
+    const gate = (
+      <AuthGate>
+        <p>signed in</p>
+      </AuthGate>
+    )
+    const first = renderWithProviders(gate)
+    await expect.element(page.getByText('Clerk sign-in form')).toBeVisible()
+    first.unmount()
+    history.replaceState(null, '', SIGN_UP_PATH)
+    renderWithProviders(gate)
+    await expect.element(page.getByText('Clerk sign-up form')).toBeVisible()
+    expect(clerk.signIn.appearance).toBeDefined()
+    expect(clerk.signUp.appearance).toBe(clerk.signIn.appearance)
   })
 })
 
