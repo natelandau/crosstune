@@ -8,6 +8,7 @@ import { renderApp } from '../test/renderApp'
 import { TUNE } from '../features/tune/tunePageCopy'
 import { destination } from '../layout/destinations'
 import { NOT_FOUND_TITLE } from './NotFoundPage'
+import { SIGN_UP_PATH } from '../auth/links'
 
 // Settings reads who is signed in, and the tests mount no Clerk.
 vi.mock('@clerk/react', () => import('../fixture/clerkStub'))
@@ -93,5 +94,12 @@ describe.each(FRAMES)('on the %s frame', (_, frame) => {
     await expect.element(page.getByRole('main', { name: TUNE })).toBeVisible()
     expect(router.state.location.pathname).toBe('/catalog/t1')
     expect(router.state.historyAction).toBe('REPLACE')
+  })
+
+  it('sends a signed-in visit to the sign-up path on to the catalog', async () => {
+    const { router } = await renderApp({ path: SIGN_UP_PATH, db: await seededDb(), frame })
+    await expect.poll(paneShows(destination('catalog').label)).toBe(true)
+    expect(router.state.location.pathname).toBe(destination('catalog').root)
+    expect(document.body.textContent).not.toContain(NOT_FOUND_TITLE)
   })
 })

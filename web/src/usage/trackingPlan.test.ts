@@ -79,6 +79,7 @@ function allows(spec: PropSpec, value: unknown): boolean {
 const SAMPLES: { [N in EventName]: EventProps[N] } = {
   signed_in: {},
   signed_out: {},
+  account_created: { trial: true },
   account_deleted: {},
   account_deletion_started: {},
   account_deletion_cancelled: {},

@@ -102,6 +102,7 @@ private let samples: [AnalyticsEvent] = [
     .accountDeleted,
     .accountDeletionStarted,
     .accountDeletionCancelled,
+    .accountCreated(trial: true),
     .tuneCreated(source: .catalog, fieldsSet: [.title, .key], tuneID: tuneID),
     .tuneEdited(fieldsChanged: [.title, .key], tuneID: tuneID),
     .tuneStatusChanged(from: TuneStatus("learning")!, to: TuneStatus("known")!, tuneID: tuneID),
@@ -176,7 +177,8 @@ private let samples: [AnalyticsEvent] = [
 /// until it is added, with a sample in `samples` above.
 private func hasASample(_ event: AnalyticsEvent) {
     switch event {
-    case .signedIn, .signedOut, .accountDeleted, .accountDeletionStarted, .accountDeletionCancelled, .tuneCreated,
+    case .signedIn, .signedOut, .accountDeleted, .accountDeletionStarted, .accountDeletionCancelled, .accountCreated,
+        .tuneCreated,
         .tuneEdited, .tuneStatusChanged, .tuneArchived, .tuneUnarchived, .tuneDeleted, .bulkEditApplied,
         .searchPerformed, .catalogFiltered, .catalogSorted, .lyricsOpened, .standOpened, .listCreated, .listRenamed,
         .listDeleted, .listReordered, .tunesAddedToList, .tunesRemovedFromList, .importStarted, .importReviewed,

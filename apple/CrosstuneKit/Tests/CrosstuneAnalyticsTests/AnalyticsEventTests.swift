@@ -187,3 +187,8 @@ private let linkID = "9d3a6c1e-2f4b-4b7a-a5c8-7e1f0d2b3c94"
             "catalog", "tune", "list", "recordings_list", "recording_screen", "dock", "search_offer", "menu",
         ])
 }
+
+@Test func reportsWhetherANewAccountStartedATrial() {
+    #expect(AnalyticsEvent.accountCreated(trial: false).name == "account_created")
+    #expect(AnalyticsEvent.accountCreated(trial: false).properties == ["trial": .bool(false)])
+}

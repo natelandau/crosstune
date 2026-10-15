@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
 import { AuthProvider } from '../auth/AuthContext'
 import { useAuthGate } from '../auth/useAuthGate'
+import { SIGN_UP_PATH } from '../auth/links'
 import { SignIn } from './SignIn'
+import { SignUp } from './SignUp'
 import { Splash } from './Splash'
 
 /** The sign-in gate, which makes its decisions through `useAuthGate`. */
@@ -14,6 +16,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
       </AuthProvider>
     )
   }
-  if (state === 'signIn') return <SignIn staleSession={staleSession} />
+  if (state === 'signIn') {
+    // Clerk's footer links leave by a full page load, so the address read here stays current.
+    return location.pathname.replace(/\/$/, '') === SIGN_UP_PATH ? (
+      <SignUp staleSession={staleSession} />
+    ) : (
+      <SignIn staleSession={staleSession} />
+    )
+  }
   return <Splash />
 }

@@ -11,6 +11,7 @@ import { DestinationTracker } from './DestinationTracker'
 import { NOT_FOUND } from './notFound'
 import { NotFoundPage } from './NotFoundPage'
 import { destination } from '../layout/destinations'
+import { SIGN_UP_PATH } from '../auth/links'
 
 // Each redirect replaces its entry, so Back never lands on an address that sends it forward again.
 const tuneHome: RouteObject['loader'] = ({ params }) => replace(tuneHomePath(params.tuneId))
@@ -35,6 +36,8 @@ export function appRoutes(dev: boolean): RouteObject[] {
       element: <DestinationTracker />,
       children: [
         { path: '/', loader: () => replace(destination('catalog').root) },
+        // A signed-in visit here, such as the one right after a sign-up, belongs in the app.
+        { path: SIGN_UP_PATH, loader: () => replace('/') },
         ...(dev ? KIT : []),
         {
           path: '/catalog',

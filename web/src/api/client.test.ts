@@ -37,6 +37,51 @@ function makeClient(fetch: FetchMock, overrides: Partial<ApiClientOptions> = {})
   })
 }
 
+describe('account created header', () => {
+  const meWith = (header: string | null, onAccountCreated = vi.fn()) => {
+    const headers: Record<string, string> = header === null ? {} : { 'X-Account-Created': header }
+    const api = makeClient(
+      vi.fn<FetchMock>(async () => jsonResponse({}, { headers })),
+      { onAccountCreated },
+    )
+    return { api, onAccountCreated }
+  }
+
+  it('reports a created trial account', async () => {
+    const { api, onAccountCreated } = meWith('trial')
+    await api.me()
+    expect(onAccountCreated).toHaveBeenCalledExactlyOnceWith(true)
+  })
+
+  it('reports a claimed comp as not a trial', async () => {
+    const { api, onAccountCreated } = meWith('comp')
+    await api.me()
+    expect(onAccountCreated).toHaveBeenCalledExactlyOnceWith(false)
+  })
+
+  it('reports nothing without the header', async () => {
+    const { api, onAccountCreated } = meWith(null)
+    await api.me()
+    expect(onAccountCreated).not.toHaveBeenCalled()
+  })
+
+  it('still returns the response when the callback throws', async () => {
+    const { api } = meWith(
+      'trial',
+      vi.fn(() => {
+        throw new Error('analytics failed')
+      }),
+    )
+    await expect(api.me()).resolves.toEqual({})
+  })
+
+  it('ignores an unknown header value', async () => {
+    const { api, onAccountCreated } = meWith('other')
+    await api.me()
+    expect(onAccountCreated).not.toHaveBeenCalled()
+  })
+})
+
 // Resolves when the request's signal aborts, the way a real fetch rejects on a timeout.
 function stalledFetch(input: Request) {
   return new Promise<Response>((_resolve, reject) => {

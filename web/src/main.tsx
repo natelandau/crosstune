@@ -2,10 +2,8 @@ import { ClerkProvider } from '@clerk/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AnalyticsProvider } from './usage/AnalyticsProvider'
-import { WAITLIST_URL } from './auth/links'
-import { createAppRouter } from './app/router'
 import { AuthGate } from './app/AuthGate'
-import { AppData } from './app/AppData'
+import { SignedInApp } from './app/SignedInApp'
 import { startServices } from './app/startServices'
 import './app.css'
 
@@ -14,13 +12,12 @@ function mountApp(element: HTMLElement) {
   const analytics = startServices()
   const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
   if (!clerkKey) throw new Error('VITE_CLERK_PUBLISHABLE_KEY is not set')
-  const router = createAppRouter()
   createRoot(element).render(
     <StrictMode>
-      <ClerkProvider publishableKey={clerkKey} waitlistUrl={WAITLIST_URL}>
+      <ClerkProvider publishableKey={clerkKey}>
         <AnalyticsProvider client={analytics}>
           <AuthGate>
-            <AppData router={router} />
+            <SignedInApp />
           </AuthGate>
         </AnalyticsProvider>
       </ClerkProvider>

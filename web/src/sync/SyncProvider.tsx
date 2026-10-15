@@ -23,7 +23,7 @@ export const SyncContext = createContext<SyncEngine | null>(null)
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const db = useDb()
-  const { getToken, offline } = useAuthSession()
+  const { getToken, offline, userId } = useAuthSession()
   const analytics = useAnalytics()
   const engine = useMemo(
     () =>
@@ -33,10 +33,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           baseUrl: API_ORIGIN,
           getToken,
           clientVersion: APP_VERSION,
+          onAccountCreated: (trial) =>
+            analytics.whenIdentified(userId, () => analytics.send('account_created', { trial })),
         }),
         analytics,
       }),
-    [db, getToken, analytics],
+    [db, getToken, analytics, userId],
   )
   useEffect(() => {
     engine.resume()

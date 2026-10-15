@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from sqlalchemy import delete, literal_column, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -32,6 +32,22 @@ async def get_or_create_user(
 ) -> User:
     """Insert-if-absent, safe under concurrent first requests from one new user.
 
+    See `provision_user` for the arguments and errors.
+
+    Returns:
+        User: The stored row for this Clerk user.
+    """
+    return (await provision_user(session, clerk_user_id, email, settings))[0]
+
+
+async def provision_user(
+    session: AsyncSession,
+    clerk_user_id: str,
+    email: str | None,
+    settings: Settings,
+) -> tuple[User, Literal["trial", "comp"] | None]:
+    """Insert-if-absent, safe under concurrent first requests from one new user.
+
     Args:
         session: The session to write through.
         clerk_user_id: The Clerk subject the token was issued for.
@@ -41,7 +57,8 @@ async def get_or_create_user(
             a pending comp for their email or else a trial.
 
     Returns:
-        User: The stored row for this Clerk user.
+        tuple: The stored row for this Clerk user, and how this call started the
+        account, "comp" or "trial", or None when the user already existed.
 
     Raises:
         AccountDeletedError: The Clerk id belongs to a purged account, which must
@@ -53,7 +70,7 @@ async def get_or_create_user(
         if email is not None and existing.email != email:
             existing.email = email
             existing.updated_at = now
-        return existing
+        return existing, None
 
     # Serializes against a concurrent purge_account for this id, so a purge that commits
     # its denylist row between this select and the check below can never be missed.
@@ -82,11 +99,14 @@ async def get_or_create_user(
     user = (
         await session.execute(select(User).where(User.clerk_user_id == clerk_user_id))
     ).scalar_one()
-    if inserted:
-        if not await claim_pending_comp(session, user.id, email, now):
-            await start_trial(session, user.id, settings, now)
-        await refresh_entitlement(session, user.id, settings, now)
-    return user
+    if not inserted:
+        return user, None
+    started: Literal["trial", "comp"] = "comp"
+    if not await claim_pending_comp(session, user.id, email, now):
+        await start_trial(session, user.id, settings, now)
+        started = "trial"
+    await refresh_entitlement(session, user.id, settings, now)
+    return user, started
 
 
 # How stale last_synced_at may grow before a sync rewrites it, so most syncs write nothing.
