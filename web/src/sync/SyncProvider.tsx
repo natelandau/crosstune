@@ -33,6 +33,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           baseUrl: API_ORIGIN,
           getToken,
           clientVersion: APP_VERSION,
+          onAccountCreated: (trial) => analytics.send('account_created', { trial }),
         }),
         analytics,
       }),
