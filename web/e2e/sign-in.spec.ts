@@ -8,9 +8,11 @@ test('shows the email field without scrolling on a small phone when signed out',
   page,
 }) => {
   await setupClerkTestingToken({ page })
-  await page.goto('/')
+  await page.goto(SIGN_IN_PATH)
   const field = page.getByLabel('Email address')
   await expect(field).toBeVisible({ timeout: 30_000 })
+  // The app's router only exists once someone is signed in, so nothing rewrites the address.
+  expect(new URL(page.url()).pathname).toBe(SIGN_IN_PATH)
   await expect
     .poll(async () => {
       const box = await field.boundingBox()
@@ -39,6 +41,8 @@ test('points the sign-in footer at the sign-up screen', async ({ page }) => {
 test('shows the sign-up form and points its footer at sign-in', async ({ page }) => {
   await setupClerkTestingToken({ page })
   await page.goto(SIGN_UP_PATH)
+  await expect(page.getByText(SIGN_UP_LINE)).toBeVisible({ timeout: 30_000 })
+  expect(new URL(page.url()).pathname).toBe(SIGN_UP_PATH)
   await expect(page.getByLabel('Email address')).toBeVisible({ timeout: 30_000 })
   const link = page.getByRole('link', { name: 'Sign in' })
   await expect(link).toBeVisible()
