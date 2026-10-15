@@ -1,3 +1,40 @@
+## v0.21.0 (2026-10-15)
+
+### Feat
+
+- **site**: replace the waitlist with account creation (#198)
+- **auth**: replace the waitlist with account creation in the apps (#197)
+- **billing**: make scans Premium-only and round plan storage sizes (#196)
+- **billing**: sync every store still billing an account
+- **billing**: sell Premium from a Plan sheet and the trial notices (#188)
+- **api**: clear inactive accounts' files after two email warnings (#187)
+- **apple**: use native controls on the paywall and plan notices (#186)
+- **apple**: sell Premium through in-app purchase (#183)
+- **web**: redesign sheet and settings actions (#182)
+- **billing**: sell Premium on the web through RevenueCat (#179)
+- **api**: add the testdata command (#178)
+- **web**: gate recordings and scans by plan (#176)
+- **apple**: gate playback, scans, and additions by plan (#175)
+- **billing**: add the trial-end notice flag (#174)
+
+### Fix
+
+- **api**: sign each upload slot to its own key, count kept originals
+- **apple**: let the Mac app save exports where the user chooses
+- **site**: describe what a Free account keeps
+- **api**: delete a pending comp only with an explicit flag
+- **web**: show borders on the sign-in form fields
+- **billing**: cancel the subscriptions RevenueCat reports on deletion (#181)
+- **billing**: cancel the Stripe subscription behind an item ID (#180)
+
+### Refactor
+
+- **web**: clean up dead code and duplication (#195)
+- **apple**: remove dead code and add a dead-code check (#194)
+- **tooling**: simplify the justfiles and dev scripts (#193)
+- **api**: remove dead code and share repeated client logic (#192)
+- **site**: clean up dead code and duplication, add a knip gate (#191)
+
 ## v0.20.0 (2026-10-10)
 
 ### Feat
