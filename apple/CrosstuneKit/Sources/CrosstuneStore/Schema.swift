@@ -293,6 +293,13 @@ enum Schema {
                     """)
             try db.execute(sql: "UPDATE entitlements SET extra = json_remove(extra, '$.paid_grants')")
         }
+        migrator.registerMigration("v19") { db in
+            // The server no longer sends the field, so a pulled row could not fill the column.
+            try db.alter(table: "entitlements") { t in t.drop(column: "free_quota_bytes") }
+            // Scans refused as Premium only now wait as held changes, so no scan is queued again
+            // from this list.
+            try db.execute(sql: "DELETE FROM meta WHERE key = 'scan_requeues'")
+        }
         return migrator
     }()
 

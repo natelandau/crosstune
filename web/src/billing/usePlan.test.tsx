@@ -49,7 +49,7 @@ describe('usePlan', () => {
 
     await vi.advanceTimersByTimeAsync(10_000)
     await vi.waitFor(() => expect(result.current.kind).toBe('free'))
-    expect(result.current.scansOnly).toBe(true)
+    expect(result.current.quotaBytes).toBeNull()
   })
 
   describe('after the precise timer is missed', () => {

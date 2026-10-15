@@ -347,7 +347,7 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         #expect(try await holds(store).isEmpty)
     }
 
-    @Test func aScanRefusedForItsTuneSettlesAndMarksItsFile() async throws {
+    @Test func holdsAScanTheServerRefusedForPremiumAndKeepsItsEntryAndFile() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await store.write { writer in
@@ -359,14 +359,35 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         let result = try await store.write { writer in
             try writer.applyPushResults(
                 sent: sent,
-                results: [PushResult(table: .scans, id: "p1", status: .invalid, reason: scanTuneOnlyReason)])
+                results: [PushResult(table: .scans, id: "p1", status: .invalid, reason: premiumRequiredReason)])
         }
 
-        #expect(result.invalid == [InvalidChange(table: .scans, id: "p1", reason: scanTuneOnlyReason)])
-        #expect(result.settled == 1)
-        #expect(try await store.pendingChangeCount() == 0)
+        #expect(result.invalid == [])
+        #expect(result.settled == 0)
+        #expect(result.held == ["p1"])
+        #expect(try await holds(store) == ["p1"])
+        #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["p1"])
+        #expect(try await store.pendingChanges(limit: 10, premium: false).isEmpty)
         let file = try await store.read { db in try ScanFile.fetchOne(db, key: "p1") }
-        #expect(file?.error == ScanFile.scanTuneOnlyError)
+        #expect(file?.error == nil)
+    }
+
+    @Test func anAppliedResultReleasesAHeldScan() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await store.write { writer in
+            try writer.put(ScanRecord(id: "p1", createdAt: noon, tuneID: "t2", width: 600, height: 800), at: noon)
+            try writer.holdForPremium(["p1"])
+        }
+        let sent = try await store.pendingChanges(limit: 10)
+
+        try await store.write { writer in
+            try writer.applyPushResults(
+                sent: sent, results: [PushResult(table: .scans, id: "p1", status: .applied)])
+        }
+
+        #expect(try await holds(store).isEmpty)
+        #expect(try await store.meta(.premiumHolds, as: [String].self) == [])
     }
 
     @Test func aFreeReadOfTheOutboxLeavesOutAHeldUpsertButNeverItsDelete() async throws {
@@ -411,7 +432,6 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
             "premium_source": .string("trial"), "premium_expires_at": .string(later(86_400_000).iso),
             "auto_renews": .bool(false), "trial_starts_at": .string(noon.iso),
             "trial_ends_at": .string(later(86_400_000).iso), "premium_quota_bytes": .integer(10_000),
-            "free_quota_bytes": .integer(1_000),
             "recording_notice_seen_at": .null, "trial_reminder_seen_at": .null, "trial_end_seen_at": .null,
             "storage_addon": .bool(true),
         ]

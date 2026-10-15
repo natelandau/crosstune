@@ -39,7 +39,7 @@ private struct CatalogContent: View {
     @Environment(\.openSheets) private var openSheets
     @Environment(\.spacing) private var spacing
     @Environment(ScanTunes.self) private var scanTunes: ScanTunes?
-    @Environment(\.plan) private var plan
+    @Environment(\.premium) private var premium
     @Environment(\.tuneScreenActions) private var tuneScreenActions
     @AppStorage(CatalogSortChoice.storageKey) private var sort = CatalogSortChoice.default
     @State private var pushed: String?
@@ -288,7 +288,7 @@ private struct CatalogContent: View {
             onEdit: { form = .edit(tuneID: entry.tune.id, userTuneID: entry.userTune.id) },
             onArchive: { Task { await model.setArchived(entry, archived: !entry.isArchived) } },
             onScans: TuneRowActions.scansAction(
-                tuneID: entry.tune.id, tunesWithScans: scanTunes, plan: plan, origin: .row,
+                tuneID: entry.tune.id, tunesWithScans: scanTunes, premium: premium, origin: .row,
                 actions: tuneScreenActions),
             onSelect: { selection.enter(with: entry.tune.id) }
         )

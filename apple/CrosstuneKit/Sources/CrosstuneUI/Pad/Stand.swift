@@ -201,8 +201,7 @@ private struct StandPanes<Practice: View>: View {
     /// What there is to read, less scans the plan does not open, which have nothing to show.
     private var reading: StandReading? {
         guard let reading = read ?? nil else { return nil }
-        let opens = plan.map { PlanRules.scanOpens($0.plan, tuneID: reading.tuneID, scanTune: $0.scanTune) } ?? true
-        return reading.withScans(opening: opens)
+        return reading.withScans(opening: plan?.plan.scansOpen ?? true)
     }
 
     /// The tune in front of the stand, whether or not it has anything to read.

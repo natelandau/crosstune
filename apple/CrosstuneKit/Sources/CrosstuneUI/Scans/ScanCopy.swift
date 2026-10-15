@@ -32,9 +32,6 @@ public enum ScanCopy {
     /// Shown on a scan the server refused outright; the sync layer stores the code
     /// ``ScanFile/refusedError``.
     public static let refused = "Could not upload. Delete this scan and add it again."
-    /// Shown on a scan the server refused because a free account's scans stay on one tune; the
-    /// sync layer stores the code ``ScanFile/scanTuneOnlyError``.
-    public static let scanTuneOnly = "Not uploaded. Scans on more than one tune are part of Premium."
     /// Shown on a scan captured here whose upload failed for a reason with no label of its own.
     public static let notUploaded = "Not uploaded yet"
     /// Shown on a scan another device captured and has not uploaded yet.
@@ -65,7 +62,6 @@ public enum ScanCopy {
         switch file.error {
         case ScanFile.storageFullError: storageFull
         case ScanFile.refusedError: refused
-        case ScanFile.scanTuneOnlyError: scanTuneOnly
         case .some(let error) where !error.isEmpty && file.origin == .captured: notUploaded
         default: nil
         }

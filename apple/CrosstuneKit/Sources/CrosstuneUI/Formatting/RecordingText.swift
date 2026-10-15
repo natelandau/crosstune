@@ -192,9 +192,11 @@ public enum RecordingText {
         return [length, status, tries, used].compactMap { $0 }
     }
 
-    /// The account's storage figures as `48.2 MB of 1 GB used`.
+    /// The account's storage figures as `48.2 MB of 1 GB used`, or `48.2 MB used` with no quota.
     public static func storageUsed(_ figures: StorageFigures) -> String {
-        "\(bytes(Int64(figures.usedBytes))) of \(bytes(Int64(figures.quotaBytes))) used"
+        let used = bytes(Int64(figures.usedBytes))
+        guard figures.quotaBytes > 0 else { return "\(used) used" }
+        return "\(used) of \(bytes(Int64(figures.quotaBytes))) used"
     }
 
     /// The origin of a recording made on a device of the account's own.

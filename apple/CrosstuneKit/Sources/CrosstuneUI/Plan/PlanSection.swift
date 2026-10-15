@@ -26,7 +26,7 @@ struct PlanSection: View {
                 }
             } header: {
                 SettingsHelp(
-                    plan.kind == .free ? "\(PlanText.freeHelp) \(PlanText.freeStorageHelp)" : nil,
+                    plan.kind == .free ? PlanText.freeHelp : nil,
                     title: PlanText.group)
             }
         }

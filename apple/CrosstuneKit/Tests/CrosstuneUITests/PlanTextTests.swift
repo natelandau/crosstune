@@ -42,9 +42,8 @@ import Testing
         #expect(PlanText.trial == "Premium trial")
         #expect(
             PlanText.freeHelp
-                == "Free includes your catalog, lists, links, sync, and export. Recordings and scans on more than one tune are part of Premium."
+                == "Free includes your catalog, lists, links, sync, and export. Recordings and scans are part of Premium."
         )
-        #expect(PlanText.freeStorageHelp == "On the free plan, storage counts scans only.")
     }
 
     @Test func holdsTheAppleOnlyCopy() {
@@ -170,14 +169,14 @@ import Testing
         }
     }
 
-    @Test func picksTheQuotaFromThePlanOrTheReportedFigures() {
+    @Test func measuresTheFiguresAgainstThePlansQuota() {
         let reported = StorageFigures(usedBytes: 1, quotaBytes: 900, maxFileBytes: 1)
-        let none = StorageFigures(usedBytes: 1, quotaBytes: 0, maxFileBytes: 1)
-        #expect(StorageFigures.quota(plan: Plan(kind: .free, quotaBytes: 50), reported: reported) == 50)
-        #expect(StorageFigures.quota(plan: .unknown, reported: reported) == 900)
-        #expect(StorageFigures.quota(plan: .unknown, reported: none) == nil)
-        #expect(StorageFigures.quota(plan: .unknown, reported: nil) == nil)
-        #expect(StorageFigures.quota(plan: Plan(kind: .free), reported: reported) == 900)
-        #expect(reported.measured(against: Plan(kind: .free)) == reported)
+        #expect(reported.measured(against: Plan(kind: .premium, quotaBytes: 50)).quotaBytes == 50)
+        #expect(reported.measured(against: Plan(kind: .premium)) == reported)
+        #expect(reported.measured(against: .unknown) == reported)
+        // A free plan has no quota, even under a report from before it lapsed.
+        #expect(
+            reported.measured(against: Plan(kind: .free))
+                == StorageFigures(usedBytes: 1, quotaBytes: 0, maxFileBytes: 1))
     }
 }

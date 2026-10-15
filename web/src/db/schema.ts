@@ -27,6 +27,9 @@ import {
 // The invert setting's key before version 14.
 const LEGACY_INVERT_KEY = 'notation_invert'
 
+// The refused scans queued again under a grant or scan tune, kept before version 20.
+const LEGACY_SCAN_REQUEUES_KEY = 'scan_requeues'
+
 // Every store the server refilled as of version 6, plus what could only be pushed or uploaded
 // in an older shape. A fixed list: the upgrade transaction holds only stores that version has.
 const STARTED_OVER = [
@@ -266,7 +269,7 @@ export class CrosstuneDb extends Dexie {
 
     this.version(16).stores({ entitlements: 'id' }).upgrade(repull)
 
-    // Finds the scans refused for their tune without reading their images.
+    // Indexes scan files by upload error, so a query by error never reads their images.
     this.version(17).stores({ scan_files: 'id, origin, error' })
 
     // A row stored before the trial's start was synced reads as having none until the server's
@@ -293,6 +296,13 @@ export class CrosstuneDb extends Dexie {
           .modify((row: Record<string, unknown>) => {
             row.paid_grants ??= []
           })
+      })
+
+    // A scan refused as Premium only waits as a held change, so nothing reads the requeue list.
+    this.version(20)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx.table('meta').delete(LEGACY_SCAN_REQUEUES_KEY)
       })
   }
 

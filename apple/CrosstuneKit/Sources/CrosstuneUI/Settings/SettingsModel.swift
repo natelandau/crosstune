@@ -454,11 +454,9 @@ public final class SettingsModel {
         return formatter.localizedString(for: date, relativeTo: now)
     }
 
-    /// The account's storage figures, once the server has said what its quota is.
-    public var storage: StorageFigures? {
-        guard let figures = stored.value?.storage, figures.quotaBytes > 0 else { return nil }
-        return figures
-    }
+    /// The account's storage figures, once the server has reported them. A free account's carry
+    /// no quota.
+    public var storage: StorageFigures? { stored.value?.storage }
 
     /// The storage figures with the plan's quota in place of the reported one. Used bytes always
     /// come from the server.

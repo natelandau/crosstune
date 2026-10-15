@@ -9,7 +9,6 @@ import { useNow } from '../../ui/useNow'
 import { membership } from '../plan/membership'
 import {
   FREE_HELP,
-  FREE_STORAGE_HELP,
   PLAN_FREE,
   PLAN_GROUP,
   PLAN_PREMIUM,
@@ -47,17 +46,7 @@ export function PlanGroup() {
   const { name, detail } = planLine(plan, new Date(now))
   return (
     <>
-      <Group
-        header={PLAN_GROUP}
-        help={
-          plan.kind === 'free' ? (
-            <>
-              <span className="block">{FREE_HELP}</span>
-              {plan.scansOnly && <span className="mt-1 block">{FREE_STORAGE_HELP}</span>}
-            </>
-          ) : undefined
-        }
-      >
+      <Group header={PLAN_GROUP} help={plan.kind === 'free' ? FREE_HELP : undefined}>
         <AriaButton
           aria-describedby={hintId}
           onPress={() => premium.open('plan', 'plan_group')}

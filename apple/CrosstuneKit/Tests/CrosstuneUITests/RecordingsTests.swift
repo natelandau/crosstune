@@ -339,9 +339,11 @@ private struct RefusingSyncAPI: SyncAPI {
         try await store.setMeta(.storage, to: StorageFigures(usedBytes: 5, quotaBytes: 1_000, maxFileBytes: 4))
         let model = RecordingsModel(store: store)
         try await eventually { model.arrangement(.default) != nil }
-        let free = Plan(kind: .free, quotaBytes: 50, scansOnly: true)
-        #expect(model.storage(plan: free) == StorageFigures(usedBytes: 5, quotaBytes: 50, maxFileBytes: 4))
+        let premium = Plan(kind: .premium, quotaBytes: 50)
+        #expect(model.storage(plan: premium) == StorageFigures(usedBytes: 5, quotaBytes: 50, maxFileBytes: 4))
         #expect(model.storage(plan: .unknown)?.quotaBytes == 1_000)
+        // Free has no quota to measure against.
+        #expect(model.storage(plan: Plan(kind: .free)) == nil)
     }
 
     @Test func hidesStorageUntilTheServerSaysWhatTheQuotaIs() async throws {

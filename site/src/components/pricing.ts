@@ -25,7 +25,6 @@ export const PLAN_FREE = {
     'Unlimited tunes and lists, with lyrics, tunings, and filters',
     'Links to every music service, playing inside the app',
     'Offline use, sync to all your devices, and export',
-    'Scans on one tune, with 50 MB of storage',
   ],
 }
 
@@ -36,7 +35,7 @@ export const PLAN_PREMIUM = {
     'Unlimited recordings',
     'Slow down, shift pitch, and loop',
     'Trim recordings',
-    'Scans on every tune',
-    '5 GB of storage, about 3,500 three-minute tunes',
+    'Scans of sheet music, lyric sheets, and notes',
+    '3 GB of storage, about 2,000 three-minute tunes',
   ],
 }

@@ -18,10 +18,8 @@ struct PlanSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.plan) private var plan
-    @Environment(\.store) private var store
     @Environment(\.purchases) private var purchases
     @Environment(\.stripePortalURL) private var portalURL
-    @State private var scanTuneTitle: String?
     @State private var storefront: StorefrontRead = .unread
 
     init(reason: PremiumReason, entry: PremiumEntry, purchase: PurchaseModel?, now: Date? = nil) {
@@ -68,14 +66,12 @@ struct PlanSheet: View {
     ]
 
     /// The sheet's opening title and line: the product and its pitch from the plan, or what was
-    /// tapped from a locked control. The scans body is nil until the scan tune's title is read.
-    nonisolated static func headline(_ reason: PremiumReason, scanTuneTitle: String?) -> (
-        title: String, body: String?
-    ) {
+    /// tapped from a locked control.
+    nonisolated static func headline(_ reason: PremiumReason) -> (title: String, body: String) {
         switch reason {
         case .plan: (PlanText.premiumPlanTitle, PlanText.premiumPitch)
         case .recordings: (PlanText.premiumRecordingsTitle, PlanText.premiumRecordingsBody)
-        case .scans: (PlanText.premiumScansTitle, scanTuneTitle.map { PlanText.premiumScansBody(tuneTitle: $0) })
+        case .scans: (PlanText.premiumScansTitle, PlanText.premiumScansBody)
         }
     }
 
@@ -231,7 +227,6 @@ struct PlanSheet: View {
                 }
             }
         }
-        .task(id: plan?.scanTune) { await readScanTuneTitle() }
         .task(id: currentPlan.paidSources) {
             storefront = .unread
             storefront = .read(await Self.storefront(for: currentPlan, client: purchases))
@@ -249,7 +244,7 @@ struct PlanSheet: View {
     /// The mark over the headline, a trial's card, and the comparison.
     @ViewBuilder
     private func selling(_ plan: Plan) -> some View {
-        let (title, message) = Self.headline(reason, scanTuneTitle: scanTuneTitle)
+        let (title, message) = Self.headline(reason)
         VStack(spacing: 6) {
             PlanMark()
                 .padding(.bottom, 6)
@@ -257,13 +252,9 @@ struct PlanSheet: View {
                 .font(.title2.bold())
                 .accessibilityAddTraits(.isHeader)
                 .fixedSize(horizontal: false, vertical: true)
-            if let message {
-                // The scans body names a tune.
-                Text(message)
-                    .foregroundStyle(.secondary)
-                    .contentMask()
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text(message)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
@@ -407,13 +398,6 @@ struct PlanSheet: View {
         #else
             .buttonStyle(.borderless)
         #endif
-    }
-
-    private func readScanTuneTitle() async {
-        guard reason == .scans, let store, let tuneID = plan?.scanTune else { return }
-        scanTuneTitle = try? await store.read { db in
-            try Tune.fetchOne(db, key: tuneID).flatMap { $0.deletedAt == nil ? $0.title : nil }
-        }
     }
 }
 

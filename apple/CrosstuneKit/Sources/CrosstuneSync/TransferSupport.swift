@@ -7,17 +7,20 @@ import os
 /// The problem type the API answers a slot request with when the recording would pass the
 /// account's quota.
 let quotaProblem = "urn:crosstune:quota-exceeded"
-/// The problem type of a 403 refusing what only Premium may add, such as a recording's upload.
+/// The problem type of a 403 refusing what only Premium may add, such as a recording's or a
+/// scan's upload.
 let premiumRequiredProblem = "urn:crosstune:premium-required"
-/// The problem type of a 403 refusing a free account's scan on a second tune.
-let scanTuneOnlyProblem = "urn:crosstune:scan-tune-only"
 
 /// The server refusing what the plan does not allow, which a subscription lifts. Never a session
 /// problem.
 func isPlanRefusal(_ error: any Error) -> Bool {
     guard let refusal = underlying(error) as? APIStatusError, refusal.status == 403 else { return false }
-    return refusal.problemType == premiumRequiredProblem || refusal.problemType == scanTuneOnlyProblem
+    return refusal.problemType == premiumRequiredProblem
 }
+
+/// The server refused an upload as Premium only, so every later upload in the pass would draw
+/// the same refusal.
+struct RefusedByPlan: Error {}
 
 /// How many recordings the download pass fetches at once. Uploads stay one at a time.
 let downloadConcurrency = 3

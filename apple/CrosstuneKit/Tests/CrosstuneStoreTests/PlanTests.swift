@@ -17,15 +17,9 @@ private func row(
     Entitlement(
         id: "entitlement-1", createdAt: Timestamp(iso: "2026-01-01T00:00:00.000Z")!, premiumSource: source,
         premiumExpiresAt: expiresAt, autoRenews: autoRenews, trialStartsAt: trialStartsAt, trialEndsAt: trialEndsAt,
-        premiumQuotaBytes: 10_000, freeQuotaBytes: 1_000, recordingNoticeSeenAt: recordingNoticeSeenAt,
+        premiumQuotaBytes: 10_000, recordingNoticeSeenAt: recordingNoticeSeenAt,
         trialReminderSeenAt: trialReminderSeenAt,
         trialEndSeenAt: trialEndSeenAt)
-}
-
-private func scan(_ id: String, _ tuneID: String, _ createdAt: String, deletedAt: String? = nil) -> ScanRecord {
-    ScanRecord(
-        id: id, createdAt: Timestamp(iso: createdAt)!, deletedAt: deletedAt.flatMap(Timestamp.init(iso:)),
-        tuneID: tuneID, width: 10, height: 10)
 }
 
 @Suite struct PlanFromTests {
@@ -42,8 +36,8 @@ private func scan(_ id: String, _ tuneID: String, _ createdAt: String, deletedAt
         #expect(plan.kind == .unknown)
         #expect(plan.trialStartsAt == nil)
         #expect(plan.quotaBytes == nil)
-        #expect(plan.scansOnly == false)
         #expect(plan.recordingsPlay)
+        #expect(plan.scansOpen)
     }
 
     @Test func isPremiumDuringATrialWithThePremiumQuota() {
@@ -53,16 +47,16 @@ private func scan(_ id: String, _ tuneID: String, _ createdAt: String, deletedAt
             plan
                 == Plan(
                     kind: .premium, source: .trial, premiumEndsAt: at(day).date, trialStartsAt: at(-13 * day).date,
-                    trialEndsAt: at(day).date, quotaBytes: 10_000, scansOnly: false))
+                    trialEndsAt: at(day).date, quotaBytes: 10_000))
     }
 
-    @Test func isFreeOnceATrialExpiredASecondAgoWithTheFreeQuotaCountingScansOnly() {
+    @Test func isFreeOnceATrialExpiredASecondAgoWithNoQuotaAndNoRecordingsOrScans() {
         let plan = Plan.from(row(source: "trial", expiresAt: at(-1)), now: now)
         #expect(plan.kind == .free)
         #expect(plan.source == nil)
-        #expect(plan.quotaBytes == 1_000)
-        #expect(plan.scansOnly)
+        #expect(plan.quotaBytes == nil)
         #expect(!plan.recordingsPlay)
+        #expect(!plan.scansOpen)
     }
 
     @Test func isFreeAtTheVeryInstantAGrantExpires() {
@@ -96,49 +90,6 @@ private func scan(_ id: String, _ tuneID: String, _ createdAt: String, deletedAt
         let plan = Plan.from(row(source: "gift"), now: now)
         #expect(plan.kind == .premium)
         #expect(plan.source == nil)
-    }
-}
-
-@Suite struct ScanTuneTests {
-    @Test func picksTheTuneOfTheEarliestLiveScan() {
-        let scans = [
-            scan("b", "tune-b", "2026-02-01T00:00:00.000Z"), scan("a", "tune-a", "2026-01-01T00:00:00.000Z"),
-        ]
-        #expect(PlanRules.scanTuneID(scans) == "tune-a")
-    }
-
-    @Test func breaksACreatedAtTieByID() {
-        let scans = [
-            scan("b", "tune-b", "2026-01-01T00:00:00.000Z"), scan("a", "tune-a", "2026-01-01T00:00:00.000Z"),
-        ]
-        #expect(PlanRules.scanTuneID(scans) == "tune-a")
-    }
-
-    @Test func ignoresDeletedScans() {
-        let scans = [
-            scan("a", "tune-a", "2026-01-01T00:00:00.000Z", deletedAt: "2026-03-01T00:00:00.000Z"),
-            scan("b", "tune-b", "2026-02-01T00:00:00.000Z"),
-        ]
-        #expect(PlanRules.scanTuneID(scans) == "tune-b")
-    }
-
-    @Test func isNilWithNoLiveScan() {
-        #expect(PlanRules.scanTuneID([]) == nil)
-        let deleted = scan("a", "tune-a", "2026-01-01T00:00:00.000Z", deletedAt: "2026-03-01T00:00:00.000Z")
-        #expect(PlanRules.scanTuneID([deleted]) == nil)
-    }
-
-    @Test func opensAnyScanForPremiumAndForAnUnknownPlan() {
-        let premium = Plan.from(row(source: "comp"), now: now)
-        #expect(PlanRules.scanOpens(premium, tuneID: "tune-b", scanTune: "tune-a"))
-        #expect(PlanRules.scanOpens(Plan.from(nil, now: now), tuneID: "tune-b", scanTune: "tune-a"))
-    }
-
-    @Test func opensOnlyTheScanTuneOnFreeOrAnyTuneWhileThereIsNone() {
-        let free = Plan.from(row(), now: now)
-        #expect(PlanRules.scanOpens(free, tuneID: "tune-a", scanTune: "tune-a"))
-        #expect(!PlanRules.scanOpens(free, tuneID: "tune-b", scanTune: "tune-a"))
-        #expect(PlanRules.scanOpens(free, tuneID: "tune-b", scanTune: nil))
     }
 }
 

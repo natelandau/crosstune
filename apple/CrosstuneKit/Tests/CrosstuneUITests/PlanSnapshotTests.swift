@@ -37,15 +37,15 @@
             }
         }
 
-        /// A free account's second sample tune, whose scan is not on the scan tune, holding
-        /// recordings behind the line.
+        /// A free account's second sample tune, whose scan is locked, holding recordings behind
+        /// the line.
         @Test func lockedScansPage() async throws {
             let root = TemporaryRoot()
             let store = try await SampleCatalog.makeStore(root: root.url)
             try await SampleScans.add(to: store)
             try await SamplePlan.free.store(in: store, now: now)
             let plan = PlanModel(store: store, now: { [now] in now })
-            #expect(try await poll { plan.plan.kind == .free && plan.scanTune != nil })
+            #expect(try await poll { plan.plan.kind == .free })
             let entry = SampleCatalog.entries[1]
             let model = TuneModel(store: store, tuneID: entry.tune.id, plan: plan)
             #expect(try await poll { model.shown != nil && model.scans.scans.count == 1 })
@@ -137,15 +137,14 @@
             let row = Entitlement(
                 id: "sample-entitlement", premiumSource: "apple",
                 premiumExpiresAt: Timestamp(now.addingTimeInterval(30 * 86_400)), autoRenews: true,
-                premiumQuotaBytes: 10_000_000_000, freeQuotaBytes: 1_000_000_000)
+                premiumQuotaBytes: 10_000_000_000)
             try await planSheet("mac-plan-sheet-member-apple", row: row, reason: .plan)
         }
 
         /// A comped account's Plan sheet: one row naming the grant, and nothing to manage.
         @Test func planSheetMemberComp() async throws {
             let row = Entitlement(
-                id: "sample-entitlement", premiumSource: "comp", premiumQuotaBytes: 10_000_000_000,
-                freeQuotaBytes: 1_000_000_000)
+                id: "sample-entitlement", premiumSource: "comp", premiumQuotaBytes: 10_000_000_000)
             try await planSheet("mac-plan-sheet-member-comp", row: row, reason: .plan)
         }
 
@@ -160,8 +159,7 @@
                 let row = Entitlement(
                     id: "sample-entitlement", premiumSource: source, premiumExpiresAt: source == nil ? nil : ends,
                     autoRenews: source == "apple", trialStartsAt: Timestamp(now.addingTimeInterval(-20 * 86_400)),
-                    trialEndsAt: ends, premiumQuotaBytes: 10_000_000_000,
-                    freeQuotaBytes: 1_000_000_000)
+                    trialEndsAt: ends, premiumQuotaBytes: 10_000_000_000)
                 try await store.write { writer in try row.upsert(writer.db) }
             }
             try await write("trial")
@@ -241,7 +239,7 @@
                 ?? Entitlement(
                     id: "sample-entitlement", premiumSource: name,
                     premiumExpiresAt: Timestamp(now.addingTimeInterval(30 * 86_400)), autoRenews: true,
-                    premiumQuotaBytes: 10_000_000_000, freeQuotaBytes: 1_000_000_000)
+                    premiumQuotaBytes: 10_000_000_000)
             try await store.write { writer in try row.upsert(writer.db) }
             let plan = PlanModel(store: store, now: { [now] in now })
             #expect(try await poll { plan.plan.kind != .unknown })

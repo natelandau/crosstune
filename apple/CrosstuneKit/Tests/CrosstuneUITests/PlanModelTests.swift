@@ -15,8 +15,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
 private func entitlement(source: String?, expiresAt: Date? = nil, trialEndsAt: Date? = nil) -> Entitlement {
     Entitlement(
         id: "entitlement-1", createdAt: noon, premiumSource: source, premiumExpiresAt: expiresAt.map(Timestamp.init),
-        autoRenews: false, trialEndsAt: trialEndsAt.map(Timestamp.init), premiumQuotaBytes: 10_000,
-        freeQuotaBytes: 1_000)
+        autoRenews: false, trialEndsAt: trialEndsAt.map(Timestamp.init), premiumQuotaBytes: 10_000)
 }
 
 /// Stores a row as the pull does, with no queued change.
@@ -39,7 +38,7 @@ private func pull(_ row: Entitlement, into store: CrosstuneStore) async throws {
         #expect(model.entitlement?.premiumSource == "trial")
         clock.now = end
         try await eventually { model.plan.kind == .free }
-        #expect(model.plan.quotaBytes == 1_000)
+        #expect(model.plan.quotaBytes == nil)
         #expect(try await store.pendingChangeCount() == 0)
     }
 
@@ -153,54 +152,5 @@ private func pull(_ row: Entitlement, into store: CrosstuneStore) async throws {
         try await eventually { secondModel.isLoaded }
         #expect(secondModel.plan.kind == .unknown)
         #expect(try await second.read { db in try Entitlement.fetchCount(db) } == 0)
-    }
-
-    @Test func followsTheScanTune() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        let model = PlanModel(store: store)
-        try await eventually { model.isLoaded }
-        #expect(model.scanTune == nil)
-
-        try await store.write { writer in
-            try writer.put(ScanRecord(id: "b", createdAt: later(1), tuneID: "tune-b", width: 1, height: 1), at: noon)
-            try writer.put(ScanRecord(id: "a", createdAt: noon, tuneID: "tune-a", width: 1, height: 1), at: noon)
-        }
-        try await eventually { model.scanTune == "tune-a" }
-
-        try await store.write { writer in try writer.tombstone(ScanRecord.self, id: "a", at: later(2)) }
-        try await eventually { model.scanTune == "tune-b" }
-    }
-
-    @Test func leavesAScanRefusedForItsTuneOutOfTheScanTune() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        let model = PlanModel(store: store)
-        try await store.write { writer in
-            try writer.put(ScanRecord(id: "b", createdAt: later(1), tuneID: "tune-b", width: 1, height: 1), at: noon)
-            try writer.put(ScanRecord(id: "a", createdAt: noon, tuneID: "tune-a", width: 1, height: 1), at: noon)
-            try ScanFile(scanID: "a", fileName: "a.jpg", origin: .captured).insert(writer.db)
-        }
-        try await eventually { model.scanTune == "tune-a" }
-
-        try await store.write { writer in
-            try writer.db.execute(
-                sql: "UPDATE scan_files SET error = ? WHERE scan_id = 'a'", arguments: [ScanFile.scanTuneOnlyError])
-        }
-        try await eventually { model.scanTune == "tune-b" }
-    }
-
-    @Test func keepsAStoredScanWhoseSlotWasRefusedInTheScanTune() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        let model = PlanModel(store: store)
-        try await store.write { writer in
-            try writer.put(ScanRecord(id: "b", createdAt: later(1), tuneID: "tune-b", width: 1, height: 1), at: noon)
-            try writer.put(
-                ScanRecord(id: "a", createdAt: noon, serverSeq: 3, tuneID: "tune-a", width: 1, height: 1), at: noon)
-            try ScanFile(scanID: "a", fileName: "a.jpg", origin: .captured, error: ScanFile.scanTuneOnlyError)
-                .insert(writer.db)
-        }
-        try await eventually { model.scanTune == "tune-a" }
     }
 }

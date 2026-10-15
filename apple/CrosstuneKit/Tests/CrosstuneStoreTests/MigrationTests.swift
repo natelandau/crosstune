@@ -1084,3 +1084,36 @@ private let v16Schema = """
         #expect(stored?.paidGrants == [PaidGrant(source: "stripe", autoRenews: true)])
     }
 }
+
+@Test func theV19MigrationDropsTheFreeQuotaAndTheScanRequeuesAndKeepsRowsAndThePullCursor() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v18")
+    let time = "2026-10-14T12:00:00.000Z"
+    try queue.write { db in
+        try db.execute(
+            sql: """
+                INSERT INTO entitlements (id, created_at, updated_at, server_seq, premium_source, auto_renews,
+                    premium_quota_bytes, free_quota_bytes, extra)
+                VALUES ('e-1', ?, ?, 1, 'trial', 0, 10, 1, '{"storage_addon":true}')
+                """,
+            arguments: [time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO meta (key, value)
+                VALUES ('pull_cursor', '40'), ('scan_requeues', '{"grant":"1 comp never","attempts":[]}')
+                """)
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v19")
+
+    try queue.read { db in
+        let columns = try db.columns(in: "entitlements").map(\.name)
+        #expect(!columns.contains("free_quota_bytes"))
+        #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'pull_cursor'") == "40")
+        #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'scan_requeues'") == nil)
+        let stored = try Entitlement.fetchOne(db, key: "e-1")
+        #expect(stored?.premiumSource == "trial")
+        #expect(stored?.premiumQuotaBytes == 10)
+        #expect(stored?.extra == ["storage_addon": .bool(true)])
+    }
+}

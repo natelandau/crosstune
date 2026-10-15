@@ -15,7 +15,7 @@ private func entitlement(source: String?, trialEndsAt: Date? = nil) -> Entitleme
     Entitlement(
         id: "entitlement-1", createdAt: noon, premiumSource: source,
         premiumExpiresAt: trialEndsAt.map(Timestamp.init), autoRenews: false,
-        trialEndsAt: trialEndsAt.map(Timestamp.init), premiumQuotaBytes: 10_000, freeQuotaBytes: 1_000)
+        trialEndsAt: trialEndsAt.map(Timestamp.init), premiumQuotaBytes: 10_000)
 }
 
 @MainActor

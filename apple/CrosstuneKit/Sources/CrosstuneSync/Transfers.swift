@@ -61,9 +61,6 @@ struct Transfers {
         return firstError
     }
 
-    /// The server refused a recording's upload as Premium only.
-    private struct RefusedByPlan: Error {}
-
     private func uploadOne(_ id: String) async throws {
         let found = try await store.read { db -> (RecordingFile, String, Recording, Bool)? in
             guard let file = try RecordingFile.fetchOne(db, key: id), let fileName = file.fileName,

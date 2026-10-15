@@ -24,11 +24,9 @@ public struct PushResult: Sendable {
     }
 }
 
-/// The reason a push result gives for a recording a free account may not add. The change stays
-/// queued, held until the plan is Premium again.
+/// The reason a push result gives for a recording or scan a free account may not add. The
+/// change stays queued, held until the plan is Premium again.
 public let premiumRequiredReason = "premium required"
-/// The reason a push result gives for a scan a free account adds on a second tune.
-public let scanTuneOnlyReason = "scans are limited to one tune"
 /// The reason a push result gives for a row whose recording the server does not have, as for
 /// a loop on a take held for Premium.
 public let missingRecordingReason = "recording_id does not reference one of your recordings"
@@ -108,11 +106,10 @@ extension StoreWriter {
     /// changed since it was sent leaves the outbox. A write queued after the batch left, or
     /// replaced meanwhile, keeps its entry for the next push.
     ///
-    /// A recording refused as Premium only is neither reported nor settled: its entry stays and
-    /// its id is held until a later result for it settles. A row refused because its recording
-    /// is held stays queued the same way, to go out with it. A scan refused for a second tune
-    /// settles as any refusal does, and its file is marked so the upload waits for Premium.
-    /// `held` names the recordings this batch held.
+    /// A recording or scan refused as Premium only is neither reported nor settled: its entry
+    /// stays and its id is held until a later result for it settles. A row refused because its
+    /// recording is held stays queued the same way, to go out with it. `held` names the
+    /// recordings and scans this batch held.
     @discardableResult
     public func applyPushResults(sent: [OutboxEntry], results: [PushResult]) throws -> (
         invalid: [InvalidChange], settled: Int, held: [String]
@@ -126,12 +123,10 @@ extension StoreWriter {
         var settled = 0
         var held: [String] = []
         var released: [String] = []
-        var offTuneScans: [String] = []
         var orphans: [(entry: OutboxEntry, result: PushResult, recordingID: String)] = []
 
         func settle(_ entry: OutboxEntry, _ result: PushResult) throws {
             if result.status == .invalid {
-                if entry.tableName == .scans, result.reason == scanTuneOnlyReason { offTuneScans.append(entry.rowID) }
                 if entry.tableName.isEvent {
                     // A refused event is not stored for this user, so its local copy would only
                     // ever count on this device. No edit of the musician's was lost, so it is not
@@ -157,10 +152,10 @@ extension StoreWriter {
             let unchanged = current?.seq == entry.seq && current?.updatedAt == entry.updatedAt
             guard unchanged else { continue }
 
-            if result.status == .invalid, entry.tableName == .recordings, entry.op != .delete,
+            if result.status == .invalid, SyncTable.premiumOnly.contains(entry.tableName), entry.op != .delete,
                 result.reason == premiumRequiredReason
             {
-                // The entry carries the take once the account subscribes. Not counted as
+                // The entry carries the row once the account subscribes. Not counted as
                 // settled, since its entry stays in the outbox.
                 held.append(entry.rowID)
                 continue
@@ -172,7 +167,7 @@ extension StoreWriter {
                 orphans.append((entry, result, recordingID))
                 continue
             }
-            if entry.tableName == .recordings { released.append(entry.rowID) }
+            if SyncTable.premiumOnly.contains(entry.tableName) { released.append(entry.rowID) }
             try settle(entry, result)
         }
 
@@ -184,11 +179,6 @@ extension StoreWriter {
         try OutboxEntry.deleteAll(db, keys: settledSeqs)
         try releasePremiumHolds(released)
         try holdForPremium(held)
-        for id in offTuneScans {
-            guard var file = try ScanFile.fetchOne(db, key: id) else { continue }
-            file.error = ScanFile.scanTuneOnlyError
-            try file.update(db)
-        }
         if !invalid.isEmpty {
             let priorCount = try meta(.invalidChanges, as: Int.self) ?? 0
             try setMeta(.invalidChanges, to: priorCount + invalid.count)
@@ -203,7 +193,7 @@ extension StoreWriter {
     public func applyPullPage(rows: [(SyncTable, JSONObject)], nextSince: Int64) throws {
         var pending = try pendingByRow()
         var supersededSeqs: [Int64] = []
-        var supersededRecordings: [String] = []
+        var supersededHolds: [String] = []
 
         for (table, wire) in rows {
             let pulled = try decodeWireRow(table: table, wire)
@@ -212,13 +202,13 @@ extension StoreWriter {
             try pulled.save()
             if let seq = pending[key]?.seq {
                 supersededSeqs.append(seq)
-                if table == .recordings { supersededRecordings.append(pulled.id) }
+                if SyncTable.premiumOnly.contains(table) { supersededHolds.append(pulled.id) }
                 pending.removeValue(forKey: key)
             }
         }
 
         try OutboxEntry.deleteAll(db, keys: supersededSeqs)
-        try releasePremiumHolds(supersededRecordings)
+        try releasePremiumHolds(supersededHolds)
         try setMeta(.pullCursor, to: nextSince)
     }
 

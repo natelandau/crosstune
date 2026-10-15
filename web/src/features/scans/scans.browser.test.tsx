@@ -30,7 +30,7 @@ import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { planSheet } from '../../test/planSheet'
 import { entitlementRow, jpegBlob, scanFile, scanRow, tuneRow, userTuneRow } from '../../test/rows'
-import { PREMIUM_SCANS_TITLE, premiumScansBody } from '../plan/planCopy'
+import { PREMIUM_SCANS_BODY, PREMIUM_SCANS_TITLE } from '../plan/planCopy'
 import { useEntitlement } from '../../billing/usePlan'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
@@ -431,7 +431,7 @@ it('hands focus back to the Scans action on touch, leaving the row closed', asyn
   expect(router.state.location.pathname).toBe('/catalog')
 })
 
-describe('on a free plan, scans open on one tune', () => {
+describe('on a free plan, no scans open', () => {
   const OTHER = 'Cluck Old Hen'
   const TRIAL = entitlementRow({
     premium_source: 'trial',
@@ -439,7 +439,7 @@ describe('on a free plan, scans open on one tune', () => {
     trial_ends_at: '2099-01-01T00:00:00.000Z',
   })
 
-  /** t1's scans are older, so t1 is the scan tune; t2 holds two newer scans. */
+  /** t1 holds three scans and t2 two. */
   async function mountPlan(path: string, entitlement = entitlementRow()) {
     const db = openTestDb()
     await seed(db)
@@ -477,7 +477,7 @@ describe('on a free plan, scans open on one tune', () => {
   const otherRow = () =>
     page.getByRole('grid', { name: TUNE_LIST }).getByRole('row', { name: new RegExp(`^${OTHER}`) })
 
-  it("dims another tune's scans, and a tap or Add opens the Plan sheet", async () => {
+  it('dims every scan, and a tap or Add opens the Plan sheet', async () => {
     const { analytics } = await mountPlan('/catalog/t2')
     await expect.element(gated(0)).toBeVisible()
     await expect.element(gated(0)).toHaveAccessibleDescription(SUBSCRIBE_TO_OPEN)
@@ -488,7 +488,7 @@ describe('on a free plan, scans open on one tune', () => {
     await expect
       .element(premium().getByRole('heading', { name: PREMIUM_SCANS_TITLE }))
       .toBeVisible()
-    await expect.element(premium()).toHaveAccessibleDescription(premiumScansBody(TITLE))
+    await expect.element(premium()).toHaveAccessibleDescription(PREMIUM_SCANS_BODY)
     expect(otherViewer().elements()).toHaveLength(0)
     await expect
       .poll(() => sheetsShown(analytics))
@@ -506,7 +506,7 @@ describe('on a free plan, scans open on one tune', () => {
     expect(picked).not.toHaveBeenCalled()
   })
 
-  it("deletes another tune's scans in edit mode, with no reorder", async () => {
+  it('deletes scans in edit mode, with no reorder', async () => {
     const { db } = await mountPlan('/catalog/t2')
     await expect.element(gated(0)).toBeVisible()
     await scansSection().getByRole('button', { name: EDIT_SCANS }).click()
@@ -524,27 +524,7 @@ describe('on a free plan, scans open on one tune', () => {
     await expect.poll(async () => (await db.scans.get('q0'))?.deleted_at).not.toBeNull()
   })
 
-  it("opens another tune's scans once every scan on the scan tune is gone", async () => {
-    const { db } = await mountPlan('/catalog/t2')
-    await expect.element(gated(0)).toBeVisible()
-    for (const id of ['p0', 'p1', 'p2']) await deleteScan(db, id)
-    await expect.element(thumbnail(0)).toBeVisible()
-    await expect.element(thumbnail(0)).not.toHaveAccessibleDescription(SUBSCRIBE_TO_OPEN)
-    await expect.poll(() => opacity(thumbnail(0))).toBe(1)
-    await thumbnail(0).click()
-    await expect.element(otherViewer()).toBeVisible()
-    expect(premium().elements()).toHaveLength(0)
-  })
-
-  it("opens the scan tune's scans in the viewer", async () => {
-    await mountPlan('/catalog/t1')
-    await expect.element(thumbnail(0)).toBeVisible()
-    expect(opacity(thumbnail(0))).toBe(1)
-    await thumbnail(0).click()
-    await expect.element(viewer()).toBeVisible()
-  })
-
-  it("opens every tune's scans on a trial", async () => {
+  it("opens a tune's scans on a trial", async () => {
     await mountPlan('/catalog/t2', TRIAL)
     await thumbnail(0).click()
     await expect.element(otherViewer()).toBeVisible()
@@ -571,30 +551,27 @@ describe('on a free plan, scans open on one tune', () => {
     await expect.element(otherViewer()).toBeVisible()
     await db.entitlements.put(entitlementRow())
     await expect.element(otherViewer()).not.toBeInTheDocument()
-    await expect
-      .element(otherRow().getByRole('button', { name: SCANS, exact: true }))
-      .not.toBeInTheDocument()
     await db.entitlements.put(TRIAL)
     // A viewer that came back by itself would cover the rows, so no other could open.
-    const scanTune = page
+    const titleRow = page
       .getByRole('grid', { name: TUNE_LIST })
       .getByRole('row', { name: new RegExp(`^${TITLE}`) })
-    await userEvent.hover(scanTune)
-    await scanTune.getByRole('button', { name: SCANS, exact: true }).click()
+    await userEvent.hover(titleRow)
+    await titleRow.getByRole('button', { name: SCANS, exact: true }).click()
     await expect.element(viewer()).toBeVisible()
     expect(otherViewer().elements()).toHaveLength(0)
   })
 
-  it('leaves Scans off a catalog row whose scans do not open', async () => {
-    await mountPlan('/catalog')
-    const grid = page.getByRole('grid', { name: TUNE_LIST })
-    const scanTune = grid.getByRole('row', { name: new RegExp(`^${TITLE}`) })
+  it("offers Premium from a row's Scans, opening no viewer", async () => {
+    const { analytics } = await mountPlan('/catalog')
+    await userEvent.hover(otherRow())
+    await otherRow().getByRole('button', { name: SCANS, exact: true }).click()
     await expect
-      .element(scanTune.getByRole('button', { name: SCANS, exact: true }))
-      .toBeInTheDocument()
-    await expect.element(otherRow().getByRole('button', { name: EDIT_TUNE })).toBeInTheDocument()
+      .element(premium().getByRole('heading', { name: PREMIUM_SCANS_TITLE }))
+      .toBeVisible()
     await expect
-      .element(otherRow().getByRole('button', { name: SCANS, exact: true }))
-      .not.toBeInTheDocument()
+      .poll(() => sheetsShown(analytics))
+      .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'scans', from: 'scan' } }])
+    expect(otherViewer().elements()).toHaveLength(0)
   })
 })

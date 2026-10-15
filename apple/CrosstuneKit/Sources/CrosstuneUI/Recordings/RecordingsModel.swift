@@ -223,9 +223,11 @@ public final class RecordingsModel {
         return storage
     }
 
-    /// The account's storage measured against the plan's quota when the plan is known.
+    /// The account's storage measured against the plan's quota when the plan is known, nil when
+    /// the plan has no quota.
     public func storage(plan: Plan) -> StorageFigures? {
-        storage?.measured(against: plan)
+        guard let figures = storage?.measured(against: plan), figures.quotaBytes > 0 else { return nil }
+        return figures
     }
 
     /// What a delete costs: a recording the server has never seen exists only on this device.

@@ -5,7 +5,7 @@ extension PlanSheet {
     enum Cell: Equatable {
         case included
         case excluded
-        /// How much of it, such as "1 tune" or "50 MB".
+        /// How much of it, such as "3 GB".
         case value(String)
     }
 
@@ -26,12 +26,10 @@ extension PlanSheet {
         Feature(title: PlanText.featureRecord, free: .excluded, premium: .included, symbol: "record.circle"),
         Feature(title: PlanText.featurePlay, free: .excluded, premium: .included, symbol: "play"),
         Feature(title: PlanText.featurePractice, free: .excluded, premium: .included, symbol: "slider.horizontal.3"),
+        Feature(title: PlanText.featureScans, free: .excluded, premium: .included, symbol: "doc.richtext"),
         Feature(
-            title: PlanText.featureScans, free: .value(PlanText.scansFree), premium: .value(PlanText.scansPremium),
-            symbol: "doc.richtext"),
-        Feature(
-            title: PlanText.featureStorage, free: .value(PlanText.storageFree),
-            premium: .value(PlanText.storagePremium), symbol: "icloud"),
+            title: PlanText.featureStorage, free: .excluded, premium: .value(PlanText.storagePremium),
+            symbol: "icloud"),
     ]
 }
 
@@ -47,7 +45,7 @@ struct PlanComparison: View {
     private static let tabInset: CGFloat = 8
 
     @Environment(\.colorScheme) private var scheme
-    /// Grows with the text, so "Every tune" keeps one line at large sizes.
+    /// Grows with the text, so a value keeps one line at large sizes.
     @ScaledMetric(relativeTo: .subheadline) private var columnWidth: CGFloat = 84
     @ScaledMetric(relativeTo: .subheadline) private var tileSide: CGFloat = 26
 

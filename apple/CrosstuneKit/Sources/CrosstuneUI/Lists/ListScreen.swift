@@ -125,6 +125,7 @@ private struct ListTunes: View {
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.plan) private var plan
+    @Environment(\.premium) private var premium
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @Environment(ScanTunes.self) private var scanTunes: ScanTunes?
@@ -390,7 +391,7 @@ private struct ListTunes: View {
         let edit = { form = .edit(tuneID: entry.tune.id, userTuneID: entry.userTune.id) }
         let remove: () -> Void = { Task { await model.remove(entry) } }
         let scans = TuneRowActions.scansAction(
-            tuneID: entry.tune.id, tunesWithScans: scanTunes, plan: plan, origin: .list(id: list.id),
+            tuneID: entry.tune.id, tunesWithScans: scanTunes, premium: premium, origin: .list(id: list.id),
             actions: tuneScreenActions)
         return HStack(spacing: spacing(4)) {
             if detailTune != nil || selection.isActive {

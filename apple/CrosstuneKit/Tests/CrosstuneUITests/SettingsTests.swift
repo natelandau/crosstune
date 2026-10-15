@@ -195,10 +195,13 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     @Test func takesTheQuotaFromAKnownPlan() async throws {
         let store = try await SampleCatalog.makeStore()
         let model = try await loadedModel(store)
-        let free = Plan(kind: .free, quotaBytes: 50_000_000, scansOnly: true)
-        #expect(model.storage(plan: free)?.quotaBytes == 50_000_000)
-        #expect(model.storage(plan: free)?.usedBytes == SampleCatalog.storage.usedBytes)
+        let premium = Plan(kind: .premium, quotaBytes: 50_000_000)
+        #expect(model.storage(plan: premium)?.quotaBytes == 50_000_000)
+        #expect(model.storage(plan: premium)?.usedBytes == SampleCatalog.storage.usedBytes)
         #expect(SampleCatalog.storage.quotaBytes != 50_000_000)
+        // Free has no quota, so its usage shows alone.
+        #expect(model.storage(plan: Plan(kind: .free))?.quotaBytes == 0)
+        #expect(model.storage(plan: Plan(kind: .free))?.usedBytes == SampleCatalog.storage.usedBytes)
     }
 
     @Test func fallsBackToTheMetaQuotaWhileThePlanIsUnknown() async throws {
@@ -207,12 +210,14 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         #expect(model.storage(plan: .unknown) == SampleCatalog.storage)
     }
 
-    @Test func hidesStorageUntilTheServerHasNamedAQuota() async throws {
+    @Test func showsUsageWithNoQuota() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        try await store.setMeta(.storage, to: StorageFigures(usedBytes: 10, quotaBytes: 0, maxFileBytes: 0))
+        let figures = StorageFigures(usedBytes: 10, quotaBytes: 0, maxFileBytes: 0)
+        try await store.setMeta(.storage, to: figures)
         let model = try await loadedModel(store)
-        #expect(model.storage == nil)
+        #expect(model.storage == figures)
+        #expect(RecordingText.storageUsed(figures) == "10 B used")
     }
 
     @Test func togglesAnInstrumentAtOnceAndStoresIt() async throws {

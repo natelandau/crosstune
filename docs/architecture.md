@@ -217,10 +217,9 @@ synced entitlements row.
   server-written, read-only to clients. A push to it is `invalid` with
   reason `server-written`. It reports the Premium grant that lasts
   longest, with its source, expiry, and `auto_renews`, plus
-  `trial_starts_at`, `trial_ends_at`, `premium_quota_bytes`, and
-  `free_quota_bytes`. `premium_quota_bytes` is that grant's quota: the
-  trial's when it is the trial, else Premium's plus any active storage
-  add-on. `paid_grants` holds each store's active paid grant that lasts
+  `trial_starts_at`, `trial_ends_at`, and `premium_quota_bytes`, that
+  grant's quota: the trial's when it is the trial, else Premium's plus any
+  active storage add-on. `paid_grants` holds each store's active paid grant that lasts
   longest, with its expiry and `auto_renews`, so a client can show where to
   manage, and what deleting does to, a subscription the reported grant
   outlasts, such as one under an open-ended comp. A client judges each
@@ -238,48 +237,41 @@ synced entitlements row.
   `premium_expires_at` is null or later than now, plus 7 days when
   `auto_renews`, so an offline device neither keeps a trial forever nor
   loses a renewal it has not pulled yet.
-- The quota a client shows is `premium_quota_bytes` when Premium, else
-  `free_quota_bytes`, which counts scans only. Used bytes are not on the
-  row, since every upload changes them. They come from `GET /v1/me`,
-  counted the same way.
+- The quota a client shows is `premium_quota_bytes` when Premium. A free
+  account has no quota, since it adds no files, and `GET /v1/me` reports
+  its quota as 0. Used bytes are not on the row, since every upload
+  changes them. They come from `GET /v1/me`, which counts every recording
+  and scan on any plan.
 - A new account gets a pending comp promised to its email, or else one
   30-day trial. A pending comp whose end has passed is dropped, and the
   trial starts. A trial is never granted twice.
-- The scan tune is the tune of the account's earliest live scan, by
-  `created_at`, then `id`. It is computed, never stored, and clients
-  apply the same rule. With no live scan, any tune may become it.
 - Each push and pull records the account's last sync, at most once an
   hour.
 
 Only additions are refused. Edits and deletes always go through, so a
-disabled recording can still be renamed, filed, or deleted.
+disabled recording can still be renamed, filed, or deleted, and a closed
+scan can still be reordered or deleted.
 
-| Addition on a free account                  | Refusal                                                |
-| ------------------------------------------- | ------------------------------------------------------ |
-| New recording row, link audio included      | Push `invalid`, reason `premium required`              |
-| New scan row off the scan tune              | Push `invalid`, reason `scans are limited to one tune` |
-| Recording upload slot                       | 403 `urn:crosstune:premium-required`                   |
-| Retry of an import whose file never arrived | 403 `urn:crosstune:premium-required`                   |
-| Scan upload slot off the scan tune          | 403 `urn:crosstune:scan-tune-only`                     |
-| Any upload slot past the quota, on any plan | 413 `urn:crosstune:quota-exceeded`                     |
-| A queued import, judged when its file is in | The recording fails with "Premium required"            |
+| Addition on a free account                  | Refusal                                     |
+| ------------------------------------------- | ------------------------------------------- |
+| New recording row, link audio included      | Push `invalid`, reason `premium required`   |
+| New scan row                                | Push `invalid`, reason `premium required`   |
+| Recording or scan upload slot               | 403 `urn:crosstune:premium-required`        |
+| Retry of an import whose file never arrived | 403 `urn:crosstune:premium-required`        |
+| Any upload slot past the quota, on any plan | 413 `urn:crosstune:quota-exceeded`          |
+| A queued import, judged when its file is in | The recording fails with "Premium required" |
 
 - `premium required` on a new recording row is not final. The client
   keeps the row and its outbox entry, and pushes it again once the
   entitlements row says Premium. The take's loops, play events, and
   practice sessions wait with it. A delete is never held.
-- `scans are limited to one tune` marks the scan's file, and the client
-  leaves that scan out of its own scan tune. It pushes the scan again once
-  per chance the server could take it: each Premium grant, or on a free
-  plan each scan tune that is the scan's own tune or none.
-- `scan-tune-only` on an upload slot marks the file the same way, but the
-  server stored the row, so the scan still counts toward the client's scan
-  tune. On a free plan the client asks for the slot again once per scan
-  tune that is the scan's own tune or none.
-- A free client downloads no recording audio and no scan off the scan
-  tune. An export fetches them.
+- `premium required` on a new scan row is held the same way, with its
+  file kept. On an upload slot it leaves the file as it is, and the upload
+  waits for Premium.
+- A free client downloads no recording audio and no scan image. An export
+  fetches them.
 - A restored soft-deleted recording adds nothing and is allowed. A
-  restored scan off the scan tune is refused like a new one.
+  restored scan is refused like a new one.
 - A free account's trim is never refused. When a pushed trim differs from
   the stored one, the server keeps the stored trim, applies the rest of
   the row, and starts no trim job.
@@ -524,10 +516,10 @@ never synced.
   than an hour without a confirmation is released, and the runner deletes
   whatever its PUT left.
 - Scans move the same way: an upload slot, a PUT to R2, then a confirm.
-  One quota, sized by the user's plan, covers recordings and scans; a free
-  plan's covers scans only. A scan's image goes under the user's `scans/`
-  key prefix. An image stored under the older `notation/` prefix keeps its
-  key, and purges and orphan sweeps look under both.
+  One quota, sized by the user's plan, covers recordings and scans. A
+  scan's image goes under the user's `scans/` key prefix. An image stored
+  under the older `notation/` prefix keeps its key, and purges and orphan
+  sweeps look under both.
 - ffprobe and ffmpeg read an upload only as a local file, only through the
   demuxers of the audio types an upload may declare, and run with no
   environment but `PATH`. On Linux they run under `prlimit` limits on

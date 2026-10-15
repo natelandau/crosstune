@@ -363,8 +363,8 @@ public final class SyncEngine {
     }
 
     private func push() async throws {
-        let premium = try await store.plan(at: now()).recordingsPlay
-        // Takes the server held during this push. Read past, so a device that judges Premium
+        let premium = try await store.plan(at: now()).kind != .free
+        // Rows the server held during this push. Read past, so a device that judges Premium
         // before the server agrees neither resends them nor lets them starve the edits behind.
         var heldThisPush: Set<String> = []
         while true {

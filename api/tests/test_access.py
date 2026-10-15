@@ -13,10 +13,9 @@ from crosstune.billing.access import (
     access_for,
     refresh_entitlement,
     resolve,
-    scan_tune_id,
 )
 from crosstune.billing.grants import set_trial_end, start_trial
-from crosstune.models import Grant, Scan, Tune, User
+from crosstune.models import Grant, User
 from crosstune.vocabulary import GrantKind, GrantSource
 from tests.helpers import T0
 
@@ -26,10 +25,9 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 NOW = T0
-FREE = 52_428_800
-TRIAL = 104_857_600
-PREMIUM = 5_368_709_120
-ADDON = 53_687_091_200
+TRIAL = 100_000_000
+PREMIUM = 3_000_000_000
+ADDON = 50_000_000_000
 
 
 def _grant(kind: GrantKind, source: GrantSource, expires_at=None, *, auto_renews=False) -> Grant:
@@ -46,10 +44,8 @@ def test_no_grants_is_free(settings: Settings) -> None:
     result = resolve([], NOW, settings)
 
     assert result.access.premium is False
-    assert result.access.quota_bytes == FREE
-    assert result.access.counts_recordings is False
+    assert result.access.quota_bytes == 0
     assert result.premium_source is None
-    assert result.free_quota_bytes == FREE
 
 
 def test_active_trial_is_premium_with_trial_quota(settings: Settings) -> None:
@@ -58,7 +54,6 @@ def test_active_trial_is_premium_with_trial_quota(settings: Settings) -> None:
 
     assert result.access.premium is True
     assert result.access.quota_bytes == TRIAL
-    assert result.access.counts_recordings is True
     assert result.premium_source == GrantSource.TRIAL
     assert result.premium_expires_at == ends
     assert result.trial_ends_at == ends
@@ -222,7 +217,7 @@ def test_an_expired_trial_alone_is_free(settings: Settings) -> None:
     result = resolve([_premium(GrantSource.TRIAL, ended)], NOW, settings)
 
     assert result.access.premium is False
-    assert result.access.quota_bytes == FREE
+    assert result.access.quota_bytes == 0
     assert result.premium_source is None
     assert result.premium_expires_at is None
     assert result.trial_ends_at == ended
@@ -254,7 +249,6 @@ async def test_refresh_bumps_server_seq_only_on_change(session, settings: Settin
     first_seq = row.server_seq
     assert isinstance(first_seq, int)
     assert row.premium_source is None
-    assert row.free_quota_bytes == FREE
 
     row = await refresh_entitlement(session, user_id, settings, NOW)
     assert row.server_seq == first_seq
@@ -310,60 +304,6 @@ async def test_refresh_fills_the_trial_window_and_follows_a_moved_end(
     assert row.trial_starts_at == NOW
     assert row.trial_ends_at == extended
     assert row.server_seq > first_seq
-
-
-async def _tune_with_scan(
-    session, user_id, created_at, *, deleted_at=None
-) -> tuple[uuid.UUID, Scan]:
-    tune_id = uuid.uuid4()
-    session.add(
-        Tune(
-            id=tune_id,
-            owner_user_id=user_id,
-            title="X",
-            created_at=created_at,
-            updated_at=created_at,
-        )
-    )
-    await session.flush()
-    scan = Scan(
-        id=uuid.uuid4(),
-        user_id=user_id,
-        tune_id=tune_id,
-        width=10,
-        height=10,
-        created_at=created_at,
-        updated_at=created_at,
-        deleted_at=deleted_at,
-    )
-    session.add(scan)
-    await session.flush()
-    return tune_id, scan
-
-
-async def test_scan_tune_id_is_the_oldest_live_scan(session) -> None:
-    user_id = await _user(session)
-    assert await scan_tune_id(session, user_id) is None
-
-    tune_a, scan_a = await _tune_with_scan(session, user_id, NOW)
-    tune_b, _ = await _tune_with_scan(session, user_id, NOW + timedelta(seconds=5))
-    assert await scan_tune_id(session, user_id) == tune_a
-
-    scan_a.deleted_at = NOW + timedelta(seconds=10)
-    await session.flush()
-    assert await scan_tune_id(session, user_id) == tune_b
-
-    other = await _user(session)
-    assert await scan_tune_id(session, other) is None
-
-
-async def test_scan_tune_id_breaks_a_created_at_tie_by_id(session) -> None:
-    user_id = await _user(session)
-    _, first = await _tune_with_scan(session, user_id, NOW)
-    _, second = await _tune_with_scan(session, user_id, NOW)
-    lower = min((first, second), key=lambda scan: scan.id)
-
-    assert await scan_tune_id(session, user_id) == lower.tune_id
 
 
 def test_resolver_holds_premium_in_apple_grace(settings: Settings) -> None:

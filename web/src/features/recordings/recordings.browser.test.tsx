@@ -400,6 +400,23 @@ it('outlines the column under the pane bar while files are dragged over it', asy
   await expect.element(overlay).not.toBeInTheDocument()
 })
 
+it('drops the storage summary once the plan lapses to free, which has no quota', async () => {
+  await setStorage(db, { used_bytes: 1_000_000, quota_bytes: 0, max_file_bytes: 500_000 })
+  await db.entitlements.put(
+    entitlementRow({
+      premium_source: 'trial',
+      premium_expires_at: '2099-01-01T00:00:00.000Z',
+      trial_ends_at: '2099-01-01T00:00:00.000Z',
+    }),
+  )
+  await db.recordings.put(recordingRow('r1', { label: 'Jam recording', state: 'ready' }))
+  await show()
+  await expect.element(column().getByRole('progressbar', { name: STORAGE_USED })).toBeVisible()
+  await db.entitlements.put(entitlementRow())
+  await expect.element(row('Jam recording')).toHaveAccessibleDescription(SUBSCRIBE_TO_PLAY)
+  await expect.element(column().getByText(/ used$/)).not.toBeInTheDocument()
+})
+
 it('dims every recording on a free plan, filed and unfiled, and answers a tap with Premium', async () => {
   await db.entitlements.put(entitlementRow())
   await db.tunes.put(tuneRow('hen', 'Cluck Old Hen'))

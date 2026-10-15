@@ -5,9 +5,9 @@ export const TRIAL_ENDED_TITLE = 'Your trial has ended'
 export const NOTICE_OK = 'OK'
 export const LOSE_PLAYBACK = "Recordings don't play in the app"
 export const LOSE_RECORDING = 'No new recordings or practice mode'
-export const LOSE_SCANS = 'Scans open on one tune only'
+export const LOSE_SCANS = "Scans don't open in the app"
 export const NOTICE_KEEPS =
-  'Every recording and scan stays, and export always includes them. Subscribe and they play again at once.'
+  'Every recording and scan stays, and export always includes them. Subscribe and they work again at once.'
 
 /** What is left of the trial, from whole local calendar days: 0 or fewer is its last day. */
 export function daysLeft(days: number): string {

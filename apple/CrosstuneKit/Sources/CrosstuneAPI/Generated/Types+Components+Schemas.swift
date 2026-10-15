@@ -200,8 +200,6 @@ extension Components {
             public var createdAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/EntitlementRow/deleted_at`.
             public var deletedAt: Foundation.Date?
-            /// - Remark: Generated from `#/components/schemas/EntitlementRow/free_quota_bytes`.
-            public var freeQuotaBytes: Swift.Int
             /// - Remark: Generated from `#/components/schemas/EntitlementRow/id`.
             public var id: Swift.String
             /// - Remark: Generated from `#/components/schemas/EntitlementRow/paid_grants`.
@@ -234,7 +232,6 @@ extension Components {
             ///   - autoRenews:
             ///   - createdAt:
             ///   - deletedAt:
-            ///   - freeQuotaBytes:
             ///   - id:
             ///   - paidGrants:
             ///   - premiumExpiresAt:
@@ -252,7 +249,6 @@ extension Components {
                 autoRenews: Swift.Bool,
                 createdAt: Foundation.Date,
                 deletedAt: Foundation.Date? = nil,
-                freeQuotaBytes: Swift.Int,
                 id: Swift.String,
                 paidGrants: [Components.Schemas.PaidGrantRow],
                 premiumExpiresAt: Foundation.Date? = nil,
@@ -270,7 +266,6 @@ extension Components {
                 self.autoRenews = autoRenews
                 self.createdAt = createdAt
                 self.deletedAt = deletedAt
-                self.freeQuotaBytes = freeQuotaBytes
                 self.id = id
                 self.paidGrants = paidGrants
                 self.premiumExpiresAt = premiumExpiresAt
@@ -289,7 +284,6 @@ extension Components {
                 case autoRenews = "auto_renews"
                 case createdAt = "created_at"
                 case deletedAt = "deleted_at"
-                case freeQuotaBytes = "free_quota_bytes"
                 case id
                 case paidGrants = "paid_grants"
                 case premiumExpiresAt = "premium_expires_at"
@@ -1646,7 +1640,7 @@ extension Components {
             public var status: Swift.Int
             /// - Remark: Generated from `#/components/schemas/Problem/title`.
             public var title: Swift.String
-            /// `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:scan-tune-only` (403, a free account's scans stay on one tune), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured), `urn:crosstune:billing-failed` (502, the billing provider did not answer).
+            /// `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured), `urn:crosstune:billing-failed` (502, the billing provider did not answer).
             ///
             /// - Remark: Generated from `#/components/schemas/Problem/type`.
             public var _type: Swift.String?
@@ -1657,7 +1651,7 @@ extension Components {
             ///   - errors:
             ///   - status:
             ///   - title:
-            ///   - _type: `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:scan-tune-only` (403, a free account's scans stay on one tune), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured), `urn:crosstune:billing-failed` (502, the billing provider did not answer).
+            ///   - _type: `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured), `urn:crosstune:billing-failed` (502, the billing provider did not answer).
             public init(
                 detail: Swift.String,
                 errors: Components.Schemas.Problem.ErrorsPayload? = nil,

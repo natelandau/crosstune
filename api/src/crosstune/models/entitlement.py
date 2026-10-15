@@ -48,7 +48,6 @@ class Entitlement(SyncColumns, Base):
     trial_starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     premium_quota_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    free_quota_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     # Each store's longest active paid grant, as PaidGrant.as_row writes it.
     paid_grants: Mapped[list[dict[str, object]]] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'"), default=list

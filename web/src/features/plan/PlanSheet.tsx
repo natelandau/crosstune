@@ -1,12 +1,9 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { useId, useState } from 'react'
 import { canSubscribe, planMode, type Plan } from '../../billing/plan'
 import type { StoreOffer } from '../../billing/store'
 import { storeConfig } from '../../billing/storeConfig'
 import { useStore } from '../../billing/StoreProvider'
 import { usePlanOrUnknown } from '../../billing/usePlan'
-import { useDb } from '../../db/DbProvider'
-import { readScanTune } from '../../db/scans'
 import { useOnline } from '../../sync/SyncProvider'
 import type { PremiumReason, PurchasePeriod } from '../../usage/events'
 import { Mark } from '../../ui/Mark'
@@ -24,8 +21,8 @@ import {
   PREMIUM_PLAN_TITLE,
   PREMIUM_RECORDINGS_BODY,
   PREMIUM_RECORDINGS_TITLE,
+  PREMIUM_SCANS_BODY,
   PREMIUM_SCANS_TITLE,
-  premiumScansBody,
   SUBSCRIBE,
   SUBSCRIBE_OFFLINE,
   SUBSCRIBED,
@@ -80,19 +77,6 @@ function saleOf({
 }
 
 /**
- * The title of the one tune a free account's scans open on, read only while asked for:
- * undefined until read, and the title null when there is no scan tune.
- */
-function useScanTuneTitle(asked: boolean): { title: string | null } | undefined {
-  const db = useDb()
-  return useLiveQuery(async () => {
-    if (!asked) return undefined
-    const tuneId = await readScanTune(db)
-    return { title: tuneId === null ? null : ((await db.tunes.get(tuneId))?.title ?? null) }
-  }, [db, asked])
-}
-
-/**
  * The account's plan: what Free and Premium each hold, sold to a free or trial account, or
  * confirmed to a Premium one. A locked tap opens it leading with what was tapped. Where the store
  * can sell, Annual or Monthly, Subscribe, and the renewal terms end the page.
@@ -125,18 +109,14 @@ export function PlanSheet({
   useResetOnChange(open, () => {
     if (open) setPeriod('annual')
   })
-  const scan = useScanTuneTitle(reason === 'scans')
   const body =
     reason === 'recordings'
       ? PREMIUM_RECORDINGS_BODY
-      : reason === 'plan'
-        ? PREMIUM_PITCH
-        : reason === 'scans' && scan?.title
-          ? premiumScansBody(scan.title)
+      : reason === 'scans'
+        ? PREMIUM_SCANS_BODY
+        : reason === 'plan'
+          ? PREMIUM_PITCH
           : null
-  // The scans sheet waits for its tune's title, so it opens with its body already in place.
-  const ready =
-    reason === 'recordings' || reason === 'plan' || (reason === 'scans' && scan !== undefined)
   const sale =
     mode === 'selling'
       ? saleOf({ selling: store !== null, plan, online, offers, settled })
@@ -149,7 +129,7 @@ export function PlanSheet({
   const primary = subscribeAction(sale, () => onSubscribe(chosen ?? period))
   return (
     <Sheet
-      isOpen={open && ready}
+      isOpen={open && reason !== null}
       onOpenChange={(next) => {
         if (!next) onClose()
       }}

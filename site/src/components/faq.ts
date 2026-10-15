@@ -10,7 +10,7 @@ export const FAQ = [
   {
     question: 'What happens when my 30-day trial ends?',
     answer:
-      'Your account becomes Free, and everything you made during the trial stays. Your tunes and lists stay, and lists still play their links. Recordings stay saved but play only on Premium, and scans open on one tune. An export always includes every recording and scan. Subscribe to Premium to play them again.',
+      'Your account becomes Free, and everything you made during the trial stays. Your tunes and lists stay, and lists still play their links. Recordings and scans stay saved, but they play and open only on Premium. An export always includes every recording and scan. Subscribe to Premium to use them again.',
   },
   {
     question: 'Does it work without a signal?',

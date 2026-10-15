@@ -10,6 +10,7 @@ import {
   INCLUDED_PRACTICE,
   INCLUDED_RECORD,
   INCLUDED_SCANS,
+  STORAGE_PREMIUM,
 } from './planCopy'
 
 it('gives a feature in both lists the same icon in each', () => {
@@ -27,4 +28,16 @@ it('gives a feature in both lists the same icon in each', () => {
     expect(comparison.get(row!)).toBeDefined()
     expect(comparison.get(row!)).toBe(included.get(feature!))
   }
+})
+
+it('leaves scans and storage out of Free, as Premium features', () => {
+  const row = (title: string) => COMPARISON.find((feature) => feature.title === title)
+  expect(row(FEATURE_SCANS)).toMatchObject({
+    free: { kind: 'excluded' },
+    premium: { kind: 'included' },
+  })
+  expect(row(FEATURE_STORAGE)).toMatchObject({
+    free: { kind: 'excluded' },
+    premium: { kind: 'value', text: STORAGE_PREMIUM },
+  })
 })

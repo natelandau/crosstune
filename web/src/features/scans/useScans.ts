@@ -1,10 +1,9 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo } from 'react'
-import { scanOpens } from '../../billing/plan'
+import { scansOpen } from '../../billing/plan'
 import { usePlanOrUnknown } from '../../billing/usePlan'
 import { createSharedLiveQuery } from '../../db/sharedLiveQuery'
 import { useDb } from '../../db/DbProvider'
-import { readScanTune, sortScans, type ScanFile } from '../../db/scans'
+import { sortScans, type ScanFile } from '../../db/scans'
 import type { LocalScan } from '../../db/types'
 
 export interface TuneScans {
@@ -28,43 +27,20 @@ export function useScans(tuneId: string): TuneScans | undefined {
   }, [db, tuneId])
 }
 
-interface ScanTunes {
-  /** Every tune with a live scan. */
-  withScans: ReadonlySet<string>
-  /** The one tune a free plan's scans open on; see `readScanTune`. */
-  scanTune: string | null
-}
-
-const useScanTunes = createSharedLiveQuery(async (db): Promise<ScanTunes> => {
+const useTunesWithScansQuery = createSharedLiveQuery(async (db): Promise<ReadonlySet<string>> => {
   const rows = await db.scans.filter((row) => !row.deleted_at).toArray()
-  return {
-    withScans: new Set(rows.map((row) => row.tune_id)),
-    scanTune: await readScanTune(db, rows),
-  }
+  return new Set(rows.map((row) => row.tune_id))
 })
 
 const NO_TUNES: ReadonlySet<string> = new Set()
 
-/** The tune a free plan's scans open on, or null while there is none or before it is read, which
- * opens every tune's scans as unknown does. */
-export function useScanTune(): string | null {
-  return useScanTunes()?.scanTune ?? null
+/** Whether the plan opens scans. A failed entitlements read counts as unknown, which opens them,
+ * so it never takes a screen of tunes down; the server still enforces. */
+export function useScansOpen(): boolean {
+  return scansOpen(usePlanOrUnknown())
 }
 
-/** Whether the plan opens the tune's scans. A failed entitlements read counts as unknown, which
- * opens every scan, so it never takes a screen of tunes down; the server still enforces. */
-export function useScansOpen(tuneId: string): boolean {
-  return scanOpens(usePlanOrUnknown(), tuneId, useScanTune())
-}
-
-/** The ids of every tune with a live scan the plan opens, read once for a whole screen of tune
- * rows. */
-export function useViewableScanTunes(): ReadonlySet<string> {
-  const plan = usePlanOrUnknown()
-  const tunes = useScanTunes()
-  return useMemo(() => {
-    if (!tunes) return NO_TUNES
-    const { withScans, scanTune } = tunes
-    return new Set([...withScans].filter((tuneId) => scanOpens(plan, tuneId, scanTune)))
-  }, [plan, tunes])
+/** The ids of every tune with a live scan, read once for a whole screen of tune rows. */
+export function useTunesWithScans(): ReadonlySet<string> {
+  return useTunesWithScansQuery() ?? NO_TUNES
 }

@@ -1,4 +1,5 @@
 import type { CrosstuneDb } from './schema'
+import { PREMIUM_TABLES } from './types'
 
 export const META_PULL_CURSOR = 'pull_cursor'
 const META_EVENTS_CURSOR = 'events_cursor'
@@ -8,13 +9,12 @@ export const META_KEEP_OFFLINE = 'keep_offline'
 /** Which recordings the Recordings tab lists: 'all', 'own', or an import source. */
 export const META_RECORDINGS_ORIGIN = 'recordings_origin'
 export const META_SCAN_INVERT = 'scan_invert'
-/** Recordings the server refused for Premium: their changes wait in the outbox until it agrees. */
+/** Recordings and scans the server refused for Premium: their changes wait in the outbox until
+ * it agrees. */
 const META_PREMIUM_HOLDS = 'premium_holds'
 /** The seen notices whose post the server refused for good: they stay seen and are never
  * posted again. */
 export const META_REFUSED_NOTICES = 'refused_notices'
-/** The scans queued again after a refusal for their tune, and the grant they were queued under. */
-export const META_SCAN_REQUEUES = 'scan_requeues'
 /** One-time notices seen on this device that the server has not confirmed yet. */
 export const META_SEEN_NOTICES = 'seen_notices'
 
@@ -114,15 +114,15 @@ export function releasePremiumHolds(db: CrosstuneDb, ids: string[]): Promise<voi
   return changeHolds(db, (holds) => ids.forEach((id) => holds.delete(id)))
 }
 
-/** Drop the holds whose recording has no queued upsert left, as after its entry was dropped
- * or superseded by a pull. */
+/** Drop the holds whose row has no queued upsert left, as after its entry was dropped or
+ * superseded by a pull. */
 export async function prunePremiumHolds(db: CrosstuneDb): Promise<void> {
   await db.transaction('rw', db.meta, db.outbox, async () => {
     const holds = await getPremiumHolds(db)
     if (holds.size === 0) return
     const queued = await db.outbox
       .where('[table+row_id]')
-      .anyOf([...holds].map((id) => ['recordings', id]))
+      .anyOf([...holds].flatMap((id) => PREMIUM_TABLES.map((table) => [table, id])))
       .toArray()
     const live = new Set(queued.filter((entry) => entry.op !== 'delete').map((e) => e.row_id))
     await releasePremiumHolds(

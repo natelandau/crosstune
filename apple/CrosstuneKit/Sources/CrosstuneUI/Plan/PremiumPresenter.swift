@@ -32,7 +32,7 @@ final class PremiumPresenter {
         let allowed =
             switch reason {
             case .recordings: current.recordingsPlay
-            case .scans: current.scansOnAnyTune
+            case .scans: current.scansOpen
             // The Plan reason holds nothing back; `present` opens it.
             case .plan: true
             }

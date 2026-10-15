@@ -30,8 +30,8 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 NOW = datetime(2030, 1, 1, tzinfo=UTC)
-PREMIUM = 5_368_709_120
-ADDON = 53_687_091_200
+PREMIUM = 3_000_000_000
+ADDON = 50_000_000_000
 FREE_USER = "user_billing_ops"
 EMAIL = "Person@Example.com"
 

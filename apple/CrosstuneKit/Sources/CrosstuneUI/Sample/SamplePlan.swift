@@ -5,7 +5,7 @@
     /// An entitlements row for the sample catalog, so the gated screens show without an account.
     /// Debug builds only.
     public enum SamplePlan: String, Sendable {
-        /// Free, never trialed: recordings and off-tune scans gated, no notice due.
+        /// Free, never trialed: recordings and scans gated, no notice due.
         case free
         /// A trial two days from its end, so the reminder is due.
         case trial
@@ -33,7 +33,7 @@
                 premiumExpiresAt: trialEnd.map(Timestamp.init),
                 trialStartsAt: trialEnd.map { Timestamp($0.addingTimeInterval(-30 * day)) },
                 trialEndsAt: trialEnd.map(Timestamp.init),
-                premiumQuotaBytes: 10_000_000_000, freeQuotaBytes: 1_000_000_000)
+                premiumQuotaBytes: 3_000_000_000)
         }
 
         /// Stores the row, timed from `now`, as a pull would, with nothing queued.

@@ -131,8 +131,8 @@ test('an account whose trial has ended exports every recording and scan', async 
   const { id, emailAddress } = await createThrowawayUser()
   try {
     await signInAs(page, emailAddress)
-    // Scans on two tunes: on the free plan only the first tune's open, so a fresh device
-    // never downloads the second's and the export has to fetch it.
+    // Scans on two tunes: the free plan opens neither, so a fresh device downloads no scan
+    // and the export has to fetch both.
     const first = unique('Sally Goodin')
     await addTune(page, first, 'A')
     const firstUrl = page.url()
@@ -179,17 +179,16 @@ test('an account whose trial has ended exports every recording and scan', async 
       await dismissNotice(page2, TRIAL_ENDED_TITLE, CLOSE)
       await page2.goto(firstUrl)
       await expect(tunePage(page2).getByText(recordingsLine(1), { exact: true })).toBeVisible()
-      // Both scan rows have arrived, the scan tune's image has downloaded, and neither the
-      // audio nor the other tune's image is here, so the export can only get them by fetching.
-      const firstTuneId = new URL(firstUrl).pathname.split('/').at(-1)!
+      // Both scan rows have arrived and neither the audio nor any image is here, so the
+      // export can only get them by fetching.
       await expect
         .poll(() => deviceFiles(page2), { timeout: 30_000 })
         .toEqual({
           recordings: 1,
           audioOnDevice: 0,
           scans: [
-            { tuneId: firstTuneId, onDevice: true },
-            { tuneId: expect.not.stringMatching(`^${firstTuneId}$`), onDevice: false },
+            { tuneId: expect.any(String), onDevice: false },
+            { tuneId: expect.any(String), onDevice: false },
           ],
         })
 

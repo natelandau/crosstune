@@ -199,10 +199,6 @@
             ],
             "title": "Deleted At"
           },
-          "free_quota_bytes": {
-            "title": "Free Quota Bytes",
-            "type": "integer"
-          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -329,7 +325,6 @@
           "trial_starts_at",
           "trial_ends_at",
           "premium_quota_bytes",
-          "free_quota_bytes",
           "paid_grants",
           "recording_notice_seen_at",
           "trial_reminder_seen_at",
@@ -1385,7 +1380,7 @@
           },
           "type": {
             "default": "about:blank",
-            "description": "`about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:scan-tune-only` (403, a free account's scans stay on one tune), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured), `urn:crosstune:billing-failed` (502, the billing provider did not answer).",
+            "description": "`about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured), `urn:crosstune:billing-failed` (502, the billing provider did not answer).",
             "title": "Type",
             "type": "string"
           }
@@ -4678,7 +4673,7 @@
     },
     "/v1/scans/{scan_id}/upload-slot": {
       "post": {
-        "description": "A presigned PUT for one scan's image, once the file cap, the plan, and its quota allow it.\n\nA free plan uploads only to its scan tune, and only scans count toward its quota.",
+        "description": "A presigned PUT for one scan's image, once the file cap, the plan, and its quota allow it.",
         "operationId": "upload_slot_v1_scans__scan_id__upload_slot_post",
         "parameters": [
           {

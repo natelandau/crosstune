@@ -32,6 +32,10 @@ public enum SyncTable: String, CaseIterable, Codable, Sendable {
 
     public static let eventTables = allCases.filter(\.isEvent)
 
+    /// The tables whose new rows the server takes only from a Premium account. A refused upsert
+    /// is held for Premium rather than reported.
+    public static let premiumOnly: Set<SyncTable> = [.recordings, .scans]
+
     /// The tables whose rows name a recording in `recording_id`, which the server refuses while
     /// it does not have that recording.
     public static let recordingDependents: [SyncTable] = [.recordingLoops, .playEvents, .practiceSessions]
@@ -754,7 +758,6 @@ public struct Entitlement: SyncedRecord, Hashable {
     public var trialStartsAt: Timestamp?
     public var trialEndsAt: Timestamp?
     public var premiumQuotaBytes: Int64
-    public var freeQuotaBytes: Int64
     /// Each store's longest live paid grant, which the reported grant alone can hide.
     public var paidGrants: [PaidGrant]
     public var recordingNoticeSeenAt: Timestamp?
@@ -774,7 +777,6 @@ public struct Entitlement: SyncedRecord, Hashable {
         case trialStartsAt = "trial_starts_at"
         case trialEndsAt = "trial_ends_at"
         case premiumQuotaBytes = "premium_quota_bytes"
-        case freeQuotaBytes = "free_quota_bytes"
         case paidGrants = "paid_grants"
         case recordingNoticeSeenAt = "recording_notice_seen_at"
         case trialReminderSeenAt = "trial_reminder_seen_at"
@@ -786,7 +788,7 @@ public struct Entitlement: SyncedRecord, Hashable {
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
         deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, premiumSource: String? = nil,
         premiumExpiresAt: Timestamp? = nil, autoRenews: Bool = false, trialStartsAt: Timestamp? = nil,
-        trialEndsAt: Timestamp? = nil, premiumQuotaBytes: Int64, freeQuotaBytes: Int64,
+        trialEndsAt: Timestamp? = nil, premiumQuotaBytes: Int64,
         paidGrants: [PaidGrant] = [], recordingNoticeSeenAt: Timestamp? = nil, trialReminderSeenAt: Timestamp? = nil,
         trialEndSeenAt: Timestamp? = nil, extra: JSONObject = [:]
     ) {
@@ -801,7 +803,6 @@ public struct Entitlement: SyncedRecord, Hashable {
         self.trialStartsAt = trialStartsAt
         self.trialEndsAt = trialEndsAt
         self.premiumQuotaBytes = premiumQuotaBytes
-        self.freeQuotaBytes = freeQuotaBytes
         self.paidGrants = paidGrants
         self.recordingNoticeSeenAt = recordingNoticeSeenAt
         self.trialReminderSeenAt = trialReminderSeenAt

@@ -20,10 +20,8 @@ export interface Plan {
   premiumEndsAt: Date | null
   trialStartsAt: Date | null
   trialEndsAt: Date | null
-  /** The premium or free quota; null while the plan is unknown. */
+  /** The premium quota; null while the plan is unknown or free, which has no quota. */
   quotaBytes: number | null
-  /** Free: the quota counts scans only. */
-  scansOnly: boolean
   /** Whether the live premium grant renews on its own; false unless premium. */
   autoRenews: boolean
   /** Every store still billing the account, the reported grant's included; empty unless
@@ -99,7 +97,6 @@ export function planOf(
       trialStartsAt: null,
       trialEndsAt: null,
       quotaBytes: null,
-      scansOnly: false,
       autoRenews: false,
       paidSources: [],
     }
@@ -111,8 +108,7 @@ export function planOf(
     premiumEndsAt: source === null ? null : dateOf(row.premium_expires_at),
     trialStartsAt: dateOf(row.trial_starts_at),
     trialEndsAt: dateOf(row.trial_ends_at),
-    quotaBytes: premium ? row.premium_quota_bytes : row.free_quota_bytes,
-    scansOnly: !premium,
+    quotaBytes: premium ? row.premium_quota_bytes : null,
     autoRenews: premium && row.auto_renews,
     paidSources: premium ? paidSources : [],
   }
@@ -145,28 +141,8 @@ export function recordingsPlayable(plan: Plan): boolean {
   return plan.kind !== 'free'
 }
 
-/** The tune of the earliest live scan by creation time, then id: the one tune a free account's
- * scans open for. Null while there is no live scan. The scans in `excluded` are left out, as for
- * one the server refused and so never counts. */
-export function scanTuneId(
-  scans: readonly { tune_id: string; created_at: string; id: string; deleted_at: string | null }[],
-  excluded: ReadonlySet<string> = new Set(),
-): string | null {
-  let first: (typeof scans)[number] | null = null
-  for (const scan of scans) {
-    if (scan.deleted_at !== null || excluded.has(scan.id)) continue
-    if (first === null) {
-      first = scan
-      continue
-    }
-    const order = Date.parse(scan.created_at) - Date.parse(first.created_at)
-    if (order < 0 || (order === 0 && scan.id < first.id)) first = scan
-  }
-  return first?.tune_id ?? null
-}
-
-export function scanOpens(plan: Plan, tuneId: string, scanTune: string | null): boolean {
-  return plan.kind !== 'free' || scanTune === null || tuneId === scanTune
+export function scansOpen(plan: Plan): boolean {
+  return plan.kind !== 'free'
 }
 
 export type NoticeKind = Notice
