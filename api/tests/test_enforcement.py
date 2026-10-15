@@ -267,6 +267,43 @@ async def test_free_scan_slot_requires_premium(
     assert response.json()["type"] == "urn:crosstune:premium-required"
 
 
+async def test_trial_adds_scans_on_any_tune_and_shares_one_quota_with_recordings(
+    client, auth_headers, verify_session
+) -> None:
+    headers = auth_headers("user_a")
+    tunes = [uid() for _ in range(3)]
+    stored, filling = uid(), uid()
+    others = [uid() for _ in tunes]
+    big, waiting = uid(), uid()
+    results = await push(
+        client,
+        headers,
+        *(tune_change(tune) for tune in tunes),
+        scan(stored, tunes[0]),
+        scan(filling, tunes[0], position=1),
+        *(scan(other, tune, position=2) for other, tune in zip(others, tunes, strict=True)),
+        recording(big),
+        recording(waiting),
+    )
+    assert {r["status"] for r in results} == {"applied"}, results
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == big)
+        .values(state="ready", playback_bytes=TRIAL_QUOTA - 3000)
+    )
+    await verify_session.execute(
+        update(Scan).where(Scan.id == stored).values(state="ready", file_bytes=1000)
+    )
+    await verify_session.commit()
+
+    storage = (await client.get("/v1/me", headers=headers)).json()["storage"]
+    assert (storage["quota_bytes"], storage["used_bytes"]) == (TRIAL_QUOTA, TRIAL_QUOTA - 2000)
+    assert (await _scan_slot(client, headers, filling, bytes_=2001)).status_code == 413
+    assert (await _scan_slot(client, headers, filling, bytes_=2000)).status_code == 200
+    assert (await _recording_slot(client, headers, waiting, bytes_=1)).status_code == 413
+    assert (await _scan_slot(client, headers, others[1], bytes_=1)).status_code == 413
+
+
 async def test_trial_at_quota_then_comp_raises_it(
     client, auth_headers, verify_session, settings
 ) -> None:
