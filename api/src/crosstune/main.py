@@ -76,7 +76,7 @@ def _build_apple_sign_in(app: FastAPI, settings: Settings) -> None:
         return
     app.state.apple_sign_in = AppleRestSignIn(
         app.state.http_client,
-        team_id=settings.sign_in_with_apple_team_id,
+        team_id=settings.apple_team_id,
         key_id=settings.sign_in_with_apple_key_id,
         private_key=settings.sign_in_with_apple_private_key.get_secret_value(),
     )

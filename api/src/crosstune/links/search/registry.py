@@ -46,7 +46,7 @@ class SearchTokens:
         """
         apple = (
             AppleMusicToken(
-                team_id=settings.apple_music_team_id,
+                team_id=settings.apple_team_id,
                 key_id=settings.apple_music_key_id,
                 private_key=settings.apple_music_private_key.get_secret_value(),
             )

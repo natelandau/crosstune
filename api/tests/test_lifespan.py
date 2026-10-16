@@ -205,7 +205,7 @@ async def test_lifespan_builds_the_apple_client_when_configured(database_url: st
     app = create_app(
         Settings(
             database_url=database_url,
-            sign_in_with_apple_team_id="TEAM123456",
+            apple_team_id="TEAM123456",
             sign_in_with_apple_key_id="KEY1234567",
             sign_in_with_apple_private_key=_pem(),
         )

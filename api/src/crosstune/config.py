@@ -143,10 +143,9 @@ class Settings(BaseSettings):
     link_resolves_per_minute: int = 30
     link_searches_per_minute: int = 20
     billing_refreshes_per_minute: int = 10
-    apple_music_team_id: str = ""
+    apple_team_id: str = ""
     apple_music_key_id: str = ""
     apple_music_private_key: SecretStr = SecretStr("")
-    sign_in_with_apple_team_id: str = ""
     sign_in_with_apple_key_id: str = ""
     sign_in_with_apple_private_key: SecretStr = SecretStr("")
     tidal_client_id: str = ""
@@ -211,7 +210,7 @@ class Settings(BaseSettings):
     def apple_music_configured(self) -> bool:
         """Whether the Apple Music developer key is complete."""
         return bool(
-            self.apple_music_team_id
+            self.apple_team_id
             and self.apple_music_key_id
             and self.apple_music_private_key.get_secret_value()
         )
@@ -220,7 +219,7 @@ class Settings(BaseSettings):
     def sign_in_with_apple_configured(self) -> bool:
         """Whether the Sign in with Apple key is complete."""
         return bool(
-            self.sign_in_with_apple_team_id
+            self.apple_team_id
             and self.sign_in_with_apple_key_id
             and self.sign_in_with_apple_private_key.get_secret_value()
         )
@@ -325,9 +324,8 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _require_whole_sign_in_with_apple_settings(self) -> Self:
         """Refuse half a Sign in with Apple key or an unusable one, which would fail every revocation."""
-        problem = _missing_member(
+        problem = self._apple_key_problem(
             {
-                "CROSSTUNE_SIGN_IN_WITH_APPLE_TEAM_ID": self.sign_in_with_apple_team_id,
                 "CROSSTUNE_SIGN_IN_WITH_APPLE_KEY_ID": self.sign_in_with_apple_key_id,
                 "CROSSTUNE_SIGN_IN_WITH_APPLE_PRIVATE_KEY": self.sign_in_with_apple_private_key.get_secret_value(),
             }
@@ -375,9 +373,8 @@ class Settings(BaseSettings):
         return self
 
     def _music_credentials_problem(self) -> str | None:
-        return _missing_member(
+        return self._apple_key_problem(
             {
-                "CROSSTUNE_APPLE_MUSIC_TEAM_ID": self.apple_music_team_id,
                 "CROSSTUNE_APPLE_MUSIC_KEY_ID": self.apple_music_key_id,
                 "CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY": self.apple_music_private_key.get_secret_value(),
             }
@@ -387,6 +384,13 @@ class Settings(BaseSettings):
                 "CROSSTUNE_TIDAL_CLIENT_SECRET": self.tidal_client_secret.get_secret_value(),
             }
         )
+
+    def _apple_key_problem(self, key: dict[str, str]) -> str | None:
+        # The team ID is shared, so it may stand alone; each key needs it.
+        problem = _missing_member(key)
+        if problem is None and any(key.values()) and not self.apple_team_id:
+            return "CROSSTUNE_APPLE_TEAM_ID is unset"
+        return problem
 
     def _storage_problem(self) -> str | None:
         return self._prefix_problem() or self._browser_endpoint_problem() or self._scope_problem()

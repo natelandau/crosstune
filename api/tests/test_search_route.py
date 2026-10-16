@@ -62,7 +62,7 @@ def credentialed(app: FastAPI, settings: Settings, mock_http: MockHttp) -> Searc
     """Give the app Apple Music and TIDAL credentials, so both have adapters."""
     configured = settings.model_copy(
         update={
-            "apple_music_team_id": "TEAM123456",
+            "apple_team_id": "TEAM123456",
             "apple_music_key_id": "KEY1234567",
             "apple_music_private_key": SecretStr(_pem()),
             "tidal_client_id": "id",
