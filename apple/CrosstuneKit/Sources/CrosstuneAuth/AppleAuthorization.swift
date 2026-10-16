@@ -55,7 +55,9 @@ enum AppleAuthorization {
             #if os(iOS)
                 let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
                 let windows = scenes.flatMap(\.windows)
-                return windows.first(where: \.isKeyWindow) ?? windows.first ?? ASPresentationAnchor()
+                if let window = windows.first(where: \.isKeyWindow) ?? windows.first { return window }
+                if let scene = scenes.first { return ASPresentationAnchor(windowScene: scene) }
+                return ASPresentationAnchor()
             #else
                 return NSApplication.shared.keyWindow ?? NSApplication.shared.windows.first ?? ASPresentationAnchor()
             #endif

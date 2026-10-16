@@ -508,12 +508,16 @@ public final class AccountSession {
         do {
             return try await authorize()
         } catch {
-            let failure = error as NSError
-            logger.notice(
-                "Apple did not confirm the account delete: \(failure.domain, privacy: .public) \(failure.code, privacy: .public)"
-            )
+            logger.notice("\(appleFailureNote(error), privacy: .public)")
             throw LeaveError.appleNotConfirmed
         }
+    }
+
+    /// The log line for a failed Apple prompt. Carries only the error's domain and code, so
+    /// nothing Apple put in the message reaches the log.
+    nonisolated static func appleFailureNote(_ error: any Error) -> String {
+        let failure = error as NSError
+        return "Apple did not confirm the account delete: \(failure.domain) \(failure.code)"
     }
 
     /// Another device deleted the account: this one drops its copy as if it had made the

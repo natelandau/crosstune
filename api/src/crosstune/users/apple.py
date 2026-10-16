@@ -52,7 +52,7 @@ class AppleSignIn(Protocol):
         """Exchange the authorization code and revoke the resulting refresh token.
 
         Args:
-            code: The one-time authorization code the app obtained at sign-in.
+            code: The one-time authorization code the app obtains from Apple when the account is deleted.
             apple_user_ids: The Apple user IDs linked to the account being deleted.
 
         Raises:
@@ -107,7 +107,7 @@ class AppleRestSignIn:
         """Exchange the authorization code and revoke the resulting refresh token.
 
         Args:
-            code: The one-time authorization code the app obtained at sign-in.
+            code: The one-time authorization code the app obtains from Apple when the account is deleted.
             apple_user_ids: The Apple user IDs linked to the account being deleted.
 
         Raises:

@@ -1204,3 +1204,10 @@ private struct FixedToken: TokenProvider {
 
     #expect(sink.calls == [.capture("account_created", ["trial": .bool(true)])])
 }
+
+@Test func appleFailureNoteHoldsOnlyTheDomainAndCode() {
+    let error = ASAuthorizationError(.canceled)
+    let note = AccountSession.appleFailureNote(error)
+    #expect(note.contains(ASAuthorizationError.errorDomain))
+    #expect(note.contains(String(ASAuthorizationError.canceled.rawValue)))
+}
