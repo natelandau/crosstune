@@ -115,11 +115,13 @@ public enum ExportText {
 }
 
 /// The zip as a file a save panel copies from where it already is.
-private struct ExportZip: Transferable {
+struct ExportZip: Transferable {
     let url: URL
 
     static var transferRepresentation: some TransferRepresentation {
+        // The Mac save panel names its file wrapper from the suggested name and throws on an empty one.
         FileRepresentation(exportedContentType: .zip) { SentTransferredFile($0.url) }
+            .suggestedFileName { $0.url.lastPathComponent }
     }
 }
 

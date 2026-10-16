@@ -314,3 +314,12 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
         #expect(!exists(zip.deletingLastPathComponent()))
     }
 }
+
+struct ExportZipTests {
+    @Test func suggestsTheZipsName() {
+        let zip = URL(filePath: "/tmp/crosstune-export-2026-10-16.zip")
+        let provider = NSItemProvider()
+        provider.register(ExportZip(url: zip))
+        #expect(provider.suggestedName == zip.lastPathComponent)
+    }
+}
