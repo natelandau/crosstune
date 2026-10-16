@@ -54,6 +54,11 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+# Error reports carry stack locals and request bodies; an account's address and a
+# one-time Apple authorization code are secrets or personal data.
+SCRUBBED_KEYS = [*DEFAULT_DENYLIST, "email", "apple_authorization_code"]
+
+
 def _build_clerk_users(app: FastAPI, settings: Settings) -> None:
     """Set app.state.clerk_users when a secret key is configured and nothing built it yet."""
     if app.state.clerk_users is None and settings.clerk_secret_key.get_secret_value():
@@ -233,8 +238,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             release=__version__,
             environment=settings.environment,
             traces_sample_rate=0.0,
-            # Error reports carry stack locals, and an account's address is personal data.
-            event_scrubber=EventScrubber(denylist=[*DEFAULT_DENYLIST, "email"], recursive=True),
+            event_scrubber=EventScrubber(denylist=SCRUBBED_KEYS, recursive=True),
         )
 
     # The committed contract is generated from app.openapi(), which needs none of these routes.

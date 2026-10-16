@@ -11,6 +11,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
+from crosstune.http import BlockedAddressError
 from crosstune.users.apple import (
     APPLE_APP_CLIENT_ID,
     APPLE_REVOKE_URL,
@@ -166,3 +167,32 @@ async def test_transport_error_is_an_exchange_failure(signing_pem: str) -> None:
         await _client(http, signing_pem).revoke("c1", frozenset({"001.abc"}))
 
     assert caught.value.step == "exchange"
+
+
+async def test_a_blocked_address_is_an_exchange_failure(signing_pem: str) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        msg = "blocked"
+        raise BlockedAddressError(msg)
+
+    http = httpx2.AsyncClient(transport=httpx2.MockTransport(handler))
+
+    with pytest.raises(AppleRevokeError) as caught:
+        await _client(http, signing_pem).revoke("c1", frozenset({"001.abc"}))
+
+    assert caught.value.step == "exchange"
+
+
+async def test_a_redirect_is_refused_and_not_followed(signing_pem: str) -> None:
+    requests: list[httpx2.Request] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        return httpx2.Response(302, headers={"location": "https://elsewhere.example/steal"})
+
+    http = httpx2.AsyncClient(transport=httpx2.MockTransport(handler), follow_redirects=True)
+
+    with pytest.raises(AppleRevokeError) as caught:
+        await _client(http, signing_pem).revoke("c1", frozenset({"001.abc"}))
+
+    assert caught.value.step == "exchange"
+    assert len(requests) == 1

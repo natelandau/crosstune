@@ -285,6 +285,40 @@ async def test_a_failed_revoke_still_deletes(
     assert "c1" not in caplog.text
 
 
+async def test_an_unexpected_revoke_error_still_deletes(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession, caplog
+) -> None:
+    app.state.clerk_users.apple_ids = {"user_a": frozenset({"001.abc"})}
+    app.state.apple_sign_in.error = RuntimeError("boom c1")
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    with caplog.at_level(logging.INFO):
+        response = await client.request(
+            "DELETE", "/v1/me", headers=auth_headers("user_a"), json=CODE_BODY
+        )
+    assert response.status_code == 204
+    assert app.state.clerk_users.deleted == ["user_a"]
+    assert await verify_session.scalar(select(func.count()).select_from(User)) == 0
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(errors) == 1
+    assert errors[0].step == "unexpected"
+    assert errors[0].exc_info is None
+
+
+async def test_an_overlong_code_is_refused(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    response = await client.request(
+        "DELETE",
+        "/v1/me",
+        headers=auth_headers("user_a"),
+        json={"apple_authorization_code": "x" * 513},
+    )
+    assert response.status_code == 422
+    assert app.state.clerk_users.deleted == []
+    assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
+
+
 async def test_clerk_read_failure_skips_the_revoke_but_deletes(
     client: httpx2.AsyncClient, app, auth_headers
 ) -> None:

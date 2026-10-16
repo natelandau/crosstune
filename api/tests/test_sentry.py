@@ -25,6 +25,15 @@ def test_sentry_scrubs_email_fields_at_any_depth(mocker) -> None:
     assert "password" in scrubber.denylist
 
 
+def test_sentry_scrubs_the_apple_authorization_code_from_a_request_body(mocker) -> None:
+    init = mocker.patch("crosstune.main.sentry_sdk.init")
+    create_app(Settings(sentry_dsn=DSN))
+    scrubber = init.call_args.kwargs["event_scrubber"]
+    event = {"request": {"data": {"apple_authorization_code": "c1-secret"}}}
+    scrubber.scrub_event(event)
+    assert "c1-secret" not in str(event)
+
+
 def test_sentry_defaults_to_the_development_environment(mocker) -> None:
     init = mocker.patch("crosstune.main.sentry_sdk.init")
     create_app(Settings(sentry_dsn=DSN))

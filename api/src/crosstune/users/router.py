@@ -188,6 +188,11 @@ async def delete_me(
                 "Sign in with Apple revoke failed",
                 extra={"step": error.step, "apple_error": error.apple_error},
             )
+        except Exception:  # noqa: BLE001 -- nothing from the revoke may undo a completed delete
+            log.error(  # noqa: TRY400
+                "Sign in with Apple revoke failed",
+                extra={"step": "unexpected", "apple_error": None},
+            )
     store = request.app.state.object_store
     if store is not None:
         background.add_task(_purge_user_files, store, user_prefix(user_id))

@@ -9,6 +9,7 @@ import httpx2
 import jwt
 
 from crosstune.config import load_apple_music_key
+from crosstune.http import BlockedAddressError
 from crosstune.rest import DEFAULT_TIMEOUT_SECONDS
 
 if TYPE_CHECKING:
@@ -141,8 +142,11 @@ class AppleRestSignIn:
     async def _post(self, url: str, fields: dict[str, str], *, step: RevokeStep) -> dict:
         data = {**fields, "client_id": self._client_id, "client_secret": self.client_secret()}
         try:
-            response = await self._client.post(url, data=data, timeout=self._timeout)
-        except httpx2.TransportError:
+            # No redirects: the form carries the code and the client secret.
+            response = await self._client.post(
+                url, data=data, timeout=self._timeout, follow_redirects=False
+            )
+        except (httpx2.HTTPError, BlockedAddressError):
             raise AppleRevokeError(step) from None
         parsed = _json_object(response)
         if not response.is_success:
