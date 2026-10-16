@@ -1,3 +1,4 @@
+import AuthenticationServices
 import CrosstuneAPI
 import CrosstuneAnalytics
 import CrosstuneStore
@@ -58,6 +59,43 @@ import Testing
     #expect(
         AccountSession.LeaveError.deleteUnconfirmed.errorDescription
             == AccountSession.LeaveError.deleteUnconfirmedMessage)
+}
+
+@Test func appleNotConfirmedReadsAsNothingChanged() {
+    #expect(
+        AccountSession.LeaveError.appleNotConfirmed.errorDescription
+            == AccountSession.LeaveError.appleNotConfirmedMessage)
+}
+
+@MainActor
+@Test func aDeleteWithoutAppleNeverAsks() async throws {
+    var calls = 0
+    let code = try await AccountSession.appleCode(hasApple: false) {
+        calls += 1
+        return "c1"
+    }
+    #expect(code == nil)
+    #expect(calls == 0)
+}
+
+@MainActor
+@Test func aDeleteWithAppleSendsItsCode() async throws {
+    let code = try await AccountSession.appleCode(hasApple: true) { "c1" }
+    #expect(code == "c1")
+}
+
+@MainActor
+@Test func aCancelledAppleConfirmationStopsTheDelete() async {
+    await #expect(throws: AccountSession.LeaveError.appleNotConfirmed) {
+        try await AccountSession.appleCode(hasApple: true) { throw ASAuthorizationError(.canceled) }
+    }
+}
+
+@MainActor
+@Test func aFailedAppleConfirmationStopsTheDelete() async {
+    await #expect(throws: AccountSession.LeaveError.appleNotConfirmed) {
+        try await AccountSession.appleCode(hasApple: true) { throw ASAuthorizationError(.failed) }
+    }
 }
 
 private typealias DeleteOutput = Operations.DeleteMeV1MeDelete.Output

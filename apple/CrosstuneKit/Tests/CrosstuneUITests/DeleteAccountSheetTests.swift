@@ -85,6 +85,11 @@ import Testing
         #expect(DeleteAccountSheet.appStoreSettings(compOverApple, hasClient: true) == .button)
     }
 
+    @Test func theAppleLineShowsOnlyForAnAccountLinkedToApple() {
+        #expect(DeleteAccountSheet.appleLines(hasAppleSignIn: true) == [DeleteAccountSheet.appleLine])
+        #expect(DeleteAccountSheet.appleLines(hasAppleSignIn: false) == [])
+    }
+
     @Test func theCopyMatchesTheWeb() throws {
         let web = try webCopy("web/src/features/settings/deleteAccountCopy.ts")
         let shared: [(String, String)] = [

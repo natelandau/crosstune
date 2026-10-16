@@ -21,6 +21,7 @@ public struct DeleteAccountSheet: View {
         "Your App Store subscription keeps billing until you cancel it in App Store settings."
     public static let stripeSubscriptionLine =
         "Your Premium subscription is cancelled now, with no refund for the rest of the period."
+    public static let appleLine = "You'll confirm with Apple so Crosstune is removed from your Apple Account."
 
     static let confirmationText = "DELETE"
 
@@ -91,6 +92,11 @@ public struct DeleteAccountSheet: View {
         }
     }
 
+    /// Warns that deleting asks Apple to confirm, for an account linked to Apple.
+    static func appleLines(hasAppleSignIn: Bool) -> [String] {
+        hasAppleSignIn ? [appleLine] : []
+    }
+
     /// How an App Store subscriber reaches their subscription settings: the system sheet when
     /// the build has a purchase client, Apple's page otherwise. Nil for any other plan.
     enum AppStoreSettings: Equatable {
@@ -157,6 +163,7 @@ public struct DeleteAccountSheet: View {
                     Text("**\(Self.cannotUndo)**\(Self.noRecovery)")
                 }
                 Section {
+                    ForEach(Self.appleLines(hasAppleSignIn: session.hasAppleSignIn), id: \.self) { Text($0) }
                     TextField(Self.confirmLabel, text: $text)
                         .contentMask()
                         #if os(iOS)
