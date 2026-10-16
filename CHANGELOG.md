@@ -1,3 +1,13 @@
+## v0.22.0 (2026-10-16)
+
+### Feat
+
+- **auth**: revoke Sign in with Apple on account deletion (#199)
+
+### Fix
+
+- **apple**: name the export zip so the Mac save panel can write it (#200)
+
 ## v0.21.0 (2026-10-15)
 
 ### Feat
