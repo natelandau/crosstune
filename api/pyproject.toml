@@ -85,6 +85,14 @@
     CROSSTUNE_BILLING_ACCEPT_SANDBOX_STRIPE      = "false"
     # Pinned empty so a developer's api/.env Resend key cannot leak into the suite.
     CROSSTUNE_RESEND_API_KEY                     = ""
+    # Pinned empty so a developer's api/.env Apple and TIDAL keys cannot leak into the suite.
+    CROSSTUNE_APPLE_TEAM_ID                      = ""
+    CROSSTUNE_APPLE_MUSIC_KEY_ID                 = ""
+    CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY            = ""
+    CROSSTUNE_SIGN_IN_WITH_APPLE_KEY_ID          = ""
+    CROSSTUNE_SIGN_IN_WITH_APPLE_PRIVATE_KEY     = ""
+    CROSSTUNE_TIDAL_CLIENT_ID                    = ""
+    CROSSTUNE_TIDAL_CLIENT_SECRET                = ""
     # Pinned empty so a developer's api/.env DSN cannot leak into the suite.
     CROSSTUNE_SENTRY_DSN                         = ""
     # Pinned empty so a developer's api/.env storage settings cannot leak into the suite.
