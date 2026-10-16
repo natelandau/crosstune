@@ -212,6 +212,9 @@ synced entitlements row.
     when it is not configured.
   - The Clerk `user.deleted` webhook maps both to 503
     `urn:crosstune:billing-unavailable`, so Svix retries.
+- `DELETE /v1/me` takes an optional Apple authorization code. With one, the
+  API revokes the account's Sign in with Apple authorization after the
+  Clerk delete, and a failed revoke never blocks the delete.
 - The entitlements row is the grants' resolved copy: one per user,
   server-written, read-only to clients. A push to it is `invalid` with
   reason `server-written`. It reports the Premium grant that lasts

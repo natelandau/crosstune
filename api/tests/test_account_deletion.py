@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import uuid
 from datetime import timedelta
 
@@ -38,9 +39,10 @@ from crosstune.models import (
     UserSettings,
     UserTune,
 )
+from crosstune.users.apple import AppleRevokeError
 from crosstune.users.clerk import ClerkBackendUsers, ClerkUnavailableError
 from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantSource
-from tests.fakes import FakeObjectStore, FakeRevenueCat, FakeStripe
+from tests.fakes import FakeClerkUsers, FakeObjectStore, FakeRevenueCat, FakeStripe
 from tests.helpers import T0, change, push, sign, uid
 from tests.helpers import recording as recording_change
 
@@ -220,6 +222,129 @@ async def test_delete_me_rolls_back_when_clerk_fails(
     assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
     assert await verify_session.scalar(select(func.count()).select_from(DeletedAccount)) == 0
     assert app.state.object_store.deleted_prefixes == []
+
+
+class _OrderedClerkUsers(FakeClerkUsers):
+    """Records its delete in a list shared with the Apple fake."""
+
+    def __init__(self, events: list[str], **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.events = events
+
+    async def delete_user(self, clerk_user_id: str) -> None:
+        await super().delete_user(clerk_user_id)
+        self.events.append("clerk")
+
+
+CODE_BODY = {"apple_authorization_code": "c1"}
+
+
+async def test_delete_without_a_body_never_calls_apple(
+    client: httpx2.AsyncClient, app, auth_headers
+) -> None:
+    app.state.clerk_users.apple_ids = {"user_a": frozenset({"001.abc"})}
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.apple_sign_in.calls == []
+
+
+async def test_delete_with_a_code_revokes_after_the_clerk_delete(
+    client: httpx2.AsyncClient, app, auth_headers
+) -> None:
+    events: list[str] = []
+    app.state.apple_sign_in.events = events
+    app.state.clerk_users = _OrderedClerkUsers(events, apple_ids={"user_a": frozenset({"001.abc"})})
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    response = await client.request(
+        "DELETE", "/v1/me", headers=auth_headers("user_a"), json=CODE_BODY
+    )
+    assert response.status_code == 204
+    assert app.state.apple_sign_in.calls == [("c1", frozenset({"001.abc"}))]
+    assert events == ["clerk", "apple"]
+
+
+async def test_a_failed_revoke_still_deletes(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession, caplog
+) -> None:
+    app.state.clerk_users.apple_ids = {"user_a": frozenset({"001.abc"})}
+    app.state.apple_sign_in.error = AppleRevokeError("revoke", "invalid_request")
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    with caplog.at_level(logging.INFO):
+        response = await client.request(
+            "DELETE", "/v1/me", headers=auth_headers("user_a"), json=CODE_BODY
+        )
+    assert response.status_code == 204
+    assert app.state.clerk_users.deleted == ["user_a"]
+    assert await verify_session.scalar(select(func.count()).select_from(User)) == 0
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(errors) == 1
+    assert errors[0].step == "revoke"
+    assert errors[0].apple_error == "invalid_request"
+    assert errors[0].exc_info is None
+    assert "c1" not in caplog.text
+
+
+async def test_clerk_read_failure_skips_the_revoke_but_deletes(
+    client: httpx2.AsyncClient, app, auth_headers
+) -> None:
+    app.state.clerk_users.apple_error = ClerkUnavailableError()
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    response = await client.request(
+        "DELETE", "/v1/me", headers=auth_headers("user_a"), json=CODE_BODY
+    )
+    assert response.status_code == 204
+    assert app.state.clerk_users.deleted == ["user_a"]
+    assert app.state.apple_sign_in.calls == []
+
+
+async def test_clerk_delete_failure_never_calls_apple(
+    client: httpx2.AsyncClient, app, auth_headers
+) -> None:
+    app.state.clerk_users.apple_ids = {"user_a": frozenset({"001.abc"})}
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    app.state.clerk_users.error = ClerkUnavailableError()
+    response = await client.request(
+        "DELETE", "/v1/me", headers=auth_headers("user_a"), json=CODE_BODY
+    )
+    assert response.status_code == 502
+    assert app.state.apple_sign_in.calls == []
+
+
+async def test_no_apple_account_never_calls_apple(
+    client: httpx2.AsyncClient, app, auth_headers
+) -> None:
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    response = await client.request(
+        "DELETE", "/v1/me", headers=auth_headers("user_a"), json=CODE_BODY
+    )
+    assert response.status_code == 204
+    assert app.state.apple_sign_in.calls == []
+
+
+async def test_without_apple_settings_a_code_is_ignored(
+    client: httpx2.AsyncClient, app, auth_headers
+) -> None:
+    app.state.clerk_users.apple_ids = {"user_a": frozenset({"001.abc"})}
+    app.state.apple_sign_in = None
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    response = await client.request(
+        "DELETE", "/v1/me", headers=auth_headers("user_a"), json=CODE_BODY
+    )
+    assert response.status_code == 204
+    assert app.state.clerk_users.deleted == ["user_a"]
+
+
+async def test_an_empty_code_is_refused(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    response = await client.request(
+        "DELETE", "/v1/me", headers=auth_headers("user_a"), json={"apple_authorization_code": ""}
+    )
+    assert response.status_code == 422
+    assert app.state.clerk_users.deleted == []
+    assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
 
 
 async def test_delete_me_succeeds_when_clerk_user_already_gone(

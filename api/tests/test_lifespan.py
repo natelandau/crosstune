@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+
 import httpx2
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from sqlalchemy import text
 
 from crosstune.config import Settings
@@ -11,6 +15,7 @@ from crosstune.db.engine import make_sessionmaker
 from crosstune.main import create_app
 from crosstune.storage.prefixed import PrefixedStore
 from crosstune.storage.r2 import R2Store
+from crosstune.users.apple import AppleRestSignIn
 from tests.fakes import FakeObjectStore
 
 pytestmark = pytest.mark.anyio
@@ -178,3 +183,45 @@ async def test_lifespan_wraps_the_store_when_a_prefix_is_set(database_url: str) 
 
     async with app.router.lifespan_context(app):
         assert isinstance(app.state.object_store, PrefixedStore)
+
+
+def _pem() -> str:
+    return (
+        ec.generate_private_key(ec.SECP256R1())
+        .private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+        .decode()
+    )
+
+
+async def test_lifespan_builds_the_apple_client_when_configured(database_url: str) -> None:
+    app = create_app(
+        Settings(
+            database_url=database_url,
+            sign_in_with_apple_team_id="TEAM123456",
+            sign_in_with_apple_key_id="KEY1234567",
+            sign_in_with_apple_private_key=_pem(),
+        )
+    )
+
+    async with app.router.lifespan_context(app):
+        assert isinstance(app.state.apple_sign_in, AppleRestSignIn)
+
+
+async def test_lifespan_leaves_apple_unbuilt_and_says_so_without_settings(
+    database_url: str, caplog
+) -> None:
+    app = create_app(Settings(database_url=database_url))
+
+    with caplog.at_level(logging.INFO):
+        async with app.router.lifespan_context(app):
+            assert app.state.apple_sign_in is None
+
+    records = [
+        r for r in caplog.records if "Sign in with Apple revocation is off" in r.getMessage()
+    ]
+    assert len(records) == 1
+    assert records[0].levelno == logging.INFO

@@ -12,7 +12,7 @@ from datetime import (
 from typing import TYPE_CHECKING, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from crosstune.auth.deps import (
@@ -39,6 +39,7 @@ from crosstune.files.quota import used_bytes
 from crosstune.jobs.analytics import schedule_person_deletion
 from crosstune.models import User
 from crosstune.storage.store import user_prefix
+from crosstune.users.apple import AppleRevokeError
 from crosstune.users.clerk import ClerkUnavailableError
 from crosstune.users.service import purge_account
 
@@ -123,6 +124,12 @@ async def record_notice(
     return Response(status_code=204)
 
 
+class DeleteMeRequest(BaseModel):
+    """What the app may send with an account deletion."""
+
+    apple_authorization_code: str | None = Field(default=None, min_length=1, max_length=512)
+
+
 async def _purge_user_files(store: ObjectStore, prefix: str) -> None:
     try:
         await store.delete_prefix(prefix)
@@ -136,14 +143,25 @@ async def delete_me(
     user: CurrentUser,
     session: DbSession,
     background: BackgroundTasks,
+    body: DeleteMeRequest | None = None,
 ) -> Response:
     """Delete the calling user's account, every row it owns, and Clerk's copy.
 
-    Files are removed after the response.
+    Files are removed after the response. With an Apple authorization code, the
+    Sign in with Apple authorization is revoked after Clerk's copy is gone; a failed
+    revoke is logged and never blocks the deletion.
     """
     clerk_users = request.app.state.clerk_users
     if clerk_users is None:
         raise AccountDeletionUnavailableError
+    apple_sign_in = request.app.state.apple_sign_in
+    code = body.apple_authorization_code if body is not None else None
+    apple_ids: frozenset[str] = frozenset()
+    if code and apple_sign_in is not None:
+        try:
+            apple_ids = await clerk_users.apple_user_ids(user.clerk_user_id)
+        except ClerkUnavailableError:
+            log.warning("could not read the Apple accounts to revoke; skipping the revoke")
     await lock_user(session, user.id)
     await end_billing(
         session,
@@ -161,6 +179,15 @@ async def delete_me(
         await clerk_users.delete_user(user.clerk_user_id)
     except ClerkUnavailableError as exc:
         raise AccountDeletionFailedError from exc
+    if code and apple_ids:
+        try:
+            await apple_sign_in.revoke(code, apple_ids)
+        except AppleRevokeError as error:
+            # No exc_info: the traceback's locals would carry the authorization code.
+            log.error(  # noqa: TRY400
+                "Sign in with Apple revoke failed",
+                extra={"step": error.step, "apple_error": error.apple_error},
+            )
     store = request.app.state.object_store
     if store is not None:
         background.add_task(_purge_user_files, store, user_prefix(user_id))

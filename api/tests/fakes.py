@@ -62,6 +62,23 @@ class FakeClerkUsers:
         return self.apple_ids.get(clerk_user_id, frozenset())
 
 
+class FakeAppleSignIn:
+    """An AppleSignIn stand-in. While `error` is set, `revoke` records the call, then raises it."""
+
+    def __init__(self, events: list[str] | None = None) -> None:
+        self.calls: list[tuple[str, frozenset[str]]] = []
+        self.error: Exception | None = None
+        self.events = events
+
+    async def revoke(self, code: str, apple_user_ids: frozenset[str]) -> None:
+        """Record the call, or raise the configured error after recording it."""
+        self.calls.append((code, apple_user_ids))
+        if self.events is not None:
+            self.events.append("apple")
+        if self.error is not None:
+            raise self.error
+
+
 class FakeMailer:
     """A Mailer stand-in. While `error` is set, every send raises it."""
 

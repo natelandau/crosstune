@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
@@ -41,6 +42,7 @@ from crosstune.schemas.rows import (
 from crosstune.storage.prefixed import PrefixedStore
 from crosstune.storage.r2 import R2Store
 from crosstune.sync.router import router as sync_router
+from crosstune.users.apple import AppleRestSignIn
 from crosstune.users.clerk import ClerkBackendUsers
 from crosstune.users.router import router as users_router
 
@@ -49,6 +51,8 @@ if TYPE_CHECKING:
 
     from crosstune.storage.store import ObjectStore
 
+log = logging.getLogger(__name__)
+
 
 def _build_clerk_users(app: FastAPI, settings: Settings) -> None:
     """Set app.state.clerk_users when a secret key is configured and nothing built it yet."""
@@ -56,6 +60,21 @@ def _build_clerk_users(app: FastAPI, settings: Settings) -> None:
         app.state.clerk_users = ClerkBackendUsers(
             app.state.http_client, settings.clerk_secret_key.get_secret_value()
         )
+
+
+def _build_apple_sign_in(app: FastAPI, settings: Settings) -> None:
+    """Set app.state.apple_sign_in when the key is complete and nothing built it yet."""
+    if app.state.apple_sign_in is not None:
+        return
+    if not settings.sign_in_with_apple_configured:
+        log.info("Sign in with Apple revocation is off: no key configured")
+        return
+    app.state.apple_sign_in = AppleRestSignIn(
+        app.state.http_client,
+        team_id=settings.sign_in_with_apple_team_id,
+        key_id=settings.sign_in_with_apple_key_id,
+        private_key=settings.sign_in_with_apple_private_key.get_secret_value(),
+    )
 
 
 def _build_mailer(app: FastAPI, settings: Settings) -> None:
@@ -162,6 +181,7 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
     if app.state.jwks is None:
         app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
     _build_clerk_users(app, settings)
+    _build_apple_sign_in(app, settings)
     _build_mailer(app, settings)
     _build_billing_clients(app, settings)
     _build_analytics_persons(app, settings)
@@ -234,6 +254,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.http_client = None
     app.state.jwks = None
     app.state.clerk_users = None
+    app.state.apple_sign_in = None
     app.state.mailer = None
     app.state.revenuecat = None
     app.state.stripe = None

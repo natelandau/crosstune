@@ -31,6 +31,7 @@ from crosstune.main import create_app
 from crosstune.ops import local_storage
 from tests.fakes import (
     FakeAnalyticsPersons,
+    FakeAppleSignIn,
     FakeClerkUsers,
     FakeMailer,
     FakeObjectStore,
@@ -555,6 +556,7 @@ def app(settings: Settings, engine, mock_http: MockHttp, object_store: FakeObjec
     app.state.http_client = mock_http.client()
     app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
     app.state.clerk_users = FakeClerkUsers()
+    app.state.apple_sign_in = FakeAppleSignIn()
     app.state.mailer = FakeMailer()
     app.state.revenuecat = FakeRevenueCat()
     app.state.stripe = FakeStripe()

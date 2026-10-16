@@ -650,7 +650,9 @@ public enum Operations {
     ///
     /// Delete the calling user's account, every row it owns, and Clerk's copy.
     ///
-    /// Files are removed after the response.
+    /// Files are removed after the response. With an Apple authorization code, the
+    /// Sign in with Apple authorization is revoked after Clerk's copy is gone; a failed
+    /// revoke is logged and never blocks the deletion.
     ///
     /// - Remark: HTTP `DELETE /v1/me`.
     /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)`.
@@ -669,12 +671,23 @@ public enum Operations {
                 }
             }
             public var headers: Operations.DeleteMeV1MeDelete.Input.Headers
+            /// - Remark: Generated from `#/paths/v1/me/DELETE/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/me/DELETE/requestBody/content/application\/json`.
+                case json(Components.Schemas.DeleteMeRequest)
+            }
+            public var body: Operations.DeleteMeV1MeDelete.Input.Body?
             /// Creates a new `Input`.
             ///
             /// - Parameters:
             ///   - headers:
-            public init(headers: Operations.DeleteMeV1MeDelete.Input.Headers = .init()) {
+            ///   - body:
+            public init(
+                headers: Operations.DeleteMeV1MeDelete.Input.Headers = .init(),
+                body: Operations.DeleteMeV1MeDelete.Input.Body? = nil
+            ) {
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
