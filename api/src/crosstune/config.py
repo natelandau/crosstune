@@ -81,6 +81,19 @@ def load_apple_p256_key(pem: str) -> ec.EllipticCurvePrivateKey:
     return key
 
 
+def _check_apple_key(env_name: str, key: SecretStr) -> None:
+    """Refuse an Apple key setting that does not parse, naming the variable but never the key.
+
+    Raises:
+        ValueError: If `key` is not a PEM EC P-256 private key.
+    """
+    try:
+        load_apple_p256_key(key.get_secret_value())
+    except ValueError as error:
+        msg = f"{env_name} {error}"
+        raise ValueError(msg) from None
+
+
 class Settings(BaseSettings):
     """Environment settings that refuse to build when hosted auth or storage config is unsafe."""
 
@@ -304,11 +317,9 @@ class Settings(BaseSettings):
             msg = f"incomplete music service credentials: {problem}"
             raise ValueError(msg)
         if self.apple_music_configured:
-            try:
-                load_apple_p256_key(self.apple_music_private_key.get_secret_value())
-            except ValueError as error:
-                msg = f"CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY {error}"
-                raise ValueError(msg) from None
+            _check_apple_key(
+                env_name="CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY", key=self.apple_music_private_key
+            )
         return self
 
     @model_validator(mode="after")
@@ -325,11 +336,10 @@ class Settings(BaseSettings):
             msg = f"incomplete Sign in with Apple settings: {problem}"
             raise ValueError(msg)
         if self.sign_in_with_apple_configured:
-            try:
-                load_apple_p256_key(self.sign_in_with_apple_private_key.get_secret_value())
-            except ValueError as error:
-                msg = f"CROSSTUNE_SIGN_IN_WITH_APPLE_PRIVATE_KEY {error}"
-                raise ValueError(msg) from None
+            _check_apple_key(
+                env_name="CROSSTUNE_SIGN_IN_WITH_APPLE_PRIVATE_KEY",
+                key=self.sign_in_with_apple_private_key,
+            )
         return self
 
     @model_validator(mode="after")
