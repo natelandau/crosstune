@@ -17,10 +17,12 @@ public struct DeleteAccountSheet: View {
     public static let noRecovery = " There is no way to recover your account or anything in it."
     public static let confirmLabel = "Type \(confirmationText) to confirm"
     public static let deleting = "Deleting…"
+    public static let confirmingWithApple = "Confirming with Apple…"
     public static let appleSubscriptionLine =
         "Your App Store subscription keeps billing until you cancel it in App Store settings."
     public static let stripeSubscriptionLine =
         "Your Premium subscription is cancelled now, with no refund for the rest of the period."
+    public static let appleLine = "You'll confirm with Apple so Crosstune is removed from your Apple Account."
 
     static let confirmationText = "DELETE"
 
@@ -91,6 +93,11 @@ public struct DeleteAccountSheet: View {
         }
     }
 
+    /// Warns that deleting asks Apple to confirm, for an account linked to Apple.
+    static func appleLines(hasAppleSignIn: Bool) -> [String] {
+        hasAppleSignIn ? [appleLine] : []
+    }
+
     /// How an App Store subscriber reaches their subscription settings: the system sheet when
     /// the build has a purchase client, Apple's page otherwise. Nil for any other plan.
     enum AppStoreSettings: Equatable {
@@ -106,6 +113,13 @@ public struct DeleteAccountSheet: View {
     private static func countLine(_ count: Int, _ singular: String, _ plural: String) -> String? {
         guard count > 0 else { return nil }
         return "\(count) \(count == 1 ? singular : plural)"
+    }
+
+    /// The delete button's label: the action, then Apple's confirmation while its sheet is up,
+    /// then the delete itself once it is sent.
+    static func buttonLabel(pending: Bool, isConfirmingWithApple: Bool) -> String {
+        guard pending else { return title }
+        return isConfirmingWithApple ? confirmingWithApple : deleting
     }
 
     /// Delete waits out a loading count, so the list on screen never turns out to have been
@@ -164,10 +178,11 @@ public struct DeleteAccountSheet: View {
                         #endif
                         .autocorrectionDisabled()
                         .disabled(pending)
+                    ForEach(Self.appleLines(hasAppleSignIn: session.hasAppleSignIn), id: \.self) { Text($0) }
                     Button(role: .destructive) {
                         runDelete()
                     } label: {
-                        Text(pending ? Self.deleting : Self.title)
+                        Text(Self.buttonLabel(pending: pending, isConfirmingWithApple: session.isConfirmingWithApple))
                     }
                     .disabled(!Self.deleteEnabled(counts, text: text, pending: pending))
                 } footer: {

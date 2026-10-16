@@ -36,7 +36,9 @@ public protocol APIProtocol: Sendable {
     ///
     /// Delete the calling user's account, every row it owns, and Clerk's copy.
     ///
-    /// Files are removed after the response.
+    /// Files are removed after the response. With an Apple authorization code, the
+    /// Sign in with Apple authorization is also revoked after the response, once Clerk's
+    /// copy is gone; a failed revoke is logged and never blocks the deletion.
     ///
     /// - Remark: HTTP `DELETE /v1/me`.
     /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)`.
@@ -196,12 +198,20 @@ extension APIProtocol {
     ///
     /// Delete the calling user's account, every row it owns, and Clerk's copy.
     ///
-    /// Files are removed after the response.
+    /// Files are removed after the response. With an Apple authorization code, the
+    /// Sign in with Apple authorization is also revoked after the response, once Clerk's
+    /// copy is gone; a failed revoke is logged and never blocks the deletion.
     ///
     /// - Remark: HTTP `DELETE /v1/me`.
     /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)`.
-    public func deleteMeV1MeDelete(headers: Operations.DeleteMeV1MeDelete.Input.Headers = .init()) async throws -> Operations.DeleteMeV1MeDelete.Output {
-        try await deleteMeV1MeDelete(Operations.DeleteMeV1MeDelete.Input(headers: headers))
+    public func deleteMeV1MeDelete(
+        headers: Operations.DeleteMeV1MeDelete.Input.Headers = .init(),
+        body: Operations.DeleteMeV1MeDelete.Input.Body? = nil
+    ) async throws -> Operations.DeleteMeV1MeDelete.Output {
+        try await deleteMeV1MeDelete(Operations.DeleteMeV1MeDelete.Input(
+            headers: headers,
+            body: body
+        ))
     }
     /// Refresh Billing
     ///

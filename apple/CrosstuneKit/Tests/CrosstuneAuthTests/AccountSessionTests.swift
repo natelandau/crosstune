@@ -1,3 +1,4 @@
+import AuthenticationServices
 import CrosstuneAPI
 import CrosstuneAnalytics
 import CrosstuneStore
@@ -58,6 +59,87 @@ import Testing
     #expect(
         AccountSession.LeaveError.deleteUnconfirmed.errorDescription
             == AccountSession.LeaveError.deleteUnconfirmedMessage)
+}
+
+@Test func appleNotConfirmedReadsAsNothingChanged() {
+    #expect(
+        AccountSession.LeaveError.appleNotConfirmed.errorDescription
+            == AccountSession.LeaveError.appleNotConfirmedMessage)
+}
+
+@MainActor
+@Test func aDeleteWithoutAppleNeverAsks() async throws {
+    var calls = 0
+    let code = try await AccountSession.appleCode(hasApple: false) {
+        calls += 1
+        return "c1"
+    }
+    #expect(code == nil)
+    #expect(calls == 0)
+}
+
+@MainActor
+@Test func aDeleteWithAppleSendsItsCode() async throws {
+    let code = try await AccountSession.appleCode(hasApple: true) { "c1" }
+    #expect(code == "c1")
+}
+
+@MainActor
+@Test func aCancelledAppleConfirmationStopsTheDelete() async {
+    await #expect(throws: AccountSession.LeaveError.appleNotConfirmed) {
+        try await AccountSession.appleCode(hasApple: true) { throw ASAuthorizationError(.canceled) }
+    }
+}
+
+@MainActor
+@Test func aFailedAppleConfirmationDeletesWithoutACode() async throws {
+    let code = try await AccountSession.appleCode(hasApple: true) { throw ASAuthorizationError(.failed) }
+    #expect(code == nil)
+}
+
+@MainActor
+@Test func aFailedAppleConfirmationStillSendsTheDelete() async throws {
+    var sent: [DeleteBody?] = []
+    try await AccountSession.confirmThenDelete(
+        hasApple: true, authorize: { throw ASAuthorizationError(.unknown) }, send: { sent.append($0) }
+    )
+    #expect(sent == [nil])
+}
+
+private typealias DeleteBody = Operations.DeleteMeV1MeDelete.Input.Body
+
+@MainActor
+@Test func anAppleAccountSendsItsCodeWithTheDelete() async throws {
+    var sent: [DeleteBody?] = []
+    try await AccountSession.confirmThenDelete(hasApple: true, authorize: { "c1" }, send: { sent.append($0) })
+    #expect(sent == [.json(.init(appleAuthorizationCode: "c1"))])
+}
+
+@MainActor
+@Test func anAccountWithoutAppleSendsNoBodyAndNeverAsks() async throws {
+    var asked = 0
+    var sent: [DeleteBody?] = []
+    try await AccountSession.confirmThenDelete(
+        hasApple: false,
+        authorize: {
+            asked += 1
+            return "c1"
+        },
+        send: { sent.append($0) }
+    )
+    #expect(asked == 0)
+    #expect(sent == [nil])
+}
+
+@MainActor
+@Test func aCancelledAppleConfirmationSendsNothing() async {
+    var sent: [DeleteBody?] = []
+    await #expect(throws: AccountSession.LeaveError.appleNotConfirmed) {
+        try await AccountSession.confirmThenDelete(
+            hasApple: true, authorize: { throw ASAuthorizationError(.canceled) }, send: { sent.append($0) }
+        )
+    }
+    #expect(sent.isEmpty)
 }
 
 private typealias DeleteOutput = Operations.DeleteMeV1MeDelete.Output
@@ -1129,4 +1211,11 @@ private struct FixedToken: TokenProvider {
     _ = try await client.deleteMeV1MeDelete()
 
     #expect(sink.calls == [.capture("account_created", ["trial": .bool(true)])])
+}
+
+@Test func appleFailureNoteHoldsOnlyTheDomainAndCode() {
+    let error = ASAuthorizationError(.canceled)
+    let note = AccountSession.appleFailureNote(error)
+    #expect(note.contains(ASAuthorizationError.errorDomain))
+    #expect(note.contains(String(ASAuthorizationError.canceled.rawValue)))
 }

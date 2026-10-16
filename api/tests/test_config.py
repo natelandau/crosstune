@@ -323,7 +323,7 @@ def test_settings_repr_hides_every_secret() -> None:
     }
     settings = Settings(
         database_url="postgresql+asyncpg://crosstune:dbpassreprleak@localhost:5432/crosstune",
-        apple_music_team_id="TEAM",
+        apple_team_id="TEAM",
         apple_music_key_id="KEY",
         tidal_client_id="id",
         revenuecat_project_id="proj_1",
@@ -337,11 +337,14 @@ def test_settings_repr_hides_every_secret() -> None:
 @pytest.mark.parametrize(
     ("given", "named"),
     [
-        ({"apple_music_team_id": "TEAM"}, "CROSSTUNE_APPLE_MUSIC_KEY_ID"),
-        ({"apple_music_key_id": "KEY"}, "CROSSTUNE_APPLE_MUSIC_TEAM_ID"),
+        ({"apple_music_key_id": "KEY"}, "CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY"),
         (
-            {"apple_music_team_id": "TEAM", "apple_music_key_id": "KEY"},
+            {"apple_team_id": "TEAM", "apple_music_key_id": "KEY"},
             "CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY",
+        ),
+        (
+            {"apple_music_key_id": "KEY", "apple_music_private_key": "pem"},
+            "CROSSTUNE_APPLE_TEAM_ID",
         ),
         ({"tidal_client_id": "id"}, "CROSSTUNE_TIDAL_CLIENT_SECRET"),
         ({"tidal_client_secret": "value"}, "CROSSTUNE_TIDAL_CLIENT_ID"),
@@ -352,9 +355,10 @@ def test_partial_music_credentials_refuse_to_start(given: dict[str, str], named:
         Settings(**given)
 
 
-def test_partial_apple_music_credentials_refuse_to_start() -> None:
-    with pytest.raises(ValidationError, match="CROSSTUNE_APPLE_MUSIC_KEY_ID"):
-        Settings(apple_music_team_id="TEAM")
+def test_a_team_id_alone_is_valid() -> None:
+    settings = Settings(apple_team_id="TEAM")
+    assert settings.apple_music_configured is False
+    assert settings.sign_in_with_apple_configured is False
 
 
 def test_no_music_credentials_is_valid_everywhere() -> None:
@@ -368,7 +372,7 @@ def test_no_music_credentials_is_valid_everywhere() -> None:
 
 def test_whole_music_credentials_are_configured() -> None:
     settings = Settings(
-        apple_music_team_id="TEAM",
+        apple_team_id="TEAM",
         apple_music_key_id="KEY",
         apple_music_private_key=_pem(ec.generate_private_key(ec.SECP256R1())),
         tidal_client_id="id",
@@ -398,7 +402,7 @@ def _pem(key: ec.EllipticCurvePrivateKey | rsa.RSAPrivateKey) -> str:
 )
 def test_an_unusable_apple_music_key_refuses_to_start(pem: str, reason: str) -> None:
     with pytest.raises(ValidationError) as caught:
-        Settings(apple_music_team_id="TEAM", apple_music_key_id="KEY", apple_music_private_key=pem)
+        Settings(apple_team_id="TEAM", apple_music_key_id="KEY", apple_music_private_key=pem)
 
     message = str(caught.value)
     assert f"CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY is {reason}" in message
@@ -408,11 +412,59 @@ def test_an_unusable_apple_music_key_refuses_to_start(pem: str, reason: str) -> 
 
 def test_a_p256_apple_music_key_starts() -> None:
     settings = Settings(
-        apple_music_team_id="TEAM",
+        apple_team_id="TEAM",
         apple_music_key_id="KEY",
         apple_music_private_key=_pem(ec.generate_private_key(ec.SECP256R1())),
     )
     assert settings.apple_music_configured is True
+
+
+def test_sign_in_with_apple_configured_with_all_three() -> None:
+    settings = Settings(
+        apple_team_id="TEAM",
+        sign_in_with_apple_key_id="KEY",
+        sign_in_with_apple_private_key=_pem(ec.generate_private_key(ec.SECP256R1())),
+    )
+    assert settings.sign_in_with_apple_configured is True
+
+
+def test_sign_in_with_apple_unset_is_off() -> None:
+    assert Settings().sign_in_with_apple_configured is False
+
+
+@pytest.mark.parametrize(
+    ("given", "named"),
+    [
+        ({"sign_in_with_apple_key_id": "KEY"}, "CROSSTUNE_SIGN_IN_WITH_APPLE_PRIVATE_KEY"),
+        (
+            {"apple_team_id": "TEAM", "sign_in_with_apple_key_id": "KEY"},
+            "CROSSTUNE_SIGN_IN_WITH_APPLE_PRIVATE_KEY",
+        ),
+        ({"sign_in_with_apple_private_key": "pem"}, "CROSSTUNE_SIGN_IN_WITH_APPLE_KEY_ID"),
+        (
+            {"apple_team_id": "TEAM", "sign_in_with_apple_private_key": "pem"},
+            "CROSSTUNE_SIGN_IN_WITH_APPLE_KEY_ID",
+        ),
+        (
+            {"sign_in_with_apple_key_id": "KEY", "sign_in_with_apple_private_key": "pem"},
+            "CROSSTUNE_APPLE_TEAM_ID",
+        ),
+    ],
+)
+def test_partial_sign_in_with_apple_refuses_to_start(given: dict[str, str], named: str) -> None:
+    with pytest.raises(ValidationError, match=named):
+        Settings(**given)
+
+
+def test_sign_in_with_apple_key_must_be_p256() -> None:
+    pem = _pem(rsa.generate_private_key(public_exponent=65537, key_size=2048))
+    with pytest.raises(ValidationError, match="CROSSTUNE_SIGN_IN_WITH_APPLE_PRIVATE_KEY") as caught:
+        Settings(
+            apple_team_id="TEAM",
+            sign_in_with_apple_key_id="KEY",
+            sign_in_with_apple_private_key=pem,
+        )
+    assert pem[40:80] not in str(caught.value)
 
 
 _STORAGE = {

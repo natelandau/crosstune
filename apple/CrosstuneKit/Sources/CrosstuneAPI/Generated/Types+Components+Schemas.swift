@@ -77,6 +77,23 @@ extension Components {
                 case updatedAt = "updated_at"
             }
         }
+        /// What the app may send with an account deletion.
+        ///
+        /// - Remark: Generated from `#/components/schemas/DeleteMeRequest`.
+        public struct DeleteMeRequest: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/DeleteMeRequest/apple_authorization_code`.
+            public var appleAuthorizationCode: Swift.String?
+            /// Creates a new `DeleteMeRequest`.
+            ///
+            /// - Parameters:
+            ///   - appleAuthorizationCode:
+            public init(appleAuthorizationCode: Swift.String? = nil) {
+                self.appleAuthorizationCode = appleAuthorizationCode
+            }
+            public enum CodingKeys: String, CodingKey {
+                case appleAuthorizationCode = "apple_authorization_code"
+            }
+        }
         /// A presigned GET for the playback file, tagged with the revision and start it was signed for.
         ///
         /// - Remark: Generated from `#/components/schemas/DownloadUrl`.

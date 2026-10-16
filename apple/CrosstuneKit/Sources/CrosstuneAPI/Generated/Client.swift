@@ -361,7 +361,9 @@ public struct Client: APIProtocol {
     ///
     /// Delete the calling user's account, every row it owns, and Clerk's copy.
     ///
-    /// Files are removed after the response.
+    /// Files are removed after the response. With an Apple authorization code, the
+    /// Sign in with Apple authorization is also revoked after the response, once Clerk's
+    /// copy is gone; a failed revoke is logged and never blocks the deletion.
     ///
     /// - Remark: HTTP `DELETE /v1/me`.
     /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)`.
@@ -383,7 +385,18 @@ public struct Client: APIProtocol {
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case .none:
+                    body = nil
+                case let .json(value):
+                    body = try converter.setOptionalRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {

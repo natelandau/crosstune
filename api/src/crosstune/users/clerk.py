@@ -14,6 +14,8 @@ if TYPE_CHECKING:
 DEFAULT_BASE_URL = "https://api.clerk.com"
 # Checked before the ID goes into a URL path, so no input can reach another endpoint.
 _USER_ID = re.compile(r"user_[A-Za-z0-9]+")
+# How Clerk names the Sign in with Apple entry in a user's `external_accounts`.
+APPLE_PROVIDER = "oauth_apple"
 
 
 class ClerkUsers(Protocol):
@@ -25,6 +27,10 @@ class ClerkUsers(Protocol):
 
     async def find_user(self, account: str) -> ClerkUser | None:
         """Look up a user by email address or Clerk user ID, or None when there is none."""
+        ...
+
+    async def apple_user_ids(self, clerk_user_id: str) -> frozenset[str]:
+        """The Sign in with Apple user IDs linked to a Clerk user, empty when there are none."""
         ...
 
 
@@ -103,6 +109,44 @@ class ClerkBackendUsers:
             return None if user is None else _clerk_user(user)
         msg = f"{account} is neither a Clerk user ID (user_...) nor an email"
         raise ValueError(msg)
+
+    async def apple_user_ids(self, clerk_user_id: str) -> frozenset[str]:
+        """Read the Sign in with Apple user IDs linked to a Clerk user.
+
+        Args:
+            clerk_user_id: The Clerk user ID (`user_...`).
+
+        Returns:
+            frozenset[str]: The `provider_user_id` of each Apple external account. Empty
+                when the user has none or Clerk has no such user.
+
+        Raises:
+            ValueError: `clerk_user_id` is not a Clerk user ID.
+            ClerkUnavailableError: Clerk answered with anything but 2xx or 404, the request
+                itself failed, or the answer is not a user.
+        """
+        if not _USER_ID.fullmatch(clerk_user_id):
+            msg = f"{clerk_user_id} is not a Clerk user ID (user_...)"
+            raise ValueError(msg)
+        user = await self._send("GET", f"/{clerk_user_id}", allow_not_found=True)
+        if user is None:
+            return frozenset()
+        if not isinstance(user, dict):
+            msg = "Clerk sent an unexpected user payload"
+            raise ClerkUnavailableError(msg)
+        accounts = user.get("external_accounts")
+        if accounts is None:
+            return frozenset()
+        if not isinstance(accounts, list):
+            msg = "Clerk sent an unexpected external accounts payload"
+            raise ClerkUnavailableError(msg)
+        return frozenset(
+            account["provider_user_id"]
+            for account in accounts
+            if isinstance(account, dict)
+            and account.get("provider") == APPLE_PROVIDER
+            and isinstance(account.get("provider_user_id"), str)
+        )
 
     async def _send(
         self,

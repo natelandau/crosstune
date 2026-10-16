@@ -1,3 +1,4 @@
+import AuthenticationServices
 import ClerkKit
 import CrosstuneAPI
 import CrosstuneAnalytics
@@ -10,6 +11,9 @@ import Network
 import Observation
 import OpenAPIRuntime
 import OpenAPIURLSession
+import os
+
+private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "account")
 
 /// Who the app is open for, their on-device store and its sync, and whether the API still
 /// accepts their session.
@@ -43,6 +47,8 @@ public final class AccountSession {
         case deleteFailed
         /// No answer from the API says whether the delete went through.
         case deleteUnconfirmed
+        /// Apple did not confirm the account, so the delete was never sent.
+        case appleNotConfirmed
 
         public static let offlineMessage = "This needs a connection."
         public static let unsyncedChangesMessage = "Some changes have not synced yet. Try again once they have."
@@ -53,6 +59,7 @@ public final class AccountSession {
         public static let deleteFailedMessage = "Your account was not deleted. Nothing was changed. Try again."
         public static let deleteUnconfirmedMessage =
             "The delete could not be confirmed, so your account may already be deleted. Check your connection and try again."
+        public static let appleNotConfirmedMessage = "Your account was not deleted. Confirm with Apple to delete it."
 
         public var errorDescription: String? {
             switch self {
@@ -62,6 +69,7 @@ public final class AccountSession {
             case .unuploadedScans: Self.unuploadedScansMessage
             case .deleteFailed: Self.deleteFailedMessage
             case .deleteUnconfirmed: Self.deleteUnconfirmedMessage
+            case .appleNotConfirmed: Self.appleNotConfirmedMessage
             }
         }
     }
@@ -212,6 +220,15 @@ public final class AccountSession {
 
     /// The signed-in user's email, from Clerk's cache when offline. Nil until Clerk loads.
     public var email: String? { Clerk.shared.user?.primaryEmailAddress?.emailAddress }
+
+    /// True while Apple's sheet is up for an account delete, before anything is sent.
+    public private(set) var isConfirmingWithApple = false
+
+    /// True when the signed-in user has Sign in with Apple linked, so deleting the account
+    /// also asks Apple for a code the API uses to revoke Crosstune's access.
+    public var hasAppleSignIn: Bool {
+        Clerk.shared.user?.externalAccounts.contains { $0.provider == "oauth_apple" } ?? false
+    }
 
     /// True when Clerk cannot reach its servers: no network, or Clerk has not loaded. Requests
     /// wait, and sign-out is disabled.
@@ -435,8 +452,24 @@ public final class AccountSession {
     /// Deletes the account on the API, then this device's copy of it. Unsent changes are lost
     /// with the account. A failure throws ``LeaveError/deleteFailed`` when the API's answer
     /// proves nothing changed, and ``LeaveError/deleteUnconfirmed`` when no such answer came.
+    /// An account linked to Apple first asks Apple to confirm, and throws
+    /// ``LeaveError/appleNotConfirmed`` without sending anything when the musician cancels.
     public func deleteAccount() async throws {
         guard let userID = try? confirmedUserID() else { throw LeaveError.deleteFailed }
+        try await Self.confirmThenDelete(
+            hasApple: hasAppleSignIn,
+            authorize: {
+                isConfirmingWithApple = true
+                defer { isConfirmingWithApple = false }
+                return try await AppleAuthorization.code()
+            },
+            send: { body in try await delete(userID: userID, body: body) }
+        )
+    }
+
+    private func delete(userID: String, body: Operations.DeleteMeV1MeDelete.Input.Body?) async throws {
+        // Apple's sheet can stay up for as long as the musician leaves it.
+        guard isStillSignedIn(userID) else { throw LeaveError.deleteFailed }
         isLeavingDeleted = true
         defer { isLeavingDeleted = false }
         let client = client
@@ -446,7 +479,7 @@ public final class AccountSession {
         do {
             try await Self.deleteAndLeave(
                 userID: userID, store: store, root: storeRoot, sync: sync, analytics: analytics,
-                deleteRemote: { try await Self.deleteRemote { try await client.deleteMeV1MeDelete() } },
+                deleteRemote: { try await Self.deleteRemote { try await client.deleteMeV1MeDelete(body: body) } },
                 endSession: { try await Clerk.shared.auth.signOut() }
             )
         } catch LeaveError.deleteUnconfirmed {
@@ -455,6 +488,42 @@ public final class AccountSession {
             throw LeaveError.deleteFailed
         }
         finishLeaving(deleted: userID)
+    }
+
+    /// Asks Apple for a code when the account has Sign in with Apple, then sends the delete
+    /// with it. The code is single-use and short-lived, so it is asked for right before the
+    /// request. A cancel sends nothing.
+    static func confirmThenDelete(
+        hasApple: Bool, authorize: () async throws -> String,
+        send: (Operations.DeleteMeV1MeDelete.Input.Body?) async throws -> Void
+    ) async throws {
+        let code = try await appleCode(hasApple: hasApple, authorize: authorize)
+        try await send(code.map { .json(.init(appleAuthorizationCode: $0)) })
+    }
+
+    /// The code Apple gives for a fresh authorization, which the API needs to revoke Sign in
+    /// with Apple once the account is gone. Nil without asking when the account has no Apple
+    /// sign-in. A cancel stops the delete. Any other failure deletes without a code, so a
+    /// device where Apple's sheet cannot succeed can still delete the account, which App
+    /// Review requires; Apple's authorization then stays in place.
+    static func appleCode(hasApple: Bool, authorize: () async throws -> String) async throws -> String? {
+        guard hasApple else { return nil }
+        do {
+            return try await authorize()
+        } catch {
+            logger.notice("\(appleFailureNote(error), privacy: .public)")
+            if let failure = error as? ASAuthorizationError, failure.code == .canceled {
+                throw LeaveError.appleNotConfirmed
+            }
+            return nil
+        }
+    }
+
+    /// The log line for a failed Apple prompt. Carries only the error's domain and code, so
+    /// nothing Apple put in the message reaches the log.
+    nonisolated static func appleFailureNote(_ error: any Error) -> String {
+        let failure = error as NSError
+        return "Apple did not confirm the account delete: \(failure.domain) \(failure.code)"
     }
 
     /// Another device deleted the account: this one drops its copy as if it had made the

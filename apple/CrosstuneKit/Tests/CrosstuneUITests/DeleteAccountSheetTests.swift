@@ -85,6 +85,21 @@ import Testing
         #expect(DeleteAccountSheet.appStoreSettings(compOverApple, hasClient: true) == .button)
     }
 
+    @Test func theButtonNamesTheStepUnderWay() {
+        #expect(
+            DeleteAccountSheet.buttonLabel(pending: false, isConfirmingWithApple: false) == DeleteAccountSheet.title)
+        #expect(
+            DeleteAccountSheet.buttonLabel(pending: true, isConfirmingWithApple: true)
+                == DeleteAccountSheet.confirmingWithApple)
+        #expect(
+            DeleteAccountSheet.buttonLabel(pending: true, isConfirmingWithApple: false) == DeleteAccountSheet.deleting)
+    }
+
+    @Test func theAppleLineShowsOnlyForAnAccountLinkedToApple() {
+        #expect(DeleteAccountSheet.appleLines(hasAppleSignIn: true) == [DeleteAccountSheet.appleLine])
+        #expect(DeleteAccountSheet.appleLines(hasAppleSignIn: false) == [])
+    }
+
     @Test func theCopyMatchesTheWeb() throws {
         let web = try webCopy("web/src/features/settings/deleteAccountCopy.ts")
         let shared: [(String, String)] = [

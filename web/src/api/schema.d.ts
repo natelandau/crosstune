@@ -62,7 +62,9 @@ export interface paths {
          * Delete Me
          * @description Delete the calling user's account, every row it owns, and Clerk's copy.
          *
-         *     Files are removed after the response.
+         *     Files are removed after the response. With an Apple authorization code, the
+         *     Sign in with Apple authorization is also revoked after the response, once Clerk's
+         *     copy is gone; a failed revoke is logged and never blocks the deletion.
          */
         delete: operations["delete_me_v1_me_delete"];
         options?: never;
@@ -386,6 +388,14 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * DeleteMeRequest
+         * @description What the app may send with an account deletion.
+         */
+        DeleteMeRequest: {
+            /** Apple Authorization Code */
+            apple_authorization_code?: string | null;
         };
         /**
          * DownloadUrl
@@ -2164,7 +2174,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DeleteMeRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             204: {

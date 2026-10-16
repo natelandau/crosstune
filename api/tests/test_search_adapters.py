@@ -603,7 +603,7 @@ def test_search_url_covers_every_searchable_provider() -> None:
 def test_adapters_only_include_configured_services(settings: Settings) -> None:
     bare = settings.model_copy(
         update={
-            "apple_music_team_id": "",
+            "apple_team_id": "",
             "apple_music_key_id": "",
             "tidal_client_id": "",
         }
@@ -614,7 +614,7 @@ def test_adapters_only_include_configured_services(settings: Settings) -> None:
 
     full = settings.model_copy(
         update={
-            "apple_music_team_id": "TEAM123456",
+            "apple_team_id": "TEAM123456",
             "apple_music_key_id": "KEY1234567",
             "apple_music_private_key": SecretStr(_pem()),
             "tidal_client_id": "id",

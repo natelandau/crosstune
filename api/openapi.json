@@ -74,6 +74,28 @@
         "title": "Change",
         "type": "object"
       },
+      "DeleteMeRequest": {
+        "description": "What the app may send with an account deletion.",
+        "properties": {
+          "apple_authorization_code": {
+            "anyOf": [
+              {
+                "format": "password",
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apple Authorization Code"
+          }
+        },
+        "title": "DeleteMeRequest",
+        "type": "object"
+      },
       "DownloadUrl": {
         "description": "A presigned GET for the playback file, tagged with the revision and start it was signed for.",
         "properties": {
@@ -4009,8 +4031,25 @@
     },
     "/v1/me": {
       "delete": {
-        "description": "Delete the calling user's account, every row it owns, and Clerk's copy.\n\nFiles are removed after the response.",
+        "description": "Delete the calling user's account, every row it owns, and Clerk's copy.\n\nFiles are removed after the response. With an Apple authorization code, the\nSign in with Apple authorization is also revoked after the response, once Clerk's\ncopy is gone; a failed revoke is logged and never blocks the deletion.",
         "operationId": "delete_me_v1_me_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DeleteMeRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "Successful Response"

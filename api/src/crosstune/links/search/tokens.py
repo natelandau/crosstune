@@ -7,7 +7,7 @@ from collections.abc import Callable
 import httpx2
 import jwt
 
-from crosstune.config import load_apple_music_key
+from crosstune.config import load_apple_p256_key
 from crosstune.links.search.types import SearchAuthError
 
 TIDAL_TOKEN_URL = "https://auth.tidal.com/v1/oauth2/token"  # noqa: S105 -- endpoint, not a secret
@@ -32,7 +32,7 @@ class AppleMusicToken:
     ) -> None:
         self._team_id = team_id
         self._key_id = key_id
-        self._private_key = load_apple_music_key(private_key)
+        self._private_key = load_apple_p256_key(private_key)
         self._clock = clock
         self._token = ""
         self._issued_at = 0.0
