@@ -55,8 +55,10 @@ def _missing_member(members: dict[str, str]) -> str | None:
     return None
 
 
-def load_apple_music_key(pem: str) -> ec.EllipticCurvePrivateKey:
-    """Parse the Apple Music signing key, which Apple issues as an EC P-256 key.
+def load_apple_p256_key(pem: str) -> ec.EllipticCurvePrivateKey:
+    """Parse an Apple signing key, such as the Apple Music or Sign in with Apple key.
+
+    Apple issues each of these `.p8` keys as an EC P-256 private key.
 
     Args:
         pem: The PEM text of the key.
@@ -303,7 +305,7 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         if self.apple_music_configured:
             try:
-                load_apple_music_key(self.apple_music_private_key.get_secret_value())
+                load_apple_p256_key(self.apple_music_private_key.get_secret_value())
             except ValueError as error:
                 msg = f"CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY {error}"
                 raise ValueError(msg) from None
@@ -324,7 +326,7 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         if self.sign_in_with_apple_configured:
             try:
-                load_apple_music_key(self.sign_in_with_apple_private_key.get_secret_value())
+                load_apple_p256_key(self.sign_in_with_apple_private_key.get_secret_value())
             except ValueError as error:
                 msg = f"CROSSTUNE_SIGN_IN_WITH_APPLE_PRIVATE_KEY {error}"
                 raise ValueError(msg) from None

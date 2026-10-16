@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol
 import httpx2
 import jwt
 
-from crosstune.config import load_apple_music_key
+from crosstune.config import load_apple_p256_key
 from crosstune.http import BlockedAddressError
 from crosstune.rest import DEFAULT_TIMEOUT_SECONDS
 
@@ -78,7 +78,7 @@ class AppleRestSignIn:
         self._client = client
         self._team_id = team_id
         self._key_id = key_id
-        self._private_key: ec.EllipticCurvePrivateKey = load_apple_music_key(private_key)
+        self._private_key: ec.EllipticCurvePrivateKey = load_apple_p256_key(private_key)
         self._client_id = client_id
         self._clock = clock
         self._timeout = timeout
