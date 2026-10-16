@@ -1,3 +1,4 @@
+import AuthenticationServices
 import ClerkKit
 import CrosstuneAPI
 import CrosstuneAnalytics
@@ -452,7 +453,7 @@ public final class AccountSession {
     /// with the account. A failure throws ``LeaveError/deleteFailed`` when the API's answer
     /// proves nothing changed, and ``LeaveError/deleteUnconfirmed`` when no such answer came.
     /// An account linked to Apple first asks Apple to confirm, and throws
-    /// ``LeaveError/appleNotConfirmed`` without sending anything when it does not.
+    /// ``LeaveError/appleNotConfirmed`` without sending anything when the musician cancels.
     public func deleteAccount() async throws {
         guard let userID = try? confirmedUserID() else { throw LeaveError.deleteFailed }
         try await Self.confirmThenDelete(
@@ -491,7 +492,7 @@ public final class AccountSession {
 
     /// Asks Apple for a code when the account has Sign in with Apple, then sends the delete
     /// with it. The code is single-use and short-lived, so it is asked for right before the
-    /// request. Without Apple's confirmation nothing is sent.
+    /// request. A cancel sends nothing.
     static func confirmThenDelete(
         hasApple: Bool, authorize: () async throws -> String,
         send: (Operations.DeleteMeV1MeDelete.Input.Body?) async throws -> Void
@@ -502,14 +503,19 @@ public final class AccountSession {
 
     /// The code Apple gives for a fresh authorization, which the API needs to revoke Sign in
     /// with Apple once the account is gone. Nil without asking when the account has no Apple
-    /// sign-in. Any failure from Apple, a cancel included, stops the delete.
+    /// sign-in. A cancel stops the delete. Any other failure deletes without a code, so a
+    /// device where Apple's sheet cannot succeed can still delete the account, which App
+    /// Review requires; Apple's authorization then stays in place.
     static func appleCode(hasApple: Bool, authorize: () async throws -> String) async throws -> String? {
         guard hasApple else { return nil }
         do {
             return try await authorize()
         } catch {
             logger.notice("\(appleFailureNote(error), privacy: .public)")
-            throw LeaveError.appleNotConfirmed
+            if let failure = error as? ASAuthorizationError, failure.code == .canceled {
+                throw LeaveError.appleNotConfirmed
+            }
+            return nil
         }
     }
 

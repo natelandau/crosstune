@@ -334,7 +334,9 @@ never synced.
   dashboard. Both paths are idempotent. Foreign keys cascade to every table
   the user owns.
 - Only `DELETE /v1/me` revokes Sign in with Apple. The Apple app sends a
-  fresh Apple authorization code with the request, and after the response
+  fresh Apple authorization code with the request (cancelling Apple's
+  sheet stops the delete; any other Apple failure deletes without a
+  code, so the account is still deleted), and after the response
   the API exchanges it at Apple and revokes the authorization, once the
   Clerk delete has succeeded. A failed revoke is logged and never undoes
   the delete. The webhook path has no code, so a deletion made in Clerk's

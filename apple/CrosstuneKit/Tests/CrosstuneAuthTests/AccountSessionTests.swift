@@ -92,10 +92,18 @@ import Testing
 }
 
 @MainActor
-@Test func aFailedAppleConfirmationStopsTheDelete() async {
-    await #expect(throws: AccountSession.LeaveError.appleNotConfirmed) {
-        try await AccountSession.appleCode(hasApple: true) { throw ASAuthorizationError(.failed) }
-    }
+@Test func aFailedAppleConfirmationDeletesWithoutACode() async throws {
+    let code = try await AccountSession.appleCode(hasApple: true) { throw ASAuthorizationError(.failed) }
+    #expect(code == nil)
+}
+
+@MainActor
+@Test func aFailedAppleConfirmationStillSendsTheDelete() async throws {
+    var sent: [DeleteBody?] = []
+    try await AccountSession.confirmThenDelete(
+        hasApple: true, authorize: { throw ASAuthorizationError(.unknown) }, send: { sent.append($0) }
+    )
+    #expect(sent == [nil])
 }
 
 private typealias DeleteBody = Operations.DeleteMeV1MeDelete.Input.Body
