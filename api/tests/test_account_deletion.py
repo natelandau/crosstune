@@ -398,10 +398,10 @@ async def test_no_apple_account_never_calls_apple(
     assert "c1" not in caplog.text
 
 
-async def test_a_delete_that_finds_the_row_gone_never_calls_apple(
+async def test_a_delete_that_finds_the_row_gone_still_revokes(
     client: httpx2.AsyncClient, app, auth_headers, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The early return a concurrent delete takes, once the other delete has committed."""
+    """A concurrent delete committed first, so Clerk's copy is gone and the code still revokes."""
     app.state.clerk_users.apple_ids = {"user_a": frozenset({"001.abc"})}
     await client.get("/v1/me", headers=auth_headers("user_a"))
 
@@ -414,20 +414,23 @@ async def test_a_delete_that_finds_the_row_gone_never_calls_apple(
     )
     assert response.status_code == 204
     assert app.state.clerk_users.deleted == []
-    assert app.state.apple_sign_in.calls == []
+    assert app.state.apple_sign_in.calls == [("c1", frozenset({"001.abc"}))]
 
 
 async def test_without_apple_settings_a_code_is_ignored(
-    client: httpx2.AsyncClient, app, auth_headers
+    client: httpx2.AsyncClient, app, auth_headers, caplog
 ) -> None:
     app.state.clerk_users.apple_ids = {"user_a": frozenset({"001.abc"})}
     app.state.apple_sign_in = None
     await client.get("/v1/me", headers=auth_headers("user_a"))
-    response = await client.request(
-        "DELETE", "/v1/me", headers=auth_headers("user_a"), json=CODE_BODY
-    )
+    with caplog.at_level(logging.INFO, logger="crosstune.users.router"):
+        response = await client.request(
+            "DELETE", "/v1/me", headers=auth_headers("user_a"), json=CODE_BODY
+        )
     assert response.status_code == 204
     assert app.state.clerk_users.deleted == ["user_a"]
+    assert any("revocation is off" in r.getMessage() for r in caplog.records)
+    assert "c1" not in caplog.text
 
 
 async def test_an_empty_code_is_refused(

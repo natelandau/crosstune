@@ -46,6 +46,7 @@ from crosstune.users.service import purge_account
 if TYPE_CHECKING:
     from crosstune.storage.store import ObjectStore
     from crosstune.users.apple import AppleSignIn
+    from crosstune.users.clerk import ClerkUsers
 
 log = logging.getLogger(__name__)
 
@@ -156,6 +157,30 @@ async def _revoke_apple(
         )
 
 
+async def _apple_ids_to_revoke(
+    clerk_users: ClerkUsers, apple_sign_in: AppleSignIn | None, clerk_user_id: str
+) -> frozenset[str]:
+    """Read the Apple account IDs a delete should revoke, read before Clerk's copy is gone.
+
+    Returns:
+        frozenset[str]: The IDs, empty when revocation is off or nothing can be revoked.
+    """
+    if apple_sign_in is None:
+        log.info("Sign in with Apple revocation is off; skipping the revoke")
+        return frozenset()
+    try:
+        apple_ids = await clerk_users.apple_user_ids(clerk_user_id)
+    except ClerkUnavailableError:
+        log.error(  # noqa: TRY400 -- the exception adds nothing beyond the step
+            "could not read the Apple accounts to revoke; skipping the revoke",
+            extra={"step": "lookup"},
+        )
+        return frozenset()
+    if not apple_ids:
+        log.info("no Apple account to revoke; skipping the revoke")
+    return apple_ids
+
+
 @router.delete("/me", status_code=204, responses=problem_responses(401, 502, 503))
 async def delete_me(
     request: Request,
@@ -176,18 +201,11 @@ async def delete_me(
     apple_sign_in = request.app.state.apple_sign_in
     # Kept as a SecretStr so the code never sits in a plain local that Sentry could capture.
     code = body.apple_authorization_code if body is not None else None
-    apple_ids: frozenset[str] = frozenset()
-    if code is not None and apple_sign_in is not None:
-        try:
-            apple_ids = await clerk_users.apple_user_ids(user.clerk_user_id)
-        except ClerkUnavailableError:
-            log.error(  # noqa: TRY400 -- the exception adds nothing beyond the step
-                "could not read the Apple accounts to revoke; skipping the revoke",
-                extra={"step": "lookup"},
-            )
-        else:
-            if not apple_ids:
-                log.info("no Apple account to revoke; skipping the revoke")
+    apple_ids = (
+        await _apple_ids_to_revoke(clerk_users, apple_sign_in, user.clerk_user_id)
+        if code is not None
+        else frozenset()
+    )
     await lock_user(session, user.id)
     await end_billing(
         session,
@@ -198,16 +216,18 @@ async def delete_me(
         utc_now(),
     )
     user_id = await purge_account(session, user.clerk_user_id)
-    if user_id is None:
-        # A concurrent delete for this user already committed; there is nothing left to remove.
-        return Response(status_code=204)
-    try:
-        await clerk_users.delete_user(user.clerk_user_id)
-    except ClerkUnavailableError as exc:
-        raise AccountDeletionFailedError from exc
+    if user_id is not None:
+        try:
+            await clerk_users.delete_user(user.clerk_user_id)
+        except ClerkUnavailableError as exc:
+            raise AccountDeletionFailedError from exc
+    # A missing row means a concurrent delete already committed, and both delete paths
+    # commit only once Clerk's copy is gone, so this request's code still revokes.
     # After the response, so Apple's latency never holds the user lock or the transaction.
     if code is not None and apple_ids:
         background.add_task(_revoke_apple, apple_sign_in, code, apple_ids)
+    if user_id is None:
+        return Response(status_code=204)
     store = request.app.state.object_store
     if store is not None:
         background.add_task(_purge_user_files, store, user_prefix(user_id))
