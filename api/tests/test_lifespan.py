@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 import httpx2
 import pytest
@@ -17,6 +18,9 @@ from crosstune.storage.prefixed import PrefixedStore
 from crosstune.storage.r2 import R2Store
 from crosstune.users.apple import AppleRestSignIn
 from tests.fakes import FakeObjectStore
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 pytestmark = pytest.mark.anyio
 
@@ -211,10 +215,17 @@ async def test_lifespan_builds_the_apple_client_when_configured(database_url: st
         assert isinstance(app.state.apple_sign_in, AppleRestSignIn)
 
 
+@pytest.fixture
+def app_without_apple(database_url: str) -> FastAPI:
+    # Built during setup: the first create_app in a process replaces the root handlers,
+    # which would drop caplog's handler if it ran inside the test.
+    return create_app(Settings(database_url=database_url))
+
+
 async def test_lifespan_leaves_apple_unbuilt_and_says_so_without_settings(
-    database_url: str, caplog
+    app_without_apple: FastAPI, caplog
 ) -> None:
-    app = create_app(Settings(database_url=database_url))
+    app = app_without_apple
 
     with caplog.at_level(logging.INFO):
         async with app.router.lifespan_context(app):
