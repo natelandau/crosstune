@@ -83,7 +83,7 @@ async def test_find_user_rejects_other_input() -> None:
 
 
 async def test_find_user_error_raises_clerk_unavailable() -> None:
-    with pytest.raises(ClerkUnavailableError):
+    with pytest.raises(ClerkUnavailableError, match="answered 500"):
         await _find(EMAIL, lambda _r: httpx2.Response(500))
 
 
@@ -104,9 +104,13 @@ async def test_find_user_by_email_non_list_raises_clerk_unavailable() -> None:
 
 
 async def _apple_ids(
-    clerk_user_id: str, handler: Any
+    clerk_user_id: str, handler: Any, calls: list[httpx2.Request] | None = None
 ) -> tuple[frozenset[str], list[httpx2.Request]]:
-    calls: list[httpx2.Request] = []
+    """Run `apple_user_ids` against `handler`, recording each request in `calls`.
+
+    Pass `calls` to read the requests when the lookup raises.
+    """
+    calls = [] if calls is None else calls
 
     def record(request: httpx2.Request) -> httpx2.Response:
         calls.append(request)
@@ -173,28 +177,35 @@ async def test_apple_user_ids_for_missing_user_is_empty() -> None:
 
 
 async def test_apple_user_ids_clerk_error_is_unavailable() -> None:
-    with pytest.raises(ClerkUnavailableError):
+    with pytest.raises(ClerkUnavailableError, match="answered 500"):
         await _apple_ids("user_a", lambda _r: httpx2.Response(500))
 
 
 async def test_apple_user_ids_non_object_answer_is_unavailable() -> None:
-    with pytest.raises(ClerkUnavailableError):
+    with pytest.raises(ClerkUnavailableError, match="unexpected user payload"):
         await _apple_ids("user_a", lambda _r: httpx2.Response(200, json=[]))
+
+
+@pytest.mark.parametrize("accounts", [{"provider": "oauth_apple"}, "oauth_apple", 5])
+async def test_apple_user_ids_non_list_accounts_is_unavailable(accounts: Any) -> None:
+    body = {"id": "user_a", "external_accounts": accounts}
+
+    with pytest.raises(ClerkUnavailableError, match="external accounts payload"):
+        await _apple_ids("user_a", lambda _r: httpx2.Response(200, json=body))
+
+
+async def test_apple_user_ids_null_accounts_is_empty() -> None:
+    body = {"id": "user_a", "external_accounts": None}
+
+    ids, _ = await _apple_ids("user_a", lambda _r: httpx2.Response(200, json=body))
+
+    assert ids == frozenset()
 
 
 async def test_apple_user_ids_rejects_a_malformed_id_without_a_request() -> None:
     calls: list[httpx2.Request] = []
 
-    def record(request: httpx2.Request) -> httpx2.Response:
-        calls.append(request)
-        return httpx2.Response(200, json={})
-
-    client = httpx2.AsyncClient(transport=httpx2.MockTransport(record))
-    try:
-        users = ClerkBackendUsers(client, "sk_test_secret")  # gitleaks:allow -- fixture
-        with pytest.raises(ValueError, match="Clerk user ID"):
-            await users.apple_user_ids("user_a/../x")
-    finally:
-        await client.aclose()
+    with pytest.raises(ValueError, match="Clerk user ID"):
+        await _apple_ids("user_a/../x", lambda _r: httpx2.Response(200, json={}), calls)
 
     assert calls == []

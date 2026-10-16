@@ -80,9 +80,11 @@
           "apple_authorization_code": {
             "anyOf": [
               {
+                "format": "password",
                 "maxLength": 512,
                 "minLength": 1,
-                "type": "string"
+                "type": "string",
+                "writeOnly": true
               },
               {
                 "type": "null"
@@ -4029,7 +4031,7 @@
     },
     "/v1/me": {
       "delete": {
-        "description": "Delete the calling user's account, every row it owns, and Clerk's copy.\n\nFiles are removed after the response. With an Apple authorization code, the\nSign in with Apple authorization is revoked after Clerk's copy is gone; a failed\nrevoke is logged and never blocks the deletion.",
+        "description": "Delete the calling user's account, every row it owns, and Clerk's copy.\n\nFiles are removed after the response. With an Apple authorization code, the\nSign in with Apple authorization is also revoked after the response, once Clerk's\ncopy is gone; a failed revoke is logged and never blocks the deletion.",
         "operationId": "delete_me_v1_me_delete",
         "requestBody": {
           "content": {

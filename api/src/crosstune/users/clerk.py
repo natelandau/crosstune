@@ -134,9 +134,15 @@ class ClerkBackendUsers:
         if not isinstance(user, dict):
             msg = "Clerk sent an unexpected user payload"
             raise ClerkUnavailableError(msg)
+        accounts = user.get("external_accounts")
+        if accounts is None:
+            return frozenset()
+        if not isinstance(accounts, list):
+            msg = "Clerk sent an unexpected external accounts payload"
+            raise ClerkUnavailableError(msg)
         return frozenset(
             account["provider_user_id"]
-            for account in user.get("external_accounts") or []
+            for account in accounts
             if isinstance(account, dict)
             and account.get("provider") == APPLE_PROVIDER
             and isinstance(account.get("provider_user_id"), str)

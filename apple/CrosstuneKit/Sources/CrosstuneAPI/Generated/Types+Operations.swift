@@ -651,8 +651,8 @@ public enum Operations {
     /// Delete the calling user's account, every row it owns, and Clerk's copy.
     ///
     /// Files are removed after the response. With an Apple authorization code, the
-    /// Sign in with Apple authorization is revoked after Clerk's copy is gone; a failed
-    /// revoke is logged and never blocks the deletion.
+    /// Sign in with Apple authorization is also revoked after the response, once Clerk's
+    /// copy is gone; a failed revoke is logged and never blocks the deletion.
     ///
     /// - Remark: HTTP `DELETE /v1/me`.
     /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)`.

@@ -12,7 +12,7 @@ from datetime import (
 from typing import TYPE_CHECKING, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 from sqlalchemy import select
 
 from crosstune.auth.deps import (
@@ -45,6 +45,7 @@ from crosstune.users.service import purge_account
 
 if TYPE_CHECKING:
     from crosstune.storage.store import ObjectStore
+    from crosstune.users.apple import AppleSignIn
 
 log = logging.getLogger(__name__)
 
@@ -127,7 +128,7 @@ async def record_notice(
 class DeleteMeRequest(BaseModel):
     """What the app may send with an account deletion."""
 
-    apple_authorization_code: str | None = Field(default=None, min_length=1, max_length=512)
+    apple_authorization_code: SecretStr | None = Field(default=None, min_length=1, max_length=512)
 
 
 async def _purge_user_files(store: ObjectStore, prefix: str) -> None:
@@ -135,6 +136,24 @@ async def _purge_user_files(store: ObjectStore, prefix: str) -> None:
         await store.delete_prefix(prefix)
     except Exception:
         log.warning("could not purge %s; the orphan sweep will remove it", prefix, exc_info=True)
+
+
+async def _revoke_apple(
+    apple_sign_in: AppleSignIn, code: SecretStr, apple_user_ids: frozenset[str]
+) -> None:
+    # No exc_info: the traceback's locals would carry the authorization code.
+    try:
+        await apple_sign_in.revoke(code.get_secret_value(), apple_user_ids)
+    except AppleRevokeError as error:
+        log.error(  # noqa: TRY400
+            "Sign in with Apple revoke failed",
+            extra={"step": error.step, "apple_error": error.apple_error},
+        )
+    except Exception:  # noqa: BLE001 -- nothing from the revoke may surface past the delete
+        log.error(  # noqa: TRY400
+            "Sign in with Apple revoke failed",
+            extra={"step": "unexpected", "apple_error": None},
+        )
 
 
 @router.delete("/me", status_code=204, responses=problem_responses(401, 502, 503))
@@ -148,20 +167,27 @@ async def delete_me(
     """Delete the calling user's account, every row it owns, and Clerk's copy.
 
     Files are removed after the response. With an Apple authorization code, the
-    Sign in with Apple authorization is revoked after Clerk's copy is gone; a failed
-    revoke is logged and never blocks the deletion.
+    Sign in with Apple authorization is also revoked after the response, once Clerk's
+    copy is gone; a failed revoke is logged and never blocks the deletion.
     """
     clerk_users = request.app.state.clerk_users
     if clerk_users is None:
         raise AccountDeletionUnavailableError
     apple_sign_in = request.app.state.apple_sign_in
+    # Kept as a SecretStr so the code never sits in a plain local that Sentry could capture.
     code = body.apple_authorization_code if body is not None else None
     apple_ids: frozenset[str] = frozenset()
-    if code and apple_sign_in is not None:
+    if code is not None and apple_sign_in is not None:
         try:
             apple_ids = await clerk_users.apple_user_ids(user.clerk_user_id)
         except ClerkUnavailableError:
-            log.warning("could not read the Apple accounts to revoke; skipping the revoke")
+            log.error(  # noqa: TRY400 -- the exception adds nothing beyond the step
+                "could not read the Apple accounts to revoke; skipping the revoke",
+                extra={"step": "lookup"},
+            )
+        else:
+            if not apple_ids:
+                log.info("no Apple account to revoke; skipping the revoke")
     await lock_user(session, user.id)
     await end_billing(
         session,
@@ -179,20 +205,9 @@ async def delete_me(
         await clerk_users.delete_user(user.clerk_user_id)
     except ClerkUnavailableError as exc:
         raise AccountDeletionFailedError from exc
-    if code and apple_ids:
-        try:
-            await apple_sign_in.revoke(code, apple_ids)
-        except AppleRevokeError as error:
-            # No exc_info: the traceback's locals would carry the authorization code.
-            log.error(  # noqa: TRY400
-                "Sign in with Apple revoke failed",
-                extra={"step": error.step, "apple_error": error.apple_error},
-            )
-        except Exception:  # noqa: BLE001 -- nothing from the revoke may undo a completed delete
-            log.error(  # noqa: TRY400
-                "Sign in with Apple revoke failed",
-                extra={"step": "unexpected", "apple_error": None},
-            )
+    # After the response, so Apple's latency never holds the user lock or the transaction.
+    if code is not None and apple_ids:
+        background.add_task(_revoke_apple, apple_sign_in, code, apple_ids)
     store = request.app.state.object_store
     if store is not None:
         background.add_task(_purge_user_files, store, user_prefix(user_id))

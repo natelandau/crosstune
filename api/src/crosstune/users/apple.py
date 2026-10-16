@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 import httpx2
 import jwt
@@ -130,7 +130,7 @@ class AppleRestSignIn:
         except jwt.PyJWTError:
             raise AppleRevokeError(_EXCHANGE) from None
         # A code from another Apple ID must never revoke that person's authorization.
-        if subject not in apple_user_ids:
+        if not isinstance(subject, str) or subject not in apple_user_ids:
             raise AppleRevokeError(_MISMATCH)
 
         await self._post(
@@ -139,7 +139,12 @@ class AppleRestSignIn:
             step=_REVOKE,
         )
 
-    async def _post(self, url: str, fields: dict[str, str], *, step: RevokeStep) -> dict:
+    async def _post(self, url: str, fields: dict[str, str], *, step: RevokeStep) -> dict[str, Any]:
+        """Post a form to Apple with the client credentials and return its JSON object.
+
+        Raises:
+            AppleRevokeError: For `step`, on a transport failure or a non-2xx answer.
+        """
         data = {**fields, "client_id": self._client_id, "client_secret": self.client_secret()}
         try:
             # No redirects: the form carries the code and the client secret.
@@ -155,7 +160,7 @@ class AppleRestSignIn:
         return parsed
 
 
-def _json_object(response: httpx2.Response) -> dict:
+def _json_object(response: httpx2.Response) -> dict[str, Any]:
     try:
         body = response.json()
     except ValueError:

@@ -212,9 +212,6 @@ synced entitlements row.
     when it is not configured.
   - The Clerk `user.deleted` webhook maps both to 503
     `urn:crosstune:billing-unavailable`, so Svix retries.
-- `DELETE /v1/me` takes an optional Apple authorization code. With one, the
-  API revokes the account's Sign in with Apple authorization after the
-  Clerk delete, and a failed revoke never blocks the delete.
 - The entitlements row is the grants' resolved copy: one per user,
   server-written, read-only to clients. A push to it is `invalid` with
   reason `server-written`. It reports the Premium grant that lasts
@@ -336,6 +333,12 @@ never synced.
   (Svix-signed), the only path for a deletion made from the Clerk
   dashboard. Both paths are idempotent. Foreign keys cascade to every table
   the user owns.
+- Only `DELETE /v1/me` revokes Sign in with Apple. The Apple app sends a
+  fresh Apple authorization code with the request, and after the response
+  the API exchanges it at Apple and revokes the authorization, once the
+  Clerk delete has succeeded. A failed revoke is logged and never undoes
+  the delete. The webhook path has no code, so a deletion made in Clerk's
+  dashboard does not revoke.
 - The webhook's `user.deleted` event also queues four deletes of the
   person's PostHog data for the job runner, in the same transaction: one
   now, then after 10 minutes, 1 day, and 7 days. PostHog deletes only

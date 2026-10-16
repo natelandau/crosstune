@@ -114,15 +114,56 @@ async def test_revoke_skips_a_different_apple_id(signing_pem: str, mock_http: Mo
 
 
 async def test_exchange_error_carries_apples_error(signing_pem: str, mock_http: MockHttp) -> None:
-    mock_http.add(APPLE_TOKEN_URL, httpx2.Response(400, json={"error": "invalid_grant"}))
+    code = "SECRET-AUTH-CODE-7f3a"
+    mock_http.add(
+        APPLE_TOKEN_URL,
+        httpx2.Response(
+            400,
+            json={"error": "invalid_grant", "error_description": f"code {code} has expired"},
+        ),
+    )
 
     with pytest.raises(AppleRevokeError) as caught:
-        await _client(mock_http.client(), signing_pem).revoke("c1", frozenset({"001.abc"}))
+        await _client(mock_http.client(), signing_pem).revoke(code, frozenset({"001.abc"}))
 
     assert caught.value.step == "exchange"
     assert caught.value.apple_error == "invalid_grant"
     assert "invalid_grant" in str(caught.value)
-    assert "c1" not in str(caught.value)
+    assert code not in str(caught.value)
+    assert code not in repr(caught.value.args)
+
+
+@pytest.mark.parametrize("sub", [["001.abc"], {"id": "001.abc"}, 7, None], ids=repr)
+async def test_a_sub_that_is_not_a_string_is_a_mismatch(
+    signing_pem: str, mock_http: MockHttp, sub: object
+) -> None:
+    id_token = jwt.encode({"sub": sub}, "x" * 32, algorithm="HS256")
+    mock_http.add(
+        APPLE_TOKEN_URL, httpx2.Response(200, json={"refresh_token": "r1", "id_token": id_token})
+    )
+
+    with pytest.raises(AppleRevokeError) as caught:
+        await _client(mock_http.client(), signing_pem).revoke("c1", frozenset({"001.abc"}))
+
+    assert caught.value.step == "mismatch"
+    assert [str(r.url) for r in mock_http.calls] == [APPLE_TOKEN_URL]
+
+
+async def test_every_request_carries_the_timeout(signing_pem: str, mock_http: MockHttp) -> None:
+    mock_http.add(
+        APPLE_TOKEN_URL,
+        httpx2.Response(200, json={"refresh_token": "r1", "id_token": _id_token("001.abc")}),
+    )
+    mock_http.add(APPLE_REVOKE_URL, httpx2.Response(200))
+    apple = AppleRestSignIn(
+        mock_http.client(), team_id=TEAM_ID, key_id=KEY_ID, private_key=signing_pem, timeout=3.5
+    )
+
+    await apple.revoke("c1", frozenset({"001.abc"}))
+
+    assert len(mock_http.calls) == 2
+    for request in mock_http.calls:
+        assert request.extensions["timeout"] == httpx2.Timeout(3.5).as_dict()
 
 
 @pytest.mark.parametrize(
@@ -167,6 +208,23 @@ async def test_transport_error_is_an_exchange_failure(signing_pem: str) -> None:
         await _client(http, signing_pem).revoke("c1", frozenset({"001.abc"}))
 
     assert caught.value.step == "exchange"
+
+
+async def test_transport_error_at_revoke_is_a_revoke_failure(signing_pem: str) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if str(request.url) == APPLE_TOKEN_URL:
+            return httpx2.Response(
+                200, json={"refresh_token": "r1", "id_token": _id_token("001.abc")}
+            )
+        msg = "reset"
+        raise httpx2.ReadError(msg, request=request)
+
+    http = httpx2.AsyncClient(transport=httpx2.MockTransport(handler))
+
+    with pytest.raises(AppleRevokeError) as caught:
+        await _client(http, signing_pem).revoke("c1", frozenset({"001.abc"}))
+
+    assert caught.value.step == "revoke"
 
 
 async def test_a_blocked_address_is_an_exchange_failure(signing_pem: str) -> None:

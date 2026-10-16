@@ -437,10 +437,7 @@ def test_sign_in_with_apple_unset_is_off() -> None:
             {"sign_in_with_apple_team_id": "TEAM", "sign_in_with_apple_key_id": "KEY"},
             "CROSSTUNE_SIGN_IN_WITH_APPLE_PRIVATE_KEY",
         ),
-        (
-            {"sign_in_with_apple_private_key": "pem"},
-            "CROSSTUNE_SIGN_IN_WITH_APPLE_TEAM_ID",
-        ),
+        ({"sign_in_with_apple_private_key": "pem"}, "CROSSTUNE_SIGN_IN_WITH_APPLE_TEAM_ID"),
         (
             {"sign_in_with_apple_team_id": "TEAM", "sign_in_with_apple_private_key": "pem"},
             "CROSSTUNE_SIGN_IN_WITH_APPLE_KEY_ID",
