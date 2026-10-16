@@ -131,6 +131,9 @@ class Settings(BaseSettings):
     apple_music_team_id: str = ""
     apple_music_key_id: str = ""
     apple_music_private_key: SecretStr = SecretStr("")
+    sign_in_with_apple_team_id: str = ""
+    sign_in_with_apple_key_id: str = ""
+    sign_in_with_apple_private_key: SecretStr = SecretStr("")
     tidal_client_id: str = ""
     tidal_client_secret: SecretStr = SecretStr("")
     pull_page_size: int = 500
@@ -196,6 +199,15 @@ class Settings(BaseSettings):
             self.apple_music_team_id
             and self.apple_music_key_id
             and self.apple_music_private_key.get_secret_value()
+        )
+
+    @property
+    def sign_in_with_apple_configured(self) -> bool:
+        """Whether the Sign in with Apple key is complete."""
+        return bool(
+            self.sign_in_with_apple_team_id
+            and self.sign_in_with_apple_key_id
+            and self.sign_in_with_apple_private_key.get_secret_value()
         )
 
     @property
@@ -294,6 +306,27 @@ class Settings(BaseSettings):
                 load_apple_music_key(self.apple_music_private_key.get_secret_value())
             except ValueError as error:
                 msg = f"CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY {error}"
+                raise ValueError(msg) from None
+        return self
+
+    @model_validator(mode="after")
+    def _require_whole_sign_in_with_apple_settings(self) -> Self:
+        """Refuse half a Sign in with Apple key or an unusable one, which would fail every revocation."""
+        problem = _missing_member(
+            {
+                "CROSSTUNE_SIGN_IN_WITH_APPLE_TEAM_ID": self.sign_in_with_apple_team_id,
+                "CROSSTUNE_SIGN_IN_WITH_APPLE_KEY_ID": self.sign_in_with_apple_key_id,
+                "CROSSTUNE_SIGN_IN_WITH_APPLE_PRIVATE_KEY": self.sign_in_with_apple_private_key.get_secret_value(),
+            }
+        )
+        if problem:
+            msg = f"incomplete Sign in with Apple settings: {problem}"
+            raise ValueError(msg)
+        if self.sign_in_with_apple_configured:
+            try:
+                load_apple_music_key(self.sign_in_with_apple_private_key.get_secret_value())
+            except ValueError as error:
+                msg = f"CROSSTUNE_SIGN_IN_WITH_APPLE_PRIVATE_KEY {error}"
                 raise ValueError(msg) from None
         return self
 

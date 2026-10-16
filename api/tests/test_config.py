@@ -415,6 +415,58 @@ def test_a_p256_apple_music_key_starts() -> None:
     assert settings.apple_music_configured is True
 
 
+def test_sign_in_with_apple_configured_with_all_three() -> None:
+    settings = Settings(
+        sign_in_with_apple_team_id="TEAM",
+        sign_in_with_apple_key_id="KEY",
+        sign_in_with_apple_private_key=_pem(ec.generate_private_key(ec.SECP256R1())),
+    )
+    assert settings.sign_in_with_apple_configured is True
+
+
+def test_sign_in_with_apple_unset_is_off() -> None:
+    assert Settings().sign_in_with_apple_configured is False
+
+
+@pytest.mark.parametrize(
+    ("given", "named"),
+    [
+        ({"sign_in_with_apple_team_id": "TEAM"}, "CROSSTUNE_SIGN_IN_WITH_APPLE_KEY_ID"),
+        ({"sign_in_with_apple_key_id": "KEY"}, "CROSSTUNE_SIGN_IN_WITH_APPLE_TEAM_ID"),
+        (
+            {"sign_in_with_apple_team_id": "TEAM", "sign_in_with_apple_key_id": "KEY"},
+            "CROSSTUNE_SIGN_IN_WITH_APPLE_PRIVATE_KEY",
+        ),
+        (
+            {"sign_in_with_apple_private_key": "pem"},
+            "CROSSTUNE_SIGN_IN_WITH_APPLE_TEAM_ID",
+        ),
+        (
+            {"sign_in_with_apple_team_id": "TEAM", "sign_in_with_apple_private_key": "pem"},
+            "CROSSTUNE_SIGN_IN_WITH_APPLE_KEY_ID",
+        ),
+        (
+            {"sign_in_with_apple_key_id": "KEY", "sign_in_with_apple_private_key": "pem"},
+            "CROSSTUNE_SIGN_IN_WITH_APPLE_TEAM_ID",
+        ),
+    ],
+)
+def test_partial_sign_in_with_apple_refuses_to_start(given: dict[str, str], named: str) -> None:
+    with pytest.raises(ValidationError, match=named):
+        Settings(**given)
+
+
+def test_sign_in_with_apple_key_must_be_p256() -> None:
+    pem = _pem(rsa.generate_private_key(public_exponent=65537, key_size=2048))
+    with pytest.raises(ValidationError, match="CROSSTUNE_SIGN_IN_WITH_APPLE_PRIVATE_KEY") as caught:
+        Settings(
+            sign_in_with_apple_team_id="TEAM",
+            sign_in_with_apple_key_id="KEY",
+            sign_in_with_apple_private_key=pem,
+        )
+    assert pem[40:80] not in str(caught.value)
+
+
 _STORAGE = {
     "r2_account_id": "acct",
     "storage_bucket": "crosstune-test",
