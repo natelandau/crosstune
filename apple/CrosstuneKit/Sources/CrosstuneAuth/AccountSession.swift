@@ -10,6 +10,9 @@ import Network
 import Observation
 import OpenAPIRuntime
 import OpenAPIURLSession
+import os
+
+private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "account")
 
 /// Who the app is open for, their on-device store and its sync, and whether the API still
 /// accepts their session.
@@ -216,6 +219,9 @@ public final class AccountSession {
 
     /// The signed-in user's email, from Clerk's cache when offline. Nil until Clerk loads.
     public var email: String? { Clerk.shared.user?.primaryEmailAddress?.emailAddress }
+
+    /// True while Apple's sheet is up for an account delete, before anything is sent.
+    public private(set) var isConfirmingWithApple = false
 
     /// True when the signed-in user has Sign in with Apple linked, so deleting the account
     /// also asks Apple for a code the API uses to revoke Crosstune's access.
@@ -449,15 +455,25 @@ public final class AccountSession {
     /// ``LeaveError/appleNotConfirmed`` without sending anything when it does not.
     public func deleteAccount() async throws {
         guard let userID = try? confirmedUserID() else { throw LeaveError.deleteFailed }
+        try await Self.confirmThenDelete(
+            hasApple: hasAppleSignIn,
+            authorize: {
+                isConfirmingWithApple = true
+                defer { isConfirmingWithApple = false }
+                return try await AppleAuthorization.code()
+            },
+            send: { body in try await delete(userID: userID, body: body) }
+        )
+    }
+
+    private func delete(userID: String, body: Operations.DeleteMeV1MeDelete.Input.Body?) async throws {
+        // Apple's sheet can stay up for as long as the musician leaves it.
+        guard isStillSignedIn(userID) else { throw LeaveError.deleteFailed }
         isLeavingDeleted = true
         defer { isLeavingDeleted = false }
         let client = client
         await opens[userID]?.task.value
         guard isStillSignedIn(userID) else { throw LeaveError.deleteFailed }
-        let appleCode = try await Self.appleCode(hasApple: hasAppleSignIn, authorize: AppleAuthorization.code)
-        // Apple's sheet can stay up for as long as the musician leaves it.
-        guard isStillSignedIn(userID) else { throw LeaveError.deleteFailed }
-        let body = appleCode.map { Operations.DeleteMeV1MeDelete.Input.Body.json(.init(appleAuthorizationCode: $0)) }
         await settleBeforeLeaving?()
         do {
             try await Self.deleteAndLeave(
@@ -473,6 +489,17 @@ public final class AccountSession {
         finishLeaving(deleted: userID)
     }
 
+    /// Asks Apple for a code when the account has Sign in with Apple, then sends the delete
+    /// with it. The code is single-use and short-lived, so it is asked for right before the
+    /// request. Without Apple's confirmation nothing is sent.
+    static func confirmThenDelete(
+        hasApple: Bool, authorize: () async throws -> String,
+        send: (Operations.DeleteMeV1MeDelete.Input.Body?) async throws -> Void
+    ) async throws {
+        let code = try await appleCode(hasApple: hasApple, authorize: authorize)
+        try await send(code.map { .json(.init(appleAuthorizationCode: $0)) })
+    }
+
     /// The code Apple gives for a fresh authorization, which the API needs to revoke Sign in
     /// with Apple once the account is gone. Nil without asking when the account has no Apple
     /// sign-in. Any failure from Apple, a cancel included, stops the delete.
@@ -481,6 +508,10 @@ public final class AccountSession {
         do {
             return try await authorize()
         } catch {
+            let failure = error as NSError
+            logger.notice(
+                "Apple did not confirm the account delete: \(failure.domain, privacy: .public) \(failure.code, privacy: .public)"
+            )
             throw LeaveError.appleNotConfirmed
         }
     }

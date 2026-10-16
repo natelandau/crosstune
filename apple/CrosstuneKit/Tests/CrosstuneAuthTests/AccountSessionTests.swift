@@ -98,6 +98,42 @@ import Testing
     }
 }
 
+private typealias DeleteBody = Operations.DeleteMeV1MeDelete.Input.Body
+
+@MainActor
+@Test func anAppleAccountSendsItsCodeWithTheDelete() async throws {
+    var sent: [DeleteBody?] = []
+    try await AccountSession.confirmThenDelete(hasApple: true, authorize: { "c1" }, send: { sent.append($0) })
+    #expect(sent == [.json(.init(appleAuthorizationCode: "c1"))])
+}
+
+@MainActor
+@Test func anAccountWithoutAppleSendsNoBodyAndNeverAsks() async throws {
+    var asked = 0
+    var sent: [DeleteBody?] = []
+    try await AccountSession.confirmThenDelete(
+        hasApple: false,
+        authorize: {
+            asked += 1
+            return "c1"
+        },
+        send: { sent.append($0) }
+    )
+    #expect(asked == 0)
+    #expect(sent == [nil])
+}
+
+@MainActor
+@Test func aCancelledAppleConfirmationSendsNothing() async {
+    var sent: [DeleteBody?] = []
+    await #expect(throws: AccountSession.LeaveError.appleNotConfirmed) {
+        try await AccountSession.confirmThenDelete(
+            hasApple: true, authorize: { throw ASAuthorizationError(.canceled) }, send: { sent.append($0) }
+        )
+    }
+    #expect(sent.isEmpty)
+}
+
 private typealias DeleteOutput = Operations.DeleteMeV1MeDelete.Output
 
 private func problem(_ status: Int) -> Components.Schemas.Problem {

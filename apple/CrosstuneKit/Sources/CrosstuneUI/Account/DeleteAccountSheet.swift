@@ -17,6 +17,7 @@ public struct DeleteAccountSheet: View {
     public static let noRecovery = " There is no way to recover your account or anything in it."
     public static let confirmLabel = "Type \(confirmationText) to confirm"
     public static let deleting = "Deleting…"
+    public static let confirmingWithApple = "Confirming with Apple…"
     public static let appleSubscriptionLine =
         "Your App Store subscription keeps billing until you cancel it in App Store settings."
     public static let stripeSubscriptionLine =
@@ -114,6 +115,13 @@ public struct DeleteAccountSheet: View {
         return "\(count) \(count == 1 ? singular : plural)"
     }
 
+    /// The delete button's label: the action, then Apple's confirmation while its sheet is up,
+    /// then the delete itself once it is sent.
+    static func buttonLabel(pending: Bool, isConfirmingWithApple: Bool) -> String {
+        guard pending else { return title }
+        return isConfirmingWithApple ? confirmingWithApple : deleting
+    }
+
     /// Delete waits out a loading count, so the list on screen never turns out to have been
     /// partial. An unavailable count does not hold it back, since the delete does not read the
     /// local store.
@@ -163,7 +171,6 @@ public struct DeleteAccountSheet: View {
                     Text("**\(Self.cannotUndo)**\(Self.noRecovery)")
                 }
                 Section {
-                    ForEach(Self.appleLines(hasAppleSignIn: session.hasAppleSignIn), id: \.self) { Text($0) }
                     TextField(Self.confirmLabel, text: $text)
                         .contentMask()
                         #if os(iOS)
@@ -171,10 +178,11 @@ public struct DeleteAccountSheet: View {
                         #endif
                         .autocorrectionDisabled()
                         .disabled(pending)
+                    ForEach(Self.appleLines(hasAppleSignIn: session.hasAppleSignIn), id: \.self) { Text($0) }
                     Button(role: .destructive) {
                         runDelete()
                     } label: {
-                        Text(pending ? Self.deleting : Self.title)
+                        Text(Self.buttonLabel(pending: pending, isConfirmingWithApple: session.isConfirmingWithApple))
                     }
                     .disabled(!Self.deleteEnabled(counts, text: text, pending: pending))
                 } footer: {
