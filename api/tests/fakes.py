@@ -18,14 +18,23 @@ if TYPE_CHECKING:
 
 
 class FakeClerkUsers:
-    """A ClerkUsers stand-in. While `error` is set, every call raises it.
+    """A ClerkUsers stand-in.
 
+    While `error` is set, every call raises it; `apple_error` fails only `apple_user_ids`.
     `users` maps each Clerk user ID that `find_user` knows to its email, or None.
+    `apple_ids` maps a Clerk user ID to its Apple user IDs.
     """
 
-    def __init__(self, users: dict[str, str | None] | None = None) -> None:
+    def __init__(
+        self,
+        users: dict[str, str | None] | None = None,
+        *,
+        apple_ids: dict[str, frozenset[str]] | None = None,
+    ) -> None:
         self.deleted: list[str] = []
         self.error: Exception | None = None
+        self.apple_error: Exception | None = None
+        self.apple_ids: dict[str, frozenset[str]] = apple_ids if apple_ids is not None else {}
         self.users: dict[str, str | None] = users if users is not None else {}
         self.looked_up: list[str] = []
 
@@ -43,6 +52,14 @@ class FakeClerkUsers:
         if account not in self.users:
             return None
         return ClerkUser(account, self.users[account])
+
+    async def apple_user_ids(self, clerk_user_id: str) -> frozenset[str]:
+        """The configured Apple IDs, or raise `apple_error`, else `error`, instead."""
+        if self.apple_error is not None:
+            raise self.apple_error
+        if self.error is not None:
+            raise self.error
+        return self.apple_ids.get(clerk_user_id, frozenset())
 
 
 class FakeMailer:
