@@ -1,4 +1,4 @@
-import type { ResolveResponse, SearchGroup, SyncApi } from '../api/types'
+import type { DeleteAccountOptions, ResolveResponse, SearchGroup, SyncApi } from '../api/types'
 import type { Provider } from '../api/vocabulary'
 
 export type { SyncApi }
@@ -45,7 +45,7 @@ export interface SyncEngine {
   retry(recordingId: string): Promise<void>
   /** Ask the server to read the account's purchases from the store now. */
   refreshBilling(): Promise<void>
-  deleteAccount(): Promise<void>
+  deleteAccount(options?: DeleteAccountOptions): Promise<void>
   /** Called with the engine already stopped when the server says the account is gone. */
   onAccountDeleted(listener: () => void): () => void
   stop(): void

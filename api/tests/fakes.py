@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
     from crosstune.billing.grants import PaidSubscription
     from crosstune.email.resend import EmailMessage
+    from crosstune.users.apple import AppleClient
 
 
 class FakeClerkUsers:
@@ -66,13 +67,15 @@ class FakeAppleSignIn:
     """An AppleSignIn stand-in. While `error` is set, `revoke` records the call, then raises it."""
 
     def __init__(self, events: list[str] | None = None) -> None:
-        self.calls: list[tuple[str, frozenset[str]]] = []
+        self.calls: list[tuple[str, frozenset[str], AppleClient]] = []
         self.error: Exception | None = None
         self.events = events
 
-    async def revoke(self, code: str, apple_user_ids: frozenset[str]) -> None:
+    async def revoke(
+        self, code: str, apple_user_ids: frozenset[str], *, client: AppleClient
+    ) -> None:
         """Record the call, or raise the configured error after recording it."""
-        self.calls.append((code, apple_user_ids))
+        self.calls.append((code, apple_user_ids, client))
         if self.events is not None:
             self.events.append("apple")
         if self.error is not None:

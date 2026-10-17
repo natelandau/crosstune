@@ -1,4 +1,4 @@
-import { useAuth } from '@clerk/react'
+import { useAuth, useUser } from '@clerk/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { useAuthSession } from '../../auth/AuthContext'
@@ -10,6 +10,13 @@ import { useAction } from '../../ui/useAction'
 import { useResetOnChange } from '../../ui/useResetOnChange'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { APP_STORE_SUBSCRIPTIONS_URL } from '../plan/planCopy'
+import {
+  hasAppleAccount,
+  loadAppleAuth,
+  onAppleOrigin,
+  startAppleConfirmation,
+  type AppleIDAuth,
+} from './appleSignIn'
 import {
   confirmMatches,
   countAccountData,
@@ -59,10 +66,18 @@ export interface DeleteAccount {
   countLines: string[] | null
   /** True until the local counts have been read or have failed to read. */
   loading: boolean
+  /** True when deleting first asks Apple to confirm, so the API can revoke Sign in with Apple. */
+  showsAppleLine: boolean
+  /** False while Apple's script is still loading for an account that asks Apple. */
+  appleReady: boolean
   /** What happens to each subscription still billing the account. */
   subscriptions: SubscriptionNote[]
   confirmed: boolean
-  /** Does nothing until the confirmation text matches and the counts have settled. */
+  /**
+   * Does nothing until the confirmation text matches and the counts and Apple's script have
+   * settled. Cancelling Apple's popup stops the delete; any other Apple failure deletes without
+   * revoking, so an account can always be deleted.
+   */
   run: () => void
   error: string | null
   pending: boolean
@@ -79,6 +94,7 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
   const db = useDb()
   const { userId } = useAuthSession()
   const { signOut } = useAuth()
+  const { user } = useUser()
   const engine = useSyncEngine()
   const analytics = useAnalytics()
   const { paidSources } = usePlanOrUnknown()
@@ -96,6 +112,23 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
     [db, open],
   )
   const loading = counts === undefined
+  const asksApple = open && onAppleOrigin() && hasAppleAccount(user)
+  // Undefined while loading, null once it failed. Loaded ahead of the press, because a browser
+  // allows Apple's popup only from inside the click.
+  const [appleAuth, setAppleAuth] = useState<AppleIDAuth | null | undefined>(undefined)
+  const appleReady = !asksApple || appleAuth !== undefined
+
+  useEffect(() => {
+    if (!asksApple) return
+    let live = true
+    loadAppleAuth().then(
+      (auth) => live && setAppleAuth(auth),
+      () => live && setAppleAuth(null),
+    )
+    return () => {
+      live = false
+    }
+  }, [asksApple])
 
   useResetOnChange(open, () => {
     if (!open) return
@@ -113,21 +146,31 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
   const confirmed = confirmMatches(text)
 
   const run = () => {
-    if (!confirmed || pending || loading) return
+    if (!confirmed || pending || loading || !appleReady) return
+    const confirmation = asksApple ? startAppleConfirmation(appleAuth ?? null) : null
+    let cancelled = false
     runThen(
-      () =>
-        deleteAccountAndForget({
+      async () => {
+        const answer = await confirmation
+        if (answer === 'cancelled') {
+          cancelled = true
+          return
+        }
+        await deleteAccountAndForget({
           db,
           userId,
           engine,
           signOut: () => signOut(),
           analytics,
+          appleAuthorizationCode: typeof answer === 'object' && answer ? answer.code : undefined,
         }).catch((cause: unknown) => {
           throw new Error(deleteOutcomeUnknown(cause) ? DELETE_UNCONFIRMED : DELETE_FAILED, {
             cause,
           })
-        }),
+        })
+      },
       () => {
+        if (cancelled) return
         settledRef.current = true
         setClosing(true)
       },
@@ -142,6 +185,8 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
     },
     countLines: counts ? linesFor(counts) : null,
     loading,
+    showsAppleLine: asksApple,
+    appleReady,
     subscriptions,
     confirmed,
     run,

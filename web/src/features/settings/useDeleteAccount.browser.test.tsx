@@ -11,7 +11,10 @@ import { renderWithProviders } from '../../test/render'
 import { APP_STORE_SUBSCRIPTIONS_URL, MANAGE_APP_STORE } from '../plan/planCopy'
 import { DeleteAccountSheet } from './pages/DeleteAccountSheet'
 import { entitlementRow } from '../../test/rows'
+import type * as AppleSignInModule from './appleSignIn'
+import type { AppleIDAuth } from './appleSignIn'
 import {
+  APPLE_CONFIRM_LINE,
   APPLE_SUBSCRIPTION_LINE,
   DELETE_CONFIRMATION_TEXT,
   DELETE_FAILED,
@@ -20,14 +23,34 @@ import {
 } from './deleteAccountCopy'
 import { useDeleteAccount, type SubscriptionNote } from './useDeleteAccount'
 
-const clerk = vi.hoisted(() => ({ signOut: vi.fn(async () => {}) }))
+const clerk = vi.hoisted(() => ({
+  signOut: vi.fn(async () => {}),
+  user: null as { externalAccounts: { provider: string }[] } | null,
+}))
 
-vi.mock('@clerk/react', () => ({ useAuth: () => ({ signOut: clerk.signOut }) }))
+vi.mock('@clerk/react', () => ({
+  useAuth: () => ({ signOut: clerk.signOut }),
+  useUser: () => ({ user: clerk.user }),
+}))
+
+const apple = vi.hoisted(() => ({
+  onOrigin: false,
+  load: null as unknown as () => Promise<AppleIDAuth>,
+}))
+
+vi.mock('./appleSignIn', async (importOriginal) => ({
+  ...(await importOriginal<typeof AppleSignInModule>()),
+  onAppleOrigin: () => apple.onOrigin,
+  loadAppleAuth: () => apple.load(),
+}))
 
 let db: CrosstuneDb
 
 beforeEach(() => {
   db = openTestDb()
+  clerk.user = null
+  apple.onOrigin = false
+  apple.load = vi.fn(async () => Promise.reject(new Error('not loaded in this test')))
 })
 
 describe('useDeleteAccount', () => {
@@ -97,5 +120,113 @@ describe('useDeleteAccount', () => {
     const link = page.getByRole('link', { name: MANAGE_APP_STORE })
     await expect.element(link).toHaveAttribute('href', APP_STORE_SUBSCRIPTIONS_URL)
     await expect.element(link).toHaveAttribute('target', '_blank')
+  })
+
+  it('shows the Apple confirmation line only for an Apple account', async () => {
+    clerk.user = { externalAccounts: [{ provider: 'apple' }] }
+    apple.onOrigin = true
+    const Providers = dataProviders({ db })
+    renderWithProviders(
+      <Providers>
+        <DeleteAccountSheet open onClosed={() => {}} />
+      </Providers>,
+    )
+    await expect.element(page.getByRole('dialog')).toHaveTextContent(APPLE_CONFIRM_LINE)
+  })
+})
+
+describe('useDeleteAccount with an Apple account', () => {
+  const appleAccount = { externalAccounts: [{ provider: 'apple' }] }
+
+  function appleAuth(signIn: AppleIDAuth['signIn']): AppleIDAuth {
+    // Echo the state back, as Apple does.
+    let state = ''
+    return {
+      init: (config) => {
+        state = config.state
+      },
+      signIn: async () => {
+        const answer = await signIn()
+        return { ...answer, authorization: { ...answer.authorization, state } }
+      },
+    }
+  }
+
+  /** Types the confirmation and presses delete once the Apple script has loaded or failed. */
+  async function deleteWith(
+    deleteAccount: (options?: { appleAuthorizationCode?: string }) => Promise<void>,
+  ) {
+    const { result } = renderHook(() => useDeleteAccount(true), {
+      wrapper: dataProviders({ db, engine: fakeEngine({ deleteAccount }) }),
+    })
+    await expect.poll(() => result.current.loading).toBe(false)
+    await expect.poll(() => result.current.appleReady).toBe(true)
+    act(() => result.current.setText(DELETE_CONFIRMATION_TEXT))
+    act(() => result.current.run())
+    return result
+  }
+
+  // A refusal the server answered, so the run settles without erasing the test database.
+  const refused = () =>
+    vi.fn(async (_options?: { appleAuthorizationCode?: string }) =>
+      Promise.reject(new ApiError(422, null)),
+    )
+
+  beforeEach(() => {
+    clerk.user = appleAccount
+    apple.onOrigin = true
+  })
+
+  it('confirms with Apple, then sends the code with the delete', async () => {
+    apple.load = vi.fn(async () => appleAuth(async () => ({ authorization: { code: 'c1' } })))
+    const deleteAccount = refused()
+    const result = await deleteWith(deleteAccount)
+    await expect.poll(() => deleteAccount.mock.calls.length).toBe(1)
+    expect(deleteAccount).toHaveBeenCalledWith({ appleAuthorizationCode: 'c1' })
+    await expect.poll(() => result.current.error).toBe(DELETE_FAILED)
+  })
+
+  it('stops the delete and keeps the sheet when the Apple popup is closed', async () => {
+    const signIn = vi.fn(async () => Promise.reject({ error: 'popup_closed_by_user' }))
+    apple.load = vi.fn(async () => appleAuth(signIn))
+    const deleteAccount = refused()
+    const result = await deleteWith(deleteAccount)
+    await expect.poll(() => signIn.mock.calls.length).toBe(1)
+    await expect.poll(() => result.current.pending).toBe(false)
+    expect(deleteAccount).not.toHaveBeenCalled()
+    expect(result.current.closing).toBe(false)
+    expect(result.current.error).toBeNull()
+    expect(result.current.text).toBe(DELETE_CONFIRMATION_TEXT)
+  })
+
+  it('deletes without a code when Apple fails', async () => {
+    apple.load = vi.fn(async () =>
+      appleAuth(async () => Promise.reject({ error: 'invalid_request' })),
+    )
+    const deleteAccount = refused()
+    await deleteWith(deleteAccount)
+    await expect.poll(() => deleteAccount.mock.calls.length).toBe(1)
+    expect(deleteAccount).toHaveBeenCalledWith({})
+  })
+
+  it("deletes without a code when Apple's script fails to load", async () => {
+    const deleteAccount = refused()
+    await deleteWith(deleteAccount)
+    await expect.poll(() => deleteAccount.mock.calls.length).toBe(1)
+    expect(deleteAccount).toHaveBeenCalledWith({})
+  })
+
+  it.each([
+    ['an account with no Apple connection', { externalAccounts: [{ provider: 'google' }] }, true],
+    ['another origin', appleAccount, false],
+  ])('never asks Apple for %s', async (_name, user, onOrigin) => {
+    clerk.user = user
+    apple.onOrigin = onOrigin
+    const deleteAccount = refused()
+    const result = await deleteWith(deleteAccount)
+    await expect.poll(() => deleteAccount.mock.calls.length).toBe(1)
+    expect(deleteAccount).toHaveBeenCalledWith({})
+    expect(apple.load).not.toHaveBeenCalled()
+    expect(result.current.showsAppleLine).toBe(false)
   })
 })

@@ -333,12 +333,16 @@ never synced.
   (Svix-signed), the only path for a deletion made from the Clerk
   dashboard. Both paths are idempotent. Foreign keys cascade to every table
   the user owns.
-- Only `DELETE /v1/me` revokes Sign in with Apple. The Apple app sends a
-  fresh Apple authorization code with the request (cancelling Apple's
-  sheet stops the delete; any other Apple failure deletes without a
-  code, so the account is still deleted), and after the response
-  the API exchanges it at Apple and revokes the authorization, once the
-  Clerk delete has succeeded. A failed revoke is logged and never undoes
+- Only `DELETE /v1/me` revokes Sign in with Apple. The client sends a
+  fresh Apple authorization code with the request: the Apple app from
+  Apple's sheet, the web from Sign in with Apple JS in a popup, and only
+  on its production origin, the one return URL Apple knows. Cancelling
+  Apple's prompt stops the delete; any other Apple failure deletes
+  without a code, so the account is still deleted. The request names its
+  client, `app` or `web`, and the API exchanges the code under that
+  client's ID (the bundle ID or the Services ID), then revokes the
+  authorization after the response, once the Clerk delete has
+  succeeded. A failed revoke is logged and never undoes
   the delete. The webhook path has no code, so a deletion made in Clerk's
   dashboard does not revoke.
 - The webhook's `user.deleted` event also queues four deletes of the

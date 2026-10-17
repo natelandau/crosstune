@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/react'
 import type { AnalyticsClient } from '../usage/client'
 import { syncFailureReason } from '../usage/failure'
 import { ApiError, NetworkError, NoTokenError } from '../api/client'
-import type { Change, ResolveResponse } from '../api/types'
+import type { Change, DeleteAccountOptions, ResolveResponse } from '../api/types'
 import { readPlan } from '../billing/entitlement'
 import { postSeenNotices } from '../billing/notices'
 import { countInvalidChanges, getEventsCursor, getPullCursor, prunePremiumHolds } from '../db/meta'
@@ -415,8 +415,8 @@ export function createSyncEngine({
     async refreshBilling(): Promise<void> {
       await api.refreshBilling()
     },
-    async deleteAccount(): Promise<void> {
-      await api.deleteAccount()
+    async deleteAccount(options?: DeleteAccountOptions): Promise<void> {
+      await api.deleteAccount(options)
     },
     onAccountDeleted(listener) {
       accountDeletedListeners.add(listener)

@@ -57,6 +57,21 @@ describe('deleteAccountAndForget', () => {
     )
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
     expect(hasAccountDeletedNotice()).toBe(true)
+    expect(deleteAccount).toHaveBeenCalledWith({})
+  })
+
+  it('passes an Apple code on to the request', async () => {
+    const { userId, db } = freshUser()
+    const deleteAccount = vi.fn(async () => {})
+    await deleteAccountAndForget({
+      db,
+      userId,
+      engine: fakeEngine({ deleteAccount }),
+      signOut: async () => {},
+      analytics: noopAnalytics,
+      appleAuthorizationCode: 'c1',
+    })
+    expect(deleteAccount).toHaveBeenCalledWith({ appleAuthorizationCode: 'c1' })
   })
 
   it('skips the unsynced guard', async () => {

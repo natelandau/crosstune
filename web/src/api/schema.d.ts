@@ -396,6 +396,12 @@ export interface components {
         DeleteMeRequest: {
             /** Apple Authorization Code */
             apple_authorization_code?: string | null;
+            /**
+             * Apple Client
+             * @default app
+             * @enum {string}
+             */
+            apple_client: "app" | "web";
         };
         /**
          * DownloadUrl

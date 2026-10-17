@@ -41,17 +41,19 @@ export async function deleteAccountAndForget({
   engine,
   signOut,
   analytics,
+  appleAuthorizationCode,
 }: {
   db: CrosstuneDb
   userId: string
   engine: SyncEngine
   signOut: () => Promise<void>
   analytics: AnalyticsClient
+  appleAuthorizationCode?: string
 }): Promise<void> {
   // A stopped engine cannot retry against an account the request below is about to erase.
   engine.stop()
   try {
-    await engine.deleteAccount()
+    await engine.deleteAccount(appleAuthorizationCode ? { appleAuthorizationCode } : {})
   } catch (error) {
     // Another device already deleted it, which is the outcome this request asked for.
     if (!isAccountDeleted(error)) {

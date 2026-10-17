@@ -6,6 +6,7 @@ import { TextField } from '../../../ui/form/TextField'
 import { Sheet } from '../../../ui/Sheet'
 import { MANAGE_APP_STORE } from '../../plan/planCopy'
 import {
+  APPLE_CONFIRM_LINE,
   CANNOT_UNDO,
   CONFIRM_LABEL,
   DELETE_ACCOUNT,
@@ -27,6 +28,8 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
     setText,
     countLines,
     loading,
+    showsAppleLine,
+    appleReady,
     subscriptions,
     confirmed,
     run,
@@ -52,7 +55,7 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
         label: pending ? DELETING : DELETE_ACCOUNT,
         tone: 'danger',
         onPress: run,
-        isDisabled: !confirmed || pending || loading,
+        isDisabled: !confirmed || pending || loading || !appleReady,
       }}
       onClosed={onClosed}
     >
@@ -103,6 +106,7 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
       <Group error={error ?? undefined}>
         <TextField standalone label={CONFIRM_LABEL} value={text} onChange={setText} />
       </Group>
+      {showsAppleLine && <p className="t-secondary text-ink-2 px-4 pt-2">{APPLE_CONFIRM_LINE}</p>}
     </Sheet>
   )
 }

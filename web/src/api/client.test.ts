@@ -192,6 +192,24 @@ describe('createApiClient', () => {
     await expect(makeClient(fetchMock).deleteAccount()).resolves.toBeUndefined()
   })
 
+  it('sends no body with a delete that has no Apple code', async () => {
+    const fetchMock = vi.fn<FetchMock>(async (input) => {
+      expect(await input.text()).toBe('')
+      return new Response(null, { status: 204 })
+    })
+    await makeClient(fetchMock).deleteAccount()
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
+  it('sends an Apple code as the web client', async () => {
+    const fetchMock = vi.fn<FetchMock>(async (input) => {
+      expect(await input.json()).toEqual({ apple_authorization_code: 'c1', apple_client: 'web' })
+      return new Response(null, { status: 204 })
+    })
+    await makeClient(fetchMock).deleteAccount({ appleAuthorizationCode: 'c1' })
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
   it('posts a seen notice to /v1/me/notices and resolves on 204', async () => {
     const fetchMock = vi.fn<FetchMock>(async (input) => {
       expect(input.method).toBe('POST')
