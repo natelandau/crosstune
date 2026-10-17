@@ -30,7 +30,7 @@ import { DELETE_TUNE_TITLE, deleteTuneMessage } from '../tune/deleteTuneMessage'
 import { EDIT_TUNE } from '../tune/tuneScreenCopy'
 import { openTestDb } from '../../test/db'
 import { viewTransitionsDone } from '../../test/viewTransitions'
-import { FILTERS } from '../../ui/filterCopy'
+import { ANY, FILTERS } from '../../ui/filterCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { CLEAR_SEARCH } from '../../ui/searchCopy'
 import { SORT, sortControlName } from '../../ui/sortCopy'
@@ -232,7 +232,7 @@ it('sets the status from the phone capsule under a title that stays Catalog', as
   const learning = page.getByRole('menuitemradio', { name: STATUS_LABELS.learning, exact: true })
   await expect.element(learning).toHaveAccessibleDescription(countTunes(1))
   await expect
-    .element(page.getByRole('menuitemradio', { name: CATALOG, exact: true }))
+    .element(page.getByRole('menuitemradio', { name: ANY, exact: true }))
     .toHaveAttribute('aria-checked', 'true')
   await learning.click()
   await expect.poll(rowTitles).toEqual(['Cluck Old Hen'])
@@ -286,7 +286,7 @@ it('sets the status from the phone capsule through an action sheet on touch', as
   const sheet = page.getByRole('dialog', { name: STATUS_SCOPE })
   await expect.element(sheet).toBeVisible()
   await expect
-    .element(sheet.getByRole('menuitemradio', { name: CATALOG, exact: true }))
+    .element(sheet.getByRole('menuitemradio', { name: ANY, exact: true }))
     .toHaveAttribute('aria-checked', 'true')
   await sheet.getByRole('menuitemradio', { name: STATUS_LABELS.learning, exact: true }).click()
   await expect.poll(rowTitles).toEqual(['Cluck Old Hen'])

@@ -140,7 +140,6 @@ export function CatalogScreen() {
   // catalog filtered by it, while this list stayed mounted.
   usePageShown(refreshQuery)
 
-  const title = CATALOG.label
   const phone = frame === 'phone'
 
   const openFound = (id: string) => {
@@ -198,7 +197,7 @@ export function CatalogScreen() {
         <SelectionBar selection={selection} actions={bulk} restoreFocus={restore} />
       ) : (
         <PaneBar
-          title={title}
+          title={CATALOG.label}
           trailing={
             <>
               <Button
@@ -216,7 +215,7 @@ export function CatalogScreen() {
           }
         />
       )}
-      <ColumnTitle title={title} titleRef={titleRef} />
+      <ColumnTitle title={CATALOG.label} titleRef={titleRef} />
       <div className="px-4 pb-2">
         <SearchField
           ref={searchRef}

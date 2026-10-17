@@ -5,8 +5,8 @@ import { ScreenSyncBadge } from './SyncBadge'
 /**
  * A column's title as the first line of its content, in the screen title role. It scrolls with
  * the content, and tells the pane bar once it has gone under the bar, so the bar takes over.
- * `trailing` sits beside it. The phone's sync badge follows, unless `syncBadge` is false. `titleRef` reaches the heading, where focus lands when a control
- * holding it leaves the column.
+ * `trailing` sits beside it. The phone's sync badge follows, unless `syncBadge` is false.
+ * `titleRef` reaches the heading, where focus lands when a control holding it leaves the column.
  */
 export function ColumnTitle({
   title,

@@ -4,10 +4,11 @@ import { STATUS_LABELS } from '../../constants'
 import type { LiveTuneCounts } from './useStatusCounts'
 import { countTunes } from '../../text/format'
 import { Menu, type MenuTriggerProps } from '../../ui/Menu'
-import { CATALOG_SCOPE, STATUS_SCOPE } from './scope'
+import { ANY } from '../../ui/filterCopy'
+import { STATUS_SCOPE } from './scope'
 
 /**
- * The catalog's status scope: the whole catalog and each status, with each one's absolute
+ * The catalog's status scope: any status and each status, with each one's absolute
  * count, writing the same stored filter the sidebar rows do.
  */
 export function StatusScopeMenu({
@@ -35,7 +36,7 @@ export function StatusScopeMenu({
       choiceMode="single"
       trigger={trigger}
       items={[
-        choice('all', CATALOG_SCOPE, counts?.total),
+        choice('all', ANY, counts?.total),
         ...STATUSES.map((value) => choice(value, STATUS_LABELS[value], counts?.byStatus[value])),
       ]}
     />
