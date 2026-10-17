@@ -1,3 +1,13 @@
+## v0.23.0 (2026-10-17)
+
+### Feat
+
+- **auth**: revoke Sign in with Apple on web account deletion (#202)
+
+### Refactor
+
+- **web**: keep the catalog title fixed as Catalog (#201)
+
 ## v0.22.0 (2026-10-16)
 
 ### Feat
