@@ -17,14 +17,12 @@ This policy covers this site (crosstune.app), the web app (my.crosstune.app), an
 
 - Your catalog is private to you. No other user can see it.
 - We use your data to run Crosstune for you. There are no ads, we do not sell your data, and we do not use it to train AI models.
-- The apps send usage analytics to PostHog, including masked session recordings on the web, iPhone, and iPad. You can turn this off with Share usage data.
+- The apps send usage analytics to PostHog, never your content. You can turn this off with Share usage data. In the European Union, it starts off.
 - You can export everything you made and delete your account from Settings at any time.
 
 ## Who is responsible for your data
 
 Nathaniel Landau is the controller of the personal data described here, which means he decides how and why it is processed. Contact details are at the top of this page.
-
-[If appointed: Our representative in the European Union is [name, address, email]. Our representative in the United Kingdom is [name, address, email]. You can contact them instead of us about anything in this policy.]
 
 ## What we collect
 
@@ -65,7 +63,7 @@ If you email us, we keep the message and our reply.
 
 ### Technical data
 
-Every request to our servers carries your IP address and basic details about your device and app version. Our servers keep short-lived logs of these requests, which can include the text of a search or a link you paste. See How long we keep it.
+Every request to our servers carries your IP address and basic details about your device and app version. Our servers keep short-lived logs of these requests, without the text of your searches. See How long we keep it.
 
 ### Usage analytics
 
@@ -79,7 +77,7 @@ The law in some places, such as the European Union and the United Kingdom, asks 
 - To sell and manage Premium: purchases, renewals, refunds, and records the law requires us to keep. This performs our agreement with you and meets our legal obligations.
 - To keep Crosstune secure and working: logs, error reports, fraud and abuse prevention. This is in our legitimate interest in running a reliable and safe service, and we keep it to what that needs.
 - To contact you about your account: sign-in codes, warnings before we delete stored files, and changes to these terms or this policy. This performs our agreement with you.
-- To understand how Crosstune is used and improve it: usage analytics and session recordings. [EU and UK: we rely on your consent, which you can withdraw at any time with Share usage data. Elsewhere: we rely on our legitimate interest in improving Crosstune.]
+- To understand how Crosstune is used and improve it: usage analytics. In the European Union and the European Economic Area, we rely on your consent, which you give by turning on Share usage data and can withdraw by turning it off. Elsewhere, we rely on our legitimate interest in improving Crosstune, and you can object at any time by turning off Share usage data.
 - To meet legal obligations, such as answering lawful requests and keeping tax records.
 
 Your email address is required to create an account. Everything else in your catalog is up to you. We do not make decisions about you by automated means that have legal or similarly significant effects.
@@ -94,7 +92,7 @@ We use these service providers to run Crosstune. Each one processes your data fo
 - Cloudflare serves this site and the web app, passes the web app's requests to the API, and stores your recordings and scans in its R2 storage.
 - Fastmail receives email sent to support@crosstune.app.
 - Resend sends the emails that warn you before Crosstune deletes the recordings and scans of an account that is not on Premium and has not synced for a year. It receives your email address and the content of those emails.
-- Sentry receives error reports from the API and the web app. A report can include the request that failed. We set Sentry to leave out your email address, IP address, and cookies.
+- Sentry receives error reports from the API and the web app. We set Sentry to leave out the content of requests, your search text, your email address, your IP address, and cookies.
 - PostHog Cloud, in the United States, receives usage analytics from this site, the web app, and the iPhone, iPad, and Mac apps. See Usage analytics below.
 - RevenueCat keeps the record of your Premium subscription from Apple and Link. It holds your Crosstune account ID, what you bought, and when it renews or ends. Its code in the apps also sends it basic device and store details.
 
@@ -116,7 +114,7 @@ When you use these features, the service you use receives what that feature need
 
 ### AI providers
 
-Some features can send content you choose, such as an image, to a third-party AI provider to process it for you. Before a feature does this for the first time, it tells you what it sends and to whom, and asks your permission. You can turn it off in Settings. We only use AI providers whose contracts forbid them from using your content to train their models, and we name each one in this policy before any feature uses it. AI features are off for users under 18 unless a parent or guardian turns them on.
+Some features can send content you choose, such as an image, to a third-party AI provider to process it for you. Before a feature does this for the first time, it tells you what it sends and to whom, and asks your permission. You can turn it off in Settings. We only use AI providers whose contracts forbid them from using your content to train their models, and we name each one in this policy before any feature uses it. A user under 18 needs a parent or guardian's agreement to turn on an AI feature.
 
 ### Other people
 
@@ -140,9 +138,9 @@ On this site, visits are counted without cookies, and the analytics are not link
 
 The web app and the apps link this data to your account. They never send your email address or name to PostHog. Events can carry the internal IDs of tunes, lists, recordings, links, and scans. They never send tune names, notes, lyrics, scans, or recordings.
 
-While Share usage data is on, the web app and the iPhone and iPad apps record your sessions. A session recording shows how you move through the app, with your content hidden. The Mac app does not record. The web recording masks all text, inputs, labels, and links, and blocks scans and waveforms. The app recordings mask text inputs, images, and all of your content.
+The apps do not record your screen or your sessions.
 
-Share usage data is on when you first use the app. To turn this off, turn off Share usage data in the app: Settings > About on the web, iPhone, and iPad, Settings > General on Mac. While it is off, the app stops collecting usage data. Data collected just before you turned it off can still upload.
+In the European Union and the European Economic Area, Share usage data is off until you turn it on, and the app sends nothing to PostHog until then. Everywhere else, Share usage data is on when you first use the app. To turn this off, turn off Share usage data in the app: Settings > About on the web, iPhone, and iPad, Settings > General on Mac. While it is off, the app stops collecting usage data. Data collected just before you turned it off can still upload.
 
 When you delete your account, we ask PostHog to delete the analytics data linked to your account, including session recordings. We ask again over the following week to catch data sent just before the deletion. PostHog deletes events in a weekly batch. If Share usage data is on, the app then reports that an account was deleted, without anything that links the report to you.
 
@@ -167,11 +165,11 @@ There are no ads. We do not sell your data, or share it for advertising. We do n
 
 - Your account, catalog, recordings, and scans: until you delete them or your account, except as described in Deleting your data and Inactive accounts.
 - Your activity history: until you delete your account.
-- Database backups: deleted data can remain in our database's history for up to [N] days before it expires.
-- Server logs: up to [N] days.
-- Error reports in Sentry: up to [N] days.
-- Usage analytics in PostHog: events up to [N] months, session recordings up to [N] days, or until you delete your account.
-- Email to support: up to [N] years after the conversation ends.
+- Database backups: deleted data can remain in our database's history for up to 30 days before it expires.
+- Server logs: up to 30 days.
+- Error reports in Sentry: up to 90 days.
+- Usage analytics in PostHog: until you delete your account, and never longer than 7 years.
+- Email to support: up to 3 years after the conversation ends.
 - Purchase records: as long as tax and accounting law requires. Apple and Link keep their own records under their own policies.
 - After you delete your account, we keep your account's internal ID, with no other data, so that the deleted account cannot sync again.
 
@@ -179,7 +177,7 @@ There are no ads. We do not sell your data, or share it for advertising. We do n
 
 ### Deleting items
 
-When you delete a recording or a scan, we delete its file. When you delete a tune, list, link, note, recording, or scan, we keep a deletion marker so the deletion reaches all of your devices. [The marker keeps the item's text, such as a tune's title and notes, until you delete your account.]
+When you delete a tune, list, link, recording, or scan, we delete its content and files. We keep a small marker, with no content, so the deletion reaches all of your devices.
 
 ### Deleting your account
 
@@ -216,7 +214,7 @@ If you live in the European Union or the United Kingdom, you can also complain t
 
 Crosstune is not for children under 13, and we do not knowingly collect data from them. If you are a parent and believe your child under 13 has an account, email us and we will delete it.
 
-Users from 13 to 17 need a parent or guardian to agree to our terms. A parent or guardian can ask us to see or delete their teen's data. [For users we know are under 18, Share usage data and AI features are off unless a parent or guardian turns them on.]
+Users from 13 to 17 need a parent or guardian to agree to our terms. A parent or guardian can ask us to see or delete their teen's data, or turn off Share usage data in their teen's app.
 
 ## Where your data is processed
 

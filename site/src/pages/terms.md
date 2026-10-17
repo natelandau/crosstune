@@ -73,7 +73,7 @@ You must not:
 
 If you believe content in Crosstune infringes your copyright, send a notice to our copyright agent:
 
-- Copyright Agent, [agent name], [agent address]
+- Copyright Agent: Nathaniel Landau, [mailing address], [phone]
 - [copyright@crosstune.app](mailto:copyright@crosstune.app)
 
 Your notice must include your signature, a description of the work, a description of the infringing material that lets us find it, your contact details, a statement that you believe in good faith that the use is not authorized, and a statement, under penalty of perjury, that your notice is accurate and that you are the owner or are authorized to act for them. We remove or disable the material and tell the user who added it.
@@ -105,9 +105,9 @@ You can buy Premium in the App Store or on the web. Premium costs the same in bo
 
 ### Renewal
 
-A subscription renews automatically at the end of each month or year until you cancel it. Each renewal charges the payment method that you used, at the price shown when you subscribed, plus any tax. Before a yearly subscription renews, you get a reminder.
+A subscription renews automatically at the end of each month or year until you cancel it. Each renewal charges the payment method that you used, at the price shown when you subscribed, plus any tax. After you subscribe, we email you a confirmation with these renewal terms and how to cancel. About 30 days before a yearly subscription renews, we email you a reminder.
 
-If the price of Premium changes, we tell you at least 30 days before the new price applies to your subscription. You can cancel before then. [If you live where the law requires your consent to a new price, your subscription does not renew at the new price without it.]
+If we change the price of Premium, your subscription keeps the price you subscribed at. It moves to a new price only if you agree to it.
 
 If a renewal payment fails, you keep Premium while Apple or Link tries the payment again. If no attempt succeeds, the subscription ends.
 
@@ -127,15 +127,15 @@ To ask for a refund, use the same place that sold the subscription:
 - For the App Store, ask Apple at [reportaproblem.apple.com](https://reportaproblem.apple.com).
 - For the web, write to [support@crosstune.app](mailto:support@crosstune.app), or ask Link support. You can ask for a refund up to 60 days after a payment.
 
-Deleting your account does not refund the rest of a web subscription's period, except as the law requires, such as in the first 14 days for users in the EU and the UK. [Alternative: "When you delete your account, we refund the unused part of a web subscription's current period."]
+If you delete your account within 14 days of your first web payment, we refund that payment in full, as described below. After that, deleting your account does not refund the rest of a web subscription's period, except as the law requires.
 
 Nothing in these terms limits a refund that the law gives you.
 
-### If you live in the EU or the UK
+### Changing your mind
 
-When you buy Premium on the web, you have the right to withdraw from the purchase within 14 days, without giving a reason. Premium starts as soon as you subscribe, because you ask for it to start at once. If you withdraw, we refund your payment, minus the share for the days you had Premium.
+If you buy Premium on the web, you can withdraw from the purchase within 14 days of your first payment, without giving a reason, and we refund that payment in full. Your subscription ends at once. This full refund is available once for each account. It is more than the law requires, and it does not limit any right the law gives you, such as the right of users in the EU and the UK to withdraw within 14 days.
 
-To withdraw, [use Withdraw from contract in the web app, or] email [support@crosstune.app](mailto:support@crosstune.app) saying that you withdraw from your Premium purchase. App Store purchases are withdrawn through Apple.
+To withdraw, use Withdraw for a full refund on the Plan page of the web app, or email [support@crosstune.app](mailto:support@crosstune.app) from your account's address saying that you withdraw from your Premium purchase. We confirm by email. App Store purchases are withdrawn or refunded through Apple.
 
 ### When Premium ends
 
