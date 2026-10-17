@@ -91,6 +91,15 @@
               }
             ],
             "title": "Apple Authorization Code"
+          },
+          "apple_client": {
+            "default": "app",
+            "enum": [
+              "app",
+              "web"
+            ],
+            "title": "Apple Client",
+            "type": "string"
           }
         },
         "title": "DeleteMeRequest",

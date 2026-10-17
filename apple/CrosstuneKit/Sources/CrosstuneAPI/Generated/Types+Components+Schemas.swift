@@ -83,15 +83,23 @@ extension Components {
         public struct DeleteMeRequest: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/DeleteMeRequest/apple_authorization_code`.
             public var appleAuthorizationCode: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/DeleteMeRequest/apple_client`.
+            public var appleClient: Swift.String?
             /// Creates a new `DeleteMeRequest`.
             ///
             /// - Parameters:
             ///   - appleAuthorizationCode:
-            public init(appleAuthorizationCode: Swift.String? = nil) {
+            ///   - appleClient:
+            public init(
+                appleAuthorizationCode: Swift.String? = nil,
+                appleClient: Swift.String? = nil
+            ) {
                 self.appleAuthorizationCode = appleAuthorizationCode
+                self.appleClient = appleClient
             }
             public enum CodingKeys: String, CodingKey {
                 case appleAuthorizationCode = "apple_authorization_code"
+                case appleClient = "apple_client"
             }
         }
         /// A presigned GET for the playback file, tagged with the revision and start it was signed for.

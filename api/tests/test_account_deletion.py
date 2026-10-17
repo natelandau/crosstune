@@ -39,7 +39,7 @@ from crosstune.models import (
     UserSettings,
     UserTune,
 )
-from crosstune.users.apple import AppleRevokeError
+from crosstune.users.apple import AppleClient, AppleRevokeError
 from crosstune.users.clerk import ClerkBackendUsers, ClerkUnavailableError
 from crosstune.users.router import DeleteMeRequest
 from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantSource
@@ -265,11 +265,13 @@ class _CommitCheckingApple(FakeAppleSignIn):
         self._clerk_user_id = clerk_user_id
         self.row_gone_at_revoke: bool | None = None
 
-    async def revoke(self, code: str, apple_user_ids: frozenset[str]) -> None:
+    async def revoke(
+        self, code: str, apple_user_ids: frozenset[str], *, client: AppleClient
+    ) -> None:
         async with AsyncSession(bind=self._engine) as s:
             row = await s.scalar(select(User).where(User.clerk_user_id == self._clerk_user_id))
         self.row_gone_at_revoke = row is None
-        await super().revoke(code, apple_user_ids)
+        await super().revoke(code, apple_user_ids, client=client)
 
 
 async def test_delete_with_a_code_revokes_after_the_clerk_delete_and_commit(
@@ -284,9 +286,41 @@ async def test_delete_with_a_code_revokes_after_the_clerk_delete_and_commit(
         "DELETE", "/v1/me", headers=auth_headers("user_a"), json=CODE_BODY
     )
     assert response.status_code == 204
-    assert apple.calls == [("c1", frozenset({"001.abc"}))]
+    assert apple.calls == [("c1", frozenset({"001.abc"}), "app")]
     assert events == ["clerk", "apple"]
     assert apple.row_gone_at_revoke is True
+
+
+async def test_a_web_code_revokes_as_the_web_client(
+    client: httpx2.AsyncClient, app, auth_headers
+) -> None:
+    app.state.clerk_users.apple_ids = {"user_a": frozenset({"001.abc"})}
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    response = await client.request(
+        "DELETE",
+        "/v1/me",
+        headers=auth_headers("user_a"),
+        json={**CODE_BODY, "apple_client": "web"},
+    )
+    assert response.status_code == 204
+    assert app.state.apple_sign_in.calls == [("c1", frozenset({"001.abc"}), "web")]
+
+
+async def test_an_unknown_apple_client_is_refused_and_deletes_nothing(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    app.state.clerk_users.apple_ids = {"user_a": frozenset({"001.abc"})}
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    response = await client.request(
+        "DELETE",
+        "/v1/me",
+        headers=auth_headers("user_a"),
+        json={**CODE_BODY, "apple_client": "app.crosstune.other"},
+    )
+    assert response.status_code == 422
+    assert await verify_session.scalar(select(User).where(User.clerk_user_id == "user_a"))
+    assert app.state.clerk_users.deleted == []
+    assert app.state.apple_sign_in.calls == []
 
 
 def test_the_request_repr_hides_the_code() -> None:
@@ -414,7 +448,7 @@ async def test_a_delete_that_finds_the_row_gone_still_revokes(
     )
     assert response.status_code == 204
     assert app.state.clerk_users.deleted == []
-    assert app.state.apple_sign_in.calls == [("c1", frozenset({"001.abc"}))]
+    assert app.state.apple_sign_in.calls == [("c1", frozenset({"001.abc"}), "app")]
 
 
 async def test_without_apple_settings_a_code_is_ignored(

@@ -20,8 +20,15 @@ if TYPE_CHECKING:
 APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token"  # noqa: S105 -- endpoint, not a secret
 APPLE_REVOKE_URL = "https://appleid.apple.com/auth/revoke"
 APPLE_APP_CLIENT_ID = "app.crosstune.Crosstune"
+APPLE_WEB_CLIENT_ID = "app.crosstune.signin"
 _APPLE_AUDIENCE = "https://appleid.apple.com"
 _SECRET_LIFETIME_SECONDS = 300
+
+AppleClient = Literal["app", "web"]
+"""Where the authorization code came from: the Apple app or the web client."""
+
+# Apple only accepts a code under the client ID it was issued to.
+_CLIENT_IDS: dict[AppleClient, str] = {"app": APPLE_APP_CLIENT_ID, "web": APPLE_WEB_CLIENT_ID}
 
 RevokeStep = Literal["exchange", "mismatch", "revoke"]
 _EXCHANGE: RevokeStep = "exchange"
@@ -48,12 +55,15 @@ class AppleRevokeError(Exception):
 class AppleSignIn(Protocol):
     """What account deletion needs from Apple, held on `app.state`."""
 
-    async def revoke(self, code: str, apple_user_ids: frozenset[str]) -> None:
+    async def revoke(
+        self, code: str, apple_user_ids: frozenset[str], *, client: AppleClient
+    ) -> None:
         """Exchange the authorization code and revoke the resulting refresh token.
 
         Args:
-            code: The one-time authorization code the app obtains from Apple when the account is deleted.
+            code: The one-time authorization code the client obtains from Apple when the account is deleted.
             apple_user_ids: The Apple user IDs linked to the account being deleted.
+            client: The client that obtained the code.
 
         Raises:
             AppleRevokeError: On any failure, including transport errors and timeouts.
@@ -71,7 +81,6 @@ class AppleRestSignIn:
         team_id: str,
         key_id: str,
         private_key: str,
-        client_id: str = APPLE_APP_CLIENT_ID,
         clock: Callable[[], float] = time.time,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
     ) -> None:
@@ -79,12 +88,14 @@ class AppleRestSignIn:
         self._team_id = team_id
         self._key_id = key_id
         self._private_key: ec.EllipticCurvePrivateKey = load_apple_p256_key(private_key)
-        self._client_id = client_id
         self._clock = clock
         self._timeout = timeout
 
-    def client_secret(self) -> str:
+    def client_secret(self, client_id: str) -> str:
         """Sign the short-lived client secret Apple requires on every request.
+
+        Args:
+            client_id: The bundle ID or Services ID the secret speaks for.
 
         Returns:
             str: An ES256 JWT, valid for five minutes.
@@ -96,26 +107,31 @@ class AppleRestSignIn:
                 "iat": issued,
                 "exp": issued + _SECRET_LIFETIME_SECONDS,
                 "aud": _APPLE_AUDIENCE,
-                "sub": self._client_id,
+                "sub": client_id,
             },
             self._private_key,
             algorithm="ES256",
             headers={"kid": self._key_id},
         )
 
-    async def revoke(self, code: str, apple_user_ids: frozenset[str]) -> None:
+    async def revoke(
+        self, code: str, apple_user_ids: frozenset[str], *, client: AppleClient
+    ) -> None:
         """Exchange the authorization code and revoke the resulting refresh token.
 
         Args:
-            code: The one-time authorization code the app obtains from Apple when the account is deleted.
+            code: The one-time authorization code the client obtains from Apple when the account is deleted.
             apple_user_ids: The Apple user IDs linked to the account being deleted.
+            client: The client that obtained the code.
 
         Raises:
             AppleRevokeError: On any failure, including transport errors and timeouts.
         """
+        client_id = _CLIENT_IDS[client]
         body = await self._post(
             APPLE_TOKEN_URL,
             {"grant_type": "authorization_code", "code": code},
+            client_id=client_id,
             step=_EXCHANGE,
         )
         refresh_token = body.get("refresh_token")
@@ -136,16 +152,19 @@ class AppleRestSignIn:
         await self._post(
             APPLE_REVOKE_URL,
             {"token": refresh_token, "token_type_hint": "refresh_token"},
+            client_id=client_id,
             step=_REVOKE,
         )
 
-    async def _post(self, url: str, fields: dict[str, str], *, step: RevokeStep) -> dict[str, Any]:
+    async def _post(
+        self, url: str, fields: dict[str, str], *, client_id: str, step: RevokeStep
+    ) -> dict[str, Any]:
         """Post a form to Apple with the client credentials and return its JSON object.
 
         Raises:
             AppleRevokeError: For `step`, on a transport failure or a non-2xx answer.
         """
-        data = {**fields, "client_id": self._client_id, "client_secret": self.client_secret()}
+        data = {**fields, "client_id": client_id, "client_secret": self.client_secret(client_id)}
         try:
             # No redirects: the form carries the code and the client secret.
             response = await self._client.post(

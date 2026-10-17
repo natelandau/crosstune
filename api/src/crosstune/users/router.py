@@ -39,7 +39,7 @@ from crosstune.files.quota import used_bytes
 from crosstune.jobs.analytics import schedule_person_deletion
 from crosstune.models import User
 from crosstune.storage.store import user_prefix
-from crosstune.users.apple import AppleRevokeError
+from crosstune.users.apple import AppleClient, AppleRevokeError
 from crosstune.users.clerk import ClerkUnavailableError
 from crosstune.users.service import purge_account
 
@@ -130,6 +130,7 @@ class DeleteMeRequest(BaseModel):
     """What the app may send with an account deletion."""
 
     apple_authorization_code: SecretStr | None = Field(default=None, min_length=1, max_length=512)
+    apple_client: AppleClient = "app"
 
 
 async def _purge_user_files(store: ObjectStore, prefix: str) -> None:
@@ -140,20 +141,23 @@ async def _purge_user_files(store: ObjectStore, prefix: str) -> None:
 
 
 async def _revoke_apple(
-    apple_sign_in: AppleSignIn, code: SecretStr, apple_user_ids: frozenset[str]
+    apple_sign_in: AppleSignIn,
+    code: SecretStr,
+    apple_user_ids: frozenset[str],
+    client: AppleClient,
 ) -> None:
     # No exc_info: the traceback's locals would carry the authorization code.
     try:
-        await apple_sign_in.revoke(code.get_secret_value(), apple_user_ids)
+        await apple_sign_in.revoke(code.get_secret_value(), apple_user_ids, client=client)
     except AppleRevokeError as error:
         log.error(  # noqa: TRY400
             "Sign in with Apple revoke failed",
-            extra={"step": error.step, "apple_error": error.apple_error},
+            extra={"step": error.step, "apple_error": error.apple_error, "client": client},
         )
     except Exception:  # noqa: BLE001 -- nothing from the revoke may surface past the delete
         log.error(  # noqa: TRY400
             "Sign in with Apple revoke failed",
-            extra={"step": "unexpected", "apple_error": None},
+            extra={"step": "unexpected", "apple_error": None, "client": client},
         )
 
 
@@ -201,6 +205,7 @@ async def delete_me(
     apple_sign_in = request.app.state.apple_sign_in
     # Kept as a SecretStr so the code never sits in a plain local that Sentry could capture.
     code = body.apple_authorization_code if body is not None else None
+    apple_client: AppleClient = body.apple_client if body is not None else "app"
     apple_ids = (
         await _apple_ids_to_revoke(clerk_users, apple_sign_in, user.clerk_user_id)
         if code is not None
@@ -225,7 +230,7 @@ async def delete_me(
     # commit only once Clerk's copy is gone, so this request's code still revokes.
     # After the response, so Apple's latency never holds the user lock or the transaction.
     if code is not None and apple_ids:
-        background.add_task(_revoke_apple, apple_sign_in, code, apple_ids)
+        background.add_task(_revoke_apple, apple_sign_in, code, apple_ids, apple_client)
     if user_id is None:
         return Response(status_code=204)
     store = request.app.state.object_store
