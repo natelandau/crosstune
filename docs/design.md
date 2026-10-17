@@ -157,8 +157,8 @@ Decide any case the rules below do not name.
   Settings. Phone tab order: Catalog, Lists, Recordings, Settings.
 - Sidebar count: absolute (non-archived tunes, ignoring filters). Zero
   hidden. The list header gives the narrowed count.
-- Sidebar status rows, the catalog's Status control, the phone title menu,
-  and stats links all set the same stored status filter.
+- Sidebar status rows, the catalog's Status control, and stats links all
+  set the same stored status filter.
 - A resize, rotation, or frame change keeps selection, scroll, open
   destination, and the playing item.
 - Bottom chrome reserves its own room. Every column scrolls its last row

@@ -217,27 +217,34 @@ it('walks the rows with the arrows on wide, and the page follows without filling
   await expect.poll(() => router.state.location.pathname).toBe('/catalog')
 })
 
-it('sets the status from the phone title, and the scope survives a reload', async () => {
+const statusCapsule = (status: Parameters<typeof statusControlLabel>[0]) =>
+  page
+    .getByRole('group', { name: FILTER_ROW })
+    .getByRole('button', { name: statusControlLabel(status), exact: true })
+
+it('sets the status from the phone capsule under a title that stays Catalog', async () => {
   const db = openTestDb()
   await seed(db)
   const first = await mount(db)
-  const trigger = title().getByRole('button', { name: CATALOG })
-  await trigger.click()
+  await expect.element(title()).toHaveTextContent(CATALOG)
+  await expect.element(title().getByRole('button')).not.toBeInTheDocument()
+  await statusCapsule('all').click()
   const learning = page.getByRole('menuitemradio', { name: STATUS_LABELS.learning, exact: true })
   await expect.element(learning).toHaveAccessibleDescription(countTunes(1))
   await expect
     .element(page.getByRole('menuitemradio', { name: CATALOG, exact: true }))
     .toHaveAttribute('aria-checked', 'true')
   await learning.click()
-  await expect.element(title()).toHaveTextContent(STATUS_LABELS.learning)
   await expect.poll(rowTitles).toEqual(['Cluck Old Hen'])
+  await expect.element(statusCapsule('learning')).toHaveAttribute('data-set')
+  await expect.element(title()).toHaveTextContent(CATALOG)
   await expect
     .poll(async () => normalizeFilters(await getMeta(db, META_CATALOG_FILTERS, null)).status)
     .toBe('learning')
   first.unmount()
 
   const phone = await mount(db)
-  await expect.element(title()).toHaveTextContent(STATUS_LABELS.learning)
+  await expect.element(statusCapsule('learning')).toHaveAttribute('data-set')
   phone.unmount()
 
   await mount(db, { frame: WIDE })
@@ -248,26 +255,16 @@ it('sets the status from the phone title, and the scope survives a reload', asyn
         .getByRole('button', { name: STATUS_LABELS.learning, exact: true }),
     )
     .toHaveAttribute('aria-current', 'page')
-  await expect.element(title()).toHaveTextContent(STATUS_LABELS.learning)
+  await expect.element(title()).toHaveTextContent(CATALOG)
 })
 
-it("shares one status between the phone's capsule and title and the sidebar", async () => {
+it("shares one status between the phone's capsule and the sidebar", async () => {
   const db = openTestDb()
   await seed(db)
-  const capsule = (status: Parameters<typeof statusControlLabel>[0]) =>
-    page
-      .getByRole('group', { name: FILTER_ROW })
-      .getByRole('button', { name: statusControlLabel(status), exact: true })
   const phone = await mount(db)
-  await capsule('all').click()
-  await page.getByRole('menuitemradio', { name: STATUS_LABELS.learning, exact: true }).click()
-  await expect.element(title()).toHaveTextContent(STATUS_LABELS.learning)
-  await expect.element(capsule('learning')).toHaveAttribute('data-set')
-  // The first menu fades out before the next one opens.
-  await expect.element(page.getByRole('menu')).not.toBeInTheDocument()
-  await title().getByRole('button', { name: STATUS_LABELS.learning }).click()
+  await statusCapsule('all').click()
   await page.getByRole('menuitemradio', { name: STATUS_LABELS.known, exact: true }).click()
-  await expect.element(capsule('known')).toHaveAttribute('data-set')
+  await expect.element(statusCapsule('known')).toHaveAttribute('data-set')
   phone.unmount()
 
   await mount(db, { frame: WIDE })
@@ -278,24 +275,23 @@ it("shares one status between the phone's capsule and title and the sidebar", as
   await sidebar.getByRole('button', { name: STATUS_LABELS.want_to_learn, exact: true }).click()
   await expect.poll(rowTitles).toEqual(['Angeline the Baker'])
   await expect.element(page.getByRole('group', { name: FILTER_ROW })).toBeVisible()
-  await expect.element(capsule('want_to_learn')).not.toBeInTheDocument()
+  await expect.element(statusCapsule('want_to_learn')).not.toBeInTheDocument()
 })
 
-it('sets the status from the phone title through an action sheet on touch', async () => {
+it('sets the status from the phone capsule through an action sheet on touch', async () => {
   const db = openTestDb()
   await seed(db)
   await mount(db, { density: 'touch' })
-  await title().getByRole('button', { name: CATALOG }).click()
+  await statusCapsule('all').click()
   const sheet = page.getByRole('dialog', { name: STATUS_SCOPE })
   await expect.element(sheet).toBeVisible()
   await expect
     .element(sheet.getByRole('menuitemradio', { name: CATALOG, exact: true }))
     .toHaveAttribute('aria-checked', 'true')
   await sheet.getByRole('menuitemradio', { name: STATUS_LABELS.learning, exact: true }).click()
-  await expect.element(title()).toHaveTextContent(STATUS_LABELS.learning)
   await expect.poll(rowTitles).toEqual(['Cluck Old Hen'])
   // It opens again on the status chosen, not the first.
-  await title().getByRole('button', { name: STATUS_LABELS.learning }).click()
+  await statusCapsule('learning').click()
   await expect
     .element(sheet.getByRole('menuitemradio', { name: STATUS_LABELS.learning, exact: true }))
     .toHaveFocus()
@@ -365,7 +361,7 @@ it('announces a new count when the scope changes, never while typing', async () 
   await expect.poll(() => rowTitles().length).toBeLessThan(4)
   expect(live()).toBe('')
   await search().fill('')
-  await title().getByRole('button', { name: CATALOG }).click()
+  await statusCapsule('all').click()
   await page.getByRole('menuitemradio', { name: STATUS_LABELS.learning, exact: true }).click()
   await expect.poll(live).toBe(tuneCountLabel(1, 4))
 })

@@ -50,9 +50,7 @@ import { SearchField } from '../../ui/SearchField'
 import { useSearchTarget } from '../keyboard/searchTarget'
 import { useToast } from '../../ui/Toast'
 import { CatalogFilterRow } from './CatalogFilterRow'
-import { scopeTitle } from './scope'
 import { HiddenMatch, SearchOffer } from './SearchOffer'
-import { StatusTitle } from './StatusTitle'
 import { TuneRow } from './TuneRow'
 import { useHadContent } from '../../ui/useHadContent'
 import type { CatalogEntry } from '../../db/types'
@@ -142,8 +140,7 @@ export function CatalogScreen() {
   // catalog filtered by it, while this list stayed mounted.
   usePageShown(refreshQuery)
 
-  const status = effectiveFilters.status
-  const title = scopeTitle(CATALOG.label, status)
+  const title = CATALOG.label
   const phone = frame === 'phone'
 
   const openFound = (id: string) => {
@@ -219,19 +216,7 @@ export function CatalogScreen() {
           }
         />
       )}
-      <ColumnTitle
-        title={title}
-        titleRef={titleRef}
-        menu={
-          phone ? (
-            <StatusTitle
-              status={status}
-              counts={statusCounts}
-              onChoose={(value) => void setFilters({ status: value })}
-            />
-          ) : undefined
-        }
-      />
+      <ColumnTitle title={title} titleRef={titleRef} />
       <div className="px-4 pb-2">
         <SearchField
           ref={searchRef}
