@@ -64,7 +64,7 @@ folder. Compose it, never rebuild it.
 - Verbs bar: top-trailing on phone, pane bar on split and wide. On wide,
   the detail column has its own pane bar for Edit and More.
 - App-wide zone: bottom on phone, sidebar foot on split and wide.
-- Phone: Catalog's title is the status scope menu.
+- Catalog's title is always Catalog. Status is a filter, never the title.
 - Pointer selection: bulk actions take the pane bar's trailing place.
   Select all is an icon, so the count keeps its word at the default column
   width. Phone: they replace the tab bar.
@@ -231,7 +231,7 @@ Web form of the toolbar rule in `design.md`: actions sit at the foot.
 - Open a tune: phone and split push from the trailing edge, the row title
   morphs into the page title. Wide cross-fades, title lifts 6px. A keyboard
   pick swaps with no motion.
-- A status filter change slides the title or sidebar wash. Counts roll.
+- A status filter change slides the sidebar wash. Counts roll.
 - Practice and Record grow from the control that opened them and shrink
   back into it.
 - A new take's row slides in with a brief slate highlight.

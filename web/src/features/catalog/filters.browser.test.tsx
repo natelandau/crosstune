@@ -26,14 +26,11 @@ import { openTestDb } from '../../test/db'
 import { DONE } from '../../ui/confirmCopy'
 import { ANY, FILTERS, filtersLabel, RESET, removeFilterLabel } from '../../ui/filterCopy'
 import { KEY } from '../../ui/keyName'
-import { destination } from '../../layout/destinations'
 import { renderWithProviders } from '../../test/render'
 import { renderApp } from '../../test/renderApp'
 import { CatalogFilterRow, FILTER_ROW } from './CatalogFilterRow'
 
 import { statusControlLabel } from './scope'
-
-const CATALOG = destination('catalog').label
 
 const CROSS_A = 'Cross A (AEAE)'
 
@@ -171,7 +168,7 @@ it('narrows by status from the Status capsule, which reads the stored status', a
   // Status is no sheet filter: it adds no token and leaves the Filters count alone.
   await expect.element(control(FILTERS)).toBeVisible()
   await control(statusControlLabel('learning')).click()
-  await page.getByRole('menuitemradio', { name: CATALOG, exact: true }).click()
+  await page.getByRole('menuitemradio', { name: ANY, exact: true }).click()
   await expect.element(control(statusControlLabel('all'))).not.toHaveAttribute('data-set')
   await expect.poll(() => rowTitles().length).toBe(5)
 })
