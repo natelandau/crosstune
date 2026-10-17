@@ -165,8 +165,14 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     async me() {
       return unwrap(client.GET('/v1/me'))
     },
-    async deleteAccount() {
-      return unwrapEmpty(client.DELETE('/v1/me'))
+    async deleteAccount({ appleAuthorizationCode } = {}) {
+      return unwrapEmpty(
+        appleAuthorizationCode
+          ? client.DELETE('/v1/me', {
+              body: { apple_authorization_code: appleAuthorizationCode, apple_client: 'web' },
+            })
+          : client.DELETE('/v1/me'),
+      )
     },
     async recordNotice(notice) {
       return unwrapEmpty(client.POST('/v1/me/notices', { body: { notice } }))

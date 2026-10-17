@@ -47,7 +47,8 @@ export interface SyncApi {
   resolveLink(url: string): Promise<ResolveResponse>
   searchRecordings(q: string, providers: Provider[], country: string): Promise<SearchResponse>
   me(): Promise<MeResponse>
-  deleteAccount(): Promise<void>
+  /** With an Apple code from the web's Apple popup, the API also revokes Sign in with Apple. */
+  deleteAccount(options?: DeleteAccountOptions): Promise<void>
   /** Records that the user saw a one-time notice, so no device shows it again. */
   recordNotice(notice: Notice): Promise<void>
   /** Asks the server to re-read the user's purchases, so a new subscription takes effect now. */
@@ -72,4 +73,8 @@ export interface SyncApi {
    * of `signal` stops the read like its timeout does.
    */
   getObject(url: string, signal?: AbortSignal): Promise<Blob>
+}
+
+export interface DeleteAccountOptions {
+  appleAuthorizationCode?: string
 }

@@ -19,3 +19,5 @@ export const STRIPE_SUBSCRIPTION_LINE =
   'Your Premium subscription is cancelled now, with no refund for the rest of the period.'
 export const APPLE_SUBSCRIPTION_LINE =
   'Your App Store subscription keeps billing until you cancel it in App Store settings.'
+export const APPLE_CONFIRM_LINE =
+  "You'll confirm with Apple so Crosstune is removed from your Apple Account."

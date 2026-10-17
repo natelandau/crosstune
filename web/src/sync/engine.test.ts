@@ -68,6 +68,18 @@ async function drainRealTasks(iterations = 50): Promise<void> {
 }
 
 describe('createSyncEngine', () => {
+  it('passes an Apple code through to the delete request', async () => {
+    const deleteAccount = vi.spyOn(fake.api, 'deleteAccount')
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
+    await engine.deleteAccount({ appleAuthorizationCode: 'c1' })
+    expect(deleteAccount).toHaveBeenCalledWith({ appleAuthorizationCode: 'c1' })
+  })
+
   it('pushes the outbox, then pulls until has_more is false', async () => {
     const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
     fake.queuePull(

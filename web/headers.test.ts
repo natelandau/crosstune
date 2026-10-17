@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { ANALYTICS_HOST } from './src/usage/config'
 import { embedFor } from './src/features/player/embed'
+import { APPLE_SCRIPT_URL } from './src/features/settings/appleSignIn'
 
 /** Parse the Pages `_headers` format: an unindented URL line followed by indented `Name: value` lines. */
 function parseHeaders(): Map<string, string[]> {
@@ -69,6 +70,14 @@ describe('_headers', () => {
     expect(rulesFor('/*')).toContain('X-Content-Type-Options: nosniff')
     expect(rulesFor('/*')).toContain('X-Frame-Options: DENY')
     expect(rulesFor('/*')).toContain('Referrer-Policy: strict-origin-when-cross-origin')
+  })
+
+  it("lets Apple's sign-in script load and answer from its popup", () => {
+    expect(cspDirective('script-src')).toContain(new URL(APPLE_SCRIPT_URL).origin)
+    // The popup answers the opener by postMessage, which a same-origin opener policy cuts off.
+    expect(rulesMatching('/settings/account').join('\n')).not.toMatch(
+      /Cross-Origin-Opener-Policy: same-origin(?!-)/,
+    )
   })
 
   it('keeps every response out of search results', () => {
