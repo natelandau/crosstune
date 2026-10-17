@@ -137,7 +137,7 @@ Decide any case the rules below do not name.
 
 | Zone            | Holds                                                        | Never holds                 |
 | --------------- | ------------------------------------------------------------ | --------------------------- |
-| Title           | What the screen shows. A top-level title can be a scope menu | Actions                     |
+| Title           | What the screen shows                                        | Actions, filters            |
 | Verbs bar       | Main verb first (Add, or Edit on a page), then one More menu | Filters, sort, view options |
 | Under the title | Search field, then one filter row                            | Verbs                       |
 | List header     | Count leading, sort trailing, directly above the rows        | Anything else               |

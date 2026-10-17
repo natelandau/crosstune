@@ -35,9 +35,7 @@ there where they differ. Regular-width iPad reads this page, then
   colors, so the dot uses original rendering to stay recording red.
 - Record opens the record sheet and keeps the current tab. The slot never
   stays selected.
-- Top-level title: large, sharing a row with toolbar buttons. A title menu
-  is inline and centered, because iOS shows a title menu only on an inline
-  title.
+- Top-level title: large, sharing a row with toolbar buttons.
 - More is an explicit `Menu`. Loose overflow items lose a destructive
   item's separator and red role.
 - System undo (shake or Cmd-Z) plus a short banner with Undo replaces the
