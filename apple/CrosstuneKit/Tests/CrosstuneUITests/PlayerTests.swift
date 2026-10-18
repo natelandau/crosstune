@@ -25,7 +25,7 @@ private func planModel(
     let store = try root.open()
     try await store.write { writer in try row.upsert(writer.db) }
     let model = PlanModel(store: store, now: { clock.now }, sleep: { try await clock.sleep($0) })
-    _ = try await poll { model.plan.kind != .unknown }
+    #expect(try await poll { model.plan.kind != .unknown })
     return model
 }
 
@@ -378,6 +378,8 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         let recording = Recording(id: "r1", tuneID: "t1", source: "microphone", addedAt: noon, state: "ready")
         #expect(player.play(.recording(recording, tuneTitle: "Kitchen Girl")))
         #expect(try await poll { audio.isPlaying })
+        // The plan's sleep is relative, so it must start before the clock moves.
+        #expect(try await poll { clock.sleeps.count == 1 })
 
         clock.now = end
         #expect(try await poll { !player.isLoaded })
@@ -420,9 +422,11 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         let player = PlayerModel()
         player.plan = plan
         player.play(try #require(PlayerItem.link(youtube())))
+        // The plan's sleep is relative, so it must start before the clock moves.
+        #expect(try await poll { clock.sleeps.count == 1 })
 
         clock.now = end
-        _ = try await poll { plan.plan.kind == .free }
+        #expect(try await poll { plan.plan.kind == .free })
         #expect(player.holds(.link, id: "l1"))
     }
 }
