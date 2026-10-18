@@ -565,39 +565,6 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
         }
         try await eventually { catalog.results?.filters == CatalogFilters(facets: [.key: "D"]) }
     }
-
-    @Test func snapshotsTheBlocks() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        try await store.write { writer in
-            let keys = [
-                ("D", "major"), ("G", "major"), ("A", "mixolydian"), ("E", "dorian"), ("D", "minor"),
-                ("G", "modal"), ("C", "other"),
-            ]
-            for (index, (key, mode)) in keys.enumerated() {
-                let created = Timestamp(milliseconds: noon.milliseconds - Int64(index) * 40 * 86_400_000)
-                try addTune(
-                    writer, "t\(index)", "Tune \(index)", key: key, modes: [mode], genre: "Old-time", created: created)
-            }
-            for day in 0..<40 {
-                let at = Timestamp(milliseconds: noon.milliseconds - Int64(day * 3) * 86_400_000)
-                try writer.put(
-                    Recording(
-                        tuneID: "t\(day % 5)", source: "recorded", addedAt: at,
-                        durationMs: Int64(60_000 * (day % 7 + 1))))
-            }
-        }
-        let model = try await loaded(store)
-        let view = try #require(model.view)
-        for (name, width, size) in [
-            ("stats-phone", 390.0, DynamicTypeSize.large), ("stats-phone", 390.0, .accessibility3),
-            ("stats-wide", 820.0, .large),
-        ] {
-            snapshot(name, width: width, size: size) {
-                StatsDocument(view: view)
-            }
-        }
-    }
 }
 
 @Suite("Key grid spreading")

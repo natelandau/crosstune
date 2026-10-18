@@ -25,7 +25,6 @@ import Testing
     }
 
     @Test func rowOmitsAControlForAFacetTheCatalogLacks() {
-        let full = CatalogStandIn.results(filters: CatalogFilters(), query: "")
         #expect(CatalogFilterRow.controls(full, showsStatus: false) == [.key, .filters])
         let keyless = results(full, facets: full.facets.filter { $0 != .key })
         #expect(CatalogFilterRow.controls(keyless, showsStatus: false) == [.filters])
@@ -33,7 +32,6 @@ import Testing
     }
 
     @Test func statusLeadsTheRowWhereItShows() {
-        let full = CatalogStandIn.results(filters: CatalogFilters(), query: "")
         #expect(CatalogFilterRow.controls(full, showsStatus: true) == [.status, .key, .filters])
         #expect(CatalogFilterRow.controls(results(full, facets: []), showsStatus: true) == [.status, .filters])
     }
@@ -42,6 +40,21 @@ import Testing
         let filters = CatalogFilters(status: "learning", facets: [.key: "D"])
         #expect(filters.sheetCount == 0)
         #expect(CatalogFilterRow.setFilters(filters).isEmpty)
+    }
+
+    /// The sample catalog's results with no filter, as the model works them out.
+    private var full: CatalogResults {
+        let entries = SampleCatalog.entries.map { CatalogEntry(tune: $0.tune, userTune: $0.userTune) }
+        let filters = CatalogFilters()
+        let visible = CatalogSearch.filter(entries, by: filters, query: "")
+        let values = CatalogSearch.facetValues(entries)
+        let archivedCount = entries.count(where: \.isArchived)
+        return CatalogResults(
+            entries: entries, instruments: SampleCatalog.instruments, filters: filters, facetValues: values,
+            facets: CatalogSearch.visibleFacets(values, instruments: SampleCatalog.instruments), visible: visible,
+            outcome: SearchOutcome(entries: entries, visible: visible, query: "", archivedShown: false),
+            total: entries.count - archivedCount, archivedCount: archivedCount,
+            missingChoices: CatalogSearch.missingChoices(entries))
     }
 
     /// `base` offering only `facets`.
