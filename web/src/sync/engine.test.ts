@@ -905,6 +905,61 @@ describe('createSyncEngine', () => {
       })
     })
   })
+
+  describe('searchPlaces', () => {
+    const results = [
+      { name: 'Galax, VA', lat: 36.66, lon: -80.92, title: 'Galax, VA', subtitle: null },
+    ]
+    const withSearch = (searchPlaces: SyncApi['searchPlaces'], isOnline = () => true) =>
+      createSyncEngine({
+        analytics: noopAnalytics,
+        db,
+        api: { ...fake.api, searchPlaces },
+        isOnline,
+      })
+
+    it('returns offline without calling the API', async () => {
+      const search = vi.fn()
+      const engine = withSearch(search, () => false)
+      await expect(engine.searchPlaces('Ga')).resolves.toEqual({ kind: 'offline' })
+      expect(search).not.toHaveBeenCalled()
+    })
+
+    it('passes results through on success', async () => {
+      const search = vi.fn(async () => ({ results }))
+      const engine = withSearch(search)
+      await expect(engine.searchPlaces('Ga')).resolves.toEqual({ kind: 'ok', results })
+      expect(search).toHaveBeenCalledWith('Ga')
+    })
+
+    it('reports a 429 with its Retry-After seconds', async () => {
+      const engine = withSearch(async () => {
+        throw new ApiError(429, null, 7)
+      })
+      await expect(engine.searchPlaces('Ga')).resolves.toEqual({
+        kind: 'rate_limited',
+        retryAfterSeconds: 7,
+      })
+    })
+
+    it('reports a 503 as unavailable', async () => {
+      const engine = withSearch(async () => {
+        throw new ApiError(503, null)
+      })
+      await expect(engine.searchPlaces('Ga')).resolves.toEqual({ kind: 'unavailable' })
+    })
+
+    it('reports other failures as failed', async () => {
+      const network = withSearch(async () => {
+        throw new NetworkError(new TypeError('x'))
+      })
+      await expect(network.searchPlaces('Ga')).resolves.toEqual({ kind: 'failed' })
+      const server = withSearch(async () => {
+        throw new ApiError(500, null)
+      })
+      await expect(server.searchPlaces('Ga')).resolves.toEqual({ kind: 'failed' })
+    })
+  })
 })
 
 function pulledPlay(id: string, serverSeq: number): EventRow {

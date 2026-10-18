@@ -137,6 +137,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/places/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Places
+         * @description Named places, street addresses, and towns for the text typed so far, each named as picked.
+         *
+         *     Results lean toward the account's country, never toward the user's own location.
+         */
+        get: operations["search_places_v1_places_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recordings/{recording_id}/download": {
         parameters: {
             query?: never;
@@ -808,6 +830,34 @@ export interface components {
             url: string;
         };
         /**
+         * PlaceResult
+         * @description A place to pick: the name a recording stores, its coordinates, and how a list shows it.
+         *
+         *     `title` is the list row's main line: a named place's own name, a street address, or a
+         *     town. `subtitle` is the line under it that tells same-named results apart, the street and
+         *     town of a named place or the town of an address, and is null for a town.
+         */
+        PlaceResult: {
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /** Name */
+            name: string;
+            /** Subtitle */
+            subtitle?: string | null;
+            /** Title */
+            title: string;
+        };
+        /**
+         * PlaceSearchResponse
+         * @description Places matching the search text, best match first.
+         */
+        PlaceSearchResponse: {
+            /** Results */
+            results: components["schemas"]["PlaceResult"][];
+        };
+        /**
          * PlayContext
          * @description Where a play was started from.
          * @enum {string}
@@ -1144,6 +1194,11 @@ export interface components {
              * @default null
              */
             label: string | null;
+            /**
+             * Notes
+             * @default null
+             */
+            notes: string | null;
             /** @default own */
             origin: components["schemas"]["RecordingOrigin"];
             /**
@@ -1156,6 +1211,31 @@ export interface components {
              * @default 0
              */
             pitch_cents: number;
+            /**
+             * Place Accuracy M
+             * @default null
+             */
+            place_accuracy_m: number | null;
+            /**
+             * Place Lat
+             * @default null
+             */
+            place_lat: number | null;
+            /**
+             * Place Lon
+             * @default null
+             */
+            place_lon: number | null;
+            /**
+             * Place Name
+             * @default null
+             */
+            place_name: string | null;
+            /**
+             * Players
+             * @default null
+             */
+            players: string | null;
             /**
              * Position
              * @default 0
@@ -1406,6 +1486,8 @@ export interface components {
             id: string;
             /** Label */
             label?: string | null;
+            /** Notes */
+            notes?: string | null;
             /** @default own */
             origin: components["schemas"]["RecordingOrigin"];
             /** Origin Url */
@@ -1417,6 +1499,14 @@ export interface components {
              * @default 0
              */
             pitch_cents: number;
+            /** Place Accuracy M */
+            place_accuracy_m?: number | null;
+            /** Place Lat */
+            place_lat?: number | null;
+            /** Place Lon */
+            place_lon?: number | null;
+            /** Place Name */
+            place_name?: string | null;
             /** Playback Bytes */
             playback_bytes: number | null;
             /** Playback End Ms */
@@ -1427,6 +1517,8 @@ export interface components {
             playback_rev: string | null;
             /** Playback Start Ms */
             playback_start_ms: number | null;
+            /** Players */
+            players?: string | null;
             /**
              * Position
              * @default 0
@@ -2459,6 +2551,57 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    search_places_v1_places_search_get: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceSearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

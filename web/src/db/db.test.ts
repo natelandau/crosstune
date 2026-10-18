@@ -110,7 +110,7 @@ describe('schema', () => {
     expect(db.tables.map((t) => t.name)).toEqual(
       expect.arrayContaining(['recordings', 'recording_files', 'recording_chunks']),
     )
-    expect(db.verno).toBe(20)
+    expect(db.verno).toBe(21)
   })
 
   const CURRENT_STORES = [
@@ -181,7 +181,7 @@ describe('schema', () => {
     const upgraded = new CrosstuneDb(name)
     try {
       await upgraded.open()
-      expect(upgraded.verno).toBe(20)
+      expect(upgraded.verno).toBe(21)
       expect(Array.from(upgraded.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       for (const table of upgraded.tables) {
         if (table.name !== 'meta') expect(await table.count(), table.name).toBe(0)
@@ -283,7 +283,7 @@ describe('schema', () => {
       ])
       expect(await getPullCursor(opened)).toBe(0)
       expect(await opened.recording_loops.count()).toBe(0)
-      expect(opened.verno).toBe(20)
+      expect(opened.verno).toBe(21)
     } finally {
       await opened.delete()
     }
@@ -333,7 +333,17 @@ describe('schema', () => {
       expect(await opened.recording_links.get(link.id)).toEqual(linkRow('link-1', tune.id))
       const [linkChange, recordingChange] = await opened.outbox.orderBy('seq').toArray()
       expect(linkChange?.data).toEqual(toChangeData(linkRow('link-1', tune.id), 'recording_links'))
-      expect(recordingChange?.data).toEqual({ label: 'A part', origin: 'own', origin_url: null })
+      expect(recordingChange?.data).toEqual({
+        label: 'A part',
+        origin: 'own',
+        origin_url: null,
+        notes: null,
+        players: null,
+        place_name: null,
+        place_lat: null,
+        place_lon: null,
+        place_accuracy_m: null,
+      })
       expect(await getPullCursor(opened)).toBe(0)
     } finally {
       await opened.delete()
@@ -605,6 +615,64 @@ describe('schema', () => {
       await opened.open()
       expect(await getPullCursor(opened)).toBe(42)
       expect(await opened.meta.get('scan_requeues')).toBeUndefined()
+    } finally {
+      await opened.delete()
+    }
+  })
+
+  it('version 21 fills the notes, players, and place of stored and queued recordings with null', async () => {
+    const name = `crosstune-test-${crypto.randomUUID()}`
+    const v20 = new Dexie(name)
+    v20.version(20).stores({
+      tunes: 'id, title',
+      user_tunes: 'id, tune_id',
+      recording_links: 'id, tune_id',
+      lists: 'id',
+      list_items: 'id, list_id, user_tune_id',
+      user_settings: 'id',
+      recordings: 'id, tune_id, state',
+      recording_loops: 'id, recording_id',
+      scans: 'id, tune_id, state',
+      scan_files: 'id, origin, error',
+      recording_files: 'id, local_state',
+      recording_chunks: '[recording_id+idx], recording_id',
+      play_events: 'id, started_at',
+      practice_sessions: 'id, started_at',
+      status_changes: 'id, changed_at',
+      scan_views: 'id, started_at',
+      entitlements: 'id',
+      outbox: '++seq, &[table+row_id]',
+      meta: 'key',
+    })
+    const keys = ['notes', 'players', 'place_name', 'place_lat', 'place_lon', 'place_accuracy_m']
+    const legacy: Record<string, unknown> = recordingRow('rec-1')
+    for (const key of keys) delete legacy[key]
+    await v20.table('recordings').put(legacy)
+    await v20.table('outbox').add({
+      table: 'recordings',
+      row_id: 'rec-1',
+      op: 'upsert',
+      updated_at: '2026-01-01T00:00:00.000Z',
+      data: { label: 'A part' },
+    })
+    await v20.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v20.close()
+
+    const opened = new CrosstuneDb(name)
+    try {
+      await opened.open()
+      expect(await getPullCursor(opened)).toBe(42)
+      expect(await opened.recordings.get('rec-1')).toEqual(recordingRow('rec-1'))
+      const [change] = await opened.outbox.orderBy('seq').toArray()
+      expect(change?.data).toEqual({
+        label: 'A part',
+        notes: null,
+        players: null,
+        place_name: null,
+        place_lat: null,
+        place_lon: null,
+        place_accuracy_m: null,
+      })
     } finally {
       await opened.delete()
     }
@@ -1099,17 +1167,17 @@ describe('schema', () => {
 
   it('deletes a database a newer client wrote and opens it fresh', async () => {
     const name = `crosstune-test-${crypto.randomUUID()}`
-    const v21 = new Dexie(name)
-    v21.version(21).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
-    await v21.table('tunes').put({ id: tune.id, title: tune.title })
-    await v21.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
-    v21.close()
+    const v22 = new Dexie(name)
+    v22.version(22).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
+    await v22.table('tunes').put({ id: tune.id, title: tune.title })
+    await v22.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v22.close()
 
     const older = new CrosstuneDb(name)
     try {
       // A query auto-opens, the path the app takes.
       expect(await older.tunes.count()).toBe(0)
-      expect(older.backendDB().version).toBe(200)
+      expect(older.backendDB().version).toBe(210)
       expect(Array.from(older.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       expect(await getPullCursor(older)).toBe(0)
     } finally {

@@ -83,6 +83,15 @@ async function deleteIfNewer(name: string, verno: number): Promise<void> {
   }
 }
 
+const RECORDING_METADATA_KEYS = [
+  'notes',
+  'players',
+  'place_name',
+  'place_lat',
+  'place_lon',
+  'place_accuracy_m',
+] as const
+
 export class CrosstuneDb extends Dexie {
   // EntityTable<T, K> makes the key property K optional on insert, Dexie's convention for
   // autoincrement keys. These tables use app-supplied ids, so Table<T, string> keeps inserts
@@ -303,6 +312,22 @@ export class CrosstuneDb extends Dexie {
       .stores({})
       .upgrade(async (tx) => {
         await tx.table('meta').delete(LEGACY_SCAN_REQUEUES_KEY)
+      })
+
+    // Recordings gain notes, players, and a place; the API refuses a push that leaves them out.
+    this.version(21)
+      .stores({})
+      .upgrade(async (tx) => {
+        const fill = (row: Record<string, unknown>) => {
+          for (const key of RECORDING_METADATA_KEYS) row[key] ??= null
+        }
+        await tx.table('recordings').toCollection().modify(fill)
+        await tx
+          .table('outbox')
+          .filter((entry: OutboxEntry) => entry.table === 'recordings' && entry.data != null)
+          .modify((entry: OutboxEntry) => {
+            if (entry.data) fill(entry.data)
+          })
       })
   }
 

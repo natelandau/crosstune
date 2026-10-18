@@ -5,12 +5,17 @@ import { recordingAnalytics } from '../../usage/testing'
 import { createTune } from '../../commands/tunes'
 import { addOfferLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
 import { recordingDateLabel } from '../../text/format'
+import { RECORDING_LIMITS } from '../../api/vocabulary'
+import type { LocalRecording } from '../../db/types'
 import { EDIT, RECORDING_NAME_LABEL } from './recordingCopy'
 import {
   ADD_TO_TUNE_TITLE,
   addToTuneName,
   EDIT_RECORDING_TITLE,
   filedToast,
+  NOTES_LABEL,
+  PLACE_LABEL,
+  PLAYERS_LABEL,
   SAVE_RECORDING,
 } from './recordingsCopy'
 import type { RecordingView } from './useRecordings'
@@ -32,11 +37,14 @@ const WIDE = { width: 1280, height: 800 }
 
 const sheet = (name: string) => page.getByRole('dialog', { name })
 
-async function editFromTunePage() {
+async function editFromTunePage(others: LocalRecording[] = []) {
   const db = openTestDb()
   await db.tunes.put(tuneRow('t1', "Soldier's Joy"))
   await db.user_tunes.put(userTuneRow('u-t1', 't1'))
-  await db.recordings.put(recordingRow('r1', { tune_id: 't1', label: 'Fast take' }))
+  await db.recordings.bulkPut([
+    recordingRow('r1', { tune_id: 't1', label: 'Fast take' }),
+    ...others,
+  ])
   await renderApp({ path: '/catalog/t1', db, frame: WIDE })
   const row = page.getByRole('main', { name: TUNE }).getByRole('row', { name: /Fast take/ })
   await row.hover()
@@ -77,6 +85,47 @@ it('keeps a changed edit through Escape, and Cancel discards it', async () => {
   await dialog.getByRole('button', { name: CANCEL, exact: true }).click()
   await expect.element(dialog).not.toBeInTheDocument()
   expect((await db.recordings.get('r1'))?.label).toBe('Fast take')
+})
+
+it('edits notes, players, and place, offering the ones used before', async () => {
+  const galax = { place_name: 'Galax, VA', place_lat: 36.66, place_lon: -80.92 }
+  const { db, dialog } = await editFromTunePage([recordingRow('r2', { players: 'Ruth', ...galax })])
+  const notes = dialog.getByRole('textbox', { name: NOTES_LABEL })
+  await expect.element(notes).toHaveAttribute('maxlength', String(RECORDING_LIMITS.notes))
+  expect(notes.element().tagName).toBe('TEXTAREA')
+  await notes.fill('Capo 2')
+  const players = dialog.getByRole('combobox', { name: PLAYERS_LABEL })
+  await players.click()
+  await page.getByRole('option', { name: 'Ruth' }).click()
+  await expect.element(players).toHaveValue('Ruth')
+  const place = dialog.getByRole('combobox', { name: PLACE_LABEL })
+  await place.click()
+  await page.getByRole('option', { name: galax.place_name }).click()
+  await expect.element(place).toHaveValue(galax.place_name)
+  await dialog.getByRole('button', { name: SAVE_RECORDING, exact: true }).click()
+  await expect.element(dialog).not.toBeInTheDocument()
+  await expect.poll(async () => (await db.recordings.get('r1'))?.notes).toBe('Capo 2')
+  const stored = (await db.recordings.get('r1'))!
+  expect(stored).toMatchObject({ players: 'Ruth', ...galax, place_accuracy_m: null })
+})
+
+it('takes players typed straight into an empty field', async () => {
+  const { db, dialog } = await editFromTunePage()
+  const players = dialog.getByRole('combobox', { name: PLAYERS_LABEL })
+  await expect.element(players).toHaveValue('')
+  await players.click()
+  await userEvent.keyboard('Ruth and Ed')
+  await expect.element(players).toHaveValue('Ruth and Ed')
+  await dialog.getByRole('button', { name: SAVE_RECORDING, exact: true }).click()
+  await expect.element(dialog).not.toBeInTheDocument()
+  await expect.poll(async () => (await db.recordings.get('r1'))?.players).toBe('Ruth and Ed')
+})
+
+it('caps a typed player at the players limit', async () => {
+  const { dialog } = await editFromTunePage()
+  await expect
+    .element(dialog.getByRole('combobox', { name: PLAYERS_LABEL }))
+    .toHaveAttribute('maxlength', String(RECORDING_LIMITS.players))
 })
 
 function view(): RecordingView {

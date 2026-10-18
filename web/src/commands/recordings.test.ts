@@ -95,6 +95,52 @@ describe('capture', () => {
     expect(queued?.data).not.toHaveProperty('state')
   })
 
+  it('a new capture has no notes, players, or place', async () => {
+    const id = await captured()
+    const none = {
+      notes: null,
+      players: null,
+      place_name: null,
+      place_lat: null,
+      place_lon: null,
+      place_accuracy_m: null,
+    }
+    expect(await db.recordings.get(id)).toMatchObject(none)
+    expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject(none)
+  })
+
+  it.each([
+    [
+      'with its accuracy',
+      { lat: 36.661234, lon: -80.923912, accuracyM: 12 },
+      { place_lat: 36.661234, place_lon: -80.923912, place_accuracy_m: 12 },
+    ],
+    [
+      'with no accuracy',
+      { lat: 36.661234, lon: -80.923912, accuracyM: null },
+      { place_lat: 36.661234, place_lon: -80.923912, place_accuracy_m: null },
+    ],
+    ['none', null, { place_lat: null, place_lon: null, place_accuracy_m: null }],
+  ])(
+    'stores and queues the place a capture began at, %s, without a name',
+    async (_, place, stored) => {
+      const id = newId()
+      await beginCapture(db, id, { tuneId: null, recordedAt: AT })
+      await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
+      await finishCapture(db, id, {
+        tuneId: null,
+        mime: 'audio/mp4',
+        durationMs: 10_000,
+        recordedAt: AT,
+        peaks: null,
+        place,
+      })
+      const expected = { place_name: null, ...stored }
+      expect(await db.recordings.get(id)).toMatchObject(expected)
+      expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject(expected)
+    },
+  )
+
   it('a new capture defaults trim, speed, and pitch', async () => {
     const id = await captured()
     expect(await db.recordings.get(id)).toMatchObject({
@@ -182,6 +228,27 @@ describe('capture', () => {
 })
 
 describe('uploads and edits', () => {
+  it('saves notes, players, and place on the row and in the queued change', async () => {
+    const id = await captured()
+    await updateRecording(db, id, {
+      notes: 'Played slow',
+      players: 'Ann, Bob',
+      place_name: 'Galax, VA',
+      place_lat: 36.66,
+      place_lon: -80.92,
+    })
+    const expected = {
+      notes: 'Played slow',
+      players: 'Ann, Bob',
+      place_name: 'Galax, VA',
+      place_lat: 36.66,
+      place_lon: -80.92,
+      place_accuracy_m: null,
+    }
+    expect(await db.recordings.get(id)).toMatchObject(expected)
+    expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject(expected)
+  })
+
   it('stores an uploaded file as captured with its type', async () => {
     const file = new File(['wav-bytes'], 'jam.wav', { type: 'audio/wav' })
     const id = await addUploadedFile(db, file, {

@@ -49,6 +49,17 @@ describe('usePracticeOverlayView', () => {
     await expect.poll(() => result.current.audio).toBe('held')
   })
 
+  it('adds the players and the place to the subtitle when both are set', async () => {
+    const id = await captureRecording(db, { durationMs: 3000, players: 'Kevin and Ed' })
+    await db.recordings.update(id, { place_name: 'Galax, VA', place_lat: 36.66, place_lon: -80.92 })
+    const { result } = setup(id)
+    await expect.poll(() => result.current.view?.recording.id).toBe(id)
+    const recording = result.current.view!.recording
+    expect(result.current.subtitle).toBe(
+      `${recordingDateLabel(recording)} · ${formatDuration(3000)} · Kevin and Ed · Galax, VA`,
+    )
+  })
+
   it('leaves a trim written elsewhere with a notice that the next trim clears', async () => {
     const id = await captureRecording(db)
     const { result } = setup(id)

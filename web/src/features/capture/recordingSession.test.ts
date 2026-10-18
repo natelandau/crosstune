@@ -400,3 +400,111 @@ describe('createRecordingSession filing', () => {
     expect(session.snapshot().phase).toBe('saved')
   })
 })
+
+describe('createRecordingSession position', () => {
+  const FIX = { lat: 36.661234, lon: -80.923912, accuracyM: 12 }
+
+  it('asks once after the microphone is granted', async () => {
+    const getPosition = vi.fn(async () => FIX)
+    const { session } = setup({ getPosition })
+    await session.start()
+    expect(getPosition).toHaveBeenCalledTimes(1)
+  })
+
+  it('never asks when the microphone is denied', async () => {
+    const getPosition = vi.fn(async () => FIX)
+    const { session } = setup({
+      getPosition,
+      getUserMedia: vi.fn(async () => {
+        throw new DOMException('no', 'NotAllowedError')
+      }),
+    })
+    await session.start()
+    expect(getPosition).not.toHaveBeenCalled()
+  })
+
+  it('never asks when the capture lock is refused', async () => {
+    const getPosition = vi.fn(async () => FIX)
+    const { session } = setup({
+      getPosition,
+      acquireCaptureLock: vi.fn(async () => {
+        throw new Error('held')
+      }),
+    })
+    await session.start()
+    expect(session.snapshot().phase).toBe('failed')
+    expect(getPosition).not.toHaveBeenCalled()
+  })
+
+  it('saves the position when it resolved before stop, with no name', async () => {
+    const { session } = setup({ getPosition: async () => FIX })
+    await session.start()
+    await session.finish()
+    expect(await db.recordings.get('rec_1')).toMatchObject({
+      place_name: null,
+      place_lat: 36.661234,
+      place_lon: -80.923912,
+      place_accuracy_m: 12,
+    })
+  })
+
+  it('saves no place when the position is still pending at stop, and a late one writes nothing', async () => {
+    const pending = deferred<typeof FIX | null>()
+    const { session } = setup({ getPosition: () => pending.promise })
+    await session.start()
+    await session.finish()
+    pending.resolve(FIX)
+    expect(await db.recordings.get('rec_1')).toMatchObject({
+      place_lat: null,
+      place_lon: null,
+      place_accuracy_m: null,
+    })
+    expect(session.snapshot().error).toBeNull()
+  })
+
+  it('drops a fix that settles while the recording is being saved', async () => {
+    const pending = deferred<typeof FIX | null>()
+    const { session, recorders } = setup({ getPosition: () => pending.promise })
+    await session.start()
+    const chunkWrite = deferred<void>()
+    const realPut = db.recording_chunks.put.bind(db.recording_chunks)
+    vi.spyOn(db.recording_chunks, 'put').mockImplementationOnce(
+      (...args) => chunkWrite.promise.then(() => realPut(...args)) as ReturnType<typeof realPut>,
+    )
+    recorders[0]!.emit('last')
+    const finishing = session.finish()
+    await vi.waitFor(() => expect(session.snapshot().phase).toBe('saving'))
+    pending.resolve(FIX)
+    chunkWrite.resolve()
+    await finishing
+    expect(await db.recordings.get('rec_1')).toMatchObject({ place_lat: null, place_lon: null })
+  })
+
+  it('saves no place when getPosition throws synchronously', async () => {
+    const { session } = setup({
+      getPosition: () => {
+        throw new Error('boom')
+      },
+    })
+    await session.start()
+    await session.finish()
+    expect(session.snapshot()).toMatchObject({ phase: 'saved', error: null })
+    expect(await db.recordings.get('rec_1')).toMatchObject({ place_lat: null })
+  })
+
+  it.each([
+    ['null', async () => null],
+    [
+      'a rejection',
+      async (): Promise<null> => {
+        throw new Error('denied')
+      },
+    ],
+  ])('saves no place and no error when the position is %s', async (_name, getPosition) => {
+    const { session } = setup({ getPosition })
+    await session.start()
+    await session.finish()
+    expect(session.snapshot()).toMatchObject({ phase: 'saved', error: null })
+    expect(await db.recordings.get('rec_1')).toMatchObject({ place_lat: null, place_lon: null })
+  })
+})

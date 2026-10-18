@@ -130,6 +130,9 @@ export function createFakeApi() {
     async searchRecordings() {
       return { groups: [] }
     },
+    async searchPlaces() {
+      return { results: [] }
+    },
     async region() {
       return { country: null, consent_required: null }
     },

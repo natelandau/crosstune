@@ -197,6 +197,21 @@ describe('createApiClient', () => {
     )
   })
 
+  it('searches places by text', async () => {
+    const urls: string[] = []
+    const results = [
+      { name: 'Galax, VA', lat: 36.66, lon: -80.92, title: 'Galax, VA', subtitle: null },
+    ]
+    const api = makeClient(async (input) => {
+      urls.push(input.url)
+      return Response.json({ results })
+    })
+    await expect(api.searchPlaces('Galax')).resolves.toEqual({ results })
+    const url = new URL(urls[0]!)
+    expect(url.pathname).toBe('/v1/places/search')
+    expect(url.searchParams.get('q')).toBe('Galax')
+  })
+
   it('sends DELETE /v1/me and resolves on 204', async () => {
     const fetchMock = vi.fn<FetchMock>(async (input) => {
       expect(input.method).toBe('DELETE')

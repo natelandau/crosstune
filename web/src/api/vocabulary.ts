@@ -118,7 +118,10 @@ export const LINK_LIMITS = {
 
 export const RECORDING_LIMITS = {
   label: 200,
+  notes: 20000,
   origin_url: 2048,
+  place_name: 200,
+  players: 200,
 } as const
 
 export const LOOP_LIMITS = {
@@ -129,6 +132,7 @@ export const RECORDING_RANGES = {
   speed_percent: { min: 50, max: 150 },
   pitch_cents: { min: -1200, max: 1200 },
   trim_start_ms: { min: 0 },
+  place_accuracy_m: { min: 0, max: 1000000 },
 } as const
 
 export const LOOP_RANGES = {

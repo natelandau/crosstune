@@ -4,6 +4,7 @@ import { useDb } from '../../db/DbProvider'
 import { liveTune } from '../../db/tunes'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { formatDuration, recordingDateLabel } from '../../text/format'
+import { recordingCredits } from '../recordings/place'
 import { recordingTitle } from '../recordings/recordingRow'
 import type { RecordingView } from '../recordings/useRecordings'
 import { shownPeaks, trimmedLengthMs, type ShownPeaks } from './recordingRange'
@@ -132,7 +133,11 @@ export function usePracticeOverlayView(id: string): PracticeOverlayView {
 
   const title = view ? recordingTitle({ ...view, tuneId: null }) : ''
   const subtitle = recording
-    ? `${recordingDateLabel(recording)} · ${formatDuration(rowLengthMs)}`
+    ? [
+        recordingDateLabel(recording),
+        formatDuration(rowLengthMs),
+        ...recordingCredits(recording),
+      ].join(' · ')
     : ''
 
   return {

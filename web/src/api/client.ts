@@ -164,6 +164,9 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     async searchRecordings(q, providers, country) {
       return unwrap(client.POST('/v1/links/search', { body: { q, providers, country } }))
     },
+    async searchPlaces(q) {
+      return unwrap(client.GET('/v1/places/search', { params: { query: { q } } }))
+    },
     async me() {
       return unwrap(client.GET('/v1/me'))
     },

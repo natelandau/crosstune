@@ -80,16 +80,23 @@ function stubMediaGlobals(): { track: FakeTrack; getUserMedia: Mock } {
     configurable: true,
     value: { persist: vi.fn(async () => true) },
   })
+  // A real request could outlive the test, and a prompt would block a browser run.
+  Object.defineProperty(navigator, 'geolocation', {
+    configurable: true,
+    value: {
+      getCurrentPosition: (_ok: unknown, fail?: (e: unknown) => void) => fail?.({ code: 1 }),
+    },
+  })
   return { track, getUserMedia }
 }
 
 /**
  * `stubMediaGlobals` for one test, putting every global it touches back when the test ends.
- * `navigator.mediaDevices` and `navigator.storage` are defined properties, which
- * `vi.unstubAllGlobals()` does not restore.
+ * `navigator.mediaDevices`, `navigator.storage`, and `navigator.geolocation` are defined
+ * properties, which `vi.unstubAllGlobals()` does not restore.
  */
 export function fakeMediaForTest(): { track: FakeTrack; getUserMedia: Mock } {
-  const owned = (['mediaDevices', 'storage'] as const).map(
+  const owned = (['mediaDevices', 'storage', 'geolocation'] as const).map(
     (key) => [key, Object.getOwnPropertyDescriptor(navigator, key)] as const,
   )
   onTestFinished(() => {
