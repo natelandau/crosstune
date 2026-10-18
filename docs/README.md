@@ -22,8 +22,8 @@ and put new knowledge only in the page whose contract it fits.
   page never copies what the code says.
 - One test for every line: does someone working on a different screen,
   endpoint, or deploy have to know it? If not, it stays out.
-- A decision that binds one feature belongs in that feature's spec in the
-  vault, not here.
+- A decision that binds one feature belongs in that feature's design
+  record, not here.
 - Write short sentences, bullets, steps, and tables. Never a paragraph that
   has to be parsed to find the fact.
 - No history. State what holds now. The commit message holds why it changed.
@@ -32,8 +32,6 @@ and put new knowledge only in the page whose contract it fits.
 
 ## Design records and host settings
 
-Feature specs live in the project vault under `specs/`, not in this
-repository. So do the settings each host's dashboard holds, under
-`reference/`, and the procedures done there by hand, under `runbooks/`.
-`sessionmemory project --json` prints the paths. The system spec is
-`specs/2026-09-11-crosstune-v1-architecture.md`.
+Feature design records, the settings each host's dashboard holds, and the
+procedures done there by hand are private and live outside this
+repository.

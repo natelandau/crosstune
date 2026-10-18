@@ -22,12 +22,10 @@ The code is the source of truth for everything except `docs/architecture.md`.
 - Before you add or change a design rule: "Writing these pages" in
   `docs/design.md` says what to record and which page it goes in.
 - Deployment or CI: `docs/operations.md`.
-- A host setting, a credential, or a dashboard: the vault's
-  `reference/hosting.md`, and its `runbooks/` for a procedure done there.
 
-Feature specs, plans, design records, runbooks, and anything about the
-hosts that should not be public go in the vault, never under `docs/`. The
-repository is public.
+The repository is public. Feature specs, plans, design records, host
+settings, credentials, and anything else that should not be public never
+go in it.
 
 ## Naming
 
@@ -145,11 +143,9 @@ every label. The glossary in `docs/product.md` has the reasons.
   environment. On the web, a component reads the client with
   `useAnalytics()`, code outside React takes it as an argument, and nothing
   in `web/src/commands/` sends.
-- A change to what the Apple app collects, or a new SDK in it, adds a row
-  to the Apple privacy runbook in the vault
-  (`runbooks/2026-10-07-apple-privacy-app-store-label-and-privacy-manifest.md`)
-  in the same session, so the App Store label and `PrivacyInfo.xcprivacy`
-  stay in step.
+- A change to what the Apple app collects, or a new SDK in it, updates
+  `PrivacyInfo.xcprivacy` in the same change, so it and the App Store
+  label stay in step.
 
 ## Web tests
 

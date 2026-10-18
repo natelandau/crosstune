@@ -17,8 +17,8 @@ wins where the two differ:
 - A rule two or more platforms share goes here, once. A platform page
   holds only what differs or exists on that platform, and never restates
   a rule from this page.
-- A platform difference that is unintended is a bug: fix the code or add
-  it to the backlog, never document it as a platform rule.
+- A platform difference that is unintended is a bug: fix the code or
+  track it as a bug, never document it as a platform rule.
 - Terse bullets and fragments. No paragraphs. Give a reason only when it
   stops a future change from undoing the rule.
 - Gotchas (a framework limit, a crash, a workaround) go on the platform
