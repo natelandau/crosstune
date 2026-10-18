@@ -43,7 +43,14 @@ Everything you add to your catalog, which can include:
 
 ### Your recordings
 
-The audio you record, upload, or save from a link, with its label, when it was added, when it was recorded if you say so, practice loops, and trims. When you upload an audio file, we keep the original file as you uploaded it, including any information stored inside it, such as a title or the device that made it.
+The audio you record, upload, or save from a link, with its label, notes, players, when it was added, when and where it was recorded, practice loops, and trims. When you upload an audio file, we keep the original file as you uploaded it, including any information stored inside it, such as a title or the device that made it.
+
+Where a recording was made is a precise location: its coordinates, and, for a recording made in the app, how accurate they are. We keep one when:
+
+- You record in the web app or the iPhone, iPad, or Mac app and allow Crosstune to use your location. If you turn off precise location for Crosstune on your device, we keep the approximate location your device gives instead.
+- You upload an audio file that already holds the place it was recorded, and the recording has no place yet. In the same way, we use the time stored in the file if the recording has no recorded date yet.
+
+If you do not allow location, a recording you make has no place, and we never work one out another way, such as from your IP address. We never use your device's location for an upload. You can set, change, or clear a recording's place at any time.
 
 ### Your scans
 
@@ -115,6 +122,13 @@ When you use these features, the service you use receives what that feature need
 - When a link plays in the app, the player comes from that service, such as YouTube, Spotify, Apple Music, TIDAL, SoundCloud, Bandcamp, or the Internet Archive. It loads from your device, and that service can see your IP address and set its own cookies under its own privacy policy. YouTube players use YouTube's API Services, so [Google's privacy policy](https://policies.google.com/privacy) applies to them.
 - On iPhone, iPad, and Mac, Apple Music plays through your own Apple Account.
 
+### Apple Maps
+
+Apple Maps names the places where your recordings were made and finds the places you search for:
+
+- To name a recording's place, our server sends its coordinates to Apple Maps. Our server's address is sent, not yours, and nothing else about you or the recording.
+- When you search for a place in the web app, our server sends your search text to Apple Maps in the same way. In the iPhone, iPad, and Mac apps, the search goes from your device to Apple Maps, under [Apple's privacy policy](https://www.apple.com/legal/privacy/).
+
 ### AI providers
 
 Some features can send content you choose, such as an image, to a third-party AI provider to process it for you. Before a feature does this for the first time, it tells you what it sends and to whom, and asks your permission. You can turn it off in Settings. We only use AI providers whose contracts forbid them from using your content to train their models, and we name each one in this policy before any feature uses it. A user under 18 needs a parent or guardian's agreement to turn on an AI feature.
@@ -139,7 +153,7 @@ The web app and the apps also report counts and choices that describe your use w
 
 On this site, visits are counted without cookies, and the analytics are not linked to an account. When you click a Create account button, the site records which button you clicked, with the page that referred you and any campaign tags from the link. That record is not linked to the account you create. The site also records your clicks and how fast its pages load. The site has no switch to turn them off, but a content blocker stops them.
 
-The web app and the apps link this data to your account. They never send your email address or name to PostHog. Events can carry the internal IDs of tunes, lists, recordings, links, and scans. They never send tune names, notes, lyrics, scans, or recordings.
+The web app and the apps link this data to your account. They never send your email address or name to PostHog. Events can carry the internal IDs of tunes, lists, recordings, links, and scans. They never send tune names, notes, lyrics, scans, or recordings. They never send where a recording was made, its place name, or what you search for to find a place. They report only that you set or cleared a place, whether it came from a search or a suggestion, and whether it replaced one.
 
 The apps do not record your screen or your sessions.
 
