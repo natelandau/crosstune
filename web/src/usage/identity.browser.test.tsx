@@ -1,5 +1,5 @@
 import { act, render, renderHook } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { clearAccountDeletedNotice, clearLocalSignOut } from '../auth/session'
 import { deleteAccountAndForget } from '../features/settings/deleteAccount'
 import { DELETE_CONFIRMATION_TEXT } from '../features/settings/deleteAccountCopy'
@@ -13,6 +13,7 @@ import { AnalyticsIdentity } from './AnalyticsIdentity'
 import type * as PersonPropertiesModule from './personProperties'
 import { startAnalytics, USER_KEY, type PostHogLike } from './client'
 import { recordingAnalytics } from './testing'
+import { SHARE_USAGE_KEY } from './usageSharing'
 
 const clerk = vi.hoisted(() => ({
   signOut: async () => {},
@@ -166,6 +167,7 @@ describe('AnalyticsIdentity', () => {
 
   it('same user signs back in after sign-out and sends signed_in again', async () => {
     const captured: string[] = []
+    onTestFinished(() => localStorage.removeItem(SHARE_USAGE_KEY))
     const ph: PostHogLike = {
       init: () => {},
       register: () => {},
@@ -176,7 +178,11 @@ describe('AnalyticsIdentity', () => {
       opt_in_capturing: () => {},
       opt_out_capturing: () => {},
     }
-    const analytics = startAnalytics({ key: 'test', load: async () => ph })
+    const analytics = startAnalytics({
+      key: 'test',
+      load: async () => ph,
+      fetchRegion: async () => ({ consent_required: false }),
+    })
     const db = openTestDb()
     const first = render(<AnalyticsIdentity />, { wrapper: dataProviders({ db, analytics }) })
     await expect.poll(() => captured).toEqual(['signed_in'])

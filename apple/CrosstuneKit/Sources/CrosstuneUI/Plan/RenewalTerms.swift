@@ -1,11 +1,16 @@
+import CrosstuneAnalytics
 import SwiftUI
 
-/// The disclosures every surface that sells shows by its price: "Renews until you cancel." over
-/// the Terms of Use and Privacy Policy links, with `leading` before the links.
+/// The disclosures every surface that sells shows by its price: the selected plan's renewal
+/// terms over the Terms of Use and Privacy Policy links, with `leading` before the links.
 struct RenewalTerms<Leading: View>: View {
+    let price: String
+    let period: PurchasePeriod
     let leading: Leading
 
-    init(@ViewBuilder leading: () -> Leading = { EmptyView() }) {
+    init(price: String, period: PurchasePeriod, @ViewBuilder leading: () -> Leading = { EmptyView() }) {
+        self.price = price
+        self.period = period
         self.leading = leading()
     }
 
@@ -19,7 +24,7 @@ struct RenewalTerms<Leading: View>: View {
 
     var body: some View {
         VStack(alignment: alignment, spacing: 4) {
-            Text(PlanText.renewsUntilCancelled)
+            Text(PlanText.renewalTerms(price: price, period: period))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(textAlignment)

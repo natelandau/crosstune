@@ -8,7 +8,13 @@ from urllib.parse import parse_qs, quote, urlsplit
 
 from crosstune.billing.grants import PaidSubscription
 from crosstune.rest import DEFAULT_TIMEOUT_SECONDS, NOT_FOUND_STATUS, SUCCESS_STATUSES, send_bearer
-from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantSource
+from crosstune.vocabulary import (
+    YEARLY_PERIOD_THRESHOLD,
+    GrantEnvironment,
+    GrantKind,
+    GrantPeriod,
+    GrantSource,
+)
 
 if TYPE_CHECKING:
     import httpx2
@@ -210,6 +216,12 @@ def _map_subscription(
         ended = _from_ms(item.get("ends_at")) or period_end
         expires_at = min(ended, now) if ended else now
 
+    period_start = _from_ms(item.get("current_period_starts_at"))
+    period = None
+    if period_start is not None and period_end is not None:
+        yearly = period_end - period_start > YEARLY_PERIOD_THRESHOLD
+        period = GrantPeriod.YEAR if yearly else GrantPeriod.MONTH
+
     return PaidSubscription(
         subscription_id=str(subscription_id),
         store_id=str(store_id),
@@ -218,4 +230,6 @@ def _map_subscription(
         environment=GrantEnvironment(environment),
         expires_at=expires_at,
         auto_renews=item.get("auto_renewal_status") in _RENEWING,
+        started_at=_from_ms(item.get("starts_at")),
+        period=period,
     )

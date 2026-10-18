@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import CHAR, DateTime, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,3 +27,6 @@ class User(Base):
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
     )
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    country: Mapped[str | None] = mapped_column(CHAR(2), nullable=True)
+    # Withdrawal from a web subscription is allowed once per account.
+    withdrew_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

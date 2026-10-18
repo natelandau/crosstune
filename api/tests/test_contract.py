@@ -8,6 +8,7 @@ def test_openapi_lists_every_public_route() -> None:
     paths = set(create_app().openapi()["paths"])
     assert {
         "/v1/me",
+        "/v1/region",
         "/v1/sync/push",
         "/v1/sync/pull",
         "/v1/sync/events",
@@ -63,7 +64,7 @@ def test_openapi_documents_the_recording_states_a_client_branches_on() -> None:
 
 def test_openapi_documents_retry_after_on_every_rate_limit() -> None:
     paths = create_app().openapi()["paths"]
-    for path, method in (("/v1/links/search", "get"), ("/v1/links/resolve", "post")):
+    for path, method in (("/v1/links/search", "post"), ("/v1/links/resolve", "post")):
         header = paths[path][method]["responses"]["429"]["headers"]["Retry-After"]
         assert header["required"] is False
         assert header["schema"] == {"type": "string"}

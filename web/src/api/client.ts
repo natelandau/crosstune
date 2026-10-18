@@ -41,6 +41,9 @@ export class TransferError extends Error {
   }
 }
 
+// The one call made before anyone is signed in, so it carries no token.
+const REGION_PATH = '/v1/region'
+
 const PUT_BASE_TIMEOUT_MS = 60_000
 // About 128 kbps, the slowest link that still finishes a maximum-size file and its
 // confirmation inside the API's one-hour upload slot.
@@ -80,6 +83,7 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
   const gatewayRetryDelaysMs = options.gatewayRetryDelaysMs ?? GATEWAY_RETRY_DELAYS_MS
   const auth: Middleware = {
     async onRequest({ request }) {
+      if (new URL(request.url).pathname === REGION_PATH) return request
       const token = await options.getToken()
       if (!token) throw new NoTokenError()
       request.headers.set('Authorization', `Bearer ${token}`)
@@ -158,12 +162,13 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
       return unwrap(client.POST('/v1/links/resolve', { body: { url } }))
     },
     async searchRecordings(q, providers, country) {
-      return unwrap(
-        client.GET('/v1/links/search', { params: { query: { q, providers, country } } }),
-      )
+      return unwrap(client.POST('/v1/links/search', { body: { q, providers, country } }))
     },
     async me() {
       return unwrap(client.GET('/v1/me'))
+    },
+    async region() {
+      return unwrap(client.GET(REGION_PATH))
     },
     async deleteAccount({ appleAuthorizationCode } = {}) {
       return unwrapEmpty(
@@ -179,6 +184,9 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     },
     async refreshBilling() {
       return unwrapEmpty(client.POST('/v1/me/billing/refresh'))
+    },
+    async withdraw() {
+      return unwrapEmpty(client.POST('/v1/me/billing/withdraw'))
     },
     async requestUploadSlot(recordingId, body) {
       return unwrap(

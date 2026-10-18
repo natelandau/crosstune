@@ -244,6 +244,17 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(PlanSheet.chosen(.annual, in: [offers[1]]) == .monthly)
     }
 
+    @Test func theRenewalTermsFollowTheSelectedTile() {
+        let offers = [
+            PurchaseOffer(period: .annual, price: "$49.99", amount: 49.99),
+            PurchaseOffer(period: .monthly, price: "$4.99", amount: 4.99),
+        ]
+        #expect(PlanSheet.chosenOffer(.annual, in: offers)?.price == "$49.99")
+        #expect(PlanSheet.chosenOffer(.monthly, in: offers)?.price == "$4.99")
+        #expect(PlanSheet.chosenOffer(.annual, in: [offers[1]])?.period == .monthly)
+        #expect(PlanSheet.chosenOffer(.annual, in: []) == nil)
+    }
+
     @Test func subscribeBuysTheChosenPeriod() async {
         let client = FakePurchaseClient()
         let model = PurchaseModel(client: client, refresh: {}, sync: {}, analytics: sink.client)

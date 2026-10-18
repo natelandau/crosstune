@@ -14,10 +14,10 @@ import {
 import { pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
-import { serverTune, serverUserTune } from '../test/fakeApi'
+import { serverRecording, serverTune, serverUserTune } from '../test/fakeApi'
 import { captureRecording } from '../test/recordings'
 import { entitlementRow, playEventRow, scanViewRow } from '../test/rows'
-import type { EventRow, PullRow } from '../api/types'
+import type { EventRow, PullRow, RecordingLinkRow } from '../api/types'
 import { applyEventsPage, applyPullPage, applyPushResults, compareTimestamps } from './apply'
 import { MISSING_RECORDING_REASON, PREMIUM_REQUIRED_REASON } from './errors'
 
@@ -317,6 +317,90 @@ describe('applyPullPage', () => {
     expect((await db.tunes.get('other'))?.title).toBe('Other')
     expect(await pendingBatch(db)).toHaveLength(0)
     expect(await getPullCursor(db)).toBe(5)
+  })
+
+  it('stores a scrubbed tombstone', async () => {
+    const deletedAt = '2026-09-11T09:00:00Z'
+    const link: RecordingLinkRow = {
+      id: 'gone-link',
+      created_at: '2026-09-11T00:00:00Z',
+      updated_at: deletedAt,
+      deleted_at: deletedAt,
+      server_seq: 7,
+      added_by_user_id: 'server-user',
+      tune_id: 'gone',
+      url: 'https://crosstune.app/deleted',
+      provider: 'other',
+      provider_ref: null,
+      title: null,
+      artwork_url: null,
+      position: 0,
+    }
+    await applyPullPage(
+      db,
+      [
+        {
+          table: 'tunes',
+          row: serverTune({
+            id: 'gone',
+            title: 'deleted',
+            alternate_titles: [],
+            genre: null,
+            tune_type: null,
+            composer: null,
+            lyrics: null,
+            key: null,
+            part_structure: null,
+            time_signature: null,
+            tunings: {},
+            deleted_at: deletedAt,
+            server_seq: 6,
+          }),
+        },
+        { table: 'recording_links', row: link },
+        {
+          table: 'recordings',
+          row: serverRecording({
+            id: 'gone-recording',
+            source: 'import',
+            origin: 'slippery_hill',
+            origin_url: 'https://crosstune.app/deleted',
+            label: null,
+            error: null,
+            deleted_at: deletedAt,
+            server_seq: 8,
+          }),
+        },
+      ],
+      8,
+    )
+    expect(await db.tunes.get('gone')).toMatchObject({
+      title: 'deleted',
+      alternate_titles: [],
+      genre: null,
+      tune_type: null,
+      composer: null,
+      lyrics: null,
+      key: null,
+      part_structure: null,
+      time_signature: null,
+      tunings: {},
+      deleted_at: deletedAt,
+    })
+    expect(await db.recording_links.get('gone-link')).toMatchObject({
+      url: 'https://crosstune.app/deleted',
+      provider_ref: null,
+      title: null,
+      artwork_url: null,
+      deleted_at: deletedAt,
+    })
+    expect(await db.recordings.get('gone-recording')).toMatchObject({
+      origin_url: 'https://crosstune.app/deleted',
+      label: null,
+      error: null,
+      deleted_at: deletedAt,
+    })
+    expect(await getPullCursor(db)).toBe(8)
   })
 
   it('skips a row with a newer local write still pending', async () => {

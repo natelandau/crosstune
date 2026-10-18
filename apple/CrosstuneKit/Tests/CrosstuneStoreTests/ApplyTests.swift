@@ -473,6 +473,67 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         #expect(try await store.meta(.pullCursor, as: Int64.self) == 5)
     }
 
+    @Test func appliesAScrubbedTombstone() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let placeholder = "https://crosstune.app/deleted"
+        let tune = serverTune(id: "gone", title: "deleted", serverSeq: 6).merging([
+            "deleted_at": .string(noon.iso), "alternate_titles": .array([]), "genre": .null,
+            "tune_type": .null, "composer": .null, "lyrics": .null, "key": .null,
+            "part_structure": .null, "time_signature": .null, "tunings": .object([:]),
+        ]) { _, new in new }
+        let link: JSONObject = [
+            "id": .string("gone-link"), "created_at": .string(noon.iso), "updated_at": .string(noon.iso),
+            "deleted_at": .string(noon.iso), "server_seq": .integer(7),
+            "added_by_user_id": .string("server-user"), "tune_id": .string("gone"),
+            "url": .string(placeholder), "provider": .string("other"), "provider_ref": .null,
+            "title": .null, "artwork_url": .null, "position": .integer(0),
+        ]
+        let recording: JSONObject = [
+            "id": .string("gone-recording"), "created_at": .string(noon.iso),
+            "updated_at": .string(noon.iso), "deleted_at": .string(noon.iso), "server_seq": .integer(8),
+            "user_id": .string("server-user"), "tune_id": .null, "label": .null,
+            "source": .string("import"), "origin": .string("slippery_hill"), "origin_url": .string(placeholder),
+            "added_at": .string(noon.iso), "recorded_at": .string(noon.iso),
+            "recorded_precision": .string("time"), "position": .integer(0), "state": .string("ready"),
+            "duration_ms": .null, "playback_mime": .null, "playback_bytes": .null, "error": .null,
+            "trim_start_ms": .integer(0), "trim_end_ms": .null, "speed_percent": .integer(100),
+            "pitch_cents": .integer(0), "source_duration_ms": .null, "playback_start_ms": .null,
+            "playback_end_ms": .null, "playback_rev": .null, "peaks_rev": .null,
+        ]
+
+        try await store.write { writer in
+            try writer.applyPullPage(
+                rows: [(.tunes, tune), (.recordingLinks, link), (.recordings, recording)], nextSince: 8)
+        }
+
+        let stored = try #require(try await store.read { db in try Tune.fetchOne(db, key: "gone") })
+        #expect(stored.title == "deleted")
+        #expect(stored.deletedAt == noon)
+        #expect(stored.alternateTitles.isEmpty)
+        #expect(stored.genre == nil)
+        #expect(stored.tuneType == nil)
+        #expect(stored.composer == nil)
+        #expect(stored.lyrics == nil)
+        #expect(stored.key == nil)
+        #expect(stored.partStructure == nil)
+        #expect(stored.timeSignature == nil)
+        #expect(stored.tunings.isEmpty)
+        let storedLink = try #require(try await store.read { db in try RecordingLink.fetchOne(db, key: "gone-link") })
+        #expect(storedLink.url == placeholder)
+        #expect(storedLink.providerRef == nil)
+        #expect(storedLink.title == nil)
+        #expect(storedLink.artworkURL == nil)
+        #expect(storedLink.deletedAt == noon)
+        let storedRecording = try #require(
+            try await store.read { db in try Recording.fetchOne(db, key: "gone-recording") })
+        #expect(storedRecording.originURL == placeholder)
+        #expect(storedRecording.label == nil)
+        #expect(storedRecording.error == nil)
+        #expect(storedRecording.deletedAt == noon)
+        #expect(try await store.meta(.pullCursor, as: Int64.self) == 8)
+    }
+
     @Test func skipsARowWithANewerLocalWriteStillPending() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

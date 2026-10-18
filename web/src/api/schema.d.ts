@@ -31,13 +31,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        get?: never;
+        put?: never;
         /**
          * Search
          * @description Recordings matching the text on each requested service, grouped by service.
          */
-        get: operations["search_v1_links_search_get"];
-        put?: never;
-        post?: never;
+        post: operations["search_v1_links_search_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -86,6 +86,29 @@ export interface paths {
          * @description Re-read the caller's subscriptions from RevenueCat and update their Premium access.
          */
         post: operations["refresh_billing_v1_me_billing_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/billing/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw Billing
+         * @description Refund the caller's web subscription in full and end Premium now.
+         *
+         *     Allowed once per account, within 14 days of the subscription's first payment. A 409's
+         *     `reason` says why a withdrawal was refused.
+         */
+        post: operations["withdraw_billing_v1_me_billing_withdraw_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -223,6 +246,26 @@ export interface paths {
          * @description Confirm the object landed and queue its transcode. Repeating the call changes nothing.
          */
         post: operations["upload_finished_v1_recordings__recording_id__uploaded_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/region": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Region
+         * @description The caller's country and whether analytics must start off there.
+         */
+        get: operations["get_region_v1_region_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -504,6 +547,10 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+            /** Withdraw Until */
+            withdraw_until: string | null;
+            /** Withdrawal Used */
+            withdrawal_used: boolean;
         };
         /**
          * EventsResponse
@@ -1006,13 +1053,15 @@ export interface components {
             errors?: {
                 [key: string]: unknown;
             }[] | null;
+            /** @description Why a `urn:crosstune:withdrawal-refused` problem refused the withdrawal. */
+            reason?: components["schemas"]["WithdrawalRefusal"] | null;
             /** Status */
             status: number;
             /** Title */
             title: string;
             /**
              * Type
-             * @description `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured), `urn:crosstune:billing-failed` (502, the billing provider did not answer).
+             * @description `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured, or Stripe or RevenueCat did not confirm), `urn:crosstune:billing-failed` (502, the billing provider did not answer), `urn:crosstune:withdrawal-refused` (409, the withdrawal is not allowed; `reason` says why).
              * @default about:blank
              */
             type: string;
@@ -1430,6 +1479,16 @@ export interface components {
          */
         RecordingState: "pending_upload" | "uploaded" | "processing" | "ready" | "failed";
         /**
+         * RegionResponse
+         * @description The caller's country and whether consent is required there. Both are null when unknown.
+         */
+        RegionResponse: {
+            /** Consent Required */
+            consent_required: boolean | null;
+            /** Country */
+            country: string | null;
+        };
+        /**
          * ResolveRequest
          * @description Body of a resolve request: the URL the user just pasted.
          */
@@ -1670,6 +1729,21 @@ export interface components {
             /** Search Url */
             search_url: string;
             status: components["schemas"]["SearchStatus"];
+        };
+        /**
+         * SearchRequest
+         * @description Body of a search request: the text to look for and the services to ask.
+         */
+        SearchRequest: {
+            /**
+             * Country
+             * @default US
+             */
+            country: string;
+            /** Providers */
+            providers: components["schemas"]["Provider"][];
+            /** Q */
+            q: string;
         };
         /**
          * SearchResponse
@@ -2056,6 +2130,8 @@ export interface components {
              */
             user_id: string;
         };
+        /** @enum {string} */
+        WithdrawalRefusal: "no_web_subscription" | "window_closed" | "already_withdrawn";
     };
     responses: never;
     parameters: never;
@@ -2109,18 +2185,18 @@ export interface operations {
             };
         };
     };
-    search_v1_links_search_get: {
+    search_v1_links_search_post: {
         parameters: {
-            query: {
-                q: string;
-                providers: components["schemas"]["Provider"][];
-                country?: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -2279,6 +2355,71 @@ export interface operations {
             /** @description Bad Gateway */
             502: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    withdraw_billing_v1_me_billing_withdraw_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2649,6 +2790,26 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_region_v1_region_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionResponse"];
                 };
             };
         };

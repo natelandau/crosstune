@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+from contextlib import nullcontext
 from datetime import (
     datetime,
     timedelta,
@@ -22,7 +23,7 @@ from crosstune.auth.webhooks import verify_svix_signature
 from crosstune.billing.access import access_for, refresh_entitlement
 from crosstune.billing.closing import end_billing
 from crosstune.db.base import bump_server_seq, utc_now
-from crosstune.db.locks import lock_user
+from crosstune.db.locks import billing_lock, lock_user
 from crosstune.db.session import (
     DbSession,
     request_runner_wake,
@@ -44,6 +45,10 @@ from crosstune.users.clerk import ClerkUnavailableError
 from crosstune.users.service import purge_account
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
     from crosstune.storage.store import ObjectStore
     from crosstune.users.apple import AppleSignIn
     from crosstune.users.clerk import ClerkUsers
@@ -211,21 +216,25 @@ async def delete_me(
         if code is not None
         else frozenset()
     )
-    await lock_user(session, user.id)
-    await end_billing(
-        session,
-        user,
-        request.app.state.stripe,
-        request.app.state.revenuecat,
-        request.app.state.settings,
-        utc_now(),
-    )
-    user_id = await purge_account(session, user.clerk_user_id)
-    if user_id is not None:
-        try:
-            await clerk_users.delete_user(user.clerk_user_id)
-        except ClerkUnavailableError as exc:
-            raise AccountDeletionFailedError from exc
+    # The billing lock keeps a withdrawal, the withdrawal pass, and a second deletion out
+    # from the first billing step until the purge is written.
+    async with billing_lock(session, user.id):
+        await lock_user(session, user.id)
+        refund_notice = await end_billing(
+            session,
+            user,
+            request.app.state.stripe,
+            request.app.state.revenuecat,
+            request.app.state.settings,
+            utc_now(),
+            request.app.state.mailer,
+        )
+        user_id = await purge_account(session, user.clerk_user_id)
+        if user_id is not None:
+            try:
+                await clerk_users.delete_user(user.clerk_user_id)
+            except ClerkUnavailableError as exc:
+                raise AccountDeletionFailedError from exc
     # A missing row means a concurrent delete already committed, and both delete paths
     # commit only once Clerk's copy is gone, so this request's code still revokes.
     # After the response, so Apple's latency never holds the user lock or the transaction.
@@ -233,10 +242,39 @@ async def delete_me(
         background.add_task(_revoke_apple, apple_sign_in, code, apple_ids, apple_client)
     if user_id is None:
         return Response(status_code=204)
+    if refund_notice is not None:
+        background.add_task(_send_refund_notice, request.app.state.sessionmaker, refund_notice)
     store = request.app.state.object_store
     if store is not None:
         background.add_task(_purge_user_files, store, user_prefix(user_id))
     return Response(status_code=204)
+
+
+async def _send_refund_notice(
+    sessionmaker: async_sessionmaker[AsyncSession],
+    send: Callable[[AsyncSession], Awaitable[None]],
+) -> None:
+    async with sessionmaker() as session:
+        await send(session)
+
+
+async def _end_billing_for_webhook(
+    request: Request, session: AsyncSession, user: User
+) -> Callable[[AsyncSession], Awaitable[None]] | None:
+    try:
+        return await end_billing(
+            session,
+            user,
+            request.app.state.stripe,
+            request.app.state.revenuecat,
+            request.app.state.settings,
+            utc_now(),
+            request.app.state.mailer,
+        )
+    except (AccountDeletionUnavailableError, AccountDeletionFailedError):
+        # Svix retries a 503; the purge has not run, so the retry starts clean.
+        msg = "Could not end billing for the deleted account"
+        raise BillingUnavailableError(msg) from None
 
 
 @router.post("/webhooks/clerk", status_code=204, include_in_schema=False)
@@ -264,22 +302,17 @@ async def clerk_webhook(
         clerk_user_id = data.get("id")
         if isinstance(clerk_user_id, str) and clerk_user_id:
             existing = await session.scalar(select(User).where(User.clerk_user_id == clerk_user_id))
-            if existing is not None:
-                await lock_user(session, existing.id)
-                try:
-                    await end_billing(
-                        session,
-                        existing,
-                        request.app.state.stripe,
-                        request.app.state.revenuecat,
-                        request.app.state.settings,
-                        utc_now(),
-                    )
-                except (AccountDeletionUnavailableError, AccountDeletionFailedError):
-                    # Svix retries a 503; the purge has not run, so the retry starts clean.
-                    msg = "Could not end billing for the deleted account"
-                    raise BillingUnavailableError(msg) from None
-            user_id = await purge_account(session, clerk_user_id)
+            refund_notice = None
+            held = billing_lock(session, existing.id) if existing is not None else nullcontext()
+            async with held:
+                if existing is not None:
+                    await lock_user(session, existing.id)
+                    refund_notice = await _end_billing_for_webhook(request, session, existing)
+                user_id = await purge_account(session, clerk_user_id)
+            if user_id is not None and refund_notice is not None:
+                background.add_task(
+                    _send_refund_notice, request.app.state.sessionmaker, refund_notice
+                )
             store = request.app.state.object_store
             if user_id is not None and store is not None:
                 # The row cascade cannot reach the bucket. The wipe runs after the

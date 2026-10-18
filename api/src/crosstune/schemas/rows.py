@@ -504,6 +504,8 @@ class EntitlementRow(EntitlementData, _Row):
     trial_ends_at: datetime | None
     premium_quota_bytes: int
     paid_grants: list[PaidGrantRow]
+    withdraw_until: datetime | None
+    withdrawal_used: bool
     recording_notice_seen_at: datetime | None
     trial_reminder_seen_at: datetime | None
     trial_end_seen_at: datetime | None

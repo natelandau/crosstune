@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/react'
-import { scrubR2Breadcrumb } from './sentryBreadcrumbs'
+import { scrubBreadcrumbUrl } from './sentryBreadcrumbs'
 import { APP_VERSION } from './version'
 
 interface ReportingEnv {
@@ -16,7 +16,7 @@ export function sentryOptions(env: ReportingEnv): Sentry.BrowserOptions | null {
     dsn: env.VITE_SENTRY_DSN,
     release: APP_VERSION,
     environment: env.VITE_SENTRY_ENVIRONMENT ?? 'development',
-    beforeBreadcrumb: scrubR2Breadcrumb,
+    beforeBreadcrumb: scrubBreadcrumbUrl,
     // Sentry's defaults collect user info, cookies, and request and response bodies, and bodies
     // carry a user's own tunes. This is Sentry's documented restrictive baseline.
     dataCollection: {

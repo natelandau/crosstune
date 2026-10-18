@@ -10,6 +10,13 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, case, func, or_, select, update
 
+from crosstune.billing.notices import RUN_EVERY as BILLING_NOTICES_EVERY
+from crosstune.billing.notices import (
+    claim_billing_notices_run,
+    next_billing_notices_run,
+    run_billing_notices,
+)
+from crosstune.billing.withdrawal import complete_pending_withdrawals
 from crosstune.db.base import utc_now
 from crosstune.inactivity.sweep import (
     RUN_EVERY,
@@ -46,6 +53,8 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from crosstune.analytics.posthog import AnalyticsPersons
+    from crosstune.billing.revenuecat import RevenueCat
+    from crosstune.billing.stripe import StripeSubscriptions
     from crosstune.config import Settings
     from crosstune.email.resend import Mailer
     from crosstune.storage.store import ObjectStore
@@ -86,6 +95,8 @@ class JobRunner:
         analytics_persons: AnalyticsPersons | None = None,
         mailer: Mailer | None = None,
         clerk_users: ClerkUsers | None = None,
+        stripe: StripeSubscriptions | None = None,
+        revenuecat: RevenueCat | None = None,
         settings: Settings,
     ) -> None:
         self._sessionmaker = sessionmaker
@@ -99,6 +110,14 @@ class JobRunner:
         # writes nothing until the pass falls due.
         self._inactivity_due: datetime | None = None
         self.inactivity_task: asyncio.Task[None] | None = None
+        # The daily billing pass finishes stuck withdrawals, which needs Stripe and
+        # RevenueCat, and sends billing notices, which needs mail. It runs while either can.
+        self._mailer = mailer
+        self._withdrawal_clients: tuple[StripeSubscriptions, RevenueCat] | None = (
+            (stripe, revenuecat) if stripe is not None and revenuecat is not None else None
+        )
+        self._billing_notices_due: datetime | None = None
+        self.billing_notices_task: asyncio.Task[None] | None = None
         # Without it, queued analytics deletions wait in their table until it is configured.
         self._analytics_persons = analytics_persons
         self._store = store
@@ -140,6 +159,8 @@ class JobRunner:
             await _finish_by(self.task, deadline)
         if self.inactivity_task is not None:
             await _finish_by(self.inactivity_task, deadline)
+        if self.billing_notices_task is not None:
+            await _finish_by(self.billing_notices_task, deadline)
 
     def wake(self) -> None:
         """Start a pass now, for work a request has just committed."""
@@ -188,10 +209,10 @@ class JobRunner:
     async def next_due(self) -> datetime:
         """The earliest time a pass could find work that no wake announces.
 
-        That is a backed-off or expired job or analytics deletion lock, an upload slot of a pending or
-        deleted row passing its abandonment grace, the daily inactivity pass, or the next orphan
-        sweep, which bounds the sleep to `orphan_sweep_seconds`. Other purges have no due time;
-        the delete that makes one wakes the runner.
+        That is a backed-off or expired job or analytics deletion lock, an upload slot of a
+        pending or deleted row passing its abandonment grace, the daily inactivity and billing
+        passes, or the next orphan sweep, which bounds the sleep to `orphan_sweep_seconds`.
+        Other purges have no due time; the delete that makes one wakes the runner.
 
         Returns:
             datetime: When the idle loop should run its next pass.
@@ -221,8 +242,15 @@ class JobRunner:
             if self._warning_clients is not None and not self._inactivity_running()
             else None
         )
+        billing_due = (
+            await self._billing_notices_due_at(utc_now())
+            if self._billing_enabled() and not self._billing_notices_running()
+            else None
+        )
         candidates = [self._next_orphan_sweep]
-        candidates += [due for due in (job_due, deletion_due, inactivity_due) if due is not None]
+        candidates += [
+            due for due in (job_due, deletion_due, inactivity_due, billing_due) if due is not None
+        ]
         candidates += [
             expiry + ABANDONED_SLOT_GRACE for expiry in slot_expiries if expiry is not None
         ]
@@ -244,6 +272,7 @@ class JobRunner:
             done += await analytics.delete_due_person(self._sessionmaker, self._analytics_persons)
         done += await release_abandoned_slots(self._sessionmaker, self._store)
         done += await self._start_inactivity()
+        done += await self._start_billing_notices()
         # Last, so a bucket listing that fails cannot starve the transcodes and purges.
         if self._orphan_sweep_seconds is not None and utc_now() >= self._next_orphan_sweep:
             self._next_orphan_sweep = utc_now() + timedelta(seconds=self._orphan_sweep_seconds)
@@ -294,6 +323,66 @@ class JobRunner:
         except Exception:
             log.exception("inactivity pass failed")
         self.wake()
+
+    def _billing_enabled(self) -> bool:
+        return self._mailer is not None or self._withdrawal_clients is not None
+
+    def _billing_notices_running(self) -> bool:
+        return self.billing_notices_task is not None and not self.billing_notices_task.done()
+
+    async def _billing_notices_due_at(self, now: datetime) -> datetime:
+        """When this process next tries to claim the billing pass; `now` if it never ran."""
+        if self._billing_notices_due is None:
+            async with self._sessionmaker() as session:
+                self._billing_notices_due = await next_billing_notices_run(session) or now
+        return self._billing_notices_due
+
+    async def _start_billing_notices(self) -> int:
+        """Start the daily billing pass as its own task when it is due and this process claims it.
+
+        Returns:
+            int: 1 when this call started the pass, else 0.
+        """
+        if (
+            not self._billing_enabled()
+            or self._stopping.is_set()
+            or self._billing_notices_running()
+        ):
+            return 0
+        now = utc_now()
+        if now < await self._billing_notices_due_at(now):
+            return 0
+        if not await claim_billing_notices_run(self._sessionmaker, now):
+            self._billing_notices_due = None
+            return 0
+        self._billing_notices_due = now + BILLING_NOTICES_EVERY
+        self.billing_notices_task = asyncio.create_task(
+            self._run_billing_notices(now), name="billing-notices-pass"
+        )
+        return 1
+
+    async def _run_billing_notices(self, now: datetime) -> None:
+        """Finish pending withdrawals, then send owed billing notices, then wake the loop.
+
+        One part failing never skips the other. The wake lets the idle loop read the next
+        due time, which `next_due` leaves out while the pass runs.
+        """
+        try:
+            if self._withdrawal_clients is not None:
+                stripe, revenuecat = self._withdrawal_clients
+                try:
+                    await complete_pending_withdrawals(
+                        self._sessionmaker, stripe, revenuecat, self._mailer, self._settings, now
+                    )
+                except Exception:
+                    log.exception("completing pending withdrawals failed")
+            if self._mailer is not None:
+                try:
+                    await run_billing_notices(self._sessionmaker, self._mailer, self._settings, now)
+                except Exception:
+                    log.exception("billing notices pass failed")
+        finally:
+            self.wake()
 
     async def sweep_orphans(self) -> int:
         """Delete the bucket prefixes of users, recordings, and scans that have no row."""

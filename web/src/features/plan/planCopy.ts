@@ -1,5 +1,6 @@
-import { addedDay } from '../../text/format'
+import { addedDay, recordedTime } from '../../text/format'
 import { localDaysBetween } from '../../text/localDate'
+import type { PurchasePeriod } from '../../usage/events'
 
 export const PLAN_GROUP = 'Plan'
 export const PLAN_FREE = 'Free'
@@ -18,12 +19,20 @@ export const SEE_PLAN = 'See your plan'
 export const PREMIUM_PLAN_TITLE = 'Crosstune Premium'
 export const SUBSCRIBE = 'Subscribe'
 export const MANAGE_SUBSCRIPTION = 'Manage subscription'
+export const WITHDRAW_LABEL = 'Withdraw for a full refund'
+export const WITHDRAW_CONFIRM_ACTION = 'Withdraw'
+export const WITHDRAW_CONFIRM_TITLE = 'Withdraw and refund?'
+export const WITHDRAW_CONFIRM_BODY = 'We refund your first payment in full and Premium ends now.'
+export const WITHDRAW_DONE = 'Your payment was refunded and Premium has ended.'
+export const WITHDRAW_REFUSED = "This subscription can't be withdrawn."
+export const WITHDRAW_WINDOW_CLOSED = 'The 14 days to withdraw have passed.'
+export const WITHDRAW_ALREADY = 'This account has already withdrawn once.'
+export const WITHDRAW_FAILED = "Withdrawing didn't finish. Try again in a moment."
 export const MANAGE_APP_STORE = 'Manage in App Store settings'
 export const APP_STORE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions'
 export const PERIOD_ANNUAL = 'Annual'
 export const PERIOD_MONTHLY = 'Monthly'
 export const BILLING_PERIOD = 'Billing period'
-export const RENEWS_UNTIL_CANCELLED = 'Renews until you cancel.'
 export const SUBSCRIBE_OFFLINE = 'Subscribing needs a connection.'
 export const SUBSCRIBED = "You're on Premium."
 export const SUBSCRIBE_FAILED = "Subscribing didn't finish. Try again in a moment."
@@ -61,6 +70,12 @@ export const INCLUDED_SCANS = 'Scans'
 export const INCLUDED_SCANS_DETAIL = 'Up to 20 pages a tune'
 export const COMPARE_PLANS = 'Compare plans'
 
+/** When the withdrawal window closes. The time is shown since the row hides at that instant. */
+export function withdrawUntil(date: Date): string {
+  const iso = date.toISOString()
+  return `Available until ${addedDay(iso)}, ${recordedTime(iso)}`
+}
+
 /** The badge on the annual plan. */
 export function save(percent: number): string {
   return `Save ${percent}%`
@@ -80,6 +95,20 @@ export function saving(annualMicros: number, monthlyMicros: number): number | nu
 /** An annual plan's price as RevenueCat formats it, per year. */
 export function annualPrice(price: string): string {
   return `${price} a year`
+}
+
+export const WITHDRAWAL_TERMS = 'You can withdraw within 14 days for a full refund.'
+/** The part every renewal disclosure shares, whatever its price, period, or withdrawal. */
+export const RENEWS_UNTIL_CANCELLED = 'renewing automatically until you cancel.'
+
+/**
+ * The auto-renewal disclosure shown beside the buy button for the selected period. The
+ * withdrawal is offered only while the account has not used it, since each account gets one.
+ */
+export function renewalTerms(price: string, period: PurchasePeriod, withdrawable: boolean): string {
+  const unit = period === 'annual' ? 'year' : 'month'
+  const terms = `${price} a ${unit}, ${RENEWS_UNTIL_CANCELLED} Cancel anytime with ${MANAGE_SUBSCRIPTION}, before the renewal date.`
+  return withdrawable ? `${terms} ${WITHDRAWAL_TERMS}` : terms
 }
 
 /** A monthly plan's price as RevenueCat formats it, per month. */

@@ -85,8 +85,11 @@ struct NoticeSheet: View {
         let secondary: Action?
 
         /// Whether the renewal terms show, which they do wherever a price does.
-        var discloses: Bool {
-            if case .subscribe = primary { true } else { false }
+        var discloses: Bool { annualPrice != nil }
+
+        /// The Annual price the Subscribe button buys, which the renewal terms state.
+        var annualPrice: String? {
+            if case .subscribe(let price) = primary { price } else { nil }
         }
 
         /// The outcome of a try, shown only by the choice it answers or the settled purchase, so
@@ -246,8 +249,8 @@ struct NoticeSheet: View {
                     button(secondary)
                 }
             } footer: {
-                if offer.discloses {
-                    RenewalTerms()
+                if let price = offer.annualPrice {
+                    RenewalTerms(price: price, period: .annual)
                 }
             }
             #if os(iOS)
@@ -284,8 +287,8 @@ struct NoticeSheet: View {
                     .buttonStyle(.slateProminent)
             }
         }
-        if offer.discloses {
-            RenewalTerms()
+        if let price = offer.annualPrice {
+            RenewalTerms(price: price, period: .annual)
         }
     }
 

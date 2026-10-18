@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneStore
 import Foundation
 
@@ -21,7 +22,6 @@ public enum PlanText {
     nonisolated public static let periodAnnual = "Annual"
     nonisolated public static let periodMonthly = "Monthly"
     nonisolated public static let billingPeriod = "Billing period"
-    nonisolated public static let renewsUntilCancelled = "Renews until you cancel."
     nonisolated public static let subscribeOffline = "Subscribing needs a connection."
     nonisolated public static let subscribed = "You're on Premium."
     nonisolated public static let subscribeFailed = "Subscribing didn't finish. Try again in a moment."
@@ -99,6 +99,12 @@ public enum PlanText {
 
     nonisolated public static let perYear = "a year"
     nonisolated public static let perMonth = "a month"
+    /// The auto-renewal disclosure shown beside the buy button for the selected period.
+    nonisolated public static func renewalTerms(price: String, period: PurchasePeriod) -> String {
+        let unit = period == .annual ? "year" : "month"
+        return
+            "\(price) a \(unit), renewing automatically until you cancel. Cancel anytime in your Apple Account settings, at least 24 hours before the renewal date."
+    }
     nonisolated public static func annualPrice(_ price: String) -> String { "\(price) \(perYear)" }
     nonisolated public static func monthlyPrice(_ price: String) -> String { "\(price) \(perMonth)" }
 

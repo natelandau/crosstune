@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 PROBLEM_JSON = "application/problem+json"
 ACCOUNT_DELETED_PROBLEM = "urn:crosstune:account-deleted"
 
+type WithdrawalRefusal = Literal["no_web_subscription", "window_closed", "already_withdrawn"]
+
 
 class Problem(BaseModel):
     """An RFC 9457 problem details body, the shape of every error this API returns."""
@@ -32,14 +34,21 @@ class Problem(BaseModel):
             "client drops its local data), `urn:crosstune:premium-required` (403, the "
             "addition needs Premium), `urn:crosstune:quota-exceeded` (413), "
             "`urn:crosstune:file-too-large` (413), "
-            "`urn:crosstune:billing-unavailable` (503, purchases are not configured), "
-            "`urn:crosstune:billing-failed` (502, the billing provider did not answer)."
+            "`urn:crosstune:billing-unavailable` (503, purchases are not configured, or "
+            "Stripe or RevenueCat did not confirm), "
+            "`urn:crosstune:billing-failed` (502, the billing provider did not answer), "
+            "`urn:crosstune:withdrawal-refused` (409, the withdrawal is not allowed; "
+            "`reason` says why)."
         ),
     )
     title: str
     status: int
     detail: str
     errors: list[dict[str, Any]] | None = None
+    reason: WithdrawalRefusal | None = Field(
+        default=None,
+        description="Why a `urn:crosstune:withdrawal-refused` problem refused the withdrawal.",
+    )
 
 
 # Every 429 this API sends names its wait. The header is optional text in the contract, so a
@@ -87,6 +96,7 @@ class AppError(Exception):
         *,
         type_: str = "about:blank",
         headers: Mapping[str, str] | None = None,
+        extra: Mapping[str, Any] | None = None,
     ) -> None:
         super().__init__(detail)
         self.status = status
@@ -94,6 +104,7 @@ class AppError(Exception):
         self.detail = detail
         self.type = type_
         self.headers = headers
+        self.extra = extra
 
 
 class UnauthorizedError(AppError):
@@ -155,7 +166,7 @@ class ServiceUnavailableError(AppError):
 
 
 class BillingUnavailableError(AppError):
-    """Purchases are not configured, or the billing provider is not answering for a webhook."""
+    """Purchases are not configured, or Stripe or RevenueCat did not confirm; trying later may work."""
 
     def __init__(self, detail: str = "Purchases are unavailable") -> None:
         super().__init__(
@@ -168,6 +179,20 @@ class BillingFailedError(AppError):
 
     def __init__(self, detail: str = "Could not reach the billing provider") -> None:
         super().__init__(502, "Bad Gateway", detail, type_="urn:crosstune:billing-failed")
+
+
+class WithdrawalRefusedError(AppError):
+    """The caller cannot withdraw from a web subscription; `reason` says why, for the client to branch on."""
+
+    def __init__(self, reason: WithdrawalRefusal) -> None:
+        super().__init__(
+            409,
+            "Conflict",
+            f"The withdrawal was refused: {reason}",
+            type_="urn:crosstune:withdrawal-refused",
+            extra={"reason": reason},
+        )
+        self.reason: WithdrawalRefusal = reason
 
 
 class AccountDeletionUnavailableError(AppError):
@@ -222,7 +247,12 @@ def problem_response(error: AppError) -> JSONResponse:
         JSONResponse: The response an exception handler would have sent.
     """
     return _problem(
-        error.status, error.title, error.detail, type_=error.type, headers=error.headers
+        error.status,
+        error.title,
+        error.detail,
+        type_=error.type,
+        headers=error.headers,
+        extra=error.extra,
     )
 
 

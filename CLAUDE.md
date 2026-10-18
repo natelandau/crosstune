@@ -134,7 +134,7 @@ every label. The glossary in `docs/product.md` has the reasons.
   `CrosstuneUITests` enforces each, so the record control and the shell's
   menu commands stand down behind every presentation.
 - Every view in `CrosstuneUI` that shows user content carries
-  `.contentMask()`, so session replays never show it. A test in
+  `.contentMask()`, so replay could never show it if it is ever enabled. A test in
   `CrosstuneUITests` enforces it; a view handed its text is masked by hand
   and listed in that test.
 - A new analytics event goes in `analytics/tracking-plan.json` before code

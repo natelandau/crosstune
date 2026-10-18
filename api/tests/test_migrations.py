@@ -2997,6 +2997,330 @@ async def test_0038_adds_the_nullable_trial_end_column_and_downgrade_drops_it(
     assert dropped == []
 
 
+_0047_COLUMNS = (
+    ("grants", "started_at"),
+    ("grants", "period"),
+    ("grants", "withdrawn_at"),
+    ("users", "withdrew_at"),
+    ("entitlements", "withdraw_until"),
+)
+
+
+async def test_0047_adds_the_nullable_withdrawal_columns_and_downgrade_drops_them(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    query = text(
+        "select table_name, column_name, is_nullable from information_schema.columns "
+        "where (table_name, column_name) in "
+        "(('grants', 'started_at'), ('grants', 'period'), ('grants', 'withdrawn_at'), "
+        "('users', 'withdrew_at'), ('entitlements', 'withdraw_until')) "
+        "order by table_name, column_name"
+    )
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0046")
+        async with engine.connect() as conn:
+            before = (await conn.execute(query)).all()
+        await anyio.to_thread.run_sync(command.upgrade, config, "0047")
+        async with engine.connect() as conn:
+            after = (await conn.execute(query)).all()
+        await anyio.to_thread.run_sync(command.downgrade, config, "0046")
+        async with engine.connect() as conn:
+            dropped = (await conn.execute(query)).all()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert before == []
+    assert [tuple(row) for row in after] == [
+        (table, column, "YES") for table, column in sorted(_0047_COLUMNS)
+    ]
+    assert dropped == []
+
+
+async def test_0048_adds_the_refund_columns_and_downgrade_drops_them(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    query = text(
+        "select column_name, is_nullable from information_schema.columns "
+        "where table_name = 'grants' and column_name in ('refunded_at', 'store_id') "
+        "order by column_name"
+    )
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0047")
+        async with engine.connect() as conn:
+            before = (await conn.execute(query)).all()
+        await anyio.to_thread.run_sync(command.upgrade, config, "0048")
+        async with engine.connect() as conn:
+            after = (await conn.execute(query)).all()
+        await anyio.to_thread.run_sync(command.downgrade, config, "0047")
+        async with engine.connect() as conn:
+            dropped = (await conn.execute(query)).all()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert before == []
+    assert [tuple(row) for row in after] == [("refunded_at", "YES"), ("store_id", "YES")]
+    assert dropped == []
+
+
+async def test_grants_period_check_rejects_an_unknown_period(session: AsyncSession) -> None:
+    user_id = uuid.uuid4()
+    await session.execute(
+        text(
+            "insert into users (id, clerk_user_id, created_at, updated_at) "
+            "values (:id, 'user_period', now(), now())"
+        ),
+        {"id": user_id},
+    )
+    with pytest.raises(IntegrityError):
+        await session.execute(
+            text(
+                "insert into grants (id, user_id, kind, source, environment, auto_renews, "
+                "external_id, period, created_at, updated_at) values (gen_random_uuid(), :user, "
+                "'premium', 'stripe', 'production', false, 'sub_p', 'week', now(), now())"
+            ),
+            {"user": user_id},
+        )
+
+
+_TOMBSTONE_SNAPSHOT = text(
+    "select 'tunes' as tbl, id::text as id, server_seq, updated_at from tunes union all "
+    "select 'recordings', id::text, server_seq, updated_at from recordings union all "
+    "select 'recording_loops', id::text, server_seq, updated_at from recording_loops union all "
+    "select 'user_tunes', id::text, server_seq, updated_at from user_tunes union all "
+    "select 'lists', id::text, server_seq, updated_at from lists union all "
+    "select 'recording_links', id::text, server_seq, updated_at from recording_links"
+)
+
+
+async def _insert_tombstone_fixtures(conn, ids: dict[str, str]) -> None:
+    user, dead_tune, live_tune = ids["user"], ids["dead_tune"], ids["live_tune"]
+    dead_import, dead_own, live_rec = ids["dead_import"], ids["dead_own"], ids["live_rec"]
+    dead_loop, kept_loop, orphan_loop = ids["dead_loop"], ids["kept_loop"], ids["orphan_loop"]
+    user_tune, lst, link = ids["user_tune"], ids["lst"], ids["link"]
+    await conn.execute(
+        text(
+            "insert into users (id, clerk_user_id, created_at, updated_at) "
+            "values (:id, 'user_scrub', now(), now())"
+        ),
+        {"id": user},
+    )
+    await conn.execute(
+        text(
+            "insert into tunes (id, owner_user_id, title, alternate_titles, genre, "
+            "tune_type, key, lyrics, composer, part_structure, time_signature, modes, "
+            "tunings, is_crooked, created_at, updated_at, deleted_at) values "
+            "(:dead, :user, 'Secret', array['Alt'], 'g', 't', 'D', 'words', 'me', "
+            "'AABB', '4/4', array['dorian'], "
+            '\'{"violin": {"tuning": "AEAE"}}\'::jsonb, false, now(), :stamped, now()), '
+            "(:live, :user, 'Kept', array['Alt'], 'g', 't', 'D', 'words', 'me', "
+            "'AABB', '4/4', array['dorian'], "
+            '\'{"violin": {"tuning": "AEAE"}}\'::jsonb, false, now(), :stamped, null)'
+        ),
+        {"dead": dead_tune, "live": live_tune, "user": user, "stamped": STAMPED},
+    )
+    await conn.execute(
+        text(
+            "insert into user_tunes (id, user_id, tune_id, status, learned_from, notes, "
+            "created_at, updated_at, deleted_at) values "
+            "(:id, :user, :tune, 'known', 'Bob', 'private', now(), :stamped, now())"
+        ),
+        {"id": user_tune, "user": user, "tune": dead_tune, "stamped": STAMPED},
+    )
+    await conn.execute(
+        text(
+            "insert into lists (id, user_id, name, created_at, updated_at, deleted_at) "
+            "values (:id, :user, 'Private list', now(), :stamped, now())"
+        ),
+        {"id": lst, "user": user, "stamped": STAMPED},
+    )
+    await conn.execute(
+        text(
+            "insert into recording_links (id, added_by_user_id, tune_id, url, provider, "
+            "provider_ref, title, artwork_url, created_at, updated_at, deleted_at) "
+            "values (:id, :user, :tune, 'https://example.com/x', 'youtube', 'ref', 'T', "
+            "'https://example.com/a.jpg', now(), :stamped, now())"
+        ),
+        {"id": link, "user": user, "tune": dead_tune, "stamped": STAMPED},
+    )
+    await conn.execute(
+        text(
+            "insert into recordings (id, user_id, source, origin, origin_url, label, "
+            "error, added_at, state, created_at, updated_at, deleted_at) values "
+            "(:imp, :user, 'import', 'slippery_hill', 'https://example.com/r', 'L', "
+            "'E', now(), 'ready', now(), :stamped, now()), "
+            "(:own, :user, 'microphone', 'own', null, 'L', 'E', now(), 'ready', "
+            "now(), :stamped, now()), "
+            "(:live, :user, 'microphone', 'own', null, 'L', 'E', now(), 'ready', "
+            "now(), :stamped, null)"
+        ),
+        {
+            "imp": dead_import,
+            "own": dead_own,
+            "live": live_rec,
+            "user": user,
+            "stamped": STAMPED,
+        },
+    )
+    await conn.execute(
+        text(
+            "insert into recording_loops (id, user_id, recording_id, label, start_ms, "
+            "end_ms, color, created_at, updated_at, deleted_at) values "
+            "(:dead, :user, :own, 'Loop', 0, 5000, 0, now(), :stamped, now()), "
+            "(:kept, :user, :live, 'Loop', 0, 5000, 0, now(), :stamped, now()), "
+            "(:live_loop, :user, :live, 'Loop', 6000, 9000, 0, now(), :stamped, null)"
+        ),
+        {
+            "dead": dead_loop,
+            "kept": kept_loop,
+            "live_loop": orphan_loop,
+            "own": dead_own,
+            "live": live_rec,
+            "user": user,
+            "stamped": STAMPED,
+        },
+    )
+
+
+def _snapshot(result) -> dict[str, dict[str, object]]:
+    tables: dict[str, dict[str, object]] = {}
+    for row in result:
+        tables.setdefault(row.tbl, {})[row.id] = row
+    return tables
+
+
+async def test_0045_scrubs_existing_tombstones(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-0000000000b0"
+    dead_tune = "018f0000-0000-7000-8000-0000000000b1"
+    live_tune = "018f0000-0000-7000-8000-0000000000b2"
+    dead_import = "018f0000-0000-7000-8000-0000000000b3"
+    dead_own = "018f0000-0000-7000-8000-0000000000b4"
+    live_rec = "018f0000-0000-7000-8000-0000000000b5"
+    dead_loop = "018f0000-0000-7000-8000-0000000000b6"
+    kept_loop = "018f0000-0000-7000-8000-0000000000b7"
+    orphan_loop = "018f0000-0000-7000-8000-0000000000b8"
+    user_tune = "018f0000-0000-7000-8000-0000000000b9"
+    lst = "018f0000-0000-7000-8000-0000000000ba"
+    link = "018f0000-0000-7000-8000-0000000000bb"
+    ids = {
+        "user": user,
+        "dead_tune": dead_tune,
+        "live_tune": live_tune,
+        "dead_import": dead_import,
+        "dead_own": dead_own,
+        "live_rec": live_rec,
+        "dead_loop": dead_loop,
+        "kept_loop": kept_loop,
+        "orphan_loop": orphan_loop,
+        "user_tune": user_tune,
+        "lst": lst,
+        "link": link,
+    }
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0044")
+        async with engine.begin() as conn:
+            await _insert_tombstone_fixtures(conn, ids)
+            before = _snapshot(await conn.execute(_TOMBSTONE_SNAPSHOT))
+        await anyio.to_thread.run_sync(command.upgrade, config, "0045")
+        async with engine.connect() as conn:
+            tunes = {
+                row.id: row
+                for row in await conn.execute(
+                    text(
+                        "select id::text as id, title, alternate_titles, genre, tune_type, key, "
+                        "lyrics, composer, part_structure, time_signature, modes, tunings "
+                        "from tunes"
+                    )
+                )
+            }
+            recordings = {
+                row.id: row
+                for row in await conn.execute(
+                    text("select id::text as id, label, error, origin_url from recordings")
+                )
+            }
+            loops = {
+                row.id: row.label
+                for row in await conn.execute(
+                    text("select id::text as id, label from recording_loops")
+                )
+            }
+            other = (
+                await conn.execute(
+                    text(
+                        "select (select learned_from from user_tunes), "
+                        "(select notes from user_tunes), "
+                        "(select name from lists), (select url from recording_links), "
+                        "(select provider_ref from recording_links), "
+                        "(select title from recording_links), "
+                        "(select artwork_url from recording_links)"
+                    )
+                )
+            ).one()
+            after = _snapshot(await conn.execute(_TOMBSTONE_SNAPSHOT))
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    dead = tunes[dead_tune]
+    assert tuple(dead)[1:] == (
+        "deleted",
+        [],
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        [],
+        {},
+    )
+    assert tuple(tunes[live_tune])[1:] == (
+        "Kept",
+        ["Alt"],
+        "g",
+        "t",
+        "D",
+        "words",
+        "me",
+        "AABB",
+        "4/4",
+        ["dorian"],
+        {"violin": {"tuning": "AEAE"}},
+    )
+    assert tuple(recordings[dead_import])[1:] == (None, None, "https://crosstune.app/deleted")
+    assert tuple(recordings[dead_own])[1:] == (None, None, None)
+    assert tuple(recordings[live_rec])[1:] == ("L", "E", None)
+    assert loops == {dead_loop: None, kept_loop: "Loop", orphan_loop: "Loop"}
+    assert tuple(other) == (
+        None,
+        None,
+        "deleted",
+        "https://crosstune.app/deleted",
+        None,
+        None,
+        None,
+    )
+    scrubbed = {
+        "tunes": {dead_tune},
+        "recordings": {dead_import, dead_own},
+        "recording_loops": {dead_loop},
+        "user_tunes": {user_tune},
+        "lists": {lst},
+        "recording_links": {link},
+    }
+    for table, scrubbed_ids in scrubbed.items():
+        for id_, row in after[table].items():
+            assert row.updated_at == before[table][id_].updated_at
+            moved = row.server_seq > before[table][id_].server_seq
+            assert moved is (id_ in scrubbed_ids)
+
+
 async def test_0044_drops_the_free_quota_and_rounds_quotas_and_downgrade_restores_both(
     engine, database_url: str, truncate_all: None
 ) -> None:
@@ -3365,4 +3689,95 @@ async def test_0040_keys_and_types(session: AsyncSession) -> None:
         ("inactivity_notices", "f", "users", "c", ["user_id"]),
         ("inactivity_notices", "p", "-", " ", ["user_id"]),
         ("scheduled_runs", "p", "-", " ", ["name"]),
+    ]
+
+
+async def test_0051_marks_a_used_withdrawal_and_downgrade_drops_it(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    withdrew = "018f0000-0000-7000-8000-000000000098"
+    kept = "018f0000-0000-7000-8000-000000000099"
+    column = text(
+        "select count(*) from information_schema.columns "
+        "where table_name = 'entitlements' and column_name = 'withdrawal_used'"
+    )
+    snapshot = text("select user_id::text, server_seq, updated_at from entitlements")
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0050")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, withdrew_at, created_at, updated_at) "
+                    "values (:id, :clerk, :withdrew, now(), now())"
+                ),
+                [
+                    {"id": withdrew, "clerk": "user_withdrew", "withdrew": datetime.now(UTC)},
+                    {"id": kept, "clerk": "user_kept", "withdrew": None},
+                ],
+            )
+            await conn.execute(
+                text(
+                    "insert into entitlements (id, user_id, auto_renews, premium_quota_bytes, "
+                    "created_at, updated_at) "
+                    "select gen_random_uuid(), id, false, 0, now(), now() from users"
+                )
+            )
+            before = {row.user_id: row for row in (await conn.execute(snapshot)).all()}
+        await anyio.to_thread.run_sync(command.upgrade, config, "0051")
+        async with engine.connect() as conn:
+            after = {
+                row.user_id: row
+                for row in (
+                    await conn.execute(
+                        text(
+                            "select user_id::text, withdrawal_used, server_seq, updated_at "
+                            "from entitlements"
+                        )
+                    )
+                ).all()
+            }
+        await anyio.to_thread.run_sync(command.downgrade, config, "0050")
+        async with engine.connect() as conn:
+            dropped = (await conn.execute(column)).scalar_one()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert after[withdrew].withdrawal_used is True
+    assert after[withdrew].server_seq > before[withdrew].server_seq
+    assert after[withdrew].updated_at == before[withdrew].updated_at
+    assert after[kept].withdrawal_used is False
+    assert after[kept].server_seq == before[kept].server_seq
+    assert dropped == 0
+
+
+async def test_0050_account_notices_shape_and_cascade(session: AsyncSession) -> None:
+    columns = (
+        await session.execute(
+            text(
+                "select column_name, data_type, is_nullable from information_schema.columns "
+                "where table_name = 'account_notices' order by column_name"
+            )
+        )
+    ).all()
+    assert [tuple(row) for row in columns] == [
+        ("notice_key", "character varying", "NO"),
+        ("sent_at", "timestamp with time zone", "NO"),
+        ("user_id", "uuid", "NO"),
+    ]
+    constraints = (
+        await session.execute(
+            text(
+                "select c.contype::text, c.confrelid::regclass::text, c.confdeltype::text, "
+                "array(select a.attname from unnest(c.conkey) k "
+                "join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k "
+                "order by a.attname) "
+                "from pg_constraint c where c.conrelid = 'account_notices'::regclass "
+                "and c.contype in ('p', 'f') order by 1"
+            )
+        )
+    ).all()
+    assert [tuple(row) for row in constraints] == [
+        ("f", "users", "c", ["user_id"]),
+        ("p", "-", " ", ["notice_key", "user_id"]),
     ]

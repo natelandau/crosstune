@@ -65,6 +65,7 @@ function fakeEngine(): SyncEngine & { calls: number } {
     fetchFile: async () => new Blob(),
     retry: async () => {},
     refreshBilling: async () => {},
+    withdraw: async () => 'withdrawn' as const,
     deleteAccount: async () => {},
     onAccountDeleted: () => () => {},
     stop: () => {},

@@ -1490,8 +1490,18 @@ async def test_next_due_failure_waits_and_continues(runner, monkeypatch) -> None
 
 
 def _inactivity_runner(
-    engine, settings: Settings, *, mailer: FakeMailer | None, clerk: FakeClerkUsers | None
+    engine,
+    settings: Settings,
+    monkeypatch,
+    *,
+    mailer: FakeMailer | None,
+    clerk: FakeClerkUsers | None,
 ) -> JobRunner:
+    # A mailer also turns on the daily billing pass; these tests count only the inactivity
+    # one, so the billing pass is never due and never claimed.
+    never = datetime.max.replace(tzinfo=UTC)
+    monkeypatch.setattr(runner_module, "next_billing_notices_run", AsyncMock(return_value=never))
+    monkeypatch.setattr(runner_module, "claim_billing_notices_run", AsyncMock(return_value=False))
     return JobRunner(
         make_sessionmaker(engine),
         FakeObjectStore(),
@@ -1511,6 +1521,7 @@ async def test_the_inactivity_pass_never_runs_without_mail_or_clerk(
     job_runner = _inactivity_runner(
         engine,
         settings,
+        monkeypatch,
         mailer=None if missing == "mailer" else FakeMailer(),
         clerk=None if missing == "clerk" else FakeClerkUsers(),
     )
@@ -1527,7 +1538,7 @@ async def test_the_inactivity_pass_runs_once_a_day(
     passes = AsyncMock(return_value=0)
     monkeypatch.setattr(runner_module, "run_inactivity", passes)
     mailer, clerk = FakeMailer(), FakeClerkUsers()
-    job_runner = _inactivity_runner(engine, settings, mailer=mailer, clerk=clerk)
+    job_runner = _inactivity_runner(engine, settings, monkeypatch, mailer=mailer, clerk=clerk)
     assert await job_runner.next_due() <= utc_now()
 
     before = utc_now()
@@ -1563,7 +1574,9 @@ async def test_a_running_inactivity_pass_never_holds_up_queued_work(
     monkeypatch.setattr(runner_module, "run_inactivity", slow_pass)
     claims = AsyncMock(wraps=claim_inactivity_run)
     monkeypatch.setattr(runner_module, "claim_inactivity_run", claims)
-    job_runner = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+    job_runner = _inactivity_runner(
+        engine, settings, monkeypatch, mailer=FakeMailer(), clerk=FakeClerkUsers()
+    )
 
     assert await job_runner.run_once() == 1
     running = job_runner.inactivity_task
@@ -1601,7 +1614,9 @@ async def test_a_not_yet_due_inactivity_pass_writes_nothing(
     monkeypatch.setattr(runner_module, "run_inactivity", passes)
     claims = AsyncMock(wraps=claim_inactivity_run)
     monkeypatch.setattr(runner_module, "claim_inactivity_run", claims)
-    job_runner = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+    job_runner = _inactivity_runner(
+        engine, settings, monkeypatch, mailer=FakeMailer(), clerk=FakeClerkUsers()
+    )
 
     for _ in range(3):
         assert await job_runner.run_once() == 0
@@ -1619,8 +1634,12 @@ async def test_a_lost_inactivity_claim_rereads_the_due_time_once(
     monkeypatch.setattr(runner_module, "run_inactivity", passes)
     claims = AsyncMock(wraps=claim_inactivity_run)
     monkeypatch.setattr(runner_module, "claim_inactivity_run", claims)
-    loser = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
-    winner = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+    loser = _inactivity_runner(
+        engine, settings, monkeypatch, mailer=FakeMailer(), clerk=FakeClerkUsers()
+    )
+    winner = _inactivity_runner(
+        engine, settings, monkeypatch, mailer=FakeMailer(), clerk=FakeClerkUsers()
+    )
     # The loser reads "never run" before the winner claims.
     assert await loser.next_due() <= utc_now()
 
@@ -1648,7 +1667,9 @@ async def test_stop_cancels_an_inactivity_pass_that_will_not_finish(
         return 0
 
     monkeypatch.setattr(runner_module, "run_inactivity", stuck_pass)
-    job_runner = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+    job_runner = _inactivity_runner(
+        engine, settings, monkeypatch, mailer=FakeMailer(), clerk=FakeClerkUsers()
+    )
     job_runner.start()
     await asyncio.wait_for(started.wait(), timeout=5)
     running = job_runner.inactivity_task
@@ -1673,7 +1694,9 @@ async def test_stop_waits_for_an_inactivity_pass_that_finishes_in_time(
         return 0
 
     monkeypatch.setattr(runner_module, "run_inactivity", short_pass)
-    job_runner = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+    job_runner = _inactivity_runner(
+        engine, settings, monkeypatch, mailer=FakeMailer(), clerk=FakeClerkUsers()
+    )
     job_runner.start()
     await asyncio.wait_for(started.wait(), timeout=5)
     running = job_runner.inactivity_task
@@ -1700,7 +1723,9 @@ async def test_stop_twice_in_a_row_is_safe(
         return 0
 
     monkeypatch.setattr(runner_module, "run_inactivity", stuck_pass)
-    job_runner = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+    job_runner = _inactivity_runner(
+        engine, settings, monkeypatch, mailer=FakeMailer(), clerk=FakeClerkUsers()
+    )
     job_runner.start()
     await asyncio.wait_for(started.wait(), timeout=5)
 
@@ -1724,7 +1749,9 @@ async def test_stop_finishes_the_inactivity_pass_after_the_loop_task_raised(
         msg = "loop failed"
         raise RuntimeError(msg)
 
-    job_runner = _inactivity_runner(engine, settings, mailer=FakeMailer(), clerk=FakeClerkUsers())
+    job_runner = _inactivity_runner(
+        engine, settings, monkeypatch, mailer=FakeMailer(), clerk=FakeClerkUsers()
+    )
     pass_task = asyncio.create_task(stuck_pass())
     job_runner.inactivity_task = pass_task
     await asyncio.wait_for(started.wait(), timeout=5)

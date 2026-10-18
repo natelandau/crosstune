@@ -174,6 +174,12 @@ struct PlanSheet: View {
         offers.contains { $0.period == period } ? period : (choices(offers).first?.period ?? period)
     }
 
+    /// The offer the selected tile stands for, whose price the renewal terms state.
+    nonisolated static func chosenOffer(_ period: PurchasePeriod, in offers: [PurchaseOffer]) -> PurchaseOffer? {
+        let period = chosen(period, in: offers)
+        return offers.first { $0.period == period }
+    }
+
     nonisolated static func periodLabel(_ period: PurchasePeriod) -> String {
         switch period {
         case .annual: PlanText.periodAnnual
@@ -381,8 +387,10 @@ struct PlanSheet: View {
     /// while nothing is sold, and nothing once a purchase settles.
     @ViewBuilder
     private func terms(_ sale: Sale, purchase: PurchaseModel) -> some View {
-        if case .choice = sale {
-            RenewalTerms { restoreButton(purchase) }
+        if case .choice(let offers) = sale {
+            if let offer = Self.chosenOffer(purchase.period, in: offers) {
+                RenewalTerms(price: offer.price, period: offer.period) { restoreButton(purchase) }
+            }
         } else if Self.offersRestore(sale) {
             restoreButton(purchase).font(.footnote)
         }

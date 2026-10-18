@@ -6,6 +6,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 from crosstune.links.detect import detect_provider, normalize_url
 from crosstune.links.fetch import get_json, read_page_text
@@ -72,7 +73,10 @@ async def resolve_link(
         async with asyncio.timeout(timeout * RESOLVE_DEADLINE_TIMEOUTS):
             title, artwork, ref = await _fetch_metadata(client, link, timeout)
     except Exception:  # noqa: BLE001  -- any upstream failure degrades to an untitled link
-        log.warning("link resolution failed", extra={"url": link.url, "provider": link.provider})
+        log.warning(
+            "link resolution failed",
+            extra={"host": urlsplit(link.url).hostname, "provider": link.provider},
+        )
     return replace(
         link,
         title=title[: LINK_LIMITS["title"]] if title else title,

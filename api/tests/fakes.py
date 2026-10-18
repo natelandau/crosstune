@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from crosstune.email.resend import MailerRateLimitedError
 from crosstune.storage.store import ListedObject, ObjectInfo
 from crosstune.users.clerk import ClerkUser
 
@@ -83,17 +84,35 @@ class FakeAppleSignIn:
 
 
 class FakeMailer:
-    """A Mailer stand-in. While `error` is set, every send raises it."""
+    """A Mailer stand-in. While `error` is set, every send and batch raises it.
+
+    `sent_batches` records each accepted batch. When `rate_limit_after_batches` is set,
+    the batch after that many accepted ones raises `MailerRateLimitedError`.
+    """
 
     def __init__(self) -> None:
         self.sent: list[tuple[EmailMessage, str]] = []
+        self.sent_batches: list[tuple[list[EmailMessage], str]] = []
         self.error: Exception | None = None
+        self.rate_limit_after_batches: int | None = None
 
     async def send(self, message: EmailMessage, *, idempotency_key: str) -> None:
         """Record the message and its key, or raise the configured error instead."""
         if self.error is not None:
             raise self.error
         self.sent.append((message, idempotency_key))
+
+    async def send_batch(self, messages: list[EmailMessage], *, idempotency_key: str) -> None:
+        """Record the batch and its key, or raise the configured error instead."""
+        if self.error is not None:
+            raise self.error
+        if (
+            self.rate_limit_after_batches is not None
+            and len(self.sent_batches) >= self.rate_limit_after_batches
+        ):
+            msg = "Resend answered 429 on /emails/batch"
+            raise MailerRateLimitedError(msg)
+        self.sent_batches.append((list(messages), idempotency_key))
 
 
 class FakeRevenueCat:
@@ -125,17 +144,44 @@ class FakeRevenueCat:
 
 
 class FakeStripe:
-    """A StripeSubscriptions stand-in. While `error` is set, every cancel raises it."""
+    """A StripeSubscriptions stand-in.
 
-    def __init__(self, cancelled: list[str] | None = None, error: Exception | None = None) -> None:
+    While `error` is set, every call raises it, or only the method named by `fail_only`.
+    `calls` logs each call that did not raise, in order.
+    """
+
+    def __init__(
+        self,
+        cancelled: list[str] | None = None,
+        error: Exception | None = None,
+        fail_only: str | None = None,
+    ) -> None:
         self.cancelled = cancelled if cancelled is not None else []
         self.error = error
+        self.fail_only = fail_only
+        self.payment_intent = "pi_fake"
+        self.refunds: list[tuple[str, str]] = []
+        self.calls: list[str] = []
+
+    def _check(self, method: str) -> None:
+        if self.error is not None and self.fail_only in (None, method):
+            raise self.error
+        self.calls.append(method)
 
     async def cancel(self, store_id: str) -> None:
         """Record the id, or raise the configured error instead of cancelling."""
-        if self.error is not None:
-            raise self.error
+        self._check("cancel")
         self.cancelled.append(store_id)
+
+    async def first_payment_intent(self, store_id: str) -> str:
+        """The configured intent, or raise the configured error."""
+        self._check("first_payment_intent")
+        return self.payment_intent
+
+    async def refund(self, payment_intent: str, *, idempotency_key: str) -> None:
+        """Record the intent and key, or raise the configured error instead of refunding."""
+        self._check("refund")
+        self.refunds.append((payment_intent, idempotency_key))
 
 
 class FakeAnalyticsPersons:

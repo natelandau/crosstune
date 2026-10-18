@@ -190,7 +190,11 @@ export function NoticeHost({ navigate }: { navigate: (to: string) => void }) {
       stackedActions={trial !== null}
       primary={primary}
       tertiary={tertiary}
-      footnote={trial && offer.kind === 'subscribe' ? <RenewalTerms /> : undefined}
+      footnote={
+        trial && offer.kind === 'subscribe' ? (
+          <RenewalTerms price={offer.price} period="annual" />
+        ) : undefined
+      }
       onClosed={() => {
         setShowing(null)
         if (chosen.current) setStartFor(chosen.current)

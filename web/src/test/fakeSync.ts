@@ -21,6 +21,7 @@ export function fakeEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
     },
     retry: async () => {},
     refreshBilling: async () => {},
+    withdraw: async () => 'withdrawn',
     deleteAccount: async () => {},
     onAccountDeleted: () => () => {},
     stop: () => {},

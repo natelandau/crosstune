@@ -16,6 +16,7 @@ from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
 from crosstune.errors import VALIDATION_RESPONSE
+from crosstune.geo import request_country
 from crosstune.links.resolve import ResolvedLink, resolve_link, unresolved_link
 from crosstune.schemas.common import EventsResponse, PullResponse, PushRequest, PushResponse
 from crosstune.sync.pull import events_since, pull_since
@@ -121,7 +122,7 @@ async def push(
     )
 
     results = await apply_push(session, user.id, body.changes, settings, resolved_links=resolved)
-    await touch_last_synced(session, user.id, utc_now())
+    await touch_last_synced(session, user.id, utc_now(), request_country(request))
     return PushResponse(results=results)
 
 
@@ -135,7 +136,7 @@ async def pull(
     """Every one of the caller's rows changed after `since`, oldest first."""
     limit = request.app.state.settings.pull_page_size
     rows, next_since, has_more = await pull_since(session, user.id, since, limit)
-    await touch_last_synced(session, user.id, utc_now())
+    await touch_last_synced(session, user.id, utc_now(), request_country(request))
     return PullResponse(rows=rows, next_since=next_since, has_more=has_more)
 
 

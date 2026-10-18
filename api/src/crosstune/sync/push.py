@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import asyncpg
 from pydantic import ValidationError
-from sqlalchemy import select, update
+from sqlalchemy import case, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
@@ -19,7 +19,14 @@ from crosstune.db.session import request_runner_wake
 from crosstune.models import List, ListItem
 from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult
 from crosstune.sync.rules import RULES, RowRules
-from crosstune.sync.tables import TABLE_ORDER, TABLES, SyncedRow, TableSpec, row_to_dict
+from crosstune.sync.tables import (
+    TABLE_ORDER,
+    TABLES,
+    SyncedRow,
+    TableSpec,
+    row_to_dict,
+    scrub_values,
+)
 from crosstune.vocabulary import SERVER_WRITTEN
 
 if TYPE_CHECKING:
@@ -324,6 +331,12 @@ async def _upsert(
         for k in values
         if k not in ("id", "created_at") and k not in spec.insert_only
     }
+    # A fixed column that a delete scrubbed takes the device's value when an upsert revives
+    # the row, so the revived row never shows the placeholder.
+    for k in spec.insert_only & spec.scrub.keys() & values.keys():
+        set_[k] = case(
+            (model.deleted_at.is_not(None), getattr(excluded, k)), else_=getattr(model, k)
+        )
     # The value the insert already drew, so an update spends one sequence value, not two.
     set_["server_seq"] = excluded.server_seq
     # Strictly newer wins, and only over a stored row the caller owns: for list_items that
@@ -421,6 +434,7 @@ async def _delete(
                 deleted_at=change.updated_at,
                 updated_at=change.updated_at,
                 server_seq=next_server_seq(),
+                **scrub_values(spec),
             )
             .returning(model),
             execution_options={"populate_existing": True},
@@ -457,7 +471,12 @@ async def cascade_delete(
         await session.execute(
             update(model)
             .where(model.id.in_(child_ids), model.deleted_at.is_(None))
-            .values(deleted_at=at, updated_at=at, server_seq=next_server_seq())
+            .values(
+                deleted_at=at,
+                updated_at=at,
+                server_seq=next_server_seq(),
+                **scrub_values(child),
+            )
         )
 
 

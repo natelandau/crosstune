@@ -21,7 +21,14 @@ import {
   refreshStorage,
   uploadPass,
 } from './transfers'
-import type { SearchOutcome, SyncApi, SyncEngine, SyncStatus, TransferStatus } from './types'
+import type {
+  SearchOutcome,
+  SyncApi,
+  SyncEngine,
+  SyncStatus,
+  TransferStatus,
+  WithdrawOutcome,
+} from './types'
 import { isAccountDeleted, isAuthFailure } from './errors'
 
 // The wait shown when a 429 carries no usable Retry-After.
@@ -349,6 +356,9 @@ export function createSyncEngine({
     afterRun: () => void transfers.trigger(),
   })
 
+  // The sync loop reports its own failures; a failed pull must not turn a settled withdrawal into one.
+  const pullQuietly = () => syncing.trigger().catch(() => {})
+
   return {
     sync: syncing.trigger,
     status: syncing.status,
@@ -414,6 +424,22 @@ export function createSyncEngine({
     },
     async refreshBilling(): Promise<void> {
       await api.refreshBilling()
+    },
+    async withdraw(): Promise<WithdrawOutcome> {
+      try {
+        await api.withdraw()
+      } catch (caught) {
+        if (caught instanceof ApiError && caught.status === 409) {
+          // A refusal means the row is stale (window closed, already withdrawn), so pull it.
+          await pullQuietly()
+          const reason = caught.problem?.reason
+          return reason === 'window_closed' || reason === 'already_withdrawn' ? reason : 'refused'
+        }
+        return 'failed'
+      }
+      // Returns only once the ended plan is local, so the caller's control never outlives it.
+      await pullQuietly()
+      return 'withdrawn'
     },
     async deleteAccount(options?: DeleteAccountOptions): Promise<void> {
       await api.deleteAccount(options)

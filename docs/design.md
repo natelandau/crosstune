@@ -457,8 +457,9 @@ presents.
   consequence and says when data cannot come back:
   `Delete "Soldier's Joy"? This removes its links and list entries.`
 - Toast: only for Undo, an error that arrives after the musician left
-  the screen, or how a web checkout ended. One at a time, above the
-  bottom chrome.
+  the screen, how a web checkout ended, or how a withdrawal for a
+  refund ended, since its row goes once Premium ends. One at a time,
+  above the bottom chrome.
 - A question the app must have answered: no Cancel, waits for a clean
   sync, never opens over another modal.
 - A destructive edit that needs more room than a confirmation (trimming a

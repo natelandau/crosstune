@@ -1,4 +1,4 @@
-"""GET /v1/links/search fans out to the chosen services and degrades per service."""
+"""POST /v1/links/search fans out to the chosen services and degrades per service."""
 
 from __future__ import annotations
 
@@ -49,8 +49,8 @@ def _pem() -> str:
     )
 
 
-def _params(*providers: str, q: str = "silver spear", **extra: str) -> list[tuple[str, str]]:
-    return [("q", q), *[("providers", p) for p in providers], *extra.items()]
+def _body(*providers: str, q: str = "silver spear", **extra: str) -> dict:
+    return {"q": q, "providers": list(providers), **extra}
 
 
 def _fixture(name: str) -> dict:
@@ -86,9 +86,9 @@ def _outbound(mock_http: MockHttp) -> list[httpx2.Request]:
 
 async def test_groups_follow_the_fixed_order(client, auth_headers, mock_http) -> None:
     mock_http.add(ARCHIVE_SEARCH, httpx2.Response(200, json=_fixture("internet_archive")))
-    response = await client.get(
+    response = await client.post(
         URL,
-        params=_params("spotify", "internet_archive", "apple_music"),
+        json=_body("spotify", "internet_archive", "apple_music"),
         headers=auth_headers("user_123"),
     )
 
@@ -105,8 +105,8 @@ async def test_mixed_statuses_in_one_response(
 ) -> None:
     mock_http.add(APPLE_SEARCH, httpx2.Response(200, json=_fixture("apple_music")))
     mock_http.add(TIDAL_SEARCH, httpx2.Response(500))
-    response = await client.get(
-        URL, params=_params("apple_music", "tidal", "spotify"), headers=auth_headers("user_123")
+    response = await client.post(
+        URL, json=_body("apple_music", "tidal", "spotify"), headers=auth_headers("user_123")
     )
 
     groups = response.json()["groups"]
@@ -125,8 +125,8 @@ async def test_search_url_uses_the_country_that_answered(
 ) -> None:
     mock_http.add(f"{APPLE_SEARCH}xx/", httpx2.Response(404))
     mock_http.add(f"{APPLE_SEARCH}us/", httpx2.Response(200, json=_fixture("apple_music")))
-    response = await client.get(
-        URL, params=_params("apple_music", country="XX"), headers=auth_headers("user_123")
+    response = await client.post(
+        URL, json=_body("apple_music", country="XX"), headers=auth_headers("user_123")
     )
 
     [group] = response.json()["groups"]
@@ -135,9 +135,7 @@ async def test_search_url_uses_the_country_that_answered(
 
 
 async def test_unconfigured_service_is_search_only(client, auth_headers, mock_http) -> None:
-    response = await client.get(
-        URL, params=_params("apple_music"), headers=auth_headers("user_123")
-    )
+    response = await client.post(URL, json=_body("apple_music"), headers=auth_headers("user_123"))
 
     [group] = response.json()["groups"]
     assert group["status"] == "search_only"
@@ -146,8 +144,8 @@ async def test_unconfigured_service_is_search_only(client, auth_headers, mock_ht
 
 
 async def test_slippery_hill_answers_search_only(client, auth_headers, mock_http) -> None:
-    response = await client.get(
-        URL, params=_params("slippery_hill", q="cumberland gap"), headers=auth_headers("user_123")
+    response = await client.post(
+        URL, json=_body("slippery_hill", q="cumberland gap"), headers=auth_headers("user_123")
     )
 
     [group] = response.json()["groups"]
@@ -162,9 +160,9 @@ async def test_slippery_hill_answers_search_only(client, auth_headers, mock_http
 async def test_only_search_only_services_makes_no_outbound_call(
     client, auth_headers, mock_http
 ) -> None:
-    response = await client.get(
+    response = await client.post(
         URL,
-        params=_params("youtube", "spotify", "bandcamp", "soundcloud"),
+        json=_body("youtube", "spotify", "bandcamp", "soundcloud"),
         headers=auth_headers("user_123"),
     )
 
@@ -186,9 +184,7 @@ async def test_auth_failure_invalidates_the_token(
 
     monkeypatch.setattr(token, "invalidate", spy)
     mock_http.add(APPLE_SEARCH, httpx2.Response(401))
-    response = await client.get(
-        URL, params=_params("apple_music"), headers=auth_headers("user_123")
-    )
+    response = await client.post(URL, json=_body("apple_music"), headers=auth_headers("user_123"))
 
     [group] = response.json()["groups"]
     assert group["status"] == "unavailable"
@@ -207,9 +203,9 @@ async def test_slow_service_times_out_alone(app, client, auth_headers, settings:
 
     app.state.settings = settings.model_copy(update={"link_resolve_timeout_seconds": 0.05})
     app.state.search_adapters = {Provider.APPLE_MUSIC: slow, Provider.INTERNET_ARCHIVE: quick}
-    response = await client.get(
+    response = await client.post(
         URL,
-        params=_params("apple_music", "internet_archive"),
+        json=_body("apple_music", "internet_archive"),
         headers=auth_headers("user_123"),
     )
 
@@ -236,9 +232,9 @@ async def test_services_run_concurrently(app, client, auth_headers) -> None:
         Provider.APPLE_MUSIC: waits_for(Provider.APPLE_MUSIC, Provider.INTERNET_ARCHIVE),
         Provider.INTERNET_ARCHIVE: waits_for(Provider.INTERNET_ARCHIVE, Provider.APPLE_MUSIC),
     }
-    response = await client.get(
+    response = await client.post(
         URL,
-        params=_params("apple_music", "internet_archive"),
+        json=_body("apple_music", "internet_archive"),
         headers=auth_headers("user_123"),
     )
 
@@ -246,8 +242,8 @@ async def test_services_run_concurrently(app, client, auth_headers) -> None:
 
 
 async def test_a_requested_service_twice_is_one_group(client, auth_headers) -> None:
-    response = await client.get(
-        URL, params=_params("spotify", "spotify"), headers=auth_headers("user_123")
+    response = await client.post(
+        URL, json=_body("spotify", "spotify"), headers=auth_headers("user_123")
     )
 
     assert [g["provider"] for g in response.json()["groups"]] == ["spotify"]
@@ -262,8 +258,8 @@ async def test_a_raising_adapter_is_unavailable(
 
     app.state.search_adapters = {Provider.INTERNET_ARCHIVE: broken}
     with caplog.at_level(logging.WARNING):
-        response = await client.get(
-            URL, params=_params("internet_archive"), headers=auth_headers("user_123")
+        response = await client.post(
+            URL, json=_body("internet_archive"), headers=auth_headers("user_123")
         )
 
     assert response.status_code == 200
@@ -283,8 +279,8 @@ async def test_refused_credentials_log_an_error_without_the_token(
 ) -> None:
     mock_http.add(APPLE_SEARCH, httpx2.Response(401))
     with caplog.at_level(logging.WARNING):
-        response = await client.get(
-            URL, params=_params("apple_music"), headers=auth_headers("user_123")
+        response = await client.post(
+            URL, json=_body("apple_music"), headers=auth_headers("user_123")
         )
 
     assert response.json()["groups"][0]["status"] == "unavailable"
@@ -303,8 +299,8 @@ async def test_a_signing_failure_logs_an_error_without_the_key(
     rsa_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     monkeypatch.setattr(credentialed.apple_music, "_private_key", rsa_key)
     with caplog.at_level(logging.WARNING):
-        response = await client.get(
-            URL, params=_params("apple_music"), headers=auth_headers("user_123")
+        response = await client.post(
+            URL, json=_body("apple_music"), headers=auth_headers("user_123")
         )
 
     assert response.json()["groups"][0]["status"] == "unavailable"
@@ -324,7 +320,7 @@ async def test_a_timeout_logs_a_warning_with_its_traceback(
     app.state.settings = settings.model_copy(update={"link_resolve_timeout_seconds": 0.05})
     app.state.search_adapters = {Provider.INTERNET_ARCHIVE: slow}
     with caplog.at_level(logging.WARNING):
-        await client.get(URL, params=_params("internet_archive"), headers=auth_headers("user_123"))
+        await client.post(URL, json=_body("internet_archive"), headers=auth_headers("user_123"))
 
     record = _search_log(caplog)
     assert record.levelno == logging.WARNING
@@ -332,28 +328,26 @@ async def test_a_timeout_logs_a_warning_with_its_traceback(
 
 
 @pytest.mark.parametrize(
-    "params",
+    "body",
     [
-        _params("spotify", q=""),
-        _params("spotify", q="x" * 201),
-        _params("other"),
-        [("q", "silver spear")],
-        _params("spotify", country="USA"),
-        _params("spotify", country="U1"),
-        _params("nonsense"),
+        _body("spotify", q=""),
+        _body("spotify", q="x" * 201),
+        _body("other"),
+        {"q": "silver spear"},
+        _body("spotify", country="USA"),
+        _body("spotify", country="U1"),
+        _body("nonsense"),
     ],
 )
-async def test_invalid_requests(client, auth_headers, params) -> None:
-    response = await client.get(URL, params=params, headers=auth_headers("user_123"))
+async def test_invalid_requests(client, auth_headers, body) -> None:
+    response = await client.post(URL, json=body, headers=auth_headers("user_123"))
 
     assert response.status_code == 422
     assert response.headers["content-type"] == "application/problem+json"
 
 
 async def test_country_defaults_to_us(client, auth_headers) -> None:
-    response = await client.get(
-        URL, params=_params("apple_music"), headers=auth_headers("user_123")
-    )
+    response = await client.post(URL, json=_body("apple_music"), headers=auth_headers("user_123"))
 
     assert "/us/search" in response.json()["groups"][0]["search_url"]
 
@@ -366,9 +360,9 @@ async def test_country_is_passed_uppercased(app, client, auth_headers) -> None:
         return AdapterAnswer([], "US")
 
     app.state.search_adapters = {Provider.INTERNET_ARCHIVE: adapter}
-    await client.get(
+    await client.post(
         URL,
-        params=_params("internet_archive", country="ie"),
+        json=_body("internet_archive", country="ie"),
         headers=auth_headers("user_123"),
     )
 
@@ -380,10 +374,10 @@ async def test_search_rate_limit(app, client, auth_headers) -> None:
     headers = auth_headers("user_123")
 
     codes = [
-        (await client.get(URL, params=_params("spotify"), headers=headers)).status_code
+        (await client.post(URL, json=_body("spotify"), headers=headers)).status_code
         for _ in range(20)
     ]
-    refused = await client.get(URL, params=_params("spotify"), headers=headers)
+    refused = await client.post(URL, json=_body("spotify"), headers=headers)
 
     assert codes == [200] * 20
     assert refused.status_code == 429
@@ -397,21 +391,27 @@ async def test_invalid_requests_do_not_count_against_the_rate_limit(client, auth
     headers = auth_headers("user_123")
     # A first valid search commits the caller's account, so every later request is charged
     # to the same user rather than to an account the 422 rolls back.
-    first = await client.get(URL, params=_params("spotify"), headers=headers)
+    first = await client.post(URL, json=_body("spotify"), headers=headers)
 
     codes = [
-        (await client.get(URL, params=_params("spotify", q=""), headers=headers)).status_code
+        (await client.post(URL, json=_body("spotify", q=""), headers=headers)).status_code
         for _ in range(25)
     ]
-    valid = await client.get(URL, params=_params("spotify"), headers=headers)
+    valid = await client.post(URL, json=_body("spotify"), headers=headers)
 
     assert first.status_code == 200
     assert codes == [422] * 25
     assert valid.status_code == 200
 
 
+async def test_get_is_not_allowed(client, auth_headers) -> None:
+    response = await client.get(URL, headers=auth_headers("user_123"))
+
+    assert response.status_code == 405
+
+
 async def test_requires_sign_in(client) -> None:
-    response = await client.get(URL, params=_params("spotify"))
+    response = await client.post(URL, json=_body("spotify"))
 
     assert response.status_code == 401
 
@@ -434,7 +434,7 @@ async def test_a_rate_limited_service_is_left_alone_until_it_may_be_called(
     mock_http.add(TIDAL_SEARCH, httpx2.Response(429, headers=headers))
 
     async def tidal_status() -> str:
-        response = await client.get(URL, params=_params("tidal"), headers=auth_headers("user_123"))
+        response = await client.post(URL, json=_body("tidal"), headers=auth_headers("user_123"))
         [group] = response.json()["groups"]
         return group["status"]
 
@@ -456,10 +456,10 @@ async def test_a_rate_limit_holds_only_that_service(
     app.state.search_backoff = Backoff(clock=_Clock())
     mock_http.add(TIDAL_SEARCH, httpx2.Response(429, headers={"Retry-After": "30"}))
     mock_http.add(APPLE_SEARCH, httpx2.Response(200, json=_fixture("apple_music")))
-    await client.get(URL, params=_params("tidal"), headers=auth_headers("user_123"))
+    await client.post(URL, json=_body("tidal"), headers=auth_headers("user_123"))
 
-    response = await client.get(
-        URL, params=_params("apple_music", "tidal"), headers=auth_headers("user_123")
+    response = await client.post(
+        URL, json=_body("apple_music", "tidal"), headers=auth_headers("user_123")
     )
 
     assert [(g["provider"], g["status"]) for g in response.json()["groups"]] == [

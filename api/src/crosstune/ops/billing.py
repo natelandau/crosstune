@@ -1,6 +1,6 @@
-"""Operator commands that comp an account or move its trial end.
+"""Operator commands that comp an account, move its trial end, or withdraw its web subscription.
 
-Run as `just api::comp` and `just api::trial`. Each prints the environment and database
+Run as `just api::comp`, `just api::trial`, and `just api::withdraw`. Each prints the environment and database
 it will write to, refuses production without `--yes`, and refuses the e2e database unless
 `--e2e` names it, as only the e2e suite's own recipe does.
 """
@@ -22,11 +22,15 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 
 from crosstune.billing.access import refresh_entitlement
+from crosstune.billing.clients import make_mailer, make_revenuecat, make_stripe
 from crosstune.billing.grants import grant_comp, revoke_comp, set_trial_end
+from crosstune.billing.withdrawal import withdraw
 from crosstune.config import Settings
 from crosstune.db.base import utc_now
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.db.locks import lock_user
+from crosstune.errors import BillingUnavailableError, WithdrawalRefusedError
+from crosstune.http import public_only_client
 from crosstune.models import Grant, PendingComp, User
 from crosstune.vocabulary import GrantKind, GrantSource
 
@@ -34,6 +38,10 @@ if TYPE_CHECKING:
     import uuid
 
     from sqlalchemy.ext.asyncio import AsyncSession
+
+    from crosstune.billing.revenuecat import RevenueCat
+    from crosstune.billing.stripe import StripeSubscriptions
+    from crosstune.email.resend import Mailer
 
 _DURATION = re.compile(r"(\d+)([dhm])", re.IGNORECASE)
 _UNITS = {"d": "days", "h": "hours", "m": "minutes"}
@@ -263,8 +271,61 @@ async def trial(session: AsyncSession, settings: Settings, args: argparse.Namesp
     return f"trial of {user.clerk_user_id} ends {ends_at.isoformat()}"
 
 
+async def withdraw_account(
+    session: AsyncSession,
+    settings: Settings,
+    args: argparse.Namespace,
+    *,
+    stripe: StripeSubscriptions,
+    revenuecat: RevenueCat,
+    mailer: Mailer | None,
+) -> str:
+    """Refund and cancel an account's web subscription as the withdrawal it asked for.
+
+    `withdraw` commits the session itself, so the caller must not wrap this in a
+    transaction. `--by` and `--reason` appear in the returned line and nowhere else:
+    nothing stores them.
+
+    Returns:
+        The line to print.
+
+    Raises:
+        BillingCommandError: The account is unknown, the withdrawal is refused, or a
+            billing provider did not confirm.
+    """
+    user = await find_user(session, args.account)
+    if user is None:
+        msg = f"no account matches {args.account}"
+        raise BillingCommandError(msg)
+    try:
+        await withdraw(
+            session,
+            user,
+            stripe,
+            revenuecat,
+            mailer,
+            settings,
+            utc_now(),
+            allow_repeat=args.allow_repeat,
+        )
+    except WithdrawalRefusedError as exc:
+        msg = f"withdrawal of {user.clerk_user_id} refused: {exc.reason}"
+        raise BillingCommandError(msg) from None
+    except BillingUnavailableError as exc:
+        msg = (
+            f"withdrawal of {user.clerk_user_id} did not finish: {exc.detail}. "
+            "Any refund already made is recorded; rerun to finish the cancel"
+        )
+        raise BillingCommandError(msg) from None
+    note = "" if mailer else "; no confirmation email sent: mail is not configured"
+    return (
+        f"withdrew {user.clerk_user_id}: refunded and cancelled "
+        f"(by {args.by}, reason: {args.reason}){note}"
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
-    """The `comp` and `trial` subcommands."""
+    """The `comp`, `trial`, and `withdraw` subcommands."""
     parser = argparse.ArgumentParser(prog="crosstune.ops.billing", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -287,15 +348,54 @@ def build_parser() -> argparse.ArgumentParser:
     when.add_argument("--ends", help="ISO date or datetime, or a duration like 2d, 12h, 30m")
     when.add_argument("--ended", action="store_true", help="end the trial now")
 
-    for sub in (comp_parser, trial_parser):
+    withdraw_parser = commands.add_parser(
+        "withdraw", help="refund and cancel an account's web subscription it withdrew from"
+    )
+    withdraw_parser.add_argument("account", help="Clerk user ID or email")
+    withdraw_parser.add_argument("--by", required=True, help="who runs it")
+    withdraw_parser.add_argument("--reason", required=True, help="why, such as the email asking")
+    withdraw_parser.add_argument(
+        "--allow-repeat",
+        action="store_true",
+        help="let an account that withdrew before withdraw again, for a legal EU/UK withdrawal",
+    )
+
+    for sub in (comp_parser, trial_parser, withdraw_parser):
         sub.add_argument("--yes", action="store_true", help="confirm writing to production")
         sub.add_argument("--e2e", action="store_true", help="write to the e2e database")
     return parser
 
 
+async def _run_withdraw(settings: Settings, args: argparse.Namespace) -> None:
+    """Run `withdraw` on its own session, as it commits at each step it takes."""
+    engine = make_engine(settings.database_url)
+    http_client = public_only_client(settings.link_resolve_timeout_seconds)
+    try:
+        stripe = make_stripe(http_client, settings)
+        revenuecat = make_revenuecat(http_client, settings)
+        if stripe is None or revenuecat is None:
+            msg = "Stripe and RevenueCat must both be configured to withdraw"
+            raise BillingCommandError(msg)
+        mailer = make_mailer(http_client, settings)
+        async with make_sessionmaker(engine)() as session:
+            line = await withdraw_account(
+                session, settings, args, stripe=stripe, revenuecat=revenuecat, mailer=mailer
+            )
+        print(line)
+    finally:
+        await http_client.aclose()
+        await engine.dispose()
+
+
 async def run(settings: Settings, args: argparse.Namespace) -> None:
-    """Check the target, run the command in one transaction, and print its result."""
+    """Check the target, run the command, and print its result.
+
+    `comp` and `trial` share one transaction; `withdraw` manages its own.
+    """
     check_target(settings, yes=args.yes, e2e=args.e2e)
+    if args.command == "withdraw":
+        await _run_withdraw(settings, args)
+        return
     command = comp if args.command == "comp" else trial
     engine = make_engine(settings.database_url)
     try:
@@ -307,7 +407,7 @@ async def run(settings: Settings, args: argparse.Namespace) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run `comp` or `trial` from the command line."""
+    """Run `comp`, `trial`, or `withdraw` from the command line."""
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command == "comp":

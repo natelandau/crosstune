@@ -325,6 +325,91 @@ struct PostHogSinkTests {
             ])
     }
 
+    // Calls made while the regional default is still loading.
+
+    @Test func callsMadeWhileTheDefaultLoadsSendNothingAndSetNothingUp() {
+        let (sink, backend) = make()
+
+        sink.deferDecision()
+        sink.capture("tune_created", [:], set: [:])
+        sink.screen(.catalog)
+        sink.flush()
+
+        #expect(backend.calls.isEmpty)
+        #expect(suite.defaults.dictionaryRepresentation().keys.contains(PostHogSink.identifiedKey) == false)
+    }
+
+    @Test func heldCallsGoOutInOrderOnceTheDefaultResolvesOn() {
+        let (sink, backend) = make()
+
+        sink.deferDecision()
+        sink.capture("first", [:], set: [:])
+        sink.screen(.catalog)
+        sink.capture("second", [:], set: [:])
+        sink.setEnabled(true, rememberedUserID: nil)
+
+        #expect(
+            backend.calls == [
+                .setup, .register, .optIn, .capture(update, as: "anon-0"),
+                .capture("first", as: "anon-0"), .screen(Screen.catalog.rawValue), .capture("second", as: "anon-0"),
+            ])
+    }
+
+    @Test func heldCallsAreDiscardedWhenTheDefaultResolvesOff() {
+        let (sink, backend) = make()
+
+        sink.deferDecision()
+        sink.capture("first", [:], set: [:])
+        sink.setEnabled(false, rememberedUserID: nil)
+        sink.setEnabled(true, rememberedUserID: nil)
+
+        #expect(backend.calls == [.setup, .register, .optIn, .capture(update, as: "anon-0")])
+    }
+
+    @Test func theHeldCallsKeepTheNewestHundred() {
+        let (sink, backend) = make()
+
+        sink.deferDecision()
+        for number in 0..<105 { sink.capture("event_\(number)", [:], set: [:]) }
+        sink.setEnabled(true, rememberedUserID: nil)
+
+        let names = backend.captures.map(\.name).filter { $0 != update }
+        #expect(names.count == 100)
+        #expect(names.first == "event_5")
+        #expect(names.last == "event_104")
+    }
+
+    @Test func aSignInWhileTheDefaultLoadsIsIdentifiedBeforeTheHeldCallsGoOut() {
+        let (sink, backend) = make()
+
+        sink.deferDecision()
+        sink.identify("user_a", set: [:], setOnce: [:])
+        sink.capture("first", [:], set: [:])
+        sink.setEnabled(true, rememberedUserID: nil)
+
+        #expect(
+            backend.calls == [
+                .setup, .register, .optIn, .capture(update, as: "anon-0"),
+                .identify("user_a", set: none, setOnce: none),
+                .capture("first", as: "user_a"),
+            ])
+    }
+
+    @Test func aSignOutWhileTheDefaultLoadsDiscardsTheHeldCalls() {
+        let (sink, backend) = make()
+
+        sink.deferDecision()
+        sink.identify("user_a", set: [:], setOnce: [:])
+        sink.capture("before_sign_out", [:], set: [:])
+        sink.reset()
+        sink.capture("after_sign_out", [:], set: [:])
+        sink.setEnabled(true, rememberedUserID: nil)
+
+        let names = backend.captures.map(\.name).filter { $0 != update }
+        #expect(names == ["after_sign_out"])
+        #expect(backend.calls.contains(.identify("user_a", set: none, setOnce: none)) == false)
+    }
+
     /// The sink's record of the identified user follows the SDK across launches.
     @Test func theIdentifiedUserIsRecordedAndClearedWithTheSDK() {
         let (sink, _) = make()
@@ -350,6 +435,7 @@ struct PostHogSinkTests {
     #expect(!config.capturePushNotificationSubscriptions)
     #expect(!config.capturePushNotificationOpened)
     #if os(iOS)
+        #expect(!config.sessionReplay)
         #expect(!config.rageClickConfig.enabled)
         #expect(!config.captureAutocaptureElementText)
         #expect(!config.captureElementInteractions)

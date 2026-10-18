@@ -6,6 +6,7 @@ export interface Env extends OriginEnv {
 
 export type Upstream = (request: Request) => Promise<Response>
 
+const COUNTRY_HEADER = 'x-crosstune-country'
 const BODYLESS_METHODS = new Set(['GET', 'HEAD'])
 
 /**
@@ -14,7 +15,7 @@ const BODYLESS_METHODS = new Set(['GET', 'HEAD'])
  * reaching here at all; the assets branch is the safety net.
  */
 export async function handleRequest(
-  request: Request,
+  request: Request & { cf?: { country?: string } },
   env: Env,
   upstream: Upstream = (req) => fetch(req),
 ): Promise<Response> {
@@ -25,6 +26,10 @@ export async function handleRequest(
   const headers = new Headers(request.headers)
   // Clerk's session cookie belongs to the site origin, not the API.
   headers.delete('cookie')
+  // Only the edge's value counts: a client must not choose its own country.
+  headers.delete(COUNTRY_HEADER)
+  const country = request.cf?.country
+  if (country) headers.set(COUNTRY_HEADER, country)
   // A streamed body needs duplex on Node, and the Workers runtime accepts it.
   const init: RequestInit & { duplex: 'half' } = {
     method: request.method,

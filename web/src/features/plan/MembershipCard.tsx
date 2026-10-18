@@ -1,6 +1,7 @@
 import { ArrowUpRight } from 'lucide-react'
 import { FIELD_ROW_PRESSABLE } from '../../ui/form/FieldRow'
 import type { Manage, Membership } from './membership'
+import { WithdrawRow } from './WithdrawRow'
 import { APP_STORE_SUBSCRIPTIONS_URL, MANAGE_APP_STORE, MANAGE_SUBSCRIPTION } from './planCopy'
 
 const MANAGE_ROW = `${FIELD_ROW_PRESSABLE} border-hairline text-action not-first:border-t`
@@ -12,11 +13,14 @@ const MANAGE_ROW = `${FIELD_ROW_PRESSABLE} border-hairline text-action not-first
 export function MembershipCard({
   membership,
   manage,
+  withdrawUntil,
 }: {
   membership: Membership | null
   manage: Manage[]
+  /** The last day the account can withdraw for a refund, or null when it cannot. */
+  withdrawUntil: Date | null
 }) {
-  if (!membership && manage.length === 0) return null
+  if (!membership && manage.length === 0 && !withdrawUntil) return null
   return (
     <div className="bg-fill flex flex-col rounded-(--radius-surface) *:first:rounded-t-(--radius-surface) *:last:rounded-b-(--radius-surface)">
       {membership && (
@@ -41,6 +45,7 @@ export function MembershipCard({
           <ArrowUpRight className="size-4 shrink-0" aria-hidden />
         </a>
       ))}
+      {withdrawUntil && <WithdrawRow until={withdrawUntil} />}
     </div>
   )
 }

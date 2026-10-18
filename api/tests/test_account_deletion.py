@@ -10,16 +10,21 @@ from datetime import timedelta
 
 import httpx2
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from crosstune.billing import closing
+from crosstune.billing.emails import notice_key
 from crosstune.billing.grants import PaidSubscription
 from crosstune.billing.revenuecat import RevenueCatUnavailableError
 from crosstune.billing.stripe import StripeUnavailableError
+from crosstune.billing.withdrawal import complete_pending_withdrawals
 from crosstune.db.base import utc_now
 from crosstune.db.locks import lock_user
+from crosstune.email.resend import MailerUnavailableError
 from crosstune.errors import ACCOUNT_DELETED_PROBLEM, PROBLEM_JSON
 from crosstune.models import (
+    AccountNotice,
     DeletedAccount,
     Grant,
     InactivityNotice,
@@ -55,6 +60,7 @@ from tests.helpers import recording as recording_change
 
 pytestmark = pytest.mark.anyio
 
+EMAIL = "player@example.com"
 CLERK_USERS_URL = "https://api.clerk.com/v1/users/"
 
 
@@ -141,6 +147,7 @@ async def _seed(
                 second_sent_at=None,
                 deletion_due_at=T0 + timedelta(days=30),
             ),
+            AccountNotice(user_id=user_id, notice_key="terms-2027-04", sent_at=T0),
         ]
     )
     await verify_session.commit()
@@ -168,6 +175,7 @@ async def test_delete_me_removes_everything_and_the_clerk_user(
         Job,
         UploadSlot,
         InactivityNotice,
+        AccountNotice,
     )
     for model in owned:
         assert await verify_session.scalar(select(func.count()).select_from(model)) == 1, model
@@ -862,3 +870,425 @@ async def test_delete_without_revenuecat_ignores_ended_stripe_and_apple_grants(
     response = await client.delete("/v1/me", headers=auth_headers("user_a"))
     assert response.status_code == 204
     assert app.state.stripe.cancelled == []
+
+
+async def _web_subscription(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession, *, age: timedelta
+) -> None:
+    """A live web subscription started `age` ago, with RevenueCat reporting it."""
+    me = (await client.get("/v1/me", headers=auth_headers("user_a"))).json()
+    user = await verify_session.get(User, uuid.UUID(me["id"]))
+    user.email = EMAIL
+    verify_session.add(
+        Grant(
+            user_id=uuid.UUID(me["id"]),
+            kind="premium",
+            source="stripe",
+            external_id="sub_si_123",
+            started_at=utc_now() - age,
+            expires_at=utc_now() + timedelta(days=30),
+            auto_renews=True,
+        )
+    )
+    await verify_session.commit()
+    app.state.revenuecat = FakeRevenueCat({"user_a": [_sub("si_123")]})
+
+
+async def test_delete_inside_the_window_refunds_then_cancels_and_emails(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=10))
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.refunds == [("pi_fake", "withdraw:sub_si_123")]
+    assert app.state.stripe.calls == ["first_payment_intent", "refund", "cancel"]
+    assert app.state.stripe.cancelled == ["si_123"]
+    ((message, key),) = app.state.mailer.sent
+    assert message.to == EMAIL
+    assert key == notice_key("withdrawal", "sub_si_123", None)
+    body = " ".join(message.text.split())
+    assert "Your Crosstune account and its data were deleted." in body
+    assert "catalog" not in body
+
+
+async def test_delete_after_the_window_only_cancels(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=20))
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.refunds == []
+    assert app.state.stripe.cancelled == ["si_123"]
+    assert app.state.mailer.sent == []
+
+
+async def test_delete_after_an_earlier_withdrawal_only_cancels(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=10))
+    user = await verify_session.scalar(select(User).where(User.clerk_user_id == "user_a"))
+    user.withdrew_at = utc_now() - timedelta(days=1)
+    await verify_session.commit()
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.refunds == []
+    assert app.state.stripe.cancelled == ["si_123"]
+    assert app.state.mailer.sent == []
+
+
+async def test_delete_inside_the_window_leaves_apple_alone(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    me = (await client.get("/v1/me", headers=auth_headers("user_a"))).json()
+    verify_session.add(
+        Grant(
+            user_id=uuid.UUID(me["id"]),
+            kind="premium",
+            source="apple",
+            external_id="sub_2000000123",
+            started_at=utc_now() - timedelta(days=2),
+            expires_at=utc_now() + timedelta(days=30),
+        )
+    )
+    await verify_session.commit()
+    app.state.revenuecat = FakeRevenueCat(
+        {"user_a": [_sub("2000000123", source=GrantSource.APPLE)]}
+    )
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.refunds == []
+    assert app.state.stripe.cancelled == []
+    assert app.state.mailer.sent == []
+
+
+async def test_a_failed_refund_keeps_the_account_and_cancels_nothing(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=10))
+    app.state.stripe = FakeStripe(error=StripeUnavailableError(), fail_only="refund")
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 502
+    assert app.state.stripe.cancelled == []
+    assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
+    assert app.state.mailer.sent == []
+
+
+async def test_a_failed_cancel_after_the_refund_keeps_the_account_and_a_retry_refunds_once(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=10))
+    stripe = FakeStripe(error=StripeUnavailableError(), fail_only="cancel")
+    app.state.stripe = stripe
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 502
+    assert stripe.refunds == [("pi_fake", "withdraw:sub_si_123")]
+    assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
+    verify_session.expire_all()
+    grant = await verify_session.scalar(select(Grant).where(Grant.external_id == "sub_si_123"))
+    assert grant.refunded_at is not None
+    assert grant.store_id == "si_123"
+    assert grant.withdrawn_at is None
+    assert app.state.mailer.sent == []
+
+    stripe.error = None
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert stripe.refunds == [("pi_fake", "withdraw:sub_si_123")]
+    assert stripe.cancelled == ["si_123"]
+    assert len(app.state.mailer.sent) == 1
+
+
+async def test_a_clerk_failure_after_the_refund_keeps_the_withdrawal_and_never_refunds_twice(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=10))
+    app.state.clerk_users.error = ClerkUnavailableError()
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 502
+    verify_session.expire_all()
+    user = await verify_session.scalar(select(User).where(User.clerk_user_id == "user_a"))
+    assert user.withdrew_at is not None
+    grant = await verify_session.scalar(select(Grant).where(Grant.external_id == "sub_si_123"))
+    assert grant.refunded_at is not None
+    assert grant.withdrawn_at is not None
+    assert grant.auto_renews is False
+    assert app.state.mailer.sent == []
+
+    app.state.clerk_users.error = None
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.refunds == [("pi_fake", "withdraw:sub_si_123")]
+    assert app.state.mailer.sent == []
+
+
+async def _older_withdrawal(verify_session: AsyncSession, *, account_withdrew: bool) -> None:
+    """A withdrawal completed days ago whose email was never recorded."""
+    user = await verify_session.scalar(select(User).where(User.clerk_user_id == "user_a"))
+    user.email = EMAIL
+    if account_withdrew:
+        user.withdrew_at = utc_now() - timedelta(days=5)
+    verify_session.add(
+        Grant(
+            user_id=user.id,
+            kind="premium",
+            source="stripe",
+            external_id="sub_si_old",
+            started_at=utc_now() - timedelta(days=40),
+            expires_at=utc_now() - timedelta(days=5),
+            auto_renews=False,
+            refunded_at=utc_now() - timedelta(days=5),
+            withdrawn_at=utc_now() - timedelta(days=5),
+            store_id="si_old",
+        )
+    )
+    await verify_session.commit()
+
+
+async def test_delete_sends_no_deletion_email_for_an_older_unrecorded_withdrawal(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await client.get("/v1/me", headers=auth_headers("user_a"))
+    await _older_withdrawal(verify_session, account_withdrew=True)
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.refunds == []
+    assert app.state.mailer.sent == []
+
+
+async def test_delete_emails_only_for_the_refund_it_made(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=10))
+    await _older_withdrawal(verify_session, account_withdrew=False)
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.refunds == [("pi_fake", "withdraw:sub_si_123")]
+    assert "account and its data were deleted" in _deletion_email(app)
+
+
+async def _pending_withdrawal(
+    client: httpx2.AsyncClient, verify_session: AsyncSession, auth_headers, store_id: str | None
+) -> None:
+    """A refunded web subscription whose cancel never went through."""
+    me = (await client.get("/v1/me", headers=auth_headers("user_a"))).json()
+    user = await verify_session.get(User, uuid.UUID(me["id"]))
+    user.email = EMAIL
+    verify_session.add(
+        Grant(
+            user_id=uuid.UUID(me["id"]),
+            kind="premium",
+            source="stripe",
+            external_id="sub_si_123",
+            started_at=utc_now() - timedelta(days=3),
+            expires_at=utc_now() - timedelta(minutes=5),
+            auto_renews=False,
+            refunded_at=utc_now() - timedelta(days=1),
+            store_id=store_id,
+        )
+    )
+    await verify_session.commit()
+
+
+async def test_delete_cancels_a_pending_withdrawal_revenuecat_reports_ended(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _pending_withdrawal(client, verify_session, auth_headers, "si_123")
+    ended = _sub("si_123", expires_in=timedelta(minutes=-5), auto_renews=False)
+    app.state.revenuecat = FakeRevenueCat({"user_a": [ended]})
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.refunds == []
+    assert app.state.stripe.cancelled == ["si_123"]
+    assert len(app.state.mailer.sent) == 1
+
+
+async def test_delete_keeps_an_account_whose_pending_withdrawal_has_no_item_to_cancel(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _pending_withdrawal(client, verify_session, auth_headers, None)
+    app.state.revenuecat = FakeRevenueCat({"user_a": []})
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 502
+    assert app.state.stripe.cancelled == []
+    assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
+    verify_session.expire_all()
+    grant = await verify_session.scalar(select(Grant).where(Grant.external_id == "sub_si_123"))
+    assert grant.refunded_at is not None
+    assert app.state.clerk_users.deleted == []
+
+
+async def test_delete_without_stripe_but_a_pending_withdrawal_is_503(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _pending_withdrawal(client, verify_session, auth_headers, "si_123")
+    app.state.stripe = None
+    app.state.revenuecat = FakeRevenueCat({"user_a": []})
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 503
+    assert await verify_session.scalar(select(func.count()).select_from(User)) == 1
+
+
+async def test_a_failed_withdrawal_email_never_fails_the_deletion(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession, caplog
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=10))
+    app.state.mailer.error = MailerUnavailableError()
+    with caplog.at_level(logging.WARNING):
+        response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.refunds
+    assert await verify_session.scalar(select(func.count()).select_from(User)) == 0
+    assert any("did not accept a withdrawal email" in r.getMessage() for r in caplog.records)
+
+
+async def test_a_partial_withdrawal_is_not_refunded_again_but_still_emails(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=20))
+    grant = await verify_session.scalar(select(Grant).where(Grant.external_id == "sub_si_123"))
+    grant.refunded_at = utc_now() - timedelta(days=6)
+    await verify_session.commit()
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.refunds == []
+    assert app.state.stripe.cancelled == ["si_123"]
+    assert len(app.state.mailer.sent) == 1
+
+
+async def test_the_clerk_webhook_inside_the_window_refunds_and_emails_once(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=10))
+    body = json.dumps({"type": "user.deleted", "data": {"id": "user_a"}}).encode()
+    response = await client.post("/v1/webhooks/clerk", content=body, headers=sign(body))
+    assert response.status_code == 204
+    assert app.state.stripe.refunds == [("pi_fake", "withdraw:sub_si_123")]
+    assert app.state.stripe.calls == ["first_payment_intent", "refund", "cancel"]
+    assert len(app.state.mailer.sent) == 1
+
+    again = await client.post("/v1/webhooks/clerk", content=body, headers=sign(body))
+    assert again.status_code == 204
+    assert len(app.state.stripe.refunds) == 1
+    assert len(app.state.mailer.sent) == 1
+
+
+class _Gap:
+    """Holds a deletion between its refund commit and the lock it then takes again."""
+
+    def __init__(self) -> None:
+        self.entered = asyncio.Event()
+        self.release = asyncio.Event()
+        self.calls = 0
+
+
+def _pause_after_the_refund_commit(monkeypatch) -> _Gap:
+    gap = _Gap()
+    relock = closing.lock_user
+
+    async def paused(session: AsyncSession, user_id: uuid.UUID) -> None:
+        gap.calls += 1
+        if gap.calls == 1:
+            gap.entered.set()
+            await gap.release.wait()
+        await relock(session, user_id)
+
+    monkeypatch.setattr(closing, "lock_user", paused)
+    return gap
+
+
+async def _until_waiting_or_done(engine, task: asyncio.Task) -> None:
+    """Return once some request waits on an advisory lock, or `task` has finished."""
+    query = text("select count(*) from pg_locks where locktype = 'advisory' and not granted")
+    while not task.done():
+        async with engine.connect() as conn:
+            if await conn.scalar(query):
+                return
+        await asyncio.sleep(0.01)
+
+
+def _deletion_email(app) -> str:
+    ((message, key),) = app.state.mailer.sent
+    assert key == notice_key("withdrawal", "sub_si_123", None)
+    return " ".join(message.text.split())
+
+
+async def test_a_second_delete_waits_for_the_first_to_finish_its_billing(
+    engine, client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession, monkeypatch
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=10))
+    gap = _pause_after_the_refund_commit(monkeypatch)
+    first = asyncio.create_task(client.delete("/v1/me", headers=auth_headers("user_a")))
+    await gap.entered.wait()
+    second = asyncio.create_task(client.delete("/v1/me", headers=auth_headers("user_a")))
+    await _until_waiting_or_done(engine, second)
+    gap.release.set()
+
+    responses = await asyncio.gather(first, second)
+
+    assert [r.status_code for r in responses] == [204, 204]
+    assert app.state.stripe.refunds == [("pi_fake", "withdraw:sub_si_123")]
+    assert app.state.clerk_users.deleted == ["user_a"]
+    assert await verify_session.scalar(select(func.count()).select_from(User)) == 0
+    assert "account and its data were deleted" in _deletion_email(app)
+
+
+async def test_the_withdrawal_pass_leaves_an_account_a_deletion_is_refunding(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession, monkeypatch
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=10))
+    gap = _pause_after_the_refund_commit(monkeypatch)
+    deletion = asyncio.create_task(client.delete("/v1/me", headers=auth_headers("user_a")))
+    await gap.entered.wait()
+
+    state = app.state
+    completed = await complete_pending_withdrawals(
+        state.sessionmaker, state.stripe, state.revenuecat, state.mailer, state.settings, utc_now()
+    )
+    assert completed == 0
+    assert state.stripe.cancelled == []
+    gap.release.set()
+
+    assert (await deletion).status_code == 204
+    assert state.stripe.cancelled == ["si_123"]
+    assert "catalog" not in _deletion_email(app)
+
+
+async def test_a_withdrawal_waits_for_a_deletion_that_is_refunding(
+    engine, client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession, monkeypatch
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=10))
+    gap = _pause_after_the_refund_commit(monkeypatch)
+    deletion = asyncio.create_task(client.delete("/v1/me", headers=auth_headers("user_a")))
+    await gap.entered.wait()
+    withdrawal = asyncio.create_task(
+        client.post("/v1/me/billing/withdraw", headers=auth_headers("user_a"))
+    )
+    await _until_waiting_or_done(engine, withdrawal)
+    gap.release.set()
+
+    deleted, withdrew = await asyncio.gather(deletion, withdrawal)
+
+    assert deleted.status_code == 204
+    assert withdrew.status_code == 409
+    assert app.state.stripe.refunds == [("pi_fake", "withdraw:sub_si_123")]
+    assert app.state.stripe.cancelled == ["si_123"]
+    assert "catalog" not in _deletion_email(app)
+
+
+async def test_a_deletion_that_finds_the_account_gone_after_its_refund_stops_cleanly(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession, monkeypatch
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=10))
+    gap = _pause_after_the_refund_commit(monkeypatch)
+    deletion = asyncio.create_task(client.delete("/v1/me", headers=auth_headers("user_a")))
+    await gap.entered.wait()
+    # Another writer removes the account while the deletion sits between its steps.
+    await verify_session.execute(text("delete from users where clerk_user_id = 'user_a'"))
+    await verify_session.commit()
+    gap.release.set()
+
+    response = await deletion
+
+    assert response.status_code == 204
+    assert app.state.stripe.refunds == [("pi_fake", "withdraw:sub_si_123")]
+    assert app.state.clerk_users.deleted == []

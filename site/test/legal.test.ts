@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { APP_URL, SIGN_UP_URL, SUPPORT_EMAIL } from '../src/components/actions'
 import { readPage } from './dist'
@@ -34,8 +35,19 @@ describe('/privacy', () => {
     // The web app's sign-in session, never the site itself, which counts visits without cookies.
     'To keep you signed in to the web app at my.crosstune.app, it sets cookies on the crosstune.app domain',
     'visits are counted without cookies',
+    'IP geolocation by DB-IP',
+    'licensed under CC BY 4.0',
+    // The countries where Share usage data starts off, as the API's consent list names them.
+    'European Economic Area (Iceland, Liechtenstein, and Norway)',
+    'cannot tell which country you are in',
+    // Refund records outlive a deleted account.
+    'Refund records',
   ])('discloses "%s"', (phrase) => {
     expect(text).toContain(phrase)
+  })
+
+  it('never mentions session recordings, which the apps do not make', () => {
+    expect(text).not.toMatch(/session recordings/i)
   })
 
   it.each([
@@ -69,6 +81,18 @@ describe('/terms', () => {
   it('names the governing law and the operator', () => {
     expect(text).toContain('New York')
     expect(text).toContain('Nathaniel Landau')
+  })
+
+  // Read as text: the site's test config does not resolve web source imports.
+  const planCopy = readFileSync(
+    new URL('../../web/src/features/plan/planCopy.ts', import.meta.url),
+    'utf8',
+  )
+
+  it.each(['MANAGE_SUBSCRIPTION', 'WITHDRAW_LABEL'])('names the web app label %s', (name) => {
+    const label = planCopy.match(new RegExp(`export const ${name} = '([^']+)'`))?.[1]
+    expect(label).toBeDefined()
+    expect(text).toContain(label)
   })
 })
 

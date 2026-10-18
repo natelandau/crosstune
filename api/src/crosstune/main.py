@@ -14,14 +14,13 @@ from crosstune import __version__
 from crosstune.analytics.posthog import PostHogPersons
 from crosstune.auth.account_created import AccountCreatedHeader
 from crosstune.auth.jwks import JwksCache
-from crosstune.billing.revenuecat import RevenueCatRest
+from crosstune.billing.clients import make_mailer, make_revenuecat, make_stripe
 from crosstune.billing.router import router as billing_router
-from crosstune.billing.stripe import StripeRest
 from crosstune.body import BodyAdmission
 from crosstune.config import Settings, get_settings
 from crosstune.db.engine import IdlePoolCloser, make_engine, make_sessionmaker
-from crosstune.email.resend import ResendMailer
 from crosstune.errors import install_error_handlers
+from crosstune.geo import load_reader
 from crosstune.http import public_only_client
 from crosstune.jobs.media import hide_from_media_tools
 from crosstune.jobs.runner import JobRunner
@@ -32,6 +31,7 @@ from crosstune.links.search.registry import adapters as search_adapters
 from crosstune.logging import configure_logging
 from crosstune.ratelimit import RateLimiter
 from crosstune.recordings.router import router as recordings_router
+from crosstune.region import router as region_router
 from crosstune.scans.router import router as scans_router
 from crosstune.schemas.rows import (
     PlayEventData,
@@ -84,26 +84,16 @@ def _build_apple_sign_in(app: FastAPI, settings: Settings) -> None:
 
 def _build_mailer(app: FastAPI, settings: Settings) -> None:
     """Set app.state.mailer when a Resend key is configured and nothing built it yet."""
-    if app.state.mailer is None and settings.mail_configured:
-        app.state.mailer = ResendMailer(
-            app.state.http_client,
-            settings.resend_api_key.get_secret_value(),
-            settings.email_from,
-        )
+    if app.state.mailer is None:
+        app.state.mailer = make_mailer(app.state.http_client, settings)
 
 
 def _build_billing_clients(app: FastAPI, settings: Settings) -> None:
     """Set app.state.revenuecat and app.state.stripe when configured and nothing built them yet."""
-    if app.state.revenuecat is None and settings.revenuecat_configured:
-        app.state.revenuecat = RevenueCatRest(
-            app.state.http_client,
-            settings.revenuecat_project_id,
-            settings.revenuecat_secret_key.get_secret_value(),
-        )
-    if app.state.stripe is None and settings.stripe_configured:
-        app.state.stripe = StripeRest(
-            app.state.http_client, settings.stripe_cancel_key.get_secret_value()
-        )
+    if app.state.revenuecat is None:
+        app.state.revenuecat = make_revenuecat(app.state.http_client, settings)
+    if app.state.stripe is None:
+        app.state.stripe = make_stripe(app.state.http_client, settings)
 
 
 def _build_analytics_persons(app: FastAPI, settings: Settings) -> None:
@@ -137,6 +127,12 @@ def _build_object_store(app: FastAPI, settings: Settings) -> None:
     """Set app.state.object_store when storage is configured and nothing built it yet."""
     if app.state.object_store is None:
         app.state.object_store = make_object_store(settings)
+
+
+def _build_geo(app: FastAPI, settings: Settings) -> None:
+    """Set app.state.geo from the configured database when nothing built it yet."""
+    if app.state.geo is None:
+        app.state.geo = load_reader(settings.geoip_path)
 
 
 def _publish_push_data_schemas(app: FastAPI) -> None:
@@ -191,6 +187,7 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
     _build_billing_clients(app, settings)
     _build_analytics_persons(app, settings)
     _build_object_store(app, settings)
+    _build_geo(app, settings)
     built_runner = app.state.job_runner is None and app.state.object_store is not None
     if built_runner:
         hide_from_media_tools()
@@ -202,6 +199,8 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
             analytics_persons=app.state.analytics_persons,
             mailer=app.state.mailer,
             clerk_users=app.state.clerk_users,
+            stripe=app.state.stripe,
+            revenuecat=app.state.revenuecat,
             settings=settings,
         )
         app.state.job_runner.start()
@@ -238,6 +237,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             release=__version__,
             environment=settings.environment,
             traces_sample_rate=0.0,
+            max_request_body_size="never",
             event_scrubber=EventScrubber(denylist=SCRUBBED_KEYS, recursive=True),
         )
 
@@ -264,6 +264,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.stripe = None
     app.state.analytics_persons = None
     app.state.object_store = None
+    app.state.geo = None
     app.state.job_runner = None
     app.state.pool_closer = None
     app.state.link_resolve_limiter = RateLimiter(
@@ -290,6 +291,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(links_router)
     app.include_router(recordings_router)
     app.include_router(scans_router)
+    app.include_router(region_router)
     _publish_push_data_schemas(app)
 
     @app.get("/healthz", include_in_schema=False)

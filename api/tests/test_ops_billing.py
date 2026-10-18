@@ -11,14 +11,16 @@ import pytest
 from sqlalchemy import select, text
 
 from crosstune.billing.access import refresh_entitlement
-from crosstune.billing.grants import grant_comp, set_trial_end
+from crosstune.billing.grants import PaidSubscription, grant_comp, mirror_paid_grants, set_trial_end
 from crosstune.config import Settings
 from crosstune.db.base import utc_now
 from crosstune.db.locks import advisory_lock_key
+from crosstune.errors import BillingUnavailableError, WithdrawalRefusedError
 from crosstune.models import Entitlement, Grant, PendingComp
 from crosstune.ops import billing
 from crosstune.users.service import get_or_create_user
-from crosstune.vocabulary import GrantSource
+from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantPeriod, GrantSource
+from tests.fakes import FakeMailer, FakeRevenueCat, FakeStripe
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -598,3 +600,190 @@ async def test_re_comp_updates_the_end_and_the_audit_fields(
     assert grant.expires_at == datetime(2999, 3, 4, tzinfo=UTC)
     assert (grant.reason, grant.granted_by) == ("second", "b")
     assert (await _entitlement(session, user)).premium_expires_at == grant.expires_at
+
+
+async def _withdraw_command(
+    session: AsyncSession, settings: Settings, *argv: str, **clients: object
+) -> str:
+    args = billing.build_parser().parse_args(["withdraw", *argv])
+    clients.setdefault("stripe", FakeStripe())
+    clients.setdefault("revenuecat", FakeRevenueCat())
+    clients.setdefault("mailer", FakeMailer())
+    return await billing.withdraw_account(session, settings, args, **clients)
+
+
+@pytest.fixture
+def withdraw_calls(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
+    calls: list[dict[str, object]] = []
+
+    async def fake_withdraw(
+        session: object,
+        user: User,
+        stripe: object,
+        revenuecat: object,
+        mailer: object,
+        settings: object,
+        now: object,
+        **kwargs: object,
+    ) -> None:
+        calls.append({"user": user, "stripe": stripe, "mailer": mailer, **kwargs})
+
+    monkeypatch.setattr(billing, "withdraw", fake_withdraw)
+    return calls
+
+
+@pytest.mark.parametrize(("flags", "expected"), [([], False), (["--allow-repeat"], True)])
+async def test_withdraw_passes_allow_repeat_from_the_flag(
+    session: AsyncSession,
+    settings: Settings,
+    withdraw_calls: list[dict[str, object]],
+    flags: list[str],
+    expected: bool,  # noqa: FBT001 -- parametrized value
+) -> None:
+    user = await _user(session, settings)
+    message = await _withdraw_command(
+        session, settings, FREE_USER, "--by", "me", "--reason", "emailed", *flags
+    )
+    (call,) = withdraw_calls
+    assert call["user"] is user
+    assert call["allow_repeat"] is expected
+    assert FREE_USER in message
+    assert "me" in message
+    assert "emailed" in message
+
+
+async def test_withdraw_by_email_finds_the_account(
+    session: AsyncSession, settings: Settings, withdraw_calls: list[dict[str, object]]
+) -> None:
+    user = await _user(session, settings)
+    await _withdraw_command(session, settings, EMAIL.lower(), "--by", "me", "--reason", "r")
+    assert withdraw_calls[0]["user"] is user
+
+
+async def test_withdraw_for_an_unknown_account_is_an_error(
+    session: AsyncSession, settings: Settings, withdraw_calls: list[dict[str, object]]
+) -> None:
+    with pytest.raises(billing.BillingCommandError, match="no account matches"):
+        await _withdraw_command(session, settings, "user_nobody", "--by", "me", "--reason", "r")
+    assert withdraw_calls == []
+
+
+@pytest.mark.parametrize("reason", ["no_web_subscription", "window_closed", "already_withdrawn"])
+async def test_withdraw_reports_a_refusal_with_its_reason(
+    session: AsyncSession, settings: Settings, monkeypatch: pytest.MonkeyPatch, reason: str
+) -> None:
+    async def refuse(*_args: object, **_kwargs: object) -> None:
+        raise WithdrawalRefusedError(reason)
+
+    monkeypatch.setattr(billing, "withdraw", refuse)
+    await _user(session, settings)
+    with pytest.raises(billing.BillingCommandError, match=reason):
+        await _withdraw_command(session, settings, FREE_USER, "--by", "me", "--reason", "r")
+
+
+async def test_withdraw_reports_an_unavailable_provider(
+    session: AsyncSession, settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def unavailable(*_args: object, **_kwargs: object) -> None:
+        raise BillingUnavailableError
+
+    monkeypatch.setattr(billing, "withdraw", unavailable)
+    await _user(session, settings)
+    with pytest.raises(billing.BillingCommandError, match="rerun"):
+        await _withdraw_command(session, settings, FREE_USER, "--by", "me", "--reason", "r")
+
+
+async def test_withdraw_refunds_through_the_real_path(
+    session: AsyncSession, settings: Settings
+) -> None:
+    user = await _user(session, settings)
+    now = utc_now()
+    sub = PaidSubscription(
+        subscription_id="sub_1",
+        store_id="si_sub_1",
+        source=GrantSource.STRIPE,
+        kind=GrantKind.PREMIUM,
+        environment=GrantEnvironment.PRODUCTION,
+        expires_at=now + timedelta(days=27),
+        auto_renews=True,
+        started_at=now - timedelta(days=3),
+        period=GrantPeriod.MONTH,
+    )
+    revenuecat = FakeRevenueCat({FREE_USER: [sub]})
+    stripe = FakeStripe()
+    mailer = FakeMailer()
+    await mirror_paid_grants(session, user.id, [sub], utc_now())
+    message = await _withdraw_command(
+        session,
+        settings,
+        FREE_USER,
+        "--by",
+        "me",
+        "--reason",
+        "emailed",
+        stripe=stripe,
+        revenuecat=revenuecat,
+        mailer=mailer,
+    )
+    assert stripe.refunds == [("pi_fake", "withdraw:sub_1")]
+    assert stripe.cancelled == ["si_sub_1"]
+    assert len(mailer.sent) == 1
+    assert "withdrew" in message
+
+
+def test_withdraw_needs_by_and_reason() -> None:
+    parser = billing.build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["withdraw", FREE_USER, "--reason", "r"])
+    with pytest.raises(SystemExit):
+        parser.parse_args(["withdraw", FREE_USER, "--by", "me"])
+
+
+def test_main_withdraw_refuses_production_without_yes(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    production = Settings.model_construct(
+        environment="production", database_url="postgresql+asyncpg://u@db.example/crosstune"
+    )
+    monkeypatch.setattr(billing, "load_settings", lambda: production)
+    assert billing.main(["withdraw", FREE_USER, "--by", "me", "--reason", "r"]) == 1
+    assert "--yes" in capsys.readouterr().err
+
+
+async def test_main_withdraw_prints_a_refusal_and_returns_one(
+    committed_settings: Settings,
+    verify_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    await get_or_create_user(verify_session, "user_main", "m@example.com", committed_settings)
+    await verify_session.commit()
+    monkeypatch.setattr(billing, "make_stripe", lambda *_: FakeStripe())
+    monkeypatch.setattr(billing, "make_revenuecat", lambda *_: FakeRevenueCat())
+    monkeypatch.setattr(billing, "make_mailer", lambda *_: None)
+
+    code = await anyio.to_thread.run_sync(
+        billing.main, ["withdraw", "user_main", "--by", "me", "--reason", "r"]
+    )
+
+    assert code == 1
+    assert "no_web_subscription" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("missing", ["make_stripe", "make_revenuecat"])
+async def test_main_withdraw_needs_both_billing_providers(
+    committed_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    missing: str,
+) -> None:
+    monkeypatch.setattr(billing, "make_stripe", lambda *_: FakeStripe())
+    monkeypatch.setattr(billing, "make_revenuecat", lambda *_: FakeRevenueCat())
+    monkeypatch.setattr(billing, missing, lambda *_: None)
+
+    code = await anyio.to_thread.run_sync(
+        billing.main, ["withdraw", "user_main", "--by", "me", "--reason", "r"]
+    )
+
+    assert code == 1
+    assert "must both be configured" in capsys.readouterr().err

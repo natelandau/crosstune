@@ -255,12 +255,15 @@ private func json(_ data: Data?) throws -> JSONObject {
         let response = try await api(transport).searchRecordings(
             q: "Soldier's Joy Reel", providers: ["apple_music", "tidal", "spotify"], country: "IE")
 
-        let path = try #require(transport.requests.first?.request.path)
-        let query = try #require(URLComponents(string: path)?.queryItems)
-        #expect(path.hasPrefix("/v1/links/search?"))
-        #expect(query.filter { $0.name == "q" }.map(\.value) == ["Soldier's Joy Reel"])
-        #expect(query.filter { $0.name == "providers" }.map(\.value) == ["apple_music", "tidal", "spotify"])
-        #expect(query.filter { $0.name == "country" }.map(\.value) == ["IE"])
+        let sent = try #require(transport.requests.first)
+        #expect(sent.request.method == .post)
+        #expect(sent.request.path == "/v1/links/search")
+        #expect(
+            try json(sent.body) == [
+                "q": .string("Soldier's Joy Reel"),
+                "providers": .array([.string("apple_music"), .string("tidal"), .string("spotify")]),
+                "country": .string("IE"),
+            ])
         #expect(
             response.groups == [
                 SearchGroup(

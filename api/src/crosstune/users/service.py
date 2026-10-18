@@ -13,7 +13,8 @@ from crosstune.billing.grants import claim_pending_comp, start_trial
 from crosstune.db.base import new_uuid7, utc_now
 from crosstune.db.locks import lock_clerk_user
 from crosstune.errors import AccountDeletedError
-from crosstune.models import DeletedAccount, User
+from crosstune.models import BillingNotice, DeletedAccount, Grant, User
+from crosstune.vocabulary import BillingNoticeKind
 
 if TYPE_CHECKING:
     import uuid
@@ -113,8 +114,10 @@ async def provision_user(
 LAST_SYNCED_GRANULARITY = timedelta(hours=1)
 
 
-async def touch_last_synced(session: AsyncSession, user_id: uuid.UUID, now: datetime) -> None:
-    """Record that the user synced, at most once an hour.
+async def touch_last_synced(
+    session: AsyncSession, user_id: uuid.UUID, now: datetime, country: str | None
+) -> None:
+    """Record that the user synced and where from, at most once an hour.
 
     A sync that finds the user row locked by another transaction skips the write rather
     than waiting on it: the sync already holds the user lock, and a request holding the
@@ -125,7 +128,11 @@ async def touch_last_synced(session: AsyncSession, user_id: uuid.UUID, now: date
         session: The request's session; the caller commits.
         user_id: The syncing user.
         now: The time to record.
+        country: The request's country code, kept only when not None.
     """
+    values: dict[str, object] = {"last_synced_at": now}
+    if country is not None:
+        values["country"] = country
     due = (
         select(User.id)
         .where(
@@ -140,7 +147,7 @@ async def touch_last_synced(session: AsyncSession, user_id: uuid.UUID, now: date
     await session.execute(
         update(User)
         .where(User.id.in_(due.scalar_subquery()))
-        .values(last_synced_at=now)
+        .values(**values)
         .execution_options(synchronize_session=False)
     )
 
@@ -148,7 +155,9 @@ async def touch_last_synced(session: AsyncSession, user_id: uuid.UUID, now: date
 async def purge_account(session: AsyncSession, clerk_user_id: str) -> uuid.UUID | None:
     """Denylist the Clerk id, then hard-delete the user.
 
-    Foreign keys cascade to every table the user owns.
+    Foreign keys cascade to every table the user owns. The confirmation and reminder
+    notices of the user's subscriptions go too; withdrawal notices stay, as the record
+    of a refund.
 
     Args:
         session: The session to write through.
@@ -162,6 +171,18 @@ async def purge_account(session: AsyncSession, clerk_user_id: str) -> uuid.UUID 
     stmt = insert(DeletedAccount).values(clerk_user_id=clerk_user_id, deleted_at=utc_now())
     stmt = stmt.on_conflict_do_nothing(index_elements=[DeletedAccount.clerk_user_id])
     await session.execute(stmt)
+    await session.execute(
+        delete(BillingNotice).where(
+            BillingNotice.kind.in_(
+                [BillingNoticeKind.CONFIRMATION.value, BillingNoticeKind.RENEWAL_REMINDER.value]
+            ),
+            BillingNotice.subscription_id.in_(
+                select(Grant.external_id)
+                .join(User, User.id == Grant.user_id)
+                .where(User.clerk_user_id == clerk_user_id, Grant.external_id.is_not(None))
+            ),
+        )
+    )
     return await session.scalar(
         delete(User).where(User.clerk_user_id == clerk_user_id).returning(User.id)
     )

@@ -16,7 +16,7 @@ from crosstune.billing.access import (
 )
 from crosstune.billing.grants import set_trial_end, start_trial
 from crosstune.models import Grant, User
-from crosstune.vocabulary import GrantKind, GrantSource
+from crosstune.vocabulary import WITHDRAWAL_WINDOW, GrantKind, GrantSource
 from tests.helpers import T0
 
 if TYPE_CHECKING:
@@ -314,3 +314,88 @@ def test_resolver_holds_premium_in_apple_grace(settings: Settings) -> None:
     assert result.access.premium is True
     assert result.premium_source == GrantSource.APPLE
     assert result.premium_expires_at == grace_ends
+
+
+async def _paid_user(
+    session, source: GrantSource, *, started_days_ago: int, withdrew: bool = False
+) -> uuid.UUID:
+    user_id = await _user(session)
+    grant = _premium(source, NOW + timedelta(days=365), auto_renews=True)
+    grant.user_id = user_id
+    grant.external_id = f"sub_{uuid.uuid4().hex}"
+    grant.started_at = NOW - timedelta(days=started_days_ago)
+    session.add(grant)
+    if withdrew:
+        user = await session.get(User, user_id)
+        user.withdrew_at = NOW - timedelta(days=1)
+    await session.flush()
+    return user_id
+
+
+async def test_refresh_opens_the_withdrawal_window_of_a_new_web_subscription(
+    session, settings: Settings
+) -> None:
+    user_id = await _paid_user(session, GrantSource.STRIPE, started_days_ago=13)
+
+    row = await refresh_entitlement(session, user_id, settings, NOW)
+
+    assert row.withdraw_until == NOW - timedelta(days=13) + WITHDRAWAL_WINDOW
+    assert row.withdrawal_used is False
+
+
+async def test_refresh_closes_the_withdrawal_window_after_fourteen_days(
+    session, settings: Settings
+) -> None:
+    user_id = await _paid_user(session, GrantSource.STRIPE, started_days_ago=13)
+    row = await refresh_entitlement(session, user_id, settings, NOW)
+    first_seq = row.server_seq
+
+    row = await refresh_entitlement(session, user_id, settings, NOW + timedelta(days=2))
+
+    assert row.withdraw_until is None
+    assert row.server_seq > first_seq
+
+
+async def test_refresh_gives_no_withdrawal_window_on_day_fifteen(
+    session, settings: Settings
+) -> None:
+    user_id = await _paid_user(session, GrantSource.STRIPE, started_days_ago=15)
+
+    row = await refresh_entitlement(session, user_id, settings, NOW)
+
+    assert row.withdraw_until is None
+
+
+async def test_refresh_gives_no_withdrawal_window_after_a_withdrawal(
+    session, settings: Settings
+) -> None:
+    user_id = await _paid_user(session, GrantSource.STRIPE, started_days_ago=2, withdrew=True)
+
+    row = await refresh_entitlement(session, user_id, settings, NOW)
+
+    assert row.withdraw_until is None
+    assert row.withdrawal_used is True
+
+
+async def test_refresh_reports_a_used_withdrawal_with_no_premium_left(
+    session, settings: Settings
+) -> None:
+    user_id = await _user(session)
+    user = await session.get(User, user_id)
+    user.withdrew_at = NOW - timedelta(days=30)
+    await session.flush()
+
+    row = await refresh_entitlement(session, user_id, settings, NOW)
+
+    assert row.premium_source is None
+    assert row.withdrawal_used is True
+
+
+async def test_refresh_gives_no_withdrawal_window_to_an_apple_subscription(
+    session, settings: Settings
+) -> None:
+    user_id = await _paid_user(session, GrantSource.APPLE, started_days_ago=2)
+
+    row = await refresh_entitlement(session, user_id, settings, NOW)
+
+    assert row.withdraw_until is None

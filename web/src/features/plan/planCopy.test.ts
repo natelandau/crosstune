@@ -1,6 +1,19 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { addedDay } from '../../text/format'
-import { save, saving, TRIAL_ENDS_TODAY, trialDaysLeft, trialEnds, trialLeft } from './planCopy'
+import {
+  MANAGE_SUBSCRIPTION,
+  renewalTerms,
+  save,
+  saving,
+  TRIAL_ENDS_TODAY,
+  trialDaysLeft,
+  trialEnds,
+  trialLeft,
+  WITHDRAW_LABEL,
+  withdrawUntil,
+} from './planCopy'
 
 const at = (day: number, hour: number, minute = 0) => new Date(2026, 9, day, hour, minute)
 
@@ -79,5 +92,38 @@ describe('saving', () => {
 
   it('names the percentage', () => {
     expect(save(17)).toBe('Save 17%')
+  })
+})
+
+describe('web billing labels', () => {
+  it('match the ones the refund emails tell the customer to press', () => {
+    const emails = readFileSync(
+      resolve(import.meta.dirname, '../../../../api/src/crosstune/billing/emails.py'),
+      'utf8',
+    )
+    expect(emails).toContain(WITHDRAW_LABEL)
+    expect(emails).toContain(MANAGE_SUBSCRIPTION)
+  })
+
+  it('withdrawUntil names the last day', () => {
+    const end = at(24, 9)
+    expect(withdrawUntil(end)).toBe(`Available until ${addedDay(end.toISOString())}, 9:00 AM`)
+  })
+})
+
+describe('renewalTerms', () => {
+  it.each([
+    ['annual', 'year'],
+    ['monthly', 'month'],
+  ] as const)('states the price, renewal, cancellation, and withdrawal for %s', (period, unit) => {
+    expect(renewalTerms('$9.99', period, true)).toBe(
+      `$9.99 a ${unit}, renewing automatically until you cancel. Cancel anytime with Manage subscription, before the renewal date. You can withdraw within 14 days for a full refund.`,
+    )
+  })
+
+  it('leaves out the withdrawal once the account has used it', () => {
+    expect(renewalTerms('$9.99', 'monthly', false)).toBe(
+      '$9.99 a month, renewing automatically until you cancel. Cancel anytime with Manage subscription, before the renewal date.',
+    )
   })
 })

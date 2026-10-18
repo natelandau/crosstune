@@ -32,10 +32,16 @@ it('hands analytics the key only in a production build', async () => {
   const { startServices } = await import('./startServices')
   vi.stubEnv('PROD', false)
   startServices()
-  expect(startAnalytics).toHaveBeenLastCalledWith({ key: undefined })
+  expect(startAnalytics).toHaveBeenLastCalledWith({
+    key: undefined,
+    fetchRegion: expect.any(Function),
+  })
   vi.stubEnv('PROD', true)
   startServices()
-  expect(startAnalytics).toHaveBeenLastCalledWith({ key: 'phc_test' })
+  expect(startAnalytics).toHaveBeenLastCalledWith({
+    key: 'phc_test',
+    fetchRegion: expect.any(Function),
+  })
 })
 
 it('runs from the entry before the app mounts', () => {

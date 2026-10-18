@@ -54,6 +54,12 @@ two audiences.
   first one for a person. Build "first time" in a PostHog funnel. The one
   exception is `account_created`: the API decides it and tells the client in
   the response that created the account, so it is sent at most once per account.
+- **No session replay.** No platform records sessions. Code turns replay
+  off on the web and iOS; the Mac SDK has no replay.
+- **Share usage data starts from the region.** Until the user chooses,
+  `/v1/region` sets the default: off where consent is required or the
+  country is unknown, on elsewhere. A client holds its calls in memory
+  until the default loads. A stored choice always wins.
 - **Named events only in the app.** Autocapture is off in the app on every
   platform.
 
