@@ -280,6 +280,7 @@ struct RecordingScreenContent: View {
         }
         .navigationTitle(player.title ?? "")
         #if os(iOS)
+            // A bar's subtitle, like its title, cannot carry .contentMask().
             .navigationSubtitle(headerSubtitle ?? "")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -491,7 +492,7 @@ struct RecordingScreenContent: View {
     }
 
     #if os(macOS)
-        /// The recording's title as the page's heading, with its date and length under it.
+        /// The recording's title as the page's heading, with its date, length, and credits under it.
         private var header: some View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(player.title ?? "")
@@ -500,6 +501,7 @@ struct RecordingScreenContent: View {
                     .lineLimit(2)
                     .accessibilityAddTraits(.isHeader)
                 Text(subtitle)
+                    .contentMask()
                     .font(MacStyle.body)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
@@ -536,9 +538,8 @@ struct RecordingScreenContent: View {
 
     /// The Mac heading's second line.
     private var subtitle: String {
-        let date = RecordingText.date(rows.recording)
-        guard let length = RecordingText.duration(milliseconds: rows.trimmedLengthMs) else { return date }
-        return "\(date) · \(length)"
+        let parts = [RecordingText.date(rows.recording), RecordingText.duration(milliseconds: rows.trimmedLengthMs)]
+        return (parts.compactMap { $0 } + RecordingScreenText.credits(rows.recording)).joined(separator: " · ")
     }
 
     private var screenBlocker: String? {

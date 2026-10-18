@@ -37,7 +37,7 @@ public enum TuneSuggestions {
 
     // MARK: - Counting spellings
 
-    private static func ordered(_ a: String, _ b: String) -> Bool {
+    static func ordered(_ a: String, _ b: String) -> Bool {
         a.compare(b, options: [.caseInsensitive, .diacriticInsensitive], range: nil, locale: .current)
             == .orderedAscending
     }
@@ -62,10 +62,10 @@ public enum TuneSuggestions {
         var counts: [(spelling: String, count: Int)] = []
     }
 
-    /// Each value once with how many tunes hold it, in the order first seen. A value that matches
-    /// a canonical entry is shown the canonical way; any other the way most tunes spell it, ties
-    /// to the first seen.
-    private static func tally(_ values: [String?], canonical: [String]) -> [(value: String, count: Int)] {
+    /// Each value once with how many times it appears, in the order first seen. A value that
+    /// matches a canonical entry is shown the canonical way; any other in its most used spelling,
+    /// ties to the first seen.
+    static func tally(_ values: [String?], canonical: [String]) -> [(value: String, count: Int)] {
         var groups: [Spellings] = []
         for raw in values {
             guard let value = raw.map(trimmed), !value.isEmpty else { continue }

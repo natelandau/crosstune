@@ -33,6 +33,14 @@ extension AnalyticsClient {
         send(.recordingRenamed(origin: RecordingOrigin(recording), recordingID: recording.id))
     }
 
+    func recordingPlaceSet(_ recording: Recording, method: PlaceMethod, replaced: Bool) {
+        send(.recordingPlaceSet(recordingID: recording.id, method: method, replaced: replaced))
+    }
+
+    func recordingPlaceCleared(_ recording: Recording) {
+        send(.recordingPlaceCleared(recordingID: recording.id))
+    }
+
     func recordingDeleted(_ recording: Recording) {
         send(.recordingDeleted(origin: RecordingOrigin(recording), recordingID: recording.id))
     }

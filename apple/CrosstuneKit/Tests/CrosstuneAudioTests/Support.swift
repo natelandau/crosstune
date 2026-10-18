@@ -1,5 +1,6 @@
 @preconcurrency import AVFoundation
 import CrosstuneAudio
+import CrosstuneStore
 import Foundation
 
 /// A tone as the microphone would deliver it: Float32, non-interleaved, at the given rate.
@@ -132,5 +133,32 @@ final class FakeInput: AudioInput {
 
     func send(_ event: AudioInputEvent) {
         onEvent?(event)
+    }
+}
+
+/// A device position that answers at once, or waits for ``answer()`` while ``holds`` is set.
+@MainActor
+final class FakeLocation: LocationProvider {
+    var fix: Coordinate?
+    var holds = false
+    private(set) var requests = 0
+    private var pending: CheckedContinuation<Coordinate?, Never>?
+
+    func currentLocation() async -> Coordinate? {
+        requests += 1
+        guard holds else { return fix }
+        return await withCheckedContinuation { pending = $0 }
+    }
+
+    /// Waits until a request is held.
+    func isHeld() async {
+        while pending == nil { await Task.yield() }
+    }
+
+    /// Answers a held request with ``fix``.
+    func answer() async {
+        await isHeld()
+        pending?.resume(returning: fix)
+        pending = nil
     }
 }

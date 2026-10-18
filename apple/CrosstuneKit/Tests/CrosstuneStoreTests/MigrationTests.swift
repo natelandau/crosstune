@@ -374,6 +374,95 @@ private struct V4Fixture {
     }
 }
 
+@Test func theV20MigrationAddsPlaceColumnsAndKeepsRowsAndQueuedChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v19")
+    let time = "2026-09-25T12:00:00.000Z"
+    try queue.write { db in
+        // `r-2` was pulled after the server added the fields, so they sit in `extra`.
+        try db.execute(
+            sql: """
+                INSERT INTO recordings
+                    (id, created_at, updated_at, server_seq, source, added_at, position, state, extra)
+                VALUES
+                    ('r-1', ?, ?, 0, 'microphone', ?, 0, 'ready', '{}'),
+                    ('r-2', ?, ?, 3, 'microphone', ?, 1, 'ready',
+                        '{"notes":"Cold hands","players":"Ann, Bo","place_name":"Denver, CO","place_lat":39.7392,"place_lon":-104.9903,"place_accuracy_m":12,"theme":"dark"}')
+                """,
+            arguments: [time, time, time, time, time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
+                    ('recordings', 'r-1', 'upsert', ?, '{"label":"Take 1","notes":"Kept"}'),
+                    ('recordings', 'r-2', 'upsert', ?, '{"label":"Take 2"}'),
+                    ('recordings', 'r-3', 'delete', ?, NULL),
+                    ('tunes', 't-1', 'upsert', ?, '{"title":"Jam"}')
+                """,
+            arguments: [time, time, time, time])
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v20")
+
+    try queue.read { db in
+        let rows = try Row.fetchAll(
+            db,
+            sql: """
+                SELECT notes, players, place_name, place_lat, place_lon, place_accuracy_m, extra
+                FROM recordings ORDER BY id
+                """)
+        #expect(rows.map { $0["notes"] as String? } == [nil, "Cold hands"])
+        #expect(rows.map { $0["players"] as String? } == [nil, "Ann, Bo"])
+        #expect(rows.map { $0["place_name"] as String? } == [nil, "Denver, CO"])
+        #expect(rows.map { $0["place_lat"] as Double? } == [nil, 39.7392])
+        #expect(rows.map { $0["place_lon"] as Double? } == [nil, -104.9903])
+        #expect(rows.map { $0["place_accuracy_m"] as Int? } == [nil, 12])
+        #expect(rows.map { $0["extra"] as String } == ["{}", #"{"theme":"dark"}"#])
+
+        let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
+        #expect(
+            data == [
+                #"{"label":"Take 1","notes":"Kept","players":null,"place_name":null,"place_lat":null,"place_lon":null,"place_accuracy_m":null}"#,
+                #"{"label":"Take 2","notes":"Cold hands","players":"Ann, Bo","place_name":"Denver, CO","place_lat":39.7392,"place_lon":-104.9903,"place_accuracy_m":12}"#,
+                nil,
+                #"{"title":"Jam"}"#,
+            ])
+    }
+}
+
+@Test func theV20MigrationDropsPulledPlaceFieldsOfTheWrongType() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v19")
+    let time = "2026-09-25T12:00:00.000Z"
+    try queue.write { db in
+        try db.execute(
+            sql: """
+                INSERT INTO recordings
+                    (id, created_at, updated_at, server_seq, source, added_at, position, state, extra)
+                VALUES ('r-1', ?, ?, 3, 'microphone', ?, 0, 'ready',
+                    '{"notes":7,"place_name":"Denver, CO","place_lat":"39.7392","place_lon":"-104.9903","place_accuracy_m":12.5,"theme":"dark"}')
+                """,
+            arguments: [time, time, time])
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v20")
+
+    try queue.read { db in
+        let row = try #require(
+            try Row.fetchOne(
+                db,
+                sql: """
+                    SELECT notes, place_name, place_lat, place_lon, place_accuracy_m, extra
+                    FROM recordings
+                    """))
+        #expect(row["notes"] as String? == nil)
+        #expect(row["place_name"] as String? == "Denver, CO")
+        #expect(row["place_lat"] as Double? == nil)
+        #expect(row["place_lon"] as Double? == nil)
+        #expect(row["place_accuracy_m"] as Int? == nil)
+        #expect(row["extra"] as String == #"{"theme":"dark"}"#)
+    }
+}
+
 @Test func theV11MigrationSplitsTheRecordingDateAndKeepsRowsAndQueuedChanges() throws {
     let queue = try DatabaseQueue()
     try Schema.migrator.migrate(queue, upTo: "v10")

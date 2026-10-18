@@ -148,7 +148,8 @@ import Testing
             == [
                 "created_at", "tune_id", "source", "origin", "origin_url", "added_at", "recorded_at",
                 "recorded_precision", "label", "position",
-                "trim_start_ms", "trim_end_ms", "speed_percent", "pitch_cents", "mood",
+                "trim_start_ms", "trim_end_ms", "speed_percent", "pitch_cents", "notes", "players",
+                "place_name", "place_lat", "place_lon", "place_accuracy_m", "mood",
             ])
     #expect(data["created_at"] == .string("2026-09-25T12:00:00.000Z"))
     #expect(data["tune_id"] == .null)

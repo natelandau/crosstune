@@ -69,6 +69,15 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `POST /v1/me/notices`.
     /// - Remark: Generated from `#/paths//v1/me/notices/post(record_notice_v1_me_notices_post)`.
     func recordNoticeV1MeNoticesPost(_ input: Operations.RecordNoticeV1MeNoticesPost.Input) async throws -> Operations.RecordNoticeV1MeNoticesPost.Output
+    /// Search Places
+    ///
+    /// Named places, street addresses, and towns for the text typed so far, each named as picked.
+    ///
+    /// Results lean toward the account's country, never toward the user's own location.
+    ///
+    /// - Remark: HTTP `GET /v1/places/search`.
+    /// - Remark: Generated from `#/paths//v1/places/search/get(search_places_v1_places_search_get)`.
+    func searchPlacesV1PlacesSearchGet(_ input: Operations.SearchPlacesV1PlacesSearchGet.Input) async throws -> Operations.SearchPlacesV1PlacesSearchGet.Output
     /// Download
     ///
     /// A presigned GET for the playback file of a ready recording.
@@ -266,6 +275,23 @@ extension APIProtocol {
         try await recordNoticeV1MeNoticesPost(Operations.RecordNoticeV1MeNoticesPost.Input(
             headers: headers,
             body: body
+        ))
+    }
+    /// Search Places
+    ///
+    /// Named places, street addresses, and towns for the text typed so far, each named as picked.
+    ///
+    /// Results lean toward the account's country, never toward the user's own location.
+    ///
+    /// - Remark: HTTP `GET /v1/places/search`.
+    /// - Remark: Generated from `#/paths//v1/places/search/get(search_places_v1_places_search_get)`.
+    public func searchPlacesV1PlacesSearchGet(
+        query: Operations.SearchPlacesV1PlacesSearchGet.Input.Query,
+        headers: Operations.SearchPlacesV1PlacesSearchGet.Input.Headers = .init()
+    ) async throws -> Operations.SearchPlacesV1PlacesSearchGet.Output {
+        try await searchPlacesV1PlacesSearchGet(Operations.SearchPlacesV1PlacesSearchGet.Input(
+            query: query,
+            headers: headers
         ))
     }
     /// Download

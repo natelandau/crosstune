@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneAudio
 import CrosstuneAuth
 import CrosstuneBilling
 import CrosstuneExport
@@ -11,7 +12,7 @@ struct CrosstuneApp: App {
     @State private var player: PlayerModel
     @State private var listPlayback: ListPlayback
     @State private var stage = EmbedStage()
-    @State private var recorders = RecorderHost()
+    @State private var recorders = RecorderHost(makeLocation: { DeviceLocationProvider() })
     /// The open store's plan, made again for each store so another account starts unknown.
     @State private var plan: PlanModel?
     /// Which window shows the plan notices, made again with each store's plan.
@@ -58,6 +59,7 @@ struct CrosstuneApp: App {
                 .environment(\.noticeClaim, noticeClaim)
                 .environment(\.purchases, purchases)
                 .environment(\.stripePortalURL, stripePortalURL)
+                .environment(\.placeSearch, MapKitPlaceSearch.self)
                 .followsDisplaySettings()
                 .tint(BrandStyle.accent)
         }

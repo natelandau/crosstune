@@ -14,6 +14,10 @@
 	<string>Crosstune plays your Apple Music recordings in full.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Crosstune scans written music for your tunes.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>Crosstune saves where you record a tune.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Crosstune saves where you record a tune.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Crosstune records tunes you play.</string>
 	<key>PostHogHost</key>

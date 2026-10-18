@@ -13,15 +13,6 @@ extension LoopModel {
     /// `text` cut to the longest label the server stores, which it counts in code points, so a
     /// character made of several is never split.
     static func cappedLabel(_ text: String) -> String {
-        let limit = Vocabulary.Limits.RecordingLoop.label
-        guard text.unicodeScalars.count > limit else { return text }
-        var kept = ""
-        var scalars = 0
-        for character in text {
-            scalars += character.unicodeScalars.count
-            if scalars > limit { break }
-            kept.append(character)
-        }
-        return kept
+        text.cappedCodePoints(Vocabulary.Limits.RecordingLoop.label)
     }
 }

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		CA0000000000000000000087 /* CrosstuneAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000086 /* CrosstuneAnalytics */; };
 		CA0000000000000000000014 /* CrosstuneAuth in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000013 /* CrosstuneAuth */; };
+		CA000000000000000000008B /* CrosstuneAudio in Frameworks */ = {isa = PBXBuildFile; productRef = CA000000000000000000008A /* CrosstuneAudio */; };
 		CA0000000000000000000089 /* CrosstuneBilling in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000088 /* CrosstuneBilling */; };
 		CA0000000000000000000016 /* CrosstuneExport in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000015 /* CrosstuneExport */; };
 		CA0000000000000000000018 /* CrosstuneUI in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000017 /* CrosstuneUI */; };
@@ -57,6 +58,7 @@
 			files = (
 				CA0000000000000000000087 /* CrosstuneAnalytics in Frameworks */,
 				CA0000000000000000000014 /* CrosstuneAuth in Frameworks */,
+				CA000000000000000000008B /* CrosstuneAudio in Frameworks */,
 				CA0000000000000000000089 /* CrosstuneBilling in Frameworks */,
 				CA0000000000000000000016 /* CrosstuneExport in Frameworks */,
 				CA0000000000000000000018 /* CrosstuneUI in Frameworks */,
@@ -129,6 +131,7 @@
 			packageProductDependencies = (
 				CA0000000000000000000086 /* CrosstuneAnalytics */,
 				CA0000000000000000000013 /* CrosstuneAuth */,
+				CA000000000000000000008A /* CrosstuneAudio */,
 				CA0000000000000000000088 /* CrosstuneBilling */,
 				CA0000000000000000000015 /* CrosstuneExport */,
 				CA0000000000000000000017 /* CrosstuneUI */,
@@ -362,6 +365,10 @@
 		CA0000000000000000000013 /* CrosstuneAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CrosstuneAuth;
+		};
+		CA000000000000000000008A /* CrosstuneAudio */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CrosstuneAudio;
 		};
 		CA0000000000000000000088 /* CrosstuneBilling */ = {
 			isa = XCSwiftPackageProductDependency;

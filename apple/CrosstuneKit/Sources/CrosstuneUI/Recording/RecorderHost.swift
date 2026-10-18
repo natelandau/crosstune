@@ -12,17 +12,24 @@ public final class RecorderHost {
     /// True while a record sheet is up in some window.
     public private(set) var isClaimed = false
     private let makeInput: @MainActor () -> (any AudioInput)?
+    private let makeLocation: @MainActor () -> (any LocationProvider)?
 
-    /// - Parameter makeInput: The microphone each new recorder uses; nil is the device's.
-    public init(makeInput: @escaping @MainActor () -> (any AudioInput)? = { nil }) {
+    /// - Parameters:
+    ///   - makeInput: The microphone each new recorder uses; nil is the device's.
+    ///   - makeLocation: Where each new recorder finds the device; nil saves no place.
+    public init(
+        makeInput: @escaping @MainActor () -> (any AudioInput)? = { nil },
+        makeLocation: @escaping @MainActor () -> (any LocationProvider)? = { nil }
+    ) {
         self.makeInput = makeInput
+        self.makeLocation = makeLocation
     }
 
     /// The recorder for `store`. A different store, as after signing in as someone else, gets a
     /// recorder of its own.
     public func recorder(for store: CrosstuneStore) -> Recorder {
         if let held, held.store == ObjectIdentifier(store) { return held.recorder }
-        let recorder = Recorder(store: store, input: makeInput())
+        let recorder = Recorder(store: store, input: makeInput(), location: makeLocation())
         held = (ObjectIdentifier(store), recorder)
         return recorder
     }

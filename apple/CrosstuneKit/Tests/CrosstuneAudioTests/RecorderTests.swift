@@ -20,11 +20,16 @@ final class ChannelSetting {
     let store: CrosstuneStore
     let input = FakeInput()
     let setting = ChannelSetting()
+    let location = FakeLocation()
     let recorder: Recorder
 
     init() throws {
         store = try root.open()
-        recorder = Recorder(store: store, input: input, channels: { [setting] in setting.value })
+        recorder = Recorder(store: store, input: input, channels: { [setting] in setting.value }, location: location)
+    }
+
+    private func savedRow(_ id: String) async throws -> Recording {
+        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
     }
 
     private func channelCount(of recordingID: String) throws -> AVAudioChannelCount {
@@ -376,6 +381,118 @@ final class ChannelSetting {
 
         #expect(try await captureID != nil)
         await recorder.discard()
+    }
+
+    @Test func asksForTheLocationOnceTheMicrophoneIsAllowed() async throws {
+        await recorder.start(tuneID: nil)
+
+        #expect(location.requests == 1)
+    }
+
+    @Test func neverAsksForTheLocationWhenTheMicrophoneIsRefused() async throws {
+        input.permission = false
+
+        await recorder.start(tuneID: nil)
+
+        #expect(location.requests == 0)
+    }
+
+    @Test func aFixSettledBeforeStopIsSavedWithItsAccuracyAndNoName() async throws {
+        let fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+        location.fix = fix
+        await recorder.start(tuneID: nil)
+        try input.play(seconds: 1)
+        while recorder.settledCoordinate == nil { await Task.yield() }
+
+        let saved = try #require(await recorder.stop())
+
+        let row = try await savedRow(saved)
+        #expect(row.placeLat == fix.lat)
+        #expect(row.placeLon == fix.lon)
+        #expect(row.placeAccuracyM == 14)
+        #expect(row.placeName == nil)
+        #expect(recorder.errorMessage == nil)
+    }
+
+    @Test func aFixStillPendingAtStopSavesNoPlace() async throws {
+        location.fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+        location.holds = true
+        await recorder.start(tuneID: nil)
+        try input.play(seconds: 1)
+        await location.isHeld()
+
+        let saved = try #require(await recorder.stop())
+        await location.answer()
+
+        let row = try await savedRow(saved)
+        #expect(row.placeLat == nil)
+        #expect(row.placeAccuracyM == nil)
+        #expect(recorder.errorMessage == nil)
+    }
+
+    @Test func aFixThatSettlesWhileStopSavesWritesNothing() async throws {
+        location.fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+        location.holds = true
+        await recorder.start(tuneID: nil)
+        try input.play(seconds: 1)
+        await location.isHeld()
+
+        let stop = Task { await recorder.stop() }
+        while recorder.state != .finishing { await Task.yield() }
+        await location.answer()
+        let saved = try #require(await stop.value)
+
+        let row = try await savedRow(saved)
+        #expect(row.placeLat == nil)
+        #expect(recorder.settledCoordinate == nil)
+    }
+
+    @Test func discardingDropsTheFix() async throws {
+        location.fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+        await recorder.start(tuneID: nil)
+        while recorder.settledCoordinate == nil { await Task.yield() }
+
+        await recorder.discard()
+
+        #expect(recorder.settledCoordinate == nil)
+    }
+
+    @Test func aFixThatSettlesAfterADiscardWritesNothing() async throws {
+        location.fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+        location.holds = true
+        await recorder.start(tuneID: nil)
+        await location.isHeld()
+
+        await recorder.discard()
+        await location.answer()
+        for _ in 0..<10 { await Task.yield() }
+
+        #expect(recorder.settledCoordinate == nil)
+    }
+
+    @Test func aBackedOutStartDropsTheFix() async throws {
+        location.fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+        location.holds = true
+        input.failsToStart = true
+
+        await recorder.start(tuneID: nil)
+        #expect(location.requests == 1)
+        await location.answer()
+        for _ in 0..<10 { await Task.yield() }
+
+        #expect(recorder.state == .idle)
+        #expect(recorder.settledCoordinate == nil)
+    }
+
+    @Test func noFixSavesNoPlaceAndNoError() async throws {
+        await recorder.start(tuneID: nil)
+        try input.play(seconds: 1)
+
+        let saved = try #require(await recorder.stop())
+
+        #expect(location.requests == 1)
+        #expect(try await savedRow(saved).placeLat == nil)
+        #expect(recorder.errorMessage == nil)
     }
 }
 

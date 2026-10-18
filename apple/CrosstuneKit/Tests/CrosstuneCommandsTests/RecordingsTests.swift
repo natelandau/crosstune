@@ -92,6 +92,82 @@ import Testing
         #expect(file.error == nil)
     }
 
+    @Test func pickingAPlaceWritesNameAndCoordinatesAndClearsAccuracy() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await store.write { writer in
+            try writer.put(
+                Recording(
+                    id: "r1", tuneID: nil, source: "microphone", addedAt: .now, placeLat: 1.5, placeLon: 2.5,
+                    placeAccuracyM: 9))
+        }
+
+        let place = RecordingPlace(name: "Denver, CO", coordinate: Coordinate(lat: 39.7392364, lon: -104.984862))
+        try await commands.updateRecording("r1", place: .value(place))
+
+        let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(row.placeName == "Denver, CO")
+        #expect(row.placeLat == 39.7392364)
+        #expect(row.placeLon == -104.984862)
+        #expect(row.placeAccuracyM == nil)
+        #expect(row.place == place)
+        let queued = try #require(try await store.pendingChanges(limit: 10).first { $0.rowID == "r1" })
+        #expect(queued.data?["place_name"] == .string("Denver, CO"))
+        #expect(queued.data?["place_accuracy_m"] == .null)
+    }
+
+    @Test func clearingThePlaceClearsAllFourColumns() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await store.write { writer in
+            try writer.put(
+                Recording(
+                    id: "r1", tuneID: nil, source: "microphone", addedAt: .now, placeName: "Denver, CO",
+                    placeLat: 1.5, placeLon: 2.5, placeAccuracyM: 9))
+        }
+
+        try await commands.updateRecording("r1", place: .value(nil))
+
+        let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(row.placeName == nil)
+        #expect(row.placeLat == nil)
+        #expect(row.placeLon == nil)
+        #expect(row.placeAccuracyM == nil)
+        #expect(row.place == nil)
+    }
+
+    @Test func updatingNotesAndPlayersTrimsNothingElse() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await store.write { writer in
+            try writer.put(
+                Recording(
+                    id: "r1", tuneID: nil, source: "microphone", addedAt: .now, label: "Take", trimStartMs: 500,
+                    speedPercent: 80, placeName: "Denver, CO", placeLat: 1.5, placeLon: 2.5, placeAccuracyM: 9))
+        }
+
+        try await commands.updateRecording("r1", notes: .value("Slow set"), players: .value("Ann, Bo"))
+
+        let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(row.notes == "Slow set")
+        #expect(row.players == "Ann, Bo")
+        #expect(row.label == "Take")
+        #expect(row.trimStartMs == 500)
+        #expect(row.speedPercent == 80)
+        #expect(row.placeName == "Denver, CO")
+        #expect(row.placeLat == 1.5)
+        #expect(row.placeLon == 2.5)
+        #expect(row.placeAccuracyM == 9)
+
+        try await commands.updateRecording("r1", notes: .value(nil))
+        let cleared = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(cleared.notes == nil)
+        #expect(cleared.players == "Ann, Bo")
+    }
+
     @Test func rejectsMovingARecordingToADeletedTuneAndLeavesTheRowUnchanged() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -252,6 +328,24 @@ import Testing
         #expect(file.bytes == 1234)
         #expect(file.localDurationMs == 5000)
         #expect(file.uploadAttempts == 0)
+    }
+
+    @Test func finishingACaptureWithACoordinateWritesItWithoutAName() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await commands.beginCapture("r1", fileName: "r1.aac", tuneID: nil, recordedAt: noon)
+
+        try await commands.finishCapture(
+            "r1", fileName: "r1.m4a", bytes: 1, durationMs: 1,
+            coordinate: Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14))
+
+        let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(row.placeName == nil)
+        #expect(row.placeLat == 39.7392364)
+        #expect(row.placeLon == -104.984862)
+        #expect(row.placeAccuracyM == 14)
+        #expect(row.place == nil)
     }
 
     @Test func aNewCaptureDefaultsTrimSpeedAndPitch() async throws {

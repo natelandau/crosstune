@@ -13,7 +13,7 @@ import Testing
     /// Properties that hold user content. A new content property belongs in this list, so every
     /// view that shows it must be masked.
     static let contentProperties: Set = [
-        "title", "tuneTitle", "trackTitle", "alternateTitles", "name", "notes", "lyrics",
+        "title", "tuneTitle", "trackTitle", "alternateTitles", "name", "notes", "lyrics", "players", "placeName",
         // Facets the musician can type through Other.
         "composer", "learnedFrom", "genre", "tuneType", "partStructure",
         // Loop names.
@@ -33,6 +33,8 @@ import Testing
         "facetLine", "valueLabel", "capsuleLabel", "learned",
         // Lines built around a typed search, a tune title, or a list name.
         "noTuneCalled", "added", "removed", "openTune", "filingUnder",
+        // A recording's players and place name.
+        "credits",
     ]
 
     /// Reads whose property or method is named like content but hold the app's own words.
@@ -332,6 +334,11 @@ import Testing
         ("Import/ImportSheet.swift", "Picker(ImportCopy.listLabel"),
         // A file read's failure, which can name the file.
         ("Import/ImportSheet.swift", "Text(failure)"),
+        // The Mac recording heading's second line, which ends with the players and the place.
+        ("RecordingScreen/RecordingScreen.swift", "Text(subtitle)"),
+        // The edit sheet's place row, and a place suggestion's second line, which names the region.
+        ("Recordings/EditRecordingSheet.swift", "Text(name)"),
+        ("Recordings/PlaceSearchView.swift", "Text(completion.subtitle)"),
     ]
 
     @Test func everyHandMaskStaysInPlace() throws {

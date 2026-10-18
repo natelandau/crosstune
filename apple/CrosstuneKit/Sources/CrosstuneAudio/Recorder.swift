@@ -67,10 +67,15 @@ public final class Recorder {
     /// True while a start waits on permission and the store. A second start does nothing,
     /// and a stop or discard backs the start out.
     public private(set) var isStarting = false
+    /// Where the device was, once its fix settles during the take. A fix that settles after
+    /// the take stops is dropped.
+    @ObservationIgnored private(set) var settledCoordinate: Coordinate?
 
     private let store: CrosstuneStore
     private let input: any AudioInput
     private let channels: @MainActor () -> CaptureChannels
+    private let location: (any LocationProvider)?
+    @ObservationIgnored private var locating: Task<Void, Never>?
     private var capture: (id: String, writer: CaptureWriter)?
     private var inputLevels = InputLevels()
     /// Set by a stop or discard that arrives while a start is still under way: the start
@@ -82,14 +87,18 @@ public final class Recorder {
     private var endedEarly: String?
     private var isResuming = false
 
-    /// - Parameter channels: The device's mono or stereo setting, read as each take starts.
+    /// - Parameters:
+    ///   - channels: The device's mono or stereo setting, read as each take starts.
+    ///   - location: Where each take was made; nil saves no place.
     public init(
         store: CrosstuneStore, input: (any AudioInput)? = nil,
-        channels: @escaping @MainActor () -> CaptureChannels = { CaptureChannels.stored() }
+        channels: @escaping @MainActor () -> CaptureChannels = { CaptureChannels.stored() },
+        location: (any LocationProvider)? = nil
     ) {
         self.store = store
         self.input = input ?? EngineInput()
         self.channels = channels
+        self.location = location
     }
 
     /// Finishes every capture an earlier run left unfinished, as after a crash, except any
@@ -137,6 +146,8 @@ public final class Recorder {
             return
         }
         permissionDenied = false
+        // Asked only once the microphone is granted, so a refused take never prompts for location.
+        startLocating()
         let commands = Commands(store: store)
         let finisher = CaptureFinisher(store: store)
         let recordingID = newID()
@@ -217,12 +228,14 @@ public final class Recorder {
         guard let capture, state == .recording || state == .paused else { return nil }
         let recordingID = capture.id
         state = .finishing
+        let coordinate = stopLocating()
         await release(capture.writer)
         // Read only after the tap is fully stopped, so every buffer it wrote is metered too.
         let peaks = capture.writer.recordedPeaks
         defer { reset(recordingID) }
+        let finisher = CaptureFinisher(store: store)
         do {
-            guard try await CaptureFinisher(store: store).finish(recordingID, peaks: peaks) else {
+            guard try await finisher.finish(recordingID, peaks: peaks, coordinate: coordinate) else {
                 errorMessage = Self.nothingRecorded
                 return nil
             }
@@ -245,6 +258,7 @@ public final class Recorder {
         guard let capture, state == .recording || state == .paused else { return }
         let recordingID = capture.id
         state = .finishing
+        stopLocating()
         await release(capture.writer)
         defer { reset(recordingID) }
         do {
@@ -257,11 +271,33 @@ public final class Recorder {
     /// Undoes a start that did not reach recording: releases the microphone and its session,
     /// and deletes the capture and its row.
     private func backOut(_ recordingID: String) async {
+        stopLocating()
         await input.stop()
         capture?.writer.close()
         capture = nil
         try? await CaptureFinisher(store: store).discard(recordingID)
         Self.active.remove(recordingID)
+    }
+
+    /// Asks where the device is without waiting on the answer: a slow, refused, or failed fix
+    /// only means the take has no place.
+    private func startLocating() {
+        settledCoordinate = nil
+        guard let location else { return }
+        locating = Task { [weak self] in
+            let fix = await location.currentLocation()
+            guard !Task.isCancelled else { return }
+            self?.settledCoordinate = fix
+        }
+    }
+
+    /// Ends the take's location request and returns the fix, if one settled in time.
+    @discardableResult
+    private func stopLocating() -> Coordinate? {
+        locating?.cancel()
+        locating = nil
+        defer { settledCoordinate = nil }
+        return settledCoordinate
     }
 
     private func microphoneDidFail(_ recordingID: String) async {

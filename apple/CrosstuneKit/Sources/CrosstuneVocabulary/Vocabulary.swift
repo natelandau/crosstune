@@ -59,7 +59,10 @@ public enum Vocabulary {
         }
         public enum Recording {
             public static let label = 200
+            public static let notes = 20000
             public static let originUrl = 2048
+            public static let placeName = 200
+            public static let players = 200
         }
         public enum RecordingLoop {
             public static let label = 100
@@ -69,6 +72,7 @@ public enum Vocabulary {
     public enum Ranges {
         public enum Recording {
             public static let pitchCents = -1200...1200
+            public static let placeAccuracyM = 0...1_000_000
             public static let speedPercent = 50...150
         }
         public enum RecordingLoop {
