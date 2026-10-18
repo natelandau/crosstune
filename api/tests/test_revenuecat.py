@@ -9,7 +9,7 @@ import pytest
 
 from crosstune.billing.grants import PaidSubscription
 from crosstune.billing.revenuecat import RevenueCatRest, RevenueCatUnavailableError
-from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantSource
+from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantPeriod, GrantSource
 
 FIXTURES = Path(__file__).parent / "fixtures" / "revenuecat"
 BASE = "https://rc.example.test/v2"
@@ -54,7 +54,59 @@ async def test_maps_active_stripe_subscription(mock_http) -> None:
         environment=GrantEnvironment.PRODUCTION,
         expires_at=datetime(2099, 1, 1, tzinfo=UTC),
         auto_renews=True,
+        started_at=datetime(2025, 1, 1, tzinfo=UTC),
+        period=GrantPeriod.YEAR,
     )
+
+
+@pytest.mark.parametrize(
+    ("period_days", "period"),
+    [
+        (28, GrantPeriod.MONTH),
+        (31, GrantPeriod.MONTH),
+        (40, GrantPeriod.MONTH),
+        (41, GrantPeriod.YEAR),
+        (365, GrantPeriod.YEAR),
+    ],
+)
+async def test_maps_the_billing_period_and_the_start(
+    mock_http, period_days: int, period: GrantPeriod
+) -> None:
+    payload = _load("subscriptions.json")
+    started = datetime.now(UTC) - timedelta(days=200)
+    period_start = datetime.now(UTC) - timedelta(days=1)
+    active = payload["items"][0]
+    active["starts_at"] = _ms(started)
+    active["current_period_starts_at"] = _ms(period_start)
+    active["current_period_ends_at"] = _ms(period_start + timedelta(days=period_days))
+    _serve(mock_http, payload)
+
+    sub = _by_id(await _client(mock_http).subscriptions("cust_1"))["sub_active"]
+
+    assert sub.period is period
+    assert sub.started_at == datetime.fromtimestamp(_ms(started) / 1000, UTC)
+
+
+async def test_a_period_without_both_ends_is_unknown(mock_http) -> None:
+    payload = _load("subscriptions.json")
+    del payload["items"][0]["current_period_starts_at"]
+    del payload["items"][0]["starts_at"]
+    _serve(mock_http, payload)
+
+    sub = _by_id(await _client(mock_http).subscriptions("cust_1"))["sub_active"]
+
+    assert sub.period is None
+    assert sub.started_at is None
+
+
+async def test_a_period_without_an_end_is_unknown(mock_http) -> None:
+    payload = _load("subscriptions.json")
+    del payload["items"][0]["current_period_ends_at"]
+    _serve(mock_http, payload)
+
+    sub = _by_id(await _client(mock_http).subscriptions("cust_1"))["sub_active"]
+
+    assert sub.period is None
 
 
 async def test_maps_apple_grace_to_entitlement_expiry(mock_http) -> None:

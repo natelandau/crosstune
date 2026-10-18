@@ -109,3 +109,58 @@ async def test_send_raises_on_a_2xx_without_a_message_id(
 
     with pytest.raises(MailerUnavailableError, match="without a message id"):
         await _mailer(mock_http).send(MESSAGE, idempotency_key="warn-1")
+
+
+async def test_send_batch_posts_the_list(mock_http: MockHttp) -> None:
+    mock_http.add(
+        "https://api.resend.com/emails/batch",
+        httpx2.Response(200, json={"data": [{"id": "e1"}, {"id": "e2"}]}),
+    )
+    other = EmailMessage(to="two@example.com", subject="Hi", text="T", html="<p>T</p>")
+
+    await _mailer(mock_http).send_batch([MESSAGE, other], idempotency_key="terms:0:abc")
+
+    (call,) = [c for c in mock_http.calls if c.url.host == "api.resend.com"]
+    assert call.method == "POST"
+    assert call.url.path == "/emails/batch"
+    assert call.headers["Authorization"] == f"Bearer {API_KEY}"
+    assert call.headers["Idempotency-Key"] == "terms:0:abc"
+    assert json.loads(call.content) == [
+        {
+            "from": SENDER,
+            "to": ["person@example.com"],
+            "subject": "Hello",
+            "text": "Plain body",
+            "html": "<p>Html body</p>",
+        },
+        {
+            "from": SENDER,
+            "to": ["two@example.com"],
+            "subject": "Hi",
+            "text": "T",
+            "html": "<p>T</p>",
+        },
+    ]
+
+
+async def test_send_batch_raises_rate_limited_on_429(mock_http: MockHttp) -> None:
+    mock_http.add("https://api.resend.com/emails/batch", httpx2.Response(429, json={}))
+
+    with pytest.raises(MailerRateLimitedError):
+        await _mailer(mock_http).send_batch([MESSAGE], idempotency_key="k")
+
+
+@pytest.mark.parametrize(
+    "body",
+    [{}, {"data": []}, {"data": [{"id": "e1"}]}, {"data": [{"id": "e1"}, {}]}, ["e1", "e2"]],
+)
+async def test_send_batch_needs_an_id_per_message(mock_http: MockHttp, body: object) -> None:
+    mock_http.add("https://api.resend.com/emails/batch", httpx2.Response(200, json=body))
+
+    with pytest.raises(MailerUnavailableError):
+        await _mailer(mock_http).send_batch([MESSAGE, MESSAGE], idempotency_key="k")
+
+
+async def test_send_batch_refuses_more_than_100(mock_http: MockHttp) -> None:
+    with pytest.raises(ValueError, match="100"):
+        await _mailer(mock_http).send_batch([MESSAGE] * 101, idempotency_key="k")

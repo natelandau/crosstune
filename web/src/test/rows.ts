@@ -253,6 +253,8 @@ export function entitlementRow(extra: Partial<LocalEntitlement> = {}): LocalEnti
     trial_ends_at: null,
     premium_quota_bytes: 10_000,
     paid_grants: [],
+    withdraw_until: null,
+    withdrawal_used: false,
     recording_notice_seen_at: null,
     trial_reminder_seen_at: null,
     trial_end_seen_at: null,

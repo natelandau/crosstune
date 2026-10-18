@@ -59,6 +59,7 @@ import {
   PRIVACY_POLICY,
   PRIVACY_URL,
   RENEWS,
+  renewalTerms,
   RENEWS_UNTIL_CANCELLED,
   save,
   SEE_PLAN,
@@ -75,6 +76,7 @@ import {
   trialDaysLeft,
   trialEnds,
   trialLeft,
+  WITHDRAWAL_TERMS,
 } from './planCopy'
 import { INCLUDED_FEATURES } from './included'
 import {
@@ -364,7 +366,7 @@ it('a free account compares Free and Premium and subscribes annually by default'
   await expect.element(annual()).toHaveAccessibleDescription(`${annualPrice('$49.99')} ${save(17)}`)
   await expect.element(monthly()).not.toBeChecked()
   await expect.element(monthly()).toHaveAccessibleDescription(monthlyPrice('$4.99'))
-  await expect.element(planSheet().getByText(RENEWS_UNTIL_CANCELLED)).toBeVisible()
+  await expect.element(planSheet().getByText(renewalTerms('$49.99', 'annual', true))).toBeVisible()
   await expect
     .element(planSheet().getByRole('link', { name: TERMS_OF_USE }))
     .toHaveAttribute('href', TERMS_URL)
@@ -434,6 +436,14 @@ it('the plan reason leads with Crosstune Premium and its pitch', async () => {
   ])
 })
 
+it('an account that already withdrew is not offered the withdrawal again', async () => {
+  await openPaywall({ row: { withdrawal_used: true } })
+
+  await expect.element(annual()).toBeChecked()
+  await expect.element(planSheet().getByText(renewalTerms('$49.99', 'annual', false))).toBeVisible()
+  expect(planSheet().getByText(WITHDRAWAL_TERMS, { exact: false }).query()).toBeNull()
+})
+
 it('no store shows the comparison with no purchase controls', async () => {
   await openPaywall({ store: null })
 
@@ -441,7 +451,7 @@ it('no store shows the comparison with no purchase controls', async () => {
   expect(planSheet().getByRole('radio').query()).toBeNull()
   expect(planSheet().getByRole('button', { name: SUBSCRIBE }).query()).toBeNull()
   expect(planSheet().getByText(SUBSCRIBE_OFFLINE).query()).toBeNull()
-  expect(planSheet().getByText(RENEWS_UNTIL_CANCELLED).query()).toBeNull()
+  expect(planSheet().getByText(RENEWS_UNTIL_CANCELLED, { exact: false }).query()).toBeNull()
 })
 
 it('one sold period shows one tile and no saving', async () => {
@@ -498,6 +508,14 @@ it('asks the store for offers once per opening', async () => {
   await expect.element(annual()).toBeChecked()
   await planSheet().getByText(PERIOD_MONTHLY, { exact: true }).click()
   await expect.element(monthly()).toBeChecked()
+  await expect.element(planSheet().getByText(renewalTerms('$4.99', 'monthly', true))).toBeVisible()
+  expect(
+    planSheet()
+      .getByText(renewalTerms('$49.99', 'annual', true))
+      .query(),
+  ).toBeNull()
+  await expect.element(planSheet().getByRole('link', { name: TERMS_OF_USE })).toBeVisible()
+  await expect.element(planSheet().getByRole('link', { name: PRIVACY_POLICY })).toBeVisible()
 
   expect(offers).toHaveBeenCalledTimes(1)
 })
@@ -649,7 +667,7 @@ it('a store that sells nothing shows no choice and no offline line, and keeps th
   await expect.element(planSheet().getByText(SUBSCRIBE_OFFLINE)).not.toBeInTheDocument()
   await expect.element(planSheet().getByRole('button', { name: SUBSCRIBE })).not.toBeInTheDocument()
   expect(planSheet().getByRole('radio').query()).toBeNull()
-  expect(planSheet().getByText(RENEWS_UNTIL_CANCELLED).query()).toBeNull()
+  expect(planSheet().getByText(RENEWS_UNTIL_CANCELLED, { exact: false }).query()).toBeNull()
   expect(planSheet().getByRole('button', { name: CANCEL }).query()).toBeNull()
   expect(closeControl()).toBe('header')
 })

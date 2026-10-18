@@ -251,6 +251,10 @@ extension Components {
             public var updatedAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/EntitlementRow/user_id`.
             public var userId: Swift.String
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/withdraw_until`.
+            public var withdrawUntil: Foundation.Date?
+            /// - Remark: Generated from `#/components/schemas/EntitlementRow/withdrawal_used`.
+            public var withdrawalUsed: Swift.Bool
             /// Creates a new `EntitlementRow`.
             ///
             /// - Parameters:
@@ -270,6 +274,8 @@ extension Components {
             ///   - trialStartsAt:
             ///   - updatedAt:
             ///   - userId:
+            ///   - withdrawUntil:
+            ///   - withdrawalUsed:
             public init(
                 autoRenews: Swift.Bool,
                 createdAt: Foundation.Date,
@@ -286,7 +292,9 @@ extension Components {
                 trialReminderSeenAt: Foundation.Date? = nil,
                 trialStartsAt: Foundation.Date? = nil,
                 updatedAt: Foundation.Date,
-                userId: Swift.String
+                userId: Swift.String,
+                withdrawUntil: Foundation.Date? = nil,
+                withdrawalUsed: Swift.Bool
             ) {
                 self.autoRenews = autoRenews
                 self.createdAt = createdAt
@@ -304,6 +312,8 @@ extension Components {
                 self.trialStartsAt = trialStartsAt
                 self.updatedAt = updatedAt
                 self.userId = userId
+                self.withdrawUntil = withdrawUntil
+                self.withdrawalUsed = withdrawalUsed
             }
             public enum CodingKeys: String, CodingKey {
                 case autoRenews = "auto_renews"
@@ -322,6 +332,8 @@ extension Components {
                 case trialStartsAt = "trial_starts_at"
                 case updatedAt = "updated_at"
                 case userId = "user_id"
+                case withdrawUntil = "withdraw_until"
+                case withdrawalUsed = "withdrawal_used"
             }
         }
         /// A page of history rows after the given cursor.
@@ -1661,11 +1673,13 @@ extension Components {
             public typealias ErrorsPayload = [Components.Schemas.Problem.ErrorsPayloadPayload]
             /// - Remark: Generated from `#/components/schemas/Problem/errors`.
             public var errors: Components.Schemas.Problem.ErrorsPayload?
+            /// - Remark: Generated from `#/components/schemas/Problem/reason`.
+            public var reason: Components.Schemas.WithdrawalRefusal?
             /// - Remark: Generated from `#/components/schemas/Problem/status`.
             public var status: Swift.Int
             /// - Remark: Generated from `#/components/schemas/Problem/title`.
             public var title: Swift.String
-            /// `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured), `urn:crosstune:billing-failed` (502, the billing provider did not answer).
+            /// `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured, or Stripe or RevenueCat did not confirm), `urn:crosstune:billing-failed` (502, the billing provider did not answer), `urn:crosstune:withdrawal-refused` (409, the withdrawal is not allowed; `reason` says why).
             ///
             /// - Remark: Generated from `#/components/schemas/Problem/type`.
             public var _type: Swift.String?
@@ -1674,18 +1688,21 @@ extension Components {
             /// - Parameters:
             ///   - detail:
             ///   - errors:
+            ///   - reason:
             ///   - status:
             ///   - title:
-            ///   - _type: `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured), `urn:crosstune:billing-failed` (502, the billing provider did not answer).
+            ///   - _type: `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured, or Stripe or RevenueCat did not confirm), `urn:crosstune:billing-failed` (502, the billing provider did not answer), `urn:crosstune:withdrawal-refused` (409, the withdrawal is not allowed; `reason` says why).
             public init(
                 detail: Swift.String,
                 errors: Components.Schemas.Problem.ErrorsPayload? = nil,
+                reason: Components.Schemas.WithdrawalRefusal? = nil,
                 status: Swift.Int,
                 title: Swift.String,
                 _type: Swift.String? = nil
             ) {
                 self.detail = detail
                 self.errors = errors
+                self.reason = reason
                 self.status = status
                 self.title = title
                 self._type = _type
@@ -1693,6 +1710,7 @@ extension Components {
             public enum CodingKeys: String, CodingKey {
                 case detail
                 case errors
+                case reason
                 case status
                 case title
                 case _type = "type"
@@ -3109,6 +3127,31 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/RecordingState`.
         public typealias RecordingState = Swift.String
+        /// The caller's country and whether consent is required there. Both are null when unknown.
+        ///
+        /// - Remark: Generated from `#/components/schemas/RegionResponse`.
+        public struct RegionResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/RegionResponse/consent_required`.
+            public var consentRequired: Swift.Bool?
+            /// - Remark: Generated from `#/components/schemas/RegionResponse/country`.
+            public var country: Swift.String?
+            /// Creates a new `RegionResponse`.
+            ///
+            /// - Parameters:
+            ///   - consentRequired:
+            ///   - country:
+            public init(
+                consentRequired: Swift.Bool? = nil,
+                country: Swift.String? = nil
+            ) {
+                self.consentRequired = consentRequired
+                self.country = country
+            }
+            public enum CodingKeys: String, CodingKey {
+                case consentRequired = "consent_required"
+                case country
+            }
+        }
         /// Body of a resolve request: the URL the user just pasted.
         ///
         /// - Remark: Generated from `#/components/schemas/ResolveRequest`.
@@ -3588,6 +3631,37 @@ extension Components {
                 case results
                 case searchUrl = "search_url"
                 case status
+            }
+        }
+        /// Body of a search request: the text to look for and the services to ask.
+        ///
+        /// - Remark: Generated from `#/components/schemas/SearchRequest`.
+        public struct SearchRequest: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/SearchRequest/country`.
+            public var country: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/SearchRequest/providers`.
+            public var providers: [Components.Schemas.Provider]
+            /// - Remark: Generated from `#/components/schemas/SearchRequest/q`.
+            public var q: Swift.String
+            /// Creates a new `SearchRequest`.
+            ///
+            /// - Parameters:
+            ///   - country:
+            ///   - providers:
+            ///   - q:
+            public init(
+                country: Swift.String? = nil,
+                providers: [Components.Schemas.Provider],
+                q: Swift.String
+            ) {
+                self.country = country
+                self.providers = providers
+                self.q = q
+            }
+            public enum CodingKeys: String, CodingKey {
+                case country
+                case providers
+                case q
             }
         }
         /// One group per requested service, inline services first.
@@ -4919,5 +4993,7 @@ extension Components {
                 try encoder.encodeAdditionalProperties(additionalProperties)
             }
         }
+        /// - Remark: Generated from `#/components/schemas/WithdrawalRefusal`.
+        public typealias WithdrawalRefusal = Swift.String
     }
 }

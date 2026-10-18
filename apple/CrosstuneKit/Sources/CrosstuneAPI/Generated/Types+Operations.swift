@@ -267,66 +267,47 @@ public enum Operations {
     ///
     /// Recordings matching the text on each requested service, grouped by service.
     ///
-    /// - Remark: HTTP `GET /v1/links/search`.
-    /// - Remark: Generated from `#/paths//v1/links/search/get(search_v1_links_search_get)`.
-    public enum SearchV1LinksSearchGet {
-        public static let id: Swift.String = "search_v1_links_search_get"
+    /// - Remark: HTTP `POST /v1/links/search`.
+    /// - Remark: Generated from `#/paths//v1/links/search/post(search_v1_links_search_post)`.
+    public enum SearchV1LinksSearchPost {
+        public static let id: Swift.String = "search_v1_links_search_post"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/v1/links/search/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/v1/links/search/GET/query/q`.
-                public var q: Swift.String
-                /// - Remark: Generated from `#/paths/v1/links/search/GET/query/providers`.
-                public var providers: [Components.Schemas.Provider]
-                /// - Remark: Generated from `#/paths/v1/links/search/GET/query/country`.
-                public var country: Swift.String?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - q:
-                ///   - providers:
-                ///   - country:
-                public init(
-                    q: Swift.String,
-                    providers: [Components.Schemas.Provider],
-                    country: Swift.String? = nil
-                ) {
-                    self.q = q
-                    self.providers = providers
-                    self.country = country
-                }
-            }
-            public var query: Operations.SearchV1LinksSearchGet.Input.Query
-            /// - Remark: Generated from `#/paths/v1/links/search/GET/header`.
+            /// - Remark: Generated from `#/paths/v1/links/search/POST/header`.
             public struct Headers: Sendable, Hashable {
-                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.SearchV1LinksSearchGet.AcceptableContentType>]
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.SearchV1LinksSearchPost.AcceptableContentType>]
                 /// Creates a new `Headers`.
                 ///
                 /// - Parameters:
                 ///   - accept:
-                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.SearchV1LinksSearchGet.AcceptableContentType>] = .defaultValues()) {
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.SearchV1LinksSearchPost.AcceptableContentType>] = .defaultValues()) {
                     self.accept = accept
                 }
             }
-            public var headers: Operations.SearchV1LinksSearchGet.Input.Headers
+            public var headers: Operations.SearchV1LinksSearchPost.Input.Headers
+            /// - Remark: Generated from `#/paths/v1/links/search/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/links/search/POST/requestBody/content/application\/json`.
+                case json(Components.Schemas.SearchRequest)
+            }
+            public var body: Operations.SearchV1LinksSearchPost.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.SearchV1LinksSearchGet.Input.Query,
-                headers: Operations.SearchV1LinksSearchGet.Input.Headers = .init()
+                headers: Operations.SearchV1LinksSearchPost.Input.Headers = .init(),
+                body: Operations.SearchV1LinksSearchPost.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/v1/links/search/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/v1/links/search/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/v1/links/search/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/v1/links/search/POST/responses/200/content/application\/json`.
                     case json(Components.Schemas.SearchResponse)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -342,26 +323,26 @@ public enum Operations {
                     }
                 }
                 /// Received HTTP response body
-                public var body: Operations.SearchV1LinksSearchGet.Output.Ok.Body
+                public var body: Operations.SearchV1LinksSearchPost.Output.Ok.Body
                 /// Creates a new `Ok`.
                 ///
                 /// - Parameters:
                 ///   - body: Received HTTP response body
-                public init(body: Operations.SearchV1LinksSearchGet.Output.Ok.Body) {
+                public init(body: Operations.SearchV1LinksSearchPost.Output.Ok.Body) {
                     self.body = body
                 }
             }
             /// Successful Response
             ///
-            /// - Remark: Generated from `#/paths//v1/links/search/get(search_v1_links_search_get)/responses/200`.
+            /// - Remark: Generated from `#/paths//v1/links/search/post(search_v1_links_search_post)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
-            case ok(Operations.SearchV1LinksSearchGet.Output.Ok)
+            case ok(Operations.SearchV1LinksSearchPost.Output.Ok)
             /// The associated value of the enum case if `self` is `.ok`.
             ///
             /// - Throws: An error if `self` is not `.ok`.
             /// - SeeAlso: `.ok`.
-            public var ok: Operations.SearchV1LinksSearchGet.Output.Ok {
+            public var ok: Operations.SearchV1LinksSearchPost.Output.Ok {
                 get throws {
                     switch self {
                     case let .ok(response):
@@ -375,9 +356,9 @@ public enum Operations {
                 }
             }
             public struct UnprocessableContent: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/v1/links/search/GET/responses/422/content`.
+                /// - Remark: Generated from `#/paths/v1/links/search/POST/responses/422/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/v1/links/search/GET/responses/422/content/application\/problem+json`.
+                    /// - Remark: Generated from `#/paths/v1/links/search/POST/responses/422/content/application\/problem+json`.
                     case applicationProblemJson(Components.Schemas.Problem)
                     /// The associated value of the enum case if `self` is `.applicationProblemJson`.
                     ///
@@ -393,26 +374,26 @@ public enum Operations {
                     }
                 }
                 /// Received HTTP response body
-                public var body: Operations.SearchV1LinksSearchGet.Output.UnprocessableContent.Body
+                public var body: Operations.SearchV1LinksSearchPost.Output.UnprocessableContent.Body
                 /// Creates a new `UnprocessableContent`.
                 ///
                 /// - Parameters:
                 ///   - body: Received HTTP response body
-                public init(body: Operations.SearchV1LinksSearchGet.Output.UnprocessableContent.Body) {
+                public init(body: Operations.SearchV1LinksSearchPost.Output.UnprocessableContent.Body) {
                     self.body = body
                 }
             }
             /// Validation Error
             ///
-            /// - Remark: Generated from `#/paths//v1/links/search/get(search_v1_links_search_get)/responses/422`.
+            /// - Remark: Generated from `#/paths//v1/links/search/post(search_v1_links_search_post)/responses/422`.
             ///
             /// HTTP response code: `422 unprocessableContent`.
-            case unprocessableContent(Operations.SearchV1LinksSearchGet.Output.UnprocessableContent)
+            case unprocessableContent(Operations.SearchV1LinksSearchPost.Output.UnprocessableContent)
             /// The associated value of the enum case if `self` is `.unprocessableContent`.
             ///
             /// - Throws: An error if `self` is not `.unprocessableContent`.
             /// - SeeAlso: `.unprocessableContent`.
-            public var unprocessableContent: Operations.SearchV1LinksSearchGet.Output.UnprocessableContent {
+            public var unprocessableContent: Operations.SearchV1LinksSearchPost.Output.UnprocessableContent {
                 get throws {
                     switch self {
                     case let .unprocessableContent(response):
@@ -426,11 +407,11 @@ public enum Operations {
                 }
             }
             public struct TooManyRequests: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/v1/links/search/GET/responses/429/headers`.
+                /// - Remark: Generated from `#/paths/v1/links/search/POST/responses/429/headers`.
                 public struct Headers: Sendable, Hashable {
                     /// Whole seconds to wait before trying again.
                     ///
-                    /// - Remark: Generated from `#/paths/v1/links/search/GET/responses/429/headers/Retry-After`.
+                    /// - Remark: Generated from `#/paths/v1/links/search/POST/responses/429/headers/Retry-After`.
                     public var retryAfter: Swift.String?
                     /// Creates a new `Headers`.
                     ///
@@ -441,10 +422,10 @@ public enum Operations {
                     }
                 }
                 /// Received HTTP response headers
-                public var headers: Operations.SearchV1LinksSearchGet.Output.TooManyRequests.Headers
-                /// - Remark: Generated from `#/paths/v1/links/search/GET/responses/429/content`.
+                public var headers: Operations.SearchV1LinksSearchPost.Output.TooManyRequests.Headers
+                /// - Remark: Generated from `#/paths/v1/links/search/POST/responses/429/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/v1/links/search/GET/responses/429/content/application\/problem+json`.
+                    /// - Remark: Generated from `#/paths/v1/links/search/POST/responses/429/content/application\/problem+json`.
                     case applicationProblemJson(Components.Schemas.Problem)
                     /// The associated value of the enum case if `self` is `.applicationProblemJson`.
                     ///
@@ -460,15 +441,15 @@ public enum Operations {
                     }
                 }
                 /// Received HTTP response body
-                public var body: Operations.SearchV1LinksSearchGet.Output.TooManyRequests.Body
+                public var body: Operations.SearchV1LinksSearchPost.Output.TooManyRequests.Body
                 /// Creates a new `TooManyRequests`.
                 ///
                 /// - Parameters:
                 ///   - headers: Received HTTP response headers
                 ///   - body: Received HTTP response body
                 public init(
-                    headers: Operations.SearchV1LinksSearchGet.Output.TooManyRequests.Headers = .init(),
-                    body: Operations.SearchV1LinksSearchGet.Output.TooManyRequests.Body
+                    headers: Operations.SearchV1LinksSearchPost.Output.TooManyRequests.Headers = .init(),
+                    body: Operations.SearchV1LinksSearchPost.Output.TooManyRequests.Body
                 ) {
                     self.headers = headers
                     self.body = body
@@ -476,15 +457,15 @@ public enum Operations {
             }
             /// Too Many Requests
             ///
-            /// - Remark: Generated from `#/paths//v1/links/search/get(search_v1_links_search_get)/responses/429`.
+            /// - Remark: Generated from `#/paths//v1/links/search/post(search_v1_links_search_post)/responses/429`.
             ///
             /// HTTP response code: `429 tooManyRequests`.
-            case tooManyRequests(Operations.SearchV1LinksSearchGet.Output.TooManyRequests)
+            case tooManyRequests(Operations.SearchV1LinksSearchPost.Output.TooManyRequests)
             /// The associated value of the enum case if `self` is `.tooManyRequests`.
             ///
             /// - Throws: An error if `self` is not `.tooManyRequests`.
             /// - SeeAlso: `.tooManyRequests`.
-            public var tooManyRequests: Operations.SearchV1LinksSearchGet.Output.TooManyRequests {
+            public var tooManyRequests: Operations.SearchV1LinksSearchPost.Output.TooManyRequests {
                 get throws {
                     switch self {
                     case let .tooManyRequests(response):
@@ -1290,6 +1271,381 @@ public enum Operations {
             /// - Throws: An error if `self` is not `.serviceUnavailable`.
             /// - SeeAlso: `.serviceUnavailable`.
             public var serviceUnavailable: Operations.RefreshBillingV1MeBillingRefreshPost.Output.ServiceUnavailable {
+                get throws {
+                    switch self {
+                    case let .serviceUnavailable(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "serviceUnavailable",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case applicationProblemJson
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/problem+json":
+                    self = .applicationProblemJson
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .applicationProblemJson:
+                    return "application/problem+json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .applicationProblemJson
+                ]
+            }
+        }
+    }
+    /// Withdraw Billing
+    ///
+    /// Refund the caller's web subscription in full and end Premium now.
+    ///
+    /// Allowed once per account, within 14 days of the subscription's first payment. A 409's
+    /// `reason` says why a withdrawal was refused.
+    ///
+    /// - Remark: HTTP `POST /v1/me/billing/withdraw`.
+    /// - Remark: Generated from `#/paths//v1/me/billing/withdraw/post(withdraw_billing_v1_me_billing_withdraw_post)`.
+    public enum WithdrawBillingV1MeBillingWithdrawPost {
+        public static let id: Swift.String = "withdraw_billing_v1_me_billing_withdraw_post"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/me/billing/withdraw/POST/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.WithdrawBillingV1MeBillingWithdrawPost.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.WithdrawBillingV1MeBillingWithdrawPost.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.WithdrawBillingV1MeBillingWithdrawPost.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            public init(headers: Operations.WithdrawBillingV1MeBillingWithdrawPost.Input.Headers = .init()) {
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct NoContent: Sendable, Hashable {
+                /// Creates a new `NoContent`.
+                public init() {}
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/billing/withdraw/post(withdraw_billing_v1_me_billing_withdraw_post)/responses/204`.
+            ///
+            /// HTTP response code: `204 noContent`.
+            case noContent(Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.NoContent)
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/billing/withdraw/post(withdraw_billing_v1_me_billing_withdraw_post)/responses/204`.
+            ///
+            /// HTTP response code: `204 noContent`.
+            public static var noContent: Self {
+                .noContent(.init())
+            }
+            /// The associated value of the enum case if `self` is `.noContent`.
+            ///
+            /// - Throws: An error if `self` is not `.noContent`.
+            /// - SeeAlso: `.noContent`.
+            public var noContent: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.NoContent {
+                get throws {
+                    switch self {
+                    case let .noContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "noContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct Unauthorized: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/me/billing/withdraw/POST/responses/401/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/me/billing/withdraw/POST/responses/401/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.Unauthorized.Body
+                /// Creates a new `Unauthorized`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.Unauthorized.Body) {
+                    self.body = body
+                }
+            }
+            /// Unauthorized
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/billing/withdraw/post(withdraw_billing_v1_me_billing_withdraw_post)/responses/401`.
+            ///
+            /// HTTP response code: `401 unauthorized`.
+            case unauthorized(Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.Unauthorized)
+            /// The associated value of the enum case if `self` is `.unauthorized`.
+            ///
+            /// - Throws: An error if `self` is not `.unauthorized`.
+            /// - SeeAlso: `.unauthorized`.
+            public var unauthorized: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.Unauthorized {
+                get throws {
+                    switch self {
+                    case let .unauthorized(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct Conflict: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/me/billing/withdraw/POST/responses/409/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/me/billing/withdraw/POST/responses/409/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.Conflict.Body
+                /// Creates a new `Conflict`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.Conflict.Body) {
+                    self.body = body
+                }
+            }
+            /// Conflict
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/billing/withdraw/post(withdraw_billing_v1_me_billing_withdraw_post)/responses/409`.
+            ///
+            /// HTTP response code: `409 conflict`.
+            case conflict(Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.Conflict)
+            /// The associated value of the enum case if `self` is `.conflict`.
+            ///
+            /// - Throws: An error if `self` is not `.conflict`.
+            /// - SeeAlso: `.conflict`.
+            public var conflict: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.Conflict {
+                get throws {
+                    switch self {
+                    case let .conflict(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "conflict",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/me/billing/withdraw/POST/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/me/billing/withdraw/POST/responses/422/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/billing/withdraw/post(withdraw_billing_v1_me_billing_withdraw_post)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct TooManyRequests: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/me/billing/withdraw/POST/responses/429/headers`.
+                public struct Headers: Sendable, Hashable {
+                    /// Whole seconds to wait before trying again.
+                    ///
+                    /// - Remark: Generated from `#/paths/v1/me/billing/withdraw/POST/responses/429/headers/Retry-After`.
+                    public var retryAfter: Swift.String?
+                    /// Creates a new `Headers`.
+                    ///
+                    /// - Parameters:
+                    ///   - retryAfter: Whole seconds to wait before trying again.
+                    public init(retryAfter: Swift.String? = nil) {
+                        self.retryAfter = retryAfter
+                    }
+                }
+                /// Received HTTP response headers
+                public var headers: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.TooManyRequests.Headers
+                /// - Remark: Generated from `#/paths/v1/me/billing/withdraw/POST/responses/429/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/me/billing/withdraw/POST/responses/429/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.TooManyRequests.Body
+                /// Creates a new `TooManyRequests`.
+                ///
+                /// - Parameters:
+                ///   - headers: Received HTTP response headers
+                ///   - body: Received HTTP response body
+                public init(
+                    headers: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.TooManyRequests.Headers = .init(),
+                    body: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.TooManyRequests.Body
+                ) {
+                    self.headers = headers
+                    self.body = body
+                }
+            }
+            /// Too Many Requests
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/billing/withdraw/post(withdraw_billing_v1_me_billing_withdraw_post)/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.TooManyRequests)
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            public var tooManyRequests: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct ServiceUnavailable: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/me/billing/withdraw/POST/responses/503/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/me/billing/withdraw/POST/responses/503/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.ServiceUnavailable.Body
+                /// Creates a new `ServiceUnavailable`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.ServiceUnavailable.Body) {
+                    self.body = body
+                }
+            }
+            /// Service Unavailable
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/billing/withdraw/post(withdraw_billing_v1_me_billing_withdraw_post)/responses/503`.
+            ///
+            /// HTTP response code: `503 serviceUnavailable`.
+            case serviceUnavailable(Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.ServiceUnavailable)
+            /// The associated value of the enum case if `self` is `.serviceUnavailable`.
+            ///
+            /// - Throws: An error if `self` is not `.serviceUnavailable`.
+            /// - SeeAlso: `.serviceUnavailable`.
+            public var serviceUnavailable: Operations.WithdrawBillingV1MeBillingWithdrawPost.Output.ServiceUnavailable {
                 get throws {
                     switch self {
                     case let .serviceUnavailable(response):
@@ -3373,6 +3729,118 @@ public enum Operations {
             public static var allCases: [Self] {
                 [
                     .applicationProblemJson
+                ]
+            }
+        }
+    }
+    /// Get Region
+    ///
+    /// The caller's country and whether analytics must start off there.
+    ///
+    /// - Remark: HTTP `GET /v1/region`.
+    /// - Remark: Generated from `#/paths//v1/region/get(get_region_v1_region_get)`.
+    public enum GetRegionV1RegionGet {
+        public static let id: Swift.String = "get_region_v1_region_get"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/region/GET/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetRegionV1RegionGet.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetRegionV1RegionGet.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.GetRegionV1RegionGet.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            public init(headers: Operations.GetRegionV1RegionGet.Input.Headers = .init()) {
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/region/GET/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/region/GET/responses/200/content/application\/json`.
+                    case json(Components.Schemas.RegionResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.RegionResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GetRegionV1RegionGet.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GetRegionV1RegionGet.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/region/get(get_region_v1_region_get)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.GetRegionV1RegionGet.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.GetRegionV1RegionGet.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
                 ]
             }
         }

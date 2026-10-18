@@ -138,7 +138,6 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
             ("PERIOD_ANNUAL", PlanText.periodAnnual),
             ("PERIOD_MONTHLY", PlanText.periodMonthly),
             ("BILLING_PERIOD", PlanText.billingPeriod),
-            ("RENEWS_UNTIL_CANCELLED", PlanText.renewsUntilCancelled),
             ("SUBSCRIBE_OFFLINE", PlanText.subscribeOffline),
             ("SUBSCRIBED", PlanText.subscribed),
             ("SUBSCRIBE_FAILED", PlanText.subscribeFailed),

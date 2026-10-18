@@ -47,6 +47,7 @@ import {
 import {
   COMPARE_PLANS,
   PRIVACY_POLICY,
+  renewalTerms,
   RENEWS_UNTIL_CANCELLED,
   SEE_PLAN,
   SUBSCRIBE,
@@ -250,7 +251,7 @@ it('tells a lapsed trial it has ended and, with no store, offers only Compare pl
   expect(notice.getByRole('button', { name: SUBSCRIBE }).query()).toBeNull()
   expect(notice.getByRole('button', { name: SEE_PLAN }).query()).toBeNull()
   expect(notice.getByRole('button', { name: NOTICE_OK, exact: true }).query()).toBeNull()
-  expect(notice.getByText(RENEWS_UNTIL_CANCELLED).query()).toBeNull()
+  expect(notice.getByText(RENEWS_UNTIL_CANCELLED, { exact: false }).query()).toBeNull()
 
   await notice.getByRole('button', { name: COMPARE_PLANS }).click()
   await expect.element(notice).not.toBeInTheDocument()
@@ -280,7 +281,7 @@ it.each(['trial_reminder', 'trial_ended'] as const)(
     const subscribe = notice.getByRole('button', { name: subscribeAnnual('$49.99') })
     await expect.element(subscribe).toBeEnabled()
     await expect.element(notice.getByRole('button', { name: COMPARE_PLANS })).toBeVisible()
-    await expect.element(notice.getByText(RENEWS_UNTIL_CANCELLED)).toBeVisible()
+    await expect.element(notice.getByText(renewalTerms('$49.99', 'annual', true))).toBeVisible()
     await expect.element(notice.getByRole('link', { name: TERMS_OF_USE })).toBeVisible()
     await expect.element(notice.getByRole('link', { name: PRIVACY_POLICY })).toBeVisible()
     expect(notice.getByRole('button', { name: NOTICE_OK, exact: true }).query()).toBeNull()
@@ -319,6 +320,8 @@ const unfilled = (element: Element) =>
   getComputedStyle(element).backgroundColor === 'rgba(0, 0, 0, 0)'
 
 it('stacks Subscribe, then Compare plans as text, then the renewal and terms lines', async () => {
+  // An earlier test can leave the pointer where Compare plans renders, and its hover fills it.
+  await userEvent.unhover(document.body)
   const db = openTestDb()
   await mount(db, rowFor('trial_reminder'), undefined, fakeStore())
   const notice = page.getByRole('dialog').first()
@@ -328,7 +331,7 @@ it('stacks Subscribe, then Compare plans as text, then the renewal and terms lin
 
   const lead = subscribe.element()
   const compare = notice.getByRole('button', { name: COMPARE_PLANS }).element()
-  const renews = notice.getByText(RENEWS_UNTIL_CANCELLED).element()
+  const renews = notice.getByText(renewalTerms('$49.99', 'annual', true)).element()
   const terms = notice.getByRole('link', { name: TERMS_OF_USE }).element()
   const stack = [lead, compare, renews, terms]
   for (let i = 1; i < stack.length; i++) {
@@ -336,8 +339,9 @@ it('stacks Subscribe, then Compare plans as text, then the renewal and terms lin
   }
   await expect.poll(() => box(lead).width - box(body(notice)).width).toBeCloseTo(0, 0)
   expect(box(lead).height).toBeGreaterThan(box(compare).height)
-  expect(unfilled(lead)).toBe(false)
-  expect(unfilled(compare)).toBe(true)
+  // Fills ease between states, so each is read until it settles.
+  await expect.poll(() => unfilled(lead)).toBe(false)
+  await expect.poll(() => unfilled(compare)).toBe(true)
   for (const element of [compare, renews, terms.parentElement!]) {
     expect(Math.abs(middle(element) - middle(lead))).toBeLessThanOrEqual(1)
   }
@@ -454,7 +458,7 @@ it("holds Subscribe's place, off, beside Compare plans while the offers have not
   const notice = page.getByRole('dialog').first()
   await expect.element(notice.getByRole('button', { name: SUBSCRIBE })).toBeDisabled()
   await expect.element(notice.getByRole('button', { name: COMPARE_PLANS })).toBeEnabled()
-  expect(notice.getByText(RENEWS_UNTIL_CANCELLED).query()).toBeNull()
+  expect(notice.getByText(RENEWS_UNTIL_CANCELLED, { exact: false }).query()).toBeNull()
 })
 
 it("holds Subscribe's place, off, while the plan reads unknown under an open notice", async () => {
@@ -495,7 +499,7 @@ it.each([
   await expect.element(notice.getByRole('button', { name: CLOSE })).toBeVisible()
   // The store's answer settles the actions, so the off Subscribe that held its place has gone.
   await expect.element(notice.getByRole('button', { name: SUBSCRIBE })).not.toBeInTheDocument()
-  expect(notice.getByText(RENEWS_UNTIL_CANCELLED).query()).toBeNull()
+  expect(notice.getByText(RENEWS_UNTIL_CANCELLED, { exact: false }).query()).toBeNull()
 })
 
 it('opens the Plan sheet from Compare plans', async () => {

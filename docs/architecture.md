@@ -72,16 +72,16 @@ Cloudflare also hosts the DNS zone for the product domain.
 
 ## Sources of truth
 
-| Question                 | Answer                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order, and a pull holds it shared so no write lands between its reads. A cursor never skips a row.                                                                                                                                                                                                                                                                                  |
-| Who owns a row           | The token.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, scans, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items, and the server-written entitlements row. Four history tables, kept out of the main pull: plays, practice sessions, and scan views, which clients push once and never edit, and status changes, which the server writes when a user tune's status changes. Server-only, never synced: users, upload slots, background jobs, grants, pending comps. |
-| Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file, audio, and scan images in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes other than history events (plays, practice sessions, and scan views), or while a scan is unuploaded, each with its own message. A shape change starts it over (see Pull).                                                                                        |
-| Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                                                                                                                                                                                                                                                                                                                                                                 |
-| Host settings            | The host dashboards. Configuration says how each deployable reads them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Question                 | Answer                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order, and a pull holds it shared so no write lands between its reads. A cursor never skips a row.                                                                                                                                                                                                                                                                                                                    |
+| Who owns a row           | The token.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Is a row deleted         | `deleted_at`. Deletes are soft. A tombstone is kept forever, so a deletion reaches every device. A user's delete, its cascade, and the inactivity pass clear its content; a loop the server tombstones because it no longer fits a trim keeps it.                                                                                                                                                                                                                                                                                                                         |
+| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, scans, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items, and the server-written entitlements row. Four history tables, kept out of the main pull: plays, practice sessions, and scan views, which clients push once and never edit, and status changes, which the server writes when a user tune's status changes. Server-only, never synced: users, upload slots, background jobs, grants, pending comps, billing notices, account notices. |
+| Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file, audio, and scan images in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes other than history events (plays, practice sessions, and scan views), or while a scan is unuploaded, each with its own message. A shape change starts it over (see Pull).                                                                                                                          |
+| Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Host settings            | The host dashboards. Configuration says how each deployable reads them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 ## Sync
 
@@ -191,6 +191,35 @@ synced entitlements row.
 - Refresh is limited per user, since its RevenueCat requests share one
   rate limit with the webhook. Past it, refresh answers 429 with
   `Retry-After`.
+- `POST /v1/me/billing/withdraw` refunds the live Stripe grant's first
+  payment in full, cancels the subscription, ends the grant now, and
+  stamps `users.withdrew_at`. An account withdraws once, within 14 days
+  of `started_at`. A refusal is 409 `urn:crosstune:withdrawal-refused`
+  with a `reason`. It holds the user lock from before the refund until the
+  refund is committed as the grant's `refunded_at`, and reads
+  `withdrew_at` under it, so two calls at once refund once. The cancel
+  comes after that commit. When it fails, the call answers 503
+  `urn:crosstune:billing-unavailable` and the grant stays refunded but
+  not withdrawn; a retry, or `complete_pending_withdrawals`, cancels and
+  ends it without refunding again, even when a refresh already ended the
+  grant. It shares refresh's rate limit. The confirmation email sends
+  after the final commit, and a failed send never fails the withdrawal.
+  A withdrawn grant keeps its `withdrawn_at`, and a later mirror never
+  moves its expiry past that moment or turns `auto_renews` back on.
+- After a refresh or the webhook commits, the API emails a purchase
+  confirmation for each live paid grant, never withdrawn or refunded,
+  that has none yet. A grant with no `period` waits until RevenueCat
+  reports one. A renewing yearly grant gets a reminder 25 to 35 days
+  before its `expires_at`, once per renewal. `billing_notices` records
+  each confirmation, reminder, and withdrawal email once Resend accepts
+  it, keyed by RevenueCat's subscription ID rather than the account, so a
+  deleted account's withdrawal email is still recorded. Deleting an
+  account removes its confirmation and reminder rows and keeps its
+  withdrawal rows. An account with no email address gets none of them.
+- The job runner's daily billing pass, claimed through `scheduled_runs`
+  like the inactivity pass, runs `complete_pending_withdrawals` when
+  Stripe and RevenueCat are configured and, when mail is, sends every
+  notice still owed, including a withdrawal email whose send failed.
 - The Apple app identifies a RevenueCat customer by the Clerk user ID,
   set after sign-in and switched with `logIn`. It never logs out, since
   that would mint an anonymous customer and a purchase made there would
@@ -206,6 +235,22 @@ synced entitlements row.
     updates it. A grant's `external_id` is RevenueCat's subscription ID,
     which Stripe cannot cancel, so without RevenueCat configured a live
     Stripe grant makes deletion fail with 503.
+  - The exception is a refunded grant whose cancel never went through. It
+    is cancelled through its stored `store_id` whether or not RevenueCat
+    still lists it, since the purge removes the only record of it. With no
+    `store_id`, deletion fails with 502 and the account stays.
+  - A live Stripe grant inside its withdrawal window, for an account that
+    has not withdrawn, is refunded before it is cancelled, with the
+    withdrawal's idempotency key. Each refund and finished withdrawal
+    commits as Stripe confirms it, so an account that survives a later
+    failure, such as Clerk not answering, keeps the record and a retry
+    never refunds twice.
+  - Those commits release the user lock, so deletion, a withdrawal, and
+    the daily pass each run their Stripe steps under a per-user billing
+    lock: a session-level advisory lock on a connection of its own, held
+    across the commits. Deletion holds it until the purge is written, a
+    withdrawal waits for it, and the daily pass skips an account whose
+    lock is held.
   - `DELETE /v1/me` fails with 503 when a live Stripe subscription exists
     and Stripe is not configured. It fails with 502 when Stripe or RevenueCat
     does not confirm. Neither has a `billing-*` type. RevenueCat is skipped
@@ -223,6 +268,12 @@ synced entitlements row.
   manage, and what deleting does to, a subscription the reported grant
   outlasts, such as one under an open-ended comp. A client judges each
   entry's expiry as it judges the reported grant's.
+- `withdraw_until` is 14 days after the live Stripe grant's `started_at`,
+  while that moment is still ahead and the account has never withdrawn.
+  Otherwise it is null. Like the rest of the row it does not change when
+  the moment passes, so the web compares it with the clock.
+  `withdrawal_used` is true once the account has withdrawn, so no
+  surface offers the withdrawal again.
 - The trial's start is when its grant was created, and its end is the
   grant's expiry, so a client measures how much of a trial has passed
   from the two, never from a fixed length. Moving a trial's end changes
@@ -283,6 +334,21 @@ predates a notice cannot reset it. A post refused with a 4xx that is not
 an auth failure, a timeout, or a rate limit is not sent again, and the
 notice stays seen on the device.
 
+### Account country
+
+`users.country` holds the two-letter country of the account's latest sync,
+and never the IP address. A sync that is due to rewrite `last_synced_at`
+(at most once an hour) also sets the country when it resolved one, and a
+sync that resolves none keeps the stored value.
+
+- The request's country is the `X-Crosstune-Country` header the Worker sets,
+  else a lookup of the caller's IP (`X-Real-IP`, else the first
+  `X-Forwarded-For` entry) in the DB-IP Country Lite database that the API
+  image bundles. Without the database file, only the header counts.
+- Only the statistics command reads the column. No route returns it.
+- A client can forge the header. That changes only the count for the
+  forger's own account.
+
 ### Inactive accounts
 
 An account with no active Premium grant that has not synced for 365 days
@@ -306,8 +372,8 @@ never synced.
   goes out, so no account loses a file.
 - Deletion is a server-side soft delete. It re-checks the account under
   `lock_user`, then tombstones its recordings, their loops, and its scans as a
-  client delete does. Devices drop them on their next pull, and the purge
-  removes the files.
+  client delete does, clearing their content the same way. Devices drop them
+  on their next pull, and the purge removes the files.
 
 ## Sign-in
 
@@ -391,8 +457,9 @@ never synced.
   to public addresses, only http and https are fetched, every redirect hop
   is checked, and the connection goes to the checked address while the Host
   header and TLS name keep the original.
-- Search: the client calls `GET /v1/links/search` with the query, the one
-  service the musician picked, and the device's region. It offers the
+- Search: the client calls `POST /v1/links/search` with the query in a
+  JSON body, the one service the musician picked, and the device's
+  region. It offers the
   services in its local settings because a changed setting can be unsynced.
   The client never builds a service's search URL: for a service it does not
   search in the app, the route answers `search_only` with the `search_url`

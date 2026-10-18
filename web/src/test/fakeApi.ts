@@ -130,6 +130,9 @@ export function createFakeApi() {
     async searchRecordings() {
       return { groups: [] }
     },
+    async region() {
+      return { country: null, consent_required: null }
+    },
     async me() {
       return {
         id: 'server-user',
@@ -145,6 +148,7 @@ export function createFakeApi() {
       notices.push(notice)
     },
     async refreshBilling() {},
+    async withdraw() {},
     async requestUploadSlot(recordingId, body) {
       if (slotError && (slotErrorId === null || slotErrorId === recordingId)) throw slotError
       const state = recordingStates.get(recordingId) ?? 'pending_upload'

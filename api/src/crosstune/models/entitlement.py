@@ -52,6 +52,12 @@ class Entitlement(SyncColumns, Base):
     paid_grants: Mapped[list[dict[str, object]]] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'"), default=list
     )
+    # Until when the live web subscription may still be withdrawn; null when it may not.
+    withdraw_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # True once the account has withdrawn, which it may do once, so no surface offers it again.
+    withdrawal_used: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
     recording_notice_seen_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, new_uuid7, utc_now
 from crosstune.models._checks import in_list
-from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantSource
+from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantPeriod, GrantSource
 
 
 class Grant(Base):
@@ -27,6 +27,7 @@ class Grant(Base):
             in_list("environment", tuple(GrantEnvironment), nullable=False),
             name="ck_grants_environment",
         ),
+        CheckConstraint(in_list("period", tuple(GrantPeriod)), name="ck_grants_period"),
         Index("ix_grants_user_id", "user_id"),
         # Billing providers renew one grant per subscription, so only server-issued
         # sources are held to a single grant per kind.
@@ -65,6 +66,15 @@ class Grant(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     auto_renews: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     external_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # When a paid subscription began and how often it bills, as the provider reports them.
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    period: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    # Set when the buyer withdrew; the grant then never runs past this moment.
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Set once a withdrawal's refund went through. With no `withdrawn_at`, the subscription
+    # still needs cancelling, through `store_id`, the Stripe item that was refunded.
+    refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    store_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     granted_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
     reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

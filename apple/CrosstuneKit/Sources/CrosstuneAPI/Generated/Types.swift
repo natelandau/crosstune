@@ -22,9 +22,9 @@ public protocol APIProtocol: Sendable {
     ///
     /// Recordings matching the text on each requested service, grouped by service.
     ///
-    /// - Remark: HTTP `GET /v1/links/search`.
-    /// - Remark: Generated from `#/paths//v1/links/search/get(search_v1_links_search_get)`.
-    func searchV1LinksSearchGet(_ input: Operations.SearchV1LinksSearchGet.Input) async throws -> Operations.SearchV1LinksSearchGet.Output
+    /// - Remark: HTTP `POST /v1/links/search`.
+    /// - Remark: Generated from `#/paths//v1/links/search/post(search_v1_links_search_post)`.
+    func searchV1LinksSearchPost(_ input: Operations.SearchV1LinksSearchPost.Input) async throws -> Operations.SearchV1LinksSearchPost.Output
     /// Me
     ///
     /// The calling user's profile and storage figures.
@@ -50,6 +50,16 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `POST /v1/me/billing/refresh`.
     /// - Remark: Generated from `#/paths//v1/me/billing/refresh/post(refresh_billing_v1_me_billing_refresh_post)`.
     func refreshBillingV1MeBillingRefreshPost(_ input: Operations.RefreshBillingV1MeBillingRefreshPost.Input) async throws -> Operations.RefreshBillingV1MeBillingRefreshPost.Output
+    /// Withdraw Billing
+    ///
+    /// Refund the caller's web subscription in full and end Premium now.
+    ///
+    /// Allowed once per account, within 14 days of the subscription's first payment. A 409's
+    /// `reason` says why a withdrawal was refused.
+    ///
+    /// - Remark: HTTP `POST /v1/me/billing/withdraw`.
+    /// - Remark: Generated from `#/paths//v1/me/billing/withdraw/post(withdraw_billing_v1_me_billing_withdraw_post)`.
+    func withdrawBillingV1MeBillingWithdrawPost(_ input: Operations.WithdrawBillingV1MeBillingWithdrawPost.Input) async throws -> Operations.WithdrawBillingV1MeBillingWithdrawPost.Output
     /// Record Notice
     ///
     /// Record that the user saw a one-time notice, so no device shows it again.
@@ -109,6 +119,13 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `POST /v1/recordings/{recording_id}/uploaded`.
     /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded/post(upload_finished_v1_recordings__recording_id__uploaded_post)`.
     func uploadFinishedV1RecordingsRecordingIdUploadedPost(_ input: Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Input) async throws -> Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Output
+    /// Get Region
+    ///
+    /// The caller's country and whether analytics must start off there.
+    ///
+    /// - Remark: HTTP `GET /v1/region`.
+    /// - Remark: Generated from `#/paths//v1/region/get(get_region_v1_region_get)`.
+    func getRegionV1RegionGet(_ input: Operations.GetRegionV1RegionGet.Input) async throws -> Operations.GetRegionV1RegionGet.Output
     /// Download
     ///
     /// A presigned GET for the image of a ready scan.
@@ -174,15 +191,15 @@ extension APIProtocol {
     ///
     /// Recordings matching the text on each requested service, grouped by service.
     ///
-    /// - Remark: HTTP `GET /v1/links/search`.
-    /// - Remark: Generated from `#/paths//v1/links/search/get(search_v1_links_search_get)`.
-    public func searchV1LinksSearchGet(
-        query: Operations.SearchV1LinksSearchGet.Input.Query,
-        headers: Operations.SearchV1LinksSearchGet.Input.Headers = .init()
-    ) async throws -> Operations.SearchV1LinksSearchGet.Output {
-        try await searchV1LinksSearchGet(Operations.SearchV1LinksSearchGet.Input(
-            query: query,
-            headers: headers
+    /// - Remark: HTTP `POST /v1/links/search`.
+    /// - Remark: Generated from `#/paths//v1/links/search/post(search_v1_links_search_post)`.
+    public func searchV1LinksSearchPost(
+        headers: Operations.SearchV1LinksSearchPost.Input.Headers = .init(),
+        body: Operations.SearchV1LinksSearchPost.Input.Body
+    ) async throws -> Operations.SearchV1LinksSearchPost.Output {
+        try await searchV1LinksSearchPost(Operations.SearchV1LinksSearchPost.Input(
+            headers: headers,
+            body: body
         ))
     }
     /// Me
@@ -221,6 +238,18 @@ extension APIProtocol {
     /// - Remark: Generated from `#/paths//v1/me/billing/refresh/post(refresh_billing_v1_me_billing_refresh_post)`.
     public func refreshBillingV1MeBillingRefreshPost(headers: Operations.RefreshBillingV1MeBillingRefreshPost.Input.Headers = .init()) async throws -> Operations.RefreshBillingV1MeBillingRefreshPost.Output {
         try await refreshBillingV1MeBillingRefreshPost(Operations.RefreshBillingV1MeBillingRefreshPost.Input(headers: headers))
+    }
+    /// Withdraw Billing
+    ///
+    /// Refund the caller's web subscription in full and end Premium now.
+    ///
+    /// Allowed once per account, within 14 days of the subscription's first payment. A 409's
+    /// `reason` says why a withdrawal was refused.
+    ///
+    /// - Remark: HTTP `POST /v1/me/billing/withdraw`.
+    /// - Remark: Generated from `#/paths//v1/me/billing/withdraw/post(withdraw_billing_v1_me_billing_withdraw_post)`.
+    public func withdrawBillingV1MeBillingWithdrawPost(headers: Operations.WithdrawBillingV1MeBillingWithdrawPost.Input.Headers = .init()) async throws -> Operations.WithdrawBillingV1MeBillingWithdrawPost.Output {
+        try await withdrawBillingV1MeBillingWithdrawPost(Operations.WithdrawBillingV1MeBillingWithdrawPost.Input(headers: headers))
     }
     /// Record Notice
     ///
@@ -330,6 +359,15 @@ extension APIProtocol {
             path: path,
             headers: headers
         ))
+    }
+    /// Get Region
+    ///
+    /// The caller's country and whether analytics must start off there.
+    ///
+    /// - Remark: HTTP `GET /v1/region`.
+    /// - Remark: Generated from `#/paths//v1/region/get(get_region_v1_region_get)`.
+    public func getRegionV1RegionGet(headers: Operations.GetRegionV1RegionGet.Input.Headers = .init()) async throws -> Operations.GetRegionV1RegionGet.Output {
+        try await getRegionV1RegionGet(Operations.GetRegionV1RegionGet.Input(headers: headers))
     }
     /// Download
     ///

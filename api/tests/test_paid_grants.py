@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
@@ -16,7 +17,7 @@ from crosstune.billing.grants import (
 )
 from crosstune.models import Grant
 from crosstune.users.service import get_or_create_user
-from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantSource
+from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantPeriod, GrantSource
 from tests.helpers import T0
 
 if TYPE_CHECKING:
@@ -254,3 +255,82 @@ async def test_an_apple_renewal_updates_one_grant(
     (row,) = await _grants(session, user, GrantSource.APPLE)
     assert row.external_id == "sub_apple"
     assert row.expires_at == NOW + timedelta(days=60)
+
+
+async def test_mirror_writes_the_start_and_the_period(
+    session: AsyncSession, settings: Settings
+) -> None:
+    user = await _user(session, settings)
+    sub = replace(
+        _sub("si_abc", GrantSource.STRIPE),
+        started_at=NOW - timedelta(days=3),
+        period=GrantPeriod.YEAR,
+    )
+
+    await mirror_paid_grants(session, user.id, [sub], NOW)
+
+    (row,) = await _grants(session, user, GrantSource.STRIPE)
+    assert row.started_at == NOW - timedelta(days=3)
+    assert row.period == "year"
+
+
+async def test_a_later_report_without_the_start_or_period_keeps_them(
+    session: AsyncSession, settings: Settings
+) -> None:
+    user = await _user(session, settings)
+    first = replace(
+        _sub("si_abc", GrantSource.STRIPE),
+        started_at=NOW - timedelta(days=3),
+        period=GrantPeriod.YEAR,
+    )
+    await mirror_paid_grants(session, user.id, [first], NOW)
+
+    await mirror_paid_grants(
+        session, user.id, [_sub("si_abc", GrantSource.STRIPE, days=40)], NOW + timedelta(hours=1)
+    )
+
+    (row,) = await _grants(session, user, GrantSource.STRIPE)
+    assert row.started_at == NOW - timedelta(days=3)
+    assert row.period == "year"
+    assert row.expires_at == NOW + timedelta(days=40)
+
+
+@pytest.mark.parametrize("days", [60, None])
+async def test_a_withdrawn_grant_stays_ended_when_mirrored_again(
+    session: AsyncSession, settings: Settings, days: int | None
+) -> None:
+    user = await _user(session, settings)
+    await mirror_paid_grants(session, user.id, [_sub("si_abc", GrantSource.STRIPE)], NOW)
+    (row,) = await _grants(session, user, GrantSource.STRIPE)
+    withdrawn = NOW + timedelta(hours=1)
+    row.withdrawn_at = withdrawn
+    row.expires_at = withdrawn
+    row.auto_renews = False
+    await session.flush()
+
+    later = _sub("si_abc", GrantSource.STRIPE, days=days, auto_renews=True)
+    await mirror_paid_grants(session, user.id, [later], NOW + timedelta(hours=2))
+
+    (row,) = await _grants(session, user, GrantSource.STRIPE)
+    assert row.expires_at == withdrawn
+    assert row.auto_renews is False
+
+
+async def test_a_withdrawn_grant_takes_an_earlier_end(
+    session: AsyncSession, settings: Settings
+) -> None:
+    user = await _user(session, settings)
+    await mirror_paid_grants(session, user.id, [_sub("si_abc", GrantSource.STRIPE)], NOW)
+    (row,) = await _grants(session, user, GrantSource.STRIPE)
+    row.withdrawn_at = NOW + timedelta(days=1)
+    row.expires_at = row.withdrawn_at
+    row.auto_renews = False
+    await session.flush()
+
+    await mirror_paid_grants(
+        session, user.id, [_sub("si_abc", GrantSource.STRIPE, days=-1, auto_renews=True)], NOW
+    )
+
+    (row,) = await _grants(session, user, GrantSource.STRIPE)
+    assert row.expires_at == NOW - timedelta(days=1)
+    assert row.auto_renews is False

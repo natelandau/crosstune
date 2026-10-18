@@ -9,11 +9,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
-from sqlalchemy import delete, func, select, text, tuple_, update
+from sqlalchemy import case, delete, false, func, select, text, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 
 from crosstune.models import Grant, PendingComp
-from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantSource
+from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantPeriod, GrantSource
 
 if TYPE_CHECKING:
     import uuid
@@ -34,6 +34,7 @@ class PaidSubscription:
 
     `subscription_id` is RevenueCat's own ID, which holds across renewals and keys the grant.
     `store_id` is the store's identifier, which Apple renews, so it is only for cancelling Stripe.
+    `started_at` and `period` are None when the provider leaves them out.
     """
 
     subscription_id: str
@@ -43,6 +44,8 @@ class PaidSubscription:
     environment: GrantEnvironment
     expires_at: datetime | None
     auto_renews: bool
+    started_at: datetime | None = None
+    period: GrantPeriod | None = None
 
 
 async def _server_grant(
@@ -134,6 +137,8 @@ async def mirror_paid_grants(
 
     A subscription held by another account moves to this user. A grant whose
     subscription is gone ends now. An active paid Premium grant ends a running trial.
+    A withdrawn grant never runs past its withdrawal or renews, whatever the provider
+    still reports.
 
     Returns:
         The other accounts a subscription moved from, whose entitlements are now stale.
@@ -159,14 +164,30 @@ async def mirror_paid_grants(
             "environment": sub.environment.value,
             "expires_at": sub.expires_at,
             "auto_renews": sub.auto_renews,
+            "started_at": sub.started_at,
+            "period": sub.period.value if sub.period else None,
         }
+        stmt = insert(Grant).values(
+            source=sub.source.value, external_id=sub.subscription_id, **values
+        )
+        withdrawn = Grant.withdrawn_at.is_not(None)
         await session.execute(
-            insert(Grant)
-            .values(source=sub.source.value, external_id=sub.subscription_id, **values)
-            .on_conflict_do_update(
+            stmt.on_conflict_do_update(
                 index_elements=[Grant.source, Grant.external_id],
                 index_where=_PAID_SOURCES,
-                set_={**values, "updated_at": now},
+                set_={
+                    **values,
+                    # least() skips a null, so a never-lapsing report still ends at the withdrawal.
+                    "expires_at": case(
+                        (withdrawn, func.least(stmt.excluded.expires_at, Grant.withdrawn_at)),
+                        else_=stmt.excluded.expires_at,
+                    ),
+                    "auto_renews": case((withdrawn, false()), else_=stmt.excluded.auto_renews),
+                    # A report that leaves either out keeps what an earlier one said.
+                    "started_at": func.coalesce(stmt.excluded.started_at, Grant.started_at),
+                    "period": func.coalesce(stmt.excluded.period, Grant.period),
+                    "updated_at": now,
+                },
             )
         )
     await session.execute(

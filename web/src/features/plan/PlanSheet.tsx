@@ -30,6 +30,7 @@ import {
 } from './planCopy'
 import { RenewalTerms } from './RenewalTerms'
 import { TrialCard } from './TrialCard'
+import { useWithdrawUntil } from './useWithdrawUntil'
 import { useOffers, type Offers } from './useOffers'
 
 const TITLES: Record<PremiumReason, string> = {
@@ -124,6 +125,7 @@ export function PlanSheet({
   const choice = sale.kind === 'choice' ? sale.offers : null
   // Annual by default, or the one period the store sells when it sells only one.
   const chosen = choice?.some((offer) => offer.period === period) ? period : choice?.[0]?.period
+  const chosenPrice = choice?.find((offer) => offer.period === chosen)?.price
   const line =
     sale.kind === 'subscribed' ? SUBSCRIBED : sale.kind === 'offline' ? SUBSCRIBE_OFFLINE : null
   const primary = subscribeAction(sale, () => onSubscribe(chosen ?? period))
@@ -148,7 +150,9 @@ export function PlanSheet({
           <p className={`t-secondary ${sale.kind === 'offline' ? 'text-ink-2' : ''}`}>{line}</p>
         ) : undefined
       }
-      footnote={choice ? <RenewalTerms /> : undefined}
+      footnote={
+        chosen && chosenPrice ? <RenewalTerms price={chosenPrice} period={chosen} /> : undefined
+      }
       onClosed={onClosed}
     >
       {mode === 'selling' ? (
@@ -182,6 +186,7 @@ export function PlanSheet({
 /** A Premium account's plan: the mark and thanks, the membership, and what Premium includes. */
 function Member({ plan, headlineId }: { plan: Plan; headlineId: string }) {
   const now = useNow()
+  const withdrawUntil = useWithdrawUntil()
   return (
     <div className="flex flex-col gap-4 pt-2">
       <div className="flex flex-col items-center gap-1 text-center">
@@ -194,6 +199,7 @@ function Member({ plan, headlineId }: { plan: Plan; headlineId: string }) {
       <MembershipCard
         membership={membership(plan, new Date(now))}
         manage={manage(plan, storeConfig().portalUrl)}
+        withdrawUntil={withdrawUntil}
       />
       <IncludedList />
     </div>

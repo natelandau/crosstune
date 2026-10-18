@@ -8,6 +8,7 @@ check constraint or column it alters, and `just contract` afterwards.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from enum import StrEnum
 from typing import Final, Literal
 
@@ -213,6 +214,27 @@ class GrantEnvironment(StrEnum):
     SANDBOX = "sandbox"
 
 
+class GrantPeriod(StrEnum):
+    """How often a paid subscription bills."""
+
+    MONTH = "month"
+    YEAR = "year"
+
+
+class BillingNoticeKind(StrEnum):
+    """An email about a paid subscription that is sent once and recorded."""
+
+    CONFIRMATION = "confirmation"
+    RENEWAL_REMINDER = "renewal_reminder"
+    WITHDRAWAL = "withdrawal"
+
+
+WITHDRAWAL_WINDOW: Final[timedelta] = timedelta(days=14)
+"""How long after a web subscription's first payment its buyer may withdraw for a full refund."""
+YEARLY_PERIOD_THRESHOLD: Final[timedelta] = timedelta(days=40)
+"""A billing period longer than this is yearly, so the API never reads product IDs."""
+
+
 SPEED_PERCENT_MIN: Final[int] = 50
 SPEED_PERCENT_MAX: Final[int] = 150
 PITCH_CENTS_MIN: Final[int] = -1200
@@ -284,3 +306,15 @@ LIMITS: Final[dict[str, dict[str, int]]] = {
         "label": 100,
     },
 }
+
+
+CONSENT_COUNTRIES: Final[frozenset[str]] = frozenset(
+    {
+        # European Union
+        "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT",
+        "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE",
+        # Rest of the European Economic Area
+        "IS", "LI", "NO",
+    }
+)  # fmt: skip
+"""Countries where analytics must start off until the person consents (EU and EEA)."""

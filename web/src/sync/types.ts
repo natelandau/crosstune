@@ -14,6 +14,15 @@ export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'unauthorized' | 'erro
 
 export type TransferStatus = 'idle' | 'transferring' | 'offline' | 'error'
 
+/** How a withdrawal ended. */
+export type WithdrawOutcome =
+  | 'withdrawn'
+  | 'window_closed'
+  | 'already_withdrawn'
+  /** Refused for another reason, such as no web subscription. */
+  | 'refused'
+  | 'failed'
+
 export interface SyncEngine {
   sync(): Promise<void>
   status(): SyncStatus
@@ -45,6 +54,12 @@ export interface SyncEngine {
   retry(recordingId: string): Promise<void>
   /** Ask the server to read the account's purchases from the store now. */
   refreshBilling(): Promise<void>
+  /**
+   * Withdraw from the first web payment for a full refund, then pull until the ended plan is
+   * local. A 409 is a refusal, named by the server's reason; `failed` is anything else, offline
+   * included.
+   */
+  withdraw(): Promise<WithdrawOutcome>
   deleteAccount(options?: DeleteAccountOptions): Promise<void>
   /** Called with the engine already stopped when the server says the account is gone. */
   onAccountDeleted(listener: () => void): () => void

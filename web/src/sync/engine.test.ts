@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/react'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { noopAnalytics } from '../usage/client'
 import { recordingAnalytics } from '../usage/testing'
+import type { Problem } from '../api/types'
 import { ApiError, NetworkError, NoTokenError, TransferError } from '../api/client'
 import { recordEvent } from '../commands/events'
 import { createTune, deleteTune, setPlaySource, updateTune } from '../commands/tunes'
@@ -67,6 +68,15 @@ async function drainRealTasks(iterations = 50): Promise<void> {
   for (let i = 0; i < iterations; i++) await realTick()
 }
 
+function refusal(reason: string | undefined): ApiError {
+  return new ApiError(409, {
+    type: 'urn:crosstune:withdrawal-refused',
+    title: 'Refused',
+    status: 409,
+    reason,
+  } as Problem)
+}
+
 describe('createSyncEngine', () => {
   it('passes an Apple code through to the delete request', async () => {
     const deleteAccount = vi.spyOn(fake.api, 'deleteAccount')
@@ -78,6 +88,39 @@ describe('createSyncEngine', () => {
     })
     await engine.deleteAccount({ appleAuthorizationCode: 'c1' })
     expect(deleteAccount).toHaveBeenCalledWith({ appleAuthorizationCode: 'c1' })
+  })
+
+  it.each([
+    ['withdrawn', null],
+    ['refused', refusal(undefined)],
+    ['window_closed', refusal('window_closed')],
+    ['already_withdrawn', refusal('already_withdrawn')],
+    ['refused', refusal('no_web_subscription')],
+  ] as const)('withdraw reports %s after pulling', async (outcome, error) => {
+    vi.spyOn(fake.api, 'withdraw').mockImplementation(async () => {
+      if (error) throw error
+    })
+    const pull = vi.spyOn(fake.api, 'pull')
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
+    expect(await engine.withdraw()).toBe(outcome)
+    // No poll: the outcome only returns once the pull has run.
+    expect(pull).toHaveBeenCalled()
+  })
+
+  it('withdraw reports failed for any answer but a refusal', async () => {
+    vi.spyOn(fake.api, 'withdraw').mockRejectedValue(new ApiError(503, null))
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
+    expect(await engine.withdraw()).toBe('failed')
   })
 
   it('pushes the outbox, then pulls until has_more is false', async () => {

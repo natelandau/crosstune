@@ -29,9 +29,10 @@ from crosstune.inactivity.rules import (
     deletion_due,
     next_step,
 )
-from crosstune.models import Grant, InactivityNotice, Recording, Scan, ScheduledRun, User
+from crosstune.jobs.schedule import claim_run, next_run
+from crosstune.models import Grant, InactivityNotice, Recording, Scan, User
 from crosstune.sync.push import cascade_delete
-from crosstune.sync.tables import TABLES
+from crosstune.sync.tables import TABLES, scrub_values
 from crosstune.users.clerk import ClerkUnavailableError
 from crosstune.vocabulary import GrantKind
 
@@ -386,7 +387,12 @@ async def _delete_files(session: AsyncSession, user_id: uuid.UUID, now: datetime
             await session.scalars(
                 update(model)
                 .where(spec.owned_by(user_id), model.deleted_at.is_(None))
-                .values(deleted_at=now, updated_at=now, server_seq=next_server_seq())
+                .values(
+                    deleted_at=now,
+                    updated_at=now,
+                    server_seq=next_server_seq(),
+                    **scrub_values(spec),
+                )
                 .returning(model.id)
             )
         )
@@ -396,9 +402,7 @@ async def _delete_files(session: AsyncSession, user_id: uuid.UUID, now: datetime
 
 async def next_inactivity_run(session: AsyncSession) -> datetime | None:
     """When the pass is next due, or None when it has never run."""
-    return await session.scalar(
-        select(ScheduledRun.next_run_at).where(ScheduledRun.name == INACTIVITY_RUN)
-    )
+    return await next_run(session, INACTIVITY_RUN)
 
 
 async def claim_inactivity_run(
@@ -406,22 +410,7 @@ async def claim_inactivity_run(
 ) -> bool:
     """Claim the pass when it is due at `now`, moving its due time a day on.
 
-    The claim is one upsert whose update applies only while the stored time is due,
-    so of several processes claiming at once exactly one wins.
-
     Returns:
         bool: True when this caller claimed the pass and should run it.
     """
-    next_run_at = now + RUN_EVERY
-    async with sessionmaker() as session, session.begin():
-        claimed = await session.scalar(
-            insert(ScheduledRun)
-            .values(name=INACTIVITY_RUN, next_run_at=next_run_at)
-            .on_conflict_do_update(
-                index_elements=[ScheduledRun.name],
-                set_={"next_run_at": next_run_at},
-                where=ScheduledRun.next_run_at <= now,
-            )
-            .returning(ScheduledRun.name)
-        )
-    return claimed is not None
+    return await claim_run(sessionmaker, INACTIVITY_RUN, now, RUN_EVERY)

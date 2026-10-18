@@ -37,6 +37,7 @@ export type DownloadUrl = Schemas['DownloadUrl']
 export type PeaksUrl = Schemas['PeaksUrl']
 export type UploadSlotRequest = Schemas['UploadSlotRequest']
 export type ScanUploadSlotRequest = Schemas['ScanUploadSlotRequest']
+export type RegionResponse = Schemas['RegionResponse']
 export type Notice = Schemas['NoticeRequest']['notice']
 
 export interface SyncApi {
@@ -47,12 +48,17 @@ export interface SyncApi {
   resolveLink(url: string): Promise<ResolveResponse>
   searchRecordings(q: string, providers: Provider[], country: string): Promise<SearchResponse>
   me(): Promise<MeResponse>
+  /** Which privacy rules apply to the caller. Needs no session, so it works before sign-in. */
+  region(): Promise<RegionResponse>
   /** With an Apple code from the web's Apple popup, the API also revokes Sign in with Apple. */
   deleteAccount(options?: DeleteAccountOptions): Promise<void>
   /** Records that the user saw a one-time notice, so no device shows it again. */
   recordNotice(notice: Notice): Promise<void>
   /** Asks the server to re-read the user's purchases, so a new subscription takes effect now. */
   refreshBilling(): Promise<void>
+  /** Refunds the first web payment and ends the web subscription. Rejects with a 409 `ApiError`
+   * whose `problem.reason` says why a withdrawal was refused. */
+  withdraw(): Promise<void>
   requestUploadSlot(recordingId: string, body: UploadSlotRequest): Promise<SignedUrl>
   uploadFinished(recordingId: string): Promise<void>
   retryRecording(recordingId: string): Promise<void>

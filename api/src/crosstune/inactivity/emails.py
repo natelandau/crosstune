@@ -2,34 +2,21 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from html import escape
 from typing import TYPE_CHECKING
 
+from crosstune.email.layout import format_date, html_body, to_utc
 from crosstune.email.resend import EmailMessage
 from crosstune.inactivity.rules import Step
 
 if TYPE_CHECKING:
     import uuid
+    from datetime import datetime
 
 SUPPORT_ADDRESS = "support@crosstune.app"
 
 
-def _utc(moment: datetime) -> datetime:
-    """The same instant in UTC.
-
-    Raises:
-        ValueError: `moment` is naive, so the instant it names is unknown.
-    """
-    if moment.tzinfo is None or moment.utcoffset() is None:
-        msg = f"{moment!r} has no timezone"
-        raise ValueError(msg)
-    return moment.astimezone(UTC)
-
-
 def _date(moment: datetime) -> str:
-    moment = _utc(moment)
-    return f"{moment:%B} {moment.day}, {moment.year}"
+    return format_date(to_utc(moment))
 
 
 def _plural(count: int, noun: str) -> str:
@@ -55,7 +42,7 @@ def _counts(recordings: int, scans: int) -> str:
 
 def idempotency_key(user_id: uuid.UUID, active_since: datetime, step: Step) -> str:
     """Name one warning so a retry of the same send never mails twice."""
-    return f"inactivity/{user_id}/{_utc(active_since):%Y%m%dT%H%M%SZ}/{step}"
+    return f"inactivity/{user_id}/{to_utc(active_since):%Y%m%dT%H%M%SZ}/{step}"
 
 
 def warning_email(
@@ -110,14 +97,5 @@ def warning_email(
 
     text = "\n\n".join(paragraphs)
 
-    link = f'<a href="{escape(export_url)}">{escape(export_url)}</a>'
-    html_paragraphs = [
-        f"<p>{escape(paragraph).replace(escape(export_url), link).replace(chr(10), ' ')}</p>"
-        for paragraph in paragraphs
-    ]
-    html = (
-        '<!doctype html><html><body style="font-family: sans-serif; line-height: 1.5;">'
-        + "".join(html_paragraphs)
-        + "</body></html>"
-    )
+    html = html_body(paragraphs, [export_url])
     return EmailMessage(to=to, subject=subject, text=text, html=html)

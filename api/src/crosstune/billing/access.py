@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 
 from crosstune.db.base import bump_server_seq, utc_now
-from crosstune.models import Entitlement, Grant
-from crosstune.vocabulary import GrantKind, GrantSource
+from crosstune.models import Entitlement, Grant, User
+from crosstune.vocabulary import WITHDRAWAL_WINDOW, GrantKind, GrantSource
 
 if TYPE_CHECKING:
     import uuid
@@ -68,6 +68,8 @@ class Resolution:
     # Each store's longest active paid grant, which the reported grant alone can hide: an
     # open-ended comp outlasts a subscription that still bills.
     paid_grants: tuple[PaidGrant, ...] = ()
+    withdraw_until: datetime | None = None
+    withdrawal_used: bool = False
 
 
 _PAID_SOURCES = (GrantSource.APPLE, GrantSource.STRIPE)
@@ -84,13 +86,55 @@ def _lasts_longest(grant: Grant) -> tuple[int, float, int]:
     return (1 if never_lapses else 0, expiry, -_SOURCE_RANK[grant.source])
 
 
-def resolve(grants: Sequence[Grant], now: datetime, settings: Settings) -> Resolution:
+def live_stripe_grant(grants: Sequence[Grant], now: datetime) -> Grant | None:
+    """The active web Premium grant with a known start, the one a withdrawal refunds.
+
+    When several are active, the one that lasts longest, as `paid_grants` reports it.
+    """
+    return max(
+        (
+            g
+            for g in grants
+            if g.kind == GrantKind.PREMIUM
+            and g.source == GrantSource.STRIPE
+            and g.started_at is not None
+            and _active(g, now)
+        ),
+        key=_lasts_longest,
+        default=None,
+    )
+
+
+def withdrawal_window_open(grant: Grant, now: datetime) -> bool:
+    """Whether `now` falls inside the withdrawal window of `grant`'s subscription."""
+    return grant.started_at is not None and grant.started_at + WITHDRAWAL_WINDOW > now
+
+
+def _withdraw_until(
+    grants: Sequence[Grant], withdrew_at: datetime | None, now: datetime
+) -> datetime | None:
+    if withdrew_at is not None:
+        return None
+    grant = live_stripe_grant(grants, now)
+    if grant is None or grant.started_at is None or not withdrawal_window_open(grant, now):
+        return None
+    return grant.started_at + WITHDRAWAL_WINDOW
+
+
+def resolve(
+    grants: Sequence[Grant],
+    now: datetime,
+    settings: Settings,
+    *,
+    withdrew_at: datetime | None = None,
+) -> Resolution:
     """Resolve a user's grants into access and the entitlement fields.
 
     Args:
         grants: Every grant the user holds, active or not.
         now: The instant to judge expiry against.
         settings: Source of the quota sizes.
+        withdrew_at: When the user withdrew from a web subscription, which they may do once.
 
     Returns:
         The access the user has and the values the entitlements row stores.
@@ -114,6 +158,7 @@ def resolve(grants: Sequence[Grant], now: datetime, settings: Settings) -> Resol
             trial_starts_at=trial_starts_at,
             trial_ends_at=trial_ends_at,
             premium_quota_bytes=settings.trial_quota_bytes,
+            withdrawal_used=withdrew_at is not None,
         )
 
     paid_grants = tuple(
@@ -142,6 +187,8 @@ def resolve(grants: Sequence[Grant], now: datetime, settings: Settings) -> Resol
         trial_ends_at=trial_ends_at,
         premium_quota_bytes=premium_quota,
         paid_grants=paid_grants,
+        withdraw_until=_withdraw_until(grants, withdrew_at, now),
+        withdrawal_used=withdrew_at is not None,
     )
 
 
@@ -149,7 +196,8 @@ async def _resolve_for(
     session: AsyncSession, user_id: uuid.UUID, settings: Settings, now: datetime
 ) -> Resolution:
     grants = (await session.scalars(select(Grant).where(Grant.user_id == user_id))).all()
-    return resolve(grants, now, settings)
+    withdrew_at = await session.scalar(select(User.withdrew_at).where(User.id == user_id))
+    return resolve(grants, now, settings, withdrew_at=withdrew_at)
 
 
 async def access_for(
@@ -178,6 +226,8 @@ async def refresh_entitlement(
         "trial_ends_at": resolution.trial_ends_at,
         "premium_quota_bytes": resolution.premium_quota_bytes,
         "paid_grants": [grant.as_row() for grant in resolution.paid_grants],
+        "withdraw_until": resolution.withdraw_until,
+        "withdrawal_used": resolution.withdrawal_used,
     }
 
     row = await session.scalar(select(Entitlement).where(Entitlement.user_id == user_id))

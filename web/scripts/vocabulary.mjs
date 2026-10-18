@@ -25,6 +25,7 @@ const ARRAY_NAMES = {
   PlayContext: 'PLAY_CONTEXTS',
   ScanViewContext: 'SCAN_VIEW_CONTEXTS',
   GrantSource: 'GRANT_SOURCES',
+  WithdrawalRefusal: 'WITHDRAWAL_REFUSALS',
 }
 
 // Exported limits object -> the row schemas whose string limits it gathers. A tune and

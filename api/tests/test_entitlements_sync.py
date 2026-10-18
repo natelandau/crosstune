@@ -69,6 +69,8 @@ async def test_pull_carries_the_trial_window(client, auth_headers, settings) -> 
     starts = datetime.fromisoformat(row["trial_starts_at"])
     ends = datetime.fromisoformat(row["trial_ends_at"])
     assert ends - starts == timedelta(days=settings.trial_days)
+    assert row["withdraw_until"] is None
+    assert row["withdrawal_used"] is False
 
 
 async def test_push_to_entitlements_is_refused(
@@ -209,7 +211,7 @@ async def test_last_synced_skips_a_locked_user_row(client, auth_headers, engine)
         user_id = (await holder.execute(select(User.id).with_for_update())).scalar_one()
         # A wait for the row fails fast instead of hanging the test.
         await syncer.execute(text("set local lock_timeout = '2s'"))
-        await touch_last_synced(syncer, user_id, utc_now())
+        await touch_last_synced(syncer, user_id, utc_now(), None)
         await syncer.commit()
         await holder.rollback()
         assert await holder.scalar(select(User.last_synced_at)) is None

@@ -35,6 +35,13 @@ import Testing
         #expect(PlanText.saving(annual: 49.99, monthly: -4.99) == nil)
     }
 
+    @Test func statesTheRenewalTermsForEachPeriod() {
+        let tail =
+            "renewing automatically until you cancel. Cancel anytime in your Apple Account settings, at least 24 hours before the renewal date."
+        #expect(PlanText.renewalTerms(price: "$49.99", period: .annual) == "$49.99 a year, \(tail)")
+        #expect(PlanText.renewalTerms(price: "$4.99", period: .monthly) == "$4.99 a month, \(tail)")
+    }
+
     @Test func namesThePlansAndHelp() {
         #expect(PlanText.group == "Plan")
         #expect(PlanText.free == "Free")

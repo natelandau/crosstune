@@ -83,6 +83,13 @@ export type TimeSignature = (typeof TIME_SIGNATURES)[number]
 export const STATUSES = ['known', 'learning', 'want_to_learn'] as const
 export type TuneStatus = (typeof STATUSES)[number]
 
+export const WITHDRAWAL_REFUSALS = [
+  'no_web_subscription',
+  'window_closed',
+  'already_withdrawn',
+] as const
+export type WithdrawalRefusal = (typeof WITHDRAWAL_REFUSALS)[number]
+
 export const TUNE_LIMITS = {
   alternate_titles: 200,
   composer: 200,

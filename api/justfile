@@ -169,6 +169,24 @@ _e2e-db mode:
 comp *args:
     uv run python -m crosstune.ops.billing comp "$@"
 
+# Refund and cancel an account's web subscription it withdrew from by email
+[group('billing')]
+[positional-arguments]
+withdraw *args:
+    uv run python -m crosstune.ops.billing withdraw "$@"
+
+# Count accounts by country (countries)
+[group('billing')]
+[positional-arguments]
+stats *args:
+    uv run python -m crosstune.ops.stats "$@"
+
+# Email every account about a change to the terms or privacy policy (--subject, --key, --body)
+[group('accounts')]
+[positional-arguments]
+notify-accounts *args:
+    uv run python -m crosstune.ops.notify_accounts "$@"
+
 # Move the end of an account's trial
 [group('billing')]
 [positional-arguments]
