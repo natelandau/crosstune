@@ -77,6 +77,8 @@ import Testing
     @MainActor @Observable private final class Page {
         var shown = true
         var present = true
+        /// What has appeared and disappeared, in order, so a test knows a swap has rendered.
+        @ObservationIgnored var lifecycle: [String] = []
     }
 
     @MainActor @Observable private final class ReadingShelf {
@@ -102,8 +104,10 @@ import Testing
             if page.present {
                 if page.shown {
                     Text(verbatim: "Tune").screenView(.tune, visit: $visit, stillShown: { page.shown })
+                        .onAppear { page.lifecycle.append("tune") }
+                        .onDisappear { page.lifecycle.append("tune gone") }
                 } else {
-                    Text(verbatim: "Deleting")
+                    Text(verbatim: "Deleting").onAppear { page.lifecycle.append("deleting") }
                 }
             }
         }
@@ -144,9 +148,10 @@ import Testing
             await settle { !sink.calls.isEmpty }
 
             page.shown = false
-            await settle { false }
+            // SwiftUI runs the new content's onAppear before the old content's onDisappear.
+            await settle { page.lifecycle.last == "tune gone" }
             page.shown = true
-            await settle { false }
+            await settle { page.lifecycle.last == "tune" }
 
             #expect(sink.calls == [.screen(.tune)])
         }
@@ -159,7 +164,7 @@ import Testing
             await settle { !sink.calls.isEmpty }
 
             page.present = false
-            await settle { false }
+            await settle { page.lifecycle.last == "tune gone" }
             page.present = true
             await settle { sink.calls.count >= 2 }
 
@@ -223,10 +228,13 @@ import Testing
             let visit = StandVisit()
             _ = visit.readingShown(.scans, tuneID: "t1", picked: false)
             let reading = StandReading(tuneID: "t2", scans: [], lyrics: "Oh the cuckoo")
-            let window = host(ReadingPane(reading: reading, visit: visit).environment(\.analytics, sink.client))
+            let appeared = Counter()
+            let window = host(
+                ReadingPane(reading: reading, visit: visit).environment(\.analytics, sink.client)
+                    .onAppear { appeared.value += 1 })
             defer { window.close() }
 
-            await settle { false }
+            await settle { appeared.value > 0 }
 
             #expect(sink.calls.isEmpty)
         }
@@ -234,9 +242,11 @@ import Testing
         @Test func quittingRunsTheQuitWork() async {
             let center = NotificationCenter()
             let quits = Counter()
-            let window = host(Color.clear.onAppQuit(center: center) { quits.value += 1 })
+            let appeared = Counter()
+            let window = host(
+                Color.clear.onAppQuit(center: center) { quits.value += 1 }.onAppear { appeared.value += 1 })
             defer { window.close() }
-            await settle { false }
+            await settle { appeared.value > 0 }
 
             center.post(name: NSApplication.willTerminateNotification, object: nil)
             await settle { quits.value > 0 }

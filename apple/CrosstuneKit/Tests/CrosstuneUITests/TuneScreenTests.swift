@@ -144,7 +144,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func readsTheTuneWithItsMediaListsAndInstruments() async throws {
         let root = TemporaryRoot()
-        let model = TuneModel(store: try await SampleCatalog.makeStore(root: root.url), tuneID: soldiersJoy.tune.id)
+        let model = TuneModel(store: try await SampleCatalog.copiedStore(root: root.url), tuneID: soldiersJoy.tune.id)
         #expect(model.phase == .loading)
         try await eventually { model.shown != nil }
         let detail = try #require(model.shown)
@@ -163,13 +163,13 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func showsAnUnknownTuneAsGone() async throws {
         let root = TemporaryRoot()
-        let model = TuneModel(store: try await SampleCatalog.makeStore(root: root.url), tuneID: "no_such_tune")
+        let model = TuneModel(store: try await SampleCatalog.copiedStore(root: root.url), tuneID: "no_such_tune")
         try await eventually { model.phase == .gone }
     }
 
     @Test func reportsAReadThatFailed() async throws {
         let root = TemporaryRoot()
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         try await store.write { writer in
             try writer.db.execute(sql: "ALTER TABLE tunes RENAME TO tunes_unreadable")
         }
@@ -186,7 +186,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func writesTheArchive() async throws {
         let root = TemporaryRoot()
-        let model = TuneModel(store: try await SampleCatalog.makeStore(root: root.url), tuneID: soldiersJoy.tune.id)
+        let model = TuneModel(store: try await SampleCatalog.copiedStore(root: root.url), tuneID: soldiersJoy.tune.id)
         try await eventually { model.shown != nil }
         await model.setArchived(true)
         try await eventually { model.shown?.isArchived == true }
@@ -197,7 +197,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func removesALinkAndAListEntry() async throws {
         let root = TemporaryRoot()
-        let model = TuneModel(store: try await SampleCatalog.makeStore(root: root.url), tuneID: soldiersJoy.tune.id)
+        let model = TuneModel(store: try await SampleCatalog.copiedStore(root: root.url), tuneID: soldiersJoy.tune.id)
         try await eventually { model.shown != nil }
         await model.removeLink("sample_link_youtube")
         try await eventually { model.shown?.links.map(\.id) == ["sample_link_spotify"] }
@@ -207,7 +207,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func pinsALinkAndAnotherRowTakesThePinOverThenClearsIt() async throws {
         let root = TemporaryRoot()
-        let model = TuneModel(store: try await SampleCatalog.makeStore(root: root.url), tuneID: soldiersJoy.tune.id)
+        let model = TuneModel(store: try await SampleCatalog.copiedStore(root: root.url), tuneID: soldiersJoy.tune.id)
         try await eventually { model.shown != nil }
         await model.setPlaySource(.link(id: "sample_link_spotify"), pinned: false)
         try await eventually { model.shown?.userTune.playLinkID == "sample_link_spotify" }
@@ -221,7 +221,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func reportsAFailedWriteBesideTheControlThatMadeIt() async throws {
         let root = TemporaryRoot()
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         try await store.write { writer in
             try writer.db.execute(
                 sql: "CREATE TRIGGER refuse BEFORE UPDATE ON list_items BEGIN SELECT RAISE(ABORT, 'refused'); END")
@@ -240,7 +240,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func deletesTheTuneAndHoldsItsTitleWhileLeaving() async throws {
         let root = TemporaryRoot()
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = TuneModel(store: store, tuneID: soldiersJoy.tune.id)
         try await eventually { model.shown != nil }
         #expect(await model.delete())

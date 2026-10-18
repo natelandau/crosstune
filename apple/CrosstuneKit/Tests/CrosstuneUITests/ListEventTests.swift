@@ -28,7 +28,7 @@ import Testing
     }
 
     @Test func reportsAListNamedIntoBeing() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = ListNameModel(store: store, target: .new, analytics: sink.client)
         model.setName("Square dance set")
 
@@ -41,7 +41,7 @@ import Testing
     }
 
     @Test func renamingAListReportsOnlyItsID() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let list = SampleCatalog.lists[1]
         let rename = ListNameModel(
             store: store, target: .rename(listID: list.id, name: list.name), analytics: sink.client)
@@ -54,7 +54,7 @@ import Testing
     }
 
     @Test func savingTheSameNameReportsNoRename() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let list = SampleCatalog.lists[1]
         let rename = ListNameModel(
             store: store, target: .rename(listID: list.id, name: list.name), analytics: sink.client)
@@ -66,7 +66,7 @@ import Testing
     }
 
     @Test func reportsNothingForAnEmptyListName() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let empty = ListNameModel(store: store, target: .new, analytics: sink.client)
         #expect(await empty.save() == nil)
 
@@ -80,7 +80,7 @@ import Testing
     }
 
     @Test func removingATuneFromAListReportsTheCount() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await listModel(store)
 
         await model.remove(model.rows[0])
@@ -94,7 +94,7 @@ import Testing
     }
 
     @Test func removingTunesFromAListInBulkReportsTheCount() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store, analytics: sink.client)
         let items = try await store.read { db in
             activeByPosition(
@@ -116,7 +116,7 @@ import Testing
     }
 
     @Test func deletingAListReportsItsIDAndSize() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await listModel(store)
         let size = model.entries.count
 
@@ -134,7 +134,7 @@ import Testing
     }
 
     @Test func reorderingAListReportsItsIDOnceTheMoveLands() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await listModel(store)
 
         model.move(from: 0, to: 1)
@@ -148,7 +148,7 @@ import Testing
     }
 
     @Test func reportsTunesAddedToAListByThePicker() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store, titles: ["Soldier's Joy", "Tam Lin"])
         let waltzes = try #require(model.rows.first { $0.name == "Waltzes" })
 
@@ -164,7 +164,7 @@ import Testing
 
     /// The list starting with its tunes is one action, so it reports as one event.
     @Test func reportsAListMadeWithItsTunesOnlyAsCreated() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store, titles: ["Soldier's Joy", "Tam Lin"])
         model.newName = "Session favorites"
 
@@ -177,7 +177,7 @@ import Testing
     }
 
     @Test func reportsTheTunesPickedIntoAListOnceThePickerCloses() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = TunePickerModel(store: store, listID: SampleCatalog.lists[1].id, analytics: sink.client)
         #expect(try await poll { model.results != nil })
 
@@ -195,7 +195,7 @@ import Testing
     }
 
     @Test func reportsNothingForATunePickerClosedEmpty() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = TunePickerModel(store: store, listID: SampleCatalog.lists[1].id, analytics: sink.client)
         #expect(try await poll { model.results != nil })
 
@@ -205,7 +205,7 @@ import Testing
     }
 
     @Test func reportsABulkStatusAsAnEditOfStatus() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store, analytics: sink.client)
 
         #expect(await bulk.setStatus("known", of: [entry("The Butterfly"), entry("Elzic's Farewell")]))
@@ -222,7 +222,7 @@ import Testing
     }
 
     @Test func reportsTheFieldsABulkEditWrote() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store, analytics: sink.client)
         let patch = BatchEdit.patch([.key: .text("G"), .tuning("violin"): .text("AEAE"), .learnedFrom: .clear])
 
@@ -240,7 +240,7 @@ import Testing
     }
 
     @Test func reportsABulkArchiveAndUnarchive() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store, analytics: sink.client)
 
         #expect(await bulk.setArchived(true, [entry("Tam Lin")]))
@@ -254,7 +254,7 @@ import Testing
     }
 
     @Test func reportsABulkDelete() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store, analytics: sink.client)
         let question = try #require(await bulk.deleteQuestion([entry("Tam Lin"), entry("The Butterfly")]))
 

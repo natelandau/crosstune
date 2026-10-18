@@ -35,6 +35,7 @@ public final class LinkSheetModel {
     private let analytics: AnalyticsClient
     private let resolve: Resolve?
     private let debounce: Duration
+    private let sleep: @MainActor (Duration) async throws -> Void
     /// The link as last typed, while it is waiting to be looked up or has been.
     @ObservationIgnored private var lookupURL: String?
     @ObservationIgnored private var debounceTask: Task<Void, Never>?
@@ -44,8 +45,10 @@ public final class LinkSheetModel {
     /// - Parameters:
     ///   - resolve: Nil when there is no server to ask, which saves as offline does.
     ///   - debounce: How long typing must pause before the link is looked up.
+    ///   - sleep: Waits out `debounce`.
     public init(
         store: CrosstuneStore, tuneID: String, resolve: Resolve?, debounce: Duration = .milliseconds(400),
+        sleep: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
         analytics: AnalyticsClient = .noop
     ) {
         self.store = store
@@ -53,6 +56,7 @@ public final class LinkSheetModel {
         self.tuneID = tuneID
         self.resolve = resolve
         self.debounce = debounce
+        self.sleep = sleep
     }
 
     /// Whether the sheet holds typing a dismissal would lose.
@@ -73,9 +77,10 @@ public final class LinkSheetModel {
         guard resolve != nil, LinkText.outboundURL(trimmed) != nil else { return }
         lookupURL = trimmed
         let debounce = debounce
+        let sleep = sleep
         debounceTask = Task { [weak self] in
             do {
-                try await Task.sleep(for: debounce)
+                try await sleep(debounce)
             } catch {
                 return
             }

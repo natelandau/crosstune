@@ -138,6 +138,7 @@
         }
 
         /// The links as their rows read.
+        // periphery:ignore - read by the media rows preview
         public static var linkRows: [LinkRowContent] {
             links.map { LinkRowContent(link: $0, embeddable: Embed.for($0) != nil) }
         }

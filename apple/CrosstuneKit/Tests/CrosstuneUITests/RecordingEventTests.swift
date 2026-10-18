@@ -94,11 +94,13 @@ import Testing
     }
 
     @Test func cancellingTheSheetBeforeItCapturesRecordsNothing() async throws {
+        input.holdsPermission = true
         let model = sheet()
         let begin = Task { await model.begin() }
         #expect(try await poll { recorder.isStarting })
 
         await model.cancel()
+        input.answerPermission()
         await begin.value
 
         #expect(model.outcome == .dropped)

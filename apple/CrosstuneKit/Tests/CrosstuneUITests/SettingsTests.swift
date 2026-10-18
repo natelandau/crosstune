@@ -171,7 +171,8 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
 @MainActor
 @Suite struct SettingsModelTests {
     @Test func readsTheMusiciansInstrumentsAndQuality() async throws {
-        let store = try await SampleCatalog.makeStore()
+        let root = TemporaryRoot()
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await loadedModel(store)
         #expect(model.instrumentSummary == "Violin, 5-string banjo")
         #expect(model.searchProvidersSummary == "5 of 8")
@@ -193,7 +194,8 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     }
 
     @Test func takesTheQuotaFromAKnownPlan() async throws {
-        let store = try await SampleCatalog.makeStore()
+        let root = TemporaryRoot()
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await loadedModel(store)
         let premium = Plan(kind: .premium, quotaBytes: 50_000_000)
         #expect(model.storage(plan: premium)?.quotaBytes == 50_000_000)
@@ -205,7 +207,8 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     }
 
     @Test func fallsBackToTheMetaQuotaWhileThePlanIsUnknown() async throws {
-        let store = try await SampleCatalog.makeStore()
+        let root = TemporaryRoot()
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await loadedModel(store)
         #expect(model.storage(plan: .unknown) == SampleCatalog.storage)
     }
@@ -279,7 +282,8 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     }
 
     @Test func storesAChosenQuality() async throws {
-        let store = try await SampleCatalog.makeStore()
+        let root = TemporaryRoot()
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await loadedModel(store)
         model.setAudioQuality("high")
         #expect(model.audioQuality == "high")
@@ -290,7 +294,8 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     }
 
     @Test func storesAChosenPlayFirst() async throws {
-        let store = try await SampleCatalog.makeStore()
+        let root = TemporaryRoot()
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await loadedModel(store)
         #expect(model.playFirst == UserSettings.defaultPlayFirst)
         model.setPlayFirst(UserSettings.playFirstAppleMusic)
@@ -302,7 +307,8 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     }
 
     @Test func storesTheStatusANewTuneStartsWith() async throws {
-        let store = try await SampleCatalog.makeStore()
+        let root = TemporaryRoot()
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await loadedModel(store)
         #expect(model.newTuneStatus == "want_to_learn")
         model.setNewTuneStatus("known")
@@ -311,7 +317,8 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     }
 
     @Test func storesTheGenreANewTuneStartsWithAndSumsItUp() async throws {
-        let store = try await SampleCatalog.makeStore()
+        let root = TemporaryRoot()
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await loadedModel(store)
         #expect(model.newTuneGenre == "")
         #expect(model.newTunesSummary == TuneFieldLabels.notSet)
@@ -325,7 +332,8 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     }
 
     @Test func showsNoFailureForAGenreALaterKeystrokeSaved() async throws {
-        let store = try await SampleCatalog.makeStore()
+        let root = TemporaryRoot()
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await loadedModel(store)
         try await store.write { writer in
             for event in ["INSERT", "UPDATE"] {
@@ -440,7 +448,8 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     }
 
     @Test func searchesEveryServiceForADeletedSettingsRow() async throws {
-        let store = try await SampleCatalog.makeStore()
+        let root = TemporaryRoot()
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         var settings = SampleCatalog.settings
         settings.searchProviders = ["tidal"]
         settings.deletedAt = .now

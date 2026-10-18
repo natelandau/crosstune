@@ -227,8 +227,9 @@ extension PracticeModel {
         let parts = run.components
         let runMs = Double(parts.seconds) * 1000 + Double(parts.attoseconds) / 1e15
         gliding = Glide(from: from, to: to, start: clock(), runMs: runMs)
+        let sleep = sleep
         glide = Task { [weak self] in
-            try? await Task.sleep(for: run)
+            try? await sleep(run)
             guard !Task.isCancelled else { return }
             self?.settleScrub(at: to)
         }

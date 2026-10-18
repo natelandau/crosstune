@@ -123,7 +123,7 @@ a local development account. It refuses to run unless `api/.env` sets
 | `just site::test [args]`      | Builds the site, then runs its tests against the output. Args go to vitest.                                                                              |
 | `just apple::test [args]`     | Swift package tests on the Mac. Args go to `swift test`.                                                                                                 |
 | `just analytics::test [args]` | Tracking plan checker tests. Args go to pytest.                                                                                                          |
-| `just apple::build`           | The app for the iOS Simulator and macOS, unsigned.                                                                                                       |
+| `just apple::build [platform]` | The app for the iOS Simulator and macOS, unsigned, or for one: `ios` or `macos`.                                                                         |
 | `just apple::deadcode`        | Builds the app and the Swift package, then fails on unused code. `// periphery:ignore - <why>` above a declaration keeps one the index cannot see used.   |
 | `just typos [paths]`          | Spell check.                                                                                                                                             |
 | `just e2e [args]`             | The Playwright suite. Args go to Playwright.                                                                                                             |
@@ -247,8 +247,8 @@ and fails instead in CI, where the `API` workflow always starts it.
   they cover, and are required checks. A skipped job passes a required
   check.
   `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift
-  package tests, builds for the iOS Simulator and macOS, checks for unused
-  code, and checks the generated Swift client and vocabulary file. It runs
+  package tests, builds for the iOS Simulator and macOS, and checks the
+  generated Swift client and vocabulary file. It runs
   only when `apple/`, the contract, or the tracking plan changes, and no host
   deploys from it. It is not a required
   check, because a required check must run on every PR and macOS minutes

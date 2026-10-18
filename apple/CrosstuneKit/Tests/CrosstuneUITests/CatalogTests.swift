@@ -571,7 +571,7 @@ private let blankAndSentinel = CatalogSearch.entries(
 @Suite struct HeardTunesTests {
     @Test func readsHeardFromLiveRecordingsAndLinksOnly() async throws {
         let root = TemporaryRoot()
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let sampleHeard = Set(
             SampleCatalog.recordings.filter { $0.recording.deletedAt == nil }.compactMap(\.recording.tuneID)
                 + SampleCatalog.links.filter { $0.deletedAt == nil }.map(\.tuneID))
@@ -602,7 +602,7 @@ private let blankAndSentinel = CatalogSearch.entries(
     }
 
     private func sampleStore(_ root: TemporaryRoot) async throws -> CrosstuneStore {
-        try await SampleCatalog.makeStore(root: root.url)
+        try await SampleCatalog.copiedStore(root: root.url)
     }
 
     @Test func showsTheWholeCatalogWithItsCounts() async throws {

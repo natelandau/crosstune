@@ -54,6 +54,11 @@ private final class Writes {
         player.saveSettings = writes.save
     }
 
+    /// Waits until no change is settling and every settled write has landed.
+    private func settled() async throws {
+        try await eventually { player.settling.isEmpty && player.writing.isEmpty }
+    }
+
     private func load(_ row: Recording = take()) async throws {
         player.audioSource = { _ in audioFile() }
         player.play(.recording(row, tuneTitle: nil))
@@ -67,13 +72,16 @@ private final class Writes {
     }
 
     @Test func aSpeedBurstWritesOnce() async throws {
+        let sleep = ManualSleep()
+        player.sleep = sleep.sleep
         try await load()
         for percent in [80, 85, 90] { player.setSpeed(percent) }
         #expect(audio.calls.suffix(3) == ["setRate(80)", "setRate(85)", "setRate(90)"])
         #expect(player.speedPercent == 90)
+        try await eventually { sleep.cancelled == 2 && sleep.pending.count == 1 }
         #expect(writes.made.isEmpty)
-        try await eventually { !writes.made.isEmpty }
-        try await Task.sleep(for: .milliseconds(100))
+        sleep.wake()
+        try await settled()
         #expect(writes.made == [PlaybackSettings(speedPercent: 90)])
     }
 
@@ -141,14 +149,20 @@ private final class Writes {
     }
 
     @Test func aFailedWriteShowsAndGoesBackToTheRowButAMissingRecordingDoesNot() async throws {
+        let sleep = ManualSleep()
+        player.sleep = sleep.sleep
         try await load()
         writes.refusal = CommandError.recordingNotFound
         player.setSpeed(90)
-        try await Task.sleep(for: .milliseconds(150))
+        try await eventually { sleep.pending.count == 1 }
+        sleep.wake()
+        try await settled()
         #expect(player.failure == nil)
 
         writes.refusal = URLError(.cannotOpenFile)
         player.setPitch(100)
+        try await eventually { sleep.pending.count == 1 }
+        sleep.wake()
         try await eventually { player.failure == RecordingScreenText.pitchNotSaved }
         #expect(player.pitchCents == 200)
         #expect(audio.calls.last == "setPitch(200)")
@@ -168,10 +182,13 @@ private final class Writes {
     }
 
     @Test func closingThePlayerWritesASettlingChangeOnce() async throws {
+        let sleep = ManualSleep()
+        player.sleep = sleep.sleep
         try await load()
         player.setSpeed(60)
         player.close()
-        try await Task.sleep(for: .milliseconds(150))
+        try await eventually { sleep.cancelled == 1 }
+        try await settled()
         #expect(writes.made == [PlaybackSettings(speedPercent: 60)])
     }
 
@@ -187,15 +204,17 @@ private final class Writes {
     }
 
     @Test func finishingWaitsForTheWritesAndLeavingTheStoreDropsTheRest() async throws {
+        let sleep = ManualSleep()
+        player.sleep = sleep.sleep
         try await load()
-        player.settleDelay = .seconds(60)
         player.setSpeed(60)
         await player.finishSettings()
         #expect(writes.made == [PlaybackSettings(speedPercent: 60)])
 
         player.setPitch(-300)
         player.leaveStore()
-        try await Task.sleep(for: .milliseconds(100))
+        try await eventually { sleep.cancelled == 2 }
+        try await settled()
         #expect(writes.made == [PlaybackSettings(speedPercent: 60)])
         #expect(!player.isLoaded)
         #expect(player.saveSettings == nil)

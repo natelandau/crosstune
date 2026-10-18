@@ -129,8 +129,9 @@ extension PlayerModel {
     func startDeadline(_ id: String, onTimeout: @escaping @MainActor () -> Void) {
         deadline?.cancel()
         let timeout = decisionTimeout
+        let sleep = sleep
         deadline = Task { [weak self] in
-            try? await Task.sleep(for: timeout)
+            try? await sleep(timeout)
             guard let self, isDeciding(id) else { return }
             onTimeout()
         }

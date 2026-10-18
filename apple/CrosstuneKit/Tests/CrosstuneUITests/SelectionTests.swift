@@ -321,7 +321,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 
     @Test func setsStatusOffersItsUndoAndTakesItBackFromTheBanner() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)
         let undoManager = UndoManager()
         bulk.undoManager = undoManager
@@ -340,7 +340,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 
     @Test func systemUndoTakesTheActionBackAndClosesTheBanner() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)
         let undoManager = UndoManager()
         bulk.undoManager = undoManager
@@ -355,7 +355,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 
     @Test func systemRedoMakesAnUndoneActionAgainAndStepsBackAndForth() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)
         let undoManager = UndoManager()
         bulk.undoManager = undoManager
@@ -379,7 +379,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 
     @Test func systemRedoMakesAnUndoneListAgain() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)
         let undoManager = UndoManager()
         bulk.undoManager = undoManager
@@ -400,14 +400,14 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 
     @Test func doesNothingWhenNoTuneWouldChange() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)
         #expect(!(await bulk.setArchived(false, [sample("Tam Lin")])))
         #expect(bulk.offer == nil)
     }
 
     @Test func suggestsTheCatalogsComposersAndLearnedFromNames() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let butterfly = sample("The Butterfly")
         let farewell = sample("Elzic's Farewell")
         let tamLin = sample("Tam Lin")
@@ -434,7 +434,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 
     @Test func keepsTheSelectionWhenAWriteFails() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)
         let gone = entry("gone")
         #expect(!(await bulk.setStatus("known", of: [gone])))
@@ -445,7 +445,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 
     @Test func removesTunesFromAListAndPutsThemBack() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)
         let order = { () async throws -> [String] in
             try await store.read { db in
@@ -465,7 +465,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 
     @Test func systemUndoStillWorksAfterTheScreenHasGone() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let undoManager = UndoManager()
         var bulk: BulkActions? = BulkActions(store: store)
         weak let released = bulk
@@ -479,7 +479,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 
     @Test func writesTheEditSheetsPatchAndKeepsAFailureForTheSheet() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)
         var form = BulkEditForm(entries: [sample("Tam Lin"), sample("Big Scioty")], instruments: [])
         form.touch(.genre, .text("Irish"))
@@ -494,7 +494,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 
     @Test func offersTheUndoOfAListPick() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)
         let picker = ListPickerModel(
             store: store, userTuneIDs: [sample("Tam Lin").userTune.id, sample("The Butterfly").userTune.id])
@@ -512,7 +512,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 
     @Test func asksBeforeDeletingAndNamesTheRecordingsThatGo() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)
         let many = try #require(await bulk.deleteQuestion([sample("Soldier's Joy"), sample("Cluck Old Hen")]))
         #expect(many.title == "Delete 2 tunes?")

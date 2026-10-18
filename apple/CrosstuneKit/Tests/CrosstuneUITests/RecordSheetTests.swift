@@ -136,12 +136,24 @@ import Testing
 @MainActor
 final class ToneInput: AudioInput {
     var permission = true
+    /// Holds each permission request until ``answerPermission()``, so a test can act while the
+    /// microphone is still starting.
+    var holdsPermission = false
+    private var pendingPermission: CheckedContinuation<Bool, Never>?
     private var writer: CaptureWriter?
     private var onLevels: (@MainActor @Sendable ([Float]) -> Void)?
     private var onEvent: (@MainActor @Sendable (AudioInputEvent) -> Void)?
     private var meter = LevelMeter()
 
-    func requestPermission() async -> Bool { permission }
+    func requestPermission() async -> Bool {
+        guard holdsPermission else { return permission }
+        return await withCheckedContinuation { pendingPermission = $0 }
+    }
+
+    func answerPermission() {
+        pendingPermission?.resume(returning: permission)
+        pendingPermission = nil
+    }
 
     func prepare(preferring channels: CaptureChannels) -> Int { 1 }
 
@@ -347,10 +359,12 @@ final class ToneInput: AudioInput {
     }
 
     @Test func cancelDiscardsWithoutAskingWhileTheMicrophoneIsStarting() async throws {
+        input.holdsPermission = true
         let model = RecordSheetModel(recorder: recorder, tuneID: nil)
         let begin = Task { await model.begin() }
         try await eventually { recorder.isStarting }
         await model.cancel()
+        input.answerPermission()
         await begin.value
 
         #expect(!model.confirmsDiscard)

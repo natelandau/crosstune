@@ -66,8 +66,9 @@ extension PlayerModel {
         settling[setting]?.cancel()
         let id = item.id
         let delay = settleDelay
+        let sleep = sleep
         settling[setting] = Task { [weak self] in
-            try? await Task.sleep(for: delay)
+            try? await sleep(delay)
             guard !Task.isCancelled else { return }
             self?.settle(setting, id: id)
         }

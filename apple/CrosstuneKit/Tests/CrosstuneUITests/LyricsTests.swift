@@ -74,7 +74,7 @@ import Testing
 
     @Test func savesOnlyTheLyricsFieldAndQueuesOneChange() async throws {
         let root = TemporaryRoot()
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         try await store.write { writer in _ = try OutboxEntry.deleteAll(writer.db) }
         let model = LyricsReaderModel(store: store, tuneID: soldiersJoy.tune.id)
         try await eventually { model.phase != .loading }
@@ -95,7 +95,7 @@ import Testing
 
     @Test func savesWhitespaceOnlyWordsAsNoLyrics() async throws {
         let root = TemporaryRoot()
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = LyricsReaderModel(store: store, tuneID: soldiersJoy.tune.id)
         try await eventually { model.phase != .loading }
 

@@ -48,11 +48,6 @@ public final class ShellValue<Value> {
         write = set
     }
 
-    /// A value that never changes and ignores every write.
-    public static func constant(_ value: Value) -> ShellValue {
-        ShellValue(get: { value }, set: { _ in })
-    }
-
     public var value: Value {
         get { read() }
         set { write(newValue) }

@@ -9,7 +9,7 @@ import Testing
     private let root = TemporaryRoot()
 
     private func loadedCatalog(_ filters: CatalogFilters? = nil) async throws -> (CrosstuneStore, CatalogModel) {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         if let filters { try await store.setMeta(.catalogFilters, to: filters.stored) }
         let catalog = CatalogModel(store: store)
         #expect(try await poll { catalog.results != nil && catalog.status == filters?.status })

@@ -161,7 +161,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     private let root = TemporaryRoot()
 
     @Test func countsLiveItemsAndDatesTheListByItsNewestEdit() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let edited = later(86_400_000, than: SampleCatalog.now)
         try await Commands(store: store).removeFromList("sample_item_session_0", at: edited)
         let summaries = try await store.read { try ListSummary.fetchAll($0) }
@@ -208,12 +208,12 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func showsTheListsTunesInStoredOrder() async throws {
-        let model = try await model(try await SampleCatalog.makeStore(root: root.url))
+        let model = try await model(try await SampleCatalog.copiedStore(root: root.url))
         #expect(model.rows.map(\.tune.title) == sessionTitles)
     }
 
     @Test func movesATuneFromTheMenuStoresItAndSaysWhereItLanded() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await model(store)
         model.move(model.rows[0], to: .down)
         #expect(model.rows.first?.tune.title == "Cluck Old Hen", "shown before the write lands")
@@ -227,7 +227,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func dragsATuneToTheBottom() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await model(store)
         model.move(from: 0, to: MovePlace.dropTarget(from: 0, offset: 5))
         let expected = Array(sessionTitles[1...]) + ["Soldier's Joy"]
@@ -236,7 +236,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func keepsEveryMoveOfAQuickRun() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await model(store)
         model.move(from: 0, to: 4)
         model.move(from: 0, to: 4)
@@ -247,7 +247,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func hidesArchivedTunesUntilShownAndMovesPastAHiddenOne() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         try await Commands(store: store).setArchived(sample("Cluck Old Hen").userTune.id, archived: true)
         let model = try await model(store)
         try await eventually { model.rows.count == 4 }
@@ -266,7 +266,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func takesAFailedMoveBackAndSaysWhy() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await model(store)
         try await store.write { writer in
             try writer.db.execute(
@@ -282,7 +282,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func removesATuneFromTheList() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await model(store)
         await model.remove(model.rows[0])
         try await eventually { model.rows.count == 4 }
@@ -290,7 +290,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func deletesTheListAndHoldsItsNameWhileLeaving() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await model(store)
         #expect(await model.delete())
         try await eventually { model.phase == .deleting(name: "Tuesday session") }
@@ -299,7 +299,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func saysAMissingListIsGone() async throws {
-        let model = ListModel(store: try await SampleCatalog.makeStore(root: root.url), listID: "no_such_list")
+        let model = ListModel(store: try await SampleCatalog.copiedStore(root: root.url), listID: "no_such_list")
         try await eventually { model.phase == .gone }
     }
 }
@@ -314,21 +314,21 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func showsNothingUntilSomethingIsTyped() async throws {
-        let model = try await picker(try await SampleCatalog.makeStore(root: root.url))
+        let model = try await picker(try await SampleCatalog.copiedStore(root: root.url))
         #expect(model.isIdle)
         #expect(model.results?.rows.isEmpty == true)
         #expect(model.results?.outcome == SearchOutcome.none)
     }
 
     @Test func offersNothingWhileTheCatalogIsUnread() async throws {
-        let model = TunePickerModel(store: try await SampleCatalog.makeStore(root: root.url), listID: session.id)
+        let model = TunePickerModel(store: try await SampleCatalog.copiedStore(root: root.url), listID: session.id)
         model.query = "Soldier"
         #expect(model.results == nil)
         #expect(await model.submit() == .nothing)
     }
 
     @Test func marksATuneAlreadyInTheListAndKeepsItInert() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store)
         model.query = "soldier"
         let row = try #require(model.results?.rows.first)
@@ -339,7 +339,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func findsArchivedTunesAndSaysSoInTheRowName() async throws {
-        let model = try await picker(try await SampleCatalog.makeStore(root: root.url))
+        let model = try await picker(try await SampleCatalog.copiedStore(root: root.url))
         model.query = "say old"
         let row = try #require(model.results?.rows.first)
         #expect(row.entry.tune.title == "Say Old Man")
@@ -348,7 +348,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func addsAPickedTuneAndClearsTheSearchForTheNext() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store)
         model.query = "butterfly"
         await model.pick(catalogEntry("The Butterfly"))
@@ -362,7 +362,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func addsATuneOnceFromTwoTapsAtOnce() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store)
         let entry = catalogEntry("The Butterfly")
         async let first: Void = model.pick(entry)
@@ -376,7 +376,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func offersToCreateTheTypedTitleAndSaysNoTuneHasIt() async throws {
-        let model = try await picker(try await SampleCatalog.makeStore(root: root.url))
+        let model = try await picker(try await SampleCatalog.copiedStore(root: root.url))
         model.query = "Rove Riley"
         let results = try #require(model.results)
         #expect(results.rows.isEmpty)
@@ -386,7 +386,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func offersAnotherTuneWhenTheTitleExists() async throws {
-        let model = try await picker(try await SampleCatalog.makeStore(root: root.url))
+        let model = try await picker(try await SampleCatalog.copiedStore(root: root.url))
         model.query = "tam lin"
         let results = try #require(model.results)
         #expect(results.noTuneCalled == nil)
@@ -394,7 +394,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func returnAddsTheOnlyMatchAndDoesNothingForALoneTakenOne() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store)
         model.query = "Ashokan"
         #expect(await model.submit() == .nothing)
@@ -409,14 +409,14 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func returnOnlyClosesTheKeyboardOverSeveralMatches() async throws {
-        let model = try await picker(try await SampleCatalog.makeStore(root: root.url))
+        let model = try await picker(try await SampleCatalog.copiedStore(root: root.url))
         model.query = "farewell"
         #expect(model.results?.rows.count == 2)
         #expect(await model.submit() == .dismissKeyboard)
     }
 
     @Test func showsAtMostEightResults() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let commands = Commands(store: store)
         for index in 0..<10 {
             _ = try await commands.createTune(
@@ -429,7 +429,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func reportsAFailureAfterTheSheetClosesToTheScreen() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         var late: String?
         let model = TunePickerModel(store: store, listID: session.id) { late = $0 }
         try await eventually { model.results != nil }
@@ -466,7 +466,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func offersEveryListButAFullOne() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store, titles: ["Soldier's Joy"])
         #expect(model.rows.map(\.name) == ["Tuesday session", "Waltzes"])
         #expect(model.rows.map(\.note) == ["all in it", "none in it"])
@@ -475,13 +475,13 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func leavesOutTheExcludedList() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store, titles: ["Soldier's Joy"], excluding: session.id)
         #expect(model.rows.map(\.name) == ["Waltzes"])
     }
 
     @Test func addsOnlyTheTunesAListLacks() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store, titles: ["Soldier's Joy", "The Butterfly"])
         #expect(model.rows[0].note == "1 of 2 in it")
         let addition = try #require(await model.add(to: model.rows[0]))
@@ -496,7 +496,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func createsAListHoldingEveryTune() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store, titles: ["Soldier's Joy", "The Butterfly"])
         model.newName = "   "
         #expect(await model.create() == nil)
@@ -513,7 +513,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func letsAFailedAddBeTriedAgain() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store, titles: ["The Butterfly"])
         let row = model.rows[1]
         try await Commands(store: store).deleteList(waltzes.id)
@@ -527,7 +527,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     private let root = TemporaryRoot()
 
     @Test func createsAListWithATrimmedName() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = ListNameModel(store: store, target: .new)
         model.setName("  Jam night ")
         let id = try #require(await model.save())
@@ -536,7 +536,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func requiresAName() async throws {
-        let model = ListNameModel(store: try await SampleCatalog.makeStore(root: root.url), target: .new)
+        let model = ListNameModel(store: try await SampleCatalog.copiedStore(root: root.url), target: .new)
         model.setName("   ")
         #expect(await model.save() == nil)
         #expect(model.validation == "A list needs a name")
@@ -545,7 +545,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func renamesWithTheCurrentNameFilledIn() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = ListNameModel(store: store, target: .rename(listID: waltzes.id, name: waltzes.name))
         #expect(model.name == "Waltzes")
         #expect(!model.isEdited)
@@ -560,7 +560,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     private let root = TemporaryRoot()
 
     @Test func landsANewTuneInTheListThePickerNamed() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = TuneFormModel(store: store, target: .new(title: "Rove Riley", listID: waltzes.id, source: .list))
         await model.load()
         #expect(await model.save() != nil)
@@ -582,7 +582,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func fetchesTheLiveRecordingsAndLinksOfEachTune() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let joy = try await entry("Soldier's Joy", in: store)
         #expect(joy.links.map(\.id) == ["sample_link_youtube", "sample_link_spotify"])
         #expect(joy.recordings.map(\.tuneID) == [joy.tune.id])
@@ -592,7 +592,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func playsAPinnedLinkInTheItemTheTuneScreenLoads() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let joy = try await entry("Soldier's Joy", in: store)
         let pinned = joy.links[0]
         try await Commands(store: store).setPlaySource(joy.userTune.id, to: .link(id: pinned.id))
@@ -603,7 +603,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func leavesATuneWithOnlyRecordingsInertWhileRecordingsCannotPlay() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let joy = try await entry("Soldier's Joy", in: store)
         let recordingsOnly = ListEntry(
             item: joy.item, tune: joy.tune, userTune: joy.userTune, recordings: joy.recordings, files: joy.files,
@@ -615,7 +615,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func playsTheFirstRecordingByDefault() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let joy = try await entry("Soldier's Joy", in: store)
         let recording = try #require(joy.recordings.first)
         #expect(
@@ -624,7 +624,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func opensALinkThatHasNoPlayer() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let hen = try await entry("Cluck Old Hen", in: store)
         let linkOnly = ListEntry(
             item: hen.item, tune: hen.tune, userTune: hen.userTune, recordings: [], files: [:], links: hen.links)
@@ -639,7 +639,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func leavesAChosenLinkThatCanNeitherPlayNorOpenInert() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let hen = try await entry("Cluck Old Hen", in: store)
         var link = hen.links[0]
         link.url = "javascript:alert(1)"
@@ -651,7 +651,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func playsADownloadedRecordingAndFetchesOneOnlyTheServerHolds() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let joy = try await entry("Soldier's Joy", in: store)
         #expect(joy.files[joy.recordings[0].id] != nil)
         let hen = try await entry("Cluck Old Hen", in: store)
@@ -663,7 +663,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func showsASpinnerWhileTheChosenRecordingDownloads() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let hen = try await entry("Cluck Old Hen", in: store)
         let serverOnly = try #require(hen.recordings.first)
         #expect(
@@ -673,7 +673,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func keepsStopForTheLoadedRecordingWhileThePlayerFetchesIt() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let hen = try await entry("Cluck Old Hen", in: store)
         let serverOnly = try #require(hen.recordings.first)
         #expect(
@@ -684,7 +684,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func leavesARecordingWithNoAudioAnywhereInert() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let tam = try await entry("Tam Lin", in: store)
         let processing = Recording(
             id: "r_processing", tuneID: tam.tune.id, source: "upload", addedAt: now, state: "processing")
@@ -703,7 +703,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func offersNothingForATuneWithNoSources() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let tam = try await entry("Tam Lin", in: store)
         #expect(tam.recordings.isEmpty && tam.links.isEmpty)
         #expect(ListRowPlay.action(for: tam, playFirst: UserSettings.playFirstRecordings) == nil)
@@ -828,7 +828,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func passesOverARecordingWithNoAudio() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let id = try await tamLin(store)
         try await store.write { writer in
             try writer.put(
@@ -839,7 +839,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func playsTheSongWhenTheOnlyRecordingHasNoAudio() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let id = try await tamLin(store)
         let song = RecordingLink(
             id: "song", tuneID: id, url: "https://music.apple.com/us/song/x/1", provider: "apple_music")
@@ -855,7 +855,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func playsARecordingWithAudioOnThisDevice() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let id = try await tamLin(store)
         try await putLocalRecording(store, tuneID: id)
         let turn = await resolve(store, tuneID: id, online: false)
@@ -864,7 +864,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func skipsATuneRemovedFromTheList() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let id = try await tamLin(store)
         try await putLocalRecording(store, tuneID: id)
         #expect(await resolve(store, tuneID: id) != nil)
@@ -878,7 +878,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func skipsATuneThatIsNotInThePlayingList() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let id = try await tamLin(store)
         try await putLocalRecording(store, tuneID: id)
         #expect(await resolve(store, listID: "sample_list_waltzes", tuneID: id) == nil)
@@ -886,7 +886,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
 
     @Test(arguments: [true, false])
     func playsExactlyTheTunesTheReportSaysWillPlay(online: Bool) async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let id = try await tamLin(store)
         try await store.write { writer in
             try writer.put(
@@ -951,7 +951,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func offersNothingUntilReadOrWhilePlayingCannotStart() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let snapshot = try await store.read { db in
             try ListsPlayOffers.Snapshot.fetch(db, settingsID: settingsID(clerkUserID: store.userID))
         }
@@ -964,7 +964,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func offersOnlyTheListsWithATuneThatPlays() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let commands = Commands(store: store)
         let empty = try await commands.createList("Empty")
         let silent = try await commands.createList("Nothing to hear")
@@ -976,7 +976,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func countsAnArchivedTuneOnlyWhileListsShowArchivedTunes() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let commands = Commands(store: store)
         let list = try await commands.createList("Archived only")
         let joy = sample("Soldier's Joy").userTune.id
