@@ -86,7 +86,7 @@ struct ModeRows: View {
                 } set: { mode in
                     values.setMode(mode, part: index)
                 },
-                options: Vocabulary.modes, allowsOther: false
+                options: Vocabulary.modes
             )
             .contextMenu {
                 if index > 0 {
@@ -115,14 +115,14 @@ struct TuningRows: View {
 
     var body: some View {
         ForEach(instruments, id: \.self) { instrument in
-            SuggestionPicker(
+            SuggestionField(
                 TuneFieldLabels.tuning(instrument), rowLabel: Vocabulary.instrumentLabel(instrument),
                 value: Binding {
                     values.tuning(instrument).tuning
                 } set: { tuning in
                     values.tunings[instrument, default: TuningValues()].tuning = tuning
                 },
-                options: Vocabulary.tuningSuggestions[instrument] ?? [], allowsOther: true,
+                suggestions: Vocabulary.tuningSuggestions[instrument] ?? [],
                 maxLength: Vocabulary.Limits.Tune.tuning)
             // The Tuning header does not name the instrument, so the capo row keeps its full name.
             if Vocabulary.capoInstruments.contains(instrument) {

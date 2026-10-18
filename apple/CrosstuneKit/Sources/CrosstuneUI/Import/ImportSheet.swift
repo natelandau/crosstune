@@ -184,8 +184,8 @@ private struct ImportContent: View {
             StatusPicker(status: $model.status)
         }
         Section {
-            SuggestionPicker(
-                ImportCopy.genreLabel, value: $model.genre, options: Vocabulary.genres, allowsOther: true,
+            SuggestionField(
+                ImportCopy.genreLabel, value: $model.genre, suggestions: Vocabulary.genres,
                 maxLength: Vocabulary.Limits.Tune.genre)
             Picker(ImportCopy.listLabel, selection: $model.listKey) {
                 Text(ImportCopy.noList).tag(ImportModel.ListKey.none)

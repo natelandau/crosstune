@@ -123,6 +123,7 @@ differ. iPhone and iPad never take a rule from here.
 - Short closed choice can be segmented. Status is one, a segment per word.
   A system segment shows an image or a word, never both. Tunes disagree:
   no segment chosen.
+- Open vocabulary: the system's text input suggestions under the field.
 - A segmented control keeps its chosen value visible in an inactive window.
 - Settings is a window of tabs, opening on the last tab shown.
 - A link to a Settings group (the first-recording notice's See your

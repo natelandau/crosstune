@@ -262,8 +262,10 @@ One row component per platform for every list of tunes.
 - Tuning field, filter, or badge only for a played instrument, unless the
   field already holds a value, so data never becomes unreachable.
 - Open vocabularies (tuning, genre, type, composer, learned from, part
-  structure): suggestions plus `Other…`, which reveals a text field. Closed
-  lists the API validates: mode, time signature.
+  structure, players): a text field the musician types straight into.
+  Suggestions narrow as they type, and a pick sets one. Any typed value
+  stands. Empty means empty: no `Not set`, no `Other…`. Closed lists the
+  API validates: mode, time signature.
 - Key: closed grid of pills, never typed. Both spellings of a black key,
   one hue. A stored key missing from the grid joins it as its own pill.
 - Tuning suggestion: name, then strings, lowercase drone. "Cross A (AEAE)".
@@ -382,7 +384,11 @@ One row component per platform for every list of tunes.
   come back.
 - Bulk edit: the tune form over many tunes. Each row shows the shared
   value, `Not set`, or `Mixed`. Only touched rows write. Save stays
-  disabled until a row is touched. `Other…` keeps the current value.
+  disabled until a row is touched.
+- Bulk edit, open vocabulary where the tunes disagree: an empty field with
+  `Mixed` as a dimmed placeholder. Typing or a pick replaces it, `Mixed`
+  among the suggestions restores it, and deleting the text empties the
+  field on every tune.
 - A field unique to one tune is never bulk editable.
 
 ## Forms
@@ -406,8 +412,9 @@ One row component per platform for every list of tunes.
 - Every control has a visible label. An accessibility-only name is not a
   label.
 - A row that opens its own form: name and chevron, no value summary.
-- Empty row reads "Not set". Standalone field: a placeholder naming what
-  goes in, never an example value.
+- Empty row reads "Not set", except an open-vocabulary field, which shows
+  nothing. Standalone field: a placeholder naming what goes in, never an
+  example value.
 - An empty selection that turns a feature off reads as that feature's empty
   state ("No services selected"), because "Not set" reads as defaults.
 - Single-field sheet: no header, the title names the field.

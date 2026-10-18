@@ -32,7 +32,6 @@ import { openTestDb } from '../../test/db'
 import { tuneRow, userTuneRow } from '../../test/rows'
 import { CANCEL, DONE } from '../../ui/confirmCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
-import { NOT_SET } from '../../ui/fieldCopy'
 import { YEAR_LABEL } from '../../ui/partialDate'
 
 import { COLUMN_DEFAULT, COLUMN_MIN } from '../../layout/Columns'
@@ -309,6 +308,50 @@ it('edits only the fields touched, showing Mixed where the tunes disagree', asyn
   expect((await tuneOf(ids['Forked Deer']!))?.time_signature).not.toBe('6/8')
 })
 
+it('types into a Mixed suggested row, and Mixed puts it back', async () => {
+  const db = openTestDb()
+  const ids = await seedCatalog(db)
+  await db.tunes.update(ids['Angeline the Baker']!, { composer: 'Ed Haley' })
+  await db.tunes.update(ids['Cluck Old Hen']!, { composer: 'John Salyer' })
+  await renderApp({ path: '/catalog', db, frame: WIDE })
+  await expect.element(row('Forked Deer')).toBeVisible()
+  await startSelecting()
+  await row('Angeline').click()
+  await row('Cluck').click()
+  await page.getByRole('button', { name: EDIT_SELECTED, exact: true }).click()
+
+  const sheet = page.getByRole('dialog', { name: editTunesTitle(2) })
+  const save = sheet.getByRole('button', { name: SAVE_EDIT })
+  const composer = sheet.getByRole('combobox', { name: DETAIL_LABELS.composer })
+  await expect.element(composer).toHaveValue('')
+  await expect.element(composer).toHaveAttribute('placeholder', MIXED)
+  await composer.click()
+  await userEvent.keyboard('Tommy Jarrell')
+  await expect.element(composer).toHaveValue('Tommy Jarrell')
+  await userEvent.keyboard('{Tab}')
+  await expect.element(save).toBeEnabled()
+
+  await composer.click()
+  await page.getByRole('option', { name: MIXED, exact: true }).click()
+  await expect.element(composer).toHaveValue('')
+  await expect.element(composer).toHaveAttribute('placeholder', MIXED)
+  await expect.element(save).toBeDisabled()
+
+  // Typed, then deleted, the row empties every tune's composer.
+  await composer.fill('T')
+  await composer.clear()
+  await userEvent.keyboard('{Tab}')
+  await expect.element(composer).toHaveValue('')
+  await expect.element(composer).not.toHaveAttribute('placeholder')
+  await expect.element(save).toBeEnabled()
+  await save.click()
+  await expect.element(page.getByText(editedToast(2))).toBeVisible()
+  await expect
+    .poll(async () => (await db.tunes.get(ids['Angeline the Baker']!))?.composer)
+    .toBeNull()
+  expect((await db.tunes.get(ids['Cluck Old Hen']!))?.composer).toBeNull()
+})
+
 it.each(['field', 'chevron'] as const)(
   'never picks a tuning on a press that began on the %s, and keeps the list open',
   async (start) => {
@@ -329,7 +372,7 @@ it.each(['field', 'chevron'] as const)(
     // The press opens the list as it starts, and lifts over an option, as a fast click does
     // when the list opens under the pointer.
     await userEvent.dragAndDrop(pressed, option)
-    await expect.element(field).toHaveValue(NOT_SET)
+    await expect.element(field).toHaveValue('')
     await expect.element(field).toHaveAttribute('aria-expanded', 'true')
     await expect.element(option).toHaveAttribute('aria-selected', 'false')
   },

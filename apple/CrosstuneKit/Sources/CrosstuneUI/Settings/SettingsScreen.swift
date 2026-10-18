@@ -246,10 +246,10 @@ public struct SettingsScreen: View {
             ) {
                 ForEach(StatusField.segments, id: \.value) { Text($0.label).tag($0.value) }
             }
-            SuggestionPicker(
+            SuggestionField(
                 TuneFieldLabels.genre,
                 value: Binding(get: { model.newTuneGenre }, set: { model.setNewTuneGenre($0) }),
-                options: Vocabulary.genres, allowsOther: true, maxLength: Vocabulary.Limits.Tune.genre)
+                suggestions: Vocabulary.genres, maxLength: Vocabulary.Limits.Tune.genre)
         } header: {
             SettingsHelp(SettingsModel.newTunesHelp)
         } footer: {

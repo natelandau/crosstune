@@ -106,37 +106,33 @@ struct BulkEditSheet: View {
         case .mode:
             BulkChoiceRow(field: field, form: $form, options: Vocabulary.modes, emptyChoice: BulkEditForm.clear)
         case .tuning(let instrument):
-            BulkChoiceRow(
-                field: field, form: $form, options: Vocabulary.tuningSuggestions[instrument] ?? [],
-                rowLabel: Vocabulary.instrumentLabel(instrument), emptyChoice: BulkEditForm.clear,
-                allowsOther: true, maxLength: Vocabulary.Limits.Tune.tuning)
+            BulkSuggestionRow(
+                field: field, form: $form, suggestions: Vocabulary.tuningSuggestions[instrument] ?? [],
+                rowLabel: Vocabulary.instrumentLabel(instrument), maxLength: Vocabulary.Limits.Tune.tuning)
         case .genre:
-            BulkChoiceRow(
-                field: field, form: $form, options: Vocabulary.genres, emptyChoice: BulkEditForm.clear,
-                allowsOther: true, maxLength: Vocabulary.Limits.Tune.genre)
+            BulkSuggestionRow(
+                field: field, form: $form, suggestions: Vocabulary.genres, maxLength: Vocabulary.Limits.Tune.genre)
         case .tuneType:
-            BulkChoiceRow(
-                field: field, form: $form, options: Vocabulary.tuneTypes, emptyChoice: BulkEditForm.clear,
-                allowsOther: true, maxLength: Vocabulary.Limits.Tune.tuneType)
+            BulkSuggestionRow(
+                field: field, form: $form, suggestions: Vocabulary.tuneTypes,
+                maxLength: Vocabulary.Limits.Tune.tuneType)
         case .timeSignature:
             BulkChoiceRow(
                 field: field, form: $form, options: Vocabulary.timeSignatures, emptyChoice: BulkEditForm.clear)
         case .partStructure:
-            BulkChoiceRow(
-                field: field, form: $form, options: Vocabulary.partStructures, emptyChoice: BulkEditForm.clear,
-                allowsOther: true, maxLength: Vocabulary.Limits.Tune.partStructure)
+            BulkSuggestionRow(
+                field: field, form: $form, suggestions: Vocabulary.partStructures,
+                maxLength: Vocabulary.Limits.Tune.partStructure)
         case .composer:
-            BulkChoiceRow(
-                field: field, form: $form, options: composers, emptyChoice: BulkEditForm.clear,
-                allowsOther: true, maxLength: Vocabulary.Limits.Tune.composer)
+            BulkSuggestionRow(
+                field: field, form: $form, suggestions: composers, maxLength: Vocabulary.Limits.Tune.composer)
         case .isCrooked:
             BulkChoiceRow(
                 field: field, form: $form, options: [BulkEditForm.yes, BulkEditForm.no],
                 emptyChoice: BulkEditForm.keep)
         case .learnedFrom:
-            BulkChoiceRow(
-                field: field, form: $form, options: learnedFrom, emptyChoice: BulkEditForm.clear,
-                allowsOther: true, maxLength: Vocabulary.Limits.Tune.learnedFrom)
+            BulkSuggestionRow(
+                field: field, form: $form, suggestions: learnedFrom, maxLength: Vocabulary.Limits.Tune.learnedFrom)
         case .learnedOn:
             BulkDateRow(field: field, form: $form)
         }
@@ -161,20 +157,12 @@ struct BulkEditSheet: View {
 }
 
 /// A field picked from a menu of choices across many tunes. Its empty choice, when it has one,
-/// is named for what it does: Clear empties the field on every tune, Keep changes none. Other…
-/// reveals a text field that starts from the current value rather than clearing it.
+/// is named for what it does: Clear empties the field on every tune, Keep changes none.
 private struct BulkChoiceRow: View {
     let field: EditField
     @Binding var form: BulkEditForm
     let options: [String]
-    /// The row's visible label, where a section header already names half the field.
-    var rowLabel: String?
     var emptyChoice: String?
-    var allowsOther = false
-    var maxLength: Int?
-
-    @State private var typing = false
-    @FocusState private var otherFocused: Bool
 
     var body: some View {
         LabeledContent {
@@ -182,19 +170,11 @@ private struct BulkChoiceRow: View {
                 if let emptyChoice {
                     choice(emptyChoice, isCurrent: false) {
                         form.touch(field, field.kind == .yesNo ? nil : .clear)
-                        typing = false
                     }
                 }
                 ForEach(SuggestionPicker.choices(options, value: current), id: \.self) { option in
-                    choice(option, isCurrent: !typing && option == current) {
+                    choice(option, isCurrent: option == current) {
                         form.touch(field, value(option))
-                        typing = false
-                    }
-                }
-                if allowsOther {
-                    choice(TuneFieldLabels.other, isCurrent: typing) {
-                        typing = true
-                        otherFocused = true
                     }
                 }
             } label: {
@@ -210,19 +190,9 @@ private struct BulkChoiceRow: View {
             // the default style would tint it.
             .buttonStyle(.plain)
         } label: {
-            Text(rowLabel ?? field.label)
+            Text(field.label)
         }
         .accessibilityLabel(field.label)
-        if typing {
-            let otherLabel = TuneFieldLabels.other(field.label)
-            LabeledContent(otherLabel) {
-                TextField(otherLabel, text: typed, prompt: Text(form.placeholder(field)))
-                    .contentMask()
-                    .multilineTextAlignment(.trailing)
-                    .focused($otherFocused)
-                    .characterLimit(maxLength, text: typed)
-            }
-        }
     }
 
     /// The row's value as its choices name it.
@@ -238,14 +208,6 @@ private struct BulkChoiceRow: View {
         field.kind == .yesNo ? .flag(option == BulkEditForm.yes) : .text(option)
     }
 
-    private var typed: Binding<String> {
-        Binding {
-            form.text(field)
-        } set: { text in
-            form.touch(field, text.isEmpty ? .clear : .text(text))
-        }
-    }
-
     @ViewBuilder
     private func choice(_ title: String, isCurrent: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
@@ -254,6 +216,35 @@ private struct BulkChoiceRow: View {
             } else {
                 Text(title)
             }
+        }
+    }
+}
+
+/// An open vocabulary across many tunes, typed straight in. Where the tunes disagree the field
+/// is empty under a Mixed prompt until typed into, and Mixed among the suggestions puts it back.
+/// Deleting the text empties the field on every tune.
+private struct BulkSuggestionRow: View {
+    let field: EditField
+    @Binding var form: BulkEditForm
+    let suggestions: [String]
+    /// The row's visible label, where a section header already names half the field.
+    var rowLabel: String?
+    var maxLength: Int?
+
+    var body: some View {
+        SuggestionField(
+            field.label, rowLabel: rowLabel, value: typed, suggestions: suggestions, maxLength: maxLength,
+            keep: form.summary(field) == .mixed
+                ? SuggestionField.Keep(
+                    label: BulkEditForm.mixed, kept: form.isMixed(field), onKeep: { form.touch(field, nil) })
+                : nil)
+    }
+
+    private var typed: Binding<String> {
+        Binding {
+            form.text(field)
+        } set: { text in
+            form.touch(field, text.isEmpty ? .clear : .text(text))
         }
     }
 }
