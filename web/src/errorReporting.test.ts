@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { sentryOptions } from './errorReporting'
-import { scrubR2Breadcrumb } from './sentryBreadcrumbs'
+import { scrubBreadcrumbUrl } from './sentryBreadcrumbs'
 import { APP_VERSION } from './version'
 
 describe('sentryOptions', () => {
@@ -8,7 +8,7 @@ describe('sentryOptions', () => {
     expect(sentryOptions({})).toBeNull()
   })
 
-  it('tags each report with the release and environment, and scrubs R2 links', () => {
+  it('tags each report with the release and environment, and scrubs query strings from network breadcrumbs', () => {
     const options = sentryOptions({
       VITE_SENTRY_DSN: 'https://key@o1.ingest.sentry.io/1',
       VITE_SENTRY_ENVIRONMENT: 'production',
@@ -16,7 +16,7 @@ describe('sentryOptions', () => {
     expect(options?.dsn).toBe('https://key@o1.ingest.sentry.io/1')
     expect(options?.release).toBe(APP_VERSION)
     expect(options?.environment).toBe('production')
-    expect(options?.beforeBreadcrumb).toBe(scrubR2Breadcrumb)
+    expect(options?.beforeBreadcrumb).toBe(scrubBreadcrumbUrl)
   })
 
   it('names the environment development when the build sets none', () => {

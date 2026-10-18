@@ -171,6 +171,20 @@ async def test_failure_returns_untitled_link(mock_http) -> None:
     assert link.artwork_url is None
 
 
+async def test_a_failed_resolution_logs_the_host_only(caplog) -> None:
+    def boom(request: httpx2.Request) -> httpx2.Response:
+        msg = "slow"
+        raise httpx2.ConnectTimeout(msg, request=request)
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(boom)) as client:
+        with caplog.at_level("WARNING", logger=resolve_module.__name__):
+            await resolve_link("https://www.youtube.com/watch?v=abc", client, timeout=5.0)
+    record = next(r for r in caplog.records if r.name == "crosstune.links.resolve")
+    assert record.host == "www.youtube.com"
+    assert not hasattr(record, "url")
+    assert "abc" not in caplog.text
+
+
 async def test_non_200_returns_untitled_link(mock_http) -> None:
     mock_http.add("https://www.youtube.com/oembed", httpx2.Response(404))
     async with mock_http.client() as client:

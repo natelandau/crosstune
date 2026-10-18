@@ -11,6 +11,19 @@ _HANDLER_NAME = "crosstune"
 # Uvicorn installs plain handlers on these and stops propagation, which would keep its
 # startup, error, and access lines out of the structured stream.
 _UVICORN_LOGGERS = ("uvicorn", "uvicorn.error", "uvicorn.access")
+_ACCESS_ARGS = 5
+
+
+class StripQueryFilter(logging.Filter):
+    """Drop the query string from uvicorn access lines, which can carry search text."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Rewrite the path argument in place and keep the record."""
+        args = record.args
+        # Uvicorn's access record is (client, method, path, http_version, status).
+        if isinstance(args, tuple) and len(args) == _ACCESS_ARGS and isinstance(args[2], str):
+            record.args = (*args[:2], args[2].split("?", 1)[0], *args[3:])
+        return True
 
 
 def configure_logging(*, debug: bool) -> None:
@@ -40,3 +53,4 @@ def configure_logging(*, debug: bool) -> None:
         logger.disabled = False
         # Unset, so these follow the root level rather than uvicorn's own.
         logger.setLevel(logging.NOTSET)
+    logging.getLogger("uvicorn.access").addFilter(StripQueryFilter())

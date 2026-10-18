@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, Query, Request
-from pydantic import AfterValidator, BaseModel, Field
+from fastapi import APIRouter, Request
+from pydantic import BaseModel, Field, field_validator
 
 from crosstune.auth.deps import (
     CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
@@ -42,6 +42,22 @@ class ResolveResponse(BaseModel):
     artwork_url: str | None
 
 
+class SearchRequest(BaseModel):
+    """Body of a search request: the text to look for and the services to ask."""
+
+    q: str = Field(min_length=1, max_length=200)
+    providers: list[Provider] = Field(min_length=1, max_length=len(SEARCHABLE_PROVIDERS))
+    country: str = Field(default="US", pattern=r"^[A-Za-z]{2}$")
+
+    @field_validator("providers")
+    @classmethod
+    def _searchable(cls, providers: list[Provider]) -> list[Provider]:
+        if unsearchable := [p for p in providers if p not in SEARCHABLE_PROVIDERS]:
+            msg = f"{unsearchable[0].value} cannot be searched"
+            raise ValueError(msg)
+        return providers
+
+
 class SearchResult(BaseModel):
     """One recording a service found, in the form a paste of its URL would store."""
 
@@ -66,13 +82,6 @@ class SearchResponse(BaseModel):
     """One group per requested service, inline services first."""
 
     groups: list[SearchGroup]
-
-
-def _searchable(providers: list[Provider]) -> list[Provider]:
-    if unsearchable := [p for p in providers if p not in SEARCHABLE_PROVIDERS]:
-        msg = f"{unsearchable[0].value} cannot be searched"
-        raise ValueError(msg)
-    return providers
 
 
 def _charge(limiter: RateLimiter, user: User) -> None:
@@ -103,18 +112,12 @@ async def resolve(
     return ResolveResponse(**dataclasses.asdict(link))
 
 
-@router.get("/search", responses=problem_responses(429))
+@router.post("/search", responses=problem_responses(429))
 async def search(
+    body: SearchRequest,
     request: Request,
     user: CurrentUser,
     session: DbSession,
-    q: Annotated[str, Query(min_length=1, max_length=200)],
-    providers: Annotated[
-        list[Provider],
-        Query(min_length=1, max_length=len(SEARCHABLE_PROVIDERS)),
-        AfterValidator(_searchable),
-    ],
-    country: Annotated[str, Query(pattern=r"^[A-Za-z]{2}$")] = "US",
 ) -> SearchResponse:
     """Recordings matching the text on each requested service, grouped by service."""
     state = request.app.state
@@ -124,9 +127,9 @@ async def search(
     # fan-out, which can wait out its whole timeout, holds nothing from the pool.
     await session.commit()
     groups = await service.search(
-        q,
-        providers,
-        country.upper(),
+        body.q,
+        body.providers,
+        body.country.upper(),
         adapters=state.search_adapters,
         client=state.http_client,
         timeout=state.settings.link_resolve_timeout_seconds,

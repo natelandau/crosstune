@@ -44,3 +44,9 @@ def test_sentry_stays_off_without_a_dsn(mocker) -> None:
     init = mocker.patch("crosstune.main.sentry_sdk.init")
     create_app(Settings())
     init.assert_not_called()
+
+
+def test_sentry_never_sends_request_bodies(mocker) -> None:
+    init = mocker.patch("crosstune.main.sentry_sdk.init")
+    create_app(Settings(sentry_dsn=DSN))
+    assert init.call_args.kwargs["max_request_body_size"] == "never"

@@ -106,9 +106,8 @@ public struct LiveSyncAPI: SyncAPI {
     }
 
     public func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
-        let input = Operations.SearchV1LinksSearchGet.Input(
-            query: .init(q: q, providers: providers, country: country))
-        switch try await client.searchV1LinksSearchGet(input) {
+        let body = Components.Schemas.SearchRequest(country: country, providers: providers, q: q)
+        switch try await client.searchV1LinksSearchPost(.init(body: .json(body))) {
         case .ok(let response):
             return SearchResponse(
                 groups: try response.body.json.groups.map { group in
