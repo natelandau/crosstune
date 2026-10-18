@@ -98,7 +98,21 @@ jobs:
           module: web
           chromium: "true"
           browsers: chromium webkit
-      - run: just test --shard=${{ matrix.shard }}/3
+      # Each shard sees only its share of the files, so the coverage job holds the merged
+      # report to the thresholds.
+      - run: >-
+          just test --shard=${{ matrix.shard }}/3 --coverage --project unit --project browser
+          --reporter=default --reporter=github-actions --reporter=blob
+        env:
+          COVERAGE_SHARD: "1"
+      - run: just test --shard=${{ matrix.shard }}/3 --project browser-webkit --passWithNoTests
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web-test-blob-${{ matrix.shard }}
+          path: web/.vitest/blob
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
       # A failing browser test leaves a screenshot under .vitest/attachments. This job holds
       # no secrets and no .env, so a screenshot shows nothing private.
       - uses: actions/upload-artifact@v7
@@ -109,10 +123,33 @@ jobs:
           retention-days: 1
           if-no-files-found: ignore
 
+  coverage:
+    needs: [changes, test]
+    if: needs.changes.outputs.relevant == 'true'
+    name: Web coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+        with:
+          module: web
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: web-test-blob-*
+          path: web/.vitest/blob
+          merge-multiple: true
+      - run: pnpm vitest run --merge-reports --coverage --project unit --project browser
+
   # The required status check, so the shards can change without touching the
   # ruleset. It runs even when they skip, and a skip passes.
   check:
-    needs: [changes, lint, test]
+    needs: [changes, lint, test, coverage]
     if: always()
     name: Web check
     runs-on: ubuntu-latest
@@ -120,7 +157,9 @@ jobs:
     steps:
       - name: require every web job to pass or skip
         env:
-          RESULTS: ${{ needs.changes.result }} ${{ needs.lint.result }} ${{ needs.test.result }}
+          RESULTS: >-
+            ${{ needs.changes.result }} ${{ needs.lint.result }} ${{ needs.test.result }}
+            ${{ needs.coverage.result }}
         run: |
           for result in $RESULTS; do
             case "$result" in

@@ -68,6 +68,18 @@ export default defineConfig((env) =>
         // LANG set here arrives too late to change it. A date-formatting test that cares about
         // locale relies on Node's own built-in default (en-US-like), not on anything pinned.
         env: { TZ: 'UTC' },
+        coverage: {
+          provider: 'v8',
+          include: ['src/**/*.{ts,tsx}', 'worker/**/*.ts'],
+          exclude: ['**/*.test.{ts,tsx}', 'src/test/**', 'src/**/*.d.ts'],
+          reportsDirectory: '.cache/coverage',
+          reporter: [['text', { skipFull: true }], 'lcovonly'],
+          // Just under the measured coverage, so merging or removing tests cannot lower it unseen.
+          // A CI shard sees only its share of the files, so only the merged report is held to it.
+          thresholds: process.env.COVERAGE_SHARD
+            ? undefined
+            : { statements: 93, branches: 88, functions: 92, lines: 95 },
+        },
         projects: [
           {
             extends: true,

@@ -68,11 +68,16 @@ fix:
     pnpm eslint --fix .
     pnpm prettier --write .
 
-# Run the unit and browser tests; extra args go to vitest
+# Run the unit and browser tests with coverage; args go to vitest and drop coverage
 [group('test')]
 [positional-arguments]
 test *args:
-    {{ gate }} web-test --argc "$#" --file .env --tool 'node --version' pnpm vitest run "$@"
+    {{ gate }} web-test --argc "$#" --file .env --tool 'node --version' just _test "$@"
+
+# V8 coverage reads Chromium's profiler, which WebKit lacks, so WebKit runs on its own.
+[positional-arguments]
+_test *args:
+    if [ "$#" -gt 0 ]; then exec pnpm vitest run "$@"; fi; pnpm vitest run --coverage --project unit --project browser && pnpm vitest run --project browser-webkit
 
 # Run only the jsdom unit project
 [group('test')]

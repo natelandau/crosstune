@@ -118,7 +118,7 @@ a local development account. It refuses to run unless `api/.env` sets
 | `just lint`                   | Every linter in every module, then the hooks no module covers, such as the spell check and the workflow linters.                                         |
 | `just test`                   | API tests on databases of their own in the test Postgres, a memory-backed server apart from the development one, web unit and browser tests, the Swift package tests, and the tracking plan checker's tests. |
 | `just api::test [args]`       | API tests. Args narrow the run and drop coverage.                                                                                                        |
-| `just web::test [args]`       | Web tests. Args go to vitest.                                                                                                                            |
+| `just web::test [args]`       | Web tests with coverage. Args go to vitest and drop coverage.                                                                                            |
 | `just web::stress <n> [args]` | Web tests `n` times, shuffled, a new order each run. Prints failing seeds; `SEED=<seed>` replays one.                                                    |
 | `just site::test [args]`      | Builds the site, then runs its tests against the output. Args go to vitest.                                                                              |
 | `just apple::test [args]`     | Swift package tests on the Mac. Args go to `swift test`.                                                                                                 |
