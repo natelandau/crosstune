@@ -1,3 +1,15 @@
+## v0.24.0 (2026-10-18)
+
+### Feat
+
+- add notes, players, and place to recordings (#207)
+- ship the launch privacy, billing, and legal changes (#203)
+
+### Perf
+
+- **apple**: speed up the package tests and their CI runs (#206)
+- **api**: run the test suite on a memory-backed Postgres (#204)
+
 ## v0.23.0 (2026-10-17)
 
 ### Feat
