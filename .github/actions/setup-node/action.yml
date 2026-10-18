@@ -33,11 +33,16 @@ runs:
       shell: bash
       working-directory: ${{ inputs.module }}
       run: printf 'version=%s\n' "$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
-    - if: inputs.chromium == 'true'
-      uses: actions/cache@v6
+    # Any browser set `main` saved for this Playwright will do, since the install below fetches
+    # only what is missing. Only `main` saves: a pull request's cache is readable by that pull
+    # request alone, so each one would store a copy of its own.
+    - id: browsers
+      if: inputs.chromium == 'true'
+      uses: actions/cache/restore@v6
       with:
         path: ~/.cache/ms-playwright
         key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ inputs.browsers }}
+        restore-keys: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-
     # The cache holds only the browsers, so the system libraries they need install every run.
     - if: inputs.chromium == 'true'
       shell: bash
@@ -45,3 +50,8 @@ runs:
       env:
         BROWSERS: ${{ inputs.browsers }}
       run: pnpm exec playwright install --with-deps $BROWSERS
+    - if: inputs.chromium == 'true' && github.ref == 'refs/heads/main' && steps.browsers.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ inputs.browsers }}
