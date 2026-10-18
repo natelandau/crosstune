@@ -100,11 +100,22 @@ private func tuneRows(_ plan: ExportPlan) -> [[String]] {
 
 private func column(_ name: String) -> Int { tunesHeader.firstIndex(of: name)! }
 
+@Suite struct DecimalTextTests {
+    @Test(arguments: [
+        (36.661_234_567, "36.661234567"), (-80.923_912_345, "-80.923912345"), (36, "36"), (-0.0, "0"),
+        (0.000_012, "0.000012"), (-1.5e-7, "-0.00000015"), (1e21, "1000000000000000000000"),
+    ])
+    func writesPlainDecimalDigits(value: Double, text: String) {
+        #expect(decimalText(value) == text)
+    }
+}
+
 @Suite struct BuildExportTests {
     @Test func matchesTheGoldenFixtureByteForByte() throws {
         let plan = buildExport(try fixtureInput())
         #expect(Array(plan.tunesCSV.utf8) == (try fixtureBytes("tunes.csv")))
         #expect(Array(plan.listsCSV.utf8) == (try fixtureBytes("lists.csv")))
+        #expect(Array(plan.recordingsCSV.utf8) == (try fixtureBytes("recordings.csv")))
         let paths = plan.audio.map(\.path) + plan.scans.map(\.path)
         #expect(Array((paths.joined(separator: "\n") + "\n").utf8) == (try fixtureBytes("paths.txt")))
     }
@@ -143,6 +154,7 @@ private func column(_ name: String) -> Int { tunesHeader.firstIndex(of: name)! }
         let plan = buildExport(emptyInput())
         #expect(plan.tunesCSV == csvDocument([tunesHeader]))
         #expect(plan.listsCSV == csvDocument([listsHeader]))
+        #expect(plan.recordingsCSV == csvDocument([recordingsHeader]))
         #expect(plan.audio.isEmpty)
         #expect(plan.totalRecordings == 0)
     }

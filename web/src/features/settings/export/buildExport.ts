@@ -3,6 +3,7 @@ import { STATUS_LABELS } from '../../../constants'
 import { liveTune } from '../../../db/tunes'
 import {
   isInstrument,
+  isRecordingPrecision,
   type LocalList,
   type LocalListItem,
   type LocalScan,
@@ -39,6 +40,8 @@ export interface ExportInput {
 export interface ExportPlan {
   tunesCsv: string
   listsCsv: string
+  /** Every recording not deleted, with or without its audio in the export. */
+  recordingsCsv: string
   /** Every exported recording with its archive path, in archive order. */
   audio: readonly { recordingId: string; path: string }[]
   /** Every exported scan with its archive path, in archive order. */
@@ -80,6 +83,19 @@ export const TUNES_HEADER: readonly string[] = [
 ]
 
 export const LISTS_HEADER: readonly string[] = ['list', 'position', 'tune']
+
+export const RECORDINGS_HEADER: readonly string[] = [
+  'file',
+  'tune',
+  'name',
+  'recorded_on',
+  'players',
+  'place',
+  'latitude',
+  'longitude',
+  'accuracy_m',
+  'notes',
+]
 
 const UNFILED = 'Unfiled'
 
@@ -204,6 +220,24 @@ function exportedTunes(input: ExportInput): ExportedTune[] {
   )
 }
 
+/** Recordings grouped by the exported tune they are filed under; null holds the rest. */
+function groupRecordings(
+  recordings: readonly LocalRecording[],
+  tunes: readonly ExportedTune[],
+): Map<string | null, LocalRecording[]> {
+  const filedTuneIds = new Set(tunes.map(({ tune }) => tune.id))
+  return groupBy(recordings, (recording) =>
+    recording.tune_id && filedTuneIds.has(recording.tune_id) ? recording.tune_id : null,
+  )
+}
+
+/** A tune's recordings in the order the app shows them. */
+const inShownOrder = (recordings: readonly LocalRecording[]) =>
+  [...recordings].sort(
+    (a, b) =>
+      a.position - b.position || time(a.added_at) - time(b.added_at) || byCodeUnits(a.id, b.id),
+  )
+
 /**
  * Archive paths for every exported recording: tune folders in tune order, then `Unfiled`.
  * Folder and file names are allocated in that same order, so a collision suffix follows the
@@ -216,29 +250,21 @@ function planAudio(
   dateOf: (timestamp: string) => string,
 ): { audio: { recordingId: string; path: string }[]; pathsByTune: Map<string, string[]> } {
   const audioById = new Map(input.audio.map((audio) => [audio.recordingId, audio]))
-  const filedTuneIds = new Set(tunes.map(({ tune }) => tune.id))
-  const groups = groupBy(recordings, (recording) =>
-    recording.tune_id && filedTuneIds.has(recording.tune_id) ? recording.tune_id : null,
-  )
+  const groups = groupRecordings(recordings, tunes)
 
   const audio: { recordingId: string; path: string }[] = []
   const pathsByTune = new Map<string, string[]>()
   const addFolder = (folder: string, recordings: readonly LocalRecording[]): string[] => {
     const files = new NameAllocator()
-    return [...recordings]
-      .sort(
-        (a, b) =>
-          a.position - b.position || time(a.added_at) - time(b.added_at) || byCodeUnits(a.id, b.id),
-      )
-      .map((recording) => {
-        const stem = recording.label
-          ? `${dateOf(recording.added_at)} ${recording.label}`
-          : dateOf(recording.added_at)
-        const ext = audioExtension(audioById.get(recording.id)?.contentType ?? null)
-        const path = `recordings/${folder}/${files.take(stem, ext)}`
-        audio.push({ recordingId: recording.id, path })
-        return path
-      })
+    return inShownOrder(recordings).map((recording) => {
+      const stem = recording.label
+        ? `${dateOf(recording.added_at)} ${recording.label}`
+        : dateOf(recording.added_at)
+      const ext = audioExtension(audioById.get(recording.id)?.contentType ?? null)
+      const path = `recordings/${folder}/${files.take(stem, ext)}`
+      audio.push({ recordingId: recording.id, path })
+      return path
+    })
   }
 
   const folders = new NameAllocator([UNFILED])
@@ -303,7 +329,75 @@ function listRows(input: ExportInput, tunes: readonly ExportedTune[]): string[][
     })
 }
 
-/** Both CSV documents and the archive path of every exported recording and scan. */
+/**
+ * A number as plain decimal digits, never in exponent form, with no trailing zeros: the
+ * shortest digits that read back as the same number, as every client writes them.
+ */
+export function decimalText(value: number): string {
+  const text = String(value)
+  const sign = text.startsWith('-') ? '-' : ''
+  const [mantissa = '', exponent = '0'] = text.slice(sign.length).split(/e/i)
+  const [whole = '', fraction = ''] = mantissa.split('.')
+  const digits = whole + fraction
+  const point = whole.length + Number(exponent)
+  let plain =
+    point <= 0
+      ? `0.${'0'.repeat(-point)}${digits}`
+      : point >= digits.length
+        ? digits + '0'.repeat(point - digits.length)
+        : `${digits.slice(0, point)}.${digits.slice(point)}`
+  if (plain.includes('.')) plain = plain.replace(/0+$/, '').replace(/\.$/, '')
+  plain = plain.replace(/^0+(?=\d)/, '')
+  return plain === '0' ? plain : sign + plain
+}
+
+/** When a recording was played, to the precision known: a year, a month, a day. */
+function recordedOn(recording: LocalRecording, dateOf: (timestamp: string) => string): string {
+  const { recorded_at: at, recorded_precision: precision } = recording
+  if (!at || !isRecordingPrecision(precision)) return ''
+  if (precision === 'time') return dateOf(at)
+  // A partial date is UTC midnight at the start of its period.
+  const utc = new Date(time(at)).toISOString()
+  return utc.slice(0, precision === 'year' ? 4 : precision === 'month' ? 7 : 10)
+}
+
+/** One row per live recording, in tune order then unfiled, each with its archive path if any. */
+function recordingRows(
+  input: ExportInput,
+  tunes: readonly ExportedTune[],
+  audio: readonly { recordingId: string; path: string }[],
+  dateOf: (timestamp: string) => string,
+): string[][] {
+  const pathById = new Map(audio.map((a) => [a.recordingId, a.path]))
+  const groups = groupRecordings(
+    input.recordings.filter((recording) => !recording.deleted_at),
+    tunes,
+  )
+  const row = (recording: LocalRecording, tune: string) => [
+    pathById.get(recording.id) ?? '',
+    tune,
+    recording.label ?? '',
+    recordedOn(recording, dateOf),
+    recording.players ?? '',
+    recording.place_name ?? '',
+    recording.place_lat == null ? '' : decimalText(recording.place_lat),
+    recording.place_lon == null ? '' : decimalText(recording.place_lon),
+    recording.place_accuracy_m == null ? '' : String(recording.place_accuracy_m),
+    recording.notes ?? '',
+  ]
+  const rows: string[][] = []
+  const seen = new Set<string>()
+  for (const { tune } of tunes) {
+    const recordings = groups.get(tune.id)
+    if (!recordings || seen.has(tune.id)) continue
+    seen.add(tune.id)
+    rows.push(...inShownOrder(recordings).map((recording) => row(recording, tune.title)))
+  }
+  rows.push(...inShownOrder(groups.get(null) ?? []).map((recording) => row(recording, '')))
+  return rows
+}
+
+/** The CSV documents and the archive path of every exported recording and scan. */
 export function buildExport(input: ExportInput): ExportPlan {
   const format = dateFormatter(input.timeZone)
   const dateOf = (timestamp: string) => format(new Date(time(timestamp)))
@@ -346,6 +440,7 @@ export function buildExport(input: ExportInput): ExportPlan {
   return {
     tunesCsv: csvDocument([TUNES_HEADER, ...tuneRows]),
     listsCsv: csvDocument([LISTS_HEADER, ...listRows(input, tunes)]),
+    recordingsCsv: csvDocument([RECORDINGS_HEADER, ...recordingRows(input, tunes, audio, dateOf)]),
     audio,
     scans,
     totalRecordings: input.recordings.filter((recording) => !recording.deleted_at).length,

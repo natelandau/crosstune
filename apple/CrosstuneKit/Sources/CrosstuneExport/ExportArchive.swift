@@ -148,6 +148,7 @@ public enum ExportArchive {
             let documents = [
                 ZipEntry(path: "tunes.csv", source: .data(Data(plan.tunesCSV.utf8))),
                 ZipEntry(path: "lists.csv", source: .data(Data(plan.listsCSV.utf8))),
+                ZipEntry(path: "recordings.csv", source: .data(Data(plan.recordingsCSV.utf8))),
             ]
             let audio = try plan.audio.map { item in
                 guard let source = sources[item.recordingID] ?? fetched(.recording(item.recordingID)) else {

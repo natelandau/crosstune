@@ -2,6 +2,7 @@ import { expect, test, vi } from 'vitest'
 import input from '../../../../../fixtures/export/input.json'
 import listsCsv from '../../../../../fixtures/export/lists.csv?raw'
 import paths from '../../../../../fixtures/export/paths.txt?raw'
+import recordingsCsv from '../../../../../fixtures/export/recordings.csv?raw'
 import tunesCsv from '../../../../../fixtures/export/tunes.csv?raw'
 import type {
   ListItemRow,
@@ -17,7 +18,9 @@ import { scanRow, recordingRow, tuneRow, userTuneRow } from '../../../test/rows'
 import {
   audioExtension,
   buildExport,
+  decimalText,
   LISTS_HEADER,
+  RECORDINGS_HEADER,
   TUNES_HEADER,
   type ExportInput,
 } from './buildExport'
@@ -88,6 +91,7 @@ test('matches the golden fixture byte for byte', () => {
   const plan = buildExport(fromFixture(fixture))
   expect(plan.tunesCsv).toBe(tunesCsv)
   expect(plan.listsCsv).toBe(listsCsv)
+  expect(plan.recordingsCsv).toBe(recordingsCsv)
   expect([...plan.audio, ...plan.scans].map((a) => a.path).join('\n') + '\n').toBe(paths)
 })
 
@@ -107,6 +111,7 @@ test('an empty account gives headers only and no audio', () => {
   const plan = buildExport(emptyInput())
   expect(plan.tunesCsv).toBe(csvDocument([TUNES_HEADER]))
   expect(plan.listsCsv).toBe(csvDocument([LISTS_HEADER]))
+  expect(plan.recordingsCsv).toBe(csvDocument([RECORDINGS_HEADER]))
   expect(plan.audio).toEqual([])
   expect(plan.totalRecordings).toBe(0)
 })
@@ -263,4 +268,16 @@ test('leaves out scans of a tune that is not exported', () => {
   input.scans = [scanRow('p1', 't1'), scanRow('p2', 'missing')]
   input.scanIds = new Set(['p1', 'p2'])
   expect(buildExport(input).scans).toEqual([])
+})
+
+test.each([
+  [36.661234567, '36.661234567'],
+  [-80.923912345, '-80.923912345'],
+  [36, '36'],
+  [-0, '0'],
+  [0.000012, '0.000012'],
+  [-1.5e-7, '-0.00000015'],
+  [1e21, '1000000000000000000000'],
+])('writes %s in plain decimal digits', (value, text) => {
+  expect(decimalText(value)).toBe(text)
 })

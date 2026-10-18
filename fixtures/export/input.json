@@ -529,7 +529,13 @@
       "trim_start_ms": 0,
       "trim_end_ms": null,
       "speed_percent": 100,
-      "pitch_cents": 0
+      "pitch_cents": 0,
+      "notes": null,
+      "players": null,
+      "place_name": null,
+      "place_lat": null,
+      "place_lon": null,
+      "place_accuracy_m": null
     },
     {
       "id": "00000000-0000-4000-8000-000000000611",
@@ -558,7 +564,13 @@
       "trim_start_ms": 0,
       "trim_end_ms": null,
       "speed_percent": 100,
-      "pitch_cents": 0
+      "pitch_cents": 0,
+      "notes": "Fast, with \"drive\"\nB part twice",
+      "players": "Ray Alden, Kevin",
+      "place_name": "Galax, VA",
+      "place_lat": 36.661234567,
+      "place_lon": -80.923912345,
+      "place_accuracy_m": 12
     },
     {
       "id": "00000000-0000-4000-8000-000000000612",
@@ -587,7 +599,13 @@
       "trim_start_ms": 0,
       "trim_end_ms": null,
       "speed_percent": 100,
-      "pitch_cents": 0
+      "pitch_cents": 0,
+      "notes": "=HYPERLINK(\"http://example.com\")",
+      "players": "@Ruth",
+      "place_name": null,
+      "place_lat": 51.4779,
+      "place_lon": 1.2e-5,
+      "place_accuracy_m": null
     },
     {
       "id": "00000000-0000-4000-8000-000000000614",
@@ -616,7 +634,13 @@
       "trim_start_ms": 0,
       "trim_end_ms": null,
       "speed_percent": 100,
-      "pitch_cents": 0
+      "pitch_cents": 0,
+      "notes": null,
+      "players": null,
+      "place_name": null,
+      "place_lat": null,
+      "place_lon": null,
+      "place_accuracy_m": null
     },
     {
       "id": "00000000-0000-4000-8000-000000000621",
@@ -645,7 +669,13 @@
       "trim_start_ms": 0,
       "trim_end_ms": null,
       "speed_percent": 100,
-      "pitch_cents": 0
+      "pitch_cents": 0,
+      "notes": null,
+      "players": null,
+      "place_name": null,
+      "place_lat": null,
+      "place_lon": null,
+      "place_accuracy_m": null
     },
     {
       "id": "00000000-0000-4000-8000-000000000631",
@@ -674,7 +704,13 @@
       "trim_start_ms": 0,
       "trim_end_ms": null,
       "speed_percent": 100,
-      "pitch_cents": 0
+      "pitch_cents": 0,
+      "notes": null,
+      "players": null,
+      "place_name": null,
+      "place_lat": null,
+      "place_lon": null,
+      "place_accuracy_m": null
     },
     {
       "id": "00000000-0000-4000-8000-000000000641",
@@ -703,7 +739,13 @@
       "trim_start_ms": 0,
       "trim_end_ms": null,
       "speed_percent": 100,
-      "pitch_cents": 0
+      "pitch_cents": 0,
+      "notes": null,
+      "players": "Tommy Peoples",
+      "place_name": "Ennis, Ireland",
+      "place_lat": 52.8436,
+      "place_lon": -8.9864,
+      "place_accuracy_m": null
     },
     {
       "id": "00000000-0000-4000-8000-000000000671",
@@ -732,7 +774,13 @@
       "trim_start_ms": 0,
       "trim_end_ms": null,
       "speed_percent": 100,
-      "pitch_cents": 0
+      "pitch_cents": 0,
+      "notes": null,
+      "players": null,
+      "place_name": null,
+      "place_lat": null,
+      "place_lon": null,
+      "place_accuracy_m": null
     },
     {
       "id": "00000000-0000-4000-8000-000000000651",
@@ -761,7 +809,13 @@
       "trim_start_ms": 0,
       "trim_end_ms": null,
       "speed_percent": 100,
-      "pitch_cents": 0
+      "pitch_cents": 0,
+      "notes": null,
+      "players": null,
+      "place_name": null,
+      "place_lat": null,
+      "place_lon": null,
+      "place_accuracy_m": null
     },
     {
       "id": "00000000-0000-4000-8000-000000000661",
@@ -790,7 +844,13 @@
       "trim_start_ms": 0,
       "trim_end_ms": null,
       "speed_percent": 100,
-      "pitch_cents": 0
+      "pitch_cents": 0,
+      "notes": "Recorded on the porch",
+      "players": null,
+      "place_name": "Mount Airy, NC",
+      "place_lat": 36,
+      "place_lon": -80,
+      "place_accuracy_m": null
     },
     {
       "id": "00000000-0000-4000-8000-000000000681",
@@ -819,7 +879,13 @@
       "trim_start_ms": 0,
       "trim_end_ms": null,
       "speed_percent": 100,
-      "pitch_cents": 0
+      "pitch_cents": 0,
+      "notes": null,
+      "players": null,
+      "place_name": null,
+      "place_lat": null,
+      "place_lon": null,
+      "place_accuracy_m": null
     },
     {
       "id": "00000000-0000-4000-8000-000000000691",
@@ -848,7 +914,13 @@
       "trim_start_ms": 0,
       "trim_end_ms": null,
       "speed_percent": 100,
-      "pitch_cents": 0
+      "pitch_cents": 0,
+      "notes": null,
+      "players": null,
+      "place_name": null,
+      "place_lat": null,
+      "place_lon": null,
+      "place_accuracy_m": null
     },
     {
       "id": "00000000-0000-4000-8000-000000000643",
@@ -860,8 +932,8 @@
       "tune_id": "00000000-0000-4000-8000-000000000104",
       "source": "microphone",
       "added_at": "2026-09-26T15:00:00Z",
-      "recorded_at": "2026-09-26T15:00:00Z",
-      "recorded_precision": "time",
+      "recorded_at": "2026-09-01T00:00:00Z",
+      "recorded_precision": "month",
       "label": null,
       "position": 1,
       "state": "ready",
@@ -877,7 +949,13 @@
       "trim_start_ms": 0,
       "trim_end_ms": null,
       "speed_percent": 100,
-      "pitch_cents": 0
+      "pitch_cents": 0,
+      "notes": "-capo 2",
+      "players": null,
+      "place_name": null,
+      "place_lat": null,
+      "place_lon": null,
+      "place_accuracy_m": null
     },
     {
       "id": "00000000-0000-4000-8000-000000000642",
@@ -889,8 +967,8 @@
       "tune_id": "00000000-0000-4000-8000-000000000104",
       "source": "microphone",
       "added_at": "2026-09-26T15:00:00Z",
-      "recorded_at": "2026-09-26T15:00:00Z",
-      "recorded_precision": "time",
+      "recorded_at": "2026-09-26T00:00:00Z",
+      "recorded_precision": "day",
       "label": null,
       "position": 1,
       "state": "ready",
@@ -906,7 +984,13 @@
       "trim_start_ms": 0,
       "trim_end_ms": null,
       "speed_percent": 100,
-      "pitch_cents": 0
+      "pitch_cents": 0,
+      "notes": null,
+      "players": null,
+      "place_name": null,
+      "place_lat": null,
+      "place_lon": null,
+      "place_accuracy_m": null
     }
   ],
   "local_files": [
