@@ -191,6 +191,14 @@ async def test_warns_then_deletes(
     sessionmaker, verify_session, settings: Settings, mailer, clerk, store
 ) -> None:
     seeded = await seed_user(verify_session, clerk, store)
+    await verify_session.execute(
+        update(Recording).where(Recording.id == seeded.recording.id).values(label="Take one")
+    )
+    await verify_session.execute(
+        update(RecordingLoop).where(RecordingLoop.id == seeded.loop.id).values(label="B part")
+    )
+    await verify_session.commit()
+    await refreshed(verify_session, seeded.recording, seeded.loop)
     seqs = (seeded.recording.server_seq, seeded.loop.server_seq, seeded.scan.server_seq)
 
     assert await run_inactivity(sessionmaker, mailer, clerk, settings, NOW, clock=fixed(NOW)) == 1
@@ -242,6 +250,8 @@ async def test_warns_then_deletes(
         assert row.deleted_at == DELETE_AT
         assert row.updated_at == DELETE_AT
         assert row.server_seq > before
+    assert seeded.recording.label is None
+    assert seeded.loop.label is None
     assert seeded.tune.deleted_at is None
     assert seeded.lst.deleted_at is None
     assert await notice_of(verify_session, seeded.user) is None

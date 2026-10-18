@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol
 
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.orm import object_mapper
 
 from crosstune.models import (
@@ -56,6 +56,7 @@ from crosstune.schemas.rows import (
 
 if TYPE_CHECKING:
     import uuid
+    from collections.abc import Mapping
     from datetime import datetime
 
     from pydantic import BaseModel
@@ -63,6 +64,11 @@ if TYPE_CHECKING:
 
     from crosstune.db.base import Base
     from crosstune.vocabulary import TableName
+
+
+# Columns that must hold text or a URL scrub to these, so a tombstone still passes its row schema.
+TOMBSTONE_TEXT = "deleted"
+TOMBSTONE_URL = "https://crosstune.app/deleted"
 
 
 class SyncedRow(Protocol):
@@ -91,6 +97,8 @@ class TableSpec:
     owns_files marks a table whose rows name bucket files, which only the runner's purge
     removes once a row is deleted.
     pushable is False for a table only the server writes; a push to it is refused.
+    scrub maps each content column to the value a delete writes over it, in the same update
+    that sets the tombstone. A value may be a SQL expression.
     """
 
     name: TableName
@@ -106,6 +114,7 @@ class TableSpec:
     children: tuple[tuple[TableName, str], ...] = ()
     owns_files: bool = False
     pushable: bool = True
+    scrub: Mapping[str, Any] = field(default_factory=dict)
 
     def owned_by(self, user_id: uuid.UUID) -> ColumnElement[bool]:
         """A filter matching the stored rows of this table that `user_id` owns."""
@@ -115,6 +124,11 @@ class TableSpec:
             return getattr(model, self.owner_column) == user_id
         # list_items carry no owner; scope through the owning list.
         return model.list_id.in_(select(List.id).where(List.user_id == user_id))
+
+
+def scrub_values(spec: TableSpec) -> dict[str, Any]:
+    """The column values a delete of `spec`'s rows writes over their content."""
+    return dict(spec.scrub)
 
 
 # Parents before children, so a batch that creates a tune and its links applies in one pass.
@@ -148,6 +162,23 @@ TABLES: dict[TableName, TableSpec] = {
             ("recordings", "tune_id"),
             ("scans", "tune_id"),
         ),
+        scrub={
+            "title": TOMBSTONE_TEXT,
+            "alternate_titles": [],
+            "tunings": {},
+            "modes": [],
+            **dict.fromkeys(
+                (
+                    "genre",
+                    "tune_type",
+                    "part_structure",
+                    "composer",
+                    "key",
+                    "lyrics",
+                    "time_signature",
+                )
+            ),
+        },
     ),
     "user_tunes": TableSpec(
         "user_tunes",
@@ -157,9 +188,17 @@ TABLES: dict[TableName, TableSpec] = {
         "user_id",
         (("tune_id", "tunes"),),
         children=(("list_items", "user_tune_id"),),
+        scrub={"learned_from": None, "notes": None},
     ),
     "lists": TableSpec(
-        "lists", List, ListData, ListRow, "user_id", (), children=(("list_items", "list_id"),)
+        "lists",
+        List,
+        ListData,
+        ListRow,
+        "user_id",
+        (),
+        children=(("list_items", "list_id"),),
+        scrub={"name": TOMBSTONE_TEXT},
     ),
     "list_items": TableSpec(
         "list_items",
@@ -176,6 +215,12 @@ TABLES: dict[TableName, TableSpec] = {
         RecordingLinkRow,
         "added_by_user_id",
         (("tune_id", "tunes"),),
+        scrub={
+            "url": TOMBSTONE_URL,
+            "provider_ref": None,
+            "title": None,
+            "artwork_url": None,
+        },
     ),
     "recordings": TableSpec(
         "recordings",
@@ -189,6 +234,12 @@ TABLES: dict[TableName, TableSpec] = {
         insert_only=frozenset({"source", "origin", "origin_url", "added_at"}),
         children=(("recording_loops", "recording_id"),),
         owns_files=True,
+        scrub={
+            "label": None,
+            "error": None,
+            # An imported recording keeps a URL so ck_recordings_origin_url still holds.
+            "origin_url": case((Recording.origin_url.is_(None), None), else_=TOMBSTONE_URL),
+        },
     ),
     "scans": TableSpec(
         "scans",
@@ -207,6 +258,7 @@ TABLES: dict[TableName, TableSpec] = {
         "user_id",
         (("recording_id", "recordings"),),
         accepts_deleted_parents=True,
+        scrub={"label": None},
     ),
     "user_settings": TableSpec(
         "user_settings", UserSettings, UserSettingsData, UserSettingsRow, "user_id", ()
