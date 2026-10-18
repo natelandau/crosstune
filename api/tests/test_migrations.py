@@ -3781,3 +3781,72 @@ async def test_0050_account_notices_shape_and_cascade(session: AsyncSession) -> 
         ("f", "users", "c", ["user_id"]),
         ("p", "-", " ", ["notice_key", "user_id"]),
     ]
+
+
+async def test_0052_adds_place_columns_and_keeps_rows(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0051")
+        await _seed_recording(engine)
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    async with engine.connect() as conn:
+        row = (
+            (
+                await conn.execute(
+                    text(
+                        "select notes, players, place_name, place_lat, place_lon, place_accuracy_m "
+                        "from recordings"
+                    )
+                )
+            )
+            .tuples()
+            .all()
+        )
+    assert row == [(None,) * 6]
+    for values, check in (
+        ("place_name = 'Galax, VA'", "ck_recordings_place_name"),
+        ("place_lat = 36.66", "ck_recordings_place_coordinates"),
+        ("place_lon = -80.92", "ck_recordings_place_coordinates"),
+        ("place_accuracy_m = 5", "ck_recordings_place_accuracy"),
+        ("place_lat = 1, place_lon = 1, place_accuracy_m = -1", "ck_recordings_place_accuracy"),
+        ("place_lat = 91, place_lon = 0", "ck_recordings_place_range"),
+        ("place_lat = 0, place_lon = -181", "ck_recordings_place_range"),
+    ):
+        with pytest.raises(IntegrityError, match=check):
+            async with engine.begin() as conn:
+                await conn.execute(text(f"update recordings set {values}"))  # noqa: S608 -- literals
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "update recordings set place_lat = 90, place_lon = -180, place_accuracy_m = 0, "
+                "place_name = 'North Pole'"
+            )
+        )
+
+
+async def test_0053_allows_place_jobs(engine, database_url: str, truncate_all: None) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    second_place_job = text(
+        "insert into jobs (id, recording_id, user_id, kind, attempts, created_at) "
+        "values ('018f0000-0000-7000-8000-000000000032', "
+        "'018f0000-0000-7000-8000-000000000021', "
+        "'018f0000-0000-7000-8000-000000000001', 'place', 0, now())"
+    )
+    await _seed_job(engine, "place")
+    with pytest.raises(IntegrityError, match="ux_jobs_recording_id_place"):
+        async with engine.begin() as conn:
+            await conn.execute(second_place_job)
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0052")
+        async with engine.connect() as conn:
+            assert (await conn.execute(text("select count(*) from jobs"))).scalar_one() == 0
+        with pytest.raises(IntegrityError, match="ck_jobs_kind"):
+            async with engine.begin() as conn:
+                await conn.execute(second_place_job)
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")

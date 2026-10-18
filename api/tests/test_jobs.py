@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 import re
 import uuid
@@ -2840,3 +2841,178 @@ async def test_reencode_failure_leaves_the_recording_playing(
     assert (rec.playback_key, rec.playback_rev, rec.state, rec.server_seq) == old
     assert rec.error is None
     assert await reencode_jobs(verify_session, rec) == []
+
+
+UPLOAD_PLACE = (36.661234567, -80.923912345)
+UPLOAD_DATE = datetime(2024, 6, 1, 23, 30, tzinfo=UTC)
+
+
+def _tagged_probe(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    location: tuple[float, float] | None = UPLOAD_PLACE,
+    created_at: datetime | None = UPLOAD_DATE,
+) -> None:
+    """Make every probe report the given place and date, as a phone's file would."""
+    real_probe = transcode_module.probe
+
+    async def tagged(path) -> Probe:
+        return dataclasses.replace(await real_probe(path), location=location, created_at=created_at)
+
+    monkeypatch.setattr(transcode_module, "probe", tagged)
+
+
+async def _seed_upload(verify_session, store, media_fixtures, **fields) -> Recording:
+    user = await make_user(verify_session)
+    rec = await make_uploaded(verify_session, store, user, media_fixtures["m4a"], "audio/mp4")
+    for key, value in fields.items():
+        setattr(rec, key, value)
+    verify_session.add(Job(recording_id=rec.id, user_id=user.id))
+    await verify_session.commit()
+    return rec
+
+
+async def _kinds(verify_session, rec: Recording) -> list[str]:
+    jobs = await verify_session.scalars(select(Job).where(Job.recording_id == rec.id))
+    return [job.kind for job in jobs]
+
+
+async def test_transcode_takes_an_uploads_place_and_date(
+    runner, verify_session, media_fixtures, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_runner, store = runner
+    _tagged_probe(monkeypatch)
+    rec = await _seed_upload(verify_session, store, media_fixtures)
+
+    await job_runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert (rec.place_lat, rec.place_lon) == UPLOAD_PLACE
+    assert (rec.place_name, rec.place_accuracy_m) == (None, None)
+    assert (rec.recorded_at, rec.recorded_precision) == (UPLOAD_DATE, "time")
+    assert await _kinds(verify_session, rec) == [JobKind.PLACE.value]
+
+
+async def test_transcode_keeps_an_uploads_own_place_and_date(
+    runner, verify_session, media_fixtures, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_runner, store = runner
+    _tagged_probe(monkeypatch)
+    own_date = datetime(2020, 1, 1, tzinfo=UTC)
+    rec = await _seed_upload(
+        verify_session,
+        store,
+        media_fixtures,
+        place_lat=52.8436,
+        place_lon=-8.9864,
+        place_name="Ennis, Ireland",
+        recorded_at=own_date,
+        recorded_precision="year",
+    )
+
+    await job_runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert (rec.place_lat, rec.place_lon, rec.place_name) == (52.8436, -8.9864, "Ennis, Ireland")
+    assert (rec.recorded_at, rec.recorded_precision) == (own_date, "year")
+    assert await _kinds(verify_session, rec) == []
+
+
+async def test_transcode_never_reads_a_place_or_date_for_a_microphone_take(
+    runner, verify_session, media_fixtures, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_runner, store = runner
+    _tagged_probe(monkeypatch)
+    rec = await _seed_upload(
+        verify_session, store, media_fixtures, source="microphone", recorded_at=None
+    )
+
+    await job_runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert (rec.place_lat, rec.place_lon) == (None, None)
+    assert rec.recorded_at is None
+    assert await _kinds(verify_session, rec) == []
+
+
+async def test_transcode_keeps_a_place_and_date_pushed_during_the_job(
+    runner, verify_session, engine, media_fixtures, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_runner, store = runner
+    _tagged_probe(monkeypatch)
+    rec = await _seed_upload(verify_session, store, media_fixtures)
+    pushed_date = datetime(2019, 5, 1, tzinfo=UTC)
+    real_build_peaks = transcode_module.build_peaks
+
+    async def push_then_build(source) -> bytes:
+        async with make_sessionmaker(engine)() as pusher:
+            pushed = await pusher.get(Recording, rec.id)
+            pushed.place_lat, pushed.place_lon = 52.8436, -8.9864
+            pushed.place_name = "Ennis, Ireland"
+            pushed.recorded_at, pushed.recorded_precision = pushed_date, "month"
+            await pusher.commit()
+        return await real_build_peaks(source)
+
+    monkeypatch.setattr(transcode_module, "build_peaks", push_then_build)
+
+    await job_runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert (rec.place_lat, rec.place_lon, rec.place_name) == (52.8436, -8.9864, "Ennis, Ireland")
+    assert (rec.recorded_at, rec.recorded_precision) == (pushed_date, "month")
+    assert await _kinds(verify_session, rec) == []
+
+
+async def test_transcode_of_an_untagged_upload_sets_no_place_or_date(
+    runner, verify_session, media_fixtures, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_runner, store = runner
+    _tagged_probe(monkeypatch, location=None, created_at=None)
+    rec = await _seed_upload(verify_session, store, media_fixtures)
+
+    await job_runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert rec.state == "ready"
+    assert (rec.place_lat, rec.recorded_at) == (None, None)
+    assert await _kinds(verify_session, rec) == []
+
+
+async def test_transcode_takes_an_uploads_date_when_it_has_only_a_place(
+    runner, verify_session, media_fixtures, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_runner, store = runner
+    _tagged_probe(monkeypatch)
+    rec = await _seed_upload(
+        verify_session,
+        store,
+        media_fixtures,
+        place_lat=52.8436,
+        place_lon=-8.9864,
+        place_name="Ennis, Ireland",
+    )
+
+    await job_runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert (rec.place_lat, rec.place_lon, rec.place_name) == (52.8436, -8.9864, "Ennis, Ireland")
+    assert (rec.recorded_at, rec.recorded_precision) == (UPLOAD_DATE, "time")
+    assert await _kinds(verify_session, rec) == []
+
+
+async def test_transcode_takes_an_uploads_place_when_it_has_only_a_date(
+    runner, verify_session, media_fixtures, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_runner, store = runner
+    _tagged_probe(monkeypatch)
+    own_date = datetime(2020, 1, 1, tzinfo=UTC)
+    rec = await _seed_upload(
+        verify_session, store, media_fixtures, recorded_at=own_date, recorded_precision="year"
+    )
+
+    await job_runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert (rec.place_lat, rec.place_lon, rec.place_accuracy_m) == (*UPLOAD_PLACE, None)
+    assert (rec.recorded_at, rec.recorded_precision) == (own_date, "year")
+    assert await _kinds(verify_session, rec) == [JobKind.PLACE.value]

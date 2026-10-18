@@ -355,6 +355,37 @@ def test_partial_music_credentials_refuse_to_start(given: dict[str, str], named:
         Settings(**given)
 
 
+@pytest.mark.parametrize(
+    ("given", "named"),
+    [
+        ({"apple_team_id": "TEAM", "apple_maps_key_id": "KEY"}, "CROSSTUNE_APPLE_MAPS_PRIVATE_KEY"),
+        ({"apple_team_id": "TEAM", "apple_maps_private_key": "pem"}, "CROSSTUNE_APPLE_MAPS_KEY_ID"),
+        (
+            {"apple_maps_key_id": "KEY", "apple_maps_private_key": "pem"},
+            "CROSSTUNE_APPLE_TEAM_ID",
+        ),
+    ],
+)
+def test_partial_apple_maps_credentials_refuse_to_start(given: dict[str, str], named: str) -> None:
+    with pytest.raises(ValidationError, match=named):
+        Settings(**given)
+
+
+def test_a_p256_apple_maps_key_starts() -> None:
+    settings = Settings(
+        apple_team_id="TEAM",
+        apple_maps_key_id="KEY",
+        apple_maps_private_key=_pem(ec.generate_private_key(ec.SECP256R1())),
+    )
+    assert settings.apple_maps_configured is True
+    assert settings.place_searches_per_minute == 60
+
+
+def test_an_unusable_apple_maps_key_refuses_to_start() -> None:
+    with pytest.raises(ValidationError, match="CROSSTUNE_APPLE_MAPS_PRIVATE_KEY is not a PEM"):
+        Settings(apple_team_id="TEAM", apple_maps_key_id="KEY", apple_maps_private_key="nope")
+
+
 def test_a_team_id_alone_is_valid() -> None:
     settings = Settings(apple_team_id="TEAM")
     assert settings.apple_music_configured is False

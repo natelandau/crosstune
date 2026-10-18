@@ -18,7 +18,7 @@ from crosstune.recordings.loops import (
     loop_bounds,
     reclamp_recording_loops,
 )
-from crosstune.recordings.service import ensure_trim_job, start_import
+from crosstune.recordings.service import ensure_place_job, ensure_trim_job, start_import
 from crosstune.recordings.trim_rules import clamp_trim
 from crosstune.vocabulary import (
     MAX_LOOPS_PER_RECORDING,
@@ -146,6 +146,8 @@ class RecordingRules(RowRules):
     """Hold a free plan's trims, keep a trim inside the playback file, and start work."""
 
     stored: Recording | None = None
+    # The stored place as it was before the upsert, which refreshes `stored` in place.
+    stored_place: tuple[float | None, float | None, str | None] | None = None
 
     async def prepare(self, data: dict[str, Any]) -> str | None:
         """Refuse a free plan's new recording, then settle the pushed trim in place.
@@ -159,6 +161,12 @@ class RecordingRules(RowRules):
         rewritten trim mistaken for what was actually written.
         """
         self.stored = await self.session.get(Recording, self.change.id)
+        if self.stored is not None:
+            self.stored_place = (
+                self.stored.place_lat,
+                self.stored.place_lon,
+                self.stored.place_name,
+            )
         if not self.access.premium:
             if self.stored is None:
                 return PREMIUM_REQUIRED
@@ -184,10 +192,24 @@ class RecordingRules(RowRules):
         """Whether the upsert would write over `stored`, rather than report stale or not yours."""
         return stored.user_id == self.user_id and stored.updated_at < self.change.updated_at
 
+    def _place_may_need_name(self, row: Recording) -> bool:
+        """Whether this push could have left the row with coordinates to name.
+
+        `applied` also runs for a replayed or stale push, which must not spend another
+        lookup on coordinates whose lookup already ran or is pending.
+        """
+        if self.stored_place is None:
+            return True
+        lat, lon, name = self.stored_place
+        cleared_name = name is not None and row.place_name is None
+        return (row.place_lat, row.place_lon) != (lat, lon) or cleared_name
+
     async def applied(self, row: Recording) -> None:
-        """Queue a trim, re-clamp the loops, and start an import the push created."""
+        """Queue trim and place jobs, re-clamp the loops, and start an import the push created."""
         # Queued from the row as committed by the upsert, in the same transaction as the push.
         await ensure_trim_job(self.session, row)
+        if self._place_may_need_name(row):
+            await ensure_place_job(self.session, row)
         await reclamp_recording_loops(self.session, row, self.change.updated_at)
         # Only a row this push created starts an import, so an update never queues a second
         # fetch and an existing recording can't be turned into one.

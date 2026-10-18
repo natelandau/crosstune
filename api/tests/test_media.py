@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import UTC, datetime
 
 import pytest
 
@@ -18,6 +19,8 @@ from crosstune.jobs.media import (
     ffmpeg,
     ffprobe,
     needs_encode,
+    parse_creation_date,
+    parse_iso6709,
     playback_bitrate,
     probe,
     remux,
@@ -354,3 +357,100 @@ async def test_probe_refuses_audio_in_a_container_outside_the_allowlist(tmp_path
     )
     with pytest.raises(MediaError):
         await probe(upload)
+
+
+NOW = datetime(2026, 10, 18, 12, 0, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("+36.6612-080.9239+000.000/", (36.6612, -80.9239)),
+        ("+36.66-080.92/", (36.66, -80.92)),
+        ("-33.8688+151.2093/", (-33.8688, 151.2093)),
+        ("garbage", None),
+        ("", None),
+        ("+3640-08055/", None),
+        ("+91.0000-080.9239/", None),
+        ("+36.6612-180.5000/", None),
+    ],
+)
+def test_parse_iso6709(value: str, expected: tuple[float, float] | None) -> None:
+    assert parse_iso6709(value) == expected
+
+
+def test_parse_iso6709_keeps_full_precision() -> None:
+    assert parse_iso6709("+36.661234567-080.923912345/") == (36.661234567, -80.923912345)
+
+
+def test_parse_creation_date_prefers_the_apple_tag_and_converts_to_utc() -> None:
+    tags = {
+        "com.apple.quicktime.creationdate": "2024-06-01T19:30:00-0400",
+        "creation_time": "2025-01-01T00:00:00.000000Z",
+    }
+    assert parse_creation_date(tags, now=NOW) == datetime(2024, 6, 1, 23, 30, tzinfo=UTC)
+
+
+def test_parse_creation_date_reads_creation_time_alone() -> None:
+    tags = {"creation_time": "2024-06-01T23:30:00.000000Z"}
+    assert parse_creation_date(tags, now=NOW) == datetime(2024, 6, 1, 23, 30, tzinfo=UTC)
+
+
+def test_parse_creation_date_matches_keys_ignoring_case() -> None:
+    tags = {"CREATION_TIME": "2024-06-01T23:30:00Z"}
+    assert parse_creation_date(tags, now=NOW) == datetime(2024, 6, 1, 23, 30, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2027-01-01T00:00:00Z",
+        "1904-01-01T00:00:00Z",
+        "1970-01-01T00:00:00Z",
+        "garbage",
+        "",
+    ],
+)
+def test_parse_creation_date_refuses_unusable_dates(value: str) -> None:
+    assert parse_creation_date({"creation_time": value}, now=NOW) is None
+
+
+def test_parse_creation_date_without_a_tag_is_none() -> None:
+    assert parse_creation_date({"encoder": "Lavf"}, now=NOW) is None
+
+
+async def test_probe_reads_an_apple_location_and_creation_date(tmp_path) -> None:
+    upload = tmp_path / "upload"
+    await run_media_tool(
+        *ffmpeg(
+            "-v", "error", "-f", "lavfi", "-i", "sine=duration=1", "-c:a", "aac",
+            "-movflags", "use_metadata_tags",
+            "-metadata", "com.apple.quicktime.location.ISO6709=+36.6612-080.9239+000.000/",
+            "-metadata", "com.apple.quicktime.creationdate=2024-06-01T19:30:00-0400",
+            "-f", "mov", str(upload),
+        )
+    )  # fmt: skip
+    info = await probe(upload)
+    assert info.location == (36.6612, -80.9239)
+    assert info.created_at == datetime(2024, 6, 1, 23, 30, tzinfo=UTC)
+
+
+async def test_probe_reads_an_mp4_location_and_creation_time(tmp_path) -> None:
+    upload = tmp_path / "upload"
+    await run_media_tool(
+        *ffmpeg(
+            "-v", "error", "-f", "lavfi", "-i", "sine=duration=1", "-c:a", "aac",
+            "-metadata", "location=+36.6612-080.9239/",
+            "-metadata", "creation_time=2024-06-01T23:30:00Z",
+            "-f", "mp4", str(upload),
+        )
+    )  # fmt: skip
+    info = await probe(upload)
+    assert info.location == (36.6612, -80.9239)
+    assert info.created_at == datetime(2024, 6, 1, 23, 30, tzinfo=UTC)
+
+
+async def test_probe_of_a_file_without_tags_has_no_location_or_date(media_fixtures) -> None:
+    info = await probe(media_fixtures["wav"])
+    assert info.location is None
+    assert info.created_at is None

@@ -29,9 +29,10 @@ from crosstune.jobs.importer import (
     fetch_import,
 )
 from crosstune.models import Job, Recording
+from crosstune.places.names import whole_characters
 from crosstune.recordings.service import enqueue_transcode
 from crosstune.storage.store import upload_key
-from crosstune.vocabulary import RecordingPrecision
+from crosstune.vocabulary import LIMITS, RecordingPrecision
 
 if TYPE_CHECKING:
     import httpx2
@@ -119,9 +120,10 @@ async def _commit(
 ) -> None:
     """Under the user's lock, check the plan and quota and hand the uploaded file to a transcode.
 
-    Dates the recording from its page's year unless it already has a recorded date,
-    which the user may have set while the file downloaded. Leaves `write.committed`
-    false when the job is no longer this attempt's to finish.
+    Dates the recording from its page's year unless it already has a recorded date, and
+    names its players from the page's artist unless it already has players; the user may
+    have set either while the file downloaded. Leaves `write.committed` false when the
+    job is no longer this attempt's to finish.
 
     Raises:
         ImportRefused: When the plan has no Premium, or the file would take the user
@@ -141,6 +143,10 @@ async def _commit(
         if fetched.year is not None and recording.recorded_at is None:
             recording.recorded_at = datetime(fetched.year, 1, 1, tzinfo=UTC)
             recording.recorded_precision = RecordingPrecision.YEAR.value
+        if fetched.artist is not None and recording.players is None:
+            recording.players = (
+                whole_characters(fetched.artist, LIMITS["recordings"]["players"]).rstrip() or None
+            )
         recording.playback_bytes = fetched.size
         recording.state = "uploaded"
         recording.error = None

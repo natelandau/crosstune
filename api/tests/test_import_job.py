@@ -21,7 +21,7 @@ from crosstune.jobs.runner import JobRunner
 from crosstune.links.slippery_hill import UPLOAD_FIELD
 from crosstune.models import Job, Recording, User
 from crosstune.storage.store import upload_key
-from crosstune.vocabulary import JobKind
+from crosstune.vocabulary import LIMITS, JobKind
 from tests.fakes import FakeObjectStore
 from tests.test_jobs import add_recording, make_user
 
@@ -493,6 +493,88 @@ async def test_import_dates_the_recording_from_the_page_year(
     assert (rec.recorded_at, rec.recorded_precision) == (datetime(1997, 1, 1, tzinfo=UTC), "year")
     assert rec.server_seq > seq_before
     assert rec.updated_at == updated_before
+
+
+async def test_import_fills_players_from_the_artist(
+    importer, verify_session, mock_http: MockHttp
+) -> None:
+    runner, _ = importer
+    mock_http.add(PAGE, httpx2.Response(200, text=PAGE_HTML))
+    mock_http.add(FILE, httpx2.Response(200, content=AUDIO))
+    rec = await seed_import(verify_session)
+
+    await runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert rec.state == "uploaded"
+    assert rec.players == "Bob Holt"
+
+
+async def test_import_keeps_players_set_while_downloading(
+    importer, verify_session, mock_http: MockHttp
+) -> None:
+    runner, _ = importer
+    mock_http.add(PAGE, httpx2.Response(200, text=PAGE_HTML))
+    mock_http.add(FILE, httpx2.Response(200, content=AUDIO))
+    rec = await seed_import(verify_session)
+    rec.players = "My band"
+    await verify_session.commit()
+
+    await runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert rec.state == "uploaded"
+    assert rec.players == "My band"
+
+
+async def test_import_clips_a_long_artist_to_the_players_limit(
+    importer, verify_session, mock_http: MockHttp
+) -> None:
+    runner, _ = importer
+    limit = LIMITS["recordings"]["players"]
+    html = PAGE_HTML.replace("<span>Bob Holt</span>", f"<span>{'x' * (limit + 50)}</span>")
+    mock_http.add(PAGE, httpx2.Response(200, text=html))
+    mock_http.add(FILE, httpx2.Response(200, content=AUDIO))
+    rec = await seed_import(verify_session)
+
+    await runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert rec.players == "x" * limit
+
+
+async def test_import_clips_the_artist_without_splitting_a_character(
+    importer, verify_session, mock_http: MockHttp
+) -> None:
+    runner, _ = importer
+    limit = LIMITS["recordings"]["players"]
+    # The accent lands one past the limit, so a plain slice would strand its base.
+    artist = "x" * (limit - 2) + " é band"
+    html = PAGE_HTML.replace("<span>Bob Holt</span>", f"<span>{artist}</span>")
+    mock_http.add(PAGE, httpx2.Response(200, text=html))
+    mock_http.add(FILE, httpx2.Response(200, content=AUDIO))
+    rec = await seed_import(verify_session)
+
+    await runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert rec.players == "x" * (limit - 2)
+
+
+async def test_import_leaves_players_empty_without_an_artist(
+    importer, verify_session, mock_http: MockHttp
+) -> None:
+    runner, _ = importer
+    html = PAGE_HTML.replace("field--name-field-r-source ", "field--name-field-r-other ")
+    mock_http.add(PAGE, httpx2.Response(200, text=html))
+    mock_http.add(FILE, httpx2.Response(200, content=AUDIO))
+    rec = await seed_import(verify_session)
+
+    await runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert rec.state == "uploaded"
+    assert rec.players is None
 
 
 async def test_import_keeps_a_recorded_date_the_user_set(

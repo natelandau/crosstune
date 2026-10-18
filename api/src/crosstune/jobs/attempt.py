@@ -11,11 +11,13 @@ from typing import TYPE_CHECKING, TypeGuard
 
 import httpx2
 from botocore.exceptions import BotoCoreError, ClientError
+from sqlalchemy import and_
 
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
 from crosstune.http import BlockedAddressError
 from crosstune.jobs.media import SUBPROCESS_TIMEOUT_SECONDS, MediaError
+from crosstune.logging import redact_driver_values
 from crosstune.models import Job, Recording
 from crosstune.storage.store import delete_best_effort
 
@@ -24,9 +26,11 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
+    from sqlalchemy import ColumnElement
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from crosstune.config import Settings
+    from crosstune.places.maps import AppleMaps
     from crosstune.storage.store import ObjectStore
 
 log = logging.getLogger(__name__)
@@ -63,6 +67,7 @@ class JobContext:
     settings: Settings
     work_root: Path | None = None
     http_client: httpx2.AsyncClient | None = None
+    maps: AppleMaps | None = None
 
     def work_dir(self) -> tempfile.TemporaryDirectory[str]:
         """A scratch folder for one attempt, removed when the attempt ends."""
@@ -99,6 +104,15 @@ def unnamed(recording: Recording | None, *keys: str | None) -> list[str | None]:
         return list(keys)
     named = {recording.playback_key, recording.peaks_key, recording.original_key}
     return [key for key in keys if key not in named]
+
+
+def held_after_failure() -> ColumnElement[bool]:
+    """Match a job waiting out a failed attempt, as against one a pass has claimed.
+
+    A claim clears `last_error` as it locks the job, and only a failed attempt writes it
+    back, so a locked job with an error is waiting and no attempt is working on it.
+    """
+    return and_(Job.locked_until.is_not(None), Job.last_error.is_not(None))
 
 
 def still_claimed(stored_job: Job | None, claimed: Job) -> TypeGuard[Job]:
@@ -188,7 +202,7 @@ async def retry_or_drop(session: AsyncSession, job: Job, exc: Exception) -> bool
     Returns:
         bool: Whether the job was dropped.
     """
-    raw = str(exc)
+    raw = redact_driver_values(str(exc))
     extra = {"recording": str(job.recording_id), "kind": job.kind, "attempt": job.attempts}
     if job.attempts >= MAX_ATTEMPTS:
         log.error("%s gave up", job.kind, exc_info=exc, extra=extra)

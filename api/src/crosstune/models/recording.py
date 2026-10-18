@@ -9,6 +9,7 @@ from sqlalchemy import (
     BigInteger,
     CheckConstraint,
     DateTime,
+    Double,
     ForeignKey,
     Index,
     Integer,
@@ -62,6 +63,20 @@ class Recording(SyncColumns, Base):
             name="ck_recordings_recorded_date",
         ),
         CheckConstraint(
+            "(place_lat is null) = (place_lon is null)", name="ck_recordings_place_coordinates"
+        ),
+        CheckConstraint(
+            "place_name is null or place_lat is not null", name="ck_recordings_place_name"
+        ),
+        CheckConstraint(
+            "place_accuracy_m is null or (place_lat is not null and place_accuracy_m >= 0)",
+            name="ck_recordings_place_accuracy",
+        ),
+        CheckConstraint(
+            "place_lat is null or (place_lat between -90 and 90 and place_lon between -180 and 180)",
+            name="ck_recordings_place_range",
+        ),
+        CheckConstraint(
             in_list("state", tuple(RecordingState), nullable=False), name="ck_recordings_state"
         ),
         CheckConstraint("trim_start_ms >= 0", name="ck_recordings_trim_start_ms"),
@@ -103,6 +118,18 @@ class Recording(SyncColumns, Base):
     recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     recorded_precision: Mapped[str | None] = mapped_column(String(10), nullable=True)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    players: Mapped[str | None] = mapped_column(
+        String(LIMITS["recordings"]["players"]), nullable=True
+    )
+    # Coordinates are both set or both null, and a name or accuracy needs them. Stored at
+    # full precision; accuracy is the reported radius in whole meters, null for a picked place.
+    place_lat: Mapped[float | None] = mapped_column(Double, nullable=True)
+    place_lon: Mapped[float | None] = mapped_column(Double, nullable=True)
+    place_name: Mapped[str | None] = mapped_column(
+        String(LIMITS["recordings"]["place_name"]), nullable=True
+    )
+    place_accuracy_m: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     state: Mapped[str] = mapped_column(
         String(20), nullable=False, default=RecordingState.PENDING_UPLOAD.value

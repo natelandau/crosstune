@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import logging
 from datetime import UTC, datetime, timedelta
+from enum import Enum, auto
 from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, case, func, or_, select, update
@@ -30,6 +31,7 @@ from crosstune.jobs.attempt import (
     MAX_ATTEMPTS,
     RELEASE_TIMEOUT_SECONDS,
     JobContext,
+    held_after_failure,
     still_claimed,
 )
 from crosstune.jobs.handlers import HANDLERS
@@ -43,6 +45,7 @@ from crosstune.jobs.sweep import (
 )
 from crosstune.jobs.sweep import sweep_orphans as sweep_orphan_prefixes
 from crosstune.models import Job, Recording, Scan, UploadSlot
+from crosstune.places.maps import configured_maps
 from crosstune.vocabulary import JobKind
 
 if TYPE_CHECKING:
@@ -57,6 +60,7 @@ if TYPE_CHECKING:
     from crosstune.billing.stripe import StripeSubscriptions
     from crosstune.config import Settings
     from crosstune.email.resend import Mailer
+    from crosstune.places.maps import AppleMaps
     from crosstune.storage.store import ObjectStore
     from crosstune.users.clerk import ClerkUsers
 
@@ -81,6 +85,16 @@ def _claimable(now: datetime) -> ColumnElement[bool]:
     return and_(_dispatchable(), or_(Job.locked_until.is_(None), Job.locked_until < now))
 
 
+class MapsFromSettings(Enum):
+    """The runner's default Maps client: one built from settings, or none when unconfigured.
+
+    Passing None instead holds place jobs back as if Maps were unconfigured, whatever the
+    settings hold.
+    """
+
+    DEFAULT = auto()
+
+
 class JobRunner:
     """A background loop over the jobs table. One instance per process."""
 
@@ -92,6 +106,7 @@ class JobRunner:
         orphan_sweep_seconds: float | None = 43_200.0,
         work_root: Path | None = None,
         http_client: httpx2.AsyncClient | None = None,
+        maps: AppleMaps | MapsFromSettings | None = MapsFromSettings.DEFAULT,
         analytics_persons: AnalyticsPersons | None = None,
         mailer: Mailer | None = None,
         clerk_users: ClerkUsers | None = None,
@@ -127,6 +142,7 @@ class JobRunner:
             settings=settings,
             work_root=work_root,
             http_client=http_client,
+            maps=configured_maps(settings) if maps is MapsFromSettings.DEFAULT else maps,
         )
         # None turns sweeps off, for a one-off runner that needs only its own jobs: a
         # sweep lists the whole bucket.
@@ -173,6 +189,10 @@ class JobRunner:
         the database and the host can both suspend between sweeps. A crash in one pass is
         logged and the loop continues.
         """
+        try:
+            await self.release_waiting_place_jobs()
+        except Exception:
+            log.exception("job runner could not release waiting place jobs")
         while not self._stopping.is_set():
             # Cleared before the passes, so a wake that lands during one is kept.
             self._wake.clear()
@@ -188,6 +208,21 @@ class JobRunner:
             with contextlib.suppress(TimeoutError):
                 async with asyncio.timeout(timeout):
                     await self._wake.wait()
+
+    async def release_waiting_place_jobs(self) -> None:
+        """Let place jobs waiting out a failure run now, when this runner can reach Apple Maps.
+
+        Jobs held while Maps was unconfigured would otherwise sleep out a wait of up to hours.
+        A job another pass has claimed is left alone.
+        """
+        if self._ctx.maps is None or self._ctx.http_client is None:
+            return
+        async with self._sessionmaker() as session, session.begin():
+            await session.execute(
+                update(Job)
+                .where(Job.kind == JobKind.PLACE.value, held_after_failure())
+                .values(locked_until=None)
+            )
 
     async def _drain(self) -> float | None:
         """Run passes until one does no work.
@@ -409,6 +444,8 @@ class JobRunner:
                 return None
             job.locked_until = now + timedelta(seconds=LOCK_SECONDS)
             job.attempts += 1
+            # An error now marks only a job waiting out a failure; see held_after_failure.
+            job.last_error = None
             # expunge() drops the row from the unit of work; flush first or these
             # changes never reach the database.
             await session.flush()

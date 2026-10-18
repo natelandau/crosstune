@@ -189,6 +189,7 @@ class JobKind(StrEnum):
     PEAKS = "peaks"
     IMPORT = "import"
     REENCODE = "reencode"
+    PLACE = "place"
 
 
 class GrantKind(StrEnum):
@@ -247,6 +248,8 @@ MAX_EVENT_DURATION_MS: Final[int] = 86_400_000
 """The longest a play, practice session, or scan view may last: one day."""
 MAX_LOOPS_PER_RECORDING: Final[int] = 100
 MAX_SCANS_PER_TUNE: Final[int] = 20
+PLACE_ACCURACY_M_MAX: Final[int] = 1_000_000
+"""The widest accuracy a place keeps, in meters; a client stores a wider fix's as this."""
 LOOP_COLOR_COUNT: Final[int] = 6
 """How many palette colors a loop can name; a loop stores an index below this."""
 
@@ -301,6 +304,9 @@ LIMITS: Final[dict[str, dict[str, int]]] = {
     "recordings": {
         "label": 200,
         "origin_url": 2048,
+        "notes": 20_000,
+        "players": 200,
+        "place_name": 200,
     },
     "recording_loops": {
         "label": 100,

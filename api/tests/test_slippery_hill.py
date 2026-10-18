@@ -27,7 +27,10 @@ def field(name: str, item: str | None) -> str:
 def test_reads_title_and_artist_and_file() -> None:
     page = parse_tune_page(fixture("bear-creek-sally-goodin.html"))
     assert page == TunePage(
-        "Bear Creek Sally Goodin - Bob Holt", "recordings/bearcreeksallygoodin_bobholt.mp3", 1997
+        "Bear Creek Sally Goodin - Bob Holt",
+        "recordings/bearcreeksallygoodin_bobholt.mp3",
+        1997,
+        "Bob Holt",
     )
 
 
@@ -37,12 +40,13 @@ def test_reads_an_encoded_78_path() -> None:
         "What A Glad Day - Wright Brothers Quartet",
         "78s/15402%20What%20A%20Glad%20Day%20%20%28Wright%20Brothers%20Quartet%29.mp3",
         None,
+        "Wright Brothers Quartet",
     )
 
 
 def test_falls_back_to_the_title_tag() -> None:
     page = parse_tune_page("<html><head><title>Sally Ann | Slippery-Hill</title></head></html>")
-    assert page == TunePage("Sally Ann", None, None)
+    assert page == TunePage("Sally Ann", None, None, None)
 
 
 def test_reads_an_absolute_source_on_the_bare_host() -> None:
@@ -72,6 +76,16 @@ def test_source_wins_over_source_term() -> None:
         + field("field-r-source", "Source Artist")
     )
     assert parse_tune_page(html).title == "Tune - Source Artist"
+
+
+def test_page_exposes_its_artist() -> None:
+    html = (
+        field("field-r-tune-title", "Tune")
+        + field("field-r-source-term", "<a>Term Artist</a>")
+        + field("field-r-source", "Source Artist")
+    )
+    assert parse_tune_page(html).artist == "Source Artist"
+    assert parse_tune_page(field("field-r-tune-title", "Tune")).artist is None
 
 
 def test_source_term_used_when_source_has_no_text() -> None:

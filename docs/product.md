@@ -87,14 +87,14 @@ for Android and every browser. The parts that matter:
   tune goes straight to it. Search needs a connection.
 - Recordings. Record with the phone's microphone, upload audio, or save the
   audio of a Slippery-Hill link. A recording is filed under a tune or waits
-  unfiled, and keeps where it came from, when it was added, and, when known,
-  when it was recorded. A take or an uploaded file plays at once and uploads
-  in the background. Saved link audio is fetched by the server and plays once
-  it is ready. Every recording reaches the musician's other devices. A
-  recording can be trimmed for good, and plays at a slower or faster speed
-  and a shifted pitch on every device. A recording keeps labeled practice
-  loops that repeat. Recordings need Premium. Storage is 100 MB during the
-  trial and 3 GB on Premium.
+  unfiled, and keeps where it came from, when it was added, notes, the
+  players, and, when known, when and where it was recorded. A take or an
+  uploaded file plays at once and uploads in the background. Saved link
+  audio is fetched by the server and plays once it is ready. Every recording
+  reaches the musician's other devices. A recording can be trimmed for good,
+  and plays at a slower or faster speed and a shifted pitch on every device.
+  A recording keeps labeled practice loops that repeat. Recordings need
+  Premium. Storage is 100 MB during the trial and 3 GB on Premium.
 - Lyrics. A full-screen reading view that keeps the screen awake.
 - Browse. The catalog filtered by status and attributes, with text search.
   Filters persist.
@@ -115,8 +115,8 @@ for Android and every browser. The parts that matter:
 - Import. Paste a tune list, or open a text file, from Settings or the
   empty catalog. Review the tunes, with tunes already in the catalog shown
   unchecked, and add them all at once.
-- Export. One zip from Settings: tunes and lists as spreadsheets, plus
-  every recording and scan, on any plan.
+- Export. One zip from Settings: tunes, lists, and recordings as
+  spreadsheets, plus every recording and scan, on any plan.
 - Stats. A page from Settings counts the catalog and its recordings, shows
   when the musician added and played, and finds rarities and anniversaries.
   It shows only the attributes the musician uses.
