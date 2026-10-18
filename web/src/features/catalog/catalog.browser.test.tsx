@@ -371,6 +371,9 @@ it('offers to add another tune by a title already taken', async () => {
   await seed(db)
   const { launcher } = await mount(db)
   await search().fill('Forked Deer')
+  // The offer can show under the full list and move up when the results replace it, and a press
+  // that moves between pointer down and up is cancelled.
+  await expect.poll(rowTitles).toEqual(['Forked Deer'])
   await page
     .getByRole('button', {
       name: addOfferLabel({ kind: 'create', title: 'Forked Deer', another: true }),
