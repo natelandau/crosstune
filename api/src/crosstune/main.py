@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 import sentry_sdk
 from fastapi import FastAPI
-from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber
+from sentry_sdk.scrubber import EventScrubber
 
 from crosstune import __version__
 from crosstune.analytics.posthog import PostHogPersons
@@ -19,6 +19,7 @@ from crosstune.billing.router import router as billing_router
 from crosstune.body import BodyAdmission
 from crosstune.config import Settings, get_settings
 from crosstune.db.engine import IdlePoolCloser, make_engine, make_sessionmaker
+from crosstune.error_reports import IN_APP_PACKAGE, SCRUBBED_KEYS, before_send, redacted_repr
 from crosstune.errors import install_error_handlers
 from crosstune.geo import load_reader
 from crosstune.http import public_only_client
@@ -29,6 +30,8 @@ from crosstune.links.search.backoff import Backoff
 from crosstune.links.search.registry import SearchTokens
 from crosstune.links.search.registry import adapters as search_adapters
 from crosstune.logging import configure_logging
+from crosstune.places.maps import configured_maps
+from crosstune.places.router import router as places_router
 from crosstune.ratelimit import RateLimiter
 from crosstune.recordings.router import router as recordings_router
 from crosstune.region import router as region_router
@@ -54,11 +57,6 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-# Error reports carry stack locals and request bodies; an account's address and a
-# one-time Apple authorization code are secrets or personal data.
-SCRUBBED_KEYS = [*DEFAULT_DENYLIST, "email", "apple_authorization_code"]
-
-
 def _build_clerk_users(app: FastAPI, settings: Settings) -> None:
     """Set app.state.clerk_users when a secret key is configured and nothing built it yet."""
     if app.state.clerk_users is None and settings.clerk_secret_key.get_secret_value():
@@ -80,6 +78,15 @@ def _build_apple_sign_in(app: FastAPI, settings: Settings) -> None:
         key_id=settings.sign_in_with_apple_key_id,
         private_key=settings.sign_in_with_apple_private_key.get_secret_value(),
     )
+
+
+def _build_maps(app: FastAPI, settings: Settings) -> None:
+    """Set app.state.maps when the Apple Maps key is complete and nothing built it yet."""
+    if app.state.maps is not None:
+        return
+    app.state.maps = configured_maps(settings)
+    if app.state.maps is None:
+        log.info("Place names are off: no Apple Maps key configured")
 
 
 def _build_mailer(app: FastAPI, settings: Settings) -> None:
@@ -183,6 +190,7 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
         app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
     _build_clerk_users(app, settings)
     _build_apple_sign_in(app, settings)
+    _build_maps(app, settings)
     _build_mailer(app, settings)
     _build_billing_clients(app, settings)
     _build_analytics_persons(app, settings)
@@ -196,6 +204,7 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
             app.state.object_store,
             orphan_sweep_seconds=settings.orphan_sweep_seconds,
             http_client=app.state.http_client,
+            maps=app.state.maps,
             analytics_persons=app.state.analytics_persons,
             mailer=app.state.mailer,
             clerk_users=app.state.clerk_users,
@@ -239,6 +248,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             traces_sample_rate=0.0,
             max_request_body_size="never",
             event_scrubber=EventScrubber(denylist=SCRUBBED_KEYS, recursive=True),
+            before_send=before_send,
+            custom_repr=redacted_repr,
+            in_app_include=[IN_APP_PACKAGE],
         )
 
     # The committed contract is generated from app.openapi(), which needs none of these routes.
@@ -260,6 +272,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.clerk_users = None
     app.state.apple_sign_in = None
     app.state.mailer = None
+    app.state.maps = None
     app.state.revenuecat = None
     app.state.stripe = None
     app.state.analytics_persons = None
@@ -272,6 +285,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.link_search_limiter = RateLimiter(
         limit=settings.link_searches_per_minute, window_seconds=60.0
+    )
+    app.state.place_search_limiter = RateLimiter(
+        limit=settings.place_searches_per_minute, window_seconds=60.0
     )
     app.state.billing_refresh_limiter = RateLimiter(
         limit=settings.billing_refreshes_per_minute, window_seconds=60.0
@@ -289,6 +305,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(billing_router)
     app.include_router(sync_router)
     app.include_router(links_router)
+    app.include_router(places_router)
     app.include_router(recordings_router)
     app.include_router(scans_router)
     app.include_router(region_router)

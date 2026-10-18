@@ -27,8 +27,12 @@ IDLE_CHECK_SECONDS = 30.0
 
 
 def make_engine(url: str) -> AsyncEngine:
-    """Async engine with pre-ping so a suspended Neon compute reconnects cleanly."""
-    return create_async_engine(url, pool_pre_ping=True)
+    """Async engine with pre-ping so a suspended Neon compute reconnects cleanly.
+
+    Statement values stay out of error messages, which reach logs and Sentry and would
+    otherwise quote a user's content.
+    """
+    return create_async_engine(url, pool_pre_ping=True, hide_parameters=True)
 
 
 def make_sessionmaker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
