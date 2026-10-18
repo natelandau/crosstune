@@ -67,11 +67,14 @@ private final class FakeResolver {
     @Test func waitsForTypingToPauseBeforeLookingUp() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let resolver = FakeResolver()
-        let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: resolver.resolve, debounce: .seconds(60))
+        let sleep = ManualSleep()
+        let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: resolver.resolve, sleep: sleep.sleep)
 
         model.setURL("https://youtu.be/dQw4w9WgXcQ")
-        try await Task.sleep(for: .milliseconds(50))
+        try await eventually { sleep.pending == [.milliseconds(400)] }
         #expect(resolver.asked.isEmpty)
+        sleep.wake()
+        try await eventually { resolver.asked == ["https://youtu.be/dQw4w9WgXcQ"] }
     }
 
     @Test func looksUpOnlyWebAddresses() async throws {
@@ -80,7 +83,6 @@ private final class FakeResolver {
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: resolver.resolve, debounce: .zero)
 
         model.setURL("javascript:alert(1)")
-        try await Task.sleep(for: .milliseconds(100))
         #expect(resolver.asked.isEmpty)
         #expect(model.preview == nil)
     }
@@ -88,12 +90,12 @@ private final class FakeResolver {
     @Test func cancelsALookupWaitingForTypingToPause() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let resolver = FakeResolver()
-        let model = LinkSheetModel(
-            store: store, tuneID: tuneID, resolve: resolver.resolve, debounce: .milliseconds(30))
+        let sleep = ManualSleep()
+        let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: resolver.resolve, sleep: sleep.sleep)
 
         model.setURL("https://youtu.be/dQw4w9WgXcQ")
         model.cancel()
-        try await Task.sleep(for: .milliseconds(150))
+        try await eventually { sleep.cancelled == 1 }
         #expect(resolver.asked.isEmpty)
     }
 

@@ -152,6 +152,8 @@ final class PracticeModel {
     /// How long a name field that lost focus waits before it writes, so a suggestion chip
     /// whose press took the focus away writes its own name instead.
     @ObservationIgnored var blurDelay: Duration = .milliseconds(300)
+    /// Waits out ``blurDelay`` and ``glideRun``.
+    @ObservationIgnored var sleep: @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     @ObservationIgnored private var renameOpened = ""
     /// What the open name field holds, so a touch elsewhere can save it without waiting on focus.
     @ObservationIgnored private var renameDraft: String?
@@ -324,8 +326,9 @@ final class PracticeModel {
         blurred?.cancel()
         blurredText = text
         let delay = blurDelay
+        let sleep = sleep
         blurred = Task { [weak self] in
-            try? await Task.sleep(for: delay)
+            try? await sleep(delay)
             guard !Task.isCancelled else { return }
             self?.commitRename(text, for: id)
         }

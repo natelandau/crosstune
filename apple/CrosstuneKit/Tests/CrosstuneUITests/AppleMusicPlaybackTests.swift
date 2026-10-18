@@ -439,11 +439,13 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
 
     @Test func theDeadlineWaitsOutTheAccessPrompt() async throws {
         let (player, access, _) = model(.notAsked)
-        player.decisionTimeout = .milliseconds(50)
+        let sleep = ManualSleep()
+        player.sleep = sleep.sleep
         access.holdsRequests = true
         player.play(try #require(PlayerItem.link(appleLink())))
         try await eventually { access.isHoldingRequest }
-        try await Task.sleep(for: .milliseconds(120))
+        try await eventually { sleep.cancelled == 1 }
+        #expect(sleep.pending.isEmpty)
         #expect(player.linkAudio == .deciding)
         access.releaseRequest()
         try await eventually { player.linkAudio == .native }

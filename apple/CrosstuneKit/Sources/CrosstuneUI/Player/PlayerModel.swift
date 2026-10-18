@@ -105,6 +105,8 @@ public final class PlayerModel {
 
     /// How long a speed or pitch holds still before it is written.
     @ObservationIgnored var settleDelay: Duration = .seconds(1)
+    /// Waits out ``settleDelay`` and ``decisionTimeout``.
+    @ObservationIgnored var sleep: @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
 
     /// Logs each play and recording screen visit.
     @ObservationIgnored let activity: PlayerActivity

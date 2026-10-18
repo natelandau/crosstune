@@ -749,17 +749,20 @@ private final class FakeLoops {
     @Test func aChipPressedAsTheFieldLosesFocusWritesTheChipOnce() async throws {
         try await load()
         let model = practice()
-        model.blurDelay = .milliseconds(30)
+        let sleep = ManualSleep()
+        model.sleep = sleep.sleep
         store.put([loop("a", 5000, 15_000)])
         model.beginRename("a")
         model.renameLostFocus("Typed")
         model.commitRename("B part")
-        try await Task.sleep(for: .milliseconds(100))
+        try await eventually { sleep.cancelled == 1 }
         await model.settle()
         #expect(store.calls == ["label(a, B part)"])
 
         model.beginRename("a")
         model.renameLostFocus("Typed")
+        try await eventually { sleep.pending == [model.blurDelay] }
+        sleep.wake()
         try await eventually { store.calls.count == 2 }
         await model.settle()
         #expect(store.calls.last == "label(a, Typed)")
@@ -789,13 +792,14 @@ private final class FakeLoops {
     @Test func aNameLeftByOpeningAnotherLoopsFieldGoesToItsOwnLoop() async throws {
         try await load()
         let model = practice()
-        model.blurDelay = .milliseconds(30)
+        let sleep = ManualSleep()
+        model.sleep = sleep.sleep
         store.put([loop("a", 5000, 15_000), loop("b", 20_000, 25_000)])
         model.beginRename("a")
         model.renameLostFocus("A part")
         model.beginRename("b")
         #expect(model.renaming == "b")
-        try await Task.sleep(for: .milliseconds(100))
+        try await eventually { sleep.cancelled == 1 }
         await model.settle()
         #expect(store.calls == ["label(a, A part)"])
         #expect(model.renaming == "b")
@@ -928,6 +932,8 @@ private final class FakeLoops {
     @Test func aSeekFromTheOverviewStopsAGlide() async throws {
         try await load()
         let model = practice()
+        let sleep = ManualSleep()
+        model.sleep = sleep.sleep
         model.glideRun = .seconds(10)
         audio.elapsed = 10
         model.beginScrub()
@@ -939,7 +945,7 @@ private final class FakeLoops {
         #expect(model.scrubbingMs == nil)
         #expect(audio.elapsed == 30)
         #expect(audio.isPlaying)
-        try await Task.sleep(for: .milliseconds(50))
+        try await eventually { sleep.cancelled == 1 }
         #expect(audio.elapsed == 30)
     }
 
