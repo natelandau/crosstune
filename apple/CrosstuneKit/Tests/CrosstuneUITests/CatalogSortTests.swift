@@ -163,7 +163,7 @@ private func choice(_ sort: CatalogSort, _ descending: Bool) -> CatalogSortChoic
 
     @Test func ordersByTitleUntilAnotherSortIsChosen() async throws {
         let root = TemporaryRoot()
-        let model = CatalogModel(store: try await SampleCatalog.makeStore(root: root.url))
+        let model = CatalogModel(store: try await SampleCatalog.copiedStore(root: root.url))
         try await eventually { model.results != nil }
         let shown = try #require(model.results?.visible.map(\.tune.title))
         #expect(shown == shown.sorted { CatalogSearch.precedes($0, $1) })
@@ -171,7 +171,7 @@ private func choice(_ sort: CatalogSort, _ descending: Bool) -> CatalogSortChoic
 
     @Test func ordersByLastPlayedFromTheStoredHistoryAndRedrawsAsPlaysLand() async throws {
         let root = TemporaryRoot()
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = CatalogModel(store: store)
         try await eventually { model.results != nil }
         let visible = try #require(model.results?.visible)
@@ -197,7 +197,7 @@ private func choice(_ sort: CatalogSort, _ descending: Bool) -> CatalogSortChoic
 
     @Test func readsTheHistoryWhenLastPlayedIsAlreadyTheSavedSort() async throws {
         let root = TemporaryRoot()
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let titleOrder = CatalogModel(store: store)
         try await eventually { titleOrder.results != nil }
         let last = try #require(titleOrder.results?.visible.last)

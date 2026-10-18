@@ -92,7 +92,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     // MARK: Opening
 
     @Test func opensOnTheChosenServicesWithTheTitleAndTypeAndSearchesNothing() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         let model = model(store, search: search)
 
@@ -107,7 +107,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func prefillsTheTitleAloneForATuneWithNoType() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = model(store, tuneID: elzicsFarewell.id, search: FakeSearch())
 
         try await eventually { model.isLoaded }
@@ -115,7 +115,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func leavesTheFieldEmptyForAMissingTune() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = model(store, tuneID: "no_such_tune", search: FakeSearch())
 
         try await eventually { model.isLoaded }
@@ -123,7 +123,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func listsOnlyTheChosenServicesThisBuildKnowsInOrder() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         try await setSearchProviders(store, ["spotify", "napster", "tidal"])
         let model = model(store, search: FakeSearch())
 
@@ -131,7 +131,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func listsEveryServiceWhenThereIsNoSettingsRow() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         try await store.write { writer in
             try writer.db.execute(sql: "DELETE FROM user_settings")
         }
@@ -142,7 +142,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func typingBeforeTheTuneLoadsKeepsWhatWasTyped() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = model(store, search: FakeSearch())
 
         model.setQuery("Tam Lin")
@@ -160,7 +160,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     // MARK: Picking a service
 
     @Test func pickingAServiceSearchedHereSearchesOnlyItAndShowsItsResults() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.outcome = .ok([group([appleTrack])])
         let model = model(store, search: search)
@@ -175,7 +175,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func pickingAServiceSearchedElsewhereAnswersItsSearchPageAndStaysOnTheList() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.outcome = .ok([
             SearchGroup(provider: "spotify", status: .searchOnly, results: [], searchURL: "https://spotify.test/q")
@@ -191,7 +191,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func findRecordingsSendsNoCountWhenTheServiceOpensItsOwnSearch() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.outcome = .ok([
             SearchGroup(provider: "spotify", status: .searchOnly, results: [], searchURL: "https://spotify.test/q")
@@ -207,7 +207,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func findRecordingsSendsZeroWhenAnInAppSearchFindsNothing() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.outcome = .ok([group([])])
         let sink = RecordingAnalyticsSink()
@@ -231,7 +231,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         (.ok([]), "Couldn't search. Try again."),
     ])
     func saysWhyAServicesSearchPageCouldNotOpen(outcome: RecordingSearchOutcome, message: String) async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.outcome = outcome
         let model = model(store, search: search)
@@ -256,7 +256,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func searchesTheShownServiceAgainOnReturnWithTheQueryTrimmedAndCapped() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         let model = model(store, search: search)
         try await eventually { model.isLoaded }
@@ -276,7 +276,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func aReturnOnTheListSearchesNothing() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         let model = model(store, search: search)
         try await eventually { model.isLoaded }
@@ -286,7 +286,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func capsTheQueryByUnicodeScalarsAsTheServerCountsCodePoints() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         let model = model(store, search: search)
         try await eventually { model.isLoaded }
@@ -299,7 +299,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func showsSearchingOnlyWhileARequestIsInFlight() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.holds = true
         let model = model(store, search: search)
@@ -316,7 +316,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func showsTheShownServicesGroupWhateverItsStatus() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         // A service searched here can still answer search-only, such as one missing its credentials.
         let searchOnly = SearchGroup(
@@ -363,7 +363,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         (.failed, "Couldn't search. Try again."),
     ])
     func saysWhyAWholeSearchFailed(outcome: RecordingSearchOutcome, message: String) async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.outcome = outcome
         let model = model(store, search: search)
@@ -375,7 +375,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func answersOfflineWithNoServerToAsk() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = model(store, search: nil)
         try await eventually { model.isLoaded }
 
@@ -384,7 +384,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func saysNoServicesWithNoneSelected() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         try await setSearchProviders(store, [])
         let search = FakeSearch()
         let model = model(store, search: search)
@@ -399,7 +399,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     // MARK: Going back
 
     @Test func backReturnsToTheListKeepingTheText() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.outcome = .ok([group([appleTrack])])
         let model = model(store, search: search)
@@ -417,7 +417,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func ignoresAnAnswerThatArrivesAfterBack() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.holds = true
         let model = model(store, search: search)
@@ -436,7 +436,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func ignoresASearchPageThatArrivesAfterTheSheetCloses() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.holds = true
         let model = model(store, search: search)
@@ -455,7 +455,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     // MARK: Opening on one service
 
     @Test func opensOnOneServiceAndSearchesItOnceWithNoListToGoBackTo() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         try await setSearchProviders(store, ["tidal"])
         let search = FakeSearch()
         let tidalGroup = group([], provider: "tidal")
@@ -471,7 +471,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func typingBeforeTheTuneLoadsIsTheOpeningsSearch() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         let model = model(store, service: "tidal", search: search)
 
@@ -483,7 +483,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func aReturnBeforeTheTuneLoadsSearchesWhatWasTypedOnce() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         let model = model(store, service: "tidal", search: search)
 
@@ -495,7 +495,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func searchesNothingOnOpeningForAMissingTune() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         let model = model(store, tuneID: "no_such_tune", service: "tidal", search: search)
 
@@ -524,7 +524,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func doesNothingOfflineWhenFindRecordingsIsChosen() async throws {
-        let model = TuneModel(store: try await SampleCatalog.makeStore(root: root.url), tuneID: "t1")
+        let model = TuneModel(store: try await SampleCatalog.copiedStore(root: root.url), tuneID: "t1")
         let search = FakeSearch()
         var sheets = 0
         var opened: [URL] = []
@@ -538,7 +538,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func reportsASearchPageFailureUnderTheMedia() async throws {
-        let model = TuneModel(store: try await SampleCatalog.makeStore(root: root.url), tuneID: "t1")
+        let model = TuneModel(store: try await SampleCatalog.copiedStore(root: root.url), tuneID: "t1")
         let search = FakeSearch()
         search.outcome = .failed
         var opened: [URL] = []
@@ -550,7 +550,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func opensTheSheetOrTheSearchPageWhenOnline() async throws {
-        let model = TuneModel(store: try await SampleCatalog.makeStore(root: root.url), tuneID: "t1")
+        let model = TuneModel(store: try await SampleCatalog.copiedStore(root: root.url), tuneID: "t1")
         let search = FakeSearch()
         search.outcome = .ok([
             SearchGroup(
@@ -572,7 +572,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     // MARK: Staleness
 
     @Test func ignoresAnEarlierSearchAnsweringAfterALaterOne() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.holds = true
         let model = model(store, search: search)
@@ -593,7 +593,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func ignoresAnAnswerThatArrivesAfterTheSheetCloses() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.holds = true
         let model = model(store, search: search)
@@ -610,7 +610,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func startsNoOpeningSearchOnceTheSheetHasClosed() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         let model = model(store, service: "tidal", search: search)
 
@@ -622,7 +622,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func dropsAReturnPressedBeforeTheTuneLoadedOnceTheSheetHasClosed() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         let model = model(store, service: "tidal", search: search)
 
@@ -636,7 +636,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func stopsShowingSearchingOnceTheSheetCloses() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.holds = true
         let model = model(store, service: "tidal", search: search)
@@ -648,7 +648,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func keepsALinkFailureBesideASearchInFlight() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.holds = true
         let model = model(store, tuneID: "no_such_tune", search: search)
@@ -675,7 +675,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     // MARK: Playing
 
     @Test func playsOneRowAtATimeAndStopsTheAppsPlayer() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         search.outcome = .ok([group([appleTrack, otherAppleTrack])])
         var stops = 0
@@ -703,7 +703,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func playsNothingForARowWithNoPlayer() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         var stops = 0
         let model = model(store, search: FakeSearch(), stopPlayer: { stops += 1 })
 
@@ -715,7 +715,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     // MARK: Linking
 
     @Test func linksAResultWithItsOwnFieldsAndKeepsItPlaying() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let search = FakeSearch()
         let tidal = result("https://tidal.com/browse/track/1", provider: "tidal", title: "Tam Lin")
         search.outcome = .ok([group([tidal], provider: "tidal")])
@@ -737,7 +737,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func linksOnceForADoubleTap() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = model(store, tuneID: elzicsFarewell.id, search: FakeSearch())
         try await eventually { model.isLoaded }
 
@@ -749,7 +749,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func showsAResultAlreadyLinkedToTheTuneAsLinked() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let linked = SampleCatalog.links[0].url
         let model = model(store, search: FakeSearch())
 
@@ -759,7 +759,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     }
 
     @Test func saysWhyALinkFailedAndLetsItBeTriedAgain() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = model(store, tuneID: "no_such_tune", search: FakeSearch())
         try await eventually { model.isLoaded }
 

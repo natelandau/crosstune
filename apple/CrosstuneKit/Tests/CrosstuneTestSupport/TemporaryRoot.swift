@@ -19,7 +19,8 @@ public final class TemporaryRoot {
     }
 
     public func open(_ userID: String = "user_a") throws -> CrosstuneStore {
-        try CrosstuneStore.open(userID: userID, root: url)
+        try StoreTemplate.copyMigrated(userID: userID, into: url)
+        return try CrosstuneStore.open(userID: userID, root: url)
     }
 
     /// Opens a store with `migrator` in place of the app's, for tests that simulate a newer or

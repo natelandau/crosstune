@@ -41,7 +41,7 @@ private final class FakeResolver {
     }
 
     @Test func looksUpThePastedLinkAndShowsItsTitleBeforeTheSave() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let resolver = FakeResolver()
         let url = "https://youtu.be/dQw4w9WgXcQ"
         resolver.answers[url] = ResolvedLink(
@@ -65,7 +65,7 @@ private final class FakeResolver {
     }
 
     @Test func waitsForTypingToPauseBeforeLookingUp() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let resolver = FakeResolver()
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: resolver.resolve, debounce: .seconds(60))
 
@@ -75,7 +75,7 @@ private final class FakeResolver {
     }
 
     @Test func looksUpOnlyWebAddresses() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let resolver = FakeResolver()
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: resolver.resolve, debounce: .zero)
 
@@ -86,7 +86,7 @@ private final class FakeResolver {
     }
 
     @Test func cancelsALookupWaitingForTypingToPause() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let resolver = FakeResolver()
         let model = LinkSheetModel(
             store: store, tuneID: tuneID, resolve: resolver.resolve, debounce: .milliseconds(30))
@@ -98,7 +98,7 @@ private final class FakeResolver {
     }
 
     @Test func cancelsALookupInFlight() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         var started = false
         var cancelled = false
         let model = LinkSheetModel(
@@ -121,7 +121,7 @@ private final class FakeResolver {
     }
 
     @Test func savesOfflineUntitledWithTheDetectedProvider() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil)
 
         model.setURL("https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC")
@@ -134,7 +134,7 @@ private final class FakeResolver {
     }
 
     @Test func asksAtSaveWhenNothingWasLookedUpAndKeepsTheDetectedProviderForAnUnknownOne() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let resolver = FakeResolver()
         let url = "https://youtu.be/dQw4w9WgXcQ"
         resolver.answers[url] = ResolvedLink(provider: "napster", url: url, providerRef: "track:1", title: "Tune")
@@ -152,7 +152,7 @@ private final class FakeResolver {
     }
 
     @Test func refusesAnEmptyLinkOrOneThatIsNotAWebAddress() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil)
 
         #expect(await model.save() == false)
@@ -166,7 +166,7 @@ private final class FakeResolver {
     }
 
     @Test func addsOnceWhenSavedTwice() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil)
         model.setURL("https://example.com/tune")
         #expect(await model.save())
@@ -175,7 +175,7 @@ private final class FakeResolver {
     }
 
     @Test func reportsAFailedAdd() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = LinkSheetModel(store: store, tuneID: "missing", resolve: nil)
         model.setURL("https://example.com/tune")
         #expect(await model.save() == false)
@@ -185,7 +185,7 @@ private final class FakeResolver {
     }
 
     @Test func holdsTypingADismissalWouldLose() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil)
         #expect(!model.isEdited)
         model.setURL("h")

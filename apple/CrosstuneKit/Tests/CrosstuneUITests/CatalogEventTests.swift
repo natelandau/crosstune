@@ -13,7 +13,7 @@ import Testing
     private let sink = RecordingAnalyticsSink()
 
     private func loadedCatalog(settleDelay: Duration = .zero) async throws -> (CrosstuneStore, CatalogModel) {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let catalog = CatalogModel(store: store, analytics: sink.client, searchSettleDelay: settleDelay)
         #expect(try await poll { catalog.results != nil })
         return (store, catalog)

@@ -11,7 +11,7 @@ import Testing
     private let root = TemporaryRoot()
 
     private func store(withScan: Bool = true) async throws -> CrosstuneStore {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         if withScan {
             try await store.write { writer in
                 try writer.put(

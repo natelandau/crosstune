@@ -37,7 +37,7 @@ import Testing
     }
 
     @Test func reportsAPastedLinkByItsService() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil, analytics: sink.client)
         model.setURL("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
 
@@ -56,7 +56,7 @@ import Testing
     }
 
     @Test func reportsNothingForALinkThatIsNotSaved() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil, analytics: sink.client)
         model.setURL("not a link")
 
@@ -66,7 +66,7 @@ import Testing
     }
 
     @Test func reportsASearchThatAnsweredAndALinkFoundByIt() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let outcome = found(3)
         let model = FindRecordingsModel(
             store: store, tuneID: tuneID, service: "tidal", search: { _, _, _ in outcome }, analytics: sink.client)
@@ -91,7 +91,7 @@ import Testing
     }
 
     @Test func reportsNoSearchThatFailed() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
+        let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = FindRecordingsModel(
             store: store, tuneID: tuneID, service: "tidal", search: { _, _, _ in .offline }, analytics: sink.client)
         #expect(try await poll { model.failure != nil })
