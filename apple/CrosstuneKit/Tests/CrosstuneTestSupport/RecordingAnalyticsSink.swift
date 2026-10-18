@@ -13,6 +13,7 @@ public final class RecordingAnalyticsSink: Sendable {
         case reset
         case setEnabled(Bool, rememberedUserID: String?)
         case flush
+        case deferDecision
     }
 
     public struct Capture: Equatable, Sendable {
@@ -76,5 +77,9 @@ private struct Forwarder: AnalyticsSink {
 
     func flush() {
         recorder.record(.flush)
+    }
+
+    func deferDecision() {
+        recorder.record(.deferDecision)
     }
 }

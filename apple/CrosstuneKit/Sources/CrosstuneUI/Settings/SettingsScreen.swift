@@ -48,7 +48,7 @@ public struct SettingsScreen: View {
     @AppStorage(TextSize.storageKey) private var textSizeOffset = 0
     @Environment(\.systemDynamicTypeSize) private var systemTextSize
     @AppStorage(CaptureChannels.storageKey) private var channels: CaptureChannels = .mono
-    @AppStorage(UsageData.storageKey) private var sharesUsageData = true
+    @AppStorage(UsageData.storageKey) private var sharesUsageData = false
     @Environment(\.analytics) private var analytics
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(SyncEngine.self) private var engine: SyncEngine?

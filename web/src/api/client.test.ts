@@ -37,6 +37,19 @@ function makeClient(fetch: FetchMock, overrides: Partial<ApiClientOptions> = {})
   })
 }
 
+describe('region', () => {
+  it('is fetched without a session token and without an Authorization header', async () => {
+    const fetch = vi.fn<FetchMock>(async () =>
+      jsonResponse({ country: 'DE', consent_required: true }),
+    )
+    const api = makeClient(fetch, { getToken: async () => null })
+    await expect(api.region()).resolves.toEqual({ country: 'DE', consent_required: true })
+    const request = fetch.mock.calls[0]![0]
+    expect(new URL(request.url).pathname).toBe('/v1/region')
+    expect(request.headers.has('Authorization')).toBe(false)
+  })
+})
+
 describe('account created header', () => {
   const meWith = (header: string | null, onAccountCreated = vi.fn()) => {
     const headers: Record<string, string> = header === null ? {} : { 'X-Account-Created': header }
@@ -160,11 +173,11 @@ describe('createApiClient', () => {
     )
   })
 
-  it('searches with repeated providers and reads Retry-After from a 429', async () => {
-    const urls: string[] = []
+  it('searches with a JSON body and reads Retry-After from a 429', async () => {
+    const sent: { method: string; url: string; body: unknown }[] = []
     const api = makeClient(async (input) => {
-      urls.push(input.url)
-      return urls.length === 1
+      sent.push({ method: input.method, url: input.url, body: await input.clone().json() })
+      return sent.length === 1
         ? Response.json({ groups: [] })
         : new Response(JSON.stringify({ type: 'about:blank', title: 'Too Many', status: 429 }), {
             status: 429,
@@ -174,10 +187,11 @@ describe('createApiClient', () => {
     await expect(api.searchRecordings('so', ['apple_music', 'tidal'], 'IE')).resolves.toEqual({
       groups: [],
     })
-    const params = new URL(urls[0]!).searchParams
-    expect(params.get('q')).toBe('so')
-    expect(params.getAll('providers')).toEqual(['apple_music', 'tidal'])
-    expect(params.get('country')).toBe('IE')
+    expect(sent[0]).toEqual({
+      method: 'POST',
+      url: 'http://api.test/v1/links/search',
+      body: { q: 'so', providers: ['apple_music', 'tidal'], country: 'IE' },
+    })
     await expect(api.searchRecordings('so', ['tidal'], 'IE')).rejects.toSatisfy(
       (error) => error instanceof ApiError && error.status === 429 && error.retryAfterSeconds === 7,
     )

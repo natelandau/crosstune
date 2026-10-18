@@ -21,6 +21,12 @@ export function recordingAnalytics({
   sends(): { name: EventName; props: object }[]
 } {
   const calls: AnalyticsCall[] = []
+  let sharing = false
+  const listeners = new Set<() => void>()
+  const setSharing = (on: boolean) => {
+    sharing = on
+    for (const listener of [...listeners]) listener()
+  }
   let remembered = user
   let identified: string | null = null
   let waiting: { userId: string; fn: () => void }[] = []
@@ -58,11 +64,18 @@ export function recordingAnalytics({
     identifiedUser: () => remembered,
     disableSharing: () => {
       calls.push({ type: 'disable' })
+      setSharing(false)
       return Promise.resolve()
     },
     enableSharing: () => {
       calls.push({ type: 'enable' })
+      setSharing(true)
       return Promise.resolve()
+    },
+    isSharing: () => sharing,
+    subscribeSharing: (listener) => {
+      listeners.add(listener)
+      return () => void listeners.delete(listener)
     },
   }
 }

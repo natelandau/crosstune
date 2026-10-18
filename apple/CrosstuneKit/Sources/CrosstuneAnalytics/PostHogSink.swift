@@ -31,6 +31,8 @@ final class PostHogSink: AnalyticsSink {
     private enum Phase {
         /// Never set up this launch.
         case dormant
+        /// Never set up, with no choice yet: events wait in memory for the regional default.
+        case pending
         case sharing
         /// Set up, then opted out.
         case stopped
@@ -51,7 +53,16 @@ final class PostHogSink: AnalyticsSink {
         var resetPending = false
         /// The user the app remembers as signed in, which every sign-out and deletion clears.
         var rememberedUserID: String?
+        /// Events made while pending, oldest first, capped at `heldLimit`.
+        var held: [HeldCall] = []
     }
+
+    private enum HeldCall {
+        case capture(String, [String: AnalyticsValue], set: [String: AnalyticsValue])
+        case screen(Screen)
+    }
+
+    private static let heldLimit = 100
 
     private let backend: any PostHogBackend
     private let superProperties: [String: String]
@@ -66,15 +77,43 @@ final class PostHogSink: AnalyticsSink {
 
     func capture(_ name: String, _ properties: [String: AnalyticsValue], set: [String: AnalyticsValue]) {
         state.withLock { state in
-            guard state.phase == .sharing else { return }
-            backend.capture(name, properties, set: set)
+            switch state.phase {
+            case .sharing: backend.capture(name, properties, set: set)
+            case .pending: hold(.capture(name, properties, set: set), in: &state)
+            case .dormant, .stopped: break
+            }
         }
     }
 
     func screen(_ screen: Screen) {
         state.withLock { state in
-            guard state.phase == .sharing else { return }
-            backend.screen(screen.rawValue, Self.screenProperties(for: screen))
+            switch state.phase {
+            case .sharing: backend.screen(screen.rawValue, Self.screenProperties(for: screen))
+            case .pending: hold(.screen(screen), in: &state)
+            case .dormant, .stopped: break
+            }
+        }
+    }
+
+    func deferDecision() {
+        state.withLock { state in
+            if state.phase == .dormant { state.phase = .pending }
+        }
+    }
+
+    private func hold(_ call: HeldCall, in state: inout State) {
+        state.held.append(call)
+        if state.held.count > Self.heldLimit { state.held.removeFirst(state.held.count - Self.heldLimit) }
+    }
+
+    private func sendHeld(_ state: inout State) {
+        let held = state.held
+        state.held = []
+        for call in held {
+            switch call {
+            case .capture(let name, let properties, let set): backend.capture(name, properties, set: set)
+            case .screen(let screen): backend.screen(screen.rawValue, Self.screenProperties(for: screen))
+            }
         }
     }
 
@@ -102,6 +141,8 @@ final class PostHogSink: AnalyticsSink {
     func reset() {
         state.withLock { state in
             state.identity = Identity()
+            // Events held for the person signing out must never go out once the default lands.
+            if state.phase == .pending { state.held = [] }
             guard state.phase == .sharing else {
                 state.resetPending = true
                 return
@@ -114,7 +155,7 @@ final class PostHogSink: AnalyticsSink {
         state.withLock { state in
             state.rememberedUserID = rememberedUserID
             switch (state.phase, enabled) {
-            case (.dormant, true):
+            case (.dormant, true), (.pending, true):
                 // Set up opted out, because opting in installs the lifecycle integration, which
                 // captures an install or update at once. By then the super properties are on and
                 // a person to forget is forgotten, so nothing goes out without them or as them.
@@ -129,11 +170,15 @@ final class PostHogSink: AnalyticsSink {
                 backend.optIn()
                 state.phase = .sharing
                 caughtUp(&state)
+                sendHeld(&state)
             case (.stopped, true):
                 if needsReset(state) { resetBackend() }
                 backend.optIn()
                 state.phase = .sharing
                 caughtUp(&state)
+            case (.pending, false):
+                state.held = []
+                state.phase = .dormant
             case (.sharing, false):
                 backend.optOut()
                 state.phase = .stopped
@@ -153,7 +198,9 @@ final class PostHogSink: AnalyticsSink {
     /// The identified user the SDK holds: read from the SDK once it is set up, else from the
     /// sink's own record of its last identify.
     private func heldUser(_ state: State) -> String? {
-        guard state.phase != .dormant else { return defaults.string(forKey: Self.identifiedKey) }
+        guard state.phase != .dormant, state.phase != .pending else {
+            return defaults.string(forKey: Self.identifiedKey)
+        }
         let held = backend.distinctID
         return held == backend.anonymousID ? nil : held
     }
@@ -215,14 +262,7 @@ struct LivePostHog: PostHogBackend {
             config.captureAutocaptureElementText = false
             config.rageClickConfig.enabled = false
             config.surveys = false
-            config.sessionReplay = true
-            let replay = config.sessionReplayConfig
-            replay.maskAllTextInputs = true
-            replay.maskAllImages = true
-            // The SDK records SwiftUI only as screenshots; its wireframe mode skips a hosting view.
-            replay.screenshotMode = true
-            replay.captureNetworkTelemetry = false
-            replay.captureLogs = false
+            config.sessionReplay = false
         #endif
         return config
     }

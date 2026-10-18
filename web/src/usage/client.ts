@@ -2,7 +2,7 @@ import type { PostHogConfig } from 'posthog-js'
 import { WEB_POSTHOG_CONFIG } from './config'
 import type { EventName, EventProps, PersonProperties, Screen } from './events'
 import { readSuperPropertyEnv, webSuperProperties } from './superProperties'
-import { isSharingUsage, setSharingUsage } from './usageSharing'
+import { resolveSharingDefault, setSharingUsage, storedSharingChoice } from './usageSharing'
 
 /**
  * Where the app reports. `send`, `screen`, `identify`, `setPerson`, and `reset` never throw,
@@ -23,6 +23,10 @@ export interface AnalyticsClient {
   whenIdentified(userId: string, fn: () => void): void
   disableSharing(): Promise<void>
   enableSharing(): Promise<void>
+  /** Whether usage is being reported now. False while the regional default is still pending. */
+  isSharing(): boolean
+  /** Calls `listener` whenever `isSharing` changes. Returns the unsubscribe. */
+  subscribeSharing(listener: () => void): () => void
 }
 
 export const noopAnalytics: AnalyticsClient = {
@@ -35,6 +39,8 @@ export const noopAnalytics: AnalyticsClient = {
   whenIdentified() {},
   disableSharing: () => Promise.resolve(),
   enableSharing: () => Promise.resolve(),
+  isSharing: () => false,
+  subscribeSharing: () => () => {},
 }
 
 /** The `localStorage` key holding the last identified user ID, which sign-in reads to tell a new user from a returning one. */
@@ -68,6 +74,8 @@ export interface AnalyticsOptions {
   key?: string
   storage?: Storage
   load?: () => Promise<PostHogLike>
+  /** Asks the API which privacy rules apply. Absent, the default stays off until the person turns sharing on. */
+  fetchRegion?: () => Promise<{ consent_required: boolean | null }>
 }
 
 // Analytics is never worth competing with the page's own work.
@@ -83,12 +91,7 @@ function whenIdle(): Promise<void> {
 
 async function loadPostHog(): Promise<PostHogLike> {
   await whenIdle()
-  // The recorder is a separate script that registers itself on load, so replay only works when
-  // it is imported beside the core.
-  const [{ default: posthog }] = await Promise.all([
-    import('posthog-js/dist/module.no-external'),
-    import('posthog-js/dist/posthog-recorder'),
-  ])
+  const { default: posthog } = await import('posthog-js/dist/module.no-external')
   // `init`'s config type is the SDK's own; every other method is checked against PostHogLike.
   const checked: Omit<PostHogLike, 'init'> = posthog
   return checked as PostHogLike
@@ -117,17 +120,30 @@ interface RememberedIdentity {
 }
 
 /**
- * The web's analytics client. Without a key it is `noopAnalytics`. With sharing off it never
- * loads the SDK, and loads it only when the person turns sharing back on.
+ * The web's analytics client. Without a key it is `noopAnalytics`. It loads the SDK only once
+ * sharing is on: a stored choice, else the region's default, else the person turning it on.
  */
 export function startAnalytics({
   key,
   storage,
   load = loadPostHog,
+  fetchRegion = () => Promise.resolve({ consent_required: null }),
 }: AnalyticsOptions): AnalyticsClient {
   if (!key) return noopAnalytics
 
-  let sharing = isSharingUsage(storage)
+  // 'pending' until a stored choice, the regional default, or the person decides.
+  const stored = storedSharingChoice(storage)
+  let state: 'pending' | 'on' | 'off' = stored === null ? 'pending' : stored ? 'on' : 'off'
+  // Work made while the default is pending waits here, in memory only, and goes out only if
+  // the default turns sharing on.
+  const BUFFER_LIMIT = 100
+  let buffered: ((ph: PostHogLike) => void)[] = []
+  const listeners = new Set<() => void>()
+  const setState = (next: 'on' | 'off') => {
+    if (state === next) return
+    state = next
+    for (const listener of [...listeners]) safely(listener)
+  }
   let loading: Promise<PostHogLike | null> | null = null
   let identity: RememberedIdentity | null = null
   let waiting: { userId: string; fn: () => void }[] = []
@@ -151,7 +167,12 @@ export function startAnalytics({
 
   // Calls queue on the one load promise, so they reach the SDK in the order they were made.
   const whenSharing = (fn: (ph: PostHogLike) => void): void => {
-    if (!sharing) return
+    if (state === 'pending') {
+      buffered.push(fn)
+      if (buffered.length > BUFFER_LIMIT) buffered.shift()
+      return
+    }
+    if (state === 'off') return
     void ensure().then((ph) => {
       if (ph) safely(() => fn(ph))
     })
@@ -167,7 +188,24 @@ export function startAnalytics({
     )
   }
 
-  if (sharing) void ensure()
+  if (state === 'on') void ensure()
+  else if (state === 'pending') {
+    void resolveSharingDefault(fetchRegion, storage).then((on) => {
+      // The person already chose while the request was in flight.
+      if (state !== 'pending') return
+      const work = buffered
+      buffered = []
+      setState(on ? 'on' : 'off')
+      if (!on) return
+      void ensure().then((ph) => {
+        if (!ph) return
+        for (const fn of work) {
+          if (state !== 'on') return
+          safely(() => fn(ph))
+        }
+      })
+    })
+  }
 
   return {
     send(name, props) {
@@ -201,35 +239,45 @@ export function startAnalytics({
     identifiedUser: () => rememberedUser(storage),
     reset() {
       identity = null
+      // Work buffered for the signed-out person must never flush under whoever comes next.
+      buffered = []
       rememberUser(storage, null)
       // With sharing off and nothing loaded there is no stored identity to clear.
-      if (!sharing && !loading) return
+      if (state !== 'on' && !loading) return
       void ensure().then((ph) => {
         if (!ph) return
         safely(() => ph.reset())
         safely(() => registerSuper(ph))
         // `reset` clears the SDK's stored consent, which would silently opt the person back in.
-        if (!sharing) safely(() => ph.opt_out_capturing())
+        if (state !== 'on') safely(() => ph.opt_out_capturing())
       })
     },
     async disableSharing() {
-      if (!sharing) return
-      sharing = false
+      const wasSharing = state === 'on'
+      buffered = []
+      setState('off')
+      setSharingUsage(false, storage)
+      if (!wasSharing) return
       const ph = await ensure()
       if (ph) {
         safely(() => ph.capture('usage_sharing_disabled', {}, { send_instantly: true }))
         safely(() => ph.opt_out_capturing())
       }
-      setSharingUsage(false, storage)
     },
     async enableSharing() {
-      const wasSharing = sharing
-      sharing = true
+      const wasSharing = state === 'on'
+      buffered = []
       setSharingUsage(true, storage)
+      setState('on')
       const ph = await ensure()
       if (!ph || wasSharing) return
       safely(() => ph.opt_in_capturing({ captureEventName: false }))
       safely(() => applyIdentity(ph))
+    },
+    isSharing: () => state === 'on',
+    subscribeSharing(listener) {
+      listeners.add(listener)
+      return () => void listeners.delete(listener)
     },
   }
 }

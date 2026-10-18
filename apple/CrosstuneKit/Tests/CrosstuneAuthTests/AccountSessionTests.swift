@@ -8,6 +8,7 @@ import Foundation
 import GRDB
 import HTTPTypes
 import OpenAPIRuntime
+import Synchronization
 import Testing
 
 @testable import CrosstuneAuth
@@ -1218,4 +1219,48 @@ private struct FixedToken: TokenProvider {
     let note = AccountSession.appleFailureNote(error)
     #expect(note.contains(ASAuthorizationError.errorDomain))
     #expect(note.contains(String(ASAuthorizationError.canceled.rawValue)))
+}
+
+private final class RegionTransport: ClientTransport {
+    private let sent = Mutex<[HTTPRequest]>([])
+    let status: HTTPResponse.Status
+    let body: String
+
+    init(status: HTTPResponse.Status = .ok, body: String) {
+        self.status = status
+        self.body = body
+    }
+
+    var requests: [HTTPRequest] { sent.withLock { $0 } }
+
+    func send(
+        _ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String
+    ) async throws -> (HTTPResponse, HTTPBody?) {
+        sent.withLock { $0.append(request) }
+        return (HTTPResponse(status: status, headerFields: [.contentType: "application/json"]), HTTPBody(self.body))
+    }
+}
+
+@Test func theRegionRequestWorksSignedOutAndCarriesNoToken() async throws {
+    let transport = RegionTransport(body: #"{"country":"FR","consent_required":true}"#)
+
+    let region = try await Region.fetch(origin: URL(string: "https://api.example.com")!, transport: transport)
+
+    #expect(region == Region(consentRequired: true))
+    let request = try #require(transport.requests.first)
+    #expect(request.path == "/v1/region")
+    #expect(request.headerFields[.authorization] == nil)
+}
+
+@Test func anUnknownCountryComesBackWithNoAnswer() async throws {
+    let transport = RegionTransport(body: #"{"country":null,"consent_required":null}"#)
+    let region = try await Region.fetch(origin: URL(string: "https://api.example.com")!, transport: transport)
+    #expect(region == Region(consentRequired: nil))
+}
+
+@Test func aFailedRegionRequestThrows() async {
+    let transport = RegionTransport(status: .internalServerError, body: "{}")
+    await #expect(throws: APIStatusError.self) {
+        try await Region.fetch(origin: URL(string: "https://api.example.com")!, transport: transport)
+    }
 }

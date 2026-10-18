@@ -15,8 +15,9 @@ struct UsageDataTests {
         suite.defaults
     }
 
-    @Test func sharesByDefault() throws {
-        #expect(UsageData.isEnabled(defaults: defaults()))
+    @Test func isOffUntilAChoiceExists() throws {
+        #expect(!UsageData.isEnabled(defaults: defaults()))
+        #expect(UsageData.storedChoice(defaults: defaults()) == nil)
     }
 
     @Test func readsTheStoredChoice() throws {
@@ -70,7 +71,7 @@ struct UsageDataTests {
         let store = defaults()
         store.set(false, forKey: UsageData.storageKey)
 
-        UsageData.launch(sink.client, defaults: store)
+        UsageData.launch(sink.client, defaults: store, region: Self.neverAsked)
 
         #expect(sink.calls == [.setEnabled(false, rememberedUserID: nil)])
     }
@@ -78,7 +79,8 @@ struct UsageDataTests {
     /// The session does not exist yet at launch, so the remembered user stands in for it.
     @Test func launchPassesTheRememberedUser() {
         RememberedUser(defaults: defaults()).userID = "user_a"
-        UsageData.launch(sink.client, defaults: defaults())
+        defaults().set(true, forKey: UsageData.storageKey)
+        UsageData.launch(sink.client, defaults: defaults(), region: Self.neverAsked)
         #expect(sink.calls == [.setEnabled(true, rememberedUserID: "user_a")])
     }
 
@@ -91,15 +93,76 @@ struct UsageDataTests {
     @Test func launchAppliesAStoredOptOutBeforeAnyIdentify() throws {
         let store = defaults()
         store.set(false, forKey: UsageData.storageKey)
-        UsageData.launch(sink.client, defaults: store)
+        UsageData.launch(sink.client, defaults: store, region: Self.neverAsked)
         sink.client.identify(
             userID: "u", signedUpAt: nil, catalogSize: nil, storageUsed: nil, fieldsUsed: nil, settings: [])
         #expect(sink.calls == [.setEnabled(false, rememberedUserID: nil), .identify("u", set: [:], setOnce: [:])])
     }
 
-    @Test func launchOptsInWhenNothingIsStored() throws {
-        UsageData.launch(sink.client, defaults: defaults())
+    @Test func launchAppliesAStoredOptInWithoutAskingTheRegion() {
+        defaults().set(true, forKey: UsageData.storageKey)
+        UsageData.launch(sink.client, defaults: defaults(), region: Self.neverAsked)
         #expect(sink.calls == [.setEnabled(true, rememberedUserID: nil)])
+    }
+
+    @Test func launchWithNoChoiceOptsInWhereConsentIsNotRequired() async {
+        await UsageData.launch(sink.client, defaults: defaults(), region: Self.answering(false))?.value
+        #expect(sink.calls == [.deferDecision, .setEnabled(true, rememberedUserID: nil)])
+        #expect(UsageData.storedChoice(defaults: defaults()) == true)
+    }
+
+    @Test func launchWithNoChoiceStaysOffWhereConsentIsRequired() async {
+        await UsageData.launch(sink.client, defaults: defaults(), region: Self.answering(true))?.value
+        #expect(!sink.calls.contains(.setEnabled(true, rememberedUserID: nil)))
+        #expect(sink.calls == [.deferDecision, .setEnabled(false, rememberedUserID: nil)])
+        #expect(UsageData.storedChoice(defaults: defaults()) == false)
+    }
+
+    @Test func launchWithNoChoiceAndAnUnknownRegionStoresNothingAndStaysOff() async {
+        await UsageData.launch(sink.client, defaults: defaults(), region: Self.answering(nil))?.value
+        #expect(sink.calls == [.deferDecision, .setEnabled(false, rememberedUserID: nil)])
+        #expect(UsageData.storedChoice(defaults: defaults()) == nil)
+    }
+
+    @Test func launchWithNoChoiceAndNoNetworkStoresNothingAndStaysOff() async {
+        await UsageData.launch(sink.client, defaults: defaults(), region: { throw URLError(.notConnectedToInternet) })?
+            .value
+        #expect(sink.calls == [.deferDecision, .setEnabled(false, rememberedUserID: nil)])
+        #expect(UsageData.storedChoice(defaults: defaults()) == nil)
+    }
+
+    @Test func aStoredChoiceOutranksTheRegion() async {
+        defaults().set(false, forKey: UsageData.storageKey)
+        let enabled = await UsageData.resolveDefault(defaults: defaults(), region: Self.answering(false))
+        #expect(!enabled)
+        #expect(UsageData.storedChoice(defaults: defaults()) == false)
+    }
+
+    @Test func aChoiceMadeWhileTheRegionLoadsOutranksIt() async {
+        let store = defaults()
+        let enabled = await UsageData.resolveDefault(
+            defaults: store,
+            region: {
+                store.set(false, forKey: UsageData.storageKey)
+                return Region(consentRequired: false)
+            })
+        #expect(!enabled)
+        #expect(UsageData.storedChoice(defaults: store) == false)
+    }
+
+    @Test func resolveDefaultStoresWhatItResolves() async {
+        let on = await UsageData.resolveDefault(defaults: defaults(), region: Self.answering(false))
+        #expect(on)
+        #expect(UsageData.storedChoice(defaults: defaults()) == true)
+    }
+
+    private static let neverAsked: @Sendable () async throws -> Region = {
+        Issue.record("A stored choice must not ask the region")
+        return Region(consentRequired: nil)
+    }
+
+    private static func answering(_ consentRequired: Bool?) -> @Sendable () async throws -> Region {
+        { Region(consentRequired: consentRequired) }
     }
 }
 

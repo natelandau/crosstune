@@ -24,11 +24,12 @@ struct CrosstuneApp: App {
 
     init() {
         let configuration = AppConfiguration.main
-        // First, with the stored choice applied, so the SDK is set up before the session below
-        // identifies its user, or never when sharing is off.
+        // With a stored choice, the SDK is set up now (or never, when sharing is off). With none,
+        // setup waits for the region default and the remembered user is applied then.
         let analytics =
             configuration.postHogHost.map { Analytics.start(token: configuration.postHogToken, host: $0) } ?? .noop
-        UsageData.launch(analytics)
+        let apiOrigin = configuration.apiOrigin
+        UsageData.launch(analytics, region: { try await Region.fetch(origin: apiOrigin) })
         self.analytics = analytics
         purchases = configuration.revenueCatAPIKey.map { RevenueCatPurchases(apiKey: $0) }
         stripePortalURL = configuration.stripePortalURL

@@ -13,6 +13,8 @@ import Foundation
     func identify(_ distinctID: String, set: [String: AnalyticsValue], setOnce: [String: AnalyticsValue])
     func reset()
     func setEnabled(_ enabled: Bool, rememberedUserID: String?)
+    /// Holds events in memory until `setEnabled` decides, because no choice exists yet.
+    func deferDecision()
     func flush()
 }
 
@@ -23,6 +25,7 @@ struct NoopAnalyticsSink: AnalyticsSink {
     func identify(_ distinctID: String, set: [String: AnalyticsValue], setOnce: [String: AnalyticsValue]) {}
     func reset() {}
     func setEnabled(_ enabled: Bool, rememberedUserID: String?) {}
+    func deferDecision() {}
     func flush() {}
 }
 
@@ -75,6 +78,13 @@ public struct AnalyticsClient: Sendable {
     /// one, so a person the SDK still holds is kept or forgotten correctly.
     public func setEnabled(_ enabled: Bool, rememberedUserID: String?) {
         sink.setEnabled(enabled, rememberedUserID: rememberedUserID)
+    }
+
+    /// Holds events in memory until `setEnabled` decides. Turning sharing on sends them in order;
+    /// turning it off discards them. The app calls it when no choice is stored and the regional
+    /// default is still loading.
+    public func deferDecision() {
+        sink.deferDecision()
     }
 
     /// Stops sending at the musician's word. The event saying so is sent and flushed first, since
