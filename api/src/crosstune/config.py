@@ -2,6 +2,7 @@
 
 import re
 from functools import lru_cache
+from pathlib import Path
 from typing import Self
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -107,6 +108,7 @@ class Settings(BaseSettings):
     )
 
     environment: str = "development"
+    geoip_path: Path = Path("/app/geo/dbip-country-lite.mmdb")
     debug: bool = False
     testdata_enabled: bool = False
     # Hidden from repr because the URL carries the password; it stays a plain str since

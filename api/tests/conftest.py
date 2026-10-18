@@ -26,6 +26,7 @@ from crosstune.auth.jwks import JwksCache
 from crosstune.config import Settings
 from crosstune.db.base import Base
 from crosstune.db.engine import make_engine, make_sessionmaker
+from crosstune.geo import NoCountryReader
 from crosstune.http import PublicOnlyTransport
 from crosstune.main import create_app
 from crosstune.ops import local_storage
@@ -562,6 +563,7 @@ def app(settings: Settings, engine, mock_http: MockHttp, object_store: FakeObjec
     app.state.stripe = FakeStripe()
     app.state.analytics_persons = FakeAnalyticsPersons()
     app.state.object_store = object_store
+    app.state.geo = NoCountryReader()
     return app
 
 

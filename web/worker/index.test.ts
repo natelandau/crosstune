@@ -20,6 +20,34 @@ function sentRequest(upstream: ReturnType<typeof vi.fn>): Request {
 }
 
 describe('handleRequest', () => {
+  it('tells the API the caller country from the edge', async () => {
+    const upstream = vi.fn(async () => new Response('ok'))
+    const request = Object.assign(new Request('https://example.com/v1/me'), {
+      cf: { country: 'DE' },
+    })
+    await handleRequest(request, makeEnv(), upstream)
+    expect(sentRequest(upstream).headers.get('x-crosstune-country')).toBe('DE')
+  })
+
+  it('overwrites a client-sent country header with the edge value', async () => {
+    const upstream = vi.fn(async () => new Response('ok'))
+    const request = Object.assign(
+      new Request('https://example.com/v1/me', { headers: { 'x-crosstune-country': 'US' } }),
+      { cf: { country: 'DE' } },
+    )
+    await handleRequest(request, makeEnv(), upstream)
+    expect(sentRequest(upstream).headers.get('x-crosstune-country')).toBe('DE')
+  })
+
+  it('sends no country header when the edge gives none', async () => {
+    const upstream = vi.fn(async () => new Response('ok'))
+    const request = new Request('https://example.com/v1/me', {
+      headers: { 'x-crosstune-country': 'US' },
+    })
+    await handleRequest(request, makeEnv(), upstream)
+    expect(sentRequest(upstream).headers.get('x-crosstune-country')).toBeNull()
+  })
+
   it('proxies /v1 on the custom domain to the production API', async () => {
     const upstream = vi.fn(async () => new Response('ok'))
     const request = new Request('https://example.com/v1/sync/pull?since=3', {
