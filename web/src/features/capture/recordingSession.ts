@@ -1,4 +1,10 @@
-import { appendChunk, beginCapture, cancelCapture, finishCapture } from '../../commands/recordings'
+import {
+  appendChunk,
+  beginCapture,
+  cancelCapture,
+  finishCapture,
+  type RecordingPlace,
+} from '../../commands/recordings'
 import { settingsId } from '../../commands/settings'
 import { AUDIO_BITRATES } from '../../constants'
 import { getStorage } from '../../db/meta'
@@ -57,6 +63,8 @@ export interface RecordingSessionDeps<S extends MediaStreamLike> {
   persistStorage: () => void
   clock: SessionClock
   tuneId: string | null
+  /** Where the device is. Never awaited: a slow, failed, or denied fix only means no place. */
+  getPosition?: () => Promise<RecordingPlace | null>
 }
 
 export interface RecordingSession {
@@ -121,6 +129,8 @@ export function createRecordingSession<S extends MediaStreamLike>(
   let bytesWritten = 0
   let sizeLimited = false
   let interrupted = false
+  // Set only if the fix settles before the recording ends; a later one is dropped.
+  let place: RecordingPlace | null = null
   // One peak byte per 20 ms window, built up live so an offline take has a waveform before
   // the server ever builds one.
   const peakValues: number[] = []
@@ -187,6 +197,7 @@ export function createRecordingSession<S extends MediaStreamLike>(
           mime: recorder?.mimeType || 'audio/mp4',
           durationMs: activeMs,
           recordedAt,
+          place,
           peaks:
             peakValues.length > 0
               ? encodePeaks(fitPeaks(Uint8Array.from(peakValues), activeMs))
@@ -275,6 +286,15 @@ export function createRecordingSession<S extends MediaStreamLike>(
       return
     }
     if (abandoned()) return abandonStart()
+
+    // Asked only once the microphone and the capture lock are held, so a take that cannot
+    // start never prompts for location.
+    Promise.resolve()
+      .then(() => deps.getPosition?.() ?? null)
+      .then((fix) => {
+        if (!ending) place = fix
+      })
+      .catch(() => {})
 
     try {
       // unlockAudioContext also resumes a shared context an interruption left suspended.

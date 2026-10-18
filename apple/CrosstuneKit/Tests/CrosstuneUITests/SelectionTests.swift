@@ -202,6 +202,20 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         form.touch(.isCrooked, nil)
         #expect(form.patch.tune.isCrooked == .keep)
     }
+
+    @Test func typesIntoAMixedRowAndKeepsItAgain() {
+        var form = BulkEditForm(entries: [a, b], instruments: ["violin"])
+        let tuning = EditField.tuning("violin")
+        #expect(form.text(tuning).isEmpty)
+        #expect(form.isMixed(tuning))
+        form.touch(tuning, .text("Cross A"))
+        #expect(form.text(tuning) == "Cross A")
+        #expect(!form.isMixed(tuning))
+        form.touch(tuning, nil)
+        #expect(form.text(tuning).isEmpty)
+        #expect(form.isMixed(tuning))
+        #expect(!form.isEdited)
+    }
 }
 
 @Suite struct TuneSelectionTests {

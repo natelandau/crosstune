@@ -35,18 +35,25 @@ struct PrivacyManifestTests {
         #expect(
             declared["NSPrivacyCollectedDataTypeProductInteraction"]
                 == Declared(linked: true, tracking: false, purposes: [analytics]))
-        // PostHog's GeoIP derives a country and city from the request.
+        // PostHog's GeoIP derives a country and city from the request, and with Precise Location
+        // off a take keeps the approximate fix.
         #expect(
             declared["NSPrivacyCollectedDataTypeCoarseLocation"]
-                == Declared(linked: true, tracking: false, purposes: [analytics]))
+                == Declared(
+                    linked: true, tracking: false,
+                    purposes: [analytics, "NSPrivacyCollectedDataTypePurposeAppFunctionality"]))
         // PostHog's app lifecycle events, kept for retention.
         #expect(
             declared["NSPrivacyCollectedDataTypeOtherUsageData"]
                 == Declared(linked: true, tracking: false, purposes: [analytics]))
+        // Sync, upload, and export failure events carry a failure reason.
+        #expect(
+            declared["NSPrivacyCollectedDataTypeOtherDiagnosticData"]
+                == Declared(linked: true, tracking: false, purposes: [analytics]))
         #expect(declared.values.allSatisfy { !$0.tracking })
     }
 
-    @Test func declaresTheAccountNameAndTheScans() throws {
+    @Test func declaresTheAccountNameTheScansAndWhereTakesWereMade() throws {
         let declared = try Self.declared()
         let functionality = Declared(
             linked: true, tracking: false, purposes: ["NSPrivacyCollectedDataTypePurposeAppFunctionality"])
@@ -55,6 +62,8 @@ struct PrivacyManifestTests {
         #expect(declared["NSPrivacyCollectedDataTypeName"] == functionality)
         // Camera scans and photo library uploads, stored with the account.
         #expect(declared["NSPrivacyCollectedDataTypePhotosorVideos"] == functionality)
+        // Where a take was recorded, stored with the recording at the device's full accuracy.
+        #expect(declared["NSPrivacyCollectedDataTypePreciseLocation"] == functionality)
     }
 
     @Test func declaresThePurchaseHistoryRevenueCatKeeps() throws {

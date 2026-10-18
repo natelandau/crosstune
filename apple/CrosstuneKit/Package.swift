@@ -135,7 +135,7 @@ let package = Package(
             name: "CrosstuneAudioTests",
             dependencies: [
                 "CrosstuneAudio", "CrosstuneCommands", "CrosstuneStore", "CrosstuneTestSupport",
-                .product(name: "GRDB", package: "GRDB.swift"),
+                "CrosstuneVocabulary", .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
         .testTarget(

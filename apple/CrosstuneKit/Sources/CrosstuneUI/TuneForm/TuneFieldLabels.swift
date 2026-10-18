@@ -33,8 +33,6 @@ public enum TuneFieldLabels {
 
     /// An empty field's value, and the choice that leaves a field empty.
     public static let notSet = "Not set"
-    /// The choice that reveals a text field for a value the suggestions lack.
-    public static let other = "Other…"
     /// The capo picker's empty choice.
     public static let noCapo = "None"
     /// What pressing the empty learned-on row does, for a screen reader.
@@ -48,11 +46,6 @@ public enum TuneFieldLabels {
 
     public static func capo(_ instrument: String) -> String {
         "\(Vocabulary.instrumentLabel(instrument)) capo"
-    }
-
-    /// The text field Other reveals, "Other genre".
-    public static func other(_ label: String) -> String {
-        "Other \(label.lowercased())"
     }
 
     /// A part's mode row label, for as many parts as the API allows.

@@ -7,12 +7,14 @@ import contextlib
 import ctypes
 import json
 import os
+import re
 import sys
 from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Callable
+    from collections.abc import AsyncGenerator, Callable, Mapping
     from pathlib import Path
 
 MAX_PLAYBACK_CHANNELS = 2
@@ -39,6 +41,17 @@ INPUT_GUARD = (
 MEMORY_LIMIT_BYTES = 1 << 30
 FILE_LIMIT_BYTES = 1 << 30
 _PR_SET_DUMPABLE = 4
+# Phones write the place a file was recorded in under the first key; other MP4 writers
+# use the second.
+LOCATION_TAGS = ("com.apple.quicktime.location.ISO6709", "location")
+CREATION_DATE_TAGS = ("com.apple.quicktime.creationdate", "creation_time")
+# Decimal degrees only, as phones write them: `+DD.DDDD+DDD.DDDD`, an optional
+# altitude, then the closing slash. The degrees-and-minutes forms are not read.
+_ISO6709 = re.compile(r"([+-]\d{2}(?:\.\d+)?)([+-]\d{3}(?:\.\d+)?)(?:[+-]\d+(?:\.\d+)?)?/?")
+# The zero dates of the QuickTime and Unix clocks, which a recorder with no clock writes.
+_EPOCH_DATES = frozenset({date(1904, 1, 1), date(1970, 1, 1)})
+_MAX_LAT = 90.0
+_MAX_LON = 180.0
 
 
 class MediaError(Exception):
@@ -47,13 +60,69 @@ class MediaError(Exception):
 
 @dataclass(frozen=True)
 class Probe:
-    """What ffprobe reports about the first audio stream."""
+    """What ffprobe reports about the first audio stream and the file it is in."""
 
     codec: str
     format_names: frozenset[str]
     bit_rate: int | None
     duration_ms: int
     channels: int
+    location: tuple[float, float] | None = None
+    created_at: datetime | None = None
+
+
+def parse_iso6709(value: str) -> tuple[float, float] | None:
+    """Read the latitude and longitude from an ISO 6709 point, as a phone tags its recordings.
+
+    Args:
+        value: A point such as `+36.6612-080.9239+000.000/`.
+
+    Returns:
+        tuple[float, float] | None: Latitude and longitude in degrees at full precision, or
+            None when the value is not a decimal-degrees point on the globe.
+    """
+    match = _ISO6709.fullmatch(value.strip())
+    if match is None:
+        return None
+    lat, lon = float(match[1]), float(match[2])
+    if abs(lat) > _MAX_LAT or abs(lon) > _MAX_LON:
+        return None
+    return lat, lon
+
+
+def parse_creation_date(tags: Mapping[str, str], *, now: datetime) -> datetime | None:
+    """Read when a file was recorded from its container tags.
+
+    Args:
+        tags: The container's tags, keys in any case.
+        now: The current time; a date after it is a wrong clock, not a recording.
+
+    Returns:
+        datetime | None: The time in UTC, from the first tag of CREATION_DATE_TAGS present,
+            or None when it is missing, unreadable, in the future, or a clock's zero date.
+    """
+    value = _tag(tags, CREATION_DATE_TAGS)
+    if value is None:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip())
+    except ValueError:
+        return None
+    # A tag with no offset is UTC, as the MP4 creation time always is.
+    created = parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed.astimezone(UTC)
+    if created > now or created.date() in _EPOCH_DATES:
+        return None
+    return created
+
+
+def _tag(tags: Mapping[str, str], keys: tuple[str, ...]) -> str | None:
+    """The value of the first of `keys` present in `tags`, matching keys in any case."""
+    folded = {str(key).casefold(): value for key, value in tags.items()}
+    for key in keys:
+        value = folded.get(key.casefold())
+        if isinstance(value, str):
+            return value
+    return None
 
 
 def passthrough_max_bitrate(channels: int) -> int:
@@ -234,7 +303,7 @@ async def stream_media_tool(*argv: str, on_stdout: Callable[[bytes], None]) -> N
 
 
 async def probe(path: Path) -> Probe:
-    """Read codec, container, bit rate, and duration.
+    """Read codec, container, bit rate, and duration, and where and when the file was recorded.
 
     Args:
         path: A local file.
@@ -245,20 +314,23 @@ async def probe(path: Path) -> Probe:
     Raises:
         MediaError: ffprobe failed, or the file has no audio stream or no duration.
     """
-    raw = await run_media_tool(
-        *ffprobe(
-            "-v",
-            "error",
-            "-print_format",
-            "json",
-            "-show_format",
-            "-show_streams",
-            *INPUT_GUARD,
-            str(path),
-        )
-    )
+    # Parsed without keeping the raw report in a local, where an error report would show
+    # its location tag.
     try:
-        report = json.loads(raw)
+        report = json.loads(
+            await run_media_tool(
+                *ffprobe(
+                    "-v",
+                    "error",
+                    "-print_format",
+                    "json",
+                    "-show_format",
+                    "-show_streams",
+                    *INPUT_GUARD,
+                    str(path),
+                )
+            )
+        )
     except json.JSONDecodeError as exc:
         msg = "ffprobe produced no report"
         raise MediaError(msg) from exc
@@ -272,12 +344,17 @@ async def probe(path: Path) -> Probe:
     if duration is None:
         msg = "No duration"
         raise MediaError(msg)
+    tags = fmt.get("tags")
+    tags = tags if isinstance(tags, dict) else {}
+    location = _tag(tags, LOCATION_TAGS)
     return Probe(
         codec=str(audio.get("codec_name", "")),
         format_names=frozenset(str(fmt.get("format_name", "")).split(",")),
         bit_rate=int(float(bit_rate)) if bit_rate else None,
         duration_ms=round(float(duration) * 1000),
         channels=int(audio.get("channels") or 1),
+        location=parse_iso6709(location) if location is not None else None,
+        created_at=parse_creation_date(tags, now=datetime.now(UTC)),
     )
 
 

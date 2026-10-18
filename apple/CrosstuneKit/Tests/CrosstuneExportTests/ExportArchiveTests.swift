@@ -315,7 +315,7 @@ private func setImmutable(_ immutable: Bool, inFolder folder: URL) throws {
 }
 
 #if os(macOS)
-    @Test func theZipHoldsBothCSVsAndTheLocalAudioAtItsRoot() async throws {
+    @Test func theZipHoldsTheCSVsAndTheLocalAudioAtItsRoot() async throws {
         let root = TemporaryRoot()
         let store = try await seededStore(root)
         let work = workFolder()
@@ -328,7 +328,7 @@ private func setImmutable(_ immutable: Bool, inFolder folder: URL) throws {
         let audioPath = "recordings/Angeline the Baker/2026-09-25.m4a"
         let names = String(decoding: try run("/usr/bin/unzip", ["-Z1", path]), as: UTF8.self)
             .split(separator: "\n").map(String.init)
-        #expect(names == ["tunes.csv", "lists.csv", audioPath])
+        #expect(names == ["tunes.csv", "lists.csv", "recordings.csv", audioPath])
         #expect(try run("/usr/bin/unzip", ["-t", path]).contains(text: "No errors detected"))
         #expect(centralEntries(try Data(contentsOf: zip)).allSatisfy { $0.method == 0 && $0.flags & 0x0800 != 0 })
         #expect(try run("/usr/bin/unzip", ["-p", path, audioPath]) == audioBytes)

@@ -237,6 +237,12 @@ TABLES: dict[TableName, TableSpec] = {
         scrub={
             "label": None,
             "error": None,
+            "notes": None,
+            "players": None,
+            "place_name": None,
+            "place_lat": None,
+            "place_lon": None,
+            "place_accuracy_m": None,
             # An imported recording keeps a URL so ck_recordings_origin_url still holds.
             "origin_url": case((Recording.origin_url.is_(None), None), else_=TOMBSTONE_URL),
         },

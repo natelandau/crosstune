@@ -74,7 +74,7 @@ test('counts leave out a scan on a tune the export leaves out', async () => {
   expect(await exportCounts(db)).toEqual({ onDevice: 0, total: 0, missing: 0 })
   const { blob } = await createExport(db, USER, options())
   const files = unzipSync(new Uint8Array(await blob.arrayBuffer()))
-  expect(Object.keys(files)).toEqual(['tunes.csv', 'lists.csv'])
+  expect(Object.keys(files)).toEqual(['tunes.csv', 'lists.csv', 'recordings.csv'])
 })
 
 test('an audio file with no recording row is neither counted nor exported', async () => {
@@ -89,6 +89,7 @@ test('an audio file with no recording row is neither counted nor exported', asyn
   expect(Object.keys(files)).toEqual([
     'tunes.csv',
     'lists.csv',
+    'recordings.csv',
     'recordings/Cluck Old Hen/2026-01-01.m4a',
     'recordings/Cluck Old Hen/2026-09-20.m4a',
   ])
@@ -140,7 +141,7 @@ test('reads the chosen instruments from the settings row', async () => {
   expect(input.timeZone).toBe(ZONE)
 })
 
-test('builds a zip of both CSVs and the audio, named for the local date', async () => {
+test('builds a zip of the CSVs and the audio, named for the local date', async () => {
   const db = openTestDb()
   await seed(db)
   const { fileName, blob } = await createExport(db, USER, options())
@@ -149,6 +150,7 @@ test('builds a zip of both CSVs and the audio, named for the local date', async 
   expect(Object.keys(files)).toEqual([
     'tunes.csv',
     'lists.csv',
+    'recordings.csv',
     'recordings/Cluck Old Hen/2026-01-01.m4a',
     'recordings/Cluck Old Hen/2026-09-20.m4a',
   ])
@@ -224,11 +226,11 @@ test('names the zip for the date in the time zone, not UTC', async () => {
   expect(fileName).toBe('crosstune-export-2026-10-02.zip')
 })
 
-test('an empty store still yields both CSVs', async () => {
+test('an empty store still yields every CSV', async () => {
   const db = openTestDb()
   const { blob } = await createExport(db, USER, options())
   const files = unzipSync(new Uint8Array(await blob.arrayBuffer()))
-  expect(Object.keys(files)).toEqual(['tunes.csv', 'lists.csv'])
+  expect(Object.keys(files)).toEqual(['tunes.csv', 'lists.csv', 'recordings.csv'])
 })
 
 test('reports audio progress from zero, excluding the CSVs', async () => {

@@ -57,6 +57,8 @@ public struct ExportInput: Sendable {
 public struct ExportPlan: Sendable {
     public var tunesCSV: String
     public var listsCSV: String
+    /// Every recording not deleted, with or without its audio in the export.
+    public var recordingsCSV: String
     /// Every exported recording with its archive path, in archive order.
     public var audio: [(recordingID: String, path: String)]
     /// Every exported scan with its archive path, in archive order.
@@ -72,6 +74,10 @@ public let tunesHeader = [
 ]
 
 public let listsHeader = ["list", "position", "tune"]
+
+public let recordingsHeader = [
+    "file", "tune", "name", "recorded_on", "players", "place", "latitude", "longitude", "accuracy_m", "notes",
+]
 
 private let unfiled = "Unfiled"
 
@@ -170,6 +176,23 @@ private func exportedTunes(_ input: ExportInput) -> [ExportedTune] {
         }
 }
 
+/// Recordings grouped by the exported tune they are filed under; nil holds the rest.
+private func groupedRecordings(_ recordings: [Recording], tunes: [ExportedTune]) -> [String?: [Recording]] {
+    let filedTuneIDs = Set(tunes.map(\.tune.id))
+    return grouped(recordings) { recording -> String? in
+        recording.tuneID.flatMap { filedTuneIDs.contains($0) ? $0 : nil }
+    }
+}
+
+/// A tune's recordings in the order the app shows them.
+private func inShownOrder(_ recordings: [Recording]) -> [Recording] {
+    recordings.stablySorted { a, b in
+        if a.position != b.position { return a.position < b.position }
+        if a.addedAt != b.addedAt { return a.addedAt < b.addedAt }
+        return codeUnitsAscending(a.id, b.id)
+    }
+}
+
 /// Archive paths for every exported recording: tune folders in tune order, then `Unfiled`.
 /// Folder and file names are allocated in that same order, so a collision suffix follows the
 /// order the app shows.
@@ -177,23 +200,15 @@ private func planAudio(_ input: ExportInput, tunes: [ExportedTune], dateText: Da
     audio: [(recordingID: String, path: String)], pathsByTune: [String: [String]]
 ) {
     let audioByID = Dictionary(input.localAudio.map { ($0.recordingID, $0) }, uniquingKeysWith: { _, last in last })
-    let filedTuneIDs = Set(tunes.map(\.tune.id))
-    let groups = grouped(input.recordings.filter { $0.deletedAt == nil && audioByID[$0.id] != nil }) {
-        recording -> String? in
-        recording.tuneID.flatMap { filedTuneIDs.contains($0) ? $0 : nil }
-    }
+    let groups = groupedRecordings(
+        input.recordings.filter { $0.deletedAt == nil && audioByID[$0.id] != nil }, tunes: tunes)
 
     var audio: [(recordingID: String, path: String)] = []
     var pathsByTune: [String: [String]] = [:]
 
     func addFolder(_ folder: String, _ recordings: [Recording]) -> [String] {
         var files = NameAllocator()
-        let ordered = recordings.stablySorted { a, b in
-            if a.position != b.position { return a.position < b.position }
-            if a.addedAt != b.addedAt { return a.addedAt < b.addedAt }
-            return codeUnitsAscending(a.id, b.id)
-        }
-        return ordered.map { recording in
+        return inShownOrder(recordings).map { recording in
             let date = dateText(recording.addedAt)
             let stem = recording.label.flatMap { $0.isEmpty ? nil : "\(date) \($0)" } ?? date
             let ext = audioByID[recording.id].flatMap { $0.fileExtension.isEmpty ? nil : $0.fileExtension } ?? "audio"
@@ -258,7 +273,80 @@ private func listRows(_ input: ExportInput, tunes: [ExportedTune]) -> [[String]]
         }
 }
 
-/// Both CSV documents and the archive path of every exported recording and scan.
+/// A number as plain decimal digits, never in exponent form, with no trailing zeros: the
+/// shortest digits that read back as the same number, as every client writes them.
+func decimalText(_ value: Double) -> String {
+    let text = "\(value)"
+    let negative = text.hasPrefix("-")
+    let unsigned = negative ? String(text.dropFirst()) : text
+    let parts = unsigned.split(separator: "e", maxSplits: 1, omittingEmptySubsequences: false)
+    let exponent = parts.count > 1 ? Int(parts[1]) ?? 0 : 0
+    let mantissa = parts[0].split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
+    let whole = String(mantissa[0])
+    let digits = whole + (mantissa.count > 1 ? String(mantissa[1]) : "")
+    let point = whole.count + exponent
+    var plain: String
+    if point <= 0 {
+        plain = "0." + String(repeating: "0", count: -point) + digits
+    } else if point >= digits.count {
+        plain = digits + String(repeating: "0", count: point - digits.count)
+    } else {
+        plain = "\(digits.prefix(point)).\(digits.dropFirst(point))"
+    }
+    if plain.contains(".") {
+        while plain.hasSuffix("0") { plain.removeLast() }
+        if plain.hasSuffix(".") { plain.removeLast() }
+    }
+    while plain.count > 1, plain.hasPrefix("0"), plain.dropFirst().first?.isNumber == true { plain.removeFirst() }
+    return plain == "0" || !negative ? plain : "-" + plain
+}
+
+/// `yyyy`, `yyyy-MM`, or `yyyy-MM-dd` of an instant in UTC, where a partial date starts.
+private let utcDay: DateText = DateText(timeZone: TimeZone(identifier: "UTC")!)
+
+/// When a recording was played, to the precision known: a year, a month, a day.
+private func recordedOn(_ recording: Recording, dateText: DateText) -> String {
+    guard let (at, precision) = recording.knownRecordedDate else { return "" }
+    switch precision {
+    case .time: return dateText(at)
+    case .day: return utcDay(at)
+    case .month: return String(utcDay(at).prefix(7))
+    case .year: return String(utcDay(at).prefix(4))
+    }
+}
+
+/// One row per live recording, in tune order then unfiled, each with its archive path if any.
+private func recordingRows(
+    _ input: ExportInput, tunes: [ExportedTune], audio: [(recordingID: String, path: String)], dateText: DateText
+) -> [[String]] {
+    let pathByID = Dictionary(audio.map { ($0.recordingID, $0.path) }, uniquingKeysWith: { _, last in last })
+    let groups = groupedRecordings(input.recordings.filter { $0.deletedAt == nil }, tunes: tunes)
+    func row(_ recording: Recording, tune: String) -> [String] {
+        [
+            pathByID[recording.id] ?? "",
+            tune,
+            recording.label ?? "",
+            recordedOn(recording, dateText: dateText),
+            recording.players ?? "",
+            recording.placeName ?? "",
+            recording.placeLat.map(decimalText) ?? "",
+            recording.placeLon.map(decimalText) ?? "",
+            recording.placeAccuracyM.map { String($0) } ?? "",
+            recording.notes ?? "",
+        ]
+    }
+    var rows: [[String]] = []
+    var seen = Set<String>()
+    for exported in tunes {
+        let id = exported.tune.id
+        guard let recordings = groups[id], seen.insert(id).inserted else { continue }
+        rows += inShownOrder(recordings).map { row($0, tune: exported.tune.title) }
+    }
+    rows += inShownOrder(groups[nil] ?? []).map { row($0, tune: "") }
+    return rows
+}
+
+/// The CSV documents and the archive path of every exported recording and scan.
 public func buildExport(_ input: ExportInput) -> ExportPlan {
     let dateText = DateText(timeZone: input.timeZone)
     let tunes = exportedTunes(input)
@@ -297,6 +385,8 @@ public func buildExport(_ input: ExportInput) -> ExportPlan {
     return ExportPlan(
         tunesCSV: csvDocument([tunesHeader] + tuneRows),
         listsCSV: csvDocument([listsHeader] + listRows(input, tunes: tunes)),
+        recordingsCSV: csvDocument(
+            [recordingsHeader] + recordingRows(input, tunes: tunes, audio: audio, dateText: dateText)),
         audio: audio, scans: scans,
         totalRecordings: input.recordings.count { $0.deletedAt == nil })
 }

@@ -118,6 +118,7 @@ export const INSTRUMENTS = [
   'bouzouki',
   'mountain_dulcimer',
 ] as const
+const PLACE_METHODS = ['search', 'suggestion'] as const
 
 /** The plan's `screen` enum without `stand`, which only the Apple apps have. */
 export const SCREENS = [
@@ -182,6 +183,7 @@ export const ENUMS = {
   plan_notice: PLAN_NOTICES,
   tune_status: TUNE_STATUSES,
   instrument: INSTRUMENTS,
+  place_method: PLACE_METHODS,
 } as const
 
 export type Source = (typeof SOURCES)[number]
@@ -216,6 +218,7 @@ export type PlanNotice = Notice
 export type Appearance = (typeof APPEARANCES)[number]
 export type TuneStatus = (typeof TUNE_STATUSES)[number]
 export type Instrument = (typeof INSTRUMENTS)[number]
+export type PlaceMethod = (typeof PLACE_METHODS)[number]
 export type Screen = (typeof SCREENS)[number]
 export type SettingName = (typeof SETTING_NAMES)[number]
 
@@ -303,6 +306,8 @@ export interface EventProps {
   recording_filed: { from: FiledFrom; origin: Origin; recording_id: string; tune_id: string }
   recording_unfiled: { origin: Origin; recording_id: string }
   recording_renamed: { origin: Origin; recording_id: string }
+  recording_place_set: { method: PlaceMethod; recording_id: string; replaced: boolean }
+  recording_place_cleared: { recording_id: string }
   recording_deleted: { origin: Origin; recording_id: string }
   recording_trimmed: { recording_id: string }
   link_added: { service: Service; via: LinkVia; link_id: string; tune_id: string }

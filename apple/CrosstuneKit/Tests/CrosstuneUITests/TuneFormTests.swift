@@ -333,13 +333,33 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         #expect(SuggestionPicker.choices(["Reel"], value: "") == ["Reel"])
     }
 
-    @Test func clearsASuggestionWhenOtherIsChosenAndKeepsACustomValue() {
-        let options = ["Reel", "Jig"]
-        #expect(SuggestionPicker.choosing(SuggestionPicker.otherTag, value: "Reel", options: options) == ("", true))
-        #expect(
-            SuggestionPicker.choosing(SuggestionPicker.otherTag, value: "Fling", options: options) == ("Fling", true))
-        #expect(SuggestionPicker.choosing(SuggestionPicker.noneTag, value: "Reel", options: options) == ("", false))
-        #expect(SuggestionPicker.choosing("Jig", value: "", options: options) == ("Jig", false))
+    @Test func offersEverySuggestionForAnEmptyField() {
+        #expect(SuggestionField.matches(["Reel", "Jig"], typed: "") == ["Reel", "Jig"])
+    }
+
+    @Test func narrowsSuggestionsToThoseHoldingTheTypedText() {
+        let types = ["Reel", "Jig", "Slip jig", "Hornpipe"]
+        #expect(SuggestionField.matches(types, typed: "jig") == ["Jig", "Slip jig"])
+        #expect(SuggestionField.matches(["Cajun", "Cape Breton"], typed: "cajún") == ["Cajun"])
+        #expect(SuggestionField.matches(types, typed: "Waltz").isEmpty)
+    }
+
+    @Test func neverSuggestsTheValueAlreadyTyped() {
+        #expect(SuggestionField.matches(["Jig", "Slip jig"], typed: "Jig") == ["Slip jig"])
+    }
+
+    @Test func takesTypedTextAsTheValueWithNoPick() {
+        #expect(SuggestionField.edit("Fling", kept: false) == .set("Fling"))
+        #expect(SuggestionField.edit("Fling", kept: true) == .set("Fling"))
+    }
+
+    @Test func emptiesAFieldWhoseTextIsDeleted() {
+        #expect(SuggestionField.edit("", kept: false) == .set(""))
+    }
+
+    @Test func leavesAKeptFieldAloneUntilTypedIntoAndKeepsOnItsChoice() {
+        #expect(SuggestionField.edit("", kept: true) == nil)
+        #expect(SuggestionField.edit(SuggestionField.keepToken, kept: false) == .keep)
     }
 
     @Test func storesACalendarDayAndReadsItBackUnchanged() throws {
@@ -357,7 +377,6 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
     @Test func namesTuningAndCapoRowsInFull() {
         #expect(TuneFieldLabels.tuning("five_string_banjo") == "5-string banjo tuning")
         #expect(TuneFieldLabels.capo("guitar") == "Guitar capo")
-        #expect(TuneFieldLabels.other(TuneFieldLabels.genre) == "Other genre")
     }
 }
 

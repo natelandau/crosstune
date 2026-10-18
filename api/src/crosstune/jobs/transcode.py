@@ -24,6 +24,7 @@ from crosstune.storage.store import (
     upload_key,
     upload_revision,
 )
+from crosstune.vocabulary import RecordingPrecision, RecordingSource
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -117,6 +118,34 @@ async def _reclamp_trim(session: AsyncSession, recording: Recording) -> None:
     clamp_stored_trim(recording, high=recording.source_duration_ms)
 
 
+async def _adopt_upload_tags(session: AsyncSession, recording: Recording, info: Probe) -> None:
+    """Give an upload the place and date its file was tagged with, when it has none of its own.
+
+    Re-read under the user's lock like the trim, so a place or date the user pushed while
+    the file transcoded is never overwritten. A microphone take already knows both, and
+    an import's page is its only source of either.
+    """
+    if recording.source != RecordingSource.UPLOAD:
+        return
+    await session.refresh(
+        recording,
+        attribute_names=[
+            "place_lat",
+            "place_lon",
+            "place_name",
+            "place_accuracy_m",
+            "recorded_at",
+            "recorded_precision",
+        ],
+    )
+    if info.location is not None and recording.place_lat is None:
+        recording.place_lat, recording.place_lon = info.location
+        recording.place_accuracy_m = None
+    if info.created_at is not None and recording.recorded_at is None:
+        recording.recorded_at = info.created_at
+        recording.recorded_precision = RecordingPrecision.TIME.value
+
+
 async def transcode(
     session: AsyncSession, store: ObjectStore, recording: Recording, work_dir: Path
 ) -> None:
@@ -124,8 +153,9 @@ async def transcode(
 
     Applies whatever trim was saved before upload, clamped now that the source's
     real length is known, and builds the waveform peaks for the resulting playback
-    file. The uploaded object is left in the bucket: it is what a retry reads, and
-    the caller deletes it once the row is committed.
+    file. An upload with no place or recorded date of its own takes the ones its
+    file was tagged with. The uploaded object is left in the bucket: it is what a
+    retry reads, and the caller deletes it once the row is committed.
 
     A failure partway through can leave server-owned columns set on the in-memory
     row without a matching commit; the caller must refresh the row from the
@@ -186,6 +216,7 @@ async def transcode(
     # caller's commit releases it.
     await lock_user(session, recording.user_id)
     await _reclamp_trim(session, recording)
+    await _adopt_upload_tags(session, recording, info)
     await reclamp_recording_loops(session, recording, utc_now())
     bump_server_seq(recording)
     await session.flush()

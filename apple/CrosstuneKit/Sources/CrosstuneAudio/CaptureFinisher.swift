@@ -34,10 +34,14 @@ public struct CaptureFinisher: Sendable {
     /// duration before it is written. Recovery, with no live meter to draw on, decodes the
     /// exported file for its waveform instead.
     ///
+    /// `coordinate` is where a live take was made, saved as its place with no name.
+    ///
     /// Every step can be repeated: an export a crash cut short is redone, and a finished file
     /// whose capture is already gone is recorded as it is.
     @discardableResult
-    public func finish(_ recordingID: String, peaks: [UInt8]? = nil) async throws -> Bool {
+    public func finish(_ recordingID: String, peaks: [UInt8]? = nil, coordinate: Coordinate? = nil) async throws
+        -> Bool
+    {
         let capture = captureURL(recordingID)
         let finished = finishedURL(recordingID)
         if CaptureFiles.exists(capture) {
@@ -58,7 +62,7 @@ public struct CaptureFinisher: Sendable {
         let peaksFileName = try await writePeaks(recordingID, from: peaks, durationMs: durationMs, source: finished)
         return try await Commands(store: store).finishCapture(
             recordingID, fileName: CaptureFiles.finishedName(recordingID), bytes: CaptureFiles.size(of: finished),
-            durationMs: durationMs, peaksFileName: peaksFileName)
+            durationMs: durationMs, peaksFileName: peaksFileName, coordinate: coordinate)
     }
 
     /// Writes the recording's waveform beside its audio and returns its file name.

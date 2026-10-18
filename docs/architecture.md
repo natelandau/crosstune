@@ -568,6 +568,38 @@ never synced.
   west-of-UTC zone. Only `time` shows in local time. The API refuses a
   mismatched pair, a partial date off its period's start, and a partial
   date more than a day ahead.
+- Place: full-precision coordinates, the device's reported accuracy for a
+  take, and a name. A take gets the device's location only when the user
+  allows it, an upload only what its file carries, and an import never
+  gets one. Setting a place by hand clears the accuracy. Clients show a
+  place only once it has a name, but can clear coordinates that have none.
+- A push that leaves coordinates with no name queues a `place` job, at
+  most one per recording. It names them through Apple Maps reverse
+  geocoding, outside any transaction, and writes the name only when the
+  coordinates are unchanged and still unnamed. Coordinates pushed during
+  the lookup queue a lookup of their own. An Apple Maps outage, rate
+  limit, or network failure, a timeout, or a missing Maps key holds the
+  job back without spending an attempt, each wait as long as it has
+  waited so far, up to 6 hours, and at least Apple's `Retry-After` on a
+  429. A job still unnamed after 7 days is dropped. Any other failure
+  retries as other jobs do. New coordinates restart a waiting job's
+  clock and run it at once, and a runner that starts with a Maps key runs
+  every waiting job. Coordinates Apple Maps knows no place for stay
+  unnamed.
+- Place search: the web client calls `GET /v1/places/search`, which asks
+  Apple Maps' type-ahead for venues, street addresses, and towns together.
+  The only location hint is the fixed center point of the account's
+  country (`users.country`), never the user's or device's location, and
+  an account with no country gets none. With no Maps key it answers 503.
+  The Apple app searches with MapKit on the device and never calls the
+  route.
+- A place picked in search keeps what was picked, on every client: a
+  named place stores `Name, street, town`, a street address `street,
+  town`, and a town `town`. The town part is the same as the job's name.
+- The transcode of an upload reads the file's ISO 6709 location and
+  creation date, and fills only a place or recorded date the row lacks. It
+  re-reads both under the user lock, so nothing pushed meanwhile is
+  overwritten. A future date, or a clock's zero date, is ignored.
 - Import: the client saves a Slippery-Hill link's audio by creating a
   recording with source `import`, which works offline. On push the API
   checks that the address is importable and queues an import job, or fails
@@ -582,8 +614,9 @@ never synced.
   (`recording_max_file_bytes`) and a time limit for the whole download. The
   job uploads the file outside the user lock. Under the lock it checks the
   plan and the quota and hands the recording to the existing transcode.
-- When the import's date is still unknown, the job sets its year from the
-  Slippery-Hill page. It never overwrites a date the user set.
+- When the import's date or players are still unknown, the job sets them
+  from the Slippery-Hill page's year and artist. It never overwrites what
+  the user set.
 - A 404 or 410 on the file fails the import at once. A network failure
   retries, then ends as "Couldn't reach Slippery-Hill".
 - The PUT signature covers the declared size, so the bucket refuses a file
@@ -726,6 +759,9 @@ API.
   `_DEVELOPMENT`, `_PREVIEW`.
 - A GitHub variable or secret that feeds one app variable has that
   variable's name.
+- The API refuses to start with part of an Apple key (Apple Music, Sign in
+  with Apple, Apple Maps): each needs its key ID, its private key, and the
+  team ID.
 - The API refuses to start with only one of the RevenueCat project ID and
   secret key. The webhook value may be set alone. The Stripe cancel key is
   needed only to cancel a Stripe subscription when its account is deleted.
@@ -744,4 +780,5 @@ API.
 | R2                   | Audio already on the device works. Uploads wait and retry. A first download elsewhere fails.       |
 | Neon                 | The API returns 500s. The client behaves as if the API were down.                                  |
 | A streaming provider | New links save untitled. Embeds fail. Its search group offers only its own search page.            |
+| Apple Maps           | Place jobs wait and retry for up to 7 days. Web place search fails.                                |
 | Sentry or GitHub     | Nothing visible. Errors are dropped, or deploys and checks wait.                                   |

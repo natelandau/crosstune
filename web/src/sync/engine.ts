@@ -22,6 +22,7 @@ import {
   uploadPass,
 } from './transfers'
 import type {
+  PlaceSearchOutcome,
   SearchOutcome,
   SyncApi,
   SyncEngine,
@@ -392,6 +393,22 @@ export function createSyncEngine({
             retryAfterSeconds: error.retryAfterSeconds ?? DEFAULT_RETRY_AFTER_SECONDS,
           }
         }
+        return { kind: 'failed' }
+      }
+    },
+    async searchPlaces(q): Promise<PlaceSearchOutcome> {
+      if (!isOnline()) return { kind: 'offline' }
+      try {
+        const { results } = await api.searchPlaces(q)
+        return { kind: 'ok', results }
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 429) {
+          return {
+            kind: 'rate_limited',
+            retryAfterSeconds: error.retryAfterSeconds ?? DEFAULT_RETRY_AFTER_SECONDS,
+          }
+        }
+        if (error instanceof ApiError && error.status === 503) return { kind: 'unavailable' }
         return { kind: 'failed' }
       }
     },

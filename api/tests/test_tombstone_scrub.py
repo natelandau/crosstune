@@ -27,6 +27,14 @@ COLUMNS_CLEARED_TO_NULL = (
     "time_signature",
 )
 PAGE = "https://www.slippery-hill.com/recording/42"
+RECORDING_CONTENT = {
+    "notes": "Learned at the porch session",
+    "players": "Tommy Jarrell",
+    "place_name": "Galax, VA",
+    "place_lat": 36.6612,
+    "place_lon": -80.9240,
+    "place_accuracy_m": 12,
+}
 
 
 async def seed_tune(client, headers) -> dict[str, str]:
@@ -71,7 +79,7 @@ async def seed_tune(client, headers) -> dict[str, str]:
             title="A video",
             artwork_url="https://example.com/a.jpg",
         ),
-        recording(ids["own"], tune_id=ids["tune"], label="Take one"),
+        recording(ids["own"], tune_id=ids["tune"], label="Take one", **RECORDING_CONTENT),
         recording(
             ids["imported"],
             tune_id=ids["tune"],
@@ -144,6 +152,8 @@ async def test_deleting_a_tune_clears_its_children(
     assert link.deleted_at == T1
     own = await stored(verify_session, Recording, ids["own"])
     assert own.label is None
+    for column in RECORDING_CONTENT:
+        assert getattr(own, column) is None, column
     assert own.deleted_at == T1
     imported = await stored(verify_session, Recording, ids["imported"])
     assert imported.label is None
@@ -171,7 +181,7 @@ async def test_an_own_recording_keeps_a_null_origin_url(
 ) -> None:
     headers = auth_headers("user_a")
     rec = uid()
-    await push(client, headers, recording(rec, label="Take one"))
+    await push(client, headers, recording(rec, label="Take one", **RECORDING_CONTENT))
 
     await push(client, headers, change("recordings", rec, T1, op="delete"))
 
@@ -179,6 +189,8 @@ async def test_an_own_recording_keeps_a_null_origin_url(
     assert row.origin == "own"
     assert row.origin_url is None
     assert row.label is None
+    for column in RECORDING_CONTENT:
+        assert getattr(row, column) is None, column
 
 
 async def test_an_imported_recording_gets_the_placeholder_origin_url(
@@ -219,6 +231,8 @@ async def test_a_scrubbed_row_pulls_and_validates(client, auth_headers) -> None:
     assert rows[ids["link"]]["row"]["url"] == TOMBSTONE_URL
     assert rows[ids["imported"]]["row"]["origin_url"] == TOMBSTONE_URL
     assert rows[ids["own"]]["row"]["origin_url"] is None
+    for column in RECORDING_CONTENT:
+        assert rows[ids["own"]]["row"][column] is None, column
     assert rows[ids["user_tune"]]["row"]["notes"] is None
     assert rows[ids["loop"]]["row"]["label"] is None
 

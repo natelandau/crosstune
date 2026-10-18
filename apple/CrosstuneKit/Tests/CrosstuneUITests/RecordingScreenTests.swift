@@ -509,6 +509,22 @@ private final class Writes {
         #expect(subtitle(unfiled, tuneTitle: nil) == "2:05")
         #expect(subtitle(unfiled, tuneTitle: nil, lengthMs: nil).isEmpty)
     }
+
+    @Test func endsWithThePlayersAndTheNamedPlace() {
+        let credited = Recording(
+            tuneID: nil, source: "microphone", addedAt: noon, players: "Tommy Jarrell", placeName: "Galax, VA",
+            placeLat: 36.66, placeLon: -80.92)
+        #expect(subtitle(credited, tuneTitle: nil) == "2:05 · Tommy Jarrell · Galax, VA")
+        #expect(subtitle(credited, tuneTitle: nil, lengthMs: nil) == "Tommy Jarrell · Galax, VA")
+    }
+
+    @Test func leavesOutAPlaceWithNoNameAndNoPlayers() {
+        let unnamed = Recording(
+            tuneID: nil, source: "microphone", addedAt: noon, placeLat: 36.66, placeLon: -80.92, placeAccuracyM: 9)
+        #expect(subtitle(unnamed, tuneTitle: nil) == "2:05")
+        let playersOnly = Recording(tuneID: nil, source: "microphone", addedAt: noon, players: "Tommy Jarrell")
+        #expect(subtitle(playersOnly, tuneTitle: nil) == "2:05 · Tommy Jarrell")
+    }
 }
 
 @Suite struct PracticeSwipeTests {

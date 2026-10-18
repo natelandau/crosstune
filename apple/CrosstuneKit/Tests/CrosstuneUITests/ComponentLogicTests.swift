@@ -105,3 +105,18 @@ import Testing
         #expect(tapOutset(visibleHeight: 50) == 0)
     }
 }
+
+@Suite struct CharacterLimitTests {
+    @Test func countsCodePointsAsTheServerDoes() {
+        // Each flag is one character of two code points.
+        let flags = String(repeating: "🇺🇸", count: 3)
+        #expect(CharacterLimit.capped(flags, limit: 5) == String(repeating: "🇺🇸", count: 2))
+        #expect(CharacterLimit.capped(flags, limit: 6) == nil)
+    }
+
+    @Test func leavesTextWithinTheLimitOrWithNoLimit() {
+        #expect(CharacterLimit.capped("Galax", limit: 5) == nil)
+        #expect(CharacterLimit.capped("Galax", limit: nil) == nil)
+        #expect(CharacterLimit.capped("Galax, VA", limit: 5) == "Galax")
+    }
+}

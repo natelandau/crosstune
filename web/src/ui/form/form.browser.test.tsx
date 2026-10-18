@@ -3,7 +3,6 @@ import { expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { contrastRatio } from '../../test/contrast'
 import { ANY } from '../filterCopy'
-import { NOT_SET } from '../fieldCopy'
 import { DAY_LABEL, MONTH_LABEL, NO_DATE } from '../partialDate'
 import { renderWithProviders } from '../../test/render'
 import { FieldRow } from './FieldRow'
@@ -384,22 +383,113 @@ it('rings a refused date part in the danger color on touch', async () => {
   expect(ring(day)()).toBe('none')
 })
 
-it.each([
-  ['a value', 'reel', false],
-  ['Not set', '', true],
-])('selects a suggested field on focus only while it shows Not set: %s', async (_, value, all) => {
-  renderWithProviders(
+function SuggestHost({
+  start = '',
+  keep = false,
+  onChange = () => {},
+}: {
+  start?: string
+  /** Starts kept, over values that disagree. */
+  keep?: boolean
+  onChange?: (value: string) => void
+}) {
+  const [value, setValue] = useState(start)
+  const [kept, setKept] = useState(keep)
+  return (
     <Group>
-      <SuggestField label="Type" value={value} suggestions={['reel', 'jig']} onChange={() => {}} />
-    </Group>,
+      <SuggestField
+        label="Type"
+        value={value}
+        suggestions={['reel', 'jig', 'slip jig']}
+        maxLength={12}
+        keep={keep ? { label: 'Mixed', kept, onKeep: () => setKept(true) } : undefined}
+        onChange={(next) => {
+          setKept(false)
+          setValue(next)
+          onChange(next)
+        }}
+      />
+    </Group>
   )
+}
+
+it('leaves an empty suggested field empty, with no placeholder', async () => {
+  renderWithProviders(<SuggestHost />)
   const input = page.getByRole('combobox', { name: 'Type' })
-  await expect.element(input).toHaveValue(value || NOT_SET)
+  await expect.element(input).toHaveValue('')
+  expect(input.element().getAttribute('placeholder') ?? '').toBe('')
+})
+
+it('takes typed text as the value without a pick, capped at its limit', async () => {
+  const onChange = vi.fn()
+  renderWithProviders(<SuggestHost onChange={onChange} />)
+  const input = page.getByRole('combobox', { name: 'Type' })
+  await expect.element(input).toHaveAttribute('maxlength', '12')
   await input.click()
-  await expect.element(input).toHaveFocus()
-  const field = input.element() as HTMLInputElement
-  const selected = () => (field.selectionEnd ?? 0) - (field.selectionStart ?? 0)
-  await expect.poll(selected).toBe(all ? NOT_SET.length : 0)
+  await userEvent.keyboard('hornpipe')
+  await expect.element(input).toHaveValue('hornpipe')
+  await expect.poll(() => onChange.mock.lastCall).toEqual(['hornpipe'])
+  await userEvent.keyboard('{Tab}')
+  await expect.element(input).not.toHaveFocus()
+  await expect.element(input).toHaveValue('hornpipe')
+})
+
+it('narrows the suggestions as the musician types, and sets one on a pick', async () => {
+  const onChange = vi.fn()
+  renderWithProviders(<SuggestHost onChange={onChange} />)
+  const input = page.getByRole('combobox', { name: 'Type' })
+  await input.click()
+  await expect.element(page.getByRole('option', { name: 'reel' })).toBeVisible()
+  await userEvent.keyboard('ji')
+  await expect.element(page.getByRole('option', { name: 'reel' })).not.toBeInTheDocument()
+  await page.getByRole('option', { name: 'slip jig' }).click()
+  await expect.element(input).toHaveValue('slip jig')
+  await expect
+    .element(page.getByRole('option', { name: 'jig', exact: true }))
+    .not.toBeInTheDocument()
+  await expect.poll(() => onChange.mock.lastCall).toEqual(['slip jig'])
+})
+
+it('picks a suggestion from the keyboard', async () => {
+  renderWithProviders(<SuggestHost />)
+  const input = page.getByRole('combobox', { name: 'Type' })
+  await input.click()
+  await userEvent.keyboard('jig')
+  await expect.element(page.getByRole('option', { name: 'slip jig' })).toBeVisible()
+  await userEvent.keyboard('{ArrowDown}{ArrowDown}{Enter}')
+  await expect.element(input).toHaveValue('slip jig')
+})
+
+it('empties the field when its text is deleted', async () => {
+  const onChange = vi.fn()
+  renderWithProviders(<SuggestHost start="reel" onChange={onChange} />)
+  const input = page.getByRole('combobox', { name: 'Type' })
+  await expect.element(input).toHaveValue('reel')
+  await input.clear()
+  await expect.element(input).toHaveValue('')
+  await expect.poll(() => onChange.mock.lastCall).toEqual([''])
+})
+
+it('shows a kept row empty under its keep label, and restores it from Keep', async () => {
+  const onChange = vi.fn()
+  renderWithProviders(<SuggestHost keep onChange={onChange} />)
+  const input = page.getByRole('combobox', { name: 'Type' })
+  await expect.element(input).toHaveValue('')
+  await expect.element(input).toHaveAttribute('placeholder', 'Mixed')
+  await input.click()
+  // A kept row offers no Keep: it already is.
+  await expect.element(page.getByRole('option', { name: 'reel' })).toBeVisible()
+  await expect.element(page.getByRole('option', { name: 'Mixed' })).not.toBeInTheDocument()
+  await userEvent.keyboard('hornpipe')
+  await expect.element(input).toHaveValue('hornpipe')
+  await expect.element(input).not.toHaveAttribute('placeholder')
+  await input.clear()
+  await expect.poll(() => onChange.mock.lastCall).toEqual([''])
+  // Cleared, the row is touched and empty rather than kept.
+  await expect.element(input).not.toHaveAttribute('placeholder')
+  await page.getByRole('option', { name: 'Mixed' }).click()
+  await expect.element(input).toHaveValue('')
+  await expect.element(input).toHaveAttribute('placeholder', 'Mixed')
 })
 
 it.each([

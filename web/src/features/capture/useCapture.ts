@@ -7,6 +7,7 @@ import { persistStorage } from '../../platform/storage'
 import { holdScreenAwake } from '../../platform/wakeLock'
 import { acquireCaptureLock } from '../../sync/captureLock'
 import { suspendAudioContext, unlockAudioContext } from './audioContext'
+import { devicePosition } from './devicePosition'
 import {
   createRecordingSession,
   type SessionClock,
@@ -73,6 +74,7 @@ export function useCapture({
       persistStorage,
       clock,
       tuneId,
+      getPosition: () => devicePosition(navigator.geolocation),
     })
     session.current = capture
     const unsubscribe = capture.subscribe(setSnapshot)

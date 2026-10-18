@@ -590,6 +590,141 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(cleared?.label == nil)
     }
 
+    @Test func savesNotesPlayersAndAPlaceAndClearsBlankText() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store, "r1")
+        let stored = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        let edit = EditRecordingModel(store: store, recording: stored)
+        edit.setNotes("  Played it fast.  ")
+        #expect(edit.isEdited)
+        edit.setPlayers(" Tommy Jarrell ")
+        let spot = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.661_234_5, lon: -80.923_456_7))
+        edit.setPlace(spot, method: .search)
+        #expect(await edit.save())
+        let saved = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(saved.notes == "Played it fast.")
+        #expect(saved.players == "Tommy Jarrell")
+        #expect(saved.place == spot)
+        #expect(saved.placeAccuracyM == nil)
+
+        let clear = EditRecordingModel(store: store, recording: saved)
+        #expect(clear.notes == "Played it fast.")
+        #expect(clear.players == "Tommy Jarrell")
+        #expect(clear.place == spot)
+        clear.setNotes("   ")
+        clear.setPlayers("")
+        clear.clearPlace()
+        #expect(await clear.save())
+        let cleared = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(cleared.notes == nil)
+        #expect(cleared.players == nil)
+        #expect(cleared.placeName == nil)
+        #expect(cleared.placeLat == nil)
+        #expect(cleared.placeLon == nil)
+    }
+
+    @Test func leavesNotesAndPlayersItDidNotEditForAnEditSyncedMeanwhile() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let opened = Recording(
+            id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", notes: "Old notes",
+            players: "Tommy Jarrell")
+        try await store.write { writer in try writer.put(opened, at: noon) }
+        let edit = EditRecordingModel(store: store, recording: opened)
+        try await store.write { writer in
+            try writer.updateRecording("r1", notes: .value("Synced notes"), players: .value("Fred Cockerham"))
+        }
+        edit.setName("Jam")
+        #expect(await edit.save())
+        let saved = try await store.read { db in try Recording.fetchOne(db, key: "r1") }
+        #expect(saved?.notes == "Synced notes")
+        #expect(saved?.players == "Fred Cockerham")
+    }
+
+    @Test func keepsACapturedPlacesAccuracyWhenThePlaceIsLeftAlone() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let captured = Recording(
+            id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", placeName: "Galax, VA",
+            placeLat: 36.66, placeLon: -80.92, placeAccuracyM: 12)
+        try await store.write { writer in try writer.put(captured, at: noon) }
+        let edit = EditRecordingModel(store: store, recording: captured)
+        edit.setName("Jam")
+        #expect(await edit.save())
+        let saved = try await store.read { db in try Recording.fetchOne(db, key: "r1") }
+        #expect(saved?.placeAccuracyM == 12)
+    }
+
+    @Test func clearsCoordinatesThatHaveNoName() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let captured = Recording(
+            id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", placeLat: 36.66,
+            placeLon: -80.92, placeAccuracyM: 12)
+        try await store.write { writer in try writer.put(captured, at: noon) }
+        let edit = EditRecordingModel(store: store, recording: captured)
+        #expect(edit.place == nil)
+        #expect(edit.canClearPlace)
+        #expect(!edit.isEdited)
+        edit.clearPlace()
+        #expect(!edit.canClearPlace)
+        #expect(edit.isEdited)
+        #expect(await edit.save())
+        let saved = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(saved.placeLat == nil)
+        #expect(saved.placeLon == nil)
+        #expect(saved.placeAccuracyM == nil)
+    }
+
+    @Test func offersClearOnlyForAPlaceNamedOrNot() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let bare = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
+        #expect(!EditRecordingModel(store: store, recording: bare).canClearPlace)
+        let named = Recording(
+            id: "r2", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", placeName: "Galax, VA",
+            placeLat: 36.66, placeLon: -80.92)
+        #expect(EditRecordingModel(store: store, recording: named).canClearPlace)
+    }
+
+    @Test func loadsPlayerAndPlaceSuggestionsFromTheOtherRecordings() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let other = Recording(
+            id: "r2", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", players: "Tommy Jarrell",
+            placeName: "Galax, VA", placeLat: 36.66, placeLon: -80.92)
+        try await store.write { writer in try writer.put(other, at: noon) }
+        try await putRecording(store, "r1")
+        let stored = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        let edit = EditRecordingModel(store: store, recording: stored)
+        await edit.load()
+        #expect(edit.playerOptions == ["Tommy Jarrell"])
+        #expect(edit.recentPlaces.map(\.name) == ["Galax, VA"])
+    }
+
+    @Test func takesAPickAndAClearFromThePlaceSearch() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store, "r1")
+        let stored = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        let edit = EditRecordingModel(store: store, recording: stored)
+        let spot = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92))
+        let search = PlaceSearchModel(
+            search: { FakePlaceSearch() }, recent: [spot], current: edit.place, onPick: edit.setPlace,
+            onClear: edit.clearPlace)
+        #expect(search.pickRecent(spot))
+        #expect(edit.place == spot)
+        #expect(edit.placeMethod == .suggestion)
+        #expect(edit.isEdited)
+        let clearing = PlaceSearchModel(
+            search: { FakePlaceSearch() }, recent: [], current: edit.place, onPick: edit.setPlace,
+            onClear: edit.clearPlace)
+        #expect(clearing.clear())
+        #expect(edit.place == nil)
+        #expect(edit.placeMethod == nil)
+    }
+
     @Test func reportsAnEditThatFails() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -1251,5 +1386,66 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(RecordingText.recordingsLine(count: 3) == "3 recordings, subscribe to play")
         #expect(RecordingText.recordingsLineExpanded == "Expanded")
         #expect(RecordingText.recordingsLineCollapsed == "Collapsed")
+    }
+}
+
+@Suite struct RecordingSuggestionsTests {
+    private func placed(
+        _ id: String, _ name: String?, minutes: Int64, lat: Double = 36.66, lon: Double = -80.92,
+        accuracyM: Int? = nil, deleted: Bool = false
+    ) -> Recording {
+        var recording = Recording(
+            id: id, tuneID: nil, source: "microphone", addedAt: later(minutes * 60_000), state: "ready",
+            placeName: name, placeLat: lat, placeLon: lon, placeAccuracyM: accuracyM)
+        if deleted { recording.deletedAt = noon }
+        return recording
+    }
+
+    private func players(_ id: String, _ players: String?, deleted: Bool = false) -> Recording {
+        var recording = Recording(id: id, tuneID: nil, source: "microphone", addedAt: noon, players: players)
+        if deleted { recording.deletedAt = noon }
+        return recording
+    }
+
+    @Test func listsEachPlaceOnceMostRecentlyAddedFirstWithoutAccuracy() {
+        let recordings = [
+            placed("a", "Galax, VA", minutes: 1, accuracyM: 12),
+            placed("b", "Mount Airy, NC", minutes: 3, lat: 36.5, lon: -80.6),
+            placed("c", "Galax, VA", minutes: 2),
+        ]
+        #expect(
+            RecordingSuggestions.recentPlaces(recordings, excluding: "none") == [
+                RecordingPlace(name: "Mount Airy, NC", coordinate: Coordinate(lat: 36.5, lon: -80.6)),
+                RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92)),
+            ])
+    }
+
+    @Test func keepsOneNameAtTwoSpotsApart() {
+        let recordings = [
+            placed("a", "Springfield, IL", minutes: 1, lat: 39.8),
+            placed("b", "Springfield, MO", minutes: 2, lat: 37.2),
+            placed("c", "Springfield, IL", minutes: 3, lat: 37.2),
+        ]
+        let places = RecordingSuggestions.recentPlaces(recordings, excluding: "none")
+        #expect(places.map(\.name) == ["Springfield, IL", "Springfield, MO", "Springfield, IL"])
+        #expect(places.map(\.coordinate.lat) == [37.2, 37.2, 39.8])
+    }
+
+    @Test func skipsUnnamedDeletedAndTheRecordingBeingEdited() {
+        let recordings = [
+            placed("a", nil, minutes: 4),
+            placed("b", "Floyd, VA", minutes: 3, deleted: true),
+            placed("c", "Hillsville, VA", minutes: 2),
+            placed("d", "Galax, VA", minutes: 1),
+        ]
+        #expect(RecordingSuggestions.recentPlaces(recordings, excluding: "c").map(\.name) == ["Galax, VA"])
+    }
+
+    @Test func foldsPlayersTrimsAndSortsByName() {
+        let recordings = [
+            players("a", "kevin"), players("b", " Kevin "), players("c", "Kevin"), players("d", "Alice and Tom"),
+            players("e", "  "), players("f", nil), players("g", "Zed", deleted: true),
+        ]
+        #expect(RecordingSuggestions.players(recordings) == ["Alice and Tom", "Kevin"])
     }
 }

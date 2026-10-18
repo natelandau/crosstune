@@ -81,6 +81,9 @@ there where they differ. Regular-width iPad reads this page, then
 - Short closed choice can be segmented. Status is one, a segment per word.
   A system segment shows an image or a word, never both. Tunes disagree:
   no segment chosen.
+- Open vocabulary: matching suggestions show as rows under the field
+  while it has focus, at most six, since SwiftUI offers no suggestion list
+  on iOS. A pick ends editing.
 - Settings: root led by account identity and sync state. Each category is
   a pushed page.
 - A link to a Settings group (the first-recording notice's See your

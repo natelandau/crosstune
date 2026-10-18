@@ -29,6 +29,7 @@ class TunePage:
     title: str | None
     ref: str | None
     year: int | None
+    artist: str | None
 
 
 class _TunePageParser(HTMLParser):
@@ -117,12 +118,13 @@ def _year(text: str | None) -> int | None:
 
 
 def parse_tune_page(html: str) -> TunePage:
-    """Read a tune's title, audio file ref, and year from its page.
+    """Read a tune's title, audio file ref, year, and artist from its page.
 
     The title joins the tune and artist fields, falls back to the `<title>` tag
     without its site suffix, and the ref is the audio source in the uploaded-file field,
     else the first one anywhere, on the site's own host. The year is the year field's
     value, or None when it is missing or not a plausible year.
+    The artist is the source field's text, else the source term's.
     """
     parser = _TunePageParser()
     parser.feed(html)
@@ -135,4 +137,5 @@ def parse_tune_page(html: str) -> TunePage:
         title=title,
         ref=parser.upload_ref or parser.any_ref,
         year=_year(parser.fields.get(YEAR_FIELD)),
+        artist=artist or None,
     )

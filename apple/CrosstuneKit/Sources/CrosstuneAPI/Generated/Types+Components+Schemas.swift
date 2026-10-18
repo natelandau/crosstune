@@ -1009,6 +1009,70 @@ extension Components {
                 case url
             }
         }
+        /// A place to pick: the name a recording stores, its coordinates, and how a list shows it.
+        ///
+        /// `title` is the list row's main line: a named place's own name, a street address, or a
+        /// town. `subtitle` is the line under it that tells same-named results apart, the street and
+        /// town of a named place or the town of an address, and is null for a town.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PlaceResult`.
+        public struct PlaceResult: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PlaceResult/lat`.
+            public var lat: Swift.Double
+            /// - Remark: Generated from `#/components/schemas/PlaceResult/lon`.
+            public var lon: Swift.Double
+            /// - Remark: Generated from `#/components/schemas/PlaceResult/name`.
+            public var name: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PlaceResult/subtitle`.
+            public var subtitle: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/PlaceResult/title`.
+            public var title: Swift.String
+            /// Creates a new `PlaceResult`.
+            ///
+            /// - Parameters:
+            ///   - lat:
+            ///   - lon:
+            ///   - name:
+            ///   - subtitle:
+            ///   - title:
+            public init(
+                lat: Swift.Double,
+                lon: Swift.Double,
+                name: Swift.String,
+                subtitle: Swift.String? = nil,
+                title: Swift.String
+            ) {
+                self.lat = lat
+                self.lon = lon
+                self.name = name
+                self.subtitle = subtitle
+                self.title = title
+            }
+            public enum CodingKeys: String, CodingKey {
+                case lat
+                case lon
+                case name
+                case subtitle
+                case title
+            }
+        }
+        /// Places matching the search text, best match first.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PlaceSearchResponse`.
+        public struct PlaceSearchResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PlaceSearchResponse/results`.
+            public var results: [Components.Schemas.PlaceResult]
+            /// Creates a new `PlaceSearchResponse`.
+            ///
+            /// - Parameters:
+            ///   - results:
+            public init(results: [Components.Schemas.PlaceResult]) {
+                self.results = results
+            }
+            public enum CodingKeys: String, CodingKey {
+                case results
+            }
+        }
         /// Where a play was started from.
         ///
         /// - Remark: Generated from `#/components/schemas/PlayContext`.
@@ -1967,12 +2031,24 @@ extension Components {
             public var createdAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/RecordingData/label`.
             public var label: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/notes`.
+            public var notes: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingData/origin`.
             public var origin: Components.Schemas.RecordingOrigin?
             /// - Remark: Generated from `#/components/schemas/RecordingData/origin_url`.
             public var originUrl: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingData/pitch_cents`.
             public var pitchCents: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/place_accuracy_m`.
+            public var placeAccuracyM: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/place_lat`.
+            public var placeLat: Swift.Double?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/place_lon`.
+            public var placeLon: Swift.Double?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/place_name`.
+            public var placeName: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/players`.
+            public var players: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingData/position`.
             public var position: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingData/recorded_at`.
@@ -1995,9 +2071,15 @@ extension Components {
             ///   - addedAt:
             ///   - createdAt:
             ///   - label:
+            ///   - notes:
             ///   - origin:
             ///   - originUrl:
             ///   - pitchCents:
+            ///   - placeAccuracyM:
+            ///   - placeLat:
+            ///   - placeLon:
+            ///   - placeName:
+            ///   - players:
             ///   - position:
             ///   - recordedAt:
             ///   - recordedPrecision:
@@ -2010,9 +2092,15 @@ extension Components {
                 addedAt: Foundation.Date,
                 createdAt: Foundation.Date,
                 label: Swift.String? = nil,
+                notes: Swift.String? = nil,
                 origin: Components.Schemas.RecordingOrigin? = nil,
                 originUrl: Swift.String? = nil,
                 pitchCents: Swift.Int? = nil,
+                placeAccuracyM: Swift.Int? = nil,
+                placeLat: Swift.Double? = nil,
+                placeLon: Swift.Double? = nil,
+                placeName: Swift.String? = nil,
+                players: Swift.String? = nil,
                 position: Swift.Int? = nil,
                 recordedAt: Foundation.Date? = nil,
                 recordedPrecision: Components.Schemas.RecordingPrecision? = nil,
@@ -2025,9 +2113,15 @@ extension Components {
                 self.addedAt = addedAt
                 self.createdAt = createdAt
                 self.label = label
+                self.notes = notes
                 self.origin = origin
                 self.originUrl = originUrl
                 self.pitchCents = pitchCents
+                self.placeAccuracyM = placeAccuracyM
+                self.placeLat = placeLat
+                self.placeLon = placeLon
+                self.placeName = placeName
+                self.players = players
                 self.position = position
                 self.recordedAt = recordedAt
                 self.recordedPrecision = recordedPrecision
@@ -2041,9 +2135,15 @@ extension Components {
                 case addedAt = "added_at"
                 case createdAt = "created_at"
                 case label
+                case notes
                 case origin
                 case originUrl = "origin_url"
                 case pitchCents = "pitch_cents"
+                case placeAccuracyM = "place_accuracy_m"
+                case placeLat = "place_lat"
+                case placeLon = "place_lon"
+                case placeName = "place_name"
+                case players
                 case position
                 case recordedAt = "recorded_at"
                 case recordedPrecision = "recorded_precision"
@@ -2675,6 +2775,8 @@ extension Components {
             public var id: Swift.String
             /// - Remark: Generated from `#/components/schemas/RecordingRow/label`.
             public var label: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/notes`.
+            public var notes: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/origin`.
             public var origin: Components.Schemas.RecordingOrigin?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/origin_url`.
@@ -2683,6 +2785,14 @@ extension Components {
             public var peaksRev: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/pitch_cents`.
             public var pitchCents: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/place_accuracy_m`.
+            public var placeAccuracyM: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/place_lat`.
+            public var placeLat: Swift.Double?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/place_lon`.
+            public var placeLon: Swift.Double?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/place_name`.
+            public var placeName: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/playback_bytes`.
             public var playbackBytes: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/playback_end_ms`.
@@ -2693,6 +2803,8 @@ extension Components {
             public var playbackRev: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/playback_start_ms`.
             public var playbackStartMs: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/players`.
+            public var players: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/position`.
             public var position: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/recorded_at`.
@@ -2731,15 +2843,21 @@ extension Components {
             ///   - error:
             ///   - id:
             ///   - label:
+            ///   - notes:
             ///   - origin:
             ///   - originUrl:
             ///   - peaksRev:
             ///   - pitchCents:
+            ///   - placeAccuracyM:
+            ///   - placeLat:
+            ///   - placeLon:
+            ///   - placeName:
             ///   - playbackBytes:
             ///   - playbackEndMs:
             ///   - playbackMime:
             ///   - playbackRev:
             ///   - playbackStartMs:
+            ///   - players:
             ///   - position:
             ///   - recordedAt:
             ///   - recordedPrecision:
@@ -2762,15 +2880,21 @@ extension Components {
                 error: Swift.String? = nil,
                 id: Swift.String,
                 label: Swift.String? = nil,
+                notes: Swift.String? = nil,
                 origin: Components.Schemas.RecordingOrigin? = nil,
                 originUrl: Swift.String? = nil,
                 peaksRev: Swift.String? = nil,
                 pitchCents: Swift.Int? = nil,
+                placeAccuracyM: Swift.Int? = nil,
+                placeLat: Swift.Double? = nil,
+                placeLon: Swift.Double? = nil,
+                placeName: Swift.String? = nil,
                 playbackBytes: Swift.Int? = nil,
                 playbackEndMs: Swift.Int? = nil,
                 playbackMime: Swift.String? = nil,
                 playbackRev: Swift.String? = nil,
                 playbackStartMs: Swift.Int? = nil,
+                players: Swift.String? = nil,
                 position: Swift.Int? = nil,
                 recordedAt: Foundation.Date? = nil,
                 recordedPrecision: Components.Schemas.RecordingPrecision? = nil,
@@ -2793,15 +2917,21 @@ extension Components {
                 self.error = error
                 self.id = id
                 self.label = label
+                self.notes = notes
                 self.origin = origin
                 self.originUrl = originUrl
                 self.peaksRev = peaksRev
                 self.pitchCents = pitchCents
+                self.placeAccuracyM = placeAccuracyM
+                self.placeLat = placeLat
+                self.placeLon = placeLon
+                self.placeName = placeName
                 self.playbackBytes = playbackBytes
                 self.playbackEndMs = playbackEndMs
                 self.playbackMime = playbackMime
                 self.playbackRev = playbackRev
                 self.playbackStartMs = playbackStartMs
+                self.players = players
                 self.position = position
                 self.recordedAt = recordedAt
                 self.recordedPrecision = recordedPrecision
@@ -2825,15 +2955,21 @@ extension Components {
                 case error
                 case id
                 case label
+                case notes
                 case origin
                 case originUrl = "origin_url"
                 case peaksRev = "peaks_rev"
                 case pitchCents = "pitch_cents"
+                case placeAccuracyM = "place_accuracy_m"
+                case placeLat = "place_lat"
+                case placeLon = "place_lon"
+                case placeName = "place_name"
                 case playbackBytes = "playback_bytes"
                 case playbackEndMs = "playback_end_ms"
                 case playbackMime = "playback_mime"
                 case playbackRev = "playback_rev"
                 case playbackStartMs = "playback_start_ms"
+                case players
                 case position
                 case recordedAt = "recorded_at"
                 case recordedPrecision = "recorded_precision"
@@ -2878,6 +3014,10 @@ extension Components {
                     Swift.String.self,
                     forKey: .label
                 )
+                self.notes = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .notes
+                )
                 self.origin = try container.decodeIfPresent(
                     Components.Schemas.RecordingOrigin.self,
                     forKey: .origin
@@ -2893,6 +3033,22 @@ extension Components {
                 self.pitchCents = try container.decodeIfPresent(
                     Swift.Int.self,
                     forKey: .pitchCents
+                )
+                self.placeAccuracyM = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .placeAccuracyM
+                )
+                self.placeLat = try container.decodeIfPresent(
+                    Swift.Double.self,
+                    forKey: .placeLat
+                )
+                self.placeLon = try container.decodeIfPresent(
+                    Swift.Double.self,
+                    forKey: .placeLon
+                )
+                self.placeName = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .placeName
                 )
                 self.playbackBytes = try container.decodeIfPresent(
                     Swift.Int.self,
@@ -2913,6 +3069,10 @@ extension Components {
                 self.playbackStartMs = try container.decodeIfPresent(
                     Swift.Int.self,
                     forKey: .playbackStartMs
+                )
+                self.players = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .players
                 )
                 self.position = try container.decodeIfPresent(
                     Swift.Int.self,
@@ -2974,15 +3134,21 @@ extension Components {
                     "error",
                     "id",
                     "label",
+                    "notes",
                     "origin",
                     "origin_url",
                     "peaks_rev",
                     "pitch_cents",
+                    "place_accuracy_m",
+                    "place_lat",
+                    "place_lon",
+                    "place_name",
                     "playback_bytes",
                     "playback_end_ms",
                     "playback_mime",
                     "playback_rev",
                     "playback_start_ms",
+                    "players",
                     "position",
                     "recorded_at",
                     "recorded_precision",
@@ -3029,6 +3195,10 @@ extension Components {
                     forKey: .label
                 )
                 try container.encodeIfPresent(
+                    self.notes,
+                    forKey: .notes
+                )
+                try container.encodeIfPresent(
                     self.origin,
                     forKey: .origin
                 )
@@ -3043,6 +3213,22 @@ extension Components {
                 try container.encodeIfPresent(
                     self.pitchCents,
                     forKey: .pitchCents
+                )
+                try container.encodeIfPresent(
+                    self.placeAccuracyM,
+                    forKey: .placeAccuracyM
+                )
+                try container.encodeIfPresent(
+                    self.placeLat,
+                    forKey: .placeLat
+                )
+                try container.encodeIfPresent(
+                    self.placeLon,
+                    forKey: .placeLon
+                )
+                try container.encodeIfPresent(
+                    self.placeName,
+                    forKey: .placeName
                 )
                 try container.encodeIfPresent(
                     self.playbackBytes,
@@ -3063,6 +3249,10 @@ extension Components {
                 try container.encodeIfPresent(
                     self.playbackStartMs,
                     forKey: .playbackStartMs
+                )
+                try container.encodeIfPresent(
+                    self.players,
+                    forKey: .players
                 )
                 try container.encodeIfPresent(
                     self.position,

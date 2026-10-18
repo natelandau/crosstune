@@ -144,10 +144,13 @@ class Settings(BaseSettings):
     link_resolve_timeout_seconds: float = 5.0
     link_resolves_per_minute: int = 30
     link_searches_per_minute: int = 20
+    place_searches_per_minute: int = 60
     billing_refreshes_per_minute: int = 10
     apple_team_id: str = ""
     apple_music_key_id: str = ""
     apple_music_private_key: SecretStr = SecretStr("")
+    apple_maps_key_id: str = ""
+    apple_maps_private_key: SecretStr = SecretStr("")
     sign_in_with_apple_key_id: str = ""
     sign_in_with_apple_private_key: SecretStr = SecretStr("")
     tidal_client_id: str = ""
@@ -215,6 +218,15 @@ class Settings(BaseSettings):
             self.apple_team_id
             and self.apple_music_key_id
             and self.apple_music_private_key.get_secret_value()
+        )
+
+    @property
+    def apple_maps_configured(self) -> bool:
+        """Whether the Apple Maps key is complete."""
+        return bool(
+            self.apple_team_id
+            and self.apple_maps_key_id
+            and self.apple_maps_private_key.get_secret_value()
         )
 
     @property
@@ -320,6 +332,24 @@ class Settings(BaseSettings):
         if self.apple_music_configured:
             _check_apple_key(
                 env_name="CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY", key=self.apple_music_private_key
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _require_whole_apple_maps_settings(self) -> Self:
+        """Refuse half an Apple Maps key or an unusable one, which would fail every place lookup."""
+        problem = self._apple_key_problem(
+            {
+                "CROSSTUNE_APPLE_MAPS_KEY_ID": self.apple_maps_key_id,
+                "CROSSTUNE_APPLE_MAPS_PRIVATE_KEY": self.apple_maps_private_key.get_secret_value(),
+            }
+        )
+        if problem:
+            msg = f"incomplete Apple Maps settings: {problem}"
+            raise ValueError(msg)
+        if self.apple_maps_configured:
+            _check_apple_key(
+                env_name="CROSSTUNE_APPLE_MAPS_PRIVATE_KEY", key=self.apple_maps_private_key
             )
         return self
 

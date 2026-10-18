@@ -177,12 +177,12 @@ export interface CreateExportOptions {
   /** Reads each file this device does not hold; a rejection fails the whole export. */
   fetchMissing: FetchMissing
   signal?: AbortSignal
-  /** Files zipped out of all recording and scan files; the two CSVs are not counted. */
+  /** Files zipped out of all recording and scan files; the CSVs are not counted. */
   onProgress?: (done: number, total: number) => void
 }
 
 /**
- * Zip both CSVs and every exported recording and scan. A file this device does not hold is
+ * Zip the CSVs and every exported recording and scan. A file this device does not hold is
  * fetched into the zip and never stored, so a file the plan keeps off the device stays off it.
  */
 export async function createExport(
@@ -197,7 +197,9 @@ export async function createExport(
   const entries: ZipEntry[] = [
     { path: 'tunes.csv', data: new Blob([plan.tunesCsv], { type: 'text/csv' }) },
     { path: 'lists.csv', data: new Blob([plan.listsCsv], { type: 'text/csv' }) },
+    { path: 'recordings.csv', data: new Blob([plan.recordingsCsv], { type: 'text/csv' }) },
   ]
+  const csvCount = entries.length
   for (const { recordingId, path } of plan.audio) {
     entries.push({
       path,
@@ -211,7 +213,6 @@ export async function createExport(
     })
   }
 
-  const csvCount = 2
   const fileTotal = entries.length - csvCount
   onProgress?.(0, fileTotal)
   const blob = await buildZip(entries, {

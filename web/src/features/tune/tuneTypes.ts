@@ -34,10 +34,11 @@ function display(group: Spellings, canonical: readonly string[]): string {
 }
 
 /**
- * Each value once, with how many live tunes hold it. A value that matches a canonical entry is
- * shown the canonical way; any other is shown the way most tunes spell it, ties to the first seen.
+ * Each value once, folded with `sameText`, with how many times it occurs. A value that matches a
+ * canonical entry is shown the canonical way; any other is shown the way it is most often
+ * spelled, ties to the first seen.
  */
-function tally(
+export function tally(
   values: readonly (string | null | undefined)[],
   canonical: readonly string[] = [],
 ): Map<string, number> {

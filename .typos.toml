@@ -4,7 +4,7 @@
     extend-ignore-re = ["U\\+[0-9A-Fa-f]{4}(?:-[0-9A-Fa-f]{4})?"]
 
 [files]
-    extend-exclude = [".cache", ".venv", "node_modules", "*.lock", "api/openapi.json", "pnpm-lock.yaml", "web/src/api/schema.d.ts", "web/src/routeTree.gen.ts", "web/dist", "web/dev-dist", "site/dist", "site/.astro"]
+    extend-exclude = [".cache", ".venv", "node_modules", "*.lock", "api/openapi.json", "**/crosstune/places/countries.json", "pnpm-lock.yaml", "web/src/api/schema.d.ts", "web/src/routeTree.gen.ts", "web/dist", "web/dev-dist", "site/dist", "site/.astro"]
 
 # The Web Audio API spells it AnalyserNode and createAnalyser; the en-us locale would flag both.
 [default.extend-words]
@@ -15,5 +15,7 @@
     udid = "udid"
     # The web StatusGlyph's prop for a glyph whose row already says its status, in ARIA's spelling.
     labelled = "labelled"
-    # Proper names keep their own spelling, such as the Jalopy Theatre in Brooklyn.
+    # Proper names keep their own spelling, such as the Jalopy Theatre in Brooklyn and Centre St
+    # in Newton, MA.
     theatre = "theatre"
+    centre = "centre"

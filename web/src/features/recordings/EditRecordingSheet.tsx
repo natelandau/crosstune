@@ -5,21 +5,26 @@ import {
   DATE_RECORDED_LABEL,
   EDIT_RECORDING_TITLE,
   NAME_LABEL,
+  NOTES_LABEL,
+  PLAYERS_LABEL,
   RECORDING_NAME_PLACEHOLDER,
+  RECORDING_NOTES_PLACEHOLDER,
   SAVE_RECORDING,
 } from './recordingsCopy'
 import { useEditRecording } from './useEditRecording'
+import { PlaceField } from './PlaceField'
 import type { RecordingView } from './useRecordings'
 import { Group } from '../../ui/form/Group'
 import { PartialDateField } from '../../ui/form/PartialDateField'
+import { SuggestField } from '../../ui/form/SuggestField'
 import { TextField } from '../../ui/form/TextField'
 import { Sheet } from '../../ui/Sheet'
 import { useEndOnClose } from '../../ui/useEndOnClose'
 
 /**
- * A recording's name and the date it was recorded, as a part-height form. The date is a year,
- * optionally narrowed to a month and a day; a take's exact time survives only while its date
- * parts are left alone.
+ * A recording's name, the date it was recorded, its players, place, and notes, as a
+ * part-height form. The date is a year, optionally narrowed to a month and a day; a take's exact
+ * time survives only while its date parts are left alone.
  */
 export function EditRecordingSheet({
   view,
@@ -87,6 +92,32 @@ export function EditRecordingSheet({
             refusedPart={edit.dateError ? 'year' : null}
             describedBy={dateErrorId}
             onChange={edit.editParts}
+          />
+        </Group>
+        <Group>
+          <SuggestField
+            label={PLAYERS_LABEL}
+            value={edit.players}
+            suggestions={edit.playerSuggestions}
+            maxLength={RECORDING_LIMITS.players}
+            onChange={edit.setPlayers}
+          />
+          <PlaceField
+            value={edit.place}
+            recent={edit.recentPlaces}
+            canClear={edit.canClearPlace}
+            onChange={edit.setPlace}
+          />
+        </Group>
+        <Group header={NOTES_LABEL}>
+          <TextField
+            standalone
+            multiline
+            label={NOTES_LABEL}
+            placeholder={RECORDING_NOTES_PLACEHOLDER}
+            value={edit.notes}
+            maxLength={RECORDING_LIMITS.notes}
+            onChange={edit.setNotes}
           />
         </Group>
       </form>

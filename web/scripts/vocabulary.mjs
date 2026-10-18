@@ -45,7 +45,7 @@ const LIMIT_OBJECTS = {
 const RANGE_OBJECTS = {
   RECORDING_RANGES: {
     schema: 'RecordingData',
-    fields: ['speed_percent', 'pitch_cents', 'trim_start_ms'],
+    fields: ['speed_percent', 'pitch_cents', 'trim_start_ms', 'place_accuracy_m'],
   },
   LOOP_RANGES: { schema: 'RecordingLoopRow', fields: ['start_ms', 'color'] },
 }

@@ -9,11 +9,11 @@ import { PAUSE } from '../features/player/transportCopy'
 import { DISCARD_TITLE, NEW_RECORDING } from '../features/capture/recordCopy'
 import { TRIM } from '../features/practice/trimCopy'
 import { START_HANDLE } from '../features/practice/TrimStrip'
+import { GENRES } from '../constants'
 import { DETAIL_LABELS } from '../features/tune/detailFields'
 import { NEW_TUNE_TITLE, TITLE_FIELD } from '../features/tune/tuneFormCopy'
 import { openTestDb } from '../test/db'
 import { FakeRecorder, fakeMediaForTest } from '../test/fakeMedia'
-import { NOT_SET } from '../ui/fieldCopy'
 import { MORE_ACTIONS } from '../ui/menuCopy'
 
 import { useAndroidBackForTest } from '../test/androidBack'
@@ -104,8 +104,8 @@ it("closes a field's suggestions, then the form holding no typed work", async ()
   await renderApp({ path: '/catalog', db, frame: PHONE, density: 'touch', android })
   await page.getByRole('button', { name: ADD_TUNE }).first().click()
   const form = page.getByRole('dialog', { name: NEW_TUNE_TITLE })
-  await form.getByRole('combobox', { name: DETAIL_LABELS.composer }).click()
-  const suggestions = page.getByRole('option', { name: NOT_SET, exact: true })
+  await form.getByRole('combobox', { name: DETAIL_LABELS.genre }).click()
+  const suggestions = page.getByRole('option', { name: GENRES[1], exact: true })
   await expect.element(suggestions).toBeVisible()
 
   expect(android.press()).toMatchObject({ kind: 'entry', entry: { layer: 'overlay' } })

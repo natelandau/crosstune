@@ -168,6 +168,73 @@ import Testing
             ])
     }
 
+    @Test func settingAPlaceReportsHowItWasPickedAndWhetherItReplacedOne() async throws {
+        let store = try root.open()
+        let bare = recording("r1")
+        var placed = recording("r2")
+        placed.placeName = "Galax, VA"
+        placed.placeLat = 36.66
+        placed.placeLon = -80.92
+        try await put(bare, in: store)
+        try await put(placed, in: store)
+        let spot = RecordingPlace(name: "Mount Airy, NC", coordinate: Coordinate(lat: 36.5, lon: -80.6))
+
+        let first = EditRecordingModel(store: store, recording: bare, analytics: sink.client)
+        first.setPlace(spot, method: .search)
+        #expect(await first.save())
+        let second = EditRecordingModel(store: store, recording: placed, analytics: sink.client)
+        second.setPlace(spot, method: .suggestion)
+        #expect(await second.save())
+
+        #expect(
+            sink.captures == [
+                .init(
+                    name: "recording_place_set",
+                    properties: [
+                        "method": .string("search"), "recording_id": .string("r1"), "replaced": .bool(false),
+                    ]),
+                .init(
+                    name: "recording_place_set",
+                    properties: [
+                        "method": .string("suggestion"), "recording_id": .string("r2"), "replaced": .bool(true),
+                    ]),
+            ])
+    }
+
+    @Test func clearingAPlaceReportsItAndAnUnchangedPlaceReportsNothing() async throws {
+        let store = try root.open()
+        var placed = recording("r1")
+        placed.placeName = "Galax, VA"
+        placed.placeLat = 36.66
+        placed.placeLon = -80.92
+        placed.placeAccuracyM = 12
+        try await put(placed, in: store)
+
+        let untouched = EditRecordingModel(store: store, recording: placed, analytics: sink.client)
+        untouched.setPlayers("Tommy Jarrell")
+        #expect(await untouched.save())
+        let repicked = EditRecordingModel(store: store, recording: placed, analytics: sink.client)
+        repicked.setPlace(
+            RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92)), method: .suggestion)
+        #expect(!repicked.isEdited)
+        #expect(await repicked.save())
+        let cleared = EditRecordingModel(store: store, recording: placed, analytics: sink.client)
+        cleared.clearPlace()
+        #expect(await cleared.save())
+
+        #expect(sink.captures == [.init(name: "recording_place_cleared", properties: ["recording_id": .string("r1")])])
+    }
+
+    @Test func aRefusedSaveReportsNoPlace() async throws {
+        let store = try root.open()
+        let missing = recording("missing")
+        let edit = EditRecordingModel(store: store, recording: missing, analytics: sink.client)
+        edit.setPlace(
+            RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92)), method: .search)
+        #expect(!(await edit.save()))
+        #expect(sink.calls.isEmpty)
+    }
+
     private func loadedTune(_ id: String, in store: CrosstuneStore) async throws -> TuneModel {
         let model = TuneModel(store: store, tuneID: id, analytics: sink.client)
         #expect(try await poll { model.shown != nil })

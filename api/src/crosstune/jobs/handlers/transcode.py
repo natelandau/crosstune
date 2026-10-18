@@ -20,7 +20,7 @@ from crosstune.jobs.attempt import (
 )
 from crosstune.jobs.transcode import transcode
 from crosstune.models import Job, Recording
-from crosstune.recordings.service import ensure_trim_job
+from crosstune.recordings.service import ensure_place_job, ensure_trim_job
 from crosstune.storage.store import upload_key
 
 if TYPE_CHECKING:
@@ -54,6 +54,7 @@ async def run(ctx: JobContext, job: Job) -> None:
                     await transcode(session, ctx.store, recording, Path(folder))
                 await session.delete(stored_job)
                 await ensure_trim_job(session, recording)
+                await ensure_place_job(session, recording)
                 committing = True
                 await session.commit()
             except asyncio.CancelledError:

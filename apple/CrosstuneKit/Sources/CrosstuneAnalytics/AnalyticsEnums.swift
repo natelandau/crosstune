@@ -51,6 +51,12 @@ public enum RecordingOrigin: String, CaseIterable, Sendable {
     case slipperyHill = "slippery_hill"
 }
 
+/// How a recording's place was chosen: typed into search, or picked from a suggestion.
+public enum PlaceMethod: String, CaseIterable, Sendable {
+    case search
+    case suggestion
+}
+
 /// What played: a recording, by its origin, or a link to someone else's.
 public enum PlaybackKind: String, CaseIterable, Sendable {
     case recorded

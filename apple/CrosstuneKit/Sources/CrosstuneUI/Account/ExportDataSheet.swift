@@ -9,10 +9,10 @@ import UniformTypeIdentifiers
 /// then hands the zip to the share sheet on iPhone or a save panel on the Mac. Held open while an
 /// export runs, so Cancel is the one way out and nothing it abandons is handed off.
 public struct ExportDataSheet: View {
-    public static let title = "Export data"
+    nonisolated public static let title = "Export data"
     public static let action = "Export"
     public static let completeNote =
-        "Exports your tunes and lists as spreadsheets, with every recording and scan, in one zip file."
+        "Exports your tunes, lists, and recording details as spreadsheets, with every recording and scan, in one zip file."
 
     public static func progress(done: Int, total: Int) -> String {
         "Preparing file \(done) of \(total)"

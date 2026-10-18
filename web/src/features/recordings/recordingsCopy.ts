@@ -18,3 +18,16 @@ export const filedToast = (title: string) => `Added to ${title}`
 export const SAVE_RECORDING = 'Save'
 /** The name of a tune search row that files the recording under that tune. */
 export const addToTuneName = (title: string) => `Add to ${title}`
+export const PLAYERS_LABEL = 'Players'
+export const PLACE_LABEL = 'Place'
+export const NOTES_LABEL = 'Notes'
+export const RECORDING_NOTES_PLACEHOLDER = 'Tuning, who it came from, what to work on…'
+export const CLEAR_PLACE = 'Clear place'
+export const NO_PLACES_FOUND = 'No places found'
+export const PLACE_SEARCH_UNAVAILABLE = 'Place search is unavailable right now.'
+export const PLACE_SEARCH_OFFLINE = 'Place search needs a connection.'
+/** A wait under a second still reads as one, since "0 seconds" invites an instant retry. */
+export const placeSearchBusy = (seconds: number) => {
+  const wait = Math.max(1, Math.ceil(seconds))
+  return `Place search is busy. Try again in ${wait} ${wait === 1 ? 'second' : 'seconds'}.`
+}

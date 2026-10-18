@@ -25,6 +25,7 @@ from crosstune.vocabulary import (
     MAX_MODES,
     PITCH_CENTS_MAX,
     PITCH_CENTS_MIN,
+    PLACE_ACCURACY_M_MAX,
     SEARCHABLE_PROVIDERS,
     SPEED_PERCENT_MAX,
     SPEED_PERCENT_MIN,
@@ -220,10 +221,47 @@ class _RecordingFields(_Data):
     # Validated even when left out, so a precision sent without a date is refused.
     recorded_at: datetime | None = Field(default=None, validate_default=True)
     position: int = 0
+    notes: str | None = Field(default=None, max_length=LIMITS["recordings"]["notes"])
+    players: str | None = Field(default=None, max_length=LIMITS["recordings"]["players"])
+    place_lat: float | None = Field(default=None, ge=-90, le=90)
+    # Validated even when left out, so one coordinate sent alone is refused.
+    place_lon: float | None = Field(default=None, ge=-180, le=180, validate_default=True)
+    place_name: str | None = Field(
+        default=None, max_length=LIMITS["recordings"]["place_name"], validate_default=True
+    )
+    place_accuracy_m: int | None = Field(
+        default=None, ge=0, le=PLACE_ACCURACY_M_MAX, validate_default=True
+    )
     trim_start_ms: int = Field(default=0, ge=0)
     trim_end_ms: int | None = Field(default=None, ge=0)
     speed_percent: int = Field(default=100, ge=SPEED_PERCENT_MIN, le=SPEED_PERCENT_MAX)
     pitch_cents: int = Field(default=0, ge=PITCH_CENTS_MIN, le=PITCH_CENTS_MAX)
+
+    @field_validator("place_lon")
+    @classmethod
+    def _coordinates_pair(cls, place_lon: float | None, info: ValidationInfo) -> float | None:
+        # A latitude that failed its own validation is absent here and already refused.
+        if "place_lat" in info.data and (place_lon is None) != (info.data["place_lat"] is None):
+            msg = "place_lat and place_lon are set together"
+            raise ValueError(msg)
+        return place_lon
+
+    @field_validator("players", "place_name")
+    @classmethod
+    def _not_blank(cls, value: str | None, info: ValidationInfo) -> str | None:
+        # A client shows a blank as nothing, so none is null, never an empty string.
+        if value is not None and not value.strip():
+            msg = f"{info.field_name} is blank"
+            raise ValueError(msg)
+        return value
+
+    @field_validator("place_name", "place_accuracy_m")
+    @classmethod
+    def _needs_coordinates(cls, value: object, info: ValidationInfo) -> object:
+        if value is not None and info.data.get("place_lat", 0) is None:
+            msg = f"{info.field_name} needs coordinates"
+            raise ValueError(msg)
+        return value
 
     @field_validator("recorded_at")
     @classmethod

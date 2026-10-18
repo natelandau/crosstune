@@ -60,6 +60,9 @@ const ROWS = {
       speed_percent: { type: 'integer', minimum: 50, maximum: 150 },
       pitch_cents: { type: 'integer', minimum: -1200, maximum: 1200 },
       trim_start_ms: { type: 'integer', minimum: 0 },
+      place_accuracy_m: {
+        anyOf: [{ type: 'integer', minimum: 0, maximum: 1000000 }, { type: 'null' }],
+      },
     },
   },
 }
@@ -128,6 +131,7 @@ describe('vocabulary generator', () => {
         '  speed_percent: { min: 50, max: 150 },',
         '  pitch_cents: { min: -1200, max: 1200 },',
         '  trim_start_ms: { min: 0 },',
+        '  place_accuracy_m: { min: 0, max: 1000000 },',
         '} as const',
       ].join('\n'),
     )

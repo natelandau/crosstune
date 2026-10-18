@@ -486,6 +486,14 @@ public struct Recording: SyncedRecord, Hashable {
     public var trimEndMs: Int64?
     public var speedPercent: Int
     public var pitchCents: Int
+    public var notes: String?
+    public var players: String?
+    /// Where it was played. The coordinates are set together; `placeAccuracyM` only for a
+    /// captured fix. See ``place``.
+    public var placeName: String?
+    public var placeLat: Double?
+    public var placeLon: Double?
+    public var placeAccuracyM: Int?
     public var extra: JSONObject
 
     public enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
@@ -514,6 +522,11 @@ public struct Recording: SyncedRecord, Hashable {
         case trimEndMs = "trim_end_ms"
         case speedPercent = "speed_percent"
         case pitchCents = "pitch_cents"
+        case notes, players
+        case placeName = "place_name"
+        case placeLat = "place_lat"
+        case placeLon = "place_lon"
+        case placeAccuracyM = "place_accuracy_m"
         case extra
     }
 
@@ -534,7 +547,8 @@ public struct Recording: SyncedRecord, Hashable {
         error: String? = nil, sourceDurationMs: Int64? = nil, playbackStartMs: Int64? = nil,
         playbackEndMs: Int64? = nil, playbackRev: String? = nil, peaksRev: String? = nil,
         trimStartMs: Int64 = 0, trimEndMs: Int64? = nil, speedPercent: Int = 100, pitchCents: Int = 0,
-        extra: JSONObject = [:]
+        notes: String? = nil, players: String? = nil, placeName: String? = nil, placeLat: Double? = nil,
+        placeLon: Double? = nil, placeAccuracyM: Int? = nil, extra: JSONObject = [:]
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -564,7 +578,21 @@ public struct Recording: SyncedRecord, Hashable {
         self.trimEndMs = trimEndMs
         self.speedPercent = speedPercent
         self.pitchCents = pitchCents
+        self.notes = notes
+        self.players = players
+        self.placeName = placeName
+        self.placeLat = placeLat
+        self.placeLon = placeLon
+        self.placeAccuracyM = placeAccuracyM
         self.extra = extra
+    }
+
+    /// The named place, nil unless the name and both coordinates are set. A coordinate alone,
+    /// as a capture stores it, is not shown.
+    public var place: RecordingPlace? {
+        guard let placeName, let placeLat, let placeLon else { return nil }
+        return RecordingPlace(
+            name: placeName, coordinate: Coordinate(lat: placeLat, lon: placeLon, accuracyM: placeAccuracyM))
     }
 
     /// The precision of `recordedAt`, nil when the date is unknown or carries a precision newer

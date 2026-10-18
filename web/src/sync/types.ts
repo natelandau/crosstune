@@ -1,4 +1,10 @@
-import type { DeleteAccountOptions, ResolveResponse, SearchGroup, SyncApi } from '../api/types'
+import type {
+  DeleteAccountOptions,
+  PlaceResult,
+  ResolveResponse,
+  SearchGroup,
+  SyncApi,
+} from '../api/types'
 import type { Provider } from '../api/vocabulary'
 
 export type { SyncApi }
@@ -8,6 +14,14 @@ export type SearchOutcome =
   | { kind: 'ok'; groups: SearchGroup[] }
   | { kind: 'offline' }
   | { kind: 'rate_limited'; retryAfterSeconds: number }
+  | { kind: 'failed' }
+
+/** Like `SearchOutcome`, plus `unavailable` for a server with no place search configured. */
+export type PlaceSearchOutcome =
+  | { kind: 'ok'; results: PlaceResult[] }
+  | { kind: 'offline' }
+  | { kind: 'rate_limited'; retryAfterSeconds: number }
+  | { kind: 'unavailable' }
   | { kind: 'failed' }
 
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'unauthorized' | 'error'
@@ -40,6 +54,7 @@ export interface SyncEngine {
   pullEvents(): Promise<void>
   resolveLink(url: string): Promise<ResolveResponse | null>
   searchRecordings(q: string, providers: Provider[], country: string): Promise<SearchOutcome>
+  searchPlaces(q: string): Promise<PlaceSearchOutcome>
   /** Fetch one recording's audio now, storing it locally. Null when it cannot be fetched. */
   download(recordingId: string): Promise<Blob | null>
   /** Fetch one recording's waveform now, storing it locally. Null when it cannot be fetched. */

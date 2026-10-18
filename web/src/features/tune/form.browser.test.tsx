@@ -12,7 +12,6 @@ import type { CrosstuneDb } from '../../db/schema'
 import { ADD_TUNE, SEARCH_TUNES, addOfferLabel } from '../catalog/catalogCopy'
 import { DAY_LABEL, MONTH_LABEL, MONTH_LABELS, YEAR_FORMAT, YEAR_LABEL } from '../../ui/partialDate'
 import { ADD_PART_MODE, DETAIL_LABELS, PART_MODE_LABELS } from './detailFields'
-import { OTHER_OPTION, otherLabel } from '../../ui/form/suggestCopy'
 import {
   ADD_NEW_TUNE,
   EDIT_TUNE_TITLE,
@@ -26,7 +25,6 @@ import { EDIT_TUNE, LYRICS_SECTION } from './tuneScreenCopy'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { CANCEL } from '../../ui/confirmCopy'
-import { NOT_SET } from '../../ui/fieldCopy'
 import { spokenKey } from '../../ui/keyName'
 import { renderApp } from '../../test/renderApp'
 import { renderWithProviders } from '../../test/render'
@@ -157,36 +155,26 @@ it('keeps the chosen status when it is pressed again', async () => {
   expect(userTune?.status).toBe('known')
 })
 
-it('reveals a text field from Other… that keeps the current value until typed', async () => {
+it('takes a value typed straight into an open vocabulary', async () => {
   const db = openTestDb()
   const { tuneId } = await editTune(db, { title: 'Old Joe Clark', tune_type: 'reel' })
   const form = sheet(EDIT_TUNE_TITLE)
   const type = form.getByRole('combobox', { name: DETAIL_LABELS.tune_type })
   await expect.element(type).toHaveValue('reel')
-  await type.click()
-  await page.getByRole('option', { name: OTHER_OPTION }).click()
-  const other = form.getByRole('textbox', { name: otherLabel(DETAIL_LABELS.tune_type) })
-  await expect.element(other).toHaveValue('reel')
-  await expect.element(other).toHaveFocus()
-
-  await other.fill('slip reel')
+  await type.fill('slip reel')
   await expect.element(type).toHaveValue('slip reel')
   await primary(EDIT_TUNE_TITLE, SAVE_TUNE).click()
   await expect.element(form).not.toBeInTheDocument()
   await expect.poll(async () => (await db.tunes.get(tuneId))?.tune_type).toBe('slip reel')
 })
 
-it('empties an open vocabulary from its Not set choice', async () => {
+it('empties an open vocabulary when its text is deleted', async () => {
   const db = openTestDb()
   const { tuneId } = await editTune(db, { title: 'Old Joe Clark', tune_type: 'reel' })
   const form = sheet(EDIT_TUNE_TITLE)
   const type = form.getByRole('combobox', { name: DETAIL_LABELS.tune_type })
-  await type.click()
-  await page.getByRole('option', { name: NOT_SET, exact: true }).click()
-  await expect.element(type).toHaveValue(NOT_SET)
-  await expect
-    .element(page.getByRole('option', { name: NOT_SET, exact: true }))
-    .not.toBeInTheDocument()
+  await type.clear()
+  await expect.element(type).toHaveValue('')
   await primary(EDIT_TUNE_TITLE, SAVE_TUNE).click()
   await expect.element(form).not.toBeInTheDocument()
   await expect.poll(async () => (await db.tunes.get(tuneId))?.tune_type).toBeNull()
@@ -209,17 +197,18 @@ it('takes lyrics in their own field and saves them with the tune', async () => {
     .toMatchObject({ lyrics: 'My old hen\nShe’s a good old hen' })
 })
 
-it('dims an empty suggested field only while it shows Not set', async () => {
+it('shows an empty suggested field empty, and takes typing with no pick', async () => {
   const db = openTestDb()
   renderSheet(db)
   const composer = sheet(NEW_TUNE_TITLE).getByRole('combobox', { name: DETAIL_LABELS.composer })
-  await expect.element(composer).toHaveValue(NOT_SET)
-  const color = () => getComputedStyle(composer.element()).color
-  const dimmed = color()
+  await expect.element(composer).toHaveValue('')
   await composer.click()
-  await userEvent.keyboard('Ed')
-  await expect.element(composer).toHaveValue('Ed')
-  await expect.poll(color).not.toBe(dimmed)
+  await userEvent.keyboard('Ed Haley')
+  await expect.element(composer).toHaveValue('Ed Haley')
+  await userEvent.keyboard('{Tab}')
+  await titleField().fill('Cluck Old Hen')
+  await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
+  await expect.poll(() => onlyTune(db)).toMatchObject({ composer: 'Ed Haley' })
 })
 
 it('saves a mode picked for the tune and one for its B part', async () => {

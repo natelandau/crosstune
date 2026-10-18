@@ -70,7 +70,7 @@ extension StoreWriter {
     @discardableResult
     public func finishCapture(
         _ recordingID: String, fileName: String, bytes: Int64, durationMs: Int64, peaksFileName: String? = nil,
-        at time: Timestamp = .now
+        coordinate: Coordinate? = nil, at time: Timestamp = .now
     ) throws -> Bool {
         guard let file = try RecordingFile.fetchOne(db, key: recordingID), file.localState == .capturing else {
             return false
@@ -84,7 +84,8 @@ extension StoreWriter {
         try putNewRecording(
             recordingID, tuneID: tuneID, source: "microphone",
             // Named for when it started, so a recording is never nameless in a list.
-            label: defaultRecordingLabel(recordedAt: recordedAt), recordedAt: recordedAt, at: time)
+            label: defaultRecordingLabel(recordedAt: recordedAt), recordedAt: recordedAt,
+            coordinate: coordinate, at: time)
         return true
     }
 
@@ -134,7 +135,7 @@ extension StoreWriter {
     /// `recordedAt` is known only for a take, which was added the moment it was played.
     private func putNewRecording(
         _ recordingID: String, tuneID: String?, source: String, label: String?, recordedAt: Timestamp?,
-        origin: String = "own", originURL: String? = nil, at time: Timestamp
+        origin: String = "own", originURL: String? = nil, coordinate: Coordinate? = nil, at time: Timestamp
     ) throws {
         let siblings = try tuneID.map(activeRecordingsForTune) ?? []
         try put(
@@ -142,18 +143,20 @@ extension StoreWriter {
                 id: recordingID, createdAt: time, tuneID: tuneID, source: source, origin: origin,
                 originURL: originURL, addedAt: recordedAt ?? time, recordedAt: recordedAt,
                 recordedPrecision: recordedAt == nil ? nil : RecordingPrecision.time.rawValue, label: label,
-                position: nextPosition(siblings)),
+                position: nextPosition(siblings), placeLat: coordinate?.lat, placeLon: coordinate?.lon,
+                placeAccuracyM: coordinate?.accuracyM),
             at: time)
     }
 
-    /// Applies an edit to a recording: label, tune, trim, speed, or pitch. Moving it to a
+    /// Applies an edit to a recording: label, tune, trim, speed, pitch, notes, players, or place. Moving it to a
     /// different, live tune repositions it past that tune's other recordings; clearing its tune
     /// keeps its position. A failed upload is put back in the queue, since the edit re-pushes the
     /// row.
     public func updateRecording(
         _ recordingID: String, label: Patch<String?> = .keep, tuneID: Patch<String?> = .keep,
         trimStartMs: Patch<Int64> = .keep, trimEndMs: Patch<Int64?> = .keep, speedPercent: Patch<Int> = .keep,
-        pitchCents: Patch<Int> = .keep, at time: Timestamp = .now
+        pitchCents: Patch<Int> = .keep, notes: Patch<String?> = .keep, players: Patch<String?> = .keep,
+        place: Patch<RecordingPlace?> = .keep, at time: Timestamp = .now
     ) throws {
         guard var recording = try Recording.fetchOne(db, key: recordingID), recording.deletedAt == nil else {
             throw CommandError.recordingNotFound
@@ -170,6 +173,15 @@ extension StoreWriter {
         recording.trimEndMs = trimEndMs.resolved(from: recording.trimEndMs)
         recording.speedPercent = speedPercent.resolved(from: recording.speedPercent)
         recording.pitchCents = pitchCents.resolved(from: recording.pitchCents)
+        recording.notes = notes.resolved(from: recording.notes)
+        recording.players = players.resolved(from: recording.players)
+        if case .value(let newPlace) = place {
+            recording.placeName = newPlace?.name
+            recording.placeLat = newPlace?.coordinate.lat
+            recording.placeLon = newPlace?.coordinate.lon
+            // A hand-set place has no fix, so no accuracy.
+            recording.placeAccuracyM = nil
+        }
         try put(recording, at: time)
         try requeueFailedUpload(recordingID, at: time)
     }
@@ -250,12 +262,12 @@ extension Commands {
     @discardableResult
     public func finishCapture(
         _ recordingID: String, fileName: String, bytes: Int64, durationMs: Int64, peaksFileName: String? = nil,
-        at time: Timestamp = .now
+        coordinate: Coordinate? = nil, at time: Timestamp = .now
     ) async throws -> Bool {
         try await store.write { writer in
             try writer.finishCapture(
                 recordingID, fileName: fileName, bytes: bytes, durationMs: durationMs, peaksFileName: peaksFileName,
-                at: time)
+                coordinate: coordinate, at: time)
         }
     }
 
@@ -294,12 +306,14 @@ extension Commands {
     public func updateRecording(
         _ recordingID: String, label: Patch<String?> = .keep, tuneID: Patch<String?> = .keep,
         trimStartMs: Patch<Int64> = .keep, trimEndMs: Patch<Int64?> = .keep, speedPercent: Patch<Int> = .keep,
-        pitchCents: Patch<Int> = .keep, at time: Timestamp = .now
+        pitchCents: Patch<Int> = .keep, notes: Patch<String?> = .keep, players: Patch<String?> = .keep,
+        place: Patch<RecordingPlace?> = .keep, at time: Timestamp = .now
     ) async throws {
         try await store.write { writer in
             try writer.updateRecording(
                 recordingID, label: label, tuneID: tuneID, trimStartMs: trimStartMs, trimEndMs: trimEndMs,
-                speedPercent: speedPercent, pitchCents: pitchCents, at: time)
+                speedPercent: speedPercent, pitchCents: pitchCents, notes: notes, players: players,
+                place: place, at: time)
         }
     }
 

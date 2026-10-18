@@ -300,6 +300,50 @@ enum Schema {
             // from this list.
             try db.execute(sql: "DELETE FROM meta WHERE key = 'scan_requeues'")
         }
+        migrator.registerMigration("v20") { db in
+            // The server holds the same nulls, so no repull is needed.
+            let table = SyncTable.recordings.rawValue
+            try db.alter(table: table) { t in
+                t.add(column: "notes", .text)
+                t.add(column: "players", .text)
+                t.add(column: "place_name", .text)
+                t.add(column: "place_lat", .double)
+                t.add(column: "place_lon", .double)
+                t.add(column: "place_accuracy_m", .integer)
+            }
+            let columns: [(name: String, types: String)] = [
+                ("notes", "'text'"), ("players", "'text'"), ("place_name", "'text'"),
+                ("place_lat", "'real', 'integer'"), ("place_lon", "'real', 'integer'"),
+                ("place_accuracy_m", "'integer'"),
+            ]
+            // A row pulled from a server that already had the fields kept them in `extra`.
+            for (column, types) in columns {
+                try db.execute(
+                    sql: """
+                        UPDATE recordings
+                        SET \(column) = json_extract(extra, '$.\(column)')
+                        WHERE json_type(extra, '$.\(column)') IN (\(types))
+                        """)
+            }
+            try db.execute(
+                sql: "UPDATE recordings SET extra = json_remove(extra, "
+                    + columns.map { "'$.\($0.name)'" }.joined(separator: ", ") + ")")
+            // A queued change that predates the fields carries them from the row, so a pushed
+            // upsert never leaves them out.
+            let assignments = columns.map(\.name).map { column in
+                """
+                '$.\(column)', CASE WHEN json_type(data, '$.\(column)') IS NULL
+                    THEN (SELECT \(column) FROM recordings WHERE id = outbox.row_id)
+                    ELSE json_extract(data, '$.\(column)') END
+                """
+            }.joined(separator: ", ")
+            try db.execute(
+                sql: """
+                    UPDATE outbox SET data = json_set(data, \(assignments))
+                    WHERE table_name = ? AND data IS NOT NULL
+                    """,
+                arguments: [table])
+        }
         return migrator
     }()
 

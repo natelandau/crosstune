@@ -19,6 +19,11 @@ public enum EditRecordingText {
     public static let day = "Day"
     public static let any = "Any"
     public static let clearDate = "Clear date"
+    public static let players = "Players"
+    public static let notes = "Notes"
+    public static let notesPlaceholder = "Tuning, who it came from, what to work on…"
+    public static let place = "Place"
+    public static let clearPlace = "Clear place"
 
     /// `Recorded at <time>`: the exact time of a take, which its date parts cannot show.
     public static func recordedAtNote(
@@ -28,15 +33,27 @@ public enum EditRecordingText {
     }
 }
 
-/// The Edit sheet's state: the typed name, the date recorded, and the one save they make. A
-/// blank name clears the recording's own name, so it goes back to being named for its tune or
-/// its date. The date is written only when its parts changed.
+/// The Edit sheet's state: the typed name, the date recorded, the notes, players, and place, and
+/// the one save they make. A blank name clears the recording's own name, so it goes back to being
+/// named for its tune or its date. The date is written only when its parts changed, and the place
+/// only when it changed, so a place left alone keeps its captured accuracy.
 @MainActor
 @Observable
 public final class EditRecordingModel {
     public let recordingID: String
     public private(set) var name: String
     public private(set) var date: RecordingDateDraft
+    public private(set) var notes: String
+    public private(set) var players: String
+    public private(set) var place: RecordingPlace?
+    /// How the place was picked, nil until one is or once it is cleared.
+    public private(set) var placeMethod: PlaceMethod?
+    /// Coordinates with no name show no place, yet the musician can still clear them.
+    private var hasUnnamedCoordinates: Bool
+    /// The players on the musician's recordings, to suggest; empty until ``load()``.
+    public private(set) var playerOptions: [String] = []
+    /// The places on the musician's other recordings, most recent first; empty until ``load()``.
+    public private(set) var recentPlaces: [RecordingPlace] = []
     public private(set) var isSaving = false
     /// Set once a save lands, so a second press saves nothing more.
     public private(set) var isSaved = false
@@ -49,6 +66,8 @@ public final class EditRecordingModel {
     private let analytics: AnalyticsClient
     private let recording: Recording
     private let openedName: String
+    private let openedNotes: String
+    private let openedPlayers: String
     private let now: () -> Timestamp
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "edit-recording")
 
@@ -65,13 +84,66 @@ public final class EditRecordingModel {
         name = recording.label ?? ""
         openedName = recording.label ?? ""
         date = RecordingDateDraft(recording: recording, timeZone: timeZone)
+        notes = recording.notes ?? ""
+        openedNotes = recording.notes ?? ""
+        players = recording.players ?? ""
+        openedPlayers = recording.players ?? ""
+        place = recording.place
+        hasUnnamedCoordinates = Self.unnamedCoordinates(recording)
+    }
+
+    /// Whether Clear has a place to clear: a named one, or coordinates with no name yet.
+    public var canClearPlace: Bool { place != nil || hasUnnamedCoordinates }
+
+    /// Reads the suggestions from the store. A failed read leaves them empty.
+    public func load() async {
+        let recordings = try? await store.read { db in try Recording.fetchAll(db) }
+        guard let recordings else { return }
+        playerOptions = RecordingSuggestions.players(recordings)
+        recentPlaces = RecordingSuggestions.recentPlaces(recordings, excluding: recordingID)
     }
 
     /// Whether the sheet holds an edit a dismissal would lose.
-    public var isEdited: Bool { name != openedName || date.isChanged }
+    public var isEdited: Bool {
+        name != openedName || date.isChanged || notes != openedNotes || players != openedPlayers || isPlaceChanged
+    }
+
+    private var isPlaceChanged: Bool {
+        place.map(RecordingSuggestions.picked) != recording.place.map(RecordingSuggestions.picked)
+            || hasUnnamedCoordinates != Self.unnamedCoordinates(recording)
+    }
+
+    private static func unnamedCoordinates(_ recording: Recording) -> Bool {
+        recording.placeName == nil && recording.placeLat != nil && recording.placeLon != nil
+    }
 
     public func setName(_ name: String) {
         self.name = name
+        failure = nil
+    }
+
+    public func setNotes(_ notes: String) {
+        self.notes = notes
+        failure = nil
+    }
+
+    public func setPlayers(_ players: String) {
+        self.players = players
+        failure = nil
+    }
+
+    /// Sets the place and how it was picked.
+    public func setPlace(_ place: RecordingPlace, method: PlaceMethod) {
+        self.place = place
+        placeMethod = method
+        hasUnnamedCoordinates = false
+        failure = nil
+    }
+
+    public func clearPlace() {
+        place = nil
+        placeMethod = nil
+        hasUnnamedCoordinates = false
         failure = nil
     }
 
@@ -86,8 +158,10 @@ public final class EditRecordingModel {
         failure = nil
     }
 
-    /// Saves the trimmed name, or clears it when blank, and the date when it changed, in one
-    /// write. True once the save lands; a date that cannot be stored writes nothing.
+    /// Saves the trimmed name, and the notes, players, date, and place when they changed, in one
+    /// write. Blank notes or players clear them. A field left alone is not written, so an edit
+    /// synced while the sheet is open survives. True once the save lands; a date that cannot be
+    /// stored writes nothing.
     public func save() async -> Bool {
         guard !isSaving, !isSaved else { return false }
         let time = now()
@@ -106,9 +180,15 @@ public final class EditRecordingModel {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let recordingID = recordingID
         let written = newDate
+        let notes: Patch<String?> = notes == openedNotes ? .keep : .value(Self.blankToNil(notes))
+        let players: Patch<String?> = players == openedPlayers ? .keep : .value(Self.blankToNil(players))
+        let placeChanged = isPlaceChanged
+        let newPlace = place.map(RecordingSuggestions.picked)
         do {
             try await store.write { writer in
-                try writer.updateRecording(recordingID, label: .value(trimmed.isEmpty ? nil : trimmed), at: time)
+                try writer.updateRecording(
+                    recordingID, label: .value(trimmed.isEmpty ? nil : trimmed), notes: notes,
+                    players: players, place: placeChanged ? .value(newPlace) : .keep, at: time)
                 if let written {
                     try writer.updateRecordingDate(
                         recordingID, recordedAt: written.at, precision: written.precision, at: time)
@@ -116,6 +196,13 @@ public final class EditRecordingModel {
             }
             isSaved = true
             if trimmed != openedName { analytics.recordingRenamed(recording) }
+            if placeChanged {
+                if newPlace == nil {
+                    analytics.recordingPlaceCleared(recording)
+                } else if let placeMethod {
+                    analytics.recordingPlaceSet(recording, method: placeMethod, replaced: recording.place != nil)
+                }
+            }
             return true
         } catch {
             Self.logger.warning("A recording edit failed: \(error)")
@@ -123,10 +210,15 @@ public final class EditRecordingModel {
             return false
         }
     }
+
+    private static func blankToNil(_ text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
 }
 
-/// A recording's name and the date it was recorded, over whatever screen asked. Reads the store
-/// from the environment.
+/// A recording's name, the date it was recorded, its players, its place, and its notes, over
+/// whatever screen asked. Reads the store from the environment.
 public struct EditRecordingSheet: View {
     private let view: RecordingView
 
@@ -157,12 +249,14 @@ public struct EditRecordingSheet: View {
             .presentationDetents([.large])
             .shellSheet()
         #else
-            .macSheetFrame(.form(minHeight: 380))
+            .macSheetFrame(.form(minHeight: 560))
             .shellSheet()
         #endif
         .task {
             guard model == nil, let store else { return }
-            model = EditRecordingModel(store: store, recording: view.recording, analytics: analytics)
+            let opened = EditRecordingModel(store: store, recording: view.recording, analytics: analytics)
+            model = opened
+            await opened.load()
         }
     }
 }
@@ -176,7 +270,10 @@ private struct EditRecordingForm: View {
     }
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.placeSearch) private var placeSearch
     @FocusState private var focused: Field?
+    /// Set once Name takes focus, so coming back from the place search leaves focus alone.
+    @State private var focusedName = false
 
     private static let months = Array(1...12)
 
@@ -184,6 +281,8 @@ private struct EditRecordingForm: View {
         Form {
             nameSection
             dateSection
+            playersSection
+            notesSection
         }
         .formStyle(.grouped)
         .toolbar {
@@ -198,7 +297,11 @@ private struct EditRecordingForm: View {
             }
         }
         .interactiveDismissDisabled(model.isEdited || model.isSaving)
-        .onAppear { focused = .name }
+        .onAppear {
+            guard !focusedName else { return }
+            focusedName = true
+            focused = .name
+        }
     }
 
     private var nameSection: some View {
@@ -279,6 +382,62 @@ private struct EditRecordingForm: View {
             } else if let take = date.keptTake {
                 Text(EditRecordingText.recordedAtNote(take))
             }
+        }
+    }
+
+    private var playersSection: some View {
+        Section {
+            SuggestionField(
+                EditRecordingText.players,
+                value: Binding {
+                    model.players
+                } set: {
+                    model.setPlayers($0)
+                },
+                suggestions: model.playerOptions, maxLength: Vocabulary.Limits.Recording.players)
+            placeRow
+            if model.canClearPlace {
+                Button(EditRecordingText.clearPlace) { model.clearPlace() }
+            }
+        }
+    }
+
+    /// The place's name, pushing the place search where there is one.
+    @ViewBuilder private var placeRow: some View {
+        let shown = LabeledContent(EditRecordingText.place) {
+            if let name = model.place?.name {
+                Text(name)
+                    .contentMask()
+            }
+        }
+        if let placeSearch {
+            NavigationLink {
+                PlaceSearchView(
+                    search: { placeSearch.init() }, recent: model.recentPlaces, current: model.place,
+                    onPick: model.setPlace, onClear: model.clearPlace)
+            } label: {
+                shown
+            }
+        } else {
+            shown
+        }
+    }
+
+    private var notesSection: some View {
+        let notes = Binding {
+            model.notes
+        } set: {
+            model.setNotes($0)
+        }
+        return Section {
+            TextField(
+                EditRecordingText.notes, text: notes, prompt: Text(EditRecordingText.notesPlaceholder), axis: .vertical
+            )
+            .contentMask()
+            .characterLimit(Vocabulary.Limits.Recording.notes, text: notes)
+            .lineLimit(3...)
+        } header: {
+            Text(EditRecordingText.notes)
         }
     }
 

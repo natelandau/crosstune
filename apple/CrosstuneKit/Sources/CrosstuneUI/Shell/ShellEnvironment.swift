@@ -7,6 +7,9 @@ extension EnvironmentValues {
     @Entry public var store: CrosstuneStore?
     /// The writes a screen makes against ``store``. Nil outside the shell.
     @Entry public var commands: CrosstuneCommands.Commands?
+    /// The kind of search for a recording's place, made once for each search screen so two
+    /// windows never share one. Nil where nothing can search, which offers no search.
+    @Entry public var placeSearch: (any PlaceSearching.Type)?
     /// The tune the split view's detail column shows, by id. Nil on iPhone, where a screen
     /// pushes the tune onto its own stack instead.
     @Entry public var detailTune: ShellValue<String?>?

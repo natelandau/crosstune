@@ -53,6 +53,9 @@ export function activeRecordingsForTune(
   return db.recordings.where('tune_id').equals(tuneId).toArray().then(activeByPosition)
 }
 
+/** Where a capture began, as the device reported it. */
+export type RecordingPlace = { lat: number; lon: number; accuracyM: number | null }
+
 async function putRecordingRow(
   db: CrosstuneDb,
   id: string,
@@ -64,6 +67,7 @@ async function putRecordingRow(
     recordedAt: string | null
     origin?: string
     originUrl?: string
+    place?: RecordingPlace | null
   },
 ): Promise<void> {
   const at = now()
@@ -79,6 +83,12 @@ async function putRecordingRow(
     source: fields.source,
     origin: fields.origin ?? 'own',
     origin_url: fields.originUrl ?? null,
+    notes: null,
+    players: null,
+    place_name: null,
+    place_lat: fields.place?.lat ?? null,
+    place_lon: fields.place?.lon ?? null,
+    place_accuracy_m: fields.place?.accuracyM ?? null,
     // A take was added the moment it was played.
     added_at: fields.recordedAt ?? at,
     recorded_at: fields.recordedAt,
@@ -149,6 +159,7 @@ export async function finishCapture(
     /** Peaks captured live during recording; null when there is nothing to show until the
      * server builds its own, as after recovering a capture the tab never finished. */
     peaks: Uint8Array | null
+    place?: RecordingPlace | null
   },
 ): Promise<void> {
   await recordingTx(db, async () => {
@@ -176,6 +187,7 @@ export async function finishCapture(
       // Named for when it started, so a recording is never nameless in a list.
       label: defaultRecordingLabel(fields.recordedAt),
       recordedAt: fields.recordedAt,
+      place: fields.place,
     })
   })
 }
@@ -255,6 +267,12 @@ export async function updateRecording(
     pitch_cents?: number
     recorded_at?: string | null
     recorded_precision?: RecordingPrecision | null
+    notes?: string | null
+    players?: string | null
+    place_name?: string | null
+    place_lat?: number | null
+    place_lon?: number | null
+    place_accuracy_m?: number | null
   },
 ): Promise<void> {
   checkRecordedDate(patch)

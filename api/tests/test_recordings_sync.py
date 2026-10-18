@@ -10,6 +10,7 @@ from sqlalchemy import select, update
 
 from crosstune.db.base import utc_now
 from crosstune.models import Job, Recording
+from crosstune.vocabulary import LIMITS, PLACE_ACCURACY_M_MAX
 from tests.helpers import T0, T1, T2, change, pull, push, recording, uid
 
 pytestmark = pytest.mark.anyio
@@ -611,3 +612,104 @@ async def test_push_refuses_a_partial_date_off_the_start_of_its_period(
     assert result["status"] == "invalid"
     assert result["reason"] == "invalid fields: recorded_at"
     assert await verify_session.get(Recording, uuid.UUID(rec)) is None
+
+
+async def test_push_stores_notes_players_and_place(client, auth_headers) -> None:
+    rec = uid()
+    fields = {
+        "notes": "Joe's kitchen",
+        "players": "Kevin and Ed",
+        "place_name": "Galax, VA",
+        "place_lat": 36.66,
+        "place_lon": -80.92,
+    }
+    [result] = await push(client, auth_headers("user_a"), recording(rec, **fields))
+    assert result["status"] == "applied"
+    rows = (await pull(client, auth_headers("user_a")))["rows"]
+    [row] = [r["row"] for r in rows if r["table"] == "recordings"]
+    assert {key: row[key] for key in fields} == fields
+
+
+async def test_push_keeps_full_precision(client, auth_headers) -> None:
+    rec = uid()
+    fields = {"place_lat": 36.661234, "place_lon": -80.923912, "place_accuracy_m": 12}
+    await push(client, auth_headers("user_a"), recording(rec, **fields))
+    rows = (await pull(client, auth_headers("user_a")))["rows"]
+    [row] = [r["row"] for r in rows if r["table"] == "recordings"]
+    assert {key: row[key] for key in fields} == fields
+
+
+async def test_push_keeps_coordinates_without_a_name(client, auth_headers) -> None:
+    rec = uid()
+    [result] = await push(
+        client, auth_headers("user_a"), recording(rec, place_lat=36.66, place_lon=-80.92)
+    )
+    assert result["status"] == "applied"
+    assert result["row"]["place_name"] is None
+    rows = (await pull(client, auth_headers("user_a")))["rows"]
+    [row] = [r["row"] for r in rows if r["table"] == "recordings"]
+    assert (row["place_lat"], row["place_lon"], row["place_name"]) == (36.66, -80.92, None)
+
+
+async def test_push_takes_the_widest_accuracy(client, auth_headers) -> None:
+    fields = {"place_lat": 1.0, "place_lon": 1.0, "place_accuracy_m": PLACE_ACCURACY_M_MAX}
+    [result] = await push(client, auth_headers("user_a"), recording(uid(), **fields))
+    assert result["status"] == "applied"
+
+
+@pytest.mark.parametrize(
+    ("fields", "field"),
+    [
+        ({"place_accuracy_m": 5}, "place_accuracy_m"),
+        ({"place_lat": 1.0, "place_lon": 1.0, "place_accuracy_m": -1}, "place_accuracy_m"),
+        ({"place_lat": 36.66}, "place_lon"),
+        ({"place_lon": -80.92}, "place_lon"),
+        ({"place_name": "Galax, VA"}, "place_name"),
+        ({"place_lat": 91, "place_lon": 0}, "place_lat"),
+        ({"place_lat": 0, "place_lon": -181}, "place_lon"),
+        ({"players": "x" * 201}, "players"),
+        ({"players": ""}, "players"),
+        ({"players": " \n "}, "players"),
+        ({"place_lat": 1.0, "place_lon": 1.0, "place_name": ""}, "place_name"),
+        ({"place_lat": 1.0, "place_lon": 1.0, "place_name": "  "}, "place_name"),
+        (
+            {"place_lat": 1.0, "place_lon": 1.0, "place_accuracy_m": PLACE_ACCURACY_M_MAX + 1},
+            "place_accuracy_m",
+        ),
+        ({"notes": "x" * (LIMITS["recordings"]["notes"] + 1)}, "notes"),
+    ],
+)
+async def test_push_refuses_an_invalid_place_or_players(
+    client, auth_headers, fields: dict, field: str
+) -> None:
+    [result] = await push(client, auth_headers("user_a"), recording(uid(), **fields))
+    assert result["status"] == "invalid"
+    assert result["reason"] == f"invalid fields: {field}"
+
+
+async def _place_jobs(verify_session, rec: str) -> int:
+    return len([kind for kind in await _job_kinds(verify_session, rec) if kind == "place"])
+
+
+async def test_push_with_unnamed_coordinates_queues_one_place_job(
+    client, auth_headers, verify_session
+) -> None:
+    rec = uid()
+    place = {"place_lat": 36.6612, "place_lon": -80.9239}
+    await push(client, auth_headers("user_a"), recording(rec, **place))
+    assert await _place_jobs(verify_session, rec) == 1
+    await push(client, auth_headers("user_a"), recording(rec, T1, label="Again", **place))
+    assert await _place_jobs(verify_session, rec) == 1
+
+
+async def test_push_with_a_named_place_queues_no_job(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    place = {"place_lat": 36.6612, "place_lon": -80.9239, "place_name": "Galax, VA"}
+    await push(client, auth_headers("user_a"), recording(rec, **place))
+    assert await _place_jobs(verify_session, rec) == 0
+
+
+async def test_push_without_a_place_queues_no_job(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    assert await _place_jobs(verify_session, rec) == 0

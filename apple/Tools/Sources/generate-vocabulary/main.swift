@@ -48,7 +48,7 @@ let limitNamespaces: [(name: String, rows: [String])] = [
 /// they are emitted. A field missing its range fails the run, so the client's own range is
 /// never silently narrower or wider than what the API actually enforces.
 let rangeNamespaces: [(name: String, schema: String, fields: [String])] = [
-    ("Recording", "RecordingData", ["pitch_cents", "speed_percent"]),
+    ("Recording", "RecordingData", ["pitch_cents", "place_accuracy_m", "speed_percent"]),
     ("RecordingLoop", "RecordingLoopRow", ["color"]),
 ]
 

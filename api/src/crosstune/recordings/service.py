@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, overload
 
-from sqlalchemy import text
+from sqlalchemy import case, text, update
 from sqlalchemy.dialects.postgresql import insert
 
-from crosstune.db.base import bump_server_seq
+from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.session import request_runner_wake
 from crosstune.errors import ConflictError, NotFoundError
+from crosstune.jobs.attempt import held_after_failure
 from crosstune.links.detect import detect_provider
 from crosstune.models import Job, Recording
 from crosstune.recordings.trim_rules import needs_trim
@@ -47,9 +48,13 @@ async def owned_recording(
     return row
 
 
+# Kinds a recording holds at most one of, each deduplicated against its partial unique index.
+_SINGLE_KINDS = frozenset({JobKind.TRIM, JobKind.PLACE})
+
+
 @overload
 async def enqueue_job(
-    session: AsyncSession, recording: Recording, kind: Literal[JobKind.TRIM]
+    session: AsyncSession, recording: Recording, kind: Literal[JobKind.TRIM, JobKind.PLACE]
 ) -> Job | None: ...
 @overload
 async def enqueue_job(
@@ -60,9 +65,9 @@ async def enqueue_job(
 async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind) -> Job | None:
     """Queue one job for the recording and wake the runner once the request commits.
 
-    A trim is deduplicated against `ux_jobs_recording_id_trim`: a recording can have
-    only one trim queued at a time, so a call while one is already pending inserts
-    nothing.
+    A trim or a place job is deduplicated against its `ux_jobs_recording_id_<kind>`
+    index: a recording can have only one of each queued at a time, so a call while one
+    is already pending inserts nothing.
 
     Args:
         session: The session to write through.
@@ -70,10 +75,11 @@ async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind
         kind: What work the job asks the runner to do.
 
     Returns:
-        Job | None: The queued row, or None when `kind` is TRIM and one was already pending.
+        Job | None: The queued row, or None when `kind` is TRIM or PLACE and one was
+            already pending.
     """
     request_runner_wake(session)
-    if kind is not JobKind.TRIM:
+    if kind not in _SINGLE_KINDS:
         job = Job(recording_id=recording.id, user_id=recording.user_id, kind=kind.value)
         session.add(job)
         return job
@@ -81,12 +87,25 @@ async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind
         insert(Job)
         .values(recording_id=recording.id, user_id=recording.user_id, kind=kind.value)
         .on_conflict_do_nothing(
-            index_elements=[Job.recording_id], index_where=text(f"kind = '{JobKind.TRIM.value}'")
+            index_elements=[Job.recording_id], index_where=text(f"kind = '{kind.value}'")
         )
         .returning(Job)
     )
     result = await session.execute(stmt, execution_options={"populate_existing": True})
-    return result.scalar_one_or_none()
+    job = result.scalar_one_or_none()
+    if job is None and kind is JobKind.PLACE:
+        # New coordinates start the pending lookup's clock over, and a lookup waiting out a
+        # failure runs now. A claimed one keeps its lock, and re-queues itself if the
+        # coordinates moved under it.
+        await session.execute(
+            update(Job)
+            .where(Job.recording_id == recording.id, Job.kind == kind.value)
+            .values(
+                created_at=utc_now(),
+                locked_until=case((held_after_failure(), None), else_=Job.locked_until),
+            )
+        )
+    return job
 
 
 async def enqueue_transcode(session: AsyncSession, recording: Recording) -> Job:
@@ -127,6 +146,16 @@ async def ensure_trim_job(session: AsyncSession, recording: Recording) -> None:
     """
     if recording.deleted_at is None and needs_trim(recording):
         await enqueue_job(session, recording, JobKind.TRIM)
+
+
+async def ensure_place_job(session: AsyncSession, recording: Recording) -> None:
+    """Queue a place job when the recording has coordinates that have no name yet."""
+    if (
+        recording.deleted_at is None
+        and recording.place_lat is not None
+        and recording.place_name is None
+    ):
+        await enqueue_job(session, recording, JobKind.PLACE)
 
 
 def attach_playback(

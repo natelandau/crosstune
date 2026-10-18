@@ -253,6 +253,10 @@
       "bouzouki",
       "mountain_dulcimer"
     ],
+    "place_method": [
+      "search",
+      "suggestion"
+    ],
     "display_mode": [
       "browser",
       "standalone"
@@ -1204,6 +1208,47 @@
           "enum": "origin",
           "required": true
         },
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "recording_place_set": {
+      "description": "The user set a recording's place.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        },
+        "method": {
+          "type": "string",
+          "enum": "place_method",
+          "required": true
+        },
+        "replaced": {
+          "type": "bool",
+          "required": true
+        }
+      }
+    },
+    "recording_place_cleared": {
+      "description": "The user cleared a recording's place.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
         "recording_id": {
           "type": "uuid",
           "required": true

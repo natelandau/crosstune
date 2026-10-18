@@ -9,8 +9,20 @@ test('quotes only fields that need it and doubles inner quotes', () => {
   )
 })
 
-test('keeps a leading = or - as written', () => {
-  expect(csvDocument([['=SUM(A1)', '- note']])).toBe(`${BOM}=SUM(A1),- note\r\n`)
+test('guards a cell a spreadsheet would read as a formula', () => {
+  expect(csvDocument([['=SUM(A1)', '+1 555', '- note', '@user', '\tx', '\rx']])).toBe(
+    `${BOM}'=SUM(A1),'+1 555,'- note,'@user,'\tx,"'\nx"\r\n`,
+  )
+})
+
+test('leaves a number as written', () => {
+  expect(csvDocument([['-80.92', '+5', '-0.5', '36', '-.5']])).toBe(
+    `${BOM}-80.92,+5,-0.5,36,-.5\r\n`,
+  )
+})
+
+test('guards a formula that also needs quotes', () => {
+  expect(csvDocument([['=A1,"x"']])).toBe(`${BOM}"'=A1,""x"""\r\n`)
 })
 
 test('normalizes CRLF inside a field to LF', () => {

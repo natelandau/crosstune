@@ -187,21 +187,21 @@ private struct TuneFormContent: View {
                 .contentMask()
                 .multilineTextAlignment(.trailing)
             }
-            SuggestionPicker(
-                TuneFieldLabels.composer, value: $model.values.composer, options: model.composerOptions,
-                allowsOther: true, maxLength: Vocabulary.Limits.Tune.composer)
+            SuggestionField(
+                TuneFieldLabels.composer, value: $model.values.composer, suggestions: model.composerOptions,
+                maxLength: Vocabulary.Limits.Tune.composer)
             ModeRows(values: $model.values)
-            SuggestionPicker(
-                TuneFieldLabels.genre, value: $model.values.genre, options: Vocabulary.genres, allowsOther: true,
+            SuggestionField(
+                TuneFieldLabels.genre, value: $model.values.genre, suggestions: Vocabulary.genres,
                 maxLength: Vocabulary.Limits.Tune.genre)
-            SuggestionPicker(
+            SuggestionField(
                 TuneFieldLabels.tuneType,
                 value: Binding {
                     model.values.tuneType
                 } set: {
                     model.setType($0)
                 },
-                options: model.typeOptions, allowsOther: true, maxLength: Vocabulary.Limits.Tune.tuneType)
+                suggestions: model.typeOptions, maxLength: Vocabulary.Limits.Tune.tuneType)
             SuggestionPicker(
                 TuneFieldLabels.timeSignature,
                 value: Binding {
@@ -209,17 +209,17 @@ private struct TuneFormContent: View {
                 } set: {
                     model.setTimeSignature($0)
                 },
-                options: Vocabulary.timeSignatures, allowsOther: false, reportsRepicks: true)
-            SuggestionPicker(
+                options: Vocabulary.timeSignatures, reportsRepicks: true)
+            SuggestionField(
                 TuneFieldLabels.partStructure, value: $model.values.partStructure,
-                options: Vocabulary.partStructures, allowsOther: true, maxLength: Vocabulary.Limits.Tune.partStructure)
+                suggestions: Vocabulary.partStructures, maxLength: Vocabulary.Limits.Tune.partStructure)
             Toggle(isOn: $model.values.isCrooked) {
                 Text(TuneFieldLabels.isCrooked)
                 Text(TuneFieldLabels.crookedHelp)
             }
-            SuggestionPicker(
-                TuneFieldLabels.learnedFrom, value: $model.values.learnedFrom, options: model.learnedFromOptions,
-                allowsOther: true, maxLength: Vocabulary.Limits.Tune.learnedFrom)
+            SuggestionField(
+                TuneFieldLabels.learnedFrom, value: $model.values.learnedFrom, suggestions: model.learnedFromOptions,
+                maxLength: Vocabulary.Limits.Tune.learnedFrom)
             LearnedOnRow(day: $model.values.learnedOn)
         } header: {
             Text(TuneFieldLabels.details)

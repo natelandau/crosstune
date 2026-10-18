@@ -15,6 +15,8 @@ export type ResolveResponse = Schemas['ResolveResponse']
 export type SearchResponse = Schemas['SearchResponse']
 export type SearchGroup = Schemas['SearchGroup']
 export type SearchResult = Schemas['SearchResult']
+export type PlaceSearchResponse = Schemas['PlaceSearchResponse']
+export type PlaceResult = Schemas['PlaceResult']
 export type Problem = Schemas['Problem']
 
 export type EntitlementRow = Schemas['EntitlementRow']
@@ -47,6 +49,7 @@ export interface SyncApi {
   events(since: number): Promise<EventsResponse>
   resolveLink(url: string): Promise<ResolveResponse>
   searchRecordings(q: string, providers: Provider[], country: string): Promise<SearchResponse>
+  searchPlaces(q: string): Promise<PlaceSearchResponse>
   me(): Promise<MeResponse>
   /** Which privacy rules apply to the caller. Needs no session, so it works before sign-in. */
   region(): Promise<RegionResponse>
