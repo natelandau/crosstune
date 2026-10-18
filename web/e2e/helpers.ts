@@ -88,6 +88,8 @@ export async function createThrowawayUser(): Promise<{ id: string; emailAddress:
     body: JSON.stringify({
       email_address: [emailAddress],
       skip_password_requirement: true,
+      // The Clerk instance requires legal consent on every user created through the API.
+      legal_accepted_at: new Date().toISOString(),
     }),
   })
   if (!response.ok) {
@@ -485,14 +487,14 @@ export interface StubbedGroup {
 
 /**
  * Answer every music search with the `groups` for the services it asks for, so no run reaches
- * a real service. Returns the request URLs seen, in order, for a test to assert on.
+ * a real service. Returns the request bodies seen, in order, for a test to assert on.
  */
-export async function stubSearch(page: Page, groups: StubbedGroup[]): Promise<URL[]> {
-  const seen: URL[] = []
+export async function stubSearch(page: Page, groups: StubbedGroup[]): Promise<SearchBody[]> {
+  const seen: SearchBody[] = []
   await page.route('**/v1/links/search**', async (route) => {
-    const url = new URL(route.request().url())
-    seen.push(url)
-    const asked = requestedProviders(url)
+    const body = route.request().postDataJSON() as SearchBody
+    seen.push(body)
+    const asked = requestedProviders(body)
     await route.fulfill({
       json: { groups: groups.filter((group) => asked.includes(group.provider)) },
     })
@@ -500,7 +502,14 @@ export async function stubSearch(page: Page, groups: StubbedGroup[]): Promise<UR
   return seen
 }
 
-/** The services a search request asked for, one repeated `providers` parameter each. */
-export function requestedProviders(url: URL): string[] {
-  return url.searchParams.getAll('providers')
+/** The JSON body of a search request. */
+export interface SearchBody {
+  q: string
+  providers: string[]
+  country: string
+}
+
+/** The services a search request asked for. */
+export function requestedProviders(body: SearchBody): string[] {
+  return body.providers
 }
