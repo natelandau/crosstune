@@ -48,9 +48,9 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from types_boto3_s3 import S3Client
 
-# The Postgres compose.yml starts. Each run makes its own databases on it, so suites in
-# separate worktrees run at once without touching each other.
-POSTGRES_ADMIN_URL = "postgresql://crosstune:crosstune@localhost:5432/postgres"
+# The test Postgres compose.yml starts, apart from the development one. Each run makes its
+# own databases on it, so suites in separate worktrees run at once without touching each other.
+POSTGRES_ADMIN_URL = "postgresql://crosstune:crosstune@localhost:5433/postgres"
 TEST_DATABASE_PREFIX = "crosstune_test_"
 
 FIXTURE_ENCODERS: dict[str, list[str]] = {
@@ -307,7 +307,9 @@ async def _admin() -> asyncpg.Connection:
     try:
         return await asyncpg.connect(POSTGRES_ADMIN_URL)
     except OSError as exc:
-        pytest.fail(f"no Postgres on localhost:5432 ({exc}); start it with `docker compose up -d`")
+        pytest.fail(
+            f"no Postgres on localhost:5433 ({exc}); start it with `docker compose up -d postgres-test`"
+        )
 
 
 async def _drop_dead_runs(conn: asyncpg.Connection) -> None:
@@ -341,20 +343,77 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     asyncio.run(sweep())
 
 
+def _template_name() -> str:
+    """The run's migrated database, which every worker's database is cloned from."""
+    return f"{TEST_DATABASE_PREFIX}{_run_pid()}_template"
+
+
+def _async_url(db_name: str) -> str:
+    return (
+        POSTGRES_ADMIN_URL.replace("postgresql://", "postgresql+asyncpg://").removesuffix(
+            "/postgres"
+        )
+        + f"/{db_name}"
+    )
+
+
+def _migrate(url: str) -> None:
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "head")
+
+
+def pytest_sessionfinish(session: pytest.Session) -> None:
+    """Drop the run's template once, in the controller, after every worker has cloned it."""
+    if hasattr(session.config, "workerinput"):
+        return
+
+    async def drop() -> None:
+        try:
+            conn = await asyncpg.connect(POSTGRES_ADMIN_URL)
+        except OSError:
+            return
+        try:
+            await conn.execute(f'drop database if exists "{_template_name()}" with (force)')
+        finally:
+            await conn.close()
+
+    asyncio.run(drop())
+
+
 @pytest.fixture(scope="session")
 def database_url(worker_id: str) -> Iterator[str]:
     """One migrated database per xdist worker per run, dropped when the run ends.
 
-    The name carries the run's pid, so concurrent runs never share a database and a later
-    run can tell which leftovers belong to a run that no longer exists.
+    The first worker to need a database migrates the run's template, and every worker
+    clones it, which is far faster than each running the migrations itself. The names
+    carry the run's pid, so concurrent runs never share a database and a later run can
+    tell which leftovers belong to a run that no longer exists.
     """
     db_name = f"{TEST_DATABASE_PREFIX}{_run_pid()}_{worker_id}"
+    template = _template_name()
 
     async def create() -> None:
         conn = await _admin()
         try:
+            # Workers race here; the lock makes the rest wait while the first migrates.
+            await conn.execute("select pg_advisory_lock(hashtext($1))", template)
+            try:
+                exists = await conn.fetchval(
+                    "select 1 from pg_database where datname = $1", template
+                )
+                if not exists:
+                    await conn.execute(f'create database "{template}"')
+                    try:
+                        await asyncio.to_thread(_migrate, _async_url(template))
+                    except BaseException:
+                        # A half-migrated template would hand every later worker a broken schema.
+                        await conn.execute(f'drop database if exists "{template}" with (force)')
+                        raise
+            finally:
+                await conn.execute("select pg_advisory_unlock(hashtext($1))", template)
             await conn.execute(f'drop database if exists "{db_name}" with (force)')
-            await conn.execute(f'create database "{db_name}"')
+            await conn.execute(f'create database "{db_name}" template "{template}"')
         finally:
             await conn.close()
 
@@ -366,16 +425,7 @@ def database_url(worker_id: str) -> Iterator[str]:
             await conn.close()
 
     asyncio.run(create())
-    url = (
-        POSTGRES_ADMIN_URL.replace("postgresql://", "postgresql+asyncpg://").removesuffix(
-            "/postgres"
-        )
-        + f"/{db_name}"
-    )
-    cfg = Config("alembic.ini")
-    cfg.set_main_option("sqlalchemy.url", url)
-    command.upgrade(cfg, "head")
-    yield url
+    yield _async_url(db_name)
     asyncio.run(drop())
 
 

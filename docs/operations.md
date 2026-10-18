@@ -116,7 +116,7 @@ a local development account. It refuses to run unless `api/.env` sets
 | Command                       | Runs                                                                                                                                                     |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `just lint`                   | Every linter in every module, then the hooks no module covers, such as the spell check and the workflow linters.                                         |
-| `just test`                   | API tests on databases of their own in the compose Postgres, web unit and browser tests, the Swift package tests, and the tracking plan checker's tests. |
+| `just test`                   | API tests on databases of their own in the test Postgres, a memory-backed server apart from the development one, web unit and browser tests, the Swift package tests, and the tracking plan checker's tests. |
 | `just api::test [args]`       | API tests. Args narrow the run and drop coverage.                                                                                                        |
 | `just web::test [args]`       | Web tests. Args go to vitest.                                                                                                                            |
 | `just web::stress <n> [args]` | Web tests `n` times, shuffled, a new order each run. Prints failing seeds; `SEED=<seed>` replays one.                                                    |
@@ -148,7 +148,7 @@ so CI never skips a gate.
   command that prints its version with `--tool`. A hash of both joins
   the gate name, so a change to either runs the gate again.
 - A gate never reads a service, since gate-cache cannot see one change.
-  `api-test` is the one exception: it starts the compose Postgres, but
+  `api-test` is the one exception: it starts the test Postgres, but
   every run creates and migrates databases of its own from the tree and
   drops them after, so nothing Postgres already holds reaches the result.
 - `just gate status` lists the gates that passed on the current tree and
