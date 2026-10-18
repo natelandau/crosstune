@@ -22,6 +22,35 @@ services:
       timeout: 5s
       retries: 10
 
+  # The API tests' server. Every run makes and drops its own databases, so nothing here needs
+  # to survive: memory-backed and without fsync, it skips the disk flushes that otherwise
+  # dominate the suite's wall time.
+  postgres-test:
+    image: postgres:18
+    command:
+      - postgres
+      - -c
+      - max_connections=300
+      - -c
+      - fsync=off
+      - -c
+      - synchronous_commit=off
+      - -c
+      - full_page_writes=off
+    ports:
+      - "127.0.0.1:5433:5432"
+    environment:
+      POSTGRES_USER: crosstune
+      POSTGRES_PASSWORD: crosstune
+      POSTGRES_DB: crosstune
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crosstune -d crosstune"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
   # S3-compatible storage for local recordings, so local work never reaches a hosted bucket.
   rustfs:
     # From GHCR, which CI pulls without Docker Hub's anonymous rate limit. Same image.

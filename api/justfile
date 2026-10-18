@@ -50,7 +50,7 @@ typos:
 [group('lint')]
 lint: ruff format ty typos contract-check
 
-# Run the test suite on its own databases in the compose Postgres; args narrow the run and drop coverage
+# Run the test suite on its own databases in the compose test Postgres; args narrow the run and drop coverage
 [group('test')]
 [positional-arguments]
 test *args:
@@ -59,7 +59,7 @@ test *args:
 [positional-arguments]
 _test *args:
     docker info > /dev/null 2>&1 || { echo "Docker is not running" >&2; exit 1; }
-    {{ compose }} up -d --wait postgres
+    {{ compose }} up -d --wait postgres-test
     if [ "$#" -eq 0 ]; then set -- tests/ --cov --cov-config=pyproject.toml --cov-report=xml --cov-report=term; fi; uv run pytest -c pyproject.toml --color=yes "$@"
 
 # Run the API with reload
