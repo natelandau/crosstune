@@ -28,19 +28,17 @@ env:
   UV_LOCKED: "1"
   CI: "true"
 
-# macOS minutes cost more than Linux minutes, so one job runs every check. A bump commit on
-# `main` skips it, because the Release workflow runs it on the tag it makes.
+# The checks run as parallel jobs, so a run takes as long as its slowest job. A bump commit on
+# `main` skips them, because the Release workflow runs them on the tag it makes. Only `main`
+# saves caches: a pull request's cache is readable by that pull request alone.
 jobs:
-  check:
+  test:
     if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):')
-    name: Apple check
+    name: Apple lint and tests
     # The image with the Xcode the app is built and shipped with. The `macos-*` images
     # default to an older Xcode.
     runs-on: xcode-27
     timeout-minutes: 30
-    outputs:
-      xcode-cache-saved: ${{ steps.xcode-save.outcome == 'success' }}
-      xcode-cache-key: ${{ steps.xcode-key.outputs.key }}
     defaults:
       run:
         working-directory: apple
@@ -56,50 +54,96 @@ jobs:
       - name: read the Swift compiler version
         id: swift
         run: printf 'version=%s\n' "$(swift --version 2>&1 | shasum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+      - run: just lint
+      # Only the package checkouts: SwiftPM rebuilds every module in a fresh checkout whatever
+      # build products are restored beside it, so caching those would only slow the restore.
+      - uses: actions/cache/restore@v6
+        id: kit-restore
+        with:
+          path: |
+            apple/CrosstuneKit/.build/checkouts
+            apple/CrosstuneKit/.build/repositories
+            apple/CrosstuneKit/.build/workspace-state.json
+          key: apple-kit-packages-${{ steps.swift.outputs.version }}-${{ hashFiles('apple/CrosstuneKit/Package.resolved') }}
+          restore-keys: apple-kit-packages-${{ steps.swift.outputs.version }}-
+      - run: just test
+        timeout-minutes: 15
+      - uses: actions/cache/save@v6
+        if: ${{ github.ref == 'refs/heads/main' && steps.kit-restore.outputs.cache-hit != 'true' }}
+        with:
+          path: |
+            apple/CrosstuneKit/.build/checkouts
+            apple/CrosstuneKit/.build/repositories
+            apple/CrosstuneKit/.build/workspace-state.json
+          key: ${{ steps.kit-restore.outputs.cache-primary-key }}
+
+  build:
+    if: ${{ !inputs.skip_build && (github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):')) }}
+    name: Apple build (${{ matrix.platform }})
+    runs-on: xcode-27
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ios, macos]
+    defaults:
+      run:
+        working-directory: apple
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: extractions/setup-just@v4
+      - run: xcodebuild -version
+      - name: read the Swift compiler version
+        id: swift
+        run: printf 'version=%s\n' "$(swift --version 2>&1 | shasum | cut -c1-12)" >> "$GITHUB_OUTPUT"
       # Keyed on the tracked sources rather than a hash of the tree, which the build writes into.
       - name: name the Xcode cache
         id: xcode-key
         run: |
           sources="$(git ls-files -s . | shasum | cut -c1-12)"
-          printf 'key=apple-xcode-%s-%s\n' "$SWIFT" "$sources" >> "$GITHUB_OUTPUT"
+          printf 'key=apple-xcode-%s-%s-%s\n' "$PLATFORM" "$SWIFT" "$sources" >> "$GITHUB_OUTPUT"
         env:
+          PLATFORM: ${{ matrix.platform }}
           SWIFT: ${{ steps.swift.outputs.version }}
-      - run: just lint
-      # The package's dependencies change only with the lockfile, and their checkouts keep
-      # their file dates, so the build reuses them.
-      - uses: actions/cache@v6
-        with:
-          path: apple/CrosstuneKit/.build
-          key: apple-kit-${{ steps.swift.outputs.version }}-${{ hashFiles('apple/CrosstuneKit/Package.resolved') }}
-          restore-keys: apple-kit-${{ steps.swift.outputs.version }}-
-      - run: just test
-        timeout-minutes: 15
-      # Xcode never prunes its compilation cache, so `main` builds from an empty one and
-      # saves just what that build used, and pull requests restore the newest. `main` saves
-      # only when the Apple sources changed, and the prune job below then deletes the rest.
+      # Every run starts from the newest cache `main` saved for its platform, and `main` saves
+      # what it ends with. The build's size limit prunes what recent builds left unused.
       - uses: actions/cache/restore@v6
-        if: ${{ !inputs.skip_build && github.event_name == 'pull_request' }}
+        id: xcode-restore
         with:
           path: apple/.build/DerivedData/CompilationCache.noindex
           key: ${{ steps.xcode-key.outputs.key }}
-          restore-keys: apple-xcode-${{ steps.swift.outputs.version }}-
-      - uses: actions/cache/restore@v6
-        id: xcode-saved
-        if: ${{ !inputs.skip_build && github.ref == 'refs/heads/main' }}
-        with:
-          path: apple/.build/DerivedData/CompilationCache.noindex
-          key: ${{ steps.xcode-key.outputs.key }}
-          lookup-only: true
-      - run: just build
-        if: ${{ !inputs.skip_build }}
+          restore-keys: apple-xcode-${{ matrix.platform }}-${{ steps.swift.outputs.version }}-
+      - run: just build "$PLATFORM"
+        env:
+          PLATFORM: ${{ matrix.platform }}
       - uses: actions/cache/save@v6
-        id: xcode-save
-        if: ${{ !inputs.skip_build && github.ref == 'refs/heads/main' && steps.xcode-saved.outputs.cache-hit != 'true' }}
+        if: ${{ github.ref == 'refs/heads/main' && steps.xcode-restore.outputs.cache-hit != 'true' }}
         with:
           path: apple/.build/DerivedData/CompilationCache.noindex
           key: ${{ steps.xcode-key.outputs.key }}
+
+  contract:
+    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):')
+    name: Apple contract
+    runs-on: xcode-27
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apple
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: extractions/setup-just@v4
+      - run: xcodebuild -version
+      - name: read the Swift compiler version
+        id: swift
+        run: printf 'version=%s\n' "$(swift --version 2>&1 | shasum | cut -c1-12)" >> "$GITHUB_OUTPUT"
       # The contract tools compile the OpenAPI generator, which changes only with the lockfile.
-      - uses: actions/cache@v6
+      - uses: actions/cache/restore@v6
+        id: tools-restore
         with:
           path: apple/Tools/.build
           key: apple-tools-${{ steps.swift.outputs.version }}-${{ hashFiles('apple/Tools/Package.resolved') }}
@@ -114,29 +158,38 @@ jobs:
           git diff --exit-code -- \
             apple/CrosstuneKit/Sources/CrosstuneAPI/Generated \
             apple/CrosstuneKit/Sources/CrosstuneVocabulary/Vocabulary.swift
+      - uses: actions/cache/save@v6
+        if: ${{ github.ref == 'refs/heads/main' && steps.tools-restore.outputs.cache-hit != 'true' }}
+        with:
+          path: apple/Tools/.build
+          key: ${{ steps.tools-restore.outputs.cache-primary-key }}
 
-  # Each Xcode cache is close to a gigabyte against the repository's 10 GB, and pull requests
-  # read only the newest, so a new one replaces the rest. This job runs no repository code,
+  # Each Xcode cache is close to a gigabyte against the repository's 10 GB, and a run reads only
+  # its platform's newest, so that one replaces the rest. This job runs no repository code,
   # which keeps the token that can delete caches away from the build.
   prune-xcode-cache:
-    needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check.outputs.xcode-cache-saved == 'true'
-    name: Prune the Xcode cache
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Prune the Xcode caches
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       actions: write
     steps:
-      - name: delete every Xcode cache but the one just saved
+      - name: delete every Xcode cache but each platform's newest
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          KEEP: ${{ needs.check.outputs.xcode-cache-key }}
         run: |
-          gh cache list --key apple-xcode- --limit 100 --json key --jq '.[].key' |
-            while read -r key; do
-              # A run that pruned at the same time may have deleted it already.
-              if [ "$key" != "$KEEP" ]; then
-                gh cache delete "$key" || echo "::warning::could not delete cache $key"
-              fi
-            done
+          declare -A kept
+          while read -r key; do
+            platform="${key#apple-xcode-}"
+            platform="${platform%%-*}"
+            if [[ "$platform" == ios || "$platform" == macos ]] && [[ -z "${kept[$platform]:-}" ]]; then
+              kept[$platform]="$key"
+              continue
+            fi
+            # A run that pruned at the same time may have deleted it already.
+            gh cache delete "$key" || echo "::warning::could not delete cache $key"
+          done < <(gh cache list --key apple-xcode- --ref refs/heads/main --sort created_at --order desc \
+            --limit 100 --json key --jq '.[].key')

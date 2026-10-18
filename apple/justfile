@@ -61,8 +61,8 @@ _contract-check:
 [group('lint')]
 lint: format typos contract-check
 
+# Fail on unused code in the package, its tests, and the app. Builds both first, so it stays out
 # of `lint` and CI. Settings are in CrosstuneKit/.periphery.yml.
-# of `lint`; CI runs it after the build. Settings are in CrosstuneKit/.periphery.yml.
 [group('lint')]
 deadcode:
     {{ gate }} apple-deadcode --tool 'periphery version' --tool 'swift --version' just _deadcode
@@ -84,15 +84,25 @@ test *args:
     {{ gate }} apple-test --argc "$#" --tool 'swift --version' {{ swift }} test --package-path CrosstuneKit "$@"
 
 # The compilation cache is keyed on content rather than file dates, so CI restores it into a
-# fresh checkout and still hits.
+# fresh checkout and still hits. Xcode's own limit is half the free disk, which a CI runner never
+# reaches, so a cache restored and saved on every run would grow without end; this one prunes
+# what recent builds have not used once it passes the limit.
 
-# Build the app for the iOS Simulator and for macOS, unsigned
+# Build the app unsigned for the iOS Simulator and macOS, or for one: `ios` or `macos`
 [group('build')]
-build:
-    for destination in 'generic/platform=iOS Simulator' 'generic/platform=macOS'; do \
+build platform='all':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ platform }}" in
+        all) destinations=('generic/platform=iOS Simulator' 'generic/platform=macOS') ;;
+        ios) destinations=('generic/platform=iOS Simulator') ;;
+        macos) destinations=('generic/platform=macOS') ;;
+        *) echo "platform is all, ios, or macos, not {{ platform }}" >&2; exit 1 ;;
+    esac
+    for destination in "${destinations[@]}"; do
         {{ xcodebuild }} build -quiet -project Crosstune.xcodeproj -scheme Crosstune \
             -destination "$destination" -derivedDataPath {{ derived_data }} CODE_SIGNING_ALLOWED=NO \
-            COMPILATION_CACHE_ENABLE_CACHING=YES; \
+            COMPILATION_CACHE_ENABLE_CACHING=YES COMPILATION_CACHE_LIMIT_SIZE=4G
     done
 
 # Build the signed Debug Mac app and run it from ~/Applications; args go to the app
