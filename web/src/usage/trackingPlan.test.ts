@@ -130,6 +130,8 @@ const SAMPLES: { [N in EventName]: EventProps[N] } = {
   recording_filed: { from: 'unfiled', origin: 'recorded', recording_id: ID_2, tune_id: ID_1 },
   recording_unfiled: { origin: 'imported', recording_id: ID_2 },
   recording_renamed: { origin: 'recorded', recording_id: ID_2 },
+  recording_place_set: { method: 'search', recording_id: ID_2, replaced: false },
+  recording_place_cleared: { recording_id: ID_2 },
   recording_deleted: { origin: 'slippery_hill', recording_id: ID_2 },
   recording_trimmed: { recording_id: ID_2 },
   link_added: { service: 'youtube', via: 'paste', link_id: ID_2, tune_id: ID_1 },

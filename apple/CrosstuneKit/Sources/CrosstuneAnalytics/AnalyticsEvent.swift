@@ -64,6 +64,9 @@ public enum AnalyticsEvent: Sendable, Equatable {
     case recordingUnfiled(origin: RecordingOrigin, recordingID: String)
     /// Never the name.
     case recordingRenamed(origin: RecordingOrigin, recordingID: String)
+    /// Never the place itself.
+    case recordingPlaceSet(recordingID: String, method: PlaceMethod, replaced: Bool)
+    case recordingPlaceCleared(recordingID: String)
     case recordingDeleted(origin: RecordingOrigin, recordingID: String)
     case recordingTrimmed(recordingID: String)
 
@@ -140,6 +143,8 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .recordingFiled: "recording_filed"
         case .recordingUnfiled: "recording_unfiled"
         case .recordingRenamed: "recording_renamed"
+        case .recordingPlaceSet: "recording_place_set"
+        case .recordingPlaceCleared: "recording_place_cleared"
         case .recordingDeleted: "recording_deleted"
         case .recordingTrimmed: "recording_trimmed"
         case .linkAdded: "link_added"
@@ -245,7 +250,9 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .recordingUnfiled(let origin, let recordingID), .recordingRenamed(let origin, let recordingID),
             .recordingDeleted(let origin, let recordingID):
             ["origin": .string(origin.rawValue), "recording_id": .string(recordingID)]
-        case .recordingTrimmed(let recordingID), .loopSet(let recordingID):
+        case .recordingPlaceSet(let recordingID, let method, let replaced):
+            ["recording_id": .string(recordingID), "method": .string(method.rawValue), "replaced": .bool(replaced)]
+        case .recordingTrimmed(let recordingID), .recordingPlaceCleared(let recordingID), .loopSet(let recordingID):
             ["recording_id": .string(recordingID)]
         case .linkAdded(let service, let via, let linkID, let tuneID):
             [
