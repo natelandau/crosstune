@@ -130,7 +130,21 @@ jobs:
       - name: write the release secrets
         env:
           POSTHOG_PROJECT_TOKEN_PRODUCTION: ${{ secrets.POSTHOG_PROJECT_TOKEN_PRODUCTION }}
-        run: printf 'POSTHOG_PROJECT_TOKEN = %s\n' "$POSTHOG_PROJECT_TOKEN_PRODUCTION" > Config/Secrets.xcconfig
+          SENTRY_DSN_APPLE: ${{ secrets.SENTRY_DSN_APPLE }}
+        # xcconfig reads `//` as a comment, so the DSN's `://` is written as `:/$()/`.
+        run: |
+          printf 'POSTHOG_PROJECT_TOKEN = %s\n' "$POSTHOG_PROJECT_TOKEN_PRODUCTION" > Config/Secrets.xcconfig
+          printf 'SENTRY_DSN = %s\n' "${SENTRY_DSN_APPLE//:\/\//:/\$()/}" >> Config/Secrets.xcconfig
+      - name: install sentry-cli
+        env:
+          SENTRY_CLI_VERSION: 3.8.0
+          SENTRY_CLI_SHA256: 2c26914636c47ab9bf9e710484ad7b44d371cbec8bd29cafb36b3cf877bf4285  # gitleaks:allow a public file checksum
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/sentry-cli" \
+            "https://github.com/getsentry/sentry-cli/releases/download/${SENTRY_CLI_VERSION}/sentry-cli-Darwin-universal"
+          echo "$SENTRY_CLI_SHA256  $RUNNER_TEMP/sentry-cli" | shasum -a 256 -c -
+          chmod +x "$RUNNER_TEMP/sentry-cli"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       # The run number only rises, and a re-run raises the attempt, so no two
       # uploads share a build number. The archive fixes the number, so a new
       # upload needs this job re-run, not only the upload.
@@ -141,6 +155,12 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
           BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
         run: just archive "$BUILD_NUMBER"
+      - name: upload the symbols
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN_APPLE }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT_APPLE }}
+        run: just upload-symbols
       # An artifact keeps neither symlinks nor the executable bit, and an app
       # bundle needs both, so the archives travel as a tarball.
       - name: pack the archives
