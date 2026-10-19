@@ -489,6 +489,11 @@ presents.
 - A one-time notice (first recording, trial reminder, trial end) is a
   sheet, one at a time, never during a capture and never over another
   modal. Dismissing it marks it seen for the account.
+- The Apple app asks for an App Store review once per device, ever. It
+  asks just after adding a tune, saving a recording, or ending practice,
+  once that device has done all three, has opened at least 10 times, and
+  has had the app a week. It waits out what a notice waits out. Work
+  synced from another device does not count.
 - A trial notice sells in place: its primary buys Annual at the store's
   price, and Compare plans opens the Plan sheet. A trial notice that
   cannot sell offers only Compare plans. The first-recording notice does
