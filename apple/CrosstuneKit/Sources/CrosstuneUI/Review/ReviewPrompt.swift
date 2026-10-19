@@ -31,23 +31,44 @@ public final class ReviewPrompt {
 
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let now: () -> Date
+    /// True until the app first comes forward and again once it goes to the background, so a
+    /// brief inactive spell (Control Center, a system alert) is not counted as an open.
+    @ObservationIgnored private var isAway = true
 
     public init(defaults: UserDefaults = .standard, now: @escaping () -> Date = { .now }) {
         self.defaults = defaults
         self.now = now
     }
 
-    /// Counts the app coming to the foreground. The first one starts the week.
+    /// Counts the app coming to the foreground from the background or a launch. The first one
+    /// starts the week.
     public func opened() {
+        guard isAway else { return }
+        isAway = false
         if defaults.object(forKey: Key.firstOpened) == nil { defaults.set(now(), forKey: Key.firstOpened) }
         defaults.set(defaults.integer(forKey: Key.opens) + 1, forKey: Key.opens)
+    }
+
+    /// Notes the app going to the background. A milestone reported on the way out is kept but
+    /// does not make the prompt due, so the request never greets the next open.
+    public func leftForeground() {
+        isAway = true
     }
 
     /// Records the milestone `event` marks, if any, and becomes due when the rule is met.
     public func note(_ event: AnalyticsEvent) {
         guard let key = Self.milestone(event) else { return }
         defaults.set(true, forKey: key)
-        if isEligible { isDue = true }
+        if !isAway, isEligible { isDue = true }
+    }
+
+    /// An analytics observer that hands this prompt only the events that mark a milestone, so
+    /// the rest never hop to the main actor.
+    public nonisolated var observer: @Sendable (AnalyticsEvent) -> Void {
+        { [self] event in
+            guard Self.milestone(event) != nil else { return }
+            Task { @MainActor in self.note(event) }
+        }
     }
 
     /// Marks the request made, so this device is never asked again.
@@ -67,7 +88,7 @@ public final class ReviewPrompt {
         return now() >= ready
     }
 
-    private static func milestone(_ event: AnalyticsEvent) -> String? {
+    private nonisolated static func milestone(_ event: AnalyticsEvent) -> String? {
         switch event {
         case .tuneCreated: Key.addedTune
         case .importCompleted(_, let added, _, _) where added > 0: Key.addedTune

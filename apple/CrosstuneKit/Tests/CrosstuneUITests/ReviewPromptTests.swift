@@ -31,7 +31,10 @@ struct ReviewPromptTests {
     }
 
     private func open(_ prompt: ReviewPrompt, times: Int) {
-        for _ in 0..<times { prompt.opened() }
+        for _ in 0..<times {
+            prompt.leftForeground()
+            prompt.opened()
+        }
     }
 
     /// Ten opens, a week gone, and every milestone but the last noted.
@@ -60,8 +63,30 @@ struct ReviewPromptTests {
         for event in [tuneCreated, recordingSaved, practiceEnded] { prompt.note(event) }
         #expect(!prompt.isDue)
 
-        prompt.opened()
+        open(prompt, times: 1)
         prompt.note(practiceEnded)
+
+        #expect(prompt.isDue)
+    }
+
+    @Test func countsAnOpenOnlyAfterTheBackground() {
+        let prompt = prompt()
+        open(prompt, times: ReviewPrompt.opensNeeded - 1)
+        clock.now = clock.now.addingTimeInterval(8 * 86_400)
+        prompt.opened()
+        for event in [tuneCreated, recordingSaved, practiceEnded] { prompt.note(event) }
+
+        #expect(!prompt.isDue)
+    }
+
+    @Test func aMilestoneOnTheWayOutCountsButDoesNotMakeItDue() {
+        let prompt = almostReady()
+        prompt.leftForeground()
+        prompt.note(practiceEnded)
+        #expect(!prompt.isDue)
+
+        prompt.opened()
+        prompt.note(tuneCreated)
 
         #expect(prompt.isDue)
     }

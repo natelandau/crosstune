@@ -44,6 +44,8 @@
                     AppShell(store: store, player: player, stage: stage, recorders: recorders)
                         .environment(engine)
                         .environment(listPlayback)
+                        // A capture never shows the system review request.
+                        .environment(\.reviewPrompt, nil)
                         .environment(\.plan, plan)
                         .environment(\.noticeClaim, noticeClaim)
                 } else if let failure {

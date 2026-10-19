@@ -61,6 +61,8 @@
                     AppShell(store: store, player: player, stage: stage, recorders: recorders, place: place)
                         .environment(engine)
                         .environment(listPlayback)
+                        // A capture never shows the system review request.
+                        .environment(\.reviewPrompt, nil)
                 } else if let failure {
                     ContentUnavailableView(
                         "The marketing catalog did not open", systemImage: "exclamationmark.triangle",

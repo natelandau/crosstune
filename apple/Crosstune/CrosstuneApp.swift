@@ -33,7 +33,7 @@ struct CrosstuneApp: App {
         let analytics =
             (configuration.postHogHost.map { Analytics.start(token: configuration.postHogToken, host: $0) }
             ?? .noop)
-            .observing { event in Task { @MainActor in reviewPrompt.note(event) } }
+            .observing(reviewPrompt.observer)
         let apiOrigin = configuration.apiOrigin
         UsageData.launch(analytics, region: { try await Region.fetch(origin: apiOrigin) })
         self.analytics = analytics
@@ -75,7 +75,10 @@ struct CrosstuneApp: App {
         }
         .onChange(of: scenePhase, initial: true) {
             session.sceneActivityChanged(isActive: scenePhase == .active)
-            if scenePhase == .background { player.leftForeground() }
+            if scenePhase == .background {
+                player.leftForeground()
+                reviewPrompt.leftForeground()
+            }
             if scenePhase == .active {
                 // A trial may have ended while the app was away.
                 plan?.judgeAgain()
