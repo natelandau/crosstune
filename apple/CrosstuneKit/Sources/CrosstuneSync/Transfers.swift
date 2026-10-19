@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneDiagnostics
 import CrosstuneStore
 import Foundation
 import GRDB
@@ -21,6 +22,7 @@ struct Transfers {
     var now: @MainActor () -> Date = Date.init
     var downloadRetries = DownloadRetries()
     var analytics = AnalyticsClient.noop
+    var diagnostics = DiagnosticsClient.noop
 
     /// Uploads every file waiting to go. A file's own transient failure does not stop the rest;
     /// the first one is returned, nil when every file settled, so the run can still fail. A stop
@@ -86,6 +88,7 @@ struct Transfers {
             // Nothing to send, so retrying would only grow the try count.
             try await settleUpload(id, .failedUpload, error: missingAudio)
             analytics.send(.uploadFailed(reason: .other, origin: RecordingOrigin(row)))
+            diagnostics.report(MissingAudio(), area: .upload)
             return
         }
         try await setFileState(id, .uploading)
@@ -123,6 +126,7 @@ struct Transfers {
                 case _ where refusesTheRequestItself(refusal):
                     try await settleUpload(id, .failedUpload, error: refusal.message)
                     analytics.send(.uploadFailed(reason: .other, origin: RecordingOrigin(row)))
+                    diagnostics.report(refusal, area: .upload)
                     return
                 default: break
                 }
@@ -152,6 +156,7 @@ struct Transfers {
                 // The server deleted the file because it did not match the size declared.
                 try await settleUpload(id, .failedUpload, error: transferMessage(error))
                 analytics.send(.uploadFailed(reason: .other, origin: RecordingOrigin(row)))
+                diagnostics.report(error, area: .upload)
             default:
                 try await scheduleRetry(id, after: error)
                 throw error

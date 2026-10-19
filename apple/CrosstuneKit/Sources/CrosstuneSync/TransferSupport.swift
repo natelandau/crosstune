@@ -142,6 +142,9 @@ func isStale(_ recording: Recording, _ file: RecordingFile) -> Bool {
 /// Why a file waiting to upload is stuck when its audio is no longer on this device.
 let missingAudio = "The audio file is missing from this device."
 
+/// The error diagnostics gets for a file that failed to upload because its audio is gone.
+struct MissingAudio: Error {}
+
 extension RecordingOrigin {
     /// Where a recording came from. The archive it was saved from comes first, since a save
     /// from the archive is an import by source.

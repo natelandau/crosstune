@@ -22,7 +22,8 @@ let retryBackoff: [Duration] = [1, 2, 4, 8, 16, 32, 60].map { .seconds($0) }
 /// A serialized run loop.
 ///
 /// A trigger while a run is in flight coalesces into one more run after it. A failed run backs
-/// off and retries, and the first failure of a streak is logged.
+/// off and retries, and the first failure of a streak is logged. A streak that lasts is handed to
+/// `onLastingFailure` once.
 @MainActor @Observable
 final class SyncLoop<Status: LoopStatus> {
     private(set) var status = Status.idle
@@ -35,6 +36,13 @@ final class SyncLoop<Status: LoopStatus> {
     /// Called when a run fails into a state other than offline that the last reported failure of
     /// this streak was not in, with that state and the error.
     private let onFailure: @MainActor (Status, any Error) -> Void
+    /// Whether a failure counts toward a streak worth reporting. One that does not ends the
+    /// streak, as offline does.
+    private let isReportable: @MainActor (Status, any Error) -> Bool
+    /// Called once per streak of reportable failures, on the first failure at least
+    /// ``lastingFailure`` after the streak's first, with that state and the error.
+    private let onLastingFailure: @MainActor (Status, any Error) -> Void
+    private let now: @MainActor () -> Date
     private let sleep: Sleeper
     private let logger: Logger
 
@@ -44,6 +52,7 @@ final class SyncLoop<Status: LoopStatus> {
     /// The failed state last reported in the current streak of failures; a clean run ends it.
     @ObservationIgnored private var reportedFailure: Status?
     @ObservationIgnored private var retry: Task<Void, Never>?
+    @ObservationIgnored private var streak = FailureStreak(lasting: lastingFailure)
 
     init(
         name: String,
@@ -52,6 +61,9 @@ final class SyncLoop<Status: LoopStatus> {
         classify: @escaping @MainActor (any Error) -> Status,
         afterRun: @escaping @MainActor () -> Void = {},
         onFailure: @escaping @MainActor (Status, any Error) -> Void = { _, _ in },
+        now: @escaping @MainActor () -> Date = Date.init,
+        isReportable: @escaping @MainActor (Status, any Error) -> Bool = { _, _ in true },
+        onLastingFailure: @escaping @MainActor (Status, any Error) -> Void = { _, _ in },
         run: @escaping @MainActor () async throws -> Void
     ) {
         self.run = run
@@ -59,6 +71,9 @@ final class SyncLoop<Status: LoopStatus> {
         self.isStopped = isStopped
         self.afterRun = afterRun
         self.onFailure = onFailure
+        self.now = now
+        self.isReportable = isReportable
+        self.onLastingFailure = onLastingFailure
         self.sleep = sleep
         logger = Logger(subsystem: "app.crosstune.Crosstune", category: name)
     }
@@ -105,6 +120,7 @@ final class SyncLoop<Status: LoopStatus> {
             try await run()
             failures = 0
             reportedFailure = nil
+            streak.ended()
             cancelRetry()
             status = .idle
         } catch is RunStopped {
@@ -120,6 +136,12 @@ final class SyncLoop<Status: LoopStatus> {
             if next != .offline, reportedFailure != next {
                 reportedFailure = next
                 onFailure(next, error)
+            }
+            // Checked before the streak, so a failure never reported cannot spend its one report.
+            if next == .offline || !isReportable(next, error) {
+                streak.ended()
+            } else if streak.failed(at: now()) {
+                onLastingFailure(next, error)
             }
             if !isStopped() { scheduleRetry() }
         }
