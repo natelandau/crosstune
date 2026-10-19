@@ -113,20 +113,20 @@ a local development account. It refuses to run unless `api/.env` sets
 
 ## Test
 
-| Command                       | Runs                                                                                                                                                     |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `just lint`                   | Every linter in every module, then the hooks no module covers, such as the spell check and the workflow linters.                                         |
-| `just test`                   | API tests on databases of their own in the test Postgres, a memory-backed server apart from the development one, web unit and browser tests, the Swift package tests, and the tracking plan checker's tests. |
-| `just api::test [args]`       | API tests. Args narrow the run and drop coverage.                                                                                                        |
-| `just web::test [args]`       | Web tests with coverage. Args go to vitest and drop coverage.                                                                                            |
-| `just web::stress <n> [args]` | Web tests `n` times, shuffled, a new order each run. Prints failing seeds; `SEED=<seed>` replays one.                                                    |
-| `just site::test [args]`      | Builds the site, then runs its tests against the output. Args go to vitest.                                                                              |
-| `just apple::test [args]`     | Swift package tests on the Mac. Args go to `swift test`.                                                                                                 |
-| `just analytics::test [args]` | Tracking plan checker tests. Args go to pytest.                                                                                                          |
-| `just apple::build [platform]` | The app for the iOS Simulator and macOS, unsigned, or for one: `ios` or `macos`.                                                                         |
-| `just apple::deadcode`        | Builds the app and the Swift package, then fails on unused code. `// periphery:ignore - <why>` above a declaration keeps one the index cannot see used.   |
-| `just typos [paths]`          | Spell check.                                                                                                                                             |
-| `just e2e [args]`             | The Playwright suite. Args go to Playwright.                                                                                                             |
+| Command                        | Runs                                                                                                                                                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `just lint`                    | Every linter in every module, then the hooks no module covers, such as the spell check and the workflow linters.                                                                                             |
+| `just test`                    | API tests on databases of their own in the test Postgres, a memory-backed server apart from the development one, web unit and browser tests, the Swift package tests, and the tracking plan checker's tests. |
+| `just api::test [args]`        | API tests. Args narrow the run and drop coverage.                                                                                                                                                            |
+| `just web::test [args]`        | Web tests with coverage. Args go to vitest and drop coverage.                                                                                                                                                |
+| `just web::stress <n> [args]`  | Web tests `n` times, shuffled, a new order each run. Prints failing seeds; `SEED=<seed>` replays one.                                                                                                        |
+| `just site::test [args]`       | Builds the site, then runs its tests against the output. Args go to vitest.                                                                                                                                  |
+| `just apple::test [args]`      | Swift package tests on the Mac. Args go to `swift test`.                                                                                                                                                     |
+| `just analytics::test [args]`  | Tracking plan checker tests. Args go to pytest.                                                                                                                                                              |
+| `just apple::build [platform]` | The app for the iOS Simulator and macOS, unsigned, or for one: `ios` or `macos`.                                                                                                                             |
+| `just apple::deadcode`         | Builds the app and the Swift package, then fails on unused code. `// periphery:ignore - <why>` above a declaration keeps one the index cannot see used.                                                      |
+| `just typos [paths]`           | Spell check.                                                                                                                                                                                                 |
+| `just e2e [args]`              | The Playwright suite. Args go to Playwright.                                                                                                                                                                 |
 
 A lint or test recipe runs through
 [gate-cache](https://github.com/natelandau/gate-cache), an API dev
@@ -398,13 +398,24 @@ The site draws its own demos and uses no captures. The Apple app keeps a
 capture setup for store screenshots. It reads one fixture,
 `apple/Marketing/catalog.json`, and its files in `apple/Marketing/assets/`.
 
-| Command                             | Does                                                                                                                           |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `just apple::capture-test [names…]` | Runs the tests in `apple/CrosstuneMarketingUITests/` and exports their attachments to `apple/.build/capture/`.                 |
-| `just apple::capture-mac`           | Runs the signed Mac app on the fixture and saves its window. The screen must be unlocked.                                      |
+| Command                             | Does                                                                                                                                   |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `just apple::capture-test [names…]` | Runs the tests in `apple/CrosstuneMarketingUITests/` and exports their attachments to `apple/.build/capture/`.                         |
+| `just apple::capture-mac`           | Runs the signed Mac app on the fixture once for each Mac still and saves its window. The screen must be unlocked.                      |
+| `just apple::store-frames`          | Frames the stills that `apple/Marketing/store.json` names under their headlines, at App Store sizes, in `apple/.build/capture/store/`. |
+| `just apple::store-preview`         | Cuts the `preview-filter` capture into the iPhone App Preview, `apple/.build/capture/store/iphone-preview.mp4`.                        |
 
-- A capture name is a test method without its `test` prefix.
+- A capture name is a test method without its `test` prefix. With no
+  names, every capture runs. A run replaces every earlier capture, so run
+  all of a set in one call.
+- A name with `ipad` in it runs on the iPad, and `folk` and `store-folk`
+  run under a status bar with no signal.
+- Run `capture-test` before `capture-mac`, since it clears the folder the
+  Mac stills land in, and frame after both.
+- The framing renders HTML in Google Chrome, with the site's Schibsted
+  Grotesk from `site/node_modules`, so it needs Chrome and `just setup`.
+  The preview needs `ffmpeg`.
 - The recipe makes two simulators on the newest installed iOS runtime,
-  `Crosstune Capture iPhone 17 Pro` and `Crosstune Capture iPad`. They
+  `Crosstune Capture iPhone 17 Pro Max` and `Crosstune Capture iPad`. They
   are never signed in to an Apple Account, so no system alert covers a
   capture.

@@ -17,6 +17,7 @@
         @State private var listPlayback: ListPlayback
         @State private var stage = EmbedStage()
         @State private var recorders: RecorderHost
+        @State private var place = Self.makePlace()
 
         /// - Parameter fixture: The marketing catalog, `apple/Marketing/catalog.json`.
         public init(fixture: URL) {
@@ -38,12 +39,26 @@
             return RecorderHost(makeInput: { FileInput(url: url) })
         }
 
+        /// Opens on the list named by `-MarketingList <list id>` and the tune named by
+        /// `-MarketingTune <tune id>`, for the Mac captures, which cannot click their way there.
+        private static func makePlace() -> ShellPlace {
+            let arguments = CommandLine.arguments
+            func value(_ flag: String) -> String? {
+                guard let index = arguments.firstIndex(of: flag), index + 1 < arguments.count else { return nil }
+                return arguments[index + 1]
+            }
+            let place = ShellPlace()
+            if let list = value("-MarketingList") { place.sidebar = .list(id: list) }
+            place.detailTune = value("-MarketingTune")
+            return place
+        }
+
         public var body: some View {
             ZStack {
                 // An empty body would never start the task that opens the store.
                 Color.clear
                 if let store {
-                    AppShell(store: store, player: player, stage: stage, recorders: recorders)
+                    AppShell(store: store, player: player, stage: stage, recorders: recorders, place: place)
                         .environment(engine)
                         .environment(listPlayback)
                 } else if let failure {

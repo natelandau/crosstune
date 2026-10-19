@@ -137,7 +137,7 @@ screen-unlocked:
         exit 1
     fi
 
-# Run the signed Mac app on the marketing catalog and capture its window to family-mac.png
+# Run the signed Mac app on the marketing catalog and capture its window to family-mac.png and the store stills
 [group('capture')]
 capture-mac: screen-unlocked
     #!/usr/bin/env bash
@@ -150,45 +150,77 @@ capture-mac: screen-unlocked
     cp -R Marketing/catalog.json Marketing/assets "$staged/"
     fixture="$staged/catalog.json"
     mkdir -p {{ capture }}
-    out="$PWD/{{ capture }}/family-mac.png"
-    rm -f "$out"
-    # Set before the launch, so a run that fails after claiming the app still releases it.
-    trap 'scripts/mac-app.sh done > /dev/null' EXIT
-    # Launch arguments set these for this run only, never the defaults every worktree shares.
-    scripts/mac-app.sh run -MarketingShell "$fixture" -crosstune.appearance dark \
-        -catalogSort.v1 title.asc
+    # The fixture's ids for the tunes and the list the store stills open on.
+    id_of() {
+        python3 -c '
+    import json, sys
+    catalog = json.load(open(sys.argv[1]))
+    rows = catalog["tunes"] if sys.argv[2] == "tune" else catalog["lists"]
+    key = "title" if sys.argv[2] == "tune" else "name"
+    print(next(r["id"] for r in rows if r[key] == sys.argv[3]))
+    ' Marketing/catalog.json "$1" "$2"
+    }
     # The install path mac-app.sh runs from; matching it never touches a Crosstune the user has open.
     app="$(cd "$HOME/Applications" && pwd -P)/Crosstune Dev.app"
-    pid=""
-    for _ in $(seq 1 30); do
-        pid="$(pgrep -nf "^$app/Contents/MacOS/" || true)"
-        [ -z "$pid" ] || break
-        sleep 1
-    done
-    [ -n "$pid" ] || { echo "the Mac app did not start" >&2; exit 1; }
-    # A fixture tune in the accessibility tree marks the catalog loaded.
-    loaded=""
-    for _ in $(seq 1 30); do
-        if peekaboo see --pid "$pid" --no-screenshot --tree 2> /dev/null | grep -q 'Backstep Cindy'; then
-            loaded=1
-            break
+    # Set before the first launch, so a run that fails after claiming the app still releases it.
+    trap 'scripts/mac-app.sh done > /dev/null' EXIT
+    # Launches the app on the fixture with any further arguments $2..., waits for the catalog,
+    # and saves its window to <name>.png. A launch per still, since the shell opens on the place
+    # its arguments name and nothing here clicks.
+    shoot() {
+        local name="$1" pid="" loaded="" id
+        shift
+        local out="$PWD/{{ capture }}/$name.png"
+        rm -f "$out"
+        # Launch arguments set these for this run only, never the defaults every worktree shares.
+        scripts/mac-app.sh run -MarketingShell "$fixture" -crosstune.appearance light \
+            -catalogSort.v1 title.asc "$@"
+        for _ in $(seq 1 30); do
+            pid="$(pgrep -nf "^$app/Contents/MacOS/" || true)"
+            [ -z "$pid" ] || break
+            sleep 1
+        done
+        [ -n "$pid" ] || { echo "the Mac app did not start" >&2; exit 1; }
+        # A fixture tune in the accessibility tree marks the catalog loaded.
+        for _ in $(seq 1 30); do
+            if peekaboo see --pid "$pid" --no-screenshot --tree 2> /dev/null | grep -q 'Backstep Cindy'; then
+                loaded=1
+                break
+            fi
+            sleep 1
+        done
+        if [ -z "$loaded" ]; then
+            peekaboo see --pid "$pid" --no-screenshot --tree > "{{ capture }}/$name-tree.txt" 2>&1 || true
+            echo "the marketing catalog did not load in the Mac app; its window is in {{ capture }}/$name-tree.txt" >&2
+            exit 1
         fi
-        sleep 1
-    done
-    if [ -z "$loaded" ]; then
-        peekaboo see --pid "$pid" --no-screenshot --tree > "{{ capture }}/family-mac-tree.txt" 2>&1 || true
-        echo "the marketing catalog did not load in the Mac app; its window is in {{ capture }}/family-mac-tree.txt" >&2
-        exit 1
-    fi
-    # Captured by window id: the app's window has no accessibility match that the
-    # app-and-title selectors need.
-    id="$(peekaboo window list --pid "$pid" --json | python3 -c '
+        # Long enough for an opened tune's page to draw.
+        sleep 2
+        # Captured by window id: the app's window has no accessibility match that the
+        # app-and-title selectors need. The main window is titled with its sidebar row.
+        id="$(peekaboo window list --pid "$pid" --json | python3 -c '
     import json, sys
     windows = json.load(sys.stdin)["data"]["windows"]
-    print(next(w["window_id"] for w in windows if w["window_title"] == "Catalog"))
+    print(next(w["window_id"] for w in windows if w["window_title"]))
     ')"
-    peekaboo see --window-id "$id" --no-elements --retina --path "$out" > /dev/null
-    echo "captured the Mac app to $out"
+        peekaboo see --window-id "$id" --no-elements --retina --path "$out" > /dev/null
+        scripts/mac-app.sh done > /dev/null
+        echo "captured the Mac app to $out"
+    }
+    shoot family-mac
+    shoot store-mac-tune -MarketingTune "$(id_of tune 'Sail Away Ladies')"
+    shoot store-mac-lists -MarketingList "$(id_of list 'Saturday session')" \
+        -MarketingTune "$(id_of tune 'Backstep Cindy')"
+
+# Frame the store captures under their headlines from Marketing/store.json, at App Store sizes
+[group('capture')]
+store-frames:
+    scripts/store_frames.py {{ capture }} {{ capture }}/store
+
+# Cut the preview-filter capture into the iPhone App Preview
+[group('capture')]
+store-preview:
+    scripts/store_preview.py {{ capture }} {{ capture }}/store
 
 # Archive the signed Release build for iOS and macOS, ready for `just upload`
 [group('release')]

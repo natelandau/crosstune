@@ -10,7 +10,7 @@ capture="${CAPTURE:?CAPTURE is not set; run just apple::capture-test}"
 derived_data="${DERIVED_DATA:?DERIVED_DATA is not set; run just apple::capture-test}"
 scrub="scripts/scrub-env.sh"
 # Simulators of their own, never signed in to an Apple Account, so no system alert covers a capture.
-capture_device="Crosstune Capture iPhone 17 Pro"
+capture_device="Crosstune Capture iPhone 17 Pro Max"
 capture_pad="Crosstune Capture iPad"
 
 # Prints the udid of the simulator named $1, made from device type $2 on the newest iOS
@@ -58,9 +58,14 @@ status_bar() {
 }
 
 # A capture name is a test method without its `test` prefix: `hero-jam` is `test_hero_jam`
-# or `testHeroJam`, in whichever class declares it.
+# or `testHeroJam`, in whichever class declares it. With no names, every capture runs.
+names=("$@")
+if [ "${#names[@]}" -eq 0 ]; then
+    while IFS= read -r method; do names+=("$(echo "${method#test_}" | tr _ -)"); done < <(
+        grep -ohE 'func test_[a-z0-9_]+\(' CrosstuneMarketingUITests/*.swift | sed -E 's/func (.*)\(/\1/')
+fi
 phone=() folk=() pad=()
-for name in "$@"; do
+for name in "${names[@]}"; do
     snake="test_${name//-/_}"
     camel="test$(echo "$name" | awk -F- '{ for (i = 1; i <= NF; i++) printf "%s", toupper(substr($i, 1, 1)) substr($i, 2) }')"
     file="$(grep -lE "func ($snake|$camel)\(" CrosstuneMarketingUITests/*.swift | head -n 1 || true)"
@@ -72,19 +77,13 @@ for name in "$@"; do
         index($0, method) { print owner; exit }
     ' "$file")"
     [ -n "$class" ] || { echo "no class declares $method in $file" >&2; exit 1; }
+    # The folk stills run alone under a status bar with no signal, and iPad captures on the iPad.
     case "$name" in
-        folk) folk=("-only-testing:CrosstuneMarketingUITests/$class/$method") ;;
-        family-ipad) pad=("-only-testing:CrosstuneMarketingUITests/$class/$method") ;;
+        folk | store-folk) folk+=("-only-testing:CrosstuneMarketingUITests/$class/$method") ;;
+        *ipad*) pad+=("-only-testing:CrosstuneMarketingUITests/$class/$method") ;;
         *) phone+=("-only-testing:CrosstuneMarketingUITests/$class/$method") ;;
     esac
 done
-# With no names, every capture runs: the folk still alone under its own status bar, and the
-# iPad still on the iPad.
-if [ "$#" -eq 0 ]; then
-    folk=("-only-testing:CrosstuneMarketingUITests/FeatureCaptures/test_folk")
-    pad=("-only-testing:CrosstuneMarketingUITests/FamilyCaptures/test_family_ipad")
-    phone=("-skip-testing:${folk[0]#-only-testing:}" "-skip-testing:${pad[0]#-only-testing:}")
-fi
 
 rm -rf "$capture"
 mkdir -p "$capture/attachments"
@@ -122,7 +121,7 @@ shutil.rmtree(source)
 }
 
 if [ ${#phone[@]} -gt 0 ] || [ ${#folk[@]} -gt 0 ]; then
-    device="$(simulator "$capture_device" iPhone-17-Pro)"
+    device="$(simulator "$capture_device" iPhone-17-Pro-Max)"
     [ ${#phone[@]} -eq 0 ] || pass Marketing "$device" "${phone[@]}"
     if [ ${#folk[@]} -gt 0 ]; then
         status_bar "$device" none

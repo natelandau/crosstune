@@ -2,7 +2,7 @@
   "configurations" : [
     {
       "id" : "D3D68051-8098-4D5D-9781-B8BB51981D40",
-      "name" : "Dark",
+      "name" : "Light",
       "options" : {
 
       }
@@ -11,7 +11,7 @@
   "defaultOptions" : {
     "commandLineArgumentEntries" : [
       {
-        "argument" : "-crosstune.appearance dark"
+        "argument" : "-crosstune.appearance light"
       }
     ],
     "environmentVariableEntries" : [

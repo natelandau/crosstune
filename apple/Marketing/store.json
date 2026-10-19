@@ -1,0 +1,22 @@
+{
+  "iphone": [
+    { "capture": "store-catalog", "headline": "The app for musicians who learn by ear", "sub": "Every tune you know, are learning, or want to learn" },
+    { "capture": "store-tune", "headline": "Open a tune and everything is there", "sub": "Recordings, links, scans, lyrics, and who you learned it from" },
+    { "capture": "store-practice", "headline": "Slow it down. Loop the hard part", "sub": "Change the speed without changing the key" },
+    { "capture": "store-record", "headline": "Record a tune in one tap", "sub": "File it under the tune, or sort it out later" },
+    { "capture": "store-lists", "headline": "Lists that play like a playlist", "sub": "Set lists, practice lists, and every tune from Clifftop" },
+    { "capture": "store-listen", "headline": "Hear any version without leaving the app", "sub": "Apple Music, Spotify, YouTube, Bandcamp, and more" },
+    { "capture": "store-folk", "headline": "Built for folk musicians", "sub": "Tunings, crooked parts, and modal keys. Works with no signal" },
+    { "capture": "store-scans", "headline": "Scans of your music, kept with the tune", "sub": "Sheet music, lyric sheets, and handwritten notes" }
+  ],
+  "ipad": [
+    { "capture": "store-ipad-tune", "headline": "Open a tune and everything is there", "sub": "Recordings, links, scans, lyrics, and who you learned it from" },
+    { "capture": "store-ipad-catalog", "headline": "The app for musicians who learn by ear", "sub": "Every tune you know, are learning, or want to learn" },
+    { "capture": "store-ipad-practice", "headline": "Slow it down. Loop the hard part", "sub": "Change the speed without changing the key" },
+    { "capture": "store-ipad-lists", "headline": "Lists that play like a playlist", "sub": "Set lists, practice lists, and every tune from Clifftop" }
+  ],
+  "mac": [
+    { "capture": "store-mac-tune", "headline": "The app for musicians who learn by ear", "sub": "Your tune list, recordings, and practice tools in one app" },
+    { "capture": "store-mac-lists", "headline": "Lists that play like a playlist", "sub": "Set lists, practice lists, and every tune from Clifftop" }
+  ]
+}
