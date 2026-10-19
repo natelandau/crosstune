@@ -238,6 +238,10 @@ archive build_number:
         echo "POSTHOG_PROJECT_TOKEN is empty; set it in Config/Secrets.xcconfig" >&2
         exit 1
     fi
+    if ! grep -qE '^ *SENTRY_DSN = https://' <<<"$settings"; then
+        echo "SENTRY_DSN is empty; set it in Config/Secrets.xcconfig" >&2
+        exit 1
+    fi
     rm -rf {{ archives }}
     for platform in iOS macOS; do
         {{ xcodebuild }} archive -quiet -project Crosstune.xcodeproj -scheme Crosstune \
@@ -260,9 +264,18 @@ upload:
             -exportPath ".build/export/$platform" {{ asc_auth }}
     done
 
-# Archive the Release build for iOS and macOS and upload both to App Store Connect
+# Upload the dSYMs of the archives `just archive` made to Sentry
 [group('release')]
-testflight build_number: (archive build_number) upload
+upload-symbols:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${SENTRY_AUTH_TOKEN:?the Sentry auth token}" "${SENTRY_ORG:?the Sentry organization slug}" \
+        "${SENTRY_PROJECT:?the Sentry project slug}"
+    sentry-cli debug-files upload --wait {{ archives }}/iOS.xcarchive/dSYMs {{ archives }}/macOS.xcarchive/dSYMs
+
+# Archive the Release build for iOS and macOS, upload its symbols to Sentry, and upload both to App Store Connect
+[group('release')]
+testflight build_number: (archive build_number) upload-symbols upload
 
 # Fail when Xcode made a development certificate, which a signing run must never leave behind
 [group('release')]

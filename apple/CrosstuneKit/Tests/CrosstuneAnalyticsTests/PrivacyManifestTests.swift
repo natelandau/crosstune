@@ -32,9 +32,12 @@ struct PrivacyManifestTests {
 
         // The person is keyed by the signed-in user's ID.
         #expect(declared["NSPrivacyCollectedDataTypeUserID"]?.purposes.contains(analytics) == true)
+        // Sentry's crash reports carry the screens visited before the crash.
         #expect(
             declared["NSPrivacyCollectedDataTypeProductInteraction"]
-                == Declared(linked: true, tracking: false, purposes: [analytics]))
+                == Declared(
+                    linked: true, tracking: false,
+                    purposes: [analytics, "NSPrivacyCollectedDataTypePurposeAppFunctionality"]))
         // PostHog's GeoIP derives a country and city from the request, and with Precise Location
         // off a take keeps the approximate fix.
         #expect(
@@ -46,10 +49,13 @@ struct PrivacyManifestTests {
         #expect(
             declared["NSPrivacyCollectedDataTypeOtherUsageData"]
                 == Declared(linked: true, tracking: false, purposes: [analytics]))
-        // Sync, upload, and export failure events carry a failure reason.
+        // Sync, upload, and export failure events carry a failure reason, and Sentry's error
+        // reports carry error details.
         #expect(
             declared["NSPrivacyCollectedDataTypeOtherDiagnosticData"]
-                == Declared(linked: true, tracking: false, purposes: [analytics]))
+                == Declared(
+                    linked: true, tracking: false,
+                    purposes: [analytics, "NSPrivacyCollectedDataTypePurposeAppFunctionality"]))
         #expect(declared.values.allSatisfy { !$0.tracking })
     }
 
@@ -77,5 +83,18 @@ struct PrivacyManifestTests {
         #expect(
             declared["NSPrivacyCollectedDataTypePurchaseHistory"]
                 == Declared(linked: true, tracking: false, purposes: purposes))
+    }
+
+    @Test func declaresCrashDataNotLinked() throws {
+        let declared = try Self.declared()
+
+        // Sentry's crash reports carry a random per-install ID, never the account.
+        #expect(
+            declared["NSPrivacyCollectedDataTypeCrashData"]
+                == Declared(
+                    linked: false, tracking: false,
+                    purposes: ["NSPrivacyCollectedDataTypePurposeAppFunctionality"]))
+        // Hang and error reports are crash data. No timing or performance metrics are sent.
+        #expect(declared["NSPrivacyCollectedDataTypePerformanceData"] == nil)
     }
 }

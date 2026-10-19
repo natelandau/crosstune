@@ -1,10 +1,14 @@
 import CrosstuneAnalytics
+import CrosstuneDiagnostics
 import SwiftUI
 
 extension EnvironmentValues {
     /// Where views report analytics. The app sets the live client at the root of each scene;
     /// previews and tests that set nothing send nowhere.
     @Entry public var analytics: AnalyticsClient = .noop
+    /// Where views leave crash-report breadcrumbs. The app sets the live client at the root of
+    /// each scene; previews and tests that set nothing record nowhere.
+    @Entry public var diagnostics: DiagnosticsClient = .noop
     /// The signed-in account's plan. The app sets it at the root of each scene while a store is
     /// open; nil reads as unknown, which gates nothing.
     @Entry public var plan: PlanModel?
@@ -31,6 +35,7 @@ private struct ScreenViewModifier: ViewModifier {
     var visit: Binding<Bool>?
     var stillShown: (() -> Bool)?
     @Environment(\.analytics) private var analytics
+    @Environment(\.diagnostics) private var diagnostics
 
     func body(content: Content) -> some View {
         content
@@ -40,6 +45,7 @@ private struct ScreenViewModifier: ViewModifier {
                     visit.wrappedValue = true
                 }
                 analytics.screen(screen)
+                diagnostics.screen(screen)
             }
             .onDisappear {
                 if let visit, stillShown?() ?? true { visit.wrappedValue = false }

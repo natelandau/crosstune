@@ -3,6 +3,7 @@ import ClerkKit
 import CrosstuneAPI
 import CrosstuneAnalytics
 import CrosstuneAudio
+import CrosstuneDiagnostics
 import CrosstuneStore
 import CrosstuneSync
 import Foundation
@@ -157,6 +158,7 @@ public final class AccountSession {
     /// Whether a sync of the open store has identified the person with the API's figures.
     @ObservationIgnored private var syncedFiguresReported = false
     @ObservationIgnored private let analytics: AnalyticsClient
+    @ObservationIgnored private let diagnostics: DiagnosticsClient
     @ObservationIgnored private var identity: AnalyticsIdentity
 
     /// - Parameters:
@@ -165,16 +167,19 @@ public final class AccountSession {
     ///   - storageOrigin: Where a storage URL the API signs as a bare path resolves. Only a
     ///     local API signs those; see ``LiveSyncAPI``.
     ///   - analytics: Where sign-in, sign-out, and deletion are reported.
+    ///   - diagnostics: Where lasting failures are reported for crash reporting.
     ///   - deviceSettings: The settings this device keeps outside the store, which the person
     ///     carries beside the synced ones.
     ///   - assistiveTech: The assistive features the device has on, which the person carries.
     public init(
         publishableKey: String, apiOrigin: URL, clientVersion: String, storageOrigin: URL? = nil,
         remembered: RememberedUser = RememberedUser(), storeRoot: URL = CrosstuneStore.defaultRoot,
-        analytics: AnalyticsClient = .noop, deviceSettings: @escaping @MainActor () -> [SettingChange] = { [] },
+        analytics: AnalyticsClient = .noop, diagnostics: DiagnosticsClient = .noop,
+        deviceSettings: @escaping @MainActor () -> [SettingChange] = { [] },
         assistiveTech: @escaping @MainActor () -> [AssistiveTechnology]? = { nil }
     ) {
         self.analytics = analytics
+        self.diagnostics = diagnostics
         identity = AnalyticsIdentity(analytics: analytics, deviceSettings: deviceSettings, assistiveTech: assistiveTech)
         self.remembered = remembered
         signedOutUserID = remembered.deletedUserID
@@ -780,7 +785,7 @@ public final class AccountSession {
         store = opened
         let engine = SyncEngine(
             store: opened, api: LiveSyncAPI(client: client, storageOrigin: storageOrigin),
-            isOffline: { [weak self] in self?.isOffline ?? true }, analytics: analytics)
+            isOffline: { [weak self] in self?.isOffline ?? true }, analytics: analytics, diagnostics: diagnostics)
         syncedFiguresReported = false
         engine.onSynced = { [weak self] in self?.syncLanded(in: opened, storedFigures: $0) }
         sync = SessionSync(store: opened, engine: engine, isActive: isActive, isOffline: isOffline)

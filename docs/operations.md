@@ -305,10 +305,13 @@ git push --follow-tags origin main
   apps** job, which raises the attempt and re-runs the jobs after it. A
   re-run of the upload alone sends the same build number, which App Store
   Connect refuses once it has that build. The same release runs from a Mac
-  with `just apple::testflight <build number>`, the key in `apple/.env`, and
-  the PostHog project token in `apple/Config/Secrets.xcconfig`.
+  with `just apple::testflight <build number>`. It needs the key and the
+  `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` variables in
+  `apple/.env`, the PostHog project token and `SENTRY_DSN` in
+  `apple/Config/Secrets.xcconfig`, and `sentry-cli` installed.
   Use a build number higher than every uploaded build.
-- Each version is its side's Sentry release tag.
+- Each version is its side's Sentry release tag. The archive job also uploads
+  the Apple debug symbols to Sentry, and a failed upload holds the release.
 - A home-screen install keeps the icon it was installed with. A release that
   changes the icon says so.
 - When you bump pnpm in `web/package.json` or `site/package.json`, change

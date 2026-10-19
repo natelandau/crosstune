@@ -338,6 +338,16 @@ final class Toggle {
     }
 }
 
+/// A clock a test moves by hand.
+@MainActor
+final class TestClock {
+    var now: Date
+
+    init(_ now: Date) {
+        self.now = now
+    }
+}
+
 /// Counts calls from a closure the engine holds.
 @MainActor
 final class Counter {

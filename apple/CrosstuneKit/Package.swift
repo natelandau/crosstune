@@ -11,6 +11,7 @@ let package = Package(
         .library(name: "CrosstuneAuth", targets: ["CrosstuneAuth"]),
         .library(name: "CrosstuneBilling", targets: ["CrosstuneBilling"]),
         .library(name: "CrosstuneCommands", targets: ["CrosstuneCommands"]),
+        .library(name: "CrosstuneDiagnostics", targets: ["CrosstuneDiagnostics"]),
         .library(name: "CrosstuneExport", targets: ["CrosstuneExport"]),
         .library(name: "CrosstuneStore", targets: ["CrosstuneStore"]),
         .library(name: "CrosstuneSync", targets: ["CrosstuneSync"]),
@@ -25,6 +26,7 @@ let package = Package(
         .package(url: "https://github.com/groue/GRDB.swift", from: "7.11.1"),
         .package(url: "https://github.com/PostHog/posthog-ios", from: "3.90.0"),
         .package(url: "https://github.com/RevenueCat/purchases-ios-spm", from: "5.91.0"),
+        .package(url: "https://github.com/getsentry/sentry-cocoa", from: "9.30.2"),
         // Constraint only, reached through swift-openapi-urlsession. Built with Swift 6.4, 1.7.0
         // strongly links swift_initBorrow, which the Swift runtime in iOS 26 and macOS 26 does
         // not have, so the app fails to launch there.
@@ -57,6 +59,7 @@ let package = Package(
                 "CrosstuneAnalytics",
                 "CrosstuneAPI",
                 "CrosstuneAudio",
+                "CrosstuneDiagnostics",
                 "CrosstuneStore",
                 "CrosstuneSync",
                 .product(name: "ClerkKit", package: "clerk-ios"),
@@ -68,8 +71,13 @@ let package = Package(
         .target(
             name: "CrosstuneBilling",
             dependencies: [
-                "CrosstuneAnalytics", .product(name: "RevenueCat", package: "purchases-ios-spm"),
+                "CrosstuneAnalytics", "CrosstuneDiagnostics",
+                .product(name: "RevenueCat", package: "purchases-ios-spm"),
             ]
+        ),
+        .target(
+            name: "CrosstuneDiagnostics",
+            dependencies: ["CrosstuneAnalytics", .product(name: "Sentry", package: "sentry-cocoa")]
         ),
         .target(
             name: "CrosstuneStore",
@@ -93,6 +101,7 @@ let package = Package(
             name: "CrosstuneSync",
             dependencies: [
                 "CrosstuneAnalytics",
+                "CrosstuneDiagnostics",
                 "CrosstuneAPI",
                 "CrosstuneStore",
                 "CrosstuneVocabulary",
@@ -104,7 +113,7 @@ let package = Package(
             name: "CrosstuneUI",
             dependencies: [
                 "CrosstuneAnalytics", "CrosstuneAudio", "CrosstuneAuth", "CrosstuneBilling", "CrosstuneCommands",
-                "CrosstuneExport", "CrosstuneStore", "CrosstuneSync", "CrosstuneVocabulary",
+                "CrosstuneDiagnostics", "CrosstuneExport", "CrosstuneStore", "CrosstuneSync", "CrosstuneVocabulary",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
@@ -112,7 +121,7 @@ let package = Package(
         .target(
             name: "CrosstuneTestSupport",
             dependencies: [
-                "CrosstuneAnalytics", "CrosstuneBilling", "CrosstuneStore",
+                "CrosstuneAnalytics", "CrosstuneBilling", "CrosstuneDiagnostics", "CrosstuneStore",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ],
             path: "Tests/CrosstuneTestSupport"
@@ -122,9 +131,17 @@ let package = Package(
             dependencies: ["CrosstuneAnalytics", "CrosstuneTestSupport", "CrosstuneVocabulary"]
         ),
         .testTarget(
+            name: "CrosstuneDiagnosticsTests",
+            dependencies: [
+                "CrosstuneAnalytics", "CrosstuneDiagnostics", "CrosstuneTestSupport",
+                .product(name: "Sentry", package: "sentry-cocoa"),
+            ]
+        ),
+        .testTarget(
             name: "CrosstuneBillingTests",
             dependencies: [
-                "CrosstuneAnalytics", "CrosstuneBilling", .product(name: "RevenueCat", package: "purchases-ios-spm"),
+                "CrosstuneAnalytics", "CrosstuneBilling", "CrosstuneDiagnostics", "CrosstuneTestSupport",
+                .product(name: "RevenueCat", package: "purchases-ios-spm"),
             ]
         ),
         .testTarget(
@@ -160,6 +177,7 @@ let package = Package(
             name: "CrosstuneSyncTests",
             dependencies: [
                 "CrosstuneAnalytics",
+                "CrosstuneDiagnostics",
                 "CrosstuneSync",
                 "CrosstuneAPI",
                 "CrosstuneStore",
@@ -183,7 +201,8 @@ let package = Package(
         .testTarget(
             name: "CrosstuneUITests",
             dependencies: [
-                "CrosstuneUI", "CrosstuneAudio", "CrosstuneBilling", "CrosstuneCommands", "CrosstuneStore",
+                "CrosstuneUI", "CrosstuneAudio", "CrosstuneBilling", "CrosstuneCommands", "CrosstuneDiagnostics",
+                "CrosstuneStore",
                 "CrosstuneSync",
                 "CrosstuneVocabulary", "CrosstuneTestSupport", .product(name: "GRDB", package: "GRDB.swift"),
             ]

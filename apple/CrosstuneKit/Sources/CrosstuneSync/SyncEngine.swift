@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneDiagnostics
 import CrosstuneStore
 import Foundation
 import Observation
@@ -31,6 +32,7 @@ public final class SyncEngine {
     private let isOffline: @MainActor () -> Bool
     private let batchSize: Int
     private let analytics: AnalyticsClient
+    private let diagnostics: DiagnosticsClient
     /// The clock the plan is judged by.
     private let now: @MainActor () -> Date
     private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "sync")
@@ -59,12 +61,18 @@ public final class SyncEngine {
         onFailure: { [weak self] _, error in
             self?.analytics.send(.syncFailed(reason: syncFailureReason(error)))
         },
+        now: now,
+        isReportable: { _, error in isReportableFailure(error) },
+        onLastingFailure: { [weak self] _, error in self?.diagnostics.report(error, area: .sync) },
         run: { [weak self] in try await self?.runSync() }
     )
     @ObservationIgnored private lazy var transferLoop = SyncLoop<TransferStatus>(
         name: "transfer", sleep: sleep,
         isStopped: { [weak self] in self?.stopped ?? true },
         classify: { [weak self] error in classifyTransferFailure(error, isOffline: self?.isOffline() ?? true) },
+        now: now,
+        isReportable: { _, error in isReportableFailure(error) },
+        onLastingFailure: { [weak self] _, error in self?.diagnostics.report(error, area: .transfer) },
         run: transferPass ?? { [weak self] in try await self?.runTransfers() }
     )
     @ObservationIgnored let downloadRetries = DownloadRetries()
@@ -77,7 +85,7 @@ public final class SyncEngine {
     @ObservationIgnored private lazy var transfers = Transfers(
         store: store, api: api,
         checkStopped: transferStopCheck, now: now,
-        downloadRetries: downloadRetries, analytics: analytics)
+        downloadRetries: downloadRetries, analytics: analytics, diagnostics: diagnostics)
     @ObservationIgnored private lazy var scans = ScanTransfers(
         store: store, api: api,
         checkStopped: transferStopCheck, now: now)
@@ -87,7 +95,9 @@ public final class SyncEngine {
     ///     `offline` without a request.
     ///   - sleep: Waits out a retry's backoff.
     ///   - analytics: Where a sync that fails, and an upload that is refused, are reported.
-    ///   - now: The clock the account's plan is judged by.
+    ///   - diagnostics: Where a sync or transfer that keeps failing, and an upload that fails for
+    ///     good, are reported.
+    ///   - now: The clock the account's plan, and how long a failure has lasted, are judged by.
     public convenience init(
         store: CrosstuneStore,
         api: any SyncAPI,
@@ -95,11 +105,12 @@ public final class SyncEngine {
         batchSize: Int = SyncEngine.pushBatchSize,
         sleep: @escaping Sleeper = { try await Task.sleep(for: $0) },
         analytics: AnalyticsClient = .noop,
+        diagnostics: DiagnosticsClient = .noop,
         now: @escaping @MainActor () -> Date = Date.init
     ) {
         self.init(
             store: store, api: api, isOffline: isOffline, batchSize: batchSize, sleep: sleep, transferPass: nil,
-            analytics: analytics, now: now)
+            analytics: analytics, diagnostics: diagnostics, now: now)
     }
 
     /// - Parameter transferPass: One run of the transfer loop, in place of the upload and
@@ -112,10 +123,12 @@ public final class SyncEngine {
         sleep: @escaping Sleeper,
         transferPass: (@MainActor () async throws -> Void)?,
         analytics: AnalyticsClient = .noop,
+        diagnostics: DiagnosticsClient = .noop,
         now: @escaping @MainActor () -> Date = Date.init
     ) {
         self.store = store
         self.analytics = analytics
+        self.diagnostics = diagnostics
         self.now = now
         self.api = api
         self.isOffline = isOffline

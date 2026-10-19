@@ -7,7 +7,7 @@ path: /privacy
 
 # Privacy policy
 
-Last updated: 2026-10-18
+Last updated: 2026-10-19
 
 Crosstune is run by Nathaniel Landau, an individual, from New York in the United States. In this policy, "we" and "us" mean Nathaniel Landau as the operator of Crosstune. Questions and requests go to [support@crosstune.app](mailto:support@crosstune.app), or by post to 367 St Marks Ave #1240, Brooklyn, NY 11238, United States.
 
@@ -18,6 +18,7 @@ This policy covers this site (crosstune.app), the web app (my.crosstune.app), an
 - Your catalog is private to you. No other user can see it.
 - We use your data to run Crosstune for you. There are no ads, we do not sell your data, and we do not use it to train AI models.
 - The apps send usage analytics to PostHog, never your content. You can turn this off with Share usage data. In the European Union and the rest of the European Economic Area (Iceland, Liechtenstein, and Norway), it starts off. It also starts off when the app cannot tell which country you are in.
+- The apps send crash and error reports to Sentry whether or not Share usage data is on. They carry no content you made and no account ID.
 - You can export everything you made and delete your account from Settings at any time.
 
 ## Who is responsible for your data
@@ -103,6 +104,7 @@ We use these service providers to run Crosstune. Each one processes your data fo
 - Fastmail receives email sent to support@crosstune.app.
 - Resend sends our emails about your account and your Premium subscription: purchase confirmations, yearly renewal reminders, refund confirmations, notices of significant changes to these terms or this policy, and the warnings before Crosstune deletes the recordings and scans of an account that is not on Premium and has not synced for a year. It receives your email address and the content of those emails.
 - Sentry receives error reports from the API and the web app. We set Sentry to leave out the content of requests, your search text, your email address, your IP address, and cookies.
+- The iPhone, iPad, and Mac apps also send Sentry crash reports, app freezes, and errors the app could not recover from. They carry the app version and build, basic details about your device, such as its model and operating system version, the last screens you visited, and error details. Web addresses in them are shortened so nothing after the ? is kept. They carry no account ID, email address, IP address, screenshots, or content you made. Sentry gives each install a random ID that is not linked to your account. The apps send these reports whether or not Share usage data is on.
 - PostHog Cloud, in the United States, receives usage analytics from this site, the web app, and the iPhone, iPad, and Mac apps. See Usage analytics below.
 - RevenueCat keeps the record of your Premium subscription from Apple and Link. It holds your Crosstune account ID, what you bought, and when it renews or ends. Its code in the apps also sends it basic device and store details.
 
@@ -185,7 +187,7 @@ There are no ads. We do not sell your data, or share it for advertising. We do n
 - The country we keep with your account: until you delete your account. Each sync replaces it with the latest one.
 - Database backups: deleted data can remain in our database's history for up to 30 days before it expires.
 - Server logs: up to 30 days.
-- Error reports in Sentry: up to 90 days.
+- Error and crash reports in Sentry: up to 90 days.
 - Usage analytics in PostHog: until you delete your account, and never longer than 7 years.
 - Email to support: up to 3 years after the conversation ends.
 - Purchase records: as long as tax and accounting law requires. Apple and Link keep their own records under their own policies.

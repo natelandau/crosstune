@@ -13,6 +13,8 @@ STRIPE_PORTAL_URL = https:/$()/billing.stripe.com/p/login/test_6oU9AM9MA1VGg2b3i
 // Only a Release build sends analytics, so development never reaches the production project.
 POSTHOG_PROJECT_TOKEN =
 POSTHOG_HOST =
+// Crash reporting is a Release feature too, so a Debug build reports nothing.
+SENTRY_DSN =
 
 // Overrides for one machine, such as the Mac's LAN address for a device. Gitignored, and
 // read by Debug only, so no release build can pick up a developer's origin.

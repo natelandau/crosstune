@@ -1,6 +1,8 @@
 import CrosstuneAnalytics
+import CrosstuneDiagnostics
 import CrosstuneExport
-import CrosstuneTestSupport
+import CrosstuneSync
+@_spi(Testing) import CrosstuneTestSupport
 import Foundation
 import Testing
 
@@ -97,5 +99,53 @@ private struct DiskFull: Error {
         visit.closed(sink.client)
 
         #expect(sink.calls.isEmpty)
+    }
+}
+
+private struct GenericFailure: Error {}
+
+/// A failed export reaches diagnostics under the export area; a cancelled one does not.
+@MainActor
+@Suite struct ExportDiagnosticsTests {
+    private let sink = RecordingDiagnosticsSink()
+
+    private func run(throwing error: any Error) async throws {
+        let model = ExportDataModel(
+            exporter: Exporter(
+                counts: {
+                    AsyncThrowingStream { continuation in
+                        continuation.yield(ExportCounts(onDevice: 1, total: 1))
+                        continuation.finish()
+                    }
+                },
+                make: { _ in throw error }),
+            diagnostics: sink.client)
+        await model.followCounts()
+        try await #require(model.start()).value
+    }
+
+    @Test func failedExportReportsExportArea() async throws {
+        try await run(throwing: GenericFailure())
+        #expect(sink.reports.map(\.area) == [.export])
+    }
+
+    @Test func offlineExportReportsNothing() async throws {
+        try await run(throwing: URLError(.notConnectedToInternet))
+        #expect(sink.reports.isEmpty)
+    }
+
+    @Test func expiredSessionExportReportsNothing() async throws {
+        try await run(throwing: ExportFetchFailed(underlying: APIStatusError(status: 401)))
+        #expect(sink.reports.isEmpty)
+    }
+
+    @Test func fullDiskExportReportsNothing() async throws {
+        try await run(throwing: CocoaError(.fileWriteOutOfSpace))
+        #expect(sink.reports.isEmpty)
+    }
+
+    @Test func cancelledExportReportsNothing() async throws {
+        try await run(throwing: CancellationError())
+        #expect(sink.reports.isEmpty)
     }
 }

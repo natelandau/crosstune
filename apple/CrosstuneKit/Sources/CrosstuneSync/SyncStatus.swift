@@ -97,8 +97,7 @@ func classifyTransferFailure(_ error: any Error, isOffline: Bool) -> TransferSta
     if isOffline { return .offline }
     switch underlying(error) {
     case is DeviceOffline, is NotSignedIn: return .offline
-    // Unlike a sync, an unreachable host while the device has a connection means the storage
-    // host refused, which would otherwise sit silently under "offline" forever.
+    // Unlike a sync, an unreachable host shows as a failure; Sentry never gets connectivity errors.
     default: return .error
     }
 }

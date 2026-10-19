@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneDiagnostics
 import CrosstuneExport
 import CrosstuneStore
 import CrosstuneSync
@@ -61,6 +62,7 @@ final class ExportDataModel {
     private let exporter: Exporter?
     private let isOffline: @MainActor () -> Bool
     private let analytics: AnalyticsClient
+    private let diagnostics: DiagnosticsClient
 
     private(set) var counts: ExportCounts?
     private(set) var progress: Progress?
@@ -74,11 +76,13 @@ final class ExportDataModel {
     private var generation = 0
 
     init(
-        exporter: Exporter?, isOffline: @escaping @MainActor () -> Bool = { false }, analytics: AnalyticsClient = .noop
+        exporter: Exporter?, isOffline: @escaping @MainActor () -> Bool = { false }, analytics: AnalyticsClient = .noop,
+        diagnostics: DiagnosticsClient = .noop
     ) {
         self.exporter = exporter
         self.isOffline = isOffline
         self.analytics = analytics
+        self.diagnostics = diagnostics
     }
 
     /// The share sheet and save panel hold the model until they finish, so a zip still here
@@ -148,7 +152,13 @@ final class ExportDataModel {
                 Self.logger.error("Could not export: \(error, privacy: .public)")
                 failure = failureMessage(error)
                 let cause = (error as? ExportFetchFailed)?.underlying ?? error
-                analytics.send(.exportFailed(format: .zip, reason: FailureReason(cause)))
+                let reason = FailureReason(cause)
+                analytics.send(.exportFailed(format: .zip, reason: reason))
+                // Offline, an expired session, a full disk, and cancellation are expected, not defects.
+                let expected =
+                    reason == .network || reason == .storageFull || cause is CancellationError
+                    || !isReportableFailure(cause)
+                if !expected { diagnostics.report(cause, area: .export) }
             }
             isRunning = false
             run = nil
