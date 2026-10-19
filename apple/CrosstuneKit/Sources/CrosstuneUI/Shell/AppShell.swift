@@ -108,6 +108,8 @@ public struct AppShell: View {
             .modifier(PlayerLinkWatch(store: store, player: player))
             .modifier(PlayerRecordingWatch(store: store, player: player))
             .modifier(ListPlaybackWiring(store: store, player: player, playback: listPlayback))
+            // Waits out what a plan notice waits out, a capture, and a notice that is up.
+            .requestsReview(isClear: !isNoticeCovered && !recorders.isCapturing && notices?.showing == nil)
             .environment(\.store, store)
             .environment(\.commands, Commands(store: store))
             .environment(player)

@@ -33,6 +33,7 @@ struct NoopAnalyticsSink: AnalyticsSink {
 /// hands it to each model and view that reports; everything else holds `noop`.
 public struct AnalyticsClient: Sendable {
     private let sink: any AnalyticsSink
+    private var observers: [@Sendable (AnalyticsEvent) -> Void] = []
 
     @_spi(Testing) public init(sink: any AnalyticsSink) {
         self.sink = sink
@@ -42,7 +43,17 @@ public struct AnalyticsClient: Sendable {
     public static let noop = AnalyticsClient(sink: NoopAnalyticsSink())
 
     public func send(_ event: AnalyticsEvent) {
+        for observer in observers { observer(event) }
         sink.capture(event.name, event.properties, set: event.personProperties)
+    }
+
+    /// This client, also handing each sent event to `observer` whether or not sharing is on, for
+    /// a feature that answers what the musician did. The observer may be called off the main
+    /// actor.
+    public func observing(_ observer: @escaping @Sendable (AnalyticsEvent) -> Void) -> AnalyticsClient {
+        var client = self
+        client.observers.append(observer)
+        return client
     }
 
     public func screen(_ screen: Screen) {

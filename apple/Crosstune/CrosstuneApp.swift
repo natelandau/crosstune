@@ -17,6 +17,7 @@ struct CrosstuneApp: App {
     @State private var plan: PlanModel?
     /// Which window shows the plan notices, made again with each store's plan.
     @State private var noticeClaim: NoticeClaim?
+    @State private var reviewPrompt: ReviewPrompt
     private let analytics: AnalyticsClient
     /// Nil in a build with no RevenueCat key, which offers no purchase.
     private let purchases: (any PurchaseClient)?
@@ -25,10 +26,14 @@ struct CrosstuneApp: App {
 
     init() {
         let configuration = AppConfiguration.main
+        let reviewPrompt = ReviewPrompt()
+        _reviewPrompt = State(initialValue: reviewPrompt)
         // With a stored choice, the SDK is set up now (or never, when sharing is off). With none,
         // setup waits for the region default and the remembered user is applied then.
         let analytics =
-            configuration.postHogHost.map { Analytics.start(token: configuration.postHogToken, host: $0) } ?? .noop
+            (configuration.postHogHost.map { Analytics.start(token: configuration.postHogToken, host: $0) }
+            ?? .noop)
+            .observing(reviewPrompt.observer)
         let apiOrigin = configuration.apiOrigin
         UsageData.launch(analytics, region: { try await Region.fetch(origin: apiOrigin) })
         self.analytics = analytics
@@ -57,6 +62,7 @@ struct CrosstuneApp: App {
                 .environment(\.analytics, analytics)
                 .environment(\.plan, plan)
                 .environment(\.noticeClaim, noticeClaim)
+                .environment(\.reviewPrompt, reviewPrompt)
                 .environment(\.purchases, purchases)
                 .environment(\.stripePortalURL, stripePortalURL)
                 .environment(\.placeSearch, MapKitPlaceSearch.self)
@@ -69,9 +75,15 @@ struct CrosstuneApp: App {
         }
         .onChange(of: scenePhase, initial: true) {
             session.sceneActivityChanged(isActive: scenePhase == .active)
-            if scenePhase == .background { player.leftForeground() }
-            // A trial may have ended while the app was away.
-            if scenePhase == .active { plan?.judgeAgain() }
+            if scenePhase == .background {
+                player.leftForeground()
+                reviewPrompt.leftForeground()
+            }
+            if scenePhase == .active {
+                // A trial may have ended while the app was away.
+                plan?.judgeAgain()
+                reviewPrompt.opened()
+            }
         }
         .onChange(of: session.store?.userID, initial: true) {
             let bound = StorePlan.bind(session.store, player: player, purchases: purchases)

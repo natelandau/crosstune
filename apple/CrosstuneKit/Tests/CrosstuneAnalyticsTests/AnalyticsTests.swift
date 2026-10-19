@@ -1,5 +1,6 @@
 import CrosstuneTestSupport
 import Foundation
+import Synchronization
 import Testing
 
 @testable import CrosstuneAnalytics
@@ -26,6 +27,18 @@ struct AnalyticsTests {
                     ["source": .string("catalog"), "fields_set": .strings(["title"]), "tune_id": .string(tuneID)],
                     set: [:])
             ])
+    }
+
+    @Test func handsEachSentEventToItsObserversAsWellAsTheSink() {
+        let seen = Mutex<[AnalyticsEvent]>([])
+        let client = sink.client
+            .observing { event in seen.withLock { $0.append(event) } }
+            .observing { event in seen.withLock { $0.append(event) } }
+
+        client.send(.usageSharingDisabled)
+
+        #expect(seen.withLock { $0 } == [.usageSharingDisabled, .usageSharingDisabled])
+        #expect(sink.captures.map(\.name) == ["usage_sharing_disabled"])
     }
 
     @Test func aSettingChangeSetsItsPersonProperty() {
