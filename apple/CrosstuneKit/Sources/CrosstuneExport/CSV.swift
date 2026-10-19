@@ -23,11 +23,29 @@ private func isNumber(_ field: String) -> Bool {
     }
 }
 
-/// The cell as written, or with a leading quote when a spreadsheet would run it as a formula.
+/// Two or three runs of digits joined by one separator, slash or dash, which a spreadsheet reads
+/// as a date: the time signature 6/8, or 3-4.
+private func isDateLike(_ field: String) -> Bool {
+    let text = field.trimmingCharacters(in: .whitespaces)
+    return ["/", "-"].contains { (separator: Unicode.Scalar) in
+        let parts = Substring(text).unicodeScalars.split(separator: separator, omittingEmptySubsequences: false)
+        return (2...3).contains(parts.count) && parts.allSatisfy(digits)
+    }
+}
+
+/// `YYYY-MM-DD` or `YYYY-MM`, which a spreadsheet reads as the date it is.
+private func isISODate(_ field: String) -> Bool {
+    let parts = Substring(field).unicodeScalars.split(separator: "-", omittingEmptySubsequences: false)
+    return [[4, 2], [4, 2, 2]].contains(parts.map(\.count)) && parts.allSatisfy(digits)
+}
+
+/// The cell as written, or with a leading quote when a spreadsheet would run it as a formula or
+/// misread it as a date.
 private func guarded(_ field: String) -> String {
-    guard let first = field.unicodeScalars.first, "=+-@\t\r".unicodeScalars.contains(first), !isNumber(field)
-    else { return field }
-    return "'" + field
+    let formulaStart = field.unicodeScalars.first.map { "=+-@\t\r".unicodeScalars.contains($0) } ?? false
+    let formula = formulaStart && !isNumber(field)
+    let date = isDateLike(field) && !isISODate(field)
+    return formula || date ? "'" + field : field
 }
 
 private func encodeField(_ field: String) -> String {
@@ -41,7 +59,8 @@ private func encodeField(_ field: String) -> String {
 }
 
 /// A UTF-8 CSV document: BOM, CRLF-terminated records, RFC 4180 quoting. A cell a spreadsheet
-/// would run as a formula starts with a quote; a number never does.
+/// would run as a formula or misread as a date starts with a quote; a number or an ISO date never
+/// does.
 public func csvDocument(_ rows: [[String]]) -> String {
     bom + rows.map { $0.map(encodeField).joined(separator: ",") + "\r\n" }.joined()
 }

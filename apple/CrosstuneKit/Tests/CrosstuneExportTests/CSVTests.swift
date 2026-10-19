@@ -19,6 +19,16 @@ private let bom = "\u{FEFF}"
         #expect(csvDocument([["-80.92", "+5", "-0.5", "36", "-.5"]]) == "\(bom)-80.92,+5,-0.5,36,-.5\r\n")
     }
 
+    @Test func guardsACellASpreadsheetWouldReadAsADate() {
+        #expect(
+            csvDocument([["6/8", "12/8", "1/2/2026", "3-4", "1-2-2026", " 6/8 ", "6/8 jig", "6/", "1/2-3"]])
+                == "\(bom)'6/8,'12/8,'1/2/2026,'3-4,'1-2-2026,' 6/8 ,6/8 jig,6/,1/2-3\r\n")
+    }
+
+    @Test func leavesAnISODateOrMonthAsWritten() {
+        #expect(csvDocument([["2026-03-14", "2026-03"]]) == "\(bom)2026-03-14,2026-03\r\n")
+    }
+
     @Test func guardsAFormulaThatAlsoNeedsQuotes() {
         #expect(csvDocument([["=A1,\"x\""]]) == "\(bom)\"'=A1,\"\"x\"\"\"\r\n")
     }
