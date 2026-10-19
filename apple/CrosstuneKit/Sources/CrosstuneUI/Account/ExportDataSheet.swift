@@ -1,5 +1,6 @@
 import CoreTransferable
 import CrosstuneAnalytics
+import CrosstuneDiagnostics
 import CrosstuneStore
 import CrosstuneSync
 import SwiftUI
@@ -28,11 +29,12 @@ public struct ExportDataSheet: View {
     ///   cannot be fetched.
     public init(
         store: CrosstuneStore?, engine: SyncEngine?, isOffline: @escaping @MainActor () -> Bool,
-        analytics: AnalyticsClient
+        analytics: AnalyticsClient, diagnostics: DiagnosticsClient
     ) {
         _model = State(
             initialValue: ExportDataModel(
-                exporter: store.map { Exporter.live($0, engine: engine) }, isOffline: isOffline, analytics: analytics))
+                exporter: store.map { Exporter.live($0, engine: engine) }, isOffline: isOffline, analytics: analytics,
+                diagnostics: diagnostics))
     }
 
     public var body: some View {

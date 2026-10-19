@@ -1,5 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneAuth
+import CrosstuneDiagnostics
 import CrosstuneStore
 import SwiftUI
 
@@ -25,6 +26,7 @@ struct ImportExportSections: View {
 
     @Environment(\.store) private var store
     @Environment(\.analytics) private var analytics
+    @Environment(\.diagnostics) private var diagnostics
     @Environment(AccountSession.self) private var session: AccountSession?
     @State private var showsImport = false
     @State private var showsExport = false
@@ -46,7 +48,7 @@ struct ImportExportSections: View {
                     ExportDataSheet(
                         store: store, engine: session?.syncEngine,
                         isOffline: { [session] in session?.isOffline ?? true },
-                        analytics: analytics)
+                        analytics: analytics, diagnostics: diagnostics)
                 }
         } header: {
             SettingsHelp(Self.exportHelp, title: Self.exportHeader)

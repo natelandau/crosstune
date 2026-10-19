@@ -1,3 +1,5 @@
+import CrosstuneDiagnostics
+@_spi(Testing) import CrosstuneTestSupport
 import Foundation
 import RevenueCat
 import Testing
@@ -30,4 +32,40 @@ func everyOtherErrorFails(_ code: ErrorCode) {
     #expect(errorCode(of: thrown) == .paymentPendingError)
     #expect(errorCode(of: ErrorCode.receiptAlreadyInUseError) == .receiptAlreadyInUseError)
     #expect(errorCode(of: URLError(.notConnectedToInternet)) == nil)
+}
+
+@MainActor
+@Suite struct PurchaseDiagnosticsTests {
+    private let sink = RecordingDiagnosticsSink()
+
+    @Test(arguments: [ErrorCode.purchaseCancelledError, .paymentPendingError, .receiptAlreadyInUseError])
+    func aBuyersOutcomeReportsNothing(_ code: ErrorCode) {
+        _ = failedPurchase(code, diagnostics: sink.client)
+        #expect(sink.reports.isEmpty)
+    }
+
+    @Test(arguments: [ErrorCode.purchaseCancelledError, .paymentPendingError, .receiptAlreadyInUseError])
+    func aRestoreOutcomeReportsNothing(_ code: ErrorCode) {
+        _ = failedRestore(code, diagnostics: sink.client)
+        #expect(sink.reports.isEmpty)
+    }
+
+    @Test(arguments: [ErrorCode.networkError, .offlineConnectionError])
+    func anOfflineStoreReportsNothing(_ code: ErrorCode) {
+        #expect(failedPurchase(code, diagnostics: sink.client) == .failed)
+        #expect(failedRestore(code, diagnostics: sink.client) == .failed)
+        #expect(sink.reports.isEmpty)
+    }
+
+    @Test func anUnknownPurchaseErrorReportsOnce() {
+        let result = failedPurchase(URLError(.timedOut), diagnostics: sink.client)
+        #expect(result == .failed)
+        #expect(sink.reports.map(\.area) == [.purchase])
+    }
+
+    @Test func aStoreProblemReportsOnceUnderRestore() {
+        let result = failedRestore(ErrorCode.storeProblemError, diagnostics: sink.client)
+        #expect(result == .failed)
+        #expect(sink.reports.map(\.area) == [.restore])
+    }
 }

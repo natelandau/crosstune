@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneDiagnostics
 import Foundation
 import RevenueCat
 import StoreKit
@@ -20,15 +21,17 @@ import StoreKit
 
     private let apiKey: String
     private let identity: any PurchasesIdentity
+    private let diagnostics: DiagnosticsClient
     private var userID: String?
 
-    public convenience init(apiKey: String) {
-        self.init(apiKey: apiKey, identity: RevenueCatIdentity())
+    public convenience init(apiKey: String, diagnostics: DiagnosticsClient = .noop) {
+        self.init(apiKey: apiKey, identity: RevenueCatIdentity(), diagnostics: diagnostics)
     }
 
-    init(apiKey: String, identity: any PurchasesIdentity) {
+    init(apiKey: String, identity: any PurchasesIdentity, diagnostics: DiagnosticsClient = .noop) {
         self.apiKey = apiKey
         self.identity = identity
+        self.diagnostics = diagnostics
     }
 
     public func identify(userID: String) async {
@@ -67,7 +70,7 @@ import StoreKit
             let result = try await Purchases.shared.purchase(package: package)
             return result.userCancelled ? .cancelled : .completed
         } catch {
-            return errorCode(of: error).map(purchaseResult(for:)) ?? .failed
+            return failedPurchase(error, diagnostics: diagnostics)
         }
     }
 
@@ -77,7 +80,7 @@ import StoreKit
             let customer = try await Purchases.shared.restorePurchases()
             return customer.entitlements.active[Self.premiumEntitlement] == nil ? .nothing : .restored
         } catch {
-            return errorCode(of: error).map(restoreResult(for:)) ?? .failed
+            return failedRestore(error, diagnostics: diagnostics)
         }
     }
 

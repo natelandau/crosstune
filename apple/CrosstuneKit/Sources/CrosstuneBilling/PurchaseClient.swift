@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneDiagnostics
 import Foundation
 import RevenueCat
 
@@ -68,4 +69,29 @@ func errorCode(of error: any Error) -> ErrorCode? {
     let error = error as NSError
     guard error.domain == ErrorCode.errorDomain else { return nil }
     return ErrorCode(rawValue: error.code)
+}
+
+/// Whether `code` means the store could not be reached, which is the connection, not a defect.
+func isOffline(_ code: ErrorCode?) -> Bool {
+    code == .networkError || code == .offlineConnectionError
+}
+
+/// The result for a purchase that threw, reported unless the buyer cancelled or left it pending,
+/// the receipt belongs to another account, or the store could not be reached.
+func failedPurchase(_ error: any Error, diagnostics: DiagnosticsClient) -> PurchaseResult {
+    let code = errorCode(of: error)
+    let result = code.map(purchaseResult(for:)) ?? .failed
+    if result == .failed, !isOffline(code) { diagnostics.report(error, area: .purchase) }
+    return result
+}
+
+/// The result for a restore that threw, reported unless the buyer cancelled or left it pending,
+/// the receipt belongs to another account, or the store could not be reached.
+func failedRestore(_ error: any Error, diagnostics: DiagnosticsClient) -> RestoreResult {
+    let code = errorCode(of: error)
+    let result = code.map(restoreResult(for:)) ?? .failed
+    // A cancelled or pending code is the buyer's choice, as it is for a purchase.
+    let buyersChoice = code.map { purchaseResult(for: $0) != .failed } ?? false
+    if result == .failed, !buyersChoice, !isOffline(code) { diagnostics.report(error, area: .restore) }
+    return result
 }
