@@ -79,6 +79,18 @@ public final class AccountSession {
     /// lands again.
     public private(set) var needsSignIn = false
 
+    /// True once the API has refused this build as too old. The app then runs as if offline
+    /// until it is updated: edits queue and nothing is sent. Never kept across launches.
+    public var updateRequired: Bool { updatePrompt.isRequired }
+
+    /// Whether the prompt to update is showing. Settable, so an alert can dismiss it.
+    public var showsUpdatePrompt: Bool {
+        get { updatePrompt.isShowing }
+        set { updatePrompt.isShowing = newValue }
+    }
+
+    private var updatePrompt = UpdatePromptSchedule()
+
     /// Whether the device has a network path. Clerk restores its user from its cache with no
     /// network, so a loaded Clerk alone does not mean the app can reach it.
     public private(set) var hasNetwork = true
@@ -113,7 +125,9 @@ public final class AccountSession {
         // Not awaited: leaving waits out the sync run whose request is reporting this.
         onAccountDeleted: { [weak self] in
             Task { @MainActor in await self?.accountDeletedElsewhere() }
-        }
+        },
+        // Awaited, so the run that met the refusal already reads offline when it fails.
+        onUpdateRequired: { [weak self] in await self?.updateRequiredByServer() }
     )
 
     /// The API client ``client`` holds, which reports a created account to `analytics`.
@@ -125,12 +139,13 @@ public final class AccountSession {
         analytics: AnalyticsClient,
         transport: any ClientTransport = URLSessionTransport(),
         onUnauthorized: @escaping @Sendable () async -> Void,
-        onAccountDeleted: @escaping @Sendable () async -> Void
+        onAccountDeleted: @escaping @Sendable () async -> Void,
+        onUpdateRequired: @escaping @Sendable () async -> Void
     ) -> CrosstuneAPI.Client {
         .crosstune(
             origin: origin, tokens: tokens, clientVersion: clientVersion, onUnauthorized: onUnauthorized,
             onAccountDeleted: onAccountDeleted, onAccountCreated: { analytics.send(.accountCreated(trial: $0)) },
-            transport: transport)
+            onUpdateRequired: onUpdateRequired, transport: transport)
     }
 
     private let remembered: RememberedUser
@@ -235,9 +250,9 @@ public final class AccountSession {
         Clerk.shared.user?.externalAccounts.contains { $0.provider == "oauth_apple" } ?? false
     }
 
-    /// True when Clerk cannot reach its servers: no network, or Clerk has not loaded. Requests
-    /// wait, and sign-out is disabled.
-    public var isOffline: Bool { Self.isOffline(phase: phase, hasNetwork: hasNetwork) }
+    /// True when Clerk cannot reach its servers, no network or Clerk not loaded, or while an
+    /// update is required. Requests wait, and sign-out is disabled.
+    public var isOffline: Bool { Self.isOffline(phase: phase, hasNetwork: hasNetwork, updateRequired: updateRequired) }
 
     /// Records the signed-in user, or forgets them on sign-out. Call when Clerk's user changes.
     public func clerkUserChanged() {
@@ -408,11 +423,24 @@ public final class AccountSession {
         needsSignIn = true
     }
 
+    /// Called by the API client when the API refuses this build. Asks for the update once and
+    /// takes the app offline, so the run that met the refusal and every later one end without
+    /// another request.
+    func updateRequiredByServer() {
+        if updatePrompt.refused(at: Date()) { connectivityChanged() }
+    }
+
+    /// Shows the prompt to update.
+    public func showUpdatePrompt() {
+        updatePrompt.show(at: Date())
+    }
+
     /// Reports whether the app is in the foreground, which syncs on return and gates the
     /// processing poll. Call whenever the app's scene phase changes.
     public func sceneActivityChanged(isActive: Bool) {
         self.isActive = isActive
         sync?.setActive(isActive)
+        if isActive { updatePrompt.foregrounded(at: Date()) }
     }
 
     /// Opens the store of the user the app is open for, including a remembered user before
@@ -826,8 +854,8 @@ public final class AccountSession {
         sync?.connectivityChanged(isOffline: isOffline)
     }
 
-    nonisolated static func isOffline(phase: Phase, hasNetwork: Bool) -> Bool {
-        guard hasNetwork, case .signedIn(_, confirmed: true) = phase else { return true }
+    nonisolated static func isOffline(phase: Phase, hasNetwork: Bool, updateRequired: Bool) -> Bool {
+        guard !updateRequired, hasNetwork, case .signedIn(_, confirmed: true) = phase else { return true }
         return false
     }
 

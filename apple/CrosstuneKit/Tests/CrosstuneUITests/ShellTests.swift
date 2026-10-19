@@ -9,23 +9,43 @@ import Testing
 
 @Suite struct SyncBadgeTests {
     @Test func showsOnlyTheStatesThatNeedAttention() {
-        let shown = SyncStatus.allCases.map { SyncBadge.attention(status: $0, isOffline: false, needsSignIn: false) }
-        #expect(shown == [nil, nil, .offline, .unauthorized, .error])
-        #expect(SyncBadge.attention(status: nil, isOffline: false, needsSignIn: false) == nil)
+        let shown = SyncStatus.allCases.map {
+            SyncBadge.attention(status: $0, isOffline: false, needsSignIn: false, updateRequired: false)
+        }
+        #expect(shown == [nil, nil, .offline, .unauthorized, .error, .updateRequired])
+        #expect(SyncBadge.attention(status: nil, isOffline: false, needsSignIn: false, updateRequired: false) == nil)
     }
 
     @Test func offlineWinsOverTheLastRun() {
-        #expect(SyncBadge.attention(status: .error, isOffline: true, needsSignIn: true) == .offline)
-        #expect(SyncBadge.attention(status: nil, isOffline: true, needsSignIn: false) == .offline)
+        #expect(
+            SyncBadge.attention(status: .error, isOffline: true, needsSignIn: true, updateRequired: false) == .offline)
+        #expect(
+            SyncBadge.attention(status: nil, isOffline: true, needsSignIn: false, updateRequired: false) == .offline)
     }
 
     @Test func aRefusedSessionAsksForSignInWhateverTheLastRunSaid() {
-        #expect(SyncBadge.attention(status: .idle, isOffline: false, needsSignIn: true) == .unauthorized)
+        #expect(
+            SyncBadge.attention(status: .idle, isOffline: false, needsSignIn: true, updateRequired: false)
+                == .unauthorized)
+    }
+
+    @Test func updateRequiredOutranksEveryOtherAttention() {
+        #expect(
+            SyncBadge.attention(status: .error, isOffline: true, needsSignIn: true, updateRequired: true)
+                == .updateRequired)
+        #expect(SyncStatus.updateRequired.label == SyncStatus.updateRequiredLabel)
+        #expect(SyncStatus.updateRequiredLabel == "Update required")
+    }
+
+    @Test func updateRequiredIsAWarning() {
+        for scheme in [ColorScheme.light, .dark] {
+            #expect(SyncBadge.swatch(.updateRequired, scheme: scheme) == SyncBadge.swatch(.offline, scheme: scheme))
+        }
     }
 
     @Test func everyBadgeReadsAtLeastFourAndAHalfToOne() {
         for scheme in [ColorScheme.light, .dark] {
-            for status in [SyncStatus.offline, .unauthorized, .error] {
+            for status in [SyncStatus.offline, .unauthorized, .error, .updateRequired] {
                 let swatch = SyncBadge.swatch(status, scheme: scheme)
                 #expect(contrastRatio(swatch.ink, swatch.background) >= 4.5, "\(status) \(scheme)")
             }
@@ -35,6 +55,105 @@ import Testing
     @Test func labelsAreTheWebs() {
         #expect(
             [SyncStatus.offline, .unauthorized, .error].map(\.label) == ["Offline", "Sign in again", "Sync failed"])
+    }
+}
+
+@Suite struct UpdatePromptTests {
+    @Test func appStoreURLForEachPlatform() {
+        #expect(UpdatePromptText.appStoreURL(id: nil) == nil)
+        #expect(UpdatePromptText.appStoreURL(id: "") == nil)
+        #if os(macOS)
+            #expect(
+                UpdatePromptText.appStoreURL(id: "123")?.absoluteString == "macappstore://apps.apple.com/app/id123")
+        #else
+            #expect(UpdatePromptText.appStoreURL(id: "123")?.absoluteString == "https://apps.apple.com/app/id123")
+        #endif
+    }
+}
+
+@MainActor
+@Suite struct UpdatePromptClaimTests {
+    /// Held for the whole test, so no two windows ever share an identifier.
+    private let windows = (0..<2).map { _ in Window() }
+    private final class Window {}
+
+    private func window(_ index: Int) -> ObjectIdentifier { ObjectIdentifier(windows[index]) }
+
+    @Test func onlyOneWindowShowsADuePrompt() {
+        let claim = UpdatePromptClaim()
+        let first = window(0)
+        let second = window(1)
+
+        #expect(claim.shows(first, due: true, isActive: true))
+        #expect(!claim.shows(second, due: true, isActive: true))
+        #expect(claim.shows(first, due: true, isActive: true))
+    }
+
+    @Test func aBackgroundWindowYieldsThePromptToAnActiveOne() {
+        let claim = UpdatePromptClaim()
+        let background = window(0)
+        let active = window(1)
+        #expect(claim.shows(background, due: true, isActive: true))
+
+        #expect(!claim.shows(background, due: true, isActive: false))
+        #expect(claim.holder == nil)
+        #expect(claim.shows(active, due: true, isActive: true))
+        #expect(!claim.shows(background, due: true, isActive: true))
+    }
+
+    @Test func aClosingWindowHandsThePromptToAnother() {
+        let claim = UpdatePromptClaim()
+        let closing = window(0)
+        let other = window(1)
+        #expect(claim.shows(closing, due: true, isActive: true))
+
+        claim.release(closing)
+
+        #expect(claim.shows(other, due: true, isActive: true))
+    }
+
+    @Test func aDismissedPromptLetsTheClaimGo() {
+        let claim = UpdatePromptClaim()
+        let window = window(0)
+        #expect(claim.shows(window, due: true, isActive: true))
+
+        #expect(!claim.shows(window, due: false, isActive: true))
+        #expect(claim.holder == nil)
+    }
+
+    @Test func aTapFromAnotherWindowTakesTheClaim() {
+        let claim = UpdatePromptClaim()
+        let holder = window(0)
+        let tapped = window(1)
+        #expect(claim.shows(holder, due: true, isActive: true))
+
+        claim.request(tapped)
+
+        #expect(claim.holder == tapped)
+        #expect(!claim.shows(holder, due: true, isActive: true))
+        #expect(claim.shows(tapped, due: true, isActive: true))
+    }
+
+    @Test func aTapFromTheHolderKeepsTheClaim() {
+        let claim = UpdatePromptClaim()
+        let holder = window(0)
+        #expect(claim.shows(holder, due: true, isActive: true))
+
+        claim.request(holder)
+
+        #expect(claim.holder == holder)
+        #expect(claim.shows(holder, due: true, isActive: true))
+        #expect(!claim.shows(window(1), due: true, isActive: true))
+    }
+
+    @Test func onlyTheHolderLetsTheClaimGo() {
+        let claim = UpdatePromptClaim()
+        let holder = window(0)
+        #expect(claim.shows(holder, due: true, isActive: true))
+
+        claim.release(window(1))
+
+        #expect(claim.holder == holder)
     }
 }
 

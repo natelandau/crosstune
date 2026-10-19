@@ -15,7 +15,10 @@ public struct NotSignedIn: Error, Equatable {
     public init() {}
 }
 
-/// Signs every request with the session token and the client version.
+/// Signs every request with the session token, the client version, and the platform.
+///
+/// A 426 means the API no longer accepts this build: `onUpdateRequired` runs and the response
+/// is handed on, with no retry, since a new token cannot make an old build acceptable.
 ///
 /// A 401 retries once with a fresh token, because a cached token can expire between the
 /// fetch and the request. A second 401 means the session itself is no longer accepted, and
@@ -33,17 +36,27 @@ public struct AuthMiddleware: ClientMiddleware {
     let clientVersion: String
     let onUnauthorized: @Sendable () async -> Void
     let onAccountDeleted: @Sendable () async -> Void
+    let onUpdateRequired: @Sendable () async -> Void
+
+    /// The platform the API compares the client version against.
+    #if os(macOS)
+        static let platform = "macos"
+    #else
+        static let platform = "ios"
+    #endif
 
     public init(
         tokens: any TokenProvider,
         clientVersion: String,
         onUnauthorized: @escaping @Sendable () async -> Void = {},
-        onAccountDeleted: @escaping @Sendable () async -> Void = {}
+        onAccountDeleted: @escaping @Sendable () async -> Void = {},
+        onUpdateRequired: @escaping @Sendable () async -> Void = {}
     ) {
         self.tokens = tokens
         self.clientVersion = clientVersion
         self.onUnauthorized = onUnauthorized
         self.onAccountDeleted = onAccountDeleted
+        self.onUpdateRequired = onUpdateRequired
     }
 
     public func intercept(
@@ -54,6 +67,7 @@ public struct AuthMiddleware: ClientMiddleware {
         next: @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)
     ) async throws -> (HTTPResponse, HTTPBody?) {
         let sent = try await send(request, body: body, baseURL: baseURL, refresh: false, next: next)
+        if await reportsUpdateRequired(sent) { return sent }
         guard sent.0.status == .unauthorized else { return sent }
         let first = await Self.readingProblem(sent)
         if first.accountDeleted {
@@ -67,6 +81,7 @@ public struct AuthMiddleware: ClientMiddleware {
             return first.response
         }
         let resent = try await send(request, body: body, baseURL: baseURL, refresh: true, next: next)
+        if await reportsUpdateRequired(resent) { return resent }
         guard resent.0.status == .unauthorized else { return resent }
         let second = await Self.readingProblem(resent)
         if second.accountDeleted {
@@ -101,6 +116,13 @@ public struct AuthMiddleware: ClientMiddleware {
         return ((response.0, HTTPBody(data)), problem?.type == accountDeletedProblem)
     }
 
+    /// Runs `onUpdateRequired` for a 426, which the caller hands on as it is.
+    private func reportsUpdateRequired(_ response: (HTTPResponse, HTTPBody?)) async -> Bool {
+        guard response.0.status == .upgradeRequired else { return false }
+        await onUpdateRequired()
+        return true
+    }
+
     private func send(
         _ request: HTTPRequest,
         body: HTTPBody?,
@@ -114,6 +136,7 @@ public struct AuthMiddleware: ClientMiddleware {
         var signed = request
         signed.headerFields[.authorization] = "Bearer \(token)"
         signed.headerFields[.clientVersion] = clientVersion
+        signed.headerFields[.clientPlatform] = Self.platform
         return try await next(signed, body, baseURL)
     }
 }
@@ -124,4 +147,5 @@ private struct ProblemType: Decodable {
 
 extension HTTPField.Name {
     static let clientVersion = Self("X-Client-Version")!
+    static let clientPlatform = Self("X-Client-Platform")!
 }

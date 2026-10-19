@@ -14,6 +14,8 @@ struct AppConfiguration {
     let revenueCatAPIKey: String?
     /// Where a subscription bought on the web is managed.
     let stripePortalURL: URL?
+    /// The app's Apple ID, for its App Store page. Nil leaves the update prompt with no link.
+    let appStoreID: String?
 
     static let main = AppConfiguration(bundle: .main)
 
@@ -39,5 +41,6 @@ struct AppConfiguration {
         postHogHost = optional("PostHogHost").flatMap(URL.init(string:))
         revenueCatAPIKey = optional("RevenueCatAPIKey")
         stripePortalURL = optional("StripePortalURL").flatMap(URL.init(string:))
+        appStoreID = optional("CrosstuneAppStoreID")
     }
 }

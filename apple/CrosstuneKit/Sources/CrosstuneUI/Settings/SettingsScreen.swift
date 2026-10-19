@@ -354,7 +354,9 @@ public struct SettingsScreen: View {
     private func syncRows(_ model: SettingsModel) -> some View {
         Section(SettingsModel.sync) {
             if let engine {
-                LabeledContent(SettingsModel.status, value: engine.status.label)
+                LabeledContent(
+                    SettingsModel.status,
+                    value: SettingsModel.statusText(engine.status, updateRequired: session?.updateRequired ?? false))
                 LabeledContent(SettingsModel.recordings, value: engine.transferStatus.label)
                 if let lastSyncedAt = engine.lastSyncedAt {
                     TimelineView(.everyMinute) { context in

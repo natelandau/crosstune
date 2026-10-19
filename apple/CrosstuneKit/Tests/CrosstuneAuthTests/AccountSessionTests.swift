@@ -43,13 +43,66 @@ import Testing
 
 @Test func isOfflineWithoutANetworkEvenWhenClerkRestoredTheUser() {
     let restored = AccountSession.Phase.signedIn(userID: "user_a", confirmed: true)
-    #expect(AccountSession.isOffline(phase: restored, hasNetwork: false))
-    #expect(!AccountSession.isOffline(phase: restored, hasNetwork: true))
+    #expect(AccountSession.isOffline(phase: restored, hasNetwork: false, updateRequired: false))
+    #expect(!AccountSession.isOffline(phase: restored, hasNetwork: true, updateRequired: false))
 }
 
 @Test func isOfflineUntilClerkLoads() {
     let remembered = AccountSession.Phase.signedIn(userID: "user_a", confirmed: false)
-    #expect(AccountSession.isOffline(phase: remembered, hasNetwork: true))
+    #expect(AccountSession.isOffline(phase: remembered, hasNetwork: true, updateRequired: false))
+}
+
+@Test func updateRequiredReadsOffline() {
+    let signedIn = AccountSession.Phase.signedIn(userID: "user_a", confirmed: true)
+    #expect(AccountSession.isOffline(phase: signedIn, hasNetwork: true, updateRequired: true))
+    #expect(!AccountSession.isOffline(phase: signedIn, hasNetwork: true, updateRequired: false))
+}
+
+@Test func theFirstRefusalAsksOnce() {
+    let t0 = Date(timeIntervalSince1970: 1_000_000)
+    var prompt = UpdatePromptSchedule()
+    let first = prompt.refused(at: t0)
+    #expect(first && prompt.isRequired && prompt.isShowing)
+    prompt.isShowing = false
+
+    let again = prompt.refused(at: t0.addingTimeInterval(60))
+    #expect(!again && prompt.isRequired && !prompt.isShowing)
+}
+
+@Test func theForegroundAsksAgainOnlyAfterTheInterval() {
+    let t0 = Date(timeIntervalSince1970: 1_000_000)
+    var prompt = UpdatePromptSchedule()
+    prompt.foregrounded(at: t0)
+    #expect(!prompt.isShowing)
+
+    _ = prompt.refused(at: t0)
+    prompt.isShowing = false
+    prompt.foregrounded(at: t0.addingTimeInterval(4 * 3600 - 1))
+    #expect(!prompt.isShowing)
+    prompt.foregrounded(at: t0.addingTimeInterval(4 * 3600))
+    #expect(prompt.isShowing)
+}
+
+@Test func aShownPromptRestartsTheInterval() {
+    let t0 = Date(timeIntervalSince1970: 1_000_000)
+    var prompt = UpdatePromptSchedule()
+    _ = prompt.refused(at: t0)
+    prompt.show(at: t0.addingTimeInterval(3 * 3600))
+    prompt.isShowing = false
+    prompt.foregrounded(at: t0.addingTimeInterval(5 * 3600))
+    #expect(!prompt.isShowing)
+}
+
+@Test func theIntervalCountsItsFractionalSeconds() {
+    #expect(UpdatePromptSchedule.interval == .seconds(4 * 60 * 60))
+    let t0 = Date(timeIntervalSince1970: 1_000_000)
+    var prompt = UpdatePromptSchedule(interval: .milliseconds(1_500))
+    _ = prompt.refused(at: t0)
+    prompt.isShowing = false
+    prompt.foregrounded(at: t0.addingTimeInterval(1.2))
+    #expect(!prompt.isShowing)
+    prompt.foregrounded(at: t0.addingTimeInterval(1.5))
+    #expect(prompt.isShowing)
 }
 
 @Test func aFailedDeleteReadsAsNothingChanged() {
@@ -1207,11 +1260,53 @@ private struct FixedToken: TokenProvider {
     let sink = RecordingAnalyticsSink()
     let client = AccountSession.makeClient(
         origin: URL(string: "https://api.example.com")!, tokens: FixedToken(), clientVersion: "0.7.0",
-        analytics: sink.client, transport: TrialCreatedTransport(), onUnauthorized: {}, onAccountDeleted: {})
+        analytics: sink.client, transport: TrialCreatedTransport(), onUnauthorized: {}, onAccountDeleted: {},
+        onUpdateRequired: {})
 
     _ = try await client.deleteMeV1MeDelete()
 
     #expect(sink.calls == [.capture("account_created", ["trial": .bool(true)])])
+}
+
+/// Answers every request with a 426, counting them.
+private final class UpdateRequiredTransport: ClientTransport {
+    private let sent = Mutex(0)
+
+    var requests: Int { sent.withLock { $0 } }
+
+    func send(
+        _ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String
+    ) async throws -> (HTTPResponse, HTTPBody?) {
+        sent.withLock { $0 += 1 }
+        return (HTTPResponse(status: .upgradeRequired), nil)
+    }
+}
+
+/// `AccountSession` configures Clerk, so this drives the client and engine it builds, with the
+/// client's 426 report flipping the offline check the session would.
+@MainActor
+@Test func aBlockedSessionKeepsItsOutbox() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    try await store.write { try $0.put(Tune(title: "Leather Britches")) }
+    let transport = UpdateRequiredTransport()
+    let updateRequired = Offline(false)
+    let client = AccountSession.makeClient(
+        origin: URL(string: "https://api.example.com")!, tokens: FixedToken(), clientVersion: "0.7.0",
+        analytics: .noop, transport: transport, onUnauthorized: {}, onAccountDeleted: {},
+        onUpdateRequired: { await MainActor.run { updateRequired.isOn = true } })
+    let engine = SyncEngine(
+        store: store, api: LiveSyncAPI(client: client), isOffline: { updateRequired.isOn },
+        sleep: { _ in try await Task.sleep(for: .seconds(86_400)) })
+
+    await engine.sync()
+    #expect(updateRequired.isOn)
+    #expect(engine.status == .offline)
+    await engine.sync()
+
+    #expect(transport.requests == 1)
+    #expect(try await store.pendingEditCount() == 1)
+    await engine.stopAndWait()
 }
 
 @Test func appleFailureNoteHoldsOnlyTheDomainAndCode() {

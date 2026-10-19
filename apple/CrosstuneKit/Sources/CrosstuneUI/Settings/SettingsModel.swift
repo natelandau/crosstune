@@ -441,6 +441,11 @@ public final class SettingsModel {
         await engine.sync()
     }
 
+    /// What the Status row says. A required update outlasts every run, which ends offline.
+    nonisolated public static func statusText(_ status: SyncStatus, updateRequired: Bool) -> String {
+        (updateRequired ? .updateRequired : status).label
+    }
+
     /// How long ago the last sync finished, in words.
     nonisolated public static func lastSyncedText(
         _ date: Date, now: Date, locale: Locale = .current, inSentence: Bool = false
