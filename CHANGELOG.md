@@ -1,3 +1,16 @@
+## v1.0.0 (2026-10-19)
+
+### Feat
+
+- turn off Apple builds below a minimum supported version (#212)
+- **apple**: report crashes, freezes, and errors to Sentry (#211)
+- **apple**: ask for an App Store review once a device has earned it (#210)
+- **apple**: capture and frame the App Store screenshots and preview (#208)
+
+### Fix
+
+- **export**: keep spreadsheets from reading CSV cells as dates (#209)
+
 ## v0.24.0 (2026-10-18)
 
 ### Feat
