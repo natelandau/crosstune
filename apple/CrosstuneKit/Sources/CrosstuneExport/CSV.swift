@@ -23,11 +23,18 @@ private func isNumber(_ field: String) -> Bool {
     }
 }
 
-/// The cell as written, or with a leading quote when a spreadsheet would run it as a formula.
+/// Two or three runs of digits joined by slashes, which a spreadsheet reads as a date: a time
+/// signature like 6/8.
+private func isSlashedNumbers(_ field: String) -> Bool {
+    let parts = Substring(field).unicodeScalars.split(separator: "/", omittingEmptySubsequences: false)
+    return (2...3).contains(parts.count) && parts.allSatisfy(digits)
+}
+
+/// The cell as written, or with a leading quote when a spreadsheet would run it as a formula or
+/// read it as a date.
 private func guarded(_ field: String) -> String {
-    guard let first = field.unicodeScalars.first, "=+-@\t\r".unicodeScalars.contains(first), !isNumber(field)
-    else { return field }
-    return "'" + field
+    let formulaStart = field.unicodeScalars.first.map { "=+-@\t\r".unicodeScalars.contains($0) } ?? false
+    return (formulaStart && !isNumber(field)) || isSlashedNumbers(field) ? "'" + field : field
 }
 
 private func encodeField(_ field: String) -> String {
@@ -41,7 +48,7 @@ private func encodeField(_ field: String) -> String {
 }
 
 /// A UTF-8 CSV document: BOM, CRLF-terminated records, RFC 4180 quoting. A cell a spreadsheet
-/// would run as a formula starts with a quote; a number never does.
+/// would run as a formula or read as a date starts with a quote; a number never does.
 public func csvDocument(_ rows: [[String]]) -> String {
     bom + rows.map { $0.map(encodeField).joined(separator: ",") + "\r\n" }.joined()
 }

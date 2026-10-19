@@ -21,6 +21,12 @@ test('leaves a number as written', () => {
   )
 })
 
+test('guards a cell a spreadsheet would read as a date', () => {
+  expect(csvDocument([['6/8', '12/8', '1/2/2026', '6/8 jig', '2026-03-14', '6/']])).toBe(
+    `${BOM}'6/8,'12/8,'1/2/2026,6/8 jig,2026-03-14,6/\r\n`,
+  )
+})
+
 test('guards a formula that also needs quotes', () => {
   expect(csvDocument([['=A1,"x"']])).toBe(`${BOM}"'=A1,""x"""\r\n`)
 })
