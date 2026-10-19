@@ -89,7 +89,7 @@ extension XCUIElement {
     }
 }
 
-/// What every capture test shares: the marketing catalog in dark mode, and stills.
+/// What every capture test shares: the marketing catalog in light mode, and stills.
 @MainActor
 class CaptureTestCase: XCTestCase {
     override func setUp() {
@@ -107,7 +107,7 @@ class CaptureTestCase: XCTestCase {
         let take = catalog.deletingLastPathComponent().appending(path: "assets/jam-take.m4a")
         let app = XCUIApplication()
         app.launchArguments = [
-            "-MarketingShell", catalog.path, "-RecordFromFile", take.path, "-crosstune.appearance", "dark",
+            "-MarketingShell", catalog.path, "-RecordFromFile", take.path, "-crosstune.appearance", "light",
         ]
         app.launch()
         // The catalog title shows before its rows load on a cold launch.

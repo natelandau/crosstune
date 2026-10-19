@@ -68,6 +68,17 @@ public struct AppShell: View {
         self.recorders = recorders
     }
 
+    #if DEBUG
+        /// Opens on `place`, so a marketing capture starts on the tune or list it shows.
+        init(
+            store: CrosstuneStore, player: PlayerModel, stage: EmbedStage, recorders: RecorderHost,
+            place: ShellPlace
+        ) {
+            self.init(store: store, player: player, stage: stage, recorders: recorders)
+            _place = State(initialValue: place)
+        }
+    #endif
+
     public var body: some View {
         layout
             #if os(iOS)
