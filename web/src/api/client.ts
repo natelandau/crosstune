@@ -88,6 +88,7 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
       if (!token) throw new NoTokenError()
       request.headers.set('Authorization', `Bearer ${token}`)
       request.headers.set('X-Client-Version', options.clientVersion)
+      request.headers.set('X-Client-Platform', 'web')
       return request
     },
   }

@@ -105,13 +105,14 @@ function stalledFetch(input: Request) {
 }
 
 describe('createApiClient', () => {
-  it('attaches the bearer token and the client version', async () => {
+  it('attaches the bearer token, the client version, and the platform', async () => {
     const fetchMock = vi.fn<FetchMock>(async () => jsonResponse({ results: [] }))
     await makeClient(fetchMock, { clientVersion: '1.2.3' }).push([])
     const request = fetchMock.mock.calls[0]![0]
     expect(request.url).toBe('http://api.test/v1/sync/push')
     expect(request.headers.get('authorization')).toBe('Bearer tok')
     expect(request.headers.get('x-client-version')).toBe('1.2.3')
+    expect(request.headers.get('x-client-platform')).toBe('web')
   })
 
   it('sends since as a query parameter on pull', async () => {
