@@ -298,6 +298,10 @@ git push --follow-tags origin main
   `<run number>.<attempt>` beside the checks. After `production` moves, the
   **Upload to TestFlight** job uploads those archives, and the internal
   testers get them once Apple processes them.
+- The App Store gets a release only when you submit its TestFlight build
+  for review in App Store Connect. The App Store version must equal the
+  build's `MARKETING_VERSION`. An App Store release cannot be rolled back.
+  A fix reaches the App Store as a new build, after its own review.
 - A failed upload does not undo production. Re-run the **Archive the Apple
   apps** job, which raises the attempt and re-runs the jobs after it. A
   re-run of the upload alone sends the same build number, which App Store
@@ -320,14 +324,16 @@ A change to the shape of a synced row:
 - The API refuses a push with an unknown field or a missing required
   field, and the refused edit is lost. A push without an optional field
   stores its default, so a client that predates the field resets it. One
-  tag deploys both sides within minutes of each other, in either order.
-- Once the app has real users, a shape change is staged so no edit is
-  lost: an API release that accepts both shapes, then the client, then an
-  API release that drops the old field.
-- While the app is pre-release, a clean break ships in one tag. An edit
-  made while the two sides disagree is lost. After both hosts deploy,
-  reload the app: the service worker updates and the local database
-  migrates.
+  tag deploys the API and the web client within minutes of each other, in
+  either order. App Store builds arrive days later, after review, and older
+  builds keep running until each musician updates.
+- A shape change is staged so no edit is lost:
+  1. An API release that accepts both shapes.
+  2. The clients that send the new shape, through App Store review.
+  3. `CROSSTUNE_APPLE_MIN_VERSION` raised past every Apple build that
+     sends the old shape ("Supported client versions" in
+     `docs/architecture.md`).
+  4. An API release that drops the old shape.
 - A migration renaming or dropping a table or column breaks the running API
   between the pre-deploy migration and the new API passing its healthcheck.
   Sync requests that touch the changed table fail with a retryable 5xx and
@@ -335,9 +341,12 @@ A change to the shape of a synced row:
   pull reads every table, so every pull fails in that window. A push
   succeeds only when neither its rows nor their parent rows are in the
   changed table.
-- A value added to a validated vocabulary is recognized by the client in
-  one release and offered in the next, once the API that accepts it is
-  live on both hosts, because one tag deploys both sides in either order.
+- A value added to a validated vocabulary is recognized by the clients in
+  one release and offered in a later one. The web client can offer it in
+  the next release, once the API that accepts it is live. The Apple app
+  can offer it once `CROSSTUNE_APPLE_MIN_VERSION` is at or past the first
+  build that recognizes it, because an older build pulls a value it does
+  not know.
 - A local shape change adds a Dexie version with an upgrader on the web
   and appends a migration to `Schema.migrator` on Apple, and extends that
   client's migration test. Neither may drop unsent edits or unuploaded
@@ -354,7 +363,10 @@ Rollback:
 - Both hosts: Actions tab, `Release` workflow, **Run workflow**, choose the
   older tag under **Use workflow from**. It also uploads that version to
   TestFlight with a new build number, so testers get the build that matches
-  the API.
+  the API. App Store installs keep the build they have.
+- A rollback past an API release that accepts a new shape makes the API
+  refuse pushes from the App Store builds that send it, and those edits
+  are lost. Roll forward instead.
 - A rollback across a migration fails the pre-deploy command. Roll forward,
   or downgrade the schema first.
 - A client outage loses no edits. The outbox holds them.
