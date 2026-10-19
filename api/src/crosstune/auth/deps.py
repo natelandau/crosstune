@@ -8,6 +8,7 @@ from fastapi import Depends, Request
 
 from crosstune.auth.account_created import ACCOUNT_CREATED_STATE_KEY
 from crosstune.auth.tokens import verify_clerk_token
+from crosstune.client_sightings import SIGHTING_USER_STATE_KEY
 from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
@@ -49,7 +50,11 @@ async def verify_bearer(request: Request) -> dict:
 
 
 async def current_user(request: Request, session: DbSession) -> User:
-    """Verify the bearer token and return the local user, creating it on first sight."""
+    """Verify the bearer token and return the local user, creating it on first sight.
+
+    Also name the user to `VersionGate`, which records the client version once the
+    request's own transaction has ended.
+    """
     claims = getattr(request.state, CLAIMS_STATE_KEY, None) or await verify_bearer(request)
     email = claims.get("email")
     user, started = await provision_user(
@@ -60,6 +65,7 @@ async def current_user(request: Request, session: DbSession) -> User:
     )
     if started is not None:
         setattr(request.state, ACCOUNT_CREATED_STATE_KEY, started)
+    setattr(request.state, SIGHTING_USER_STATE_KEY, user.id)
     return user
 
 

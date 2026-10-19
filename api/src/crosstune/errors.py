@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 PROBLEM_JSON = "application/problem+json"
 ACCOUNT_DELETED_PROBLEM = "urn:crosstune:account-deleted"
+UPDATE_REQUIRED_PROBLEM = "urn:crosstune:update-required"
 
 type WithdrawalRefusal = Literal["no_web_subscription", "window_closed", "already_withdrawn"]
 
@@ -38,7 +39,8 @@ class Problem(BaseModel):
             "Stripe or RevenueCat did not confirm), "
             "`urn:crosstune:billing-failed` (502, the billing provider did not answer), "
             "`urn:crosstune:withdrawal-refused` (409, the withdrawal is not allowed; "
-            "`reason` says why)."
+            "`reason` says why), `urn:crosstune:update-required` (426, this build of the "
+            "app is below the supported version, so the client asks for an update)."
         ),
     )
     title: str
@@ -128,6 +130,18 @@ class PremiumRequiredError(AppError):
 
     def __init__(self, detail: str = "This needs Premium") -> None:
         super().__init__(403, "Premium required", detail, type_="urn:crosstune:premium-required")
+
+
+class UpdateRequiredError(AppError):
+    """The calling build is below the supported version, so the client must update."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            426,
+            "Update required",
+            "This version of Crosstune is no longer supported. Update the app to keep syncing.",
+            type_=UPDATE_REQUIRED_PROBLEM,
+        )
 
 
 class NotFoundError(AppError):

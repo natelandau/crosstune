@@ -1111,7 +1111,7 @@ export interface components {
             title: string;
             /**
              * Type
-             * @description `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured, or Stripe or RevenueCat did not confirm), `urn:crosstune:billing-failed` (502, the billing provider did not answer), `urn:crosstune:withdrawal-refused` (409, the withdrawal is not allowed; `reason` says why).
+             * @description `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:premium-required` (403, the addition needs Premium), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413), `urn:crosstune:billing-unavailable` (503, purchases are not configured, or Stripe or RevenueCat did not confirm), `urn:crosstune:billing-failed` (502, the billing provider did not answer), `urn:crosstune:withdrawal-refused` (409, the withdrawal is not allowed; `reason` says why), `urn:crosstune:update-required` (426, this build of the app is below the supported version, so the client asks for an update).
              * @default about:blank
              */
             type: string;
