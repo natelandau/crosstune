@@ -2,6 +2,7 @@ import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneAuth
 import CrosstuneBilling
+import CrosstuneDiagnostics
 import CrosstuneExport
 import CrosstuneUI
 import SwiftUI
@@ -19,12 +20,16 @@ struct CrosstuneApp: App {
     @State private var noticeClaim: NoticeClaim?
     @State private var reviewPrompt: ReviewPrompt
     private let analytics: AnalyticsClient
+    private let diagnostics: DiagnosticsClient
     /// Nil in a build with no RevenueCat key, which offers no purchase.
     private let purchases: (any PurchaseClient)?
     private let stripePortalURL: URL?
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // Read apart from `AppConfiguration`, so a configuration error that traps is reported.
+        let diagnostics = Diagnostics.start(dsn: Bundle.main.object(forInfoDictionaryKey: "SentryDSN") as? String)
+        self.diagnostics = diagnostics
         let configuration = AppConfiguration.main
         let reviewPrompt = ReviewPrompt()
         _reviewPrompt = State(initialValue: reviewPrompt)
@@ -37,7 +42,7 @@ struct CrosstuneApp: App {
         let apiOrigin = configuration.apiOrigin
         UsageData.launch(analytics, region: { try await Region.fetch(origin: apiOrigin) })
         self.analytics = analytics
-        purchases = configuration.revenueCatAPIKey.map { RevenueCatPurchases(apiKey: $0) }
+        purchases = configuration.revenueCatAPIKey.map { RevenueCatPurchases(apiKey: $0, diagnostics: diagnostics) }
         stripePortalURL = configuration.stripePortalURL
         // Before any window can start an export, so only zips a past run left behind go.
         ExportArchive.removeLeftovers()
@@ -51,6 +56,7 @@ struct CrosstuneApp: App {
                 clientVersion: configuration.clientVersion,
                 storageOrigin: configuration.storageOrigin,
                 analytics: analytics,
+                diagnostics: diagnostics,
                 deviceSettings: { DeviceSettings.current() },
                 assistiveTech: { AssistiveTech.current() }
             ))
@@ -60,6 +66,7 @@ struct CrosstuneApp: App {
         WindowGroup(id: AppCommands.mainWindow) {
             content
                 .environment(\.analytics, analytics)
+                .environment(\.diagnostics, diagnostics)
                 .environment(\.plan, plan)
                 .environment(\.noticeClaim, noticeClaim)
                 .environment(\.reviewPrompt, reviewPrompt)
@@ -95,6 +102,7 @@ struct CrosstuneApp: App {
             Settings {
                 settings
                     .environment(\.analytics, analytics)
+                    .environment(\.diagnostics, diagnostics)
                     .environment(\.plan, plan)
                     .environment(\.purchases, purchases)
                     .environment(\.stripePortalURL, stripePortalURL)

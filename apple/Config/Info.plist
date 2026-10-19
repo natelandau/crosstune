@@ -26,6 +26,8 @@
 	<string>$(POSTHOG_PROJECT_TOKEN)</string>
 	<key>RevenueCatAPIKey</key>
 	<string>$(REVENUECAT_API_KEY)</string>
+	<key>SentryDSN</key>
+	<string>$(SENTRY_DSN)</string>
 	<key>StripePortalURL</key>
 	<string>$(STRIPE_PORTAL_URL)</string>
 	<key>UIBackgroundModes</key>

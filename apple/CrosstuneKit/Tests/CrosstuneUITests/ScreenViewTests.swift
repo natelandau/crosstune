@@ -71,7 +71,7 @@ import Testing
 
     /// Whether a window server runs, so a hosted view gets `onAppear`. A runner without a login
     /// session has none.
-    private let hasWindowServer = CGSessionCopyCurrentDictionary() != nil
+    let hasWindowServer = CGSessionCopyCurrentDictionary() != nil
 
     /// Stands in for a page whose content swaps to "Deleting" while a delete runs.
     @MainActor @Observable private final class Page {
