@@ -56,9 +56,6 @@ the worktree's `api/.env` at both. `just worktree` runs it, and so does
 `just worktree` also runs `just api::prune-worktree-dbs`, which drops the
 database and bucket of every worktree that no longer exists.
 
-After an Xcode update, run `just apple::prune-sims`. An update adds a
-new set of simulators and never removes the old ones.
-
 ## Run
 
 | Command             | Does                                                                                                                                                                                                                                                                                                                  |
