@@ -12,6 +12,8 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from pydantic import Field, SecretStr, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from crosstune.client_version import Version, parse_version
+
 _LIBPQ_SCHEMES = {"postgres", "postgresql"}
 PRODUCTION_BUCKET = "crosstune-recordings"
 PREVIEW_BUCKET = "crosstune-recordings-preview"
@@ -173,6 +175,8 @@ class Settings(BaseSettings):
     # Each sweep wakes the database and lists the whole bucket, so an idle app pays
     # for it; orphans are garbage, so a late sweep costs nothing.
     orphan_sweep_seconds: float = 43_200.0
+    # Apple builds below this `major.minor.patch` get 426; empty blocks nothing.
+    apple_min_version: str = ""
 
     @property
     def database_name(self) -> str:
@@ -280,6 +284,20 @@ class Settings(BaseSettings):
                 msg = f"{info.field_name} is not a valid regular expression"
                 raise ValueError(msg) from exc
         return value
+
+    @field_validator("apple_min_version")
+    @classmethod
+    def _validate_apple_min_version(cls, value: str, info: ValidationInfo) -> str:
+        """Fail at startup on a typo, rather than silently blocking nothing."""
+        if value and parse_version(value) is None:
+            msg = f"{info.field_name} is not a version such as 1.2.3"
+            raise ValueError(msg)
+        return value
+
+    @property
+    def apple_min(self) -> Version | None:
+        """The Apple version floor, or None when none is set."""
+        return parse_version(self.apple_min_version)
 
     @property
     def clerk_jwks_url(self) -> str:

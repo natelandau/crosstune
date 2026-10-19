@@ -213,9 +213,10 @@ public final class SyncEngine {
     }
 
     /// Fetches a ready recording's playback file into `destination` and nowhere else: the store
-    /// never learns of it, so a file the plan keeps off this device stays off it.
+    /// never learns of it, so a file the plan keeps off this device stays off it. Throws offline.
     public func fetchRecordingCopy(_ recordingID: String, to destination: URL) async throws {
         try checkStopped()
+        if isOffline() { throw DeviceOffline() }
         let signed = try await api.downloadURL(recordingID: recordingID)
         try checkStopped()
         try await api.getObject(signed.url, to: destination)
@@ -225,6 +226,7 @@ public final class SyncEngine {
     /// ``fetchRecordingCopy(_:to:)`` does for a recording.
     public func fetchScanCopy(_ scanID: String, to destination: URL) async throws {
         try checkStopped()
+        if isOffline() { throw DeviceOffline() }
         let signed = try await api.scanDownload(scanID: scanID)
         try checkStopped()
         try await api.getObject(signed.url, to: destination)
@@ -242,16 +244,19 @@ public final class SyncEngine {
     }
 
     /// Asks the server to transcode a failed recording again, then syncs so its new state shows.
+    /// Throws offline.
     public func retry(_ recordingID: String) async throws {
         try checkStopped()
+        if isOffline() { throw DeviceOffline() }
         try await api.retryRecording(recordingID: recordingID)
         Task { await sync() }
     }
 
     /// Asks the server to read the account's purchases now. The new plan reaches this device with
-    /// the next sync.
+    /// the next sync. Throws offline.
     public func refreshBilling() async throws {
         try checkStopped()
+        if isOffline() { throw DeviceOffline() }
         try await api.refreshBilling()
     }
 

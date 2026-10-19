@@ -32,5 +32,9 @@ CODE_SIGN_ENTITLEMENTS[sdk=macosx*] = Config/Crosstune-macOS.entitlements
 CODE_SIGN_STYLE = Automatic
 ENABLE_PREVIEWS = YES
 
+// The app's Apple ID in App Store Connect, for the update prompt's link. Empty leaves the link
+// out.
+APP_STORE_ID = 6817756289
+
 // A RevenueCat public app key is public by design: every build of the app carries it.
 REVENUECAT_API_KEY = appl_KidIrDJeswlTWCmaYqGzLJxviwr // gitleaks:allow

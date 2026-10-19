@@ -84,7 +84,8 @@ struct SettingsRoot: View {
                     Text(AccountSections.identity(session))
                     TimelineView(.everyMinute) { context in
                         let attention = SyncBadge.attention(
-                            status: engine?.status, isOffline: session.isOffline, needsSignIn: session.needsSignIn)
+                            status: engine?.status, isOffline: session.isOffline, needsSignIn: session.needsSignIn,
+                            updateRequired: session.updateRequired)
                         let line = Self.syncLine(
                             attention: attention, lastSynced: engine?.lastSyncedAt, now: context.date)
                         if let attention {

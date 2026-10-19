@@ -427,6 +427,19 @@ import Testing
         #expect(api.billingRefreshes == 2)
     }
 
+    @Test func sendsNoOneOffRequestWhileOffline() async throws {
+        let engine = engine(isOffline: { true })
+        let destination = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+
+        await #expect(throws: DeviceOffline.self) { try await engine.refreshBilling() }
+        await #expect(throws: DeviceOffline.self) { try await engine.retry("rec") }
+        await #expect(throws: DeviceOffline.self) { try await engine.fetchRecordingCopy("rec", to: destination) }
+        await #expect(throws: DeviceOffline.self) { try await engine.fetchScanCopy("scan", to: destination) }
+
+        #expect(api.billingRefreshes == 0)
+        #expect(api.transfers.isEmpty)
+    }
+
     @Test func stopsPushingWhenAFullBatchSettlesNothing() async throws {
         try await createTune(store, title: "X")
         api.respondToPush = { _ in [] }

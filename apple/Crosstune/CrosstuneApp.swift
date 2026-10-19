@@ -19,11 +19,14 @@ struct CrosstuneApp: App {
     /// Which window shows the plan notices, made again with each store's plan.
     @State private var noticeClaim: NoticeClaim?
     @State private var reviewPrompt: ReviewPrompt
+    /// Which window shows the update prompt.
+    @State private var updatePromptClaim = UpdatePromptClaim()
     private let analytics: AnalyticsClient
     private let diagnostics: DiagnosticsClient
     /// Nil in a build with no RevenueCat key, which offers no purchase.
     private let purchases: (any PurchaseClient)?
     private let stripePortalURL: URL?
+    private let appStoreURL: URL?
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -44,6 +47,7 @@ struct CrosstuneApp: App {
         self.analytics = analytics
         purchases = configuration.revenueCatAPIKey.map { RevenueCatPurchases(apiKey: $0, diagnostics: diagnostics) }
         stripePortalURL = configuration.stripePortalURL
+        appStoreURL = UpdatePromptText.appStoreURL(id: configuration.appStoreID)
         // Before any window can start an export, so only zips a past run left behind go.
         ExportArchive.removeLeftovers()
         let player = PlayerModel.device(analytics: analytics)
@@ -70,8 +74,10 @@ struct CrosstuneApp: App {
                 .environment(\.plan, plan)
                 .environment(\.noticeClaim, noticeClaim)
                 .environment(\.reviewPrompt, reviewPrompt)
+                .environment(\.updatePromptClaim, updatePromptClaim)
                 .environment(\.purchases, purchases)
                 .environment(\.stripePortalURL, stripePortalURL)
+                .environment(\.appStoreURL, appStoreURL)
                 .environment(\.placeSearch, MapKitPlaceSearch.self)
                 .followsDisplaySettings()
                 .tint(BrandStyle.accent)

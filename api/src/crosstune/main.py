@@ -17,6 +17,7 @@ from crosstune.auth.jwks import JwksCache
 from crosstune.billing.clients import make_mailer, make_revenuecat, make_stripe
 from crosstune.billing.router import router as billing_router
 from crosstune.body import BodyAdmission
+from crosstune.client_sightings import ClientSightings
 from crosstune.config import Settings, get_settings
 from crosstune.db.engine import IdlePoolCloser, make_engine, make_sessionmaker
 from crosstune.error_reports import IN_APP_PACKAGE, SCRUBBED_KEYS, before_send, redacted_repr
@@ -48,6 +49,7 @@ from crosstune.sync.router import router as sync_router
 from crosstune.users.apple import AppleRestSignIn
 from crosstune.users.clerk import ClerkBackendUsers
 from crosstune.users.router import router as users_router
+from crosstune.version_gate import VersionGate
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -292,6 +294,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.billing_refresh_limiter = RateLimiter(
         limit=settings.billing_refreshes_per_minute, window_seconds=60.0
     )
+    app.state.client_sightings = ClientSightings()
     app.state.search_tokens = SearchTokens.from_settings(settings)
     app.state.search_backoff = Backoff()
     app.state.search_adapters = search_adapters(
@@ -301,6 +304,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     install_error_handlers(app)
     app.add_middleware(AccountCreatedHeader)
     app.add_middleware(BodyAdmission)
+    # Added last so it runs first: a blocked request is answered before its body is admitted.
+    app.add_middleware(VersionGate)
     app.include_router(users_router)
     app.include_router(billing_router)
     app.include_router(sync_router)

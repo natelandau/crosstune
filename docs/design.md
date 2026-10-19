@@ -180,8 +180,10 @@ Decide any case the rules below do not name.
   action.
 - Loading is silence. The body shows nothing until its data is read.
   Spinners only on the sign-in splash and a transfer in progress.
-- Sync badge shows only `Offline`, `Sign in again`, `Sync failed`. Full
-  state and the one manual sync control live in Settings.
+- Sync badge shows only `Update required`, `Offline`, `Sign in again`,
+  `Sync failed`, in that order of precedence. `Update required` reopens
+  the update prompt. Full state and the one manual sync control live in
+  Settings.
 - Offline: a network control refuses on tap rather than disables, so its
   name survives and the reason lands on the row. Exception: Sign out
   disables, because the local catalog must not be deleted mid-session.

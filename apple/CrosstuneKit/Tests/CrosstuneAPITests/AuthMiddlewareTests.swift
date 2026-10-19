@@ -208,3 +208,56 @@ struct StreamBroke: Error {}
     #expect(!accountDeleted)
     #expect(response.0.status == .unauthorized)
 }
+
+final class Counter: Sendable {
+    private let value = Mutex(0)
+    var count: Int { value.withLock { $0 } }
+    func increment() { value.withLock { $0 += 1 } }
+}
+
+@Test func signsRequestsWithThePlatform() async throws {
+    let server = ScriptedServer(.ok)
+    let middleware = AuthMiddleware(tokens: CountingTokens(), clientVersion: "0.7.0")
+
+    _ = try await middleware.intercept(request, body: nil, baseURL: baseURL, operationID: "me", next: server.next)
+
+    let sent = try #require(server.seen.first)
+    #expect(sent.headerFields[HTTPField.Name("X-Client-Platform")!] == AuthMiddleware.platform)
+}
+
+@Test(arguments: ["me", "searchLinks"])
+func a426ReportsUpdateRequiredWithoutRetrying(operationID: String) async throws {
+    let server = ScriptedServer(.upgradeRequired)
+    let tokens = CountingTokens()
+    let required = Counter()
+    let rejected = Flag()
+    let middleware = AuthMiddleware(
+        tokens: tokens, clientVersion: "0.7.0",
+        onUnauthorized: { rejected.raise() }, onUpdateRequired: { required.increment() })
+
+    let (response, _) = try await middleware.intercept(
+        request, body: nil, baseURL: baseURL, operationID: operationID, next: server.next)
+
+    #expect(response.status == .upgradeRequired)
+    #expect(server.seen.count == 1)
+    #expect(required.count == 1)
+    #expect(!rejected.isRaised)
+    #expect(tokens.refreshes == [false])
+}
+
+@Test func a426AfterAFreshTokenResendReportsUpdateRequired() async throws {
+    let server = ScriptedServer(.unauthorized, .upgradeRequired)
+    let required = Counter()
+    let rejected = Flag()
+    let middleware = AuthMiddleware(
+        tokens: CountingTokens(), clientVersion: "0.7.0",
+        onUnauthorized: { rejected.raise() }, onUpdateRequired: { required.increment() })
+
+    let (response, _) = try await middleware.intercept(
+        request, body: nil, baseURL: baseURL, operationID: "me", next: server.next)
+
+    #expect(response.status == .upgradeRequired)
+    #expect(server.seen.count == 2)
+    #expect(required.count == 1)
+    #expect(!rejected.isRaised)
+}

@@ -80,7 +80,7 @@ Cloudflare also hosts the DNS zone for the product domain.
 | Is a row deleted         | `deleted_at`. Deletes are soft. A tombstone is kept forever, so a deletion reaches every device. A user's delete, its cascade, and the inactivity pass clear its content; a loop the server tombstones because it no longer fits a trim keeps it.                                                                                                                                                                                                                                                                                                                         |
 | Which tables sync        | User settings, tunes, user-tune, recording links, recordings, scans, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items, and the server-written entitlements row. Four history tables, kept out of the main pull: plays, practice sessions, and scan views, which clients push once and never edit, and status changes, which the server writes when a user tune's status changes. Server-only, never synced: users, upload slots, background jobs, grants, pending comps, billing notices, account notices. |
 | Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file, audio, and scan images in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes other than history events (plays, practice sessions, and scan views), or while a scan is unuploaded, each with its own message. A shape change starts it over (see Pull).                                                                                                                          |
-| Which version is running | The `version` in `web/package.json`, the API package version, and the Apple apps' bundle version and build. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                                                                                                                                                                                                                                                                                                                                                        |
+| Which version is running | The `version` in `web/package.json`, the API package version, and the Apple apps' bundle version and build. Each is its side's Sentry release tag. Each client sends its own in `X-Client-Version` and its platform (`macos`, `ios`, `web`) in `X-Client-Platform`.                                                                                                                                                                                                                                                                                                       |
 | Host settings            | The host dashboards. Configuration says how each deployable reads them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 ## Sync
@@ -160,6 +160,29 @@ before every request that they have not been stopped. An engine stopped
 to close one account's store during sign-out therefore never sends that
 account's request with the next account's token. The Apple app uses the
 same triggers. A return to the foreground stands in for a visible tab.
+
+## Supported client versions
+
+`CROSSTUNE_APPLE_MIN_VERSION` is the lowest Apple version the API serves.
+The web client is always current, so it has no floor.
+
+- A request from `macos` or `ios` below the floor gets 426
+  `urn:crosstune:update-required`. This holds on every `/v1/` route except
+  webhooks, and the API answers before it reads the body.
+- A request passes when it has no platform, no version, a version that does
+  not parse, or a web platform, or when no floor is set. Versions compare as
+  numbers: major, minor, patch.
+- A blocked Apple app runs offline until updated. Edits stay in the outbox,
+  nothing is retried over the network, and sign-out and account deletion
+  are unavailable, as they are offline. A new build starts clean and syncs
+  the outbox.
+- The API keeps each account's last-seen version per platform, so a floor
+  change is decided from who still runs what. It counts a blocked request
+  whose token resolves to an account.
+
+API changes are made expand, then contract. Add the new shape first and keep
+the old one working. Remove the old shape only after the floor has passed
+every build that uses it.
 
 ## Entitlements
 

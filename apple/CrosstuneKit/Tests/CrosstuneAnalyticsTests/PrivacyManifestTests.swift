@@ -49,8 +49,9 @@ struct PrivacyManifestTests {
         #expect(
             declared["NSPrivacyCollectedDataTypeOtherUsageData"]
                 == Declared(linked: true, tracking: false, purposes: [analytics]))
-        // Sync, upload, and export failure events carry a failure reason, and Sentry's error
-        // reports carry error details.
+        // Sync, upload, and export failure events carry a failure reason, Sentry's error reports
+        // carry error details, and the API keeps each account's app version to enforce the
+        // minimum supported version.
         #expect(
             declared["NSPrivacyCollectedDataTypeOtherDiagnosticData"]
                 == Declared(

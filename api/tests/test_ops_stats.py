@@ -9,9 +9,9 @@ import anyio.to_thread
 import pytest
 
 from crosstune.db.base import new_uuid7
-from crosstune.models import Entitlement, Grant, User
+from crosstune.models import ClientVersionSighting, Entitlement, Grant, User
 from crosstune.ops import stats
-from crosstune.ops.stats import CountryRow
+from crosstune.ops.stats import CountryRow, VersionRow
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -156,3 +156,98 @@ async def test_counts_withdrawals_refunded_but_not_cancelled(session: AsyncSessi
     await _paid_grant(session, "sub_done", refunded_at=NOW, withdrawn_at=NOW)
 
     assert await stats.refunded_not_cancelled(session) == 1
+
+
+async def _sighting(
+    session: AsyncSession, platform: str, version: str, *, seen_days_ago: int = 1
+) -> None:
+    user_id = new_uuid7()
+    session.add(User(id=user_id, clerk_user_id=f"user_{user_id.hex[-12:]}", created_at=NOW))
+    await session.flush()
+    session.add(
+        ClientVersionSighting(
+            user_id=user_id,
+            platform=platform,
+            version=version,
+            last_seen_at=NOW - timedelta(days=seen_days_ago),
+        )
+    )
+    await session.flush()
+
+
+async def _seed_versions(session: AsyncSession) -> None:
+    await _sighting(session, "ios", "1.10.0")
+    await _sighting(session, "ios", "1.10.0", seen_days_ago=29)
+    await _sighting(session, "ios", "1.9.0")
+    await _sighting(session, "macos", "1.2.0")
+    await _sighting(session, "ios", "1.0.0", seen_days_ago=40)
+
+
+async def test_version_counts_window_and_order(session: AsyncSession) -> None:
+    await _seed_versions(session)
+
+    rows = await stats.version_counts(session, NOW, 30, (1, 9, 0))
+
+    assert [(r.platform, r.version, r.accounts, r.blocked) for r in rows] == [
+        ("ios", "1.10.0", 2, False),
+        ("ios", "1.9.0", 1, False),
+        ("macos", "1.2.0", 1, True),
+    ]
+
+
+async def test_version_counts_never_block_web_or_without_a_floor(session: AsyncSession) -> None:
+    await _sighting(session, "web", "0.1.0")
+    await _sighting(session, "ios", "1.0.0")
+
+    with_floor = await stats.version_counts(session, NOW, 30, (9, 0, 0))
+    without_floor = await stats.version_counts(session, NOW, 30, None)
+
+    assert [(r.platform, r.blocked) for r in with_floor] == [("ios", True), ("web", False)]
+    assert not any(r.blocked for r in without_floor)
+
+
+async def test_version_counts_put_unparsable_versions_last(session: AsyncSession) -> None:
+    await _sighting(session, "ios", "garbage")
+    await _sighting(session, "ios", "1.2.0")
+
+    rows = await stats.version_counts(session, NOW, 30, (2, 0, 0))
+
+    assert [(r.version, r.blocked) for r in rows] == [("1.2.0", True), ("garbage", False)]
+
+
+def test_format_versions_names_the_floor() -> None:
+    rows = [
+        VersionRow("ios", "1.10.0", 2, blocked=False),
+        VersionRow("ios", "1.9.0", 1, blocked=True),
+        VersionRow("macos", "1.2.0", 4, blocked=False),
+    ]
+
+    lines = stats.format_versions(rows, 30, (1, 9, 5)).splitlines()
+
+    assert lines[0] == "Apple minimum: 1.9.5"
+    assert lines[1].split() == ["platform", "version", "active", "30d", "blocked"]
+    assert lines[2].split() == ["ios", "1.10.0", "2"]
+    assert lines[3].split() == ["ios", "1.9.0", "1", "yes"]
+    assert lines[4].split() == ["macos", "1.2.0", "4"]
+    assert lines[-2].split() == ["ios", "total", "3"]
+    assert lines[-1].split() == ["macos", "total", "4"]
+    assert stats.format_versions([], 30, None).splitlines()[0] == "Apple minimum: none"
+
+
+async def test_main_prints_versions_without_yes(
+    settings: Settings,
+    verify_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(stats, "load_settings", lambda: settings)
+    await _sighting(verify_session, "ios", "1.4.0", seen_days_ago=0)
+    await verify_session.commit()
+
+    code = await anyio.to_thread.run_sync(stats.main, ["versions"])
+
+    lines = capsys.readouterr().out.splitlines()
+    assert code == 0
+    assert lines[0].startswith("environment ")
+    assert any(line.startswith("Apple minimum: ") for line in lines)
+    assert any(line.split()[:2] == ["ios", "1.4.0"] for line in lines)

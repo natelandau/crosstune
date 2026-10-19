@@ -101,6 +101,17 @@ import Testing
         #expect(previous?.trimmingCharacters(in: .whitespaces) == ".coversShellMenus(premium?.presented != nil)")
     }
 
+    /// The update prompt's cover reads the shell's covers from the environment, so it sits inside
+    /// the shell, above the lines that supply them; outside it the cover would claim nothing.
+    @Test func theUpdatePromptCoversTheShellFromInsideIt() throws {
+        let shell = try #require(try Self.readSources().first { $0.name == "AppShell.swift" })
+        let lines = shell.lines.map { $0.trimmingCharacters(in: .whitespaces) }
+        let prompt = try #require(lines.firstIndex { $0.hasPrefix(".updatePrompt(") })
+        let openSheets = try #require(lines.firstIndex { $0.hasPrefix(".environment(\\.openSheets,") })
+        let recordCover = try #require(lines.firstIndex { $0.hasPrefix(".environment(\\.recordCover,") })
+        #expect(prompt < openSheets && prompt < recordCover)
+    }
+
     /// The scan pickers and viewer are presentations the checks above must see, so a rename
     /// that hid them from the scan fails here rather than passing quietly.
     @Test func theScanPickersAndViewerAreChecked() throws {

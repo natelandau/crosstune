@@ -55,14 +55,17 @@ jobs:
         id: swift
         run: printf 'version=%s\n' "$(swift --version 2>&1 | shasum | cut -c1-12)" >> "$GITHUB_OUTPUT"
       - run: just lint
-      # Only the package checkouts: SwiftPM rebuilds every module in a fresh checkout whatever
-      # build products are restored beside it, so caching those would only slow the restore.
+      # Only the package checkouts and binary artifacts: SwiftPM rebuilds every module in a fresh
+      # checkout whatever build products are restored beside it, so caching those would only slow
+      # the restore. The artifacts travel with workspace-state.json, which records them as
+      # downloaded and so stops SwiftPM fetching them again.
       - uses: actions/cache/restore@v6
         id: kit-restore
         with:
           path: |
             apple/CrosstuneKit/.build/checkouts
             apple/CrosstuneKit/.build/repositories
+            apple/CrosstuneKit/.build/artifacts
             apple/CrosstuneKit/.build/workspace-state.json
           key: apple-kit-packages-${{ steps.swift.outputs.version }}-${{ hashFiles('apple/CrosstuneKit/Package.resolved') }}
           restore-keys: apple-kit-packages-${{ steps.swift.outputs.version }}-
@@ -74,6 +77,7 @@ jobs:
           path: |
             apple/CrosstuneKit/.build/checkouts
             apple/CrosstuneKit/.build/repositories
+            apple/CrosstuneKit/.build/artifacts
             apple/CrosstuneKit/.build/workspace-state.json
           key: ${{ steps.kit-restore.outputs.cache-primary-key }}
 

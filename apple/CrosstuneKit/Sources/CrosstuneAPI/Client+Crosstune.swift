@@ -4,8 +4,9 @@ import OpenAPIURLSession
 
 extension Client {
     /// The API client every screen uses: the API's date format, URLSession, a session token
-    /// plus the client version on every request, and retries while the API wakes from sleep.
+    /// plus the client version and platform on every request, and retries while the API wakes from sleep.
     /// `onAccountCreated` hears whether the request that created the account started a trial.
+    /// `onUpdateRequired` runs when the API refuses this build as too old.
     /// `transport` stands in for URLSession in tests.
     public static func crosstune(
         origin: URL,
@@ -14,11 +15,13 @@ extension Client {
         onUnauthorized: @escaping @Sendable () async -> Void,
         onAccountDeleted: @escaping @Sendable () async -> Void,
         onAccountCreated: @escaping @Sendable (Bool) async -> Void = { _ in },
+        onUpdateRequired: @escaping @Sendable () async -> Void = {},
         transport: any ClientTransport = URLSessionTransport()
     ) -> Client {
         crosstune(
             origin: origin, tokens: tokens, clientVersion: clientVersion, onUnauthorized: onUnauthorized,
-            onAccountDeleted: onAccountDeleted, onAccountCreated: onAccountCreated, transport: transport,
+            onAccountDeleted: onAccountDeleted, onAccountCreated: onAccountCreated,
+            onUpdateRequired: onUpdateRequired, transport: transport,
             gatewayRetry: GatewayRetryMiddleware())
     }
 
@@ -29,6 +32,7 @@ extension Client {
         onUnauthorized: @escaping @Sendable () async -> Void,
         onAccountDeleted: @escaping @Sendable () async -> Void,
         onAccountCreated: @escaping @Sendable (Bool) async -> Void = { _ in },
+        onUpdateRequired: @escaping @Sendable () async -> Void = {},
         transport: any ClientTransport,
         gatewayRetry: GatewayRetryMiddleware
     ) -> Client {
@@ -42,7 +46,7 @@ extension Client {
             middlewares: [
                 AuthMiddleware(
                     tokens: tokens, clientVersion: clientVersion, onUnauthorized: onUnauthorized,
-                    onAccountDeleted: onAccountDeleted),
+                    onAccountDeleted: onAccountDeleted, onUpdateRequired: onUpdateRequired),
                 AccountCreatedMiddleware(onAccountCreated: onAccountCreated),
                 gatewayRetry,
             ]

@@ -10,9 +10,12 @@ public enum SyncStatus: String, CaseIterable, Sendable {
     case offline
     case unauthorized
     case error
+    /// The API no longer accepts this build, so nothing syncs until the app is updated.
+    case updateRequired
 
     /// The label both loops show when there is no connection.
     public static let offlineLabel = "Offline"
+    public static let updateRequiredLabel = "Update required"
 
     /// What this state is called wherever it is shown.
     public var label: String {
@@ -22,6 +25,7 @@ public enum SyncStatus: String, CaseIterable, Sendable {
         case .offline: Self.offlineLabel
         case .unauthorized: "Sign in again"
         case .error: "Sync failed"
+        case .updateRequired: Self.updateRequiredLabel
         }
     }
 }

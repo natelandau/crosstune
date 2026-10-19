@@ -557,3 +557,16 @@ def test_billing_configured_flags() -> None:
     )
     assert Settings().stripe_configured is False
     assert Settings(stripe_cancel_key="sk_test_x").stripe_configured is True
+
+
+def test_apple_min_parses_the_floor() -> None:
+    assert Settings(apple_min_version="1.2").apple_min == (1, 2, 0)
+
+
+def test_apple_min_is_none_when_unset() -> None:
+    assert Settings(apple_min_version="").apple_min is None
+
+
+def test_apple_min_rejects_a_malformed_floor() -> None:
+    with pytest.raises(ValidationError):
+        Settings(apple_min_version="1.2.x")

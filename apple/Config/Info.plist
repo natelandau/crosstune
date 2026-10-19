@@ -6,6 +6,8 @@
 	<string>$(CLERK_PUBLISHABLE_KEY)</string>
 	<key>CrosstuneAPIOrigin</key>
 	<string>$(CROSSTUNE_API_ORIGIN)</string>
+	<key>CrosstuneAppStoreID</key>
+	<string>$(APP_STORE_ID)</string>
 	<key>CrosstuneStorageOrigin</key>
 	<string>$(CROSSTUNE_STORAGE_ORIGIN)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

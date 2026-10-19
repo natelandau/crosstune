@@ -1,4 +1,5 @@
 import CrosstuneAudio
+import CrosstuneAuth
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneTestSupport
@@ -564,6 +565,16 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         #expect(SettingsRoot.syncLine(attention: nil, lastSynced: nil, now: now, locale: en) == "Not synced yet")
     }
 
+    @Test func settingsSayAnUpdateIsRequired() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        #expect(
+            SettingsRoot.syncLine(attention: .updateRequired, lastSynced: now, now: now)
+                == SyncStatus.updateRequiredLabel)
+        #expect(SettingsModel.statusText(.idle, updateRequired: true) == SyncStatus.updateRequiredLabel)
+        #expect(SettingsModel.statusText(.offline, updateRequired: true) == SyncStatus.updateRequiredLabel)
+        #expect(SettingsModel.statusText(.idle, updateRequired: false) == SyncStatus.idle.label)
+    }
+
     @Test @MainActor func statusBarLabelsEveryStatusAndHidesEmptyOnes() {
         let counts = ["known": 4, "learning": 0, "want_to_learn": 9]
         #expect(StatusBar.accessibilityText(counts) == "Known 4, Learning 0, Unknown 9")
@@ -665,6 +676,32 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         let run = try #require(linked.first)
         #expect(String(text[run.range].characters) == ImportExportSections.moreInfo)
         #expect(run.link == URL(string: "https://crosstune.app/help/import"))
+    }
+
+    @Test @MainActor func theAccountFooterNamesWhatBlocksSigningOut() {
+        #expect(AccountSections.footer(isOffline: false, updateRequired: false, failure: nil) == nil)
+        #expect(AccountSections.footer(isOffline: false, updateRequired: false, failure: "x") == "x")
+        #expect(
+            AccountSections.footer(isOffline: true, updateRequired: false, failure: "x")
+                == AccountSections.offlineFooter)
+        #expect(
+            AccountSections.footer(isOffline: true, updateRequired: true, failure: "x")
+                == AccountSections.updateRequiredFooter)
+        #expect(
+            AccountSections.updateRequiredFooter
+                == "Signing out and deleting your account need the latest version of Crosstune.")
+    }
+
+    @Test @MainActor func anUpdateRequiredIsNotCalledOffline() {
+        let loaded = AccountSession.Phase.signedIn(userID: "user_a", confirmed: true)
+        #expect(AccountSections.identity(email: "a@b.c", phase: loaded, hasNetwork: false) == "a@b.c")
+        #expect(AccountSections.identity(email: nil, phase: loaded, hasNetwork: true) == "user_a")
+        #expect(
+            AccountSections.identity(email: nil, phase: loaded, hasNetwork: false) == AccountSections.signedInOffline)
+        let remembered = AccountSession.Phase.signedIn(userID: "user_a", confirmed: false)
+        #expect(
+            AccountSections.identity(email: nil, phase: remembered, hasNetwork: true)
+                == AccountSections.signedInOffline)
     }
 
     /// Import and export live on their own page, so the account offers neither.
