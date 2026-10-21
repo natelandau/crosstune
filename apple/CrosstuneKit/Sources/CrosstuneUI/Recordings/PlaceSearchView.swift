@@ -5,10 +5,11 @@ import SwiftUI
 
 /// The words the place search shows.
 public enum PlaceSearchText {
-    public static let searchLabel = "Search places"
-    public static let recent = "Recent places"
-    public static let noPlacesFound = "No places found"
-    public static let pickFailed = "Couldn’t find that place. Try another."
+    public static let current = "Current"
+    public static let searchLabel = "Search locations"
+    public static let recent = "Recent locations"
+    public static let noPlacesFound = "No locations found"
+    public static let pickFailed = "Couldn’t find that location. Try another."
 }
 
 /// The place search's state: the typed query, its suggestions, and the places used before.
@@ -29,23 +30,33 @@ final class PlaceSearchModel {
     /// Set once a place is picked or cleared, so nothing picks twice.
     private(set) var isDone = false
     let recent: [RecordingPlace]
-    let current: RecordingPlace?
+    /// The recording's place as the edit sheet holds it, read each time, so a name that syncs
+    /// in while the search is open shows.
+    var current: RecordingPlace? { readCurrent() }
 
     @ObservationIgnored private let makeSearch: @MainActor () -> any PlaceSearching
     /// Made at the first search, so a view rebuilt with a new model makes no search it drops.
     @ObservationIgnored private var madeSearch: (any PlaceSearching)?
     @ObservationIgnored private let onPick: (RecordingPlace, PlaceMethod) -> Void
     @ObservationIgnored private let onClear: () -> Void
+    @ObservationIgnored private let readCurrent: @MainActor () -> RecordingPlace?
 
     init(
-        search: @escaping @MainActor () -> any PlaceSearching, recent: [RecordingPlace], current: RecordingPlace?,
+        search: @escaping @MainActor () -> any PlaceSearching, recent: [RecordingPlace],
+        current: @escaping @MainActor () -> RecordingPlace?,
         onPick: @escaping (RecordingPlace, PlaceMethod) -> Void, onClear: @escaping () -> Void
     ) {
         makeSearch = search
         self.recent = recent
-        self.current = current
+        readCurrent = current
         self.onPick = onPick
         self.onClear = onClear
+    }
+
+    /// Whether `place` is the recording's place now. A captured place carries an accuracy that
+    /// a place used before does not, so they compare by name and point alone.
+    func isCurrent(_ place: RecordingPlace) -> Bool {
+        current.map(RecordingSuggestions.picked) == RecordingSuggestions.picked(place)
     }
 
     /// Whether the query is too short to search, so the places used before show instead.
@@ -113,15 +124,17 @@ final class PlaceSearchModel {
     }
 }
 
-/// Picks a recording's place: a search field, the places used before until something is typed,
-/// and the suggestions after. Pushed inside the edit sheet's navigation, and pops on a pick.
+/// Picks a recording's place: the place it has now with Clear, a search field, the places used
+/// before until something is typed, and the suggestions after. Pushed inside the edit sheet's
+/// navigation, and pops on a pick.
 struct PlaceSearchView: View {
     @State private var model: PlaceSearchModel
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focused: Bool
 
     init(
-        search: @escaping @MainActor () -> any PlaceSearching, recent: [RecordingPlace], current: RecordingPlace?,
+        search: @escaping @MainActor () -> any PlaceSearching, recent: [RecordingPlace],
+        current: @escaping @MainActor () -> RecordingPlace?,
         onPick: @escaping (RecordingPlace, PlaceMethod) -> Void, onClear: @escaping () -> Void
     ) {
         _model = State(
@@ -131,6 +144,16 @@ struct PlaceSearchView: View {
 
     var body: some View {
         Form {
+            if let current = model.current {
+                Section(PlaceSearchText.current) {
+                    Text(current.name)
+                        .contentMask()
+                    Button(EditRecordingText.clearPlace) {
+                        if model.clear() { dismiss() }
+                    }
+                    .disabled(model.picking != nil)
+                }
+            }
             Section {
                 TextField(
                     PlaceSearchText.searchLabel,
@@ -155,14 +178,7 @@ struct PlaceSearchView: View {
             } else {
                 resultsSection
             }
-            if model.current != nil {
-                Section {
-                    Button(EditRecordingText.clearPlace) {
-                        if model.clear() { dismiss() }
-                    }
-                    .disabled(model.picking != nil)
-                }
-            }
+            LocationAccessSection()
         }
         .formStyle(.grouped)
         .navigationTitle(EditRecordingText.place)
@@ -174,15 +190,25 @@ struct PlaceSearchView: View {
         if !model.recent.isEmpty {
             Section(PlaceSearchText.recent) {
                 ForEach(model.recent, id: \.self) { place in
+                    let isCurrent = model.isCurrent(place)
                     Button {
                         if model.pickRecent(place) { dismiss() }
                     } label: {
-                        Text(place.name)
-                            .contentMask()
-                            .choiceRow()
+                        HStack {
+                            Text(place.name)
+                                .contentMask()
+                            Spacer()
+                            if isCurrent {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(.tint)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        .choiceRow()
                     }
                     .buttonStyle(.plain)
                     .disabled(model.picking != nil)
+                    .accessibilityAddTraits(isCurrent ? .isSelected : [])
                 }
             }
         }

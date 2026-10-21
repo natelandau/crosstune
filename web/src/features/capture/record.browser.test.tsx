@@ -6,11 +6,23 @@ import { recordingAnalytics } from '../../usage/testing'
 import { RECORD_LABEL, RECORD_TEXT, TAB_BAR } from '../../layout/tabs'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
-import { DISCARD_TITLE, FILING_UNDER, NEW_RECORDING, STOP } from './recordCopy'
+import {
+  CONTINUE,
+  DISCARD_TITLE,
+  FILING_UNDER,
+  LOCATION_NOTE_BODY,
+  LOCATION_NOTE_TITLE,
+  NEW_RECORDING,
+  STOP,
+} from './recordCopy'
 import { RECORDINGS_SECTION } from '../tune/tuneScreenCopy'
 import { ADD_RECORDING } from '../tune/tuneMediaCopy'
 import { openTestDb } from '../../test/db'
 import { FakeRecorder, fakeMediaForTest } from '../../test/fakeMedia'
+import {
+  fakeLocationPermissionForTest,
+  type FakeLocationPermission,
+} from '../../test/fakeLocationPermission'
 import { CANCEL } from '../../ui/confirmCopy'
 import { dragDown } from '../../test/gestures'
 
@@ -36,6 +48,108 @@ async function recordFromTunePage() {
   await page.getByRole('main', { name: TUNE }).getByRole('button', { name: ADD_RECORDING }).click()
   await page.getByRole('menuitem', { name: NEW_RECORDING }).click()
 }
+
+/**
+ * A geolocation whose first request waits for `answer`, which also settles the permission as a
+ * browser prompt would. Every later request fails at once, so none outlives the test. Call it
+ * after `fakeMediaForTest`, which puts the real one back.
+ */
+function promptedGeolocation(permission: FakeLocationPermission) {
+  let held: { ok: PositionCallback; fail?: PositionErrorCallback | null } | null = null
+  let asked = 0
+  Object.defineProperty(navigator, 'geolocation', {
+    configurable: true,
+    value: {
+      getCurrentPosition: (ok: PositionCallback, fail?: PositionErrorCallback | null) => {
+        asked += 1
+        if (asked === 1) held = { ok, fail }
+        else fail?.({ code: 1 } as GeolocationPositionError)
+      },
+    },
+  })
+  return {
+    asked: () => asked,
+    answer: (state: 'granted' | 'denied' | 'dismissed') => {
+      if (state !== 'dismissed') permission.set(state)
+      if (state === 'granted') {
+        held?.ok({
+          coords: { latitude: 36.66, longitude: -80.92, accuracy: 12 },
+        } as GeolocationPosition)
+      } else {
+        held?.fail?.({ code: 1 } as GeolocationPositionError)
+      }
+    },
+  }
+}
+
+const locationNote = () => sheet().getByRole('heading', { name: LOCATION_NOTE_TITLE })
+
+it.each(['granted', 'denied'] as const)(
+  'asks for location before the first take, and starts it once the answer is %s',
+  async (state) => {
+    const { getUserMedia } = fakeMediaForTest()
+    const permission = fakeLocationPermissionForTest('prompt')
+    const geolocation = promptedGeolocation(permission)
+    await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE, density: 'touch' })
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
+
+    await expect.element(locationNote()).toBeVisible()
+    await expect.element(sheet().getByText(LOCATION_NOTE_BODY)).toBeVisible()
+    expect(getUserMedia).not.toHaveBeenCalled()
+    await sheet().getByRole('button', { name: CONTINUE }).click()
+    await expect.poll(geolocation.asked).toBe(1)
+    expect(getUserMedia).not.toHaveBeenCalled()
+
+    geolocation.answer(state)
+
+    await expect.element(sheet().getByRole('timer')).toBeVisible()
+    await expect.element(locationNote()).not.toBeInTheDocument()
+    expect(getUserMedia).toHaveBeenCalledTimes(1)
+  },
+)
+
+it('shows the location note only once, even when the prompt was dismissed', async () => {
+  fakeMediaForTest()
+  const permission = fakeLocationPermissionForTest('prompt')
+  const geolocation = promptedGeolocation(permission)
+  await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE, density: 'touch' })
+  await page.getByRole('button', { name: RECORD_LABEL }).click()
+  await sheet().getByRole('button', { name: CONTINUE }).click()
+  await expect.poll(geolocation.asked).toBe(1)
+  geolocation.answer('dismissed')
+  await expect.element(sheet().getByRole('timer')).toBeVisible()
+  // The take reads Continue's answer, so a dismissed prompt is never raised a second time.
+  expect(geolocation.asked()).toBe(1)
+  await sheet().getByRole('button', { name: STOP }).click()
+  await expect.element(sheet()).not.toBeInTheDocument()
+
+  await page.getByRole('button', { name: RECORD_LABEL }).click()
+
+  await expect.element(sheet().getByRole('timer')).toBeVisible()
+  expect(locationNote().query()).toBeNull()
+})
+
+it('closes from the location note with Cancel and never starts a take', async () => {
+  const { getUserMedia } = fakeMediaForTest()
+  fakeLocationPermissionForTest('prompt')
+  const db = openTestDb()
+  await renderApp({ path: '/catalog', db, frame: PHONE, density: 'touch' })
+  await page.getByRole('button', { name: RECORD_LABEL }).click()
+  await expect.element(locationNote()).toBeVisible()
+  await sheet().getByRole('button', { name: CANCEL }).click()
+  await expect.element(sheet()).not.toBeInTheDocument()
+  expect(getUserMedia).not.toHaveBeenCalled()
+  expect(await db.recording_files.count()).toBe(0)
+})
+
+it('starts the take with no location note once location is allowed', async () => {
+  fakeMediaForTest()
+  fakeLocationPermissionForTest('granted')
+  await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE, density: 'touch' })
+  await page.getByRole('button', { name: RECORD_LABEL }).click()
+  await expect.element(sheet().getByRole('timer')).toBeVisible()
+  expect(locationNote().query()).toBeNull()
+})
 
 it('records from the disc at 390, with the timer up and the disc out of reach', async () => {
   fakeMediaForTest()

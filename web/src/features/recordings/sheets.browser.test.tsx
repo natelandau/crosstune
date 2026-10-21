@@ -13,14 +13,16 @@ import {
   addToTuneName,
   EDIT_RECORDING_TITLE,
   filedToast,
+  LOCATION_ACCESS_OFF,
   NOTES_LABEL,
-  PLACE_LABEL,
+  LOCATION_LABEL,
   PLAYERS_LABEL,
   SAVE_RECORDING,
 } from './recordingsCopy'
 import type { RecordingView } from './useRecordings'
 import { ADD_NEW_TUNE, NEW_TUNE_TITLE, TITLE_FIELD } from '../tune/tuneFormCopy'
 import { openTestDb } from '../../test/db'
+import { fakeLocationPermissionForTest } from '../../test/fakeLocationPermission'
 import { dataProviders } from '../../test/providers'
 import { recordingRow, tuneRow, userTuneRow } from '../../test/rows'
 import { CANCEL } from '../../ui/confirmCopy'
@@ -98,7 +100,7 @@ it('edits notes, players, and place, offering the ones used before', async () =>
   await players.click()
   await page.getByRole('option', { name: 'Ruth' }).click()
   await expect.element(players).toHaveValue('Ruth')
-  const place = dialog.getByRole('combobox', { name: PLACE_LABEL })
+  const place = dialog.getByRole('combobox', { name: LOCATION_LABEL })
   await place.click()
   await page.getByRole('option', { name: galax.place_name }).click()
   await expect.element(place).toHaveValue(galax.place_name)
@@ -107,6 +109,14 @@ it('edits notes, players, and place, offering the ones used before', async () =>
   await expect.poll(async () => (await db.recordings.get('r1'))?.notes).toBe('Capo 2')
   const stored = (await db.recordings.get('r1'))!
   expect(stored).toMatchObject({ players: 'Ruth', ...galax, place_accuracy_m: null })
+})
+
+it('says under the location field that location access is off, while it is', async () => {
+  const permission = fakeLocationPermissionForTest('denied')
+  const { dialog } = await editFromTunePage()
+  await expect.element(dialog.getByText(LOCATION_ACCESS_OFF)).toBeVisible()
+  permission.set('prompt')
+  await expect.element(dialog.getByText(LOCATION_ACCESS_OFF)).not.toBeInTheDocument()
 })
 
 it('takes players typed straight into an empty field', async () => {

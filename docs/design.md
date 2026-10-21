@@ -184,6 +184,12 @@ Decide any case the rules below do not name.
   `Sync failed`, in that order of precedence. `Update required` reopens
   the update prompt. Full state and the one manual sync control live in
   Settings.
+- A system permission is asked the first time a feature needs it, after an
+  inline note saying why, with one button, Continue, that leads to the
+  system prompt. No way past the note but the prompt (App Review 5.1.1).
+- A refused permission is said where its absence shows and on the
+  feature's Settings page, with a control opening the system setting
+  where the platform has one.
 - Offline: a network control refuses on tap rather than disables, so its
   name survives and the reason lands on the row. Exception: Sign out
   disables, because the local catalog must not be deleted mid-session.

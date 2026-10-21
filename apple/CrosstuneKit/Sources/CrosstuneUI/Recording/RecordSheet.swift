@@ -44,7 +44,7 @@ public struct RecordSheet: View {
             .frame(width: MacStyle.recordPanelWidth)
             .frame(minHeight: 440, idealHeight: 480)
         #endif
-        .interactiveDismissDisabled(model.isLive || model.phase == .saving)
+        .interactiveDismissDisabled(model.blocksSwipeDismiss)
         .confirmationDialog(
             RecordSheetModel.discardTitle, isPresented: Bindable(model).confirmsDiscard, titleVisibility: .visible
         ) {
@@ -73,20 +73,27 @@ struct RecordSheetBody: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            status
-            filing
-            Spacer(minLength: 0)
-            VStack(spacing: 16) {
-                if model.isLive {
-                    LiveWaveform(recorder: model.recorder, paused: model.phase != .recording)
+            if model.asksLocation {
+                filing
+                Spacer(minLength: 0)
+                LocationNoteCard(model: model)
+                Spacer(minLength: 0)
+            } else {
+                status
+                filing
+                Spacer(minLength: 0)
+                VStack(spacing: 16) {
+                    if model.isLive {
+                        LiveWaveform(recorder: model.recorder, paused: model.phase != .recording)
+                    }
+                    if model.showsTimer {
+                        RecordTimer(model: model)
+                    }
+                    notes
                 }
-                if model.showsTimer {
-                    RecordTimer(model: model)
-                }
-                notes
+                Spacer(minLength: 0)
+                controls
             }
-            Spacer(minLength: 0)
-            controls
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
@@ -181,6 +188,39 @@ struct RecordSheetBody: View {
                 .controlSize(.large)
                 .transition(.opacity)
         }
+    }
+}
+
+/// Says why the take will ask for location, ahead of the system prompt, which Continue shows.
+private struct LocationNoteCard: View {
+    let model: RecordSheetModel
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "location.fill")
+                .font(.title2)
+                .foregroundStyle(.tint)
+                .accessibilityHidden(true)
+            Text(RecordSheetModel.locationNoteTitle)
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+            Text(RecordSheetModel.locationNoteBody)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(RecordSheetModel.continueToLocation) {
+                Task { await model.continueFromLocationNote() }
+            }
+            .buttonStyle(.slateProminent)
+            .controlSize(.large)
+            .keyboardShortcut(.defaultAction)
+            .disabled(model.isContinuing)
+            .padding(.top, 4)
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding(20)
+        .background(.fill.tertiary, in: .rect(cornerRadius: 12))
     }
 }
 

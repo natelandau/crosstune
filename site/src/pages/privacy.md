@@ -49,9 +49,9 @@ The audio you record, upload, or save from a link, with its label, notes, player
 Where a recording was made is a precise location: its coordinates, and, for a recording made in the app, how accurate they are. We keep one when:
 
 - You record in the web app or the iPhone, iPad, or Mac app and allow Crosstune to use your location. If you turn off precise location for Crosstune on your device, we keep the approximate location your device gives instead.
-- You upload an audio file that already holds the place it was recorded, and the recording has no place yet. In the same way, we use the time stored in the file if the recording has no recorded date yet.
+- You upload an audio file that already holds the location where it was recorded, and the recording has no location yet. In the same way, we use the time stored in the file if the recording has no recorded date yet.
 
-If you do not allow location, a recording you make has no place, and we never work one out another way, such as from your IP address. We never use your device's location for an upload. You can set, change, or clear a recording's place at any time.
+If you do not allow location, a recording you make has no location, and we never work one out another way, such as from your IP address. We never use your device's location for an upload. You can set, change, or clear a recording's location at any time.
 
 ### Your scans
 

@@ -28,7 +28,8 @@ public struct CaptureFinisher: Sendable {
     }
 
     /// Exports a capture to `.m4a` without re-encoding, deletes the capture, and writes the
-    /// recording. A capture with no audio in it is discarded instead, and this returns false.
+    /// recording, returning its `updatedAt` as written. A capture with no audio in it is
+    /// discarded instead, and this returns nil.
     ///
     /// `peaks` is the waveform a live take metered as it recorded, fitted to the exported
     /// duration before it is written. Recovery, with no live meter to draw on, decodes the
@@ -40,14 +41,14 @@ public struct CaptureFinisher: Sendable {
     /// whose capture is already gone is recorded as it is.
     @discardableResult
     public func finish(_ recordingID: String, peaks: [UInt8]? = nil, coordinate: Coordinate? = nil) async throws
-        -> Bool
+        -> Timestamp?
     {
         let capture = captureURL(recordingID)
         let finished = finishedURL(recordingID)
         if CaptureFiles.exists(capture) {
             guard try await hasAudio(capture) else {
                 try await discard(recordingID)
-                return false
+                return nil
             }
             try CaptureFiles.removeIfPresent(finished)
             try await export(capture, to: finished)
@@ -55,7 +56,7 @@ public struct CaptureFinisher: Sendable {
         }
         guard CaptureFiles.exists(finished) else {
             try await Commands(store: store).cancelCapture(recordingID)
-            return false
+            return nil
         }
         let duration = try await AVURLAsset(url: finished).load(.duration)
         let durationMs = Int64((duration.seconds * 1000).rounded())

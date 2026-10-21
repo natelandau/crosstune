@@ -34,7 +34,7 @@ describe('recentPlaces', () => {
       placed('b', 'Mount Airy, NC', '2026-03-01T00:00:00Z', { place_lat: 36.5, place_lon: -80.6 }),
       placed('c', 'Galax, VA', '2026-02-01T00:00:00Z'),
     ]
-    expect(recentPlaces(rows, 'none')).toEqual([
+    expect(recentPlaces(rows)).toEqual([
       { name: 'Mount Airy, NC', lat: 36.5, lon: -80.6 },
       { name: 'Galax, VA', lat: 36.66, lon: -80.92 },
     ])
@@ -46,21 +46,21 @@ describe('recentPlaces', () => {
       placed('b', 'Springfield, MO', '2026-01-02T00:00:00Z', { place_lat: 37.2 }),
       placed('c', 'Springfield, IL', '2026-01-03T00:00:00Z', { place_lat: 37.2 }),
     ]
-    expect(recentPlaces(rows, 'none').map((p) => [p.name, p.lat])).toEqual([
+    expect(recentPlaces(rows).map((p) => [p.name, p.lat])).toEqual([
       ['Springfield, IL', 37.2],
       ['Springfield, MO', 37.2],
       ['Springfield, IL', 39.8],
     ])
   })
 
-  it('skips unnamed, deleted, and the current recording', () => {
+  it('skips unnamed and deleted recordings', () => {
     const rows = [
       placed('a', null, '2026-01-04T00:00:00Z'),
       placed('b', 'Floyd, VA', '2026-01-03T00:00:00Z', { deleted_at: '2026-01-05T00:00:00Z' }),
       placed('c', 'Hillsville, VA', '2026-01-02T00:00:00Z'),
       placed('d', 'Galax, VA', '2026-01-01T00:00:00Z'),
     ]
-    expect(recentPlaces(rows, 'c').map((p) => p.name)).toEqual(['Galax, VA'])
+    expect(recentPlaces(rows).map((p) => p.name)).toEqual(['Hillsville, VA', 'Galax, VA'])
   })
 })
 

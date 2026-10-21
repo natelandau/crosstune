@@ -19,14 +19,14 @@ export function samePlace(a: PlaceChoice | null, b: PlaceChoice | null): boolean
 const live = (recordings: readonly LocalRecording[]) => recordings.filter((r) => !r.deleted_at)
 
 /**
- * The places on the musician's other recordings, each once, most recently added first. One
- * name at two spots stays twice, since a town's name can repeat across states.
+ * The places on the musician's recordings, each once, most recently added first. One name at
+ * two spots stays twice, since a town's name can repeat across states.
  */
-export function recentPlaces(recordings: LocalRecording[], excludeId: string): PlaceChoice[] {
+export function recentPlaces(recordings: LocalRecording[]): PlaceChoice[] {
   const places: PlaceChoice[] = []
-  const newestFirst = live(recordings)
-    .filter((r) => r.id !== excludeId)
-    .sort((a, b) => (a.added_at < b.added_at ? 1 : a.added_at > b.added_at ? -1 : 0))
+  const newestFirst = live(recordings).sort((a, b) =>
+    a.added_at < b.added_at ? 1 : a.added_at > b.added_at ? -1 : 0,
+  )
   for (const r of newestFirst) {
     const place = recordingPlace(r)
     if (place && !places.some((p) => samePlace(p, place))) places.push(place)

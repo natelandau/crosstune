@@ -22,8 +22,8 @@ public enum EditRecordingText {
     public static let players = "Players"
     public static let notes = "Notes"
     public static let notesPlaceholder = "Tuning, who it came from, what to work on…"
-    public static let place = "Place"
-    public static let clearPlace = "Clear place"
+    public static let place = "Location"
+    public static let clearPlace = "Clear location"
 
     /// `Recorded at <time>`: the exact time of a take, which its date parts cannot show.
     public static func recordedAtNote(
@@ -45,14 +45,26 @@ public final class EditRecordingModel {
     public private(set) var date: RecordingDateDraft
     public private(set) var notes: String
     public private(set) var players: String
-    public private(set) var place: RecordingPlace?
+    /// The place to save: the one picked or cleared here, or else a name sync brought for the
+    /// take's unnamed coordinates while the sheet was open.
+    public var place: RecordingPlace? {
+        if !isPlaceTouched, let arrived = arrivedPlace?.value { return arrived }
+        return pickedPlace
+    }
+    private var pickedPlace: RecordingPlace?
+    /// Set once the place is picked or cleared here, after which a name that arrives is ignored.
+    private var isPlaceTouched = false
+    /// The stored place of a take opened with unnamed coordinates, followed for the name sync
+    /// adds. Nil for any other recording.
+    private let arrivedPlace: LiveQuery<RecordingPlace?>?
     /// How the place was picked, nil until one is or once it is cleared.
     public private(set) var placeMethod: PlaceMethod?
     /// Coordinates with no name show no place, yet the musician can still clear them.
     private var hasUnnamedCoordinates: Bool
     /// The players on the musician's recordings, to suggest; empty until ``load()``.
     public private(set) var playerOptions: [String] = []
-    /// The places on the musician's other recordings, most recent first; empty until ``load()``.
+    /// The places on the musician's recordings, this one's included, most recent first; empty
+    /// until ``load()``.
     public private(set) var recentPlaces: [RecordingPlace] = []
     public private(set) var isSaving = false
     /// Set once a save lands, so a second press saves nothing more.
@@ -88,8 +100,12 @@ public final class EditRecordingModel {
         openedNotes = recording.notes ?? ""
         players = recording.players ?? ""
         openedPlayers = recording.players ?? ""
-        place = recording.place
-        hasUnnamedCoordinates = Self.unnamedCoordinates(recording)
+        pickedPlace = recording.place
+        let unnamed = Self.unnamedCoordinates(recording)
+        hasUnnamedCoordinates = unnamed
+        let id = recording.id
+        arrivedPlace =
+            unnamed ? LiveQuery(store, initial: nil) { db in try Recording.fetchOne(db, key: id)?.place } : nil
     }
 
     /// Whether Clear has a place to clear: a named one, or coordinates with no name yet.
@@ -100,7 +116,7 @@ public final class EditRecordingModel {
         let recordings = try? await store.read { db in try Recording.fetchAll(db) }
         guard let recordings else { return }
         playerOptions = RecordingSuggestions.players(recordings)
-        recentPlaces = RecordingSuggestions.recentPlaces(recordings, excluding: recordingID)
+        recentPlaces = RecordingSuggestions.recentPlaces(recordings)
     }
 
     /// Whether the sheet holds an edit a dismissal would lose.
@@ -109,7 +125,8 @@ public final class EditRecordingModel {
     }
 
     private var isPlaceChanged: Bool {
-        place.map(RecordingSuggestions.picked) != recording.place.map(RecordingSuggestions.picked)
+        guard isPlaceTouched else { return false }
+        return pickedPlace.map(RecordingSuggestions.picked) != recording.place.map(RecordingSuggestions.picked)
             || hasUnnamedCoordinates != Self.unnamedCoordinates(recording)
     }
 
@@ -134,14 +151,16 @@ public final class EditRecordingModel {
 
     /// Sets the place and how it was picked.
     public func setPlace(_ place: RecordingPlace, method: PlaceMethod) {
-        self.place = place
+        pickedPlace = place
+        isPlaceTouched = true
         placeMethod = method
         hasUnnamedCoordinates = false
         failure = nil
     }
 
     public func clearPlace() {
-        place = nil
+        pickedPlace = nil
+        isPlaceTouched = true
         placeMethod = nil
         hasUnnamedCoordinates = false
         failure = nil
@@ -413,7 +432,7 @@ private struct EditRecordingForm: View {
         if let placeSearch {
             NavigationLink {
                 PlaceSearchView(
-                    search: { placeSearch.init() }, recent: model.recentPlaces, current: model.place,
+                    search: { placeSearch.init() }, recent: model.recentPlaces, current: { model.place },
                     onPick: model.setPlace, onClear: model.clearPlace)
             } label: {
                 shown

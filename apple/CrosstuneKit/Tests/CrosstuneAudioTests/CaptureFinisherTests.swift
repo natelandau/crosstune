@@ -35,7 +35,7 @@ private func beginTone(
         let id = try await beginTone(store, seconds: 2, tuneID: tuneID)
         let finisher = CaptureFinisher(store: store)
 
-        #expect(try await finisher.finish(id))
+        #expect(try await finisher.finish(id) != nil)
 
         let finished = finisher.finishedURL(id)
         #expect(!fileExists(finisher.captureURL(id)))
@@ -64,7 +64,7 @@ private func beginTone(
         let id = try await beginTone(store, seconds: 1)
         let finisher = CaptureFinisher(store: store)
 
-        #expect(try await finisher.finish(id, peaks: [10, 200, 30, 5]))
+        #expect(try await finisher.finish(id, peaks: [10, 200, 30, 5]) != nil)
 
         let local = try #require(try await file(store, id))
         let peaksName = try #require(local.peaksFileName)
@@ -109,7 +109,7 @@ private func beginTone(
             id, fileName: CaptureFiles.captureName(id), tuneID: nil, recordedAt: noon)
         try Data().write(to: finisher.captureURL(id))
 
-        #expect(try await finisher.finish(id) == false)
+        #expect(try await finisher.finish(id) == nil)
 
         #expect(!fileExists(finisher.captureURL(id)))
         #expect(try await file(store, id) == nil)

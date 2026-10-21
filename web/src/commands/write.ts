@@ -60,12 +60,13 @@ export function nextUpdatedAt(stored: string | undefined, requested: string): st
   return Date.parse(requested) >= floor ? requested : new Date(floor).toISOString()
 }
 
-/** Store a row and queue its upsert. Call inside writeTx. */
+/** Store a row and queue its upsert, returning the updated_at it was stored with. Call inside
+ * writeTx. */
 export async function putRow<T extends SyncTableName>(
   db: CrosstuneDb,
   table: T,
   row: LocalRows[T],
-): Promise<void> {
+): Promise<string> {
   const rows = rowsTable(db, table)
   const stored = await rows.get(row.id)
   const stamped = { ...row, updated_at: nextUpdatedAt(stored?.updated_at, row.updated_at) }
@@ -77,6 +78,7 @@ export async function putRow<T extends SyncTableName>(
     updated_at: stamped.updated_at,
     data: toChangeData(stamped, table),
   })
+  return stamped.updated_at
 }
 
 /** Soft-delete a row. Dependents of a cascading parent pass enqueueDelete: false. */

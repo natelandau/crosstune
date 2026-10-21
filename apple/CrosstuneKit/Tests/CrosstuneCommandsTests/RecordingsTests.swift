@@ -307,9 +307,10 @@ import Testing
         }
         try await commands.beginCapture("r1", fileName: "r1.aac", tuneID: tuneID, recordedAt: noon)
 
-        #expect(try await commands.finishCapture("r1", fileName: "r1.m4a", bytes: 1234, durationMs: 5000))
+        let savedAt = try await commands.finishCapture("r1", fileName: "r1.m4a", bytes: 1234, durationMs: 5000)
 
         let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(savedAt == row.updatedAt)
         #expect(row.tuneID == tuneID)
         #expect(row.source == "microphone")
         #expect(row.addedAt == noon)
@@ -348,6 +349,76 @@ import Testing
         #expect(row.place == nil)
     }
 
+    @Test func aLateFixFillsATakeWithNoPlaceAndQueuesIt() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await commands.beginCapture("r1", fileName: "r1.aac", tuneID: nil, recordedAt: noon)
+        let savedAt = try #require(
+            try await commands.finishCapture("r1", fileName: "r1.m4a", bytes: 1, durationMs: 1, at: noon))
+        let fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+
+        #expect(try await commands.addLateFix("r1", coordinate: fix, savedAt: savedAt, at: later(1_000)))
+
+        let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(row.placeLat == fix.lat)
+        #expect(row.placeLon == fix.lon)
+        #expect(row.placeAccuracyM == 14)
+        #expect(row.placeName == nil)
+        let queued = try await store.read { db in try OutboxEntry.fetchAll(db) }
+        #expect(queued.contains { $0.rowID == "r1" && $0.updatedAt == row.updatedAt })
+    }
+
+    @Test func aLateFixAfterAnyEditSinceTheSaveIsDropped() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await commands.beginCapture("r1", fileName: "r1.aac", tuneID: nil, recordedAt: noon)
+        let savedAt = try #require(
+            try await commands.finishCapture("r1", fileName: "r1.m4a", bytes: 1, durationMs: 1, at: noon))
+        try await commands.updateRecording("r1", place: .value(nil), at: later(500))
+
+        let fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+        #expect(try await !commands.addLateFix("r1", coordinate: fix, savedAt: savedAt, at: later(1_000)))
+
+        let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(row.placeLat == nil)
+        #expect(row.placeAccuracyM == nil)
+    }
+
+    @Test func aLateFixLeavesAPlacedMissingOrDeletedRecordingAlone() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        let fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+        try await store.write { writer in
+            try writer.put(
+                Recording(
+                    id: "named", tuneID: nil, source: "microphone", addedAt: noon, placeName: "Galax, VA",
+                    placeLat: 36.66, placeLon: -80.92), at: noon)
+            try writer.put(
+                Recording(
+                    id: "located", tuneID: nil, source: "microphone", addedAt: noon, placeLat: 36.66,
+                    placeLon: -80.92, placeAccuracyM: 30), at: noon)
+            var deleted = Recording(id: "deleted", tuneID: nil, source: "microphone", addedAt: noon)
+            deleted.deletedAt = noon
+            try writer.put(deleted, at: noon)
+        }
+
+        for id in ["named", "located", "deleted", "missing"] {
+            let savedAt = try await store.read { db in try Recording.fetchOne(db, key: id)?.updatedAt } ?? noon
+            #expect(try await !commands.addLateFix(id, coordinate: fix, savedAt: savedAt), "\(id)")
+        }
+
+        let named = try #require(try await store.read { db in try Recording.fetchOne(db, key: "named") })
+        #expect(named.placeLat == 36.66)
+        #expect(named.placeAccuracyM == nil)
+        let located = try #require(try await store.read { db in try Recording.fetchOne(db, key: "located") })
+        #expect(located.placeAccuracyM == 30)
+        let deleted = try #require(try await store.read { db in try Recording.fetchOne(db, key: "deleted") })
+        #expect(deleted.placeLat == nil)
+    }
+
     @Test func aNewCaptureDefaultsTrimSpeedAndPitch() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -370,11 +441,11 @@ import Testing
         try await commands.beginCapture("r1", fileName: "r1.aac", tuneID: nil, recordedAt: noon)
         try await commands.finishCapture("r1", fileName: "r1.m4a", bytes: 1, durationMs: 1)
 
-        #expect(try await commands.finishCapture("r1", fileName: "r1.m4a", bytes: 2, durationMs: 2) == false)
+        #expect(try await commands.finishCapture("r1", fileName: "r1.m4a", bytes: 2, durationMs: 2) == nil)
 
         try await commands.beginCapture("r2", fileName: "r2.aac", tuneID: nil, recordedAt: noon)
         try await commands.cancelCapture("r2")
-        #expect(try await commands.finishCapture("r2", fileName: "r2.m4a", bytes: 1, durationMs: 1) == false)
+        #expect(try await commands.finishCapture("r2", fileName: "r2.m4a", bytes: 1, durationMs: 1) == nil)
         #expect(try await store.read { db in try Recording.fetchCount(db) } == 1)
     }
 

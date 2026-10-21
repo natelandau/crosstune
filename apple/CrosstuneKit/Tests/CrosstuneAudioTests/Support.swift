@@ -141,24 +141,40 @@ final class FakeInput: AudioInput {
 final class FakeLocation: LocationProvider {
     var fix: Coordinate?
     var holds = false
+    /// Answers a cancelled request with nothing at once, as the device's provider does. Off, a
+    /// cancelled request still waits for ``answer()``, so a test can land a fix after it.
+    var answersCancelledAtOnce = false
     private(set) var requests = 0
-    private var pending: CheckedContinuation<Coordinate?, Never>?
+    private var pending: [(key: Int, continuation: CheckedContinuation<Coordinate?, Never>)] = []
+    private var nextKey = 0
 
     func currentLocation() async -> Coordinate? {
         requests += 1
         guard holds else { return fix }
-        return await withCheckedContinuation { pending = $0 }
+        let key = nextKey
+        nextKey += 1
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { pending.append((key, $0)) }
+        } onCancel: {
+            Task { @MainActor [weak self] in self?.cancelled(key) }
+        }
     }
 
-    /// Waits until a request is held.
-    func isHeld() async {
-        while pending == nil { await Task.yield() }
+    private func cancelled(_ key: Int) {
+        guard answersCancelledAtOnce, let index = pending.firstIndex(where: { $0.key == key }) else { return }
+        pending.remove(at: index).continuation.resume(returning: nil)
     }
 
-    /// Answers a held request with ``fix``.
+    /// Waits until `count` requests are held.
+    func isHeld(count: Int = 1) async {
+        while pending.count < count { await Task.yield() }
+    }
+
+    /// Answers every held request with ``fix``, as one fix answers every caller.
     func answer() async {
         await isHeld()
-        pending?.resume(returning: fix)
-        pending = nil
+        let answered = pending
+        pending = []
+        for request in answered { request.continuation.resume(returning: fix) }
     }
 }

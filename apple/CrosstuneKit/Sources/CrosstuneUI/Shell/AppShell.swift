@@ -27,6 +27,7 @@ public struct AppShell: View {
     @Environment(\.plan) private var plan
     @Environment(\.noticeClaim) private var noticeClaim
     @Environment(\.purchases) private var purchases
+    @Environment(\.locationAccess) private var locationAccess
     #if os(macOS)
         @Environment(\.openSettings) private var openSettings
     #endif
@@ -265,7 +266,7 @@ public struct AppShell: View {
         PlayerBar.closePlayer(player, listPlayback)
         let model = RecordSheetModel(
             recorder: recorders.recorder(for: store), tuneID: tuneID, recentTake: recentTakeForPlatform, source: source,
-            analytics: analytics)
+            analytics: analytics, locationAccess: locationAccess)
         take = RecordTake(model: model)
         #if os(iOS)
             Task { await model.loadTuneTitle(from: store) }

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { updateRecording } from '../../commands/recordings'
 import { setStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -6,6 +7,7 @@ import { FakeRecorder, FakeTrack, fakeStream, LAST_CHUNK } from '../../test/fake
 import { parsePeaks } from '../waveform/peaks'
 import {
   createRecordingSession,
+  LATE_FIX_MS,
   PARTIAL_SAVE,
   SIZE_LIMIT,
   type MediaStreamLike,
@@ -448,21 +450,68 @@ describe('createRecordingSession position', () => {
     })
   })
 
-  it('saves no place when the position is still pending at stop, and a late one writes nothing', async () => {
+  it('saves without waiting on a pending position, then fills in one that lands in time', async () => {
+    const pending = deferred<typeof FIX | null>()
+    const { session, clock } = setup({ getPosition: () => pending.promise })
+    await session.start()
+    await session.finish()
+    expect(session.snapshot()).toMatchObject({ phase: 'saved', error: null })
+    expect(await db.recordings.get('rec_1')).toMatchObject({ place_lat: null, place_lon: null })
+    clock.time += LATE_FIX_MS
+    pending.resolve(FIX)
+    await session.placeSettled()
+    expect(await db.recordings.get('rec_1')).toMatchObject({
+      place_name: null,
+      place_lat: 36.661234,
+      place_lon: -80.923912,
+      place_accuracy_m: 12,
+    })
+  })
+
+  it('drops a position that lands too long after Stop', async () => {
+    const pending = deferred<typeof FIX | null>()
+    const { session, clock } = setup({ getPosition: () => pending.promise })
+    await session.start()
+    await session.finish()
+    clock.time += LATE_FIX_MS + 1
+    pending.resolve(FIX)
+    await session.placeSettled()
+    expect(await db.recordings.get('rec_1')).toMatchObject({ place_lat: null, place_lon: null })
+  })
+
+  it('drops a position that lands after a discard', async () => {
+    const pending = deferred<typeof FIX | null>()
+    const { session } = setup({ getPosition: () => pending.promise })
+    await session.start()
+    await session.cancel()
+    pending.resolve(FIX)
+    await session.placeSettled()
+    expect(await db.recordings.count()).toBe(0)
+  })
+
+  it('leaves a place picked after Stop alone when a late position lands', async () => {
     const pending = deferred<typeof FIX | null>()
     const { session } = setup({ getPosition: () => pending.promise })
     await session.start()
     await session.finish()
+    await db.recordings.update('rec_1', { place_name: 'Galax, VA', place_lat: 1, place_lon: 2 })
     pending.resolve(FIX)
-    expect(await db.recordings.get('rec_1')).toMatchObject({
-      place_lat: null,
-      place_lon: null,
-      place_accuracy_m: null,
-    })
-    expect(session.snapshot().error).toBeNull()
+    await session.placeSettled()
+    expect(await db.recordings.get('rec_1')).toMatchObject({ place_lat: 1, place_lon: 2 })
   })
 
-  it('drops a fix that settles while the recording is being saved', async () => {
+  it('leaves a place cleared after Stop cleared when a late position lands', async () => {
+    const pending = deferred<typeof FIX | null>()
+    const { session } = setup({ getPosition: () => pending.promise })
+    await session.start()
+    await session.finish()
+    await updateRecording(db, 'rec_1', { place_name: null, place_lat: null, place_lon: null })
+    pending.resolve(FIX)
+    await session.placeSettled()
+    expect(await db.recordings.get('rec_1')).toMatchObject({ place_lat: null, place_lon: null })
+  })
+
+  it('fills in a fix that settles while the recording is being saved', async () => {
     const pending = deferred<typeof FIX | null>()
     const { session, recorders } = setup({ getPosition: () => pending.promise })
     await session.start()
@@ -477,7 +526,11 @@ describe('createRecordingSession position', () => {
     pending.resolve(FIX)
     chunkWrite.resolve()
     await finishing
-    expect(await db.recordings.get('rec_1')).toMatchObject({ place_lat: null, place_lon: null })
+    await session.placeSettled()
+    expect(await db.recordings.get('rec_1')).toMatchObject({
+      place_lat: 36.661234,
+      place_lon: -80.923912,
+    })
   })
 
   it('saves no place when getPosition throws synchronously', async () => {

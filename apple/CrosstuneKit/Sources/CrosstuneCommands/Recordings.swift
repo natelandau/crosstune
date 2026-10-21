@@ -66,14 +66,15 @@ extension StoreWriter {
 
     /// Turns a capture into a recording: its finished file becomes `captured`, waiting to upload,
     /// and the recording row is queued under the tune the capture began for, when that tune still
-    /// exists. Returns false when the capture was already finished or cancelled.
+    /// exists. Returns the row's `updatedAt` as written, or nil when the capture was already
+    /// finished or cancelled.
     @discardableResult
     public func finishCapture(
         _ recordingID: String, fileName: String, bytes: Int64, durationMs: Int64, peaksFileName: String? = nil,
         coordinate: Coordinate? = nil, at time: Timestamp = .now
-    ) throws -> Bool {
+    ) throws -> Timestamp? {
         guard let file = try RecordingFile.fetchOne(db, key: recordingID), file.localState == .capturing else {
-            return false
+            return nil
         }
         let recordedAt = file.recordedAt ?? time
         let tuneID = try file.tuneID.flatMap { id in try Tune.fetchOne(db, key: id)?.deletedAt == nil ? id : nil }
@@ -81,11 +82,31 @@ extension StoreWriter {
             id: recordingID, localState: .captured, fileName: fileName, contentType: capturedContentType,
             bytes: bytes, localDurationMs: durationMs, peaksFileName: peaksFileName, updatedAt: time
         ).update(db)
-        try putNewRecording(
+        return try putNewRecording(
             recordingID, tuneID: tuneID, source: "microphone",
             // Named for when it started, so a recording is never nameless in a list.
             label: defaultRecordingLabel(recordedAt: recordedAt), recordedAt: recordedAt,
-            coordinate: coordinate, at: time)
+            coordinate: coordinate, at: time
+        ).updatedAt
+    }
+
+    /// Saves a take's fix that settled after the take did, as its place with no name. Only a
+    /// live recording still exactly as its save left it, at `savedAt`, with no coordinates and
+    /// no name takes it, so any edit since, a cleared place included, is never undone. Returns
+    /// whether it was written.
+    @discardableResult
+    public func addLateFix(
+        _ recordingID: String, coordinate: Coordinate, savedAt: Timestamp, at time: Timestamp = .now
+    ) throws -> Bool {
+        guard var recording = try Recording.fetchOne(db, key: recordingID), recording.deletedAt == nil,
+            recording.updatedAt == savedAt, recording.placeName == nil, recording.placeLat == nil,
+            recording.placeLon == nil
+        else { return false }
+        recording.placeLat = coordinate.lat
+        recording.placeLon = coordinate.lon
+        recording.placeAccuracyM = coordinate.accuracyM
+        try put(recording, at: time)
+        try requeueFailedUpload(recordingID, at: time)
         return true
     }
 
@@ -133,12 +154,13 @@ extension StoreWriter {
     }
 
     /// `recordedAt` is known only for a take, which was added the moment it was played.
+    @discardableResult
     private func putNewRecording(
         _ recordingID: String, tuneID: String?, source: String, label: String?, recordedAt: Timestamp?,
         origin: String = "own", originURL: String? = nil, coordinate: Coordinate? = nil, at time: Timestamp
-    ) throws {
+    ) throws -> Recording {
         let siblings = try tuneID.map(activeRecordingsForTune) ?? []
-        try put(
+        return try put(
             Recording(
                 id: recordingID, createdAt: time, tuneID: tuneID, source: source, origin: origin,
                 originURL: originURL, addedAt: recordedAt ?? time, recordedAt: recordedAt,
@@ -263,11 +285,20 @@ extension Commands {
     public func finishCapture(
         _ recordingID: String, fileName: String, bytes: Int64, durationMs: Int64, peaksFileName: String? = nil,
         coordinate: Coordinate? = nil, at time: Timestamp = .now
-    ) async throws -> Bool {
+    ) async throws -> Timestamp? {
         try await store.write { writer in
             try writer.finishCapture(
                 recordingID, fileName: fileName, bytes: bytes, durationMs: durationMs, peaksFileName: peaksFileName,
                 coordinate: coordinate, at: time)
+        }
+    }
+
+    @discardableResult
+    public func addLateFix(
+        _ recordingID: String, coordinate: Coordinate, savedAt: Timestamp, at time: Timestamp = .now
+    ) async throws -> Bool {
+        try await store.write { writer in
+            try writer.addLateFix(recordingID, coordinate: coordinate, savedAt: savedAt, at: time)
         }
     }
 

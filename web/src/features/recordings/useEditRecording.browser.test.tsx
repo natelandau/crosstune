@@ -298,6 +298,31 @@ describe('useEditRecording', () => {
       ])
     })
 
+    it('shows a name that arrives for its unnamed coordinates, still clean', async () => {
+      await db.recordings.put(viewOf(unnamedCoords).recording)
+      const { result } = setup(viewOf(unnamedCoords))
+      await db.recordings.update('r1', { place_name: GALAX.name })
+      await expect.poll(() => result.current.place).toEqual(GALAX)
+      expect(result.current.dirty).toBe(false)
+      expect(result.current.canClearPlace).toBe(true)
+      act(() => result.current.setNotes('Slow'))
+      act(() => result.current.save())
+      await expect.poll(() => result.current.closing).toBe(true)
+      const row = (await db.recordings.get('r1'))!
+      expect([row.place_name, row.place_accuracy_m]).toEqual([GALAX.name, 15])
+    })
+
+    it('leaves a cleared place cleared when its name arrives', async () => {
+      await db.recordings.put(viewOf(unnamedCoords).recording)
+      const { result } = setup(viewOf(unnamedCoords))
+      act(() => result.current.setPlace(null, null))
+      await db.recordings.update('r1', { place_name: GALAX.name })
+      // The arrival shows among the recent places once the sheet has read it.
+      await expect.poll(() => result.current.recentPlaces).toEqual([GALAX])
+      expect(result.current.place).toBeNull()
+      expect(result.current.dirty).toBe(true)
+    })
+
     it('keeps a place it was not asked to change, accuracy included', async () => {
       await db.recordings.put(viewOf(atGalax).recording)
       const { result } = setup(viewOf(atGalax))
@@ -321,10 +346,11 @@ describe('useEditRecording', () => {
       expect([row.label, row.notes, row.players]).toEqual(['Jam', 'Synced notes', 'Ruth'])
     })
 
-    it('suggests players and the places on other recordings', async () => {
+    it('suggests players and the places on recordings, its own included', async () => {
       await db.recordings.bulkPut([
         viewOf(atGalax).recording,
         recordingRow('r2', {
+          added_at: '2026-02-01T12:00:00.000Z',
           players: 'Ruth',
           place_name: AIRY.name,
           place_lat: AIRY.lat,
@@ -334,7 +360,7 @@ describe('useEditRecording', () => {
       ])
       const { result } = setup(viewOf({ ...atGalax, players: 'Kevin' }))
       await expect.poll(() => result.current.playerSuggestions).toEqual(['kevin', 'Ruth'])
-      await expect.poll(() => result.current.recentPlaces).toEqual([AIRY])
+      await expect.poll(() => result.current.recentPlaces).toEqual([AIRY, GALAX])
     })
   })
 })

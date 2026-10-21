@@ -1,5 +1,6 @@
 import { onTestFinished, vi, type Mock } from 'vitest'
 import type { RecorderLike, TrackLike } from '../features/capture/capture'
+import { quietLocationPermissionForTest } from './fakeLocationPermission'
 
 /** The chunk a fake recorder flushes on stop(), as a real one flushes what it still holds. */
 export const LAST_CHUNK = 'last'
@@ -93,9 +94,12 @@ function stubMediaGlobals(): { track: FakeTrack; getUserMedia: Mock } {
 /**
  * `stubMediaGlobals` for one test, putting every global it touches back when the test ends.
  * `navigator.mediaDevices`, `navigator.storage`, and `navigator.geolocation` are defined
- * properties, which `vi.unstubAllGlobals()` does not restore.
+ * properties, which `vi.unstubAllGlobals()` does not restore. The location permission reads as
+ * unknown unless the test set it, since a browser that answers 'prompt' holds the take behind
+ * the location note.
  */
 export function fakeMediaForTest(): { track: FakeTrack; getUserMedia: Mock } {
+  quietLocationPermissionForTest()
   const owned = (['mediaDevices', 'storage', 'geolocation'] as const).map(
     (key) => [key, Object.getOwnPropertyDescriptor(navigator, key)] as const,
   )

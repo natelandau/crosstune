@@ -1,6 +1,6 @@
 @preconcurrency import AVFoundation
+import CoreLocation
 import CrosstuneAnalytics
-import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneTestSupport
@@ -9,6 +9,7 @@ import GRDB
 import SwiftUI
 import Testing
 
+@testable import CrosstuneAudio
 @testable import CrosstuneUI
 
 @Suite struct WaveformBarsTests {
@@ -496,6 +497,196 @@ final class ToneInput: AudioInput {
         await model.abandon()
         #expect(try await recordings().count == 1)
         #expect(recorder.state == .idle)
+    }
+}
+
+/// Core Location's authorization as a test sets it, counting each prompt.
+final class AccessManager: LocationManaging {
+    var authorizationStatus: CLAuthorizationStatus
+    weak var delegate: (any CLLocationManagerDelegate)?
+    var desiredAccuracy: CLLocationAccuracy = 0
+    var location: CLLocation?
+    private(set) var prompts = 0
+
+    init(_ status: CLAuthorizationStatus) {
+        authorizationStatus = status
+    }
+
+    func requestWhenInUseAuthorization() { prompts += 1 }
+    func requestLocation() {}
+}
+
+@MainActor
+@Suite struct RecordSheetLocationNoteTests {
+    private let root = TemporaryRoot()
+    private let input = ToneInput()
+    private let store: CrosstuneStore
+    private let recorder: Recorder
+
+    init() throws {
+        store = try root.open()
+        recorder = Recorder(store: store, input: input, channels: { .mono })
+    }
+
+    @Test func theNoteSaysWhyBeforeThePrompt() {
+        #expect(RecordSheetModel.locationNoteTitle == "Save where you record")
+        #expect(
+            RecordSheetModel.locationNoteBody == "Crosstune adds the location to each take, so you can find it later.")
+        #expect(RecordSheetModel.continueToLocation == "Continue")
+    }
+
+    @Test func anUnaskedDeviceShowsTheNoteAndStartsNothingUntilContinue() async throws {
+        let manager = AccessManager(.notDetermined)
+        let model = RecordSheetModel(recorder: recorder, tuneID: nil, locationAccess: LocationAccess(manager: manager))
+
+        await model.open(claim: { true })
+
+        #expect(model.asksLocation)
+        #expect(model.holdsRecorder)
+        #expect(model.phase == .starting)
+        #expect(recorder.state == .idle)
+        #expect(manager.prompts == 0)
+    }
+
+    @Test(arguments: [CLAuthorizationStatus.authorizedAlways, .denied])
+    func continueAsksThenStartsTheTakeWhateverTheAnswer(answer: CLAuthorizationStatus) async throws {
+        let manager = AccessManager(.notDetermined)
+        let access = LocationAccess(manager: manager)
+        let model = RecordSheetModel(recorder: recorder, tuneID: nil, locationAccess: access)
+        await model.open(claim: { true })
+
+        let continued = Task { await model.continueFromLocationNote() }
+        try await eventually { manager.prompts == 1 }
+        #expect(recorder.state == .idle)
+        manager.authorizationStatus = answer
+        access.authorizationChanged()
+        await continued.value
+
+        #expect(!model.asksLocation)
+        #expect(model.phase == .recording)
+        await model.discard()
+    }
+
+    @Test(arguments: [CLAuthorizationStatus.authorizedAlways, .denied, .restricted])
+    func anAnsweredDeviceStartsAtOnceWithoutTheNote(status: CLAuthorizationStatus) async throws {
+        let manager = AccessManager(status)
+        let model = RecordSheetModel(
+            recorder: recorder, tuneID: nil, locationAccess: LocationAccess(manager: manager))
+
+        await model.open(claim: { true })
+
+        #expect(!model.asksLocation)
+        #expect(model.phase == .recording)
+        #expect(manager.prompts == 0)
+        await model.discard()
+    }
+
+    @Test func locationServicesOffForTheDeviceSkipsTheNoteAndStarts() async throws {
+        let manager = AccessManager(.notDetermined)
+        let model = RecordSheetModel(
+            recorder: recorder, tuneID: nil,
+            locationAccess: LocationAccess(manager: manager, servicesEnabled: { false }))
+
+        await model.open(claim: { true })
+
+        #expect(!model.asksLocation)
+        #expect(model.phase == .recording)
+        #expect(manager.prompts == 0)
+        await model.discard()
+    }
+
+    @Test func allowedAccessStartsWithoutReadingLocationServices() async throws {
+        let reads = ReadCount()
+        let model = RecordSheetModel(
+            recorder: recorder, tuneID: nil,
+            locationAccess: LocationAccess(
+                manager: AccessManager(.authorizedAlways), servicesEnabled: { await reads.add() }))
+
+        await model.open(claim: { true })
+
+        #expect(await reads.count == 0)
+        #expect(model.phase == .recording)
+        await model.discard()
+    }
+
+    @Test func aSwipeAwayClosesTheNoteButNotTheTakeAfterIt() async throws {
+        let manager = AccessManager(.notDetermined)
+        let access = LocationAccess(manager: manager)
+        let model = RecordSheetModel(recorder: recorder, tuneID: nil, locationAccess: access)
+        await model.open(claim: { true })
+        #expect(model.asksLocation)
+        #expect(model.isLive)
+        #expect(!model.blocksSwipeDismiss)
+
+        let continued = Task { await model.continueFromLocationNote() }
+        try await eventually { manager.prompts == 1 }
+        manager.authorizationStatus = .authorizedAlways
+        access.authorizationChanged()
+        await continued.value
+
+        #expect(model.phase == .recording)
+        #expect(model.blocksSwipeDismiss)
+        await model.discard()
+    }
+
+    @Test func cancelOnTheNoteClosesEvenAfterAnEarlierTakeFailed() async throws {
+        let earlier = RecordSheetModel(recorder: recorder, tuneID: nil)
+        await earlier.begin()
+        await earlier.stop()
+        #expect(recorder.errorMessage == Recorder.nothingRecorded)
+
+        let model = RecordSheetModel(
+            recorder: recorder, tuneID: nil, locationAccess: LocationAccess(manager: AccessManager(.notDetermined)))
+        await model.open(claim: { true })
+        #expect(model.asksLocation)
+        await model.cancel()
+
+        #expect(model.outcome == .dropped)
+    }
+
+    @Test func aSheetClosedWhileThePromptIsUpStartsNoTake() async throws {
+        let manager = AccessManager(.notDetermined)
+        let access = LocationAccess(manager: manager)
+        let model = RecordSheetModel(recorder: recorder, tuneID: nil, locationAccess: access)
+        await model.open(claim: { true })
+        let continued = Task { await model.continueFromLocationNote() }
+        try await eventually { manager.prompts == 1 }
+
+        await model.cancel()
+        #expect(model.outcome == .dropped)
+        manager.authorizationStatus = .authorizedAlways
+        access.authorizationChanged()
+        await continued.value
+
+        #expect(recorder.state == .idle)
+        #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
+    }
+
+    @Test func aSheetSwipedAwayWhileThePromptIsUpStartsNoTake() async throws {
+        let manager = AccessManager(.notDetermined)
+        let access = LocationAccess(manager: manager)
+        let model = RecordSheetModel(recorder: recorder, tuneID: nil, locationAccess: access)
+        await model.open(claim: { true })
+        let continued = Task { await model.continueFromLocationNote() }
+        try await eventually { manager.prompts == 1 }
+
+        await model.abandon()
+        manager.authorizationStatus = .authorizedAlways
+        access.authorizationChanged()
+        await continued.value
+
+        #expect(recorder.state == .idle)
+        #expect(!recorder.isStarting)
+    }
+}
+
+/// Counts reads of the device-wide Location Services switch, which always reads as on.
+actor ReadCount {
+    private(set) var count = 0
+
+    func add() -> Bool {
+        count += 1
+        return true
     }
 }
 

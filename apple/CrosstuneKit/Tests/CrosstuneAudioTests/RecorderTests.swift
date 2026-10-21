@@ -21,11 +21,14 @@ final class ChannelSetting {
     let input = FakeInput()
     let setting = ChannelSetting()
     let location = FakeLocation()
+    let clock = HeldSleep()
     let recorder: Recorder
 
     init() throws {
         store = try root.open()
-        recorder = Recorder(store: store, input: input, channels: { [setting] in setting.value }, location: location)
+        recorder = Recorder(
+            store: store, input: input, channels: { [setting] in setting.value }, location: location,
+            sleep: { [clock] in await clock.sleep($0) })
     }
 
     private func savedRow(_ id: String) async throws -> Recording {
@@ -412,25 +415,36 @@ final class ChannelSetting {
         #expect(row.placeAccuracyM == 14)
         #expect(row.placeName == nil)
         #expect(recorder.errorMessage == nil)
+        #expect(recorder.lateFixes.isEmpty)
+        for _ in 0..<10 { await Task.yield() }
+        #expect(clock.requested.isEmpty)
     }
 
-    @Test func aFixStillPendingAtStopSavesNoPlace() async throws {
-        location.fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+    @Test func aFixStillPendingAtStopIsWrittenToTheSavedTakeOnceItSettles() async throws {
+        let fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+        location.fix = fix
         location.holds = true
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
         await location.isHeld()
 
         let saved = try #require(await recorder.stop())
+        #expect(try await savedRow(saved).placeLat == nil)
+        #expect(recorder.errorMessage == nil)
+        await clock.isHeld()
+        #expect(clock.requested == [Recorder.lateFixWindow])
         await location.answer()
+        await recorder.lateFixes[saved]?.value
 
         let row = try await savedRow(saved)
-        #expect(row.placeLat == nil)
-        #expect(row.placeAccuracyM == nil)
-        #expect(recorder.errorMessage == nil)
+        #expect(row.placeLat == fix.lat)
+        #expect(row.placeLon == fix.lon)
+        #expect(row.placeAccuracyM == 14)
+        #expect(row.placeName == nil)
+        #expect(recorder.lateFixes[saved] == nil)
     }
 
-    @Test func aFixThatSettlesWhileStopSavesWritesNothing() async throws {
+    @Test func aFixThatSettlesWhileStopSavesIsWrittenOnceSaved() async throws {
         location.fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
         location.holds = true
         await recorder.start(tuneID: nil)
@@ -441,10 +455,82 @@ final class ChannelSetting {
         while recorder.state != .finishing { await Task.yield() }
         await location.answer()
         let saved = try #require(await stop.value)
+        await recorder.lateFixes[saved]?.value
+
+        #expect(try await savedRow(saved).placeAccuracyM == 14)
+        #expect(recorder.settledCoordinate == nil)
+    }
+
+    @Test func theWindowClosingAfterStopCancelsTheFixAndWritesNothing() async throws {
+        location.fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+        location.holds = true
+        location.answersCancelledAtOnce = true
+        await recorder.start(tuneID: nil)
+        try input.play(seconds: 1)
+        await location.isHeld()
+
+        let saved = try #require(await recorder.stop())
+        let late = try #require(recorder.lateFixes[saved])
+        await clock.elapse()
+        await late.value
+
+        #expect(try await savedRow(saved).placeLat == nil)
+    }
+
+    @Test func aLateFixNeverReplacesAPlaceSetMeanwhile() async throws {
+        location.fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+        location.holds = true
+        await recorder.start(tuneID: nil)
+        try input.play(seconds: 1)
+        await location.isHeld()
+
+        let saved = try #require(await recorder.stop())
+        let galax = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92))
+        try await Commands(store: store).updateRecording(saved, place: .value(galax))
+        await location.answer()
+        await recorder.lateFixes[saved]?.value
+
+        let row = try await savedRow(saved)
+        #expect(row.place == galax)
+        #expect(row.placeAccuracyM == nil)
+    }
+
+    @Test func aLocationClearedBeforeTheLateFixStaysCleared() async throws {
+        location.fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+        location.holds = true
+        await recorder.start(tuneID: nil)
+        try input.play(seconds: 1)
+        await location.isHeld()
+
+        let saved = try #require(await recorder.stop())
+        try await Commands(store: store).updateRecording(saved, place: .value(nil))
+        await location.answer()
+        await recorder.lateFixes[saved]?.value
 
         let row = try await savedRow(saved)
         #expect(row.placeLat == nil)
-        #expect(recorder.settledCoordinate == nil)
+        #expect(row.placeAccuracyM == nil)
+    }
+
+    @Test func aNewTakeLeavesThePreviousTakesLateFixToLand() async throws {
+        let fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
+        location.fix = fix
+        location.holds = true
+        await recorder.start(tuneID: nil)
+        try input.play(seconds: 1)
+        await location.isHeld()
+        let first = try #require(await recorder.stop())
+
+        await recorder.start(tuneID: nil)
+        #expect(recorder.state == .recording)
+        await location.isHeld(count: 2)
+        await location.answer()
+        await recorder.lateFixes[first]?.value
+
+        #expect(try await savedRow(first).placeAccuracyM == 14)
+        while recorder.settledCoordinate == nil { await Task.yield() }
+        #expect(recorder.settledCoordinate == fix)
+        await recorder.discard()
     }
 
     @Test func discardingDropsTheFix() async throws {
@@ -468,6 +554,7 @@ final class ChannelSetting {
         for _ in 0..<10 { await Task.yield() }
 
         #expect(recorder.settledCoordinate == nil)
+        #expect(recorder.lateFixes.isEmpty)
     }
 
     @Test func aBackedOutStartDropsTheFix() async throws {
@@ -482,6 +569,19 @@ final class ChannelSetting {
 
         #expect(recorder.state == .idle)
         #expect(recorder.settledCoordinate == nil)
+    }
+
+    @Test func aRequestSettledBeforeStopStartsNoLateFixWindow() async throws {
+        await recorder.start(tuneID: nil)
+        try input.play(seconds: 1)
+        while !recorder.isFixSettled { await Task.yield() }
+
+        let saved = try #require(await recorder.stop())
+
+        #expect(try await savedRow(saved).placeLat == nil)
+        #expect(recorder.lateFixes.isEmpty)
+        for _ in 0..<10 { await Task.yield() }
+        #expect(clock.requested.isEmpty)
     }
 
     @Test func noFixSavesNoPlaceAndNoError() async throws {

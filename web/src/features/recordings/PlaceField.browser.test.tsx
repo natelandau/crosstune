@@ -12,12 +12,12 @@ import type { PlaceMethod } from '../../usage/events'
 import type { PlaceChoice } from './place'
 import { PlaceField } from './PlaceField'
 import {
-  CLEAR_PLACE,
-  NO_PLACES_FOUND,
-  PLACE_LABEL,
-  PLACE_SEARCH_OFFLINE,
-  PLACE_SEARCH_UNAVAILABLE,
-  placeSearchBusy,
+  CLEAR_LOCATION,
+  NO_LOCATIONS_FOUND,
+  LOCATION_LABEL,
+  LOCATION_SEARCH_OFFLINE,
+  LOCATION_SEARCH_UNAVAILABLE,
+  locationSearchBusy,
 } from './recordingsCopy'
 
 const SETTLE_MS = 300
@@ -72,7 +72,7 @@ function setup({
     )
   }
   renderWithProviders(<Host />)
-  const input = page.getByRole('combobox', { name: PLACE_LABEL })
+  const input = page.getByRole('combobox', { name: LOCATION_LABEL })
   return { input, onChange, search }
 }
 
@@ -93,6 +93,28 @@ it('lists the recent places on focus, and picking one is a suggestion', async ()
   await option(AIRY.name).click()
   await expect.poll(() => onChange.mock.calls).toEqual([[AIRY, 'suggestion']])
   await expect.element(input).toHaveValue(AIRY.name)
+  expect(search).not.toHaveBeenCalled()
+})
+
+it('marks the recent location the field holds as selected', async () => {
+  const { input } = setup({ start: GALAX, recent: [AIRY, GALAX] })
+  await expect.element(input).toHaveValue(GALAX.name)
+  await input.click()
+  await expect.element(option(GALAX.name)).toHaveAttribute('aria-selected', 'true')
+  await expect.element(option(AIRY.name)).toHaveAttribute('aria-selected', 'false')
+  await expect.poll(() => option(GALAX.name).element().querySelector('svg')).not.toBeNull()
+  expect(option(AIRY.name).element().querySelector('svg')).toBeNull()
+})
+
+it('keeps the location when the selected one is picked again after filtering', async () => {
+  const { input, onChange, search } = setup({ start: GALAX, recent: [AIRY, GALAX] })
+  await input.click()
+  await input.fill('G')
+  await expect.element(option(AIRY.name)).not.toBeInTheDocument()
+  await option(GALAX.name).click()
+  await expect.poll(() => onChange.mock.calls).toEqual([[GALAX, 'suggestion']])
+  await expect.element(input).toHaveValue(GALAX.name)
+  await expect.element(option(GALAX.name)).not.toBeInTheDocument()
   expect(search).not.toHaveBeenCalled()
 })
 
@@ -156,10 +178,10 @@ it('shows each result on two lines and keeps the name of the one picked', async 
 })
 
 it.each([
-  ['unavailable', { kind: 'unavailable' }, PLACE_SEARCH_UNAVAILABLE],
-  ['failed', { kind: 'failed' }, PLACE_SEARCH_UNAVAILABLE],
-  ['rate limited', { kind: 'rate_limited', retryAfterSeconds: 12 }, placeSearchBusy(12)],
-  ['offline', { kind: 'offline' }, PLACE_SEARCH_OFFLINE],
+  ['unavailable', { kind: 'unavailable' }, LOCATION_SEARCH_UNAVAILABLE],
+  ['failed', { kind: 'failed' }, LOCATION_SEARCH_UNAVAILABLE],
+  ['rate limited', { kind: 'rate_limited', retryAfterSeconds: 12 }, locationSearchBusy(12)],
+  ['offline', { kind: 'offline' }, LOCATION_SEARCH_OFFLINE],
 ] as const)('says so when search is %s, and keeps searching', async (_, outcome, message) => {
   const answers: PlaceSearchOutcome[] = [outcome, { kind: 'ok', results: [town(GALAX)] }]
   const { input, search } = setup({ searchPlaces: async () => answers.shift()! })
@@ -206,16 +228,16 @@ it('shows an answer only under the text it answered', async () => {
   await expect.element(option(GALAX.name)).toBeVisible()
   await input.fill('Gal')
   await expect.element(option(GALAX.name)).not.toBeInTheDocument()
-  await expect.element(page.getByText(NO_PLACES_FOUND)).not.toBeInTheDocument()
+  await expect.element(page.getByText(NO_LOCATIONS_FOUND)).not.toBeInTheDocument()
   act(() => vi.advanceTimersByTime(SETTLE_MS))
   await expect.poll(() => search.mock.calls).toEqual([['Ga'], ['Gal']])
-  await expect.element(page.getByText(NO_PLACES_FOUND)).toBeVisible()
+  await expect.element(page.getByText(NO_LOCATIONS_FOUND)).toBeVisible()
 })
 
 it('clears coordinates that have no name', async () => {
   const { input, onChange } = setup({ unnamed: true })
   await expect.element(input).toHaveValue('')
-  const clear = page.getByRole('button', { name: CLEAR_PLACE })
+  const clear = page.getByRole('button', { name: CLEAR_LOCATION })
   await expect.element(clear).toBeEnabled()
   await clear.click()
   await expect.poll(() => onChange.mock.calls).toEqual([[null, null]])
@@ -224,7 +246,7 @@ it('clears coordinates that have no name', async () => {
 
 it('keeps the disabled Clear its name and target size', async () => {
   setup({ start: GALAX })
-  const clear = page.getByRole('button', { name: CLEAR_PLACE })
+  const clear = page.getByRole('button', { name: CLEAR_LOCATION })
   await expect.element(clear).toBeEnabled()
   // Layout size, which the press scale does not change.
   const size = () => {
@@ -234,7 +256,7 @@ it('keeps the disabled Clear its name and target size', async () => {
   const enabled = size()
   await clear.click()
   await expect.element(clear).toBeDisabled()
-  await expect.element(clear).toHaveAccessibleName(CLEAR_PLACE)
+  await expect.element(clear).toHaveAccessibleName(CLEAR_LOCATION)
   expect(size()).toEqual(enabled)
   expect(Math.min(...enabled)).toBeGreaterThanOrEqual(24)
 })
@@ -242,8 +264,8 @@ it('keeps the disabled Clear its name and target size', async () => {
 it('clears the place', async () => {
   const { input, onChange } = setup({ start: GALAX })
   await expect.element(input).toHaveValue(GALAX.name)
-  await page.getByRole('button', { name: CLEAR_PLACE }).click()
+  await page.getByRole('button', { name: CLEAR_LOCATION }).click()
   await expect.poll(() => onChange.mock.calls).toEqual([[null, null]])
   await expect.element(input).toHaveValue('')
-  await expect.element(page.getByRole('button', { name: CLEAR_PLACE })).toBeDisabled()
+  await expect.element(page.getByRole('button', { name: CLEAR_LOCATION })).toBeDisabled()
 })

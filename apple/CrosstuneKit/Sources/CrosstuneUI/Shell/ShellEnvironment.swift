@@ -1,3 +1,4 @@
+import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
 import SwiftUI
@@ -10,6 +11,9 @@ extension EnvironmentValues {
     /// The kind of search for a recording's place, made once for each search screen so two
     /// windows never share one. Nil where nothing can search, which offers no search.
     @Entry public var placeSearch: (any PlaceSearching.Type)?
+    /// Whether the app may read where the device is, which the place search, Settings, and the
+    /// record sheet tell the musician about. Nil where nothing reads it, which says nothing.
+    @Entry public var locationAccess: LocationAccess?
     /// The tune the split view's detail column shows, by id. Nil on iPhone, where a screen
     /// pushes the tune onto its own stack instead.
     @Entry public var detailTune: ShellValue<String?>?
