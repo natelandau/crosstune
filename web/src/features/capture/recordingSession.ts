@@ -2,6 +2,7 @@ import {
   appendChunk,
   beginCapture,
   cancelCapture,
+  fillCapturedPlace,
   finishCapture,
   type RecordingPlace,
 } from '../../commands/recordings'
@@ -63,7 +64,8 @@ export interface RecordingSessionDeps<S extends MediaStreamLike> {
   persistStorage: () => void
   clock: SessionClock
   tuneId: string | null
-  /** Where the device is. Never awaited: a slow, failed, or denied fix only means no place. */
+  /** Where the device is. Never awaited: a slow, failed, or denied fix only means no place, or a
+   * place written to the saved take once the fix lands, if that is within `LATE_FIX_MS` of Stop. */
   getPosition?: () => Promise<RecordingPlace | null>
 }
 
@@ -80,10 +82,14 @@ export interface RecordingSession {
   /** Stop reporting. A running recording is finished and kept; a start in progress backs out.
    * Resolves once the keeping has ended. */
   dispose(): Promise<void>
+  /** Resolves once the position has settled and any place it brought after Stop is written. */
+  placeSettled(): Promise<void>
 }
 
 const TICK_MS = 250
 const PEAK_WINDOW_MS = 20
+/** How long after Stop a fix still counts as where the take was made. */
+export const LATE_FIX_MS = 10_000
 
 export const MIC_DENIED =
   'Crosstune needs microphone access. Allow it in your browser or phone settings and try again.'
@@ -129,8 +135,13 @@ export function createRecordingSession<S extends MediaStreamLike>(
   let bytesWritten = 0
   let sizeLimited = false
   let interrupted = false
-  // Set only if the fix settles before the recording ends; a later one is dropped.
+  // Set only if the fix settles before the recording ends; a later one is written to the saved
+  // take instead, or dropped.
   let place: RecordingPlace | null = null
+  let placing: Promise<void> = Promise.resolve()
+  let stoppedAt = 0
+  let discarded = false
+  let savedAt: string | null = null
   // One peak byte per 20 ms window, built up live so an offline take has a waveform before
   // the server ever builds one.
   const peakValues: number[] = []
@@ -175,6 +186,7 @@ export function createRecordingSession<S extends MediaStreamLike>(
   // Both run one microtask late so that capture.stop(), which can fire the recorder's
   // 'stop' event synchronously and so re-enter through onState, finds `ending` already set.
   const finishRecording = (): Promise<void> => {
+    if (!ending) stoppedAt = clock.now()
     ending ??= Promise.resolve().then(async () => {
       pauseClock()
       emit({ phase: 'saving', elapsedMs: activeMs })
@@ -205,7 +217,7 @@ export function createRecordingSession<S extends MediaStreamLike>(
         }
         // One retry covers a transient IndexedDB failure; past that the chunks stay put
         // and sync recovery finishes the recording.
-        await finishCapture(db, recordingId, fields).catch(() =>
+        savedAt = await finishCapture(db, recordingId, fields).catch(() =>
           finishCapture(db, recordingId, fields),
         )
       } catch {
@@ -220,6 +232,7 @@ export function createRecordingSession<S extends MediaStreamLike>(
   }
 
   const cancel = (): Promise<void> => {
+    if (!ending) discarded = true
     ending ??= Promise.resolve().then(async () => {
       pauseClock()
       await capture?.stop().catch(() => {})
@@ -289,10 +302,18 @@ export function createRecordingSession<S extends MediaStreamLike>(
 
     // Asked only once the microphone and the capture lock are held, so a take that cannot
     // start never prompts for location.
-    Promise.resolve()
+    placing = Promise.resolve()
       .then(() => deps.getPosition?.() ?? null)
       .then((fix) => {
-        if (!ending) place = fix
+        if (!ending) {
+          place = fix
+          return
+        }
+        if (!fix || discarded || clock.now() - stoppedAt > LATE_FIX_MS) return
+        // A short take often ends before the device has a fix, and the save never waits on one.
+        return ending.then(() => {
+          if (savedAt) return fillCapturedPlace(db, recordingId, fix, savedAt)
+        })
       })
       .catch(() => {})
 
@@ -399,5 +420,6 @@ export function createRecordingSession<S extends MediaStreamLike>(
       releaseHardware()
       return Promise.resolve()
     },
+    placeSettled: () => placing,
   }
 }

@@ -69,10 +69,10 @@ async function putRecordingRow(
     originUrl?: string
     place?: RecordingPlace | null
   },
-): Promise<void> {
+): Promise<string> {
   const at = now()
   const siblings = fields.tuneId ? await activeRecordingsForTune(db, fields.tuneId) : []
-  await putRow(db, 'recordings', {
+  return putRow(db, 'recordings', {
     id,
     created_at: at,
     updated_at: at,
@@ -161,11 +161,12 @@ export async function finishCapture(
     peaks: Uint8Array | null
     place?: RecordingPlace | null
   },
-): Promise<void> {
-  await recordingTx(db, async () => {
+): Promise<string | null> {
+  // The saved row's updated_at, or null when there was nothing left to finish.
+  return recordingTx(db, async () => {
     const file = await db.recording_files.get(id)
     // A repeat finish, or one after cancelCapture, has nothing left to assemble.
-    if (!file || file.local_state !== 'capturing') return
+    if (!file || file.local_state !== 'capturing') return null
     const chunks = await db.recording_chunks.where('recording_id').equals(id).sortBy('idx')
     const blob = new Blob(
       chunks.map((c) => c.blob),
@@ -181,7 +182,7 @@ export async function finishCapture(
       }),
     )
     await db.recording_chunks.where('recording_id').equals(id).delete()
-    await putRecordingRow(db, id, {
+    return putRecordingRow(db, id, {
       tuneId: fields.tuneId,
       source: 'microphone',
       // Named for when it started, so a recording is never nameless in a list.
@@ -189,6 +190,32 @@ export async function finishCapture(
       recordedAt: fields.recordedAt,
       place: fields.place,
     })
+  })
+}
+
+/**
+ * Gives a saved take the place from a fix that arrived after Stop. It writes only to a take
+ * whose row is still stamped `savedAt`, the updated_at its save wrote, and has no place: any
+ * edit since, a cleared place included, wins over the fix.
+ */
+export async function fillCapturedPlace(
+  db: CrosstuneDb,
+  id: string,
+  place: RecordingPlace,
+  savedAt: string,
+): Promise<void> {
+  await recordingTx(db, async () => {
+    const row = await db.recordings.get(id)
+    if (!row || row.deleted_at || row.updated_at !== savedAt) return
+    if (row.place_name || row.place_lat != null || row.place_lon != null) return
+    await putRow(db, 'recordings', {
+      ...row,
+      place_lat: place.lat,
+      place_lon: place.lon,
+      place_accuracy_m: place.accuracyM,
+      updated_at: now(),
+    })
+    await requeueFailedUpload(db, id)
   })
 }
 
@@ -286,12 +313,17 @@ export async function updateRecording(
       position = nextPosition(await activeRecordingsForTune(db, patch.tune_id))
     }
     await putRow(db, 'recordings', { ...row, ...defined(patch), position, updated_at: now() })
-    // The edit re-pushes the row, so a failed upload gets a fresh attempt along with it.
-    const file = await db.recording_files.get(id)
-    if (file?.local_state === 'failed_upload') {
-      await db.recording_files.update(id, { local_state: 'captured', error: null })
-    }
+    await requeueFailedUpload(db, id)
   })
+}
+
+/** An edit re-pushes the row, so a failed upload gets a fresh attempt along with it. Call
+ * inside recordingTx. */
+async function requeueFailedUpload(db: CrosstuneDb, id: string): Promise<void> {
+  const file = await db.recording_files.get(id)
+  if (file?.local_state === 'failed_upload') {
+    await db.recording_files.update(id, { local_state: 'captured', error: null })
+  }
 }
 
 // Matches the server's allowance for a device clock running ahead.

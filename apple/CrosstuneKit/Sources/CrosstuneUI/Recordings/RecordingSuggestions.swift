@@ -8,12 +8,12 @@ public enum RecordingSuggestions {
             .sorted(by: TuneSuggestions.ordered)
     }
 
-    /// The named places on the other recordings, each once, most recently added first, without
+    /// The named places on the recordings, each once, most recently added first, without
     /// accuracy, as a picked place has none. One name at two spots stays twice, since a town's
     /// name can repeat across states.
-    public static func recentPlaces(_ recordings: [Recording], excluding id: String) -> [RecordingPlace] {
+    public static func recentPlaces(_ recordings: [Recording]) -> [RecordingPlace] {
         var places: [RecordingPlace] = []
-        let newestFirst = live(recordings).filter { $0.id != id }.sorted { $0.addedAt > $1.addedAt }
+        let newestFirst = live(recordings).sorted { $0.addedAt > $1.addedAt }
         for recording in newestFirst {
             guard let place = recording.place.map(picked), !places.contains(place) else { continue }
             places.append(place)

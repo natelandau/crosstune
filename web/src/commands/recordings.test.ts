@@ -21,6 +21,7 @@ import {
   cancelCapture,
   clearDownloadedBlobs,
   deleteRecording,
+  fillCapturedPlace,
   finishCapture,
   localAudioBytes,
   retryUpload,
@@ -140,6 +141,85 @@ describe('capture', () => {
       expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject(expected)
     },
   )
+
+  /** The stamp the take's save left on its row. */
+  const savedAt = async (id: string) => (await db.recordings.get(id))!.updated_at
+
+  it('returns the stamp the finished take was saved with', async () => {
+    const id = newId()
+    await beginCapture(db, id, { tuneId: null, recordedAt: AT })
+    await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
+    const fields = {
+      tuneId: null,
+      mime: 'audio/mp4',
+      durationMs: 10_000,
+      recordedAt: AT,
+      peaks: null,
+    }
+    const stamp = await finishCapture(db, id, fields)
+    expect(stamp).toBe(await savedAt(id))
+    expect(await finishCapture(db, id, fields)).toBeNull()
+  })
+
+  it('fills a saved take with no place from a late fix and queues it', async () => {
+    const id = await captured()
+    await fillCapturedPlace(
+      db,
+      id,
+      { lat: 36.661234, lon: -80.923912, accuracyM: 12 },
+      await savedAt(id),
+    )
+    const expected = {
+      place_name: null,
+      place_lat: 36.661234,
+      place_lon: -80.923912,
+      place_accuracy_m: 12,
+    }
+    expect(await db.recordings.get(id)).toMatchObject(expected)
+    expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject(expected)
+  })
+
+  it('puts a failed upload back in the queue when a late fix fills the take', async () => {
+    const id = await captured()
+    await setFileState(db, id, 'failed_upload', 'bad type')
+    await fillCapturedPlace(db, id, { lat: 36.66, lon: -80.92, accuracyM: 12 }, await savedAt(id))
+    expect(await db.recording_files.get(id)).toMatchObject({ local_state: 'captured', error: null })
+  })
+
+  it.each([
+    ['coordinates', { place_lat: 1, place_lon: 2, place_accuracy_m: 3 }],
+    ['a name', { place_name: 'Galax, VA' }],
+  ])('never fills a take that already has %s', async (_, place) => {
+    const id = await captured()
+    await db.recordings.update(id, place)
+    const before = await db.recordings.get(id)
+    await fillCapturedPlace(db, id, { lat: 36.66, lon: -80.92, accuracyM: 12 }, before!.updated_at)
+    expect(await db.recordings.get(id)).toEqual(before)
+  })
+
+  it.each([
+    ['cleared its place', { place_name: null, place_lat: null, place_lon: null }],
+    ['renamed it', { label: 'Jam' }],
+  ])('never fills a take once the musician %s after the save', async (_, patch) => {
+    const id = await captured()
+    const stamp = await savedAt(id)
+    await updateRecording(db, id, patch)
+    const before = await db.recordings.get(id)
+    await fillCapturedPlace(db, id, { lat: 36.66, lon: -80.92, accuracyM: 12 }, stamp)
+    expect(await db.recordings.get(id)).toEqual(before)
+    expect(before).toMatchObject({ place_lat: null, place_lon: null })
+  })
+
+  it('never fills a deleted or missing take', async () => {
+    const id = await captured()
+    await deleteRecording(db, id)
+    const before = await db.recordings.get(id)
+    const fix = { lat: 36.66, lon: -80.92, accuracyM: 12 }
+    await fillCapturedPlace(db, id, fix, before!.updated_at)
+    await fillCapturedPlace(db, 'missing', fix, before!.updated_at)
+    expect(await db.recordings.get(id)).toEqual(before)
+    expect(await db.recordings.get('missing')).toBeUndefined()
+  })
 
   it('a new capture defaults trim, speed, and pitch', async () => {
     const id = await captured()

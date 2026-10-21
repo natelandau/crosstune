@@ -594,8 +594,13 @@ never synced.
 - Place: full-precision coordinates, the device's reported accuracy for a
   take, and a name. A take gets the device's location only when the user
   allows it, an upload only what its file carries, and an import never
-  gets one. Setting a place by hand clears the accuracy. Clients show a
+  gets one. A take's fix may be a cached one up to 60 seconds old. Saving
+  a take never waits on its fix; one that settles within 10 seconds of
+  Stop is written to the saved take only while it has no place and is
+  unchanged since the save.
+  Setting a place by hand clears the accuracy. Clients show a
   place only once it has a name, but can clear coordinates that have none.
+  Labels call it Location.
 - A push that leaves coordinates with no name queues a `place` job, at
   most one per recording. It names them through Apple Maps reverse
   geocoding, outside any transaction, and writes the name only when the

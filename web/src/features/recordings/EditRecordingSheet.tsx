@@ -4,6 +4,7 @@ import { RECORDING_NAME_LABEL } from './recordingCopy'
 import {
   DATE_RECORDED_LABEL,
   EDIT_RECORDING_TITLE,
+  LOCATION_ACCESS_OFF,
   NAME_LABEL,
   NOTES_LABEL,
   PLAYERS_LABEL,
@@ -20,6 +21,7 @@ import { SuggestField } from '../../ui/form/SuggestField'
 import { TextField } from '../../ui/form/TextField'
 import { Sheet } from '../../ui/Sheet'
 import { useEndOnClose } from '../../ui/useEndOnClose'
+import { useLocationPermission } from '../../platform/locationPermission'
 
 /**
  * A recording's name, the date it was recorded, its players, place, and notes, as a
@@ -42,6 +44,7 @@ export function EditRecordingSheet({
   })
 
   useEndOnClose(edit.closing, edit.dismissed)
+  const locationOff = useLocationPermission() === 'denied'
 
   return (
     <Sheet
@@ -94,7 +97,7 @@ export function EditRecordingSheet({
             onChange={edit.editParts}
           />
         </Group>
-        <Group>
+        <Group footer={locationOff ? LOCATION_ACCESS_OFF : undefined}>
           <SuggestField
             label={PLAYERS_LABEL}
             value={edit.players}

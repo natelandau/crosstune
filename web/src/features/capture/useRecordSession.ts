@@ -16,6 +16,7 @@ import {
   STARTING_MICROPHONE,
 } from './recordCopy'
 import { MIC_DENIED } from './recordingSession'
+import type { RecordingPlace } from '../../commands/recordings'
 import { type CapturePhase, useCapture } from './useCapture'
 
 const STATUS: Record<CapturePhase, string> = {
@@ -45,6 +46,10 @@ export interface RecordSessionOptions {
   /** The id Stop is about to save under, called before the recording is written, so a list can
    * know the new row as it appears. */
   onSaving?: (recordingId: string) => void
+  /** False holds the take from starting until it turns true. It must never turn back. */
+  armed?: boolean
+  /** A position request already made, which the take reads its place from instead of asking. */
+  position?: Promise<RecordingPlace | null> | null
 }
 
 export interface RecordSession {
@@ -80,6 +85,8 @@ export function useRecordSession({
   toast,
   onDone,
   onSaving,
+  armed = true,
+  position = null,
 }: RecordSessionOptions): RecordSession {
   const analyticsRef = useLatest(useAnalytics())
   // A save is reported once, whether Stop, a size limit, or the recorder going away ended it.
@@ -105,7 +112,12 @@ export function useRecordSession({
     recordingId,
     stop: finish,
     cancel,
-  } = useCapture({ tuneId, onKept: (kept) => reportSaved(kept.recordingId, kept.elapsedMs) })
+  } = useCapture({
+    tuneId,
+    armed,
+    position,
+    onKept: (kept) => reportSaved(kept.recordingId, kept.elapsedMs),
+  })
   const elapsedRef = useLatest(elapsedMs)
   const confirmRef = useLatest(confirm)
   const toastRef = useLatest(toast)
@@ -208,6 +220,7 @@ export function useRecordSession({
     statusLabel: STATUS[phase],
     stop,
     discard,
-    refuseDismiss: live || phase === 'saving',
+    // A take held from starting has nothing to protect yet.
+    refuseDismiss: armed && (live || phase === 'saving'),
   }
 }

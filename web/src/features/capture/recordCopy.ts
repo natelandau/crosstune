@@ -12,3 +12,7 @@ export const DONE = 'Done'
 export const INTERRUPTED_MESSAGE =
   'Recording interrupted. The phone locked or another app took the microphone. Stop to keep what you have, or wait for it to resume.'
 export const FILING_UNDER = 'Filing under'
+export const LOCATION_NOTE_TITLE = 'Save where you record'
+export const LOCATION_NOTE_BODY =
+  'Crosstune adds the location to each take, so you can find it later.'
+export const CONTINUE = 'Continue'

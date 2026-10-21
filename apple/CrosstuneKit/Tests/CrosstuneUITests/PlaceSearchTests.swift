@@ -178,7 +178,7 @@ import Testing
         _ search: FakePlaceSearch, recent: [RecordingPlace] = [], current: RecordingPlace? = nil, picks: Picks
     ) -> PlaceSearchModel {
         PlaceSearchModel(
-            search: { search }, recent: recent, current: current,
+            search: { search }, recent: recent, current: { current },
             onPick: { picks.picked.append(($0, $1)) }, onClear: { picks.clears += 1 })
     }
 
@@ -266,6 +266,16 @@ import Testing
         #expect(picks.picked.isEmpty)
     }
 
+    @Test func marksTheRecentPlaceThatIsTheCurrentOne() {
+        let captured = RecordingPlace(
+            name: galax.name,
+            coordinate: Coordinate(lat: galax.coordinate.lat, lon: galax.coordinate.lon, accuracyM: 14))
+        let places = model(FakePlaceSearch(), recent: [ennis, galax], current: captured, picks: Picks())
+        #expect(places.isCurrent(galax))
+        #expect(!places.isCurrent(ennis))
+        #expect(!model(FakePlaceSearch(), recent: [galax], picks: Picks()).isCurrent(galax))
+    }
+
     @Test func ignoresEveryOtherPickWhileOneResolvesAndPicksOnce() async throws {
         let search = FakePlaceSearch()
         search.places["Galax"] = galax
@@ -298,6 +308,23 @@ import Testing
 
         places.setQuery("Ga")
         #expect(places.failure == nil)
+    }
+}
+
+@Suite struct LocationWordsTests {
+    @Test func theSearchAndItsRowsSayLocation() {
+        #expect(EditRecordingText.place == "Location")
+        #expect(EditRecordingText.clearPlace == "Clear location")
+        #expect(PlaceSearchText.searchLabel == "Search locations")
+        #expect(PlaceSearchText.recent == "Recent locations")
+        #expect(PlaceSearchText.noPlacesFound == "No locations found")
+        #expect(PlaceSearchText.pickFailed == "Couldn’t find that location. Try another.")
+        #expect(PlaceSearchText.current == "Current")
+    }
+
+    @Test func theAccessNoteSaysHowToTurnLocationBackOn() {
+        #expect(LocationAccessText.off == "Location access is off, so new takes don’t save where they were made.")
+        #expect(LocationAccessText.openSettings == "Open Settings")
     }
 }
 

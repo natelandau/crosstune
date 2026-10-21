@@ -51,7 +51,7 @@ export interface EditRecording {
   canClearPlace: boolean
   /** Sets the place, or clears it with null, and how it was picked. */
   setPlace: (place: PlaceChoice | null, method: PlaceMethod | null) => void
-  /** The places on the musician's other recordings, most recent first. */
+  /** The places on the musician's recordings, this one's included, most recent first. */
   recentPlaces: PlaceChoice[]
   /** The last save's refusal. */
   error: string | null
@@ -105,10 +105,7 @@ export function useEditRecording(
   const recordings = useLiveQuery(() => (showing ? db.recordings.toArray() : []), [db, showing])
   const viewId = view?.recording.id ?? null
   const playerSuggestions = useMemo(() => recordingPlayers(recordings ?? []), [recordings])
-  const placesBefore = useMemo(
-    () => (viewId ? recentPlaces(recordings ?? [], viewId) : []),
-    [recordings, viewId],
-  )
+  const placesBefore = useMemo(() => recentPlaces(recordings ?? []), [recordings])
   // The stored values on open, whatever a cancelled edit left in the fields.
   const sheet = useSheetSession(view, {
     onOpen: (opened) => {
@@ -135,6 +132,20 @@ export function useEditRecording(
     },
     onClose,
   })
+
+  // The server names a take's coordinates after it syncs, which can land while the sheet is open.
+  // A place the musician has left alone takes the name as if the sheet had opened with it.
+  const liveRow = viewId ? recordings?.find((r) => r.id === viewId) : undefined
+  const arrived =
+    liveRow && openedUnnamedCoords && unnamedCoords && place === null
+      ? recordingPlace(liveRow)
+      : null
+  if (arrived) {
+    setPlaceState(arrived)
+    setOpenedPlace(arrived)
+    setUnnamedCoords(false)
+    setOpenedUnnamedCoords(false)
+  }
 
   const dateUnchanged = sameParts(parts, openedParts)
   const placeUnchanged = samePlace(place, openedPlace) && unnamedCoords === openedUnnamedCoords

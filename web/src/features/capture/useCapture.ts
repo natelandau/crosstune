@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLatest } from '../../ui/useLatest'
 import { useAuthSession } from '../../auth/AuthContext'
+import type { RecordingPlace } from '../../commands/recordings'
 import { newId } from '../../commands/write'
 import { useDb } from '../../db/DbProvider'
 import { persistStorage } from '../../platform/storage'
@@ -33,18 +34,26 @@ const clock: SessionClock = {
 }
 
 /**
- * Start capturing on mount and keep going until stop or cancel. One recording per mount; a recording
- * still running when the component unmounts is finished and kept, never discarded.
+ * Start capturing on mount, or once `armed`, and keep going until stop or cancel. One recording
+ * per mount; a recording still running when the component unmounts is finished and kept, never
+ * discarded.
  */
 export function useCapture({
   tuneId,
   onKept,
+  armed = true,
+  position = null,
 }: {
   tuneId: string | null
   /** Runs when the component went away mid-take and the take was kept all the same. */
   onKept?: (kept: { recordingId: string; elapsedMs: number }) => void
+  /** False holds the start until it turns true. It must never turn back. */
+  armed?: boolean
+  /** A position request already made, which the take reads its place from instead of asking. */
+  position?: Promise<RecordingPlace | null> | null
 }): CaptureHandle {
   const onKeptRef = useLatest(onKept)
+  const positionRef = useLatest(position)
   const keep = useCallback(
     (kept: { recordingId: string; elapsedMs: number }) => onKeptRef.current?.(kept),
     [onKeptRef],
@@ -61,6 +70,7 @@ export function useCapture({
   const session = useRef<RecordingSession | null>(null)
 
   useEffect(() => {
+    if (!armed) return
     const capture = createRecordingSession({
       db,
       userId,
@@ -74,7 +84,7 @@ export function useCapture({
       persistStorage,
       clock,
       tuneId,
-      getPosition: () => devicePosition(navigator.geolocation),
+      getPosition: () => positionRef.current ?? devicePosition(navigator.geolocation),
     })
     session.current = capture
     const unsubscribe = capture.subscribe(setSnapshot)
@@ -87,7 +97,7 @@ export function useCapture({
         if (phase === 'saved') keep({ recordingId, elapsedMs })
       })
     }
-  }, [db, recordingId, userId, tuneId, keep])
+  }, [armed, db, recordingId, userId, tuneId, keep, positionRef])
 
   const stop = useCallback(() => session.current?.finish() ?? Promise.resolve(), [])
   const cancel = useCallback(() => session.current?.cancel() ?? Promise.resolve(), [])

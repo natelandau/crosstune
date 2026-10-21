@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import {
   ComboBox,
@@ -18,14 +18,14 @@ import { NOT_SET } from '../../ui/fieldCopy'
 import { FIELD_LABEL, FIELD_ROW_BARE } from '../../ui/form/FieldRow'
 import { OverlayClaim } from '../../ui/overlayClaim'
 import type { PlaceMethod } from '../../usage/events'
-import type { PlaceChoice } from './place'
+import { samePlace, type PlaceChoice } from './place'
 import {
-  CLEAR_PLACE,
-  NO_PLACES_FOUND,
-  PLACE_LABEL,
-  PLACE_SEARCH_OFFLINE,
-  PLACE_SEARCH_UNAVAILABLE,
-  placeSearchBusy,
+  CLEAR_LOCATION,
+  NO_LOCATIONS_FOUND,
+  LOCATION_LABEL,
+  LOCATION_SEARCH_OFFLINE,
+  LOCATION_SEARCH_UNAVAILABLE,
+  locationSearchBusy,
 } from './recordingsCopy'
 
 // The search endpoint's bounds on the text it takes.
@@ -44,19 +44,20 @@ interface Item {
 function outcomeMessage(outcome: PlaceSearchOutcome): string {
   switch (outcome.kind) {
     case 'ok':
-      return NO_PLACES_FOUND
+      return NO_LOCATIONS_FOUND
     case 'offline':
-      return PLACE_SEARCH_OFFLINE
+      return LOCATION_SEARCH_OFFLINE
     case 'rate_limited':
-      return placeSearchBusy(outcome.retryAfterSeconds)
+      return locationSearchBusy(outcome.retryAfterSeconds)
     default:
-      return PLACE_SEARCH_UNAVAILABLE
+      return LOCATION_SEARCH_UNAVAILABLE
   }
 }
 
 /**
  * A recording's place as a field row that searches. Before the musician types it lists the
- * `recent` places; two or more characters search once the typing has settled for `settleMs`,
+ * `recent` places, the one it holds marked; two or more characters search once the typing has
+ * settled for `settleMs`,
  * and only the latest search's answer shows. Clear removes the place, enabled while `canClear`
  * says there is one, which can be coordinates with no name to show.
  */
@@ -116,15 +117,24 @@ export function PlaceField({
           }))
         : []
       : recent
-          .filter((place) => !query || containsText(place.name, query))
-          .map((choice, i) => ({
+          // Keyed before filtering, so an item keeps its key as the typing narrows the list.
+          .map((choice, i): Item => ({
             id: `recent-${i}`,
             choice,
             title: choice.name,
             subtitle: null,
             method: 'suggestion',
           }))
+          .filter((item) => !query || containsText(item.title, query))
   const message = outcome && items.length === 0 ? outcomeMessage(outcome) : null
+  // Marked only until the musician types: React Aria closes the list whenever the selected key
+  // changes to another item, which a narrowed list coming back would otherwise do.
+  const held =
+    query === null
+      ? (items.find((item) => item.method === 'suggestion' && samePlace(item.choice, value))?.id ??
+        null)
+      : null
+  const selectedKey = picked ?? held
 
   const choose = (key: Key | null) => {
     setPicked(key)
@@ -147,7 +157,7 @@ export function PlaceField({
       <div className={FIELD_ROW_BARE}>
         <ComboBox
           items={items}
-          selectedKey={picked}
+          selectedKey={selectedKey}
           onSelectionChange={choose}
           inputValue={query ?? value?.name ?? ''}
           onInputChange={type}
@@ -155,7 +165,7 @@ export function PlaceField({
           menuTrigger="focus"
           className="flex min-w-0 flex-1 items-center gap-3"
         >
-          <Label className={`${FIELD_LABEL} ps-4`}>{PLACE_LABEL}</Label>
+          <Label className={`${FIELD_LABEL} ps-4`}>{LOCATION_LABEL}</Label>
           <Input
             placeholder={NOT_SET}
             maxLength={MAX_QUERY}
@@ -165,6 +175,7 @@ export function PlaceField({
             onBlur={() => {
               setQuery(null)
               setAnswer(null)
+              setPicked(null)
             }}
             className="t-body placeholder:text-ink-2 min-h-(--target) min-w-0 flex-1 truncate bg-transparent text-end in-[html[data-density=touch]]:text-[max(16px,1rem)]"
           />
@@ -179,18 +190,23 @@ export function PlaceField({
                 <ListBoxItem
                   id={item.id}
                   textValue={item.title}
-                  className="t-body data-[focused]:bg-fill flex min-h-(--target) cursor-default items-center rounded-(--radius-row) px-3 py-1"
+                  className="t-body data-[focused]:bg-fill flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1"
                 >
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <Text slot="label" className="truncate">
-                      {item.title}
-                    </Text>
-                    {item.subtitle && (
-                      <Text slot="description" className="t-secondary text-ink-2 truncate">
-                        {item.subtitle}
-                      </Text>
-                    )}
-                  </span>
+                  {({ isSelected }) => (
+                    <>
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <Text slot="label" className="truncate">
+                          {item.title}
+                        </Text>
+                        {item.subtitle && (
+                          <Text slot="description" className="t-secondary text-ink-2 truncate">
+                            {item.subtitle}
+                          </Text>
+                        )}
+                      </span>
+                      {isSelected && <Check className="text-action size-5 shrink-0" aria-hidden />}
+                    </>
+                  )}
                 </ListBoxItem>
               )}
             </ListBox>
@@ -201,7 +217,7 @@ export function PlaceField({
           <Button
             icon={X}
             iconOnly
-            label={CLEAR_PLACE}
+            label={CLEAR_LOCATION}
             isDisabled={!canClear}
             onPress={() => onChange(null, null)}
           />

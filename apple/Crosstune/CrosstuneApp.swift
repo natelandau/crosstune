@@ -14,6 +14,7 @@ struct CrosstuneApp: App {
     @State private var listPlayback: ListPlayback
     @State private var stage = EmbedStage()
     @State private var recorders = RecorderHost(makeLocation: { DeviceLocationProvider() })
+    @State private var locationAccess = LocationAccess()
     /// The open store's plan, made again for each store so another account starts unknown.
     @State private var plan: PlanModel?
     /// Which window shows the plan notices, made again with each store's plan.
@@ -79,6 +80,7 @@ struct CrosstuneApp: App {
                 .environment(\.stripePortalURL, stripePortalURL)
                 .environment(\.appStoreURL, appStoreURL)
                 .environment(\.placeSearch, MapKitPlaceSearch.self)
+                .environment(\.locationAccess, locationAccess)
                 .followsDisplaySettings()
                 .tint(BrandStyle.accent)
         }
@@ -113,6 +115,7 @@ struct CrosstuneApp: App {
                     .environment(\.purchases, purchases)
                     .environment(\.stripePortalURL, stripePortalURL)
                     .environment(\.store, session.store)
+                    .environment(\.locationAccess, locationAccess)
                     .environment(session.syncEngine)
                     .environment(session)
                     .environment(player)

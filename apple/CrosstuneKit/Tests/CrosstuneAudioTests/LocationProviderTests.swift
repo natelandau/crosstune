@@ -10,6 +10,8 @@ final class FakeLocationManager: LocationManaging {
     var authorizationStatus: CLAuthorizationStatus
     weak var delegate: (any CLLocationManagerDelegate)?
     var desiredAccuracy: CLLocationAccuracy = 0
+    /// The last fix the system holds, which a fresh request can answer from.
+    var location: CLLocation?
     private(set) var prompts = 0
     private(set) var fixRequests = 0
 
@@ -47,15 +49,62 @@ final class HeldSleep {
 @MainActor
 @Suite struct LocationProviderTests {
     let clock = HeldSleep()
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
 
     private func provider(_ manager: FakeLocationManager) -> DeviceLocationProvider {
-        DeviceLocationProvider(manager: manager, sleep: { [clock] in await clock.sleep($0) })
+        DeviceLocationProvider(manager: manager, sleep: { [clock] in await clock.sleep($0) }, now: { [now] in now })
     }
 
-    private func fix(accuracy: CLLocationAccuracy = 14.4) -> CLLocation {
+    private func fix(accuracy: CLLocationAccuracy = 14.4, age: TimeInterval = 0) -> CLLocation {
         CLLocation(
             coordinate: CLLocationCoordinate2D(latitude: 39.7392364, longitude: -104.984862), altitude: 0,
-            horizontalAccuracy: accuracy, verticalAccuracy: -1, timestamp: .now)
+            horizontalAccuracy: accuracy, verticalAccuracy: -1, timestamp: now.addingTimeInterval(-age))
+    }
+
+    @Test func aRecentHeldFixAnswersAtOnceWithoutARequest() async {
+        let manager = FakeLocationManager(status: .authorizedAlways)
+        manager.location = fix(accuracy: 20.4, age: DeviceLocationProvider.heldFixMaximumAge)
+
+        let found = await provider(manager).currentLocation()
+
+        #expect(found == Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 20))
+        #expect(manager.fixRequests == 0)
+        #expect(clock.requested.isEmpty)
+    }
+
+    @Test func aHeldFixOlderThanAMinuteAsksForANewOne() async {
+        let manager = FakeLocationManager(status: .authorizedAlways)
+        manager.location = fix(age: DeviceLocationProvider.heldFixMaximumAge + 1)
+        let provider = provider(manager)
+
+        let request = Task { await provider.currentLocation() }
+        await fixRequested(manager)
+        provider.received([fix(accuracy: 5)])
+
+        #expect(await request.value?.accuracyM == 5)
+    }
+
+    @Test func anInvalidHeldFixAsksForANewOne() async {
+        let manager = FakeLocationManager(status: .authorizedAlways)
+        manager.location = fix(accuracy: -1)
+        let provider = provider(manager)
+
+        let request = Task { await provider.currentLocation() }
+        await fixRequested(manager)
+        provider.received([fix(accuracy: 5)])
+
+        #expect(await request.value?.accuracyM == 5)
+    }
+
+    @Test func aHeldFixNeverAnswersWhileLocationIsOff() async {
+        let manager = FakeLocationManager(status: .denied)
+        manager.location = fix()
+
+        #expect(await provider(manager).currentLocation() == nil)
+    }
+
+    @Test func theHeldFixAgeMatchesTheWeb() {
+        #expect(DeviceLocationProvider.heldFixMaximumAge == 60)
     }
 
     /// Waits until the provider has asked the manager for a fix `count` times.
@@ -222,6 +271,40 @@ final class HeldSleep {
         #expect(manager.fixRequests == 0)
     }
 
+    @Test func theLastCallerCancelledLeavesNoDeadlineForTheNextRequest() async {
+        let manager = FakeLocationManager(status: .authorizedAlways)
+        let provider = provider(manager)
+        let first = Task { await provider.currentLocation() }
+        await clock.isHeld()
+        first.cancel()
+        #expect(await first.value == nil)
+
+        manager.authorizationStatus = .notDetermined
+        let second = Task { await provider.currentLocation() }
+        while manager.prompts == 0 { await Task.yield() }
+        // The first request's deadline running out must not answer the second.
+        await clock.elapse()
+        for _ in 0..<10 { await Task.yield() }
+        manager.authorizationStatus = .authorizedAlways
+        provider.authorizationChanged()
+        await fixRequested(manager, count: 2)
+        provider.received([fix()])
+
+        #expect(await second.value?.accuracyM == 14)
+    }
+
+    @Test func locationServicesOffForTheDeviceAsksForNothing() async {
+        let manager = FakeLocationManager(status: .notDetermined)
+        manager.location = fix()
+        let provider = DeviceLocationProvider(
+            manager: manager, sleep: { [clock] in await clock.sleep($0) }, now: { [now] in now },
+            servicesEnabled: { false })
+
+        #expect(await provider.currentLocation() == nil)
+        #expect(manager.prompts == 0)
+        #expect(manager.fixRequests == 0)
+    }
+
     @Test func aCancelledCallerOnAnUnansweredPromptGetsNothing() async {
         let manager = FakeLocationManager(status: .notDetermined)
         let provider = provider(manager)
@@ -231,5 +314,116 @@ final class HeldSleep {
         request.cancel()
 
         #expect(await request.value == nil)
+    }
+}
+
+@MainActor
+@Suite struct LocationAccessTests {
+    @Test(arguments: [
+        (CLAuthorizationStatus.notDetermined, LocationAccess.Status.notDetermined),
+        (.denied, .off), (.restricted, .off), (.authorizedAlways, .allowed),
+    ])
+    func readsTheStatusTheDeviceReports(reported: CLAuthorizationStatus, status: LocationAccess.Status) {
+        let access = LocationAccess(manager: FakeLocationManager(status: reported))
+
+        #expect(access.status == status)
+        #expect(access.isOff == (status == .off))
+    }
+
+    @Test func followsAChangeMadeInSettings() {
+        let manager = FakeLocationManager(status: .authorizedAlways)
+        let access = LocationAccess(manager: manager)
+        #expect(manager.delegate != nil)
+
+        manager.authorizationStatus = .denied
+        access.authorizationChanged()
+
+        #expect(access.isOff)
+    }
+
+    @Test func asksOnceAndWaitsForTheAnswer() async {
+        let manager = FakeLocationManager(status: .notDetermined)
+        let access = LocationAccess(manager: manager)
+
+        let first = Task { await access.requestAccess() }
+        let second = Task { await access.requestAccess() }
+        while manager.prompts == 0 { await Task.yield() }
+        for _ in 0..<10 { await Task.yield() }
+        // The call made as the delegate is set, before the prompt is answered.
+        access.authorizationChanged()
+        manager.authorizationStatus = .denied
+        access.authorizationChanged()
+        await first.value
+        await second.value
+
+        #expect(manager.prompts == 1)
+        #expect(access.status == .off)
+    }
+
+    @Test func locationServicesOffForTheDeviceReadsAsOff() async {
+        let services = ServicesSetting(enabled: false)
+        let manager = FakeLocationManager(status: .notDetermined)
+        let access = LocationAccess(manager: manager, servicesEnabled: { await services.enabled })
+
+        await access.refresh()
+        #expect(access.status == .off)
+        await access.requestAccess()
+        #expect(manager.prompts == 0)
+
+        await services.set(true)
+        await access.refresh()
+        #expect(access.status == .notDetermined)
+    }
+
+    @Test func locationServicesTurnedOffWhileThePromptIsUpReleasesTheWaiters() async {
+        let services = ServicesSetting(enabled: true)
+        let manager = FakeLocationManager(status: .notDetermined)
+        let access = LocationAccess(manager: manager, servicesEnabled: { await services.enabled })
+        let first = Task { await access.requestAccess() }
+        let second = Task { await access.requestAccess() }
+        while manager.prompts == 0 { await Task.yield() }
+        for _ in 0..<10 { await Task.yield() }
+
+        await services.set(false)
+        await access.refresh()
+        await first.value
+        await second.value
+
+        #expect(access.status == .off)
+        #expect(manager.prompts == 1)
+    }
+
+    @Test func aChangeReadsLocationServicesAgain() async throws {
+        let services = ServicesSetting(enabled: true)
+        let manager = FakeLocationManager(status: .authorizedAlways)
+        let access = LocationAccess(manager: manager, servicesEnabled: { await services.enabled })
+        await access.refresh()
+        #expect(access.status == .allowed)
+
+        await services.set(false)
+        access.authorizationChanged()
+
+        while access.status != .off { await Task.yield() }
+    }
+
+    @Test func anAnsweredDeviceIsNotAskedAgain() async {
+        let manager = FakeLocationManager(status: .authorizedAlways)
+
+        await LocationAccess(manager: manager).requestAccess()
+
+        #expect(manager.prompts == 0)
+    }
+}
+
+/// The device-wide Location Services switch as a test sets it.
+actor ServicesSetting {
+    private(set) var enabled: Bool
+
+    init(enabled: Bool) {
+        self.enabled = enabled
+    }
+
+    func set(_ enabled: Bool) {
+        self.enabled = enabled
     }
 }

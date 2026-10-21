@@ -318,6 +318,7 @@ public struct SettingsScreen: View {
         } header: {
             SettingsHelp(SettingsModel.channelsHelp)
         }
+        LocationAccessSection(helpAbove: true)
     }
 
     @ViewBuilder private func downloadsSections(_ model: SettingsModel) -> some View {

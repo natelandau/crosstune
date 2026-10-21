@@ -35,6 +35,9 @@ public final class Recorder {
     /// A take stops at this share of the server's largest accepted file, leaving room for the
     /// encoder's last packets and the `.m4a` container so the finished file can still upload.
     static let sizeLimitFraction = 0.95
+    /// How long after Stop a fix still pending is saved to the take. A fix takes seconds to
+    /// settle, so a short take often stops first.
+    static let lateFixWindow: Duration = .seconds(10)
 
     /// Where the user grants microphone access to Crosstune.
     public static var settingsURL: URL? {
@@ -68,13 +71,21 @@ public final class Recorder {
     /// and a stop or discard backs the start out.
     public private(set) var isStarting = false
     /// Where the device was, once its fix settles during the take. A fix that settles after
-    /// the take stops is dropped.
+    /// the take stops is saved by ``lateFixes`` instead.
     @ObservationIgnored private(set) var settledCoordinate: Coordinate?
+    /// Whether the take's location request has answered, with a fix or with none.
+    @ObservationIgnored private(set) var isFixSettled = false
+    /// Saved takes waiting on a fix that was still pending at Stop, by recording.
+    @ObservationIgnored private(set) var lateFixes: [String: Task<Void, Never>] = [:]
 
     private let store: CrosstuneStore
     private let input: any AudioInput
     private let channels: @MainActor () -> CaptureChannels
     private let location: (any LocationProvider)?
+    private let sleep: @MainActor (Duration) async throws -> Void
+    /// The take's request for a fix, until the take ends.
+    @ObservationIgnored private var fix: Task<Coordinate?, Never>?
+    /// Notes the fix as the take's while it records.
     @ObservationIgnored private var locating: Task<Void, Never>?
     private var capture: (id: String, writer: CaptureWriter)?
     private var inputLevels = InputLevels()
@@ -90,15 +101,18 @@ public final class Recorder {
     /// - Parameters:
     ///   - channels: The device's mono or stereo setting, read as each take starts.
     ///   - location: Where each take was made; nil saves no place.
+    ///   - sleep: Waits out ``lateFixWindow``.
     public init(
         store: CrosstuneStore, input: (any AudioInput)? = nil,
         channels: @escaping @MainActor () -> CaptureChannels = { CaptureChannels.stored() },
-        location: (any LocationProvider)? = nil
+        location: (any LocationProvider)? = nil,
+        sleep: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     ) {
         self.store = store
         self.input = input ?? EngineInput()
         self.channels = channels
         self.location = location
+        self.sleep = sleep
     }
 
     /// Finishes every capture an earlier run left unfinished, as after a crash, except any
@@ -228,21 +242,27 @@ public final class Recorder {
         guard let capture, state == .recording || state == .paused else { return nil }
         let recordingID = capture.id
         state = .finishing
-        let coordinate = stopLocating()
+        let (coordinate, pending) = endLocating()
+        let window = pending.map(startLateFixWindow)
         await release(capture.writer)
         // Read only after the tap is fully stopped, so every buffer it wrote is metered too.
         let peaks = capture.writer.recordedPeaks
         defer { reset(recordingID) }
         let finisher = CaptureFinisher(store: store)
         do {
-            guard try await finisher.finish(recordingID, peaks: peaks, coordinate: coordinate) else {
+            guard let savedAt = try await finisher.finish(recordingID, peaks: peaks, coordinate: coordinate) else {
+                pending?.cancel()
+                window?.cancel()
                 errorMessage = Self.nothingRecorded
                 return nil
             }
+            if let pending, let window { saveLateFix(pending, window: window, to: recordingID, savedAt: savedAt) }
             savedRecordingID = recordingID
             errorMessage = endedEarly
             return recordingID
         } catch {
+            pending?.cancel()
+            window?.cancel()
             errorMessage = Self.saveFailed
             return nil
         }
@@ -283,21 +303,64 @@ public final class Recorder {
     /// only means the take has no place.
     private func startLocating() {
         settledCoordinate = nil
+        isFixSettled = false
         guard let location else { return }
+        let fix = Task { () -> Coordinate? in
+            let found = await location.currentLocation()
+            return Task.isCancelled ? nil : found
+        }
+        self.fix = fix
         locating = Task { [weak self] in
-            let fix = await location.currentLocation()
+            let found = await fix.value
             guard !Task.isCancelled else { return }
-            self?.settledCoordinate = fix
+            self?.settledCoordinate = found
+            self?.isFixSettled = true
         }
     }
 
-    /// Ends the take's location request and returns the fix, if one settled in time.
-    @discardableResult
-    private func stopLocating() -> Coordinate? {
+    /// Ends the take's location request.
+    private func stopLocating() {
+        let (_, pending) = endLocating()
+        pending?.cancel()
+    }
+
+    /// Lets go of the take's location request, returning the fix if one settled, or else the
+    /// request still pending, which the caller now owns. A request that settled with no fix
+    /// returns neither.
+    private func endLocating() -> (settled: Coordinate?, pending: Task<Coordinate?, Never>?) {
         locating?.cancel()
         locating = nil
-        defer { settledCoordinate = nil }
-        return settledCoordinate
+        let pending = fix
+        fix = nil
+        defer {
+            settledCoordinate = nil
+            isFixSettled = false
+        }
+        return isFixSettled ? (settledCoordinate, nil) : (nil, pending)
+    }
+
+    /// Cancels `pending` once ``lateFixWindow`` has passed.
+    private func startLateFixWindow(_ pending: Task<Coordinate?, Never>) -> Task<Void, Never> {
+        Task { [sleep] in
+            do { try await sleep(Self.lateFixWindow) } catch { return }
+            pending.cancel()
+        }
+    }
+
+    /// Saves `pending` to the saved take once it settles, unless the window closes first or the
+    /// take has changed since `savedAt`.
+    private func saveLateFix(
+        _ pending: Task<Coordinate?, Never>, window: Task<Void, Never>, to recordingID: String, savedAt: Timestamp
+    ) {
+        let store = store
+        lateFixes[recordingID] = Task { [weak self] in
+            let found = await pending.value
+            window.cancel()
+            if let found {
+                _ = try? await Commands(store: store).addLateFix(recordingID, coordinate: found, savedAt: savedAt)
+            }
+            self?.lateFixes[recordingID] = nil
+        }
     }
 
     private func microphoneDidFail(_ recordingID: String) async {

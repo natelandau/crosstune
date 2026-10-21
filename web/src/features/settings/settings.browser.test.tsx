@@ -7,7 +7,7 @@ import { AUDIO_QUALITY_NAMES, INSTRUMENT_LABELS, STATUS_LABELS } from '../../con
 import { setStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { RECORDING } from '../../text/format'
-import { STORAGE_USED } from '../recordings/recordingsCopy'
+import { LOCATION_ACCESS_OFF, STORAGE_USED } from '../recordings/recordingsCopy'
 import {
   APPEARANCE_KEY,
   APPEARANCE_LABELS,
@@ -40,6 +40,7 @@ import {
 import { formatRecorded } from '../stats/formatRecorded'
 import { OFFLINE } from '../../sync/labels'
 import { openTestDb } from '../../test/db'
+import { fakeLocationPermissionForTest } from '../../test/fakeLocationPermission'
 import { dataProviders, testSession } from '../../test/providers'
 import { renderWithProviders } from '../../test/render'
 import { IMPORT_HELP_URL, IMPORT_TUNES } from '../import/importCopy'
@@ -307,6 +308,15 @@ it('shows Offline as the account block’s second line while sync is offline', a
   await expect.element(line).toHaveClass('text-warning')
   await account().click()
   await expect.element(page.getByRole('heading', { level: 1, name: ACCOUNT })).toBeVisible()
+})
+
+it('says on the recording page that location access is off, while it is', async () => {
+  const permission = fakeLocationPermissionForTest('denied')
+  await mount('/settings/recording')
+  const main = page.getByRole('main')
+  await expect.element(main.getByText(LOCATION_ACCESS_OFF)).toBeVisible()
+  permission.set('granted')
+  await expect.element(main.getByText(LOCATION_ACCESS_OFF)).not.toBeInTheDocument()
 })
 
 it('keeps import and export off the account page', async () => {

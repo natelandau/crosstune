@@ -688,19 +688,102 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(EditRecordingModel(store: store, recording: named).canClearPlace)
     }
 
-    @Test func loadsPlayerAndPlaceSuggestionsFromTheOtherRecordings() async throws {
+    @Test func loadsPlayerAndPlaceSuggestionsFromEveryRecordingItsOwnIncluded() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let other = Recording(
             id: "r2", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", players: "Tommy Jarrell",
             placeName: "Galax, VA", placeLat: 36.66, placeLon: -80.92)
-        try await store.write { writer in try writer.put(other, at: noon) }
-        try await putRecording(store, "r1")
+        let own = Recording(
+            id: "r1", tuneID: nil, source: "microphone", addedAt: later(60_000), state: "ready",
+            placeName: "Mount Airy, NC", placeLat: 36.5, placeLon: -80.6)
+        try await store.write { writer in
+            try writer.put(other, at: noon)
+            try writer.put(own, at: noon)
+        }
         let stored = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
         let edit = EditRecordingModel(store: store, recording: stored)
         await edit.load()
         #expect(edit.playerOptions == ["Tommy Jarrell"])
-        #expect(edit.recentPlaces.map(\.name) == ["Galax, VA"])
+        #expect(edit.recentPlaces.map(\.name) == ["Mount Airy, NC", "Galax, VA"])
+    }
+
+    @Test func showsANameThatArrivesForUnnamedCoordinatesWithoutCountingAsAnEdit() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let take = Recording(
+            id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", placeLat: 36.66,
+            placeLon: -80.92, placeAccuracyM: 14)
+        try await store.write { writer in try writer.put(take, at: noon) }
+        let edit = EditRecordingModel(store: store, recording: take)
+        await edit.load()
+        #expect(edit.place == nil)
+
+        var named = take
+        named.placeName = "Galax, VA"
+        let synced = named
+        try await store.write { writer in try writer.put(synced, at: later(1_000)) }
+
+        #expect(try await poll { edit.place?.name == "Galax, VA" })
+        #expect(!edit.isEdited)
+        #expect(edit.canClearPlace)
+        edit.setName("Jam")
+        #expect(await edit.save())
+        let saved = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(saved.placeName == "Galax, VA")
+        #expect(saved.placeAccuracyM == 14)
+    }
+
+    @Test func thePlaceSearchShowsANameThatArrivesWhileItIsOpen() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let take = Recording(
+            id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", placeLat: 36.66,
+            placeLon: -80.92, placeAccuracyM: 14)
+        try await store.write { writer in try writer.put(take, at: noon) }
+        let edit = EditRecordingModel(store: store, recording: take)
+        let galax = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92))
+        let search = PlaceSearchModel(
+            search: { FakePlaceSearch() }, recent: [galax], current: { edit.place }, onPick: edit.setPlace,
+            onClear: edit.clearPlace)
+        #expect(search.current == nil)
+        #expect(!search.isCurrent(galax))
+
+        var named = take
+        named.placeName = "Galax, VA"
+        let synced = named
+        try await store.write { writer in try writer.put(synced, at: later(1_000)) }
+
+        #expect(try await poll { search.current?.name == "Galax, VA" })
+        #expect(search.isCurrent(galax))
+    }
+
+    @Test func aNameThatArrivesAfterAPickOrAClearChangesNothing() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let take = Recording(
+            id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", placeLat: 36.66,
+            placeLon: -80.92, placeAccuracyM: 14)
+        try await store.write { writer in try writer.put(take, at: noon) }
+        let picked = EditRecordingModel(store: store, recording: take)
+        let cleared = EditRecordingModel(store: store, recording: take)
+        await picked.load()
+        await cleared.load()
+        let spot = RecordingPlace(name: "Ennis, Ireland", coordinate: Coordinate(lat: 52.84, lon: -8.98))
+        picked.setPlace(spot, method: .search)
+        cleared.clearPlace()
+
+        var named = take
+        named.placeName = "Galax, VA"
+        let synced = named
+        try await store.write { writer in try writer.put(synced, at: later(1_000)) }
+        let watcher = EditRecordingModel(store: store, recording: take)
+        #expect(try await poll { watcher.place?.name == "Galax, VA" })
+
+        #expect(picked.place == spot)
+        #expect(cleared.place == nil)
+        #expect(!cleared.canClearPlace)
+        #expect(cleared.isEdited)
     }
 
     @Test func takesAPickAndAClearFromThePlaceSearch() async throws {
@@ -711,14 +794,14 @@ private struct RefusingSyncAPI: SyncAPI {
         let edit = EditRecordingModel(store: store, recording: stored)
         let spot = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92))
         let search = PlaceSearchModel(
-            search: { FakePlaceSearch() }, recent: [spot], current: edit.place, onPick: edit.setPlace,
+            search: { FakePlaceSearch() }, recent: [spot], current: { edit.place }, onPick: edit.setPlace,
             onClear: edit.clearPlace)
         #expect(search.pickRecent(spot))
         #expect(edit.place == spot)
         #expect(edit.placeMethod == .suggestion)
         #expect(edit.isEdited)
         let clearing = PlaceSearchModel(
-            search: { FakePlaceSearch() }, recent: [], current: edit.place, onPick: edit.setPlace,
+            search: { FakePlaceSearch() }, recent: [], current: { edit.place }, onPick: edit.setPlace,
             onClear: edit.clearPlace)
         #expect(clearing.clear())
         #expect(edit.place == nil)
@@ -1414,7 +1497,7 @@ private struct RefusingSyncAPI: SyncAPI {
             placed("c", "Galax, VA", minutes: 2),
         ]
         #expect(
-            RecordingSuggestions.recentPlaces(recordings, excluding: "none") == [
+            RecordingSuggestions.recentPlaces(recordings) == [
                 RecordingPlace(name: "Mount Airy, NC", coordinate: Coordinate(lat: 36.5, lon: -80.6)),
                 RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92)),
             ])
@@ -1426,19 +1509,19 @@ private struct RefusingSyncAPI: SyncAPI {
             placed("b", "Springfield, MO", minutes: 2, lat: 37.2),
             placed("c", "Springfield, IL", minutes: 3, lat: 37.2),
         ]
-        let places = RecordingSuggestions.recentPlaces(recordings, excluding: "none")
+        let places = RecordingSuggestions.recentPlaces(recordings)
         #expect(places.map(\.name) == ["Springfield, IL", "Springfield, MO", "Springfield, IL"])
         #expect(places.map(\.coordinate.lat) == [37.2, 37.2, 39.8])
     }
 
-    @Test func skipsUnnamedDeletedAndTheRecordingBeingEdited() {
+    @Test func skipsUnnamedAndDeletedButKeepsEveryLiveRecordingsPlace() {
         let recordings = [
             placed("a", nil, minutes: 4),
             placed("b", "Floyd, VA", minutes: 3, deleted: true),
             placed("c", "Hillsville, VA", minutes: 2),
             placed("d", "Galax, VA", minutes: 1),
         ]
-        #expect(RecordingSuggestions.recentPlaces(recordings, excluding: "c").map(\.name) == ["Galax, VA"])
+        #expect(RecordingSuggestions.recentPlaces(recordings).map(\.name) == ["Hillsville, VA", "Galax, VA"])
     }
 
     @Test func foldsPlayersTrimsAndSortsByName() {

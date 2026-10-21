@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import {
   NavigationType,
@@ -12,9 +12,20 @@ import { useDb } from '../../db/DbProvider'
 import { formatDuration } from '../../text/format'
 import { LiveWaveform } from './LiveWaveform'
 import { savedRecordingPath } from './savedRecordingPath'
-import { DONE, FILING_UNDER, INTERRUPTED_MESSAGE, NEW_RECORDING, STOP } from './recordCopy'
+import {
+  CONTINUE,
+  DONE,
+  FILING_UNDER,
+  INTERRUPTED_MESSAGE,
+  LOCATION_NOTE_BODY,
+  LOCATION_NOTE_TITLE,
+  NEW_RECORDING,
+  STOP,
+} from './recordCopy'
 import { type RecordTarget, useRecordState } from './RecordState'
 import { type RecordSession, type SavedRecording, useRecordSession } from './useRecordSession'
+import { type LocationNote as LocationNoteState, useLocationNote } from './useLocationNote'
+import { Button } from '../../ui/Button'
 import { useLatest } from '../../ui/useLatest'
 import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
@@ -78,6 +89,7 @@ function Take({
     },
     [close, navigate, pathRef, tuneId],
   )
+  const note = useLocationNote()
   const session = useRecordSession({
     tuneId,
     source,
@@ -85,6 +97,8 @@ function Take({
     toast,
     onDone,
     onSaving: saving,
+    armed: note.armed,
+    position: note.position,
   })
   const { phase, live, refuseDismiss, discard } = session
 
@@ -118,8 +132,37 @@ function Take({
       primary={ended ? { label: DONE, onPress: () => close(null) } : undefined}
       onClosed={() => onClosed(target)}
     >
-      <Recorder tuneId={tuneId} session={session} />
+      {note.armed ? (
+        <Recorder tuneId={tuneId} session={session} />
+      ) : (
+        note.showing && <LocationNote note={note} />
+      )}
     </Sheet>
+  )
+}
+
+/** Why the browser is about to ask for location, before the take that asks. */
+function LocationNote({ note }: { note: LocationNoteState }) {
+  const titleId = useId()
+  return (
+    <section
+      aria-labelledby={titleId}
+      className="bg-fill flex flex-col gap-2 rounded-(--radius-surface) p-4"
+    >
+      <h3 id={titleId} className="t-heading">
+        {LOCATION_NOTE_TITLE}
+      </h3>
+      <p className="t-secondary text-ink-2">{LOCATION_NOTE_BODY}</p>
+      <div className="flex pt-2">
+        <Button
+          variant="primary"
+          fullWidth
+          label={CONTINUE}
+          isDisabled={note.asking}
+          onPress={note.proceed}
+        />
+      </div>
+    </section>
   )
 }
 
