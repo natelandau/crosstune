@@ -6,8 +6,12 @@ export function recordingLabel(view: RecordingView): string {
   return view.recording.label?.trim() ?? ''
 }
 
-/** Whether a search finds a recording: by its own label or its tune's title. */
+/** Whether a search finds a recording: by its own label, its tune's title, or its location. */
 export function recordingMatches(view: RecordingView, query: string): boolean {
   const needle = query.trim()
-  return containsText(recordingLabel(view), needle) || containsText(view.tuneTitle ?? '', needle)
+  return (
+    containsText(recordingLabel(view), needle) ||
+    containsText(view.tuneTitle ?? '', needle) ||
+    containsText(view.shownPlace ?? '', needle)
+  )
 }

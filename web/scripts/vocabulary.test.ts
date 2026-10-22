@@ -55,6 +55,9 @@ const ROWS = {
       color: { type: 'integer', minimum: 0, maximum: 5 },
     },
   },
+  PlaceRow: {
+    properties: { name: { type: 'string', maxLength: 200 } },
+  },
   RecordingData: {
     properties: {
       speed_percent: { type: 'integer', minimum: 50, maximum: 150 },
@@ -94,6 +97,7 @@ describe('vocabulary generator', () => {
     expect(text).toContain('export const LIST_LIMITS = {\n  name: 200,\n} as const')
     expect(text).toContain('export const LINK_LIMITS = {\n  url: 2048,\n} as const')
     expect(text).toContain('export const RECORDING_LIMITS = {\n  label: 200,\n} as const')
+    expect(text).toContain('export const PLACE_LIMITS = {\n  name: 200,\n} as const')
     expect(text).toContain('export const LOOP_LIMITS = {\n  label: 100,\n} as const')
     expect(text).not.toContain('is_crooked')
     expect(text).not.toContain('mode:')

@@ -213,6 +213,38 @@ describe('createApiClient', () => {
     expect(url.searchParams.get('q')).toBe('Galax')
   })
 
+  it('fetches a MapKit token and a snapshot url', async () => {
+    const urls: string[] = []
+    const api = makeClient(async (input) => {
+      urls.push(input.url)
+      return input.url.includes('mapkit-token')
+        ? Response.json({ token: 'jwt', expires_at: '2026-10-21T00:30:00Z' })
+        : Response.json({ url: 'https://snapshot.test/a.png' })
+    })
+    await expect(api.mapKitToken()).resolves.toMatchObject({ token: 'jwt' })
+    await expect(
+      api.placeSnapshot({
+        lat: 36.66,
+        lon: -80.92,
+        accuracy_m: 80,
+        width: 100,
+        height: 80,
+        scheme: 'dark',
+      }),
+    ).resolves.toEqual({ url: 'https://snapshot.test/a.png' })
+    expect(new URL(urls[0]!).pathname).toBe('/v1/places/mapkit-token')
+    const snapshot = new URL(urls[1]!)
+    expect(snapshot.pathname).toBe('/v1/places/snapshot')
+    expect(Object.fromEntries(snapshot.searchParams)).toEqual({
+      lat: '36.66',
+      lon: '-80.92',
+      accuracy_m: '80',
+      width: '100',
+      height: '80',
+      scheme: 'dark',
+    })
+  })
+
   it('sends DELETE /v1/me and resolves on 204', async () => {
     const fetchMock = vi.fn<FetchMock>(async (input) => {
       expect(input.method).toBe('DELETE')

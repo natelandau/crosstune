@@ -61,6 +61,8 @@ function fakeEngine(): SyncEngine & { calls: number } {
     resolveLink: async () => null,
     searchRecordings: async () => ({ kind: 'failed' as const }),
     searchPlaces: async () => ({ kind: 'failed' as const }),
+    mapKitToken: async () => null,
+    placeSnapshot: async () => null,
     download: async () => null,
     peaks: async () => null,
     fetchFile: async () => new Blob(),

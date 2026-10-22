@@ -3,6 +3,7 @@ import {
   AudioLines,
   Guitar,
   ListPlus,
+  MapPin,
   Mic,
   RefreshCw,
   SunMoon,
@@ -14,6 +15,7 @@ import { SETTINGS_PAGE_IDS, type SettingsPageId } from './settingsPaths'
 import { AUDIO_QUALITY_NAMES } from '../../constants'
 import { RECORDING } from '../../text/format'
 import { APPEARANCE_LABELS, type Appearance } from '../../theme/appearance'
+import { SAVED_LOCATIONS } from '../recordings/recordingsCopy'
 import { MUSIC_SERVICES } from './searchProviders'
 import {
   ACCOUNT,
@@ -69,6 +71,7 @@ export const SETTINGS_PAGES: readonly SettingsPageSpec[] = [
     icon: Mic,
     summary: (values) => AUDIO_QUALITY_NAMES[values.quality],
   },
+  { id: 'saved-locations', title: SAVED_LOCATIONS, icon: MapPin },
   {
     id: 'appearance',
     title: APPEARANCE,

@@ -137,6 +137,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/places/mapkit-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mapkit Token
+         * @description Issue a short-lived MapKit JS token restricted to the web origin.
+         */
+        get: operations["mapkit_token_v1_places_mapkit_token_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/places/search": {
         parameters: {
             query?: never;
@@ -151,6 +171,26 @@ export interface paths {
          *     Results lean toward the account's country, never toward the user's own location.
          */
         get: operations["search_places_v1_places_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/places/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Snapshot
+         * @description A signed snapshot URL with a pin at a precise point, or a circle of the fix's accuracy.
+         */
+        get: operations["snapshot_v1_places_snapshot_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -447,7 +487,7 @@ export interface components {
              * Table
              * @enum {string}
              */
-            table: "tunes" | "user_tunes" | "lists" | "list_items" | "recording_links" | "recordings" | "scans" | "recording_loops" | "user_settings" | "play_events" | "practice_sessions" | "scan_views" | "entitlements";
+            table: "tunes" | "user_tunes" | "lists" | "list_items" | "recording_links" | "places" | "recordings" | "scans" | "recording_loops" | "user_settings" | "play_events" | "practice_sessions" | "scan_views" | "entitlements";
             /**
              * Updated At
              * Format: date-time
@@ -766,6 +806,19 @@ export interface components {
             user_id: string;
         };
         /**
+         * MapKitTokenResponse
+         * @description A MapKit JS token for the web client's map, good only on the web origin.
+         */
+        MapKitTokenResponse: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Token */
+            token: string;
+        };
+        /**
          * MeResponse
          * @description The calling user's public profile.
          */
@@ -830,14 +883,63 @@ export interface components {
             url: string;
         };
         /**
+         * PlaceChangeResult
+         * @description The outcome of one change to a saved place.
+         */
+        PlaceChangeResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason?: string | null;
+            row?: components["schemas"]["PlaceRow"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "applied" | "stale" | "invalid";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "places";
+        };
+        /** @enum {string} */
+        PlaceKind: "venue" | "address" | "town";
+        /**
+         * PlaceOrigin
+         * @description How a recording's coordinates were obtained.
+         * @enum {string}
+         */
+        PlaceOrigin: "device" | "file" | "picked";
+        /**
+         * PlacePullRow
+         * @description A saved place row in a pull page.
+         */
+        PlacePullRow: {
+            row: components["schemas"]["PlaceRow"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "places";
+        };
+        /**
          * PlaceResult
          * @description A place to pick: the name a recording stores, its coordinates, and how a list shows it.
          *
          *     `title` is the list row's main line: a named place's own name, a street address, or a
          *     town. `subtitle` is the line under it that tells same-named results apart, the street and
-         *     town of a named place or the town of an address, and is null for a town.
+         *     town of a named place or the town of an address, and is null for a town. `kind` says which
+         *     of the three it is, so a client saves a venue or an address as a location and not a town;
+         *     `address` is a venue's `street, town` line, null for an address or a town.
          */
         PlaceResult: {
+            /** Address */
+            address?: string | null;
+            kind: components["schemas"]["PlaceKind"];
             /** Lat */
             lat: number;
             /** Lon */
@@ -848,6 +950,46 @@ export interface components {
             subtitle?: string | null;
             /** Title */
             title: string;
+        };
+        /**
+         * PlaceRow
+         * @description A stored saved place, as push and pull return it.
+         */
+        PlaceRow: {
+            /** Address */
+            address?: string | null;
+            /** Apple Place Id */
+            apple_place_id?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /** Name */
+            name: string;
+            /** Server Seq */
+            server_seq: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
         };
         /**
          * PlaceSearchResponse
@@ -1132,7 +1274,7 @@ export interface components {
             /** Next Since */
             next_since: number;
             /** Rows */
-            rows: (components["schemas"]["TunePullRow"] | components["schemas"]["UserTunePullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["RecordingPullRow"] | components["schemas"]["ScanPullRow"] | components["schemas"]["RecordingLoopPullRow"] | components["schemas"]["UserSettingsPullRow"] | components["schemas"]["EntitlementPullRow"])[];
+            rows: (components["schemas"]["TunePullRow"] | components["schemas"]["UserTunePullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["PlacePullRow"] | components["schemas"]["RecordingPullRow"] | components["schemas"]["ScanPullRow"] | components["schemas"]["RecordingLoopPullRow"] | components["schemas"]["UserSettingsPullRow"] | components["schemas"]["EntitlementPullRow"])[];
         };
         /**
          * PushRequest
@@ -1148,7 +1290,7 @@ export interface components {
          */
         PushResponse: {
             /** Results */
-            results: (components["schemas"]["TuneChangeResult"] | components["schemas"]["UserTuneChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["RecordingChangeResult"] | components["schemas"]["ScanChangeResult"] | components["schemas"]["RecordingLoopChangeResult"] | components["schemas"]["UserSettingsChangeResult"] | components["schemas"]["PlayEventChangeResult"] | components["schemas"]["PracticeSessionChangeResult"] | components["schemas"]["ScanViewChangeResult"] | components["schemas"]["EntitlementChangeResult"])[];
+            results: (components["schemas"]["TuneChangeResult"] | components["schemas"]["UserTuneChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["PlaceChangeResult"] | components["schemas"]["RecordingChangeResult"] | components["schemas"]["ScanChangeResult"] | components["schemas"]["RecordingLoopChangeResult"] | components["schemas"]["UserSettingsChangeResult"] | components["schemas"]["PlayEventChangeResult"] | components["schemas"]["PracticeSessionChangeResult"] | components["schemas"]["ScanViewChangeResult"] | components["schemas"]["EntitlementChangeResult"])[];
         };
         /**
          * RecordingChangeResult
@@ -1217,6 +1359,11 @@ export interface components {
              */
             place_accuracy_m: number | null;
             /**
+             * Place Id
+             * @default null
+             */
+            place_id: string | null;
+            /**
              * Place Lat
              * @default null
              */
@@ -1231,6 +1378,8 @@ export interface components {
              * @default null
              */
             place_name: string | null;
+            /** @default null */
+            place_origin: components["schemas"]["PlaceOrigin"] | null;
             /**
              * Players
              * @default null
@@ -1501,12 +1650,15 @@ export interface components {
             pitch_cents: number;
             /** Place Accuracy M */
             place_accuracy_m?: number | null;
+            /** Place Id */
+            place_id?: string | null;
             /** Place Lat */
             place_lat?: number | null;
             /** Place Lon */
             place_lon?: number | null;
             /** Place Name */
             place_name?: string | null;
+            place_origin?: components["schemas"]["PlaceOrigin"] | null;
             /** Playback Bytes */
             playback_bytes: number | null;
             /** Playback End Ms */
@@ -1878,6 +2030,14 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * SnapshotResponse
+         * @description A signed Apple Maps snapshot image URL.
+         */
+        SnapshotResponse: {
             /** Url */
             url: string;
         };
@@ -2560,6 +2720,44 @@ export interface operations {
             };
         };
     };
+    mapkit_token_v1_places_mapkit_token_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapKitTokenResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     search_places_v1_places_search_get: {
         parameters: {
             query: {
@@ -2594,6 +2792,51 @@ export interface operations {
                 headers: {
                     /** @description Whole seconds to wait before trying again. */
                     "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    snapshot_v1_places_snapshot_get: {
+        parameters: {
+            query: {
+                lat: number;
+                lon: number;
+                width: number;
+                height: number;
+                scheme: "light" | "dark";
+                accuracy_m?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnapshotResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {

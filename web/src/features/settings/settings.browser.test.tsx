@@ -7,7 +7,7 @@ import { AUDIO_QUALITY_NAMES, INSTRUMENT_LABELS, STATUS_LABELS } from '../../con
 import { setStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { RECORDING } from '../../text/format'
-import { LOCATION_ACCESS_OFF, STORAGE_USED } from '../recordings/recordingsCopy'
+import { LOCATION_ACCESS_OFF, SAVED_LOCATIONS, STORAGE_USED } from '../recordings/recordingsCopy'
 import {
   APPEARANCE_KEY,
   APPEARANCE_LABELS,
@@ -97,6 +97,7 @@ it('lists the categories in order, each with its summary, on the phone', async (
       NEW_TUNES,
       MUSIC_SERVICES,
       RECORDING,
+      SAVED_LOCATIONS,
       APPEARANCE,
       SYNC_AND_STORAGE,
       IMPORT_AND_EXPORT,

@@ -26,6 +26,7 @@ export function TextField({
   isInvalid = false,
   describedBy,
   autoFocus = false,
+  onFocusChange,
   ref,
 }: {
   /** The visible label of a row, and the accessible name either way. */
@@ -44,6 +45,8 @@ export function TextField({
   /** The id of the message that describes the field, such as why it is refused. */
   describedBy?: string
   autoFocus?: boolean
+  /** Called as the field gains and loses focus. */
+  onFocusChange?: (focused: boolean) => void
   ref?: Ref<HTMLInputElement & HTMLTextAreaElement>
 }) {
   const field = multiline ? (
@@ -71,6 +74,7 @@ export function TextField({
       isInvalid={isInvalid}
       aria-describedby={describedBy}
       autoFocus={autoFocus}
+      onFocusChange={onFocusChange}
       className={standalone ? 'flex' : FIELD_ROW_BARE}
     >
       {!standalone && <Label className={`${FIELD_LABEL} ps-4`}>{label}</Label>}

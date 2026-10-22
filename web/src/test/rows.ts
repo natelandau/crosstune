@@ -2,6 +2,7 @@ import type { ScanFile } from '../db/scans'
 import type { RecordingFile } from '../db/recordings'
 import type {
   LocalEntitlement,
+  LocalPlace,
   LocalPlayEvent,
   LocalScanView,
   LocalPracticeSession,
@@ -94,6 +95,8 @@ export function recordingRow(id: string, extra: Partial<LocalRecording> = {}): L
     notes: null,
     players: null,
     place_name: null,
+    place_id: null,
+    place_origin: null,
     place_lat: null,
     place_lon: null,
     place_accuracy_m: null,
@@ -264,6 +267,22 @@ export function entitlementRow(extra: Partial<LocalEntitlement> = {}): LocalEnti
     recording_notice_seen_at: null,
     trial_reminder_seen_at: null,
     trial_end_seen_at: null,
+    ...extra,
+  }
+}
+
+export function placeRow(id: string, name: string, extra: Partial<LocalPlace> = {}): LocalPlace {
+  return {
+    id,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    deleted_at: null,
+    server_seq: 0,
+    name,
+    lat: 36.66,
+    lon: -80.92,
+    address: null,
+    apple_place_id: null,
     ...extra,
   }
 }

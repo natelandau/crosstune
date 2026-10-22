@@ -17,12 +17,15 @@ export type SearchGroup = Schemas['SearchGroup']
 export type SearchResult = Schemas['SearchResult']
 export type PlaceSearchResponse = Schemas['PlaceSearchResponse']
 export type PlaceResult = Schemas['PlaceResult']
+export type MapKitTokenResponse = Schemas['MapKitTokenResponse']
+export type SnapshotResponse = Schemas['SnapshotResponse']
 export type Problem = Schemas['Problem']
 
 export type EntitlementRow = Schemas['EntitlementRow']
 export type TuneRow = Schemas['TuneRow']
 export type UserTuneRow = Schemas['UserTuneRow']
 export type RecordingLinkRow = Schemas['RecordingLinkRow']
+export type PlaceRow = Schemas['PlaceRow']
 export type RecordingLoopRow = Schemas['RecordingLoopRow']
 export type ScanRow = Schemas['ScanRow']
 export type ListRow = Schemas['ListRow']
@@ -42,6 +45,15 @@ export type ScanUploadSlotRequest = Schemas['ScanUploadSlotRequest']
 export type RegionResponse = Schemas['RegionResponse']
 export type Notice = Schemas['NoticeRequest']['notice']
 
+export type SnapshotQuery = {
+  lat: number
+  lon: number
+  accuracy_m?: number | null
+  width: number
+  height: number
+  scheme: 'light' | 'dark'
+}
+
 export interface SyncApi {
   push(changes: Change[]): Promise<PushResponse>
   pull(since: number): Promise<PullResponse>
@@ -50,6 +62,11 @@ export interface SyncApi {
   resolveLink(url: string): Promise<ResolveResponse>
   searchRecordings(q: string, providers: Provider[], country: string): Promise<SearchResponse>
   searchPlaces(q: string): Promise<PlaceSearchResponse>
+  /** A short-lived MapKit JS token for this web origin. Rejects with a 503 `ApiError` when the
+   * server has no Maps key. */
+  mapKitToken(): Promise<MapKitTokenResponse>
+  /** A signed map image URL for a point, with a circle when `accuracy_m` is set. */
+  placeSnapshot(query: SnapshotQuery): Promise<SnapshotResponse>
   me(): Promise<MeResponse>
   /** Which privacy rules apply to the caller. Needs no session, so it works before sign-in. */
   region(): Promise<RegionResponse>

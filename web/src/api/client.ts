@@ -168,6 +168,12 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     async searchPlaces(q) {
       return unwrap(client.GET('/v1/places/search', { params: { query: { q } } }))
     },
+    async mapKitToken() {
+      return unwrap(client.GET('/v1/places/mapkit-token'))
+    },
+    async placeSnapshot(query) {
+      return unwrap(client.GET('/v1/places/snapshot', { params: { query } }))
+    },
     async me() {
       return unwrap(client.GET('/v1/me'))
     },

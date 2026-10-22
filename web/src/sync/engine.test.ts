@@ -908,7 +908,14 @@ describe('createSyncEngine', () => {
 
   describe('searchPlaces', () => {
     const results = [
-      { name: 'Galax, VA', lat: 36.66, lon: -80.92, title: 'Galax, VA', subtitle: null },
+      {
+        name: 'Galax, VA',
+        lat: 36.66,
+        lon: -80.92,
+        title: 'Galax, VA',
+        subtitle: null,
+        kind: 'town' as const,
+      },
     ]
     const withSearch = (searchPlaces: SyncApi['searchPlaces'], isOnline = () => true) =>
       createSyncEngine({
@@ -958,6 +965,41 @@ describe('createSyncEngine', () => {
         throw new ApiError(500, null)
       })
       await expect(server.searchPlaces('Ga')).resolves.toEqual({ kind: 'failed' })
+    })
+  })
+
+  describe('map services', () => {
+    const query = { lat: 1, lon: 2, width: 100, height: 80, scheme: 'light' as const }
+    const withApi = (api: Partial<SyncApi>, isOnline = () => true) =>
+      createSyncEngine({ analytics: noopAnalytics, db, api: { ...fake.api, ...api }, isOnline })
+
+    it('hands back the token and the snapshot url', async () => {
+      const engine = withApi({
+        mapKitToken: async () => ({ token: 'jwt', expires_at: '2026-10-21T00:30:00Z' }),
+        placeSnapshot: async () => ({ url: 'https://snapshot.test/a.png' }),
+      })
+      await expect(engine.mapKitToken()).resolves.toBe('jwt')
+      await expect(engine.placeSnapshot(query)).resolves.toBe('https://snapshot.test/a.png')
+    })
+
+    it('answers null on a failed call or offline, without calling the API offline', async () => {
+      const token = vi.fn()
+      const snapshot = vi.fn()
+      const offline = withApi({ mapKitToken: token, placeSnapshot: snapshot }, () => false)
+      await expect(offline.mapKitToken()).resolves.toBeNull()
+      await expect(offline.placeSnapshot(query)).resolves.toBeNull()
+      expect(token).not.toHaveBeenCalled()
+      expect(snapshot).not.toHaveBeenCalled()
+      const failing = withApi({
+        mapKitToken: async () => {
+          throw new ApiError(503, null)
+        },
+        placeSnapshot: async () => {
+          throw new ApiError(503, null)
+        },
+      })
+      await expect(failing.mapKitToken()).resolves.toBeNull()
+      await expect(failing.placeSnapshot(query)).resolves.toBeNull()
     })
   })
 })

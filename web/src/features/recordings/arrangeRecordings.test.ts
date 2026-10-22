@@ -338,3 +338,12 @@ describe('the list header count', () => {
     expect(recordingCountLabel(0, 24)).toBe('0 of 24 recordings')
   })
 })
+
+describe('arrangeRecordings search', () => {
+  it('finds a recording by the location it shows', () => {
+    const at = { ...view('u1', { minutes: 1 }), shownPlace: 'Town Hall' }
+    const elsewhere = view('u2', { minutes: 2 })
+    const result = arrangeRecordings([at, elsewhere], choice('added', true), 'town')
+    expect(ids(result.unfiled)).toEqual(['u1'])
+  })
+})

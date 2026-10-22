@@ -14,7 +14,7 @@ import type {
   UserTuneRow,
 } from '../../../api/types'
 import { stripOwnership, type LocalRecording } from '../../../db/types'
-import { scanRow, recordingRow, tuneRow, userTuneRow } from '../../../test/rows'
+import { placeRow, scanRow, recordingRow, tuneRow, userTuneRow } from '../../../test/rows'
 import {
   audioExtension,
   buildExport,
@@ -55,6 +55,7 @@ function fromFixture(data: Fixture): ExportInput {
     recordings: data.recordings.map(stripOwnership),
     scans: data.scans.map(stripOwnership),
     scanIds: new Set(data.local_scans),
+    places: [],
     audio: data.local_files.map((file) => ({
       recordingId: file.recording_id,
       contentType: file.content_type,
@@ -75,6 +76,7 @@ function emptyInput(): ExportInput {
     audio: [],
     scans: [],
     scanIds: new Set(),
+    places: [],
   }
 }
 
@@ -138,6 +140,29 @@ test('pairs each exported path with its recording', () => {
     [id(671), 'recordings/Unfiled/2026-09-30 Unknown reel.m4a'],
     [id(691), 'recordings/Unfiled/2026-10-01.m4a'],
   ])
+})
+
+test('writes the location a recording shows: its saved location’s name while that is live', () => {
+  const at = { place_name: '1 Main St', place_lat: 36.66, place_lon: -80.92 }
+  const plan = buildExport({
+    ...emptyInput(),
+    recordings: [
+      recordingRow('linked', { tune_id: null, ...at, place_id: 'p1' }),
+      recordingRow('gone', { tune_id: null, ...at, place_id: 'p2' }),
+      recordingRow('unnamed', { tune_id: null, ...at, place_name: null, place_id: 'p1' }),
+    ],
+    places: [
+      placeRow('p1', 'Town Hall'),
+      placeRow('p2', 'Old barn', { deleted_at: '2026-02-01T00:00:00.000Z' }),
+    ],
+  })
+  const place = RECORDINGS_HEADER.indexOf('place')
+  const rows = plan.recordingsCsv
+    .slice(1)
+    .split('\r\n')
+    .slice(1, -1)
+    .map((line) => line.split(',')[place])
+  expect(rows.sort()).toEqual(['1 Main St', 'Town Hall', 'Town Hall'])
 })
 
 test('names a recording by when it was added, whatever its recorded date', () => {

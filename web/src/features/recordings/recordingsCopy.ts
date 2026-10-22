@@ -1,3 +1,4 @@
+import { NOT_SET } from '../../ui/fieldCopy'
 export const NO_RECORDINGS_TITLE = 'No recordings yet'
 export const NO_RECORDINGS_HINT = 'Use the record button to make one, or upload an audio file.'
 export const SEARCH_RECORDINGS = 'Search recordings'
@@ -34,3 +35,26 @@ export const locationSearchBusy = (seconds: number) => {
   const wait = Math.max(1, Math.ceil(seconds))
   return `Location search is busy. Try again in ${wait} ${wait === 1 ? 'second' : 'seconds'}.`
 }
+
+/** The location page's sections and actions. */
+export const CURRENT_LOCATION = 'Current'
+export const NEARBY_LOCATIONS = 'Nearby'
+export const SAVED_LOCATIONS = 'Saved locations'
+export const RECENT_LOCATIONS = 'Recent locations'
+export const NAME_THIS_LOCATION = 'Name this location…'
+export const OPEN_IN_MAPS = 'Open in Maps'
+export const SEARCH_LOCATIONS = 'Search locations'
+/** The practice header's location control, named for what it opens. */
+export const editLocation = (name: string) => `Edit location, ${name}`
+/** The edit sheet's Location row, which opens the location page. */
+export const locationRowName = (name: string | null) => `${LOCATION_LABEL}, ${name ?? NOT_SET}`
+/** Naming the take's spot as a saved location. */
+export const NAME_LOCATION_TITLE = 'Name this location'
+export const SAVED_HERE = 'Saved here'
+export const LOCATION_NAME_LABEL = 'Location name'
+export const NAME_LOCATION_HELP = 'Recordings made here show this name.'
+/** Saves the typed name for the take's spot, once the edit is saved. */
+export const SAVE_LOCATION_NAME = 'Save'
+/** The name of a row that picks a location: the verb, then the row's lines. */
+export const pickLocationName = (name: string, detail?: string | null) =>
+  detail ? `Use ${name}, ${detail}` : `Use ${name}`

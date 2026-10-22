@@ -16,6 +16,8 @@ import {
   LOCATION_ACCESS_OFF,
   NOTES_LABEL,
   LOCATION_LABEL,
+  locationRowName,
+  pickLocationName,
   PLAYERS_LABEL,
   SAVE_RECORDING,
 } from './recordingsCopy'
@@ -100,10 +102,14 @@ it('edits notes, players, and place, offering the ones used before', async () =>
   await players.click()
   await page.getByRole('option', { name: 'Ruth' }).click()
   await expect.element(players).toHaveValue('Ruth')
-  const place = dialog.getByRole('combobox', { name: LOCATION_LABEL })
-  await place.click()
-  await page.getByRole('option', { name: galax.place_name }).click()
-  await expect.element(place).toHaveValue(galax.place_name)
+  await dialog.getByRole('button', { name: locationRowName(null) }).click()
+  await page
+    .getByRole('dialog', { name: LOCATION_LABEL })
+    .getByRole('button', { name: pickLocationName(galax.place_name), exact: true })
+    .click()
+  await expect
+    .element(dialog.getByRole('button', { name: locationRowName(galax.place_name) }))
+    .toBeVisible()
   await dialog.getByRole('button', { name: SAVE_RECORDING, exact: true }).click()
   await expect.element(dialog).not.toBeInTheDocument()
   await expect.poll(async () => (await db.recordings.get('r1'))?.notes).toBe('Capo 2')
@@ -111,12 +117,15 @@ it('edits notes, players, and place, offering the ones used before', async () =>
   expect(stored).toMatchObject({ players: 'Ruth', ...galax, place_accuracy_m: null })
 })
 
-it('says under the location field that location access is off, while it is', async () => {
-  const permission = fakeLocationPermissionForTest('denied')
+it('leaves the location access note to the location page', async () => {
+  fakeLocationPermissionForTest('denied')
   const { dialog } = await editFromTunePage()
-  await expect.element(dialog.getByText(LOCATION_ACCESS_OFF)).toBeVisible()
-  permission.set('prompt')
-  await expect.element(dialog.getByText(LOCATION_ACCESS_OFF)).not.toBeInTheDocument()
+  await expect.element(dialog.getByRole('button', { name: locationRowName(null) })).toBeVisible()
+  expect(dialog.getByText(LOCATION_ACCESS_OFF).query()).toBeNull()
+  await dialog.getByRole('button', { name: locationRowName(null) }).click()
+  await expect
+    .element(page.getByRole('dialog', { name: LOCATION_LABEL }).getByText(LOCATION_ACCESS_OFF))
+    .toBeVisible()
 })
 
 it('takes players typed straight into an empty field', async () => {

@@ -154,7 +154,7 @@ export function rankResults({ query, tunes, lists, recordings, commands }: Quick
       recordings
         .filter((view) => recordingMatches(view, needle))
         .sort((a, b) => compareNames(recordingTitle(a), recordingTitle(b))),
-      (view) => [recordingLabel(view), view.tuneTitle ?? ''],
+      (view) => [recordingLabel(view), view.tuneTitle ?? '', view.shownPlace ?? ''],
       needle,
     )
     sections.push(

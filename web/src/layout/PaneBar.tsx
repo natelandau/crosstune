@@ -114,12 +114,21 @@ export function PaneBar({
  * Back to a pushed page's parent on phone and split, named for the parent. It walks history
  * when the entry behind is the parent, so Back stays Back; after a deep link or a refresh
  * nothing is behind, and it replaces the page with its parent instead. Wide shows the parent
- * beside the page, so there it renders nothing.
+ * beside the page, so there it renders nothing unless `onWide` says the parent is not.
  */
-export function BackLink({ to, label }: { to: string; label: string }) {
+export function BackLink({
+  to,
+  label,
+  onWide = false,
+}: {
+  to: string
+  label: string
+  /** Shows on wide too, for a parent that is not beside the page. */
+  onWide?: boolean
+}) {
   const frame = useFrame()
   const leave = useLeaveTo()
-  if (frame === 'wide') return null
+  if (frame === 'wide' && !onWide) return null
   return (
     <Link
       to={to}

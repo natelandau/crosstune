@@ -1,4 +1,5 @@
 import { formatBytes } from '../../text/format'
+import { NAME_LOCATION_TITLE } from '../recordings/recordingsCopy'
 
 export const SIGN_OUT = 'Sign out'
 export const ACCOUNT_OFFLINE = 'Signing out and deleting your account need a connection.'
@@ -48,3 +49,21 @@ export const USAGE_DATA_HELP =
 export const aboutLine = (version: string) => `Crosstune ${version}`
 
 export const SETTINGS_CATEGORIES = 'Settings categories'
+
+export const SAVED_LOCATIONS_HELP =
+  'Locations you have named. A recording made at one shows its name instead of its address.'
+export const SAVED_LOCATIONS_EMPTY_TITLE = 'No saved locations'
+export const SAVED_LOCATIONS_EMPTY_HINT = `Open a recording's location and choose "${NAME_LOCATION_TITLE}", or pick a nearby place.`
+export const SAVED_LOCATION_NAME_LABEL = 'Name'
+export const SAVED_LOCATION_NAME_HELP = 'Recordings at this location show this name.'
+export const SAVED_LOCATION_RECORDINGS = 'Recordings'
+export const DELETE_LOCATION = 'Delete location'
+export const DELETE_LOCATION_MESSAGE =
+  'Its recordings keep their location and show their street address.'
+export const LOCATION_GONE = 'Location not found'
+
+export const savedLocationRecordings = (count: number) =>
+  count === 1 ? '1 recording' : `${count} recordings`
+
+/** `Delete "Town Hall"?` */
+export const deleteLocationTitle = (name: string) => `Delete "${name}"?`

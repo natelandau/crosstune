@@ -1,4 +1,4 @@
-import { X, type LucideIcon } from 'lucide-react'
+import { ChevronLeft, X, type LucideIcon } from 'lucide-react'
 import {
   AnimatePresence,
   animate,
@@ -21,7 +21,7 @@ import {
   type ReactNode,
 } from 'react'
 import { Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components'
-import { CANCEL, CLOSE } from './confirmCopy'
+import { BACK, CANCEL, CLOSE } from './confirmCopy'
 import { useLatest } from './useLatest'
 import { useStampedDensity } from '../platform/density'
 import { DURATION, EASE, SPRING } from '../theme/motion'
@@ -106,6 +106,11 @@ export interface SheetProps {
   stackedActions?: boolean
   /** A quiet action at the footer's leading end, such as Reset or Back. */
   tertiary?: SheetAction
+  /**
+   * Shows a Back control leading the header, for a sheet whose body has swapped to a page of its
+   * own, in place of the header's close button.
+   */
+  onBack?: () => void
   /** Above the actions, such as a choice the primary acts on. */
   accessory?: ReactNode
   /** Below the actions, such as the terms of a sale. */
@@ -162,12 +167,15 @@ function SheetHeader({
   title,
   edge,
   onClose,
+  onBack,
 }: {
   title?: string
   /** Content has scrolled up under the header, so a hairline sets it apart. */
   edge: boolean
   /** Shown as a close button, for a sheet with no footer. */
   onClose?: () => void
+  /** Shown as a Back control leading the title, which takes the close button's place. */
+  onBack?: () => void
 }) {
   return (
     // The body takes 4px of the gap below, so the ring of a field at its top is not clipped.
@@ -176,6 +184,11 @@ function SheetHeader({
         edge ? 'border-hairline' : 'border-transparent'
       }`}
     >
+      {onBack && (
+        <span className="-ms-2 flex">
+          <Button iconOnly icon={ChevronLeft} label={BACK} onPress={onBack} />
+        </span>
+      )}
       {title === undefined ? (
         <div className="min-w-0 flex-1" />
       ) : (
@@ -183,7 +196,7 @@ function SheetHeader({
           {title}
         </Heading>
       )}
-      {onClose && <Button iconOnly icon={X} label={CLOSE} onPress={onClose} />}
+      {onClose && !onBack && <Button iconOnly icon={X} label={CLOSE} onPress={onClose} />}
     </header>
   )
 }
@@ -346,6 +359,7 @@ function PointerDialog(props: SheetProps) {
     stackedActions = false,
     inlineActions = false,
     tertiary,
+    onBack,
     accessory,
     footnote,
     origin,
@@ -376,6 +390,7 @@ function PointerDialog(props: SheetProps) {
           title={title}
           edge={edges.top}
           onClose={actions && !closeButton ? undefined : close}
+          onBack={onBack}
         />
         <div ref={setContent} className="min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-4">
           <div>
@@ -445,6 +460,7 @@ function TouchSheet(props: SheetProps) {
     stackedActions = false,
     inlineActions = false,
     tertiary,
+    onBack,
     accessory,
     footnote,
     origin,
@@ -609,6 +625,7 @@ function TouchSheet(props: SheetProps) {
                 title={title}
                 edge={edges.top}
                 onClose={actions && !closeButton ? undefined : close}
+                onBack={onBack}
               />
             </div>
             <div

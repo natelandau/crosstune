@@ -279,6 +279,27 @@ it('closes from a header button when it has no actions', async () => {
 })
 
 it.each(['pointer', 'touch'] as const)(
+  'leads its header with Back in place of Close on %s',
+  async (density) => {
+    const onBack = vi.fn()
+    const onOpenChange = vi.fn()
+    renderWithProviders(
+      <Sheet isOpen onOpenChange={onOpenChange} title="Location" cancel={null} onBack={onBack}>
+        <p>Body</p>
+      </Sheet>,
+      { density },
+    )
+    const back = page.getByRole('button', { name: 'Back' })
+    await expect.element(back).toBeVisible()
+    expect(back.element().closest('header')).not.toBeNull()
+    expect(page.getByRole('button', { name: 'Close' }).query()).toBeNull()
+    await back.click()
+    await expect.poll(() => onBack.mock.calls.length).toBe(1)
+    expect(onOpenChange).not.toHaveBeenCalled()
+  },
+)
+
+it.each(['pointer', 'touch'] as const)(
   'pins an accessory above the actions and a footnote below them on %s',
   async (density) => {
     renderWithProviders(

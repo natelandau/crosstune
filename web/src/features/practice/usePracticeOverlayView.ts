@@ -4,7 +4,7 @@ import { useDb } from '../../db/DbProvider'
 import { liveTune } from '../../db/tunes'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { formatDuration, recordingDateLabel } from '../../text/format'
-import { recordingCredits } from '../recordings/place'
+import { shownPlaceName } from '../recordings/place'
 import { recordingTitle } from '../recordings/recordingRow'
 import type { RecordingView } from '../recordings/useRecordings'
 import { shownPeaks, trimmedLengthMs, type ShownPeaks } from './recordingRange'
@@ -19,8 +19,10 @@ export interface PracticeOverlayView {
   view: RecordingView | null
   /** The tune's own name, not the row's heading, so a tune is never dropped. Empty until read. */
   title: string
-  /** When it was recorded and how long it plays. Empty until read. */
+  /** When it was recorded, how long it plays, and its players. Empty until read. */
   subtitle: string
+  /** The location the recording shows, its saved location's name first; null when it has none. */
+  location: string | null
   /** The peaks for the trimmed range, or null when there are none that line up. */
   peaks: ShownPeaks | null
   rowLengthMs: number
@@ -35,7 +37,12 @@ export interface PracticeOverlayView {
   error: string | null
   setError: (error: string | null) => void
   editing: RecordingView | null
+  /** Opens the edit sheet on its form, or closes it with null. */
   setEditing: (view: RecordingView | null) => void
+  /** Which page the edit sheet opens on; undefined for its form. */
+  editPage: 'location' | undefined
+  /** Opens the edit sheet on the location page. */
+  openLocation: () => void
   filing: RecordingView | null
   setFiling: (view: RecordingView | null) => void
 }
@@ -52,7 +59,9 @@ export function usePracticeOverlayView(id: string): PracticeOverlayView {
     const recording = (await db.recordings.get(id)) ?? null
     const tune = recording?.tune_id ? await db.tunes.get(recording.tune_id) : null
     const live = liveTune(tune)
+    const place = recording?.place_id ? await db.places.get(recording.place_id) : undefined
     return {
+      place,
       recording: recording && !recording.deleted_at ? recording : null,
       file: await db.recording_files.get(id),
       tuneId: live?.id ?? null,
@@ -67,6 +76,10 @@ export function usePracticeOverlayView(id: string): PracticeOverlayView {
             file: loaded.file,
             tuneId: loaded.tuneId,
             tuneTitle: loaded.tuneTitle,
+            shownPlace: shownPlaceName(
+              loaded.recording,
+              new Map(loaded.place ? [[loaded.place.id, loaded.place]] : []),
+            ),
           }
         : null,
     [loaded],
@@ -74,7 +87,12 @@ export function usePracticeOverlayView(id: string): PracticeOverlayView {
   const recording = view?.recording ?? null
   const file = view?.file
 
-  const [editing, setEditing] = useState<RecordingView | null>(null)
+  const [editing, setEditingView] = useState<RecordingView | null>(null)
+  const [editPage, setEditPage] = useState<'location' | undefined>(undefined)
+  const setEditing = (next: RecordingView | null) => {
+    setEditPage(undefined)
+    setEditingView(next)
+  }
   const [filing, setFiling] = useState<RecordingView | null>(null)
   const [trimNotice, setTrimNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -136,7 +154,7 @@ export function usePracticeOverlayView(id: string): PracticeOverlayView {
     ? [
         recordingDateLabel(recording),
         formatDuration(rowLengthMs),
-        ...recordingCredits(recording),
+        ...(recording.players ? [recording.players] : []),
       ].join(' · ')
     : ''
 
@@ -144,6 +162,7 @@ export function usePracticeOverlayView(id: string): PracticeOverlayView {
     view,
     title,
     subtitle,
+    location: view?.shownPlace ?? null,
     peaks,
     rowLengthMs,
     audio,
@@ -162,6 +181,12 @@ export function usePracticeOverlayView(id: string): PracticeOverlayView {
     setError,
     editing,
     setEditing,
+    editPage,
+    openLocation: () => {
+      if (!view) return
+      setEditPage('location')
+      setEditingView(view)
+    },
     filing,
     setFiling,
   }

@@ -54,6 +54,7 @@ export function Row({
   stacked = false,
   titleEnd,
   titleTransition,
+  current = false,
 }: {
   id: Key
   textValue: string
@@ -76,6 +77,11 @@ export function Row({
   titleEnd?: ReactNode
   /** The view-transition name the title carries, so a page title can grow out of it. */
   titleTransition?: string
+  /**
+   * Drawn and announced as the open page while the list holds no selection for it, such as a
+   * settings category with one of its own pages open.
+   */
+  current?: boolean
 }) {
   const density = useStampedDensity()
   const descriptionId = useId()
@@ -118,6 +124,12 @@ export function Row({
       row.removeEventListener(FOCUS_RESTORE_EVENT, onRestore)
     }
   }, [row, openAtRef, hasMenuRef])
+  // Nor aria-current.
+  useEffect(() => {
+    if (!row || !current) return
+    row.setAttribute('aria-current', 'page')
+    return () => row.removeAttribute('aria-current')
+  }, [row, current])
   // GridListItem does not forward aria-describedby to its row element either.
   useEffect(() => {
     if (!row || !description) return
@@ -195,11 +207,12 @@ export function Row({
       }}
       ref={setRow}
       data-playing={playing || undefined}
+      data-current={current || undefined}
       data-new={fresh || undefined}
       className={`group relative flex min-h-(--target) cursor-default items-center rounded-(--radius-row) transition-[box-shadow,background-color] duration-(--dur-short) ease-(--ease) data-[lifted]:shadow-(--shadow-float) data-[reordering]:z-10 ${
         touch
           ? 'overflow-hidden'
-          : `data-[selected]:bg-wash data-[pressed]:bg-wash! data-[reordering]:bg-ground! gap-3 px-3 py-0 data-[pressed]:[--row-tint:var(--wash)] data-[reordering]:bg-[linear-gradient(var(--row-tint),var(--row-tint))] data-[selected]:[--row-tint:var(--wash)] ${playing ? 'bg-(--play-wash) [--row-tint:var(--play-wash)]' : 'not-data-[selected]:hover:bg-row-hover [--row-tint:transparent] not-data-[selected]:hover:[--row-tint:var(--row-hover)]'}`
+          : `data-[selected]:bg-wash data-[current]:bg-wash data-[pressed]:bg-wash! data-[reordering]:bg-ground! gap-3 px-3 py-0 data-[current]:[--row-tint:var(--wash)] data-[pressed]:[--row-tint:var(--wash)] data-[reordering]:bg-[linear-gradient(var(--row-tint),var(--row-tint))] data-[selected]:[--row-tint:var(--wash)] ${playing ? 'bg-(--play-wash) [--row-tint:var(--play-wash)]' : 'not-data-[selected]:not-data-[current]:hover:bg-row-hover [--row-tint:transparent] not-data-[selected]:not-data-[current]:hover:[--row-tint:var(--row-hover)]'}`
       } ${dimmed ? 'opacity-60' : ''}`}
     >
       {touch ? (

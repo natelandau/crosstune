@@ -412,6 +412,22 @@ export function createSyncEngine({
         return { kind: 'failed' }
       }
     },
+    async mapKitToken(): Promise<string | null> {
+      if (!isOnline()) return null
+      try {
+        return (await api.mapKitToken()).token
+      } catch {
+        return null
+      }
+    },
+    async placeSnapshot(query): Promise<string | null> {
+      if (!isOnline()) return null
+      try {
+        return (await api.placeSnapshot(query)).url
+      } catch {
+        return null
+      }
+    },
     async download(recordingId: string): Promise<Blob | null> {
       if (!isOnline()) {
         const file = await db.recording_files.get(recordingId)

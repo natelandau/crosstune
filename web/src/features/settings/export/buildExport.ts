@@ -6,6 +6,7 @@ import {
   isRecordingPrecision,
   type LocalList,
   type LocalListItem,
+  type LocalPlace,
   type LocalScan,
   type LocalRecording,
   type LocalRecordingLink,
@@ -13,6 +14,7 @@ import {
   type LocalUserTune,
 } from '../../../db/types'
 import { tuningDisplay } from '../../../domain/instruments'
+import { shownPlaceName } from '../../recordings/place'
 import { csvDocument } from './csv'
 import { NameAllocator } from './safeName'
 
@@ -35,6 +37,8 @@ export interface ExportInput {
   scans: readonly LocalScan[]
   /** Ids of the scans whose image the export holds, from this device or fetched for it. */
   scanIds: ReadonlySet<string>
+  /** The saved locations, so a linked recording exports the name it shows. */
+  places: readonly LocalPlace[]
 }
 
 export interface ExportPlan {
@@ -369,6 +373,7 @@ function recordingRows(
   dateOf: (timestamp: string) => string,
 ): string[][] {
   const pathById = new Map(audio.map((a) => [a.recordingId, a.path]))
+  const placesById = new Map(input.places.map((place) => [place.id, place]))
   const groups = groupRecordings(
     input.recordings.filter((recording) => !recording.deleted_at),
     tunes,
@@ -379,7 +384,7 @@ function recordingRows(
     recording.label ?? '',
     recordedOn(recording, dateOf),
     recording.players ?? '',
-    recording.place_name ?? '',
+    shownPlaceName(recording, placesById) ?? '',
     recording.place_lat == null ? '' : decimalText(recording.place_lat),
     recording.place_lon == null ? '' : decimalText(recording.place_lon),
     recording.place_accuracy_m == null ? '' : String(recording.place_accuracy_m),

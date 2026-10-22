@@ -30,6 +30,7 @@ const OWNER_COLUMN: Record<TableName, string | null> = {
   lists: 'user_id',
   list_items: null,
   recording_links: 'added_by_user_id',
+  places: 'user_id',
   recordings: 'user_id',
   scans: 'user_id',
   recording_loops: 'user_id',
@@ -132,6 +133,12 @@ export function createFakeApi() {
     },
     async searchPlaces() {
       return { results: [] }
+    },
+    async mapKitToken() {
+      return { token: 'map-token', expires_at: '2026-10-21T01:00:00Z' }
+    },
+    async placeSnapshot() {
+      return { url: 'https://snapshot.test/map.png' }
     },
     async region() {
       return { country: null, consent_required: null }

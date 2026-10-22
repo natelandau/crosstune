@@ -2,6 +2,7 @@ import type {
   EntitlementRow,
   ListItemRow,
   ListRow,
+  PlaceRow,
   PlayEventRow,
   PracticeSessionRow,
   RecordingLinkRow,
@@ -43,6 +44,7 @@ export const TABLE_NAMES = [
   'lists',
   'list_items',
   'recording_links',
+  'places',
   'recordings',
   'scans',
   'recording_loops',
@@ -106,6 +108,7 @@ export type LocalUserSettings = Local<UserSettingsRow>
 // Pull always carries both recorded fields, so the local row holds them, null when unknown.
 export type LocalRecording = Local<Omit<RecordingRow, 'recorded_at' | 'recorded_precision'>> &
   Local<Required<Pick<RecordingRow, 'recorded_at' | 'recorded_precision'>>>
+export type LocalPlace = Local<PlaceRow>
 export type LocalRecordingLoop = Local<RecordingLoopRow>
 export type LocalScan = Local<ScanRow>
 export type LocalEntitlement = Local<EntitlementRow>
@@ -207,6 +210,7 @@ export interface LocalRows {
   lists: LocalList
   list_items: LocalListItem
   recording_links: LocalRecordingLink
+  places: LocalPlace
   recordings: LocalRecording
   scans: LocalScan
   recording_loops: LocalRecordingLoop

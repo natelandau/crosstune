@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { ANALYTICS_HOST } from './src/usage/config'
 import { embedFor } from './src/features/player/embed'
 import { APPLE_SCRIPT_URL } from './src/features/settings/appleSignIn'
+import { MAPKIT_SCRIPT_URL } from './src/platform/mapkit'
 
 /** Parse the Pages `_headers` format: an unindented URL line followed by indented `Name: value` lines. */
 function parseHeaders(): Map<string, string[]> {
@@ -181,6 +182,17 @@ describe('_headers', () => {
       '"https://*.js.stripe.com"',
       '"https://checkout.stripe.com"',
     ])
+  })
+
+  it('lets MapKit JS load, draw tiles and snapshots, and run its worker', () => {
+    expect(cspDirective('script-src')).toContain(new URL(MAPKIT_SCRIPT_URL).origin)
+    expect(cspDirective('connect-src')).toEqual(
+      expect.arrayContaining(['https://*.apple-mapkit.com', 'blob:']),
+    )
+    expect(cspDirective('img-src')).toContain('https://*.apple-mapkit.com')
+    expect(cspDirective('worker-src')).toContain('https://*.apple-mapkit.com')
+    // Only the script host runs code; tiles and services do not.
+    expect(cspDirective('script-src')).not.toContain('https://*.apple-mapkit.com')
   })
 
   it('lets the session recorder start its worker from a blob URL', () => {

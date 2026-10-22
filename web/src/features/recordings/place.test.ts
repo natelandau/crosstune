@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { recordingRow } from '../../test/rows'
-import { recentPlaces, recordingCredits, recordingPlace, recordingPlayers } from './place'
+import { placeRow, recordingRow } from '../../test/rows'
+import { recentPlaces, recordingPlace, recordingPlayers, shownPlaceName } from './place'
 
 const placed = (
   id: string,
@@ -83,16 +83,34 @@ describe('recordingPlayers', () => {
   })
 })
 
-describe('recordingCredits', () => {
-  it('is the players then the named place', () => {
-    const row = placed('r1', 'Galax, VA', '2026-01-01T00:00:00Z', { players: 'Kevin and Ed' })
-    expect(recordingCredits(row)).toEqual(['Kevin and Ed', 'Galax, VA'])
+describe('shownPlaceName', () => {
+  const places = new Map([
+    ['p1', placeRow('p1', 'The Barn')],
+    ['p2', placeRow('p2', 'Old Hall', { deleted_at: '2026-02-01T00:00:00.000Z' })],
+  ])
+
+  it('uses the live saved place, even when the take has no name of its own', () => {
+    expect(shownPlaceName(recordingRow('r1', { place_id: 'p1', place_name: null }), places)).toBe(
+      'The Barn',
+    )
+    expect(
+      shownPlaceName(recordingRow('r1', { place_id: 'p1', place_name: 'Galax, VA' }), places),
+    ).toBe('The Barn')
   })
 
-  it('ignores an unnamed place and empty players', () => {
-    expect(recordingCredits(placed('r1', null, '2026-01-01T00:00:00Z'))).toEqual([])
+  it("falls back to the take's own name when the place is deleted or unknown", () => {
     expect(
-      recordingCredits(placed('r1', 'Galax, VA', '2026-01-01T00:00:00Z', { players: '' })),
-    ).toEqual(['Galax, VA'])
+      shownPlaceName(recordingRow('r1', { place_id: 'p2', place_name: 'Galax, VA' }), places),
+    ).toBe('Galax, VA')
+    expect(
+      shownPlaceName(recordingRow('r1', { place_id: 'p9', place_name: 'Galax, VA' }), places),
+    ).toBe('Galax, VA')
+    expect(shownPlaceName(recordingRow('r1', { place_id: 'p2' }), places)).toBeNull()
+  })
+
+  it("is the take's own name when it is not linked", () => {
+    expect(shownPlaceName(recordingRow('r1', { place_name: 'Galax, VA' }), places)).toBe(
+      'Galax, VA',
+    )
   })
 })
