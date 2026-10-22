@@ -196,7 +196,11 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         let access = FakeAccess(state)
         let music = FakeMusic()
         music.found = found
-        return (PlayerModel(audio: FakeAudio(), appleMusic: AppleMusic(access: access, player: music)), access, music)
+        let player = PlayerModel(audio: FakeAudio(), appleMusic: AppleMusic(access: access, player: music))
+        // A held load waits on the test, never on the clock, so a stalled runner cannot let the
+        // decision deadline fall back to the embed mid-test. The deadline's own tests set their own.
+        player.decisionTimeout = .seconds(86_400)
+        return (player, access, music)
     }
 
     private func play(_ player: PlayerModel, _ row: RecordingLink = appleLink()) async throws {
