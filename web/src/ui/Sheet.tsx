@@ -543,7 +543,9 @@ function TouchSheet(props: SheetProps) {
   const [closeAsks, setCloseAsks] = useState(0)
   const settleRef = useLatest(settle)
   const reopenAt = useLatest(() => releaseTarget(y.get(), 0, detents))
-  useEffect(() => {
+  // A layout effect, so the commit that starts the exit also cancels the pending return; a
+  // passive cleanup can run a frame into the exit, and a return firing then springs it back up.
+  useLayoutEffect(() => {
     if (closeAsks === 0 || !isPresent) return
     const timer = setTimeout(() => settleRef.current(reopenAt.current()), SHEET.closeAnswerMs)
     return () => clearTimeout(timer)
