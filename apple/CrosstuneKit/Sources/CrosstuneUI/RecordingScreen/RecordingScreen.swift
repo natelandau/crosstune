@@ -30,9 +30,13 @@ struct ScreenRows: Equatable, Sendable {
             recording: recording, file: file, tuneID: tuneID, tuneTitle: tuneTitle, shownPlace: shownPlace)
     }
 
-    /// How long the trimmed recording plays, or nil when nothing says how long it is.
+    /// How long the trimmed recording plays, or nil when nothing says how long it is. A row the
+    /// trim pipeline has not reached yet knows only its upload's length.
     var trimmedLengthMs: Int64? {
-        guard let end = recording.trimEndMs ?? recording.sourceDurationMs ?? file?.localDurationMs else { return nil }
+        guard
+            let end = recording.trimEndMs ?? recording.sourceDurationMs ?? file?.localDurationMs
+                ?? recording.durationMs
+        else { return nil }
         return max(0, end - recording.trimStartMs)
     }
 
@@ -303,6 +307,7 @@ struct RecordingScreenContent: View {
             .toolbar(removing: .title)
             .paneBar {
                 Button(RecordingScreenText.close) { player.isExpanded = false }
+                .buttonStyle(.macSecondary)
                 .help(RecordingScreenText.close)
                 menu
             }
@@ -395,7 +400,7 @@ struct RecordingScreenContent: View {
             }
             if let trimNotice {
                 Text(trimNotice)
-                    .font(.footnote)
+                    .font(.platform(.footnote))
             }
             if blocker == nil,
                 let status = RecordingPlayerText.status(
@@ -404,53 +409,65 @@ struct RecordingScreenContent: View {
                 RecordingPlayerStatus(player: player, message: status)
             }
             PlaylistControlsRow()
-            OverviewStrip(model: practice, peaks: shownPeaks)
-                .disabled(blocker != nil)
-                .opacity(blocker != nil ? 0.5 : 1)
-            PracticeWaveform(
-                model: practice, peaks: shownPeaks, focus: $focus, accessibilityFocus: $waveformFocused
-            )
-            .disabled(blocker != nil)
-            .opacity(blocker != nil ? 0.5 : 1)
-            .frame(minHeight: PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight), maxHeight: .infinity)
-            .onGeometryChange(for: CGFloat.self) {
-                $0.size.height
-            } action: {
-                waveformHeight = $0
-            }
-            // Outside the dimming, so the reason the screen is blocked reads at full strength.
-            .overlay(alignment: .bottom) {
-                WaveformOverlay(model: practice, blocker: blocker, showsReadout: ground == nil)
-            }
-            // On the ground the readout sits under the playhead rather than over the wave.
-            if ground != nil {
-                PracticeReadout(model: practice, blocker: blocker)
-            }
+            #if os(macOS)
+                stage(practice, blocker: blocker)
+            #else
+                OverviewStrip(model: practice, peaks: shownPeaks)
+                    .disabled(blocker != nil)
+                    .opacity(blocker != nil ? 0.5 : 1)
+                waveform(practice, blocker: blocker)
+                    // Outside the dimming, so the reason the screen is blocked reads at full strength.
+                    .overlay(alignment: .bottom) {
+                        WaveformOverlay(model: practice, blocker: blocker, showsReadout: ground == nil)
+                    }
+                // On the ground the readout sits under the playhead rather than over the wave.
+                if ground != nil {
+                    PracticeReadout(model: practice, blocker: blocker)
+                }
+            #endif
             ScrollView {
-                VStack(spacing: spacing.sectionGap) {
-                    // On the ground the transport leads, right under the waveform it plays.
-                    if ground != nil {
+                #if os(macOS)
+                    // The transport right under the stage it plays, then the mode picker over
+                    // its panel, so the two read as one unit.
+                    VStack(spacing: MacStyle.sectionGap) {
                         PracticeControls(model: practice, blocker: blocker)
-                    }
-                    modeWidth(ModePicker(model: practice))
+                        modeWidth(
+                            VStack(spacing: 16) {
+                                ModePicker(model: practice)
+                                ModeControls(model: practice, onDeleted: focusWaveform)
+                            }
+                        )
                         .disabled(blocker != nil)
                         .opacity(blocker != nil ? 0.5 : 1)
-                        #if os(macOS)
-                            // Clear of the waveform's zoom controls, which sit on its bottom edge.
-                            .padding(.top, MacStyle.headingGap)
-                        #endif
-                    if ground == nil {
-                        PracticeControls(model: practice, blocker: blocker)
                     }
-                    modeWidth(ModeControls(model: practice, onDeleted: focusWaveform))
-                        .disabled(blocker != nil)
-                        .opacity(blocker != nil ? 0.5 : 1)
-                }
-                .onGeometryChange(for: Double.self) {
-                    $0.size.height
-                } action: {
-                    controlsHeight = $0
-                }
+                    .padding(.top, MacStyle.headingGap)
+                    .onGeometryChange(for: Double.self) {
+                        $0.size.height
+                    } action: {
+                        controlsHeight = $0
+                    }
+                #else
+                    VStack(spacing: spacing.sectionGap) {
+                        // On the ground the transport leads, right under the waveform it plays.
+                        if ground != nil {
+                            PracticeControls(model: practice, blocker: blocker)
+                        }
+                        modeWidth(ModePicker(model: practice))
+                            .disabled(blocker != nil)
+                            .opacity(blocker != nil ? 0.5 : 1)
+                        if ground == nil {
+                            PracticeControls(model: practice, blocker: blocker)
+                        }
+                        modeWidth(ModeControls(model: practice, onDeleted: focusWaveform))
+                            .disabled(blocker != nil)
+                            .opacity(blocker != nil ? 0.5 : 1)
+                    }
+                    .onGeometryChange(for: Double.self) {
+                        $0.size.height
+                    } action: {
+                        controlsHeight = $0
+                    }
+                #endif
             }
             .scrollBounceBehavior(.basedOnSize)
             .onGeometryChange(for: CGFloat.self) {
@@ -469,7 +486,7 @@ struct RecordingScreenContent: View {
             .layoutPriority(1)
         }
         #if os(macOS)
-            .padding([.horizontal, .bottom], MacStyle.sheetMargin)
+            .padding([.horizontal, .bottom], MacStyle.pageMargin)
             .padding(.top, MacStyle.headingGap)
         #else
             .padding(16)
@@ -500,22 +517,65 @@ struct RecordingScreenContent: View {
             + controlsRegionHeight - CGFloat(controlsHeight)
     }
 
+    /// The waveform, which takes the height the controls leave, down to its floor.
+    private func waveform(_ practice: PracticeModel, blocker: String?) -> some View {
+        PracticeWaveform(
+            model: practice, peaks: shownPeaks, focus: $focus, accessibilityFocus: $waveformFocused
+        )
+        .disabled(blocker != nil)
+        .opacity(blocker != nil ? 0.5 : 1)
+        .frame(minHeight: PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight), maxHeight: .infinity)
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.height
+        } action: {
+            waveformHeight = $0
+        }
+    }
+
     #if os(macOS)
+        /// The stage: a card holding the overview, the waveform with its zoom over the corner,
+        /// and the readout centered under the playhead with the loop switcher at its line's start.
+        private func stage(_ practice: PracticeModel, blocker: String?) -> some View {
+            VStack(spacing: 12) {
+                OverviewStrip(model: practice, peaks: shownPeaks)
+                    .disabled(blocker != nil)
+                    .opacity(blocker != nil ? 0.5 : 1)
+                waveform(practice, blocker: blocker)
+                    // Outside the dimming, so the zoom keeps its strength beside a blocked wave.
+                    .overlay(alignment: .bottomTrailing) {
+                        WaveformOverlay(model: practice, blocker: blocker, showsReadout: false)
+                    }
+                // The loop switcher leads the readout's line, and an equal flexible slot trails it,
+                // so the readout stays centered under the playhead.
+                HStack(spacing: 12) {
+                    LoopSwitcher(model: practice, blocker: blocker)
+                    // Outside the dimming, so the reason the screen is blocked reads at full strength.
+                    PracticeReadout(model: practice, blocker: blocker)
+                        .layoutPriority(1)
+                    Color.clear.frame(maxWidth: .infinity, maxHeight: 0)
+                }
+            }
+            .padding(16)
+            .background(MacPalette.surface, in: .rect(cornerRadius: MacStyle.stageRadius))
+        }
+
         /// The recording's title as the page's heading, with its date, length, and credits under it.
         private var header: some View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(player.title ?? "")
                     .contentMask()
                     .font(MacStyle.pageTitle)
+                    .tracking(MacStyle.pageTitleTracking)
                     .lineLimit(2)
                     .accessibilityAddTraits(.isHeader)
-                HStack(spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    let subtitle = Self.headingSubtitle(rows)
                     if !subtitle.isEmpty {
                         Text(subtitle)
                             .contentMask()
                             .font(MacStyle.body)
                             .monospacedDigit()
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.inkSecondary)
                     }
                     locationControl
                 }
@@ -550,8 +610,8 @@ struct RecordingScreenContent: View {
         peaks.flatMap { ShownPeaks(rows.recording, peaks: $0.peaks, peaksRev: $0.rev) }
     }
 
-    /// The Mac heading's second line.
-    private var subtitle: String {
+    /// The Mac heading's second line: the date, the length, and the credits.
+    static func headingSubtitle(_ rows: ScreenRows) -> String {
         let parts = [RecordingText.date(rows.recording), RecordingText.duration(milliseconds: rows.trimmedLengthMs)]
         return (parts.compactMap { $0 } + RecordingScreenText.credits(rows.recording, place: nil))
             .joined(separator: " · ")
@@ -597,6 +657,7 @@ struct RecordingScreenContent: View {
             }
         } label: {
             Label(TuneScreen.moreActions, systemImage: "ellipsis")
+                .labelStyle(.iconOnly)
         }
         .help(TuneScreen.moreActions)
     }
@@ -629,9 +690,7 @@ struct RecordingScreenContent: View {
                         Image(systemName: "location").imageScale(.small).accessibilityHidden(true)
                     }
                 }
-                .buttonStyle(.plain)
-                .font(MacStyle.body)
-                .foregroundStyle(.secondary)
+                .buttonStyle(.mac(.quiet))
                 .accessibilityLabel(label)
                 .help(label)
             #endif

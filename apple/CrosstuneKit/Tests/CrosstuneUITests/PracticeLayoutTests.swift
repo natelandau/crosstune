@@ -26,4 +26,26 @@ import Testing
     @Test func trimHandlesReadApartFromPractice() {
         #expect(PracticeWaveform.handleColor(isTrim: true) != PracticeWaveform.handleColor(isTrim: false))
     }
+
+    /// A recording whose waveform has not arrived still shows bars on the Mac, muted, rather
+    /// than a line.
+    @Test func emptyPeaksDrawPlaceholderBars() {
+        #if os(macOS)
+            let levels = PeakBars.levels(nil, count: 60)
+            #expect(levels.count == 60)
+            #expect(levels.allSatisfy { $0 > 0 && $0 < 1 })
+        #else
+            #expect(PeakBars.levels(nil, count: 60).isEmpty)
+        #endif
+    }
+
+    #if os(macOS)
+        /// The practice view sits on the page's margins, as the tune page does.
+        @Test func practicePageUsesThePageMargin() throws {
+            let file = SourceScan.sources.appending(path: "RecordingScreen/RecordingScreen.swift")
+            let mac = SourceScan.macOSRegions(of: SourceScan.withoutComments(try SourceScan.text(at: file)))
+            #expect(mac.contains("MacStyle.pageMargin"))
+            #expect(!mac.contains("MacStyle.sheetMargin"))
+        }
+    #endif
 }

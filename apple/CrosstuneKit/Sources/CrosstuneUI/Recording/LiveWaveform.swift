@@ -58,7 +58,8 @@ struct LiveWaveform: View {
     #if os(iOS)
         static let barStyle = AnyShapeStyle(Color.recordingRed)
     #else
-        static let barStyle = AnyShapeStyle(.tint)
+        // A touch softer than Stop, so the one control to press stays the strongest red.
+        static let barStyle = AnyShapeStyle(Color.recordingRed.opacity(0.85))
     #endif
 
     /// Read here rather than by the sheet, so each new buffer of levels redraws only the bars.

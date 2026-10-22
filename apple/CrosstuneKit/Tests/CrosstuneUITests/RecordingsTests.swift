@@ -477,6 +477,15 @@ private struct RefusingSyncAPI: SyncAPI {
 
 @MainActor
 @Suite struct RecordingsScreenPartsTests {
+    #if os(macOS)
+        @Test func recordingsColumnUsesTheColumnList() throws {
+            let file = SourceScan.sources.appending(path: "Recordings/RecordingsScreen.swift")
+            let mac = SourceScan.macOSRegions(of: SourceScan.withoutComments(try SourceScan.text(at: file)))
+            #expect(mac.contains(".macColumnList()"))
+            #expect(!mac.contains(".listStyle(.plain)"))
+        }
+    #endif
+
     @Test func aTuneLineIsAControlOfItsOwnBesideTheRow() {
         let row = MediaRow(
             glyph: .play, title: "Take 1", secondLine: .text("1:02"), verb: "Play", action: {},
@@ -909,6 +918,21 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(await model.pick(entry))
         let filed = try await store.read { db in try Recording.fetchOne(db, key: "r1")?.tuneID }
         #expect(filed == tuneID)
+    }
+
+    @Test func addToTuneListsTheCatalogWhenIdle() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        _ = try await commands.createTune(TuneInput(title: "Kitchen Girl"), userTune: UserTuneInput(status: "known"))
+        _ = try await commands.createTune(
+            TuneInput(title: "Ashokan Farewell"), userTune: UserTuneInput(status: "learning"))
+        try await putRecording(store, "r1")
+        let model = AddToTuneModel(store: store, recordingID: "r1")
+        try await eventually { model.idleResults != nil }
+        #expect(model.idleResults?.map(\.tune.title) == ["Ashokan Farewell", "Kitchen Girl"])
+        model.query = "kitchen"
+        #expect(model.idleResults?.isEmpty == true, "typing hands the rows to the search")
     }
 
     @Test func offersToStartATuneWhenNothingMatches() async throws {
@@ -1591,6 +1615,21 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(linkRow.isDimmed && linkRow.notice == MediaText.stopRecordingToPlay && linkRow.tap == .play)
         let opened = LinkRowContent(link: link, embeddable: false, playBlocked: true)
         #expect(!opened.isDimmed && opened.notice == nil)
+    }
+
+    /// The group heading's note asks this of each row, so it shows only where a row has it.
+    @Test func onlyARowOfferingPlayIsStoodDownByATake() {
+        let recording = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
+        let held = RecordingFile(id: "r1", localState: .downloaded, fileName: "r1.m4a")
+        #expect(RecordingRowContent.blocksPlay(recording, file: held, loaded: false, downloading: false))
+        #expect(!RecordingRowContent.blocksPlay(recording, file: held, loaded: true, downloading: false))
+        #expect(!RecordingRowContent.blocksPlay(recording, file: nil, loaded: false, downloading: false))
+        // The row and the heading agree.
+        let row = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, playBlocked: true)
+        #expect(
+            (row.notice != nil)
+                == RecordingRowContent.blocksPlay(
+                    recording, file: held, loaded: false, downloading: false))
     }
 
     @Test func asksToDeleteAnUnfinishedCaptureWhenItsRowIsTapped() {

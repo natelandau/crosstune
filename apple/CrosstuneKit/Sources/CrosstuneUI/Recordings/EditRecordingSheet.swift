@@ -24,6 +24,9 @@ public enum EditRecordingText {
     public static let notesPlaceholder = "Tuning, who it came from, what to work on…"
     public static let place = "Location"
     public static let clearPlace = "Clear location"
+    /// The Mac's heading over players and location, and the location row's value with none set.
+    public static let details = "Details"
+    public static let noPlace = "None"
 
     /// `Recorded at <time>`: the exact time of a take, which its date parts cannot show.
     public static func recordedAtNote(
@@ -497,11 +500,26 @@ public struct EditRecordingSheet: View {
     @Environment(\.analytics) private var analytics
     @State private var model: EditRecordingModel?
     @State private var path: [EditRecordingPage] = []
+    #if DEBUG
+        @Environment(\.sampleScreen) private var sampleScreen
+    #endif
 
     public init(view: RecordingView, initialPage: EditRecordingPage? = nil) {
         self.view = view
         self.initialPage = initialPage
     }
+
+    private var openingPage: EditRecordingPage? {
+        #if DEBUG
+            if initialPage == nil, sampleScreen == .editLocation { return .location }
+        #endif
+        return initialPage
+    }
+
+    #if os(macOS)
+        /// Fixed, so pushing the location page keeps the sheet's size.
+        static let macSize = MacSheetSize(minHeight: 600, idealHeight: 690)
+    #endif
 
     public var body: some View {
         NavigationStack(path: $path) {
@@ -512,8 +530,8 @@ public struct EditRecordingSheet: View {
                     Color.clear
                 }
             }
-            .navigationTitle(EditRecordingText.title)
             #if os(iOS)
+                .navigationTitle(EditRecordingText.title)
                 .navigationBarTitleDisplayMode(.inline)
             #endif
         }
@@ -522,7 +540,7 @@ public struct EditRecordingSheet: View {
             .presentationDetents([.large])
             .shellSheet()
         #else
-            .macSheetFrame(.form(minHeight: 560))
+            .macSheetFrame(Self.macSize)
             .shellSheet()
         #endif
         .task {
@@ -530,7 +548,7 @@ public struct EditRecordingSheet: View {
             let opened = EditRecordingModel(store: store, recording: view.recording, analytics: analytics)
             model = opened
             // Pushed once the form, which owns the page's destination, is on screen.
-            if let initialPage { path = [initialPage] }
+            if let page = openingPage { path = [page] }
             await opened.load()
         }
     }
@@ -549,176 +567,342 @@ private struct EditRecordingForm: View {
     @Environment(\.nearbySearch) private var nearbySearch
     @Environment(\.analytics) private var analytics
     @FocusState private var focused: Field?
-    /// Set once Name takes focus, so coming back from the place search leaves focus alone.
+    /// Set once Name takes focus, so coming back from the location page leaves focus alone.
     @State private var focusedName = false
 
     private static let months = Array(1...12)
 
     var body: some View {
-        Form {
-            nameSection
-            dateSection
-            playersSection
-            notesSection
-        }
-        .formStyle(.grouped)
-        .navigationDestination(for: EditRecordingPage.self) { _ in
-            if let placeSearch {
-                PlaceSearchView(
-                    edit: model, search: { placeSearch.init() }, nearby: nearbySearch, analytics: analytics)
+        #if os(macOS)
+            MacSheet(
+                title: EditRecordingText.title, size: EditRecordingSheet.macSize,
+                cancel: .cancel(TuneFormSheet.cancel, isEnabled: !model.isSaving) { dismiss() },
+                primary: .init(ListNameSheet.save, isEnabled: !model.isSaving && !model.isSaved, action: save)
+            ) {
+                MacFormScroll {
+                    macNameSection
+                    macDateSection
+                    macDetailsSection
+                    macNotesSection
+                }
             }
-        }
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button(TuneFormSheet.cancel) { dismiss() }
-                    .disabled(model.isSaving)
+            // The location page pushes in its own scaffold, so the stack draws no bar of its own.
+            .toolbar(.hidden)
+            .navigationDestination(for: EditRecordingPage.self) { _ in
+                if let placeSearch {
+                    PlaceSearchView(
+                        edit: model, search: { placeSearch.init() }, nearby: nearbySearch, analytics: analytics)
+                }
             }
-            ToolbarItem(placement: .confirmationAction) {
-                Button(ListNameSheet.save, action: save)
-                    .fontWeight(.semibold)
-                    .disabled(model.isSaving || model.isSaved)
+            .interactiveDismissDisabled(model.isEdited || model.isSaving)
+            .onAppear(perform: focusNameOnce)
+        #else
+            Form {
+                nameSection
+                dateSection
+                playersSection
+                notesSection
             }
-        }
-        .interactiveDismissDisabled(model.isEdited || model.isSaving)
-        .onAppear {
-            guard !focusedName else { return }
-            focusedName = true
-            focused = .name
-        }
+            .formStyle(.grouped)
+            .navigationDestination(for: EditRecordingPage.self) { _ in
+                if let placeSearch {
+                    PlaceSearchView(
+                        edit: model, search: { placeSearch.init() }, nearby: nearbySearch, analytics: analytics)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(TuneFormSheet.cancel) { dismiss() }
+                        .disabled(model.isSaving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(ListNameSheet.save, action: save)
+                        .fontWeight(.semibold)
+                        .disabled(model.isSaving || model.isSaved)
+                }
+            }
+            .interactiveDismissDisabled(model.isEdited || model.isSaving)
+            .onAppear(perform: focusNameOnce)
+        #endif
     }
 
-    private var nameSection: some View {
-        let name = Binding {
+    private func focusNameOnce() {
+        guard !focusedName else { return }
+        focusedName = true
+        focused = .name
+    }
+
+    private var nameBinding: Binding<String> {
+        Binding {
             model.name
         } set: {
             model.setName($0)
         }
-        return Section {
-            TextField(EditRecordingText.nameLabel, text: name, prompt: Text(EditRecordingText.placeholder))
-                .contentMask()
-                .characterLimit(Vocabulary.Limits.Recording.label, text: name)
-                .focused($focused, equals: .name)
-                .submitLabel(.done)
-                .onSubmit(save)
-        } header: {
-            Text(EditRecordingText.nameHeader)
-        } footer: {
-            if let failure = model.failure {
-                Text(failure)
-                    .foregroundStyle(.red)
-            }
-        }
     }
 
-    private var dateSection: some View {
-        let date = model.date
+    private var nameField: some View {
+        TextField(EditRecordingText.nameLabel, text: nameBinding, prompt: Text(EditRecordingText.placeholder))
+            .contentMask()
+            #if os(macOS)
+                .labelsHidden()
+                .textFieldStyle(.macField)
+            #endif
+            .characterLimit(Vocabulary.Limits.Recording.label, text: nameBinding)
+            .focused($focused, equals: .name)
+            .submitLabel(.done)
+            .onSubmit(save)
+    }
+
+    private var yearField: some View {
         let year = Binding {
-            date.year
+            model.date.year
         } set: {
             model.setYear($0)
         }
-        let month = Binding {
-            date.month
-        } set: {
-            model.setMonth($0)
-        }
-        let day = Binding {
-            date.day
-        } set: {
-            model.setDay($0)
-        }
-        return Section {
-            LabeledContent(EditRecordingText.year) {
-                TextField(EditRecordingText.year, text: year, prompt: Text(TuneFieldLabels.notSet))
-                    .contentMask()
-                    .multilineTextAlignment(.trailing)
-                    #if os(iOS)
-                        .keyboardType(.numberPad)
-                    #endif
-                    .focused($focused, equals: .year)
-                    .submitLabel(.done)
-                    .onSubmit(save)
-            }
-            Picker(EditRecordingText.month, selection: month) {
-                Text(EditRecordingText.any).tag(Int?.none)
-                ForEach(Self.months, id: \.self) { choice in
-                    Text(Calendar.current.standaloneMonthSymbols[choice - 1]).tag(Int?.some(choice))
-                }
-            }
-            .disabled(!date.isMonthEnabled)
-            Picker(EditRecordingText.day, selection: day) {
-                Text(EditRecordingText.any).tag(Int?.none)
-                // Kept while Day is disabled, so a chosen day still shows its value.
-                ForEach(Array(stride(from: 1, through: date.dayCount, by: 1)), id: \.self) { choice in
-                    Text(String(choice)).tag(Int?.some(choice))
-                }
-            }
-            .disabled(!date.isDayEnabled)
-            Button(EditRecordingText.clearDate) { model.clearDate() }
-                .disabled(date.isEmpty)
-        } header: {
-            Text(EditRecordingText.dateHeader)
-        } footer: {
-            if let dateFailure = model.dateFailure {
-                Text(dateFailure)
-                    .foregroundStyle(.red)
-            } else if let take = date.keptTake {
-                Text(EditRecordingText.recordedAtNote(take))
-            }
-        }
+        return TextField(EditRecordingText.year, text: year, prompt: Text(TuneFieldLabels.notSet))
+            .contentMask()
+            #if os(macOS)
+                .labelsHidden()
+                .textFieldStyle(.macField)
+            #else
+                .multilineTextAlignment(.trailing)
+                .keyboardType(.numberPad)
+            #endif
+            .focused($focused, equals: .year)
+            .submitLabel(.done)
+            .onSubmit(save)
     }
 
-    private var playersSection: some View {
-        Section {
-            SuggestionField(
-                EditRecordingText.players,
-                value: Binding {
-                    model.players
-                } set: {
-                    model.setPlayers($0)
-                },
-                suggestions: model.playerOptions, maxLength: Vocabulary.Limits.Recording.players)
-            placeRow
-            if model.canClearPlace {
-                Button(EditRecordingText.clearPlace) { model.clearPlace() }
-            }
-        }
+    private var playersField: some View {
+        SuggestionField(
+            EditRecordingText.players,
+            value: Binding {
+                model.players
+            } set: {
+                model.setPlayers($0)
+            },
+            suggestions: model.playerOptions, maxLength: Vocabulary.Limits.Recording.players)
     }
 
-    /// The location's name, pushing the location page where there is one.
+    #if os(macOS)
+        private var macNameSection: some View {
+            MacFormSection(EditRecordingText.nameHeader, card: false) {
+                VStack(alignment: .leading, spacing: 6) {
+                    nameField
+                    if let failure = model.failure { FailureText(failure) }
+                }
+            }
+        }
+
+        private var macDateSection: some View {
+            let date = model.date
+            return VStack(alignment: .leading, spacing: 6) {
+                MacFormSection(
+                    EditRecordingText.dateHeader,
+                    subtitle: model.dateFailure == nil
+                        ? date.keptTake.map { EditRecordingText.recordedAtNote($0) } : nil
+                ) {
+                    MacFormRow(EditRecordingText.year) {
+                        yearField
+                            // Four digits, so the year reads as one value with the month and day.
+                            .frame(width: Self.yearWidth)
+                    }
+                    MacPopUp(
+                        EditRecordingText.month,
+                        selection: Binding {
+                            date.month
+                        } set: {
+                            model.setMonth($0)
+                        },
+                        options: [nil] + Self.months.map(Optional.some),
+                        label: { $0.map { Calendar.current.standaloneMonthSymbols[$0 - 1] } ?? EditRecordingText.any }
+                    )
+                    .disabled(!date.isMonthEnabled)
+                    MacPopUp(
+                        EditRecordingText.day,
+                        selection: Binding {
+                            date.day
+                        } set: {
+                            model.setDay($0)
+                        },
+                        options: [nil] + Array(stride(from: 1, through: date.dayCount, by: 1)).map(Optional.some),
+                        label: { $0.map(String.init) ?? EditRecordingText.any }
+                    )
+                    .disabled(!date.isDayEnabled)
+                } accessory: {
+                    Button(EditRecordingText.clearDate) { model.clearDate() }
+                        .buttonStyle(.mac(.plain, size: .small))
+                        .disabled(date.isEmpty)
+                }
+                if let dateFailure = model.dateFailure {
+                    FailureText(dateFailure)
+                        .padding(.horizontal, MacForm.rowInset)
+                }
+            }
+        }
+
+        static let yearWidth: CGFloat = 80
+
+        private var macDetailsSection: some View {
+            MacFormSection(EditRecordingText.details) {
+                playersField
+                placeRow
+            }
+        }
+
+        private var macNotesSection: some View {
+            let notes = Binding {
+                model.notes
+            } set: {
+                model.setNotes($0)
+            }
+            return MacFormSection(EditRecordingText.notes, card: false) {
+                MacTextArea(
+                    EditRecordingText.notes, text: notes, placeholder: EditRecordingText.notesPlaceholder, minLines: 3,
+                    maxLines: 8
+                )
+                .characterLimit(Vocabulary.Limits.Recording.notes, text: notes)
+            }
+        }
+    #endif
+
+    #if os(iOS)
+        private var nameSection: some View {
+            Section {
+                nameField
+            } header: {
+                Text(EditRecordingText.nameHeader)
+            } footer: {
+                if let failure = model.failure {
+                    Text(failure)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+
+        private var dateSection: some View {
+            let date = model.date
+            let month = Binding {
+                date.month
+            } set: {
+                model.setMonth($0)
+            }
+            let day = Binding {
+                date.day
+            } set: {
+                model.setDay($0)
+            }
+            return Section {
+                LabeledContent(EditRecordingText.year) { yearField }
+                Picker(EditRecordingText.month, selection: month) {
+                    Text(EditRecordingText.any).tag(Int?.none)
+                    ForEach(Self.months, id: \.self) { choice in
+                        Text(Calendar.current.standaloneMonthSymbols[choice - 1]).tag(Int?.some(choice))
+                    }
+                }
+                .disabled(!date.isMonthEnabled)
+                Picker(EditRecordingText.day, selection: day) {
+                    Text(EditRecordingText.any).tag(Int?.none)
+                    // Kept while Day is disabled, so a chosen day still shows its value.
+                    ForEach(Array(stride(from: 1, through: date.dayCount, by: 1)), id: \.self) { choice in
+                        Text(String(choice)).tag(Int?.some(choice))
+                    }
+                }
+                .disabled(!date.isDayEnabled)
+                Button(EditRecordingText.clearDate) { model.clearDate() }
+                    .disabled(date.isEmpty)
+            } header: {
+                Text(EditRecordingText.dateHeader)
+            } footer: {
+                if let dateFailure = model.dateFailure {
+                    Text(dateFailure)
+                        .foregroundStyle(.red)
+                } else if let take = date.keptTake {
+                    Text(EditRecordingText.recordedAtNote(take))
+                }
+            }
+        }
+
+        private var playersSection: some View {
+            Section {
+                playersField
+                placeRow
+                if model.canClearPlace {
+                    Button(EditRecordingText.clearPlace) { model.clearPlace() }
+                }
+            }
+        }
+    #endif
+
+    /// The location's name, pushing the location page where there is one. On the Mac the row
+    /// says None with no location, and Clear sits on it.
     @ViewBuilder private var placeRow: some View {
-        let shown = LabeledContent(EditRecordingText.place) {
-            if let name = model.place?.name {
-                Text(name)
-                    .contentMask()
+        #if os(macOS)
+            let shown = LabeledContent(EditRecordingText.place) {
+                HStack(spacing: 8) {
+                    Text(model.place?.name ?? EditRecordingText.noPlace)
+                        .contentMask()
+                        .foregroundStyle(model.place == nil ? MacPalette.inkSecondary : MacPalette.ink)
+                        .lineLimit(1)
+                    if placeSearch != nil {
+                        Image(systemName: "chevron.right")
+                            .font(MacStyle.rowChevron)
+                            .foregroundStyle(MacPalette.inkSecondary)
+                            .accessibilityHidden(true)
+                    }
+                }
+                // A field's inset, so the place starts where the fields' text does.
+                .padding(.leading, MacFieldStyle.horizontalInset)
             }
-        }
+        #else
+            let shown = LabeledContent(EditRecordingText.place) {
+                if let name = model.place?.name {
+                    Text(name)
+                        .contentMask()
+                }
+            }
+        #endif
         if placeSearch != nil {
             NavigationLink(value: EditRecordingPage.location) {
                 shown
+                    #if os(macOS)
+                        .contentShape(.rect)
+                    #endif
             }
+            #if os(macOS)
+                .buttonStyle(.plain)
+            #endif
         } else {
             shown
         }
+        #if os(macOS)
+            if model.canClearPlace {
+                Button(EditRecordingText.clearPlace) { model.clearPlace() }
+                    .buttonStyle(.mac(.plain, size: .small))
+            }
+        #endif
     }
 
-    private var notesSection: some View {
-        let notes = Binding {
-            model.notes
-        } set: {
-            model.setNotes($0)
+    #if os(iOS)
+        private var notesSection: some View {
+            let notes = Binding {
+                model.notes
+            } set: {
+                model.setNotes($0)
+            }
+            return Section {
+                TextField(
+                    EditRecordingText.notes, text: notes, prompt: Text(EditRecordingText.notesPlaceholder),
+                    axis: .vertical
+                )
+                .contentMask()
+                .characterLimit(Vocabulary.Limits.Recording.notes, text: notes)
+                .lineLimit(3...)
+            } header: {
+                Text(EditRecordingText.notes)
+            }
         }
-        return Section {
-            TextField(
-                EditRecordingText.notes, text: notes, prompt: Text(EditRecordingText.notesPlaceholder), axis: .vertical
-            )
-            .contentMask()
-            .characterLimit(Vocabulary.Limits.Recording.notes, text: notes)
-            .lineLimit(3...)
-        } header: {
-            Text(EditRecordingText.notes)
-        }
-    }
+    #endif
 
     private func save() {
         Task {

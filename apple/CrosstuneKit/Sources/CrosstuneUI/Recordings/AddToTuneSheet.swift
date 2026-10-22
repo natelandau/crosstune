@@ -75,6 +75,15 @@ public final class AddToTuneModel {
             outcome: SearchOutcome(entries: entries, visible: matches, query: query, archivedShown: true))
     }
 
+    /// The catalog A to Z while the search field is empty, as the Mac lists it at idle; empty
+    /// once something is typed, when ``results`` takes over. Archived tunes stay out until
+    /// searched for. Nil until the catalog is read.
+    public var idleResults: [CatalogEntry]? {
+        guard let entries = entries.value else { return nil }
+        guard isIdle else { return [] }
+        return TunePickerModel.idleListing(entries.map(\.entry))
+    }
+
     /// A result row's spoken name. Pickers search archived tunes on purpose, so the name says
     /// which ones they are.
     nonisolated public static func rowName(_ entry: CatalogEntry) -> String {
@@ -137,25 +146,36 @@ public struct AddToTuneSheet: View {
     }
 
     public var body: some View {
-        NavigationStack {
+        #if os(macOS)
             Group {
                 if let model {
                     AddToTuneContent(model: model, onCreate: onCreate)
                 } else {
-                    Color.clear
+                    Color.clear.macSheetFrame(.picker)
                 }
             }
-            .navigationTitle(Self.title)
-            #if os(iOS)
+            .task { makeModel() }
+            .shellSheet()
+        #else
+            NavigationStack {
+                Group {
+                    if let model {
+                        AddToTuneContent(model: model, onCreate: onCreate)
+                    } else {
+                        Color.clear
+                    }
+                }
+                .navigationTitle(Self.title)
                 .navigationBarTitleDisplayMode(.inline)
-            #endif
-        }
-        .macSheetFrame(.picker)
-        .task {
-            guard model == nil, let store else { return }
-            model = AddToTuneModel(store: store, recordingID: recordingID, analytics: analytics)
-        }
-        .shellSheet()
+            }
+            .task { makeModel() }
+            .shellSheet()
+        #endif
+    }
+
+    private func makeModel() {
+        guard model == nil, let store else { return }
+        model = AddToTuneModel(store: store, recordingID: recordingID, analytics: analytics)
     }
 }
 
@@ -166,73 +186,149 @@ private struct AddToTuneContent: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var searchFocused: Bool
 
-    var body: some View {
-        List {
-            if let failure = model.failure {
-                Text(failure)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
+    #if os(macOS)
+        /// The search over the catalog A to Z, which the search narrows once typed. Return
+        /// belongs to the search, which files under its only match.
+        var body: some View {
+            MacSheet(
+                title: AddToTuneSheet.title, size: .picker,
+                cancel: .cancel(TuneFormSheet.cancel, isEnabled: !model.isFiling) { dismiss() }, primary: nil,
+                escape: {
+                    guard !model.isFiling else { return }
+                    FilterSearchField.escape(clearing: $model.query) { dismiss() }
+                }
+            ) {
+                VStack(spacing: 0) {
+                    FilterSearchField(
+                        prompt: AddToTuneSheet.searchPrompt, query: $model.query, isFocused: $searchFocused,
+                        filterCount: nil,
+                        onSubmit: submitSearch
+                    )
+                    .padding(.horizontal, MacStyle.sheetMargin)
+                    .padding(.top, 4)
+                    .padding(.bottom, 8)
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 2) {
+                            if let failure = model.failure {
+                                FailureText(failure)
+                                    .padding(.horizontal, 8)
+                            }
+                            if model.isIdle {
+                                ForEach(model.idleResults ?? []) { row($0) }
+                            } else if let results = model.results {
+                                ForEach(results.rows) { row($0) }
+                                if let offer = results.outcome.offerLabel, let title = results.outcome.title {
+                                    Button {
+                                        create(title)
+                                    } label: {
+                                        HStack(spacing: 8) {
+                                            MacPickGlyph(kind: .add)
+                                            Text(offer)
+                                                .contentMask()
+                                        }
+                                    }
+                                    .buttonStyle(.macPickRow)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, MacStyle.sheetMargin - 8)
+                        .padding(.bottom, 12)
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                }
             }
-            if let results = model.results {
-                ForEach(results.rows) { entry in
-                    row(entry)
+            .interactiveDismissDisabled(model.isFiling)
+            .onAppear { searchFocused = true }
+            // The screen under this sheet stands its Find down, so Command-F reaches this search.
+            .focusedSceneValue(\.findAction, MenuAction { searchFocused = true })
+        }
+
+        private func row(_ entry: CatalogEntry) -> some View {
+            Button {
+                Task {
+                    if await model.pick(entry) { dismiss() }
                 }
-                if let offer = results.outcome.offerLabel, let title = results.outcome.title {
-                    SearchOfferRow(label: offer) { create(title) }
+            } label: {
+                HStack(spacing: 8) {
+                    MacPickGlyph(kind: .addOnHighlight)
+                    TuneRow(tune: entry.tune, userTune: entry.userTune, instruments: model.instruments)
                 }
+            }
+            .buttonStyle(.macPickRow)
+            .disabled(model.isFiling)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(AddToTuneModel.rowName(entry))
+            .accessibilityAddTraits(.isButton)
+        }
+    #else
+        var body: some View {
+            List {
+                if let failure = model.failure {
+                    Text(failure)
+                        .font(.platform(.footnote))
+                        .foregroundStyle(.red)
+                }
+                if let results = model.results {
+                    ForEach(results.rows) { entry in
+                        row(entry)
+                    }
+                    if let offer = results.outcome.offerLabel, let title = results.outcome.title {
+                        SearchOfferRow(label: offer) { create(title) }
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .searchable(text: $model.query, placement: Self.searchPlacement, prompt: AddToTuneSheet.searchPrompt)
+            .searchFocused($searchFocused)
+            .onSubmit(of: .search, submitSearch)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(TuneFormSheet.cancel) { dismiss() }
+                        .disabled(model.isFiling)
+                }
+            }
+            .interactiveDismissDisabled(model.isFiling)
+            .onAppear { searchFocused = true }
+            // The screen under this sheet stands its Find down, so Command-F reaches this search.
+            .focusedSceneValue(\.findAction, MenuAction { searchFocused = true })
+        }
+    #endif
+
+    #if os(iOS)
+        private static var searchPlacement: SearchFieldPlacement { .navigationBarDrawer(displayMode: .always) }
+    #endif
+
+    private func submitSearch() {
+        Task {
+            switch await model.submit() {
+            case .nothing: searchFocused = true
+            case .filed: dismiss()
+            case .create(let title): create(title)
+            case .dismissKeyboard: searchFocused = false
             }
         }
-        .listStyle(.plain)
-        .searchable(text: $model.query, placement: Self.searchPlacement, prompt: AddToTuneSheet.searchPrompt)
-        .searchFocused($searchFocused)
-        .onSubmit(of: .search) {
-            Task {
-                switch await model.submit() {
-                case .nothing: searchFocused = true
-                case .filed: dismiss()
-                case .create(let title): create(title)
-                case .dismissKeyboard: searchFocused = false
-                }
-            }
-        }
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button(TuneFormSheet.cancel) { dismiss() }
-                    .disabled(model.isFiling)
-            }
-        }
-        .interactiveDismissDisabled(model.isFiling)
-        .onAppear { searchFocused = true }
-        // The screen under this sheet stands its Find down, so Command-F reaches this search.
-        .focusedSceneValue(\.findAction, MenuAction { searchFocused = true })
     }
 
-    private static var searchPlacement: SearchFieldPlacement {
-        #if os(iOS)
-            .navigationBarDrawer(displayMode: .always)
-        #else
-            .automatic
-        #endif
-    }
-
-    private func row(_ entry: CatalogEntry) -> some View {
-        Button {
-            Task {
-                if await model.pick(entry) { dismiss() }
+    #if os(iOS)
+        private func row(_ entry: CatalogEntry) -> some View {
+            Button {
+                Task {
+                    if await model.pick(entry) { dismiss() }
+                }
+            } label: {
+                TuneRow(tune: entry.tune, userTune: entry.userTune, instruments: model.instruments)
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
             }
-        } label: {
-            TuneRow(tune: entry.tune, userTune: entry.userTune, instruments: model.instruments)
-                .foregroundStyle(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(.rect)
+            .buttonStyle(.plain)
+            .scaledRowInsets()
+            .disabled(model.isFiling)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(AddToTuneModel.rowName(entry))
+            .accessibilityAddTraits(.isButton)
         }
-        .buttonStyle(.plain)
-        .scaledRowInsets()
-        .disabled(model.isFiling)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(AddToTuneModel.rowName(entry))
-        .accessibilityAddTraits(.isButton)
-    }
+    #endif
 
     private func create(_ title: String) {
         onCreate(title)

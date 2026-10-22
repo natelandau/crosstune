@@ -179,16 +179,16 @@ struct TrimScreen: View {
         }
         .labelStyle(.iconOnly)
         .buttonStyle(.borderless)
-        .font(.title3)
+        .font(.platform(.title3))
     }
 
     private func readout(_ name: String, _ milliseconds: Int64) -> some View {
         VStack(spacing: 2) {
             Text(name)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.platform(.caption))
+                .foregroundStyle(.inkSecondary)
             Text(RecordingScreenText.preciseTime(milliseconds: milliseconds))
-                .font(.footnote)
+                .font(.platform(.footnote))
                 .monospacedDigit()
         }
         .frame(maxWidth: .infinity)
@@ -204,7 +204,7 @@ struct TrimScreen: View {
                 systemImage: playing ? "pause.fill" : "play.fill", action: toggle
             )
             .help(playing ? RecordingPlayerText.pause : RecordingScreenText.playSelection)
-            .font(.largeTitle)
+            .font(.platform(.largeTitle, mac: .columnTitle))
             .contentTransition(.symbolEffect(.replace))
             .frame(minWidth: 64, minHeight: 64)
             Button(RecordingScreenText.goToEnd, systemImage: "arrow.right.to.line") { goTo(model.end) }
@@ -212,7 +212,7 @@ struct TrimScreen: View {
         }
         .labelStyle(.iconOnly)
         .buttonStyle(.borderless)
-        .font(.title2)
+        .font(.platform(.title2))
     }
 
     /// Seconds into the audio player's window for `ms` on the source timeline.

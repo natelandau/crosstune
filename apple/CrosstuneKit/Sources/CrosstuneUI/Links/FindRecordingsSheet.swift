@@ -69,33 +69,50 @@ public struct FindRecordingsSheet: View {
         return { q, providers, country in await engine.searchRecordings(q: q, providers: providers, country: country) }
     }
 
+    #if os(macOS)
+        /// One height for the services and a service's results, so going between them or results
+        /// arriving never resizes the sheet; short enough that the services leave little empty.
+        static let macSize = MacSheetSize(idealWidth: 520, minHeight: 440, idealHeight: 440)
+    #endif
+
     public var body: some View {
-        NavigationStack {
-            Group {
-                if let model {
-                    FindRecordingsForm(model: model, stage: stage)
-                } else {
-                    Color.clear
-                }
-            }
-            .navigationTitle(Self.title(shown: model?.shown ?? service))
-            #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-            #endif
-        }
-        .macSheetFrame(MacSheetSize(idealWidth: 520, minHeight: 420))
         // Full height from the start on iOS: the results and the keyboard both need the room.
-        .shellSheet()
-        .screenView(.findRecordings)
-        .task {
-            guard model == nil, let store else { return }
-            let player = player
-            model = FindRecordingsModel(
-                store: store, tuneID: tuneID, service: service, search: search,
-                stopPlayer: {
-                    if player?.item != nil { player?.close() }
-                }, analytics: analytics)
-        }
+        platformBody
+            .shellSheet()
+            .screenView(.findRecordings)
+            .task { makeModel() }
+    }
+
+    @ViewBuilder private var platformBody: some View {
+        #if os(macOS)
+            if let model {
+                FindRecordingsForm(model: model, stage: stage)
+            } else {
+                Color.clear.macSheetFrame(Self.macSize)
+            }
+        #else
+            NavigationStack {
+                Group {
+                    if let model {
+                        FindRecordingsForm(model: model, stage: stage)
+                    } else {
+                        Color.clear
+                    }
+                }
+                .navigationTitle(Self.title(shown: model?.shown ?? service))
+                .navigationBarTitleDisplayMode(.inline)
+            }
+        #endif
+    }
+
+    private func makeModel() {
+        guard model == nil, let store else { return }
+        let player = player
+        model = FindRecordingsModel(
+            store: store, tuneID: tuneID, service: service, search: search,
+            stopPlayer: {
+                if player?.item != nil { player?.close() }
+            }, analytics: analytics)
     }
 }
 
@@ -110,60 +127,264 @@ private struct FindRecordingsForm: View {
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @State private var settings: SettingsModel?
     @State private var showsMusicServices = false
+    @FocusState private var searchFocused: Bool
 
-    var body: some View {
-        Form {
-            if model.hasNoServices {
-                noServices
-            } else if model.isLoaded {
-                Section {
-                    TextField(
-                        FindRecordingsSheet.searchFor, text: queryBinding, prompt: Text(FindRecordingsSheet.searchFor)
-                    )
-                    .contentMask()
-                    .autocorrectionDisabled()
-                    .submitLabel(.search)
-                    .onSubmit { Task { await model.submit() } }
-                } footer: {
-                    status
+    #if os(macOS)
+        /// Escape empties the search first; then Back takes it where there is a list of services
+        /// to go back to, and with none it closes the sheet. Return belongs to the search.
+        var body: some View {
+            MacSheet(
+                title: FindRecordingsSheet.title(shown: model.shown), size: FindRecordingsSheet.macSize,
+                cancel: canGoBack ? .cancel(FindRecordingsSheet.back) { model.back() } : nil,
+                primary: .init(InstrumentsSheet.done, isDefault: false) { dismiss() },
+                escape: {
+                    FilterSearchField.escape(clearing: queryBinding) {
+                        if canGoBack { model.back() } else { dismiss() }
+                    }
                 }
-                if model.shown == nil {
-                    Section { ForEach(model.providers, id: \.self, content: serviceRow) }
-                } else if let group = model.group {
-                    groupSection(group)
+            ) {
+                VStack(alignment: .leading, spacing: 0) {
+                    if model.hasNoServices {
+                        macNoServices
+                    } else if model.isLoaded {
+                        FilterSearchField(
+                            prompt: FindRecordingsSheet.searchFor, query: queryBinding, isFocused: $searchFocused,
+                            filterCount: nil, onSubmit: { Task { await model.submit() } }
+                        )
+                        .padding(.horizontal, MacStyle.sheetMargin)
+                        .padding(.top, 4)
+                        .padding(.bottom, 8)
+                        if hasStatus {
+                            status
+                                .font(MacStyle.secondary)
+                                .foregroundStyle(MacPalette.inkSecondary)
+                                .padding(.horizontal, MacStyle.sheetMargin)
+                                .padding(.bottom, 8)
+                        }
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 2) {
+                                if model.shown == nil {
+                                    ForEach(model.providers, id: \.self, content: macServiceRow)
+                                } else if let group = model.group {
+                                    if group.status == .results {
+                                        ForEach(group.results, id: \.url, content: macResultRow)
+                                    }
+                                    macSearchOnRow(group)
+                                    if let footer = FindRecordingsSheet.footer(group) {
+                                        Text(footer)
+                                            .font(MacStyle.secondary)
+                                            .foregroundStyle(MacPalette.inkSecondary)
+                                            .padding(.horizontal, 8)
+                                            .padding(.top, 4)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, MacStyle.sheetMargin - 8)
+                            .padding(.bottom, 12)
+                        }
+                        .scrollBounceBehavior(.basedOnSize)
+                    }
                 }
             }
+            .onDisappear { model.cancel() }
+            .sheet(isPresented: $showsMusicServices) {
+                if let settings { MusicServicesSheet(model: settings) }
+            }
         }
-        .formStyle(.grouped)
-        .toolbar {
-            if model.shown != nil && !model.isDirect {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(FindRecordingsSheet.back, systemImage: "chevron.backward") { model.back() }
-                        .labelStyle(.titleAndIcon)
+
+        private var hasStatus: Bool {
+            model.isSearching || model.failure != nil || model.linkFailure != nil
+        }
+
+        private var macNoServices: some View {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(FindRecordingsSheet.noServices)
+                    .font(MacStyle.body)
+                    .foregroundStyle(MacPalette.inkSecondary)
+                Button(SettingsModel.musicServices, action: openMusicServices)
+                    .buttonStyle(.macSecondary)
+            }
+            .padding(.horizontal, MacStyle.sheetMargin)
+            .padding(.top, 4)
+        }
+
+        /// A leading glyph for what a row opens: a search here, or a page in the browser.
+        private func macRowGlyph(_ name: String) -> some View {
+            Image(systemName: name)
+                .font(.system(size: 12))
+                .foregroundStyle(MacPalette.inkSecondary)
+                .frame(width: MacPickGlyph.width)
+                .accessibilityHidden(true)
+        }
+
+        /// The trailing mark every row shares: where the row goes, at one size and ink.
+        private func macTrailingMark(_ name: String) -> some View {
+            Image(systemName: name)
+                .font(MacStyle.rowChevron)
+                .foregroundStyle(MacPalette.inkSecondary)
+                .accessibilityHidden(true)
+        }
+
+        private func macServiceRow(_ provider: String) -> some View {
+            let inApp = FindRecordingsModel.searchesInApp(provider)
+            return Button {
+                Task {
+                    if let url = await model.pick(provider) { openURL(url) }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    macRowGlyph(inApp ? "magnifyingglass" : "globe")
+                    Text(FindRecordingsSheet.searchService(FindRecordingsSheet.label(provider)))
+                    Spacer(minLength: 0)
+                    macTrailingMark(inApp ? "chevron.forward" : "arrow.up.right")
                 }
             }
-            ToolbarItem(placement: .confirmationAction) {
-                Button(InstrumentsSheet.done) { dismiss() }
+            .buttonStyle(.macPickRow)
+        }
+
+        private func macSearchOnRow(_ group: SearchGroup) -> some View {
+            Button {
+                if let url = URL(string: group.searchURL) { openURL(url) }
+            } label: {
+                HStack(spacing: 8) {
+                    macRowGlyph("globe")
+                    Text(FindRecordingsSheet.searchOn(FindRecordingsSheet.label(group.provider)))
+                    Spacer(minLength: 0)
+                    macTrailingMark("arrow.up.right")
+                }
             }
+            .buttonStyle(.macPickRow)
         }
-        .onDisappear { model.cancel() }
-        .sheet(isPresented: $showsMusicServices) {
-            if let settings { MusicServicesSheet(model: settings) }
+
+        private func macResultRow(_ result: SearchResult) -> some View {
+            let embed = FindRecordingsModel.embed(for: result)
+            let expanded = embed != nil && model.playing == result.url
+            let linked = model.linkedURLs.contains(result.url)
+            let linkTitle = linked ? FindRecordingsSheet.linked : FindRecordingsSheet.link
+            return VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(result.title)
+                            .contentMask()
+                            .font(MacStyle.body)
+                            .foregroundStyle(MacPalette.ink)
+                        if let subtitle = result.subtitle {
+                            Text(subtitle)
+                                .font(MacStyle.secondary)
+                                .foregroundStyle(MacPalette.inkSecondary)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    if embed != nil {
+                        Button(FindRecordingsSheet.play, systemImage: "play.fill") { model.play(result) }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.mac(.icon, size: .small))
+                            .help(FindRecordingsSheet.play)
+                            .accessibilityLabel("\(FindRecordingsSheet.play) \(result.title)")
+                            .accessibilityAddTraits(expanded ? .isSelected : [])
+                            // A player sounding now would be recorded along with the instrument.
+                            .disabled(recorders?.isCapturing ?? false)
+                    }
+                    Button {
+                        Task { await model.link(result) }
+                    } label: {
+                        if linked {
+                            Label(linkTitle, systemImage: "checkmark")
+                        } else {
+                            Text(linkTitle)
+                        }
+                    }
+                    .buttonStyle(MacChipStyle(state: linked ? .rest : .set, size: .row))
+                    .accessibilityLabel("\(linkTitle) \(result.title)")
+                    .disabled(linked)
+                }
+                .padding(.horizontal, 8)
+                .frame(minHeight: MacPickRowStyle.minHeight)
+                if expanded, let embed {
+                    embedView(embed)
+                        .padding(.horizontal, 8)
+                }
+            }
+            .padding(.vertical, 2)
         }
+    #else
+        var body: some View {
+            phoneBody
+        }
+    #endif
+
+    private func openMusicServices() {
+        if settings == nil, let store { settings = SettingsModel(store: store, engine: engine) }
+        showsMusicServices = true
     }
 
-    private var noServices: some View {
-        Section {
-            ContentUnavailableView {
-                Label(FindRecordingsSheet.noServices, systemImage: "slider.horizontal.3")
-            } actions: {
-                Button(SettingsModel.musicServices) {
-                    if settings == nil, let store { settings = SettingsModel(store: store, engine: engine) }
-                    showsMusicServices = true
+    @ViewBuilder private func embedView(_ embed: Embed) -> some View {
+        Group {
+            if embed.height == .video {
+                EmbedView(stage: stage, embed: embed)
+                    .aspectRatio(16 / 9, contentMode: .fit)
+            } else {
+                EmbedView(stage: stage, embed: embed)
+                    .frame(height: CGFloat(embed.points))
+            }
+        }
+        .clipShape(.rect(cornerRadius: 12))
+    }
+
+    #if os(iOS)
+        private var phoneBody: some View {
+            Form {
+                if model.hasNoServices {
+                    noServices
+                } else if model.isLoaded {
+                    Section {
+                        TextField(
+                            FindRecordingsSheet.searchFor, text: queryBinding,
+                            prompt: Text(FindRecordingsSheet.searchFor)
+                        )
+                        .contentMask()
+                        .autocorrectionDisabled()
+                        .submitLabel(.search)
+                        .onSubmit { Task { await model.submit() } }
+                    } footer: {
+                        status
+                    }
+                    if model.shown == nil {
+                        Section { ForEach(model.providers, id: \.self, content: serviceRow) }
+                    } else if let group = model.group {
+                        groupSection(group)
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .toolbar {
+                if model.shown != nil && !model.isDirect {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(FindRecordingsSheet.back, systemImage: "chevron.backward") { model.back() }
+                            .labelStyle(.titleAndIcon)
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(InstrumentsSheet.done) { dismiss() }
+                }
+            }
+            .onDisappear { model.cancel() }
+            .sheet(isPresented: $showsMusicServices) {
+                if let settings { MusicServicesSheet(model: settings) }
+            }
+        }
+
+        private var noServices: some View {
+            Section {
+                ContentUnavailableView {
+                    Label(FindRecordingsSheet.noServices, systemImage: "slider.horizontal.3")
+                } actions: {
+                    Button(SettingsModel.musicServices, action: openMusicServices)
                 }
             }
         }
-    }
+
+    #endif
 
     private var status: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -181,98 +402,95 @@ private struct FindRecordingsForm: View {
         }
     }
 
-    /// One service's answer. Its own search page always closes the section, found or not.
-    private func groupSection(_ group: SearchGroup) -> some View {
-        Section {
-            if group.status == .results {
-                ForEach(group.results, id: \.url, content: resultRow)
-            }
-            searchOnRow(group)
-        } footer: {
-            if let footer = FindRecordingsSheet.footer(group) {
-                Text(footer)
+    #if os(iOS)
+        /// One service's answer. Its own search page always closes the section, found or not.
+        private func groupSection(_ group: SearchGroup) -> some View {
+            Section {
+                if group.status == .results {
+                    ForEach(group.results, id: \.url, content: resultRow)
+                }
+                searchOnRow(group)
+            } footer: {
+                if let footer = FindRecordingsSheet.footer(group) {
+                    Text(footer)
+                }
             }
         }
-    }
 
-    private func resultRow(_ result: SearchResult) -> some View {
-        let embed = FindRecordingsModel.embed(for: result)
-        let expanded = embed != nil && model.playing == result.url
-        let linked = model.linkedURLs.contains(result.url)
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(result.title)
-                        .contentMask()
-                        .font(.headline)
-                    if let subtitle = result.subtitle {
-                        Text(subtitle)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+        private func resultRow(_ result: SearchResult) -> some View {
+            let embed = FindRecordingsModel.embed(for: result)
+            let expanded = embed != nil && model.playing == result.url
+            let linked = model.linkedURLs.contains(result.url)
+            return VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(result.title)
+                            .contentMask()
+                            .font(.platform(.headline))
+                        if let subtitle = result.subtitle {
+                            Text(subtitle)
+                                .font(.platform(.subheadline))
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                }
-                Spacer(minLength: 0)
-                if embed != nil {
-                    Button(FindRecordingsSheet.play) { model.play(result) }
-                        .accessibilityLabel("\(FindRecordingsSheet.play) \(result.title)")
-                        .accessibilityAddTraits(expanded ? .isSelected : [])
-                        // A player sounding now would be recorded along with the instrument.
-                        .disabled(recorders?.isCapturing ?? false)
-                }
-                Button(linked ? FindRecordingsSheet.linked : FindRecordingsSheet.link) {
-                    Task { await model.link(result) }
-                }
-                .accessibilityLabel(
-                    "\(linked ? FindRecordingsSheet.linked : FindRecordingsSheet.link) \(result.title)"
-                )
-                .disabled(linked)
-            }
-            .buttonStyle(.borderless)
-            if expanded, let embed {
-                Group {
-                    if embed.height == .video {
-                        EmbedView(stage: stage, embed: embed)
-                            .aspectRatio(16 / 9, contentMode: .fit)
-                    } else {
-                        EmbedView(stage: stage, embed: embed)
-                            .frame(height: CGFloat(embed.points))
+                    Spacer(minLength: 0)
+                    if embed != nil {
+                        Button(FindRecordingsSheet.play) { model.play(result) }
+                            .accessibilityLabel("\(FindRecordingsSheet.play) \(result.title)")
+                            .accessibilityAddTraits(expanded ? .isSelected : [])
+                            // A player sounding now would be recorded along with the instrument.
+                            .disabled(recorders?.isCapturing ?? false)
                     }
+                    Button(linked ? FindRecordingsSheet.linked : FindRecordingsSheet.link) {
+                        Task { await model.link(result) }
+                    }
+                    .accessibilityLabel(
+                        "\(linked ? FindRecordingsSheet.linked : FindRecordingsSheet.link) \(result.title)"
+                    )
+                    .disabled(linked)
                 }
-                .clipShape(.rect(cornerRadius: 12))
+                .buttonStyle(.borderless)
+                if expanded, let embed {
+                    embedView(embed)
+                }
             }
         }
-    }
 
-    /// A service on the list: one the app searches opens its results, and any other opens its
-    /// own search page while the list stays.
-    private func serviceRow(_ provider: String) -> some View {
-        let inApp = FindRecordingsModel.searchesInApp(provider)
-        return Button {
-            Task {
-                if let url = await model.pick(provider) { openURL(url) }
+        /// A service on the list: one the app searches opens its results, and any other opens its
+        /// own search page while the list stays.
+        private func serviceRow(_ provider: String) -> some View {
+            let inApp = FindRecordingsModel.searchesInApp(provider)
+            return Button {
+                Task {
+                    if let url = await model.pick(provider) { openURL(url) }
+                }
+            } label: {
+                HStack {
+                    Text(FindRecordingsSheet.searchService(FindRecordingsSheet.label(provider)))
+                        .foregroundStyle(.primary)
+                    Spacer(minLength: 0)
+                    Image(systemName: inApp ? "chevron.forward" : "arrow.up.right")
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
+                .contentShape(.rect)
             }
-        } label: {
-            HStack {
-                Text(FindRecordingsSheet.searchService(FindRecordingsSheet.label(provider)))
-                    .foregroundStyle(.primary)
-                Spacer(minLength: 0)
-                Image(systemName: inApp ? "chevron.forward" : "arrow.up.right")
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-            }
-            .contentShape(.rect)
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
-    }
 
-    private func searchOnRow(_ group: SearchGroup) -> some View {
-        Button {
-            if let url = URL(string: group.searchURL) { openURL(url) }
-        } label: {
-            Label(
-                FindRecordingsSheet.searchOn(FindRecordingsSheet.label(group.provider)), systemImage: "arrow.up.right")
+        private func searchOnRow(_ group: SearchGroup) -> some View {
+            Button {
+                if let url = URL(string: group.searchURL) { openURL(url) }
+            } label: {
+                Label(
+                    FindRecordingsSheet.searchOn(FindRecordingsSheet.label(group.provider)),
+                    systemImage: "arrow.up.right")
+            }
         }
-    }
+
+    #endif
+
+    private var canGoBack: Bool { model.shown != nil && !model.isDirect }
 
     private var queryBinding: Binding<String> {
         Binding {

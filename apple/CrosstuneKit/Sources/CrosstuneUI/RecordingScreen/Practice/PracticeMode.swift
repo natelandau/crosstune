@@ -13,17 +13,31 @@ enum PracticeMode: String, CaseIterable, Identifiable, Sendable {
 
     /// `Speed 75%`: the mode's name, with its value once that is off its default.
     func title(speedPercent: Int, pitchCents: Int) -> String {
+        PracticeText.segment(name, value: badge(speedPercent: speedPercent, pitchCents: pitchCents))
+    }
+
+    var name: String {
+        switch self {
+        case .loops: PracticeText.loops
+        case .speed: RecordingScreenText.speed
+        case .pitch: RecordingScreenText.pitch
+        }
+    }
+
+    /// The mode's value once that is off its default, such as `75%`.
+    func badge(speedPercent: Int, pitchCents: Int) -> String? {
         let badges = RecordingScreenText.badges(speedPercent: speedPercent, pitchCents: pitchCents)
         return switch self {
-        case .loops: PracticeText.loops
-        case .speed: PracticeText.segment(RecordingScreenText.speed, value: badges.speed)
-        case .pitch: PracticeText.segment(RecordingScreenText.pitch, value: badges.pitch)
+        case .loops: nil
+        case .speed: badges.speed
+        case .pitch: badges.pitch
         }
     }
 }
 
-/// Loops, Speed, and Pitch as one segmented control, above the transport. The chosen mode's
-/// controls are ``ModeControls``, under the transport; both read the mode from the model.
+/// Loops, Speed, and Pitch as one segmented control. The chosen mode's controls are
+/// ``ModeControls``; on iPhone and iPad the transport sits between the two, while the Mac sets
+/// the picker right over its panel, under the transport. Both read the mode from the model.
 struct ModePicker: View {
     let model: PracticeModel
 
@@ -31,7 +45,19 @@ struct ModePicker: View {
 
     var body: some View {
         @Bindable var model = model
-        Picker(PracticeText.modes, selection: $model.mode) {
+        #if os(macOS)
+            MacSegmented(
+                selection: $model.mode, options: PracticeMode.allCases, label: \.name,
+                badge: { $0.badge(speedPercent: player.speedPercent, pitchCents: player.pitchCents) },
+                title: PracticeText.modes, fillsWidth: true)
+        #else
+            picker
+        #endif
+    }
+
+    private var picker: some View {
+        @Bindable var model = model
+        return Picker(PracticeText.modes, selection: $model.mode) {
             ForEach(PracticeMode.allCases) { mode in
                 Text(mode.title(speedPercent: player.speedPercent, pitchCents: player.pitchCents))
                     .monospacedDigit()

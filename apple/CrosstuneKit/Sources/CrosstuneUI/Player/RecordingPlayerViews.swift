@@ -55,7 +55,7 @@ public enum RecordingPlayerText {
 /// in for it while a recording's audio is fetched or missing.
 struct RecordingPlayButton: View {
     let player: PlayerModel
-    var font: Font = .title3
+    var font: Font = .platform(.title3)
 
     var body: some View {
         if let transport = player.transport {
@@ -75,7 +75,7 @@ struct RecordingPlayButton: View {
         default:
             Image(systemName: "exclamationmark.circle")
                 .font(font)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
                 .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                 .accessibilityHidden(true)
         }
@@ -213,7 +213,7 @@ private struct TimeStyle: ViewModifier {
                 .font(.caption)
             #endif
             .monospacedDigit()
-            .foregroundStyle(.secondary)
+            .foregroundStyle(.inkSecondary)
             .accessibilityHidden(true)
     }
 }
@@ -229,8 +229,8 @@ struct RecordingPlayerStatus: View {
     var body: some View {
         HStack {
             Text(message)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .font(.platform(.footnote))
+                .foregroundStyle(.inkSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             // Offline refuses the retry by not offering it, rather than a control that cannot work.
             if player.recordingAudio == .unavailable && session?.isOffline != true {
@@ -253,7 +253,7 @@ struct PlayerFailureText: View {
 
     var body: some View {
         Text(failure)
-            .font(.footnote)
+            .font(.platform(.footnote))
             .foregroundStyle(.red)
     }
 }

@@ -738,6 +738,38 @@ actor ReadCount {
     }
 }
 
+#if os(macOS)
+    @Suite struct RecordSheetMacTests {
+        /// Glass tinted red draws gray in a sheet, so the Mac's Stop is a solid red disc.
+        @Test func stopIsAlwaysRecordingRedOnTheMac() throws {
+            let file = SourceScan.sources.appending(path: "Recording/RecordSheet.swift")
+            let mac = SourceScan.macCompiled(SourceScan.withoutComments(try SourceScan.text(at: file)))
+            #expect(mac.contains("Circle().fill(Color.recordingRed)"))
+            #expect(!mac.contains("glassEffect"))
+        }
+
+        /// The title is the only place the Mac sheet says what the take is doing.
+        @MainActor @Test func macTitleIsTheTakesStateExceptWhileAskingForLocation() {
+            #expect(
+                RecordSheet.macTitle(asksLocation: true, status: RecordSheetModel.notRecording)
+                    == RecordSheetModel.title)
+            #expect(
+                RecordSheet.macTitle(asksLocation: false, status: RecordSheetModel.startingMicrophone)
+                    == RecordSheetModel.startingMicrophone)
+            #expect(
+                RecordSheet.macTitle(asksLocation: false, status: RecordSheetModel.notRecording)
+                    == RecordSheetModel.notRecording)
+        }
+
+        @Test func liveWaveformIsRecordingRedOnTheMac() throws {
+            let file = SourceScan.sources.appending(path: "Recording/LiveWaveform.swift")
+            let mac = SourceScan.macCompiled(SourceScan.withoutComments(try SourceScan.text(at: file)))
+            #expect(mac.contains("Color.recordingRed"))
+            #expect(!mac.contains("AnyShapeStyle(.tint)"))
+        }
+    }
+#endif
+
 @MainActor
 private func eventually(_ condition: @MainActor () -> Bool) async throws {
     if try await poll({ condition() }) { return }

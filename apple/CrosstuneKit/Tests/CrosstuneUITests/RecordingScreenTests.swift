@@ -327,6 +327,18 @@ private final class Writes {
         #expect(RecordingMenuItem.openOrigin(for: imported(nil, origin: "own")) == nil)
     }
 
+    /// A recording that only knows its upload's length still shows it in the heading.
+    @Test func practiceHeaderShowsTheLength() {
+        let row = Recording(
+            id: "r1", tuneID: nil, source: "microphone", addedAt: noon, label: nil, state: "ready",
+            durationMs: 184_000)
+        let rows = ScreenRows(
+            recording: row, file: nil, tuneID: nil, tuneTitle: nil, partStructure: nil, shownPlace: nil)
+        #expect(rows.trimmedLengthMs == 184_000)
+        #expect(RecordingText.duration(milliseconds: rows.trimmedLengthMs) == "3:04")
+        #expect(RecordingScreenContent.headingSubtitle(rows).contains("3:04"))
+    }
+
     @Test func theSpeedAndPitchSegmentsNameTheirValuesOffDefault() {
         #expect(PracticeMode.allCases == [.loops, .speed, .pitch])
         #expect(PracticeMode.loops.title(speedPercent: 75, pitchCents: 200) == "Loops")

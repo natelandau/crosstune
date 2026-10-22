@@ -41,7 +41,7 @@ struct LoopNameTab: View {
     private func face(_ name: String) -> some View {
         Text(name)
             .contentMask()
-            .font(.footnote.weight(.semibold))
+            .font(.platform(.footnote).weight(.semibold))
             .lineLimit(1)
             .truncationMode(.tail)
             .foregroundStyle(.white)
@@ -80,7 +80,7 @@ struct LoopNameField: View {
         TextField(PracticeText.loopName, text: $text)
             .contentMask()
             .textFieldStyle(.plain)
-            .font(.footnote)
+            .font(.platform(.footnote))
             .padding(.horizontal, 8)
             .frame(width: Self.width, height: 32)
             .background(.background, in: UnevenRoundedRectangle(bottomLeadingRadius: 5, bottomTrailingRadius: 5))

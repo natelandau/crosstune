@@ -46,11 +46,26 @@ struct OverviewStrip: View {
         let wave = CGRect(x: 0, y: 0, width: size.width, height: Self.waveHeight)
         let length = Double(model.lengthMs)
         guard length > 0 else {
-            context.fillPeakBars(nil, in: wave, with: .style(.tertiary))
+            #if os(macOS)
+                context.fillPeakBars(nil, in: wave, with: .color(MacWave.placeholder))
+            #else
+                context.fillPeakBars(nil, in: wave, with: .style(.tertiary))
+            #endif
             return
         }
         func x(_ trimmedMs: Double) -> CGFloat { CGFloat(trimmedMs / length) * size.width }
-        context.fillPeakBars(peaks, in: wave, with: .style(.tertiary))
+        #if os(macOS)
+            let levels = peaks?.bars(PeakBars.count(in: wave.width)) ?? []
+            if levels.isEmpty {
+                context.fillPeakBars(nil, in: wave, with: .color(MacWave.placeholder))
+            } else {
+                context.fillSplit(
+                    .peakBars(levels: levels, in: wave), atX: Double(x(Double(model.centerMs))),
+                    played: MacWave.played, unplayed: MacWave.unplayed)
+            }
+        #else
+            context.fillPeakBars(peaks, in: wave, with: .style(.tertiary))
+        #endif
         let selected = model.selectedID
         for loop in model.placedLoops {
             let x0 = x(Double(loop.span.startMs - model.trimStartMs))
@@ -67,7 +82,13 @@ struct OverviewStrip: View {
         if let view = model.laneView {
             let box = CGRect(
                 x: x(view.startMs), y: 1, width: x(view.endMs) - x(view.startMs), height: Self.waveHeight - 2)
-            context.stroke(Path(roundedRect: box, cornerRadius: 4), with: .style(.tint), lineWidth: 2)
+            #if os(macOS)
+                let frame = Path(roundedRect: box.insetBy(dx: 0.5, dy: 0.5), cornerRadius: 4)
+                context.fill(frame, with: .color(MacPalette.accent.opacity(0.12)))
+                context.stroke(frame, with: .color(MacPalette.accent), lineWidth: 1)
+            #else
+                context.stroke(Path(roundedRect: box, cornerRadius: 4), with: .style(.tint), lineWidth: 2)
+            #endif
         }
     }
 }
