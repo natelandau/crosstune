@@ -34,7 +34,7 @@ Decide any case the rules below do not name.
   zones, and words everywhere.
 - Each kind of control has one home. A control's job tells the musician
   where it is.
-- Quiet chrome, musical content. Color comes from the music and one slate
+- Quiet chrome, musical content. Color comes from the music and one
   accent. Strong color only in key pills and in practice.
 - A tune is a document, not a form. Read on a page, edit in a sheet.
 
@@ -70,11 +70,14 @@ Decide any case the rules below do not name.
 
 ## Color and type
 
+- The Mac draws its own accent, in `design-macos.md`; wherever this page
+  says slate, read that.
 - Slate: the one accent. Chosen state, selection, focus ring. A label on
   slate takes the on-slate token, never white, because dark slate is a
   light color.
 - A solid control (primary button, a loaded transport disc) fills with
   jet in light and alabaster in dark, its label in the on-accent token.
+  The Mac fills both with its own accent fill (`design-macos.md`).
 - Coral: the mark, the selected sidebar row's glyph, the playhead of
   anything that plays back, every loop handle, and what marks Premium on a
   sheet that sells it. Nothing else. An editing strip's playhead (trim)
@@ -414,7 +417,8 @@ One row component per platform for every list of tunes.
   where values carry color or the field is the screen's purpose.
 - A set answered once (instruments, music services): a row that names the
   choice and opens a sheet, never rows on the screen. When the names would
-  wrap, the row shows a count instead, "2 of 7".
+  wrap, the row shows a count instead, "2 of 7". The Mac Settings window
+  differs (`design-macos.md`).
 - Fields ranked by use. Rare ones last, in one list.
 - Labeled row: label leading, value trailing, value elides first.
 - Every control has a visible label. An accessibility-only name is not a
@@ -446,7 +450,7 @@ groups.
 - Every change saves at once. No Save button.
 - Each group's help sits above its rows, so the musician reads what a
   setting does before choosing. A failed save shows in red below the rows,
-  and the help stays.
+  and the help stays. The Mac places help differently (`design-macos.md`).
 - A closed choice is a picker row, even one the tune form shows as
   segments. The default status for new tunes is a picker row, not the
   status segments.

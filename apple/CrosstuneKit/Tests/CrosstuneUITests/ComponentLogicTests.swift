@@ -100,9 +100,17 @@ import Testing
         #expect(Spacing(.small)(12) == 10.5)
     }
 
-    @Test func theTapOutsetMakesUpTo44() {
-        #expect(tapOutset(visibleHeight: 28) == 8)
-        #expect(tapOutset(visibleHeight: 50) == 0)
+    @Test func theTapOutsetMakesUpToTheMinimum() {
+        #expect(tapOutset(visibleHeight: 28, minimum: 44) == 8)
+        #expect(tapOutset(visibleHeight: 50, minimum: 44) == 0)
+    }
+
+    @Test func theMinimumTapTargetIsPointerSizedOnTheMac() {
+        #if os(macOS)
+            #expect(minimumTapTarget == 28)
+        #else
+            #expect(minimumTapTarget == 44)
+        #endif
     }
 }
 

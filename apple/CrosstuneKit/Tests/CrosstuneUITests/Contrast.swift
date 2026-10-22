@@ -14,6 +14,11 @@ func contrastRatio(_ first: KeyColor.RGB, _ second: KeyColor.RGB) -> Double {
     return (max(a, b) + 0.05) / (min(a, b) + 0.05)
 }
 
+/// WCAG 2 relative luminance of a `#rrggbb` color.
+func relativeLuminance(_ hex: String) -> Double {
+    contrastRatio(hex, "#000000") * 0.05 - 0.05
+}
+
 /// The same ratio for `#rrggbb` strings.
 func contrastRatio(_ first: String, _ second: String) -> Double {
     contrastRatio(KeyColor.RGB(hex: first), KeyColor.RGB(hex: second))

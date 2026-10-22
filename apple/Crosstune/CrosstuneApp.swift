@@ -83,7 +83,7 @@ struct CrosstuneApp: App {
                 .environment(\.nearbySearch, MapKitNearbySearch.self)
                 .environment(\.locationAccess, locationAccess)
                 .followsDisplaySettings()
-                .tint(BrandStyle.accent)
+                .tint(appTint)
         }
         .commands {
             SidebarCommands()
@@ -121,8 +121,16 @@ struct CrosstuneApp: App {
                     .environment(session)
                     .environment(player)
                     .followsDisplaySettings()
-                    .tint(BrandStyle.accent)
+                    .tint(appTint)
             }
+        #endif
+    }
+
+    private var appTint: Color {
+        #if os(macOS)
+            MacStyle.accent
+        #else
+            BrandStyle.accent
         #endif
     }
 
@@ -130,7 +138,7 @@ struct CrosstuneApp: App {
         @ViewBuilder private var settings: some View {
             #if DEBUG
                 if CommandLine.arguments.contains("-SampleShell") {
-                    SampleSettings(plan: SamplePlan.fromArguments())
+                    SampleSettings(plan: SamplePlan.fromArguments(), screen: SampleScreen.fromArguments())
                 } else {
                     MacSettingsTabs()
                 }
@@ -148,11 +156,12 @@ struct CrosstuneApp: App {
             {
                 MarketingShell(fixture: URL(filePath: CommandLine.arguments[flag + 1]))
             } else if CommandLine.arguments.contains("-SampleShell") {
-                // Shows the shell over sample data without signing in, for screenshots.
+                // Shows the shell over sample data without signing in, for screenshots, opened on the
+                // surface `-SampleScreen` names.
                 SampleShell(
                     playing: CommandLine.arguments.contains("-SamplePlaying"),
                     playingRecording: CommandLine.arguments.contains("-SamplePlayingRecording"),
-                    plan: SamplePlan.fromArguments())
+                    plan: SamplePlan.fromArguments(), screen: SampleScreen.fromArguments())
             } else {
                 root
             }
