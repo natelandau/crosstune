@@ -251,6 +251,25 @@ private final class Writes {
         #expect(player.showsExpanded(in: asking) && player.showsExpanded(in: other))
     }
 
+    /// SwiftUI can make a second screen and drop the first as the screen opens, so the screen
+    /// closes only once the window's last one goes, as when the window itself closes.
+    @Test func theScreenClosesOnlyWhenItsWindowsLastScreenGoes() {
+        let window = UUID()
+        let other = UUID()
+        player.open(.recording(take(), tuneTitle: nil), in: window)
+        let first = UUID()
+        let second = UUID()
+        player.screenAppeared(first, in: window)
+        player.screenAppeared(second, in: window)
+        player.screenAppeared(UUID(), in: other)
+
+        player.screenDisappeared(first, in: window)
+        #expect(player.showsExpanded(in: window))
+
+        player.screenDisappeared(second, in: window)
+        #expect(!player.isExpanded)
+    }
+
     @Test func aLinkPlayedWhileAScreenIsOpenShowsInEveryWindow() throws {
         let asking = UUID()
         player.open(.recording(take(), tuneTitle: nil), in: asking)

@@ -252,6 +252,24 @@ public final class PlayerModel {
             with: activitySnapshot)
     }
 
+    /// The recording screens on show, by the window each shows in.
+    @ObservationIgnored private var shownScreens: [UUID: UUID?] = [:]
+
+    /// The recording screen `screen` shows in `window`.
+    func screenAppeared(_ screen: UUID, in window: UUID?) {
+        shownScreens[screen] = window
+    }
+
+    /// The recording screen `screen` has left `window`. SwiftUI can make a second screen and
+    /// drop the first as one opens, so only the window's last screen going while the window
+    /// still asks for the player in full means the window itself went, which leaves nothing that
+    /// could ever close the player.
+    func screenDisappeared(_ screen: UUID, in window: UUID?) {
+        shownScreens[screen] = nil
+        guard let window, isExpanded, expandedWindow == window, !shownScreens.values.contains(window) else { return }
+        isExpanded = false
+    }
+
     /// The recording screen `screen` has gone. Only the screen that opened the visit last ends
     /// it, since another window's screen can go after this one has taken the visit over.
     func screenClosed(by screen: UUID? = nil) {

@@ -141,12 +141,13 @@ public struct RecordingScreen: View {
         }
         // Here rather than on the recording's own view, which also goes while the trim screen
         // is pushed over it.
+        #if os(macOS)
+            .onAppear { player.screenAppeared(screen, in: window) }
+        #endif
         .onDisappear {
             player.screenClosed(by: screen)
             #if os(macOS)
-                // Still asked for in this window means the window itself went, leaving nothing
-                // that could ever close the practice view.
-                if let window, player.isExpanded, player.expandedWindow == window { player.isExpanded = false }
+                player.screenDisappeared(screen, in: window)
             #endif
         }
         #if os(iOS)
