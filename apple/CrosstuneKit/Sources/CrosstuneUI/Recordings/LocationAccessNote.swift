@@ -37,3 +37,39 @@ struct LocationAccessSection: View {
         Button(LocationAccessText.openSettings) { openURL(url) }
     }
 }
+
+#if os(macOS)
+    /// The Mac form's note that location access is off, with Open Settings under it.
+    struct MacLocationAccessNote: View {
+        @Environment(\.locationAccess) private var access
+        @Environment(\.openURL) private var openURL
+
+        var body: some View {
+            if let access, access.isOff, let url = LocationAccess.settingsURL {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(LocationAccessText.off)
+                        .font(MacStyle.secondary)
+                        .foregroundStyle(MacPalette.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(LocationAccessText.openSettings) { openURL(url) }
+                        .buttonStyle(.macSecondary)
+                }
+            }
+        }
+    }
+
+    /// The Settings row that says location access is off, with Open Settings trailing, while
+    /// it is.
+    struct MacLocationAccessRow: View {
+        @Environment(\.locationAccess) private var access
+        @Environment(\.openURL) private var openURL
+
+        var body: some View {
+            if let access, access.isOff, let url = LocationAccess.settingsURL {
+                MacSettingsRow(LocationAccessText.off) {
+                    MacSettingsButton(LocationAccessText.openSettings) { openURL(url) }
+                }
+            }
+        }
+    }
+#endif

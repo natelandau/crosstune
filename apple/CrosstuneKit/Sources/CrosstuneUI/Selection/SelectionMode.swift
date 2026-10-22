@@ -11,6 +11,87 @@ struct SelectionList {
     let itemIDs: [String: String]
 }
 
+#if os(macOS)
+    /// One bulk action on the selected tunes, as the Mac selection bar's Actions menu offers it.
+    /// A count is how many tunes the action would change.
+    enum SelectionAction: Hashable {
+        case status(String)
+        case edit
+        case addToList
+        case archive(count: Int)
+        case unarchive(count: Int)
+        case remove(count: Int)
+        case delete(count: Int)
+
+        /// Where an action sits in the menu, each group set apart from the one before.
+        enum Group: CaseIterable {
+            case status, change, file, delete
+        }
+
+        /// Every action the selected `entries` take: none with nothing selected, Archive and
+        /// Unarchive only for tunes they would change, and Remove only in a list.
+        nonisolated static func menu(for entries: [CatalogEntry], list: SelectionList?) -> [SelectionAction] {
+            guard !entries.isEmpty else { return [] }
+            var actions: [SelectionAction] = Vocabulary.statuses.map { .status($0) } + [.edit, .addToList]
+            let toArchive = entries.count { !$0.isArchived }
+            let toUnarchive = entries.count { $0.isArchived }
+            if toArchive > 0 { actions.append(.archive(count: toArchive)) }
+            if toUnarchive > 0 { actions.append(.unarchive(count: toUnarchive)) }
+            let inList = list.map { list in entries.count { list.itemIDs[$0.tune.id] != nil } } ?? 0
+            if inList > 0 { actions.append(.remove(count: inList)) }
+            actions.append(.delete(count: entries.count))
+            return actions
+        }
+
+        var group: Group {
+            switch self {
+            case .status: .status
+            case .edit, .addToList: .change
+            case .archive, .unarchive, .remove: .file
+            case .delete: .delete
+            }
+        }
+
+        /// The menu item's words. An item that opens a sheet ends in an ellipsis.
+        @MainActor var menuTitle: String {
+            switch self {
+            case .status(let status): StatusStyle.label(status)
+            case .edit: "\(BulkActionText.edit)…"
+            case .addToList: "\(BulkActionText.addToList)…"
+            case .archive(let count): BulkActionText.archive(true, count: count)
+            case .unarchive(let count): BulkActionText.archive(false, count: count)
+            case .remove(let count): BulkActionText.remove(count)
+            case .delete(let count): BulkActionText.delete(count)
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .status: "tag"
+            case .edit: TuneRowActions.editSystemImage
+            case .addToList: "text.badge.plus"
+            case .archive: TuneRowActions.archiveSystemImage(archived: false)
+            case .unarchive: TuneRowActions.archiveSystemImage(archived: true)
+            case .remove: "text.badge.xmark"
+            case .delete: "trash"
+            }
+        }
+
+        var isDestructive: Bool {
+            switch self {
+            case .remove, .delete: true
+            default: false
+            }
+        }
+    }
+
+    extension EnvironmentValues {
+        /// The selection bar a screen of tune rows shows in place of its filter row while
+        /// selecting. Set by the selection mode, which holds the actions it runs.
+        @Entry var selectionBar: AnyView?
+    }
+#endif
+
 extension View {
     /// Gives a screen of tune rows its selection mode: the toolbar that counts and acts on the
     /// selected tunes, the edit sheet, the delete question, and the undo banner. `rows` are the
@@ -53,8 +134,18 @@ private struct SelectionMode: ViewModifier {
                     if selection.isActive, let bulk { toolbar(bulk) }
                 }
             #else
-                // The screen's own pane bar shows these in place of its controls.
-                .environment(\.paneSelectionControls, selection.isActive ? bulk.map { AnyView(paneControls($0)) } : nil)
+                // The screen's list shows the bar in place of its filter row.
+                .environment(\.selectionBar, selection.isActive ? bulk.map { AnyView(selectionBar($0)) } : nil)
+                .background {
+                    // Escape ends the mode even with the bar and its Done scrolled out of the list.
+                    if selection.isActive {
+                        Button(TuneSelection.done) { selection.exit() }
+                        .keyboardShortcut(.cancelAction)
+                        .opacity(0)
+                        .frame(width: 0, height: 0)
+                        .accessibilityHidden(true)
+                    }
+                }
             #endif
             #if os(iOS)
                 .environment(\.editMode, .constant(selection.isActive ? .active : .inactive))
@@ -65,7 +156,7 @@ private struct SelectionMode: ViewModifier {
             .safeAreaInset(edge: .top, spacing: 0) {
                 if let failure = bulk?.failure {
                     Text(failure)
-                        .font(.footnote)
+                        .font(.platform(.footnote))
                         .foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 20)
@@ -104,6 +195,19 @@ private struct SelectionMode: ViewModifier {
                 Text(question.message)
             }
             .undoBanner(offer)
+            #if DEBUG
+                .opensForSample(.bulkEdit, when: bulk != nil && rows.count >= 3) {
+                    let picked = Array(rows.prefix(3))
+                    selection.enter(selecting: Set(picked.map(\.tune.id)))
+                    editing = picked
+                }
+                .opensForSample(.listSelecting, when: bulk != nil && list != nil && rows.count >= 3) {
+                    selection.enter(selecting: [rows[0].tune.id, rows[2].tune.id])
+                }
+                .opensForSample(.undoBanner, when: bulk != nil) {
+                    bulk?.offer = UndoOffer(message: BulkActionText.statusSet("known", count: 3)) {}
+                }
+            #endif
             .task(id: store.map(ObjectIdentifier.init)) {
                 guard let store else { return }
                 bulk = BulkActions(store: store, analytics: analytics)
@@ -151,7 +255,7 @@ private struct SelectionMode: ViewModifier {
             }
             ToolbarSpacer(.flexible, placement: .bottomBar)
             ToolbarItem(placement: .bottomBar) {
-                moreMenu(bulk, selectsAll: false) { actionLabel(BulkActionText.more, "ellipsis", worded: worded) }
+                moreMenu(bulk) { actionLabel(BulkActionText.more, "ellipsis", worded: worded) }
                     .disabled(count == 0)
             }
         }
@@ -168,102 +272,97 @@ private struct SelectionMode: ViewModifier {
     #endif
 
     #if os(macOS)
-        /// Status, Edit, Add to list, and More as glyph buttons named in words, then Done.
-        @ViewBuilder private func paneControls(_ bulk: BulkActions) -> some View {
-            let count = selected.count
-            statusMenu(bulk) { Label(BulkActionText.status, systemImage: "tag").labelStyle(.iconOnly) }
-                .disabled(count == 0)
-                .help(BulkActionText.status)
-            Button(BulkActionText.edit, systemImage: TuneRowActions.editSystemImage) { edit() }
-                .labelStyle(.iconOnly)
-                .disabled(count == 0)
-                .help(BulkActionText.edit)
-            Button(BulkActionText.addToList, systemImage: "text.badge.plus") { addToList(bulk) }
-                .labelStyle(.iconOnly)
-                .disabled(count == 0 || listSheets == nil)
-                .help(BulkActionText.addToList)
-            // Live at any count, since Select all lives in it and the mode opens at zero.
-            moreMenu(bulk, selectsAll: true) {
-                Label(BulkActionText.more, systemImage: "ellipsis").labelStyle(.iconOnly)
+        private func selectionBar(_ bulk: BulkActions) -> some View {
+            MacSelectionBar(
+                count: selected.count, allSelected: selection.allSelected(visible: visibleIDs),
+                canSelectAll: !visibleIDs.isEmpty, onSelectAll: toggleAll,
+                actions: SelectionAction.menu(for: selected, list: list), canAddToList: listSheets != nil,
+                isPending: bulk.isPending, onAction: { perform($0, bulk) }, onDone: { selection.exit() })
+        }
+
+        /// Runs a bulk action through the same calls, questions, and undo as the iPhone's toolbar.
+        private func perform(_ action: SelectionAction, _ bulk: BulkActions) {
+            let entries = selected
+            switch action {
+            case .status(let status): run { await bulk.setStatus(status, of: entries) }
+            case .edit: edit()
+            case .addToList: addToList(bulk)
+            case .archive: run { await bulk.setArchived(true, entries) }
+            case .unarchive: run { await bulk.setArchived(false, entries) }
+            case .remove:
+                guard let list else { return }
+                let itemIDs = entries.compactMap { list.itemIDs[$0.tune.id] }
+                run { await bulk.remove(itemIDs: itemIDs, from: list.name, listID: list.id) }
+            case .delete: Task { deleting = await bulk.deleteQuestion(entries) }
             }
-            .help(BulkActionText.more)
-            doneButton
         }
     #endif
 
-    private var doneButton: some View {
-        Button(TuneSelection.done) { selection.exit() }
-            .fontWeight(.semibold)
-            // Escape leaves the mode.
-            .keyboardShortcut(.cancelAction)
-    }
+    #if os(iOS)
+        private var doneButton: some View {
+            Button(TuneSelection.done) { selection.exit() }
+                .fontWeight(.semibold)
+                // Escape leaves the mode.
+                .keyboardShortcut(.cancelAction)
+        }
 
-    private func statusMenu(_ bulk: BulkActions, @ViewBuilder label: () -> some View) -> some View {
-        Menu {
-            Section(BulkActionText.setStatus) {
-                ForEach(Vocabulary.statuses, id: \.self) { status in
-                    Button(StatusStyle.label(status)) {
-                        let entries = selected
-                        Task {
-                            if await bulk.setStatus(status, of: entries) { selection.exit() }
+        private func statusMenu(_ bulk: BulkActions, @ViewBuilder label: () -> some View) -> some View {
+            Menu {
+                Section(BulkActionText.setStatus) {
+                    ForEach(Vocabulary.statuses, id: \.self) { status in
+                        Button(StatusStyle.label(status)) {
+                            let entries = selected
+                            Task {
+                                if await bulk.setStatus(status, of: entries) { selection.exit() }
+                            }
                         }
                     }
                 }
+            } label: {
+                label()
             }
-        } label: {
-            label()
+            .disabled(bulk.isPending)
         }
-        .disabled(bulk.isPending)
-    }
 
-    private func moreMenu(_ bulk: BulkActions, selectsAll: Bool, @ViewBuilder label: () -> some View) -> some View {
-        let entries = selected
-        let toArchive = entries.count { !$0.isArchived }
-        let toUnarchive = entries.count { $0.isArchived }
-        let itemIDs = list.map { list in entries.compactMap { list.itemIDs[$0.tune.id] } } ?? []
-        return Menu {
-            if selectsAll {
-                Button(
-                    selection.allSelected(visible: visibleIDs)
-                        ? TuneSelection.deselectAllItem : TuneSelection.selectAllItem
-                ) {
-                    toggleAll()
+        private func moreMenu(_ bulk: BulkActions, @ViewBuilder label: () -> some View) -> some View {
+            let entries = selected
+            let toArchive = entries.count { !$0.isArchived }
+            let toUnarchive = entries.count { $0.isArchived }
+            let itemIDs = list.map { list in entries.compactMap { list.itemIDs[$0.tune.id] } } ?? []
+            return Menu {
+                if toArchive > 0 {
+                    Button(
+                        BulkActionText.archive(true, count: toArchive),
+                        systemImage: TuneRowActions.archiveSystemImage(archived: false)
+                    ) {
+                        run { await bulk.setArchived(true, entries) }
+                    }
                 }
-                .disabled(visibleIDs.isEmpty)
-                Divider()
-            }
-            if toArchive > 0 {
-                Button(
-                    BulkActionText.archive(true, count: toArchive),
-                    systemImage: TuneRowActions.archiveSystemImage(archived: false)
-                ) {
-                    run { await bulk.setArchived(true, entries) }
+                if toUnarchive > 0 {
+                    Button(
+                        BulkActionText.archive(false, count: toUnarchive),
+                        systemImage: TuneRowActions.archiveSystemImage(archived: true)
+                    ) {
+                        run { await bulk.setArchived(false, entries) }
+                    }
                 }
-            }
-            if toUnarchive > 0 {
-                Button(
-                    BulkActionText.archive(false, count: toUnarchive),
-                    systemImage: TuneRowActions.archiveSystemImage(archived: true)
-                ) {
-                    run { await bulk.setArchived(false, entries) }
+                if let list, !itemIDs.isEmpty {
+                    Button(BulkActionText.remove(itemIDs.count), systemImage: "text.badge.xmark", role: .destructive) {
+                        run { await bulk.remove(itemIDs: itemIDs, from: list.name, listID: list.id) }
+                    }
                 }
-            }
-            if let list, !itemIDs.isEmpty {
-                Button(BulkActionText.remove(itemIDs.count), systemImage: "text.badge.xmark", role: .destructive) {
-                    run { await bulk.remove(itemIDs: itemIDs, from: list.name, listID: list.id) }
+                if !entries.isEmpty {
+                    Divider()
+                    Button(BulkActionText.delete(entries.count), systemImage: "trash", role: .destructive) {
+                        Task { deleting = await bulk.deleteQuestion(entries) }
+                    }
                 }
+            } label: {
+                label()
             }
-            if !entries.isEmpty {
-                Divider()
-                Button(BulkActionText.delete(entries.count), systemImage: "trash", role: .destructive) {
-                    Task { deleting = await bulk.deleteQuestion(entries) }
-                }
-            }
-        } label: {
-            label()
+            .disabled(bulk.isPending)
         }
-        .disabled(bulk.isPending)
-    }
+    #endif
 
     private func run(_ action: @escaping @MainActor () async -> Bool) {
         Task {

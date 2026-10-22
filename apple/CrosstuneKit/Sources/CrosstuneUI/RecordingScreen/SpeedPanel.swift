@@ -12,60 +12,83 @@ struct SpeedPanel: View {
     private static let range = Vocabulary.Ranges.Recording.speedPercent
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Text(RecordingScreenText.speed)
-                Spacer()
-                Text(RecordingScreenText.speedBadge(value))
-                    .monospacedDigit()
-            }
-            .font(.subheadline)
-            .accessibilityHidden(true)
-            HStack(spacing: 12) {
-                PanelStepButton(name: RecordingScreenText.slower, systemImage: "minus") { step(by: -Self.step) }
-                    .disabled(value <= Self.range.lowerBound)
-                Slider(
-                    value: Binding {
-                        Double(value)
-                    } set: {
-                        onChange(Self.clamped(Int($0.rounded())))
-                    },
-                    in: Double(Self.range.lowerBound)...Double(Self.range.upperBound),
-                    step: Double(Self.step)
-                )
-                .accessibilityLabel(RecordingScreenText.speed)
-                .accessibilityValue(RecordingScreenText.speedBadge(value))
-                PanelStepButton(name: RecordingScreenText.faster, systemImage: "plus") { step(by: Self.step) }
-                    .disabled(value >= Self.range.upperBound)
-            }
-            #if os(macOS)
-                HStack(spacing: 8) {
-                    // Segmented, so the chosen preset still shows while the window is inactive.
-                    Picker(
-                        RecordingScreenText.speedPresets,
-                        selection: Binding<Int?> {
-                            Self.presets.contains(value) ? value : nil
-                        } set: {
-                            if let preset = $0 { onChange(preset) }
-                        }
-                    ) {
-                        ForEach(Self.presets, id: \.self) { preset in
-                            Text(RecordingScreenText.speedBadge(preset)).monospacedDigit().tag(Int?.some(preset))
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
-                    Spacer(minLength: 0)
-                    Button(RecordingScreenText.reset) { onChange(100) }
-                        .disabled(value == 100)
-                        .frame(minHeight: PracticeLayout.target)
+        #if os(macOS)
+            macBody
+        #else
+            VStack(spacing: 12) {
+                HStack {
+                    Text(RecordingScreenText.speed)
+                    Spacer()
+                    Text(RecordingScreenText.speedBadge(value))
+                        .monospacedDigit()
                 }
-            #else
+                .font(.platform(.subheadline))
+                .accessibilityHidden(true)
+                HStack(spacing: 12) {
+                    PanelStepButton(name: RecordingScreenText.slower, systemImage: "minus") { step(by: -Self.step) }
+                        .disabled(value <= Self.range.lowerBound)
+                    Slider(
+                        value: Binding {
+                            Double(value)
+                        } set: {
+                            onChange(Self.clamped(Int($0.rounded())))
+                        },
+                        in: Double(Self.range.lowerBound)...Double(Self.range.upperBound),
+                        step: Double(Self.step)
+                    )
+                    .accessibilityLabel(RecordingScreenText.speed)
+                    .accessibilityValue(RecordingScreenText.speedBadge(value))
+                    PanelStepButton(name: RecordingScreenText.faster, systemImage: "plus") { step(by: Self.step) }
+                        .disabled(value >= Self.range.upperBound)
+                }
                 SpeedPresetRow(value: value, onChange: onChange)
-            #endif
-        }
+            }
+        #endif
     }
+
+    #if os(macOS)
+        /// The label row with Reset, the control row's stepper beside a slider held to the 5%
+        /// grid with a detent at normal speed, and the presets.
+        private var macBody: some View {
+            VStack(alignment: .leading, spacing: 12) {
+                PanelLabelRow(title: RecordingScreenText.speed) {
+                    Button(RecordingScreenText.reset) { onChange(100) }
+                        .buttonStyle(.mac(.plain, size: .small))
+                        .disabled(value == 100)
+                }
+                PanelControlRow {
+                    MacStepper(
+                        value: RecordingScreenText.speedBadge(value), decrement: { step(by: -Self.step) },
+                        increment: { step(by: Self.step) }, canDecrement: value > Self.range.lowerBound,
+                        canIncrement: value < Self.range.upperBound, accessibilityLabel: RecordingScreenText.speed)
+                } slider: {
+                    MacSlider(
+                        value: Binding {
+                            Double(value)
+                        } set: {
+                            onChange(Self.clamped(Int(($0 / Double(Self.step)).rounded()) * Self.step))
+                        },
+                        in: Double(Self.range.lowerBound)...Double(Self.range.upperBound), detent: 100,
+                        accessibilityLabel: RecordingScreenText.speed, step: Double(Self.step),
+                        accessibilityValue: RecordingScreenText.speedBadge(value)
+                    )
+                    // The stepper beside it is the same control for VoiceOver.
+                    .accessibilityHidden(true)
+                } accessory: {
+                    EmptyView()
+                }
+                MacSegmented(
+                    selection: Binding<Int?> {
+                        Self.presets.contains(value) ? value : nil
+                    } set: {
+                        if let preset = $0 { onChange(preset) }
+                    },
+                    options: Self.presets.map(Optional.some),
+                    label: { RecordingScreenText.speedBadge($0 ?? 100) },
+                    title: RecordingScreenText.speedPresets)
+            }
+        }
+    #endif
 
     private func step(by delta: Int) {
         onChange(Self.stepped(value, by: delta))
@@ -129,39 +152,96 @@ struct SpeedPresetRow: View {
     }
 }
 
-/// A minus or plus beside a panel's slider or count: round with a 44 point target on iOS, a
-/// bordered button on the Mac.
-struct PanelStepButton: View {
-    let name: String
-    let systemImage: String
-    let action: () -> Void
+#if os(macOS)
+    /// A Mac practice panel's label row: its name in secondary ink, with a quiet control such as
+    /// Reset at the trailing end.
+    struct PanelLabelRow<Trailing: View>: View {
+        let title: String
+        @ViewBuilder let trailing: Trailing
 
-    @Environment(\.colorScheme) private var colorScheme
+        var body: some View {
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(MacStyle.label)
+                    .foregroundStyle(MacPalette.inkSecondary)
+                    .accessibilityHidden(true)
+                Spacer(minLength: 0)
+                trailing
+            }
+            .frame(minHeight: MacStyle.smallControlHeight)
+        }
+    }
 
-    var body: some View {
-        #if os(macOS)
+    /// A Mac practice panel's control row, under its label row: the stepper beside a slider
+    /// that takes the rest of the width, with an optional value trailing the slider. Where the
+    /// two show different units, as Pitch's semitones and cents do, a caption under each names it.
+    struct PanelControlRow<Stepper: View, Slider: View, Accessory: View>: View {
+        let stepperCaption: String?
+        let sliderCaption: String?
+        let stepper: Stepper
+        let slider: Slider
+        let accessory: Accessory
+
+        init(
+            stepperCaption: String? = nil, sliderCaption: String? = nil, @ViewBuilder stepper: () -> Stepper,
+            @ViewBuilder slider: () -> Slider, @ViewBuilder accessory: () -> Accessory
+        ) {
+            self.stepperCaption = stepperCaption
+            self.sliderCaption = sliderCaption
+            self.stepper = stepper()
+            self.slider = slider()
+            self.accessory = accessory()
+        }
+
+        var body: some View {
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
+                GridRow {
+                    stepper
+                    HStack(spacing: 16) {
+                        slider
+                        accessory
+                    }
+                }
+                if stepperCaption != nil || sliderCaption != nil {
+                    GridRow {
+                        caption(stepperCaption)
+                            .gridCellAnchor(.center)
+                        caption(sliderCaption)
+                    }
+                }
+            }
+        }
+
+        /// The controls carry these names for VoiceOver already.
+        private func caption(_ text: String?) -> some View {
+            Text(text ?? "")
+                .font(MacStyle.secondary)
+                .foregroundStyle(MacPalette.inkSecondary)
+                .accessibilityHidden(true)
+        }
+    }
+#endif
+
+#if !os(macOS)
+    /// A minus or plus beside a panel's slider or count, round with a 44 point target.
+    struct PanelStepButton: View {
+        let name: String
+        let systemImage: String
+        let action: () -> Void
+
+        @Environment(\.colorScheme) private var colorScheme
+
+        var body: some View {
             Button(action: action) {
                 Label(name, systemImage: systemImage)
                     .labelStyle(.iconOnly)
-                    .frame(minWidth: 16, minHeight: 16)
+                    .font(.platform(.body).weight(.semibold))
+                    .frame(width: minimumTapTarget, height: minimumTapTarget)
+                    .background(neutralFill(colorScheme), in: .circle)
+                    .contentShape(.circle)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.plain)
             .help(name)
-        #else
-            touchButton
-        #endif
-    }
-
-    private var touchButton: some View {
-        Button(action: action) {
-            Label(name, systemImage: systemImage)
-                .labelStyle(.iconOnly)
-                .font(.body.weight(.semibold))
-                .frame(width: minimumTapTarget, height: minimumTapTarget)
-                .background(neutralFill(colorScheme), in: .circle)
-                .contentShape(.circle)
         }
-        .buttonStyle(.plain)
-        .help(name)
     }
-}
+#endif

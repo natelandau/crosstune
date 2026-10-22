@@ -98,7 +98,7 @@ struct PaperEcho: View {
             if !entry.text.isEmpty {
                 Text(entry.text)
                     .strikethrough(entry.struck, color: Self.clay)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.inkSecondary)
             }
             if let note = entry.note {
                 Text(note).foregroundStyle(Self.clay)

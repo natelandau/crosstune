@@ -1,6 +1,7 @@
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneTestSupport
+import CrosstuneVocabulary
 import Foundation
 import GRDB
 import Testing
@@ -293,8 +294,78 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     @Test func countsTheSelectionInTheTitle() {
         #expect(TuneSelection.title(1) == "1 tune")
         #expect(TuneSelection.title(3) == "3 tunes")
+        #expect(TuneSelection.selectedTitle(3) == "3 selected")
+    }
+
+    @Test func togglesOneRowFromItsCheckbox() {
+        var selection = TuneSelection()
+        selection.enter(with: "a")
+        selection.setSelected("c", true, visible: visible)
+        #expect(selection.ids == ["a", "c"])
+        selection.setSelected("a", false, visible: visible)
+        #expect(selection.ids == ["c"])
+        selection.setSelected("z", true, visible: visible)
+        #expect(selection.ids == ["c"], "a row that is not visible is never selected")
     }
 }
+
+#if os(macOS)
+    @Suite struct MacSelectionTests {
+        private static func source(_ name: String) throws -> String {
+            let file = try #require(SourceScan.files().first { $0.lastPathComponent == name })
+            return SourceScan.withoutComments(try SourceScan.text(at: file))
+        }
+
+        /// The app target's menu commands, beside the package.
+        private static func appCommands() throws -> String {
+            let url = SourceScan.sources
+                .deletingLastPathComponent()  // Sources
+                .deletingLastPathComponent()  // CrosstuneKit
+                .deletingLastPathComponent()  // apple
+                .appending(path: "Crosstune/AppCommands.swift")
+            return SourceScan.withoutComments(try SourceScan.text(at: url))
+        }
+
+        /// The pane bar's controls closure: from `.paneBar` to the column title that follows it.
+        private static func paneBar(in text: String) throws -> Substring {
+            let start = try #require(text.range(of: ".paneBar"))
+            let end = try #require(text.range(of: ".columnTitled(", range: start.upperBound..<text.endIndex))
+            return text[start.lowerBound..<end.lowerBound]
+        }
+
+        @Test func macSelectionActionsMenuListsEveryBulkAction() {
+            var archivedUserTune = b.userTune
+            archivedUserTune.archivedAt = Timestamp.now
+            let archived = CatalogEntry(tune: b.tune, userTune: archivedUserTune)
+            let list = SelectionList(id: "list", name: "Waltzes", itemIDs: [a.tune.id: "item_a", b.tune.id: "item_b"])
+            let statuses: [SelectionAction] = Vocabulary.statuses.map { .status($0) }
+            let rest: [SelectionAction] = [
+                .edit, .addToList, .archive(count: 1), .unarchive(count: 1), .remove(count: 2), .delete(count: 2),
+            ]
+            #expect(SelectionAction.menu(for: [a, archived], list: list) == statuses + rest)
+            let catalog = SelectionAction.menu(for: [a], list: nil)
+            #expect(!catalog.contains(.remove(count: 1)), "only a list removes")
+            #expect(!catalog.contains(.unarchive(count: 1)))
+            #expect(catalog.contains(.archive(count: 1)))
+            #expect(SelectionAction.menu(for: [], list: list).isEmpty, "nothing to act on with nothing selected")
+        }
+
+        @Test func selectIsInTheViewMenu() throws {
+            for name in ["CatalogScreen.swift", "ListScreen.swift"] {
+                let text = try Self.source(name)
+                let bar = try Self.paneBar(in: text)
+                // A list's pane bar reaches its More menu through `listActions`.
+                #expect(bar.contains("moreMenu") || bar.contains("listActions"), "\(name)'s pane bar has a More menu")
+                #expect(
+                    SourceScan.macOSRegions(of: text).contains("selectTunesAction"),
+                    "\(name) publishes View > Select tunes")
+            }
+            let commands = try Self.appCommands()
+            #expect(commands.contains("@FocusedValue(\\.selectTunesAction)"))
+            #expect(commands.contains("MenuCommand.selectTunes"))
+        }
+    }
+#endif
 
 @Suite struct BulkActionTextTests {
     @Test func carriesTheCountInEveryLabelAndMessage() {

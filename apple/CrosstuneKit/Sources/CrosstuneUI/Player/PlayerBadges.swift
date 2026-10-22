@@ -16,21 +16,36 @@ struct SettingsBadge: View {
     }
 }
 
-/// A small neutral capsule of figures, as "75% +2".
+/// A small neutral capsule of figures, as "75% +2". The Mac dock shows the figures as plain
+/// secondary text.
 struct SettingsBadgeLabel: View {
     let text: String
 
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        Text(text)
-            .font(.caption)
-            .monospacedDigit()
-            .padding(.horizontal, 8)
-            .frame(minHeight: 22)
-            .background(neutralFill(colorScheme), in: .capsule)
-            .fixedSize()
+        #if os(macOS)
+            Text(text)
+                .font(MacStyle.secondary)
+                .monospacedDigit()
+                .foregroundStyle(MacPalette.inkSecondary)
+                .frame(minHeight: PlayerBadge.macHeight)
+                .fixedSize()
+        #else
+            Text(text)
+                .font(.platform(.caption))
+                .monospacedDigit()
+                .padding(.horizontal, 8)
+                .frame(minHeight: 22)
+                .background(neutralFill(colorScheme), in: .capsule)
+                .fixedSize()
+        #endif
     }
+}
+
+enum PlayerBadge {
+    /// A badge's line on the Mac dock.
+    static let macHeight: CGFloat = 20
 }
 
 /// While a loop repeats: "Repeating B part", which opens the recording's screen, and a Repeat
@@ -50,18 +65,30 @@ struct RepeatBadge: View {
             Button {
                 if let item = player.item { player.open(item, in: window, source: .dock) }
             } label: {
-                Text(PracticeText.repeating(name))
-                    .contentMask()
-                    .font(.caption)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: maxTextWidth)
-                    .onSlateLabel()
-                    .padding(.horizontal, 8)
-                    .frame(minHeight: 22)
-                    .background(.tint, in: .capsule)
-                    .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
-                    .contentShape(.rect)
+                #if os(macOS)
+                    Text(PracticeText.repeating(name))
+                        .contentMask()
+                        .font(MacStyle.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: maxTextWidth)
+                        .foregroundStyle(MacPalette.inkSecondary)
+                        .frame(minHeight: PlayerBadge.macHeight)
+                        .contentShape(.rect)
+                #else
+                    Text(PracticeText.repeating(name))
+                        .contentMask()
+                        .font(.platform(.caption))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: maxTextWidth)
+                        .onSlateLabel()
+                        .padding(.horizontal, 8)
+                        .frame(minHeight: 22)
+                        .background(.tint, in: .capsule)
+                        .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
+                        .contentShape(.rect)
+                #endif
             }
             .buttonStyle(.plain)
             Button {

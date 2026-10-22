@@ -115,29 +115,40 @@ public struct ListNameSheet: View {
     }
 
     public var body: some View {
-        NavigationStack {
+        #if os(macOS)
             Group {
                 if let model {
                     ListNameForm(model: model, onSaved: onSaved)
                 } else {
-                    Color.clear
+                    Color.clear.macSheetFrame(ListNameForm.size)
                 }
             }
-            .navigationTitle(target == .new ? Self.newTitle : Self.renameTitle)
-            #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-            #endif
-        }
-        #if os(iOS)
-            .partHeightSheet()
-        #else
-            .macSheetFrame(.form(minHeight: 200))
             .shellSheet()
+            .task { makeModel() }
+        #else
+            NavigationStack {
+                Group {
+                    if let model {
+                        ListNameForm(model: model, onSaved: onSaved)
+                    } else {
+                        Color.clear
+                    }
+                }
+                .navigationTitle(Self.title(target))
+                .navigationBarTitleDisplayMode(.inline)
+            }
+            .partHeightSheet()
+            .task { makeModel() }
         #endif
-        .task {
-            guard model == nil, let store else { return }
-            model = ListNameModel(store: store, target: target, analytics: analytics)
-        }
+    }
+
+    static func title(_ target: ListNameTarget) -> String {
+        target == .new ? newTitle : renameTitle
+    }
+
+    private func makeModel() {
+        guard model == nil, let store else { return }
+        model = ListNameModel(store: store, target: target, analytics: analytics)
     }
 }
 
@@ -148,53 +159,79 @@ private struct ListNameForm: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focused: Bool
 
-    var body: some View {
-        Form {
-            Section {
-                TextField(
-                    ListNameSheet.nameLabel,
-                    text: Binding {
-                        model.name
-                    } set: {
-                        model.setName($0)
-                    },
-                    prompt: Text(ListNameSheet.placeholder)
-                )
-                .contentMask()
-                .characterLimit(
-                    Vocabulary.Limits.List.name,
-                    text: Binding {
-                        model.name
-                    } set: {
-                        model.setName($0)
+    #if os(macOS)
+        static let size = MacSheetSize.fitted(max: 280)
+
+        var body: some View {
+            MacSheet(
+                title: ListNameSheet.title(model.target), size: Self.size,
+                cancel: .cancel(TuneFormSheet.cancel, isEnabled: !model.isSaving) { dismiss() },
+                primary: .init(
+                    model.isNew ? ListNameSheet.create : ListNameSheet.save,
+                    isEnabled: !model.isSaving && !model.isSaved, action: save)
+            ) {
+                VStack(alignment: .leading, spacing: 6) {
+                    field
+                    if let message = model.validation ?? model.failure {
+                        FailureText(message)
                     }
-                )
-                .focused($focused)
-                .submitLabel(.done)
-                .onSubmit(save)
-            } footer: {
-                // The sheet's title already names the one field, so the section has no header.
-                if let message = model.validation ?? model.failure {
-                    Text(message)
-                        .foregroundStyle(.red)
                 }
             }
+            .interactiveDismissDisabled(model.isEdited || model.isSaving)
+            .onAppear { focused = true }
         }
-        .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button(TuneFormSheet.cancel) { dismiss() }
-                    .disabled(model.isSaving)
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                Button(model.isNew ? ListNameSheet.create : ListNameSheet.save, action: save)
-                    .fontWeight(.semibold)
-                    .disabled(model.isSaving || model.isSaved)
-            }
+    #endif
+
+    private var nameBinding: Binding<String> {
+        Binding {
+            model.name
+        } set: {
+            model.setName($0)
         }
-        .interactiveDismissDisabled(model.isEdited || model.isSaving)
-        .onAppear { focused = true }
     }
+
+    private var field: some View {
+        TextField(ListNameSheet.nameLabel, text: nameBinding, prompt: Text(ListNameSheet.placeholder))
+            .contentMask()
+            #if os(macOS)
+                .labelsHidden()
+                .textFieldStyle(.macField)
+            #endif
+            .characterLimit(Vocabulary.Limits.List.name, text: nameBinding)
+            .focused($focused)
+            .submitLabel(.done)
+            .onSubmit(save)
+    }
+
+    #if os(iOS)
+        var body: some View {
+            Form {
+                Section {
+                    field
+                } footer: {
+                    // The sheet's title already names the one field, so the section has no header.
+                    if let message = model.validation ?? model.failure {
+                        Text(message)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(TuneFormSheet.cancel) { dismiss() }
+                        .disabled(model.isSaving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(model.isNew ? ListNameSheet.create : ListNameSheet.save, action: save)
+                        .fontWeight(.semibold)
+                        .disabled(model.isSaving || model.isSaved)
+                }
+            }
+            .interactiveDismissDisabled(model.isEdited || model.isSaving)
+            .onAppear { focused = true }
+        }
+    #endif
 
     private func save() {
         Task {

@@ -46,6 +46,18 @@ public struct RecordingRowContent: Hashable, Sendable {
     /// never shown: Premium, for a recording the plan holds back.
     public let spokenNotice: String?
 
+    /// Whether a row offering `control` stands down while a take records: only a play does.
+    nonisolated static func blocksPlay(_ control: RecordingText.Control) -> Bool {
+        control == .play
+    }
+
+    /// Whether a recording's row would say Stop recording to play while a take records.
+    nonisolated static func blocksPlay(
+        _ recording: Recording, file: RecordingFile?, loaded: Bool, downloading: Bool
+    ) -> Bool {
+        blocksPlay(RecordingText.control(recording, file: file, loaded: loaded, downloading: downloading))
+    }
+
     public init(
         recording: Recording, file: RecordingFile?, tuneTitle: String?, tuneNamedAbove: Bool = false,
         loaded: Bool = false, downloading: Bool = false, downloadFailed: Bool = false, offline: Bool = false,
@@ -64,7 +76,7 @@ public struct RecordingRowContent: Hashable, Sendable {
             // A hold lifts only on the next push, but a Premium plan sends the take on it.
             sort: sort, heldForPremium: heldForPremium && !recordingsPlay, locale: locale, timeZone: timeZone
         ).joined(separator: " · ")
-        let blockedPlay = playBlocked && control == .play
+        let blockedPlay = playBlocked && Self.blocksPlay(control)
         isDimmed = offlineDownload || blockedPlay || !recordingsPlay
         notice = blockedPlay ? MediaText.stopRecordingToPlay : nil
         retry = RecordingText.retry(recording, file: file)

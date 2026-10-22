@@ -6,10 +6,12 @@ import SwiftUI
 public struct TuneSelection: Equatable, Sendable {
     public static let selectAll = "Select All"
     public static let deselectAll = "Deselect All"
-    /// The Mac's More menu item, in the app's sentence case.
+    /// The Mac selection bar's words, in the app's sentence case.
     public static let selectAllItem = "Select all"
     public static let deselectAllItem = "Deselect all"
     public static let done = "Done"
+    /// The Mac selection bar's one menu of bulk actions.
+    public static let actions = "Actions"
 
     public private(set) var isActive = false
     public private(set) var ids: Set<String> = []
@@ -22,6 +24,11 @@ public struct TuneSelection: Equatable, Sendable {
     /// The toolbar's count while selecting: "3 tunes".
     public static func title(_ count: Int) -> String {
         CatalogSearch.tunes(count)
+    }
+
+    /// The Mac column title while selecting: "3 selected".
+    public static func selectedTitle(_ count: Int) -> String {
+        "\(count) selected"
     }
 
     /// Turns the mode on, with `row` selected when it is entered from one.
@@ -48,6 +55,14 @@ public struct TuneSelection: Equatable, Sendable {
     /// Replaces the selected rows, keeping only visible ones.
     public mutating func set(_ rows: Set<String>, visible: [String]) {
         ids = rows.intersection(visible)
+    }
+
+    /// Adds `row` to the selection or takes it out, as its checkbox does. Only a visible row is
+    /// ever added.
+    public mutating func setSelected(_ row: String, _ isSelected: Bool, visible: [String]) {
+        var rows = ids
+        if isSelected { rows.insert(row) } else { rows.remove(row) }
+        set(rows, visible: visible)
     }
 
     /// Drops rows that are no longer visible, such as ones a search or a filter hides.
@@ -88,6 +103,26 @@ public struct TuneSelection: Equatable, Sendable {
 }
 
 extension TuneSelection {
+    /// Whether `row` is selected, for its checkbox, which adds or takes out that row alone.
+    /// `visible` is read only on a click, so a long list builds its rows without it.
+    @MainActor static func checkbox(
+        _ selection: Binding<TuneSelection>, row: String, visible: @escaping () -> [String]
+    ) -> Binding<Bool> {
+        Binding {
+            selection.wrappedValue.ids.contains(row)
+        } set: { isOn in
+            selection.wrappedValue.setSelected(row, isOn, visible: visible())
+        }
+    }
+
+    /// Whether `id`'s row draws as the list's selection: one of the selection while it lasts,
+    /// else the detail column's tune.
+    @MainActor static func rowIsSelected(
+        _ id: String, selection: TuneSelection, detailTune: ShellValue<String?>?
+    ) -> Bool {
+        selection.isActive ? selection.ids.contains(id) : detailTune?.value == id
+    }
+
     /// The selection binding for a screen's list of rows: the selection while the mode is on; the
     /// detail column's tune while it is off, where there is one; and none on a phone, whose rows
     /// push their tune instead.

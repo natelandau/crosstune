@@ -30,15 +30,40 @@ struct TunePage: View {
     }
 
     /// What the tune is after its key: modes, type, genre, time, crooked, and parts, each left
-    /// out when unset, in the words its facets use.
-    nonisolated static func facetLine(_ detail: TuneDetail) -> String {
+    /// out when unset, in the words its facets use. `skippingModes` leaves out the leading modes
+    /// the key pill already names.
+    nonisolated static func facetLine(_ detail: TuneDetail, skippingModes: Int = 0) -> String {
         let tune = detail.tune
         let parts: [String?] =
-            tune.modes + [
+            Array(tune.modes.dropFirst(skippingModes)) + [
                 tune.tuneType, tune.genre, tune.timeSignature, tune.isCrooked ? TuneDetail.crooked : nil,
                 tune.partStructure,
             ]
         return parts.compactMap { $0.flatMap { $0.isEmpty ? nil : $0 } }.joined(separator: " · ")
+    }
+
+    /// The header's facts: the key pill's words and the facet line after it.
+    struct Facts: Equatable {
+        /// The key, or nil for a tune with none.
+        let key: String?
+        /// What follows the key in its pill: the mode, spelled out, where the pill holds it.
+        let keySuffix: String
+        let line: String
+
+        var pill: String? { key.map { $0 + keySuffix } }
+    }
+
+    /// The key and the facet line. With `modeInPill` the pill names the first mode with the key,
+    /// "D major", so the two never part across the pill's edge; a mode the key cannot name
+    /// stays in the line.
+    nonisolated static func facts(_ detail: TuneDetail, modeInPill: Bool) -> Facts {
+        guard let keyMode = KeyModeText(key: detail.tune.key, modes: detail.tune.modes) else {
+            return Facts(key: nil, keySuffix: "", line: facetLine(detail))
+        }
+        let holdsMode = modeInPill && keyMode.spoken != keyMode.key
+        return Facts(
+            key: keyMode.key, keySuffix: holdsMode ? String(keyMode.spoken.dropFirst(keyMode.key.count)) : "",
+            line: facetLine(detail, skippingModes: holdsMode ? 1 : 0))
     }
 
     var body: some View {
@@ -50,7 +75,12 @@ struct TunePage: View {
                 onTitleShows: { titleShows = $0 }
             )
             .frame(maxWidth: PageStyle.pageMaxWidth, alignment: .leading)
-            .padding(PageStyle.pageMargin)
+            #if os(macOS)
+                // The title's own room sets it on the columns' title baseline.
+                .padding([.horizontal, .bottom], PageStyle.pageMargin)
+            #else
+                .padding(PageStyle.pageMargin)
+            #endif
             .frame(maxWidth: .infinity)
         }
         .onAppear {
@@ -144,16 +174,20 @@ struct TunePageColumn: View {
     }
 
     private var media: some View {
-        PageSection(TuneScreen.recordingsHeader) {
+        PageSection(TuneScreen.recordingsHeader, maxWidth: PageStyle.sectionMaxWidth) {
             TuneMediaAddMenu(model: model, detail: detail)
         } content: {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Self.mediaRowGap) {
                 if detail.recordings.isEmpty && detail.links.isEmpty {
                     PageEmptyState(
                         title: TuneScreen.noMediaTitle, hint: TuneScreen.noMediaHint,
                         systemImage: Destination.recordings.systemImage)
                 }
                 TuneMediaRows(model: model, detail: detail, editing: $editing, deleting: $deleting)
+                    #if os(macOS)
+                        .environment(\.hangsMediaGlyph, true)
+                        .environment(\.mediaNoticeInHeading, true)
+                    #endif
                 if let failure = model.failure(at: .media) {
                     FailureText(failure)
                 }
@@ -161,10 +195,16 @@ struct TunePageColumn: View {
         }
     }
 
+    #if os(macOS)
+        private static let mediaRowGap: CGFloat = 8
+    #else
+        private static let mediaRowGap: CGFloat = 10
+    #endif
+
     private var scans: some View {
         let scans = model.scans
         let layout = scans.layout
-        return PageSection(ScanCopy.scans) {
+        return PageSection(ScanCopy.scans, maxWidth: PageStyle.sectionMaxWidth) {
             ScanHeaderControls(model: scans, editing: $editingScans, adding: $addingScans)
         } content: {
             VStack(alignment: .leading, spacing: 6) {
@@ -183,7 +223,7 @@ struct TunePageColumn: View {
                 } else if let note = layout.limitNote {
                     Text(note)
                         .font(PageStyle.secondary)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
                 }
             }
         }
@@ -192,13 +232,14 @@ struct TunePageColumn: View {
     /// A row that opens the reader, led by the lyrics' first line so the page says which
     /// words it holds, or by the plain label when there is no line to quote.
     private func lyrics(_ firstLine: String?) -> some View {
-        PageSection(TuneFieldLabels.lyrics) {
+        PageSection(TuneFieldLabels.lyrics, maxWidth: PageStyle.sectionMaxWidth) {
             Button {
                 actions.readLyrics?(detail.tune.id)
             } label: {
-                HStack(spacing: 8) {
+                HangingGlyphLine(alignment: .center) {
                     Image(systemName: "text.quote")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
+                } content: {
                     Text(firstLine ?? TuneScreen.openLyrics)
                         .contentMask()
                         .lineLimit(1)
@@ -206,10 +247,16 @@ struct TunePageColumn: View {
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.right")
                         .font(PageStyle.secondary.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.inkTertiary)
+                        #if os(macOS)
+                            // Centered on the section headings' icon controls above it.
+                            .frame(width: MacButtonStyle.Size.small.iconDiameter)
+                        #endif
                 }
-                .frame(minHeight: PageStyle.minTarget)
-                .contentShape(.rect)
+                #if !os(macOS)
+                    .frame(minHeight: PageStyle.minTarget)
+                    .contentShape(.rect)
+                #endif
             }
             .buttonStyle(.plain)
             .zoomSource(id: detail.tune.id, in: lyricsZoom)
@@ -220,7 +267,7 @@ struct TunePageColumn: View {
     }
 
     private var lists: some View {
-        PageSection(TuneScreen.listsHeader) {
+        PageSection(TuneScreen.listsHeader, maxWidth: PageStyle.sectionMaxWidth) {
             Button(TuneScreen.addToList, systemImage: "plus") {
                 actions.addToList?(detail.userTune.id)
             }
@@ -245,7 +292,7 @@ struct TunePageColumn: View {
 
     private var notes: some View {
         let label = hasNotes ? TuneScreen.editNotes : TuneScreen.addNotes
-        return PageSection(TuneScreen.notesHeader) {
+        return PageSection(TuneScreen.notesHeader, maxWidth: PageStyle.sectionMaxWidth) {
             Button(label, systemImage: hasNotes ? "pencil" : "plus", action: onEdit)
                 .labelStyle(.iconOnly)
                 .disabled(leaving)
@@ -262,7 +309,7 @@ struct TunePageColumn: View {
                         .contentMask()
                         .font(PageStyle.secondary)
                         .monospacedDigit()
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
                 }
                 if let notes = detail.notes {
                     Text(notes)
@@ -288,10 +335,14 @@ private struct TunePageHeader: View {
             Text(detail.tune.title)
                 .contentMask()
                 .font(PageStyle.pageTitle)
+                .tracking(PageStyle.pageTitleTracking)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
                 .onScrollVisibilityChange(threshold: 0.5, onTitleShows)
+                #if os(macOS)
+                    .columnTitleBaseline(.page, size: MacStyle.pageTitleSize)
+                #endif
             if detail.alternateTitles != nil || detail.tune.composer != nil {
                 VStack(alignment: .leading, spacing: 2) {
                     if let alternateTitles = detail.alternateTitles {
@@ -303,7 +354,7 @@ private struct TunePageHeader: View {
                             .contentMask()
                     }
                 }
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
                 .textSelection(.enabled)
             }
             facets
@@ -316,18 +367,18 @@ private struct TunePageHeader: View {
     }
 
     @ViewBuilder private var facets: some View {
-        let line = TunePage.facetLine(detail)
-        let key = detail.tune.key?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !key.isEmpty || !line.isEmpty {
+        let facts = TunePage.facts(detail, modeInPill: PageStyle.keyPillHoldsMode)
+        let line = facts.line
+        if facts.key != nil || !line.isEmpty {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                if !key.isEmpty {
-                    KeyPill(key, size: .compact)
-                        .accessibilityLabel("\(TuneRowText.keyPrefix) \(key)")
+                if let key = facts.key, let pill = facts.pill {
+                    KeyPill(key, suffix: facts.keySuffix, size: .compact)
+                        .accessibilityLabel("\(TuneRowText.keyPrefix) \(pill)")
                 }
                 if !line.isEmpty {
                     Text(Self.breakingAfterDots(line))
                         .contentMask()
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -343,23 +394,35 @@ private struct TunePageHeader: View {
     private var status: some View {
         let status = detail.userTune.status
         let words = [StatusStyle.label(status)] + detail.tunings
-        return HStack(alignment: .firstTextBaseline, spacing: 6) {
+        return HangingGlyphLine(inlineSpacing: 6) {
             // The word beside the glyph names the status, so the glyph is not read twice.
             StatusGlyph(status)
                 .accessibilityHidden(true)
+        } content: {
             Text(Self.breakingAfterDots(words.joined(separator: " · ")))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             if detail.isArchived {
-                Text(TuneRowText.archived)
-                    .font(PageStyle.secondary.weight(.medium))
-                    .foregroundStyle(Color.orange)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(Color.orange.opacity(0.18), in: .capsule)
-                    .padding(.leading, 2)
+                archivedChip
             }
         }
+    }
+
+    private var archivedChip: some View {
+        #if os(macOS)
+            // Neutral: archived is a state the musician chose, not a warning.
+            Text(TuneRowText.archived)
+                .macChip(state: .rest, hueInk: MacPalette.inkSecondary, size: .row)
+                .padding(.leading, 2)
+        #else
+            Text(TuneRowText.archived)
+                .font(PageStyle.secondary.weight(.medium))
+                .foregroundStyle(Color.orange)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2)
+                .background(Color.orange.opacity(0.18), in: .capsule)
+                .padding(.leading, 2)
+        #endif
     }
 }
 
@@ -372,16 +435,23 @@ private struct ListToken: View {
 
     var body: some View {
         OpensList(listID: membership.list.id) { _ in
-            Label(membership.list.name, systemImage: Destination.lists.systemImage)
-                .contentMask()
-                .labelStyle(TokenLabelStyle())
-                .lineLimit(1)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .frame(minHeight: PageStyle.smallControlHeight)
-                .background(neutralFill(colorScheme), in: .capsule)
-                .contentShape(.capsule)
-                .tapTarget(visibleHeight: PageStyle.smallControlHeight, minimum: PageStyle.minTarget)
+            #if os(macOS)
+                Label(membership.list.name, systemImage: Destination.lists.systemImage)
+                    .contentMask()
+                    .labelStyle(TokenLabelStyle())
+                    .macChip(state: .rest, size: .standalone)
+            #else
+                Label(membership.list.name, systemImage: Destination.lists.systemImage)
+                    .contentMask()
+                    .labelStyle(TokenLabelStyle())
+                    .lineLimit(1)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .frame(minHeight: PageStyle.smallControlHeight)
+                    .background(neutralFill(colorScheme), in: .capsule)
+                    .contentShape(.capsule)
+                    .tapTarget(visibleHeight: PageStyle.smallControlHeight, minimum: PageStyle.minTarget)
+            #endif
         }
         .contextMenu { RemoveFromListButton(model: model, membership: membership) }
     }
@@ -392,7 +462,7 @@ private struct TokenLabelStyle: LabelStyle {
         HStack(spacing: 5) {
             configuration.icon
                 .font(PageStyle.secondary)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
             configuration.title
                 .foregroundStyle(.primary)
         }

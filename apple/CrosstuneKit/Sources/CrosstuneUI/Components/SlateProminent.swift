@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// A prominent button on the slate tint whose label takes the label-on-slate color where
-/// `PageStyle.prominentLabelOnSlate` says so. The system's prominent styles draw a white
-/// label, which dark mode's light slate leaves short of 4.5:1. Every slate-filled prominent
-/// button uses this style, never the system's directly.
+/// A prominent button on the slate tint whose label takes the label-on-slate color. The
+/// system's prominent styles draw a white label, which dark mode's light slate leaves short of
+/// 4.5:1. Every slate-filled prominent button uses this style, never the system's directly. On
+/// the Mac it draws the Mac primary, which keeps its fill in an inactive window.
 struct SlateProminentButtonStyle: PrimitiveButtonStyle {
     /// Draws the glass prominent style in place of the bordered one.
     var glass = false
@@ -24,20 +24,34 @@ private struct SlateProminentButton: View {
     let configuration: PrimitiveButtonStyleConfiguration
     let glass: Bool
 
-    var body: some View {
-        let button = Button(role: configuration.role, action: configuration.trigger) {
-            if PageStyle.prominentLabelOnSlate {
-                configuration.label.onSlateLabel()
-            } else {
-                configuration.label
+    #if os(macOS)
+        @Environment(\.controlSize) private var controlSize
+
+        /// Glass never draws on a Mac content button, so both styles take the one primary.
+        var body: some View {
+            Button(role: configuration.role, action: configuration.trigger) { configuration.label }
+                .buttonStyle(.mac(.primary, size: size))
+        }
+
+        private var size: MacButtonStyle.Size {
+            switch controlSize {
+            case .mini, .small: .small
+            case .large, .extraLarge: .large
+            default: .regular
             }
         }
-        if glass {
-            button.buttonStyle(.glassProminent)
-        } else {
-            button.buttonStyle(.borderedProminent)
+    #else
+        var body: some View {
+            let button = Button(role: configuration.role, action: configuration.trigger) {
+                configuration.label.onSlateLabel()
+            }
+            if glass {
+                button.buttonStyle(.glassProminent)
+            } else {
+                button.buttonStyle(.borderedProminent)
+            }
         }
-    }
+    #endif
 }
 
 extension View {

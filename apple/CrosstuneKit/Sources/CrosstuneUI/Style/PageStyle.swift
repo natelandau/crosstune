@@ -10,6 +10,7 @@ enum PageStyle {
         /// The space above a group's heading in a list of recordings.
         static let groupHeadingTop: CGFloat = 8
         static let pageTitle = MacStyle.pageTitle
+        static let pageTitleTracking = MacStyle.pageTitleTracking
         static let sectionGap = MacStyle.sectionGap
         static let headingGap = MacStyle.headingGap
         static let smallControlHeight = MacStyle.smallControlHeight
@@ -26,24 +27,25 @@ enum PageStyle {
         static let titleRise: CGFloat = 6
         /// The Mac allows only a few signature moments, so its filters and handles stay still.
         static let animatesPhoneMotion = false
-        static let headingControlsUseGlass = true
-        static let headingControlHeight = MacStyle.smallControlHeight
+        static let headingControlHeight = MacButtonStyle.Size.small.iconDiameter
         /// A Mac sheet closes with its button and Escape, never a swipe.
         static let practiceClosesBySwipe = false
         /// The key grid spreads across the row whenever it fits, rather than hugging the
         /// leading edge.
         static let keyGridSpreads = true
-        /// AppKit draws a prominent button's fill, gray in an inactive window, so its label
-        /// keeps the system's color.
-        static let prominentLabelOnSlate = false
         /// A Mac sheet keeps its actions in its form, with the platform's own buttons.
         static let pinsSheetActions = false
+        /// The tune page's key pill names the mode too, "D major", so key and mode never part.
+        static let keyPillHoldsMode = true
+        /// A tune page's section, heading and controls included, keeps a readable measure.
+        static let sectionMaxWidth = MacStyle.pageRowMaxWidth
     #else
         static let body = Font.body
         static let secondary = Font.subheadline
         static let sectionHeading = Font.title3.weight(.semibold)
         static let groupHeadingTop: CGFloat = 0
         static let pageTitle = Font.largeTitle.bold()
+        static let pageTitleTracking: CGFloat = 0
         static let sectionGap: CGFloat = 28
         static let headingGap: CGFloat = 8
         static let smallControlHeight: CGFloat = 32
@@ -59,19 +61,17 @@ enum PageStyle {
         /// The pushed page arrives by its own transition, so its title needs no rise.
         static let titleRise: CGFloat = 0
         static let animatesPhoneMotion = true
-        /// A heading's controls draw as plain tinted glyphs and words: a menu draws any glass in
-        /// its label at the label's full frame, so glass would not stay smaller than the frame
-        /// that takes the taps.
-        static let headingControlsUseGlass = false
         /// A heading control's frame is its whole hit area, since a menu takes taps only there.
         static let headingControlHeight = minimumTapTarget
         static let practiceClosesBySwipe = true
         /// The key grid keeps its natural width and scrolls sideways once it outgrows the row.
         static let keyGridSpreads = false
-        static let prominentLabelOnSlate = true
         /// A sheet's actions pin to its bottom edge, a full-width primary over centered
         /// secondaries, and Close is the system close button.
         static let pinsSheetActions = true
+        /// The key pill shows the key alone and the mode leads the facet line.
+        static let keyPillHoldsMode = false
+        static let sectionMaxWidth = CGFloat.infinity
     #endif
 
     /// The space between lines of tokens drawn at ``smallControlHeight``: at least `base`, and

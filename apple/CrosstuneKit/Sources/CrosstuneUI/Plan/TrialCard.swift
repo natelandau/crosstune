@@ -39,17 +39,17 @@ struct TrialCard: View {
     private func content(_ now: Date) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(PlanText.trial)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(BrandStyle.setLabel(scheme))
+                .font(.platform(.footnote).weight(.semibold))
+                .foregroundStyle(label)
             if let endsAt {
                 Text(PlanText.trialDaysLeft(endsAt: endsAt, now: now))
-                    .font(.title.bold())
+                    .font(.platform(.title).bold())
                     .monospacedDigit()
                 // On the last day the headline already says it ends today.
                 if PlanText.trialDays(endsAt: endsAt, now: now) > 0 {
                     Text(PlanText.trialEnds(endsAt))
-                        .font(.subheadline)
-                        .foregroundStyle(BrandStyle.washSecondary(scheme))
+                        .font(.platform(.subheadline))
+                        .foregroundStyle(secondary)
                 }
                 TrialBar(
                     fraction: PlanSheet.trialProgress(startsAt: startsAt, endsAt: endsAt, now: now),
@@ -58,15 +58,33 @@ struct TrialCard: View {
                 .padding(.vertical, 8)
             }
             Text(PlanText.trialStorage)
-                .font(.footnote)
-                .foregroundStyle(BrandStyle.washSecondary(scheme))
+                .font(.platform(.footnote))
+                .foregroundStyle(secondary)
             Text(PlanText.trialKeeps)
-                .font(.footnote)
-                .foregroundStyle(BrandStyle.washSecondary(scheme))
+                .font(.platform(.footnote))
+                .foregroundStyle(secondary)
         }
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
+    }
+
+    /// The card's quiet lines: secondary ink on the Mac's surface card, the wash's own
+    /// secondary elsewhere.
+    private var secondary: Color {
+        #if os(macOS)
+            MacPalette.inkSecondary
+        #else
+            BrandStyle.washSecondary(scheme)
+        #endif
+    }
+
+    private var label: Color {
+        #if os(macOS)
+            MacPalette.inkSecondary
+        #else
+            BrandStyle.setLabel(scheme)
+        #endif
     }
 }
 
@@ -81,11 +99,11 @@ private struct TrialBar: View {
 
     var body: some View {
         Capsule()
-            .fill(BrandStyle.tintStrong(scheme))
+            .fill(track)
             .overlay(alignment: .leading) {
                 GeometryReader { proxy in
                     Capsule()
-                        .fill(BrandStyle.accent)
+                        .fill(bar)
                         .frame(width: proxy.size.width * fraction)
                 }
             }
@@ -94,4 +112,12 @@ private struct TrialBar: View {
             .accessibilityLabel(PlanText.trial)
             .accessibilityValue(value)
     }
+
+    #if os(macOS)
+        private var track: Color { MacPalette.field }
+        private var bar: Color { MacPalette.ink }
+    #else
+        private var track: Color { BrandStyle.tintStrong(scheme) }
+        private var bar: Color { BrandStyle.accent }
+    #endif
 }

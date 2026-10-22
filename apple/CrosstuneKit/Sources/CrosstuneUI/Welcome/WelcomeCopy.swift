@@ -71,4 +71,12 @@ enum WelcomeLayout {
     static func showsPicture(_ size: DynamicTypeSize) -> Bool {
         !size.isAccessibilitySize
     }
+
+    #if os(macOS)
+        /// The picture's unit in a pane `paneWidth` wide: the drawing spans about two thirds of
+        /// the pane, never smaller than it draws in the smallest window nor larger than it reads.
+        static func macPictureUnit(paneWidth: CGFloat) -> CGFloat {
+            min(max(paneWidth * 0.68 / 22.4, 14), 30)
+        }
+    #endif
 }

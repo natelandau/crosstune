@@ -10,6 +10,16 @@ struct LocationThumbnail: View {
     let accuracyM: Int?
 
     static let side: CGFloat = 48
+
+    /// What shows while the snapshot draws: the Mac's field fill, the system's quaternary fill
+    /// elsewhere.
+    private static var placeholder: AnyShapeStyle {
+        #if os(macOS)
+            AnyShapeStyle(MacPalette.field)
+        #else
+            AnyShapeStyle(.quaternary)
+        #endif
+    }
     /// The least ground the thumbnail spans, as the location page's map does.
     private static let minimumSpanM = 400.0
 
@@ -27,7 +37,7 @@ struct LocationThumbnail: View {
 
     var body: some View {
         ZStack {
-            Rectangle().fill(.quaternary)
+            Rectangle().fill(Self.placeholder)
             if let image { image.resizable().scaledToFill() }
             mark
         }
@@ -42,7 +52,7 @@ struct LocationThumbnail: View {
     @ViewBuilder private var mark: some View {
         if PlaceDistances.isPrecise(accuracyM: accuracyM) {
             Image(systemName: "pin.circle.fill")
-                .font(.title3)
+                .font(.platform(.title3))
                 .foregroundStyle(.red, .white)
         } else if let accuracyM {
             let diameter = Self.side * 2 * Double(accuracyM) / Self.spanM(accuracyM: accuracyM)

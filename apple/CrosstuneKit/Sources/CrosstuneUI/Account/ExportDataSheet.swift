@@ -12,7 +12,7 @@ import UniformTypeIdentifiers
 public struct ExportDataSheet: View {
     nonisolated public static let title = "Export data"
     public static let action = "Export"
-    public static let completeNote =
+    nonisolated public static let completeNote =
         "Exports your tunes, lists, and recording details as spreadsheets, with every recording and scan, in one zip file."
 
     public static func progress(done: Int, total: Int) -> String {
@@ -38,46 +38,43 @@ public struct ExportDataSheet: View {
     }
 
     public var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    if let note = model.note {
+        content
+            .interactiveDismissDisabled(model.isRunning)
+            .task { await model.followCounts() }
+            .onDisappear { model.abandonRun() }
+    }
+
+    #if os(macOS)
+        private var content: some View {
+            MacSheet(
+                title: Self.title, subtitle: Self.completeNote, size: Self.macSize,
+                cancel: .cancel(TuneFormSheet.cancel) {
+                    model.cancel()
+                    dismiss()
+                },
+                primary: .init(Self.action, isEnabled: model.canStart) { model.start() }
+            ) {
+                VStack(alignment: .leading, spacing: MacForm.sectionGap) {
+                    if let note = Self.macBodyNote(model.note) {
                         Text(note)
+                            .font(MacStyle.body)
+                            .foregroundStyle(MacPalette.ink)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     if let progress = model.progress, let text = model.progressText {
                         ProgressView(value: Double(progress.done), total: Double(progress.total)) {
                             Text(text)
+                                .font(MacStyle.secondary)
+                                .foregroundStyle(MacPalette.inkSecondary)
+                                .monospacedDigit()
                         }
                     }
-                } footer: {
                     if let failure = model.failure {
-                        Text(failure)
-                            .foregroundStyle(.red)
-                    }
-                }
-                Section {
-                    Button(Self.action) { model.start() }
-                        .disabled(!model.canStart)
-                }
-            }
-            .formStyle(.grouped)
-            .navigationTitle(Self.title)
-            #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(TuneFormSheet.cancel) {
-                        model.cancel()
-                        dismiss()
+                        FailureText(failure)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
-        }
-        #if os(iOS)
-            .coversShell(model.exported != nil)
-            .shareSheet(model.exported) { finishHandOff() }
-        #else
             .coversShell(model.exported != nil)
             .fileExporter(
                 isPresented: $panelShown, item: model.exported.map(ExportZip.init), contentTypes: [.zip],
@@ -87,18 +84,60 @@ public struct ExportDataSheet: View {
             // The panel shows once per zip. Its closing clears only `panelShown`; the zip waits
             // for the completion handlers, since the save may still be copying it.
             .onChange(of: model.exported) { panelShown = model.exported != nil }
-        #endif
-        #if os(iOS)
+            .shellSheet()
+        }
+
+        /// The body's note: what the zip holds is the subtitle, so the body says only what
+        /// differs, such as files that need a connection.
+        nonisolated static func macBodyNote(_ note: String?) -> String? {
+            note == completeNote ? nil : note
+        }
+
+        /// As tall as the title, the subtitle, and a line of progress or a failure, growing as
+        /// they arrive; a longer body scrolls.
+        static let macSize = MacSheetSize.fittedOverSettings
+    #else
+        private var content: some View {
+            NavigationStack {
+                Form {
+                    Section {
+                        if let note = model.note {
+                            Text(note)
+                        }
+                        if let progress = model.progress, let text = model.progressText {
+                            ProgressView(value: Double(progress.done), total: Double(progress.total)) {
+                                Text(text)
+                            }
+                        }
+                    } footer: {
+                        if let failure = model.failure {
+                            Text(failure)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                    Section {
+                        Button(Self.action) { model.start() }
+                            .disabled(!model.canStart)
+                    }
+                }
+                .formStyle(.grouped)
+                .navigationTitle(Self.title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(TuneFormSheet.cancel) {
+                            model.cancel()
+                            dismiss()
+                        }
+                    }
+                }
+            }
+            .coversShell(model.exported != nil)
+            .shareSheet(model.exported) { finishHandOff() }
             .presentationDetents([.large])
             .shellSheet()
-        #else
-            .macSheetFrame(.form(minHeight: 320))
-            .shellSheet()
-        #endif
-        .interactiveDismissDisabled(model.isRunning)
-        .task { await model.followCounts() }
-        .onDisappear { model.abandonRun() }
-    }
+        }
+    #endif
 
     private func finishHandOff() {
         guard model.exported != nil else { return }

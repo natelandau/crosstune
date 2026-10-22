@@ -24,74 +24,112 @@ struct BulkEditSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    if let failure = bulk.editFailure {
-                        Text(failure)
-                            .foregroundStyle(.red)
-                    }
-                } footer: {
-                    Text(BulkEditForm.footnote)
+        #if os(macOS)
+            MacSheet(
+                title: BulkActionText.editTitle(entries.count), subtitle: BulkEditForm.footnote, size: .longForm,
+                cancel: .cancel(TuneFormSheet.cancel, isEnabled: !bulk.isPending) { dismiss() },
+                primary: .init(TuneFormSheet.save, isEnabled: form.isEdited && !bulk.isPending, action: save)
+            ) {
+                macForm
+            }
+            .modifier(BulkEditLifecycle(form: form, bulk: bulk, composers: $composers, learnedFrom: $learnedFrom))
+            .shellSheet()
+        #else
+            phoneBody
+        #endif
+    }
+
+    #if os(macOS)
+        private var macForm: some View {
+            MacFormScroll {
+                if let failure = bulk.editFailure {
+                    FailureText(failure)
                 }
-                Section {
+                MacFormSection(TuneFieldLabels.status, caption: mixedCaption(.status), card: false) {
                     BulkStatusPicker(form: $form)
-                } header: {
-                    Text(TuneFieldLabels.status)
-                } footer: {
-                    if form.isMixed(.status) {
-                        Text(BulkEditForm.mixed)
-                    }
                 }
-                Section {
+                MacFormSection(TuneFieldLabels.key, caption: mixedCaption(.key), card: false) {
                     KeyChooser(key: keyBinding, isMixed: form.isMixed(.key))
-                        .chipRowInsets()
-                        .listRowBackground(Color.clear)
-                } header: {
-                    Text(TuneFieldLabels.key)
-                } footer: {
-                    if form.isMixed(.key) {
-                        Text(BulkEditForm.mixed)
-                    }
                 }
                 let tunings = form.fields.filter { $0.instrument != nil }
                 if !tunings.isEmpty {
-                    Section(TuneFieldLabels.tuning) {
+                    MacFormSection(TuneFieldLabels.tuning) {
                         ForEach(tunings, id: \.self) { row($0) }
                     }
                 }
-                Section(TuneFieldLabels.details) {
+                MacFormSection(TuneFieldLabels.details) {
                     ForEach(details, id: \.self) { row($0) }
                 }
             }
-            .formStyle(.grouped)
-            .navigationTitle(BulkActionText.editTitle(entries.count))
-            #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(TuneFormSheet.cancel) { dismiss() }
-                        .disabled(bulk.isPending)
+        }
+
+        /// Mixed on a section's heading line, when the tunes disagree on its one field.
+        private func mixedCaption(_ field: EditField) -> String? {
+            form.isMixed(field) ? BulkEditForm.mixed : nil
+        }
+    #endif
+
+    #if os(iOS)
+        private var phoneBody: some View {
+            NavigationStack {
+                Form {
+                    Section {
+                        if let failure = bulk.editFailure {
+                            Text(failure)
+                                .foregroundStyle(.red)
+                        }
+                    } footer: {
+                        Text(BulkEditForm.footnote)
+                    }
+                    Section {
+                        BulkStatusPicker(form: $form)
+                    } header: {
+                        Text(TuneFieldLabels.status)
+                    } footer: {
+                        if form.isMixed(.status) {
+                            Text(BulkEditForm.mixed)
+                        }
+                    }
+                    Section {
+                        KeyChooser(key: keyBinding, isMixed: form.isMixed(.key))
+                            .chipRowInsets()
+                            .listRowBackground(Color.clear)
+                    } header: {
+                        Text(TuneFieldLabels.key)
+                    } footer: {
+                        if form.isMixed(.key) {
+                            Text(BulkEditForm.mixed)
+                        }
+                    }
+                    let tunings = form.fields.filter { $0.instrument != nil }
+                    if !tunings.isEmpty {
+                        Section(TuneFieldLabels.tuning) {
+                            ForEach(tunings, id: \.self) { row($0) }
+                        }
+                    }
+                    Section(TuneFieldLabels.details) {
+                        ForEach(details, id: \.self) { row($0) }
+                    }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(TuneFormSheet.save, action: save)
-                        .fontWeight(.semibold)
-                        .disabled(!form.isEdited || bulk.isPending)
+                .formStyle(.grouped)
+                .navigationTitle(BulkActionText.editTitle(entries.count))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(TuneFormSheet.cancel) { dismiss() }
+                            .disabled(bulk.isPending)
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(TuneFormSheet.save, action: save)
+                            .fontWeight(.semibold)
+                            .disabled(!form.isEdited || bulk.isPending)
+                    }
                 }
             }
+            .modifier(BulkEditLifecycle(form: form, bulk: bulk, composers: $composers, learnedFrom: $learnedFrom))
+            .shellSheet()
         }
-        .macSheetFrame(.longForm)
-        // A touched row leaves only through Cancel, and nothing leaves while the save runs.
-        .interactiveDismissDisabled(form.isEdited || bulk.isPending)
-        .onAppear { bulk.clearEditFailure() }
-        .task {
-            let suggestions = await bulk.suggestions()
-            composers = suggestions.composers
-            learnedFrom = suggestions.learnedFrom
-        }
-        .shellSheet()
-    }
+    #endif
 
     private var details: [EditField] {
         form.fields.filter { $0 != .status && $0 != .key && $0.instrument == nil }
@@ -156,6 +194,25 @@ struct BulkEditSheet: View {
     }
 }
 
+private struct BulkEditLifecycle: ViewModifier {
+    let form: BulkEditForm
+    let bulk: BulkActions
+    @Binding var composers: [String]
+    @Binding var learnedFrom: [String]
+
+    func body(content: Content) -> some View {
+        content
+            // A touched row leaves only through Cancel, and nothing leaves while the save runs.
+            .interactiveDismissDisabled(form.isEdited || bulk.isPending)
+            .onAppear { bulk.clearEditFailure() }
+            .task {
+                let suggestions = await bulk.suggestions()
+                composers = suggestions.composers
+                learnedFrom = suggestions.learnedFrom
+            }
+    }
+}
+
 /// A field picked from a menu of choices across many tunes. Its empty choice, when it has one,
 /// is named for what it does: Clear empties the field on every tune, Keep changes none.
 private struct BulkChoiceRow: View {
@@ -165,34 +222,42 @@ private struct BulkChoiceRow: View {
     var emptyChoice: String?
 
     var body: some View {
-        LabeledContent {
-            Menu {
-                if let emptyChoice {
-                    choice(emptyChoice, isCurrent: false) {
-                        form.touch(field, field.kind == .yesNo ? nil : .clear)
+        #if os(macOS)
+            MacPullDown(field.label, value: form.shown(field)) { items }
+        #else
+            LabeledContent {
+                Menu {
+                    items
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(form.shown(field))
+                        Image(systemName: "chevron.up.chevron.down")
+                            .imageScale(.small)
+                            .accessibilityHidden(true)
                     }
+                    .foregroundStyle(.secondary)
                 }
-                ForEach(SuggestionPicker.choices(options, value: current), id: \.self) { option in
-                    choice(option, isCurrent: option == current) {
-                        form.touch(field, value(option))
-                    }
-                }
+                // A plain menu keeps the value secondary, as the tune form shows its values, where
+                // the default style would tint it.
+                .buttonStyle(.plain)
             } label: {
-                HStack(spacing: 4) {
-                    Text(form.shown(field))
-                    Image(systemName: "chevron.up.chevron.down")
-                        .imageScale(.small)
-                        .accessibilityHidden(true)
-                }
-                .foregroundStyle(.secondary)
+                Text(field.label)
             }
-            // A plain menu keeps the value secondary, as the tune form shows its values, where
-            // the default style would tint it.
-            .buttonStyle(.plain)
-        } label: {
-            Text(field.label)
+            .accessibilityLabel(field.label)
+        #endif
+    }
+
+    @ViewBuilder private var items: some View {
+        if let emptyChoice {
+            choice(emptyChoice, isCurrent: false) {
+                form.touch(field, field.kind == .yesNo ? nil : .clear)
+            }
         }
-        .accessibilityLabel(field.label)
+        ForEach(SuggestionPicker.choices(options, value: current), id: \.self) { option in
+            choice(option, isCurrent: option == current) {
+                form.touch(field, value(option))
+            }
+        }
     }
 
     /// The row's value as its choices name it.
@@ -256,31 +321,42 @@ private struct BulkDateRow: View {
     @Binding var form: BulkEditForm
 
     var body: some View {
-        if let date = CalendarDay.date(form.text(field)) {
-            HStack {
-                DatePicker(
-                    field.label,
-                    selection: Binding {
-                        date
-                    } set: {
-                        form.touch(field, .text(CalendarDay.day($0)))
-                    }, displayedComponents: .date)
-                Button(TuneFieldLabels.clearDate, systemImage: "xmark.circle.fill") { form.touch(field, .clear) }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.secondary)
-                    #if os(macOS)
-                        .help(TuneFieldLabels.clearDate)
-                    #endif
-            }
-        } else {
+        #if os(macOS)
             LabeledContent(field.label) {
-                Button(form.placeholder(field)) { form.touch(field, .text(CalendarDay.day(.now))) }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel("\(field.label), \(form.placeholder(field))")
-                    .accessibilityHint(TuneFieldLabels.setsToday)
+                MacDateValue(
+                    label: field.label, day: form.text(field), placeholder: form.placeholder(field),
+                    onSet: { form.touch(field, .text($0)) }, onClear: { form.touch(field, .clear) })
+            }
+        #else
+            phoneBody
+        #endif
+    }
+
+    #if !os(macOS)
+        @ViewBuilder private var phoneBody: some View {
+            if let date = CalendarDay.date(form.text(field)) {
+                HStack {
+                    DatePicker(
+                        field.label,
+                        selection: Binding {
+                            date
+                        } set: {
+                            form.touch(field, .text(CalendarDay.day($0)))
+                        }, displayedComponents: .date)
+                    Button(TuneFieldLabels.clearDate, systemImage: "xmark.circle.fill") { form.touch(field, .clear) }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.inkSecondary)
+                }
+            } else {
+                LabeledContent(field.label) {
+                    Button(form.placeholder(field)) { form.touch(field, .text(CalendarDay.day(.now))) }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.inkSecondary)
+                        .accessibilityLabel("\(field.label), \(form.placeholder(field))")
+                        .accessibilityHint(TuneFieldLabels.setsToday)
+                }
             }
         }
-    }
+    #endif
 }

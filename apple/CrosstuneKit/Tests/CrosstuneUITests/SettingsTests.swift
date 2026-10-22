@@ -6,6 +6,7 @@ import CrosstuneTestSupport
 import CrosstuneVocabulary
 import Foundation
 import GRDB
+import SwiftUI
 import Testing
 
 @testable import CrosstuneSync
@@ -623,7 +624,13 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
                 #expect(seen.isDisjoint(with: pane.sections), "\(pane) repeats a section")
                 seen.formUnion(pane.sections)
             }
-            #expect(seen == .all)
+            #expect(seen == .macAll)
+        }
+
+        @Test func settingsHasFiveTabs() {
+            #expect(MacSettingsTabs.Pane.allCases == [.general, .account, .tunes, .recordings, .importExport])
+            #expect(MacSettingsTabs.tunes == "Tunes")
+            #expect(MacSettingsTabs.Pane.tunes.title == MacSettingsTabs.tunes)
         }
 
         @Test func importAndExportIsTheLastTab() {
@@ -638,9 +645,106 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
             #expect(MacSettingsTabs.Pane.account.sections == [.plan, .account, .stats])
         }
 
-        @Test func macGeneralTabIsUnchanged() {
+        @Test func macGeneralTabKeepsTheAppWideSettings() {
+            #expect(MacSettingsTabs.Pane.general.sections == [.appearance, .sync, .storage, .about])
+        }
+
+        /// Recording, the saved locations, and downloads share a tab, with the locations as rows.
+        @Test func recordingsTabHoldsRecordingSettings() {
+            #expect(MacSettingsTabs.Pane.recordings.sections == [.recording, .savedLocations, .downloads])
+            #expect(MacSettingsTabs.Pane.recordings.title == "Recordings")
+            #expect(MacSettingsTabs.Pane.recordings.systemImage == "waveform")
+        }
+
+        /// A tab stored before the Tunes tab merged three opens the tab that holds its settings.
+        @Test func oldSettingsTabsOpenTheTunesTab() {
+            for old in ["instruments", "new-tunes", "music-services"] {
+                #expect(MacSettingsTabs.Pane.migrated(old) == .tunes, "\(old)")
+            }
+            for pane in MacSettingsTabs.Pane.allCases {
+                #expect(MacSettingsTabs.Pane.migrated(pane.rawValue) == pane)
+            }
+            #expect(MacSettingsTabs.Pane.migrated("bogus") == .general)
+            #expect(MacSettingsTabs.Pane.migrated("saved-locations") == .recordings)
+        }
+
+        /// The sets answered once show their toggles in the tab, not a row opening a sheet.
+        @Test func tunesTabShowsInstrumentAndServiceToggles() {
             #expect(
-                MacSettingsTabs.Pane.general.sections == [.appearance, .recording, .downloads, .sync, .storage, .about])
+                MacSettingsTabs.Pane.tunes.sections == [.instrumentToggles, .newTunes, .serviceToggles, .appleMusic])
+            for pane in MacSettingsTabs.Pane.allCases {
+                #expect(!pane.sections.contains(.instruments), "\(pane) opens the instruments sheet")
+                #expect(!pane.sections.contains(.musicServices), "\(pane) opens the music services sheet")
+            }
+        }
+
+        @Test func signOutIsNotDestructiveOnTheMac() {
+            #expect(AccountSections.macSignOutRole == .secondary)
+            #expect(AccountSections.macDeleteRole == .destructive)
+            #expect(AccountSections.deleteAccountMac == "Delete…")
+        }
+
+        @Test func deleteAccountSitsInItsOwnLastSection() {
+            #expect(AccountSections.macGroups.last == .deleteAccount)
+            #expect(AccountSections.macGroups.filter { $0 == .deleteAccount }.count == 1)
+            #expect(AccountSections.macGroups.first == .identity)
+        }
+
+        /// The Settings window opens with focus on an invisible stop beside the tab's content, so
+        /// no row wears a ring until the keyboard moves to it. Only the stop turns its ring off,
+        /// so every control in the tab keeps the system's.
+        @Test func noSettingsTabOpensWithFocusOnARow() throws {
+            let tabs = SourceScan.withoutComments(
+                try SourceScan.text(at: SourceScan.sources.appending(path: "Mac/MacSettingsTabs.swift")))
+            #expect(tabs.contains(".macSettingsOpensUnfocused()"))
+            let rows = SourceScan.withoutComments(
+                try SourceScan.text(at: SourceScan.sources.appending(path: "Mac/MacSettingsRow.swift")))
+            let start = try #require(rows.range(of: "struct MacSettingsOpensUnfocused"))
+            let modifier = String(rows[start.upperBound...])
+            let content = try #require(modifier.range(of: "content\n"))
+            let stop = try #require(modifier.range(of: ".background {"))
+            let close = try #require(modifier.range(of: ".defaultFocus($holdsFocus, true)"))
+            // Nothing between `content` and the stop's background touches the tab's own focus.
+            let onContent = modifier[content.upperBound..<stop.lowerBound]
+            #expect(!onContent.contains(".focusEffectDisabled()"))
+            #expect(!onContent.contains(".focusable("))
+            let inStop = modifier[stop.upperBound..<close.lowerBound]
+            #expect(inStop.contains(".focusable()"))
+            #expect(inStop.contains(".focusEffectDisabled()"))
+            #expect(inStop.contains(".focused($holdsFocus)"))
+            #expect(inStop.contains(".accessibilityHidden(true)"))
+        }
+
+        /// A grouped `Form` draws a second label and floats help over its cards, and a row
+        /// button in one wears a ring around the whole card.
+        @Test func macSettingsDrawNoGroupedFormOrSheetRows() throws {
+            let files = [
+                "Settings/SettingsScreen.swift", "Settings/ImportExportSections.swift",
+                "Account/AccountSections.swift", "Plan/PlanSection.swift", "Settings/AppleMusicRow.swift",
+            ]
+            for path in files {
+                let text = SourceScan.withoutComments(
+                    SourceScan.withoutPreviews(try SourceScan.text(at: SourceScan.sources.appending(path: path))))
+                let mac = SourceScan.macCompiled(text)
+                #expect(!mac.contains("Form {"), "\(path) draws a grouped Form on the Mac")
+                #expect(!mac.contains("SettingsFieldRow("), "\(path) draws a Form row on the Mac")
+                #expect(!mac.contains("SettingsHelp("), "\(path) floats help over a card on the Mac")
+            }
+        }
+
+        /// A Settings row's button is a ``MacButtonStyle`` button, so the card's container decides
+        /// its fill as it does for every other control on a card.
+        @Test func settingsButtonsUseTheMacButtonStyle() throws {
+            let text = SourceScan.withoutComments(
+                try SourceScan.text(at: SourceScan.sources.appending(path: "Mac/MacSettingsRow.swift")))
+            #expect(text.contains(".buttonStyle(.mac(role))"))
+            #expect(!text.contains("MacCardButtonStyle"))
+        }
+
+        @Test func buttonsThatOpenMoreEndInAnEllipsis() {
+            #expect(ImportExportSections.importMac == "Import…")
+            #expect(ImportExportSections.exportMac == "Export…")
+            #expect(AccountSections.deleteAccountMac.hasSuffix("…"))
         }
     }
 #endif

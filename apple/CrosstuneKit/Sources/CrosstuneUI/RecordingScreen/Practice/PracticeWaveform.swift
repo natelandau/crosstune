@@ -46,7 +46,18 @@ struct PracticeWaveform: View {
     ]
     /// The least room a ruler label gets.
     private static let minTickPoints: Double = 56
-    private static let rulerHeight: CGFloat = 16
+
+    /// Whether a ruler label centered on `x` stays within the waveform's `width`. A label cut by
+    /// either edge would read as a different time, so it is left off and only its tick shows.
+    nonisolated static func rulerLabelFits(atX x: Double, labelWidth: Double, width: Double) -> Bool {
+        x - labelWidth / 2 >= 0 && x + labelWidth / 2 <= width
+    }
+
+    #if os(macOS)
+        private static let rulerHeight: CGFloat = 20
+    #else
+        private static let rulerHeight: CGFloat = 16
+    #endif
     private static let space = "practiceWaveform"
     private static let wavePlayed = BrandStyle.color(hex: PhoneStyle.wavePlayed)
     private static let waveUnplayed = BrandStyle.color(hex: PhoneStyle.waveUnplayed)
@@ -110,7 +121,11 @@ struct PracticeWaveform: View {
 
     private var timelineBar: some View {
         Canvas { context, size in
-            context.fillPeakBars(nil, in: CGRect(origin: .zero, size: size), with: .style(.tertiary))
+            #if os(macOS)
+                context.fillPeakBars(nil, in: CGRect(origin: .zero, size: size), with: .color(MacWave.placeholder))
+            #else
+                context.fillPeakBars(nil, in: CGRect(origin: .zero, size: size), with: .style(.tertiary))
+            #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityHidden(true)
@@ -203,19 +218,28 @@ struct PracticeWaveform: View {
         if x1 > x0 {
             let slice = peaks?.sliced(fromMs: Int64(drawStart), toMs: Int64(drawEnd.rounded(.up)))
             let bars = CGRect(x: x0, y: 0, width: x1 - x0, height: Double(size.height))
-            let path = Path.peakBars(slice, in: bars)
-            if ground != nil {
-                // What has played, left of the fixed playhead, is white; what is to come is silver.
-                let played = Path(CGRect(x: 0, y: 0, width: width / 2, height: Double(size.height)))
-                var left = context
-                left.clip(to: played)
-                left.fill(path, with: .color(Self.wavePlayed))
-                var right = context
-                right.clip(to: played, options: .inverse)
-                right.fill(path, with: .color(Self.waveUnplayed))
-            } else {
-                context.fill(path, with: .style(.tertiary))
-            }
+            #if os(macOS)
+                let count = PeakBars.count(in: bars.width)
+                let levels = slice?.bars(count) ?? []
+                if levels.isEmpty {
+                    let first = Int(drawStart / 1000 * view.pointsPerSecond / Double(PeakBars.step))
+                    context.fill(
+                        .peakBars(levels: PeakBars.placeholder(count, from: first), in: bars),
+                        with: .color(MacWave.placeholder))
+                } else {
+                    context.fillSplit(
+                        .peakBars(levels: levels, in: bars), atX: width / 2, played: MacWave.played,
+                        unplayed: MacWave.unplayed)
+                }
+            #else
+                let path = Path.peakBars(slice, in: bars)
+                if ground != nil {
+                    // What has played, left of the fixed playhead, is white; what is to come is silver.
+                    context.fillSplit(path, atX: width / 2, played: Self.wavePlayed, unplayed: Self.waveUnplayed)
+                } else {
+                    context.fill(path, with: .style(.tertiary))
+                }
+            #endif
         }
         let selectedID = model.selectedID
         for loop in placed {
@@ -238,15 +262,31 @@ struct PracticeWaveform: View {
         var tick = max(0, (view.startMs / step).rounded(.up) * step)
         while tick <= last {
             let x = (tick - view.startMs) / 1000 * view.pointsPerSecond
-            context.fill(Path(CGRect(x: x, y: 0, width: 1, height: size.height)), with: .style(.secondary))
             let label =
                 step < 1000
                 ? RecordingScreenText.preciseTime(milliseconds: Int64(tick))
                 : RecordingText.duration(of: Int64(tick))
-            let text = rulerLabels.value(for: label, in: environment) {
-                context.resolve(Text(label).font(.caption2).monospacedDigit().foregroundStyle(.secondary))
-            }
-            context.draw(text, at: CGPoint(x: x + 3, y: 0), anchor: .topLeading)
+            #if os(macOS)
+                // A short tick at the ruler's foot with its label centered over it.
+                context.fill(
+                    Path(CGRect(x: x - 0.5, y: size.height - MacWave.tickHeight, width: 1, height: MacWave.tickHeight)),
+                    with: .color(MacWave.tick))
+                let text = rulerLabels.value(for: label, in: environment) {
+                    context.resolve(
+                        Text(label).font(MacStyle.secondary).monospacedDigit().foregroundStyle(MacPalette.inkSecondary))
+                }
+                let labelWidth = Double(text.measure(in: size).width)
+                if Self.rulerLabelFits(atX: x, labelWidth: labelWidth, width: Double(size.width)) {
+                    context.draw(text, at: CGPoint(x: x, y: 0), anchor: .top)
+                }
+            #else
+                context.fill(Path(CGRect(x: x, y: 0, width: 1, height: size.height)), with: .style(.secondary))
+                let text = rulerLabels.value(for: label, in: environment) {
+                    context.resolve(
+                        Text(label).font(.platform(.caption2)).monospacedDigit().foregroundStyle(.secondary))
+                }
+                context.draw(text, at: CGPoint(x: x + 3, y: 0), anchor: .topLeading)
+            #endif
             tick += step
         }
     }
@@ -365,22 +405,32 @@ struct WaveformOverlay: View {
                 }
                 .keyboardShortcut("-", modifiers: .command)
                 .disabled(!model.canZoomOut)
-                Button {
-                    model.fit()
-                } label: {
-                    Text(PracticeText.fit)
-                        .font(.subheadline)
-                        .frame(minWidth: PracticeLayout.target, minHeight: PracticeLayout.target)
-                        .contentShape(.rect)
-                }
-                .disabled(model.scale == nil)
+                #if os(macOS)
+                    iconButton(PracticeText.fit, systemImage: "arrow.left.and.right") { model.fit() }
+                        .disabled(model.scale == nil)
+                #else
+                    Button {
+                        model.fit()
+                    } label: {
+                        Text(PracticeText.fit)
+                            .font(.platform(.subheadline))
+                            .frame(minWidth: PracticeLayout.target, minHeight: PracticeLayout.target)
+                            .contentShape(.rect)
+                    }
+                    .disabled(model.scale == nil)
+                #endif
                 iconButton(RecordingScreenText.zoomIn, systemImage: "plus.magnifyingglass") {
                     model.zoom(by: PracticeModel.zoomStep)
                 }
                 .keyboardShortcut("=", modifiers: .command)
                 .disabled(!model.canZoomIn)
             }
-            .buttonStyle(.borderless)
+            #if os(macOS)
+                .buttonStyle(.mac(.icon, size: .small))
+                .padding(2)
+            #else
+                .buttonStyle(.borderless)
+            #endif
             .disabled(blocker != nil)
             // Capped so the cluster stays a corner control that never reaches the playhead.
             .dynamicTypeSize(...DynamicTypeSize.large)
@@ -391,11 +441,16 @@ struct WaveformOverlay: View {
 
     private func iconButton(_ name: String, systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Label(name, systemImage: systemImage)
-                .labelStyle(.iconOnly)
-                .font(.body)
-                .frame(minWidth: PracticeLayout.target, minHeight: PracticeLayout.target)
-                .contentShape(.rect)
+            #if os(macOS)
+                Label(name, systemImage: systemImage)
+                    .labelStyle(.iconOnly)
+            #else
+                Label(name, systemImage: systemImage)
+                    .labelStyle(.iconOnly)
+                    .font(.platform(.body))
+                    .frame(minWidth: PracticeLayout.target, minHeight: PracticeLayout.target)
+                    .contentShape(.rect)
+            #endif
         }
         .help(name)
     }
@@ -409,16 +464,21 @@ struct PracticeReadout: View {
     var body: some View {
         if let blocker {
             Text(blocker)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .font(.platform(.subheadline).weight(.semibold))
+                .foregroundStyle(.inkSecondary)
                 .lineLimit(2)
         } else {
             TimelineView(
                 .animation(minimumInterval: 0.1, paused: !model.player.audio.isPlaying && model.gliding == nil)
             ) { _ in
                 Text(RecordingScreenText.preciseTime(milliseconds: Int64(model.shownCenterMs(at: model.clock()))))
-                    .font(.title3.weight(.semibold))
-                    .monospacedDigit()
+                    #if os(macOS)
+                        .font(MacStyle.readout)
+                        .foregroundStyle(MacPalette.ink)
+                    #else
+                        .font(.platform(.title3).weight(.semibold))
+                        .monospacedDigit()
+                    #endif
             }
             .accessibilityHidden(true)
         }
@@ -433,10 +493,14 @@ private struct Backing: ViewModifier {
 
     func body(content: Content) -> some View {
         #if os(macOS)
-            // Opaque with a hairline, so a loop's tint and handle lines stop at its edge.
+            // Nearly opaque, so a loop's tint and handle lines all but stop at its edge, and
+            // lifted by a soft shadow rather than outlined.
             content
-                .background(.background, in: .rect(cornerRadius: 8))
-                .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(.separator) }
+                .background {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(MacPalette.ground.opacity(0.92))
+                        .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+                }
                 .contentShape(.rect(cornerRadius: 8))
         #else
             content
@@ -510,11 +574,35 @@ extension GraphicsContext.Shading {
 
 #if os(macOS)
     extension Color {
-        /// A point of the window's color around a coral handle or playhead, so it reads where it
+        /// A point of the stage's color around a coral handle or playhead, so it reads where it
         /// crosses a loop's orange band.
-        static var markOutline: Color { Color(nsColor: .windowBackgroundColor) }
+        static var markOutline: Color { MacPalette.surface }
+    }
+
+    /// The Mac waveform's inks on the practice stage: what has played, left of the fixed
+    /// playhead, near full ink, and what is to come faint, in both appearances.
+    enum MacWave {
+        static var played: Color { MacPalette.ink.opacity(0.85) }
+        static var unplayed: Color { MacPalette.ink.opacity(0.28) }
+        /// Bars standing in for a waveform not yet on hand, quieter than any real bar.
+        static var placeholder: Color { MacPalette.ink.opacity(0.12) }
+        static var tick: Color { MacPalette.inkSecondary.opacity(0.6) }
+        static let tickHeight: CGFloat = 5
     }
 #endif
+
+extension GraphicsContext {
+    /// Fills `path` in `played` left of `x` and in `unplayed` from it on.
+    func fillSplit(_ path: Path, atX x: Double, played: Color, unplayed: Color) {
+        let left = Path(CGRect(x: -1_000_000, y: -1_000_000, width: 1_000_000 + x, height: 2_000_000))
+        var before = self
+        before.clip(to: left)
+        before.fill(path, with: .color(played))
+        var after = self
+        after.clip(to: left, options: .inverse)
+        after.fill(path, with: .color(unplayed))
+    }
+}
 
 extension GraphicsContext {
     /// Draws the playhead line in `rect`, outlined on the Mac as its loop handles are.
@@ -527,18 +615,52 @@ extension GraphicsContext {
 }
 
 extension GraphicsContext {
-    /// Draws `peaks` as bars across `rect`, or a plain timeline bar when there are none.
+    /// Draws `peaks` as bars across `rect`, or with none, a plain timeline bar, or on the Mac
+    /// muted placeholder bars.
     func fillPeakBars(_ peaks: ShownPeaks?, in rect: CGRect, with shading: Shading) {
         fill(.peakBars(peaks, in: rect), with: shading)
     }
 }
 
+/// The heights of a waveform's bars, as shares of the bars' full height.
+enum PeakBars {
+    static let barWidth: CGFloat = 2
+    static let step: CGFloat = 3
+
+    /// How many bars fit across `width`.
+    static func count(in width: CGFloat) -> Int { Int(width / step) }
+
+    /// `peaks` as `count` bars. With none, the Mac shows placeholder bars, so a recording whose
+    /// waveform has not arrived still reads as audio; iPhone and iPad show none.
+    static func levels(_ peaks: ShownPeaks?, count: Int) -> [CGFloat] {
+        let levels = peaks?.bars(count) ?? []
+        #if os(macOS)
+            if levels.isEmpty { return placeholder(count) }
+        #endif
+        return levels
+    }
+
+    /// A low, gently uneven run of `count` bars, starting at bar `first` of the recording so it
+    /// stays put as the waveform scrolls.
+    static func placeholder(_ count: Int, from first: Int = 0) -> [CGFloat] {
+        (0..<max(0, count)).map { bar in
+            let index = Double(first + bar)
+            let ripple = 0.5 + 0.5 * sin(index * 0.21)
+            let swell = 0.6 + 0.4 * sin(index * 0.057 + 1.3)
+            return CGFloat(0.14 + 0.16 * ripple * swell)
+        }
+    }
+}
+
 extension Path {
-    /// `peaks` as bars across `rect`, or a plain timeline bar when there are none.
+    /// `peaks` as bars across `rect`, or with none, a plain timeline bar, or on the Mac
+    /// placeholder bars.
     static func peakBars(_ peaks: ShownPeaks?, in rect: CGRect) -> Path {
-        let barWidth: CGFloat = 2
-        let step: CGFloat = 3
-        let levels = peaks?.bars(Int(rect.width / step)) ?? []
+        peakBars(levels: PeakBars.levels(peaks, count: PeakBars.count(in: rect.width)), in: rect)
+    }
+
+    /// `levels` as bars across `rect`, or a plain timeline bar when there are none.
+    static func peakBars(levels: [CGFloat], in rect: CGRect) -> Path {
         var path = Path()
         if levels.isEmpty {
             path.addRoundedRect(
@@ -549,7 +671,8 @@ extension Path {
                 let bar = max(2, level * rect.height)
                 path.addRoundedRect(
                     in: CGRect(
-                        x: rect.minX + CGFloat(index) * step, y: rect.midY - bar / 2, width: barWidth, height: bar),
+                        x: rect.minX + CGFloat(index) * PeakBars.step, y: rect.midY - bar / 2,
+                        width: PeakBars.barWidth, height: bar),
                     cornerSize: CGSize(width: 1, height: 1))
             }
         }

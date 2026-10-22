@@ -60,54 +60,111 @@ struct PitchPanel: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                Text(RecordingScreenText.semitones)
-                    .font(.subheadline)
-                Spacer()
-                PanelStepButton(name: RecordingScreenText.pitchDown, systemImage: "minus") {
-                    choose(split.with(semitones: split.semitones - 1))
+        #if os(macOS)
+            macBody
+                .onChange(of: value) { split.follow(value) }
+        #else
+            touchBody
+                .onChange(of: value) { split.follow(value) }
+        #endif
+    }
+
+    #if os(macOS)
+        /// The label row with Reset, then the control row: the semitone stepper beside a cents
+        /// slider with a detent at no shift, its value trailing, each named by a caption under it.
+        private var macBody: some View {
+            VStack(alignment: .leading, spacing: 12) {
+                PanelLabelRow(title: RecordingScreenText.pitch) {
+                    Button(RecordingScreenText.reset) { choose(PitchSplit(cents: 0)) }
+                        .buttonStyle(.mac(.plain, size: .small))
+                        .disabled(value == 0)
                 }
-                .disabled(split.semitones <= PitchSplit.semitoneRange.lowerBound)
-                Text(Self.signed(split.semitones))
-                    .font(.headline)
-                    .monospacedDigit()
-                    .frame(minWidth: 40)
-                    .accessibilityLabel(RecordingScreenText.semitones)
-                    .accessibilityValue(Self.signed(split.semitones))
-                PanelStepButton(name: RecordingScreenText.pitchUp, systemImage: "plus") {
-                    choose(split.with(semitones: split.semitones + 1))
+                PanelControlRow(stepperCaption: RecordingScreenText.semitones, sliderCaption: RecordingScreenText.cents)
+                {
+                    MacStepper(
+                        value: Self.signed(split.semitones),
+                        decrement: { choose(split.with(semitones: split.semitones - 1)) },
+                        increment: { choose(split.with(semitones: split.semitones + 1)) },
+                        canDecrement: split.semitones > PitchSplit.semitoneRange.lowerBound,
+                        canIncrement: split.semitones < PitchSplit.semitoneRange.upperBound,
+                        accessibilityLabel: RecordingScreenText.semitones
+                    )
+                    .help(RecordingScreenText.semitones)
+                } slider: {
+                    MacSlider(
+                        value: Binding {
+                            Double(split.cents)
+                        } set: {
+                            choose(split.with(cents: Int($0.rounded())))
+                        },
+                        in: Double(PitchSplit.centsRange.lowerBound)...Double(PitchSplit.centsRange.upperBound),
+                        detent: 0, accessibilityLabel: RecordingScreenText.cents,
+                        accessibilityValue: Self.signed(split.cents)
+                    )
+                    .help(RecordingScreenText.cents)
+                } accessory: {
+                    // Wide enough for -50, so the slider keeps its length as the value changes.
+                    Text(Self.signed(split.cents))
+                        .font(MacStyle.body)
+                        .monospacedDigit()
+                        .foregroundStyle(MacPalette.ink)
+                        .frame(minWidth: 28, alignment: .trailing)
+                        .accessibilityHidden(true)
                 }
-                .disabled(split.semitones >= PitchSplit.semitoneRange.upperBound)
-            }
-            HStack {
-                Text(RecordingScreenText.cents)
-                Spacer()
-                Text(Self.signed(split.cents))
-                    .monospacedDigit()
-            }
-            .font(.subheadline)
-            .accessibilityHidden(true)
-            Slider(
-                value: Binding {
-                    Double(split.cents)
-                } set: {
-                    choose(split.with(cents: Int($0.rounded())))
-                },
-                in: Double(PitchSplit.centsRange.lowerBound)...Double(PitchSplit.centsRange.upperBound),
-                step: 1
-            )
-            .accessibilityLabel(RecordingScreenText.cents)
-            .accessibilityValue(Self.signed(split.cents))
-            HStack {
-                Spacer()
-                Button(RecordingScreenText.reset) { choose(PitchSplit(cents: 0)) }
-                    .disabled(value == 0)
-                    .frame(minHeight: PracticeLayout.target)
             }
         }
-        .onChange(of: value) { split.follow(value) }
-    }
+    #endif
+
+    #if !os(macOS)
+        private var touchBody: some View {
+            VStack(spacing: 12) {
+                HStack(spacing: 12) {
+                    Text(RecordingScreenText.semitones)
+                        .font(.platform(.subheadline))
+                    Spacer()
+                    PanelStepButton(name: RecordingScreenText.pitchDown, systemImage: "minus") {
+                        choose(split.with(semitones: split.semitones - 1))
+                    }
+                    .disabled(split.semitones <= PitchSplit.semitoneRange.lowerBound)
+                    Text(Self.signed(split.semitones))
+                        .font(.platform(.headline))
+                        .monospacedDigit()
+                        .frame(minWidth: 40)
+                        .accessibilityLabel(RecordingScreenText.semitones)
+                        .accessibilityValue(Self.signed(split.semitones))
+                    PanelStepButton(name: RecordingScreenText.pitchUp, systemImage: "plus") {
+                        choose(split.with(semitones: split.semitones + 1))
+                    }
+                    .disabled(split.semitones >= PitchSplit.semitoneRange.upperBound)
+                }
+                HStack {
+                    Text(RecordingScreenText.cents)
+                    Spacer()
+                    Text(Self.signed(split.cents))
+                        .monospacedDigit()
+                }
+                .font(.platform(.subheadline))
+                .accessibilityHidden(true)
+                Slider(
+                    value: Binding {
+                        Double(split.cents)
+                    } set: {
+                        choose(split.with(cents: Int($0.rounded())))
+                    },
+                    in: Double(PitchSplit.centsRange.lowerBound)...Double(PitchSplit.centsRange.upperBound),
+                    step: 1
+                )
+                .accessibilityLabel(RecordingScreenText.cents)
+                .accessibilityValue(Self.signed(split.cents))
+                HStack {
+                    Spacer()
+                    Button(RecordingScreenText.reset) { choose(PitchSplit(cents: 0)) }
+                        .disabled(value == 0)
+                        .frame(minHeight: PracticeLayout.target)
+                }
+            }
+        }
+    #endif
 
     private func choose(_ next: PitchSplit) {
         split = next

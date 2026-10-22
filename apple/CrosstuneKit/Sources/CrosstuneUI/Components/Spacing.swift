@@ -35,8 +35,13 @@ extension EnvironmentValues {
     public var spacing: Spacing { Spacing(dynamicTypeSize) }
 }
 
-/// The smallest tap target, in points, whatever the text size.
-let minimumTapTarget: CGFloat = 44
+/// The smallest tap target, in points, whatever the text size. A pointer needs far less than a
+/// finger.
+#if os(macOS)
+    let minimumTapTarget: CGFloat = 28
+#else
+    let minimumTapTarget: CGFloat = 44
+#endif
 
 /// A chip's height at the default size. Scaled relative to `.subheadline`, its label's style, it
 /// stands in for a chip's height at any size where a container must leave room for the chip's

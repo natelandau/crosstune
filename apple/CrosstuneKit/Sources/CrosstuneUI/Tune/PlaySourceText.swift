@@ -36,7 +36,7 @@ struct PinAction: View {
 struct PinnedMark: View {
     var body: some View {
         Image(systemName: "pin.fill")
-            .foregroundStyle(.secondary)
+            .foregroundStyle(.inkSecondary)
             .accessibilityLabel(PlaySourceText.playsFirst)
     }
 }

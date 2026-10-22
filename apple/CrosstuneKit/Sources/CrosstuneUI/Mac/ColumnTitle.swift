@@ -16,14 +16,27 @@
         var body: some View {
             Text(title)
                 .font(MacStyle.columnTitle)
+                .tracking(MacStyle.columnTitleTracking)
                 .lineLimit(1)
                 .truncationMode(.tail)
+                .padding(.bottom, 4)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityAddTraits(.isHeader)
                 // Gone once its lower half has scrolled under the pane bar, as the toolbar's
                 // title is about to read in its place.
                 .onScrollVisibilityChange(threshold: 0.5) { reporter?.report($0) }
                 .onDisappear { reporter?.report(false) }
+        }
+    }
+
+    extension View {
+        /// Sets this title's first baseline on ``MacStyle/columnTitleBaseline`` below the pane
+        /// bar, for a bold title of `size` points at the top of `container`. The row or page
+        /// holding it adds no top inset of its own.
+        func columnTitleBaseline(
+            _ container: MacStyle.TitleContainer, size: CGFloat = MacStyle.columnTitleSize
+        ) -> some View {
+            padding(.top, MacStyle.titleTop(size: size, container: container))
         }
     }
 
@@ -39,21 +52,14 @@
     extension View {
         /// Names this column `title` for the toolbar, the window menu, and Mission Control,
         /// showing it in the toolbar only while the list's ``ColumnTitle`` is scrolled away, so
-        /// the title never reads twice. `alwaysShown` keeps it in the toolbar, for a title that
-        /// says something the column title does not, such as a selection's count.
-        /// `onTitleShows` hears each change in whether the column title is on screen, for
-        /// controls that ride on the title's line and need a place once it scrolls away.
-        func columnTitled(
-            _ title: String, alwaysShown: Bool = false, onTitleShows: ((Bool) -> Void)? = nil
-        ) -> some View {
-            modifier(ColumnTitled(title: title, alwaysShown: alwaysShown, onTitleShows: onTitleShows))
+        /// the title never reads twice.
+        func columnTitled(_ title: String) -> some View {
+            modifier(ColumnTitled(title: title))
         }
     }
 
     private struct ColumnTitled: ViewModifier {
         let title: String
-        let alwaysShown: Bool
-        let onTitleShows: ((Bool) -> Void)?
 
         @State private var titleShows = true
 
@@ -61,13 +67,10 @@
             content
                 .environment(
                     \.columnTitleReporter,
-                    ColumnTitleReporter { shows in
-                        titleShows = shows
-                        onTitleShows?(shows)
-                    }
+                    ColumnTitleReporter { titleShows = $0 }
                 )
                 .navigationTitle(title)
-                .toolbar(removing: titleShows && !alwaysShown ? .title : nil)
+                .toolbar(removing: titleShows ? .title : nil)
         }
     }
 #endif

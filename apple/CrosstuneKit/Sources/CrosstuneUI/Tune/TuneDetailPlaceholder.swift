@@ -14,29 +14,36 @@ public struct TuneDetailPlaceholder: View {
 
     #if os(iOS)
         @State private var hasKeyboard = GCKeyboard.coalesced != nil
+    #else
+        @Environment(CatalogModel.self) private var catalog: CatalogModel?
     #endif
 
     public init() {}
 
     public var body: some View {
         #if os(macOS)
-            // Quiet, so an empty pane reads as space waiting for a tune rather than a message.
-            VStack(spacing: 6) {
-                Image(systemName: "music.note")
-                    .font(.system(size: 22, weight: .light))
-                    .foregroundStyle(.tertiary)
-                    .padding(.bottom, 4)
-                    .accessibilityHidden(true)
-                Text(Self.title)
-                    .font(MacStyle.sectionHeading)
-                    .foregroundStyle(.secondary)
-                Text(Self.hint)
-                    .font(MacStyle.body)
-                    .foregroundStyle(.secondary)
+            if let catalog, CatalogScreen.isEmptyCatalog(catalog.results, query: catalog.query) {
+                // The catalog column's onboarding is the one empty state while there is no tune.
+                Color.clear
+            } else {
+                // Quiet, so an empty pane reads as space waiting for a tune rather than a message.
+                VStack(spacing: 6) {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 22, weight: .light))
+                        .foregroundStyle(.inkTertiary)
+                        .padding(.bottom, 4)
+                        .accessibilityHidden(true)
+                    Text(Self.title)
+                        .font(MacStyle.sectionHeading)
+                        .foregroundStyle(MacPalette.inkSecondary)
+                    Text(Self.hint)
+                        .font(MacStyle.body)
+                        .foregroundStyle(MacPalette.inkSecondary)
+                }
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityElement(children: .combine)
             }
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .accessibilityElement(children: .combine)
         #else
             ContentUnavailableView {
                 Label(Self.title, systemImage: "music.note")

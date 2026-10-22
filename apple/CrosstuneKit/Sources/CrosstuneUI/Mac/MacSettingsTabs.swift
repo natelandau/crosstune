@@ -7,30 +7,24 @@
     public struct MacSettingsTabs: View {
         nonisolated public static let general = "General"
         nonisolated public static let account = AccountSections.title
-        nonisolated public static let instruments = SettingsModel.instruments
-        nonisolated public static let newTunes = SettingsModel.newTunes
-        nonisolated public static let musicServices = SettingsModel.musicServices
-        nonisolated public static let savedLocations = SavedLocationsText.title
+        nonisolated public static let tunes = "Tunes"
+        nonisolated public static let recordings = SettingsModel.recordings
         nonisolated public static let importExport = ImportExportSections.title
 
         /// One tab of the window.
         enum Pane: String, CaseIterable, Hashable {
             case general
             case account
-            case instruments
-            case newTunes = "new-tunes"
-            case musicServices = "music-services"
-            case savedLocations = "saved-locations"
+            case tunes
+            case recordings
             case importExport = "import-export"
 
             var title: String {
                 switch self {
                 case .general: MacSettingsTabs.general
                 case .account: MacSettingsTabs.account
-                case .instruments: MacSettingsTabs.instruments
-                case .newTunes: MacSettingsTabs.newTunes
-                case .musicServices: MacSettingsTabs.musicServices
-                case .savedLocations: MacSettingsTabs.savedLocations
+                case .tunes: MacSettingsTabs.tunes
+                case .recordings: MacSettingsTabs.recordings
                 case .importExport: MacSettingsTabs.importExport
                 }
             }
@@ -39,23 +33,30 @@
                 switch self {
                 case .general: "gearshape"
                 case .account: "person.crop.circle"
-                case .instruments: "guitars"
-                case .newTunes: "text.badge.plus"
-                case .musicServices: "music.note.list"
-                case .savedLocations: SettingsCategory.savedLocations.systemImage
+                case .tunes: "music.note.list"
+                case .recordings: "waveform"
                 case .importExport: "arrow.up.arrow.down"
                 }
             }
 
             var sections: SettingsScreen.Sections {
                 switch self {
-                case .general: [.appearance, .recording, .downloads, .sync, .storage, .about]
+                case .general: [.appearance, .sync, .storage, .about]
                 case .account: [.plan, .account, .stats]
-                case .instruments: [.instruments]
-                case .newTunes: [.newTunes]
-                case .musicServices: [.musicServices, .appleMusic]
-                case .savedLocations: []
+                case .tunes: [.instrumentToggles, .newTunes, .serviceToggles, .appleMusic]
+                case .recordings: [.recording, .savedLocations, .downloads]
                 case .importExport: [.importExport]
+                }
+            }
+
+            /// The tab a stored name opens. Tunes holds what the instruments, new-tunes, and
+            /// music-services names stood for, and Recordings the saved locations; a name no tab
+            /// has opens General.
+            static func migrated(_ raw: String) -> Pane {
+                switch raw {
+                case "instruments", "new-tunes", "music-services": .tunes
+                case "saved-locations": .recordings
+                default: Pane(rawValue: raw) ?? .general
                 }
             }
         }
@@ -70,7 +71,8 @@
         }
 
         private let version: String?
-        @AppStorage(Self.tabStorageKey) private var selection: Pane = .general
+        /// Kept as the stored name, so a tab saved under an older name still opens its settings.
+        @AppStorage(Self.tabStorageKey) private var storedTab = Pane.general.rawValue
 
         /// - Parameter version: The app's marketing version, which the About row names.
         public init(version: String? = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) {
@@ -78,7 +80,13 @@
         }
 
         public var body: some View {
-            TabView(selection: $selection) {
+            TabView(
+                selection: Binding {
+                    Pane.migrated(storedTab)
+                } set: {
+                    storedTab = $0.rawValue
+                }
+            ) {
                 ForEach(Pane.allCases, id: \.self) { pane in
                     Tab(pane.title, systemImage: pane.systemImage, value: pane) {
                         Self.content(pane, version: version)
@@ -86,6 +94,11 @@
                 }
             }
             .tabViewStyle(.automatic)
+            // On the tab view too, which otherwise reports one fixed size to the window.
+            .frame(
+                minWidth: Self.size.width, maxWidth: Self.maxWidth, minHeight: Self.size.height, maxHeight: .infinity
+            )
+            .background(ResizableWindow())
             // A window of its own, so the shell's Plan sheet and purchase model never reach it.
             .modifier(PlanPurchases())
             // The window rather than each tab, so opening Settings reports once.
@@ -93,20 +106,44 @@
         }
 
         /// A tab's form.
-        @ViewBuilder static func content(_ pane: Pane, version: String?) -> some View {
-            switch pane {
-            case .savedLocations:
-                NavigationStack { SavedLocationsPage() }
-                    .frame(width: size.width, height: size.height)
-            default:
-                SettingsScreen(version: version, sections: pane.sections, title: pane.title, opensStatsInSheet: true)
-                    .frame(width: size.width, height: size.height)
-            }
+        static func content(_ pane: Pane, version: String?) -> some View {
+            SettingsScreen(version: version, sections: pane.sections, title: pane.title, opensStatsInSheet: true)
+                .macSettingsOpensUnfocused()
+                .frame(
+                    minWidth: size.width, maxWidth: maxWidth, minHeight: size.height, maxHeight: .infinity)
         }
 
-        /// One size for every tab. Resizing the window as tabs change saves its frame to user
-        /// defaults mid-layout, which wakes every `@AppStorage` in the window and makes AppKit
-        /// throw, so the window keeps the size it opens at and a long tab scrolls.
-        static let size = CGSize(width: 520, height: 480)
+        /// The size the window opens at and the least it takes. Every tab fills whatever size the
+        /// musician drags the window to, so a tab change never resizes it: resizing as tabs change
+        /// saves the frame to user defaults mid-layout, which wakes every `@AppStorage` in the
+        /// window and makes AppKit throw. A long tab scrolls.
+        nonisolated static let size = CGSize(width: 520, height: 480)
+        /// The widest the window grows, past which a card's rows would run too long to read.
+        nonisolated static let maxWidth: CGFloat = 760
+    }
+
+    /// Makes the window it sits in resizable. SwiftUI makes a Settings window without the
+    /// resizable style whatever the scene's resizability, so its edges never drag.
+    private struct ResizableWindow: NSViewRepresentable {
+        func makeNSView(context: Context) -> NSView { ResizableWindowView() }
+        func updateNSView(_: NSView, context: Context) {}
+    }
+
+    private final class ResizableWindowView: NSView {
+        private var styleWatch: NSKeyValueObservation?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            styleWatch = nil
+            guard let window else { return }
+            window.styleMask.insert(.resizable)
+            // SwiftUI sets the Settings window's style again as it lays the window out, which
+            // takes the resizable style back off.
+            styleWatch = window.observe(\.styleMask) { window, _ in
+                MainActor.assumeIsolated {
+                    if !window.styleMask.contains(.resizable) { window.styleMask.insert(.resizable) }
+                }
+            }
+        }
     }
 #endif

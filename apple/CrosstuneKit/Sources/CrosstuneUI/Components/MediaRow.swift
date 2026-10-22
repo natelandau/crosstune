@@ -72,6 +72,11 @@ public struct MediaRow: View {
     @ScaledMetric(relativeTo: .headline) private var scaledSlot: CGFloat = 44
     @Environment(\.spacing) private var spacing
     @Environment(\.openURL) private var openURL
+    @Environment(\.hangsMediaGlyph) private var hangsGlyph
+    @Environment(\.mediaNoticeInHeading) private var noticeInHeading
+    #if os(macOS)
+        @State private var isHovered = false
+    #endif
 
     /// `verb` names what the row does or would do, "Play" or "Downloading"; with no `action` the
     /// row is inert. `dimmed` marks a row whose control cannot act right now, such as a download
@@ -103,11 +108,11 @@ public struct MediaRow: View {
     }
 
     public var body: some View {
-        HStack(spacing: spacing(4)) {
+        HStack(alignment: rowAlignment, spacing: hangs ? Self.hangingGap : spacing(4)) {
             glyphView
                 // Past this the slot takes the width the title needs to wrap into.
                 .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-                .frame(width: slot, height: slot)
+                .frame(width: hangs ? Self.hangingSlot : slot, height: hangs ? nil : glyphHeight)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: spacing.rowLineGap) {
@@ -121,7 +126,7 @@ public struct MediaRow: View {
                     Text(meta)
                         .font(Self.lineFont)
                         .monospacedDigit()
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
                         .rowLineLimit()
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
@@ -129,10 +134,10 @@ public struct MediaRow: View {
                 ForEach(Array(lineControls.enumerated()), id: \.offset) { _, control in
                     innerControl(control)
                 }
-                if let notice {
+                if let notice, !noticeInHeading {
                     Text(notice)
                         .font(Self.smallFont)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
                 }
@@ -147,13 +152,61 @@ public struct MediaRow: View {
             Spacer(minLength: 0)
             ForEach(Array(trailingControls.enumerated()), id: \.offset) { _, control in
                 innerControl(control)
+                    #if os(macOS)
+                        // On the title's first baseline, as the glyph keeps to the title's line.
+                        .alignmentGuide(.top) { $0[.firstTextBaseline] - Self.titleAscent }
+                    #endif
             }
         }
+        #if os(macOS)
+            .frame(minHeight: hangs ? nil : slot)
+        #endif
+        .padding(.vertical, hangs ? Self.hangingRowInset : 0)
         .opacity(isDimmed ? Self.dimmedOpacity : 1)
         // The whole row answers a tap, under the link out and Retry, which keep their own.
         .background { rowControl }
+        .padding(.leading, hangs ? -Self.hangingIndent : 0)
+        #if os(macOS)
+            .onHover { isHovered = $0 && action != nil }
+        #endif
         .accessibilityElement(children: .contain)
     }
+
+    /// Whether the glyph hangs in a page's glyph column, left of the row's leading edge, so the
+    /// title starts on the page's text edge.
+    private var hangs: Bool { hangsGlyph }
+
+    /// On the Mac the glyph keeps to the title's line however many lines follow it; on iOS it
+    /// centers in its square.
+    private var rowAlignment: VerticalAlignment {
+        if hangs { return .firstTextBaseline }
+        #if os(macOS)
+            return .top
+        #else
+            return .center
+        #endif
+    }
+
+    private var glyphHeight: CGFloat {
+        #if os(macOS)
+            MacStyle.mediaTitleLineHeight
+        #else
+            slot
+        #endif
+    }
+
+    #if os(macOS)
+        private static let hangingSlot = MacStyle.pageGlyphColumn - MacStyle.pageGlyphGap
+        private static let hangingGap = MacStyle.pageGlyphGap
+        private static let hangingIndent = MacStyle.pageGlyphColumn
+        /// Room above and below a page's row, inside its hit area.
+        private static let hangingRowInset: CGFloat = 4
+    #else
+        private static let hangingSlot: CGFloat = 0
+        private static let hangingGap: CGFloat = 0
+        private static let hangingIndent: CGFloat = 0
+        private static let hangingRowInset: CGFloat = 0
+    #endif
 
     @ViewBuilder private var rowControl: some View {
         if let action {
@@ -229,10 +282,15 @@ public struct MediaRow: View {
                     .accessibilityHidden(true)
             }
             .font(Self.lineFont)
+            #if os(macOS)
+                .macHoverAccent()
+            #endif
             .lineTarget(stacked: stacksLineControls, reach: 12)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.tint)
+        #if !os(macOS)
+            .foregroundStyle(.tint)
+        #endif
         .accessibilityLabel(name)
     }
 
@@ -250,7 +308,11 @@ public struct MediaRow: View {
                     .accessibilityHidden(true)
             }
             .font(Self.smallFont)
-            .foregroundStyle(.secondary)
+            #if os(macOS)
+                .macHoverAccent()
+            #else
+                .foregroundStyle(.secondary)
+            #endif
             .lineTarget(stacked: stacksLineControls, reach: 14)
         }
         .buttonStyle(.borderless)
@@ -270,7 +332,11 @@ public struct MediaRow: View {
                     .accessibilityHidden(true)
             }
             .font(Self.smallFont)
-            .foregroundStyle(.secondary)
+            #if os(macOS)
+                .macHoverAccent()
+            #else
+                .foregroundStyle(.secondary)
+            #endif
             .lineTarget(stacked: stacksLineControls, reach: 14)
         }
         .buttonStyle(.borderless)
@@ -278,15 +344,21 @@ public struct MediaRow: View {
     }
 
     private func retryButton(_ retry: Retry) -> some View {
-        Button(action: retry.action) {
-            Text(MediaText.retry)
-                .font(Self.lineFont.weight(.semibold))
-                .frame(minWidth: slot, minHeight: slot)
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(.tint)
-        .accessibilityLabel(retry.name)
+        #if os(macOS)
+            Button(MediaText.retry, action: retry.action)
+                .buttonStyle(.mac(.secondary, size: .small))
+                .accessibilityLabel(retry.name)
+        #else
+            Button(action: retry.action) {
+                Text(MediaText.retry)
+                    .font(Self.lineFont.weight(.semibold))
+                    .frame(minWidth: slot, minHeight: slot)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.tint)
+            .accessibilityLabel(retry.name)
+        #endif
     }
 
     /// The spoken names of the row's control and of each control inside it, in reading order.
@@ -314,6 +386,9 @@ public struct MediaRow: View {
 
     #if os(macOS)
         private static let titleFont = MacStyle.body
+        /// How far the title's first baseline sits below its top, where a row aligned to its top
+        /// sets a trailing control's baseline.
+        nonisolated private static let titleAscent = NSFont.systemFont(ofSize: MacStyle.bodySize).ascender
         private static let lineFont = MacStyle.secondary
         private static let smallFont = MacStyle.secondary
         private static let glyphFont = Font.system(size: 13)
@@ -324,13 +399,13 @@ public struct MediaRow: View {
         private static let glyphFont = Font.title3
     #endif
 
-    /// A glyph for what a tap would start: quiet on the Mac, where it sits beside 13 point text,
-    /// so the one loaded item's stop stands out.
-    private static var idleGlyphStyle: HierarchicalShapeStyle {
+    /// A glyph for what a tap would start: ink, and on the Mac the accent while the pointer
+    /// is over the row, so the row reads as the control.
+    private var idleGlyphStyle: AnyShapeStyle {
         #if os(macOS)
-            .secondary
+            isHovered ? AnyShapeStyle(MacPalette.accent) : AnyShapeStyle(MacPalette.ink)
         #else
-            .primary
+            AnyShapeStyle(.primary)
         #endif
     }
 
@@ -345,22 +420,61 @@ public struct MediaRow: View {
     @ViewBuilder private var glyphView: some View {
         switch glyph {
         case .play:
-            Image(systemName: "play.fill").font(Self.glyphFont).foregroundStyle(Self.idleGlyphStyle)
+            Image(systemName: "play.fill").font(Self.glyphFont).foregroundStyle(idleGlyphStyle)
         case .stop:
             Image(systemName: "stop.fill").font(Self.glyphFont).foregroundStyle(Self.loadedGlyphStyle)
         case .download:
-            Image(systemName: "icloud.and.arrow.down").font(Self.glyphFont).foregroundStyle(Self.idleGlyphStyle)
+            Image(systemName: "icloud.and.arrow.down").font(Self.glyphFont).foregroundStyle(idleGlyphStyle)
         case .downloading:
             ProgressView().controlSize(.small)
         case .attention:
-            Image(systemName: "exclamationmark.circle").font(Self.glyphFont).foregroundStyle(.secondary)
+            Image(systemName: "exclamationmark.circle").font(Self.glyphFont).foregroundStyle(.inkSecondary)
         case .waiting:
-            Image(systemName: "clock").font(Self.glyphFont).foregroundStyle(.secondary)
+            Image(systemName: "clock").font(Self.glyphFont).foregroundStyle(.inkSecondary)
         case .none:
             Color.clear
         }
     }
 }
+
+extension EnvironmentValues {
+    /// True on a page whose media rows hang their glyphs in the page's glyph column.
+    @Entry var hangsMediaGlyph = false
+    /// True where a section says its rows' notice once, so each row only speaks it.
+    @Entry var mediaNoticeInHeading = false
+}
+
+#if os(macOS)
+    /// A link line's ink: secondary at rest, the accent under the pointer, so the accent stays
+    /// for what the musician is about to act on. A selected row's lines follow the selection's
+    /// secondary ink instead, since the accent holds 4.5:1 on neither the emphasized fill nor
+    /// the dark gray one.
+    struct MacHoverAccent: ViewModifier {
+        @State private var isHovered = false
+        @Environment(\.backgroundProminence) private var prominence
+        @Environment(\.macRowSelected) private var rowSelected
+
+        nonisolated static func token(hovered: Bool, emphasized: Bool, rowSelected: Bool) -> MacPalette.Token {
+            if hovered, !emphasized, !rowSelected { return .accent }
+            return MacSecondaryInk.token(emphasized: emphasized, rowSelected: rowSelected)
+        }
+
+        func body(content: Content) -> some View {
+            content
+                .foregroundStyle(
+                    MacPalette.color(
+                        Self.token(hovered: isHovered, emphasized: prominence == .increased, rowSelected: rowSelected))
+                )
+                .onHover { isHovered = $0 }
+        }
+    }
+
+    extension View {
+        fileprivate func macHoverAccent() -> some View {
+            modifier(MacHoverAccent())
+        }
+    }
+#endif
 
 extension View {
     /// A 44 point hit area for a line inside a row. Alone, it reaches `reach` past the text into

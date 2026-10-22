@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The catalog's filters on one row: the status and key pull-downs, the Filters button with its
 /// count, then each set sheet filter as a token that removes it. The Mac leaves status to its
-/// sidebar.
+/// sidebar and the Filters button to its search field.
 struct CatalogFilterRow: View {
     nonisolated static let archivedShown = "Archived shown"
     nonisolated static let unheardShown = "Unheard"
@@ -22,12 +22,35 @@ struct CatalogFilterRow: View {
         case filters
     }
 
+    /// Whether the Filters button sits in the search field rather than on this row.
+    nonisolated static var filtersInSearch: Bool {
+        #if os(macOS)
+            true
+        #else
+            false
+        #endif
+    }
+
     /// The row's controls in order. Status shows when `showsStatus`, a facet the catalog does not
-    /// offer has no control, and Filters always shows.
-    nonisolated static func controls(_ results: CatalogResults, showsStatus: Bool) -> [Control] {
+    /// offer has no control, and Filters shows unless it is in the search field.
+    nonisolated static func controls(_ results: CatalogResults, showsStatus: Bool, filtersInSearch: Bool) -> [Control] {
         var controls: [Control] = showsStatus ? [.status] : []
         if results.facets.contains(.key) { controls.append(.key) }
-        return controls + [.filters]
+        return filtersInSearch ? controls : controls + [.filters]
+    }
+
+    /// The count the search field's Filters button carries, or nil where the field has none.
+    nonisolated static func searchFilterCount(_ filters: CatalogFilters, filtersInSearch: Bool) -> Int? {
+        filtersInSearch ? filters.sheetCount : nil
+    }
+
+    /// Whether the row has anything to show. An empty catalog has nothing to narrow, and a row
+    /// left with no control and no token would be a gap; an error always shows.
+    nonisolated static func isShown(_ results: CatalogResults, hasErrors: Bool) -> Bool {
+        if hasErrors { return true }
+        guard !results.entries.isEmpty else { return false }
+        return !controls(results, showsStatus: false, filtersInSearch: filtersInSearch).isEmpty
+            || !setFilters(results.filters).isEmpty
     }
 
     /// A set sheet filter as its token reads, and the change that removes it.
@@ -124,7 +147,10 @@ struct CatalogFilterRow: View {
     }
 
     private var controls: some View {
-        ForEach(Self.controls(results, showsStatus: statusChoices != nil), id: \.self) { control in
+        ForEach(
+            Self.controls(results, showsStatus: statusChoices != nil, filtersInSearch: Self.filtersInSearch),
+            id: \.self
+        ) { control in
             switch control {
             case .status: statusControl
             case .key: keyControl
@@ -171,6 +197,9 @@ struct CatalogFilterRow: View {
             }
             .presentationCompactAdaptation(.popover)
         }
+        #if DEBUG
+            .opensForSample(.keyFilter) { choosingKey = true }
+        #endif
     }
 
     private var filtersControl: some View {
@@ -203,60 +232,84 @@ private struct PullDownLabel: View {
             Text(text)
             Image(systemName: "chevron.down")
                 .font(PageStyle.pullDownChevron)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
         }
     }
 }
 
-/// A filter row control: a quiet capsule at rest, slate once it narrows the list, so a set
-/// filter reads at a glance.
+/// A filter row control: quiet at rest, in the accent once it narrows the list, so a set
+/// filter reads at a glance. On the Mac it is a standalone ``MacChip``.
 struct FilterControlStyle: ButtonStyle {
     var isSet = false
 
     func makeBody(configuration: Configuration) -> some View {
-        FilterControlBody(configuration: configuration, isSet: isSet)
+        #if os(macOS)
+            MacFilterControlBody(configuration: configuration, isSet: isSet)
+        #else
+            FilterControlBody(configuration: configuration, isSet: isSet)
+        #endif
     }
 }
 
-private struct FilterControlBody: View {
-    let configuration: ButtonStyle.Configuration
-    let isSet: Bool
+#if os(macOS)
+    private struct MacFilterControlBody: View {
+        let configuration: ButtonStyle.Configuration
+        let isSet: Bool
 
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.isEnabled) private var isEnabled
+        @State private var isHovered = false
 
-    /// How far the hit area reaches past the drawn capsule to make a touch target.
-    private static let hitOutset = max(0, (PageStyle.minTarget - PageStyle.filterControlHeight) / 2)
-
-    var body: some View {
-        let capsule = configuration.label
-            .font(PageStyle.body)
-            .lineLimit(1)
-            .foregroundStyle(foreground)
-            .padding(.horizontal, 10)
-            // Grows past its height only when the text size does, so a large label never clips.
-            .padding(.vertical, 3)
-            .frame(minHeight: PageStyle.filterControlHeight)
-            .background(fill, in: .capsule)
-            .phoneAnimation(value: isSet)
-            .contentShape(.capsule)
-            .opacity(configuration.isPressed ? 0.6 : 1)
-        if Self.hitOutset > 0 {
-            capsule
-                .padding(Self.hitOutset)
-                .contentShape(.rect)
-                .padding(-Self.hitOutset)
-        } else {
-            capsule
+        var body: some View {
+            configuration.label
+                .macChip(
+                    state: isSet ? .set : .rest, size: .standalone,
+                    emphasis: configuration.isPressed || isHovered ? 1 : 0
+                )
+                .opacity(isEnabled ? 1 : MacButtonStyle.disabledOpacity)
+                .onHover { isHovered = $0 }
         }
     }
+#else
+    private struct FilterControlBody: View {
+        let configuration: ButtonStyle.Configuration
+        let isSet: Bool
 
-    private var foreground: AnyShapeStyle {
-        if !isEnabled { return AnyShapeStyle(.tertiary) }
-        return isSet ? AnyShapeStyle(BrandStyle.setLabel(colorScheme)) : AnyShapeStyle(.primary)
-    }
+        @Environment(\.colorScheme) private var colorScheme
+        @Environment(\.isEnabled) private var isEnabled
 
-    private var fill: AnyShapeStyle {
-        isSet ? AnyShapeStyle(BrandStyle.setFill(colorScheme)) : neutralFill(colorScheme)
+        /// How far the hit area reaches past the drawn capsule to make a touch target.
+        private static let hitOutset = max(0, (PageStyle.minTarget - PageStyle.filterControlHeight) / 2)
+
+        var body: some View {
+            let capsule = configuration.label
+                .font(PageStyle.body)
+                .lineLimit(1)
+                .foregroundStyle(foreground)
+                .padding(.horizontal, 10)
+                // Grows past its height only when the text size does, so a large label never clips.
+                .padding(.vertical, 3)
+                .frame(minHeight: PageStyle.filterControlHeight)
+                .background(fill, in: .capsule)
+                .phoneAnimation(value: isSet)
+                .contentShape(.capsule)
+                .opacity(configuration.isPressed ? 0.6 : 1)
+            if Self.hitOutset > 0 {
+                capsule
+                    .padding(Self.hitOutset)
+                    .contentShape(.rect)
+                    .padding(-Self.hitOutset)
+            } else {
+                capsule
+            }
+        }
+
+        private var foreground: AnyShapeStyle {
+            if !isEnabled { return AnyShapeStyle(.tertiary) }
+            return isSet ? AnyShapeStyle(BrandStyle.setLabel(colorScheme)) : AnyShapeStyle(.primary)
+        }
+
+        private var fill: AnyShapeStyle {
+            isSet ? AnyShapeStyle(BrandStyle.setFill(colorScheme)) : neutralFill(colorScheme)
+        }
     }
-}
+#endif

@@ -40,7 +40,11 @@ struct RecordingsGroupHeading: View {
     var body: some View {
         Text(title)
             .font(PageStyle.sectionHeading)
-            .foregroundStyle(.primary)
+            #if os(macOS)
+                .foregroundStyle(MacPalette.ink)
+            #else
+                .foregroundStyle(.primary)
+            #endif
             .textCase(nil)
             .padding(.top, PageStyle.groupHeadingTop)
             .accessibilityAddTraits(.isHeader)
@@ -53,6 +57,7 @@ private struct RecordingsContent: View {
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
+    @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.detailTune) private var detailTune
     @Environment(\.playerWindow) private var window
     @Environment(\.spacing) private var spacing
@@ -99,22 +104,22 @@ private struct RecordingsContent: View {
         let sheetsOpen = openSheets?.isCovered == true
         List(selection: openRecording) {
             #if os(macOS)
+                // Title, then the set source, then one header line, then the groups, as the
+                // catalog's column runs; the storage meter sits in a bar at the column's foot.
                 ColumnTitle(Destination.recordings.title)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                    .columnTitleBaseline(.insetList)
+                    .listRowInsets(MacStyle.columnRowInsets())
                     .plainListRow()
-            #endif
-            #if os(macOS)
                 if model.filterCount > 0 {
                     RecordingsFilterBar(choice: model.choice) {
                         Task { await model.resetSource() }
                     }
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .selectionDisabled()
+                    .listRowInsets(MacStyle.columnRowInsets(top: 8, bottom: 2))
+                    .plainListRow()
                 }
-                if let storage = model.storage(plan: plan) {
-                    StorageSummary(storage: storage)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 8, trailing: 8))
+                if let arrangement, !model.hasNoRecordings {
+                    ListHeader(count: model.countLabel(arrangement), choice: arrangement.isEmpty ? nil : $sort)
+                        .listRowInsets(MacStyle.columnRowInsets())
                         .plainListRow()
                 }
             #else
@@ -133,10 +138,8 @@ private struct RecordingsContent: View {
             #if os(macOS)
                 if model.showsUnfinished { unfinishedSection }
                 if let arrangement {
-                    if arrangement.isEmpty && !model.hasNoRecordings { countSection(arrangement) }
                     if !arrangement.unfiled.isEmpty { unfiledSection(arrangement) }
-                    filedSection(
-                        arrangement.filed, listHeader: arrangement.unfiled.isEmpty ? arrangement : nil)
+                    filedSection(arrangement.filed, listHeader: nil)
                 }
             #else
                 let order = RecordingArrangement.sectionOrder(
@@ -192,7 +195,7 @@ private struct RecordingsContent: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             if let failure = model.failure {
                 Text(failure)
-                    .font(.footnote)
+                    .font(.platform(.footnote))
                     .foregroundStyle(.red)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 20)
@@ -200,10 +203,16 @@ private struct RecordingsContent: View {
             }
         }
         #if os(macOS)
-            // Plain headings over the groups rather than inset cards.
-            .listStyle(.plain)
+            .macColumnList()
+            .safeAreaBar(edge: .bottom, spacing: 0) {
+                if let storage = model.storage(plan: plan) {
+                    StorageBar(storage: storage)
+                }
+            }
+            // A row says Stop recording to play once, under its group's heading.
+            .environment(\.mediaNoticeInHeading, true)
             // The screen's own actions share its search's bar, as the catalog's do.
-            .paneBar {
+            .paneBar(slot: PaneBarLayout.slotWidth(icons: 1)) {
                 searchField
             } _: {
                 uploadButton.labelStyle(.iconOnly)
@@ -261,6 +270,18 @@ private struct RecordingsContent: View {
                 Task { await file(creating.recordingID, under: tuneID) }
             }
         }
+        #if DEBUG
+            .opensForSample(.recordingsFilters) { showsFilters = true }
+            .opensForSample(.editRecording, when: model.view(SampleScreen.editedRecordingID) != nil) {
+                editing = model.view(SampleScreen.editedRecordingID)
+            }
+            .opensForSample(.editLocation, when: model.view(SampleScreen.editedRecordingID) != nil) {
+                editing = model.view(SampleScreen.editedRecordingID)
+            }
+            .opensForSample(.addToTune, when: model.view(SampleScreen.unfiledRecordingID) != nil) {
+                filing = model.view(SampleScreen.unfiledRecordingID)
+            }
+        #endif
         .coversShell(deleting != nil)
         .confirmationDialog(
             RecordingsModel.deleteTitle,
@@ -307,8 +328,28 @@ private struct RecordingsContent: View {
         }
     }
 
+    /// A group of rows under its heading. On the Mac the heading is a row of its own, so the
+    /// space above it is the list's row spacing and not the wider gap the system sets between
+    /// sections.
+    @ViewBuilder private func recordingGroup(
+        @ViewBuilder rows: () -> some View, @ViewBuilder header: () -> some View
+    ) -> some View {
+        #if os(macOS)
+            header()
+                .listRowInsets(MacStyle.columnRowInsets(top: 12, bottom: 2))
+                .plainListRow()
+            rows()
+        #else
+            Section {
+                rows()
+            } header: {
+                header()
+            }
+        #endif
+    }
+
     private var unfinishedSection: some View {
-        Section {
+        recordingGroup {
             ForEach(model.unfinished, id: \.id) { capture in
                 // A capture shares its recording's id, so it must never stand in for that row.
                 unfinishedRow(capture)
@@ -319,22 +360,25 @@ private struct RecordingsContent: View {
         }
     }
 
-    private func countSection(_ arrangement: RecordingArrangement) -> some View {
-        Section {
-        } header: {
-            ListHeader<RecordingSort>(count: model.countLabel(arrangement), choice: nil)
-                .textCase(nil)
-                .headerInsets()
+    #if os(iOS)
+        private func countSection(_ arrangement: RecordingArrangement) -> some View {
+            Section {
+            } header: {
+                ListHeader<RecordingSort>(count: model.countLabel(arrangement), choice: nil)
+                    .textCase(nil)
+                    .headerInsets()
+            }
         }
-    }
+    #endif
 
     private func unfiledSection(_ arrangement: RecordingArrangement) -> some View {
-        Section {
+        recordingGroup {
             ForEach(arrangement.unfiled) { view in
                 row(view)
             }
         } header: {
-            sectionHeader(RecordingsListText.unfiled, listHeader: arrangement)
+            sectionHeader(
+                RecordingsListText.unfiled, listHeader: macListHeader(arrangement), rows: arrangement.unfiled)
         }
     }
 
@@ -346,17 +390,17 @@ private struct RecordingsContent: View {
         switch filed {
         case .flat(let views):
             if !views.isEmpty {
-                Section {
+                recordingGroup {
                     ForEach(views) { view in
                         row(view, opensTune: true)
                     }
                 } header: {
-                    sectionHeader(RecordingsListText.filed, listHeader: arrangement)
+                    sectionHeader(RecordingsListText.filed, listHeader: arrangement, rows: views)
                 }
             }
         case .byTune(let tunes):
             if !tunes.isEmpty {
-                Section {
+                recordingGroup {
                     ForEach(tunes) { tune in
                         tuneLabel(tune)
                         ForEach(tune.views) { view in
@@ -364,7 +408,8 @@ private struct RecordingsContent: View {
                         }
                     }
                 } header: {
-                    sectionHeader(RecordingsListText.filed, listHeader: arrangement)
+                    sectionHeader(
+                        RecordingsListText.filed, listHeader: arrangement, rows: tunes.flatMap(\.views))
                 }
             }
         }
@@ -373,9 +418,9 @@ private struct RecordingsContent: View {
     /// A section's title, under the list header when the section leads the recordings. A row of
     /// its own between two sections would stand apart from both, so the count and sort ride on
     /// the first section's header, directly above the rows they describe.
-    @ViewBuilder private func sectionHeader(_ title: String, listHeader arrangement: RecordingArrangement?)
-        -> some View
-    {
+    @ViewBuilder private func sectionHeader(
+        _ title: String, listHeader arrangement: RecordingArrangement?, rows: [RecordingView]
+    ) -> some View {
         if let arrangement {
             VStack(alignment: .leading, spacing: 0) {
                 ListHeader(count: model.countLabel(arrangement), choice: $sort)
@@ -384,13 +429,47 @@ private struct RecordingsContent: View {
             }
             .headerInsets()
         } else {
-            heading(title)
+            heading(title, rows: rows)
         }
     }
 
-    private func heading(_ title: String) -> some View {
-        RecordingsGroupHeading(title: title)
+    /// A group's heading; on the Mac it says Stop recording to play once for `rows`, when one of
+    /// them would.
+    private func heading(_ title: String, rows: [RecordingView] = []) -> some View {
+        #if os(macOS)
+            VStack(alignment: .leading, spacing: 2) {
+                RecordingsGroupHeading(title: title)
+                if blocksPlay(rows) {
+                    Text(MediaText.stopRecordingToPlay)
+                        .font(MacStyle.secondary)
+                        .foregroundStyle(MacPalette.inkSecondary)
+                }
+            }
             .headerInsets()
+        #else
+            RecordingsGroupHeading(title: title)
+                .headerInsets()
+        #endif
+    }
+
+    /// Whether a take under way stands one of `rows`' plays down.
+    private func blocksPlay(_ rows: [RecordingView]) -> Bool {
+        guard recorders?.isCapturing == true else { return false }
+        return rows.contains { view in
+            RecordingRowContent.blocksPlay(
+                view.recording, file: view.file, loaded: player?.holds(.recording, id: view.id) ?? false,
+                downloading: transfers?.isDownloading(view.id) ?? false)
+        }
+    }
+
+    /// The arrangement whose count and sort ride on a group's header: never on the Mac, where
+    /// they have a line of their own under the title.
+    private func macListHeader(_ arrangement: RecordingArrangement) -> RecordingArrangement? {
+        #if os(macOS)
+            nil
+        #else
+            arrangement
+        #endif
     }
 
     #if os(macOS)
@@ -453,6 +532,9 @@ private struct RecordingsContent: View {
         }
         .newTakeHighlight(view.id)
         .mediaRowInsets()
+        #if os(macOS)
+            .macRowSelected(openRecording?.wrappedValue == view.id)
+        #endif
         .tag(view.id)
         // A row with no audio here downloads or retries on a click, so selecting it, or arrowing
         // past it, must not open its practice view and fetch it. A plan that holds recordings
@@ -488,7 +570,7 @@ private struct RecordingsContent: View {
             }
             #if os(macOS)
                 .font(MacStyle.secondary.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
                 .frame(minHeight: MacStyle.smallControlHeight)
             #else
                 .font(.footnote.bold())
@@ -566,11 +648,11 @@ private struct RecordingsContent: View {
 }
 
 extension View {
-    /// A section header's place: on the Mac at the column's row edges; on iOS with no top
+    /// A section header's place: on the Mac where the inset list puts it; on iOS with no top
     /// padding, since the space between sections already sets the groups apart.
     fileprivate func headerInsets() -> some View {
         #if os(macOS)
-            padding(.horizontal, 8)
+            self
         #else
             listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 4, trailing: 16))
         #endif
@@ -580,7 +662,7 @@ extension View {
     /// separator, as the tune rows sit.
     fileprivate func mediaRowInsets() -> some View {
         #if os(macOS)
-            listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+            listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 .listRowSeparator(.hidden)
         #else
             scaledRowInsets()

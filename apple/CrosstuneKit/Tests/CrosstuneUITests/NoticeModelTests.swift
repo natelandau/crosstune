@@ -535,3 +535,124 @@ private let day: TimeInterval = 86_400
         #expect(NoticeKind.allCases.map(\.rawValue) == PlanNotice.allCases.map(\.rawValue))
     }
 }
+
+#if os(macOS)
+    @MainActor
+    @Suite struct MacNoticeFooterTests {
+        @Test func firstRecordingNoticeDefaultsToOK() {
+            let footer = NoticeSheet.macFirstRecordingFooter(onClose: {}, onSeePlan: {})
+            #expect(footer.cancel == nil)
+            #expect(footer.secondary?.title == PlanText.seePlan)
+            #expect(footer.secondary?.role == .secondary)
+            #expect(footer.primary?.title == NoticeText.ok)
+            #expect(footer.primary?.role == .primary)
+            // Escape closes it as OK does, though no Cancel shows.
+            #expect(footer.escape != nil)
+            let keys = MacSheetAction.keyboardRoles(
+                cancel: footer.cancel, primary: footer.primary)
+            #expect(keys == .init(cancel: nil, primary: .defaultAction))
+        }
+
+        @Test func trialNoticeNeverDefaultsToSubscribe() {
+            let selling = NoticeSheet.macTrialFooter(
+                NoticeSheet.Offer(primary: .subscribe("$49.99"), secondary: .comparePlans), isWorking: false,
+                onClose: {}, onComparePlans: {}, onSubscribe: {})
+            #expect(selling.cancel?.title == PlanSheet.close)
+            #expect(selling.secondary?.title == PlanText.comparePlans)
+            #expect(selling.primary?.title == NoticeText.subscribeAnnual("$49.99"))
+            #expect(selling.primary?.role == .primary)
+            #expect(selling.primary?.isDefault == false)
+            #expect(
+                MacSheetAction.keyboardRoles(
+                    cancel: selling.cancel, primary: selling.primary)
+                    == .init(cancel: .cancellation, primary: nil))
+
+            let waiting = NoticeSheet.macTrialFooter(
+                NoticeSheet.Offer(primary: .waiting, secondary: .comparePlans), isWorking: false, onClose: {},
+                onComparePlans: {}, onSubscribe: {})
+            #expect(waiting.primary?.isDefault == false)
+            #expect(waiting.primary?.isEnabled == false)
+            #expect(waiting.secondary?.title == PlanText.comparePlans)
+        }
+
+        @Test func aTrialNoticeWithoutASaleDefaultsToComparePlans() {
+            let footer = NoticeSheet.macTrialFooter(
+                NoticeSheet.Offer(primary: .comparePlans, secondary: nil), isWorking: false, onClose: {},
+                onComparePlans: {}, onSubscribe: {})
+            #expect(footer.cancel?.title == PlanSheet.close)
+            #expect(footer.secondary == nil)
+            #expect(footer.primary?.title == PlanText.comparePlans)
+            #expect(footer.primary?.isDefault == true)
+        }
+
+        /// Once a purchase settles, Close is the one way out, so it takes Return and Escape.
+        @Test func aSettledTrialNoticeClosesOnEitherKey() {
+            let footer = NoticeSheet.macTrialFooter(
+                NoticeSheet.Offer(primary: .close, secondary: nil), isWorking: false, onClose: {},
+                onComparePlans: {}, onSubscribe: {})
+            #expect(footer.cancel == nil)
+            #expect(footer.primary?.title == PlanSheet.close)
+            #expect(footer.primary?.isDefault == true)
+            #expect(footer.escape != nil)
+        }
+    }
+
+    /// Presses keys in a notice hosted in a hidden window, so the notice's own wiring, the
+    /// hidden Escape button included, is what answers.
+    @MainActor
+    @Suite(.enabled(if: hasWindowServer, "Needs a window server to host the sheet"))
+    struct MacNoticeKeyTests {
+        final class Presses {
+            var close = 0
+            var seePlan = 0
+            var compare = 0
+        }
+
+        private func host(_ notice: PlanNotice, _ presses: Presses) -> NSWindow {
+            let sheet = NoticeSheet(
+                notice: notice, endsAt: Date(timeIntervalSince1970: 1_800_000_000),
+                plan: Plan(kind: .premium, source: .trial),
+                purchase: nil, onClose: { presses.close += 1 }, onSeePlan: { presses.seePlan += 1 },
+                onComparePlans: { presses.compare += 1 })
+            let window = hiddenWindow(
+                size: CGSize(width: 480, height: 400), styleMask: [.titled], appearance: .aqua)
+            window.contentView = NSHostingView(rootView: sheet)
+            window.orderFrontRegardless()
+            return window
+        }
+
+        /// Offers the key until the hosted view handles it, since it takes a few run-loop turns
+        /// to lay out and register its shortcuts, then stops, so one press is one press.
+        private func press(_ characters: String, code: UInt16, in window: NSWindow) async -> Bool {
+            let event = NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, characters: characters,
+                charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code)!
+            for _ in 0..<40 {
+                if window.performKeyEquivalent(with: event) { return true }
+                try? await Task.sleep(for: .milliseconds(25))
+            }
+            return false
+        }
+
+        @Test func escapeClosesTheFirstRecordingNotice() async throws {
+            let presses = Presses()
+            let window = host(.firstRecording, presses)
+            defer { window.close() }
+
+            #expect(await press("\u{1B}", code: 53, in: window))
+            #expect(try await poll { presses.close == 1 })
+            #expect(presses.seePlan == 0)
+        }
+
+        @Test func escapeClosesATrialNotice() async throws {
+            let presses = Presses()
+            let window = host(.trialEnded, presses)
+            defer { window.close() }
+
+            #expect(await press("\u{1B}", code: 53, in: window))
+            #expect(try await poll { presses.close == 1 })
+            #expect(presses.compare == 0)
+        }
+    }
+#endif

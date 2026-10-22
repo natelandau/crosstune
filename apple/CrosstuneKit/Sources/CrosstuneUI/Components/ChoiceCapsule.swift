@@ -2,7 +2,7 @@ import SwiftUI
 
 /// One choice in a rail of capsules: a neutral fill at rest, the tint when chosen, and a 44
 /// point target whatever its text size, which takes no more room than the capsule. The Mac
-/// draws it at its own text size, slate when chosen, with no touch target.
+/// draws it as a ``MacChip``.
 public struct ChoiceCapsule<Label: View>: View {
     private let isChosen: Bool
     private let action: () -> Void
@@ -18,16 +18,14 @@ public struct ChoiceCapsule<Label: View>: View {
     }
 
     public var body: some View {
-        Button(action: action) {
-            #if os(macOS)
-                label
-                    .font(MacStyle.body)
-                    .foregroundStyle(isChosen ? AnyShapeStyle(MacStyle.onAccent(colorScheme)) : AnyShapeStyle(.primary))
-                    .padding(.horizontal, spacing(14))
-                    .padding(.vertical, spacing.chipVertical)
-                    .background(isChosen ? AnyShapeStyle(MacStyle.accent) : neutralFill(colorScheme), in: .capsule)
-                    .contentShape(.capsule)
-            #else
+        #if os(macOS)
+            Button(action: action) {
+                label.fixedSize()
+            }
+            .buttonStyle(MacChipStyle(state: isChosen ? .chosen : .rest, size: .standalone))
+            .accessibilityAddTraits(isChosen ? .isSelected : [])
+        #else
+            Button(action: action) {
                 label
                     .lineLimit(1)
                     .fixedSize()
@@ -39,10 +37,10 @@ public struct ChoiceCapsule<Label: View>: View {
                     .padding(.vertical, spacing.chipVertical)
                     .background(isChosen ? AnyShapeStyle(.tint) : neutralFill(colorScheme), in: .capsule)
                     .tapTarget()
-            #endif
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isChosen ? .isSelected : [])
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(isChosen ? .isSelected : [])
+        #endif
     }
 }
 
@@ -57,13 +55,8 @@ struct ChoiceCapsuleLabel: View {
     var body: some View {
         #if os(macOS)
             Text(text)
-                .font(MacStyle.body)
-                .lineLimit(1)
-                .foregroundStyle(chosen ? AnyShapeStyle(MacStyle.onAccent(colorScheme)) : AnyShapeStyle(.primary))
-                .padding(.horizontal, spacing(14))
-                .padding(.vertical, spacing.chipVertical)
-                .background(chosen ? AnyShapeStyle(MacStyle.accent) : neutralFill(colorScheme), in: .capsule)
-                .contentShape(.capsule)
+                .fixedSize()
+                .macChip(state: chosen ? .chosen : .rest, size: .standalone)
         #else
             Text(text)
                 .font(.subheadline)

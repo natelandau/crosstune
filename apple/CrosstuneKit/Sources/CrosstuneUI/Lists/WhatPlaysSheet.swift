@@ -55,45 +55,87 @@ struct WhatPlaysSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Text(WhatPlaysText.lead)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(WhatPlaysText.groups(report), id: \.reason) { group in
-                    Section(WhatPlaysText.groupTitle(group.reason)) {
-                        ForEach(group.tuneIDs, id: \.self) { id in
-                            Button {
-                                onChoose(id)
-                                dismiss()
-                            } label: {
-                                Text(titles[id] ?? "")
-                                    .contentMask()
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .contentShape(.rect)
+        #if os(macOS)
+            MacSheet(
+                title: WhatPlaysText.title, subtitle: WhatPlaysText.lead, size: .fitted(.standard), cancel: nil,
+                primary: .init(WhatPlaysText.done) { dismiss() }, escape: { dismiss() }
+            ) {
+                VStack(alignment: .leading, spacing: 16) {
+                    ForEach(WhatPlaysText.groups(report), id: \.reason) { group in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(WhatPlaysText.groupTitle(group.reason))
+                                .font(MacStyle.label)
+                                .foregroundStyle(MacPalette.inkSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.horizontal, 8)
+                                .padding(.bottom, 2)
+                                .accessibilityAddTraits(.isHeader)
+                            ForEach(group.tuneIDs, id: \.self) { id in
+                                Button {
+                                    onChoose(id)
+                                    dismiss()
+                                } label: {
+                                    Text(titles[id] ?? "")
+                                        .contentMask()
+                                }
+                                .buttonStyle(.macPickRow)
                             }
-                            .buttonStyle(.plain)
+                            if group.reason == .needsSubscription {
+                                accessButton
+                                    .buttonStyle(.macSecondary)
+                                    .padding(.horizontal, 8)
+                                    .padding(.top, 6)
+                            }
                         }
-                        if group.reason == .needsSubscription { accessButton }
+                    }
+                }
+                .padding(.horizontal, -8)
+            }
+            .shellSheet()
+        #else
+            phoneStack
+                .shellSheet()
+        #endif
+    }
+
+    #if os(iOS)
+        private var phoneStack: some View {
+            NavigationStack {
+                Form {
+                    Section {
+                        Text(WhatPlaysText.lead)
+                            .font(.platform(.footnote))
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(WhatPlaysText.groups(report), id: \.reason) { group in
+                        Section(WhatPlaysText.groupTitle(group.reason)) {
+                            ForEach(group.tuneIDs, id: \.self) { id in
+                                Button {
+                                    onChoose(id)
+                                    dismiss()
+                                } label: {
+                                    Text(titles[id] ?? "")
+                                        .contentMask()
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .contentShape(.rect)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            if group.reason == .needsSubscription { accessButton }
+                        }
+                    }
+                }
+                .formStyle(.grouped)
+                .navigationTitle(WhatPlaysText.title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(WhatPlaysText.done) { dismiss() }
                     }
                 }
             }
-            .formStyle(.grouped)
-            .navigationTitle(WhatPlaysText.title)
-            #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(WhatPlaysText.done) { dismiss() }
-                }
-            }
         }
-        .macSheetFrame(MacSheetSize(minWidth: 420, minHeight: 420, idealHeight: 520))
-        .shellSheet()
-    }
+    #endif
 
     @ViewBuilder private var accessButton: some View {
         switch access.map(AppleMusicRowAction.make) ?? .none {

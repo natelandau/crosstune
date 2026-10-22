@@ -5,8 +5,14 @@ struct ImportHelp: View {
     static let destination = ImportCopy.helpURL
 
     var body: some View {
-        Link(destination: Self.destination) {
-            Label(ImportCopy.whatCanIPaste, systemImage: "questionmark.circle")
-        }
+        #if os(macOS)
+            Link(ImportCopy.whatCanIPaste, destination: Self.destination)
+                .font(MacStyle.body)
+                .foregroundStyle(MacPalette.accent)
+        #else
+            Link(destination: Self.destination) {
+                Label(ImportCopy.whatCanIPaste, systemImage: "questionmark.circle")
+            }
+        #endif
     }
 }

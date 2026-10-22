@@ -20,6 +20,21 @@ struct StatusPicker: View {
     @Binding var status: String
 
     var body: some View {
+        #if os(macOS)
+            MacSegmentedPicker(
+                TuneFieldLabels.status,
+                selection: Binding {
+                    StatusField.chosen(status)
+                } set: {
+                    if let chosen = $0 { status = chosen }
+                },
+                options: StatusField.segments)
+        #else
+            picker
+        #endif
+    }
+
+    private var picker: some View {
         Picker(
             TuneFieldLabels.status,
             selection: Binding {
@@ -53,6 +68,21 @@ struct BulkStatusPicker: View {
     @Binding var form: BulkEditForm
 
     var body: some View {
+        #if os(macOS)
+            MacSegmentedPicker(
+                TuneFieldLabels.status,
+                selection: Binding<String?> {
+                    BulkStatusField.chosen(form)
+                } set: { choice in
+                    if let choice { BulkStatusField.choose(choice, in: &form) }
+                },
+                options: StatusField.segments)
+        #else
+            picker
+        #endif
+    }
+
+    private var picker: some View {
         Picker(
             TuneFieldLabels.status,
             selection: Binding<String?> {
@@ -104,6 +134,9 @@ struct ModeRows: View {
             Button(TuneFieldLabels.addPartMode, systemImage: "plus") {
                 values.addModeRow()
             }
+            #if os(macOS)
+                .buttonStyle(.macPlain)
+            #endif
         }
     }
 }
@@ -126,19 +159,24 @@ struct TuningRows: View {
                 maxLength: Vocabulary.Limits.Tune.tuning)
             // The Tuning header does not name the instrument, so the capo row keeps its full name.
             if Vocabulary.capoInstruments.contains(instrument) {
-                Picker(
-                    TuneFieldLabels.capo(instrument),
-                    selection: Binding {
-                        values.tuning(instrument).capo
-                    } set: { capo in
-                        values.tunings[instrument, default: TuningValues()].capo = capo
-                    }
-                ) {
-                    Text(TuneFieldLabels.noCapo).tag(Int64?.none)
-                    ForEach(Vocabulary.capoFrets, id: \.self) { fret in
-                        Text("\(fret)").tag(Int64?.some(fret))
-                    }
+                let capo = Binding {
+                    values.tuning(instrument).capo
+                } set: { capo in
+                    values.tunings[instrument, default: TuningValues()].capo = capo
                 }
+                #if os(macOS)
+                    MacPopUp(
+                        TuneFieldLabels.capo(instrument), selection: capo,
+                        options: [nil] + Vocabulary.capoFrets.map(Optional.some),
+                        label: { $0.map { "\($0)" } ?? TuneFieldLabels.noCapo })
+                #else
+                    Picker(TuneFieldLabels.capo(instrument), selection: capo) {
+                        Text(TuneFieldLabels.noCapo).tag(Int64?.none)
+                        ForEach(Vocabulary.capoFrets, id: \.self) { fret in
+                            Text("\(fret)").tag(Int64?.some(fret))
+                        }
+                    }
+                #endif
             }
         }
     }
@@ -149,31 +187,79 @@ struct LearnedOnRow: View {
     @Binding var day: String
 
     var body: some View {
-        if let date = CalendarDay.date(day) {
-            HStack {
-                DatePicker(
-                    TuneFieldLabels.learnedOn,
-                    selection: Binding {
-                        date
-                    } set: {
-                        day = CalendarDay.day($0)
-                    }, displayedComponents: .date)
-                Button(TuneFieldLabels.clearDate, systemImage: "xmark.circle.fill") { day = "" }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.secondary)
-                    #if os(macOS)
-                        .help(TuneFieldLabels.clearDate)
-                    #endif
-            }
-        } else {
+        #if os(macOS)
             LabeledContent(TuneFieldLabels.learnedOn) {
-                Button(TuneFieldLabels.notSet) { day = CalendarDay.day(.now) }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel("\(TuneFieldLabels.learnedOn), \(TuneFieldLabels.notSet)")
+                MacDateValue(
+                    label: TuneFieldLabels.learnedOn, day: day, placeholder: TuneFieldLabels.notSet,
+                    onSet: { day = $0 }, onClear: { day = "" })
+            }
+        #else
+            phoneBody
+        #endif
+    }
+
+    #if !os(macOS)
+        @ViewBuilder private var phoneBody: some View {
+            if let date = CalendarDay.date(day) {
+                HStack {
+                    DatePicker(
+                        TuneFieldLabels.learnedOn,
+                        selection: Binding {
+                            date
+                        } set: {
+                            day = CalendarDay.day($0)
+                        }, displayedComponents: .date)
+                    Button(TuneFieldLabels.clearDate, systemImage: "xmark.circle.fill") { day = "" }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.inkSecondary)
+                }
+            } else {
+                LabeledContent(TuneFieldLabels.learnedOn) {
+                    Button(TuneFieldLabels.notSet) { day = CalendarDay.day(.now) }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.inkSecondary)
+                        .accessibilityLabel("\(TuneFieldLabels.learnedOn), \(TuneFieldLabels.notSet)")
+                        .accessibilityHint(TuneFieldLabels.setsToday)
+                }
+            }
+        }
+    #endif
+}
+
+#if os(macOS)
+    /// A calendar day as a form row's value: a date field with a control that clears it, or a
+    /// placeholder that a press sets to today.
+    struct MacDateValue: View {
+        let label: String
+        let day: String
+        let placeholder: String
+        let onSet: (String) -> Void
+        let onClear: () -> Void
+
+        var body: some View {
+            if let date = CalendarDay.date(day) {
+                HStack(spacing: 4) {
+                    DatePicker(
+                        label,
+                        selection: Binding {
+                            date
+                        } set: {
+                            onSet(CalendarDay.day($0))
+                        }, displayedComponents: .date
+                    )
+                    .labelsHidden()
+                    Button(TuneFieldLabels.clearDate, systemImage: "xmark.circle.fill", action: onClear)
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.macIcon)
+                        .help(TuneFieldLabels.clearDate)
+                }
+            } else {
+                Button(placeholder) { onSet(CalendarDay.day(.now)) }
+                    .buttonStyle(.macQuiet)
+                    .accessibilityLabel("\(label), \(placeholder)")
                     .accessibilityHint(TuneFieldLabels.setsToday)
             }
         }
     }
-}
+#endif

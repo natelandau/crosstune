@@ -55,6 +55,11 @@ extension View {
         // the bar is whole when the sheet clears it.
         modifier(Covers(cover: \.recordCover, isCovering: true, endsAsDismissed: true))
             .modifier(Covers(cover: \.openSheets, isCovering: true))
+            #if os(macOS)
+                // A sheet takes its presenter's environment, so one opened from a card would
+                // draw its controls for the card's surface.
+                .environment(\.macContainer, .ground)
+            #endif
     }
 
     /// Covers the shell while `isPresenting` is true and this view shows. Put it on the view that
@@ -214,6 +219,12 @@ enum MenuGates {
     /// selecting.
     static func sort(isShown: Bool, sheetsOpen: Bool, selecting: Bool = false) -> Bool {
         isShown && !sheetsOpen && !selecting
+    }
+
+    /// Select tunes enters the selection of the screen on show, unless a sheet or dialog is up,
+    /// the screen is already selecting, or it shows no tune to select.
+    static func select(isShown: Bool, sheetsOpen: Bool, selecting: Bool, hasRows: Bool) -> Bool {
+        isShown && !sheetsOpen && !selecting && hasRows
     }
 
     /// Record opens its sheet, unless a sheet or dialog is up, a screen is selecting, a take is

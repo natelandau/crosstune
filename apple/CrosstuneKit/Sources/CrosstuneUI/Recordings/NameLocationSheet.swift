@@ -23,59 +23,100 @@ struct NameLocationSheet: View {
 
     private var isBlank: Bool { name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
-    var body: some View {
-        let typed = $name
-        NavigationStack {
-            Form {
-                if !candidates.isEmpty {
-                    Section(NameLocationText.savedHere) {
-                        ForEach(candidates, id: \.id) { place in
-                            Button {
-                                onPick(place)
-                                dismiss()
-                            } label: {
-                                LocationRow(name: place.name, address: place.address, isCurrent: false)
+    #if os(macOS)
+        static let macSize = MacSheetSize.fitted(.brief)
+
+        var body: some View {
+            MacSheet(
+                title: NameLocationText.title, size: Self.macSize,
+                cancel: .cancel(TuneFormSheet.cancel) { dismiss() },
+                primary: .init(ListNameSheet.save, isEnabled: !isBlank, action: save)
+            ) {
+                VStack(alignment: .leading, spacing: MacForm.sectionGap) {
+                    if !candidates.isEmpty {
+                        MacFormSection(NameLocationText.savedHere, card: false) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                ForEach(candidates, id: \.id) { place in
+                                    Button {
+                                        onPick(place)
+                                        dismiss()
+                                    } label: {
+                                        LocationRow(name: place.name, address: place.address, isCurrent: false)
+                                    }
+                                    .buttonStyle(.macPickRow)
+                                }
                             }
-                            .buttonStyle(.plain)
                         }
                     }
-                }
-                Section {
-                    TextField(NameLocationText.nameLabel, text: typed, prompt: Text(NameLocationText.nameLabel))
-                        .contentMask()
-                        .characterLimit(Vocabulary.Limits.Place.name, text: typed)
-                        .focused($focused)
-                        .submitLabel(.done)
-                        .onSubmit(save)
-                } footer: {
-                    Text(NameLocationText.help)
-                }
-            }
-            .formStyle(.grouped)
-            .navigationTitle(NameLocationText.title)
-            #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(TuneFormSheet.cancel) { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(ListNameSheet.save, action: save)
-                        .fontWeight(.semibold)
-                        .disabled(isBlank)
+                    VStack(alignment: .leading, spacing: 6) {
+                        field
+                        Text(NameLocationText.help)
+                            .font(MacStyle.secondary)
+                            .foregroundStyle(MacPalette.inkSecondary)
+                    }
                 }
             }
             .interactiveDismissDisabled(!name.isEmpty)
             .onAppear { focused = candidates.isEmpty }
-        }
-        #if os(iOS)
-            .partHeightSheet()
-        #else
-            .macSheetFrame(.form(minHeight: 260))
             .shellSheet()
-        #endif
+        }
+    #endif
+
+    private var field: some View {
+        TextField(NameLocationText.nameLabel, text: $name, prompt: Text(NameLocationText.nameLabel))
+            .contentMask()
+            #if os(macOS)
+                .labelsHidden()
+                .textFieldStyle(.macField)
+            #endif
+            .characterLimit(Vocabulary.Limits.Place.name, text: $name)
+            .focused($focused)
+            .submitLabel(.done)
+            .onSubmit(save)
     }
+
+    #if os(iOS)
+        var body: some View {
+            NavigationStack {
+                Form {
+                    if !candidates.isEmpty {
+                        Section(NameLocationText.savedHere) {
+                            ForEach(candidates, id: \.id) { place in
+                                Button {
+                                    onPick(place)
+                                    dismiss()
+                                } label: {
+                                    LocationRow(name: place.name, address: place.address, isCurrent: false)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    Section {
+                        field
+                    } footer: {
+                        Text(NameLocationText.help)
+                    }
+                }
+                .formStyle(.grouped)
+                .navigationTitle(NameLocationText.title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(TuneFormSheet.cancel) { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(ListNameSheet.save, action: save)
+                            .fontWeight(.semibold)
+                            .disabled(isBlank)
+                    }
+                }
+                .interactiveDismissDisabled(!name.isEmpty)
+                .onAppear { focused = candidates.isEmpty }
+            }
+            .partHeightSheet()
+        }
+    #endif
 
     private func save() {
         guard !isBlank else { return }

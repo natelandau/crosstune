@@ -8,8 +8,6 @@ public struct RecordSheet: View {
     private let model: RecordSheetModel
     private let claim: @MainActor () -> Bool
 
-    @Environment(\.dismiss) private var dismiss
-
     /// - Parameter claim: Takes the shared recorder as the sheet shows; false when another
     ///   window's sheet has it.
     public init(model: RecordSheetModel, claim: @escaping @MainActor () -> Bool) {
@@ -23,47 +21,125 @@ public struct RecordSheet: View {
     }
 
     public var body: some View {
-        NavigationStack {
-            RecordSheetBody(model: model)
-                .navigationTitle(RecordSheetModel.title)
-                #if os(iOS)
+        #if os(macOS)
+            MacSheet(
+                title: macTitle, size: Self.macSize, cancel: macCancel,
+                primary: Self.macPrimary(asksLocation: model.asksLocation, isContinuing: model.isContinuing) {
+                    Task { await model.continueFromLocationNote() }
+                }
+            ) {
+                RecordSheetBody(model: model)
+            } accessory: {
+                RecordingDot(model: model)
+            }
+            // The title is the only place the state shows, so VoiceOver hears each change.
+            .onChange(of: model.status) { _, status in
+                AccessibilityNotification.Announcement(status).post()
+            }
+            .modifier(RecordSheetLifecycle(model: model, claim: claim))
+        #else
+            NavigationStack {
+                RecordSheetBody(model: model)
+                    .navigationTitle(RecordSheetModel.title)
                     .navigationBarTitleDisplayMode(.inline)
-                #endif
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        if model.isLive || model.phase == .saving {
-                            Button(RecordSheetModel.cancel) { Task { await model.cancel() } }
-                                .disabled(!model.isLive)
-                        } else {
-                            Button(RecordSheetModel.done) { model.finish() }
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            if model.isLive || model.phase == .saving {
+                                Button(RecordSheetModel.cancel) { Task { await model.cancel() } }
+                                    .disabled(!model.isLive)
+                            } else {
+                                Button(RecordSheetModel.done) { model.finish() }
+                            }
                         }
                     }
-                }
-        }
-        #if os(macOS)
-            .frame(width: MacStyle.recordPanelWidth)
-            .frame(minHeight: 440, idealHeight: 480)
+            }
+            .modifier(RecordSheetLifecycle(model: model, claim: claim))
         #endif
-        .interactiveDismissDisabled(model.blocksSwipeDismiss)
-        .confirmationDialog(
-            RecordSheetModel.discardTitle, isPresented: Bindable(model).confirmsDiscard, titleVisibility: .visible
-        ) {
-            Button(RecordSheetModel.discard, role: .destructive) { Task { await model.discard() } }
-        } message: {
-            Text(RecordSheetModel.discardMessage)
+    }
+
+    #if os(macOS)
+        static let macSize = MacSheetSize(
+            minWidth: MacStyle.recordPanelWidth, idealWidth: MacStyle.recordPanelWidth, minHeight: 440,
+            idealHeight: 480)
+
+        /// The take's state names the sheet, so no status line repeats it; the location note
+        /// before the first take keeps the sheet's own name.
+        static func macTitle(asksLocation: Bool, status: String) -> String {
+            asksLocation ? RecordSheetModel.title : status
         }
-        .task { await model.open(claim: claim) }
-        .onChange(of: model.recorder.savedRecordingID) { model.settle() }
-        .onChange(of: model.outcome) {
-            guard model.outcome != nil else { return }
-            dismiss()
+
+        private var macTitle: String {
+            Self.macTitle(asksLocation: model.asksLocation, status: model.status)
         }
-        .onDisappear {
-            Task { await model.abandon() }
+
+        /// Continue, which shows the location prompt, while the note before the first take shows;
+        /// afterward the sheet has no primary and Stop takes Return.
+        static func macPrimary(
+            asksLocation: Bool, isContinuing: Bool, action: @escaping @MainActor () -> Void
+        ) -> MacSheetAction? {
+            guard asksLocation else { return nil }
+            return MacSheetAction(RecordSheetModel.continueToLocation, isEnabled: !isContinuing, action: action)
         }
-        .shellSheet()
+
+        private var macCancel: MacSheetAction {
+            if model.isLive || model.phase == .saving {
+                .cancel(RecordSheetModel.cancel, isEnabled: model.isLive) { Task { await model.cancel() } }
+            } else {
+                .cancel(RecordSheetModel.done) { model.finish() }
+            }
+        }
+    #endif
+}
+
+/// What the sheet does around its take on both platforms: the discard question, the claim on
+/// the recorder, and closing once the take has an outcome.
+private struct RecordSheetLifecycle: ViewModifier {
+    let model: RecordSheetModel
+    let claim: @MainActor () -> Bool
+
+    @Environment(\.dismiss) private var dismiss
+
+    func body(content: Content) -> some View {
+        content
+            .interactiveDismissDisabled(model.blocksSwipeDismiss)
+            .confirmationDialog(
+                RecordSheetModel.discardTitle, isPresented: Bindable(model).confirmsDiscard, titleVisibility: .visible
+            ) {
+                Button(RecordSheetModel.discard, role: .destructive) { Task { await model.discard() } }
+            } message: {
+                Text(RecordSheetModel.discardMessage)
+            }
+            .task { await model.open(claim: claim) }
+            .onChange(of: model.recorder.savedRecordingID) { model.settle() }
+            .onChange(of: model.outcome) {
+                guard model.outcome != nil else { return }
+                dismiss()
+            }
+            .onDisappear {
+                Task { await model.abandon() }
+            }
+            .shellSheet()
     }
 }
+
+#if os(macOS)
+    /// The pulsing red dot on the Mac sheet's title line while a take is under way.
+    private struct RecordingDot: View {
+        let model: RecordSheetModel
+
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            if model.hasStarted {
+                Image(systemName: "circle.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.recordingRed)
+                    .symbolEffect(.pulse, options: .repeating, isActive: model.phase == .recording && !reduceMotion)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+#endif
 
 struct RecordSheetBody: View {
     let model: RecordSheetModel
@@ -74,12 +150,20 @@ struct RecordSheetBody: View {
     var body: some View {
         VStack(spacing: 24) {
             if model.asksLocation {
-                filing
-                Spacer(minLength: 0)
-                LocationNoteCard(model: model)
-                Spacer(minLength: 0)
+                #if os(macOS)
+                    // Read as a notice under the title, with Continue in the footer.
+                    MacLocationNote()
+                    Spacer(minLength: 0)
+                #else
+                    filing
+                    Spacer(minLength: 0)
+                    LocationNoteCard(model: model)
+                    Spacer(minLength: 0)
+                #endif
             } else {
-                status
+                #if os(iOS)
+                    status
+                #endif
                 filing
                 Spacer(minLength: 0)
                 VStack(spacing: 16) {
@@ -101,23 +185,25 @@ struct RecordSheetBody: View {
         .animation(reduceMotion ? nil : .default, value: model.phase)
     }
 
-    private var status: some View {
-        HStack(spacing: 6) {
-            if model.hasStarted {
-                Image(systemName: "record.circle.fill")
-                    .foregroundStyle(Color.recordingRed)
-                    .symbolEffect(.pulse, options: .repeating, isActive: model.phase == .recording && !reduceMotion)
-                    .transition(.symbolEffect(.appear))
-                    .accessibilityHidden(true)
+    #if os(iOS)
+        private var status: some View {
+            HStack(spacing: 6) {
+                if model.hasStarted {
+                    Image(systemName: "record.circle.fill")
+                        .foregroundStyle(Color.recordingRed)
+                        .symbolEffect(.pulse, options: .repeating, isActive: model.phase == .recording && !reduceMotion)
+                        .transition(.symbolEffect(.appear))
+                        .accessibilityHidden(true)
+                }
+                Text(model.status)
+                    .contentTransition(.opacity)
             }
-            Text(model.status)
-                .contentTransition(.opacity)
+            .font(.platform(.subheadline))
+            .foregroundStyle(.secondary)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.updatesFrequently)
         }
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.updatesFrequently)
-    }
+    #endif
 
     /// Only the iPhone sheet names the tune; the Mac panel keeps its layout.
     @ViewBuilder private var filing: some View {
@@ -125,7 +211,7 @@ struct RecordSheetBody: View {
             if let title = model.tuneTitle {
                 Text(RecordSheet.filingUnder(title))
                     .contentMask()
-                    .font(.subheadline)
+                    .font(.platform(.subheadline))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
@@ -136,19 +222,27 @@ struct RecordSheetBody: View {
     @ViewBuilder private var notes: some View {
         if model.phase == .interrupted {
             Text(RecordSheetModel.interruptedMessage)
-                .font(.footnote)
+                .font(.platform(.footnote))
                 .foregroundStyle(.orange)
                 .multilineTextAlignment(.center)
         }
         if let message = model.message {
             Text(message)
-                .font(.footnote)
-                .foregroundStyle(model.phase == .saved ? Color.secondary : Color.red)
+                .font(.platform(.footnote))
+                #if os(macOS)
+                    .foregroundStyle(model.phase == .saved ? .inkSecondary : AnyShapeStyle(Color.red))
+                #else
+                    .foregroundStyle(model.phase == .saved ? Color.secondary : Color.red)
+                #endif
                 .multilineTextAlignment(.center)
         }
         if model.recorder.permissionDenied, let url = Recorder.settingsURL {
             Button(RecordSheetModel.openSettings) { openURL(url) }
-                .buttonStyle(.bordered)
+                #if os(macOS)
+                    .buttonStyle(.macSecondary)
+                #else
+                    .buttonStyle(.bordered)
+                #endif
         }
     }
 
@@ -169,8 +263,10 @@ struct RecordSheetBody: View {
                     }
                 }
             #else
+                // A hidden copy of Resume on the leading side keeps Stop centered.
                 HStack(spacing: 24) {
-                    StopButton(disabled: !model.hasStarted) { Task { await model.stop() } }
+                    resume.hidden().accessibilityHidden(true)
+                    stop
                     resume
                 }
             #endif
@@ -184,45 +280,79 @@ struct RecordSheetBody: View {
     @ViewBuilder private var resume: some View {
         if model.canResume {
             Button(RecordSheetModel.resume, systemImage: "record.circle") { Task { await model.resume() } }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
+                #if os(macOS)
+                    .buttonStyle(.mac(.secondary, size: .large))
+                #else
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                #endif
                 .transition(.opacity)
         }
     }
 }
 
-/// Says why the take will ask for location, ahead of the system prompt, which Continue shows.
-private struct LocationNoteCard: View {
-    let model: RecordSheetModel
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "location.fill")
-                .font(.title2)
-                .foregroundStyle(.tint)
-                .accessibilityHidden(true)
-            Text(RecordSheetModel.locationNoteTitle)
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
-            Text(RecordSheetModel.locationNoteBody)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Button(RecordSheetModel.continueToLocation) {
-                Task { await model.continueFromLocationNote() }
+#if os(macOS)
+    /// Says why the take will ask for location, ahead of the system prompt, laid out as a notice:
+    /// the glyph leading, the headline, and the reason under it. The footer's Continue shows the
+    /// prompt.
+    private struct MacLocationNote: View {
+        var body: some View {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "location.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(MacPalette.inkSecondary)
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(RecordSheetModel.locationNoteTitle)
+                        .font(MacStyle.sectionHeading)
+                        .foregroundStyle(MacPalette.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    Text(RecordSheetModel.locationNoteBody)
+                        .font(MacStyle.body)
+                        .foregroundStyle(MacPalette.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
-            .buttonStyle(.slateProminent)
-            .controlSize(.large)
-            .keyboardShortcut(.defaultAction)
-            .disabled(model.isContinuing)
-            .padding(.top, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity)
-        .padding(20)
-        .background(.fill.tertiary, in: .rect(cornerRadius: 12))
     }
-}
+#endif
+
+#if os(iOS)
+    /// Says why the take will ask for location, ahead of the system prompt, which Continue shows.
+    private struct LocationNoteCard: View {
+        let model: RecordSheetModel
+
+        var body: some View {
+            VStack(spacing: 12) {
+                Image(systemName: "location.fill")
+                    .font(.platform(.title2))
+                    .foregroundStyle(.tint)
+                    .accessibilityHidden(true)
+                Text(RecordSheetModel.locationNoteTitle)
+                    .font(.platform(.headline))
+                    .accessibilityAddTraits(.isHeader)
+                Text(RecordSheetModel.locationNoteBody)
+                    .font(.platform(.subheadline))
+                    .foregroundStyle(.inkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(RecordSheetModel.continueToLocation) {
+                    Task { await model.continueFromLocationNote() }
+                }
+                .buttonStyle(.slateProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+                .disabled(model.isContinuing)
+                .padding(.top, 4)
+            }
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(20)
+            .background(.fill.tertiary, in: .rect(cornerRadius: 12))
+        }
+    }
+#endif
 
 /// The take's length, read apart from the sheet, since the recorder moves it on with every
 /// buffer it captures.
@@ -248,7 +378,12 @@ private struct RecordTimerFace: View, Equatable {
 
     var body: some View {
         Text(RecordingText.duration(of: second * 1000))
-            .font(.system(size: timerSize, weight: .light).monospacedDigit())
+            #if os(macOS)
+                .font(MacStyle.timer)
+                .tracking(MacStyle.timerTracking)
+            #else
+                .font(.system(size: timerSize, weight: .light).monospacedDigit())
+            #endif
             .contentTransition(reduceMotion ? .identity : .numericText(countsDown: false))
             .animation(reduceMotion ? nil : .snappy, value: second)
             .lineLimit(1)
@@ -267,7 +402,9 @@ private struct StopButton: View {
     let disabled: Bool
     let action: () -> Void
 
-    @Environment(\.drawsGlass) private var drawsGlass
+    #if os(iOS)
+        @Environment(\.drawsGlass) private var drawsGlass
+    #endif
     /// Grows with the label, so a large text size never cuts the word short.
     @ScaledMetric(relativeTo: .title2) private var scaledDiameter: CGFloat = StopButton.diameter
 
@@ -275,7 +412,7 @@ private struct StopButton: View {
         let size = min(scaledDiameter, Self.diameter * 1.75)
         let button = Button(action: action) {
             Text(RecordSheetModel.stop)
-                .font(.title2.weight(.semibold))
+                .font(.platform(.title2).weight(.semibold))
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
@@ -288,11 +425,16 @@ private struct StopButton: View {
         .keyboardShortcut(.defaultAction)
         // The whole disc dims, so a Stop that cannot run never reads as ready.
         Group {
-            if drawsGlass {
-                button.glassEffect(.regular.tint(.recordingRed).interactive(), in: .circle)
-            } else {
+            #if os(macOS)
+                // Glass tinted red draws gray in a sheet, so the Mac's Stop is always solid.
                 button.background(Circle().fill(Color.recordingRed))
-            }
+            #else
+                if drawsGlass {
+                    button.glassEffect(.regular.tint(.recordingRed).interactive(), in: .circle)
+                } else {
+                    button.background(Circle().fill(Color.recordingRed))
+                }
+            #endif
         }
         .opacity(disabled ? Self.dimmed : 1)
     }

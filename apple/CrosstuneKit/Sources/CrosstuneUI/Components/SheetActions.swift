@@ -10,13 +10,17 @@ extension View {
         line: String? = nil, @ViewBuilder primary: () -> some View, @ViewBuilder secondary: () -> some View,
         @ViewBuilder footer: () -> some View = { EmptyView() }
     ) -> some View {
-        if PageStyle.pinsSheetActions {
-            safeAreaBar(edge: .bottom) {
-                SheetActionBar(line: line, primary: primary(), secondary: secondary(), footer: footer())
-            }
-        } else {
+        #if os(macOS)
             self
-        }
+        #else
+            if PageStyle.pinsSheetActions {
+                safeAreaBar(edge: .bottom) {
+                    SheetActionBar(line: line, primary: primary(), secondary: secondary(), footer: footer())
+                }
+            } else {
+                self
+            }
+        #endif
     }
 }
 
@@ -41,63 +45,65 @@ struct SheetCloseButton: View {
     }
 }
 
-private struct SheetActionBar<Primary: View, Secondary: View, Footer: View>: View {
-    let line: String?
-    let primary: Primary
-    let secondary: Secondary
-    let footer: Footer
+#if !os(macOS)
+    private struct SheetActionBar<Primary: View, Secondary: View, Footer: View>: View {
+        let line: String?
+        let primary: Primary
+        let secondary: Secondary
+        let footer: Footer
 
-    @Environment(\.spacing) private var spacing
+        @Environment(\.spacing) private var spacing
 
-    var body: some View {
-        VStack(spacing: spacing.stackGap) {
-            if let line {
-                Text(line)
-                    .font(.footnote)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+        var body: some View {
+            VStack(spacing: spacing.stackGap) {
+                if let line {
+                    Text(line)
+                        .font(.platform(.footnote))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                VStack(spacing: spacing(4)) {
+                    primary.buttonStyle(SheetPrimaryButtonStyle())
+                    secondary.buttonStyle(SheetSecondaryButtonStyle())
+                }
+                .fontWeight(.semibold)
+                .controlSize(.large)
+                footer
             }
-            VStack(spacing: spacing(4)) {
-                primary.buttonStyle(SheetPrimaryButtonStyle())
-                secondary.buttonStyle(SheetSecondaryButtonStyle())
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal)
+            .padding(.vertical, spacing.stackGap)
+        }
+    }
+
+    /// A sheet's primary button: full width and slate prominent.
+    struct SheetPrimaryButtonStyle: PrimitiveButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            Button(role: configuration.role, action: configuration.trigger) {
+                configuration.label.frame(maxWidth: .infinity)
             }
-            .fontWeight(.semibold)
-            .controlSize(.large)
-            footer
+            .buttonStyle(.slateProminent)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal)
-        .padding(.vertical, spacing.stackGap)
     }
-}
 
-/// A sheet's primary button: full width and slate prominent.
-struct SheetPrimaryButtonStyle: PrimitiveButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        Button(role: configuration.role, action: configuration.trigger) {
-            configuration.label.frame(maxWidth: .infinity)
+    private struct SheetSecondaryButtonStyle: PrimitiveButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            SheetSecondaryButton(configuration: configuration)
         }
-        .buttonStyle(.slateProminent)
     }
-}
 
-private struct SheetSecondaryButtonStyle: PrimitiveButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        SheetSecondaryButton(configuration: configuration)
-    }
-}
+    private struct SheetSecondaryButton: View {
+        let configuration: PrimitiveButtonStyleConfiguration
 
-private struct SheetSecondaryButton: View {
-    let configuration: PrimitiveButtonStyleConfiguration
+        @Environment(\.spacing) private var spacing
 
-    @Environment(\.spacing) private var spacing
-
-    var body: some View {
-        Button(role: configuration.role, action: configuration.trigger) {
-            configuration.label
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, spacing.stackGap)
+        var body: some View {
+            Button(role: configuration.role, action: configuration.trigger) {
+                configuration.label
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, spacing.stackGap)
+            }
+            .buttonStyle(.borderless)
         }
-        .buttonStyle(.borderless)
     }
-}
+#endif

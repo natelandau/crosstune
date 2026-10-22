@@ -21,7 +21,12 @@ struct FiltersButton: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: Self.systemImage)
-                    .symbolVariant(setCount > 0 ? .circle.fill : .circle)
+                    #if os(iOS)
+                        .symbolVariant(setCount > 0 ? .circle.fill : .circle)
+                    #else
+                        // The search field's chip is the Mac's set state, so the glyph stays bare.
+                        .fontWeight(.medium)
+                    #endif
                 if setCount > 0 {
                     Text(setCount, format: .number)
                         .monospacedDigit()

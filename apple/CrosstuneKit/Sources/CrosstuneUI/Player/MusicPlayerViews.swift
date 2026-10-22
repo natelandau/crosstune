@@ -49,12 +49,12 @@ struct MusicPlayerCard: View {
                 if showsTitle {
                     Text(music.trackTitle ?? player.title ?? "")
                         .contentMask()
-                        .font(.headline)
+                        .font(.platform(.headline))
                         .lineLimit(1)
                     if let artist = music.artistName {
                         Text(artist)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(.platform(.subheadline))
+                            .foregroundStyle(.inkSecondary)
                             .lineLimit(1)
                     }
                 }
@@ -92,7 +92,7 @@ struct MusicPlayerBody: View {
                     music.skip(by: -AudioPlayer.skipInterval)
                 }
                 if showsPlay {
-                    TransportToggle(transport: music, font: .title2)
+                    TransportToggle(transport: music, font: .platform(.title2))
                 }
                 control(RecordingPlayerText.skipForward(AudioPlayer.skipInterval), "goforward.15") {
                     music.skip(by: AudioPlayer.skipInterval)
@@ -129,8 +129,8 @@ struct MusicArtwork: View {
                 ArtworkImage(artwork, width: side, height: side)
             } else {
                 Image(systemName: "music.note")
-                    .font(.title)
-                    .foregroundStyle(.secondary)
+                    .font(.platform(.title))
+                    .foregroundStyle(.inkSecondary)
                     .frame(width: side, height: side)
                     .background(.fill.secondary)
             }

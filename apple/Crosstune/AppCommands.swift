@@ -49,6 +49,7 @@ private struct ViewCommands: Commands {
     @FocusedValue(\.showRecordingsAction) private var showRecordings
     @FocusedValue(\.recordingsSort) private var recordingsSort
     @FocusedValue(\.catalogSort) private var catalogSort
+    @FocusedValue(\.selectTunesAction) private var selectTunes
 
     var body: some Commands {
         CommandGroup(before: .sidebar) {
@@ -67,6 +68,10 @@ private struct ViewCommands: Commands {
                 }
             }
             .disabled(recordingsSort == nil && catalogSort == nil)
+            #if os(macOS)
+                // No shortcut: neither Finder nor Mail gives one to entering a selection.
+                MenuItem(title: MenuCommand.selectTunes, action: selectTunes)
+            #endif
         }
     }
 }

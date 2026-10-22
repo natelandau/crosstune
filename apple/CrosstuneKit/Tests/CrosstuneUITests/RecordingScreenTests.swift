@@ -251,6 +251,25 @@ private final class Writes {
         #expect(player.showsExpanded(in: asking) && player.showsExpanded(in: other))
     }
 
+    /// SwiftUI can make a second screen and drop the first as the screen opens, so the screen
+    /// closes only once the window's last one goes, as when the window itself closes.
+    @Test func theScreenClosesOnlyWhenItsWindowsLastScreenGoes() {
+        let window = UUID()
+        let other = UUID()
+        player.open(.recording(take(), tuneTitle: nil), in: window)
+        let first = UUID()
+        let second = UUID()
+        player.screenAppeared(first, in: window)
+        player.screenAppeared(second, in: window)
+        player.screenAppeared(UUID(), in: other)
+
+        player.screenDisappeared(first, in: window)
+        #expect(player.showsExpanded(in: window))
+
+        player.screenDisappeared(second, in: window)
+        #expect(!player.isExpanded)
+    }
+
     @Test func aLinkPlayedWhileAScreenIsOpenShowsInEveryWindow() throws {
         let asking = UUID()
         player.open(.recording(take(), tuneTitle: nil), in: asking)
@@ -325,6 +344,18 @@ private final class Writes {
             ])
         #expect(RecordingMenuItem.openOrigin(for: imported("javascript:alert(1)")) == nil)
         #expect(RecordingMenuItem.openOrigin(for: imported(nil, origin: "own")) == nil)
+    }
+
+    /// A recording that only knows its upload's length still shows it in the heading.
+    @Test func practiceHeaderShowsTheLength() {
+        let row = Recording(
+            id: "r1", tuneID: nil, source: "microphone", addedAt: noon, label: nil, state: "ready",
+            durationMs: 184_000)
+        let rows = ScreenRows(
+            recording: row, file: nil, tuneID: nil, tuneTitle: nil, partStructure: nil, shownPlace: nil)
+        #expect(rows.trimmedLengthMs == 184_000)
+        #expect(RecordingText.duration(milliseconds: rows.trimmedLengthMs) == "3:04")
+        #expect(RecordingScreenContent.headingSubtitle(rows).contains("3:04"))
     }
 
     @Test func theSpeedAndPitchSegmentsNameTheirValuesOffDefault() {

@@ -33,12 +33,7 @@ struct RemoveFilterCapsule: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 8, weight: .bold))
                 }
-                .font(MacStyle.body)
-                .foregroundStyle(MacStyle.setLabel(colorScheme))
-                .padding(.horizontal, 10)
-                .frame(height: MacStyle.smallControlHeight)
-                .background(MacStyle.setFill(colorScheme), in: .capsule)
-                .contentShape(.capsule)
+                .macChip(state: .set, size: .standalone)
             #else
                 HStack(spacing: spacing(6)) {
                     // A long label wraps at the accessibility sizes rather than truncating.

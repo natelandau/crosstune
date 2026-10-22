@@ -15,6 +15,12 @@ public enum LyricsSize {
         min(steps, max(1, step))
     }
 
+    /// Whether a smaller step is left below `step`.
+    public static func canShrink(_ step: Int) -> Bool { clamp(step) > 1 }
+
+    /// Whether a larger step is left above `step`.
+    public static func canGrow(_ step: Int) -> Bool { clamp(step) < steps }
+
     public static func pointSize(for step: Int) -> CGFloat {
         points[clamp(step) - 1]
     }

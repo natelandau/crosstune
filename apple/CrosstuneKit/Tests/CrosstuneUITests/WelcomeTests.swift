@@ -29,3 +29,51 @@ import Testing
         #expect(!WelcomeLayout.showsPicture(.accessibility5))
     }
 }
+
+#if os(macOS)
+    import AppKit
+    import ClerkKitUI
+
+    @MainActor
+    @Suite struct MacClerkThemeTests {
+        /// `color`'s sRGB hex and alpha as drawn in `appearance`.
+        private func resolved(_ color: Color, in appearance: NSAppearance.Name) -> (hex: String, alpha: Double)? {
+            var result: (String, Double)?
+            NSAppearance(named: appearance)?.performAsCurrentDrawingAppearance {
+                result = NSColor(color).usingColorSpace(.sRGB).map {
+                    (
+                        KeyColor.RGB(
+                            red: Double($0.redComponent), green: Double($0.greenComponent),
+                            blue: Double($0.blueComponent)
+                        ).hex, Double($0.alphaComponent)
+                    )
+                }
+            }
+            return result
+        }
+
+        @Test(arguments: [(NSAppearance.Name.aqua, ColorScheme.light), (.darkAqua, .dark)])
+        func clerkThemeUsesMacTokens(appearance: NSAppearance.Name, scheme: ColorScheme) {
+            let theme = ClerkTheme.crosstune(.mac)
+            let colors = theme.colors
+            let expected: [(Color, MacPalette.Token, String)] = [
+                (colors.primary, .accentFill, "primary"), (colors.ring, .accent, "ring"),
+                (colors.inputBorderFocused, .accent, "inputBorderFocused"), (colors.background, .ground, "background"),
+                (colors.input, .surface, "input"), (colors.muted, .surface, "muted"),
+                (colors.foreground, .ink, "foreground"), (colors.neutral, .ink, "neutral"),
+                (colors.inputForeground, .ink, "inputForeground"),
+                (colors.mutedForeground, .inkSecondary, "mutedForeground"),
+                (colors.primaryForeground, .onAccentFill, "primaryForeground"),
+            ]
+            for (color, token, name) in expected {
+                #expect(resolved(color, in: appearance)?.hex == MacPalette.hex(token, scheme).lowercased(), "\(name)")
+            }
+            // The 4pt halo Clerk draws around a field is the input border; it stays clear.
+            #expect(resolved(colors.inputBorder, in: appearance)?.alpha == 0)
+            // Pressed follows the Mac primary button's pressed fill in each appearance.
+            let pressed = MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: true, isEnabled: true)
+            #expect(resolved(colors.primaryPressed, in: appearance)?.hex == pressed?.hex)
+            #expect(theme.design.borderRadius == 8)
+        }
+    }
+#endif

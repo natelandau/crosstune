@@ -29,29 +29,36 @@ public struct LinkSheet: View {
     }
 
     public var body: some View {
-        NavigationStack {
+        #if os(macOS)
             Group {
                 if let model {
                     LinkForm(model: model)
                 } else {
-                    Color.clear
+                    Color.clear.macSheetFrame(LinkForm.size)
                 }
             }
-            .navigationTitle(Self.pasteTitle)
-            #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-            #endif
-        }
-        #if os(iOS)
-            .partHeightSheet()
-        #else
-            .macSheetFrame(.form(minHeight: 240))
             .shellSheet()
+            .task { makeModel() }
+        #else
+            NavigationStack {
+                Group {
+                    if let model {
+                        LinkForm(model: model)
+                    } else {
+                        Color.clear
+                    }
+                }
+                .navigationTitle(Self.pasteTitle)
+                .navigationBarTitleDisplayMode(.inline)
+            }
+            .partHeightSheet()
+            .task { makeModel() }
         #endif
-        .task {
-            guard model == nil, let store else { return }
-            model = LinkSheetModel(store: store, tuneID: tuneID, resolve: resolver, analytics: analytics)
-        }
+    }
+
+    private func makeModel() {
+        guard model == nil, let store else { return }
+        model = LinkSheetModel(store: store, tuneID: tuneID, resolve: resolver, analytics: analytics)
     }
 }
 
@@ -61,48 +68,79 @@ private struct LinkForm: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var linkFocused: Bool
 
-    var body: some View {
-        Form {
-            Section {
-                TextField(LinkSheet.linkHeader, text: urlBinding, prompt: Text(LinkSheet.linkPlaceholder))
-                    .contentMask()
-                    .characterLimit(Vocabulary.Limits.Link.url, text: urlBinding)
-                    #if os(iOS)
-                        .textContentType(.URL)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                    #endif
-                    .autocorrectionDisabled()
-                    .focused($linkFocused)
-                    .submitLabel(.done)
-                    .onSubmit(save)
-            } header: {
-                Text(LinkSheet.linkHeader)
-            } footer: {
-                if let message = model.validation ?? model.failure {
-                    Text(message)
-                        .foregroundStyle(.red)
-                } else if let preview = model.preview {
-                    Text(preview)
-                        .lineLimit(2)
+    #if os(macOS)
+        static let size = MacSheetSize.fitted(.brief)
+
+        var body: some View {
+            MacSheet(
+                title: LinkSheet.pasteTitle, size: Self.size,
+                cancel: .cancel(TuneFormSheet.cancel, isEnabled: !model.isSaving) { dismiss() },
+                primary: .init(LinkSheet.add, isEnabled: !model.isSaving && !model.isSaved, action: save)
+            ) {
+                VStack(alignment: .leading, spacing: 6) {
+                    field
+                    message
                 }
             }
+            .modifier(LinkFormLifecycle(model: model, linkFocused: $linkFocused))
         }
-        .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button(TuneFormSheet.cancel) { dismiss() }
-                    .disabled(model.isSaving)
+    #else
+        var body: some View {
+            Form {
+                Section {
+                    field
+                } header: {
+                    Text(LinkSheet.linkHeader)
+                } footer: {
+                    message
+                }
             }
-            ToolbarItem(placement: .confirmationAction) {
-                Button(LinkSheet.add, action: save)
-                    .fontWeight(.semibold)
-                    .disabled(model.isSaving || model.isSaved)
+            .formStyle(.grouped)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(TuneFormSheet.cancel) { dismiss() }
+                        .disabled(model.isSaving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(LinkSheet.add, action: save)
+                        .fontWeight(.semibold)
+                        .disabled(model.isSaving || model.isSaved)
+                }
             }
+            .modifier(LinkFormLifecycle(model: model, linkFocused: $linkFocused))
         }
-        .interactiveDismissDisabled(model.isEdited || model.isSaving)
-        .onAppear { linkFocused = true }
-        .onDisappear { model.cancel() }
+    #endif
+
+    private var field: some View {
+        TextField(LinkSheet.linkHeader, text: urlBinding, prompt: Text(LinkSheet.linkPlaceholder))
+            .contentMask()
+            #if os(macOS)
+                .labelsHidden()
+                .textFieldStyle(.macField(leadingSymbol: "link"))
+            #endif
+            .characterLimit(Vocabulary.Limits.Link.url, text: urlBinding)
+            #if os(iOS)
+                .textContentType(.URL)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+            #endif
+            .autocorrectionDisabled()
+            .focused($linkFocused)
+            .submitLabel(.done)
+            .onSubmit(save)
+    }
+
+    @ViewBuilder private var message: some View {
+        if let message = model.validation ?? model.failure {
+            FailureText(message)
+        } else if let preview = model.preview {
+            Text(preview)
+                .lineLimit(2)
+                #if os(macOS)
+                    .font(MacStyle.secondary)
+                    .foregroundStyle(MacPalette.inkSecondary)
+                #endif
+        }
     }
 
     private var urlBinding: Binding<String> {
@@ -121,6 +159,18 @@ private struct LinkForm: View {
             }
             dismiss()
         }
+    }
+}
+
+private struct LinkFormLifecycle: ViewModifier {
+    let model: LinkSheetModel
+    let linkFocused: FocusState<Bool>.Binding
+
+    func body(content: Content) -> some View {
+        content
+            .interactiveDismissDisabled(model.isEdited || model.isSaving)
+            .onAppear { linkFocused.wrappedValue = true }
+            .onDisappear { model.cancel() }
     }
 }
 

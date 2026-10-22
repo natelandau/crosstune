@@ -11,6 +11,10 @@
         case trial
         /// A trial that ended yesterday, so the plan is free and the trial-ended notice is due.
         case trialEnded = "trial-ended"
+        /// A trial weeks from its end, so only the first recording notice is due.
+        case trialEarly = "trial-early"
+        /// A web subscription, so the Plan sheet confirms rather than sells.
+        case premium
 
         /// The plan named after `-SamplePlan` in the launch arguments, nil without one.
         public static func fromArguments(_ arguments: [String] = CommandLine.arguments) -> SamplePlan? {
@@ -27,7 +31,15 @@
                 case .free: nil
                 case .trial: now.addingTimeInterval(2 * day)
                 case .trialEnded: now.addingTimeInterval(-day)
+                case .trialEarly: now.addingTimeInterval(20 * day)
+                case .premium: nil
                 }
+            if self == .premium {
+                return Entitlement(
+                    id: "sample-entitlement", premiumSource: "stripe",
+                    premiumExpiresAt: Timestamp(now.addingTimeInterval(200 * day)), autoRenews: true,
+                    premiumQuotaBytes: 50_000_000_000)
+            }
             return Entitlement(
                 id: "sample-entitlement", premiumSource: self == .free ? nil : "trial",
                 premiumExpiresAt: trialEnd.map(Timestamp.init),

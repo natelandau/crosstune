@@ -12,12 +12,15 @@ public struct TuneRowText: Hashable, Sendable {
     /// The status as the row shows it, a known vocabulary value.
     public let status: String
     public let tunings: String?
+    /// ``tunings`` one instrument at a time.
+    public let tuningParts: [String]
     public let isArchived: Bool
 
     public init(tune: Tune, userTune: UserTune, instruments: Set<String>) {
         title = tune.title
         key = KeyModeText(key: tune.key, modes: tune.modes)
         status = StatusStyle.normalized(userTune.status)
+        tuningParts = TuningText.rowParts(tune.tunings, instruments: instruments)
         tunings = TuningText.row(tune.tunings, instruments: instruments)
         isArchived = userTune.archivedAt != nil
     }

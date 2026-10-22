@@ -23,8 +23,8 @@ struct PlayFace: Equatable {
     }
 }
 
-/// The transport, between the mode selector and the mode's controls: skip back, play, and skip
-/// forward, centered, with the loop switcher under play.
+/// The transport: skip back, play, and skip forward, centered, with the loop switcher under
+/// play on iOS. The Mac sets the switcher in the stage, beside the readout.
 struct PracticeControls: View {
     let model: PracticeModel
     /// Why the waveform, transport, and modes cannot be used yet.
@@ -50,7 +50,9 @@ struct PracticeControls: View {
                 #else
                     .frame(maxWidth: .infinity)
                 #endif
-            LoopSwitcher(model: model, blocker: blocker)
+            #if !os(macOS)
+                LoopSwitcher(model: model, blocker: blocker)
+            #endif
         }
     }
 }
@@ -66,11 +68,17 @@ private struct Transport: View {
     private var player: PlayerModel { model.player }
 
     var body: some View {
-        HStack(spacing: spacing(32)) {
-            skip(-AudioPlayer.skipInterval, systemImage: "gobackward.15", name: RecordingPlayerText.skipBack)
-            playButton
-            skip(AudioPlayer.skipInterval, systemImage: "goforward.15", name: RecordingPlayerText.skipForward)
-        }
+        #if os(macOS)
+            HStack(spacing: 20) { buttons }
+        #else
+            HStack(spacing: spacing(32)) { buttons }
+        #endif
+    }
+
+    @ViewBuilder private var buttons: some View {
+        skip(-AudioPlayer.skipInterval, systemImage: "gobackward.15", name: RecordingPlayerText.skipBack)
+        playButton
+        skip(AudioPlayer.skipInterval, systemImage: "goforward.15", name: RecordingPlayerText.skipForward)
     }
 
     private var playButton: some View {
@@ -78,46 +86,52 @@ private struct Transport: View {
         return Button {
             player.audio.toggle()
         } label: {
-            if let ground {
-                GroundPlayFace(face: face, ground: ground)
-            } else {
-                standardPlayFace(face)
-            }
+            #if os(macOS)
+                MacPlayFace(face: face)
+            #else
+                if let ground {
+                    GroundPlayFace(face: face, ground: ground)
+                } else {
+                    standardPlayFace(face)
+                }
+            #endif
         }
         .buttonStyle(.plain)
         .accessibilityLabel(face.label)
         .help(face.label)
     }
 
-    private func standardPlayFace(_ face: PlayFace) -> some View {
-        Image(systemName: face.systemImage)
-            #if os(macOS)
-                .font(.system(size: 24))
-                .contentTransition(.symbolEffect(.replace))
-                .frame(minWidth: 40, minHeight: 40)
-            #else
+    #if !os(macOS)
+        private func standardPlayFace(_ face: PlayFace) -> some View {
+            Image(systemName: face.systemImage)
                 .font(.largeTitle)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(minWidth: 64, minHeight: 64)
-            #endif
-            .contentShape(.rect)
-    }
+                .contentShape(.rect)
+        }
+    #endif
 
     private func skip(_ seconds: TimeInterval, systemImage: String, name: (TimeInterval) -> String) -> some View {
         Button {
             player.audio.skip(by: seconds)
         } label: {
-            Label(name(abs(seconds)), systemImage: systemImage)
-                .labelStyle(.iconOnly)
-                #if os(macOS)
-                    .font(.system(size: 17))
-                #else
+            #if os(macOS)
+                Label(name(abs(seconds)), systemImage: systemImage)
+                    .labelStyle(.iconOnly)
+                    .font(.system(size: 15))
+            #else
+                Label(name(abs(seconds)), systemImage: systemImage)
+                    .labelStyle(.iconOnly)
                     .font(.title2)
-                #endif
-                .frame(minWidth: PracticeLayout.target, minHeight: PracticeLayout.target)
-                .contentShape(.rect)
+                    .frame(minWidth: PracticeLayout.target, minHeight: PracticeLayout.target)
+                    .contentShape(.rect)
+            #endif
         }
-        .buttonStyle(.plain)
+        #if os(macOS)
+            .buttonStyle(.mac(.icon, size: .large))
+        #else
+            .buttonStyle(.plain)
+        #endif
         .help(name(abs(seconds)))
     }
 }
@@ -142,3 +156,24 @@ private struct GroundPlayFace: View {
             .contentShape(.circle)
     }
 }
+
+#if os(macOS)
+    /// Play on the Mac: a white glyph on an accent fill disc, the practice view's one primary
+    /// action. It keeps its fill in an inactive window.
+    private struct MacPlayFace: View {
+        let face: PlayFace
+
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            Image(systemName: face.systemImage)
+                .font(.system(size: 18, weight: .semibold))
+                .contentTransition(.symbolEffect(.replace))
+                .foregroundStyle(MacPalette.onAccentFill)
+                .frame(width: MacStyle.transportDiameter, height: MacStyle.transportDiameter)
+                .background(MacPalette.accentFill, in: .circle)
+                .opacity(isEnabled ? 1 : MacButtonStyle.disabledOpacity)
+                .contentShape(.circle)
+        }
+    }
+#endif

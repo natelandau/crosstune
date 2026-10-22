@@ -85,55 +85,133 @@ struct MembershipCard: View {
     /// shell as any dialog-like presentation must.
     @State private var managing = false
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if let membership {
-                membershipRow(membership)
-                    .padding()
-            }
-            ForEach(Array(manage.enumerated()), id: \.element) { index, place in
-                if membership != nil || index > 0 {
-                    Divider().padding(.leading)
+    #if os(macOS)
+        /// The renewal row's trailing button, which opens wherever the plan is managed.
+        nonisolated static let macManage = "Manage\u{2026}"
+
+        @Environment(\.openURL) private var openURL
+
+        /// Where the renewal row's Manage… leads: the first place a button can open.
+        static func macManaged(_ manage: [PlanSheet.Manage]) -> PlanSheet.Manage? {
+            manage.first { $0 != .atWebsite }
+        }
+
+        var body: some View {
+            let trailing = membership == nil ? nil : Self.macManaged(manage)
+            let rest = manage.filter { $0 != trailing }
+            VStack(alignment: .leading, spacing: 0) {
+                if let membership {
+                    MacFormRow {
+                        HStack(spacing: 12) {
+                            if !membership.value.isEmpty {
+                                Text(membership.value)
+                                    .foregroundStyle(MacPalette.inkSecondary)
+                            }
+                            if let trailing {
+                                macManageButton(trailing, title: Self.macManage)
+                            }
+                        }
+                    } label: {
+                        Text(membership.label)
+                    }
+                    .macPlanRow()
                 }
-                manageRow(place)
-                    .padding()
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .planCard()
-    }
-
-    private func membershipRow(_ membership: (label: String, value: String)) -> some View {
-        HStack {
-            Text(membership.label)
-            if !membership.value.isEmpty {
-                Spacer()
-                Text(membership.value)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    @ViewBuilder
-    private func manageRow(_ manage: PlanSheet.Manage) -> some View {
-        switch manage {
-        case .appStore:
-            Button(PlanText.manageAppStore) {
-                managing = true
-                Task {
-                    await PlanSheet.showManage(purchases)
-                    managing = false
+                ForEach(Array(rest.enumerated()), id: \.element) { index, place in
+                    if membership != nil || index > 0 {
+                        Rectangle().fill(MacPalette.hairline).frame(height: 1).padding(.horizontal, MacForm.rowInset)
+                    }
+                    macManageRow(place).macPlanRow()
                 }
             }
+            .font(MacStyle.body)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .planCard()
+        }
+
+        @ViewBuilder
+        private func macManageRow(_ place: PlanSheet.Manage) -> some View {
+            switch place {
+            case .appStore:
+                macManageButton(place, title: PlanText.manageAppStore)
+            case .onTheWeb:
+                macManageButton(place, title: PlanText.manageOnTheWeb)
+            case .atWebsite:
+                Text(PlanText.manageAtWebsite)
+                    .foregroundStyle(MacPalette.inkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+
+        private func macManageButton(_ place: PlanSheet.Manage, title: String) -> some View {
+            Button(title) {
+                switch place {
+                case .appStore:
+                    managing = true
+                    Task {
+                        await PlanSheet.showManage(purchases)
+                        managing = false
+                    }
+                case .onTheWeb(let url):
+                    openURL(url)
+                case .atWebsite:
+                    break
+                }
+            }
+            .buttonStyle(.macSecondary)
             .disabled(managing)
             .coversShell(managing)
-        case .onTheWeb(let url):
-            Link(PlanText.manageOnTheWeb, destination: url)
-        case .atWebsite:
-            Text(PlanText.manageAtWebsite)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
-    }
+    #else
+        var body: some View {
+            VStack(alignment: .leading, spacing: 0) {
+                if let membership {
+                    membershipRow(membership)
+                        .padding()
+                }
+                ForEach(Array(manage.enumerated()), id: \.element) { index, place in
+                    if membership != nil || index > 0 {
+                        Divider().padding(.leading)
+                    }
+                    manageRow(place)
+                        .padding()
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .planCard()
+        }
+
+        private func membershipRow(_ membership: (label: String, value: String)) -> some View {
+            HStack {
+                Text(membership.label)
+                if !membership.value.isEmpty {
+                    Spacer()
+                    Text(membership.value)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .accessibilityElement(children: .combine)
+        }
+
+        @ViewBuilder
+        private func manageRow(_ manage: PlanSheet.Manage) -> some View {
+            switch manage {
+            case .appStore:
+                Button(PlanText.manageAppStore) {
+                    managing = true
+                    Task {
+                        await PlanSheet.showManage(purchases)
+                        managing = false
+                    }
+                }
+                .disabled(managing)
+                .coversShell(managing)
+            case .onTheWeb(let url):
+                Link(PlanText.manageOnTheWeb, destination: url)
+            case .atWebsite:
+                Text(PlanText.manageAtWebsite)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    #endif
 }

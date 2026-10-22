@@ -109,6 +109,29 @@ import Testing
         #expect(contrastRatio(BrandStyle.washSecondaryHex(surface.scheme), wash) >= 4.5, "\(surface)")
     }
 
+    #if os(macOS)
+        /// On the Mac the Premium column is a coral wash over the card, which is `surface`, with
+        /// its checks and values in ink.
+        @Test(arguments: [ColorScheme.light, .dark])
+        func premiumColumnInkPassesContrastOnCoralWash(scheme: ColorScheme) {
+            let card = MacPalette.hex(.surface, scheme)
+            let wash = blend(BrandStyle.coralHex, over: card, opacity: PlanComparison.macPremiumWashOpacity)
+            #expect(contrastRatio(MacPalette.hex(.ink, scheme), wash) >= 4.5)
+            // The wash must read as coral, not vanish into the card.
+            #expect(PlanComparison.macPremiumWashOpacity >= 0.10)
+            #expect(PlanComparison.macPremiumWashOpacity <= 0.12)
+        }
+
+        /// The Free column's checks, dashes, and values in secondary ink on the card, and a
+        /// feature tile's glyph in secondary ink on its field tile.
+        @Test(arguments: [ColorScheme.light, .dark])
+        func macPlanSecondaryInkPassesContrast(scheme: ColorScheme) {
+            let secondary = MacPalette.hex(.inkSecondary, scheme)
+            #expect(contrastRatio(secondary, MacPalette.hex(.surface, scheme)) >= 4.5)
+            #expect(contrastRatio(secondary, MacPalette.hex(.field, scheme)) >= 3)
+        }
+    #endif
+
     @Test func statusGlyphColorsAreTheStatusColors() {
         #expect(StatusGlyph.color(for: "known") == .green)
         #expect(StatusGlyph.color(for: "learning") == .orange)

@@ -620,3 +620,30 @@ import Testing
 
     @Test func settingsDetailNamesNoSetting() { #expect(SettingsDetailPlaceholder.title == "No setting selected") }
 }
+
+#if os(macOS)
+    @Suite struct MacUpdatePromptTests {
+        /// The prompt is a notice sheet: Update the primary, pressed by Return and focused, Not
+        /// Now beside it on Escape.
+        @Test func updateIsThePrimaryAndNotNowCancels() {
+            let footer = UpdatePromptSheet.footer(canUpdate: true, update: {}, notNow: {})
+            #expect(footer.primary?.title == UpdatePromptText.update)
+            #expect(footer.primary?.takesDefaultFocus == true)
+            #expect(footer.cancel?.title == UpdatePromptText.notNow)
+            let keys = MacSheetAction.keyboardRoles(
+                cancel: footer.cancel, primary: footer.primary)
+            #expect(keys.primary == .defaultAction)
+            #expect(keys.cancel == .cancellation)
+        }
+
+        /// Without an App Store page there is nothing to update from, so Not Now is the one
+        /// primary.
+        @Test func withoutAStorePageNotNowIsThePrimary() {
+            let footer = UpdatePromptSheet.footer(canUpdate: false, update: {}, notNow: {})
+            #expect(footer.cancel == nil)
+            #expect(footer.primary?.title == UpdatePromptText.notNow)
+            #expect(footer.primary?.answersReturn == true)
+            #expect(footer.escape != nil)
+        }
+    }
+#endif

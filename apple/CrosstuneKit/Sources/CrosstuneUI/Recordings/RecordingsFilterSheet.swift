@@ -14,51 +14,69 @@ struct RecordingsFilterSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Picker(
-                        RecordingsListText.source,
-                        selection: Binding {
-                            model.choice
-                        } set: { next in
-                            Task { await model.setChoice(next) }
-                        }
-                    ) {
-                        ForEach(model.sourceOptions, id: \.self) { option in
-                            Text(Self.label(for: option)).tag(option)
-                        }
-                    }
-                }
-            }
-            .formStyle(.grouped)
-            .navigationTitle(CatalogFilterSheet.title)
-            #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: Self.resetPlacement) {
-                    Button(CatalogFilterSheet.reset) {
-                        Task { await model.resetSource() }
-                    }
+        #if os(macOS)
+            // Every choice applies at once, so Escape closes it as Done does.
+            MacSheet(
+                title: CatalogFilterSheet.title, size: .fitted(.short), cancel: nil,
+                primary: .init(CatalogFilterSheet.done) { dismiss() }, escape: { dismiss() }
+            ) {
+                Button(CatalogFilterSheet.reset) { Task { await model.resetSource() } }
+                    .buttonStyle(.macPlain)
                     .disabled(model.filterCount == 0)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(CatalogFilterSheet.done) { dismiss() }
+            } content: {
+                MacFormSection {
+                    sourcePicker
                 }
             }
-        }
-        .partHeightSheet()
-    }
-
-    /// Reset leads the bar. On the Mac it stays off Escape, which a cancellation action takes.
-    private static var resetPlacement: ToolbarItemPlacement {
-        #if os(iOS)
-            .topBarLeading
+            .partHeightSheet()
         #else
-            .destructiveAction
+            NavigationStack {
+                Form {
+                    Section {
+                        sourcePicker
+                    }
+                }
+                .formStyle(.grouped)
+                .navigationTitle(CatalogFilterSheet.title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: Self.resetPlacement) {
+                        Button(CatalogFilterSheet.reset) {
+                            Task { await model.resetSource() }
+                        }
+                        .disabled(model.filterCount == 0)
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(CatalogFilterSheet.done) { dismiss() }
+                    }
+                }
+            }
+            .partHeightSheet()
         #endif
     }
+
+    @ViewBuilder private var sourcePicker: some View {
+        let source = Binding {
+            model.choice
+        } set: { next in
+            Task { await model.setChoice(next) }
+        }
+        #if os(macOS)
+            MacPopUp(
+                RecordingsListText.source, selection: source, options: model.sourceOptions,
+                label: Self.label(for:), isSet: model.choice != RecordingsModel.allChoice)
+        #else
+            Picker(RecordingsListText.source, selection: source) {
+                ForEach(model.sourceOptions, id: \.self) { option in
+                    Text(Self.label(for: option)).tag(option)
+                }
+            }
+        #endif
+    }
+
+    #if os(iOS)
+        private static var resetPlacement: ToolbarItemPlacement { .topBarLeading }
+    #endif
 }
 
 /// The set source as a removable capsule, the recordings list's first row while one is set.
@@ -69,8 +87,6 @@ struct RecordingsFilterBar: View {
     var body: some View {
         RemoveFilterCapsule(label: RecordingsFilterSheet.label(for: choice), action: onReset)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .chipRowInsets()
     }
 }
 

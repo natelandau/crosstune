@@ -60,6 +60,12 @@ public enum SortText {
     public static func directionSymbol<Sort>(_ choice: SortChoice<Sort>) -> String {
         choice.descending ? "arrow.down" : "arrow.up"
     }
+
+    /// The Mac list header's one glyph, which both opens the menu and says the direction, as a
+    /// Finder column header's chevron does.
+    public static func macDirectionSymbol<Sort>(_ choice: SortChoice<Sort>) -> String {
+        choice.descending ? "chevron.down" : "chevron.up"
+    }
 }
 
 /// One choice per sort, the current one checked; choosing it again reverses it. A screen's Sort
@@ -128,29 +134,43 @@ struct SortMenu<Sort: SortKind>: View {
     @Binding var choice: SortChoice<Sort>
 
     var body: some View {
-        Menu {
-            SortChoices(choice: $choice)
-        } label: {
-            HStack(spacing: 4) {
-                Text(choice.sort.label)
-                Image(systemName: SortText.directionSymbol(choice))
-                    .imageScale(.small)
-            }
-            #if os(macOS)
-                .font(MacStyle.secondary)
-            #else
-                .font(.footnote)
-            #endif
-        }
-        .menuStyle(.button)
         #if os(macOS)
-            // A Mac menu button draws its title at its control size's font, not the label's.
-            .controlSize(.small)
+            Menu {
+                SortChoices(choice: $choice)
+            } label: {
+                HStack(spacing: 3) {
+                    Text(choice.sort.label)
+                    Image(systemName: SortText.macDirectionSymbol(choice))
+                        .font(.system(size: 8, weight: .bold))
+                }
+                .font(MacStyle.secondary.weight(.medium))
+                .foregroundStyle(MacPalette.inkSecondary)
+                .contentShape(.rect)
+            }
+            .menuStyle(.button)
+            .menuIndicator(.hidden)
+            // Plain, so the label keeps its secondary ink rather than the accent.
+            .buttonStyle(.plain)
+            .fixedSize()
+            .accessibilityLabel(SortText.buttonLabel(choice))
+            .help(SortText.sort)
+        #else
+            Menu {
+                SortChoices(choice: $choice)
+            } label: {
+                HStack(spacing: 4) {
+                    Text(choice.sort.label)
+                    Image(systemName: SortText.directionSymbol(choice))
+                        .imageScale(.small)
+                }
+                .font(.footnote)
+            }
+            .menuStyle(.button)
+            // Borderless, so a list row holding it takes no tap of its own and the menu keeps its tint.
+            .buttonStyle(.borderless)
+            .fixedSize()
+            .accessibilityLabel(SortText.buttonLabel(choice))
+            .help(SortText.sort)
         #endif
-        // Borderless, so a list row holding it takes no tap of its own and the menu keeps its tint.
-        .buttonStyle(.borderless)
-        .fixedSize()
-        .accessibilityLabel(SortText.buttonLabel(choice))
-        .help(SortText.sort)
     }
 }

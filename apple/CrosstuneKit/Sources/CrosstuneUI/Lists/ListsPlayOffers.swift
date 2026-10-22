@@ -80,7 +80,7 @@ struct ListsRowPlayButton: View {
                 Image(systemName: ListRowPlay.nowPlayingSymbol(isPlaying: isPlaying))
                     .foregroundStyle(.tint)
                     .symbolEffect(.variableColor.iterative, options: .repeating, isActive: isPlaying && !reduceMotion)
-                    .font(.title3)
+                    .font(.platform(.title3))
                     .frame(minWidth: slot, minHeight: slot)
                     .contentShape(.rect)
             }
@@ -95,7 +95,7 @@ struct ListsRowPlayButton: View {
                 onPlay(report)
             } label: {
                 Image(systemName: "play.fill")
-                    .font(.title3)
+                    .font(.platform(.title3))
                     .frame(minWidth: slot, minHeight: slot)
                     .contentShape(.rect)
             }

@@ -320,6 +320,32 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(model.results?.outcome == SearchOutcome.none)
     }
 
+    @Test func tunePickerListsTheCatalogWhenIdle() async throws {
+        let store = try await SampleCatalog.copiedStore(root: root.url)
+        let model = try await picker(store)
+        let catalog = try await store.read { try CatalogModel.fetchEntries($0) }
+        let expected = CatalogSearch.sorted(
+            catalog.filter { !$0.isArchived }, by: .default, lastPlayed: [:]
+        ).map(\.tune.title)
+        let rows = try #require(model.idleResults)
+        #expect(rows.map(\.entry.tune.title) == expected)
+        #expect(!rows.isEmpty)
+        #expect(rows.contains { $0.isTaken }, "a tune in the list shows, marked")
+        model.query = "soldier"
+        #expect(model.idleResults?.isEmpty == true, "typing hands the rows to the search")
+    }
+
+    @Test func idleListingOrdersByTitleAToZAndLeavesArchivedOut() async throws {
+        let store = try await SampleCatalog.copiedStore(root: root.url)
+        let entries = try await store.read { try CatalogModel.fetchEntries($0) }
+        let titles = TunePickerModel.idleListing(entries.reversed()).map(\.tune.title)
+        #expect(
+            titles == [
+                "A tune with no key yet", "Ashokan Farewell", "Big Scioty", "Blackberry Blossom", "Cluck Old Hen",
+                "Elzic's Farewell", "Kitchen Girl", "Soldier's Joy", "Tam Lin", "The Butterfly",
+            ])
+    }
+
     @Test func offersNothingWhileTheCatalogIsUnread() async throws {
         let model = TunePickerModel(store: try await SampleCatalog.copiedStore(root: root.url), listID: session.id)
         model.query = "Soldier"
@@ -992,3 +1018,23 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(ListsPlayOffers.pauseLabel(listName: "Waltzes") == "Pause Waltzes")
     }
 }
+
+#if os(macOS)
+    import SwiftUI
+
+    @Suite struct MacListColumnTests {
+        /// The row's play takes the key pill's place only when it has something to show, so a row
+        /// that can do nothing keeps its key in sight under the pointer.
+        @Test func keySlotRevealsPlayOnlyWithSomethingToShow() {
+            #expect(!ListRowKeySlot.revealsPlay(action: .inert, isCurrent: false))
+            #expect(ListRowKeySlot.revealsPlay(action: .inert, isCurrent: true))
+            #expect(ListRowKeySlot.revealsPlay(action: .downloading, isCurrent: false))
+            #expect(ListRowKeySlot.revealsPlay(action: nil, isCurrent: false))
+        }
+
+        @Test func playingRowWashIsALightAccent() {
+            #expect(MacStyle.playingWashOpacity(.light) == 0.10)
+            #expect(MacStyle.playingWashOpacity(.dark) == 0.18)
+        }
+    }
+#endif

@@ -205,6 +205,7 @@ let package = Package(
                 "CrosstuneStore",
                 "CrosstuneSync",
                 "CrosstuneVocabulary", "CrosstuneTestSupport", .product(name: "GRDB", package: "GRDB.swift"),
+                .product(name: "ClerkKitUI", package: "clerk-ios"),
             ]
         ),
         .testTarget(

@@ -30,13 +30,23 @@ struct KeyFilterPopover: View {
         .accessibilityLabel(CatalogFacet.key.label)
     }
 
+    #if os(macOS)
+        private static let padding: CGFloat = 12
+        private static let gap: CGFloat = 8
+    #else
+        private static let padding: CGFloat = 14
+        private static let gap: CGFloat = 6
+    #endif
+
     private var grid: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(CatalogFacet.key.label)
-                .font(PageStyle.secondary.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .accessibilityAddTraits(.isHeader)
-            FlowLayout(spacing: 6, lineSpacing: 8) {
+            #if !os(macOS)
+                Text(CatalogFacet.key.label)
+                    .font(PageStyle.secondary.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+            #endif
+            FlowLayout(spacing: Self.gap, lineSpacing: 8) {
                 ChoiceCapsule(chosen: selected == nil) {
                     onChoose(nil)
                 } label: {
@@ -44,23 +54,28 @@ struct KeyFilterPopover: View {
                 }
                 ForEach(choices, id: \.self) { key in
                     let chosen = selected == key
-                    Button {
-                        onChoose(Self.choice(picking: key, selected: selected))
-                    } label: {
-                        if key == CatalogFilters.noKey {
-                            ChoiceCapsuleLabel(text: "?", chosen: chosen)
-                        } else {
-                            KeyPill(key, chosen: chosen)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(CatalogFacet.key.valueLabel(key))
-                    .accessibilityAddTraits(chosen ? .isSelected : [])
-                    .help(CatalogFacet.key.valueLabel(key))
+                    keyChoice(key, chosen: chosen)
+                        .accessibilityLabel(CatalogFacet.key.valueLabel(key))
+                        .help(CatalogFacet.key.valueLabel(key))
                 }
             }
         }
-        .padding(14)
+        .padding(Self.padding)
         .frame(width: Self.width, alignment: .leading)
+    }
+
+    @ViewBuilder private func keyChoice(_ key: String, chosen: Bool) -> some View {
+        let action = { onChoose(Self.choice(picking: key, selected: selected)) }
+        if key == CatalogFilters.noKey {
+            #if os(macOS)
+                ChoiceCapsule(chosen: chosen, action: action) { Text("?") }
+            #else
+                Button(action: action) { ChoiceCapsuleLabel(text: "?", chosen: chosen) }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(chosen ? .isSelected : [])
+            #endif
+        } else {
+            KeyChipButton(key: key, chosen: chosen, action: action)
+        }
     }
 }

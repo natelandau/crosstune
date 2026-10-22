@@ -156,6 +156,24 @@ import Testing
         #expect(sink.captures.first?.set["setting_search_providers"] == services)
     }
 
+    /// The Mac's Tunes tab shows the toggles the sheets hold, through the same bindings, so a
+    /// toggle reports the same event wherever it shows.
+    @Test func theTogglesReportTheSameEventsWhereverTheyShow() async throws {
+        let store = try root.open()
+        let model = try await loaded(store)
+
+        InstrumentsChoices.binding("mandolin", model: model).wrappedValue = true
+        #expect(try await poll { sink.captures.count == 1 })
+        #expect(sink.captures == [changed("instruments", .strings(["mandolin"]))])
+
+        MusicServicesChoices.binding("youtube", model: model).wrappedValue = false
+        #expect(try await poll { sink.captures.count == 2 })
+        #expect(sink.captures.last?.name == "setting_changed")
+        #expect(sink.captures.last?.properties["setting"] == .string("search_providers"))
+        #expect(InstrumentsChoices.binding("mandolin", model: model).wrappedValue)
+        #expect(!MusicServicesChoices.binding("youtube", model: model).wrappedValue)
+    }
+
     @Test func aChangeFromAnotherDeviceReportsNothing() async throws {
         let store = try root.open()
         let model = try await loaded(store)

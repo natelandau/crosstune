@@ -4,8 +4,8 @@ import CrosstuneAnalytics
     import CrosstuneAuth
     import SwiftUI
 
-    /// The Mac player: a glass bar docked edge to edge across the foot of the detail column, so
-    /// its controls sit under the tune they play. A loaded link's player or the Apple Music card
+    /// The Mac player: an opaque bar docked edge to edge across the foot of the detail column,
+    /// so its controls sit under the tune they play. A loaded link's player or the Apple Music card
     /// grows up out of the bar.
     struct PlayerDock: View {
         /// How tall an embed or card that wants `wanted` points is drawn in a detail column
@@ -22,7 +22,7 @@ import CrosstuneAnalytics
         nonisolated static let videoWidth: CGFloat = 356
 
         /// The gap around an embed or card above the bar.
-        nonisolated static let inset: CGFloat = 12
+        nonisolated static let inset: CGFloat = MacStyle.dockInset
         /// The bar under an embed or card and the gap above it.
         nonisolated static let chrome: CGFloat = MacStyle.dockHeight + inset
 
@@ -40,9 +40,11 @@ import CrosstuneAnalytics
                 PlayerDockBar(player: player)
             }
             .frame(maxWidth: .infinity)
-            .macGlass(in: Rectangle())
-            // The glass alone barely parts from a white page; the hairline gives the dock an edge.
-            .overlay(alignment: .top) { Divider() }
+            .background(MacPalette.surface)
+            .macSurfaceContainer()
+            .overlay(alignment: .top) {
+                MacPalette.hairline.frame(height: 1)
+            }
             .animation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0.15), value: upperKind)
         }
 
@@ -99,16 +101,19 @@ import CrosstuneAnalytics
                 } else if let message = playback?.endMessage {
                     Text(message)
                         .font(MacStyle.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, 6)
                     close
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, MacStyle.dockInset)
             .frame(height: MacStyle.dockHeight)
         }
+
+        /// What stands where play would be while an embed's own controls play it.
+        static let nowPlayingSymbol = "waveform"
 
         private var isRecording: Bool { player.item?.kind == .recording }
         private var listPlays: Bool { playback?.isActive == true }
@@ -119,14 +124,14 @@ import CrosstuneAnalytics
                     DockButton(PlaylistControlText.previous, systemImage: "backward.fill") { playback.previous() }
                 }
                 if player.playsInBar {
-                    RecordingPlayButton(player: player, font: .system(size: 17))
-                        .frame(width: 36)
+                    DockPlayButton(player: player)
                 } else if PlayerBar.showsGlyph(player) {
-                    // The embed's own controls play and pause; this only marks what is playing.
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 15))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 36)
+                    // The embed's own controls play and pause; this only marks what is playing,
+                    // so it never looks like a play button.
+                    Image(systemName: Self.nowPlayingSymbol)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(MacPalette.inkSecondary)
+                        .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
                         .accessibilityHidden(true)
                 }
                 if listPlays, let playback {
@@ -162,14 +167,9 @@ import CrosstuneAnalytics
                     }
                 }
                 if let link = player.item?.link, link.providerURL != nil {
-                    Button {
+                    DockButton(PlayerBar.openIn(link.providerName), systemImage: "arrow.up.right") {
                         player.openLinkInProvider { openURL($0) }
-                    } label: {
-                        DockGlyph(systemImage: "arrow.up.right", highlighted: false)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(PlayerBar.openIn(link.providerName))
-                    .help(PlayerBar.openIn(link.providerName))
                 }
                 if isRecording, PlayerBar.canExpand(player) {
                     DockButton(
@@ -200,7 +200,7 @@ import CrosstuneAnalytics
                 } else if let subtitle {
                     Text(subtitle)
                         .font(MacStyle.secondary)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
                         .lineLimit(1)
                 }
             }
@@ -224,7 +224,45 @@ import CrosstuneAnalytics
         }
     }
 
-    /// A glyph-only dock control, ringed while the pointer is over it.
+    /// Play or pause as a filled disc, or what stands in for it while a recording's audio is
+    /// fetched or missing, each the disc's size.
+    private struct DockPlayButton: View {
+        let player: PlayerModel
+
+        var body: some View {
+            if let transport = player.transport {
+                let playing = transport.isPlaying
+                Button {
+                    transport.toggle()
+                } label: {
+                    Image(systemName: playing ? "pause.fill" : "play.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(MacPalette.ground)
+                        .contentTransition(.symbolEffect(.replace))
+                        .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
+                        .background(MacPalette.ink, in: .circle)
+                        .contentShape(.circle)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(playing ? RecordingPlayerText.pause : RecordingPlayerText.play)
+                .help(playing ? RecordingPlayerText.pause : RecordingPlayerText.play)
+            } else if player.recordingAudio == .fetching {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
+                    .accessibilityLabel(RecordingText.downloading)
+            } else {
+                Image(systemName: "exclamationmark.circle")
+                    .font(.system(size: 15))
+                    .foregroundStyle(MacPalette.inkSecondary)
+                    .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
+    /// A glyph-only dock control: the Mac icon button, its glyph in the accent while the
+    /// setting it toggles is on.
     private struct DockButton: View {
         let title: String
         let systemImage: String
@@ -245,33 +283,22 @@ import CrosstuneAnalytics
 
         var body: some View {
             Button(action: action) {
-                DockGlyph(systemImage: systemImage, highlighted: highlighted)
+                Image(systemName: systemImage)
+                    // One size for every glyph, so repeat and its repeat-one form match.
+                    .font(.system(size: 13, weight: .medium))
+                    .imageScale(.medium)
+                    // On the label, which wins over the icon style's secondary ink.
+                    .foregroundStyle(highlighted ? MacPalette.accent : MacPalette.inkSecondary)
+                    .frame(width: 16, height: 16)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.mac(.icon))
             .accessibilityLabel(title)
             .accessibilityAddTraits(highlighted ? .isSelected : [])
             .help(help ?? title)
         }
     }
 
-    private struct DockGlyph: View {
-        let systemImage: String
-        let highlighted: Bool
-
-        @State private var hovering = false
-
-        var body: some View {
-            Image(systemName: systemImage)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(highlighted ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                .frame(width: 30, height: 30)
-                .background(hovering ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear), in: .circle)
-                .contentShape(.circle)
-                .onHover { hovering = $0 }
-        }
-    }
-
-    /// The Mac scrubber's track: a thin line, filled to the position, with a coral playhead.
+    /// The Mac scrubber's track: a hairline, filled in ink to the position, with a coral playhead.
     /// A click jumps there and a drag carries it along; `onEnd` gets where it was let go.
     struct ScrubberTrack: View {
         /// How far along, from 0 to 1.
@@ -283,6 +310,8 @@ import CrosstuneAnalytics
         @State private var dragging = false
 
         private static let lineHeight: CGFloat = 3
+        /// The played part's ink, quieter than text so the coral playhead leads.
+        static let fillOpacity: Double = 0.55
         /// Taller than the line, so a pointer grabs it without aiming at three points.
         private static let height: CGFloat = 20
 
@@ -292,9 +321,9 @@ import CrosstuneAnalytics
                 let knob: CGFloat = hovering || dragging ? 12 : 9
                 let x = width * min(max(fraction, 0), 1)
                 ZStack(alignment: .leading) {
-                    Capsule().fill(.quaternary)
+                    Capsule().fill(MacPalette.hairline)
                         .frame(height: Self.lineHeight)
-                    Capsule().fill(.secondary)
+                    Capsule().fill(MacPalette.ink.opacity(ScrubberTrack.fillOpacity))
                         .frame(width: x, height: Self.lineHeight)
                     Circle()
                         .fill(MacStyle.coral)

@@ -69,7 +69,7 @@ struct HighlightRun {
     }
 }
 
-/// Washes a recording's row in slate while it is the take just saved, then clears the mark.
+/// Washes a recording's row in the accent while it is the take just saved, then clears the mark.
 private struct NewTakeHighlight: ViewModifier {
     let recordingID: String
 
@@ -81,7 +81,7 @@ private struct NewTakeHighlight: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background(
-                RoundedRectangle(cornerRadius: 10).fill(BrandStyle.setFill(scheme)).opacity(lit ? 1 : 0)
+                RoundedRectangle(cornerRadius: 10).fill(Self.wash(scheme)).opacity(lit ? 1 : 0)
             )
             // Keyed on the id, so a take marked before the row appears still lights it.
             .task(id: recentTake?.id) {
@@ -91,6 +91,14 @@ private struct NewTakeHighlight: ViewModifier {
                     clear: { recentTake.clear(ifID: recordingID) }
                 ).run()
             }
+    }
+
+    private static func wash(_ scheme: ColorScheme) -> Color {
+        #if os(macOS)
+            MacStyle.setFill(scheme)
+        #else
+            BrandStyle.setFill(scheme)
+        #endif
     }
 
     private func set(_ on: Bool, _ duration: Duration) {

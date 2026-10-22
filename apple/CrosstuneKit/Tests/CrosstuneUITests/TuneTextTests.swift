@@ -61,6 +61,10 @@ import Testing
             TuningText.row(tunings, instruments: ["mandolin", "five_string_banjo", "violin"])
                 == "5-string banjo: Open G (gDGBD), capo 2 · Mandolin: Cross A (AEAE)")
         #expect(TuningText.row(tunings, instruments: ["violin"]) == nil)
+        #expect(
+            TuningText.rowParts(tunings, instruments: ["mandolin", "five_string_banjo", "violin"])
+                == ["5-string banjo: Open G (gDGBD), capo 2", "Mandolin: Cross A (AEAE)"])
+        #expect(TuningText.rowParts(tunings, instruments: []).isEmpty)
         #expect(TuningText.row(tunings, instruments: []) == nil)
     }
 }

@@ -17,11 +17,17 @@ public enum TuningText {
     /// The tunings a tune row shows: one summary per instrument the musician plays, in the
     /// vocabulary's order, joined with middle dots. Nil when there is nothing to say.
     public static func row(_ tunings: JSONObject, instruments: Set<String>) -> String? {
+        let parts = rowParts(tunings, instruments: instruments)
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    /// ``row(_:instruments:)``'s summaries one by one, for a row that drops whole tunings
+    /// rather than cut one short.
+    public static func rowParts(_ tunings: JSONObject, instruments: Set<String>) -> [String] {
         // A player of one instrument knows whose tuning it is; two instruments can share a name.
         let withInstrument = instruments.count > 1
-        let parts = Vocabulary.instruments.filter(instruments.contains).compactMap {
+        return Vocabulary.instruments.filter(instruments.contains).compactMap {
             summary(tunings, instrument: $0, withInstrument: withInstrument)
         }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }

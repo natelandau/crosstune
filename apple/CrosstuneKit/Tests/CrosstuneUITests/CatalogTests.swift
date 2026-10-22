@@ -267,6 +267,12 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(CatalogFilterSheet.archivedFooter(1) == "1 archived tune")
         #expect(CatalogFilterSheet.archivedFooter(3) == "3 archived tunes")
     }
+
+    @Test func filterSheetFooterShowsTheCount() {
+        #expect(
+            CatalogFilterSheet.footerCount(visible: 10, total: 10) == CatalogSearch.countLabel(visible: 10, total: 10))
+        #expect(CatalogFilterSheet.footerCount(visible: 10, total: 12) == "10 of 12 tunes")
+    }
 }
 
 @Suite struct ComposerAndLearnedFromTests {
@@ -821,3 +827,87 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(model.actionError == CommandError.tuneNotFoundMessage)
     }
 }
+
+#if os(macOS)
+    import AppKit
+    import SwiftUI
+
+    @Suite struct MacCatalogColumnTests {
+        /// One chevron says both that the sort opens a menu and which way it runs, as Finder's
+        /// column headers do.
+        @Test func macSortShowsOneChevronForItsDirection() {
+            let ascending = SortChoice<CatalogSort>(sort: .title, descending: false)
+            #expect(SortText.macDirectionSymbol(ascending) == "chevron.up")
+            #expect(SortText.macDirectionSymbol(ascending.picking(.title)) == "chevron.down")
+        }
+
+        /// Whole tunings drop from the end, marked with an ellipsis, before the first one
+        /// truncates.
+        @Test func tuningsDropWholeBeforeTruncating() {
+            #expect(
+                MacTuneRow.tuningCandidates(["Violin: Cross A (AEAE)"]).map(\.label) == ["Violin: Cross A (AEAE)"])
+            #expect(
+                MacTuneRow.tuningCandidates(["A", "B", "C"]).map(\.label) == ["A · B · C", "A · B +1", "A +2"])
+            #expect(MacTuneRow.tuningCandidates(["A", "B"]).last == .init(text: "A", more: 1))
+            #expect(MacTuneRow.tuningCandidates([]).isEmpty)
+        }
+
+        /// The tunings and position read in secondary ink at rest and on a selected row's fill.
+        @Test(arguments: [ColorScheme.light, .dark])
+        func rowDetailInkPassesContrast(scheme: ColorScheme) {
+            let rest = MacPalette.hex(MacTuneRow.detailInk(emphasized: false), scheme)
+            #expect(MacTuneRow.detailInk(emphasized: false) == .inkSecondary)
+            #expect(contrastRatio(rest, MacPalette.hex(.ground, scheme)) >= 4.5)
+            #expect(MacTuneRow.detailInk(emphasized: true) == .onAccentFill)
+            #expect(MacTuneRow.detailInk(emphasized: true, rowSelected: true) == .onAccentFill)
+        }
+
+        /// The gray a selection takes in an inactive window or an unfocused list, over the
+        /// column's ground.
+        @MainActor private static func inactiveSelectionHex(_ scheme: ColorScheme) throws -> String {
+            let name: NSAppearance.Name = scheme == .dark ? .darkAqua : .aqua
+            let appearance = try #require(NSAppearance(named: name))
+            var resolved: NSColor?
+            appearance.performAsCurrentDrawingAppearance {
+                resolved = NSColor.unemphasizedSelectedContentBackgroundColor.usingColorSpace(.sRGB)
+            }
+            let fill = try #require(resolved)
+            let rgb = KeyColor.RGB(red: fill.redComponent, green: fill.greenComponent, blue: fill.blueComponent)
+            return blend(rgb.hex, over: MacPalette.hex(.ground, scheme), opacity: fill.alphaComponent)
+        }
+
+        /// Secondary text on a selection that is not emphasized turns to ink, which holds 4.5:1 on
+        /// that gray where secondary ink falls short.
+        @MainActor @Test(arguments: [ColorScheme.light, .dark])
+        func secondaryInkHoldsContrastOnAnInactiveSelection(scheme: ColorScheme) throws {
+            let gray = try Self.inactiveSelectionHex(scheme)
+            let token = MacSecondaryInk.token(emphasized: false, rowSelected: true)
+            #expect(token == .ink)
+            #expect(MacTuneRow.detailInk(emphasized: false, rowSelected: true) == token)
+            #expect(contrastRatio(MacPalette.hex(token, scheme), gray) >= 4.5, "\(gray)")
+            // A link line under the pointer on that gray keeps the selection's ink.
+            #expect(MacHoverAccent.token(hovered: true, emphasized: false, rowSelected: true) == token)
+            #expect(MacSecondaryInk.token(emphasized: false, rowSelected: false) == .inkSecondary)
+            #expect(MacSecondaryInk.token(emphasized: true, rowSelected: false) == .onAccentFill)
+        }
+
+        /// A media row's link lines follow the row's selection as its other secondary text does,
+        /// and the pointer's accent shows only on a row that is not selected.
+        @Test func linkLinesFollowTheRowsSelection() {
+            #expect(MacHoverAccent.token(hovered: false, emphasized: false, rowSelected: false) == .inkSecondary)
+            #expect(MacHoverAccent.token(hovered: true, emphasized: false, rowSelected: false) == .accent)
+            #expect(MacHoverAccent.token(hovered: false, emphasized: false, rowSelected: true) == .ink)
+            #expect(MacHoverAccent.token(hovered: false, emphasized: true, rowSelected: true) == .onAccentFill)
+            #expect(MacHoverAccent.token(hovered: true, emphasized: true, rowSelected: true) == .onAccentFill)
+        }
+
+        /// A row draws selected for the selection while it lasts, else for the detail column's tune.
+        @MainActor @Test func aRowKnowsItIsSelected() {
+            var selection = TuneSelection()
+            #expect(!TuneSelection.rowIsSelected("a", selection: selection, detailTune: nil))
+            selection.enter(with: "a")
+            #expect(TuneSelection.rowIsSelected("a", selection: selection, detailTune: nil))
+            #expect(!TuneSelection.rowIsSelected("b", selection: selection, detailTune: nil))
+        }
+    }
+#endif

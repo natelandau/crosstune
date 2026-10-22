@@ -116,6 +116,12 @@ run *args:
 done:
     scripts/mac-app.sh done
 
+# Capture Mac app surfaces over the sample catalog: `just shots tune plan settings-account`
+[group('run')]
+[positional-arguments]
+shots *args:
+    scripts/mac-shots.sh "$@"
+
 # Show which worktree holds the Mac app and how many are waiting
 [group('run')]
 status:

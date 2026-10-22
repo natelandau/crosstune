@@ -85,8 +85,8 @@ private struct ListContent: View {
         case .deleting(let name):
             VStack(alignment: .leading, spacing: spacing.stackGap) {
                 Text(DeleteTuneMessage.deleting)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(.platform(.footnote))
+                    .foregroundStyle(.inkSecondary)
                 if let failure = model.failure {
                     FailureText(failure)
                 }
@@ -142,8 +142,11 @@ private struct ListTunes: View {
     @State private var form: TuneFormTarget?
     @State private var confirmsDelete = false
     @State private var selection = TuneSelection()
-    /// Whether the Mac column title, and the actions on its line, are on screen.
-    @State private var titleInView = true
+    #if os(macOS)
+        @Environment(\.openSheets) private var openSheets
+        /// This screen's own Select tunes, never taken for another window's.
+        @State private var selectActionID = UUID()
+    #endif
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.spacing) private var spacing
     @AccessibilityFocusState private var focusedRow: String?
@@ -177,14 +180,23 @@ private struct ListTunes: View {
                 .navigationTitle(selection.isActive ? TuneSelection.title(selection.ids.count) : list.name)
                 .toolbarTitleDisplayMode(.inlineLarge)
             #else
-                // The list's own actions ride on its title's line, and take the pane bar only
-                // once the title has scrolled away, so the bar adds no empty band at rest.
+                // The bar stays as it is while selecting, so nothing in it moves; the selection's
+                // actions are in the list's selection bar.
                 .paneBar {
-                    if !selection.isActive && !titleInView { listActions(rows) }
+                    Group {
+                        if let play = offer(rows) { MacListPlayButtons(play: play) }
+                        listActions(rows)
+                    }
+                    .disabled(selection.isActive)
                 }
-                .columnTitled(
-                    selection.isActive ? TuneSelection.title(selection.ids.count) : list.name,
-                    alwaysShown: selection.isActive, onTitleShows: { titleInView = $0 })
+                .columnTitled(macTitle)
+                .focusedSceneValue(
+                    \.selectTunesAction,
+                    MenuGates.select(
+                        isShown: true, sheetsOpen: openSheets?.isCovered == true, selecting: selection.isActive,
+                        hasRows: !rows.isEmpty)
+                        ? MenuAction(id: selectActionID) { selection.enter() } : nil
+                )
             #endif
             .selectionMode(
                 $selection, rows: rows.map(\.catalogEntry), instruments: model.instruments,
@@ -230,6 +242,10 @@ private struct ListTunes: View {
             .sheet(item: $form) { target in
                 TuneFormSheet(target: target) { _ in }
             }
+            #if DEBUG
+                .opensForSample(.tunePicker) { picking = true }
+                .opensForSample(.whatPlays) { showsWhatPlays = true }
+            #endif
             .coversShell(confirmsDelete)
             .confirmationDialog(
                 DeleteListMessage.title(list.name), isPresented: $confirmsDelete, titleVisibility: .visible
@@ -255,13 +271,9 @@ private struct ListTunes: View {
         if model.showArchived != nil {
             List(selection: chosen) {
                 #if os(macOS)
-                    MacListTitle(name: list.name, play: playOffer(rows)) {
-                        if !selection.isActive { listActions(rows) }
-                    }
-                    // With no pane bar above it at rest, the title keeps its own room under the
-                    // toolbar.
-                    .listRowInsets(MacStyle.columnRowInsets(top: 4, bottom: 8))
-                    .plainListRow()
+                    MacListTitle(name: macTitle, play: playOffer(rows), isSelecting: selection.isActive)
+                        .listRowInsets(MacStyle.columnRowInsets())
+                        .plainListRow()
                 #else
                     if let play = playOffer(rows) {
                         ListPlayControls(offer: play)
@@ -293,7 +305,13 @@ private struct ListTunes: View {
     /// What Play, Shuffle, and the line under them act on, or nil while they stand down: with no
     /// tunes, while selecting, and until the access read.
     private func playOffer(_ rows: [ListEntry]) -> ListPlayOffer? {
-        guard !rows.isEmpty, !selection.isActive, hasReadAppleMusic else { return nil }
+        selection.isActive ? nil : offer(rows)
+    }
+
+    /// ``playOffer(_:)`` whether selecting or not, for the Mac's pane bar, which keeps its
+    /// controls while selecting.
+    private func offer(_ rows: [ListEntry]) -> ListPlayOffer? {
+        guard !rows.isEmpty, hasReadAppleMusic else { return nil }
         let report = playReport(rows)
         return ListPlayOffer(
             report: report, canStart: listPlayback != nil && !(recorders?.isCapturing ?? false),
@@ -337,6 +355,11 @@ private struct ListTunes: View {
     }
 
     #if os(macOS)
+        /// The column title, which counts the selection in its place.
+        private var macTitle: String {
+            selection.isActive ? TuneSelection.selectedTitle(selection.ids.count) : list.name
+        }
+
         /// Add tunes and the More menu, as glyphs with their names as tooltips.
         @ViewBuilder private func listActions(_ rows: [ListEntry]) -> some View {
             addTunesButton.labelStyle(.iconOnly).help(ListScreen.addTunes)
@@ -385,8 +408,15 @@ private struct ListTunes: View {
         let isCurrent = ListRowPlay.isNowPlaying(
             listID: list.id, playingListID: listPlayback?.listID, currentTuneID: listPlayback?.currentTuneID,
             tuneID: entry.tune.id)
-        let tuneRow = TuneRow(
-            tune: entry.tune, userTune: entry.userTune, instruments: model.instruments, position: position)
+        #if os(macOS)
+            // The list draws the key in the slot the row's play shares, so the two never crowd.
+            let tuneRow = TuneRow(
+                tune: entry.tune, userTune: entry.userTune, instruments: model.instruments, position: position,
+                showsKey: false)
+        #else
+            let tuneRow = TuneRow(
+                tune: entry.tune, userTune: entry.userTune, instruments: model.instruments, position: position)
+        #endif
         let hint = ListRowText.hint(hasAction: playAction != nil, isCurrent: isCurrent, isSelecting: selection.isActive)
         let edit = { form = .edit(tuneID: entry.tune.id, userTuneID: entry.userTune.id) }
         let remove: () -> Void = { Task { await model.remove(entry) } }
@@ -400,6 +430,11 @@ private struct ListTunes: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityHint(hint)
                     .modifier(MoveActions(entry: entry, reorderable: reorderable, buttons: moveButtons))
+                    #if os(macOS)
+                        .selectionCheckbox(
+                            selection.isActive, title: entry.tune.title,
+                            isOn: TuneSelection.checkbox($selection, row: entry.tune.id) { model.rows.map(\.tune.id) })
+                    #endif
             } else {
                 Button {
                     pushed = entry.tune.id
@@ -416,12 +451,18 @@ private struct ListTunes: View {
                 .matchedTransitionSource(id: entry.tune.id, in: zoom)
             }
             #if os(macOS)
-                // Only play holds a place at the trailing edge, so titles keep their width in a
-                // narrow column. Dragging the row reorders; Move is in its context menu and its
-                // accessibility actions.
-                if !selection.isActive {
-                    ListRowPlayButton(entry: entry, action: playAction, listID: list.id)
-                        .revealedOnHover(pinned: isCurrent || playAction == .downloading)
+                // The key and play share one trailing slot, so keys line up with the catalog's
+                // and titles keep their width in a narrow column. Dragging the row reorders; Move
+                // is in its context menu and its accessibility actions.
+                ListRowKeySlot(
+                    key: KeyModeText(key: entry.tune.key, modes: entry.tune.modes),
+                    revealsPlay: !selection.isActive
+                        && ListRowKeySlot.revealsPlay(action: playAction, isCurrent: isCurrent),
+                    pinned: isCurrent || playAction == .downloading
+                ) {
+                    if !selection.isActive {
+                        ListRowPlayButton(entry: entry, action: playAction, listID: list.id)
+                    }
                 }
             #else
                 if !selection.isActive {
@@ -455,6 +496,9 @@ private struct ListTunes: View {
         }
         .listRowBackground(isCurrent && !selection.isActive ? currentRowTint : nil)
         .accessibilityFocused($focusedRow, equals: entry.tune.id)
+        #if os(macOS)
+            .macRowSelected(TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune))
+        #endif
         .tag(entry.tune.id)
         .moveDisabled(!reorderable)
     }
@@ -464,7 +508,7 @@ private struct ListTunes: View {
         #if os(macOS)
             // Inset and rounded as the selection is, so the two read as one family.
             RoundedRectangle(cornerRadius: 6)
-                .fill(MacStyle.accent.opacity(0.12))
+                .fill(MacStyle.accent.opacity(MacStyle.playingWashOpacity(colorScheme)))
                 .padding(.horizontal, MacStyle.selectionInset)
         #else
             BrandStyle.setFill(colorScheme)
