@@ -67,7 +67,8 @@ it('searches once the typing settles, and hands the picked result on', async () 
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   await input.fill('G')
   await input.fill('Ga')
-  await expect.element(input).toHaveValue('Ga')
+  // Interval 0: under fake timers each miss would advance them by the interval, into the wait.
+  await expect.element(input, { interval: 0 }).toHaveValue('Ga')
   // Timers are faked, so nothing can search before they advance.
   act(() => vi.advanceTimersByTime(SETTLE_MS - 1))
   expect(search).not.toHaveBeenCalled()

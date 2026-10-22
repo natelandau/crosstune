@@ -168,7 +168,8 @@ it('hides the row at the end of the window on the real clock, before the next mi
     .toBe(true)
 
   await vi.advanceTimersByTimeAsync(end - Date.now() - 1)
-  await expect.element(withdrawRow()).toBeVisible()
+  // Interval 0: under fake timers each miss would advance them by the interval, past the end.
+  await expect.element(withdrawRow(), { interval: 0 }).toBeVisible()
   await vi.advanceTimersByTimeAsync(1)
   await expect.element(withdrawRow()).not.toBeInTheDocument()
 })

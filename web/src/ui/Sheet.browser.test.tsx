@@ -586,6 +586,12 @@ function recordTops(): { tops: number[]; stop: () => void } {
   return { tops, stop: () => observer.disconnect() }
 }
 
+/**
+ * Polls without moving the fake clock. Under fake timers, expect.poll advances them by its
+ * interval after every miss, which would spend the close window before the test means to.
+ */
+const pollStill = <T,>(read: () => T) => expect.poll(read, { interval: 0 })
+
 it('never springs back when its parent closes after the close window opens', async () => {
   const asked = vi.fn()
   let answer: () => void = () => {}
@@ -615,22 +621,22 @@ it('never springs back when its parent closes after the close window opens', asy
     // The body, since the dialog's center falls on the footer at part height.
     await dragDown(page.getByText('Body'), 400)
     const pending = vi.getTimerCount()
-    await expect.poll(() => asked).toHaveBeenCalledWith(false)
+    await pollStill(() => asked).toHaveBeenCalledWith(false)
     // The close window starts in an effect after React commits the release.
-    await expect.poll(() => vi.getTimerCount()).toBeGreaterThan(pending)
+    await pollStill(() => vi.getTimerCount()).toBeGreaterThan(pending)
     const releasedAt = sheetTop()
     const from = tops.length
     await vi.advanceTimersByTimeAsync(SHEET.closeAnswerMs - 1)
     // The parent has not answered and the window has not passed: the sheet stays where released.
     expect(releasedAt).toBeGreaterThan(844 / 2 + 100)
-    expect(sheetTop()).toBeGreaterThan(releasedAt - 5)
+    expect(sheetTop()).toBe(releasedAt)
     answer()
     // The exit has begun, so the parent's answer has rendered and cancelled the pending return.
-    await expect.poll(sheetTop).toBeGreaterThan(releasedAt + 2)
+    await pollStill(sheetTop).toBeGreaterThan(releasedAt + 2)
     await vi.advanceTimersByTimeAsync(SHEET.closeAnswerMs)
-    await expect.poll(() => dialog().query()).toBeNull()
-    // The exit eases off the release point by a pixel or two; a return to the detent drops far more.
-    expect(Math.min(...tops.slice(from))).toBeGreaterThan(releasedAt - 5)
+    await pollStill(() => dialog().query()).toBeNull()
+    // The exit only moves down from the release point; a return toward the detent would rise.
+    expect(Math.min(...tops.slice(from))).toBeGreaterThanOrEqual(releasedAt)
   } finally {
     stop()
     vi.useRealTimers()
@@ -652,8 +658,8 @@ it('goes back up once the close window passes with no answer', async () => {
     // The drag's end handler has run, and the close window it asks for starts in an effect
     // after React commits, so the clock may only advance once that timer exists.
     const pending = vi.getTimerCount()
-    await expect.poll(() => onOpenChange).toHaveBeenCalledWith(false)
-    await expect.poll(() => vi.getTimerCount()).toBeGreaterThan(pending)
+    await pollStill(() => onOpenChange).toHaveBeenCalledWith(false)
+    await pollStill(() => vi.getTimerCount()).toBeGreaterThan(pending)
     await vi.advanceTimersByTimeAsync(SHEET.closeAnswerMs - 1)
     expect(sheetTop()).toBeGreaterThan(844 / 2 + 100)
     await vi.advanceTimersByTimeAsync(1)
