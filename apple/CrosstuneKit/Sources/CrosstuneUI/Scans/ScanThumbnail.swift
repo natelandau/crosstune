@@ -35,7 +35,7 @@ struct ScanThumbnail: View {
                 // Decoded and found unreadable.
                 placeholder {
                     Image(systemName: "exclamationmark.triangle")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
                         .accessibilityLabel(ScanCopy.unreadableScan)
                 }
             } else if scan.file == nil && scan.record.state != ScanRecord.pendingUpload {

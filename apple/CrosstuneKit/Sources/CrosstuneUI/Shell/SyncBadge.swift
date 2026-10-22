@@ -32,7 +32,7 @@ public struct SyncBadge: View {
     public var body: some View {
         let swatch = Self.swatch(status, scheme: colorScheme)
         Text(status.label)
-            .font(.footnote.weight(.semibold))
+            .font(.platform(.footnote).weight(.semibold))
             .foregroundStyle(swatch.ink.color)
             .padding(.horizontal, spacing(10))
             .padding(.vertical, spacing(4))
@@ -44,26 +44,9 @@ public struct SyncBadge: View {
     @Environment(\.spacing) private var spacing
 
     /// A warning while offline, which fixes itself, and while an update is required, which the
-    /// store does for the musician; danger when the musician has to act. The
-    /// text is a deep shade on a pale fill in light mode and the reverse in dark mode, so it
-    /// keeps at least 4.5:1 contrast with its capsule.
+    /// store does for the musician; danger when the musician has to act.
     nonisolated static func swatch(_ status: SyncStatus, scheme: ColorScheme) -> KeyColor.Swatch {
-        let warning = status == .offline || status == .updateRequired
-        switch (scheme == .dark, warning) {
-        case (false, true): return Self.swatch(background: 0xFFEFD9, ink: 0x8A4B00)
-        case (false, false): return Self.swatch(background: 0xFDE2E0, ink: 0xB3261E)
-        case (true, true): return Self.swatch(background: 0x3D2A12, ink: 0xFFB35C)
-        case (true, false): return Self.swatch(background: 0x4A1C1A, ink: 0xFF8A80)
-        }
-    }
-
-    nonisolated private static func swatch(background: Int, ink: Int) -> KeyColor.Swatch {
-        func rgb(_ hex: Int) -> KeyColor.RGB {
-            KeyColor.RGB(
-                red: Double(hex >> 16 & 0xFF) / 255, green: Double(hex >> 8 & 0xFF) / 255,
-                blue: Double(hex & 0xFF) / 255)
-        }
-        return KeyColor.Swatch(background: rgb(background), ink: rgb(ink))
+        status == .offline || status == .updateRequired ? SignalSwatch.warning(scheme) : SignalSwatch.danger(scheme)
     }
 }
 

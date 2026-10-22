@@ -16,7 +16,6 @@
         let newList: () -> Void
 
         @Environment(\.listSheets) private var listSheets
-        @Environment(\.colorScheme) private var scheme
         @State private var deleting: ListSummary?
 
         var body: some View {
@@ -56,12 +55,13 @@
             }
             .environment(\.defaultMinListRowHeight, MacStyle.sidebarRowHeight)
             .scrollContentBackground(.hidden)
-            .background(MacStyle.sidebarTint(scheme))
+            .background(MacPalette.surface)
             .safeAreaBar(edge: .bottom) {
                 SidebarRecordButton(action: onRecord)
                     .disabled(!canRecord)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
+                    .padding(.horizontal, SidebarRecordButton.rowInset)
+                    .padding(.vertical, 12)
             }
             .confirmsListDelete($deleting)
         }
@@ -74,15 +74,15 @@
         private func row(
             _ item: SidebarItem, _ title: String, glyph: MacSidebarLabel.Glyph, count: Int?
         ) -> some View {
-            MacSidebarLabel(title: title, glyph: glyph, isSelected: selection == item)
-                .badge(count ?? 0)
+            MacSidebarLabel(title: title, glyph: glyph)
+                .badge(count.flatMap { $0 > 0 ? Text($0, format: .number).monospacedDigit() : nil })
                 // Outermost: a tag under the badge leaves the row never drawn as selected.
                 .tag(item)
         }
     }
 
-    /// A sidebar row's glyph and name. The selected row's glyph turns coral, except a status's,
-    /// whose color is its meaning.
+    /// A sidebar row's glyph and name. A glyph is secondary ink at rest and white with the name
+    /// on the key window's selection, except a status's, whose color is its meaning.
     struct MacSidebarLabel: View {
         enum Glyph: Equatable {
             case symbol(String)
@@ -91,10 +91,18 @@
 
         let title: String
         let glyph: Glyph
-        let isSelected: Bool
+
+        /// Increased on the selected row of the key window, whose fill is the accent.
+        @Environment(\.backgroundProminence) private var prominence
 
         /// What a Mac sidebar list adds above and below each row's content.
         nonisolated static let listRowPadding: CGFloat = 8
+
+        /// A symbol glyph's color: secondary ink at rest, the label on an accent fill once the
+        /// row's selection is emphasized.
+        nonisolated static func symbolInk(emphasized: Bool) -> MacPalette.Token {
+            emphasized ? .onAccentFill : .inkSecondary
+        }
 
         var body: some View {
             Label {
@@ -105,7 +113,9 @@
                 switch glyph {
                 case .symbol(let name):
                     Image(systemName: name)
-                        .foregroundStyle(isSelected ? AnyShapeStyle(MacStyle.coral) : AnyShapeStyle(.tint))
+                        .foregroundStyle(
+                            Self.symbolInk(emphasized: prominence == .increased) == .onAccentFill
+                                ? MacPalette.onAccentFill : MacPalette.inkSecondary)
                 case .status(let status):
                     // The row's name already says the status.
                     StatusGlyph(status)

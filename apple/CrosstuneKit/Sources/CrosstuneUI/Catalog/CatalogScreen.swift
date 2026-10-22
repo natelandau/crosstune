@@ -16,6 +16,22 @@ public struct CatalogScreen: View {
         "No tune called \"\(title)\""
     }
 
+    /// The Mac's import action, which opens a sheet, so it ends in an ellipsis.
+    nonisolated static let importTunesMac = "\(ImportCopy.title)…"
+
+    /// True for a catalog holding no tune at all, with no search typed: the first-run state that
+    /// shows its onboarding rather than a filter row and a list.
+    nonisolated static func isEmptyCatalog(_ results: CatalogResults?, query: String) -> Bool {
+        guard let results else { return false }
+        return results.entries.isEmpty && query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Whether the search field's filters button stands down: while selecting, as the column's
+    /// own actions do, and in a catalog with no tune to filter. Up while the catalog loads.
+    nonisolated static func filtersStandDown(_ results: CatalogResults?, isSelecting: Bool) -> Bool {
+        isSelecting || results?.entries.isEmpty == true
+    }
+
     @Environment(CatalogModel.self) private var model: CatalogModel?
 
     public init() {}
@@ -30,6 +46,35 @@ public struct CatalogScreen: View {
         }
     }
 }
+
+#if os(macOS)
+    extension CatalogScreen {
+        /// What fills the block under the catalog's title on the Mac.
+        enum MacHeadBlock: Equatable {
+            case selectionBar
+            case filterRow
+            /// Nothing to show, with the block's height kept.
+            case reserved
+        }
+
+        /// The block under the title: the selection bar while selecting, else the filter row,
+        /// else empty room of the same height, so entering selection never moves the rows. An
+        /// empty catalog has no rows to keep still and shows nothing there.
+        nonisolated static func macHeadBlock(isSelecting: Bool, showsFilterRow: Bool, hasTunes: Bool) -> MacHeadBlock? {
+            if isSelecting { return .selectionBar }
+            if showsFilterRow { return .filterRow }
+            return hasTunes ? .reserved : nil
+        }
+
+        /// The selection bar's height: the filter row's, as last laid out, where one shows, so a
+        /// row wrapped to two lines gives the bar its room and entering selection never moves
+        /// the rows.
+        nonisolated static func macSelectionBarHeight(showsFilterRow: Bool, filterRowHeight: CGFloat?) -> CGFloat {
+            guard showsFilterRow, let filterRowHeight else { return MacStyle.columnBarHeight }
+            return max(MacStyle.columnBarHeight, filterRowHeight)
+        }
+    }
+#endif
 
 private struct CatalogContent: View {
     @Bindable var model: CatalogModel
@@ -48,6 +93,12 @@ private struct CatalogContent: View {
     @State private var showsImport = false
     @State private var isShown = false
     @State private var selection = TuneSelection()
+    #if os(macOS)
+        /// This screen's own Select tunes, never taken for another window's.
+        @State private var selectActionID = UUID()
+        /// The filter row's height as last laid out, which the selection bar keeps in its place.
+        @State private var filterRowHeight: CGFloat?
+    #endif
     @AccessibilityFocusState private var focusedRow: String?
     @FocusState private var searchFocused: Bool
     @Namespace private var zoom
@@ -77,19 +128,24 @@ private struct CatalogContent: View {
                 .listStyle(.plain)
             #endif
             #if os(macOS)
-                // The search and the catalog's own actions share one pane bar. A selection's
-                // actions take the actions' place while it lasts; the search stays.
-                .paneBar {
+                // The search and the catalog's own actions share one pane bar, which stays as it
+                // is while selecting so nothing in it moves; the selection's actions are in the
+                // list's selection bar.
+                .paneBar(slot: CatalogScreen.paneSlot) {
                     searchField
                 } _: {
-                    if !selection.isActive {
+                    Group {
                         addButton.labelStyle(.iconOnly).help(CatalogScreen.addTune)
-                        if results?.visible.isEmpty == false {
-                            selectButton.labelStyle(.iconOnly).help(TuneRowActions.select)
-                        }
+                        moreMenu.help(TuneScreen.moreActions)
+                    }
+                    .disabled(selection.isActive)
+                }
+                .columnTitled(macTitle)
+                .overlay {
+                    if CatalogScreen.isEmptyCatalog(results, query: model.query) {
+                        MacEmptyCatalog(onAdd: { form = model.newTune() }, onImport: { showsImport = true })
                     }
                 }
-                .columnTitled(title, alwaysShown: selection.isActive)
             #else
                 .searchable(
                     text: $model.query, placement: .navigationBarDrawer(displayMode: .always),
@@ -117,6 +173,16 @@ private struct CatalogContent: View {
             .sheet(isPresented: $showsFilters) {
                 CatalogFilterSheet(model: model)
             }
+            #if DEBUG
+                .opensForSample(.catalogFilters) { showsFilters = true }
+                .opensForSample(.catalogSetFilters) {
+                    model.updateFilters {
+                        $0[.key] = "D"
+                        $0[.genre] = "Old-time"
+                        $0.archived = true
+                    }
+                }
+            #endif
             .sheet(isPresented: $showsImport) {
                 ImportSheet(entry: .emptyCatalog)
             }
@@ -146,6 +212,15 @@ private struct CatalogContent: View {
                     isShown: isShown, sheetsOpen: openSheets?.isCovered == true, selecting: selection.isActive)
                     ? chosenSort : nil
             )
+            #if os(macOS)
+                .focusedSceneValue(
+                    \.selectTunesAction,
+                    MenuGates.select(
+                        isShown: isShown, sheetsOpen: openSheets?.isCovered == true, selecting: selection.isActive,
+                        hasRows: results?.visible.isEmpty == false)
+                        ? MenuAction(id: selectActionID) { selection.enter() } : nil
+                )
+            #endif
             .focusedSceneValue(
                 \.findAction,
                 MenuGates.find(isShown: isShown, sheetsOpen: openSheets?.isCovered == true)
@@ -157,9 +232,44 @@ private struct CatalogContent: View {
             .onChange(of: model.catalogRevision) { announceCount() }
     }
 
-    private var title: String {
-        selection.isActive ? TuneSelection.title(selection.ids.count) : Destination.catalog.title
+    /// Whether the empty catalog's onboarding stands in for the list's own empty state, as it
+    /// does on the Mac.
+    private static func onboards(_ results: CatalogResults, query: String) -> Bool {
+        #if os(macOS)
+            CatalogScreen.isEmptyCatalog(results, query: query)
+        #else
+            false
+        #endif
     }
+
+    /// Whether the selection bar stands in for the filter row, as it does on the Mac.
+    private static func selectionBarShows(_ selection: TuneSelection) -> Bool {
+        #if os(macOS)
+            selection.isActive
+        #else
+            false
+        #endif
+    }
+
+    private func showsFilterRow(_ results: CatalogResults) -> Bool {
+        #if os(macOS)
+            CatalogFilterRow.isShown(
+                results, hasErrors: model.filterError != nil || model.actionError != nil)
+        #else
+            true
+        #endif
+    }
+
+    #if os(iOS)
+        private var title: String {
+            selection.isActive ? TuneSelection.title(selection.ids.count) : Destination.catalog.title
+        }
+    #else
+        /// The column title, which counts the selection in its place.
+        private var macTitle: String {
+            selection.isActive ? TuneSelection.selectedTitle(selection.ids.count) : Destination.catalog.title
+        }
+    #endif
 
     /// The filter row's status choices. The Mac's sidebar sets status, so its row has none.
     private var statusChoices: [StatusScope.Choice]? {
@@ -175,7 +285,9 @@ private struct CatalogContent: View {
             FilterSearchField(
                 prompt: CatalogScreen.searchPrompt,
                 query: $model.query, isFocused: $searchFocused,
-                filterCount: nil,
+                filterCount: CatalogFilterRow.searchFilterCount(
+                    model.results?.filters ?? CatalogFilters(), filtersInSearch: CatalogFilterRow.filtersInSearch),
+                filtersDisabled: CatalogScreen.filtersStandDown(model.results, isSelecting: selection.isActive),
                 onSubmit: submitSearch
             ) { showsFilters = true }
         }
@@ -189,18 +301,17 @@ private struct CatalogContent: View {
         Button(TuneRowActions.select, systemImage: "checkmark.circle") { selection.enter() }
     }
 
-    #if os(iOS)
-        /// The screen's More menu, an explicit menu like every other screen's, so its items keep
-        /// their order and roles.
-        private var moreMenu: some View {
-            Menu {
-                selectButton
-            } label: {
-                Label(TuneScreen.moreActions, systemImage: "ellipsis")
-                    .labelStyle(.iconOnly)
-            }
+    /// The screen's More menu, an explicit menu like every other screen's, so its items keep
+    /// their order and roles.
+    private var moreMenu: some View {
+        Menu {
+            selectButton
+                .disabled(model.results?.visible.isEmpty != false)
+        } label: {
+            Label(TuneScreen.moreActions, systemImage: "ellipsis")
+                .labelStyle(.iconOnly)
         }
-    #endif
+    }
 
     private func announceCount() {
         // Asked even while hidden, so a tab coming back reads out only what changes after.
@@ -214,25 +325,50 @@ private struct CatalogContent: View {
                 $selection, visible: results?.visible.map(\.tune.id) ?? [], detailTune: detailTune)
         ) {
             #if os(macOS)
-                ColumnTitle(Destination.catalog.title)
-                    .listRowInsets(MacStyle.columnRowInsets(top: MacStyle.columnTitleTop))
+                ColumnTitle(macTitle)
+                    .columnTitleBaseline(.insetList)
+                    .listRowInsets(MacStyle.columnRowInsets())
                     .plainListRow()
+                switch CatalogScreen.macHeadBlock(
+                    isSelecting: selection.isActive, showsFilterRow: results.map(showsFilterRow) ?? false,
+                    hasTunes: results?.entries.isEmpty == false)
+                {
+                case .selectionBar:
+                    SelectionBarSlot()
+                        .frame(
+                            minHeight: CatalogScreen.macSelectionBarHeight(
+                                showsFilterRow: results.map(showsFilterRow) ?? false, filterRowHeight: filterRowHeight),
+                            alignment: .top
+                        )
+                        .listRowInsets(MacStyle.columnBarInsets)
+                        .plainListRow()
+                case .reserved:
+                    Color.clear
+                        .frame(height: MacStyle.columnBarHeight)
+                        .listRowInsets(MacStyle.columnBarInsets)
+                        .plainListRow()
+                        .accessibilityHidden(true)
+                case .filterRow, nil:
+                    EmptyView()
+                }
             #endif
-            if let results {
+            if let results, showsFilterRow(results), !Self.selectionBarShows(selection) {
                 CatalogFilterRow(
                     results: results, model: model, statusChoices: statusChoices, isSelecting: selection.isActive
                 ) {
                     showsFilters = true
                 }
                 #if os(macOS)
-                    .listRowInsets(MacStyle.columnRowInsets(top: 6, bottom: 6))
+                    .frame(minHeight: MacStyle.columnBarHeight)
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { filterRowHeight = $0 }
+                    .listRowInsets(MacStyle.columnBarInsets)
                 #else
                     .listRowInsets(
                         EdgeInsets(top: spacing.stackGap, leading: 16, bottom: spacing.stackGap, trailing: 16))
                 #endif
                 .plainListRow()
             }
-            if let results, results.visible.isEmpty {
+            if let results, results.visible.isEmpty, !Self.onboards(results, query: model.query) {
                 emptyState(results)
                     .frame(maxWidth: .infinity)
                     .padding(.top, spacing(48))
@@ -268,6 +404,13 @@ private struct CatalogContent: View {
             if detailTune != nil || selection.isActive {
                 // The list's selection drives the detail column, or is the selection.
                 tuneRow
+                    #if os(macOS)
+                        .selectionCheckbox(
+                            selection.isActive, title: entry.tune.title,
+                            isOn: TuneSelection.checkbox($selection, row: entry.tune.id) {
+                                model.results?.visible.map(\.tune.id) ?? []
+                            })
+                    #endif
             } else {
                 Button {
                     open(entry.tune.id)
@@ -293,6 +436,9 @@ private struct CatalogContent: View {
             onSelect: { selection.enter(with: entry.tune.id) }
         )
         .accessibilityFocused($focusedRow, equals: entry.tune.id)
+        #if os(macOS)
+            .macRowSelected(TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune))
+        #endif
         .tag(entry.tune.id)
     }
 
@@ -428,3 +574,45 @@ struct PushesTune: ViewModifier {
         }
     }
 }
+
+#if os(macOS)
+    extension CatalogScreen {
+        /// The pane bar's trailing slot: Add tune and the More menu. Its width never changes, so
+        /// the search field beside it keeps one width.
+        static let paneSlot = PaneBarLayout.slotWidth(icons: 2)
+    }
+
+    /// The first run's one empty state: what the catalog is for, and the two ways to fill it.
+    private struct MacEmptyCatalog: View {
+        let onAdd: () -> Void
+        let onImport: () -> Void
+
+        var body: some View {
+            VStack(spacing: 0) {
+                Image(systemName: Destination.catalog.systemImage)
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundStyle(MacPalette.inkSecondary)
+                    .padding(.bottom, 12)
+                    .accessibilityHidden(true)
+                Text(CatalogScreen.noTunesTitle)
+                    .font(MacStyle.sectionHeading)
+                    .foregroundStyle(MacPalette.ink)
+                    .padding(.bottom, 4)
+                Text(CatalogScreen.noTunesHint)
+                    .font(MacStyle.body)
+                    .foregroundStyle(MacPalette.inkSecondary)
+                    .frame(maxWidth: 260)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.bottom, 16)
+                HStack(spacing: 8) {
+                    Button(CatalogScreen.addTune, action: onAdd)
+                        .buttonStyle(.macPrimary)
+                    Button(CatalogScreen.importTunesMac, action: onImport)
+                        .buttonStyle(.macPlain)
+                }
+            }
+            .multilineTextAlignment(.center)
+            .padding(24)
+        }
+    }
+#endif

@@ -23,12 +23,12 @@ public struct ListRow: View {
         VStack(alignment: .leading, spacing: spacing.rowLineGap) {
             Text(summary.name)
                 .contentMask()
-                .font(.headline)
+                .font(.platform(.headline))
                 .rowLineLimit()
             Text(Self.detail(count: summary.count, edited: summary.lastEditedAt))
-                .font(.subheadline)
+                .font(.platform(.subheadline))
                 .monospacedDigit()
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
                 .rowLineLimit()
         }
         .accessibilityElement(children: .combine)

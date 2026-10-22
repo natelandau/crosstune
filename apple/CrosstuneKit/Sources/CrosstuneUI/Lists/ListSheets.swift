@@ -51,6 +51,9 @@ struct ListSheets: ViewModifier {
             .sheet(item: $picking) { request in
                 ListPickerSheet(request: request)
             }
+            #if DEBUG
+                .opensForSample(.listNew) { naming = .new }
+            #endif
     }
 
     /// The tune screen's actions as set further out, with Add to list opening the picker.

@@ -64,6 +64,8 @@ public enum MenuCommand {
     public static let goToRecording = "Go to recording"
     /// The View menu's choice of how the screen on show is sorted.
     public static let sortBy = "Sort By"
+    /// The View menu's way into the showing column's selection.
+    public static let selectTunes = "Select tunes"
     public static let skipBack = RecordingPlayerText.skipBack(AudioPlayer.skipInterval)
     public static let skipForward = RecordingPlayerText.skipForward(AudioPlayer.skipInterval)
 }
@@ -103,6 +105,9 @@ extension FocusedValues {
     @Entry public var showRecordingsAction: MenuAction?
     /// How the recordings are sorted. Published by the recordings screen while it shows.
     @Entry public var recordingsSort: Binding<RecordingSortChoice>?
+    /// Enters the showing column's selection. Published on the Mac by the catalog and a list
+    /// while they have tunes to select.
+    @Entry public var selectTunesAction: MenuAction?
     /// How the catalog is sorted. Published by the catalog screen while it shows.
     @Entry public var catalogSort: Binding<CatalogSortChoice>?
 }

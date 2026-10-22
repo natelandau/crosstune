@@ -99,7 +99,9 @@ private struct UpdatePrompt: ViewModifier {
     let session: AccountSession?
 
     @Environment(\.appStoreURL) private var appStoreURL
-    @Environment(\.openURL) private var openURL
+    #if os(iOS)
+        @Environment(\.openURL) private var openURL
+    #endif
     @Environment(\.scenePhase) private var scenePhase
     #if os(macOS)
         /// Every visible Mac window reads active, so only the key window counts as active here.
@@ -135,15 +137,21 @@ private struct UpdatePrompt: ViewModifier {
     func body(content: Content) -> some View {
         content
             .environment(\.askForUpdate, AskForUpdate(session: session, claim: claim, window: window))
-            .coversShell(shows)
-            .alert(UpdatePromptText.title, isPresented: isPresented) {
-                if let appStoreURL {
-                    Button(UpdatePromptText.update) { openURL(appStoreURL) }
+            #if os(macOS)
+                .sheet(isPresented: isPresented) {
+                    UpdatePromptSheet(appStoreURL: appStoreURL)
                 }
-                Button(UpdatePromptText.notNow, role: .cancel) {}
-            } message: {
-                Text(UpdatePromptText.message)
-            }
+            #else
+                .coversShell(shows)
+                .alert(UpdatePromptText.title, isPresented: isPresented) {
+                    if let appStoreURL {
+                        Button(UpdatePromptText.update) { openURL(appStoreURL) }
+                    }
+                    Button(UpdatePromptText.notNow, role: .cancel) {}
+                } message: {
+                    Text(UpdatePromptText.message)
+                }
+            #endif
             .onChange(of: due) { judge() }
             .onChange(of: isActive) { judge() }
             // A claim let go may be this window's turn.
@@ -153,9 +161,56 @@ private struct UpdatePrompt: ViewModifier {
                 claim.release(ObjectIdentifier(window))
                 shows = false
             }
+            #if DEBUG
+                .opensForSample(.updatePrompt) { shows = true }
+            #endif
     }
 
     private func judge() {
         shows = claim.shows(ObjectIdentifier(window), due: due, isActive: isActive)
     }
 }
+
+#if os(macOS)
+    /// The update prompt as a Mac notice: the mark, the title, and why, with Update the primary
+    /// and Not Now beside it.
+    struct UpdatePromptSheet: View {
+        let appStoreURL: URL?
+
+        @Environment(\.dismiss) private var dismiss
+        @Environment(\.openURL) private var openURL
+
+        /// Update as the default primary and Not Now as Cancel, or Not Now alone as the primary
+        /// when there is no App Store page to update from.
+        static func footer(
+            canUpdate: Bool, update: @escaping @MainActor () -> Void, notNow: @escaping @MainActor () -> Void
+        ) -> MacSheetFooter {
+            guard canUpdate else {
+                return MacSheetFooter(primary: .init(UpdatePromptText.notNow, action: notNow), escape: notNow)
+            }
+            let primary = MacSheetAction(UpdatePromptText.update) {
+                update()
+                notNow()
+            }
+            return MacSheetFooter(cancel: .cancel(UpdatePromptText.notNow, action: notNow), primary: primary)
+        }
+
+        var body: some View {
+            let footer = Self.footer(
+                canUpdate: appStoreURL != nil,
+                update: { if let appStoreURL { openURL(appStoreURL) } },
+                notNow: { dismiss() })
+            MacSheet(
+                title: UpdatePromptText.title, style: .notice, size: .fitted(.standard), cancel: footer.cancel,
+                primary: footer.primary,
+                escape: footer.escape
+            ) {
+                Text(UpdatePromptText.message)
+                    .font(MacStyle.body)
+                    .foregroundStyle(MacPalette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .shellSheet()
+        }
+    }
+#endif

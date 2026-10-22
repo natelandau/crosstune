@@ -56,8 +56,8 @@ struct ListPlayControls: View {
             .disabled(disabled)
             Button(action: offer.onWhatPlays) {
                 Text(ListPlayText.line(for: offer.report))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(.platform(.footnote))
+                    .foregroundStyle(.inkSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(minHeight: minimumTapTarget, alignment: .leading)
                     .contentShape(.rect)

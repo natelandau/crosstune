@@ -38,28 +38,65 @@ public struct UndoBanner: View {
     @Environment(\.spacing) private var spacing
 
     public var body: some View {
-        HStack(spacing: spacing(12)) {
-            // Messages name lists and tunes.
-            Text(message)
-                .contentMask()
-                .font(.subheadline)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Button(action: onUndo) {
-                Text(Self.undo)
-                    .font(.subheadline.weight(.semibold))
-                    .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
-                    .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.tint)
-        }
-        .padding(.leading, 20)
-        .padding(.trailing, 16)
-        .padding(.vertical, spacing(4))
-        .frame(maxWidth: 480)
-        .modifier(GlassCapsule())
+        #if os(macOS)
+            macBody
+        #else
+            touchBody
+        #endif
     }
+
+    #if os(macOS)
+        /// Ink with the ground's color for its words, fitted to them, so it reads as a passing
+        /// notice over either appearance's column.
+        private var macBody: some View {
+            HStack(spacing: 16) {
+                // Messages name lists and tunes.
+                Text(message)
+                    .contentMask()
+                    .font(MacStyle.body)
+                    .foregroundStyle(MacPalette.ground)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Button(action: onUndo) {
+                    Text(Self.undo)
+                        .font(MacStyle.body.weight(.semibold))
+                        .foregroundStyle(MacStyle.undoAction)
+                        .frame(maxHeight: .infinity)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .frame(height: MacStyle.undoBannerHeight)
+            .background(MacPalette.ink, in: .rect(cornerRadius: 10))
+            .shadow(color: .black.opacity(0.18), radius: 10, y: 3)
+            .frame(maxWidth: 480)
+        }
+    #else
+        private var touchBody: some View {
+            HStack(spacing: spacing(12)) {
+                // Messages name lists and tunes.
+                Text(message)
+                    .contentMask()
+                    .font(.platform(.subheadline, mac: .body))
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button(action: onUndo) {
+                    Text(Self.undo)
+                        .font(.platform(.subheadline, mac: .body).weight(.semibold))
+                        .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+            }
+            .padding(.leading, 20)
+            .padding(.trailing, 16)
+            .padding(.vertical, spacing(4))
+            .frame(maxWidth: 480)
+            .modifier(GlassCapsule())
+        }
+    #endif
 }
 
 extension EnvironmentValues {
@@ -92,7 +129,12 @@ private struct UndoBannerModifier: ViewModifier {
                         current.undo()
                     }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, spacing.stackGap)
+                    #if os(macOS)
+                        // Lifted clear of the column's last row and the window's corner.
+                        .padding(.bottom, 16)
+                    #else
+                        .padding(.bottom, spacing.stackGap)
+                    #endif
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                     // A newer offer is a new banner, so it transitions in rather than
                     // rewording the one on screen.

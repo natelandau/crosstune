@@ -97,9 +97,15 @@ struct SuggestionField: View {
     }
 
     private var field: some View {
-        TextField(label, text: text, prompt: kept.map { Text($0) })
+        TextField(label, text: text, prompt: prompt.map { Text($0) })
             .contentMask()
-            .multilineTextAlignment(.trailing)
+            #if os(macOS)
+                // The row's own label names the field, so the field draws only its value.
+                .labelsHidden()
+                .textFieldStyle(.macField)
+            #else
+                .multilineTextAlignment(.trailing)
+            #endif
             .focused($focused)
             .characterLimit(maxLength, text: text)
             #if os(macOS)
@@ -117,9 +123,16 @@ struct SuggestionField: View {
             #endif
     }
 
-    /// The kept field's prompt, or nil for a field with nothing kept.
-    private var kept: String? {
-        guard let keep, keep.kept else { return nil }
+    /// The field's prompt: the Keep label while kept. With nothing kept, the Mac says Not set,
+    /// since its field hides its own label, and iOS shows none.
+    private var prompt: String? {
+        guard let keep, keep.kept else {
+            #if os(macOS)
+                return TuneFieldLabels.notSet
+            #else
+                return nil
+            #endif
+        }
         return keep.label
     }
 

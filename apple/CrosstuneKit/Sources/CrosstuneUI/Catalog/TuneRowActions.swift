@@ -112,7 +112,7 @@ struct TunePreview: View {
         VStack(alignment: .leading, spacing: spacing(12)) {
             Text(entry.tune.title)
                 .contentMask()
-                .font(.title3.weight(.semibold))
+                .font(.platform(.title3).weight(.semibold))
             FlowLayout {
                 if let key = text.key {
                     KeyPill(key.key, suffix: key.suffix)
@@ -125,8 +125,8 @@ struct TunePreview: View {
                 .fixedSize()
                 ForEach(Array(details.enumerated()), id: \.offset) { Text($0.element) }
             }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .font(.platform(.subheadline))
+            .foregroundStyle(.inkSecondary)
         }
         .padding(20)
         .frame(width: 320, alignment: .leading)

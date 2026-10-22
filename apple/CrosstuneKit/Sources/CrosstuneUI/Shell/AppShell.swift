@@ -98,6 +98,11 @@ public struct AppShell: View {
             // The sheet claims the shell only once it shows; this holds the menus from the request.
             .coversShellMenus(premium?.presented != nil)
             .modifier(PlanSheets(presenter: premium, purchase: purchase))
+            #if DEBUG
+                .opensForSample(.record) { startRecording(tuneID: nil, source: .menu) }
+                .opensForSample(.plan, when: premium != nil) { premium?.present(.plan, from: .planGroup) }
+                .opensForSample(.planMember, when: premium != nil) { premium?.present(.plan, from: .planGroup) }
+            #endif
             .modifier(
                 NoticeSheets(
                     model: notices, plan: plan?.plan ?? .unknown, purchase: purchase, onSeePlan: seePlan,

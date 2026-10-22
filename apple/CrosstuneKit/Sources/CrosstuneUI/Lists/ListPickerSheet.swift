@@ -22,106 +22,203 @@ public struct ListPickerSheet: View {
         self.request = request
     }
 
+    private var title: String {
+        request.title ?? ListPickerModel.title(count: Set(request.userTuneIDs).count)
+    }
+
     public var body: some View {
-        NavigationStack {
+        #if os(macOS)
             Group {
                 if let model {
-                    ListPickerContent(model: model, onAdded: request.onAdded)
+                    ListPickerContent(model: model, title: title, onAdded: request.onAdded)
                 } else {
-                    Color.clear
+                    Color.clear.macSheetFrame(ListPickerContent.size)
                 }
             }
-            .navigationTitle(request.title ?? ListPickerModel.title(count: Set(request.userTuneIDs).count))
-            #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-            #endif
-        }
-        #if os(iOS)
-            .partHeightSheet()
-        #else
-            .macSheetFrame(.form(minHeight: 320))
             .shellSheet()
+            .task { makeModel() }
+        #else
+            NavigationStack {
+                Group {
+                    if let model {
+                        ListPickerContent(model: model, title: title, onAdded: request.onAdded)
+                    } else {
+                        Color.clear
+                    }
+                }
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+            }
+            .partHeightSheet()
+            .task { makeModel() }
         #endif
-        .task {
-            guard model == nil, let store else { return }
-            model = ListPickerModel(
-                store: store, userTuneIDs: request.userTuneIDs, excludeListID: request.excludeListID,
-                analytics: analytics)
-        }
+    }
+
+    private func makeModel() {
+        guard model == nil, let store else { return }
+        model = ListPickerModel(
+            store: store, userTuneIDs: request.userTuneIDs, excludeListID: request.excludeListID,
+            analytics: analytics)
     }
 }
 
 private struct ListPickerContent: View {
     @Bindable var model: ListPickerModel
+    let title: String
     let onAdded: (@MainActor (ListAddition) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @State private var creating = false
     @FocusState private var nameFocused: Bool
 
-    var body: some View {
-        Form {
-            if model.isLoaded {
-                Section {
-                    ForEach(model.rows) { row in
-                        Button {
-                            finish { await model.add(to: row) }
-                        } label: {
-                            HStack {
-                                Text(row.name)
-                                    .contentMask()
-                                    .rowLineLimit()
-                                Spacer()
-                                if let note = row.note {
-                                    Text(note)
-                                        .monospacedDigit()
-                                        .foregroundStyle(.secondary)
+    #if os(macOS)
+        static let size = MacSheetSize.fitted(max: 520)
+
+        var body: some View {
+            MacSheet(
+                title: title, size: Self.size,
+                cancel: .cancel(ListPickerSheet.cancel, isEnabled: !model.isPending) { dismiss() }, primary: nil
+            ) {
+                VStack(alignment: .leading, spacing: 2) {
+                    if model.isLoaded {
+                        ForEach(model.rows) { row in
+                            Button {
+                                finish { await model.add(to: row) }
+                            } label: {
+                                HStack(spacing: 8) {
+                                    MacPickGlyph(kind: glyph(row))
+                                    Text(row.name)
+                                        .contentMask()
+                                        .rowLineLimit()
+                                    Spacer(minLength: 8)
+                                    if let note = row.note {
+                                        Text(note)
+                                            .font(MacStyle.secondary)
+                                            .monospacedDigit()
+                                            .foregroundStyle(MacPalette.inkSecondary)
+                                    }
                                 }
                             }
-                            .contentShape(.rect)
+                            .buttonStyle(.macPickRow)
+                            .disabled(!row.isOffered || model.isPending)
                         }
-                        .buttonStyle(.plain)
-                        .disabled(!row.isOffered || model.isPending)
-                    }
-                    newList
-                } footer: {
-                    if let failure = model.failure {
-                        Text(failure)
-                            .foregroundStyle(.red)
+                        macNewList
+                        if let failure = model.failure {
+                            FailureText(failure)
+                                .padding(.top, 4)
+                        }
                     }
                 }
             }
+            .interactiveDismissDisabled(model.isPending)
         }
-        .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button(ListPickerSheet.cancel) { dismiss() }
+
+        /// + for a list the pick adds to, a check for one that already holds every tune.
+        private func glyph(_ row: ListPickerModel.Row) -> MacPickGlyph.Kind {
+            guard row.note != nil else { return .none }
+            return row.isOffered ? .add : .done
+        }
+
+        @ViewBuilder private var macNewList: some View {
+            if creating {
+                HStack(spacing: 8) {
+                    MacPickGlyph(kind: .add)
+                    newListField
+                    Button(ListNameSheet.create, action: create)
+                        .buttonStyle(.macSecondary)
+                        .disabled(
+                            model.newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isPending)
+                }
+                .padding(.horizontal, 8)
+                .padding(.top, 4)
+                .onAppear { nameFocused = true }
+            } else {
+                Button {
+                    creating = true
+                } label: {
+                    HStack(spacing: 8) {
+                        MacPickGlyph(kind: .add)
+                        Text(ListPickerSheet.newListItem)
+                    }
+                }
+                .buttonStyle(.macPickRow)
+                .disabled(model.isPending)
+            }
+        }
+    #endif
+
+    private var newListField: some View {
+        TextField(ListPickerSheet.newListNameLabel, text: $model.newName, prompt: Text(ListNameSheet.placeholder))
+            .contentMask()
+            #if os(macOS)
+                .labelsHidden()
+                .textFieldStyle(.macField)
+            #endif
+            .characterLimit(Vocabulary.Limits.List.name, text: $model.newName)
+            .focused($nameFocused)
+            .submitLabel(.done)
+            .onSubmit(create)
+    }
+
+    #if os(iOS)
+        var body: some View {
+            Form {
+                if model.isLoaded {
+                    Section {
+                        ForEach(model.rows) { row in
+                            Button {
+                                finish { await model.add(to: row) }
+                            } label: {
+                                HStack {
+                                    Text(row.name)
+                                        .contentMask()
+                                        .rowLineLimit()
+                                    Spacer()
+                                    if let note = row.note {
+                                        Text(note)
+                                            .monospacedDigit()
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .contentShape(.rect)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(!row.isOffered || model.isPending)
+                        }
+                        newList
+                    } footer: {
+                        if let failure = model.failure {
+                            Text(failure)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(ListPickerSheet.cancel) { dismiss() }
+                        .disabled(model.isPending)
+                }
+            }
+            .interactiveDismissDisabled(model.isPending)
+        }
+
+        @ViewBuilder private var newList: some View {
+            if creating {
+                HStack {
+                    newListField
+                    Button(ListNameSheet.create, action: create)
+                        .disabled(
+                            model.newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isPending)
+                }
+                .onAppear { nameFocused = true }
+            } else {
+                Button(ListPickerSheet.newListItem) { creating = true }
                     .disabled(model.isPending)
             }
         }
-        .interactiveDismissDisabled(model.isPending)
-    }
-
-    @ViewBuilder private var newList: some View {
-        if creating {
-            HStack {
-                TextField(
-                    ListPickerSheet.newListNameLabel, text: $model.newName, prompt: Text(ListNameSheet.placeholder)
-                )
-                .contentMask()
-                .characterLimit(Vocabulary.Limits.List.name, text: $model.newName)
-                .focused($nameFocused)
-                .submitLabel(.done)
-                .onSubmit(create)
-                Button(ListNameSheet.create, action: create)
-                    .disabled(model.newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isPending)
-            }
-            .onAppear { nameFocused = true }
-        } else {
-            Button(ListPickerSheet.newListItem) { creating = true }
-                .disabled(model.isPending)
-        }
-    }
+    #endif
 
     private func create() {
         finish { await model.create() }

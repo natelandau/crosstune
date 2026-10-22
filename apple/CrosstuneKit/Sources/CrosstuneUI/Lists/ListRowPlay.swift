@@ -201,7 +201,7 @@ struct ListRowPlayButton: View {
         case nil:
             Image(systemName: "circle.slash")
                 .font(glyphFont)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
                 .frame(minWidth: slot, minHeight: slot)
                 .accessibilityHidden(true)
         case .inert?:

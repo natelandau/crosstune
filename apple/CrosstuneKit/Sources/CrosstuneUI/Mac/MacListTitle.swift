@@ -2,126 +2,96 @@
     import CrosstuneCommands
     import SwiftUI
 
-    /// A list column's head: the list's name as the column title with Play, Shuffle, and the
-    /// list's own `actions` trailing on its line, then the line that says how many of its tunes
-    /// will play and opens the sheet that says why the rest will not. `play` is nil while the
-    /// list cannot offer playing at all, such as while it is empty or selecting.
-    struct MacListTitle<Actions: View>: View {
+    /// A list column's head: the list's name as the column title, then one slot under it that
+    /// holds the line that says how many of its tunes will play (which opens the sheet that says
+    /// why the rest will not), the selection bar while selecting, or nothing. The slot is one
+    /// height whatever it holds, so the rows never move when selection starts or the line goes.
+    /// `play` is nil while the list cannot offer playing at all, such as while it is empty.
+    struct MacListTitle: View {
         let name: String
         let play: ListPlayOffer?
-        @ViewBuilder let actions: Actions
+        let isSelecting: Bool
+
+        /// The slot's height: the selection bar's row, the same block the catalog's filter row
+        /// takes under its title.
+        static var slotHeight: CGFloat {
+            MacStyle.columnBarInsets.top + MacStyle.columnBarHeight + MacStyle.columnBarInsets.bottom
+        }
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 2) {
-                TitleLine {
-                    ColumnTitle(name)
-                    HStack(spacing: 8) {
-                        if let play {
-                            Group {
-                                Button(action: play.onPlay) {
-                                    Label(ListPlayText.play, systemImage: "play.fill")
-                                }
-                                .buttonStyle(ProminentPaneButtonStyle())
-                                Button(action: play.onShuffle) {
-                                    Label(ListPlayText.shuffle, systemImage: "shuffle")
-                                }
-                                .buttonStyle(PaneButtonStyle())
-                            }
-                            .labelStyle(.titleAndIcon)
-                            .disabled(play.report.playable.isEmpty || !play.canStart)
-                        }
-                        actions.paneControls()
+            VStack(alignment: .leading, spacing: 0) {
+                ColumnTitle(name)
+                    .columnTitleBaseline(.insetList)
+                // The clear fill holds the slot's height while it holds nothing.
+                ZStack(alignment: .topLeading) {
+                    Color.clear
+                    if isSelecting {
+                        SelectionBarSlot()
+                            .padding(.top, MacStyle.columnBarInsets.top)
+                    } else if let play {
+                        playLine(play)
+                            .padding(.top, 4)
                     }
-                    .fixedSize()
                 }
-                if let play {
-                    Button(action: play.onWhatPlays) {
-                        Text(ListPlayText.line(for: play.report))
-                            .font(MacStyle.secondary)
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                            .contentShape(.rect)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint(ListPlayText.whatPlaysHint)
-                }
+                .frame(height: Self.slotHeight)
             }
+        }
+
+        private func playLine(_ play: ListPlayOffer) -> some View {
+            Button(action: play.onWhatPlays) {
+                HStack(spacing: 4) {
+                    Text(ListPlayText.line(for: play.report))
+                        .monospacedDigit()
+                    // Says the line opens more, since it reads as a plain caption.
+                    Image(systemName: "info.circle")
+                        .accessibilityHidden(true)
+                }
+                .font(MacStyle.secondary.weight(.medium))
+                .contentShape(.rect)
+            }
+            .buttonStyle(WhatPlaysLineStyle())
+            .help(ListPlayText.whatPlaysHint)
         }
     }
 
-    /// The column title with its controls trailing on the same line, or under it once the
-    /// title would have to truncate to keep them there.
-    private struct TitleLine: Layout {
-        private static let spacing: CGFloat = 12
-        private static let lineGap: CGFloat = 6
-
-        func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-            guard let title = subviews.first else { return .zero }
-            let titleIdeal = title.sizeThatFits(.unspecified)
-            guard subviews.count > 1 else {
-                return CGSize(
-                    width: proposal.width ?? titleIdeal.width,
-                    height: title.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil)).height)
-            }
-            let trailing = subviews[1].sizeThatFits(.unspecified)
-            let oneLine = titleIdeal.width + Self.spacing + trailing.width
-            let width = proposal.width ?? oneLine
-            if oneLine <= width {
-                return CGSize(width: width, height: max(titleIdeal.height, trailing.height))
-            }
-            let titleHeight = title.sizeThatFits(ProposedViewSize(width: width, height: nil)).height
-            return CGSize(width: width, height: titleHeight + Self.lineGap + trailing.height)
-        }
-
-        func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-            guard let title = subviews.first else { return }
-            guard subviews.count > 1 else {
-                title.place(
-                    at: bounds.origin, proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
-                return
-            }
-            let titleIdeal = title.sizeThatFits(.unspecified)
-            let trailing = subviews[1].sizeThatFits(.unspecified)
-            if titleIdeal.width + Self.spacing + trailing.width <= bounds.width {
-                title.place(
-                    at: CGPoint(x: bounds.minX, y: bounds.midY), anchor: .leading,
-                    proposal: ProposedViewSize(width: bounds.width - trailing.width - Self.spacing, height: nil))
-                subviews[1].place(
-                    at: CGPoint(x: bounds.maxX, y: bounds.midY), anchor: .trailing, proposal: .unspecified)
-            } else {
-                let titleHeight = title.sizeThatFits(ProposedViewSize(width: bounds.width, height: nil)).height
-                title.place(at: bounds.origin, proposal: ProposedViewSize(width: bounds.width, height: titleHeight))
-                subviews[1].place(
-                    at: CGPoint(x: bounds.minX, y: bounds.minY + titleHeight + Self.lineGap), proposal: .unspecified)
-            }
-        }
-    }
-
-    /// A pane control that leads its set: a slate capsule at the pane bar's
-    /// height. A bordered prominent button's bezel keeps its own height whatever the frame.
-    struct ProminentPaneButtonStyle: ButtonStyle {
+    /// The play line's look: secondary ink, ink under the pointer.
+    private struct WhatPlaysLineStyle: ButtonStyle {
         func makeBody(configuration: Configuration) -> some View {
-            ProminentPaneButtonBody(configuration: configuration)
+            WhatPlaysLineBody(configuration: configuration)
         }
     }
 
-    private struct ProminentPaneButtonBody: View {
+    private struct WhatPlaysLineBody: View {
         let configuration: ButtonStyle.Configuration
 
-        @Environment(\.isEnabled) private var isEnabled
-        @Environment(\.colorScheme) private var scheme
+        @State private var isHovered = false
 
         var body: some View {
             configuration.label
-                .font(MacStyle.body.weight(.semibold))
-                .lineLimit(1)
-                .foregroundStyle(MacStyle.onAccent(scheme))
-                .padding(.horizontal, 12)
-                .frame(minWidth: MacStyle.paneIconWidth)
-                .frame(height: MacStyle.paneControlHeight)
-                .background(MacStyle.accent, in: .capsule)
-                .contentShape(.capsule)
-                .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.4)
+                .foregroundStyle(isHovered ? MacPalette.ink : MacPalette.inkSecondary)
+                .opacity(configuration.isPressed ? 0.6 : 1)
+                .onHover { isHovered = $0 }
+        }
+    }
+
+    /// A list's Play and Shuffle, leading its pane bar's controls: Play the column's one primary
+    /// action, Shuffle secondary.
+    struct MacListPlayButtons: View {
+        let play: ListPlayOffer
+
+        var body: some View {
+            Group {
+                Button(action: play.onPlay) {
+                    Label(ListPlayText.play, systemImage: "play.fill")
+                }
+                .buttonStyle(.macPrimary)
+                Button(action: play.onShuffle) {
+                    Label(ListPlayText.shuffle, systemImage: "shuffle")
+                }
+                .buttonStyle(.macSecondary)
+            }
+            .labelStyle(.titleAndIcon)
+            .disabled(play.report.playable.isEmpty || !play.canStart)
         }
     }
 #endif

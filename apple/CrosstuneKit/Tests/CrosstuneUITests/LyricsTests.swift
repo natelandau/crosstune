@@ -57,6 +57,22 @@ import Testing
         #expect(Set(sizes).count == sizes.count)
     }
 
+    @Test func lyricsReaderOffersLargerAndSmallerText() throws {
+        #expect(LyricsSize.canShrink(LyricsSize.defaultStep))
+        #expect(LyricsSize.canGrow(LyricsSize.defaultStep))
+        #expect(!LyricsSize.canShrink(1))
+        #expect(!LyricsSize.canGrow(LyricsSize.steps))
+        #if os(macOS)
+            // Both sit in the reader's own header, where a toolbar overflow can never hide one.
+            let file = SourceScan.sources.appending(path: "Lyrics/LyricsReader.swift")
+            let mac = SourceScan.macOSRegions(of: SourceScan.withoutComments(try SourceScan.text(at: file)))
+            #expect(mac.contains("LyricsReader.smallerText"))
+            #expect(mac.contains("LyricsReader.largerText"))
+            #expect(mac.contains("MacSheet("))
+            #expect(!mac.contains("ToolbarItem"))
+        #endif
+    }
+
     @Test func clampsAnOutOfRangeStepBeforeSizingIt() {
         #expect(LyricsSize.pointSize(for: 0) == LyricsSize.pointSize(for: 1))
         #expect(LyricsSize.pointSize(for: 99) == LyricsSize.pointSize(for: LyricsSize.steps))

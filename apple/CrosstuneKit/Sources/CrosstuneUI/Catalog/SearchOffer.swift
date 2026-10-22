@@ -28,7 +28,7 @@ struct HiddenMatchNote: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(match.note)
                 .contentMask()
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
             Button {
                 onOpen(match.entry.tune.id)
             } label: {
@@ -42,6 +42,6 @@ struct HiddenMatchNote: View {
             .foregroundStyle(.tint)
             .accessibilityLabel(match.openName)
         }
-        .font(.footnote)
+        .font(.platform(.footnote))
     }
 }

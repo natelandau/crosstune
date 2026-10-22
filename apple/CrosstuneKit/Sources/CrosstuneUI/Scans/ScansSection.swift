@@ -4,6 +4,10 @@ import SwiftUI
 enum ScansSection {
     private static let compactThumbnailHeight: CGFloat = 120
     static let rowThumbnailHeight: CGFloat = 44
+    #if os(macOS)
+        static let macCornerRadius: CGFloat = 6
+        static let darkDimming = 0.12
+    #endif
 
     /// The page's thumbnail height: taller at regular width on iOS, where the page has room.
     static func thumbnailHeight(regular: Bool) -> CGFloat {
@@ -56,9 +60,17 @@ struct ScanHeaderControls: View {
         let layout = model.layout
         HStack(spacing: spacing(4)) {
             if layout.showsEdit {
-                Button(editing ? ScanCopy.done : ScanCopy.edit) { editing.toggle() }
-                    .font(.body)
-                    .accessibilityLabel(editing ? ScanCopy.doneEditingScans : ScanCopy.editScans)
+                #if os(macOS)
+                    // A glyph like the Notes heading's pencil, so a page has one edit idiom.
+                    let name = editing ? ScanCopy.doneEditingScans : ScanCopy.editScans
+                    Button(name, systemImage: editing ? "checkmark" : "pencil") { editing.toggle() }
+                        .labelStyle(.iconOnly)
+                        .help(name)
+                #else
+                    Button(editing ? ScanCopy.done : ScanCopy.edit) { editing.toggle() }
+                        .font(.platform(.body))
+                        .accessibilityLabel(editing ? ScanCopy.doneEditingScans : ScanCopy.editScans)
+                #endif
             }
             ScanAddMenu(
                 isEnabled: layout.canAdd && !model.isAdding && (!layout.gatesAdd || premium != nil),
@@ -116,7 +128,7 @@ struct ScanStrip: View {
                 ScansSection.tap(opens: opens, tuneID: tuneID, index: index, actions: actions, premium: premium)
             } label: {
                 ScanThumbnail(scan: scan, index: index, height: height)
-                    .clipShape(.rect(cornerRadius: 6))
+                    .scanThumbnailEdge(cornerRadius: 6)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
@@ -126,8 +138,8 @@ struct ScanStrip: View {
             .accessibilityHint(status ?? "")
             if let status {
                 Text(status)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.platform(.caption))
+                    .foregroundStyle(.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityHidden(true)
             }
@@ -157,15 +169,15 @@ struct ScanEditRows: View {
         let status = ScanCopy.status(for: scan)
         return HStack(spacing: spacing(12)) {
             ScanThumbnail(scan: scan, index: index, height: ScansSection.rowThumbnailHeight)
-                .clipShape(.rect(cornerRadius: 4))
+                .scanThumbnailEdge(cornerRadius: 4)
                 .opacity(layout.dimsScans ? MediaRow.dimmedOpacity : 1)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: spacing.rowLineGap) {
                 Text(ScanCopy.scan(index))
                 if let status {
                     Text(status)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(.platform(.footnote))
+                        .foregroundStyle(.inkSecondary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -208,5 +220,33 @@ struct ScanEditRows: View {
         #if os(macOS)
             .help(ScanCopy.reorderScan(index))
         #endif
+    }
+}
+
+/// A thumbnail's rounded corners. On the Mac a hairline holds a white page's edge on the white
+/// page behind it, every thumbnail shares one radius, and dark mode dims the paper a little so
+/// it does not glare.
+private struct ScanThumbnailEdge: ViewModifier {
+    let cornerRadius: CGFloat
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        #if os(macOS)
+            let shape = RoundedRectangle(cornerRadius: ScansSection.macCornerRadius)
+            content
+                .overlay { Color.black.opacity(colorScheme == .dark ? ScansSection.darkDimming : 0) }
+                .clipShape(shape)
+                .overlay { shape.strokeBorder(MacPalette.hairline, lineWidth: 1) }
+        #else
+            content.clipShape(.rect(cornerRadius: cornerRadius))
+        #endif
+    }
+}
+
+extension View {
+    /// Rounds a scan thumbnail, `cornerRadius` off the Mac.
+    fileprivate func scanThumbnailEdge(cornerRadius: CGFloat) -> some View {
+        modifier(ScanThumbnailEdge(cornerRadius: cornerRadius))
     }
 }

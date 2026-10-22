@@ -303,6 +303,33 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(TunePage.facetLine(detail(tune)) == "major · Reel · Old-time · 2/4 · Crooked · AABB")
     }
 
+    @Test func macFactsLineKeepsKeyAndModeTogether() {
+        let facts = TunePage.facts(detail(SampleCatalog.entries[0].tune), modeInPill: true)
+        #expect(facts.pill == "D major")
+        #expect(facts.line == "Reel · Old-time · 2/4 · AABB")
+    }
+
+    @Test func factsLeaveAModeThePillCannotHoldInTheLine() {
+        var tune = SampleCatalog.entries[0].tune
+        tune.modes = ["other", "dorian"]
+        let other = TunePage.facts(detail(tune), modeInPill: true)
+        #expect(other.pill == "D")
+        #expect(other.line == "other · dorian · Reel · Old-time · 2/4 · AABB")
+
+        tune.key = nil
+        tune.modes = ["minor"]
+        let keyless = TunePage.facts(detail(tune), modeInPill: true)
+        #expect(keyless.pill == nil)
+        #expect(keyless.line == "minor · Reel · Old-time · 2/4 · AABB")
+    }
+
+    @Test func factsKeepTheBareKeyInThePillWhereTheModeStaysInTheLine() {
+        let tune = SampleCatalog.entries[0].tune
+        let facts = TunePage.facts(detail(tune), modeInPill: false)
+        #expect(facts.pill == "D")
+        #expect(facts.line == TunePage.facetLine(detail(tune)))
+    }
+
     @Test func aBareTuneShowsRecordingsScansAndNotesButNotLyricsOrLists() {
         let bare = Tune(id: "bare", createdAt: SampleCatalog.now, title: "Bare", tuneType: "Reel")
         #expect(TunePageColumn.sections(detail(bare)) == [.recordings, .scans, .notes])

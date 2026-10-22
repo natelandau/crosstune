@@ -35,11 +35,18 @@ struct KeyChooser: View {
         pressed == chosen ? "" : pressed
     }
 
+    /// A Mac chip takes no 44 point target, so lines sit as close as the keys' own gaps.
+    #if os(macOS)
+        private static let lineSpacing: CGFloat = 8
+    #else
+        private static let lineSpacing: CGFloat = 12
+    #endif
+
     var body: some View {
         let chosen = key.trimmingCharacters(in: .whitespacesAndNewlines)
         // At the default size and above, 12 between lines keeps neighboring chips' 44 point
         // targets apart. Smaller sizes let them overlap a little rather than spread the keys out.
-        FlowLayout(spacing: spacing(6), lineSpacing: spacing(12)) {
+        FlowLayout(spacing: spacing(6), lineSpacing: spacing(Self.lineSpacing)) {
             // A question mark is the shorthand a musician already writes on a tune list. It reads
             // as nothing aloud, so the choice is named in words.
             ChoiceCapsule(chosen: chosen.isEmpty && !isMixed) {
@@ -49,30 +56,40 @@ struct KeyChooser: View {
             }
             .accessibilityLabel(Self.unknownKey)
             ForEach(Self.shown(chosen: chosen), id: \.self) { pill in
-                Button {
+                KeyChipButton(key: pill, chosen: pill == chosen) {
                     key = Self.pressing(pill, chosen: chosen)
-                } label: {
-                    KeyPill(pill, chosen: pill == chosen)
                 }
-                .buttonStyle(.plain)
                 .accessibilityLabel(pill)
-                .accessibilityAddTraits(pill == chosen ? .isSelected : [])
             }
             Menu {
                 ForEach(Self.more(chosen: chosen), id: \.self) { more in
                     Button(more) { key = more }
                 }
             } label: {
-                Text(Self.moreKeys)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-                    .padding(.horizontal, spacing(14))
-                    .padding(.vertical, spacing.chipVertical)
-                    .background(neutralFill(colorScheme), in: .capsule)
-                    .tapTarget()
+                #if os(macOS)
+                    // A chevron marks the chip as a pop-up rather than another key.
+                    HStack(spacing: 4) {
+                        Text(Self.moreKeys)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                            .accessibilityHidden(true)
+                    }
+                #else
+                    Text(Self.moreKeys)
+                        .font(.platform(.subheadline))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, spacing(14))
+                        .padding(.vertical, spacing.chipVertical)
+                        .background(neutralFill(colorScheme), in: .capsule)
+                        .tapTarget()
+                #endif
             }
             .menuStyle(.button)
-            .buttonStyle(.plain)
+            #if os(macOS)
+                .buttonStyle(MacChipStyle(state: .rest, size: .standalone))
+            #else
+                .buttonStyle(.plain)
+            #endif
             .menuIndicator(.hidden)
             .fixedSize()
         }

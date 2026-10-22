@@ -118,6 +118,20 @@ final class ScanViewerModel {
 public struct ScanViewer: View {
     public static let invertStorageKey = "crosstune.scanInvert"
 
+    #if os(macOS)
+        static let macSize = MacSheetSize(minWidth: 640, idealWidth: 820, minHeight: 640, idealHeight: 900)
+
+        /// The mat the page lies on: the field gray in light, so a white page stands off it, and
+        /// the surface in dark, where the page is lighter than any mat.
+        static func matHex(_ scheme: ColorScheme) -> String {
+            MacPalette.hex(scheme == .dark ? .surface : .field, scheme)
+        }
+
+        static var mat: Color {
+            MacPalette.dynamic(light: KeyColor.RGB(hex: matHex(.light)), dark: KeyColor.RGB(hex: matHex(.dark)))
+        }
+    #endif
+
     private let tuneID: String
     private let startIndex: Int
     private let onShow: (Int) -> Void
@@ -182,15 +196,6 @@ private struct ScanViewerBody: View {
     @State private var scale = ScanZoom.fit
     @State private var deleting: Scan?
 
-    /// A Mac sheet's primary action reads as its confirming button, which these are not.
-    private var controlsPlacement: ToolbarItemPlacement {
-        #if os(macOS)
-            .automatic
-        #else
-            .primaryAction
-        #endif
-    }
-
     private func turn(by step: Int, ids: [String]) {
         let index = (shown.flatMap { ids.firstIndex(of: $0) } ?? 0) + step
         guard ids.indices.contains(index) else { return }
@@ -205,100 +210,175 @@ private struct ScanViewerBody: View {
         _shown = State(initialValue: ScanPager.initialScan(ids: scans.map(\.id), startIndex: startIndex))
     }
 
-    var body: some View {
-        let ids = scans.map(\.id)
-        let shownIndex = shown.flatMap { ids.firstIndex(of: $0) } ?? 0
-        NavigationStack {
-            ScrollView(.horizontal) {
-                LazyHStack(spacing: 0) {
-                    ForEach(Array(scans.enumerated()), id: \.element.id) { index, scan in
-                        ScanSlide(
-                            scan: scan, index: index, folder: model.folder, invert: invert,
-                            // Only the scans beside the one shown hold their image, so twenty
-                            // full scans never sit decoded in memory at once.
-                            isNear: abs(index - shownIndex) <= 1,
-                            scale: scan.id == shown ? $scale : .constant(ScanZoom.fit),
-                            onBroken: { model.reportBroken(scan.id) },
-                            onDelete: { deleting = scan }
-                        )
-                        .containerRelativeFrame([.horizontal, .vertical])
-                        .id(scan.id)
-                    }
-                }
-                .scrollTargetLayout()
-            }
-            .scrollTargetBehavior(.paging)
-            .scrollPosition(id: $shown)
-            .scrollIndicators(.never)
-            // A zoomed scan pans under the finger rather than turning to the next.
-            .scrollDisabled(scale > ScanZoom.fit)
-            .background(invert ? Color.black : Color.white)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if let failure = model.failure {
-                    FailureText(failure)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-                        .background(.bar)
-                }
-            }
-            .onChange(of: shown) { scale = ScanZoom.fit }
-            .onChange(of: shownIndex, initial: true) { onShow(shownIndex) }
-            .navigationTitle(ScanPager.indicator(shown: shown, ids: ids))
-            #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("\(title) \(ScanCopy.scans.lowercased())")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(ScanCopy.close) { dismiss() }
-                }
-                #if os(macOS)
-                    // A mouse has no swipe, so the Mac turns scans with buttons and the arrow keys.
-                    ToolbarItemGroup(placement: .automatic) {
-                        Button(ScanCopy.previousScan, systemImage: "chevron.left") { turn(by: -1, ids: ids) }
-                            .disabled(shownIndex == 0)
-                            .keyboardShortcut(.leftArrow, modifiers: [])
-                        Button(ScanCopy.nextScan, systemImage: "chevron.right") { turn(by: 1, ids: ids) }
-                            .disabled(shownIndex >= ids.count - 1)
-                            .keyboardShortcut(.rightArrow, modifiers: [])
-                    }
-                #endif
-                ToolbarItemGroup(placement: controlsPlacement) {
-                    Toggle(
-                        isOn: Binding {
-                            scale > ScanZoom.fit
-                        } set: { zoomed in
-                            withAnimation(.snappy) { scale = zoomed ? ScanZoom.double : ScanZoom.fit }
-                        }
-                    ) {
-                        Label(ScanCopy.zoom, systemImage: "plus.magnifyingglass")
-                    }
-                    .toggleStyle(.button)
-                    Toggle(isOn: $invert) {
-                        Label(ScanCopy.invert, systemImage: "circle.lefthalf.filled")
-                    }
-                    .toggleStyle(.button)
-                }
-            }
+    private var ids: [String] { scans.map(\.id) }
+    private var shownIndex: Int { shown.flatMap { ids.firstIndex(of: $0) } ?? 0 }
+
+    private var zoomed: Binding<Bool> {
+        Binding {
+            scale > ScanZoom.fit
+        } set: { zoomed in
+            withAnimation(.snappy) { scale = zoomed ? ScanZoom.double : ScanZoom.fit }
         }
-        .modifier(KeepsScreenAwake())
-        .coversShell(deleting != nil)
-        .confirmationDialog(
-            ScanCopy.deleteTitle,
-            isPresented: $deleting.isPresent(),
-            titleVisibility: .visible, presenting: deleting
-        ) { scan in
-            Button(ScanCopy.delete, role: .destructive) {
-                Task { await model.delete(scan.id) }
-            }
-        } message: { scan in
-            Text(ScanCopy.deleteMessage(scan))
-        }
-        #if os(macOS)
-            .onExitCommand { dismiss() }
-        #endif
     }
+
+    /// The scans side by side, one to a page, turned by a swipe, the arrows, or the edge buttons.
+    private var pager: some View {
+        let shownIndex = shownIndex
+        return ScrollView(.horizontal) {
+            LazyHStack(spacing: 0) {
+                ForEach(Array(scans.enumerated()), id: \.element.id) { index, scan in
+                    ScanSlide(
+                        scan: scan, index: index, folder: model.folder, invert: invert,
+                        // Only the scans beside the one shown hold their image, so twenty
+                        // full scans never sit decoded in memory at once.
+                        isNear: abs(index - shownIndex) <= 1,
+                        scale: scan.id == shown ? $scale : .constant(ScanZoom.fit),
+                        onBroken: { model.reportBroken(scan.id) },
+                        onDelete: { deleting = scan }
+                    )
+                    #if os(macOS)
+                        // The page sits on the mat with room for its shadow and the edge buttons.
+                        .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
+                        .padding(.horizontal, 56)
+                        .padding(.vertical, 20)
+                    #endif
+                    .containerRelativeFrame([.horizontal, .vertical])
+                    .id(scan.id)
+                }
+            }
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.paging)
+        .scrollPosition(id: $shown)
+        .scrollIndicators(.never)
+        // A zoomed scan pans under the finger rather than turning to the next.
+        .scrollDisabled(scale > ScanZoom.fit)
+        .onChange(of: shown) { scale = ScanZoom.fit }
+        .onChange(of: shownIndex, initial: true) { onShow(shownIndex) }
+    }
+
+    private var failureBar: some View {
+        Group {
+            if let failure = model.failure {
+                FailureText(failure)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    #if os(iOS)
+                        .background(.bar)
+                    #endif
+            }
+        }
+    }
+
+    var body: some View {
+        content
+            .modifier(KeepsScreenAwake())
+            .coversShell(deleting != nil)
+            .confirmationDialog(
+                ScanCopy.deleteTitle,
+                isPresented: $deleting.isPresent(),
+                titleVisibility: .visible, presenting: deleting
+            ) { scan in
+                Button(ScanCopy.delete, role: .destructive) {
+                    Task { await model.delete(scan.id) }
+                }
+            } message: { scan in
+                Text(ScanCopy.deleteMessage(scan))
+            }
+    }
+
+    #if os(macOS)
+        /// A neutral mat in both appearances, the tune's title over the count, and the controls
+        /// on the title's line, with Close last and Escape closing.
+        private var content: some View {
+            MacSheet(
+                reading: title, subtitle: ScanPager.indicator(shown: shown, ids: ids),
+                size: ScanViewer.macSize, escape: close
+            ) {
+                Group {
+                    toggle(ScanCopy.zoom, systemImage: "plus.magnifyingglass", isOn: zoomed)
+                    toggle(ScanCopy.invert, systemImage: "circle.lefthalf.filled", isOn: $invert)
+                }
+                Button(ScanCopy.close, action: close)
+                    .buttonStyle(.macSecondary)
+                    .padding(.leading, 4)
+            } content: {
+                pager
+                    .background(ScanViewer.mat)
+                    .overlay(alignment: .leading) {
+                        edgeButton(ScanCopy.previousScan, systemImage: "chevron.left", key: .leftArrow, step: -1)
+                            .disabled(shownIndex == 0)
+                    }
+                    .overlay(alignment: .trailing) {
+                        edgeButton(ScanCopy.nextScan, systemImage: "chevron.right", key: .rightArrow, step: 1)
+                            .disabled(shownIndex >= ids.count - 1)
+                    }
+                    .safeAreaInset(edge: .top, spacing: 0) { failureBar }
+                    .overlay(alignment: .top) {
+                        Rectangle().fill(MacPalette.hairline).frame(height: 1)
+                    }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("\(title) \(ScanCopy.scans.lowercased())")
+                    .macSurfaceContainer()
+            }
+        }
+
+        private func close() {
+            dismiss()
+        }
+
+        /// An icon toggle: secondary ink when off, the accent while on.
+        private func toggle(_ title: String, systemImage: String, isOn: Binding<Bool>) -> some View {
+            Button {
+                isOn.wrappedValue.toggle()
+            } label: {
+                Image(systemName: systemImage)
+                    .foregroundStyle(isOn.wrappedValue ? MacPalette.accent : MacPalette.inkSecondary)
+            }
+            .buttonStyle(.macIcon)
+            .help(title)
+            .accessibilityLabel(title)
+            .accessibilityAddTraits(isOn.wrappedValue ? .isSelected : [])
+        }
+
+        /// A mouse has no swipe, so the Mac turns scans with these and the arrow keys.
+        private func edgeButton(_ title: String, systemImage: String, key: KeyEquivalent, step: Int) -> some View {
+            Button(title, systemImage: systemImage) { turn(by: step, ids: ids) }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.macIcon)
+                .background(MacPalette.ground.opacity(0.9), in: .circle)
+                .keyboardShortcut(key, modifiers: [])
+                .help(title)
+                .padding(.horizontal, 12)
+        }
+    #else
+        private var content: some View {
+            NavigationStack {
+                pager
+                    .background(invert ? Color.black : Color.white)
+                    .safeAreaInset(edge: .top, spacing: 0) { failureBar }
+                    .navigationTitle(ScanPager.indicator(shown: shown, ids: ids))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("\(title) \(ScanCopy.scans.lowercased())")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(ScanCopy.close) { dismiss() }
+                        }
+                        ToolbarItemGroup(placement: .primaryAction) {
+                            Toggle(isOn: zoomed) {
+                                Label(ScanCopy.zoom, systemImage: "plus.magnifyingglass")
+                            }
+                            .toggleStyle(.button)
+                            Toggle(isOn: $invert) {
+                                Label(ScanCopy.invert, systemImage: "circle.lefthalf.filled")
+                            }
+                            .toggleStyle(.button)
+                        }
+                    }
+            }
+        }
+    #endif
 }
 
 /// One scan at full size: fitted to its container, zoomed by a pinch or a double tap, and panned
@@ -413,8 +493,8 @@ struct ScanSlide: View {
             .overlay {
                 if scan.record.state == ScanRecord.pendingUpload {
                     Text(ScanCopy.waiting)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(.platform(.footnote))
+                        .foregroundStyle(.inkSecondary)
                         .multilineTextAlignment(.center)
                         .padding()
                 } else {
@@ -428,15 +508,19 @@ struct ScanSlide: View {
     private var broken: some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
+                .font(.platform(.largeTitle, mac: .columnTitle))
+                .foregroundStyle(.inkSecondary)
                 .accessibilityHidden(true)
             Text(ScanCopy.unreadableScan)
-                .font(.headline)
+                .font(.platform(.headline))
                 .foregroundStyle(invert ? Color.white : Color.primary)
             if let onDelete {
                 Button(ScanCopy.delete, role: .destructive, action: onDelete)
-                    .buttonStyle(.bordered)
+                    #if os(macOS)
+                        .buttonStyle(.macDestructive)
+                    #else
+                        .buttonStyle(.bordered)
+                    #endif
                     .accessibilityLabel(ScanCopy.deleteScan(index))
             }
         }
@@ -542,7 +626,7 @@ struct ScanScreens: ViewModifier {
             #if os(macOS)
                 .sheet(item: $request) { request in
                     ScanViewer(tuneID: request.tuneID, startIndex: request.startIndex)
-                    .macSheetFrame(MacSheetSize(minWidth: 640, idealWidth: 820, minHeight: 640, idealHeight: 900))
+                    .macSheetFrame(ScanViewer.macSize)
                     .onDisappear { log?.viewerDisappeared(tuneID: request.tuneID) }
                 }
             #else

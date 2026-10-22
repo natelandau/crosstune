@@ -11,6 +11,8 @@ public struct TuneRow: View {
     private let text: TuneRowText
     private let position: Int?
     private let stacked: Bool
+    /// False where the row's list draws the key itself, in a slot it shares with another control.
+    private let showsKey: Bool
 
     @ScaledMetric(relativeTo: .subheadline) private var positionWidth: CGFloat = 28
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -24,11 +26,13 @@ public struct TuneRow: View {
     /// `stacked` draws the iPhone and iPad row on every platform, for a snapshot of those screens
     /// rendered on a Mac.
     init(
-        tune: Tune, userTune: UserTune, instruments: Set<String>, position: Int? = nil, stacked: Bool
+        tune: Tune, userTune: UserTune, instruments: Set<String>, position: Int? = nil, stacked: Bool = false,
+        showsKey: Bool = true
     ) {
         text = TuneRowText(tune: tune, userTune: userTune, instruments: instruments)
         self.position = position
         self.stacked = stacked
+        self.showsKey = showsKey
     }
 
     public var body: some View {
@@ -36,7 +40,7 @@ public struct TuneRow: View {
             if stacked {
                 phoneRow
             } else {
-                MacTuneRow(text: text, position: position)
+                MacTuneRow(text: text, position: position, showsKey: showsKey)
             }
         #else
             phoneRow
@@ -47,9 +51,9 @@ public struct TuneRow: View {
         HStack(alignment: .firstTextBaseline, spacing: spacing(12)) {
             if let position {
                 Text(position, format: .number)
-                    .font(.subheadline)
+                    .font(.platform(.subheadline))
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.inkSecondary)
                     .frame(minWidth: positionWidth, alignment: .trailing)
             }
             if dynamicTypeSize.isAccessibilitySize {
@@ -75,7 +79,7 @@ public struct TuneRow: View {
             VStack(alignment: .leading, spacing: spacing.rowLineGap) {
                 Text(text.title)
                     .contentMask()
-                    .font(.body)
+                    .font(.platform(.body))
                     .rowLineLimit()
                 if !dynamicTypeSize.isAccessibilitySize { secondLine }
             }
@@ -85,9 +89,9 @@ public struct TuneRow: View {
     @ViewBuilder private var secondLine: some View {
         if let line = text.secondLine {
             Text(line)
-                .font(.subheadline)
+                .font(.platform(.subheadline))
                 .monospacedDigit()
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
                 .rowLineLimit()
         }
     }

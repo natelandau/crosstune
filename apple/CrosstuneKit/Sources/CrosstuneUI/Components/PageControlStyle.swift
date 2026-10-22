@@ -1,42 +1,34 @@
 import SwiftUI
 
-/// A section heading's control: a glyph, or a word such as Edit, in a small glass circle or
-/// capsule where ``PageStyle/headingControlsUseGlass``, or plain in the tint otherwise.
+/// A section heading's control: a glyph, or a word such as Edit. The Mac draws its icon role;
+/// elsewhere it is plain in the tint.
 struct PageControlStyle: ButtonStyle {
     static let height = PageStyle.headingControlHeight
 
     func makeBody(configuration: Configuration) -> some View {
-        PageControlBody(configuration: configuration)
+        #if os(macOS)
+            MacButtonStyle(.icon, size: .small).makeBody(configuration: configuration)
+        #else
+            PageControlBody(configuration: configuration)
+        #endif
     }
 }
 
-private struct PageControlBody: View {
-    let configuration: ButtonStyle.Configuration
+#if !os(macOS)
+    private struct PageControlBody: View {
+        let configuration: ButtonStyle.Configuration
 
-    @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.isEnabled) private var isEnabled
 
-    var body: some View {
-        let glass = PageStyle.headingControlsUseGlass
-        let control = configuration.label
-            .font(PageStyle.secondary.weight(.semibold))
-            .lineLimit(1)
-            .foregroundStyle(ink(glass: glass))
-            .padding(.horizontal, 6)
-            .frame(minWidth: PageControlStyle.height, minHeight: PageControlStyle.height)
-        Group {
-            if glass {
-                control
-                    .contentShape(.capsule)
-                    .pageGlass(in: .capsule)
-            } else {
-                control.contentShape(.rect)
-            }
+        var body: some View {
+            configuration.label
+                .font(PageStyle.secondary.weight(.semibold))
+                .lineLimit(1)
+                .foregroundStyle(isEnabled ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+                .padding(.horizontal, 6)
+                .frame(minWidth: PageControlStyle.height, minHeight: PageControlStyle.height)
+                .contentShape(.rect)
+                .opacity(configuration.isPressed ? 0.6 : 1)
         }
-        .opacity(configuration.isPressed ? 0.6 : 1)
     }
-
-    private func ink(glass: Bool) -> AnyShapeStyle {
-        if !isEnabled { return AnyShapeStyle(.tertiary) }
-        return glass ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint)
-    }
-}
+#endif

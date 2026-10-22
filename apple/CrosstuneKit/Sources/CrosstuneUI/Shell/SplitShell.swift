@@ -64,14 +64,17 @@
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240)
             } content: {
                 contentWithToolbar
+                    .columnGround()
                     .navigationSplitViewColumnWidth(min: 300, ideal: 340)
                     .environment(\.detailTune, detailTune)
                     .environment(\.sidebarSelection, openedRow)
             } detail: {
                 detail
+                    .columnGround()
                     .environment(\.detailTune, detailTune)
                     .environment(\.sidebarSelection, openedRow)
             }
+            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
             // The dock shows a link's player in full, so a play here must not leave a full player
             // waiting to open.
             .onChange(of: player.isExpanded, initial: true) {
@@ -164,6 +167,15 @@
             } else if let destination = place.sidebar.destination {
                 DestinationScreen(destination: destination)
             }
+        }
+    }
+
+    extension View {
+        /// A content or detail column on the paper ground, with no toolbar hairline until its
+        /// content scrolls under the bar.
+        fileprivate func columnGround() -> some View {
+            background(MacPalette.ground)
+                .scrollEdgeEffectStyle(.soft, for: .top)
         }
     }
 

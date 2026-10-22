@@ -1,7 +1,7 @@
 #if os(macOS)
     import SwiftUI
 
-    /// The mark a column shows while files are dragged over it: a slate outline inset from the
+    /// The mark a column shows while files are dragged over it: an accent outline inset from the
     /// column's edges and a word on what letting go does.
     public struct DropOverlay: View {
         public static let label = "Drop to import"

@@ -39,41 +39,46 @@ struct SuggestionPicker: View {
     }
 
     var body: some View {
-        if reportsRepicks {
-            menu
-        } else {
-            picker
-        }
-    }
-
-    private var picker: some View {
-        Picker(selection: selection) {
-            Text(emptyLabel).tag(Self.noneTag)
-            ForEach(Self.choices(options, value: value), id: \.self) { choice in
-                Text(choice).tag(choice)
+        #if os(macOS)
+            MacPopUp(
+                rowLabel, selection: selection, options: [Self.noneTag] + Self.choices(options, value: value),
+                label: { $0 == Self.noneTag ? emptyLabel : $0 }, reportsRepicks: reportsRepicks
+            )
+            .accessibilityLabel(label)
+            .contentMask()
+        #else
+            if reportsRepicks {
+                menu
+            } else {
+                picker
             }
-        } label: {
-            Text(rowLabel)
-        }
-        .accessibilityLabel(label)
-        .contentMask()
+        #endif
     }
 
-    /// The same choices as buttons, each of which writes its value whether or not it is shown.
-    private var menu: some View {
-        let current = selection.wrappedValue
-        return LabeledContent {
-            Menu {
-                choiceButton(emptyLabel, tag: Self.noneTag, current: current)
+    #if !os(macOS)
+        private var picker: some View {
+            Picker(selection: selection) {
+                Text(emptyLabel).tag(Self.noneTag)
                 ForEach(Self.choices(options, value: value), id: \.self) { choice in
-                    choiceButton(choice, tag: choice, current: current)
+                    Text(choice).tag(choice)
                 }
             } label: {
-                // The Mac draws a menu as a pop-up button with its own arrows.
-                #if os(macOS)
-                    Text(value.isEmpty ? emptyLabel : value)
-                        .contentMask()
-                #else
+                Text(rowLabel)
+            }
+            .accessibilityLabel(label)
+            .contentMask()
+        }
+
+        /// The same choices as buttons, each of which writes its value whether or not it is shown.
+        private var menu: some View {
+            let current = selection.wrappedValue
+            return LabeledContent {
+                Menu {
+                    choiceButton(emptyLabel, tag: Self.noneTag, current: current)
+                    ForEach(Self.choices(options, value: value), id: \.self) { choice in
+                        choiceButton(choice, tag: choice, current: current)
+                    }
+                } label: {
                     HStack(spacing: 4) {
                         Text(value.isEmpty ? emptyLabel : value)
                             .contentMask()
@@ -82,26 +87,26 @@ struct SuggestionPicker: View {
                             .accessibilityHidden(true)
                     }
                     .foregroundStyle(.secondary)
-                #endif
+                }
+            } label: {
+                Text(rowLabel)
             }
-        } label: {
-            Text(rowLabel)
+            .accessibilityLabel(label)
         }
-        .accessibilityLabel(label)
-    }
 
-    @ViewBuilder
-    private func choiceButton(_ title: String, tag: String, current: String) -> some View {
-        Button {
-            selection.wrappedValue = tag
-        } label: {
-            if tag == current {
-                Label(title, systemImage: "checkmark")
-            } else {
-                Text(title)
+        @ViewBuilder
+        private func choiceButton(_ title: String, tag: String, current: String) -> some View {
+            Button {
+                selection.wrappedValue = tag
+            } label: {
+                if tag == current {
+                    Label(title, systemImage: "checkmark")
+                } else {
+                    Text(title)
+                }
             }
         }
-    }
+    #endif
 
     private var selection: Binding<String> {
         Binding {

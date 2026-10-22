@@ -20,6 +20,9 @@ public struct KeyPill: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.spacing) private var spacing
+    #if os(macOS)
+        @Environment(\.backgroundProminence) private var backgroundProminence
+    #endif
     @ScaledMetric(relativeTo: .footnote) private var compactHeight: CGFloat = 22
 
     /// `suffix` follows the key, such as a mode abbreviation; the hue still comes from the key
@@ -32,42 +35,95 @@ public struct KeyPill: View {
     }
 
     public var body: some View {
-        if !key.isEmpty, size == .full {
-            label
-                .padding(.vertical, spacing.chipVertical)
-                .background(fill, in: .capsule)
-                .tapTarget()
-        } else if !key.isEmpty {
-            label
-                .frame(minHeight: compactHeight)
-                .background(fill, in: .capsule)
-        }
+        #if os(macOS)
+            if !key.isEmpty {
+                Text(key + suffix)
+                    .monospacedDigit()
+                    .fixedSize()
+                    .macChip(
+                        state: isChosen ? .chosen : .rest, hue: swatch?.background.color,
+                        hueInk: swatch?.ink.color, size: size == .full ? .standalone : .row,
+                        minWidth: size == .compact ? MacChip.minRowWidth : nil,
+                        onSelectedRow: size == .compact && backgroundProminence == .increased)
+            }
+        #else
+            iOSBody
+        #endif
     }
 
-    private var label: some View {
-        Text(key + suffix)
-            .font(size == .full ? .subheadline : .footnote)
-            .fontWeight(.medium)
-            .monospacedDigit()
-            .lineLimit(1)
-            .fixedSize()
-            .foregroundStyle(ink)
-            .padding(.horizontal, spacing(size == .full ? 12 : 8))
-    }
+    #if !os(macOS)
+        @ViewBuilder private var iOSBody: some View {
+            if !key.isEmpty, size == .full {
+                label
+                    .padding(.vertical, spacing.chipVertical)
+                    .background(fill, in: .capsule)
+                    .tapTarget()
+            } else if !key.isEmpty {
+                label
+                    .frame(minHeight: compactHeight)
+                    .background(fill, in: .capsule)
+            }
+        }
+
+        private var label: some View {
+            Text(key + suffix)
+                .font(.platform(size == .full ? .subheadline : .footnote, mac: .chip))
+                .fontWeight(.medium)
+                .monospacedDigit()
+                .lineLimit(1)
+                .fixedSize()
+                .foregroundStyle(ink)
+                .padding(.horizontal, spacing(size == .full ? 12 : 8))
+        }
+    #endif
 
     private var swatch: KeyColor.Swatch? {
         KeyColor.pitchClass(key).map { KeyColor.swatch(pitchClass: $0, scheme: colorScheme, chosen: isChosen) }
     }
 
-    private var fill: AnyShapeStyle {
-        if let swatch { return AnyShapeStyle(swatch.background.color) }
-        if isChosen { return AnyShapeStyle(.tint) }
-        return neutralFill(colorScheme)
-    }
+    #if !os(macOS)
+        private var fill: AnyShapeStyle {
+            if let swatch { return AnyShapeStyle(swatch.background.color) }
+            if isChosen { return AnyShapeStyle(.tint) }
+            return neutralFill(colorScheme)
+        }
 
-    private var ink: AnyShapeStyle {
-        if let swatch { return AnyShapeStyle(swatch.ink.color) }
-        return isChosen ? AnyShapeStyle(BrandStyle.onAccent(colorScheme)) : AnyShapeStyle(.primary)
+        private var ink: AnyShapeStyle {
+            if let swatch { return AnyShapeStyle(swatch.ink.color) }
+            return isChosen ? AnyShapeStyle(BrandStyle.onAccent(colorScheme)) : AnyShapeStyle(.primary)
+        }
+    #endif
+}
+
+/// A key as a pill that picks it: the pill itself off the Mac, and a hovering chip on it.
+struct KeyChipButton: View {
+    let key: String
+    let chosen: Bool
+    let action: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        #if os(macOS)
+            let swatch = KeyColor.pitchClass(key).map {
+                KeyColor.swatch(pitchClass: $0, scheme: colorScheme, chosen: chosen)
+            }
+            Button(action: action) {
+                Text(key)
+                    .monospacedDigit()
+                    .fixedSize()
+            }
+            .buttonStyle(
+                MacChipStyle(
+                    state: chosen ? .chosen : .rest, hue: swatch?.background.color, hueInk: swatch?.ink.color,
+                    size: .standalone)
+            )
+            .accessibilityAddTraits(chosen ? .isSelected : [])
+        #else
+            Button(action: action) { KeyPill(key, chosen: chosen) }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(chosen ? .isSelected : [])
+        #endif
     }
 }
 

@@ -13,7 +13,7 @@ struct LyricsEditor: View {
             .overlay(alignment: .topLeading) {
                 if lyrics.isEmpty {
                     Text(TuneFieldLabels.lyricsPlaceholder)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.inkTertiary)
                         // The text editor's own text inset, so the placeholder sits where typing starts.
                         .padding(.top, 8)
                         .padding(.leading, 5)

@@ -56,26 +56,36 @@ public struct RecordToolbarButton: View {
         @Environment(\.isEnabled) private var isEnabled
         @State private var presses = 0
 
+        /// The sidebar list's inset from its edges, so the capsule lines up with the rows'
+        /// selection.
+        static let rowInset: CGFloat = 10
+        private static let dotDiameter: CGFloat = 10
+        /// Centers the dot under the rows' glyphs.
+        private static let dotInset: CGFloat = 11
+
         var body: some View {
             Button {
                 presses += 1
                 action()
             } label: {
-                HStack(spacing: 6) {
+                HStack(spacing: 7) {
                     Image(systemName: "circle.fill")
-                        .font(MacStyle.secondary)
+                        .font(.system(size: Self.dotDiameter))
                         .foregroundStyle(Color.recordingRed)
                         .symbolEffect(.bounce, value: reduceMotion ? 0 : presses)
                     Text(RecordControl.shortLabel)
                         .font(MacStyle.body.weight(.medium))
+                        .foregroundStyle(MacPalette.ink)
                 }
-                .padding(.horizontal, 12)
+                .padding(.leading, Self.dotInset)
+                .padding(.trailing, 14)
                 .frame(height: MacStyle.paneControlHeight)
+                .background(MacPalette.field, in: .capsule)
+                .overlay(Capsule().strokeBorder(MacPalette.hairline))
                 .contentShape(.capsule)
                 .opacity(isEnabled ? 1 : 0.5)
             }
             .buttonStyle(.plain)
-            .macGlass(in: Capsule())
             .accessibilityLabel(RecordControl.label)
             .help("\(RecordControl.label) (⌘R)")
         }

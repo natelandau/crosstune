@@ -32,12 +32,13 @@ struct ListHeader<Sort: SortKind>: View {
     private var countText: some View {
         Text(count)
             #if os(macOS)
-                .font(MacStyle.secondary)
+                .font(MacStyle.secondary.weight(.medium))
+                .foregroundStyle(MacPalette.inkSecondary)
             #else
                 .font(.footnote)
+                .foregroundStyle(.secondary)
             #endif
             .monospacedDigit()
-            .foregroundStyle(.secondary)
             .lineLimit(1)
     }
 

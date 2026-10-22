@@ -149,6 +149,9 @@ private struct TuneContent: View {
     @Environment(\.spacing) private var spacing
     @Environment(\.dismiss) private var dismiss
     @Environment(SyncEngine.self) private var engine: SyncEngine?
+    #if DEBUG
+        @Environment(\.tuneScreenActions) private var actions
+    #endif
     @State private var form: TuneFormTarget?
     @State private var confirmsDelete = false
     /// Whether this visit's screen view is sent, so a page back from a failed delete is not
@@ -172,8 +175,8 @@ private struct TuneContent: View {
         case .deleting(let title):
             VStack(alignment: .leading, spacing: spacing.stackGap) {
                 Text(DeleteTuneMessage.deleting)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(.platform(.footnote))
+                    .foregroundStyle(.inkSecondary)
                 if let failure = model.failure(at: .screen) {
                     FailureText(failure)
                 }
@@ -190,6 +193,7 @@ private struct TuneContent: View {
                     .paneBar {
                         Group {
                             Button(TuneRowActions.edit) { edit(detail) }
+                            .buttonStyle(.macSecondary)
                             TuneMoreMenu(model: model, detail: detail) { confirmsDelete = true }
                         }
                         .disabled(leaving)
@@ -210,6 +214,12 @@ private struct TuneContent: View {
                 } message: {
                     Text(detail.deleteMessage)
                 }
+                #if DEBUG
+                    .modifier(
+                        OpensTuneSurfaces(detail: detail, actions: actions, edit: { edit(detail) }) {
+                            confirmsDelete = true
+                        })
+                #endif
         }
     }
 
@@ -237,6 +247,28 @@ private struct TuneContent: View {
         }
     }
 }
+
+#if DEBUG
+    /// Opens the surface the sample launch names from the tune page, by the page's own actions.
+    private struct OpensTuneSurfaces: ViewModifier {
+        let detail: TuneDetail
+        let actions: TuneScreenActions
+        let edit: @MainActor () -> Void
+        let delete: @MainActor () -> Void
+
+        func body(content: Content) -> some View {
+            let tuneID = detail.tune.id
+            content
+                .opensForSample(.tuneEdit, edit)
+                .opensForSample(.deleteTune, delete)
+                .opensForSample(.listPicker) { actions.addToList?(detail.userTune.id) }
+                .opensForSample(.link) { actions.addLink?(tuneID) }
+                .opensForSample(.findRecordings) { actions.findRecordings?(tuneID, nil) }
+                .opensForSample(.lyrics) { actions.readLyrics?(tuneID) }
+                .opensForSample(.scans) { actions.viewScans?(tuneID, 0, .tune) }
+        }
+    }
+#endif
 
 /// The toolbar's More actions menu: Add to list, Archive or Unarchive, and Delete after a
 /// separator.
@@ -411,21 +443,48 @@ struct TuneMediaRows: View {
 
     var body: some View {
         let collapses = !plan.recordingsPlay && !detail.recordings.isEmpty
+        #if os(macOS)
+            if blocksPlay(showsRecordings: !collapses || showsRecordings) {
+                Text(MediaText.stopRecordingToPlay)
+                    .font(MacStyle.secondary)
+                    .foregroundStyle(MacPalette.inkSecondary)
+            }
+        #endif
         if collapses {
             RecordingsLine(count: detail.recordings.count, isExpanded: $showsRecordings)
-                .pageRowWidth()
         }
         if !collapses || showsRecordings {
             ForEach(detail.recordings) { recording in
                 recordingRow(recording)
-                    .pageRowWidth()
             }
         }
         ForEach(detail.links) { link in
             linkRow(link)
-                .pageRowWidth()
         }
     }
+
+    #if os(macOS)
+        /// Whether a take under way stands a shown row's play down, which the Mac says once
+        /// above the rows rather than under each.
+        private func blocksPlay(showsRecordings: Bool) -> Bool {
+            guard recorders?.isCapturing == true else { return false }
+            let recording =
+                showsRecordings
+                && detail.recordings.contains { entry in
+                    RecordingRowContent.blocksPlay(
+                        entry.recording, file: entry.file,
+                        loaded: player?.holds(.recording, id: entry.recording.id) ?? false,
+                        downloading: transfers?.isDownloading(entry.recording.id) ?? false)
+                }
+            return recording
+                || detail.links.contains { link in
+                    LinkRowContent(
+                        link: link, embeddable: Embed.for(link) != nil,
+                        loaded: player?.holds(.link, id: link.id) ?? false, playBlocked: true
+                    ).notice != nil
+                }
+        }
+    #endif
 
     private func recordingRow(_ entry: TuneRecording) -> some View {
         let view = RecordingView(
@@ -500,17 +559,5 @@ struct TuneMediaRows: View {
             }
             remove
         }
-    }
-}
-
-extension View {
-    /// Caps a media row on the Mac's tune page, so Retry and the pin stay near the row's title
-    /// across a wide page.
-    fileprivate func pageRowWidth() -> some View {
-        #if os(macOS)
-            frame(maxWidth: MacStyle.pageRowMaxWidth, alignment: .leading)
-        #else
-            self
-        #endif
     }
 }

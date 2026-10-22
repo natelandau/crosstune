@@ -652,3 +652,27 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
             tune: tune("Tune \(id)", id: id), userTune: userTune(id, status: status))
     }
 }
+
+#if os(macOS)
+    @Suite struct MacTuneFormTests {
+        /// The Mac title field is the sheet's large heading, so no label beside it names it again.
+        @Test func macTuneFormTitleFieldHasNoLabel() throws {
+            let file = SourceScan.sources.appending(path: "TuneForm/TuneFormSheet.swift")
+            let text = SourceScan.withoutComments(SourceScan.withoutPreviews(try SourceScan.text(at: file)))
+            let mac = SourceScan.macOSRegions(of: text, in: file)
+            let titleField = MacFieldTests.textFieldChains(in: mac).first { $0.contains("MacStyle.formTitle") }
+            let chain = try #require(titleField, "the Mac tune form draws no large title field")
+            #expect(chain.contains(".labelsHidden()"))
+            #expect(chain.contains("TuneFieldLabels.title"))
+        }
+
+        @Test func segmentedArrowsMoveTheChoiceAndStopAtTheEnds() {
+            let values = ["a", "b", "c"]
+            #expect(MacSegmentedPicker<String>.moved(values, from: "b", by: 1) == "c")
+            #expect(MacSegmentedPicker<String>.moved(values, from: "c", by: 1) == "c")
+            #expect(MacSegmentedPicker<String>.moved(values, from: "a", by: -1) == "a")
+            #expect(MacSegmentedPicker<String>.moved(values, from: nil, by: 1) == "a")
+            #expect(MacSegmentedPicker<String>.moved(values, from: nil, by: -1) == "c")
+        }
+    }
+#endif

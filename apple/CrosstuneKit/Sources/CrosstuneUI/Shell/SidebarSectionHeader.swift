@@ -24,9 +24,10 @@
             HStack {
                 Text(title)
                 Spacer(minLength: 0)
-                Button(add, systemImage: "plus.circle", action: onAdd)
+                Button(add, systemImage: "plus", action: onAdd)
                     .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(MacPalette.inkSecondary)
                     .help(add)
             }
             .padding(.leading, Self.leadingInset)

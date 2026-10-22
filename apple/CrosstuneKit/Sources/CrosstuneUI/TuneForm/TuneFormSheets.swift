@@ -99,6 +99,9 @@ struct TuneFormSheets: ViewModifier {
                     request.context.onSaved?(tuneID)
                 }
             }
+            #if DEBUG
+                .opensForSample(.tuneNew) { open() }
+            #endif
     }
 
     private var canOpen: Bool {
