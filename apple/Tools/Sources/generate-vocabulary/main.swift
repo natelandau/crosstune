@@ -40,6 +40,7 @@ let limitNamespaces: [(name: String, rows: [String])] = [
     ("Tune", ["TuneRow", "UserTuneRow", "InstrumentTuning"]),
     ("List", ["ListRow"]),
     ("Link", ["RecordingLinkRow"]),
+    ("Place", ["PlaceRow"]),
     ("Recording", ["RecordingRow"]),
     ("RecordingLoop", ["RecordingLoopRow"]),
 ]

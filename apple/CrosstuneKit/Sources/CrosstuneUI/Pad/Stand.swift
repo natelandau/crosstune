@@ -381,11 +381,11 @@ enum StandHeader {
     /// The playing list and the tune's place in it while a list plays on the Stand, otherwise
     /// the take's own subtitle.
     static func subtitle(
-        recording: Recording, tuneTitle: String?, lengthMs: Int64?, playback: ListPlayback?,
+        recording: Recording, tuneTitle: String?, lengthMs: Int64?, place: String? = nil, playback: ListPlayback?,
         standsWithReading: Bool
     ) -> String? {
         if standsWithReading, let listed = PlayerBar.playlistSubtitle(playback) { return listed }
-        return RecordingScreenText.subtitle(recording, tuneTitle: tuneTitle, lengthMs: lengthMs)
+        return RecordingScreenText.subtitle(recording, tuneTitle: tuneTitle, lengthMs: lengthMs, place: place)
     }
 
     /// A link's subtitle: the playing list and the tune's place in it while a list plays,

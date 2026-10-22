@@ -13,6 +13,35 @@ public struct PlaceCompletion: Hashable {
     let token: AnyHashable
 }
 
+/// A saved location a pick makes once the edit is saved.
+public struct SavedPlaceDraft: Hashable, Sendable {
+    public let name: String
+    public let address: String?
+    public let lat: Double
+    public let lon: Double
+    public let applePlaceID: String?
+
+    public init(name: String, address: String?, lat: Double, lon: Double, applePlaceID: String?) {
+        self.name = name
+        self.address = address
+        self.lat = lat
+        self.lon = lon
+        self.applePlaceID = applePlaceID
+    }
+}
+
+/// A search result once picked: the place it sets, and the saved location it makes when it is a
+/// venue or a street address. A town makes none.
+public struct PickedPlace: Hashable, Sendable {
+    public let place: RecordingPlace
+    public let saving: SavedPlaceDraft?
+
+    public init(place: RecordingPlace, saving: SavedPlaceDraft?) {
+        self.place = place
+        self.saving = saving
+    }
+}
+
 /// Searches for a venue, street address, or town, for a place picked by hand.
 @MainActor
 public protocol PlaceSearching: AnyObject {
@@ -20,7 +49,7 @@ public protocol PlaceSearching: AnyObject {
     /// The suggestions for `query`, empty when there are none or the search fails.
     func completions(for query: String) async -> [PlaceCompletion]
     /// The place `completion` stands for, named as picked, nil when it cannot be found.
-    func resolve(_ completion: PlaceCompletion) async -> RecordingPlace?
+    func resolve(_ completion: PlaceCompletion) async -> PickedPlace?
 }
 
 /// What ``MapKitPlaceSearch`` asks of a completer, so its waiting can be tested without MapKit.
@@ -80,7 +109,7 @@ public final class MapKitPlaceSearch: PlaceSearching {
     // Only the deprecated placemark carries the US state code the name rule needs, and the
     // street on its own; nothing that replaces it does.
     @diagnose(DeprecatedDeclaration, as: ignored)
-    public func resolve(_ completion: PlaceCompletion) async -> RecordingPlace? {
+    public func resolve(_ completion: PlaceCompletion) async -> PickedPlace? {
         guard let picked = completion.token.base as? MKLocalSearchCompletion else { return nil }
         let response = try? await MKLocalSearch(request: MKLocalSearch.Request(completion: picked)).start()
         guard let item = response?.mapItems.first else { return nil }
@@ -88,15 +117,27 @@ public final class MapKitPlaceSearch: PlaceSearching {
         // The postal street is the street line in the country's own order, as the API's
         // `fullThoroughfare` is.
         let street = placemark.postalAddress?.street.replacingOccurrences(of: "\n", with: ", ")
+        let isPointOfInterest = item.pointOfInterestCategory != nil
         guard
             let name = PlaceNames.picked(
-                name: item.name, isPointOfInterest: item.pointOfInterestCategory != nil, street: street,
+                name: item.name, isPointOfInterest: isPointOfInterest, street: street,
                 locality: placemark.locality, subLocality: placemark.subLocality,
                 formattedAddress: item.address?.fullAddress, administrativeAreaCode: placemark.administrativeArea,
                 countryCode: placemark.isoCountryCode, country: placemark.country)
         else { return nil }
         let point = item.location.coordinate
-        return RecordingPlace(name: name, coordinate: Coordinate(lat: point.latitude, lon: point.longitude))
+        let saving = PlaceNames.savedLocation(
+            name: item.name, isPointOfInterest: isPointOfInterest, street: street, locality: placemark.locality,
+            subLocality: placemark.subLocality, formattedAddress: item.address?.fullAddress,
+            administrativeAreaCode: placemark.administrativeArea, countryCode: placemark.isoCountryCode,
+            country: placemark.country)
+        return PickedPlace(
+            place: RecordingPlace(name: name, coordinate: Coordinate(lat: point.latitude, lon: point.longitude)),
+            saving: saving.map {
+                SavedPlaceDraft(
+                    name: $0.name, address: $0.address, lat: point.latitude, lon: point.longitude,
+                    applePlaceID: item.identifier?.rawValue)
+            })
     }
 
     var waitingSearches: Int { waiting.count }
@@ -180,13 +221,40 @@ enum PlaceNames {
         let town = town(
             locality: mailingTown(locality: locality, subLocality: subLocality, formattedAddress: formattedAddress),
             administrativeAreaCode: administrativeAreaCode, countryCode: countryCode, country: country)
-        if let own, isPointOfInterest || street.map({ own.caseInsensitiveCompare($0) != .orderedSame }) == true {
+        if let own, isVenue(own, isPointOfInterest: isPointOfInterest, street: street) {
             return stored(joined(own, street, town))
         }
         if let street { return stored(joined(street, town)) }
         return Self.name(
             locality: locality, subLocality: subLocality, formattedAddress: formattedAddress,
             administrativeAreaCode: administrativeAreaCode, countryCode: countryCode, country: country, fallback: name)
+    }
+
+    /// The saved location a picked search result or nearby venue makes: a venue keeps its own name
+    /// with `street, town` as the address, and a street address is named `street, town` with no
+    /// address. A town makes none, nil.
+    static func savedLocation(
+        name: String?, isPointOfInterest: Bool, street: String?, locality: String?, subLocality: String? = nil,
+        formattedAddress: String? = nil, administrativeAreaCode: String?, countryCode: String?, country: String?
+    ) -> (name: String, address: String?)? {
+        let own = text(name)
+        let street = text(street)
+        let town = town(
+            locality: mailingTown(locality: locality, subLocality: subLocality, formattedAddress: formattedAddress),
+            administrativeAreaCode: administrativeAreaCode, countryCode: countryCode, country: country)
+        if let own, isVenue(own, isPointOfInterest: isPointOfInterest, street: street) {
+            guard let saved = capped(own, Vocabulary.Limits.Place.name) else { return nil }
+            let line = street.map { joined($0, town) } ?? town
+            return (saved, line.flatMap { capped($0, Vocabulary.Limits.Place.address) })
+        }
+        guard let street, let saved = capped(joined(street, town), Vocabulary.Limits.Place.name) else { return nil }
+        return (saved, nil)
+    }
+
+    /// Whether a result named `own` is a venue rather than a street address: it has a category, or
+    /// a name other than its street.
+    private static func isVenue(_ own: String, isPointOfInterest: Bool, street: String?) -> Bool {
+        isPointOfInterest || street.map { own.caseInsensitiveCompare($0) != .orderedSame } == true
     }
 
     /// The sub-locality when the formatted address names it, else the locality. Apple Maps sets every
@@ -218,7 +286,13 @@ enum PlaceNames {
     /// `name` cut to the stored length, without the separator a cut can leave dangling. Nil when
     /// nothing else is left.
     private static func stored(_ name: String) -> String? {
-        var capped = Substring(name.cappedCodePoints(Vocabulary.Limits.Recording.placeName))
+        capped(name, Vocabulary.Limits.Recording.placeName)
+    }
+
+    /// `text` cut to `limit` code points, without the separator a cut can leave dangling. Nil when
+    /// nothing else is left.
+    private static func capped(_ text: String, _ limit: Int) -> String? {
+        var capped = Substring(text.cappedCodePoints(limit))
         while let last = capped.last, last == "," || last.isWhitespace { capped.removeLast() }
         return capped.isEmpty ? nil : String(capped)
     }

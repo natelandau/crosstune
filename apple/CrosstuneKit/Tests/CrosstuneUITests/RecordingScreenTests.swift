@@ -484,8 +484,11 @@ private final class Writes {
     private let gmt = TimeZone.gmt
     private let locale = Locale(identifier: "en_US")
 
-    private func subtitle(_ recording: Recording, tuneTitle: String?, lengthMs: Int64? = 125_000) -> String {
-        RecordingScreenText.subtitle(recording, tuneTitle: tuneTitle, lengthMs: lengthMs, locale: locale, timeZone: gmt)
+    private func subtitle(
+        _ recording: Recording, tuneTitle: String?, lengthMs: Int64? = 125_000, place: String? = nil
+    ) -> String {
+        RecordingScreenText.subtitle(
+            recording, tuneTitle: tuneTitle, lengthMs: lengthMs, place: place, locale: locale, timeZone: gmt)
     }
 
     private func date(_ recording: Recording) -> String {
@@ -510,12 +513,39 @@ private final class Writes {
         #expect(subtitle(unfiled, tuneTitle: nil, lengthMs: nil).isEmpty)
     }
 
-    @Test func endsWithThePlayersAndTheNamedPlace() {
+    @Test func endsWithThePlayersAndTheShownPlace() {
         let credited = Recording(
             tuneID: nil, source: "microphone", addedAt: noon, players: "Tommy Jarrell", placeName: "Galax, VA",
             placeLat: 36.66, placeLon: -80.92)
-        #expect(subtitle(credited, tuneTitle: nil) == "2:05 · Tommy Jarrell · Galax, VA")
-        #expect(subtitle(credited, tuneTitle: nil, lengthMs: nil) == "Tommy Jarrell · Galax, VA")
+        #expect(subtitle(credited, tuneTitle: nil, place: "Galax, VA") == "2:05 · Tommy Jarrell · Galax, VA")
+        #expect(subtitle(credited, tuneTitle: nil, lengthMs: nil, place: "Galax, VA") == "Tommy Jarrell · Galax, VA")
+    }
+
+    @Test func subtitleShowsTheSavedPlaceName() {
+        let linked = Recording(
+            tuneID: nil, source: "microphone", addedAt: noon, placeName: "1 Main St", placeLat: 36.66, placeLon: -80.92,
+            placeID: "p1")
+        let place = SavedPlace(id: "p1", createdAt: noon, name: "The Down Home", lat: 36.66, lon: -80.92)
+        let shown = shownPlaceName(linked, places: ["p1": place])
+        #expect(subtitle(linked, tuneTitle: nil, place: shown) == "2:05 · The Down Home")
+    }
+
+    @Test func subtitleLocationOpensTheLocationPage() {
+        #expect(RecordingScreenText.editLocation("The Down Home") == "Edit location, The Down Home")
+        #expect(RecordingScreenText.editLocation(nil) == nil)
+        #expect(RecordingScreenText.editLocation("") == nil)
+        let take = RecordingView(
+            recording: Recording(tuneID: nil, source: "microphone", addedAt: noon), file: nil, tuneID: nil,
+            tuneTitle: nil)
+        #expect(EditRecordingSheet(view: take, initialPage: .location).initialPage == .location)
+        #expect(EditRecordingSheet(view: take).initialPage == nil)
+        // The Mac heading keeps the place out of its text, since the place is a button there.
+        let credited = Recording(
+            tuneID: nil, source: "microphone", addedAt: noon, players: "Tommy Jarrell", placeName: "Galax, VA")
+        #expect(
+            RecordingScreenText.subtitle(
+                credited, tuneTitle: nil, lengthMs: 125_000, place: "Galax, VA", includesPlace: false,
+                locale: locale, timeZone: gmt) == "2:05 · Tommy Jarrell")
     }
 
     @Test func leavesOutAPlaceWithNoNameAndNoPlayers() {

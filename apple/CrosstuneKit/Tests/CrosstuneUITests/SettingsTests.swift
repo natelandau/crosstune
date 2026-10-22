@@ -593,7 +593,8 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     @Test func categoriesNameTheirPages() {
         #expect(
             SettingsCategory.allCases.map(\.title) == [
-                "Instruments", "New tunes", "Music services", "Recording", Appearance.title, "Sync and storage",
+                "Instruments", "New tunes", "Music services", "Recording", "Saved locations", Appearance.title,
+                "Sync and storage",
                 "Import and export", SettingsScreen.about,
             ])
     }

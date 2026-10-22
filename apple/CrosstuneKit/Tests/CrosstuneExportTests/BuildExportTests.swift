@@ -150,6 +150,33 @@ private func column(_ name: String) -> Int { tunesHeader.firstIndex(of: name)! }
         #expect(plan.totalRecordings - plan.audio.count == 1)
     }
 
+    @Test func writesTheLocationARecordingShowsItsSavedLocationsNameWhileThatIsLive() {
+        var input = emptyInput()
+        func placed(_ id: String, name: String?, placeID: String) -> Recording {
+            var take = recording(id)
+            take.placeName = name
+            take.placeLat = 36.66
+            take.placeLon = -80.92
+            take.placeID = placeID
+            return take
+        }
+        input.recordings = [
+            placed("linked", name: "1 Main St", placeID: "p1"),
+            placed("gone", name: "1 Main St", placeID: "p2"),
+            placed("unnamed", name: nil, placeID: "p1"),
+        ]
+        input.places = [
+            SavedPlace(id: "p1", createdAt: newYearsDay, name: "Town Hall", lat: 36.66, lon: -80.92),
+            SavedPlace(
+                id: "p2", createdAt: newYearsDay, deletedAt: Timestamp(iso: "2026-02-01T00:00:00Z"), name: "Old barn",
+                lat: 0, lon: 0),
+        ]
+        let place = recordingsHeader.firstIndex(of: "place")!
+        let lines = buildExport(input).recordingsCSV.dropFirst().components(separatedBy: "\r\n")
+        let names = lines.dropFirst().dropLast().map { $0.components(separatedBy: ",")[place] }
+        #expect(names.sorted() == ["1 Main St", "Town Hall", "Town Hall"])
+    }
+
     @Test func anEmptyAccountGivesHeadersOnlyAndNoAudio() {
         let plan = buildExport(emptyInput())
         #expect(plan.tunesCSV == csvDocument([tunesHeader]))

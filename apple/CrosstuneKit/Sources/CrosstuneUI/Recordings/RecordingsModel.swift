@@ -17,10 +17,15 @@ public struct RecordingView: Identifiable, Hashable, Sendable {
     /// its `tuneID` still names a tune deleted elsewhere.
     public let tuneID: String?
     public let tuneTitle: String?
+    /// The location's name to show: its saved location's while that is live, else the take's own.
+    public let shownPlace: String?
 
     public var id: String { recording.id }
 
-    public init(recording: Recording, file: RecordingFile?, tuneID: String?, tuneTitle: String?) {
+    public init(
+        recording: Recording, file: RecordingFile?, tuneID: String?, tuneTitle: String?, shownPlace: String? = nil
+    ) {
+        self.shownPlace = shownPlace ?? recording.placeName
         self.recording = recording
         self.file = file
         self.tuneID = tuneID
@@ -242,12 +247,14 @@ public final class RecordingsModel {
         let filesByID = Dictionary(files.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let tuneIDs = Set(live.compactMap(\.tuneID))
         let tunes = try Tune.fetchAll(db, keys: tuneIDs).filter { $0.deletedAt == nil }
+        let places = Dictionary(
+            try SavedPlace.fetchAll(db).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let titles = Dictionary(tunes.map { ($0.id, $0.title) }, uniquingKeysWith: { first, _ in first })
         let views = live.map { recording in
             let tuneID = recording.tuneID.flatMap { titles[$0] == nil ? nil : $0 }
             return RecordingView(
                 recording: recording, file: filesByID[recording.id], tuneID: tuneID,
-                tuneTitle: tuneID.flatMap { titles[$0] })
+                tuneTitle: tuneID.flatMap { titles[$0] }, shownPlace: shownPlaceName(recording, places: places))
         }
         let unfinished = files.filter { $0.localState == .capturing }
             .sorted { ($0.recordedAt?.milliseconds ?? 0) > ($1.recordedAt?.milliseconds ?? 0) }

@@ -10,6 +10,7 @@
         nonisolated public static let instruments = SettingsModel.instruments
         nonisolated public static let newTunes = SettingsModel.newTunes
         nonisolated public static let musicServices = SettingsModel.musicServices
+        nonisolated public static let savedLocations = SavedLocationsText.title
         nonisolated public static let importExport = ImportExportSections.title
 
         /// One tab of the window.
@@ -19,6 +20,7 @@
             case instruments
             case newTunes = "new-tunes"
             case musicServices = "music-services"
+            case savedLocations = "saved-locations"
             case importExport = "import-export"
 
             var title: String {
@@ -28,6 +30,7 @@
                 case .instruments: MacSettingsTabs.instruments
                 case .newTunes: MacSettingsTabs.newTunes
                 case .musicServices: MacSettingsTabs.musicServices
+                case .savedLocations: MacSettingsTabs.savedLocations
                 case .importExport: MacSettingsTabs.importExport
                 }
             }
@@ -39,6 +42,7 @@
                 case .instruments: "guitars"
                 case .newTunes: "text.badge.plus"
                 case .musicServices: "music.note.list"
+                case .savedLocations: SettingsCategory.savedLocations.systemImage
                 case .importExport: "arrow.up.arrow.down"
                 }
             }
@@ -50,6 +54,7 @@
                 case .instruments: [.instruments]
                 case .newTunes: [.newTunes]
                 case .musicServices: [.musicServices, .appleMusic]
+                case .savedLocations: []
                 case .importExport: [.importExport]
                 }
             }
@@ -88,9 +93,15 @@
         }
 
         /// A tab's form.
-        static func content(_ pane: Pane, version: String?) -> some View {
-            SettingsScreen(version: version, sections: pane.sections, title: pane.title, opensStatsInSheet: true)
-                .frame(width: size.width, height: size.height)
+        @ViewBuilder static func content(_ pane: Pane, version: String?) -> some View {
+            switch pane {
+            case .savedLocations:
+                NavigationStack { SavedLocationsPage() }
+                    .frame(width: size.width, height: size.height)
+            default:
+                SettingsScreen(version: version, sections: pane.sections, title: pane.title, opensStatsInSheet: true)
+                    .frame(width: size.width, height: size.height)
+            }
         }
 
         /// One size for every tab. Resizing the window as tabs change saves its frame to user

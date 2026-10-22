@@ -10,6 +10,7 @@ public enum SyncTable: String, CaseIterable, Codable, Sendable {
     case lists
     case listItems = "list_items"
     case recordingLinks = "recording_links"
+    case places
     case recordings
     case scans
     case recordingLoops = "recording_loops"
@@ -24,7 +25,7 @@ public enum SyncTable: String, CaseIterable, Codable, Sendable {
     public var isEvent: Bool {
         switch self {
         case .playEvents, .practiceSessions, .scanViews: true
-        case .tunes, .userTunes, .lists, .listItems, .recordingLinks, .recordings, .scans,
+        case .tunes, .userTunes, .lists, .listItems, .recordingLinks, .places, .recordings, .scans,
             .recordingLoops, .userSettings, .entitlements:
             false
         }
@@ -448,6 +449,55 @@ public enum RecordingPrecision: String, CaseIterable, Codable, Sendable {
     case year, month, day, time
 }
 
+/// A location the user saved: a name for a point, which takes can link to. A take keeps its own
+/// coordinates, so a saved place's point moving never moves a take.
+public struct SavedPlace: SyncedRecord, Hashable {
+    public static let table = SyncTable.places
+
+    public var id: String
+    public var createdAt: Timestamp
+    public var updatedAt: Timestamp
+    public var deletedAt: Timestamp?
+    public var serverSeq: Int64
+    public var name: String
+    public var lat: Double
+    public var lon: Double
+    /// The street address or town line shown under the name.
+    public var address: String?
+    /// The identifier Apple Maps gave the place, kept so it can be opened there again.
+    public var applePlaceID: String?
+    public var extra: JSONObject
+
+    public enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
+        case id
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case serverSeq = "server_seq"
+        case name, lat, lon, address
+        case applePlaceID = "apple_place_id"
+        case extra
+    }
+
+    public init(
+        id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
+        deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, name: String, lat: Double, lon: Double,
+        address: String? = nil, applePlaceID: String? = nil, extra: JSONObject = [:]
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
+        self.deletedAt = deletedAt
+        self.serverSeq = serverSeq
+        self.name = name
+        self.lat = lat
+        self.lon = lon
+        self.address = address
+        self.applePlaceID = applePlaceID
+        self.extra = extra
+    }
+}
+
 public struct Recording: SyncedRecord, Hashable {
     public static let table = SyncTable.recordings
 
@@ -494,6 +544,12 @@ public struct Recording: SyncedRecord, Hashable {
     public var placeLat: Double?
     public var placeLon: Double?
     public var placeAccuracyM: Int?
+    /// The saved location the take is linked to, if any. The link never changes how the
+    /// coordinates were obtained, which `placeOrigin` records.
+    public var placeID: String?
+    /// How the coordinates were obtained, as a ``PlaceOrigin`` raw value; nil exactly when
+    /// there are no coordinates.
+    public var placeOrigin: String?
     public var extra: JSONObject
 
     public enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
@@ -527,6 +583,8 @@ public struct Recording: SyncedRecord, Hashable {
         case placeLat = "place_lat"
         case placeLon = "place_lon"
         case placeAccuracyM = "place_accuracy_m"
+        case placeID = "place_id"
+        case placeOrigin = "place_origin"
         case extra
     }
 
@@ -548,7 +606,8 @@ public struct Recording: SyncedRecord, Hashable {
         playbackEndMs: Int64? = nil, playbackRev: String? = nil, peaksRev: String? = nil,
         trimStartMs: Int64 = 0, trimEndMs: Int64? = nil, speedPercent: Int = 100, pitchCents: Int = 0,
         notes: String? = nil, players: String? = nil, placeName: String? = nil, placeLat: Double? = nil,
-        placeLon: Double? = nil, placeAccuracyM: Int? = nil, extra: JSONObject = [:]
+        placeLon: Double? = nil, placeAccuracyM: Int? = nil, placeID: String? = nil, placeOrigin: String? = nil,
+        extra: JSONObject = [:]
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -584,6 +643,8 @@ public struct Recording: SyncedRecord, Hashable {
         self.placeLat = placeLat
         self.placeLon = placeLon
         self.placeAccuracyM = placeAccuracyM
+        self.placeID = placeID
+        self.placeOrigin = placeOrigin
         self.extra = extra
     }
 

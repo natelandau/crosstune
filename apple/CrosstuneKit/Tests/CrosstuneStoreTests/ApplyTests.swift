@@ -423,6 +423,42 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         #expect(stored.extra == ["tempo": .integer(96)])
     }
 
+    @Test func appliesPulledPlaces() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let place: JSONObject = [
+            "id": .string("place-1"), "created_at": .string(noon.iso), "updated_at": .string(noon.iso),
+            "deleted_at": .null, "server_seq": .integer(4), "user_id": .string("server-user"),
+            "name": .string("The Down Home"), "lat": .number(36.3), "lon": .number(-82.4),
+            "address": .string("300 W Main St, Johnson City, TN"), "apple_place_id": .null, "icon": .string("pin"),
+        ]
+        let recording: JSONObject = [
+            "id": .string("recording-1"), "created_at": .string(noon.iso), "updated_at": .string(noon.iso),
+            "deleted_at": .null, "server_seq": .integer(5), "user_id": .string("server-user"),
+            "source": .string("microphone"), "added_at": .string(noon.iso), "state": .string("ready"),
+            "place_lat": .number(36.3),
+            "place_lon": .number(-82.4), "place_id": .string("place-1"), "place_origin": .string("device"),
+        ]
+
+        try await store.write { writer in
+            try writer.applyPullPage(rows: [(.places, place), (.recordings, recording)], nextSince: 5)
+        }
+
+        let stored = try #require(try await store.read { db in try SavedPlace.fetchOne(db, key: "place-1") })
+        #expect(stored.name == "The Down Home")
+        #expect(stored.lat == 36.3)
+        #expect(stored.lon == -82.4)
+        #expect(stored.address == "300 W Main St, Johnson City, TN")
+        #expect(stored.applePlaceID == nil)
+        #expect(stored.serverSeq == 4)
+        #expect(stored.extra == ["icon": .string("pin")])
+        let linked = try #require(try await store.read { db in try Recording.fetchOne(db, key: "recording-1") })
+        #expect(linked.placeID == "place-1")
+        #expect(linked.placeOrigin == "device")
+        #expect(linked.extra.isEmpty)
+        #expect(try await store.pendingChangeCount() == 0)
+    }
+
     @Test func storesAPulledEntitlementsRowWithoutOwnershipAndQueuesNothing() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

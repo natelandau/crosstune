@@ -112,6 +112,19 @@ import Testing
         #expect(prompt < openSheets && prompt < recordCover)
     }
 
+    /// The location page's naming sheet opens over the edit sheet, so a rename that hid it from
+    /// the scan fails here rather than passing quietly.
+    @Test func theNameLocationSheetIsChecked() throws {
+        let sources = try Self.readSources()
+        let page = try #require(sources.first { $0.name == "PlaceSearchView.swift" })
+        let sheet = page.lines.firstIndex { $0.trimmingCharacters(in: .whitespaces).hasPrefix(".sheet(") }
+        let opened = try #require(sheet)
+        #expect(page.lines[opened..<min(opened + 10, page.lines.count)].joined().contains("NameLocationSheet("))
+        let naming = try #require(sources.first { $0.name == "NameLocationSheet.swift" })
+        #expect(naming.text.contains("struct NameLocationSheet: View"))
+        #expect(naming.text.contains(".shellSheet()"))
+    }
+
     /// The scan pickers and viewer are presentations the checks above must see, so a rename
     /// that hid them from the scan fails here rather than passing quietly.
     @Test func theScanPickersAndViewerAreChecked() throws {

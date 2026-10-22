@@ -349,6 +349,60 @@ import Testing
         #expect(row.place == nil)
     }
 
+    @Test func captureSetsOriginDevice() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await commands.beginCapture("r1", fileName: "r1.aac", tuneID: nil, recordedAt: noon)
+        try await commands.beginCapture("r2", fileName: "r2.aac", tuneID: nil, recordedAt: noon)
+
+        let savedAt = try #require(
+            try await commands.finishCapture(
+                "r1", fileName: "r1.m4a", bytes: 1, durationMs: 1,
+                coordinate: Coordinate(lat: 1, lon: 2, accuracyM: 14),
+                at: noon))
+        let noFix = try #require(
+            try await commands.finishCapture("r2", fileName: "r2.m4a", bytes: 1, durationMs: 1, at: noon))
+
+        var row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(row.placeOrigin == "device")
+        #expect(row.placeID == nil)
+        let queued = try #require(try await store.pendingChanges(limit: 10).first { $0.rowID == "r1" })
+        #expect(queued.data?["place_origin"] == .string("device"))
+        #expect(queued.data?["place_id"] == .null)
+        #expect(savedAt == row.updatedAt)
+        row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r2") })
+        #expect(row.placeOrigin == nil)
+        #expect(noFix == row.updatedAt)
+
+        try await commands.addLateFix("r2", coordinate: Coordinate(lat: 3, lon: 4, accuracyM: 20), savedAt: noFix)
+        row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r2") })
+        #expect(row.placeOrigin == "device")
+    }
+
+    @Test func aHandPlaceIsPickedAndClearingItClearsTheOrigin() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await store.write { writer in
+            try writer.put(
+                Recording(
+                    id: "r1", tuneID: nil, source: "microphone", addedAt: .now, placeLat: 1.5, placeLon: 2.5,
+                    placeAccuracyM: 9, placeID: "p1", placeOrigin: "device"))
+        }
+
+        try await commands.updateRecording(
+            "r1", place: .value(RecordingPlace(name: "Denver, CO", coordinate: Coordinate(lat: 39.7, lon: -104.9))))
+        var row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(row.placeOrigin == "picked")
+        #expect(row.placeID == nil)
+
+        try await commands.updateRecording("r1", place: .value(nil))
+        row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(row.placeOrigin == nil)
+        #expect(row.placeID == nil)
+    }
+
     @Test func aLateFixFillsATakeWithNoPlaceAndQueuesIt() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

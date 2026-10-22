@@ -226,7 +226,9 @@ private struct SettingsCategoryPage: View {
 
     var body: some View {
         Group {
-            if category.pageRows.isEmpty {
+            if category == .savedLocations {
+                SavedLocationsPage()
+            } else if category.pageRows.isEmpty {
                 SettingsScreen(
                     version: version, sections: category.sections, title: category.title, opensStatsInSheet: false,
                     registersStats: false)

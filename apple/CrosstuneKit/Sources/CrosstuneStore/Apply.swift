@@ -89,6 +89,7 @@ extension StoreWriter {
         case .lists: return try decoded(TuneList.self)
         case .listItems: return try decoded(ListItem.self)
         case .recordingLinks: return try decoded(RecordingLink.self)
+        case .places: return try decoded(SavedPlace.self)
         case .recordings: return try decoded(Recording.self)
         case .scans: return try decoded(ScanRecord.self)
         case .recordingLoops: return try decoded(RecordingLoop.self)

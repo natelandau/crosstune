@@ -10,11 +10,13 @@ public enum RecordingSuggestions {
 
     /// The named places on the recordings, each once, most recently added first, without
     /// accuracy, as a picked place has none. One name at two spots stays twice, since a town's
-    /// name can repeat across states.
-    public static func recentPlaces(_ recordings: [Recording]) -> [RecordingPlace] {
+    /// name can repeat across states. A recording linked to one of the live `saved` locations is
+    /// left out, since that location is offered on its own.
+    public static func recentPlaces(_ recordings: [Recording], saved: [String: SavedPlace] = [:]) -> [RecordingPlace] {
         var places: [RecordingPlace] = []
         let newestFirst = live(recordings).sorted { $0.addedAt > $1.addedAt }
         for recording in newestFirst {
+            if let id = recording.placeID, let place = saved[id], place.deletedAt == nil { continue }
             guard let place = recording.place.map(picked), !places.contains(place) else { continue }
             places.append(place)
         }

@@ -355,3 +355,27 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
         #expect(RecordingsListText.countLabel(visible: 0, total: 24) == "0 of 24 recordings")
     }
 }
+
+@Suite struct RecordingSearchByLocationTests {
+    private func located(_ id: String, shown: String?) -> RecordingView {
+        RecordingView(
+            recording: Recording(id: id, tuneID: nil, source: "microphone", addedAt: later(1_000), state: "ready"),
+            file: nil, tuneID: nil, tuneTitle: nil, shownPlace: shown)
+    }
+
+    @Test func searchMatchesTheShownLocationName() {
+        let views = [located("a", shown: "The Down Home"), located("b", shown: "Galax, VA"), located("c", shown: nil)]
+        let result = RecordingArrangement.arrange(views, choice: .default, query: "down home")
+        #expect(result.unfiled.map(\.id) == ["a"])
+    }
+
+    @Test func aTakeWithoutALinkSearchesByItsOwnPlaceName() {
+        let own = RecordingView(
+            recording: Recording(
+                id: "d", tuneID: nil, source: "microphone", addedAt: later(1_000), state: "ready",
+                placeName: "Galax, VA"),
+            file: nil, tuneID: nil, tuneTitle: nil)
+        let result = RecordingArrangement.arrange([own], choice: .default, query: "galax")
+        #expect(result.unfiled.map(\.id) == ["d"])
+    }
+}

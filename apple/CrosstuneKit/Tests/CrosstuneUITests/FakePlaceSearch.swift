@@ -8,6 +8,8 @@ import CrosstuneStore
     var results: [String: [PlaceCompletion]] = [:]
     /// The place each completion resolves to, by its title. A title missing here fails to resolve.
     var places: [String: RecordingPlace] = [:]
+    /// The saved location a resolved completion makes, by its title; none for a town.
+    var saving: [String: SavedPlaceDraft] = [:]
     var held: Set<String> = []
 
     private(set) var queries: [String] = []
@@ -24,12 +26,12 @@ import CrosstuneStore
         return results[query] ?? []
     }
 
-    func resolve(_ completion: PlaceCompletion) async -> RecordingPlace? {
+    func resolve(_ completion: PlaceCompletion) async -> PickedPlace? {
         resolves.append(completion.title)
         if held.contains(completion.title) {
             await withCheckedContinuation { waiting[completion.title] = $0 }
         }
-        return places[completion.title]
+        return places[completion.title].map { PickedPlace(place: $0, saving: saving[completion.title]) }
     }
 
     func release(_ query: String) {
@@ -59,5 +61,20 @@ import CrosstuneStore
 
     func fail() {
         onAnswer?(queryFragment, false)
+    }
+}
+
+/// Nearby places that answer from what a test sets, or fail with ``failure``.
+@MainActor final class FakeNearbySearch: NearbySearch {
+    var found: [NearbyPlace] = []
+    var failure: (any Error)?
+    private(set) var asked: [(center: Coordinate, radiusM: Double, limit: Int)] = []
+
+    init() {}
+
+    func places(near center: Coordinate, radiusM: Double, limit: Int) async throws -> [NearbyPlace] {
+        asked.append((center, radiusM, limit))
+        if let failure { throw failure }
+        return found
     }
 }

@@ -34,11 +34,13 @@ public struct ExportInput: Sendable {
     public var scans: [ScanRecord]
     /// Ids of the scans whose image the export holds, on this device or fetched for it.
     public var localScans: Set<String>
+    /// The saved locations, so a linked recording exports the name it shows.
+    public var places: [SavedPlace]
 
     public init(
         timeZone: TimeZone, instruments: [String], tunes: [Tune], userTunes: [UserTune], lists: [TuneList],
         listItems: [ListItem], links: [RecordingLink], recordings: [Recording], localAudio: [LocalAudio],
-        scans: [ScanRecord] = [], localScans: Set<String> = []
+        scans: [ScanRecord] = [], localScans: Set<String> = [], places: [SavedPlace] = []
     ) {
         self.timeZone = timeZone
         self.instruments = instruments
@@ -51,6 +53,7 @@ public struct ExportInput: Sendable {
         self.localAudio = localAudio
         self.scans = scans
         self.localScans = localScans
+        self.places = places
     }
 }
 
@@ -321,6 +324,7 @@ private func recordingRows(
 ) -> [[String]] {
     let pathByID = Dictionary(audio.map { ($0.recordingID, $0.path) }, uniquingKeysWith: { _, last in last })
     let groups = groupedRecordings(input.recordings.filter { $0.deletedAt == nil }, tunes: tunes)
+    let places = Dictionary(input.places.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     func row(_ recording: Recording, tune: String) -> [String] {
         [
             pathByID[recording.id] ?? "",
@@ -328,7 +332,7 @@ private func recordingRows(
             recording.label ?? "",
             recordedOn(recording, dateText: dateText),
             recording.players ?? "",
-            recording.placeName ?? "",
+            shownPlaceName(recording, places: places) ?? "",
             recording.placeLat.map(decimalText) ?? "",
             recording.placeLon.map(decimalText) ?? "",
             recording.placeAccuracyM.map { String($0) } ?? "",

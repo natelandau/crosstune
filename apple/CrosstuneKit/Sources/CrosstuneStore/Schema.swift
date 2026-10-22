@@ -344,6 +344,56 @@ enum Schema {
                     """,
                 arguments: [table])
         }
+        migrator.registerMigration("v21") { db in
+            try createSyncTable(db, .places) { t in
+                t.column("name", .text).notNull()
+                t.column("lat", .double).notNull()
+                t.column("lon", .double).notNull()
+                t.column("address", .text)
+                t.column("apple_place_id", .text)
+            }
+            // Places another device saved sit behind the cursor, skipped before this build stored the table.
+            try repull(db)
+            let table = SyncTable.recordings.rawValue
+            try db.alter(table: table) { t in
+                t.add(column: "place_id", .text)
+                t.add(column: "place_origin", .text)
+            }
+            // A row pulled from a server that already had the fields kept them in `extra`.
+            for column in ["place_id", "place_origin"] {
+                try db.execute(
+                    sql: """
+                        UPDATE recordings
+                        SET \(column) = json_extract(extra, '$.\(column)')
+                        WHERE json_type(extra, '$.\(column)') = 'text'
+                        """)
+            }
+            try db.execute(sql: "UPDATE recordings SET extra = json_remove(extra, '$.place_id', '$.place_origin')")
+            // The server infers the same origin for the rows it holds and sends them again, so
+            // this only keeps a row not yet pushed valid: origin is set exactly with coordinates.
+            try db.execute(
+                sql: """
+                    UPDATE recordings
+                    SET place_origin = CASE
+                        WHEN place_accuracy_m IS NOT NULL THEN 'device'
+                        WHEN place_name IS NOT NULL THEN 'picked'
+                        WHEN source = 'upload' THEN 'file'
+                        ELSE 'picked' END
+                    WHERE place_lat IS NOT NULL AND place_origin IS NULL
+                    """)
+            // A queued change that predates the fields carries them from the row, so a pushed
+            // upsert never leaves them out.
+            try db.execute(
+                sql: """
+                    UPDATE outbox
+                    SET data = json_set(data,
+                        '$.place_id', (SELECT place_id FROM recordings WHERE id = outbox.row_id),
+                        '$.place_origin', (SELECT place_origin FROM recordings WHERE id = outbox.row_id))
+                    WHERE table_name = ? AND data IS NOT NULL AND json_type(data, '$.place_origin') IS NULL
+                        AND EXISTS (SELECT 1 FROM recordings WHERE id = outbox.row_id)
+                    """,
+                arguments: [table])
+        }
         return migrator
     }()
 

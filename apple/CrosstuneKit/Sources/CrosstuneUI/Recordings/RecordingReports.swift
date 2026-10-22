@@ -41,6 +41,15 @@ extension AnalyticsClient {
         send(.recordingPlaceCleared(recordingID: recording.id))
     }
 
+    /// Never the location's name or point.
+    func savedLocationCreated(_ method: SavedLocationMethod) {
+        send(.savedLocationCreated(method: method))
+    }
+
+    func locationOpenedInMaps() {
+        send(.locationOpenedInMaps)
+    }
+
     func recordingDeleted(_ recording: Recording) {
         send(.recordingDeleted(origin: RecordingOrigin(recording), recordingID: recording.id))
     }

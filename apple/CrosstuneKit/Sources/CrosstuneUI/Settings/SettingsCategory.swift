@@ -6,6 +6,7 @@ enum SettingsCategory: CaseIterable, Hashable {
     case newTunes
     case musicServices
     case recording
+    case savedLocations
     case appearance
     case syncAndStorage
     case importExport
@@ -19,6 +20,7 @@ enum SettingsCategory: CaseIterable, Hashable {
         case .newTunes: SettingsModel.newTunes
         case .musicServices: SettingsModel.musicServices
         case .recording: SettingsModel.recording
+        case .savedLocations: SavedLocationsText.title
         case .appearance: Appearance.title
         case .syncAndStorage: Self.syncAndStorageTitle
         case .importExport: ImportExportSections.title
@@ -32,6 +34,7 @@ enum SettingsCategory: CaseIterable, Hashable {
         case .newTunes: "text.badge.plus"
         case .musicServices: "music.note.list"
         case .recording: "waveform"
+        case .savedLocations: "map"
         case .appearance: "circle.lefthalf.filled"
         case .syncAndStorage: "arrow.triangle.2.circlepath"
         case .importExport: "arrow.up.arrow.down"
@@ -43,7 +46,7 @@ enum SettingsCategory: CaseIterable, Hashable {
     /// their own, so no group of the form stands for them.
     var sections: SettingsScreen.Sections {
         switch self {
-        case .instruments, .musicServices: []
+        case .instruments, .musicServices, .savedLocations: []
         case .newTunes: [.newTunes]
         case .recording: [.recording]
         case .appearance: [.appearance]
@@ -58,7 +61,7 @@ enum SettingsCategory: CaseIterable, Hashable {
         switch self {
         case .instruments: [.instruments]
         case .musicServices: [.musicServices, .appleMusic]
-        case .newTunes, .recording, .appearance, .syncAndStorage, .importExport, .about: []
+        case .newTunes, .recording, .savedLocations, .appearance, .syncAndStorage, .importExport, .about: []
         }
     }
 }

@@ -22,9 +22,12 @@ struct ScreenRows: Equatable, Sendable {
     let tuneTitle: String?
     /// The tune's part structure, which names loops.
     let partStructure: String?
+    /// The location's name to show: its saved location's while that is live, else the take's own.
+    let shownPlace: String?
 
     var view: RecordingView {
-        RecordingView(recording: recording, file: file, tuneID: tuneID, tuneTitle: tuneTitle)
+        RecordingView(
+            recording: recording, file: file, tuneID: tuneID, tuneTitle: tuneTitle, shownPlace: shownPlace)
     }
 
     /// How long the trimmed recording plays, or nil when nothing says how long it is.
@@ -37,9 +40,12 @@ struct ScreenRows: Equatable, Sendable {
         guard let recording = try Recording.fetchOne(db, key: id), recording.deletedAt == nil else { return nil }
         let tune = try recording.tuneID.flatMap { try Tune.fetchOne(db, key: $0) }
         let live = tune?.deletedAt == nil ? tune : nil
+        let linked = try recording.placeID.flatMap { try SavedPlace.fetchOne(db, key: $0) }
+        let places = linked.map { [$0.id: $0] } ?? [:]
         return ScreenRows(
             recording: recording, file: try RecordingFile.fetchOne(db, key: id), tuneID: live?.id,
-            tuneTitle: live?.title, partStructure: live?.partStructure)
+            tuneTitle: live?.title, partStructure: live?.partStructure,
+            shownPlace: shownPlaceName(recording, places: places))
     }
 }
 
@@ -207,6 +213,8 @@ struct RecordingScreenContent: View {
     @AppStorage(PracticeMode.storageKey) private var mode: PracticeMode = .loops
     @State private var peaks: LoadedPeaks?
     @State private var editing: RecordingView?
+    /// The page the edit sheet opens on, nil for its form.
+    @State private var editingPage: EditRecordingPage?
     @State private var filing: RecordingView?
     /// A tune the add to tune sheet asked to start, opened once that sheet has gone.
     @State private var creating: String?
@@ -267,7 +275,7 @@ struct RecordingScreenContent: View {
     private var headerSubtitle: String? {
         StandHeader.subtitle(
             recording: rows.recording, tuneTitle: rows.tuneTitle, lengthMs: rows.trimmedLengthMs,
-            playback: playback, standsWithReading: standsWithReading)
+            place: rows.shownPlace, playback: playback, standsWithReading: standsWithReading)
     }
 
     var body: some View {
@@ -287,6 +295,7 @@ struct RecordingScreenContent: View {
                 if standHasReading {
                     ToolbarItem(placement: .primaryAction) { StandReadingToggle() }
                 }
+                ToolbarItem(placement: .primaryAction) { locationControl }
                 ToolbarItem(placement: .primaryAction) { menu }
             }
         #else
@@ -342,7 +351,7 @@ struct RecordingScreenContent: View {
             await loadPeaks()
         }
         .sheet(item: $editing) { view in
-            EditRecordingSheet(view: view)
+            EditRecordingSheet(view: view, initialPage: editingPage)
         }
         .sheet(item: $filing, onDismiss: openCreated) { view in
             AddToTuneSheet(recordingID: view.id) { title in creating = title }
@@ -500,11 +509,16 @@ struct RecordingScreenContent: View {
                     .font(MacStyle.pageTitle)
                     .lineLimit(2)
                     .accessibilityAddTraits(.isHeader)
-                Text(subtitle)
-                    .contentMask()
-                    .font(MacStyle.body)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .contentMask()
+                            .font(MacStyle.body)
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                    locationControl
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, MacStyle.headingGap)
@@ -539,7 +553,8 @@ struct RecordingScreenContent: View {
     /// The Mac heading's second line.
     private var subtitle: String {
         let parts = [RecordingText.date(rows.recording), RecordingText.duration(milliseconds: rows.trimmedLengthMs)]
-        return (parts.compactMap { $0 } + RecordingScreenText.credits(rows.recording)).joined(separator: " · ")
+        return (parts.compactMap { $0 } + RecordingScreenText.credits(rows.recording, place: nil))
+            .joined(separator: " · ")
     }
 
     private var screenBlocker: String? {
@@ -586,10 +601,47 @@ struct RecordingScreenContent: View {
         .help(TuneScreen.moreActions)
     }
 
+    private func edit(_ view: RecordingView, page: EditRecordingPage?) {
+        editingPage = page
+        editing = view
+    }
+
+    /// The control that opens the edit sheet on its location page, absent while the take has no
+    /// shown location.
+    @ViewBuilder private var locationControl: some View {
+        if let name = rows.shownPlace, let label = RecordingScreenText.editLocation(name) {
+            #if os(iOS)
+                // A bar's subtitle cannot hold a button, so the control sits in the toolbar, named
+                // for the location it opens.
+                Button {
+                    edit(rows.view, page: .location)
+                } label: {
+                    Label(label, systemImage: "location")
+                }
+                .help(label)
+            #else
+                Button {
+                    edit(rows.view, page: .location)
+                } label: {
+                    Label {
+                        Text(name).contentMask()
+                    } icon: {
+                        Image(systemName: "location").imageScale(.small).accessibilityHidden(true)
+                    }
+                }
+                .buttonStyle(.plain)
+                .font(MacStyle.body)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel(label)
+                .help(label)
+            #endif
+        }
+    }
+
     private func choose(_ item: RecordingMenuItem, _ view: RecordingView) {
         switch item {
         case .trim: openTrim()
-        case .edit: editing = view
+        case .edit: edit(view, page: nil)
         case .addToTune: filing = view
         case .removeFromTune: removeFromTune()
         case .openOrigin(_, let page): openURL(page)

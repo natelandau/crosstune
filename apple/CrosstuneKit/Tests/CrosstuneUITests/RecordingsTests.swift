@@ -743,9 +743,7 @@ private struct RefusingSyncAPI: SyncAPI {
         try await store.write { writer in try writer.put(take, at: noon) }
         let edit = EditRecordingModel(store: store, recording: take)
         let galax = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92))
-        let search = PlaceSearchModel(
-            search: { FakePlaceSearch() }, recent: [galax], current: { edit.place }, onPick: edit.setPlace,
-            onClear: edit.clearPlace)
+        let search = PlaceSearchModel(edit: edit, search: { FakePlaceSearch() })
         #expect(search.current == nil)
         #expect(!search.isCurrent(galax))
 
@@ -793,16 +791,12 @@ private struct RefusingSyncAPI: SyncAPI {
         let stored = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
         let edit = EditRecordingModel(store: store, recording: stored)
         let spot = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92))
-        let search = PlaceSearchModel(
-            search: { FakePlaceSearch() }, recent: [spot], current: { edit.place }, onPick: edit.setPlace,
-            onClear: edit.clearPlace)
+        let search = PlaceSearchModel(edit: edit, search: { FakePlaceSearch() })
         #expect(search.pickRecent(spot))
         #expect(edit.place == spot)
         #expect(edit.placeMethod == .suggestion)
         #expect(edit.isEdited)
-        let clearing = PlaceSearchModel(
-            search: { FakePlaceSearch() }, recent: [], current: { edit.place }, onPick: edit.setPlace,
-            onClear: edit.clearPlace)
+        let clearing = PlaceSearchModel(edit: edit, search: { FakePlaceSearch() })
         #expect(clearing.clear())
         #expect(edit.place == nil)
         #expect(edit.placeMethod == nil)
@@ -926,6 +920,486 @@ private struct RefusingSyncAPI: SyncAPI {
         model.query = "Sally Goodin"
         #expect(model.results?.outcome.offerLabel == "Add \"Sally Goodin\"")
         #expect(await model.submit() == .create(title: "Sally Goodin"))
+    }
+}
+
+/// The location page's picks, which the edit sheet holds until Save and writes in one go.
+@MainActor
+@Suite struct LocationPickTests {
+    private let spot = Coordinate(lat: 36.66, lon: -80.92, accuracyM: 12)
+    private let street = "1 Main St, Galax, VA"
+
+    private func put(_ store: CrosstuneStore, _ recordings: [Recording], places: [SavedPlace] = []) async throws {
+        try await store.write { writer in
+            for place in places { try writer.put(place, at: noon) }
+            for recording in recordings { try writer.put(recording, at: noon) }
+        }
+    }
+
+    private func captured(_ id: String = "r1", name: String? = nil, placeID: String? = nil) -> Recording {
+        Recording(
+            id: id, tuneID: nil, source: "microphone", addedAt: noon, state: "ready", placeName: name,
+            placeLat: spot.lat, placeLon: spot.lon, placeAccuracyM: spot.accuracyM, placeID: placeID,
+            placeOrigin: "device")
+    }
+
+    private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -> Recording {
+        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
+    }
+
+    private func savedPlaces(_ store: CrosstuneStore) async throws -> [SavedPlace] {
+        try await store.read { db in try SavedPlace.fetchAll(db) }
+    }
+
+    @Test func namingCreatesASavedPlaceAndLinksTheTake() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let sink = RecordingAnalyticsSink()
+        let take = captured(name: street)
+        try await put(store, [take])
+        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        await edit.load()
+        #expect(edit.canNamePlace)
+        edit.nameLocation("  Tom’s kitchen  ")
+        #expect(edit.place?.name == "Tom’s kitchen")
+        #expect(edit.placeAddress == street)
+        #expect(edit.isEdited)
+        #expect(try await savedPlaces(store).isEmpty)
+
+        #expect(await edit.save())
+        let place = try #require(try await savedPlaces(store).first)
+        #expect(place.name == "Tom’s kitchen")
+        #expect(place.address == street)
+        #expect(place.lat == spot.lat && place.lon == spot.lon)
+        let saved = try await stored(store)
+        #expect(saved.placeID == place.id)
+        #expect(saved.placeOrigin == "picked")
+        #expect(saved.placeName == street)
+        #expect(saved.placeAccuracyM == 12)
+        #expect(
+            sink.captures.map(\.name).sorted() == ["recording_place_set", "saved_location_created"])
+        #expect(
+            sink.captures.first { $0.name == "saved_location_created" }?.properties == ["method": .string("custom")])
+        #expect(sink.captures.first { $0.name == "recording_place_set" }?.properties["method"] == .string("saved"))
+    }
+
+    @Test func namingOnALinkedTakeRelinksOnlyThatTake() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let barn = SavedPlace(id: "p1", createdAt: noon, name: "The barn", lat: spot.lat, lon: spot.lon)
+        let take = captured("r1", name: street, placeID: "p1")
+        try await put(store, [take, captured("r2", name: street, placeID: "p1")], places: [barn])
+        let edit = EditRecordingModel(store: store, recording: take)
+        await edit.load()
+        #expect(try await poll { edit.place?.name == "The barn" })
+        edit.nameLocation("Upstairs flat")
+        #expect(await edit.save())
+        let places = try await savedPlaces(store)
+        let flat = try #require(places.first { $0.name == "Upstairs flat" })
+        #expect(places.first { $0.id == "p1" }?.name == "The barn")
+        #expect(try await stored(store, "r1").placeID == flat.id)
+        #expect(try await stored(store, "r2").placeID == "p1")
+    }
+
+    @Test func pickingAVenueCreatesASavedPlace() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let sink = RecordingAnalyticsSink()
+        let take = captured(name: street)
+        try await put(store, [take])
+        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        await edit.load()
+        let venue = NearbyPlace(
+            name: "Rex Theater", address: "113 E Grayson St, Galax, VA", lat: 36.660_3, lon: -80.920_1,
+            applePlaceID: "I1234")
+        edit.pickNearby(.venue(venue))
+        #expect(edit.place?.name == "Rex Theater")
+        #expect(edit.placeAddress == "113 E Grayson St, Galax, VA")
+        #expect(edit.placeMethod == .nearby)
+        #expect(await edit.save())
+
+        let place = try #require(try await savedPlaces(store).first)
+        #expect(place.name == "Rex Theater")
+        #expect(place.address == "113 E Grayson St, Galax, VA")
+        #expect(place.lat == venue.lat && place.lon == venue.lon)
+        #expect(place.applePlaceID == "I1234")
+        let saved = try await stored(store)
+        #expect(saved.placeID == place.id)
+        #expect(saved.placeLat == spot.lat && saved.placeLon == spot.lon)
+        #expect(saved.placeAccuracyM == 12)
+        #expect(saved.placeName == street)
+        #expect(
+            sink.captures.first { $0.name == "saved_location_created" }?.properties == ["method": .string("nearby")])
+        #expect(sink.captures.first { $0.name == "recording_place_set" }?.properties["method"] == .string("nearby"))
+    }
+
+    @Test func pickingASearchedVenueCreatesASavedPlaceAndMovesTheTake() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let sink = RecordingAnalyticsSink()
+        let take = captured(name: street)
+        try await put(store, [take])
+        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        let jalopy = RecordingPlace(
+            name: "Jalopy Theatre, 315 Columbia St, Brooklyn, NY", coordinate: Coordinate(lat: 40.684_5, lon: -74.001_9)
+        )
+        edit.pickSearch(
+            PickedPlace(
+                place: jalopy,
+                saving: SavedPlaceDraft(
+                    name: "Jalopy Theatre", address: "315 Columbia St, Brooklyn, NY", lat: 40.684_5, lon: -74.001_9,
+                    applePlaceID: "J1")))
+        #expect(await edit.save())
+        let place = try #require(try await savedPlaces(store).first)
+        #expect(place.name == "Jalopy Theatre")
+        #expect(place.applePlaceID == "J1")
+        let saved = try await stored(store)
+        #expect(saved.place == jalopy)
+        #expect(saved.placeID == place.id)
+        #expect(
+            sink.captures.first { $0.name == "saved_location_created" }?.properties == ["method": .string("search")])
+    }
+
+    @Test func pickingATownCreatesNoSavedPlace() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let sink = RecordingAnalyticsSink()
+        let take = captured(name: street)
+        try await put(store, [take])
+        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        let town = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.661, lon: -80.923))
+        edit.pickSearch(PickedPlace(place: town, saving: nil))
+        #expect(await edit.save())
+        #expect(try await savedPlaces(store).isEmpty)
+        let saved = try await stored(store)
+        #expect(saved.place == town)
+        #expect(saved.placeID == nil)
+        #expect(saved.placeOrigin == "picked")
+        #expect(sink.captures.map(\.name) == ["recording_place_set"])
+    }
+
+    @Test func aPickAndTheSavedPlaceItMakesWaitForSave() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let take = captured(name: street)
+        try await put(store, [take])
+        let before = try await stored(store)
+        let edit = EditRecordingModel(store: store, recording: before)
+        edit.pickNearby(
+            .venue(NearbyPlace(name: "Rex Theater", address: nil, lat: 36.660_3, lon: -80.920_1, applePlaceID: nil)))
+        edit.nameLocation("Tom’s kitchen")
+        #expect(try await savedPlaces(store).isEmpty)
+        #expect(try await stored(store) == before)
+    }
+
+    @Test func linkedTakeWithoutItsOwnNameShowsTheSavedName() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let barn = SavedPlace(
+            id: "p1", createdAt: noon, name: "The barn", lat: spot.lat, lon: spot.lon, address: street)
+        let take = captured(placeID: "p1")
+        try await put(store, [take], places: [barn])
+        let edit = EditRecordingModel(store: store, recording: take)
+        await edit.load()
+        #expect(try await poll { edit.place?.name == "The barn" })
+        #expect(edit.placeAddress == street)
+        #expect(edit.canClearPlace)
+        #expect(!edit.isEdited)
+        edit.setName("Jam")
+        #expect(await edit.save())
+        let saved = try await stored(store)
+        #expect(saved.placeID == "p1")
+        #expect(saved.placeName == nil)
+        #expect(saved.placeAccuracyM == 12)
+    }
+
+    private let jalopy = RecordingPlace(
+        name: "Jalopy Theatre, 315 Columbia St, Brooklyn, NY", coordinate: Coordinate(lat: 40.684_5, lon: -74.001_9))
+
+    @Test func namingOverAStagedSearchPickSavesAtThePickedPoint() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let take = captured(name: street)
+        try await put(store, [take])
+        let edit = EditRecordingModel(store: store, recording: take)
+        await edit.load()
+        edit.pickSearch(PickedPlace(place: jalopy, saving: nil))
+        #expect(edit.placeCoordinate == jalopy.coordinate)
+        #expect(edit.mapsPoint == jalopy.coordinate)
+        edit.nameLocation("Back room")
+        #expect(edit.placeCoordinate == jalopy.coordinate)
+        #expect(await edit.save())
+        let place = try #require(try await savedPlaces(store).first)
+        let saved = try await stored(store)
+        #expect(place.lat == jalopy.coordinate.lat && place.lon == jalopy.coordinate.lon)
+        #expect(saved.placeLat == place.lat && saved.placeLon == place.lon)
+        #expect(saved.placeAccuracyM == nil)
+        #expect(saved.placeID == place.id)
+        #expect(saved.placeName == jalopy.name)
+    }
+
+    @Test func aNearbyVenueOverAStagedSearchPickKeepsThePickedPoint() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let take = captured(name: street)
+        try await put(store, [take])
+        let edit = EditRecordingModel(store: store, recording: take)
+        await edit.load()
+        edit.pickSearch(PickedPlace(place: jalopy, saving: nil))
+        let venue = NearbyPlace(
+            name: "Pete’s Candy Store", address: "709 Lorimer St, Brooklyn, NY", lat: 40.684_6, lon: -74.001_8,
+            applePlaceID: "P1")
+        edit.pickNearby(.venue(venue))
+        #expect(edit.placeCoordinate == jalopy.coordinate)
+        #expect(await edit.save())
+        let place = try #require(try await savedPlaces(store).first)
+        #expect(place.lat == venue.lat && place.lon == venue.lon)
+        let saved = try await stored(store)
+        #expect(saved.placeLat == jalopy.coordinate.lat && saved.placeLon == jalopy.coordinate.lon)
+        #expect(saved.placeID == place.id)
+    }
+
+    @Test func aSearchPickOfAVenueSavedAlreadyLinksIt() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let existing = SavedPlace(
+            id: "p1", createdAt: noon, name: "Jalopy", lat: 40.684_5, lon: -74.001_9, applePlaceID: "J1")
+        let take = captured(name: street)
+        try await put(store, [take], places: [existing])
+        let edit = EditRecordingModel(store: store, recording: take)
+        await edit.load()
+        #expect(try await poll { !edit.savedPlaces.isEmpty })
+        edit.pickSearch(
+            PickedPlace(
+                place: jalopy,
+                saving: SavedPlaceDraft(
+                    name: "Jalopy Theatre", address: "315 Columbia St, Brooklyn, NY", lat: 40.684_5, lon: -74.001_9,
+                    applePlaceID: "J1")))
+        #expect(edit.place?.name == "Jalopy")
+        #expect(await edit.save())
+        #expect(try await savedPlaces(store).map(\.id) == ["p1"])
+        let saved = try await stored(store)
+        #expect(saved.placeID == "p1")
+        #expect(saved.place == jalopy)
+    }
+
+    @Test func namingATakePickedAsAVenueKeepsNoAddress() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let take = Recording(
+            id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", placeName: jalopy.name,
+            placeLat: jalopy.coordinate.lat, placeLon: jalopy.coordinate.lon, placeOrigin: "picked")
+        try await put(store, [take])
+        let edit = EditRecordingModel(store: store, recording: take)
+        await edit.load()
+        edit.nameLocation("Back room")
+        #expect(edit.placeAddress == nil)
+        #expect(await edit.save())
+        #expect(try await savedPlaces(store).first?.address == nil)
+    }
+
+    @Test func aStreetAddressSearchPickNamedKeepsItsAddressLine() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let take = captured(name: street)
+        try await put(store, [take])
+        let edit = EditRecordingModel(store: store, recording: take)
+        let center = RecordingPlace(name: "1038 Center St, Newton, MA", coordinate: Coordinate(lat: 42.33, lon: -71.2))
+        edit.pickSearch(
+            PickedPlace(
+                place: center,
+                saving: SavedPlaceDraft(name: center.name, address: nil, lat: 42.33, lon: -71.2, applePlaceID: nil)))
+        edit.nameLocation("Grandma’s")
+        #expect(edit.placeAddress == center.name)
+    }
+
+    @Test func aPickedSavedPlaceDeletedMeanwhileFallsBackToTheTakesOwn() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let barn = SavedPlace(id: "p1", createdAt: noon, name: "The barn", lat: spot.lat, lon: spot.lon)
+        let take = captured(name: street)
+        try await put(store, [take], places: [barn])
+        let edit = EditRecordingModel(store: store, recording: take)
+        await edit.load()
+        edit.pickSaved(barn)
+        #expect(try await poll { edit.place?.name == "The barn" })
+        try await store.write { writer in try writer.deleteSavedPlace("p1", at: later(1_000)) }
+        #expect(try await poll { edit.place?.name == street })
+        #expect(!edit.isEdited)
+        edit.setName("Jam")
+        #expect(await edit.save())
+        let saved = try await stored(store)
+        #expect(saved.placeID == nil)
+        #expect(saved.placeAccuracyM == 12)
+    }
+
+    @Test func aSavedPickOverAStagedSearchPickKeepsTheTakesOwn() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let barn = SavedPlace(id: "p1", createdAt: noon, name: "The barn", lat: 36.67, lon: -80.93)
+        let take = captured(name: street)
+        try await put(store, [take], places: [barn])
+        let edit = EditRecordingModel(store: store, recording: take)
+        await edit.load()
+        edit.pickSearch(PickedPlace(place: jalopy, saving: nil))
+        edit.pickSaved(barn)
+        #expect(edit.placeCoordinate == spot)
+        #expect(await edit.save())
+        let saved = try await stored(store)
+        #expect(saved.placeLat == spot.lat && saved.placeLon == spot.lon)
+        #expect(saved.placeAccuracyM == 12)
+        #expect(saved.placeName == street)
+        #expect(saved.placeID == "p1")
+    }
+
+    @Test func aLinkOverAPickWhoseLocationIsDeletedFallsBackToThePick() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let sink = RecordingAnalyticsSink()
+        let barn = SavedPlace(id: "p1", createdAt: noon, name: "The barn", lat: 40.684_6, lon: -74.001_8)
+        let take = captured(name: street)
+        try await put(store, [take], places: [barn])
+        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        await edit.load()
+        edit.pickSearch(PickedPlace(place: jalopy, saving: nil))
+        edit.pickNearby(.saved(barn))
+        #expect(try await poll { edit.place?.name == "The barn" })
+        try await store.write { writer in try writer.deleteSavedPlace("p1", at: later(1_000)) }
+        #expect(try await poll { edit.place == jalopy })
+        #expect(edit.isEdited)
+        #expect(await edit.save())
+        let saved = try await stored(store)
+        #expect(saved.place == jalopy)
+        #expect(saved.placeID == nil)
+        // The search pick is what was written, so it is what the event says.
+        #expect(sink.captures.first { $0.name == "recording_place_set" }?.properties["method"] == .string("search"))
+    }
+
+    @Test func aSearchPickLinkedToASavedPlaceDeletedMeanwhileSavesItsOwn() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let sink = RecordingAnalyticsSink()
+        let existing = SavedPlace(
+            id: "p1", createdAt: noon, name: "Jalopy", lat: 40.684_5, lon: -74.001_9, applePlaceID: "J1")
+        let take = captured(name: street)
+        try await put(store, [take], places: [existing])
+        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        await edit.load()
+        #expect(try await poll { !edit.savedPlaces.isEmpty })
+        edit.pickSearch(
+            PickedPlace(
+                place: jalopy,
+                saving: SavedPlaceDraft(
+                    name: "Jalopy Theatre", address: "315 Columbia St, Brooklyn, NY", lat: 40.684_5, lon: -74.001_9,
+                    applePlaceID: "J1")))
+        #expect(try await poll { edit.linkedPlace?.id == "p1" })
+        try await store.write { writer in try writer.deleteSavedPlace("p1", at: later(1_000)) }
+        #expect(try await poll { edit.linkedPlace == nil })
+        #expect(edit.place == jalopy)
+        #expect(await edit.save())
+        let made = try #require(try await savedPlaces(store).first { $0.deletedAt == nil })
+        #expect(made.name == "Jalopy Theatre")
+        #expect(made.address == "315 Columbia St, Brooklyn, NY")
+        let saved = try await stored(store)
+        #expect(saved.place == jalopy)
+        #expect(saved.placeID == made.id)
+        #expect(
+            sink.captures.first { $0.name == "saved_location_created" }?.properties == ["method": .string("search")])
+    }
+
+    @Test func aSearchPickWithAnAppleIDLinksASavedPlaceOfItsNameThatHasNone() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        // Saved on a client whose search gives no Apple id, about 11 m north of the pick.
+        let existing = SavedPlace(
+            id: "p1", createdAt: noon, name: "  jalopy THEATRE ", lat: 40.684_6, lon: -74.001_9)
+        let take = captured(name: street)
+        try await put(store, [take], places: [existing])
+        let edit = EditRecordingModel(store: store, recording: take)
+        edit.pickSearch(
+            PickedPlace(
+                place: jalopy,
+                saving: SavedPlaceDraft(
+                    name: "Jalopy Theatre", address: nil, lat: 40.684_5, lon: -74.001_9, applePlaceID: "J1")))
+        #expect(await edit.save())
+        #expect(try await savedPlaces(store).map(\.id) == ["p1"])
+        #expect(try await stored(store).placeID == "p1")
+    }
+
+    @Test func aNearbyVenueOrATypedNameSavedAlreadyLinksThatPlace() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let sink = RecordingAnalyticsSink()
+        let barn = SavedPlace(id: "p1", createdAt: noon, name: "The Barn", lat: spot.lat, lon: spot.lon)
+        let take = captured(name: street)
+        try await put(store, [take], places: [barn])
+
+        let venue = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        venue.pickNearby(
+            .venue(NearbyPlace(name: "the barn", address: nil, lat: spot.lat, lon: spot.lon, applePlaceID: "B1")))
+        #expect(await venue.save())
+        #expect(try await savedPlaces(store).map(\.id) == ["p1"])
+        #expect(try await stored(store).placeID == "p1")
+
+        let named = EditRecordingModel(store: store, recording: try await stored(store), analytics: sink.client)
+        await named.load()
+        named.nameLocation(" THE BARN ")
+        #expect(await named.save())
+        #expect(try await savedPlaces(store).map(\.id) == ["p1"])
+        #expect(!sink.captures.map(\.name).contains("saved_location_created"))
+    }
+
+    @Test func aSearchPickBeforeTheSavedPlacesAreReadStillLinksASavedVenue() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let sink = RecordingAnalyticsSink()
+        let existing = SavedPlace(
+            id: "p1", createdAt: noon, name: "Jalopy", lat: 40.684_5, lon: -74.001_9, applePlaceID: "J1")
+        let take = captured(name: street)
+        try await put(store, [take], places: [existing])
+        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        #expect(edit.savedPlaces.isEmpty)
+        edit.pickSearch(
+            PickedPlace(
+                place: jalopy,
+                saving: SavedPlaceDraft(
+                    name: "Jalopy Theatre", address: nil, lat: 40.684_5, lon: -74.001_9, applePlaceID: "J1")))
+        #expect(await edit.save())
+        #expect(try await savedPlaces(store).map(\.id) == ["p1"])
+        #expect(try await stored(store).placeID == "p1")
+        #expect(!sink.captures.map(\.name).contains("saved_location_created"))
+    }
+
+    @Test func replacedReadsTheLocationAsItStandsNow() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let sink = RecordingAnalyticsSink()
+        let take = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
+        try await put(store, [take])
+        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        var named = take
+        named.placeName = street
+        named.placeLat = spot.lat
+        named.placeLon = spot.lon
+        let synced = named
+        try await store.write { writer in try writer.put(synced, at: later(1_000)) }
+        #expect(try await poll { edit.place?.name == street })
+        edit.pickSearch(PickedPlace(place: jalopy, saving: nil))
+        #expect(await edit.save())
+        #expect(sink.captures.first { $0.name == "recording_place_set" }?.properties["replaced"] == .bool(true))
+    }
+
+    @Test func aLinkedTakeLeavesTheRecentLocations() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let barn = SavedPlace(id: "p1", createdAt: noon, name: "The barn", lat: spot.lat, lon: spot.lon)
+        let other = Recording(
+            id: "r2", tuneID: nil, source: "microphone", addedAt: later(60_000), state: "ready", placeName: "Galax, VA",
+            placeLat: 36.661, placeLon: -80.923, placeOrigin: "picked")
+        try await put(store, [captured("r1", name: street, placeID: "p1"), other], places: [barn])
+        let edit = EditRecordingModel(store: store, recording: other)
+        await edit.load()
+        #expect(edit.recentPlaces.map(\.name) == ["Galax, VA"])
     }
 }
 
