@@ -31,6 +31,7 @@ from crosstune.models import (
     Job,
     List,
     ListItem,
+    Place,
     PlayEvent,
     PracticeSession,
     Recording,
@@ -87,6 +88,7 @@ async def _seed(
             title="A take",
         ),
         change("user_settings", uid(), T0, instruments=["violin"]),
+        change("places", uid(), T0, name="Porch", lat=36.66, lon=-80.92),
         recording_change(rec),
         change(
             "recording_loops",
@@ -168,6 +170,7 @@ async def test_delete_me_removes_everything_and_the_clerk_user(
         Recording,
         RecordingLink,
         RecordingLoop,
+        Place,
         PlayEvent,
         PracticeSession,
         ScanView,

@@ -9,11 +9,12 @@ from typing import Any
 
 import httpx2
 import jwt
+from cryptography.hazmat.primitives.asymmetric import ec
 
 from crosstune.config import Settings, load_apple_p256_key
 from crosstune.links.fetch import get_json
 from crosstune.places.countries import country as country_named
-from crosstune.places.names import place_name, suggestion_name
+from crosstune.places.names import PlaceKind, automatic_name, suggestion_name
 
 MAPS_URL = "https://maps-api.apple.com"
 MAX_HITS = 10
@@ -34,7 +35,9 @@ class PlaceHit:
     lat: float
     lon: float
     title: str
+    kind: PlaceKind
     subtitle: str | None = None
+    address: str | None = None
 
 
 class MapsError(Exception):
@@ -84,6 +87,26 @@ class AppleMaps:
         # Concurrent lookups share one exchange when the token lapses.
         self._lock = asyncio.Lock()
 
+    @property
+    def team_id(self) -> str:
+        """The Apple developer team that owns the key."""
+        return self._team_id
+
+    @property
+    def key_id(self) -> str:
+        """The Maps key's identifier, sent as the signature's `kid`."""
+        return self._key_id
+
+    @property
+    def private_key(self) -> ec.EllipticCurvePrivateKey:
+        """The Maps key, for signing tokens and snapshot URLs in `places.mapkit`."""
+        return self._private_key
+
+    @property
+    def clock(self) -> Callable[[], float]:
+        """The time source token lifetimes are measured on."""
+        return self._clock
+
     async def search(
         self,
         client: httpx2.AsyncClient,
@@ -129,6 +152,8 @@ class AppleMaps:
                     lon=float(lon),
                     title=picked.title,
                     subtitle=picked.subtitle,
+                    kind=picked.kind,
+                    address=picked.address,
                 )
             )
             if len(hits) == MAX_HITS:
@@ -141,6 +166,7 @@ class AppleMaps:
         lat: float,
         lon: float,
         *,
+        accuracy_m: int | None,
         timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout
     ) -> str | None:
         """Name the place at a coordinate.
@@ -149,10 +175,12 @@ class AppleMaps:
             client: The outbound client.
             lat: Latitude in degrees.
             lon: Longitude in degrees.
+            accuracy_m: The fix's horizontal accuracy in meters, or None for a file location,
+                which names the street address.
             timeout: The per-request timeout in seconds.
 
         Returns:
-            str | None: The first result's name, or None when Apple Maps knows no place there.
+            str | None: The first result named by `accuracy_m`, or None when Apple Maps knows no place there.
 
         Raises:
             MapsBusyError: If Apple Maps rate limits the key.
@@ -160,7 +188,7 @@ class AppleMaps:
         """
         body = await self._get(client, "/v1/reverseGeocode", {"loc": f"{lat},{lon}"}, timeout)
         results = _results(body)
-        return place_name(results[0]) if results else None
+        return automatic_name(results[0], accuracy_m) if results else None
 
     async def _get(
         self,

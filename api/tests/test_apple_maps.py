@@ -139,13 +139,14 @@ async def test_search_returns_named_hits(maps: AppleMaps, http: MockHttp) -> Non
         hits = await maps.search(client, "galax", country="US", timeout=5)
 
     assert hits == [
-        PlaceHit("Galax, VA", 36.6612, -80.9239, title="Galax, VA"),
+        PlaceHit("Galax, VA", 36.6612, -80.9239, title="Galax, VA", kind="town"),
         PlaceHit(
             "Ennis, Co. Clare, Ireland",
             52.8436,
             -8.9864,
             title="Ennis",
             subtitle="Co. Clare, Ireland",
+            kind="town",
         ),
     ]
     assert _sent(http, SEARCH_URL)[0].url.params["q"] == "galax"
@@ -179,7 +180,12 @@ async def test_search_rows_leave_out_the_account_country(maps: AppleMaps, http: 
         hits = await maps.search(client, "ennis", country="IE", timeout=5)
 
     assert hits[1] == PlaceHit(
-        "Ennis, Co. Clare, Ireland", 52.8436, -8.9864, title="Ennis", subtitle="Co. Clare"
+        "Ennis, Co. Clare, Ireland",
+        52.8436,
+        -8.9864,
+        title="Ennis",
+        subtitle="Co. Clare",
+        kind="town",
     )
 
 
@@ -196,6 +202,8 @@ async def test_search_names_each_hit_as_picked(maps: AppleMaps, http: MockHttp) 
             -74.0019,
             title="Jalopy Theatre And School of Music",
             subtitle="315 Columbia St, Brooklyn, NY",
+            kind="venue",
+            address="315 Columbia St, Brooklyn, NY",
         ),
         PlaceHit(
             "1038 Centre St, Newton, MA",
@@ -203,8 +211,9 @@ async def test_search_names_each_hit_as_picked(maps: AppleMaps, http: MockHttp) 
             -71.2,
             title="1038 Centre St",
             subtitle="Newton, MA",
+            kind="address",
         ),
-        PlaceHit("Galax, VA", 36.6612, -80.9239, title="Galax, VA"),
+        PlaceHit("Galax, VA", 36.6612, -80.9239, title="Galax, VA", kind="town"),
     ]
 
 
@@ -257,7 +266,7 @@ async def test_search_cuts_a_long_name_to_the_stored_length(
 
 async def test_reverse_name_uses_first_result(maps: AppleMaps, http: MockHttp) -> None:
     async with http.client() as client:
-        name = await maps.reverse_name(client, 36.6612, -80.9239, timeout=5)
+        name = await maps.reverse_name(client, 36.6612, -80.9239, accuracy_m=None, timeout=5)
 
     assert name == "Galax, VA"
     assert _sent(http, REVERSE_URL)[0].url.params["loc"] == "36.6612,-80.9239"
@@ -266,7 +275,27 @@ async def test_reverse_name_uses_first_result(maps: AppleMaps, http: MockHttp) -
 async def test_reverse_name_is_none_without_results(maps: AppleMaps, http: MockHttp) -> None:
     http.add(REVERSE_URL, httpx2.Response(200, json={"results": []}))
     async with http.client() as client:
-        assert await maps.reverse_name(client, 0.0, 0.0, timeout=5) is None
+        assert await maps.reverse_name(client, 0.0, 0.0, accuracy_m=None, timeout=5) is None
+
+
+async def test_reverse_name_passes_accuracy_through(maps: AppleMaps, http: MockHttp) -> None:
+    street = {
+        "name": "1 Main St",
+        "countryCode": "US",
+        "structuredAddress": {
+            "locality": "Galax",
+            "administrativeAreaCode": "VA",
+            "subLocality": "Downtown",
+            "fullThoroughfare": "1 Main St",
+        },
+    }
+    http.add(REVERSE_URL, httpx2.Response(200, json={"results": [street]}))
+    async with http.client() as client:
+        precise = await maps.reverse_name(client, 36.66, -80.92, accuracy_m=10, timeout=5)
+        loose = await maps.reverse_name(client, 36.66, -80.92, accuracy_m=200, timeout=5)
+        town = await maps.reverse_name(client, 36.66, -80.92, accuracy_m=900, timeout=5)
+
+    assert (precise, loose, town) == ("1 Main St, Galax, VA", "Downtown, Galax, VA", "Galax, VA")
 
 
 async def test_busy_maps_raises_with_retry_after(maps: AppleMaps, http: MockHttp) -> None:
@@ -362,7 +391,7 @@ async def test_a_rejected_token_is_dropped(maps: AppleMaps, http: MockHttp) -> N
         hits = await maps.search(client, "galax", country="US", timeout=5)
 
     assert len(_sent(http, TOKEN_URL)) == 2
-    assert hits == [PlaceHit("Galax, VA", 36.6612, -80.9239, title="Galax, VA")]
+    assert hits == [PlaceHit("Galax, VA", 36.6612, -80.9239, title="Galax, VA", kind="town")]
 
 
 @pytest.mark.parametrize(
@@ -384,7 +413,7 @@ async def test_a_lookup_failure_says_whether_a_retry_could_help(
     http.add(REVERSE_URL, httpx2.Response(status))
     async with http.client() as client:
         with pytest.raises(MapsError) as caught:
-            await maps.reverse_name(client, 36.66, -80.92, timeout=5)
+            await maps.reverse_name(client, 36.66, -80.92, accuracy_m=None, timeout=5)
 
     assert caught.value.transient is transient
 
@@ -393,7 +422,7 @@ async def test_an_unreadable_answer_is_permanent(maps: AppleMaps, http: MockHttp
     http.add(REVERSE_URL, httpx2.Response(200, text="<html>"))
     async with http.client() as client:
         with pytest.raises(MapsError) as caught:
-            await maps.reverse_name(client, 36.66, -80.92, timeout=5)
+            await maps.reverse_name(client, 36.66, -80.92, accuracy_m=None, timeout=5)
 
     assert caught.value.transient is False
 
@@ -402,7 +431,7 @@ async def test_a_missing_access_token_is_permanent(maps: AppleMaps, http: MockHt
     http.add(TOKEN_URL, httpx2.Response(200, json={}))
     async with http.client() as client:
         with pytest.raises(MapsError) as caught:
-            await maps.reverse_name(client, 36.66, -80.92, timeout=5)
+            await maps.reverse_name(client, 36.66, -80.92, accuracy_m=None, timeout=5)
 
     assert caught.value.transient is False
 
@@ -414,7 +443,7 @@ async def test_a_network_failure_is_transient(maps: AppleMaps) -> None:
 
     async with httpx2.AsyncClient(transport=httpx2.MockTransport(refuse)) as client:
         with pytest.raises(MapsError) as caught:
-            await maps.reverse_name(client, 36.66, -80.92, timeout=5)
+            await maps.reverse_name(client, 36.66, -80.92, accuracy_m=None, timeout=5)
 
     assert caught.value.transient is True
 

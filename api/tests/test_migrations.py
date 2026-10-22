@@ -3809,12 +3809,15 @@ async def test_0052_adds_place_columns_and_keeps_rows(
     assert row == [(None,) * 6]
     for values, check in (
         ("place_name = 'Galax, VA'", "ck_recordings_place_name"),
-        ("place_lat = 36.66", "ck_recordings_place_coordinates"),
-        ("place_lon = -80.92", "ck_recordings_place_coordinates"),
+        ("place_lat = 36.66, place_origin = 'picked'", "ck_recordings_place_coordinates"),
+        ("place_lon = -80.92, place_origin = 'picked'", "ck_recordings_place_coordinates"),
         ("place_accuracy_m = 5", "ck_recordings_place_accuracy"),
-        ("place_lat = 1, place_lon = 1, place_accuracy_m = -1", "ck_recordings_place_accuracy"),
-        ("place_lat = 91, place_lon = 0", "ck_recordings_place_range"),
-        ("place_lat = 0, place_lon = -181", "ck_recordings_place_range"),
+        (
+            "place_lat = 1, place_lon = 1, place_accuracy_m = -1, place_origin = 'picked'",
+            "ck_recordings_place_accuracy",
+        ),
+        ("place_lat = 91, place_lon = 0, place_origin = 'picked'", "ck_recordings_place_range"),
+        ("place_lat = 0, place_lon = -181, place_origin = 'picked'", "ck_recordings_place_range"),
     ):
         with pytest.raises(IntegrityError, match=check):
             async with engine.begin() as conn:
@@ -3823,7 +3826,7 @@ async def test_0052_adds_place_columns_and_keeps_rows(
         await conn.execute(
             text(
                 "update recordings set place_lat = 90, place_lon = -180, place_accuracy_m = 0, "
-                "place_name = 'North Pole'"
+                "place_name = 'North Pole', place_origin = 'picked'"
             )
         )
 
@@ -3850,3 +3853,77 @@ async def test_0053_allows_place_jobs(engine, database_url: str, truncate_all: N
                 await conn.execute(second_place_job)
     finally:
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+
+async def test_0055_infers_place_origin(engine, database_url: str, truncate_all: None) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    # id, source, lat, lon, accuracy, name
+    rows = {
+        "device": ("018f0000-0000-7000-8000-0000000000a1", "microphone", 36.6, -80.9, 12, None),
+        "picked": (
+            "018f0000-0000-7000-8000-0000000000a2",
+            "microphone",
+            36.6,
+            -80.9,
+            None,
+            "Galax",
+        ),
+        "file": ("018f0000-0000-7000-8000-0000000000a3", "upload", 36.6, -80.9, None, None),
+        "none": ("018f0000-0000-7000-8000-0000000000a4", "microphone", None, None, None, None),
+    }
+    insert = text(
+        "insert into recordings (id, user_id, source, added_at, recorded_at, recorded_precision, "
+        "state, created_at, updated_at, place_lat, place_lon, place_accuracy_m, place_name) "
+        "values (:id, :user, :source, now(), now(), 'time', 'ready', now(), now(), :lat, :lon, "
+        ":acc, :name)"
+    )
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0054")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            for id_, source, lat, lon, acc, name in rows.values():
+                await conn.execute(
+                    insert,
+                    {
+                        "id": id_,
+                        "user": user,
+                        "source": source,
+                        "lat": lat,
+                        "lon": lon,
+                        "acc": acc,
+                        "name": name,
+                    },
+                )
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+        async with engine.connect() as conn:
+            found = dict(
+                (await conn.execute(text("select id::text, place_origin from recordings")))
+                .tuples()
+                .all()
+            )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert found == {
+        rows["device"][0]: "device",
+        rows["picked"][0]: "picked",
+        rows["file"][0]: "file",
+        rows["none"][0]: None,
+    }
+    for target, values, check in (
+        ("none", "place_origin = 'picked'", "ck_recordings_place_origin_coordinates"),
+        ("device", "place_origin = null", "ck_recordings_place_origin_coordinates"),
+        ("device", "place_origin = 'gps'", "ck_recordings_place_origin"),
+    ):
+        with pytest.raises(IntegrityError, match=check):
+            async with engine.begin() as conn:
+                await conn.execute(
+                    text(f"update recordings set {values} where id = '{rows[target][0]}'")  # noqa: S608 -- literals
+                )

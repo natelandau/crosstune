@@ -78,7 +78,7 @@ Cloudflare also hosts the DNS zone for the product domain.
 | What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order, and a pull holds it shared so no write lands between its reads. A cursor never skips a row.                                                                                                                                                                                                                                                                                                                    |
 | Who owns a row           | The token.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | Is a row deleted         | `deleted_at`. Deletes are soft. A tombstone is kept forever, so a deletion reaches every device. A user's delete, its cascade, and the inactivity pass clear its content; a loop the server tombstones because it no longer fits a trim keeps it.                                                                                                                                                                                                                                                                                                                         |
-| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, scans, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items, and the server-written entitlements row. Four history tables, kept out of the main pull: plays, practice sessions, and scan views, which clients push once and never edit, and status changes, which the server writes when a user tune's status changes. Server-only, never synced: users, upload slots, background jobs, grants, pending comps, billing notices, account notices. |
+| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, saved places, scans, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items, and the server-written entitlements row. Four history tables, kept out of the main pull: plays, practice sessions, and scan views, which clients push once and never edit, and status changes, which the server writes when a user tune's status changes. Server-only, never synced: users, upload slots, background jobs, grants, pending comps, billing notices, account notices. |
 | Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file, audio, and scan images in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes other than history events (plays, practice sessions, and scan views), or while a scan is unuploaded, each with its own message. A shape change starts it over (see Pull).                                                                                                                          |
 | Which version is running | The `version` in `web/package.json`, the API package version, and the Apple apps' bundle version and build. Each is its side's Sentry release tag. Each client sends its own in `X-Client-Version` and its platform (`macos`, `ios`, `web`) in `X-Client-Platform`.                                                                                                                                                                                                                                                                                                       |
 | Host settings            | The host dashboards. Configuration says how each deployable reads them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -601,29 +601,85 @@ never synced.
   Setting a place by hand clears the accuracy. Clients show a
   place only once it has a name, but can clear coordinates that have none.
   Labels call it Location.
-- A push that leaves coordinates with no name queues a `place` job, at
-  most one per recording. It names them through Apple Maps reverse
+- Saved places: a user's named locations live in the `places` table, one
+  row per location, with a name, an optional address, coordinates, and an
+  optional Apple place ID. A recording points at one with `place_id`, and
+  `place_origin` says where its own coordinates came from: `device`
+  (a fix), `file` (read from an upload), or `picked` (chosen by hand).
+  Linking never changes the origin. A recording is matched when it has a
+  `place_id` and an origin of `device` or `file`. The recording keeps its
+  own coordinates and its own `place_name`; a client shows the saved
+  place's name for a linked take and falls back to the take's own name only
+  when the link is gone. A push that links to a place another device
+  deleted stores the row with `place_id` null and is never refused. A push
+  that omits `place_id` or `place_origin` keeps the stored values, so older
+  clients that never send them keep working. An older Apple client echoes
+  both from a pull, so an origin pushed unchanged with new coordinates is
+  inferred again (`device` with an accuracy, `file` for an unnamed upload,
+  else `picked`), and a stored
+  link survives new coordinates only within 30 m of its place. At the
+  same coordinates, a `device` or `file` origin pushed unchanged with a
+  new name and no accuracy, where the stored take had one, is that
+  client's hand pick: it becomes `picked` and drops the stored link. A push
+  with no coordinates stores no link. A push that keeps a `device` or
+  `file` take's coordinates and sends `place_id` null keeps the stored
+  link, since the server writes that link without moving `updated_at`
+  and a device that has not pulled it yet sends null.
+- Matching: a fix matches a saved place within 30 m (`MATCH_RADIUS_M`) and
+  only when its accuracy is 50 m or better (`MATCH_MAX_ACCURACY_M`). A file
+  location has no accuracy and counts as precise. Distance is great-circle,
+  so it holds across the antimeridian and at high latitude.
+- Naming: a push that leaves coordinates with no name queues a `place` job,
+  at most one per recording. The job names them through Apple Maps reverse
   geocoding, outside any transaction, and writes the name only when the
-  coordinates are unchanged and still unnamed. Coordinates pushed during
-  the lookup queue a lookup of their own. An Apple Maps outage, rate
-  limit, or network failure, a timeout, or a missing Maps key holds the
-  job back without spending an attempt, each wait as long as it has
-  waited so far, up to 6 hours, and at least Apple's `Retry-After` on a
-  429. A job still unnamed after 7 days is dropped. Any other failure
-  retries as other jobs do. New coordinates restart a waiting job's
-  clock and run it at once, and a runner that starts with a Maps key runs
-  every waiting job. Coordinates Apple Maps knows no place for stay
-  unnamed.
+  coordinates are unchanged and still unnamed. By accuracy, the name is a
+  street address at 50 m or better (`STREET_MAX_ACCURACY_M`), a
+  neighborhood at 500 m or better (`NEIGHBORHOOD_MAX_ACCURACY_M`), else the
+  town. A file location counts as precise. The town is the mailing-address
+  town; a neighborhood equal to it is skipped, so no name repeats the town.
+  Coordinates pushed during the lookup queue a lookup of their own.
+- Linking on push: a push that gives a take with origin `device` or
+  `file` new coordinates links it to the saved place it matches, so it
+  shows that name before the place job runs, and with no Maps key at all.
+  The place job links an unlinked take the same way, in the `server_seq`
+  bump that writes its name.
+- Reach-back: creating or moving a saved place links the user's unlinked
+  takes with origin `device` or `file` that match it. Deleting one sets
+  `place_id` null on its takes, then each live place within 60 m of it
+  reaches back again, since a take inside two places matched neither.
+  Moving one keeps the takes already linked, and each live place within
+  60 m of its old point reaches back the same way. These writes bump
+  `server_seq`, leave `updated_at` alone, and hold the user lock through
+  commit.
+- Outages: an Apple Maps outage, rate limit, or network failure, a
+  timeout, or a missing Maps key holds the job back without spending an
+  attempt, each wait as long as it has waited so far, up to 6 hours, and at
+  least Apple's `Retry-After` on a 429. A job still unnamed after 7 days is
+  dropped. Any other failure retries as other jobs do. New coordinates
+  restart a waiting job's clock and run it at once, and a runner that
+  starts with a Maps key runs every waiting job. Coordinates Apple Maps
+  knows no place for stay unnamed.
 - Place search: the web client calls `GET /v1/places/search`, which asks
   Apple Maps' type-ahead for venues, street addresses, and towns together.
-  The only location hint is the fixed center point of the account's
-  country (`users.country`), never the user's or device's location, and
-  an account with no country gets none. With no Maps key it answers 503.
-  The Apple app searches with MapKit on the device and never calls the
-  route.
+  Each result tells a venue, a street address, and a town apart. The only
+  location hint is the fixed center point of the account's country
+  (`users.country`), never the user's or device's location, and an
+  account with no country gets none.
+  With no Maps key it answers 503. The Apple app searches with MapKit on
+  the device and never calls the route.
 - A place picked in search keeps what was picked, on every client: a
   named place stores `Name, street, town`, a street address `street,
   town`, and a town `town`. The town part is the same as the job's name.
+  A venue or street address pick also creates a saved place, or links to
+  the live one with the same Apple place ID, else the same name within 30 m.
+  The same rule keeps every other new saved place, and Nearby's venues,
+  from repeating a saved one.
+- Maps on the web: the browser loads Apple's MapKit JS. `GET
+  /v1/places/mapkit-token` issues a 30 minute token signed with the Maps
+  key and bound to the web origin, so the key never reaches the browser.
+  `GET /v1/places/snapshot` returns a signed Apple snapshot image URL for a
+  point. Both answer 503 with no Maps key. The Apple app uses MapKit on the
+  device and calls neither.
 - The transcode of an upload reads the file's ISO 6709 location and
   creation date, and fills only a place or recorded date the row lacks. It
   re-reads both under the user lock, so nothing pushed meanwhile is
@@ -790,6 +846,9 @@ API.
 - The API refuses to start with part of an Apple key (Apple Music, Sign in
   with Apple, Apple Maps): each needs its key ID, its private key, and the
   team ID.
+- The Maps key also signs MapKit JS tokens for the web origin
+  (`CROSSTUNE_WEB_ORIGIN`). It needs no per-domain setting in Apple
+  Developer; the token carries the origin.
 - The API refuses to start with only one of the RevenueCat project ID and
   secret key. The webhook value may be set alone. The Stripe cancel key is
   needed only to cancel a Stripe subscription when its account is deleted.
@@ -808,5 +867,5 @@ API.
 | R2                   | Audio already on the device works. Uploads wait and retry. A first download elsewhere fails.       |
 | Neon                 | The API returns 500s. The client behaves as if the API were down.                                  |
 | A streaming provider | New links save untitled. Embeds fail. Its search group offers only its own search page.            |
-| Apple Maps           | Place jobs wait and retry for up to 7 days. Web place search fails.                                |
+| Apple Maps           | Place jobs wait and retry for up to 7 days. Web place search, maps, and Nearby fail quietly. The location page still works. |
 | Sentry or GitHub     | Nothing visible. Errors are dropped, or deploys and checks wait.                                   |

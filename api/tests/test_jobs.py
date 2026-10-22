@@ -2889,6 +2889,7 @@ async def test_transcode_takes_an_uploads_place_and_date(
     await verify_session.refresh(rec)
     assert (rec.place_lat, rec.place_lon) == UPLOAD_PLACE
     assert (rec.place_name, rec.place_accuracy_m) == (None, None)
+    assert rec.place_origin == "file"
     assert (rec.recorded_at, rec.recorded_precision) == (UPLOAD_DATE, "time")
     assert await _kinds(verify_session, rec) == [JobKind.PLACE.value]
 
@@ -2905,6 +2906,7 @@ async def test_transcode_keeps_an_uploads_own_place_and_date(
         media_fixtures,
         place_lat=52.8436,
         place_lon=-8.9864,
+        place_origin="picked",
         place_name="Ennis, Ireland",
         recorded_at=own_date,
         recorded_precision="year",
@@ -2948,6 +2950,7 @@ async def test_transcode_keeps_a_place_and_date_pushed_during_the_job(
         async with make_sessionmaker(engine)() as pusher:
             pushed = await pusher.get(Recording, rec.id)
             pushed.place_lat, pushed.place_lon = 52.8436, -8.9864
+            pushed.place_origin = "picked"
             pushed.place_name = "Ennis, Ireland"
             pushed.recorded_at, pushed.recorded_precision = pushed_date, "month"
             await pusher.commit()
@@ -2989,6 +2992,7 @@ async def test_transcode_takes_an_uploads_date_when_it_has_only_a_place(
         media_fixtures,
         place_lat=52.8436,
         place_lon=-8.9864,
+        place_origin="picked",
         place_name="Ennis, Ireland",
     )
 

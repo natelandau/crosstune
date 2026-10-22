@@ -11,6 +11,7 @@ from crosstune.models.inactivity import InactivityNotice, ScheduledRun
 from crosstune.models.job import Job, UploadSlot
 from crosstune.models.list import List, ListItem
 from crosstune.models.pending_comp import PendingComp
+from crosstune.models.place import Place
 from crosstune.models.play_event import PlayEvent
 from crosstune.models.practice_session import PracticeSession
 from crosstune.models.recording import Recording
@@ -37,6 +38,7 @@ __all__ = [
     "List",
     "ListItem",
     "PendingComp",
+    "Place",
     "PlayEvent",
     "PracticeSession",
     "Recording",

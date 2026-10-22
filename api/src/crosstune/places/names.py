@@ -1,18 +1,24 @@
 """Display names for places, in one format everywhere a place is shown.
 
-A place named from coordinates is its town. A place picked in search keeps what was picked:
-a named place with its street and town, a street address with its town, or a town. The town
-is the one on the mailing address.
+A place named from coordinates is named by how well the position is known: a street
+address when precise, its neighborhood when loose, its town when looser still. A place
+picked in search keeps what was picked: a named place with its street and town, a street
+address with its town, or a town. The town is the one on the mailing address.
 """
 
 import re
 import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Literal
 
 from crosstune.vocabulary import LIMITS
 
 PLACE_NAME_MAX = LIMITS["recordings"]["place_name"]
+SAVED_ADDRESS_MAX = LIMITS["places"]["address"]
+type PlaceKind = Literal["venue", "address", "town"]
+STREET_MAX_ACCURACY_M = 50
+NEIGHBORHOOD_MAX_ACCURACY_M = 500
 _DANGLING = re.compile(r"[,\s]+$")
 _ZWJ = "\u200d"
 _MARKS = frozenset({"Mn", "Mc", "Me"})
@@ -26,15 +32,24 @@ _REGIONAL_INDICATORS = "".join(map(chr, range(0x1F1E6, 0x1F200)))
 # How Apple's display lines name the United States, whose places are named `locality, ST`.
 _US = "United States"
 _ZIP = re.compile(r"^([A-Z]{2})\s+\d{5}(?:-\d{4})?$")
+# A street with its house number leading, as in the US, or trailing, as in much of Europe.
+_HOUSE_FIRST = re.compile(r"^\d+[A-Za-z]?(?:-\d+)?\s+\D")
+_HOUSE_LAST = re.compile(r"\D\s+\d+[A-Za-z]?$")
 
 
 @dataclass(frozen=True)
 class PickedName:
-    """What a search result stores as a place's name, and the two lines that show it in a list."""
+    """What a search result stores as a place's name, and the two lines that show it in a list.
+
+    `kind` says whether the result is a venue, a street address, or a town. `address` is a
+    venue's `street, town` line, as a saved location shows it, and None for the other kinds.
+    """
 
     name: str
     title: str
     subtitle: str | None
+    kind: PlaceKind
+    address: str | None = None
 
 
 def place_name(result: Mapping[str, object]) -> str | None:
@@ -49,6 +64,69 @@ def place_name(result: Mapping[str, object]) -> str | None:
     """
     name = _formatted(result)
     return _stored(name) if name else None
+
+
+def automatic_name(result: Mapping[str, object], accuracy_m: int | None) -> str | None:
+    """Name the place a position falls in, as precisely as the position is known.
+
+    A fix within `STREET_MAX_ACCURACY_M` meters, or a file location with no accuracy, is a
+    street address. Within `NEIGHBORHOOD_MAX_ACCURACY_M` it is the neighborhood and the
+    mailing-address town, or just the town when the neighborhood is the town itself or
+    absent. Each tier falls back to the next when the result lacks what it needs.
+
+    Args:
+        result: An Apple Maps place object.
+        accuracy_m: The fix's horizontal accuracy in meters, or None for a file location.
+
+    Returns:
+        str | None: The name cut to the length a recording stores, or None when nothing
+            usable is present.
+    """
+    if accuracy_m is None or accuracy_m <= STREET_MAX_ACCURACY_M:
+        name = street_address(result)
+    elif accuracy_m <= NEIGHBORHOOD_MAX_ACCURACY_M:
+        name = _neighborhood(result)
+    else:
+        name = None
+    return _stored(name) if name else place_name(result)
+
+
+def street_address(result: Mapping[str, object]) -> str | None:
+    """The `street, town` line of a place, or None when it has no street.
+
+    Args:
+        result: An Apple Maps place object.
+
+    Returns:
+        str | None: The street address and the town, cut to the length a recording stores.
+    """
+    address = _address(result)
+    street = _text(address.get("fullThoroughfare")) or _text(address.get("thoroughfare"))
+    name = _joined(street, _town(result)) if street else None
+    return _stored(name) if name else None
+
+
+def _neighborhood(result: Mapping[str, object]) -> str | None:
+    """The neighborhood with its mailing-address town, or None when it adds nothing.
+
+    A candidate equal to the town's own locality is the town, not a neighborhood.
+    """
+    address = _address(result)
+    town = _mailing_town(address, result.get("formattedAddressLines"))
+    full = _town(result)
+    if not town or not full:
+        return None
+    dependent = address.get("dependentLocalities")
+    areas = address.get("areasOfInterest")
+    candidates = (
+        _text(dependent[0]) if isinstance(dependent, list) and dependent else None,
+        _text(address.get("subLocality")),
+        _text(areas[0]) if isinstance(areas, list) and areas else None,
+    )
+    for candidate in candidates:
+        if candidate and candidate.casefold() != town.casefold():
+            return _joined(candidate, full)
+    return None
 
 
 def suggestion_name(result: Mapping[str, object], home: str | None) -> PickedName | None:
@@ -77,15 +155,53 @@ def suggestion_name(result: Mapping[str, object], home: str | None) -> PickedNam
         country = parts.pop() if len(parts) > 1 and _is_country(parts[-1], result) else None
         title = _joined(*parts, _kept(country, home))
         name = _joined(*parts, _kept(country, _US))
-        return _picked(name, title, None)
+        return _picked(name, title, None, "town")
     title = lines[0]
     parts = _parts(", ".join(lines[1:]))
     country = parts.pop() if parts and _is_country(parts[-1], result) else None
     town = None if country else _structured_town(_address(result))
     parts = [part for part in (*parts, town) if part and part.casefold() != title.casefold()]
+    kind = _suggestion_kind(title, parts, _address(result))
+    rest = _joined(*parts, _kept(country, _US))
     return _picked(
-        _joined(title, *parts, _kept(country, _US)), title, _joined(*parts, _kept(country, home))
+        _joined(title, rest),
+        title,
+        _joined(*parts, _kept(country, home)),
+        kind,
+        address=rest if kind == "venue" else None,
     )
+
+
+def _suggestion_kind(title: str, parts: list[str], address: Mapping[str, object]) -> PlaceKind:
+    """Whether a two-line suggestion is a venue, a street address, or a town.
+
+    Autocomplete results carry no category, so the structured street decides when there is one:
+    a title that is the street is an address, any other title a venue. Without it, a second line
+    that opens on a street marks a venue, whatever its name holds, such as `Terminal 5`; then a
+    house number in the title marks an address.
+    """
+    street = _text(address.get("fullThoroughfare")) or _text(address.get("thoroughfare"))
+    if street:
+        return "address" if title.casefold() == street.casefold() else "venue"
+    if _opens_on_street(parts, _text(address.get("postCode"))):
+        return "venue"
+    if any(char.isdigit() for char in title):
+        return "address"
+    return "town"
+
+
+def _opens_on_street(parts: list[str], post_code: str | None) -> bool:
+    """Whether a second line's first part is a street with its house number, and a town follows.
+
+    A lone part, or one that opens on the structured postal code, is a postal code and its town,
+    as in `10115 Berlin`.
+    """
+    first, *rest = parts or [""]
+    if not rest:
+        return False
+    if post_code and first.startswith(post_code):
+        return False
+    return bool(_HOUSE_FIRST.match(first) or _HOUSE_LAST.search(first))
 
 
 def _parts(line: str) -> list[str]:
@@ -118,7 +234,14 @@ def _structured_town(address: Mapping[str, object]) -> str | None:
     return _joined(_text(address.get("locality")), _text(address.get("administrativeAreaCode")))
 
 
-def _picked(name: str | None, title: str | None, subtitle: str | None) -> PickedName | None:
+def _picked(
+    name: str | None,
+    title: str | None,
+    subtitle: str | None,
+    kind: PlaceKind,
+    *,
+    address: str | None = None,
+) -> PickedName | None:
     stored = _stored(name) if name else None
     if not stored:
         return None
@@ -126,6 +249,10 @@ def _picked(name: str | None, title: str | None, subtitle: str | None) -> Picked
         name=stored,
         title=(_stored(title) if title else None) or stored,
         subtitle=_stored(subtitle) if subtitle else None,
+        kind=kind,
+        address=(_DANGLING.sub("", whole_characters(address, SAVED_ADDRESS_MAX)) or None)
+        if address
+        else None,
     )
 
 

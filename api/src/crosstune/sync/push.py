@@ -93,7 +93,7 @@ async def apply_push(
                     session, spec, user_id, change, resolved_links, access
                 )
             else:
-                results[index] = await _delete(session, spec, user_id, change)
+                results[index] = await _delete(session, spec, user_id, change, access)
     return [results[i] for i in range(len(changes))]
 
 
@@ -147,7 +147,7 @@ async def _apply_deferring_overlaps(
     """
     for index, change in entries:
         if change.op != "upsert":
-            results[index] = await _delete(session, spec, user_id, change)
+            results[index] = await _delete(session, spec, user_id, change, access)
     pending = [(index, change) for index, change in entries if change.op == "upsert"]
     while pending:
         waiting: list[tuple[int, Change]] = []
@@ -414,16 +414,19 @@ async def _current_and_status(
 
 
 async def _delete(
-    session: AsyncSession, spec: TableSpec, user_id: uuid.UUID, change: Change
+    session: AsyncSession, spec: TableSpec, user_id: uuid.UUID, change: Change, access: Access
 ) -> ChangeResult:
     current = await _fetch_owned(session, spec, change.id, user_id)
     if current is None:
         return _invalid(change, "not found")
+    rules = _rules(session, spec.name, user_id, change, None, access)
     if current.deleted_at is not None:
+        await rules.deleted(current)
         return _result(spec, change, "applied", current)
     if current.updated_at > change.updated_at:
         return _result(spec, change, "stale", current)
 
+    await rules.deleting(current)
     model: Any = spec.model
     # populate_existing, so the copy of the row already in the session takes the write.
     current = (
@@ -441,6 +444,7 @@ async def _delete(
         )
     ).scalar_one()
     await cascade_delete(session, spec, [change.id], change.updated_at, user_id)
+    await rules.deleted(current)
     if _reaches_files(spec):
         # A deleted row that owns files, or one the cascade reached, has files only the
         # runner's purge removes, and a purge has no due time to wake it.

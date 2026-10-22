@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, get_args
 from pydantic import BaseModel
 from sentry_sdk.scrubber import DEFAULT_DENYLIST
 from sentry_sdk.utils import iter_event_frames
+from sqlalchemy.engine import Row
 
 from crosstune.jobs.media import Probe
 from crosstune.logging import redact_driver_values
@@ -96,9 +97,9 @@ SCRUBBED_KEYS = sorted(
     }
 )
 # Request and response bodies, synced rows, and settings are all pydantic models, and their
-# fields hold user content or secrets; Probe and PlaceHit hold coordinates. A repr would print
-# those fields where no key scrubber can reach them.
-_REDACTED_TYPES = (BaseModel, Probe, PlaceHit)
+# fields hold user content or secrets; Probe, PlaceHit, and a selected row hold coordinates. A
+# repr would print those fields where no key scrubber can reach them.
+_REDACTED_TYPES = (BaseModel, Probe, PlaceHit, Row)
 
 
 def redacted_repr(value: object) -> str | None:

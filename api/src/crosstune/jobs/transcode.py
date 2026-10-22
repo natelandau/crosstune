@@ -24,7 +24,7 @@ from crosstune.storage.store import (
     upload_key,
     upload_revision,
 )
-from crosstune.vocabulary import RecordingPrecision, RecordingSource
+from crosstune.vocabulary import PlaceOrigin, RecordingPrecision, RecordingSource
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -134,6 +134,7 @@ async def _adopt_upload_tags(session: AsyncSession, recording: Recording, info: 
             "place_lon",
             "place_name",
             "place_accuracy_m",
+            "place_origin",
             "recorded_at",
             "recorded_precision",
         ],
@@ -141,6 +142,7 @@ async def _adopt_upload_tags(session: AsyncSession, recording: Recording, info: 
     if info.location is not None and recording.place_lat is None:
         recording.place_lat, recording.place_lon = info.location
         recording.place_accuracy_m = None
+        recording.place_origin = PlaceOrigin.FILE.value
     if info.created_at is not None and recording.recorded_at is None:
         recording.recorded_at = info.created_at
         recording.recorded_precision = RecordingPrecision.TIME.value

@@ -14,12 +14,12 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from sqlalchemy import select
 
-from crosstune.db.base import utc_now
+from crosstune.db.base import new_uuid7, utc_now
 from crosstune.db.engine import make_sessionmaker
 from crosstune.jobs.attempt import MAX_ATTEMPTS, RETRY_BACKOFF_SECONDS
 from crosstune.jobs.handlers.place import NAMING_BACKOFF_CAP, NAMING_GIVE_UP_AFTER
 from crosstune.jobs.runner import JobRunner
-from crosstune.models import Job, Recording
+from crosstune.models import Job, Place, Recording
 from crosstune.places.maps import MAPS_URL, AppleMaps
 from crosstune.vocabulary import JobKind
 from tests.conftest import MockHttp
@@ -86,9 +86,19 @@ def namer(engine, tmp_path, http: MockHttp, maps: AppleMaps, settings: Settings)
     )
 
 
-async def seed_place(session: AsyncSession) -> tuple[Recording, Job]:
+async def seed_place(
+    session: AsyncSession, *, origin: str = "picked", accuracy: int | None = None
+) -> tuple[Recording, Job]:
     user = await make_user(session)
-    rec = await add_recording(session, user, "ready", place_lat=LAT, place_lon=LON)
+    rec = await add_recording(
+        session,
+        user,
+        "ready",
+        place_lat=LAT,
+        place_lon=LON,
+        place_origin=origin,
+        place_accuracy_m=accuracy,
+    )
     rec.updated_at = UPDATED_AT
     job = Job(recording_id=rec.id, user_id=user.id, kind=JobKind.PLACE.value)
     session.add(job)
@@ -158,6 +168,7 @@ async def test_leaves_a_place_changed_while_naming(
         async with make_sessionmaker(engine)() as other:
             moved = await other.get(Recording, rec.id)
             moved.place_lat, moved.place_lon = 52.8436, -8.9864
+            moved.place_origin = "picked"
             await other.commit()
         return await real_reverse_name(*args, **kwargs)
 
@@ -587,3 +598,84 @@ async def test_a_runner_without_maps_keeps_waiting_jobs_held(
 
     [held] = await _place_jobs(verify_session, rec.id)
     assert held.locked_until == until
+
+
+async def _saved_place(session: AsyncSession, rec: Recording) -> Place:
+    place = Place(
+        id=new_uuid7(),
+        user_id=rec.user_id,
+        name="Joe's kitchen",
+        lat=LAT,
+        lon=LON,
+        created_at=utc_now(),
+        updated_at=utc_now(),
+    )
+    session.add(place)
+    await session.commit()
+    return place
+
+
+async def test_job_links_a_matching_take_and_still_names_it(
+    namer: JobRunner, verify_session
+) -> None:
+    rec, _ = await seed_place(verify_session, origin="device", accuracy=10)
+    place = await _saved_place(verify_session, rec)
+    before_seq = rec.server_seq
+
+    await namer.run_once()
+
+    await verify_session.refresh(rec)
+    assert rec.place_id == place.id
+    assert rec.place_name == "Galax, VA"
+    assert rec.place_origin == "device"
+    assert rec.server_seq > before_seq
+    assert rec.updated_at == UPDATED_AT
+
+
+async def test_job_links_a_file_take_without_accuracy(namer: JobRunner, verify_session) -> None:
+    rec, _ = await seed_place(verify_session, origin="file")
+    place = await _saved_place(verify_session, rec)
+
+    await namer.run_once()
+
+    await verify_session.refresh(rec)
+    assert rec.place_id == place.id
+
+
+async def test_job_leaves_a_picked_take_unlinked(namer: JobRunner, verify_session) -> None:
+    rec, _ = await seed_place(verify_session, origin="picked")
+    await _saved_place(verify_session, rec)
+
+    await namer.run_once()
+
+    await verify_session.refresh(rec)
+    assert rec.place_id is None
+    assert rec.place_name == "Galax, VA"
+
+
+async def test_job_leaves_a_loose_take_unlinked(namer: JobRunner, verify_session) -> None:
+    rec, _ = await seed_place(verify_session, origin="device", accuracy=200)
+    await _saved_place(verify_session, rec)
+
+    await namer.run_once()
+
+    await verify_session.refresh(rec)
+    assert rec.place_id is None
+
+
+async def test_job_names_with_the_takes_accuracy(
+    namer: JobRunner, verify_session, maps: AppleMaps, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await seed_place(verify_session, origin="device", accuracy=120)
+    seen: list[int | None] = []
+    real_reverse_name = maps.reverse_name
+
+    async def look(*args, **kwargs) -> str | None:
+        seen.append(kwargs["accuracy_m"])
+        return await real_reverse_name(*args, **kwargs)
+
+    monkeypatch.setattr(maps, "reverse_name", look)
+
+    await namer.run_once()
+
+    assert seen == [120]

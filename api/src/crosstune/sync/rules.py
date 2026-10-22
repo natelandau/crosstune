@@ -10,7 +10,15 @@ from sqlalchemy import func, select
 from crosstune.db.base import next_server_seq
 from crosstune.links.detect import detect_provider, normalize_url, valid_slippery_hill_ref
 from crosstune.links.resolve import unresolved_link
-from crosstune.models import Recording, RecordingLoop, Scan, StatusChange, UserTune
+from crosstune.models import Place, Recording, RecordingLoop, Scan, StatusChange, UserTune
+from crosstune.places.matching import (
+    MATCH_RADIUS_M,
+    distance_m,
+    link_earlier_takes,
+    matching_place_id,
+    reach_back_around,
+    unlink_place,
+)
 from crosstune.recordings.loops import (
     clamp_loop,
     clamp_span,
@@ -25,6 +33,7 @@ from crosstune.vocabulary import (
     MAX_SCANS_PER_TUNE,
     MIN_LOOP_MS,
     PREMIUM_REQUIRED,
+    PlaceOrigin,
     RecordingSource,
     TableName,
 )
@@ -109,6 +118,14 @@ class RowRules:
         """Act on the row in place after a change that applied, written now or before."""
         return
 
+    async def deleting(self, row: Any) -> None:  # noqa: ARG002 -- the row's model varies by table
+        """Act on a live row a delete change is about to delete, before the delete writes."""
+        return
+
+    async def deleted(self, row: Any) -> None:  # noqa: ARG002 -- the row's model varies by table
+        """Act on a row a delete change left deleted, written now or before."""
+        return
+
 
 class RecordingLinkRules(RowRules):
     """Store a pushed link in the shape the online paste path stores."""
@@ -142,6 +159,77 @@ class RecordingLinkRules(RowRules):
         return None
 
 
+# The origins of a fix the server links to a saved place on its own.
+_AUTOMATIC_ORIGINS = frozenset({PlaceOrigin.DEVICE.value, PlaceOrigin.FILE.value})
+
+
+def _settle_repick(data: dict[str, Any], stored: Recording | None, *, same_point: bool) -> None:
+    """Mark a 1.0.0 hand pick at the stored point as picked, and drop its echoed link.
+
+    A 1.0.0 client drops the accuracy and sets its own name for a hand pick but echoes
+    the automatic origin and link it pulled, which would leave the pick open to an
+    address rename and shown under the linked place's name. A current client marks its
+    own picks, and its other edits keep the name or the accuracy, so none reads as a pick.
+    """
+    if (
+        stored is not None
+        and same_point
+        and stored.place_origin in _AUTOMATIC_ORIGINS
+        and data["place_origin"] == stored.place_origin
+        and data["place_name"] != stored.place_name
+        and data["place_accuracy_m"] is None
+        and stored.place_accuracy_m is not None
+    ):
+        data["place_origin"] = PlaceOrigin.PICKED.value
+        if data["place_id"] == stored.place_id:
+            data["place_id"] = None
+
+
+class PlaceRules(RowRules):
+    """Link earlier takes to a created or moved place, and unlink them from a deleted one."""
+
+    # The stored point as it was before the upsert, which refreshes the stored row in place.
+    stored_point: tuple[float, float] | None = None
+
+    async def prepare(self, data: dict[str, Any]) -> str | None:  # noqa: ARG002 -- the hook's signature
+        """Remember the stored point to tell a move from a replay."""
+        stored = await self.session.get(Place, self.change.id)
+        if stored is not None and stored.user_id == self.user_id:
+            self.stored_point = (stored.lat, stored.lon)
+        return None
+
+    async def applied(self, row: Place) -> None:
+        """Reach back on a new or moved place, and from the neighbors of a moved place's old point.
+
+        Runs for a replayed or stale push too, which leaves the point as it was and so
+        links nothing a second time.
+        """
+        if row.deleted_at is None and self.stored_point != (row.lat, row.lon):
+            await link_earlier_takes(self.session, row)
+            # Moving away can leave a neighbor of the old point as some take's only match.
+            if self.stored_point is not None:
+                lat, lon = self.stored_point
+                await reach_back_around(self.session, user_id=self.user_id, lat=lat, lon=lon)
+
+    # The point of a place this delete removes, read before the delete scrubs it.
+    deleted_point: tuple[float, float] | None = None
+
+    async def deleting(self, row: Place) -> None:
+        """Remember the point the delete is about to scrub."""
+        self.deleted_point = (row.lat, row.lon)
+
+    async def deleted(self, row: Place) -> None:
+        """Unlink the recordings filed under a deleted place, then reach back from its neighbors.
+
+        The unlinked takes keep their own names. A take that matched both this place and a
+        neighbor matched neither, so each live place near the deleted one reaches back again.
+        """
+        await unlink_place(self.session, row.id)
+        if self.deleted_point is not None:
+            lat, lon = self.deleted_point
+            await reach_back_around(self.session, user_id=self.user_id, lat=lat, lon=lon)
+
+
 class RecordingRules(RowRules):
     """Hold a free plan's trims, keep a trim inside the playback file, and start work."""
 
@@ -167,6 +255,7 @@ class RecordingRules(RowRules):
                 self.stored.place_lon,
                 self.stored.place_name,
             )
+        await self._settle_place(data)
         if not self.access.premium:
             if self.stored is None:
                 return PREMIUM_REQUIRED
@@ -187,6 +276,99 @@ class RecordingRules(RowRules):
             end = None
         data["trim_start_ms"], data["trim_end_ms"] = start, end
         return None
+
+    async def _settle_place(self, data: dict[str, Any]) -> None:
+        """Set the pushed place link and origin in place, and link a new fix to its place.
+
+        A client that predates saved places omits both keys, and an omitted key keeps the
+        stored value rather than writing null. A 1.0.0 client may instead echo the stored
+        values it kept from an earlier pull, so an origin pushed unchanged with new
+        coordinates is inferred again rather than trusted. A link is stored only when it
+        names a live place of this user, and a link the stored row already had survives
+        new coordinates only while they stay within the match radius of the place, so a
+        stale or raced link is dropped instead of refusing the take. A device or file fix
+        at new coordinates is linked to the one saved place it matches, so it shows that
+        name even before, or without, an Apple Maps lookup.
+        """
+        # Locals stay scrubbable by name or non-sensitive: error reports keep frame locals.
+        stored = self.stored if self.stored and self.stored.user_id == self.user_id else None
+        same_point = stored is not None and (data["place_lat"], data["place_lon"]) == (
+            stored.place_lat,
+            stored.place_lon,
+        )
+
+        if "place_id" not in (self.change.data or {}) and stored is not None:
+            data["place_id"] = stored.place_id
+        _settle_repick(data, stored, same_point=same_point)
+        # The server links a device or file fix without touching updated_at, so a client that
+        # has not pulled that link yet pushes null for it; no client unlinks such a take in place.
+        if (
+            data["place_id"] is None
+            and stored is not None
+            and same_point
+            and stored.place_id is not None
+            and data["place_origin"] in _AUTOMATIC_ORIGINS
+        ):
+            data["place_id"] = stored.place_id
+        if data["place_lat"] is None or data["place_lon"] is None:
+            data["place_id"] = None
+            data["place_origin"] = None
+            return
+
+        if data["place_id"] is not None and not await self._keeps_link(
+            data, stored, same_point=same_point
+        ):
+            data["place_id"] = None
+
+        echoed = (
+            stored is not None and not same_point and data["place_origin"] == stored.place_origin
+        )
+        if data["place_origin"] is None or echoed:
+            if data["place_accuracy_m"] is not None:
+                data["place_origin"] = PlaceOrigin.DEVICE.value
+            elif same_point and stored.place_origin is not None:
+                data["place_origin"] = stored.place_origin
+            elif data["place_name"] is None and data.get("source") == RecordingSource.UPLOAD.value:
+                data["place_origin"] = PlaceOrigin.FILE.value
+            else:
+                data["place_origin"] = PlaceOrigin.PICKED.value
+
+        if (
+            data["place_id"] is None
+            and not same_point
+            and data["place_origin"] in _AUTOMATIC_ORIGINS
+        ):
+            data["place_id"] = await matching_place_id(
+                self.session,
+                user_id=self.user_id,
+                lat=data["place_lat"],
+                lon=data["place_lon"],
+                accuracy_m=data["place_accuracy_m"],
+            )
+
+    async def _keeps_link(
+        self, data: dict[str, Any], stored: Recording | None, *, same_point: bool
+    ) -> bool:
+        """Whether the pushed `place_id` names a live place of this user the take may link to.
+
+        A link the stored row already had, pushed again with new coordinates, is the stale
+        echo of a client that predates saved places, unless the new point still lies within
+        the match radius of the place, as a search pick of that same place does.
+        """
+        place = await self.session.scalar(
+            select(Place).where(
+                Place.id == data["place_id"],
+                Place.user_id == self.user_id,
+                Place.deleted_at.is_(None),
+            )
+        )
+        if place is None:
+            return False
+        if stored is None or same_point or data["place_id"] != stored.place_id:
+            return True
+        return (
+            distance_m(data["place_lat"], data["place_lon"], place.lat, place.lon) <= MATCH_RADIUS_M
+        )
 
     def _upsert_writes(self, stored: Recording) -> bool:
         """Whether the upsert would write over `stored`, rather than report stale or not yours."""
@@ -359,6 +541,7 @@ class UserTuneRules(RowRules):
 
 RULES: dict[TableName, type[RowRules]] = {
     "recording_links": RecordingLinkRules,
+    "places": PlaceRules,
     "recordings": RecordingRules,
     "recording_loops": RecordingLoopRules,
     "scans": ScanRules,
