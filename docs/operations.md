@@ -79,7 +79,10 @@ against the Clerk development instance. Start the API with `just dev` or
 `just api::run`, then run the Mac app with `just apple::run [app args]`
 and quit it with `just apple::done`. Every worktree runs one installed
 copy, so the keychain asks for its password once rather than once per
-worktree; `run` waits while another worktree holds it. For a Simulator,
+worktree; `run` waits while another worktree holds it.
+`just apple::shots name…` runs the Debug app over sample data, opened on
+each named surface or `settings-<tab>`, and saves its windows to
+`apple/.build/shots/`; the screen must be unlocked. For a Simulator,
 open `apple/Crosstune.xcodeproj` and run the `Crosstune` scheme. Recordings need `just dev`: the local
 API signs recording URLs as `/storage/...`, and the app sends them through
 the web dev server's proxy on port 5173, as a browser does. The local API listens on the Mac only,

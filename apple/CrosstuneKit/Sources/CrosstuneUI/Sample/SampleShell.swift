@@ -1,4 +1,5 @@
 #if DEBUG
+    import CrosstuneAudio
     import CrosstuneStore
     import CrosstuneSync
     import Foundation
@@ -10,6 +11,7 @@
         private let playing: Bool
         private let playingRecording: Bool
         private let samplePlan: SamplePlan?
+        private let screen: SampleScreen?
 
         @State private var store: CrosstuneStore?
         @State private var engine: SyncEngine?
@@ -17,19 +19,36 @@
         @State private var player: PlayerModel
         @State private var listPlayback: ListPlayback
         @State private var stage = EmbedStage()
-        @State private var recorders = RecorderHost()
+        @State private var recorders: RecorderHost
         @State private var plan: PlanModel?
         @State private var noticeClaim = NoticeClaim()
+        @State private var place: ShellPlace
+        #if os(macOS)
+            @Environment(\.openSettings) private var openSettings
+        #endif
+
+        /// Where the record screen's take reads its audio, since a capture must not record the room.
+        private static let recordTone = FileManager.default.temporaryDirectory.appending(
+            path: "crosstune-sample-take.m4a")
 
         /// - Parameters:
         ///   - playing: Starts with a link loaded in the player.
         ///   - playingRecording: Starts with a recording playing, from a tone written for it.
         ///   - plan: Stores this entitlements row, so the plan gates the shell. Nil leaves the
-        ///     plan unknown, which gates nothing.
-        public init(playing: Bool = false, playingRecording: Bool = false, plan: SamplePlan? = nil) {
+        ///     plan unknown, which gates nothing, unless `screen` needs a plan to show.
+        ///   - screen: Opens on this surface, with the Settings window too for one shown there.
+        public init(
+            playing: Bool = false, playingRecording: Bool = false, plan: SamplePlan? = nil,
+            screen: SampleScreen? = nil
+        ) {
             self.playing = playing
             self.playingRecording = playingRecording
-            samplePlan = plan
+            samplePlan = plan ?? screen?.plan
+            self.screen = screen
+            _place = State(initialValue: screen?.place() ?? ShellPlace())
+            _recorders = State(
+                initialValue: screen == .record
+                    ? RecorderHost(makeInput: { FileInput(url: Self.recordTone) }) : RecorderHost())
             // The playlist must sit on the same player the shell shows.
             let player = PlayerModel()
             _player = State(initialValue: player)
@@ -40,8 +59,10 @@
             ZStack {
                 // An empty body would never start the task that opens the store.
                 Color.clear
-                if let store {
-                    AppShell(store: store, player: player, stage: stage, recorders: recorders)
+                if screen?.isSignedOut == true {
+                    WelcomeView(notice: nil)
+                } else if let store {
+                    AppShell(store: store, player: player, stage: stage, recorders: recorders, place: place)
                         .environment(engine)
                         .environment(listPlayback)
                         // A capture never shows the system review request.
@@ -54,10 +75,17 @@
                         description: Text(failure))
                 }
             }
+            .environment(\.sampleScreen, screen)
             .task {
+                guard screen?.isSignedOut != true else { return }
                 do {
-                    let opened = try await SampleCatalog.makeStore(withAudio: true)
-                    try await SampleScans.add(to: opened)
+                    let empty = screen?.isEmpty == true
+                    let opened = try await SampleCatalog.makeStore(withAudio: true, empty: empty)
+                    if !empty { try await SampleScans.add(to: opened) }
+                    if screen == .record {
+                        try? FileManager.default.removeItem(at: Self.recordTone)
+                        try await SampleAudio.writeTone(to: Self.recordTone, seconds: 30)
+                    }
                     if let samplePlan {
                         try await samplePlan.store(in: opened, now: Date())
                         plan = PlanModel(store: opened)
@@ -75,6 +103,16 @@
                     let entry = SampleCatalog.playable
                     player.play(.recording(entry.recording, tuneTitle: entry.tuneTitle))
                 }
+                if screen == .practice {
+                    let entry = SampleCatalog.playable
+                    player.open(.recording(entry.recording, tuneTitle: entry.tuneTitle), playing: false)
+                }
+                #if os(macOS)
+                    if let tab = SampleScreen.settingsTab() ?? screen?.settingsTab {
+                        MacSettingsTabs.select(tab)
+                        openSettings()
+                    }
+                #endif
             }
         }
     }
@@ -119,12 +157,16 @@
     /// screen beside ``SampleShell`` without signing in. Debug builds only.
     public struct SampleSettings: View {
         private let samplePlan: SamplePlan?
+        private let screen: SampleScreen?
         @State private var store: CrosstuneStore?
         @State private var plan: PlanModel?
 
-        /// - Parameter plan: Stores this entitlements row, so the Plan group has a plan to show.
-        public init(plan: SamplePlan? = nil) {
-            samplePlan = plan
+        /// - Parameters:
+        ///   - plan: Stores this entitlements row, so the Plan group has a plan to show.
+        ///   - screen: Opens the sheet this surface names, when a tab of this window holds it.
+        public init(plan: SamplePlan? = nil, screen: SampleScreen? = nil) {
+            samplePlan = plan ?? screen?.plan
+            self.screen = screen
         }
 
         public var body: some View {
@@ -133,6 +175,7 @@
                     MacSettingsTabs()
                         .environment(\.store, store)
                         .environment(\.plan, plan)
+                        .environment(\.sampleScreen, screen)
                 } else {
                     // Sized as the tabs are, since the window must not resize once it shows.
                     Color.clear.frame(width: MacSettingsTabs.size.width, height: MacSettingsTabs.size.height)

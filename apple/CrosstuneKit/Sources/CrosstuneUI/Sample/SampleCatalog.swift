@@ -1,4 +1,5 @@
 #if DEBUG
+    import CrosstuneAudio
     import CrosstuneCommands
     import CrosstuneStore
     import CrosstuneSync
@@ -103,10 +104,21 @@
                 url: "https://www.slippery-hill.com/content/cluck-old-hen", provider: "other", position: 0),
         ]
 
+        /// Two saved locations a few streets apart, the first where the richest recording was
+        /// made.
+        public static let savedPlaces: [SavedPlace] = [
+            SavedPlace(
+                id: "sample_place_mikes", createdAt: now, name: "Mike's porch", lat: 36.1627, lon: -86.7816,
+                address: "212 Fatherland St, Nashville, TN"),
+            SavedPlace(
+                id: "sample_place_station", createdAt: now, name: "Station Inn", lat: 36.1530, lon: -86.7860,
+                address: "402 12th Ave S, Nashville, TN"),
+        ]
+
         public static let recordings: [RecordingEntry] = [
             recording(
                 "ready_here", tune: 0, label: "Jam at Mike's", state: "ready", seconds: 184,
-                file: .downloaded, minutesAgo: 60 * 26),
+                file: .downloaded, minutesAgo: 60 * 26, place: savedPlaces[0]),
             recording("ready_server", tune: 1, state: "ready", seconds: 95, file: nil, minutesAgo: 60 * 50),
             recording("waiting", tune: 2, state: "pending_upload", seconds: 42, file: .captured, minutesAgo: 5),
             recording(
@@ -148,13 +160,21 @@
         public static let timeZone = TimeZone(identifier: "America/New_York")!
 
         /// Opens a store in a fresh temporary folder and writes the whole sample into it.
-        /// `withAudio` also writes a tone as ``playable``'s audio file, so it plays.
+        /// `withAudio` also writes a tone as ``playable``'s audio file, so it plays. `empty`
+        /// writes only the settings and storage, as a new account has.
         public static func makeStore(
             root: URL = FileManager.default.temporaryDirectory.appending(
                 path: "crosstune-sample-\(UUID().uuidString)", directoryHint: .isDirectory),
-            withAudio: Bool = false
+            withAudio: Bool = false, empty: Bool = false
         ) async throws -> CrosstuneStore {
             let store = try CrosstuneStore.open(userID: userID, root: root)
+            if empty {
+                try await store.write { writer in
+                    try writer.put(settings, at: now)
+                    try writer.setMeta(.storage, to: storage)
+                }
+                return store
+            }
             try await store.write { writer in
                 try writer.put(settings, at: now)
                 for entry in entries {
@@ -164,6 +184,7 @@
                 for list in lists { try writer.put(list, at: now) }
                 for item in listItems { try writer.put(item, at: now) }
                 for link in links { try writer.put(link, at: now) }
+                for place in savedPlaces { try writer.put(place, at: now) }
                 for entry in recordings {
                     try writer.put(entry.recording, at: now)
                     // Local file state is never synced, so it has no outbox entry to queue.
@@ -172,10 +193,17 @@
                 for capture in unfinishedCaptures { try capture.upsert(writer.db) }
                 try writer.setMeta(.storage, to: storage)
             }
-            if withAudio, let file = playable.file, let name = file.fileName {
+            if withAudio, var file = playable.file, let name = file.fileName {
+                let audio = store.audioFolder.appending(path: name)
                 try await SampleAudio.writeTone(
-                    to: store.audioFolder.appending(path: name),
-                    seconds: Double(playable.recording.durationMs ?? 30_000) / 1000)
+                    to: audio, seconds: Double(playable.recording.durationMs ?? 30_000) / 1000)
+                // Peaks from the tone, so the practice view draws a waveform. A failed decode
+                // only leaves it undrawn.
+                if let peaks = try? await Peaks.read(from: audio) {
+                    file.peaksFileName = try peaks.write(for: playable.recording.id, in: store)
+                    let drawn = file
+                    try await store.write { writer in try drawn.upsert(writer.db) }
+                }
             }
             return store
         }
@@ -222,7 +250,7 @@
 
         private static func recording(
             _ name: String, tune: Int?, label: String? = nil, state: String, seconds: Int64?,
-            file: LocalFileState?, fileError: String? = nil, minutesAgo: Int64
+            file: LocalFileState?, fileError: String? = nil, minutesAgo: Int64, place: SavedPlace? = nil
         ) -> RecordingEntry {
             let id = "sample_recording_\(name)"
             let recordedAt = Timestamp(milliseconds: now.milliseconds - minutesAgo * 60_000)
@@ -231,7 +259,9 @@
                 recording: Recording(
                     id: id, createdAt: recordedAt, tuneID: tuneEntry?.tune.id, source: "microphone",
                     recordedAt: recordedAt, recordedPrecision: RecordingPrecision.time.rawValue, label: label,
-                    state: state, durationMs: seconds.map { $0 * 1000 }),
+                    state: state, durationMs: seconds.map { $0 * 1000 }, placeName: place?.name,
+                    placeLat: place?.lat, placeLon: place?.lon, placeID: place?.id,
+                    placeOrigin: place.map { _ in PlaceOrigin.picked.rawValue }),
                 file: file.map {
                     RecordingFile(
                         id: id, localState: $0, fileName: "\(id).m4a", contentType: "audio/mp4",
