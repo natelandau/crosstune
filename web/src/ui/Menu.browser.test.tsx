@@ -4,6 +4,7 @@ import { page, userEvent } from 'vitest/browser'
 import { expect, it, vi } from 'vitest'
 import { act } from '@testing-library/react'
 import { renderWithProviders } from '../test/render'
+import { elementStill } from '../test/stillPoll'
 import { Button } from './Button'
 import { CANCEL, DELETE, useConfirm, type ConfirmOptions } from './Confirm'
 import { Menu, MenuAtPoint } from './Menu'
@@ -485,7 +486,7 @@ it.each(TIPPED)(
     try {
       await userEvent.hover(target)
       rerender(<Host at={{ x: 200, y: 200 }} />)
-      await expect.element(menu).toBeVisible()
+      await elementStill(menu).toBeVisible()
       act(() => vi.advanceTimersByTime(2000))
     } finally {
       vi.useRealTimers()

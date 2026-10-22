@@ -8,6 +8,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { movedAnnouncement } from './reorderCopy'
 import { longPress, longPressDrag, swipeLeft } from '../test/gestures'
 import { renderWithProviders } from '../test/render'
+import { pollStill } from '../test/stillPoll'
 import { moveRowLabel, useReorderAnnouncer, type FrameSource } from './reorder'
 import { Row, type RowAction } from './Row'
 import { RowList } from './RowList'
@@ -523,10 +524,10 @@ it.each([30, 80])(
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     try {
       await userEvent.keyboard('{Enter}')
-      await expect.poll(() => onReorder).toHaveBeenCalledWith('a', 2)
+      await pollStill(() => onReorder).toHaveBeenCalledWith('a', 2)
       expect(shownTitles()).toEqual(TUNES.map((tune) => tune.title))
       vi.advanceTimersByTime(showLater)
-      await expect.poll(() => shownTitles()[2]).toBe('Forked Deer')
+      await pollStill(() => shownTitles()[2]).toBe('Forked Deer')
       vi.advanceTimersByTime(100)
     } finally {
       vi.useRealTimers()

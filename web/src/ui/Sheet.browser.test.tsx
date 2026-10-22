@@ -4,6 +4,7 @@ import { cdp, page, userEvent } from 'vitest/browser'
 import { afterAll, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
 import { drag, dragDown } from '../test/gestures'
 import { renderWithProviders } from '../test/render'
+import { pollStill } from '../test/stillPoll'
 import { Button } from './Button'
 import { Sheet } from './Sheet'
 import { releaseTarget, SHEET } from './sheetGeometry'
@@ -585,12 +586,6 @@ function recordTops(): { tops: number[]; stop: () => void } {
   })
   return { tops, stop: () => observer.disconnect() }
 }
-
-/**
- * Polls without moving the fake clock. Under fake timers, expect.poll advances them by its
- * interval after every miss, which would spend the close window before the test means to.
- */
-const pollStill = <T,>(read: () => T) => expect.poll(read, { interval: 0 })
 
 it('never springs back when its parent closes after the close window opens', async () => {
   const asked = vi.fn()

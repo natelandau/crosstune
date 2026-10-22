@@ -6,6 +6,7 @@ import { page, userEvent } from 'vitest/browser'
 import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
 import { drag, dragThrough, longPress, swipeLeft, swipeRight, tap } from '../test/gestures'
 import { renderWithProviders } from '../test/render'
+import { pollStill } from '../test/stillPoll'
 import { CANCEL } from './Confirm'
 import { Row, type RowAction } from './Row'
 import { RowList } from './RowList'
@@ -693,7 +694,7 @@ it('runs only the action, never the row, for a touch tap on a swipe action', asy
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   try {
     await swipeLeft(row, 120)
-    await expect.poll(() => uncovered(edit.element())).toBe(true)
+    await pollStill(() => uncovered(edit.element())).toBe(true)
     await tap(edit, { beforeLift: () => void vi.advanceTimersByTime(80) })
     vi.advanceTimersByTime(80)
   } finally {

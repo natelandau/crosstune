@@ -6,6 +6,7 @@ import type { PlaceResult } from '../../api/types'
 import type { PlaceSearchOutcome } from '../../sync/types'
 import { fakeEngine } from '../../test/fakeSync'
 import { renderWithProviders } from '../../test/render'
+import { elementStill } from '../../test/stillPoll'
 import type { PlaceChoice } from './place'
 import { PlaceSearch } from './LocationRows'
 import {
@@ -52,7 +53,7 @@ function setup({
 /** Types into the field with timers faked, then lets the settle time pass. */
 async function typeAndSettle(input: ReturnType<typeof setup>['input'], text: string) {
   await input.fill(text)
-  await expect.element(input).toHaveValue(text)
+  await elementStill(input).toHaveValue(text)
   act(() => vi.advanceTimersByTime(SETTLE_MS))
 }
 
@@ -67,8 +68,7 @@ it('searches once the typing settles, and hands the picked result on', async () 
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   await input.fill('G')
   await input.fill('Ga')
-  // Interval 0: under fake timers each miss would advance them by the interval, into the wait.
-  await expect.element(input, { interval: 0 }).toHaveValue('Ga')
+  await elementStill(input).toHaveValue('Ga')
   // Timers are faked, so nothing can search before they advance.
   act(() => vi.advanceTimersByTime(SETTLE_MS - 1))
   expect(search).not.toHaveBeenCalled()
@@ -163,8 +163,8 @@ it('shows an answer only under the text it answered', async () => {
   await typeAndSettle(input, 'Ga')
   await expect.element(result(GALAX.name)).toBeVisible()
   await input.fill('Gal')
-  await expect.element(result(GALAX.name)).not.toBeInTheDocument()
-  await expect.element(page.getByText(NO_LOCATIONS_FOUND)).not.toBeInTheDocument()
+  await elementStill(result(GALAX.name)).not.toBeInTheDocument()
+  await elementStill(page.getByText(NO_LOCATIONS_FOUND)).not.toBeInTheDocument()
   act(() => vi.advanceTimersByTime(SETTLE_MS))
   await expect.poll(() => search.mock.calls).toEqual([['Ga'], ['Gal']])
   await expect.element(page.getByText(NO_LOCATIONS_FOUND)).toBeVisible()
