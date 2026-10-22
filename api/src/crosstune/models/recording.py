@@ -29,6 +29,7 @@ from crosstune.vocabulary import (
     PITCH_CENTS_MIN,
     SPEED_PERCENT_MAX,
     SPEED_PERCENT_MIN,
+    PlaceOrigin,
     RecordingOrigin,
     RecordingPrecision,
     RecordingSource,
@@ -75,6 +76,14 @@ class Recording(SyncColumns, Base):
         CheckConstraint(
             "place_lat is null or (place_lat between -90 and 90 and place_lon between -180 and 180)",
             name="ck_recordings_place_range",
+        ),
+        CheckConstraint(
+            in_list("place_origin", tuple(PlaceOrigin), nullable=True),
+            name="ck_recordings_place_origin",
+        ),
+        CheckConstraint(
+            "(place_origin is null) = (place_lat is null)",
+            name="ck_recordings_place_origin_coordinates",
         ),
         CheckConstraint(
             in_list("state", tuple(RecordingState), nullable=False), name="ck_recordings_state"
@@ -130,6 +139,12 @@ class Recording(SyncColumns, Base):
         String(LIMITS["recordings"]["place_name"]), nullable=True
     )
     place_accuracy_m: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # The saved place this take is filed under, if any. The take keeps its own coordinates, so
+    # a deleted place leaves it where it was. The origin is set exactly when coordinates are.
+    place_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("places.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    place_origin: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     state: Mapped[str] = mapped_column(
         String(20), nullable=False, default=RecordingState.PENDING_UPLOAD.value

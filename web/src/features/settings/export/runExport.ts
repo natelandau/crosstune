@@ -86,6 +86,7 @@ export async function readExportInput(
       db.scans,
       db.scan_files,
       db.user_settings,
+      db.places,
     ],
     async () => {
       const [
@@ -99,6 +100,7 @@ export async function readExportInput(
         scans,
         scanFiles,
         settings,
+        places,
       ] = await Promise.all([
         db.tunes.toArray(),
         db.user_tunes.toArray(),
@@ -110,6 +112,7 @@ export async function readExportInput(
         db.scans.toArray(),
         db.scan_files.toArray(),
         db.user_settings.get(settingsId(userId)),
+        db.places.toArray(),
       ])
       const { audio, scanIds, blobs, scanBlobs } = availableFiles(
         recordings,
@@ -130,6 +133,7 @@ export async function readExportInput(
           audio,
           scans,
           scanIds,
+          places,
         },
         blobs,
         scanBlobs,

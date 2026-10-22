@@ -67,6 +67,11 @@ public enum AnalyticsEvent: Sendable, Equatable {
     /// Never the place itself.
     case recordingPlaceSet(recordingID: String, method: PlaceMethod, replaced: Bool)
     case recordingPlaceCleared(recordingID: String)
+    /// Never the name or the point.
+    case savedLocationCreated(method: SavedLocationMethod)
+    case savedLocationRenamed
+    case savedLocationDeleted
+    case locationOpenedInMaps
     case recordingDeleted(origin: RecordingOrigin, recordingID: String)
     case recordingTrimmed(recordingID: String)
 
@@ -145,6 +150,10 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .recordingRenamed: "recording_renamed"
         case .recordingPlaceSet: "recording_place_set"
         case .recordingPlaceCleared: "recording_place_cleared"
+        case .savedLocationCreated: "saved_location_created"
+        case .savedLocationRenamed: "saved_location_renamed"
+        case .savedLocationDeleted: "saved_location_deleted"
+        case .locationOpenedInMaps: "location_opened_in_maps"
         case .recordingDeleted: "recording_deleted"
         case .recordingTrimmed: "recording_trimmed"
         case .linkAdded: "link_added"
@@ -181,7 +190,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
     public var properties: [String: AnalyticsValue] {
         switch self {
         case .signedIn, .signedOut, .accountDeleted, .accountDeletionStarted, .accountDeletionCancelled,
-            .usageSharingDisabled:
+            .usageSharingDisabled, .savedLocationRenamed, .savedLocationDeleted, .locationOpenedInMaps:
             [:]
         case .accountCreated(let trial):
             ["trial": .bool(trial)]
@@ -252,6 +261,8 @@ public enum AnalyticsEvent: Sendable, Equatable {
             ["origin": .string(origin.rawValue), "recording_id": .string(recordingID)]
         case .recordingPlaceSet(let recordingID, let method, let replaced):
             ["recording_id": .string(recordingID), "method": .string(method.rawValue), "replaced": .bool(replaced)]
+        case .savedLocationCreated(let method):
+            ["method": .string(method.rawValue)]
         case .recordingTrimmed(let recordingID), .recordingPlaceCleared(let recordingID), .loopSet(let recordingID):
             ["recording_id": .string(recordingID)]
         case .linkAdded(let service, let via, let linkID, let tuneID):

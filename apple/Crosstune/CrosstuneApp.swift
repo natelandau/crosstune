@@ -80,6 +80,7 @@ struct CrosstuneApp: App {
                 .environment(\.stripePortalURL, stripePortalURL)
                 .environment(\.appStoreURL, appStoreURL)
                 .environment(\.placeSearch, MapKitPlaceSearch.self)
+                .environment(\.nearbySearch, MapKitNearbySearch.self)
                 .environment(\.locationAccess, locationAccess)
                 .followsDisplaySettings()
                 .tint(BrandStyle.accent)

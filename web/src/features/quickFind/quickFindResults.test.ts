@@ -118,4 +118,23 @@ describe('rankResults', () => {
       ['recordings', MAX_RESULTS],
     ])
   })
+
+  it('finds a recording by the location it shows', () => {
+    const at: RecordingView = {
+      recording: recordingRow('r9', { label: 'Evening' }),
+      file: undefined,
+      tuneId: null,
+      tuneTitle: null,
+      shownPlace: 'Town Hall',
+    }
+    const found = rankResults({
+      query: 'town hall',
+      tunes,
+      lists,
+      recordings: [...recordings, at],
+      commands,
+    })
+    const items = found.sections.find((one) => one.id === 'recordings')?.items ?? []
+    expect(items.map((item) => item.key)).toEqual(['recording:r9'])
+  })
 })

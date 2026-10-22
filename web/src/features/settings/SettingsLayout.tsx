@@ -19,10 +19,15 @@ const SETTINGS = destination('settings')
  * stats, or a tune opened from the stats.
  */
 export function SettingsLayout() {
-  const { page, tuneId } = useParams()
+  const { page, tuneId, placeId } = useParams()
   const outlet = useOutlet()
   const stats = useMatch(`${SETTINGS_STATS_PATH}/*`) !== null
-  const spec = isSettingsPage(page) ? settingsPageSpec(page) : null
+  // A saved location's address has no `:page`, but it belongs to that page.
+  const spec = isSettingsPage(page)
+    ? settingsPageSpec(page)
+    : placeId
+      ? settingsPageSpec('saved-locations')
+      : null
   // The root and a settings page route to no element of their own, so only the stats routes
   // fill the detail from the outlet.
   const detail = spec ? <SettingsPage key={spec.id} spec={spec} /> : stats ? outlet : null

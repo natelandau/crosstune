@@ -38,6 +38,7 @@ import { CLOSE, DELETE } from '../../ui/confirmCopy'
 
 import { swipeLeft, tap } from '../../test/gestures'
 import { stampAxes } from '../../test/render'
+import { pollStill } from '../../test/stillPoll'
 import { renderApp } from '../../test/renderApp'
 import { AppMotion } from '../../theme/motion'
 import { TUNE } from '../tune/tunePageCopy'
@@ -399,15 +400,13 @@ it('hands focus back to the Scans action on touch, leaving the row closed', asyn
   try {
     // Past half of the three actions' width, so the release settles open.
     await swipeLeft(row, 200)
-    await expect.poll(swipe).toBe('open')
+    await pollStill(swipe).toBe('open')
     // The tray settles under the finger before a tap can land on it.
-    await expect
-      .poll(() => {
-        const box = scans.element().getBoundingClientRect()
-        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
-        return hit !== null && scans.element().contains(hit)
-      })
-      .toBe(true)
+    await pollStill(() => {
+      const box = scans.element().getBoundingClientRect()
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+      return hit !== null && scans.element().contains(hit)
+    }).toBe(true)
     await tap(scans, { beforeLift: () => void vi.advanceTimersByTime(80) })
     vi.advanceTimersByTime(80)
   } finally {

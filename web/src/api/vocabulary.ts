@@ -21,6 +21,12 @@ export type Instrument = (typeof INSTRUMENTS)[number]
 export const MODES = ['major', 'minor', 'mixolydian', 'dorian', 'modal', 'other'] as const
 export type Mode = (typeof MODES)[number]
 
+export const PLACE_KINDS = ['venue', 'address', 'town'] as const
+export type PlaceKind = (typeof PLACE_KINDS)[number]
+
+export const PLACE_ORIGINS = ['device', 'file', 'picked'] as const
+export type PlaceOrigin = (typeof PLACE_ORIGINS)[number]
+
 export const PLAY_CONTEXTS = ['row', 'list', 'dock', 'recording_screen'] as const
 export type PlayContext = (typeof PLAY_CONTEXTS)[number]
 
@@ -126,6 +132,12 @@ export const RECORDING_LIMITS = {
 
 export const LOOP_LIMITS = {
   label: 100,
+} as const
+
+export const PLACE_LIMITS = {
+  address: 200,
+  apple_place_id: 100,
+  name: 200,
 } as const
 
 export const RECORDING_RANGES = {

@@ -16,7 +16,7 @@ from crosstune.jobs.media import Probe
 from crosstune.main import create_app
 from crosstune.places.maps import PlaceHit
 from crosstune.sync.rules import RecordingRules
-from tests.helpers import recording, uid
+from tests.helpers import T1, change, push, recording, uid
 
 DSN = "https://key@o1.ingest.sentry.io/1"
 
@@ -157,7 +157,7 @@ def test_sentry_reports_keep_coordinates_and_content_out_of_frame_locals(live_se
             channels=1,
             location=(36.6612, -80.9239),
         )
-        hit = PlaceHit(name="Galax, VA", lat=36.6612, lon=-80.9239, title="Galax, VA")
+        hit = PlaceHit(name="Galax, VA", lat=36.6612, lon=-80.9239, title="Galax, VA", kind="town")
         body = _Notes(notes="learned from Tommy", players="Kyle Creed")
         report = {
             "format": {"tags": {"com.apple.quicktime.location.ISO6709": "+36.6612-080.9239/"}}
@@ -348,3 +348,39 @@ def test_sentry_scrubs_apple_maps_place_fields_from_frames(mocker) -> None:
     scrubber.scrub_event(event)
     for text in ("36.66", "80.92", "Galax", "Oldtown", "Rex", "Grayson", "IE", "Ireland"):
         assert text not in str(event)
+
+
+@pytest.mark.anyio
+async def test_an_error_while_settling_a_pushed_place_keeps_coordinates_out_of_sentry(
+    live_sentry, client, auth_headers, mocker
+) -> None:
+    mocker.patch("crosstune.sync.rules.matching_place_id", side_effect=RuntimeError("boom"))
+    await _push_failing(client, auth_headers)
+    [settling] = [f for f in _frames(live_sentry) if f["function"] == "_settle_place"]
+    assert settling["vars"]
+    sent = _sent_event(live_sentry)
+    for text in _CONTENT_TEXT:
+        assert text not in sent
+
+
+@pytest.mark.anyio
+async def test_an_error_while_reaching_back_keeps_place_coordinates_out_of_sentry(
+    live_sentry, client, auth_headers, mocker
+) -> None:
+    headers = auth_headers("user_a")
+    await push(client, headers, recording(uid(), **_CONTENT))
+    mocker.patch("crosstune.places.matching.distance_m", side_effect=RuntimeError("boom"))
+    with pytest.raises(RuntimeError):
+        await client.post(
+            "/v1/sync/push",
+            json={
+                "changes": [change("places", uid(), T1, name="Porch", lat=36.6612, lon=-80.9239)]
+            },
+            headers=headers,
+        )
+    sentry_sdk.flush()
+    [linking] = [f for f in _frames(live_sentry) if f["function"] == "link_earlier_takes"]
+    assert linking["vars"]
+    sent = _sent_event(live_sentry)
+    for text in _CONTENT_TEXT:
+        assert text not in sent

@@ -47,6 +47,7 @@
               "lists",
               "list_items",
               "recording_links",
+              "places",
               "recordings",
               "scans",
               "recording_loops",
@@ -776,6 +777,26 @@
         "title": "ListRow",
         "type": "object"
       },
+      "MapKitTokenResponse": {
+        "description": "A MapKit JS token for the web client's map, good only on the web origin.",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "expires_at"
+        ],
+        "title": "MapKitTokenResponse",
+        "type": "object"
+      },
       "MeResponse": {
         "description": "The calling user's public profile.",
         "properties": {
@@ -906,9 +927,112 @@
         "title": "PeaksUrl",
         "type": "object"
       },
-      "PlaceResult": {
-        "description": "A place to pick: the name a recording stores, its coordinates, and how a list shows it.\n\n`title` is the list row's main line: a named place's own name, a street address, or a\ntown. `subtitle` is the line under it that tells same-named results apart, the street and\ntown of a named place or the town of an address, and is null for a town.",
+      "PlaceChangeResult": {
+        "description": "The outcome of one change to a saved place.",
         "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlaceRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "applied",
+              "stale",
+              "invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "table": {
+            "const": "places",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "table"
+        ],
+        "title": "PlaceChangeResult",
+        "type": "object"
+      },
+      "PlaceKind": {
+        "enum": [
+          "venue",
+          "address",
+          "town"
+        ],
+        "type": "string"
+      },
+      "PlaceOrigin": {
+        "description": "How a recording's coordinates were obtained.",
+        "enum": [
+          "device",
+          "file",
+          "picked"
+        ],
+        "title": "PlaceOrigin",
+        "type": "string"
+      },
+      "PlacePullRow": {
+        "description": "A saved place row in a pull page.",
+        "properties": {
+          "row": {
+            "$ref": "#/components/schemas/PlaceRow"
+          },
+          "table": {
+            "const": "places",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "row"
+        ],
+        "title": "PlacePullRow",
+        "type": "object"
+      },
+      "PlaceResult": {
+        "description": "A place to pick: the name a recording stores, its coordinates, and how a list shows it.\n\n`title` is the list row's main line: a named place's own name, a street address, or a\ntown. `subtitle` is the line under it that tells same-named results apart, the street and\ntown of a named place or the town of an address, and is null for a town. `kind` says which\nof the three it is, so a client saves a venue or an address as a location and not a town;\n`address` is a venue's `street, town` line, null for an address or a town.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PlaceKind"
+          },
           "lat": {
             "title": "Lat",
             "type": "number"
@@ -941,9 +1065,108 @@
           "name",
           "lat",
           "lon",
-          "title"
+          "title",
+          "kind"
         ],
         "title": "PlaceResult",
+        "type": "object"
+      },
+      "PlaceRow": {
+        "description": "A stored saved place, as push and pull return it.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "apple_place_id": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apple Place Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "lat": {
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Lon",
+            "type": "number"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "server_seq": {
+            "title": "Server Seq",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "updated_at",
+          "deleted_at",
+          "server_seq",
+          "created_at",
+          "name",
+          "lat",
+          "lon",
+          "user_id"
+        ],
+        "title": "PlaceRow",
         "type": "object"
       },
       "PlaceSearchResponse": {
@@ -1544,6 +1767,7 @@
                   "entitlements": "#/components/schemas/EntitlementPullRow",
                   "list_items": "#/components/schemas/ListItemPullRow",
                   "lists": "#/components/schemas/ListPullRow",
+                  "places": "#/components/schemas/PlacePullRow",
                   "recording_links": "#/components/schemas/RecordingLinkPullRow",
                   "recording_loops": "#/components/schemas/RecordingLoopPullRow",
                   "recordings": "#/components/schemas/RecordingPullRow",
@@ -1569,6 +1793,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/RecordingLinkPullRow"
+                },
+                {
+                  "$ref": "#/components/schemas/PlacePullRow"
                 },
                 {
                   "$ref": "#/components/schemas/RecordingPullRow"
@@ -1627,6 +1854,7 @@
                   "entitlements": "#/components/schemas/EntitlementChangeResult",
                   "list_items": "#/components/schemas/ListItemChangeResult",
                   "lists": "#/components/schemas/ListChangeResult",
+                  "places": "#/components/schemas/PlaceChangeResult",
                   "play_events": "#/components/schemas/PlayEventChangeResult",
                   "practice_sessions": "#/components/schemas/PracticeSessionChangeResult",
                   "recording_links": "#/components/schemas/RecordingLinkChangeResult",
@@ -1655,6 +1883,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/RecordingLinkChangeResult"
+                },
+                {
+                  "$ref": "#/components/schemas/PlaceChangeResult"
                 },
                 {
                   "$ref": "#/components/schemas/RecordingChangeResult"
@@ -1822,6 +2053,19 @@
             "default": null,
             "title": "Place Accuracy M"
           },
+          "place_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Place Id"
+          },
           "place_lat": {
             "anyOf": [
               {
@@ -1862,6 +2106,17 @@
             ],
             "default": null,
             "title": "Place Name"
+          },
+          "place_origin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlaceOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "players": {
             "anyOf": [
@@ -2457,6 +2712,18 @@
             ],
             "title": "Place Accuracy M"
           },
+          "place_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Id"
+          },
           "place_lat": {
             "anyOf": [
               {
@@ -2494,6 +2761,16 @@
               }
             ],
             "title": "Place Name"
+          },
+          "place_origin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlaceOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "playback_bytes": {
             "anyOf": [
@@ -3358,6 +3635,20 @@
           "expires_at"
         ],
         "title": "SignedUrl",
+        "type": "object"
+      },
+      "SnapshotResponse": {
+        "description": "A signed Apple Maps snapshot image URL.",
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "SnapshotResponse",
         "type": "object"
       },
       "StatusChangePullRow": {
@@ -4600,6 +4891,48 @@
         ]
       }
     },
+    "/v1/places/mapkit-token": {
+      "get": {
+        "description": "Issue a short-lived MapKit JS token restricted to the web origin.",
+        "operationId": "mapkit_token_v1_places_mapkit_token_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapKitTokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Mapkit Token",
+        "tags": [
+          "places"
+        ]
+      }
+    },
     "/v1/places/search": {
       "get": {
         "description": "Named places, street addresses, and towns for the text typed so far, each named as picked.\n\nResults lean toward the account's country, never toward the user's own location.",
@@ -4669,6 +5002,124 @@
           }
         },
         "summary": "Search Places",
+        "tags": [
+          "places"
+        ]
+      }
+    },
+    "/v1/places/snapshot": {
+      "get": {
+        "description": "A signed snapshot URL with a pin at a precise point, or a circle of the fix's accuracy.",
+        "operationId": "snapshot_v1_places_snapshot_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "lat",
+            "required": true,
+            "schema": {
+              "exclusiveMaximum": 90,
+              "exclusiveMinimum": -90,
+              "title": "Lat",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lon",
+            "required": true,
+            "schema": {
+              "exclusiveMaximum": 180,
+              "exclusiveMinimum": -180,
+              "title": "Lon",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "width",
+            "required": true,
+            "schema": {
+              "maximum": 640,
+              "minimum": 50,
+              "title": "Width",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "height",
+            "required": true,
+            "schema": {
+              "maximum": 640,
+              "minimum": 50,
+              "title": "Height",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scheme",
+            "required": true,
+            "schema": {
+              "enum": [
+                "light",
+                "dark"
+              ],
+              "title": "Scheme",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "accuracy_m",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Accuracy M"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Snapshot",
         "tags": [
           "places"
         ]

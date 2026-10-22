@@ -88,7 +88,9 @@ for Android and every browser. The parts that matter:
 - Recordings. Record with the phone's microphone, upload audio, or save the
   audio of a Slippery-Hill link. A recording is filed under a tune or waits
   unfiled, and keeps where it came from, when it was added, notes, the
-  players, and, when known, when and where it was recorded. A take or an
+  players, and, when known, when and where it was recorded. Takes at the
+  same spot can share a saved location the musician names, and search
+  finds recordings by location. A take or an
   uploaded file plays at once and uploads in the background. Saved link
   audio is fetched by the server and plays once it is ready. Every recording
   reaches the musician's other devices. A recording can be trimmed for good,

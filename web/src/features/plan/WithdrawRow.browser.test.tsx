@@ -9,6 +9,7 @@ import type { SyncEngine } from '../../sync/types'
 import { CANCEL } from '../../ui/confirmCopy'
 import { FixedNow } from '../../ui/useNow'
 import { planSheet } from '../../test/planSheet'
+import { elementStill } from '../../test/stillPoll'
 import { PlanSheet } from './PlanSheet'
 import {
   ON_PREMIUM,
@@ -168,7 +169,7 @@ it('hides the row at the end of the window on the real clock, before the next mi
     .toBe(true)
 
   await vi.advanceTimersByTimeAsync(end - Date.now() - 1)
-  await expect.element(withdrawRow()).toBeVisible()
+  await elementStill(withdrawRow()).toBeVisible()
   await vi.advanceTimersByTimeAsync(1)
   await expect.element(withdrawRow()).not.toBeInTheDocument()
 })

@@ -4,6 +4,8 @@ import { formatDuration } from '../../text/format'
 import { BAR_GAP, BAR_WIDTH, MIN_BAR } from '../capture/waveformBars'
 import { barLevels, type Peaks } from '../waveform/peaks'
 import { capturePointer } from '../../platform/pointer'
+import type { Scheme } from '../../theme/tokens'
+import { useScheme } from '../../theme/useScheme'
 
 export const SEEK_LABEL = 'Position'
 
@@ -13,23 +15,9 @@ const STEP = BAR_WIDTH + BAR_GAP
 interface Surface {
   width: number
   height: number
-  theme: number
+  theme: Scheme
   played: string
   unplayed: string
-}
-
-/** Re-reads the bar colors whenever the scheme stamped on the root changes. */
-function useThemeVersion(): number {
-  const [version, setVersion] = useState(0)
-  useEffect(() => {
-    const observer = new MutationObserver(() => setVersion((v) => v + 1))
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['data-scheme'],
-    })
-    return () => observer.disconnect()
-  }, [])
-  return version
 }
 
 /**
@@ -69,7 +57,8 @@ export function Waveform({
   const [size, setSize] = useState({ width: 0, height: 0 })
   const surface = useRef<Surface | null>(null)
   const dragging = useRef(false)
-  const theme = useThemeVersion()
+  // The bar colors are read again whenever the scheme stamped on the root changes.
+  const theme = useScheme()
 
   useEffect(() => {
     const canvas = canvasRef.current

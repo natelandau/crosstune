@@ -38,8 +38,10 @@ const BLOCK = 'bg-fill block rounded-(--radius-surface) px-4 py-3'
  * the version below. Each opens its page, pushed on phone and split and in the detail on wide.
  */
 export function SettingsRoot() {
-  const { page } = useParams()
-  const open = isSettingsPage(page) ? page : undefined
+  const { page, placeId } = useParams()
+  // A saved location is open on its own address, which is the Saved locations page's.
+  const onLocation = placeId !== undefined
+  const open = isSettingsPage(page) ? page : onLocation ? 'saved-locations' : undefined
   const wide = useFrame() === 'wide'
   const touch = useStampedDensity() === 'touch'
   const navigate = useNavigate()
@@ -51,7 +53,8 @@ export function SettingsRoot() {
   const replace = wide && (open !== undefined || statsOpen)
   const choose = (key: Key) => {
     const id = String(key)
-    if (!isSettingsPage(id) || id === open) return
+    // Choosing the page again from one of its locations returns to its list.
+    if (!isSettingsPage(id) || (id === open && !onLocation)) return
     void navigate(settingsPagePath(id), { replace })
   }
 
@@ -73,7 +76,8 @@ export function SettingsRoot() {
               selectionMode: 'single',
               selectionBehavior: 'replace',
               disallowEmptySelection: true,
-              selectedKeys: new Set([open]),
+              // Empty on a location, so choosing its page again is a change of selection.
+              selectedKeys: new Set(onLocation ? [] : [open]),
               onSelectionChange: (keys: Selection) => {
                 if (keys === 'all') return
                 const [key] = keys
@@ -92,6 +96,7 @@ export function SettingsRoot() {
               textValue={summary ? `${category.title}, ${summary}` : category.title}
               leading={<Icon className="text-action size-5 shrink-0" aria-hidden />}
               title={category.title}
+              current={onLocation && wide && category.id === open}
               trailing={
                 summary ? (
                   // On pointer the row's trailing slot holds the cap, so a percentage here

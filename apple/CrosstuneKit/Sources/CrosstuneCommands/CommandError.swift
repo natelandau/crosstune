@@ -10,6 +10,8 @@ public enum CommandError: LocalizedError, Equatable, Sendable {
     case tuneNotInList
     case recordingNotFound
     case linkNotFound
+    case placeNotFound
+    case placeNameRequired
     case loopLimit
     case noRoom
     case recordedDateMismatch
@@ -25,6 +27,8 @@ public enum CommandError: LocalizedError, Equatable, Sendable {
     public static let tuneNotInListMessage = "Tune not found in list"
     public static let recordingNotFoundMessage = "Recording not found"
     public static let linkNotFoundMessage = "Link not found"
+    public static let placeNotFoundMessage = "Location not found"
+    public static let placeNameRequiredMessage = "A location needs a name"
     public static let loopLimitMessage = "This recording has 100 loops."
     public static let noRoomMessage = "No room for a loop here."
     public static let recordedDateMismatchMessage = "A recorded date and its precision are set together"
@@ -42,6 +46,8 @@ public enum CommandError: LocalizedError, Equatable, Sendable {
         case .tuneNotInList: Self.tuneNotInListMessage
         case .recordingNotFound: Self.recordingNotFoundMessage
         case .linkNotFound: Self.linkNotFoundMessage
+        case .placeNotFound: Self.placeNotFoundMessage
+        case .placeNameRequired: Self.placeNameRequiredMessage
         case .loopLimit: Self.loopLimitMessage
         case .noRoom: Self.noRoomMessage
         case .recordedDateMismatch: Self.recordedDateMismatchMessage

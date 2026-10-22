@@ -155,6 +155,14 @@ class RecordingOrigin(StrEnum):
     SLIPPERY_HILL = "slippery_hill"
 
 
+class PlaceOrigin(StrEnum):
+    """How a recording's coordinates were obtained."""
+
+    DEVICE = "device"
+    FILE = "file"
+    PICKED = "picked"
+
+
 class RecordingPrecision(StrEnum):
     """How much of a recording's recorded date is known."""
 
@@ -260,6 +268,7 @@ TableName = Literal[
     "lists",
     "list_items",
     "recording_links",
+    "places",
     "recordings",
     "scans",
     "recording_loops",
@@ -310,6 +319,11 @@ LIMITS: Final[dict[str, dict[str, int]]] = {
     },
     "recording_loops": {
         "label": 100,
+    },
+    "places": {
+        "name": 200,
+        "address": 200,
+        "apple_place_id": 100,
     },
 }
 

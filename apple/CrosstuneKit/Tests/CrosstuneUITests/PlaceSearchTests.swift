@@ -1,7 +1,9 @@
 import CrosstuneAnalytics
+import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneTestSupport
 import CrosstuneVocabulary
+import Foundation
 import Testing
 
 @testable import CrosstuneUI
@@ -153,6 +155,29 @@ import Testing
         #expect(unknown == "New York, NY")
     }
 
+    @Test func aVenueSavesItsOwnNameWithItsAddressBelow() {
+        let saved = PlaceNames.savedLocation(
+            name: "Jalopy Theatre", isPointOfInterest: true, street: "315 Columbia St", locality: "Brooklyn",
+            administrativeAreaCode: "NY", countryCode: "US", country: "United States")
+        #expect(saved?.name == "Jalopy Theatre")
+        #expect(saved?.address == "315 Columbia St, Brooklyn, NY")
+    }
+
+    @Test func aStreetAddressSavesTheAddressAsItsName() {
+        let saved = PlaceNames.savedLocation(
+            name: "1038 Center St", isPointOfInterest: false, street: "1038 Center St", locality: "Newton",
+            administrativeAreaCode: "MA", countryCode: "US", country: "United States")
+        #expect(saved?.name == "1038 Center St, Newton, MA")
+        #expect(saved?.address == nil)
+    }
+
+    @Test func aTownSavesNothing() {
+        #expect(
+            PlaceNames.savedLocation(
+                name: "New York", isPointOfInterest: false, street: nil, locality: "New York",
+                administrativeAreaCode: "NY", countryCode: "US", country: "United States") == nil)
+    }
+
     @Test func aLongNameIsCutWithoutADanglingSeparatorOrASplitCharacter() {
         let limit = Vocabulary.Limits.Recording.placeName
         let venue = String(repeating: "v", count: limit - 1)
@@ -164,28 +189,67 @@ import Testing
     }
 }
 
+private let galax = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.661_234_5, lon: -80.923_456_7))
+private let ennis = RecordingPlace(name: "Ennis, Ireland", coordinate: Coordinate(lat: 52.843_1, lon: -8.986_4))
+
+/// About 1 m of latitude, in degrees, so a test can place a point a given distance north.
+private let meter = 1.0 / 111_195
+
+/// A take with whatever place a test gives it, its origin set as the store would.
+private func take(
+    _ id: String = "r1", name: String? = nil, at point: Coordinate? = nil, placeID: String? = nil, minutes: Int64 = 0
+) -> Recording {
+    Recording(
+        id: id, tuneID: nil, source: "microphone", addedAt: later(minutes * 60_000), state: "ready",
+        placeName: name, placeLat: point?.lat, placeLon: point?.lon, placeAccuracyM: point?.accuracyM,
+        placeID: placeID, placeOrigin: point == nil ? nil : point?.accuracyM == nil ? "picked" : "device")
+}
+
+private func saved(_ id: String, _ name: String, at point: Coordinate, address: String? = nil) -> SavedPlace {
+    SavedPlace(id: id, createdAt: noon, name: name, lat: point.lat, lon: point.lon, address: address)
+}
+
+/// `point` moved `meters` north.
+private func north(_ point: Coordinate, _ meters: Double) -> Coordinate {
+    Coordinate(lat: point.lat + meters * meter, lon: point.lon)
+}
+
+/// Where each Open in Maps went.
+@MainActor private final class MapsOpened {
+    var calls: [(name: String?, coordinate: Coordinate)] = []
+}
+
+/// The location page over the edit sheet of `opened`, after the store holds `takes` and `places`.
+@MainActor
+private func openPage(
+    _ store: CrosstuneStore, _ opened: Recording, others: [Recording] = [], places: [SavedPlace] = [],
+    search: FakePlaceSearch = FakePlaceSearch(), nearby: FakeNearbySearch? = nil, analytics: AnalyticsClient = .noop,
+    maps: MapsOpened = MapsOpened()
+) async throws -> (EditRecordingModel, PlaceSearchModel) {
+    try await store.write { writer in
+        for place in places { try writer.put(place, at: noon) }
+        for recording in others + [opened] { try writer.put(recording, at: noon) }
+    }
+    let edit = EditRecordingModel(store: store, recording: opened, analytics: analytics)
+    await edit.load()
+    var makeNearby: (@MainActor () -> any NearbySearch)?
+    if let nearby { makeNearby = { nearby } }
+    let page = PlaceSearchModel(
+        edit: edit, search: { search }, nearby: makeNearby, analytics: analytics,
+        openMaps: { name, point in maps.calls.append((name, point)) })
+    return (edit, page)
+}
+
 @MainActor
 @Suite struct PlaceSearchModelTests {
-    private let galax = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.661_234_5, lon: -80.923_456_7))
-    private let ennis = RecordingPlace(name: "Ennis, Ireland", coordinate: Coordinate(lat: 52.843_1, lon: -8.986_4))
-
-    private final class Picks {
-        var picked: [(RecordingPlace, PlaceMethod)] = []
-        var clears = 0
-    }
-
-    private func model(
-        _ search: FakePlaceSearch, recent: [RecordingPlace] = [], current: RecordingPlace? = nil, picks: Picks
-    ) -> PlaceSearchModel {
-        PlaceSearchModel(
-            search: { search }, recent: recent, current: { current },
-            onPick: { picks.picked.append(($0, $1)) }, onClear: { picks.clears += 1 })
-    }
-
-    @Test func listsTheRecentPlacesUntilTheQueryIsLongEnough() async {
+    @Test func listsTheRecentPlacesUntilTheQueryIsLongEnough() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
         let search = FakePlaceSearch()
         search.results["Ga"] = [FakePlaceSearch.completion("Galax")]
-        let places = model(search, recent: [galax, ennis], picks: Picks())
+        let older = take("r2", name: ennis.name, at: ennis.coordinate)
+        let newer = take("r3", name: galax.name, at: galax.coordinate, minutes: 1)
+        let (_, places) = try await openPage(store, take(), others: [older, newer], search: search)
         #expect(places.showsRecent)
         #expect(places.recent == [galax, ennis])
 
@@ -209,11 +273,13 @@ import Testing
     }
 
     @Test func dropsAnAnswerToAQueryNoLongerTyped() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
         let search = FakePlaceSearch()
         search.results["Ga"] = [FakePlaceSearch.completion("Gainesville")]
         search.results["Gal"] = [FakePlaceSearch.completion("Galax")]
         search.held = ["Ga"]
-        let places = model(search, picks: Picks())
+        let (_, places) = try await openPage(store, take(), search: search)
         places.setQuery("Ga")
         let first = Task { await places.refresh() }
         #expect(try await poll { search.queries == ["Ga"] })
@@ -225,63 +291,55 @@ import Testing
         #expect(places.completions.map(\.title) == ["Galax"])
     }
 
-    @Test func aResolvedResultIsASearchPick() async {
+    @Test func aResolvedResultIsASearchPick() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
         let search = FakePlaceSearch()
-        let result = FakePlaceSearch.completion("Galax", "Virginia, United States")
         search.places["Galax"] = galax
-        let picks = Picks()
-        let places = model(search, picks: picks)
-        #expect(await places.pick(result))
-        #expect(picks.picked.map(\.0) == [galax])
-        #expect(picks.picked.map(\.1) == [.search])
+        let (edit, places) = try await openPage(store, take(), search: search)
+        #expect(await places.pick(FakePlaceSearch.completion("Galax", "Virginia, United States")))
+        #expect(edit.place == galax)
+        #expect(edit.placeMethod == .search)
     }
 
-    @Test func aPickedVenueStoresItsNameAndAddress() async {
-        let search = FakePlaceSearch()
-        let jalopy = RecordingPlace(
-            name: "Jalopy Theatre, 315 Columbia St, Brooklyn, NY", coordinate: Coordinate(lat: 40.684_5, lon: -74.001_9)
-        )
-        search.places["Jalopy Theatre"] = jalopy
-        let picks = Picks()
-        let places = model(search, current: galax, picks: picks)
-        #expect(await places.pick(FakePlaceSearch.completion("Jalopy Theatre", "315 Columbia St, Brooklyn, NY")))
-        #expect(picks.picked.map(\.0) == [jalopy])
-        #expect(picks.picked.map(\.1) == [.search])
-    }
-
-    @Test func aRecentPlaceIsASuggestionPick() {
-        let picks = Picks()
-        let places = model(FakePlaceSearch(), recent: [galax], picks: picks)
+    @Test func aRecentPlaceIsASuggestionPick() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let (edit, places) = try await openPage(
+            store, take(), others: [take("r2", name: galax.name, at: galax.coordinate)])
         #expect(places.pickRecent(galax))
-        #expect(picks.picked.map(\.0) == [galax])
-        #expect(picks.picked.map(\.1) == [.suggestion])
+        #expect(edit.place == galax)
+        #expect(edit.placeMethod == .suggestion)
     }
 
-    @Test func clearAsksToClearThePlace() {
-        let picks = Picks()
-        let places = model(FakePlaceSearch(), current: galax, picks: picks)
+    @Test func clearAsksToClearThePlace() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let (edit, places) = try await openPage(store, take(name: galax.name, at: galax.coordinate))
         #expect(places.current == galax)
         #expect(places.clear())
-        #expect(picks.clears == 1)
-        #expect(picks.picked.isEmpty)
+        #expect(edit.place == nil)
+        #expect(!edit.canClearPlace)
     }
 
-    @Test func marksTheRecentPlaceThatIsTheCurrentOne() {
-        let captured = RecordingPlace(
-            name: galax.name,
-            coordinate: Coordinate(lat: galax.coordinate.lat, lon: galax.coordinate.lon, accuracyM: 14))
-        let places = model(FakePlaceSearch(), recent: [ennis, galax], current: captured, picks: Picks())
+    @Test func marksTheRecentPlaceThatIsTheCurrentOne() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let captured = Coordinate(lat: galax.coordinate.lat, lon: galax.coordinate.lon, accuracyM: 14)
+        let others = [take("r2", name: ennis.name, at: ennis.coordinate)]
+        let (_, places) = try await openPage(store, take(name: galax.name, at: captured), others: others)
         #expect(places.isCurrent(galax))
         #expect(!places.isCurrent(ennis))
-        #expect(!model(FakePlaceSearch(), recent: [galax], picks: Picks()).isCurrent(galax))
     }
 
     @Test func ignoresEveryOtherPickWhileOneResolvesAndPicksOnce() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
         let search = FakePlaceSearch()
         search.places["Galax"] = galax
         search.held = ["Galax"]
-        let picks = Picks()
-        let places = model(search, recent: [ennis], current: galax, picks: picks)
+        let others = [take("r2", name: ennis.name, at: ennis.coordinate)]
+        let (edit, places) = try await openPage(store, take(), others: others, search: search)
         let galaxResult = FakePlaceSearch.completion("Galax")
         let first = Task { await places.pick(galaxResult) }
         #expect(try await poll { places.picking == galaxResult })
@@ -294,20 +352,177 @@ import Testing
         #expect(places.picking == nil)
         #expect(!(await places.pick(galaxResult)))
         #expect(search.resolves == ["Galax"])
-        #expect(picks.picked.map(\.0) == [galax])
-        #expect(picks.clears == 0)
+        #expect(edit.place == galax)
     }
 
-    @Test func aResultThatFailsToResolveLeavesThePlaceAlone() async {
-        let picks = Picks()
-        let places = model(FakePlaceSearch(), current: galax, picks: picks)
+    @Test func aResultThatFailsToResolveLeavesThePlaceAlone() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let (edit, places) = try await openPage(store, take(name: galax.name, at: galax.coordinate))
         #expect(!(await places.pick(FakePlaceSearch.completion("Nowhere"))))
-        #expect(picks.picked.isEmpty)
-        #expect(picks.clears == 0)
+        #expect(edit.place == galax)
+        #expect(!edit.isEdited)
         #expect(places.failure == PlaceSearchText.pickFailed)
 
         places.setQuery("Ga")
         #expect(places.failure == nil)
+    }
+}
+
+@MainActor
+@Suite struct LocationPageTests {
+    private let spot = Coordinate(lat: 36.66, lon: -80.92, accuracyM: 12)
+
+    @Test func pageShowsTheMapOnlyWithCoordinates() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let (_, bare) = try await openPage(store, take("r1"))
+        #expect(bare.mapCoordinate == nil)
+        let (_, unnamed) = try await openPage(store, take("r2", at: spot))
+        #expect(unnamed.mapCoordinate == spot)
+        #expect(unnamed.current == nil)
+        #expect(unnamed.canClear)
+    }
+
+    @Test func nearbyListsSavedPlacesFirstThenVenuesByDistance() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let nearby = FakeNearbySearch()
+        let far = north(spot, 120)
+        let close = north(spot, 40)
+        nearby.found = [
+            NearbyPlace(name: "Far Cafe", address: "2 Main St", lat: far.lat, lon: far.lon, applePlaceID: "far"),
+            NearbyPlace(name: "Close Bar", address: "1 Main St", lat: close.lat, lon: close.lon, applePlaceID: "close"),
+        ]
+        let places = [
+            saved("p1", "Tom’s kitchen", at: north(spot, 90)),
+            saved("p2", "The barn", at: north(spot, 20)),
+            saved("p3", "Across town", at: north(spot, 400)),
+        ]
+        let (_, page) = try await openPage(store, take(at: spot), places: places, nearby: nearby)
+        await page.loadNearby()
+        #expect(try await poll { page.nearby.count == 4 })
+        #expect(page.nearby.map(\.name) == ["The barn", "Tom’s kitchen", "Close Bar", "Far Cafe"])
+        let asked = try #require(nearby.asked.first)
+        #expect(asked.center == spot)
+        #expect(asked.radiusM == 150)
+        #expect(asked.limit == 10)
+    }
+
+    @Test func nearbyDropsAVenueSavedAlreadyAndListsAtMostTen() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let nearby = FakeNearbySearch()
+        let barnPoint = north(spot, 10)
+        nearby.found =
+            [
+                NearbyPlace(
+                    name: "Barn venue", address: nil, lat: barnPoint.lat, lon: barnPoint.lon, applePlaceID: "barn")
+            ]
+            + (1...12).map { index in
+                let point = north(spot, Double(10 + index * 10))
+                return NearbyPlace(
+                    name: "Venue \(index)", address: nil, lat: point.lat, lon: point.lon, applePlaceID: "v\(index)")
+            }
+        let barn = SavedPlace(
+            id: "p1", createdAt: noon, name: "The barn", lat: barnPoint.lat, lon: barnPoint.lon, applePlaceID: "barn")
+        let (_, page) = try await openPage(store, take(at: spot), places: [barn], nearby: nearby)
+        await page.loadNearby()
+        #expect(try await poll { page.nearby.first?.name == "The barn" })
+        #expect(page.nearby.count == 10)
+        #expect(!page.nearby.map(\.name).contains("Barn venue"))
+        #expect(page.nearby.dropFirst().map(\.name) == (1...9).map { "Venue \($0)" })
+    }
+
+    @Test func nearbyDropsAVenueSavedUnderItsNameWithin30m() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let nearby = FakeNearbySearch()
+        let hall = north(spot, 60)
+        let venue = north(hall, 10)
+        nearby.found = [
+            NearbyPlace(name: " grange HALL", address: nil, lat: venue.lat, lon: venue.lon, applePlaceID: "v-hall"),
+            NearbyPlace(name: "Cafe", address: nil, lat: hall.lat, lon: hall.lon, applePlaceID: "v-cafe"),
+        ]
+        let (_, page) = try await openPage(
+            store, take(at: spot), places: [saved("p1", "Grange hall", at: hall)], nearby: nearby)
+        await page.loadNearby()
+        #expect(try await poll { page.nearby.first?.name == "Grange hall" })
+        #expect(page.nearby.map(\.name) == ["Grange hall", "Cafe"])
+    }
+
+    @Test func nearbyFailureHidesTheSectionOnly() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let nearby = FakeNearbySearch()
+        nearby.failure = URLError(.notConnectedToInternet)
+        let places = [saved("p1", "The barn", at: north(spot, 20))]
+        let others = [take("r2", name: galax.name, at: galax.coordinate, minutes: 1)]
+        let (_, page) = try await openPage(
+            store, take(name: "1 Main St, Galax, VA", at: spot), others: others, places: places, nearby: nearby)
+        await page.loadNearby()
+        #expect(page.nearby.isEmpty)
+        #expect(page.current?.name == "1 Main St, Galax, VA")
+        #expect(page.mapCoordinate == spot)
+        #expect(try await poll { page.saved.map(\.name) == ["The barn"] })
+        #expect(page.recent.map(\.name) == [galax.name, "1 Main St, Galax, VA"])
+        #expect(page.canClear)
+    }
+
+    @Test func nameThisLocationHiddenForALooseFix() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let loose = Coordinate(lat: 36.66, lon: -80.92, accuracyM: 120)
+        let edge = Coordinate(lat: 36.66, lon: -80.92, accuracyM: 50)
+        #expect(!(try await openPage(store, take("r1", at: loose)).1.canName))
+        #expect(try await openPage(store, take("r2", at: edge)).1.canName)
+        #expect(try await openPage(store, take("r3", name: "Galax, VA", at: galax.coordinate)).1.canName)
+        #expect(!(try await openPage(store, take("r4")).1.canName))
+    }
+
+    @Test func namingOffersSavedPlacesWithin30mFirst() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let places = [
+            saved("p1", "Upstairs flat", at: north(spot, 25)),
+            saved("p2", "The bar", at: north(spot, 10)),
+            saved("p3", "Next door", at: north(spot, 40)),
+        ]
+        let (edit, page) = try await openPage(store, take(at: spot), places: places)
+        #expect(try await poll { page.namingCandidates.map(\.name) == ["The bar", "Upstairs flat"] })
+        let bar = try #require(page.namingCandidates.first)
+        #expect(page.pickCandidate(bar))
+        #expect(edit.place?.name == "The bar")
+        #expect(edit.placeMethod == .saved)
+    }
+
+    @Test func currentFollowsARenameWhileOpen() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let barn = saved("p1", "The barn", at: spot, address: "1 Main St, Galax, VA")
+        let (_, page) = try await openPage(
+            store, take(name: "1 Main St, Galax, VA", at: spot, placeID: "p1"), places: [barn])
+        #expect(try await poll { page.current?.name == "The barn" })
+        #expect(page.currentAddress == "1 Main St, Galax, VA")
+        try await store.write { writer in try writer.renameSavedPlace("p1", name: "Grandpa’s barn", at: later(1_000)) }
+        #expect(try await poll { page.current?.name == "Grandpa’s barn" })
+    }
+
+    @Test func openInMapsSendsNoLocationInAnalytics() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let sink = RecordingAnalyticsSink()
+        let maps = MapsOpened()
+        let venue = north(spot, 20)
+        let barn = saved("p1", "The barn", at: venue)
+        let (_, page) = try await openPage(
+            store, take(name: "1 Main St, Galax, VA", at: spot, placeID: "p1"), places: [barn],
+            analytics: sink.client, maps: maps)
+        #expect(try await poll { page.current?.name == "The barn" })
+        page.openInMaps()
+        #expect(maps.calls.map(\.name) == ["The barn"])
+        #expect(maps.calls.map(\.coordinate) == [Coordinate(lat: venue.lat, lon: venue.lon)])
+        #expect(sink.captures == [.init(name: "location_opened_in_maps", properties: [:])])
     }
 }
 
@@ -320,6 +535,17 @@ import Testing
         #expect(PlaceSearchText.noPlacesFound == "No locations found")
         #expect(PlaceSearchText.pickFailed == "Couldn’t find that location. Try another.")
         #expect(PlaceSearchText.current == "Current")
+        #expect(PlaceSearchText.nearby == "Nearby")
+        #expect(PlaceSearchText.saved == "Saved locations")
+        #expect(PlaceSearchText.nameThisLocation == "Name this location…")
+        #expect(PlaceSearchText.openInMaps == "Open in Maps")
+        #expect(PlaceSearchText.pick("Rex Theater", detail: "113 E Grayson St") == "Use Rex Theater, 113 E Grayson St")
+        #expect(PlaceSearchText.pick("Galax, VA", detail: nil) == "Use Galax, VA")
+        #expect(PlaceSearchText.pick("Galax, VA", detail: "") == "Use Galax, VA")
+        #expect(NameLocationText.title == "Name this location")
+        #expect(NameLocationText.nameLabel == "Location name")
+        #expect(NameLocationText.savedHere == "Saved here")
+        #expect(NameLocationText.help == "Recordings made here show this name.")
     }
 
     @Test func theAccessNoteSaysHowToTurnLocationBackOn() {

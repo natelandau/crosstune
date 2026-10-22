@@ -11,6 +11,9 @@ extension EnvironmentValues {
     /// The kind of search for a recording's place, made once for each search screen so two
     /// windows never share one. Nil where nothing can search, which offers no search.
     @Entry public var placeSearch: (any PlaceSearching.Type)?
+    /// The kind of search for the venues near a recording, made once for each location page.
+    /// Nil where nothing can search, which leaves Nearby out.
+    @Entry public var nearbySearch: (any NearbySearch.Type)?
     /// Whether the app may read where the device is, which the place search, Settings, and the
     /// record sheet tell the musician about. Nil where nothing reads it, which says nothing.
     @Entry public var locationAccess: LocationAccess?

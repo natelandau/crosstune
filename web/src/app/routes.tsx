@@ -70,6 +70,7 @@ export function appRoutes(dev: boolean): RouteObject[] {
             { index: true, element: null },
             { path: 'stats', element: <StatsPage /> },
             { path: 'stats/tunes/:tuneId', element: <StatsTune /> },
+            { path: 'saved-locations/:placeId', element: null },
             { path: ':page', loader: knownSettingsPage, element: null },
           ],
         },

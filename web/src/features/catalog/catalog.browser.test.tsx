@@ -116,6 +116,12 @@ const rowTitles = () =>
     .getByRole('row')
     .elements()
     .map((e) => e.querySelector('[data-row-title]')?.textContent)
+/** Whether every row has finished sliding or fading into its place. */
+const rowsSettled = () =>
+  tunes()
+    .getByRole('row')
+    .elements()
+    .every((e) => e.getAnimations().length === 0)
 const search = () => page.getByRole('searchbox', { name: SEARCH_TUNES })
 const tunePage = () => page.getByRole('main', { name: TUNE })
 const title = () => page.getByRole('heading', { level: 1 })
@@ -372,8 +378,10 @@ it('offers to add another tune by a title already taken', async () => {
   const { launcher } = await mount(db)
   await search().fill('Forked Deer')
   // The offer can show under the full list and move up when the results replace it, and a press
-  // that moves between pointer down and up is cancelled.
+  // that moves between pointer down and up is cancelled. The row then slides up into place over
+  // the offer, and takes a press it slides under.
   await expect.poll(rowTitles).toEqual(['Forked Deer'])
+  await expect.poll(rowsSettled).toBe(true)
   await page
     .getByRole('button', {
       name: addOfferLabel({ kind: 'create', title: 'Forked Deer', another: true }),
@@ -461,7 +469,9 @@ it('offers to add the typed title under the results', async () => {
   await seed(db)
   const { launcher } = await mount(db)
   await search().fill('Joy')
-  await expect.element(row('Soldier')).toBeVisible()
+  await expect.poll(rowTitles).toEqual(["Soldier's Joy"])
+  // The row slides up into place over the offer below it, and takes a press it slides under.
+  await expect.poll(rowsSettled).toBe(true)
   const offer = page.getByRole('button', {
     name: addOfferLabel({ kind: 'create', title: 'Joy', another: false }),
   })

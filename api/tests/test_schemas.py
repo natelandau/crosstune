@@ -172,8 +172,9 @@ def test_every_table_has_a_schema_and_a_spec() -> None:
     assert set(DATA_SCHEMAS) == set(TABLE_ORDER) == set(TABLES)
 
 
-# A merged tune points at the tune it merged into; deleting that tune keeps the pointer.
-NOT_CASCADED = {("tunes", "merged_into_id")}
+# A merged tune points at the tune it merged into; deleting that tune keeps the pointer. A
+# recording keeps its own coordinates when its saved place is deleted, so it only unlinks.
+NOT_CASCADED = {("tunes", "merged_into_id"), ("recordings", "place_id")}
 
 
 def test_every_foreign_key_between_synced_tables_cascades_a_delete() -> None:

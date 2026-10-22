@@ -29,6 +29,7 @@ it.each([
   ['/recordings/t1', 'tune'],
   ['/settings', 'settings'],
   ['/settings/appearance', 'settings'],
+  ['/settings/saved-locations/p1', 'settings'],
   ['/settings/stats', 'stats'],
   ['/settings/stats/tunes/t1', 'tune'],
 ])('maps %s to %s', (path, screen) => {

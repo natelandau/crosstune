@@ -7,6 +7,7 @@ import {
   type LocalEntitlement,
   type LocalList,
   type LocalListItem,
+  type LocalPlace,
   type LocalPlayEvent,
   type LocalPracticeSession,
   type LocalRecording,
@@ -83,6 +84,18 @@ async function deleteIfNewer(name: string, verno: number): Promise<void> {
   }
 }
 
+/**
+ * How a stored row's coordinates were obtained, null when it has none. The server infers the
+ * same origin for the rows it holds and sends them again, so this only keeps a row not yet
+ * pushed valid: origin is set exactly when there are coordinates.
+ */
+function inferPlaceOrigin(row: Record<string, unknown>): string | null {
+  if (row.place_lat == null) return null
+  if (row.place_accuracy_m != null) return 'device'
+  if (row.place_name != null) return 'picked'
+  return row.source === 'upload' ? 'file' : 'picked'
+}
+
 const RECORDING_METADATA_KEYS = [
   'notes',
   'players',
@@ -102,6 +115,7 @@ export class CrosstuneDb extends Dexie {
   lists!: Table<LocalList, string>
   list_items!: Table<LocalListItem, string>
   user_settings!: Table<LocalUserSettings, string>
+  places!: Table<LocalPlace, string>
   recordings!: Table<LocalRecording, string>
   recording_loops!: Table<LocalRecordingLoop, string>
   scans!: Table<LocalScan, string>
@@ -329,6 +343,35 @@ export class CrosstuneDb extends Dexie {
             if (entry.data) fill(entry.data)
           })
       })
+
+    // Saved places are a new synced table, and recordings gain the link to one and how their
+    // coordinates were obtained. Places another device saved sit behind the pull cursor, which
+    // skipped them before this build stored the table, so the next pull fetches every row again.
+    this.version(22)
+      .stores({ places: 'id' })
+      .upgrade(async (tx) => {
+        await repull(tx)
+        await tx
+          .table('recordings')
+          .toCollection()
+          .modify((row: Record<string, unknown>) => {
+            row.place_id ??= null
+            row.place_origin ??= inferPlaceOrigin(row)
+          })
+        // A queued change that predates the fields carries them from its row, so a pushed
+        // upsert never leaves them out. The row is gone when only the change is left.
+        const queued = await tx
+          .table('outbox')
+          .filter((entry: OutboxEntry) => entry.table === 'recordings' && entry.data != null)
+          .toArray()
+        for (const entry of queued) {
+          const row = await tx.table('recordings').get(entry.row_id)
+          if (!entry.data || !row || 'place_origin' in entry.data) continue
+          entry.data.place_id = row.place_id
+          entry.data.place_origin = row.place_origin
+          await tx.table('outbox').put(entry)
+        }
+      })
   }
 
   // Dexie's auto-open on the first query calls this method too.
@@ -396,6 +439,7 @@ export function rowsTable<T extends SyncTableName>(
     lists: db.lists,
     list_items: db.list_items,
     recording_links: db.recording_links,
+    places: db.places,
     recordings: db.recordings,
     scans: db.scans,
     recording_loops: db.recording_loops,

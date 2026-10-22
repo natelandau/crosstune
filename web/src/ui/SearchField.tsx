@@ -14,12 +14,17 @@ export function SearchField({
   value,
   onChange,
   onSubmit,
+  maxLength,
+  describedBy,
   ref,
 }: {
   label: string
   value: string
   onChange: (value: string) => void
   onSubmit?: () => void
+  maxLength?: number
+  /** The id of the element that describes the field, such as the search's status. */
+  describedBy?: string
   ref?: Ref<HTMLInputElement>
 }) {
   const [focused, setFocused] = useState(false)
@@ -27,6 +32,8 @@ export function SearchField({
     <AriaSearchField
       data-search-field
       aria-label={label}
+      aria-describedby={describedBy}
+      maxLength={maxLength}
       value={value}
       onChange={onChange}
       onSubmit={onSubmit}

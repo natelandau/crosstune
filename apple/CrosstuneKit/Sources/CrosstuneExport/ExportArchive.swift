@@ -242,7 +242,7 @@ public enum ExportArchive {
                 userTunes: try UserTune.fetchAll(db), lists: try TuneList.fetchAll(db),
                 listItems: try ListItem.fetchAll(db), links: try RecordingLink.fetchAll(db),
                 recordings: try Recording.fetchAll(db), localAudio: [],
-                scans: try ScanRecord.fetchAll(db))
+                scans: try ScanRecord.fetchAll(db), places: try SavedPlace.fetchAll(db))
             return (input, try RecordingFile.fetchAll(db), try ScanFile.fetchAll(db))
         }
 

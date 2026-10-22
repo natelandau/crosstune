@@ -43,9 +43,11 @@ const CATALOG = destination('catalog').label
 
 const pad = (n: number) => String(n).padStart(3, '0')
 
-/** Enough tunes that the list scrolls well past one screen. */
-// Enough rows to scroll even the tallest frame, and few enough to render fast on a slow runner.
-async function seedMany(db: CrosstuneDb, count = 80) {
+/**
+ * Seeds `count` tunes. Each row is slow to render on a slow runner, and every frame change
+ * renders the list again, so a test seeds only the rows its scroll needs.
+ */
+async function seedMany(db: CrosstuneDb, count: number) {
   const ids = Array.from({ length: count }, (_, i) => pad(i))
   await db.tunes.bulkPut(ids.map((id) => tuneRow(`t${id}`, `Tune ${id}`)))
   await db.user_tunes.bulkPut(ids.map((id) => userTuneRow(`u${id}`, `t${id}`)))
@@ -106,10 +108,10 @@ it('makes the list the one main while it is the only pane', async () => {
 
 it('keeps the tune open and the list in place when a wide window narrows to split', async () => {
   const db = openTestDb()
-  await seedMany(db)
+  await seedMany(db, 40)
   const { router } = await renderApp({ path: '/catalog', db, frame: WIDE })
-  await expect.element(catalog().getByRole('row', { name: /^Tune 079\b/ })).toBeInTheDocument()
-  const top = await scrollList(1000)
+  await expect.element(catalog().getByRole('row', { name: /^Tune 039\b/ })).toBeInTheDocument()
+  const top = await scrollList(400)
   expect(top).toBeGreaterThan(0)
   const row = rowInView()
   row.focus()
@@ -158,11 +160,13 @@ it('offers tap + as the empty hint on touch', async () => {
 
 it('keeps the open tune, the list, and its scroll across a tablet rotation', async () => {
   const db = openTestDb()
-  await seedMany(db)
+  await seedMany(db, 40)
   await renderApp({ path: '/catalog', db, frame: TABLET_LANDSCAPE })
-  await expect.element(catalog().getByRole('row', { name: /^Tune 079\b/ })).toBeInTheDocument()
-  const top = await scrollList(1000)
-  expect(top).toBeGreaterThan(0)
+  await expect.element(catalog().getByRole('row', { name: /^Tune 039\b/ })).toBeInTheDocument()
+  // The list is laid out at portrait height before it hides, and the browser clamps its scroll
+  // to the range it has there: 288px for 40 rows, so the scroll stays within it.
+  const top = await scrollList(200)
+  expect(top).toBe(200)
   rowInView().click()
   await expect.element(tuneTitle()).toBeVisible()
   const list = catalog().element()

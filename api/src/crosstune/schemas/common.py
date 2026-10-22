@@ -12,6 +12,7 @@ from crosstune.schemas.rows import (
     EntitlementRow,
     ListItemRow,
     ListRow,
+    PlaceRow,
     PlayEventRow,
     PracticeSessionRow,
     RecordingLinkRow,
@@ -85,6 +86,13 @@ class RecordingLinkChangeResult(_ChangeResult):
     row: RecordingLinkRow | None = None
 
 
+class PlaceChangeResult(_ChangeResult):
+    """The outcome of one change to a saved place."""
+
+    table: Literal["places"]
+    row: PlaceRow | None = None
+
+
 class RecordingChangeResult(_ChangeResult):
     """The outcome of one change to a recording."""
 
@@ -147,6 +155,7 @@ ChangeResult = Annotated[
     | ListChangeResult
     | ListItemChangeResult
     | RecordingLinkChangeResult
+    | PlaceChangeResult
     | RecordingChangeResult
     | ScanChangeResult
     | RecordingLoopChangeResult
@@ -164,6 +173,7 @@ CHANGE_RESULTS: dict[TableName, type[_ChangeResult]] = {
     "lists": ListChangeResult,
     "list_items": ListItemChangeResult,
     "recording_links": RecordingLinkChangeResult,
+    "places": PlaceChangeResult,
     "recordings": RecordingChangeResult,
     "scans": ScanChangeResult,
     "recording_loops": RecordingLoopChangeResult,
@@ -210,6 +220,13 @@ class RecordingLinkPullRow(BaseModel):
     row: RecordingLinkRow
 
 
+class PlacePullRow(BaseModel):
+    """A saved place row in a pull page."""
+
+    table: Literal["places"]
+    row: PlaceRow
+
+
 class RecordingPullRow(BaseModel):
     """A recording row in a pull page."""
 
@@ -251,6 +268,7 @@ PullRow = Annotated[
     | ListPullRow
     | ListItemPullRow
     | RecordingLinkPullRow
+    | PlacePullRow
     | RecordingPullRow
     | ScanPullRow
     | RecordingLoopPullRow
@@ -265,6 +283,7 @@ PULL_ROWS: dict[TableName, type[BaseModel]] = {
     "lists": ListPullRow,
     "list_items": ListItemPullRow,
     "recording_links": RecordingLinkPullRow,
+    "places": PlacePullRow,
     "recordings": RecordingPullRow,
     "scans": ScanPullRow,
     "recording_loops": RecordingLoopPullRow,

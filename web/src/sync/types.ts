@@ -3,6 +3,7 @@ import type {
   PlaceResult,
   ResolveResponse,
   SearchGroup,
+  SnapshotQuery,
   SyncApi,
 } from '../api/types'
 import type { Provider } from '../api/vocabulary'
@@ -55,6 +56,10 @@ export interface SyncEngine {
   resolveLink(url: string): Promise<ResolveResponse | null>
   searchRecordings(q: string, providers: Provider[], country: string): Promise<SearchOutcome>
   searchPlaces(q: string): Promise<PlaceSearchOutcome>
+  /** A fresh MapKit JS token, or null offline or when the server cannot issue one. */
+  mapKitToken(): Promise<string | null>
+  /** A signed map image URL for a point, or null offline or when the server cannot make one. */
+  placeSnapshot(query: SnapshotQuery): Promise<string | null>
   /** Fetch one recording's audio now, storing it locally. Null when it cannot be fetched. */
   download(recordingId: string): Promise<Blob | null>
   /** Fetch one recording's waveform now, storing it locally. Null when it cannot be fetched. */

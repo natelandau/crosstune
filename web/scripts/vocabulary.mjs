@@ -17,6 +17,8 @@ const ARRAY_NAMES = {
   AudioQuality: 'AUDIO_QUALITIES',
   PlayFirst: 'PLAY_FIRST',
   RecordingOrigin: 'RECORDING_ORIGINS',
+  PlaceOrigin: 'PLACE_ORIGINS',
+  PlaceKind: 'PLACE_KINDS',
   RecordingPrecision: 'RECORDING_PRECISIONS',
   RecordingSource: 'RECORDING_SOURCES',
   RecordingState: 'RECORDING_STATES',
@@ -37,6 +39,7 @@ const LIMIT_OBJECTS = {
   LINK_LIMITS: ['RecordingLinkRow'],
   RECORDING_LIMITS: ['RecordingRow'],
   LOOP_LIMITS: ['RecordingLoopRow'],
+  PLACE_LIMITS: ['PlaceRow'],
 }
 
 // Exported ranges object -> the schema and fields it reads minimum/maximum from. A

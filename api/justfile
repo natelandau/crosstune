@@ -181,6 +181,12 @@ withdraw *args:
 stats *args:
     uv run python -m crosstune.ops.stats "$@"
 
+# Re-name takes the server named, with the street-address rules (rename-automatic)
+[group('accounts')]
+[positional-arguments]
+places *args:
+    uv run python -m crosstune.ops.places "$@"
+
 # Email every account about a change to the terms or privacy policy (--subject, --key, --body)
 [group('accounts')]
 [positional-arguments]

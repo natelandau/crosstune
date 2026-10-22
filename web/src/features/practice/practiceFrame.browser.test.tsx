@@ -6,7 +6,7 @@ import { listPosition, NEXT_TUNE, PREVIOUS_TUNE } from '../player/playerCopy'
 import { OPEN_RECORDING, PLAY } from '../player/transportCopy'
 import { openTestDb } from '../../test/db'
 import { FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
-import { recordingFile, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
+import { placeRow, recordingFile, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
 import {
   mountPlaying,
   openPractice,
@@ -20,6 +20,7 @@ import {
 import { renderApp } from '../../test/renderApp'
 import { SIDEBAR } from '../../app/Sidebar'
 
+import { editLocation, LOCATION_LABEL } from '../recordings/recordingsCopy'
 import { DELETE_LOOP, LOOP_NAME_SUGGESTIONS, NEW_LOOP } from './practiceCopy'
 import { TAB_BAR } from '../../layout/tabs'
 
@@ -178,4 +179,51 @@ it("reads a playing list's place in the header and steps to the next tune", asyn
   await header().getByRole('button', { name: NEXT_TUNE }).click()
   await expect.element(page.getByRole('dialog', { name: `${TITLES.t2} take` })).toBeVisible()
   await expect.poll(subtitle).toBe(listPosition('Thursday jam', 2, 3))
+})
+
+it('makes the header location a control that opens the location page, saved name first', async () => {
+  const { db } = await mountPlaying(WIDE, {
+    take: { place_name: '1 Main St', place_lat: 36.66, place_lon: -80.92, place_id: 'p1' },
+  })
+  await db.places.put(placeRow('p1', 'Town Hall'))
+  await openPractice()
+  const control = dialog().getByRole('button', { name: editLocation('Town Hall') })
+  await expect.element(control).toHaveTextContent('Town Hall')
+  // The rest of the subtitle stays text.
+  expect(subtitle()).toMatch(/ · Town Hall$/)
+  expect(control.element().closest('[data-recording-subtitle]')).not.toBeNull()
+  await control.click()
+  await expect.element(page.getByRole('dialog', { name: LOCATION_LABEL })).toBeVisible()
+})
+
+it('shows no location control when the take has no place', async () => {
+  await mountPlaying(WIDE)
+  await openPractice()
+  await expect
+    .element(dialog().getByRole('button', { name: /^Edit location/ }))
+    .not.toBeInTheDocument()
+})
+
+it('gives the header location a full touch target without growing the subtitle line', async () => {
+  const { db } = await mountPlaying(PHONE, {
+    density: 'touch',
+    take: { place_name: '1 Main St', place_lat: 36.66, place_lon: -80.92, place_id: 'p1' },
+  })
+  await db.places.put(placeRow('p1', 'Town Hall'))
+  await openPractice()
+  const control = dialog().getByRole('button', { name: editLocation('Town Hall') })
+  await expect.element(control).toBeVisible()
+  const el = control.element()
+  const hit = getComputedStyle(el, '::after')
+  const target = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--target'))
+  expect(parseFloat(hit.height)).toBeGreaterThanOrEqual(target || 44)
+  expect(el.getBoundingClientRect().height).toBeLessThan(target || 44)
+  // The title above stays the header's drag area: the hit area starts below it.
+  const heading = dialog().getByRole('heading').first().element()
+  // Tailwind moves with the `translate` property, which a transform matrix leaves out.
+  const [, moved = '0px'] = hit.translate === 'none' ? [] : hit.translate.split(' ')
+  const shift =
+    (hit.transform === 'none' ? 0 : new DOMMatrix(hit.transform).m42) + parseFloat(moved)
+  const hitTop = el.getBoundingClientRect().top + parseFloat(hit.top) + shift
+  expect(hitTop).toBeGreaterThanOrEqual(heading.getBoundingClientRect().bottom - 0.5)
 })

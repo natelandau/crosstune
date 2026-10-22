@@ -19,7 +19,9 @@ from crosstune.jobs.attempt import (
 )
 from crosstune.models import Job, Recording
 from crosstune.places.maps import MapsBusyError, MapsError
+from crosstune.places.matching import matching_place_id
 from crosstune.recordings.service import ensure_place_job
+from crosstune.vocabulary import PlaceOrigin
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,6 +60,7 @@ async def run(ctx: JobContext, job: Job) -> None:
                 return
             recording, stored_job = prepared
             lat, lon = recording.place_lat, recording.place_lon
+            accuracy_m = recording.place_accuracy_m
             if lat is None or lon is None:
                 await session.delete(stored_job)
                 return
@@ -67,7 +70,11 @@ async def run(ctx: JobContext, job: Job) -> None:
         try:
             async with attempt_timeout():
                 name = await ctx.maps.reverse_name(
-                    ctx.http_client, lat, lon, timeout=ctx.settings.link_resolve_timeout_seconds
+                    ctx.http_client,
+                    lat,
+                    lon,
+                    accuracy_m=accuracy_m,
+                    timeout=ctx.settings.link_resolve_timeout_seconds,
                 )
         except Exception as exc:  # noqa: BLE001 -- any lookup failure is a job failure, not a crash
             async with session.begin():
@@ -82,9 +89,34 @@ async def run(ctx: JobContext, job: Job) -> None:
             if (current.place_lat, current.place_lon) != (lat, lon):
                 # New coordinates pushed during the lookup need a lookup of their own.
                 await ensure_place_job(session, current)
-            elif name and current.place_name is None:
-                current.place_name = name
-                bump_server_seq(current)
+            else:
+                await _settle(session, current, name)
+
+
+async def _settle(session: AsyncSession, current: Recording, name: str | None) -> None:
+    """Link the take to the saved place it sits at and name it, in one server_seq bump."""
+    changed = False
+    if (
+        current.place_id is None
+        and current.place_origin in {PlaceOrigin.DEVICE, PlaceOrigin.FILE}
+        and current.place_lat is not None
+        and current.place_lon is not None
+    ):
+        place_id = await matching_place_id(
+            session,
+            user_id=current.user_id,
+            lat=current.place_lat,
+            lon=current.place_lon,
+            accuracy_m=current.place_accuracy_m,
+        )
+        if place_id is not None:
+            current.place_id = place_id
+            changed = True
+    if name and current.place_name is None:
+        current.place_name = name
+        changed = True
+    if changed:
+        bump_server_seq(current)
 
 
 async def _lookup_failed(session: AsyncSession, job: Job, exc: Exception) -> None:

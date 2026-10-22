@@ -231,6 +231,8 @@ function PracticeModal({ id, onClose }: { id: string; onClose: () => void }) {
                   subtitle={
                     listed ? listPosition(listed.listName, listed.position, listed.count) : subtitle
                   }
+                  location={listed ? null : state.location}
+                  onEditLocation={state.openLocation}
                   // The phone's transport row carries the list's controls instead.
                   queue={
                     listed && !phone
@@ -271,7 +273,11 @@ function PracticeModal({ id, onClose }: { id: string; onClose: () => void }) {
           </Dialog>
         </MotionModal>
       </ModalOverlay>
-      <EditRecordingSheet view={state.editing} onClose={() => state.setEditing(null)} />
+      <EditRecordingSheet
+        view={state.editing}
+        initialPage={state.editPage}
+        onClose={() => state.setEditing(null)}
+      />
       <AddToTuneSheet
         source="recording_screen"
         view={state.filing}

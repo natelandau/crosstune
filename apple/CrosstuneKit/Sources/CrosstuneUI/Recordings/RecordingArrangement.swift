@@ -248,12 +248,12 @@ struct ArrangeableRecording: Hashable, Sendable {
     let view: RecordingView
     /// The trimmed label, empty for an untitled recording.
     let label: String
-    /// The label and the tune's title, folded.
+    /// The label, the tune's title, and the shown location name, folded.
     let fields: [FoldedText]
 
     init(_ view: RecordingView) {
         self.view = view
         label = trimmedText(view.recording.label ?? "")
-        fields = [label, view.tuneTitle ?? ""].map(FoldedText.init)
+        fields = [label, view.tuneTitle ?? "", view.shownPlace ?? ""].map(FoldedText.init)
     }
 }

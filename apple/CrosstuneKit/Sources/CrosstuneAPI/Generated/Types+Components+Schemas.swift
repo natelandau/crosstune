@@ -883,6 +883,31 @@ extension Components {
                 try encoder.encodeAdditionalProperties(additionalProperties)
             }
         }
+        /// A MapKit JS token for the web client's map, good only on the web origin.
+        ///
+        /// - Remark: Generated from `#/components/schemas/MapKitTokenResponse`.
+        public struct MapKitTokenResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/MapKitTokenResponse/expires_at`.
+            public var expiresAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/MapKitTokenResponse/token`.
+            public var token: Swift.String
+            /// Creates a new `MapKitTokenResponse`.
+            ///
+            /// - Parameters:
+            ///   - expiresAt:
+            ///   - token:
+            public init(
+                expiresAt: Foundation.Date,
+                token: Swift.String
+            ) {
+                self.expiresAt = expiresAt
+                self.token = token
+            }
+            public enum CodingKeys: String, CodingKey {
+                case expiresAt = "expires_at"
+                case token
+            }
+        }
         /// The calling user's public profile.
         ///
         /// - Remark: Generated from `#/components/schemas/MeResponse`.
@@ -1009,14 +1034,102 @@ extension Components {
                 case url
             }
         }
+        /// The outcome of one change to a saved place.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PlaceChangeResult`.
+        public struct PlaceChangeResult: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PlaceChangeResult/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PlaceChangeResult/reason`.
+            public var reason: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/PlaceChangeResult/row`.
+            public var row: Components.Schemas.PlaceRow?
+            /// - Remark: Generated from `#/components/schemas/PlaceChangeResult/status`.
+            public var status: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PlaceChangeResult/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case places = "places"
+            }
+            /// - Remark: Generated from `#/components/schemas/PlaceChangeResult/table`.
+            public var table: Components.Schemas.PlaceChangeResult.TablePayload
+            /// Creates a new `PlaceChangeResult`.
+            ///
+            /// - Parameters:
+            ///   - id:
+            ///   - reason:
+            ///   - row:
+            ///   - status:
+            ///   - table:
+            public init(
+                id: Swift.String,
+                reason: Swift.String? = nil,
+                row: Components.Schemas.PlaceRow? = nil,
+                status: Swift.String,
+                table: Components.Schemas.PlaceChangeResult.TablePayload
+            ) {
+                self.id = id
+                self.reason = reason
+                self.row = row
+                self.status = status
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case id
+                case reason
+                case row
+                case status
+                case table
+            }
+        }
+        /// - Remark: Generated from `#/components/schemas/PlaceKind`.
+        public typealias PlaceKind = Swift.String
+        /// How a recording's coordinates were obtained.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PlaceOrigin`.
+        public typealias PlaceOrigin = Swift.String
+        /// A saved place row in a pull page.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PlacePullRow`.
+        public struct PlacePullRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PlacePullRow/row`.
+            public var row: Components.Schemas.PlaceRow
+            /// - Remark: Generated from `#/components/schemas/PlacePullRow/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case places = "places"
+            }
+            /// - Remark: Generated from `#/components/schemas/PlacePullRow/table`.
+            public var table: Components.Schemas.PlacePullRow.TablePayload
+            /// Creates a new `PlacePullRow`.
+            ///
+            /// - Parameters:
+            ///   - row:
+            ///   - table:
+            public init(
+                row: Components.Schemas.PlaceRow,
+                table: Components.Schemas.PlacePullRow.TablePayload
+            ) {
+                self.row = row
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case row
+                case table
+            }
+        }
         /// A place to pick: the name a recording stores, its coordinates, and how a list shows it.
         ///
         /// `title` is the list row's main line: a named place's own name, a street address, or a
         /// town. `subtitle` is the line under it that tells same-named results apart, the street and
-        /// town of a named place or the town of an address, and is null for a town.
+        /// town of a named place or the town of an address, and is null for a town. `kind` says which
+        /// of the three it is, so a client saves a venue or an address as a location and not a town;
+        /// `address` is a venue's `street, town` line, null for an address or a town.
         ///
         /// - Remark: Generated from `#/components/schemas/PlaceResult`.
         public struct PlaceResult: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PlaceResult/address`.
+            public var address: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/PlaceResult/kind`.
+            public var kind: Components.Schemas.PlaceKind
             /// - Remark: Generated from `#/components/schemas/PlaceResult/lat`.
             public var lat: Swift.Double
             /// - Remark: Generated from `#/components/schemas/PlaceResult/lon`.
@@ -1030,18 +1143,24 @@ extension Components {
             /// Creates a new `PlaceResult`.
             ///
             /// - Parameters:
+            ///   - address:
+            ///   - kind:
             ///   - lat:
             ///   - lon:
             ///   - name:
             ///   - subtitle:
             ///   - title:
             public init(
+                address: Swift.String? = nil,
+                kind: Components.Schemas.PlaceKind,
                 lat: Swift.Double,
                 lon: Swift.Double,
                 name: Swift.String,
                 subtitle: Swift.String? = nil,
                 title: Swift.String
             ) {
+                self.address = address
+                self.kind = kind
                 self.lat = lat
                 self.lon = lon
                 self.name = name
@@ -1049,11 +1168,205 @@ extension Components {
                 self.title = title
             }
             public enum CodingKeys: String, CodingKey {
+                case address
+                case kind
                 case lat
                 case lon
                 case name
                 case subtitle
                 case title
+            }
+        }
+        /// A stored saved place, as push and pull return it.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PlaceRow`.
+        public struct PlaceRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PlaceRow/address`.
+            public var address: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/PlaceRow/apple_place_id`.
+            public var applePlaceId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/PlaceRow/created_at`.
+            public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/PlaceRow/deleted_at`.
+            public var deletedAt: Foundation.Date?
+            /// - Remark: Generated from `#/components/schemas/PlaceRow/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PlaceRow/lat`.
+            public var lat: Swift.Double
+            /// - Remark: Generated from `#/components/schemas/PlaceRow/lon`.
+            public var lon: Swift.Double
+            /// - Remark: Generated from `#/components/schemas/PlaceRow/name`.
+            public var name: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PlaceRow/server_seq`.
+            public var serverSeq: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/PlaceRow/updated_at`.
+            public var updatedAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/PlaceRow/user_id`.
+            public var userId: Swift.String
+            /// A container of undocumented properties.
+            public var additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer
+            /// Creates a new `PlaceRow`.
+            ///
+            /// - Parameters:
+            ///   - address:
+            ///   - applePlaceId:
+            ///   - createdAt:
+            ///   - deletedAt:
+            ///   - id:
+            ///   - lat:
+            ///   - lon:
+            ///   - name:
+            ///   - serverSeq:
+            ///   - updatedAt:
+            ///   - userId:
+            ///   - additionalProperties: A container of undocumented properties.
+            public init(
+                address: Swift.String? = nil,
+                applePlaceId: Swift.String? = nil,
+                createdAt: Foundation.Date,
+                deletedAt: Foundation.Date? = nil,
+                id: Swift.String,
+                lat: Swift.Double,
+                lon: Swift.Double,
+                name: Swift.String,
+                serverSeq: Swift.Int,
+                updatedAt: Foundation.Date,
+                userId: Swift.String,
+                additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()
+            ) {
+                self.address = address
+                self.applePlaceId = applePlaceId
+                self.createdAt = createdAt
+                self.deletedAt = deletedAt
+                self.id = id
+                self.lat = lat
+                self.lon = lon
+                self.name = name
+                self.serverSeq = serverSeq
+                self.updatedAt = updatedAt
+                self.userId = userId
+                self.additionalProperties = additionalProperties
+            }
+            public enum CodingKeys: String, CodingKey {
+                case address
+                case applePlaceId = "apple_place_id"
+                case createdAt = "created_at"
+                case deletedAt = "deleted_at"
+                case id
+                case lat
+                case lon
+                case name
+                case serverSeq = "server_seq"
+                case updatedAt = "updated_at"
+                case userId = "user_id"
+            }
+            public init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.address = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .address
+                )
+                self.applePlaceId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .applePlaceId
+                )
+                self.createdAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .createdAt
+                )
+                self.deletedAt = try container.decodeIfPresent(
+                    Foundation.Date.self,
+                    forKey: .deletedAt
+                )
+                self.id = try container.decode(
+                    Swift.String.self,
+                    forKey: .id
+                )
+                self.lat = try container.decode(
+                    Swift.Double.self,
+                    forKey: .lat
+                )
+                self.lon = try container.decode(
+                    Swift.Double.self,
+                    forKey: .lon
+                )
+                self.name = try container.decode(
+                    Swift.String.self,
+                    forKey: .name
+                )
+                self.serverSeq = try container.decode(
+                    Swift.Int.self,
+                    forKey: .serverSeq
+                )
+                self.updatedAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .updatedAt
+                )
+                self.userId = try container.decode(
+                    Swift.String.self,
+                    forKey: .userId
+                )
+                additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [
+                    "address",
+                    "apple_place_id",
+                    "created_at",
+                    "deleted_at",
+                    "id",
+                    "lat",
+                    "lon",
+                    "name",
+                    "server_seq",
+                    "updated_at",
+                    "user_id"
+                ])
+            }
+            public func encode(to encoder: any Swift.Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encodeIfPresent(
+                    self.address,
+                    forKey: .address
+                )
+                try container.encodeIfPresent(
+                    self.applePlaceId,
+                    forKey: .applePlaceId
+                )
+                try container.encode(
+                    self.createdAt,
+                    forKey: .createdAt
+                )
+                try container.encodeIfPresent(
+                    self.deletedAt,
+                    forKey: .deletedAt
+                )
+                try container.encode(
+                    self.id,
+                    forKey: .id
+                )
+                try container.encode(
+                    self.lat,
+                    forKey: .lat
+                )
+                try container.encode(
+                    self.lon,
+                    forKey: .lon
+                )
+                try container.encode(
+                    self.name,
+                    forKey: .name
+                )
+                try container.encode(
+                    self.serverSeq,
+                    forKey: .serverSeq
+                )
+                try container.encode(
+                    self.updatedAt,
+                    forKey: .updatedAt
+                )
+                try container.encode(
+                    self.userId,
+                    forKey: .userId
+                )
+                try encoder.encodeAdditionalProperties(additionalProperties)
             }
         }
         /// Places matching the search text, best match first.
@@ -1864,6 +2177,8 @@ extension Components {
                 case listItems(Components.Schemas.ListItemChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/ListChangeResult`.
                 case lists(Components.Schemas.ListChangeResult)
+                /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/PlaceChangeResult`.
+                case places(Components.Schemas.PlaceChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/PlayEventChangeResult`.
                 case playEvents(Components.Schemas.PlayEventChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/PracticeSessionChangeResult`.
@@ -1900,6 +2215,8 @@ extension Components {
                         self = .listItems(try .init(from: decoder))
                     case "lists":
                         self = .lists(try .init(from: decoder))
+                    case "places":
+                        self = .places(try .init(from: decoder))
                     case "play_events":
                         self = .playEvents(try .init(from: decoder))
                     case "practice_sessions":
@@ -1935,6 +2252,8 @@ extension Components {
                     case let .listItems(value):
                         try value.encode(to: encoder)
                     case let .lists(value):
+                        try value.encode(to: encoder)
+                    case let .places(value):
                         try value.encode(to: encoder)
                     case let .playEvents(value):
                         try value.encode(to: encoder)
@@ -2041,12 +2360,16 @@ extension Components {
             public var pitchCents: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingData/place_accuracy_m`.
             public var placeAccuracyM: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/place_id`.
+            public var placeId: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingData/place_lat`.
             public var placeLat: Swift.Double?
             /// - Remark: Generated from `#/components/schemas/RecordingData/place_lon`.
             public var placeLon: Swift.Double?
             /// - Remark: Generated from `#/components/schemas/RecordingData/place_name`.
             public var placeName: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/place_origin`.
+            public var placeOrigin: Components.Schemas.PlaceOrigin?
             /// - Remark: Generated from `#/components/schemas/RecordingData/players`.
             public var players: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingData/position`.
@@ -2076,9 +2399,11 @@ extension Components {
             ///   - originUrl:
             ///   - pitchCents:
             ///   - placeAccuracyM:
+            ///   - placeId:
             ///   - placeLat:
             ///   - placeLon:
             ///   - placeName:
+            ///   - placeOrigin:
             ///   - players:
             ///   - position:
             ///   - recordedAt:
@@ -2097,9 +2422,11 @@ extension Components {
                 originUrl: Swift.String? = nil,
                 pitchCents: Swift.Int? = nil,
                 placeAccuracyM: Swift.Int? = nil,
+                placeId: Swift.String? = nil,
                 placeLat: Swift.Double? = nil,
                 placeLon: Swift.Double? = nil,
                 placeName: Swift.String? = nil,
+                placeOrigin: Components.Schemas.PlaceOrigin? = nil,
                 players: Swift.String? = nil,
                 position: Swift.Int? = nil,
                 recordedAt: Foundation.Date? = nil,
@@ -2118,9 +2445,11 @@ extension Components {
                 self.originUrl = originUrl
                 self.pitchCents = pitchCents
                 self.placeAccuracyM = placeAccuracyM
+                self.placeId = placeId
                 self.placeLat = placeLat
                 self.placeLon = placeLon
                 self.placeName = placeName
+                self.placeOrigin = placeOrigin
                 self.players = players
                 self.position = position
                 self.recordedAt = recordedAt
@@ -2140,9 +2469,11 @@ extension Components {
                 case originUrl = "origin_url"
                 case pitchCents = "pitch_cents"
                 case placeAccuracyM = "place_accuracy_m"
+                case placeId = "place_id"
                 case placeLat = "place_lat"
                 case placeLon = "place_lon"
                 case placeName = "place_name"
+                case placeOrigin = "place_origin"
                 case players
                 case position
                 case recordedAt = "recorded_at"
@@ -2787,12 +3118,16 @@ extension Components {
             public var pitchCents: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/place_accuracy_m`.
             public var placeAccuracyM: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/place_id`.
+            public var placeId: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/place_lat`.
             public var placeLat: Swift.Double?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/place_lon`.
             public var placeLon: Swift.Double?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/place_name`.
             public var placeName: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/place_origin`.
+            public var placeOrigin: Components.Schemas.PlaceOrigin?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/playback_bytes`.
             public var playbackBytes: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/playback_end_ms`.
@@ -2849,9 +3184,11 @@ extension Components {
             ///   - peaksRev:
             ///   - pitchCents:
             ///   - placeAccuracyM:
+            ///   - placeId:
             ///   - placeLat:
             ///   - placeLon:
             ///   - placeName:
+            ///   - placeOrigin:
             ///   - playbackBytes:
             ///   - playbackEndMs:
             ///   - playbackMime:
@@ -2886,9 +3223,11 @@ extension Components {
                 peaksRev: Swift.String? = nil,
                 pitchCents: Swift.Int? = nil,
                 placeAccuracyM: Swift.Int? = nil,
+                placeId: Swift.String? = nil,
                 placeLat: Swift.Double? = nil,
                 placeLon: Swift.Double? = nil,
                 placeName: Swift.String? = nil,
+                placeOrigin: Components.Schemas.PlaceOrigin? = nil,
                 playbackBytes: Swift.Int? = nil,
                 playbackEndMs: Swift.Int? = nil,
                 playbackMime: Swift.String? = nil,
@@ -2923,9 +3262,11 @@ extension Components {
                 self.peaksRev = peaksRev
                 self.pitchCents = pitchCents
                 self.placeAccuracyM = placeAccuracyM
+                self.placeId = placeId
                 self.placeLat = placeLat
                 self.placeLon = placeLon
                 self.placeName = placeName
+                self.placeOrigin = placeOrigin
                 self.playbackBytes = playbackBytes
                 self.playbackEndMs = playbackEndMs
                 self.playbackMime = playbackMime
@@ -2961,9 +3302,11 @@ extension Components {
                 case peaksRev = "peaks_rev"
                 case pitchCents = "pitch_cents"
                 case placeAccuracyM = "place_accuracy_m"
+                case placeId = "place_id"
                 case placeLat = "place_lat"
                 case placeLon = "place_lon"
                 case placeName = "place_name"
+                case placeOrigin = "place_origin"
                 case playbackBytes = "playback_bytes"
                 case playbackEndMs = "playback_end_ms"
                 case playbackMime = "playback_mime"
@@ -3038,6 +3381,10 @@ extension Components {
                     Swift.Int.self,
                     forKey: .placeAccuracyM
                 )
+                self.placeId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .placeId
+                )
                 self.placeLat = try container.decodeIfPresent(
                     Swift.Double.self,
                     forKey: .placeLat
@@ -3049,6 +3396,10 @@ extension Components {
                 self.placeName = try container.decodeIfPresent(
                     Swift.String.self,
                     forKey: .placeName
+                )
+                self.placeOrigin = try container.decodeIfPresent(
+                    Components.Schemas.PlaceOrigin.self,
+                    forKey: .placeOrigin
                 )
                 self.playbackBytes = try container.decodeIfPresent(
                     Swift.Int.self,
@@ -3140,9 +3491,11 @@ extension Components {
                     "peaks_rev",
                     "pitch_cents",
                     "place_accuracy_m",
+                    "place_id",
                     "place_lat",
                     "place_lon",
                     "place_name",
+                    "place_origin",
                     "playback_bytes",
                     "playback_end_ms",
                     "playback_mime",
@@ -3219,6 +3572,10 @@ extension Components {
                     forKey: .placeAccuracyM
                 )
                 try container.encodeIfPresent(
+                    self.placeId,
+                    forKey: .placeId
+                )
+                try container.encodeIfPresent(
                     self.placeLat,
                     forKey: .placeLat
                 )
@@ -3229,6 +3586,10 @@ extension Components {
                 try container.encodeIfPresent(
                     self.placeName,
                     forKey: .placeName
+                )
+                try container.encodeIfPresent(
+                    self.placeOrigin,
+                    forKey: .placeOrigin
                 )
                 try container.encodeIfPresent(
                     self.playbackBytes,
@@ -3946,6 +4307,23 @@ extension Components {
             }
             public enum CodingKeys: String, CodingKey {
                 case expiresAt = "expires_at"
+                case url
+            }
+        }
+        /// A signed Apple Maps snapshot image URL.
+        ///
+        /// - Remark: Generated from `#/components/schemas/SnapshotResponse`.
+        public struct SnapshotResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/SnapshotResponse/url`.
+            public var url: Swift.String
+            /// Creates a new `SnapshotResponse`.
+            ///
+            /// - Parameters:
+            ///   - url:
+            public init(url: Swift.String) {
+                self.url = url
+            }
+            public enum CodingKeys: String, CodingKey {
                 case url
             }
         }

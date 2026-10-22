@@ -28,6 +28,7 @@ CHECKS = {
     (Recording, "ck_recordings_source"): ("source", vocabulary.RecordingSource, False),
     (Recording, "ck_recordings_state"): ("state", vocabulary.RecordingState, False),
     (Recording, "ck_recordings_origin"): ("origin", vocabulary.RecordingOrigin, False),
+    (Recording, "ck_recordings_place_origin"): ("place_origin", vocabulary.PlaceOrigin, True),
     (Recording, "ck_recordings_recorded_precision"): (
         "recorded_precision",
         vocabulary.RecordingPrecision,

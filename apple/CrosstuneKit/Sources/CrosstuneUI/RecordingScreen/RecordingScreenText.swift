@@ -45,13 +45,20 @@ public enum RecordingScreenText {
         "Trim to \(RecordingText.duration(milliseconds: milliseconds) ?? "")?"
     }
 
+    /// The accessible name of the control that opens the location page, or nil when the take has no
+    /// shown location.
+    public static func editLocation(_ name: String?) -> String? {
+        guard let name, !name.isEmpty else { return nil }
+        return "Edit \(EditRecordingText.place.lowercased()), \(name)"
+    }
+
     /// The practice screen's subtitle: where the recording came from, its length, then its
-    /// ``credits(_:)``. The source is the tune it is filed under when its own label is the title,
+    /// ``credits(_:place:)``. The source is the tune it is filed under when its own label is the title,
     /// else the site it was imported from, else its date, which a title that is already the date
     /// leaves out. A take with none of these has no subtitle.
     public static func subtitle(
-        _ recording: Recording, tuneTitle: String?, lengthMs: Int64?, locale: Locale = .current,
-        timeZone: TimeZone = .current
+        _ recording: Recording, tuneTitle: String?, lengthMs: Int64?, place: String? = nil,
+        includesPlace: Bool = true, locale: Locale = .current, timeZone: TimeZone = .current
     ) -> String {
         let date = RecordingText.date(recording, locale: locale, timeZone: timeZone)
         let source: String? =
@@ -64,13 +71,15 @@ public enum RecordingScreenText {
             } else {
                 date
             }
-        return ([source, RecordingText.duration(milliseconds: lengthMs)].compactMap { $0 } + credits(recording))
+        return
+            ([source, RecordingText.duration(milliseconds: lengthMs)].compactMap { $0 }
+            + credits(recording, place: includesPlace ? place : nil))
             .joined(separator: " · ")
     }
 
-    /// Who played and the place's name, the ones set; a place shows only when it is named.
-    static func credits(_ recording: Recording) -> [String] {
-        [recording.players, recording.place?.name].compactMap { $0 }
+    /// Who played and the shown location's name, the ones set.
+    static func credits(_ recording: Recording, place: String?) -> [String] {
+        [recording.players, place].compactMap { $0 }
     }
 
     /// `m:ss.t`, for placing a trim handle to the tenth of a second.

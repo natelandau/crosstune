@@ -69,6 +69,13 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `POST /v1/me/notices`.
     /// - Remark: Generated from `#/paths//v1/me/notices/post(record_notice_v1_me_notices_post)`.
     func recordNoticeV1MeNoticesPost(_ input: Operations.RecordNoticeV1MeNoticesPost.Input) async throws -> Operations.RecordNoticeV1MeNoticesPost.Output
+    /// Mapkit Token
+    ///
+    /// Issue a short-lived MapKit JS token restricted to the web origin.
+    ///
+    /// - Remark: HTTP `GET /v1/places/mapkit-token`.
+    /// - Remark: Generated from `#/paths//v1/places/mapkit-token/get(mapkit_token_v1_places_mapkit_token_get)`.
+    func mapkitTokenV1PlacesMapkitTokenGet(_ input: Operations.MapkitTokenV1PlacesMapkitTokenGet.Input) async throws -> Operations.MapkitTokenV1PlacesMapkitTokenGet.Output
     /// Search Places
     ///
     /// Named places, street addresses, and towns for the text typed so far, each named as picked.
@@ -78,6 +85,13 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `GET /v1/places/search`.
     /// - Remark: Generated from `#/paths//v1/places/search/get(search_places_v1_places_search_get)`.
     func searchPlacesV1PlacesSearchGet(_ input: Operations.SearchPlacesV1PlacesSearchGet.Input) async throws -> Operations.SearchPlacesV1PlacesSearchGet.Output
+    /// Snapshot
+    ///
+    /// A signed snapshot URL with a pin at a precise point, or a circle of the fix's accuracy.
+    ///
+    /// - Remark: HTTP `GET /v1/places/snapshot`.
+    /// - Remark: Generated from `#/paths//v1/places/snapshot/get(snapshot_v1_places_snapshot_get)`.
+    func snapshotV1PlacesSnapshotGet(_ input: Operations.SnapshotV1PlacesSnapshotGet.Input) async throws -> Operations.SnapshotV1PlacesSnapshotGet.Output
     /// Download
     ///
     /// A presigned GET for the playback file of a ready recording.
@@ -277,6 +291,15 @@ extension APIProtocol {
             body: body
         ))
     }
+    /// Mapkit Token
+    ///
+    /// Issue a short-lived MapKit JS token restricted to the web origin.
+    ///
+    /// - Remark: HTTP `GET /v1/places/mapkit-token`.
+    /// - Remark: Generated from `#/paths//v1/places/mapkit-token/get(mapkit_token_v1_places_mapkit_token_get)`.
+    public func mapkitTokenV1PlacesMapkitTokenGet(headers: Operations.MapkitTokenV1PlacesMapkitTokenGet.Input.Headers = .init()) async throws -> Operations.MapkitTokenV1PlacesMapkitTokenGet.Output {
+        try await mapkitTokenV1PlacesMapkitTokenGet(Operations.MapkitTokenV1PlacesMapkitTokenGet.Input(headers: headers))
+    }
     /// Search Places
     ///
     /// Named places, street addresses, and towns for the text typed so far, each named as picked.
@@ -290,6 +313,21 @@ extension APIProtocol {
         headers: Operations.SearchPlacesV1PlacesSearchGet.Input.Headers = .init()
     ) async throws -> Operations.SearchPlacesV1PlacesSearchGet.Output {
         try await searchPlacesV1PlacesSearchGet(Operations.SearchPlacesV1PlacesSearchGet.Input(
+            query: query,
+            headers: headers
+        ))
+    }
+    /// Snapshot
+    ///
+    /// A signed snapshot URL with a pin at a precise point, or a circle of the fix's accuracy.
+    ///
+    /// - Remark: HTTP `GET /v1/places/snapshot`.
+    /// - Remark: Generated from `#/paths//v1/places/snapshot/get(snapshot_v1_places_snapshot_get)`.
+    public func snapshotV1PlacesSnapshotGet(
+        query: Operations.SnapshotV1PlacesSnapshotGet.Input.Query,
+        headers: Operations.SnapshotV1PlacesSnapshotGet.Input.Headers = .init()
+    ) async throws -> Operations.SnapshotV1PlacesSnapshotGet.Output {
+        try await snapshotV1PlacesSnapshotGet(Operations.SnapshotV1PlacesSnapshotGet.Input(
             query: query,
             headers: headers
         ))

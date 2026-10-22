@@ -7,7 +7,7 @@ path: /privacy
 
 # Privacy policy
 
-Last updated: 2026-10-19
+Last updated: 2026-10-21
 
 Crosstune is run by Nathaniel Landau, an individual, from New York in the United States. In this policy, "we" and "us" mean Nathaniel Landau as the operator of Crosstune. Questions and requests go to [support@crosstune.app](mailto:support@crosstune.app), or by post to 367 St Marks Ave #1240, Brooklyn, NY 11238, United States.
 
@@ -40,6 +40,7 @@ Everything you add to your catalog, which can include:
 - Tunes and their details: titles and other titles, key, mode, tunings, genre, type, time signature, part structure, composer, and lyrics.
 - Your relationship to each tune: its status, who or where you learned it from, when, and your notes. What you write here can name other people, such as a teacher.
 - Lists, links you paste, and the title we fetch for each link.
+- Your saved locations: a name, an optional address, and coordinates for each place you save. They are stored with your account, and a recording can point to one.
 - Your settings, such as the instruments you play and the music services you search.
 
 ### Your recordings
@@ -130,6 +131,7 @@ Apple Maps names the places where your recordings were made and finds the places
 
 - To name a recording's place, our server sends its coordinates to Apple Maps. Our server's address is sent, not yours, and nothing else about you or the recording.
 - When you search for a place in the web app, our server sends your search text to Apple Maps in the same way. In the iPhone, iPad, and Mac apps, the search goes from your device to Apple Maps, under [Apple's privacy policy](https://www.apple.com/legal/privacy/).
+- In the web app, your browser loads Apple's MapKit JS and sends a recording's coordinates to Apple to draw its map and list the places nearby. Apple sees your browser's address, under its own privacy policy. In the iPhone, iPad, and Mac apps, the map and nearby places come from your device to Apple Maps in the same way.
 
 ### AI providers
 

@@ -33,10 +33,46 @@ public enum EditRecordingText {
     }
 }
 
-/// The Edit sheet's state: the typed name, the date recorded, the notes, players, and place, and
-/// the one save they make. A blank name clears the recording's own name, so it goes back to being
-/// named for its tune or its date. The date is written only when its parts changed, and the place
-/// only when it changed, so a place left alone keeps its captured accuracy.
+/// A location picked on the location page, held until Save.
+enum StagedPlace: Sendable {
+    /// No location, coordinates and all.
+    case cleared
+    /// A place used before, or one set by hand, linked to no saved location.
+    case place(RecordingPlace)
+    /// A search result, with the saved location it makes when it is a venue or a street address.
+    case search(RecordingPlace, saving: SavedPlaceDraft?)
+    /// A saved location that exists already, linked over the place picked before it, whose point
+    /// the take moves to, or over the take's own point when `over` is nil. `saving` is the search
+    /// result's own saved location, made should the linked one go.
+    case link(SavedPlace, over: RecordingPlace?, saving: SavedPlaceDraft? = nil)
+    /// A saved location made on Save and then linked, with how it came to be, over the place
+    /// picked before it as for ``link(_:over:)``.
+    case create(SavedPlaceDraft, made: SavedLocationMethod, over: RecordingPlace?)
+
+    /// The place picked here whose point the take moves to, nil when it keeps its own.
+    var pending: RecordingPlace? {
+        switch self {
+        case .place(let place), .search(let place, _): place
+        case .link(_, let over, _), .create(_, _, let over): over
+        case .cleared: nil
+        }
+    }
+
+    /// How the saved location this pick makes came to be, nil when it makes none.
+    var made: SavedLocationMethod? {
+        switch self {
+        case .search(_, let saving): saving == nil ? nil : .search
+        case .create(_, let made, _): made
+        case .cleared, .place, .link: nil
+        }
+    }
+}
+
+/// The Edit sheet's state: the typed name, the date recorded, the notes, players, and location,
+/// and the one save they make. A blank name clears the recording's own name, so it goes back to
+/// being named for its tune or its date. The date is written only when its parts changed, and the
+/// location only when it changed, so a location left alone keeps its captured accuracy. A
+/// location picked here, and any saved location the pick makes, is written only on Save.
 @MainActor
 @Observable
 public final class EditRecordingModel {
@@ -45,22 +81,15 @@ public final class EditRecordingModel {
     public private(set) var date: RecordingDateDraft
     public private(set) var notes: String
     public private(set) var players: String
-    /// The place to save: the one picked or cleared here, or else a name sync brought for the
-    /// take's unnamed coordinates while the sheet was open.
-    public var place: RecordingPlace? {
-        if !isPlaceTouched, let arrived = arrivedPlace?.value { return arrived }
-        return pickedPlace
-    }
-    private var pickedPlace: RecordingPlace?
-    /// Set once the place is picked or cleared here, after which a name that arrives is ignored.
-    private var isPlaceTouched = false
-    /// The stored place of a take opened with unnamed coordinates, followed for the name sync
-    /// adds. Nil for any other recording.
-    private let arrivedPlace: LiveQuery<RecordingPlace?>?
-    /// How the place was picked, nil until one is or once it is cleared.
+    /// The location picked or cleared here, nil while the recording's own stands.
+    private var stagedPick: StagedPlace?
+    /// How the location was picked, nil until one is or once it is cleared.
     public private(set) var placeMethod: PlaceMethod?
-    /// Coordinates with no name show no place, yet the musician can still clear them.
-    private var hasUnnamedCoordinates: Bool
+    /// The recording as stored, followed so a name or a link that syncs in while the sheet is
+    /// open shows.
+    private let stored: LiveQuery<Recording?>
+    /// The live saved locations, followed so a rename on another device shows; nil until read.
+    private let saved: LiveQuery<[SavedPlace]?>
     /// The players on the musician's recordings, to suggest; empty until ``load()``.
     public private(set) var playerOptions: [String] = []
     /// The places on the musician's recordings, this one's included, most recent first; empty
@@ -100,23 +129,123 @@ public final class EditRecordingModel {
         openedNotes = recording.notes ?? ""
         players = recording.players ?? ""
         openedPlayers = recording.players ?? ""
-        pickedPlace = recording.place
-        let unnamed = Self.unnamedCoordinates(recording)
-        hasUnnamedCoordinates = unnamed
         let id = recording.id
-        arrivedPlace =
-            unnamed ? LiveQuery(store, initial: nil) { db in try Recording.fetchOne(db, key: id)?.place } : nil
+        stored = LiveQuery(store, initial: recording) { db in try Recording.fetchOne(db, key: id) }
+        saved = LiveQuery(store, initial: nil) { db in try SavedPlace.fetchAll(db).filter { $0.deletedAt == nil } }
     }
 
-    /// Whether Clear has a place to clear: a named one, or coordinates with no name yet.
-    public var canClearPlace: Bool { place != nil || hasUnnamedCoordinates }
+    /// The recording as it stands in the store, or as opened once it is gone.
+    private var current: Recording { stored.value ?? recording }
+
+    private var savedByID: [String: SavedPlace] {
+        Dictionary((saved.value ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// The live saved locations, by name.
+    public var savedPlaces: [SavedPlace] {
+        (saved.value ?? []).sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    /// The pick held for Save. A link to a saved location deleted meanwhile falls back to the
+    /// place it was picked over, with the location that search pick makes, or to no pick, so the
+    /// recording's own location shows and saves.
+    private var staged: StagedPlace? {
+        if fellBack, case .link(_, let over, let saving) = stagedPick {
+            return over.map { .search($0, saving: saving) }
+        }
+        return stagedPick
+    }
+
+    /// Whether the staged link names a saved location deleted meanwhile.
+    private var fellBack: Bool {
+        guard case .link(let place, _, _) = stagedPick, let live = saved.value else { return false }
+        return !live.contains(where: { $0.id == place.id })
+    }
+
+    /// Where the take will be once saved, with the fix's accuracy: the point picked here, else its
+    /// own.
+    private var takePoint: Coordinate? {
+        if let pending = staged?.pending { return pending.coordinate }
+        guard let lat = current.placeLat, let lon = current.placeLon else { return nil }
+        return Coordinate(lat: lat, lon: lon, accuracyM: current.placeAccuracyM)
+    }
+
+    /// The saved location the recording is linked to, as stored or as picked here, read live.
+    public var linkedPlace: SavedPlace? {
+        switch staged {
+        case nil: current.placeID.flatMap { savedByID[$0] }
+        case .link(let place, _, _): savedByID[place.id] ?? place
+        case .cleared, .place, .search, .create: nil
+        }
+    }
+
+    /// The location to show and save: its name and the point it stands for. A linked recording
+    /// shows its saved location's name, read once the saved locations are, so its own name never
+    /// flashes first.
+    public var place: RecordingPlace? {
+        switch staged {
+        case nil:
+            guard let point = takePoint, current.placeID == nil || saved.value != nil,
+                let name = shownPlaceName(current, places: savedByID)
+            else { return nil }
+            return RecordingPlace(name: name, coordinate: point)
+        case .cleared:
+            return nil
+        case .place(let place), .search(let place, _):
+            return place
+        case .link(let place, _, _):
+            let live = linkedPlace ?? place
+            return RecordingPlace(name: live.name, coordinate: takePoint ?? Coordinate(lat: live.lat, lon: live.lon))
+        case .create(let draft, _, _):
+            return RecordingPlace(name: draft.name, coordinate: takePoint ?? Coordinate(lat: draft.lat, lon: draft.lon))
+        }
+    }
+
+    /// The line under the location's name: a saved location's address, when it says more than
+    /// the name does.
+    public var placeAddress: String? {
+        let address: String? =
+            switch staged {
+            case nil, .link: linkedPlace?.address
+            case .create(let draft, _, _): draft.address
+            case .cleared, .place, .search: nil
+            }
+        return address == place?.name ? nil : address
+    }
+
+    /// The point the map shows, with the take's accuracy, named or not. Nil with no location.
+    public var placeCoordinate: Coordinate? {
+        switch staged {
+        case nil: takePoint
+        case .cleared: nil
+        case .place(let place), .search(let place, _): place.coordinate
+        case .link(let place, _, _): takePoint ?? Coordinate(lat: place.lat, lon: place.lon)
+        case .create(let draft, _, _): takePoint ?? Coordinate(lat: draft.lat, lon: draft.lon)
+        }
+    }
+
+    /// Where Open in Maps goes: the saved location's own point when the recording is linked to
+    /// one, else the recording's.
+    public var mapsPoint: Coordinate? {
+        if let linked = linkedPlace { return Coordinate(lat: linked.lat, lon: linked.lon) }
+        if case .create(let draft, _, _) = staged { return Coordinate(lat: draft.lat, lon: draft.lon) }
+        return placeCoordinate.map { Coordinate(lat: $0.lat, lon: $0.lon) }
+    }
+
+    /// Whether Clear has a location to clear: a named one, or coordinates with no name yet.
+    public var canClearPlace: Bool { placeCoordinate != nil }
+
+    /// Whether the point is precise enough to save under a typed name, so a vague fix never
+    /// becomes a saved location that pulls in its neighbors.
+    public var canNamePlace: Bool { placeCoordinate.map { PlaceDistances.isPrecise(accuracyM: $0.accuracyM) } ?? false }
 
     /// Reads the suggestions from the store. A failed read leaves them empty.
     public func load() async {
-        let recordings = try? await store.read { db in try Recording.fetchAll(db) }
-        guard let recordings else { return }
+        let read = try? await store.read { db in (try Recording.fetchAll(db), try SavedPlace.fetchAll(db)) }
+        guard let (recordings, places) = read else { return }
         playerOptions = RecordingSuggestions.players(recordings)
-        recentPlaces = RecordingSuggestions.recentPlaces(recordings)
+        let byID = Dictionary(places.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        recentPlaces = RecordingSuggestions.recentPlaces(recordings, saved: byID)
     }
 
     /// Whether the sheet holds an edit a dismissal would lose.
@@ -125,13 +254,19 @@ public final class EditRecordingModel {
     }
 
     private var isPlaceChanged: Bool {
-        guard isPlaceTouched else { return false }
-        return pickedPlace.map(RecordingSuggestions.picked) != recording.place.map(RecordingSuggestions.picked)
-            || hasUnnamedCoordinates != Self.unnamedCoordinates(recording)
-    }
-
-    private static func unnamedCoordinates(_ recording: Recording) -> Bool {
-        recording.placeName == nil && recording.placeLat != nil && recording.placeLon != nil
+        guard let staged else { return false }
+        let stored = current
+        switch staged {
+        case .cleared:
+            return stored.placeLat != nil || stored.placeLon != nil || stored.placeName != nil
+        case .place(let place):
+            return stored.placeID != nil
+                || stored.place.map(RecordingSuggestions.picked) != RecordingSuggestions.picked(place)
+        case .link(let place, let over, _):
+            return over != nil || stored.placeID != place.id
+        case .search, .create:
+            return true
+        }
     }
 
     public func setName(_ name: String) {
@@ -149,20 +284,78 @@ public final class EditRecordingModel {
         failure = nil
     }
 
-    /// Sets the place and how it was picked.
+    /// Sets a place used before, or one given by hand, and how it was picked.
     public func setPlace(_ place: RecordingPlace, method: PlaceMethod) {
-        pickedPlace = place
-        isPlaceTouched = true
-        placeMethod = method
-        hasUnnamedCoordinates = false
-        failure = nil
+        stage(.place(place), method: method)
+    }
+
+    /// Sets a search result, which saves its venue or street address as a location on Save. A
+    /// location saved already is linked rather than saved twice.
+    public func pickSearch(_ picked: PickedPlace) {
+        if let saving = picked.saving, let existing = SavedPlace.existing(for: saving, in: saved.value ?? []) {
+            stage(.link(existing, over: picked.place, saving: saving), method: .search)
+        } else {
+            stage(.search(picked.place, saving: picked.saving), method: .search)
+        }
+    }
+
+    /// Links a place near the take. A venue not yet saved is saved at its own point on Save, and
+    /// the take keeps its own coordinates.
+    func pickNearby(_ row: NearbyRow) {
+        switch row {
+        case .saved(let place): stage(.link(place, over: staged?.pending), method: .nearby)
+        case .venue(let venue): stage(.create(venue.draft, made: .nearby, over: staged?.pending), method: .nearby)
+        }
+    }
+
+    /// Links a saved location. From the saved list the take keeps its own coordinates; while
+    /// naming, it moves to the point picked here, as the name would.
+    public func pickSaved(_ place: SavedPlace, whileNaming: Bool = false) {
+        stage(.link(place, over: whileNaming ? staged?.pending : nil), method: .saved)
+    }
+
+    /// Saves `name` as a new location at the take's own point on Save, with the take's own street
+    /// address under it, and links this take alone. A name that trims to nothing does nothing.
+    public func nameLocation(_ name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let point = placeCoordinate else { return }
+        let street = streetLine
+        let draft = SavedPlaceDraft(
+            name: trimmed, address: street == trimmed ? nil : street, lat: point.lat, lon: point.lon,
+            applePlaceID: nil)
+        stage(.create(draft, made: .custom, over: staged?.pending), method: .saved)
+    }
+
+    /// The street address line of where the take will be, nil when it is not known: a name the
+    /// server gave the take's own fix, or the address of the saved location or search result
+    /// picked. A name picked by hand, such as `Venue, street, town`, is not one.
+    private var streetLine: String? {
+        switch staged {
+        case nil:
+            let origin = current.placeOrigin.flatMap(PlaceOrigin.init(rawValue:))
+            if origin == .device || origin == .file, let own = current.placeName { return own }
+            return linkedPlace?.address
+        case .search(let place, let saving):
+            // A street address result saves under its own address line, with no address under it.
+            return saving.flatMap { $0.address ?? ($0.name == place.name ? $0.name : nil) }
+        case .link(let place, _, _):
+            return (linkedPlace ?? place).address
+        case .create(let draft, _, _):
+            return draft.address
+        case .cleared, .place:
+            return nil
+        }
     }
 
     public func clearPlace() {
-        pickedPlace = nil
-        isPlaceTouched = true
+        stagedPick = .cleared
         placeMethod = nil
-        hasUnnamedCoordinates = false
+        failure = nil
+    }
+
+    private func stage(_ place: StagedPlace, method: PlaceMethod) {
+        stagedPick = place
+        placeMethod = method
         failure = nil
     }
 
@@ -177,10 +370,10 @@ public final class EditRecordingModel {
         failure = nil
     }
 
-    /// Saves the trimmed name, and the notes, players, date, and place when they changed, in one
-    /// write. Blank notes or players clear them. A field left alone is not written, so an edit
-    /// synced while the sheet is open survives. True once the save lands; a date that cannot be
-    /// stored writes nothing.
+    /// Saves the trimmed name, and the notes, players, date, and location when they changed, in
+    /// one write, with any saved location the picked location makes. Blank notes or players clear
+    /// them. A field left alone is not written, so an edit synced while the sheet is open
+    /// survives. True once the save lands; a date that cannot be stored writes nothing.
     public func save() async -> Bool {
         guard !isSaving, !isSaved else { return false }
         let time = now()
@@ -201,31 +394,83 @@ public final class EditRecordingModel {
         let written = newDate
         let notes: Patch<String?> = notes == openedNotes ? .keep : .value(Self.blankToNil(notes))
         let players: Patch<String?> = players == openedPlayers ? .keep : .value(Self.blankToNil(players))
-        let placeChanged = isPlaceChanged
-        let newPlace = place.map(RecordingSuggestions.picked)
+        let staged = isPlaceChanged ? staged : nil
+        // A link fallen back writes the search pick under it, so the event names that.
+        let method: PlaceMethod? = fellBack && staged != nil ? .search : placeMethod
+        let replaced = current.place != nil || current.placeID != nil
+        let handPlace: Patch<RecordingPlace?> =
+            switch staged {
+            case .cleared: .value(nil)
+            case .place(let place): .value(RecordingSuggestions.picked(place))
+            case nil, .search, .link, .create: .keep
+            }
         do {
-            try await store.write { writer in
+            let created = try await store.write { writer in
                 try writer.updateRecording(
                     recordingID, label: .value(trimmed.isEmpty ? nil : trimmed), notes: notes,
-                    players: players, place: placeChanged ? .value(newPlace) : .keep, at: time)
+                    players: players, place: handPlace, at: time)
                 if let written {
                     try writer.updateRecordingDate(
                         recordingID, recordedAt: written.at, precision: written.precision, at: time)
                 }
+                return try Self.link(recordingID, to: staged, method: method, in: writer, at: time)
             }
             isSaved = true
             if trimmed != openedName { analytics.recordingRenamed(recording) }
-            if placeChanged {
-                if newPlace == nil {
+            if let staged {
+                if case .cleared = staged {
                     analytics.recordingPlaceCleared(recording)
-                } else if let placeMethod {
-                    analytics.recordingPlaceSet(recording, method: placeMethod, replaced: recording.place != nil)
+                } else if let method {
+                    analytics.recordingPlaceSet(recording, method: method, replaced: replaced)
                 }
+                if created, let made = staged.made { analytics.savedLocationCreated(made) }
             }
             return true
         } catch {
             Self.logger.warning("A recording edit failed: \(error)")
             failure = failureMessage(error)
+            return false
+        }
+    }
+
+    /// Writes a pick that links a saved location, making the location first when the pick does.
+    /// True when it made one. A location saved already, by ``SavedPlace/existing(for:in:)``, is
+    /// linked rather than saved twice, checked here since the saved locations may have changed, or
+    /// not been read, since the pick.
+    nonisolated private static func link(
+        _ recordingID: String, to staged: StagedPlace?, method: PlaceMethod?, in writer: StoreWriter,
+        at time: Timestamp
+    ) throws -> Bool {
+        func linked(_ place: SavedPlace, over: RecordingPlace?) -> PlacePick {
+            // A link over a place picked here moves the take to that place's point, as a search
+            // pick does; otherwise the take keeps its own.
+            if let over { return .search(RecordingSuggestions.picked(over), savedPlaceID: place.id) }
+            return method == .nearby ? .nearby(place) : .saved(place)
+        }
+        func create(_ draft: SavedPlaceDraft) throws -> SavedPlace {
+            try writer.createSavedPlace(
+                name: draft.name, lat: draft.lat, lon: draft.lon, address: draft.address,
+                applePlaceID: draft.applePlaceID, at: time)
+        }
+        func savedAlready(_ draft: SavedPlaceDraft) throws -> SavedPlace? {
+            SavedPlace.existing(for: draft, in: try SavedPlace.fetchAll(writer.db))
+        }
+        switch staged {
+        case .search(let place, let saving):
+            let existing = try saving.flatMap(savedAlready)
+            let made = existing == nil ? try saving.map(create) : nil
+            try writer.setRecordingPlace(
+                recordingID, pick: .search(RecordingSuggestions.picked(place), savedPlaceID: (existing ?? made)?.id),
+                at: time)
+            return made != nil
+        case .link(let place, let over, _):
+            try writer.setRecordingPlace(recordingID, pick: linked(place, over: over), at: time)
+            return false
+        case .create(let draft, _, let over):
+            let saved = try savedAlready(draft)
+            try writer.setRecordingPlace(recordingID, pick: linked(try saved ?? create(draft), over: over), at: time)
+            return saved == nil
+        case nil, .cleared, .place:
             return false
         }
     }
@@ -236,21 +481,30 @@ public final class EditRecordingModel {
     }
 }
 
+/// A page the edit sheet can open on, instead of its form.
+public enum EditRecordingPage: Hashable, Sendable {
+    case location
+}
+
 /// A recording's name, the date it was recorded, its players, its place, and its notes, over
 /// whatever screen asked. Reads the store from the environment.
 public struct EditRecordingSheet: View {
     private let view: RecordingView
+    /// The page pushed once the sheet has loaded, nil to open on the form.
+    let initialPage: EditRecordingPage?
 
     @Environment(\.store) private var store
     @Environment(\.analytics) private var analytics
     @State private var model: EditRecordingModel?
+    @State private var path: [EditRecordingPage] = []
 
-    public init(view: RecordingView) {
+    public init(view: RecordingView, initialPage: EditRecordingPage? = nil) {
         self.view = view
+        self.initialPage = initialPage
     }
 
     public var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if let model {
                     EditRecordingForm(model: model)
@@ -275,6 +529,8 @@ public struct EditRecordingSheet: View {
             guard model == nil, let store else { return }
             let opened = EditRecordingModel(store: store, recording: view.recording, analytics: analytics)
             model = opened
+            // Pushed once the form, which owns the page's destination, is on screen.
+            if let initialPage { path = [initialPage] }
             await opened.load()
         }
     }
@@ -290,6 +546,8 @@ private struct EditRecordingForm: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.placeSearch) private var placeSearch
+    @Environment(\.nearbySearch) private var nearbySearch
+    @Environment(\.analytics) private var analytics
     @FocusState private var focused: Field?
     /// Set once Name takes focus, so coming back from the place search leaves focus alone.
     @State private var focusedName = false
@@ -304,6 +562,12 @@ private struct EditRecordingForm: View {
             notesSection
         }
         .formStyle(.grouped)
+        .navigationDestination(for: EditRecordingPage.self) { _ in
+            if let placeSearch {
+                PlaceSearchView(
+                    edit: model, search: { placeSearch.init() }, nearby: nearbySearch, analytics: analytics)
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button(TuneFormSheet.cancel) { dismiss() }
@@ -421,7 +685,7 @@ private struct EditRecordingForm: View {
         }
     }
 
-    /// The place's name, pushing the place search where there is one.
+    /// The location's name, pushing the location page where there is one.
     @ViewBuilder private var placeRow: some View {
         let shown = LabeledContent(EditRecordingText.place) {
             if let name = model.place?.name {
@@ -429,12 +693,8 @@ private struct EditRecordingForm: View {
                     .contentMask()
             }
         }
-        if let placeSearch {
-            NavigationLink {
-                PlaceSearchView(
-                    search: { placeSearch.init() }, recent: model.recentPlaces, current: { model.place },
-                    onPick: model.setPlace, onClear: model.clearPlace)
-            } label: {
+        if placeSearch != nil {
+            NavigationLink(value: EditRecordingPage.location) {
                 shown
             }
         } else {

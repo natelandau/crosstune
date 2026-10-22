@@ -105,6 +105,7 @@ extension StoreWriter {
         recording.placeLat = coordinate.lat
         recording.placeLon = coordinate.lon
         recording.placeAccuracyM = coordinate.accuracyM
+        recording.placeOrigin = PlaceOrigin.device.rawValue
         try put(recording, at: time)
         try requeueFailedUpload(recordingID, at: time)
         return true
@@ -166,7 +167,8 @@ extension StoreWriter {
                 originURL: originURL, addedAt: recordedAt ?? time, recordedAt: recordedAt,
                 recordedPrecision: recordedAt == nil ? nil : RecordingPrecision.time.rawValue, label: label,
                 position: nextPosition(siblings), placeLat: coordinate?.lat, placeLon: coordinate?.lon,
-                placeAccuracyM: coordinate?.accuracyM),
+                placeAccuracyM: coordinate?.accuracyM,
+                placeOrigin: coordinate == nil ? nil : PlaceOrigin.device.rawValue),
             at: time)
     }
 
@@ -201,15 +203,17 @@ extension StoreWriter {
             recording.placeName = newPlace?.name
             recording.placeLat = newPlace?.coordinate.lat
             recording.placeLon = newPlace?.coordinate.lon
-            // A hand-set place has no fix, so no accuracy.
+            // A hand-set place has no fix, so no accuracy, and no saved location until one is picked.
             recording.placeAccuracyM = nil
+            recording.placeID = nil
+            recording.placeOrigin = newPlace == nil ? nil : PlaceOrigin.picked.rawValue
         }
         try put(recording, at: time)
         try requeueFailedUpload(recordingID, at: time)
     }
 
     /// An edit re-pushes the row, so a failed upload gets another try with it.
-    private func requeueFailedUpload(_ recordingID: String, at time: Timestamp) throws {
+    func requeueFailedUpload(_ recordingID: String, at time: Timestamp) throws {
         if var file = try RecordingFile.fetchOne(db, key: recordingID), file.localState == .failedUpload {
             file.localState = .captured
             file.error = nil

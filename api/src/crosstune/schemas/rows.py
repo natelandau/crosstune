@@ -12,6 +12,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    StringConstraints,
     ValidationInfo,
     field_validator,
     model_validator,
@@ -34,6 +35,7 @@ from crosstune.vocabulary import (
     GrantSource,
     Instrument,
     Mode,
+    PlaceOrigin,
     PlayContext,
     PlayFirst,
     Provider,
@@ -207,6 +209,24 @@ class ListItemData(_Data):
     position: int = 0
 
 
+PLACE = LIMITS["places"]
+
+
+def _text(limit: int) -> StringConstraints:
+    """A string trimmed before its length and emptiness are checked."""
+    return StringConstraints(strip_whitespace=True, min_length=1, max_length=limit)
+
+
+class PlaceData(_Data):
+    """Client-editable fields of a saved place."""
+
+    name: Annotated[str, _text(PLACE["name"])]
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+    address: Annotated[str, _text(PLACE["address"])] | None = None
+    apple_place_id: Annotated[str, _text(PLACE["apple_place_id"])] | None = None
+
+
 class _RecordingFields(_Data):
     """Recording fields. Only a push checks the recorded date against the clock and its period."""
 
@@ -232,6 +252,10 @@ class _RecordingFields(_Data):
     place_accuracy_m: int | None = Field(
         default=None, ge=0, le=PLACE_ACCURACY_M_MAX, validate_default=True
     )
+    # The saved place and how the coordinates were obtained. A client that predates places
+    # omits both, which RecordingRules settles from the stored row.
+    place_id: uuid.UUID | None = None
+    place_origin: PlaceOrigin | None = Field(default=None, validate_default=True)
     trim_start_ms: int = Field(default=0, ge=0)
     trim_end_ms: int | None = Field(default=None, ge=0)
     speed_percent: int = Field(default=100, ge=SPEED_PERCENT_MIN, le=SPEED_PERCENT_MAX)
@@ -255,7 +279,7 @@ class _RecordingFields(_Data):
             raise ValueError(msg)
         return value
 
-    @field_validator("place_name", "place_accuracy_m")
+    @field_validator("place_name", "place_accuracy_m", "place_origin")
     @classmethod
     def _needs_coordinates(cls, value: object, info: ValidationInfo) -> object:
         if value is not None and info.data.get("place_lat", 0) is None:
@@ -503,6 +527,14 @@ class RecordingRow(_RecordingFields, _Row):
     peaks_rev: str | None
 
 
+class PlaceRow(PlaceData, _Row):
+    """A stored saved place, as push and pull return it."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    user_id: uuid.UUID
+
+
 class ScanRow(ScanData, _Row):
     """A stored scan, as push and pull return it. The storage key stays on the server."""
 
@@ -591,6 +623,7 @@ DATA_SCHEMAS: dict[TableName, type[_Data]] = {
     "lists": ListData,
     "list_items": ListItemData,
     "recording_links": RecordingLinkData,
+    "places": PlaceData,
     "recordings": RecordingData,
     "scans": ScanData,
     "recording_loops": RecordingLoopData,
@@ -607,6 +640,7 @@ ROW_SCHEMAS: dict[TableName, type[BaseModel]] = {
     "lists": ListRow,
     "list_items": ListItemRow,
     "recording_links": RecordingLinkRow,
+    "places": PlaceRow,
     "recordings": RecordingRow,
     "scans": ScanRow,
     "recording_loops": RecordingLoopRow,

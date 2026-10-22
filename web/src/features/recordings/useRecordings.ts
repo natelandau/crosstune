@@ -3,7 +3,8 @@ import { activeRecordingsForTune } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
 import type { RecordingFile } from '../../db/recordings'
 import type { CrosstuneDb } from '../../db/schema'
-import type { LocalRecording, LocalTune } from '../../db/types'
+import type { LocalPlace, LocalRecording, LocalTune } from '../../db/types'
+import { shownPlaceName } from './place'
 
 export interface RecordingView {
   recording: LocalRecording
@@ -12,6 +13,11 @@ export interface RecordingView {
    * even if `recording.tune_id` still points at a tune deleted elsewhere. */
   tuneId: string | null
   tuneTitle: string | null
+  /**
+   * The location name the recording shows: its saved location's while that is live, else its
+   * own. Left unset by a view built without the saved locations.
+   */
+  shownPlace?: string | null
 }
 
 const isImported = (view: RecordingView) => view.recording.origin !== 'own'
@@ -29,6 +35,7 @@ export async function readRecordingsWithFiles(
     : (await db.recordings.toArray()).filter((r) => !r.deleted_at)
   const files = withFiles ? await db.recording_files.bulkGet(live.map((r) => r.id)) : []
   const wantedTuneIds = [...new Set(live.map((r) => r.tune_id).filter((s): s is string => !!s))]
+  const places = new Map<string, LocalPlace>((await db.places.toArray()).map((p) => [p.id, p]))
   const tunes = await db.tunes.bulkGet(wantedTuneIds)
   const liveTunes = new Map(
     tunes.filter((s): s is LocalTune => !!s && !s.deleted_at).map((s) => [s.id, s] as const),
@@ -40,6 +47,7 @@ export async function readRecordingsWithFiles(
       file: files[i],
       tuneId: tune?.id ?? null,
       tuneTitle: tune?.title ?? null,
+      shownPlace: shownPlaceName(recording, places),
     }
   })
   // Array.sort is stable, so each group keeps its position order.

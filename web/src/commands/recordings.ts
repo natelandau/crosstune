@@ -86,6 +86,8 @@ async function putRecordingRow(
     notes: null,
     players: null,
     place_name: null,
+    place_id: null,
+    place_origin: fields.place ? 'device' : null,
     place_lat: fields.place?.lat ?? null,
     place_lon: fields.place?.lon ?? null,
     place_accuracy_m: fields.place?.accuracyM ?? null,
@@ -213,6 +215,7 @@ export async function fillCapturedPlace(
       place_lat: place.lat,
       place_lon: place.lon,
       place_accuracy_m: place.accuracyM,
+      place_origin: 'device',
       updated_at: now(),
     })
     await requeueFailedUpload(db, id)
@@ -312,14 +315,23 @@ export async function updateRecording(
       if (!tune || tune.deleted_at) throw new Error(TUNE_NOT_FOUND)
       position = nextPosition(await activeRecordingsForTune(db, patch.tune_id))
     }
-    await putRow(db, 'recordings', { ...row, ...defined(patch), position, updated_at: now() })
+    const changes = defined(patch)
+    const next = { ...row, ...changes, position }
+    // New coordinates are the musician's own pick: they carry no accuracy, unlink a saved
+    // location, and make the origin `picked`, or none once the place is cleared.
+    if (['place_lat', 'place_lon', 'place_accuracy_m'].some((key) => key in changes)) {
+      next.place_accuracy_m = null
+      next.place_id = null
+      next.place_origin = next.place_lat != null && next.place_lon != null ? 'picked' : null
+    }
+    await putRow(db, 'recordings', { ...next, updated_at: now() })
     await requeueFailedUpload(db, id)
   })
 }
 
 /** An edit re-pushes the row, so a failed upload gets a fresh attempt along with it. Call
  * inside recordingTx. */
-async function requeueFailedUpload(db: CrosstuneDb, id: string): Promise<void> {
+export async function requeueFailedUpload(db: CrosstuneDb, id: string): Promise<void> {
   const file = await db.recording_files.get(id)
   if (file?.local_state === 'failed_upload') {
     await db.recording_files.update(id, { local_state: 'captured', error: null })

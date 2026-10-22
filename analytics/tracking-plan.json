@@ -255,7 +255,14 @@
     ],
     "place_method": [
       "search",
-      "suggestion"
+      "suggestion",
+      "nearby",
+      "saved"
+    ],
+    "saved_location_method": [
+      "nearby",
+      "search",
+      "custom"
     ],
     "display_mode": [
       "browser",
@@ -1254,6 +1261,53 @@
           "required": true
         }
       }
+    },
+    "saved_location_created": {
+      "description": "The user saved a location.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": "saved_location_method",
+          "required": true
+        }
+      }
+    },
+    "saved_location_renamed": {
+      "description": "The user renamed a saved location.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ]
+    },
+    "saved_location_deleted": {
+      "description": "The user deleted a saved location.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ]
+    },
+    "location_opened_in_maps": {
+      "description": "The user opened a recording's location in Maps.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ]
     },
     "recording_deleted": {
       "description": "A recording was deleted.",

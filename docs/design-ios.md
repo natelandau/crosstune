@@ -36,6 +36,8 @@ there where they differ. Regular-width iPad reads this page, then
 - Record opens the record sheet and keeps the current tab. The slot never
   stays selected.
 - Top-level title: large, sharing a row with toolbar buttons.
+- A control that cannot sit in a navigation subtitle goes in the toolbar,
+  named for its action.
 - More is an explicit `Menu`. Loose overflow items lose a destructive
   item's separator and red role.
 - System undo (shake or Cmd-Z) plus a short banner with Undo replaces the

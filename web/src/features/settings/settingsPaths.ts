@@ -5,6 +5,7 @@ export const SETTINGS_PAGE_IDS = [
   'new-tunes',
   'music-services',
   'recording',
+  'saved-locations',
   'appearance',
   'sync',
   'import-export',
@@ -13,6 +14,10 @@ export const SETTINGS_PAGE_IDS = [
 export type SettingsPageId = (typeof SETTINGS_PAGE_IDS)[number]
 
 export const settingsPagePath = (page: SettingsPageId) => `/settings/${page}`
+
+/** One saved location, opened from the Saved locations page. */
+export const savedLocationPath = (placeId: string) =>
+  `${settingsPagePath('saved-locations')}/${placeId}`
 
 /** The stats page, which Settings opens from its stats block. */
 export const SETTINGS_STATS_PATH = '/settings/stats'

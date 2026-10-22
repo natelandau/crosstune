@@ -14,6 +14,9 @@ import Testing
     /// view that shows it must be masked.
     static let contentProperties: Set = [
         "title", "tuneTitle", "trackTitle", "alternateTitles", "name", "notes", "lyrics", "players", "placeName",
+        "shownPlace",
+        // A location's street line, and the address line shown under its name.
+        "address", "currentAddress", "placeAddress",
         // Facets the musician can type through Other.
         "composer", "learnedFrom", "genre", "tuneType", "partStructure",
         // Loop names.
@@ -34,7 +37,7 @@ import Testing
         // Lines built around a typed search, a tune title, or a list name.
         "noTuneCalled", "added", "removed", "openTune", "filingUnder",
         // A recording's players and place name.
-        "credits",
+        "credits", "editLocation",
     ]
 
     /// Reads whose property or method is named like content but hold the app's own words.
@@ -339,6 +342,11 @@ import Testing
         // The edit sheet's place row, and a place suggestion's second line, which names the region.
         ("Recordings/EditRecordingSheet.swift", "Text(name)"),
         ("Recordings/PlaceSearchView.swift", "Text(completion.subtitle)"),
+        // A location row's name and address, handed in by the location page.
+        ("Recordings/PlaceSearchView.swift", "Text(name)"),
+        ("Recordings/PlaceSearchView.swift", "Text(address)"),
+        // The map of a recording's spot, which shows where it was made.
+        ("Recordings/LocationMap.swift", "Map(initialPosition"),
     ]
 
     @Test func everyHandMaskStaysInPlace() throws {

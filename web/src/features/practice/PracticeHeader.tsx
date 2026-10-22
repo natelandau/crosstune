@@ -1,22 +1,25 @@
 import { ChevronDown, Ellipsis, SkipBack, SkipForward } from 'lucide-react'
 import type { PointerEvent as ReactPointerEvent, Ref } from 'react'
-import { Heading } from 'react-aria-components'
+import { Button as AriaButton, Heading } from 'react-aria-components'
 import { NEXT_TUNE, PREVIOUS_TUNE } from '../player/playerCopy'
 import { CLOSE } from '../../ui/confirmCopy'
 import type { MenuItem } from '../../ui/menuTypes'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { Menu } from '../../ui/Menu'
 import { menuEntries } from '../../ui/sharedActions'
+import { editLocation } from '../recordings/recordingsCopy'
 import { PracticeButton } from './PracticeButton'
 
 /**
  * Practice's header: the close chevron, the recording's title over its subtitle, and More. Off
  * the phone, a playing list's place takes the subtitle's line with Previous tune and Next tune
- * beside it. A press on its open space can start the phone's swipe down.
+ * beside it. The recording's location ends the subtitle as a control that opens it. A press on its open space can start the phone's swipe down.
  */
 export function PracticeHeader({
   title,
   subtitle,
+  location,
+  onEditLocation,
   queue,
   menu,
   moreRef,
@@ -25,6 +28,12 @@ export function PracticeHeader({
 }: {
   title: string
   subtitle: string
+  /**
+   * The recording's location, a control after the subtitle. Null for none, and while a list's
+   * place replaces the subtitle.
+   */
+  location?: string | null
+  onEditLocation?: () => void
   /** Set while a list plays off the phone, whose header steps through it. */
   queue?: { onPrevious: () => void; onNext: () => void } | null
   /** More's items, in the shared hook's order, or null until the recording is read. */
@@ -47,9 +56,21 @@ export function PracticeHeader({
         </Heading>
         <span
           data-recording-subtitle
-          className="t-secondary max-w-full truncate text-(--panel-muted)"
+          className="t-secondary max-w-full overflow-x-clip text-ellipsis whitespace-nowrap text-(--panel-muted)"
         >
           {subtitle}
+          {location && (
+            <>
+              {' · '}
+              <AriaButton
+                aria-label={editLocation(location)}
+                onPress={onEditLocation}
+                className="ph-no-capture relative inline cursor-pointer rounded-sm underline decoration-dotted underline-offset-2 hover:text-(--panel-ink) in-[html[data-density=touch]]:after:absolute in-[html[data-density=touch]]:after:inset-x-0 in-[html[data-density=touch]]:after:top-0 in-[html[data-density=touch]]:after:min-h-(--target) in-[html[data-density=touch]]:after:content-['']"
+              >
+                {location}
+              </AriaButton>
+            </>
+          )}
         </span>
       </div>
       {queue && <PracticeButton icon={SkipForward} label={NEXT_TUNE} onPress={queue.onNext} />}

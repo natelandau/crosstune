@@ -57,6 +57,11 @@ public enum Vocabulary {
             public static let title = 300
             public static let url = 2048
         }
+        public enum Place {
+            public static let address = 200
+            public static let applePlaceId = 100
+            public static let name = 200
+        }
         public enum Recording {
             public static let label = 200
             public static let notes = 20000

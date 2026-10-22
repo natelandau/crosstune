@@ -130,6 +130,7 @@ folder. Compose it, never rebuild it.
 
 - Charts are styled elements, never SVG.
 - Only the row highlight reaches into the gutter.
+- A Settings detail has its own URL under its page.
 - Settings page: phone and split push it, wide shows it in the detail
   column. The root holds only the account block, the catalog block that
   opens stats, the categories, and About.
@@ -173,6 +174,12 @@ folder. Compose it, never rebuild it.
   a list says what plays, it names recordings.
 - Capture offers no control the session cannot honor. A take resumes by
   itself after an interruption, so no Resume, and the message says so.
+
+### Sheet pages
+
+- A sheet that leads to a second page swaps its body for that page, with
+  Back in the header. Escape goes back before it closes the sheet. The URL
+  does not change.
 
 ### Sheet actions
 

@@ -463,6 +463,55 @@ private struct V4Fixture {
     }
 }
 
+@Test func migratesPlacesTableAndRecordingLinkColumns() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v20")
+    let time = "2026-09-25T12:00:00.000Z"
+    try queue.write { db in
+        // `r-4` was pulled after the server added the fields, so they sit in `extra`.
+        try db.execute(
+            sql: """
+                INSERT INTO recordings
+                    (id, created_at, updated_at, server_seq, source, added_at, position, state,
+                     place_name, place_lat, place_lon, place_accuracy_m, extra)
+                VALUES
+                    ('r-1', ?, ?, 0, 'microphone', ?, 0, 'ready', NULL, NULL, NULL, NULL, '{}'),
+                    ('r-2', ?, ?, 0, 'microphone', ?, 1, 'ready', NULL, 1.5, 2.5, 9, '{}'),
+                    ('r-3', ?, ?, 0, 'upload', ?, 2, 'ready', NULL, 1.5, 2.5, NULL, '{}'),
+                    ('r-4', ?, ?, 3, 'microphone', ?, 3, 'ready', 'Denver, CO', 1.5, 2.5, NULL,
+                        '{"place_id":"p-1","place_origin":"picked","theme":"dark"}')
+                """,
+            arguments: StatementArguments(Array(repeating: time, count: 12)))
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
+                    ('recordings', 'r-2', 'upsert', ?, '{"label":"Take 2"}'),
+                    ('recordings', 'r-3', 'delete', ?, NULL)
+                """,
+            arguments: [time, time])
+        try db.execute(sql: "INSERT INTO meta (key, value) VALUES ('pull_cursor', '40')")
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v21")
+
+    try queue.read { db in
+        #expect(try db.tableExists("places"))
+        #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'pull_cursor'") == nil)
+        let columns = try db.columns(in: "places").map(\.name)
+        #expect(
+            Set(columns).isSuperset(of: [
+                "id", "name", "lat", "lon", "address", "apple_place_id", "created_at", "updated_at",
+                "deleted_at", "server_seq", "extra",
+            ]))
+        let rows = try Row.fetchAll(db, sql: "SELECT place_id, place_origin, extra FROM recordings ORDER BY id")
+        #expect(rows.map { $0["place_id"] as String? } == [nil, nil, nil, "p-1"])
+        #expect(rows.map { $0["place_origin"] as String? } == [nil, "device", "file", "picked"])
+        #expect(rows.map { $0["extra"] as String } == ["{}", "{}", "{}", #"{"theme":"dark"}"#])
+        let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
+        #expect(data == [#"{"label":"Take 2","place_id":null,"place_origin":"device"}"#, nil])
+    }
+}
+
 @Test func theV11MigrationSplitsTheRecordingDateAndKeepsRowsAndQueuedChanges() throws {
     let queue = try DatabaseQueue()
     try Schema.migrator.migrate(queue, upTo: "v10")

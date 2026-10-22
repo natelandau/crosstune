@@ -30,7 +30,7 @@ interface Plan {
   settings: Record<string, PropSpec>
   events: Record<
     string,
-    { clients: string[]; builtin?: boolean; properties: Record<string, PropSpec> }
+    { clients: string[]; builtin?: boolean; properties?: Record<string, PropSpec> }
   >
 }
 
@@ -132,6 +132,10 @@ const SAMPLES: { [N in EventName]: EventProps[N] } = {
   recording_renamed: { origin: 'recorded', recording_id: ID_2 },
   recording_place_set: { method: 'search', recording_id: ID_2, replaced: false },
   recording_place_cleared: { recording_id: ID_2 },
+  saved_location_created: { method: 'nearby' },
+  saved_location_renamed: {},
+  saved_location_deleted: {},
+  location_opened_in_maps: {},
   recording_deleted: { origin: 'slippery_hill', recording_id: ID_2 },
   recording_trimmed: { recording_id: ID_2 },
   link_added: { service: 'youtube', via: 'paste', link_id: ID_2, tune_id: ID_1 },
@@ -260,7 +264,7 @@ describe('tracking plan', () => {
 
   it('every sample matches the plan', () => {
     for (const [name, props] of Object.entries(SAMPLES)) {
-      const specs = plan.events[name]!.properties
+      const specs = plan.events[name]!.properties ?? {}
       expect(Object.keys(props).sort(), name).toEqual(Object.keys(specs).sort())
       for (const [key, value] of Object.entries(props)) {
         const spec = specs[key]
@@ -280,7 +284,7 @@ describe('tracking plan', () => {
 
   it("the types make optional exactly the plan's optional properties", () => {
     const planOptional = Object.entries(SAMPLES).flatMap(([name]) =>
-      Object.entries(plan.events[name]!.properties)
+      Object.entries(plan.events[name]!.properties ?? {})
         .filter(([, spec]) => !spec.required)
         .map(([key]) => `${name}.${key}`),
     )

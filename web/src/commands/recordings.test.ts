@@ -105,6 +105,8 @@ describe('capture', () => {
       place_lat: null,
       place_lon: null,
       place_accuracy_m: null,
+      place_id: null,
+      place_origin: null,
     }
     expect(await db.recordings.get(id)).toMatchObject(none)
     expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject(none)
@@ -114,14 +116,23 @@ describe('capture', () => {
     [
       'with its accuracy',
       { lat: 36.661234, lon: -80.923912, accuracyM: 12 },
-      { place_lat: 36.661234, place_lon: -80.923912, place_accuracy_m: 12 },
+      { place_lat: 36.661234, place_lon: -80.923912, place_accuracy_m: 12, place_origin: 'device' },
     ],
     [
       'with no accuracy',
       { lat: 36.661234, lon: -80.923912, accuracyM: null },
-      { place_lat: 36.661234, place_lon: -80.923912, place_accuracy_m: null },
+      {
+        place_lat: 36.661234,
+        place_lon: -80.923912,
+        place_accuracy_m: null,
+        place_origin: 'device',
+      },
     ],
-    ['none', null, { place_lat: null, place_lon: null, place_accuracy_m: null }],
+    [
+      'none',
+      null,
+      { place_lat: null, place_lon: null, place_accuracy_m: null, place_origin: null },
+    ],
   ])(
     'stores and queues the place a capture began at, %s, without a name',
     async (_, place, stored) => {
@@ -174,6 +185,8 @@ describe('capture', () => {
       place_lat: 36.661234,
       place_lon: -80.923912,
       place_accuracy_m: 12,
+      place_id: null,
+      place_origin: 'device',
     }
     expect(await db.recordings.get(id)).toMatchObject(expected)
     expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject(expected)
@@ -327,6 +340,60 @@ describe('uploads and edits', () => {
     }
     expect(await db.recordings.get(id)).toMatchObject(expected)
     expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject(expected)
+  })
+
+  it('a place edit marks the place picked and unlinks it, and clearing it clears the origin', async () => {
+    const id = await captured()
+    await db.recordings.update(id, {
+      place_id: 'p1',
+      place_origin: 'device',
+      place_lat: 1,
+      place_lon: 2,
+    })
+    await updateRecording(db, id, {
+      place_name: 'Galax, VA',
+      place_lat: 36.66,
+      place_lon: -80.92,
+      place_accuracy_m: null,
+    })
+    const picked = { place_id: null, place_origin: 'picked', place_lat: 36.66 }
+    expect(await db.recordings.get(id)).toMatchObject(picked)
+    expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject(picked)
+
+    await updateRecording(db, id, {
+      place_name: null,
+      place_lat: null,
+      place_lon: null,
+      place_accuracy_m: null,
+    })
+    const cleared = { place_id: null, place_origin: null, place_lat: null }
+    expect(await db.recordings.get(id)).toMatchObject(cleared)
+    expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject(cleared)
+  })
+
+  it('a hand place edit clears the accuracy, as a pick has none', async () => {
+    const id = await captured()
+    await db.recordings.update(id, { place_lat: 1, place_lon: 2, place_accuracy_m: 12 })
+    await updateRecording(db, id, {
+      place_name: 'Galax, VA',
+      place_lat: 36.66,
+      place_lon: -80.92,
+      place_accuracy_m: 40,
+    })
+    expect((await db.recordings.get(id))?.place_accuracy_m).toBeNull()
+    expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject({ place_accuracy_m: null })
+  })
+
+  it('an edit that leaves the place alone keeps its link and origin', async () => {
+    const id = await captured()
+    await db.recordings.update(id, {
+      place_id: 'p1',
+      place_origin: 'device',
+      place_lat: 1,
+      place_lon: 2,
+    })
+    await updateRecording(db, id, { label: 'Jam' })
+    expect(await db.recordings.get(id)).toMatchObject({ place_id: 'p1', place_origin: 'device' })
   })
 
   it('stores an uploaded file as captured with its type', async () => {

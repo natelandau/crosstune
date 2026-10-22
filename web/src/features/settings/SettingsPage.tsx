@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { useParams } from 'react-router'
 import type { SettingsPageId } from './settingsPaths'
 import { destination } from '../../layout/destinations'
 import { ColumnTitle } from '../../layout/ColumnTitle'
@@ -9,7 +10,9 @@ import { ImportExportPage } from './pages/ImportExportPage'
 import { InstrumentsPage } from './pages/InstrumentsPage'
 import { MusicServicesPage } from './pages/MusicServicesPage'
 import { NewTunesPage } from './pages/NewTunesPage'
+import { SavedLocationDetail } from './pages/SavedLocationDetail'
 import { RecordingPage } from './pages/RecordingPage'
+import { SavedLocationsPage } from './pages/SavedLocationsPage'
 import { SyncPage } from './pages/SyncPage'
 import type { SettingsPageSpec } from './settingsPages'
 
@@ -21,6 +24,7 @@ const BODIES: Record<SettingsPageId, ComponentType> = {
   'new-tunes': NewTunesPage,
   'music-services': MusicServicesPage,
   recording: RecordingPage,
+  'saved-locations': SavedLocationsPage,
   appearance: AppearancePage,
   sync: SyncPage,
   'import-export': ImportExportPage,
@@ -32,6 +36,9 @@ const BODIES: Record<SettingsPageId, ComponentType> = {
  */
 export function SettingsPage({ spec }: { spec: SettingsPageSpec }) {
   const Body = BODIES[spec.id]
+  const { placeId } = useParams()
+  // A saved location has its own bar and title: its name, with Back to the list.
+  if (spec.id === 'saved-locations' && placeId) return <SavedLocationDetail placeId={placeId} />
   return (
     <>
       <PaneBar

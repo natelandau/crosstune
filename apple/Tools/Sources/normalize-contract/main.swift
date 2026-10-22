@@ -28,7 +28,7 @@ guard arguments.count == 3 else {
 /// The tables synced with the API; the store keeps any field of these it does not model.
 let syncRowSchemas: Set<String> = [
     "TuneRow", "UserTuneRow", "ListRow", "ListItemRow",
-    "RecordingLinkRow", "RecordingRow", "RecordingLoopRow", "UserSettingsRow",
+    "RecordingLinkRow", "PlaceRow", "RecordingRow", "RecordingLoopRow", "UserSettingsRow",
     "PlayEventRow", "PracticeSessionRow", "StatusChangeRow",
 ]
 

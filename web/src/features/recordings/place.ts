@@ -1,4 +1,4 @@
-import type { LocalRecording } from '../../db/types'
+import type { LocalPlace, LocalRecording } from '../../db/types'
 import { compareNames } from '../../text/collate'
 import { tally } from '../tune/tuneTypes'
 
@@ -20,14 +20,20 @@ const live = (recordings: readonly LocalRecording[]) => recordings.filter((r) =>
 
 /**
  * The places on the musician's recordings, each once, most recently added first. One name at
- * two spots stays twice, since a town's name can repeat across states.
+ * two spots stays twice, since a town's name can repeat across states. A recording linked to
+ * one of the live `saved` locations is left out, since that location is offered on its own.
  */
-export function recentPlaces(recordings: LocalRecording[]): PlaceChoice[] {
+export function recentPlaces(
+  recordings: LocalRecording[],
+  saved: ReadonlyMap<string, LocalPlace> = new Map(),
+): PlaceChoice[] {
   const places: PlaceChoice[] = []
   const newestFirst = live(recordings).sort((a, b) =>
     a.added_at < b.added_at ? 1 : a.added_at > b.added_at ? -1 : 0,
   )
   for (const r of newestFirst) {
+    const linked = r.place_id ? saved.get(r.place_id) : undefined
+    if (linked && !linked.deleted_at) continue
     const place = recordingPlace(r)
     if (place && !places.some((p) => samePlace(p, place))) places.push(place)
   }
@@ -39,7 +45,23 @@ export function recordingPlayers(recordings: LocalRecording[]): string[] {
   return [...tally(live(recordings).map((r) => r.players)).keys()].sort(compareNames)
 }
 
-/** The players and the named place, for a line under a recording's title; empty ones left out. */
-export function recordingCredits(r: LocalRecording): string[] {
-  return [r.players, recordingPlace(r)?.name].filter((part): part is string => !!part)
+/**
+ * The name to show for a recording's place: its saved location's name while that location is
+ * live, else the name the take carries itself, null when it has neither.
+ */
+export function shownPlaceName(
+  r: LocalRecording,
+  placesById: ReadonlyMap<string, LocalPlace>,
+): string | null {
+  const saved = r.place_id ? placesById.get(r.place_id) : undefined
+  if (saved && !saved.deleted_at) return saved.name
+  return r.place_name ?? null
+}
+
+/** An Apple Maps link to a point, labeled with the location's name when it has one. */
+export function mapsUrl(at: { lat: number; lon: number }, name: string | null): string {
+  const url = new URL('https://maps.apple.com/')
+  url.searchParams.set('ll', `${at.lat},${at.lon}`)
+  if (name) url.searchParams.set('q', name)
+  return url.toString()
 }
