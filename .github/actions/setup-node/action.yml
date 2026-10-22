@@ -32,7 +32,11 @@ runs:
       if: inputs.chromium == 'true'
       shell: bash
       working-directory: ${{ inputs.module }}
-      run: printf 'version=%s\n' "$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      # Playwright builds a browser per OS release and installs nothing over a cached revision,
+      # so a set cached on one runner image must never restore on another.
+      run: |
+        printf 'version=%s\n' "$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+        printf 'os=%s\n' "$(. /etc/os-release && echo "$ID$VERSION_ID")" >> "$GITHUB_OUTPUT"
     # Any browser set `main` saved for this Playwright will do, since the install below fetches
     # only what is missing. Only `main` saves: a pull request's cache is readable by that pull
     # request alone, so each one would store a copy of its own.
@@ -41,8 +45,8 @@ runs:
       uses: actions/cache/restore@v6
       with:
         path: ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ inputs.browsers }}
-        restore-keys: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-
+        key: playwright-${{ steps.playwright.outputs.os }}-${{ steps.playwright.outputs.version }}-${{ inputs.browsers }}
+        restore-keys: playwright-${{ steps.playwright.outputs.os }}-${{ steps.playwright.outputs.version }}-
     # The cache holds only the browsers, so the system libraries they need install every run.
     - if: inputs.chromium == 'true'
       shell: bash
@@ -54,4 +58,4 @@ runs:
       uses: actions/cache/save@v6
       with:
         path: ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ inputs.browsers }}
+        key: playwright-${{ steps.playwright.outputs.os }}-${{ steps.playwright.outputs.version }}-${{ inputs.browsers }}
