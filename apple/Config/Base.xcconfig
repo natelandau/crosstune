@@ -5,7 +5,6 @@
 // App Store upload.
 PRODUCT_BUNDLE_IDENTIFIER = app.crosstune.Crosstune
 DEVELOPMENT_TEAM = N76T49G924
-PRODUCT_NAME = Crosstune
 
 SUPPORTED_PLATFORMS = iphoneos iphonesimulator macosx
 SDKROOT = auto
