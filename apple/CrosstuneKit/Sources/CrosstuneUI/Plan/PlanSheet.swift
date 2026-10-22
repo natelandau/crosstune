@@ -209,29 +209,35 @@ struct PlanSheet: View {
         let currentPlan = plan?.plan ?? .unknown
         let mode = Self.mode(currentPlan)
         let sale = Self.sale(plan: currentPlan, offers: purchase?.offers, line: purchase?.line)
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    switch mode {
-                    case .selling:
-                        selling(currentPlan)
-                        inlineActions(sale)
-                    case .member:
-                        member(currentPlan)
+        Group {
+            #if os(macOS)
+                macSheet(currentPlan, mode: mode, sale: sale)
+            #else
+                NavigationStack {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            switch mode {
+                            case .selling:
+                                selling(currentPlan)
+                                inlineActions(sale)
+                            case .member:
+                                member(currentPlan)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                    }
+                    .planGround()
+                    #if os(iOS)
+                        .navigationBarTitleDisplayMode(.inline)
+                    #endif
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            SheetCloseButton(Self.close) { dismiss() }
+                        }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-            }
-            .planGround()
-            #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
             #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    SheetCloseButton(Self.close) { dismiss() }
-                }
-            }
         }
         .task(id: currentPlan.paidSources) {
             storefront = .unread
@@ -242,70 +248,71 @@ struct PlanSheet: View {
             guard Self.asksForOffers(currentPlan) else { return }
             await purchase?.loadOffers()
         }
-        .macSheetFrame(.longForm)
         .presentationDetents(Self.detents)
         .shellSheet()
     }
 
-    /// The mark over the headline, a trial's card, and the comparison.
-    @ViewBuilder
-    private func selling(_ plan: Plan) -> some View {
-        let (title, message) = Self.headline(reason)
-        VStack(spacing: 6) {
-            PlanMark()
-                .padding(.bottom, 6)
-            Text(title)
-                .font(.title2.bold())
-                .accessibilityAddTraits(.isHeader)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(message)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity)
-        if plan.isTrial {
-            TrialCard(startsAt: plan.trialStartsAt, endsAt: plan.trialEndsAt ?? plan.premiumEndsAt, now: now)
-        }
-        PlanComparison()
-    }
-
-    /// A Premium account's plan: the mark and thanks, the membership, what Premium includes,
-    /// and Restore purchases.
-    @ViewBuilder
-    private func member(_ plan: Plan) -> some View {
-        VStack(spacing: 6) {
-            PlanMark()
-                .padding(.bottom, 6)
-            Text(PlanText.onPremium)
-                .font(.title2.bold())
-                .accessibilityAddTraits(.isHeader)
-            Text(PlanText.thanks)
-                .foregroundStyle(.secondary)
-        }
-        .multilineTextAlignment(.center)
-        .fixedSize(horizontal: false, vertical: true)
-        .frame(maxWidth: .infinity)
-        let membership = Self.membership(plan, now: now ?? .now)
-        let manage = Self.manage(plan, storefront: storefront, portalURL: portalURL)
-        if membership != nil || !manage.isEmpty {
-            MembershipCard(membership: membership, manage: manage)
-        }
-        IncludedList()
-        if let purchase {
-            VStack(spacing: 4) {
-                restoreButton(purchase)
-                if let line = Self.restoreLine(purchase) {
-                    Text(line)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+    #if !os(macOS)
+        /// The mark over the headline, a trial's card, and the comparison.
+        @ViewBuilder
+        private func selling(_ plan: Plan) -> some View {
+            let (title, message) = Self.headline(reason)
+            VStack(spacing: 6) {
+                PlanMark()
+                    .padding(.bottom, 6)
+                Text(title)
+                    .font(.platform(.title2).bold())
+                    .accessibilityAddTraits(.isHeader)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(message)
+                    .foregroundStyle(.inkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .font(.footnote)
+            .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
+            if plan.isTrial {
+                TrialCard(startsAt: plan.trialStartsAt, endsAt: plan.trialEndsAt ?? plan.premiumEndsAt, now: now)
+            }
+            PlanComparison()
         }
-    }
+
+        /// A Premium account's plan: the mark and thanks, the membership, what Premium includes,
+        /// and Restore purchases.
+        @ViewBuilder
+        private func member(_ plan: Plan) -> some View {
+            VStack(spacing: 6) {
+                PlanMark()
+                    .padding(.bottom, 6)
+                Text(PlanText.onPremium)
+                    .font(.platform(.title2).bold())
+                    .accessibilityAddTraits(.isHeader)
+                Text(PlanText.thanks)
+                    .foregroundStyle(.inkSecondary)
+            }
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity)
+            let membership = Self.membership(plan, now: now ?? .now)
+            let manage = Self.manage(plan, storefront: storefront, portalURL: portalURL)
+            if membership != nil || !manage.isEmpty {
+                MembershipCard(membership: membership, manage: manage)
+            }
+            IncludedList()
+            if let purchase {
+                VStack(spacing: 4) {
+                    restoreButton(purchase)
+                    if let line = Self.restoreLine(purchase) {
+                        Text(line)
+                            .foregroundStyle(.inkSecondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .font(.platform(.footnote))
+                .frame(maxWidth: .infinity)
+            }
+        }
+    #endif
 
     private func tiles(_ offers: [PurchaseOffer], purchase: PurchaseModel) -> some View {
         PeriodTiles(
@@ -317,84 +324,74 @@ struct PlanSheet: View {
             })
     }
 
-    /// The choice, Subscribe, and disclosures, at the end of the sheet's scrolling page, where
-    /// they never cover the comparison.
-    private func inlineActions(_ sale: Sale) -> some View {
-        let line = Self.outcomeLine(sale, line: purchase?.line)
-        return VStack(alignment: Self.actionsAlignment, spacing: 16) {
-            switch (sale, purchase) {
-            case (.choice(let offers), let purchase?):
-                tiles(offers, purchase: purchase)
-                subscribeButton(purchase)
-                if let line {
-                    paragraph(line)
-                }
-                terms(sale, purchase: purchase)
-            case (.loading, let purchase?):
-                PrimaryAction { WaitingSubscribeButton() }
-                if let line {
-                    paragraph(line)
-                }
-                terms(sale, purchase: purchase)
-            case (.subscribed, _):
-                if let line {
-                    paragraph(line)
-                }
-                #if !os(macOS)
-                    // The Mac's toolbar Close reads as a button; the phone's glass xmark is easy to miss.
-                    PrimaryAction { Button(Self.close) { dismiss() } }
-                #endif
-            case (.offline, _), (.notSelling, _), (.choice, nil), (.loading, nil):
-                if let line {
-                    paragraph(line).foregroundStyle(.secondary)
-                }
-                if let purchase {
+    #if !os(macOS)
+        /// The choice, Subscribe, and disclosures, at the end of the sheet's scrolling page, where
+        /// they never cover the comparison.
+        private func inlineActions(_ sale: Sale) -> some View {
+            let line = Self.outcomeLine(sale, line: purchase?.line)
+            return VStack(alignment: .center, spacing: 16) {
+                switch (sale, purchase) {
+                case (.choice(let offers), let purchase?):
+                    tiles(offers, purchase: purchase)
+                    subscribeButton(purchase)
+                    if let line {
+                        paragraph(line)
+                    }
                     terms(sale, purchase: purchase)
+                case (.loading, let purchase?):
+                    PrimaryAction { WaitingSubscribeButton() }
+                    if let line {
+                        paragraph(line)
+                    }
+                    terms(sale, purchase: purchase)
+                case (.subscribed, _):
+                    if let line {
+                        paragraph(line)
+                    }
+                    // The phone's glass xmark is easy to miss, so Close also reads as a button.
+                    PrimaryAction { Button(Self.close) { dismiss() } }
+                case (.offline, _), (.notSelling, _), (.choice, nil), (.loading, nil):
+                    if let line {
+                        paragraph(line).foregroundStyle(.inkSecondary)
+                    }
+                    if let purchase {
+                        terms(sale, purchase: purchase)
+                    }
                 }
             }
-        }
-        .frame(maxWidth: .infinity, alignment: Alignment(horizontal: Self.actionsAlignment, vertical: .center))
-        #if !os(macOS)
+            .frame(maxWidth: .infinity, alignment: Alignment(horizontal: .center, vertical: .center))
             .padding(.top, 16)
-        #endif
-    }
+        }
 
-    #if os(macOS)
-        private static let actionsAlignment = HorizontalAlignment.leading
-    #else
-        private static let actionsAlignment = HorizontalAlignment.center
-    #endif
-
-    private func paragraph(_ text: String) -> some View {
-        Text(text)
-            #if !os(macOS)
+        private func paragraph(_ text: String) -> some View {
+            Text(text)
                 .font(.footnote)
                 .multilineTextAlignment(.center)
-            #endif
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private func subscribeButton(_ purchase: PurchaseModel) -> some View {
-        PrimaryAction {
-            Button(PlanText.subscribe) {
-                Task { await Self.subscribe(purchase, from: entry) }
-            }
-            .disabled(purchase.isWorking)
+                .fixedSize(horizontal: false, vertical: true)
         }
-    }
 
-    /// The terms a sale shows, with Restore purchases beside the legal links; Restore alone
-    /// while nothing is sold, and nothing once a purchase settles.
-    @ViewBuilder
-    private func terms(_ sale: Sale, purchase: PurchaseModel) -> some View {
-        if case .choice(let offers) = sale {
-            if let offer = Self.chosenOffer(purchase.period, in: offers) {
-                RenewalTerms(price: offer.price, period: offer.period) { restoreButton(purchase) }
+        private func subscribeButton(_ purchase: PurchaseModel) -> some View {
+            PrimaryAction {
+                Button(PlanText.subscribe) {
+                    Task { await Self.subscribe(purchase, from: entry) }
+                }
+                .disabled(purchase.isWorking)
             }
-        } else if Self.offersRestore(sale) {
-            restoreButton(purchase).font(.footnote)
         }
-    }
+
+        /// The terms a sale shows, with Restore purchases beside the legal links; Restore alone
+        /// while nothing is sold, and nothing once a purchase settles.
+        @ViewBuilder
+        private func terms(_ sale: Sale, purchase: PurchaseModel) -> some View {
+            if case .choice(let offers) = sale {
+                if let offer = Self.chosenOffer(purchase.period, in: offers) {
+                    RenewalTerms(price: offer.price, period: offer.period) { restoreButton(purchase) }
+                }
+            } else if Self.offersRestore(sale) {
+                restoreButton(purchase).font(.platform(.footnote))
+            }
+        }
+    #endif
 
     private func restoreButton(_ purchase: PurchaseModel) -> some View {
         Button(PlanText.restorePurchases) {
@@ -402,30 +399,142 @@ struct PlanSheet: View {
         }
         .disabled(purchase.isWorking)
         #if os(macOS)
-            .buttonStyle(.link)
+            .buttonStyle(.macPlain)
         #else
             .buttonStyle(.borderless)
         #endif
     }
 }
 
-/// The sheet's one prominent button: large and slate, and full width off the Mac.
-private struct PrimaryAction<Content: View>: View {
-    @ViewBuilder let content: Content
+#if os(macOS)
+    extension PlanSheet {
+        /// Close, then Subscribe trailing while the sheet sells, which never takes Return, since
+        /// a locked tap opens the sheet unasked. Subscribe holds its place, disabled, while the
+        /// store answers, while a purchase runs, and while the store cannot be reached, when the
+        /// subtitle says why.
+        nonisolated static func macFooter(
+            _ sale: Sale, isWorking: Bool, close: @escaping @MainActor () -> Void,
+            subscribe: @escaping @MainActor () -> Void
+        ) -> MacSheetFooter {
+            var footer = MacSheetFooter(cancel: .cancel(Self.close, action: close))
+            switch sale {
+            case .choice:
+                footer.primary = .subscribe(title: PlanText.subscribe, isEnabled: !isWorking, action: subscribe)
+            case .loading, .offline:
+                footer.primary = .subscribe(title: PlanText.subscribe, isEnabled: false, action: subscribe)
+            case .notSelling, .subscribed:
+                break
+            }
+            return footer
+        }
 
-    var body: some View {
-        #if os(macOS)
-            content
-                .buttonStyle(.slateProminent)
-                .controlSize(.large)
-        #else
+        /// A member's footer: nothing to buy, so Close is the one primary, on Return and Escape.
+        nonisolated static func macMemberFooter(close: @escaping @MainActor () -> Void) -> MacSheetFooter {
+            MacSheetFooter(primary: .init(Self.close, action: close), escape: close)
+        }
+
+        /// The Mac sheet's subtitle: why nothing sells while the store cannot be reached, which
+        /// says more than the pitch then, or the pitch.
+        nonisolated static func macSubtitle(_ sale: Sale, line: PurchaseModel.Line?, pitch: String) -> String {
+            sale == .offline && line == nil ? PlanText.subscribeOffline : pitch
+        }
+
+        /// ``outcomeLine(_:line:)`` less the offline line, which the Mac sheet's subtitle carries.
+        nonisolated static func macOutcomeLine(_ sale: Sale, line: PurchaseModel.Line?) -> String? {
+            sale == .offline && line == nil ? nil : outcomeLine(sale, line: line)
+        }
+
+        /// The mark, title, and line over a trial's card and the comparison while selling, or the
+        /// membership and what Premium includes for a member, with Restore purchases leading
+        /// the footer.
+        func macSheet(_ plan: Plan, mode: Mode, sale: Sale) -> some View {
+            let (title, pitch) = mode == .member ? (PlanText.onPremium, PlanText.thanks) : Self.headline(reason)
+            let subtitle = mode == .member ? pitch : Self.macSubtitle(sale, line: purchase?.line, pitch: pitch)
+            let footer =
+                mode == .member
+                ? Self.macMemberFooter { dismiss() }
+                : Self.macFooter(
+                    sale, isWorking: purchase?.isWorking ?? false, close: { dismiss() }, subscribe: macSubscribe)
+            return MacSheet(
+                title: title, subtitle: subtitle, style: .notice, size: .fitted(.tall), cancel: footer.cancel,
+                primary: footer.primary, escape: footer.escape
+            ) {
+                if let purchase, mode == .member || Self.offersRestore(sale) {
+                    restoreButton(purchase)
+                }
+            } content: {
+                VStack(alignment: .leading, spacing: 16) {
+                    switch mode {
+                    case .selling:
+                        if plan.isTrial {
+                            TrialCard(
+                                startsAt: plan.trialStartsAt, endsAt: plan.trialEndsAt ?? plan.premiumEndsAt, now: now)
+                        }
+                        PlanComparison()
+                        macSale(sale)
+                    case .member:
+                        macMember(plan)
+                    }
+                }
+                .font(MacStyle.body)
+                .foregroundStyle(MacPalette.ink)
+            }
+        }
+
+        private func macSubscribe() {
+            guard let purchase else { return }
+            Task { await Self.subscribe(purchase, from: entry) }
+        }
+
+        /// The period choice and its terms, then the outcome of a try or why nothing is sold.
+        @ViewBuilder
+        private func macSale(_ sale: Sale) -> some View {
+            if case .choice(let offers) = sale, let purchase {
+                tiles(offers, purchase: purchase)
+            }
+            if let line = Self.macOutcomeLine(sale, line: purchase?.line) {
+                Text(line)
+                    .foregroundStyle(sale == .offline || sale == .notSelling ? MacPalette.inkSecondary : MacPalette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if case .choice(let offers) = sale, let purchase,
+                let offer = Self.chosenOffer(purchase.period, in: offers)
+            {
+                RenewalTerms(price: offer.price, period: offer.period)
+            }
+        }
+
+        @ViewBuilder
+        private func macMember(_ plan: Plan) -> some View {
+            let membership = Self.membership(plan, now: now ?? .now)
+            let manage = Self.manage(plan, storefront: storefront, portalURL: portalURL)
+            if membership != nil || !manage.isEmpty {
+                MembershipCard(membership: membership, manage: manage)
+            }
+            IncludedList()
+            if let purchase, let line = Self.restoreLine(purchase) {
+                Text(line)
+                    .font(MacStyle.secondary)
+                    .foregroundStyle(MacPalette.inkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+#endif
+
+#if !os(macOS)
+    /// The sheet's one prominent button: large, slate, and full width.
+    private struct PrimaryAction<Content: View>: View {
+        @ViewBuilder let content: Content
+
+        var body: some View {
             content
                 .buttonStyle(SheetPrimaryButtonStyle())
                 .fontWeight(.semibold)
                 .controlSize(.large)
-        #endif
+        }
     }
-}
+#endif
 
 /// Subscribe's place while the store answers: disabled, and named Subscribe for VoiceOver.
 struct WaitingSubscribeButton: View {
@@ -447,7 +556,11 @@ private struct PlanMark: View {
     var body: some View {
         Mark()
             .frame(height: height)
-            .foregroundStyle(scheme == .dark ? Color.white : BrandStyle.accent)
+            #if os(macOS)
+                .foregroundStyle(MacPalette.markInk)
+            #else
+                .foregroundStyle(scheme == .dark ? Color.white : BrandStyle.accent)
+            #endif
             .accessibilityHidden(true)
     }
 }

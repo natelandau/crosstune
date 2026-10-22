@@ -17,6 +17,9 @@ enum SavedLocationsText {
     static let deleteLocation = "Delete location"
     static let deleteMessage = "Its recordings keep their location and show their street address."
     static let gone = "Location not found"
+    static let address = "Address"
+    /// The Mac row's button, which asks before it deletes.
+    static let deleteMac = "Delete…"
 
     static func recordingsCount(_ count: Int) -> String {
         count == 1 ? "1 recording" : "\(count) recordings"
@@ -194,14 +197,105 @@ private struct SavedLocationRowView: View {
                 Text(row.place.name).contentMask()
                 if let address = row.place.address {
                     Text(address)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(.platform(.footnote))
+                        .foregroundStyle(.inkSecondary)
                         .contentMask()
                 }
                 Text(SavedLocationsText.recordingsCount(row.recordings))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(.platform(.footnote))
+                    .foregroundStyle(.inkSecondary)
             }
         }
     }
 }
+
+#if os(macOS)
+    /// The Recordings tab's Saved locations card: each location as a row, which opens it in a
+    /// sheet over the window, since a push inside a Settings tab puts its Back button among the
+    /// tabs.
+    struct MacSavedLocationsSection: View {
+        @Environment(\.store) private var store
+        @Environment(\.analytics) private var analytics
+        @State private var model: SavedLocationsModel?
+        @State private var opened: SavedLocationRoute?
+
+        var body: some View {
+            // A stack rather than a Group, which with nothing in it never runs the task that
+            // loads the rows.
+            VStack(alignment: .leading, spacing: 0) {
+                if let model, let rows = model.rows {
+                    MacFormSection(SavedLocationsText.title, subtitle: SavedLocationsText.help) {
+                        if rows.isEmpty {
+                            Text(SavedLocationsText.emptyHint)
+                                .font(MacStyle.body)
+                                .foregroundStyle(MacPalette.inkSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.vertical, 6)
+                        } else {
+                            ForEach(rows) { row in
+                                MacSavedLocationRow(row: row) { opened = SavedLocationRoute(id: row.id) }
+                            }
+                        }
+                    }
+                    .sheet(item: $opened) { route in
+                        SavedLocationDetail(model: model, placeID: route.id) { opened = nil }
+                    }
+                    #if DEBUG
+                        .opensForSample(.savedLocations, when: !rows.isEmpty) {
+                            opened = rows.first.map { SavedLocationRoute(id: $0.id) }
+                        }
+                    #endif
+                }
+            }
+            .task(id: store.map(ObjectIdentifier.init)) {
+                model = store.map { SavedLocationsModel(store: $0, analytics: analytics) }
+            }
+        }
+    }
+
+    extension SavedLocationRoute: Identifiable {}
+
+    /// One saved location in the card: its thumbnail, name, address, and how many
+    /// recordings use it, as one button that opens it.
+    private struct MacSavedLocationRow: View {
+        let row: SavedLocationRow
+        let open: () -> Void
+
+        @FocusState private var focused: Bool
+
+        var body: some View {
+            Button(action: open) {
+                HStack(spacing: 12) {
+                    LocationThumbnail(coordinate: Coordinate(lat: row.place.lat, lon: row.place.lon), accuracyM: nil)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(row.place.name)
+                            .contentMask()
+                            .font(MacStyle.body)
+                            .foregroundStyle(MacPalette.ink)
+                        if let address = row.place.address {
+                            Text(address)
+                                .contentMask()
+                                .font(MacStyle.secondary)
+                                .foregroundStyle(MacPalette.inkSecondary)
+                        }
+                        Text(SavedLocationsText.recordingsCount(row.recordings))
+                            .font(MacStyle.secondary)
+                            .foregroundStyle(MacPalette.inkSecondary)
+                    }
+                    .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.forward")
+                        .font(MacStyle.rowChevron)
+                        .foregroundStyle(MacPalette.inkSecondary)
+                        .accessibilityHidden(true)
+                }
+                .padding(.vertical, 6)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .focusEffectDisabled()
+            .focused($focused)
+            .macSettingsRowRing(focused)
+        }
+    }
+#endif

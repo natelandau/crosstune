@@ -34,10 +34,15 @@ struct Mark: View {
 struct Lockup: View {
     @ScaledMetric(relativeTo: .headline) private var capHeight: CGFloat = Self.headlineCapHeight
 
-    // The platform's own cap height for the headline style at its default size.
+    #if os(macOS)
+        /// The Mac lockup's name size, large enough that the mark reads beside a page title.
+        static let macNameSize: CGFloat = 17
+    #endif
+
+    // The platform's own cap height for the lockup's name at its default size.
     private static var headlineCapHeight: CGFloat {
         #if os(macOS)
-            NSFont.preferredFont(forTextStyle: .headline).capHeight
+            NSFont.systemFont(ofSize: macNameSize, weight: .bold).capHeight
         #else
             UIFont.preferredFont(
                 forTextStyle: .headline,
@@ -50,10 +55,17 @@ struct Lockup: View {
         HStack(alignment: .firstTextBaseline, spacing: capHeight * 0.4) {
             Mark()
                 .frame(height: capHeight)
+                #if os(macOS)
+                    .foregroundStyle(MacPalette.markInk)
+                #endif
                 .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
                 .accessibilityHidden(true)
             Text("Crosstune")
         }
-        .font(.headline)
+        #if os(macOS)
+            .font(.system(size: Self.macNameSize, weight: .bold))
+        #else
+            .font(.headline)
+        #endif
     }
 }

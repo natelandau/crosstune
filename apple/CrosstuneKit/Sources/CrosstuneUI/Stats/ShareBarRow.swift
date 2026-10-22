@@ -5,6 +5,15 @@ import SwiftUI
 /// One breakdown value: its name and count over a slate bar as wide as its share of the largest
 /// value. A row that links to the catalog ends in a chevron; the caller makes it a button.
 struct ShareBarRow: View {
+    /// A share in ink on the Mac, where the accent marks only what can be chosen.
+    static var barFill: Color {
+        #if os(macOS)
+            MacPalette.ink.opacity(0.55)
+        #else
+            BrandStyle.accent.opacity(0.55)
+        #endif
+    }
+
     let value: Stats.Value
     let max: Int
     let link: Bool
@@ -19,7 +28,7 @@ struct ShareBarRow: View {
             Text(groupedThousands(value.count))
                 .font(PageStyle.body)
                 .monospacedDigit()
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
             if link {
                 RowChevron()
             }
@@ -32,7 +41,7 @@ struct ShareBarRow: View {
         .background(alignment: .bottomLeading) {
             GeometryReader { proxy in
                 Capsule()
-                    .fill(BrandStyle.accent.opacity(0.55))
+                    .fill(Self.barFill)
                     .frame(width: proxy.size.width * Self.share(count: value.count, max: max), height: 4)
                     .frame(maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, 4)
@@ -54,8 +63,8 @@ struct ShareBarRow: View {
 struct RowChevron: View {
     var body: some View {
         Image(systemName: "chevron.forward")
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(.tertiary)
+            .font(.platform(.footnote).weight(.semibold))
+            .foregroundStyle(.inkTertiary)
             .accessibilityHidden(true)
     }
 }

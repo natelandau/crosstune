@@ -18,8 +18,15 @@ struct PlayFirstPicker: View {
     let model: SettingsModel
 
     var body: some View {
-        Picker(PlayFirstText.label, selection: Binding(get: { model.playFirst }, set: { model.setPlayFirst($0) })) {
-            ForEach(Vocabulary.playFirsts, id: \.self) { Text(PlayFirstText.names[$0] ?? $0).tag($0) }
-        }
+        let chosen = Binding(get: { model.playFirst }, set: { model.setPlayFirst($0) })
+        #if os(macOS)
+            MacPopUp(
+                PlayFirstText.label, selection: chosen, options: Vocabulary.playFirsts,
+                label: { PlayFirstText.names[$0] ?? $0 })
+        #else
+            Picker(PlayFirstText.label, selection: chosen) {
+                ForEach(Vocabulary.playFirsts, id: \.self) { Text(PlayFirstText.names[$0] ?? $0).tag($0) }
+            }
+        #endif
     }
 }

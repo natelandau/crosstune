@@ -124,4 +124,25 @@ import Testing
         #expect(!DeleteAccountSheet.deleteEnabled(.unavailable, text: "", pending: false))
         #expect(!DeleteAccountSheet.deleteEnabled(.unavailable, text: "DELETE", pending: true))
     }
+
+    #if os(macOS)
+        /// The final confirm of an irreversible delete: filled danger, and never pressed by Return.
+        @Test func theMacDeleteIsFilledDangerAndNeverTheDefault() {
+            let action = DeleteAccountSheet.macDelete(title: DeleteAccountSheet.title, isEnabled: false) {}
+            #expect(action.role == .destructiveFilled)
+            #expect(!action.isDefault)
+            #expect(!action.isEnabled)
+            #expect(MacSheetAction.keyboardRoles(cancel: nil, primary: action).primary == nil)
+        }
+
+        /// The counts read as one block of text, a line each, settings last, as the list did.
+        @Test func theMacCountsReadAsOneBlock() {
+            let counts = AccountCounts(tunes: 2, lists: 1, recordings: 0)
+            #expect(
+                DeleteAccountSheet.countsBlock(.available(counts))
+                    == "2 tunes\n1 list\n\(DeleteAccountSheet.settingsLine)")
+            #expect(DeleteAccountSheet.countsBlock(.loading) == nil)
+            #expect(DeleteAccountSheet.countsBlock(.unavailable) == nil)
+        }
+    #endif
 }

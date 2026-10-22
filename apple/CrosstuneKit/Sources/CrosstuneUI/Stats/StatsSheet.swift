@@ -7,15 +7,15 @@
         @Environment(\.dismiss) private var dismiss
 
         var body: some View {
-            // No stack, so the page's own title is the only one: nothing in the sheet pushes.
-            StatsScreen()
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(AccountView.done) { dismiss() }
-                    }
-                }
-                .macSheetFrame(MacSheetSize(minWidth: 520, idealWidth: 560, minHeight: 480, idealHeight: 640))
-                .shellSheet()
+            MacSheet(
+                title: StatsCopy.title,
+                size: .overSettings(width: MacSettingsTabs.size.width), cancel: nil,
+                primary: .init(AccountView.done) { dismiss() }, escape: { dismiss() }
+            ) {
+                // The sheet's title names the page, so the document leads with its first block.
+                StatsScreen(headsItself: false)
+            }
+            .shellSheet()
         }
     }
 #endif

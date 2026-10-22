@@ -144,172 +144,285 @@ struct NoticeSheet: View {
     nonisolated static let loses = [NoticeText.losePlayback, NoticeText.loseRecording, NoticeText.loseScans]
 
     var body: some View {
-        Group {
-            if notice == .firstRecording {
-                firstRecording
-            } else {
-                trial
+        #if os(macOS)
+            Group {
+                if notice == .firstRecording {
+                    macFirstRecording
+                } else {
+                    macTrial
+                }
             }
+            .shellSheet()
+        #else
+            Group {
+                if notice == .firstRecording {
+                    firstRecording
+                } else {
+                    trial
+                }
+            }
+            .presentationDetents([.medium, .large])
+            .shellSheet()
+        #endif
+    }
+
+    #if os(macOS)
+        // MARK: Mac
+
+        /// See your plan beside OK, which Return and Escape both press.
+        static func macFirstRecordingFooter(
+            onClose: @escaping @MainActor () -> Void, onSeePlan: @escaping @MainActor () -> Void
+        ) -> MacSheetFooter {
+            MacSheetFooter(
+                secondary: MacSheetAction(PlanText.seePlan, role: .secondary, isDefault: false, action: onSeePlan),
+                primary: MacSheetAction(NoticeText.ok, action: onClose), escape: onClose)
         }
-        .macSheetFrame(.form(minHeight: 220))
-        .presentationDetents([.medium, .large])
-        .shellSheet()
-    }
 
-    private func heading(_ text: String) -> some View {
-        Text(text)
-            .font(.title2.bold())
-            .accessibilityAddTraits(.isHeader)
-            .fixedSize(horizontal: false, vertical: true)
-    }
+        /// Close, then Compare plans, then the offer's primary trailing. Subscribe never takes
+        /// Return. Once a purchase settles, Close alone takes both keys.
+        static func macTrialFooter(
+            _ offer: Offer, isWorking: Bool, onClose: @escaping @MainActor () -> Void,
+            onComparePlans: @escaping @MainActor () -> Void, onSubscribe: @escaping @MainActor () -> Void
+        ) -> MacSheetFooter {
+            if offer.primary == .close {
+                return MacSheetFooter(primary: MacSheetAction(PlanSheet.close, action: onClose), escape: onClose)
+            }
+            let action = { (action: Action, role: MacButtonStyle.Role) -> MacSheetAction in
+                switch action {
+                case .subscribe(let price):
+                    .subscribe(title: NoticeText.subscribeAnnual(price), isEnabled: !isWorking, action: onSubscribe)
+                case .waiting:
+                    .subscribe(title: PlanText.subscribe, isEnabled: false) {}
+                case .comparePlans:
+                    MacSheetAction(
+                        PlanText.comparePlans, role: role, isDefault: action.isDefault, action: onComparePlans)
+                case .close:
+                    MacSheetAction(PlanSheet.close, role: role, isDefault: action.isDefault, action: onClose)
+                }
+            }
+            return MacSheetFooter(
+                cancel: .cancel(PlanSheet.close, action: onClose),
+                secondary: offer.secondary.map { action($0, .secondary) },
+                primary: action(offer.primary, .primary))
+        }
 
-    // MARK: First recording
-
-    private var firstRecording: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                heading(Self.title(notice, endsAt: endsAt))
+        private var macFirstRecording: some View {
+            let footer = Self.macFirstRecordingFooter(onClose: onClose, onSeePlan: onSeePlan)
+            return MacSheet(
+                title: Self.title(notice, endsAt: endsAt), style: .notice, size: .fitted(.standard),
+                cancel: footer.cancel,
+                secondary: footer.secondary, primary: footer.primary, escape: footer.escape
+            ) {
                 if let message = Self.firstRecordingBody(endsAt: endsAt) {
                     Text(message)
+                        .font(MacStyle.body)
+                        .foregroundStyle(MacPalette.ink)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if !PageStyle.pinsSheetActions {
-                    HStack {
-                        seePlan
-                        Spacer()
-                        ok.buttonStyle(.slateProminent)
-                    }
-                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
         }
-        .sheetActions {
-            ok
-        } secondary: {
-            seePlan
-        }
-        .background {
-            // Escape counts as OK, while Return stays on the visible OK.
-            Button(NoticeText.ok, action: onClose)
-                .keyboardShortcut(.cancelAction)
-                .hidden()
-                .accessibilityHidden(true)
-        }
-    }
 
-    private var ok: some View {
-        Button(NoticeText.ok, action: onClose)
-            .keyboardShortcut(.defaultAction)
-    }
-
-    private var seePlan: some View {
-        Button(PlanText.seePlan, action: onSeePlan)
-    }
-
-    // MARK: Trial notices
-
-    private var trial: some View {
-        let line = tried ? purchase?.line : nil
-        let sells = Self.sells(notice, plan: plan, purchase: purchase)
-        let offer = Self.offer(sells: sells, offers: purchase?.offers, line: line)
-        let lineText = offer.outcome(line)
-        return NavigationStack {
-            ScrollView {
+        private var macTrial: some View {
+            let line = tried ? purchase?.line : nil
+            let sells = Self.sells(notice, plan: plan, purchase: purchase)
+            let offer = Self.offer(sells: sells, offers: purchase?.offers, line: line)
+            let lineText = offer.outcome(line)
+            let footer = Self.macTrialFooter(
+                offer, isWorking: purchase?.isWorking ?? true, onClose: onClose, onComparePlans: onComparePlans,
+                onSubscribe: subscribe)
+            return MacSheet(
+                title: Self.title(notice, endsAt: endsAt),
+                subtitle: Self.subtitle(notice, endsAt: endsAt, now: now ?? Date()), style: .notice,
+                size: .fitted(.standard), cancel: footer.cancel,
+                secondary: footer.secondary, primary: footer.primary, escape: footer.escape
+            ) {
                 VStack(alignment: .leading, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        heading(Self.title(notice, endsAt: endsAt))
-                        if let daysLeft = Self.subtitle(notice, endsAt: endsAt, now: now ?? Date()) {
-                            Text(daysLeft)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(Self.loses, id: \.self) { lose in
-                            Label {
-                                Text(lose).fixedSize(horizontal: false, vertical: true)
-                            } icon: {
-                                Image(systemName: "xmark").foregroundStyle(.secondary)
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Image(systemName: "xmark")
+                                    .foregroundStyle(MacPalette.inkSecondary)
+                                    .accessibilityHidden(true)
+                                Text(lose)
                             }
                         }
                     }
                     Text(NoticeText.keeps)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if let lineText {
+                        Text(lineText)
+                    }
+                    if let price = offer.annualPrice {
+                        RenewalTerms(price: price, period: .annual)
+                    }
+                }
+                .font(MacStyle.body)
+                .foregroundStyle(MacPalette.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .task(id: PlanSheet.OfferAsk(sells: sells, offline: purchase?.isOffline)) {
+                guard sells else { return }
+                await purchase?.loadOffers()
+            }
+        }
+    #endif
+
+    #if !os(macOS)
+        private func heading(_ text: String) -> some View {
+            Text(text)
+                .font(.platform(.title2).bold())
+                .accessibilityAddTraits(.isHeader)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+
+        // MARK: First recording
+
+        private var firstRecording: some View {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    heading(Self.title(notice, endsAt: endsAt))
+                    if let message = Self.firstRecordingBody(endsAt: endsAt) {
+                        Text(message)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     if !PageStyle.pinsSheetActions {
-                        inlineActions(offer, line: lineText)
+                        HStack {
+                            seePlan
+                            Spacer()
+                            ok.buttonStyle(.slateProminent)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
             }
-            .sheetActions(line: lineText) {
-                primary(offer.primary)
+            .sheetActions {
+                ok
             } secondary: {
-                if let secondary = offer.secondary {
-                    button(secondary)
-                }
-            } footer: {
-                if let price = offer.annualPrice {
-                    RenewalTerms(price: price, period: .annual)
-                }
+                seePlan
             }
-            #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    SheetCloseButton(PlanSheet.close, action: onClose)
-                        .keyboardShortcut(.cancelAction)
-                }
+            .background {
+                // Escape counts as OK, while Return stays on the visible OK.
+                Button(NoticeText.ok, action: onClose)
+                    .keyboardShortcut(.cancelAction)
+                    .hidden()
+                    .accessibilityHidden(true)
             }
         }
-        // Asks once the notice may sell, and again when the connection comes back.
-        .task(id: PlanSheet.OfferAsk(sells: sells, offline: purchase?.isOffline)) {
-            guard sells else { return }
-            await purchase?.loadOffers()
-        }
-    }
 
-    /// The actions in the sheet's own content, where they do not pin to its bottom edge. Once a
-    /// purchase settles, the toolbar's Close is the one way out.
-    @ViewBuilder
-    private func inlineActions(_ offer: Offer, line: String?) -> some View {
-        if let line {
-            Text(line).fixedSize(horizontal: false, vertical: true)
+        private var ok: some View {
+            Button(NoticeText.ok, action: onClose)
+                .keyboardShortcut(.defaultAction)
         }
-        if offer.primary != .close {
-            HStack {
-                if let secondary = offer.secondary {
-                    button(secondary)
+
+        private var seePlan: some View {
+            Button(PlanText.seePlan, action: onSeePlan)
+        }
+
+        // MARK: Trial notices
+
+        private var trial: some View {
+            let line = tried ? purchase?.line : nil
+            let sells = Self.sells(notice, plan: plan, purchase: purchase)
+            let offer = Self.offer(sells: sells, offers: purchase?.offers, line: line)
+            let lineText = offer.outcome(line)
+            return NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            heading(Self.title(notice, endsAt: endsAt))
+                            if let daysLeft = Self.subtitle(notice, endsAt: endsAt, now: now ?? Date()) {
+                                Text(daysLeft)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(Self.loses, id: \.self) { lose in
+                                Label {
+                                    Text(lose).fixedSize(horizontal: false, vertical: true)
+                                } icon: {
+                                    Image(systemName: "xmark").foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        Text(NoticeText.keeps)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if !PageStyle.pinsSheetActions {
+                            inlineActions(offer, line: lineText)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
                 }
-                Spacer()
-                primary(offer.primary)
-                    .buttonStyle(.slateProminent)
+                .sheetActions(line: lineText) {
+                    primary(offer.primary)
+                } secondary: {
+                    if let secondary = offer.secondary {
+                        button(secondary)
+                    }
+                } footer: {
+                    if let price = offer.annualPrice {
+                        RenewalTerms(price: price, period: .annual)
+                    }
+                }
+                #if os(iOS)
+                    .navigationBarTitleDisplayMode(.inline)
+                #endif
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        SheetCloseButton(PlanSheet.close, action: onClose)
+                            .keyboardShortcut(.cancelAction)
+                    }
+                }
+            }
+            // Asks once the notice may sell, and again when the connection comes back.
+            .task(id: PlanSheet.OfferAsk(sells: sells, offline: purchase?.isOffline)) {
+                guard sells else { return }
+                await purchase?.loadOffers()
             }
         }
-        if let price = offer.annualPrice {
-            RenewalTerms(price: price, period: .annual)
-        }
-    }
 
-    private func primary(_ action: Action) -> some View {
-        button(action).keyboardShortcut(action.isDefault ? .defaultAction : nil)
-    }
-
-    @ViewBuilder
-    private func button(_ action: Action) -> some View {
-        switch action {
-        case .subscribe(let price):
-            Button(NoticeText.subscribeAnnual(price), action: subscribe)
-                .disabled(purchase?.isWorking ?? true)
-        case .waiting:
-            WaitingSubscribeButton()
-        case .comparePlans:
-            Button(PlanText.comparePlans, action: onComparePlans)
-        case .close:
-            Button(PlanSheet.close, action: onClose)
+        /// The actions in the sheet's own content, where they do not pin to its bottom edge. Once a
+        /// purchase settles, the toolbar's Close is the one way out.
+        @ViewBuilder
+        private func inlineActions(_ offer: Offer, line: String?) -> some View {
+            if let line {
+                Text(line).fixedSize(horizontal: false, vertical: true)
+            }
+            if offer.primary != .close {
+                HStack {
+                    if let secondary = offer.secondary {
+                        button(secondary)
+                    }
+                    Spacer()
+                    primary(offer.primary)
+                        .buttonStyle(.slateProminent)
+                }
+            }
+            if let price = offer.annualPrice {
+                RenewalTerms(price: price, period: .annual)
+            }
         }
-    }
+
+        private func primary(_ action: Action) -> some View {
+            button(action).keyboardShortcut(action.isDefault ? .defaultAction : nil)
+        }
+
+        @ViewBuilder
+        private func button(_ action: Action) -> some View {
+            switch action {
+            case .subscribe(let price):
+                Button(NoticeText.subscribeAnnual(price), action: subscribe)
+                    .disabled(purchase?.isWorking ?? true)
+            case .waiting:
+                WaitingSubscribeButton()
+            case .comparePlans:
+                Button(PlanText.comparePlans, action: onComparePlans)
+            case .close:
+                Button(PlanSheet.close, action: onClose)
+            }
+        }
+
+    #endif
 
     private func subscribe() {
         guard let purchase, let entry = Self.entry(notice) else { return }

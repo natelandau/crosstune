@@ -34,12 +34,19 @@ struct InstrumentsSheet: View {
 struct InstrumentsChoices: View {
     let model: SettingsModel
 
+    /// One instrument's toggle, wherever it shows, so each reports the same event.
+    static func binding(_ instrument: String, model: SettingsModel) -> Binding<Bool> {
+        Binding(get: { model.plays(instrument) }, set: { model.setPlays(instrument, $0) })
+    }
+
+    static func label(_ instrument: String) -> String {
+        Vocabulary.instrumentLabels[instrument] ?? instrument
+    }
+
     var body: some View {
         Section {
             ForEach(Vocabulary.instruments, id: \.self) { instrument in
-                Toggle(
-                    Vocabulary.instrumentLabels[instrument] ?? instrument,
-                    isOn: Binding(get: { model.plays(instrument) }, set: { model.setPlays(instrument, $0) }))
+                Toggle(Self.label(instrument), isOn: Self.binding(instrument, model: model))
             }
         } header: {
             SettingsHelp(SettingsModel.instrumentsHelp)
@@ -71,11 +78,17 @@ struct SettingsHelp: View {
                 Text(title)
             }
             if let help {
-                Text(help)
-                    .font(.footnote)
-                    .fontWeight(.regular)
-                    .foregroundStyle(.secondary)
-                    .textCase(nil)
+                #if os(macOS)
+                    Text(help)
+                        .font(MacStyle.secondary)
+                        .foregroundStyle(MacPalette.inkSecondary)
+                #else
+                    Text(help)
+                        .font(.platform(.footnote))
+                        .fontWeight(.regular)
+                        .foregroundStyle(.secondary)
+                        .textCase(nil)
+                #endif
             }
         }
     }

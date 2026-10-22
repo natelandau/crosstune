@@ -13,9 +13,15 @@ struct StorageMeter: View {
             Text(text)
                 .monospacedDigit()
             if storage.quotaBytes > 0 {
-                ProgressView(value: SettingsModel.storageFraction(storage))
-                    .accessibilityLabel(SettingsModel.storageUsed)
-                    .accessibilityValue(text)
+                #if os(macOS)
+                    MacMeter(fraction: SettingsModel.storageFraction(storage))
+                        .accessibilityLabel(SettingsModel.storageUsed)
+                        .accessibilityValue(text)
+                #else
+                    ProgressView(value: SettingsModel.storageFraction(storage))
+                        .accessibilityLabel(SettingsModel.storageUsed)
+                        .accessibilityValue(text)
+                #endif
             }
         }
         .padding(.vertical, spacing(4))

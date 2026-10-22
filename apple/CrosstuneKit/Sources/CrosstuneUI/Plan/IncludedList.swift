@@ -26,12 +26,12 @@ struct IncludedList: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(PlanText.included)
-                .font(.headline)
+                .font(.platform(.headline, mac: .sectionHeading))
                 .accessibilityAddTraits(.isHeader)
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(PlanSheet.included.enumerated()), id: \.element.title) { index, feature in
                     if index > 0 {
-                        Divider().padding(.leading, tileSide + 28)
+                        PlanDivider().padding(.leading, tileSide + 28)
                     }
                     row(feature)
                 }
@@ -42,12 +42,12 @@ struct IncludedList: View {
 
     private func row(_ feature: PlanSheet.Included) -> some View {
         HStack(spacing: 12) {
-            FeatureTile(symbol: feature.symbol, side: tileSide, font: .body.weight(.medium))
+            FeatureTile(symbol: feature.symbol, side: tileSide, font: .platform(.body).weight(.medium))
             VStack(alignment: .leading, spacing: 2) {
                 Text(feature.title)
                 Text(feature.detail)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(.platform(.footnote))
+                    .foregroundStyle(PlanInk.secondary)
             }
             .fixedSize(horizontal: false, vertical: true)
         }

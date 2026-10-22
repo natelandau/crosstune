@@ -484,3 +484,68 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(presenter.presented == .plan)
     }
 }
+
+#if os(macOS)
+    @MainActor
+    @Suite struct MacPlanFooterTests {
+        @Test func subscribeTrailsCloseAndIsNeverDefault() {
+            let footer = PlanSheet.macFooter(.choice(offers), isWorking: false, close: {}, subscribe: {})
+            #expect(footer.cancel?.title == PlanSheet.close)
+            #expect(footer.primary?.title == PlanText.subscribe)
+            #expect(footer.primary?.role == .primary)
+            #expect(footer.primary?.isDefault == false)
+            #expect(footer.primary?.isEnabled == true)
+        }
+
+        @Test func subscribeHoldsItsPlaceWhileTheStoreAnswersOrAPurchaseRuns() {
+            let loading = PlanSheet.macFooter(.loading, isWorking: false, close: {}, subscribe: {})
+            #expect(loading.primary?.title == PlanText.subscribe)
+            #expect(loading.primary?.isEnabled == false)
+            let working = PlanSheet.macFooter(.choice(offers), isWorking: true, close: {}, subscribe: {})
+            #expect(working.primary?.isEnabled == false)
+        }
+
+        /// Offline, Subscribe holds its place disabled, so the sheet keeps one visible primary and
+        /// the subtitle says why it cannot be pressed.
+        @Test func offlineShowsSubscribeDisabled() {
+            let footer = PlanSheet.macFooter(.offline, isWorking: false, close: {}, subscribe: {})
+            #expect(footer.cancel?.title == PlanSheet.close)
+            #expect(footer.primary?.title == PlanText.subscribe)
+            #expect(footer.primary?.isEnabled == false)
+            #expect(footer.primary?.isPurchase == true)
+        }
+
+        /// A member has nothing to buy, so Close is the one primary, pressed by Return and Escape.
+        @Test func aMemberClosesFromThePrimary() {
+            let footer = PlanSheet.macMemberFooter(close: {})
+            #expect(footer.cancel == nil)
+            #expect(footer.primary?.title == PlanSheet.close)
+            #expect(footer.primary?.role == .primary)
+            #expect(footer.primary?.answersReturn == true)
+            #expect(footer.escape != nil)
+        }
+
+        @Test func nothingToBuyLeavesCloseAlone() {
+            for sale in [PlanSheet.Sale.notSelling, .subscribed] {
+                let footer = PlanSheet.macFooter(sale, isWorking: false, close: {}, subscribe: {})
+                #expect(footer.cancel?.title == PlanSheet.close, "\(sale)")
+                #expect(footer.primary == nil, "\(sale)")
+            }
+        }
+
+        @Test func aMemberManagesFromTheRenewalRow() {
+            #expect(MembershipCard.macManage == "Manage\u{2026}")
+        }
+
+        /// Offline, the Mac sheet says why nothing sells in its subtitle, never in a line floating
+        /// under the cards; an outcome tried offline still reads in the body.
+        @Test func offlineReasonIsTheMacSubtitle() {
+            #expect(PlanSheet.macSubtitle(.offline, line: nil, pitch: "Pitch") == PlanText.subscribeOffline)
+            #expect(PlanSheet.macOutcomeLine(.offline, line: nil) == nil)
+            #expect(PlanSheet.macSubtitle(.offline, line: .restoreFailed, pitch: "Pitch") == "Pitch")
+            #expect(PlanSheet.macOutcomeLine(.offline, line: .restoreFailed) == PlanText.line(.restoreFailed))
+            #expect(PlanSheet.macSubtitle(.loading, line: nil, pitch: "Pitch") == "Pitch")
+            #expect(PlanSheet.macOutcomeLine(.subscribed, line: .subscribed) == PlanText.subscribed)
+        }
+    }
+#endif

@@ -323,3 +323,16 @@ struct ExportZipTests {
         #expect(provider.suggestedName == zip.lastPathComponent)
     }
 }
+
+#if os(macOS)
+    @MainActor
+    @Suite struct MacExportSheetTests {
+        /// The export note always names what the zip holds, as the subtitle; the body adds only
+        /// what differs from it.
+        @Test func exportNoteIsTheSubtitle() {
+            #expect(ExportDataSheet.macBodyNote(ExportDataSheet.completeNote) == nil)
+            #expect(ExportDataSheet.macBodyNote(nil) == nil)
+            #expect(ExportDataSheet.macBodyNote("Needs a connection") == "Needs a connection")
+        }
+    }
+#endif

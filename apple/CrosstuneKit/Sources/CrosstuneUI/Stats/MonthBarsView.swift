@@ -4,6 +4,15 @@ import SwiftUI
 /// Tunes added and recordings made per month, as two strips of bars over the same months. A
 /// month with nothing keeps its empty slot, so the spacing reads as time.
 struct MonthBarsView: View {
+    /// Bars in ink on the Mac, where the accent marks only what can be chosen.
+    static var barFill: Color {
+        #if os(macOS)
+            MacPalette.ink.opacity(0.7)
+        #else
+            BrandStyle.accent
+        #endif
+    }
+
     let months: Stats.Months
     var allTime = false
 
@@ -22,9 +31,9 @@ struct MonthBarsView: View {
                     Spacer()
                     Text(StatsCopy.monthLabel(last.month))
                 }
-                .font(.caption2)
+                .font(.platform(.caption2))
                 .monospacedDigit()
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
                 .accessibilityHidden(true)
             }
         }
@@ -36,8 +45,8 @@ struct MonthBarsView: View {
         let max = Swift.max(1, shown.map { $0[keyPath: count] }.max() ?? 0)
         return VStack(alignment: .leading, spacing: spacing(4)) {
             Text(label)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .font(.platform(.footnote))
+                .foregroundStyle(.inkSecondary)
                 .accessibilityAddTraits(.isHeader)
             HStack(alignment: .bottom, spacing: 1) {
                 ForEach(shown, id: \.month) { month in
@@ -47,7 +56,7 @@ struct MonthBarsView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .overlay(alignment: .bottom) {
                             UnevenRoundedRectangle(topLeadingRadius: 2, topTrailingRadius: 2)
-                                .fill(BrandStyle.accent)
+                                .fill(Self.barFill)
                                 .frame(height: 64 * CGFloat(n) / CGFloat(max))
                         }
                         .accessibilityElement()

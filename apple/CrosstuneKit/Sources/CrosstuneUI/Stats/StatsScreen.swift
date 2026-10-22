@@ -12,13 +12,22 @@ public struct StatsScreen: View {
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     /// Kept across a push and back, so the history is pulled once per visit.
     @State private var model: (key: ModelKey, model: StatsModel)?
+    private let headsItself: Bool
 
-    public init() {}
+    public init() {
+        headsItself = PageStyle.pageHeadsItself
+    }
+
+    /// - Parameter headsItself: Whether the page draws its own title, which a sheet that
+    ///   titles it leaves off.
+    init(headsItself: Bool) {
+        self.headsItself = headsItself
+    }
 
     public var body: some View {
         Group {
             if let view = model?.model.view {
-                StatsContent(view: view)
+                StatsContent(view: view, headsItself: headsItself)
                     .screenView(.stats)
             } else {
                 // Loading is silence.
@@ -128,14 +137,27 @@ struct CatalogTapThrough {
 
 private struct StatsContent: View {
     let view: StatsView
+    let headsItself: Bool
 
     var body: some View {
         ScrollView {
-            StatsDocument(view: view)
+            StatsDocument(view: view, headsItself: headsItself)
                 .frame(maxWidth: PageStyle.pageMaxWidth, alignment: .leading)
-                .padding(PageStyle.pageMargin)
+                .padding(margins)
                 .frame(maxWidth: .infinity)
         }
+    }
+
+    /// A sheet's margins under a sheet's title, or the page's own.
+    private var margins: EdgeInsets {
+        #if os(macOS)
+            if !headsItself {
+                return EdgeInsets(
+                    top: 4, leading: MacStyle.sheetMargin, bottom: MacStyle.sheetMargin, trailing: MacStyle.sheetMargin)
+            }
+        #endif
+        let margin = PageStyle.pageMargin
+        return EdgeInsets(top: margin, leading: margin, bottom: margin, trailing: margin)
     }
 }
 
@@ -143,6 +165,7 @@ private struct StatsContent: View {
 /// snapshot can draw it without the scroll view.
 struct StatsDocument: View {
     let view: StatsView
+    var headsItself = PageStyle.pageHeadsItself
 
     @Environment(CatalogModel.self) private var catalog: CatalogModel?
     @Environment(\.openCatalogRoot) private var openCatalogRoot
@@ -160,9 +183,10 @@ struct StatsDocument: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: PageStyle.sectionGap) {
-            if PageStyle.pageHeadsItself {
+            if headsItself {
                 Text(StatsCopy.title)
                     .font(PageStyle.pageTitle)
+                    .tracking(PageStyle.pageTitleTracking)
                     .accessibilityAddTraits(.isHeader)
             }
             ForEach(StatsBlock.blocks(view.stats)) { block in
@@ -188,7 +212,7 @@ struct StatsDocument: View {
                             equivalenceText(equivalence, tuneTitle: equivalence.tuneID.flatMap { view.tuneTitles[$0] })
                         )
                         .font(PageStyle.secondary)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
                     }
                 }
             }
@@ -252,11 +276,11 @@ struct StatsDocument: View {
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(groupedThousands(counts.tunes))
-                    .font(.title2.weight(.semibold))
+                    .font(.platform(.title2, mac: .readout).weight(.semibold))
                     .monospacedDigit()
                 Text(StatsCopy.tunesLabel)
                     .font(PageStyle.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.inkSecondary)
             }
             .accessibilityElement(children: .combine)
             // The rows under it say each count, so the bar would say them twice.
@@ -282,7 +306,7 @@ struct StatsDocument: View {
             if counts.archived > 0 {
                 Text(StatsCopy.archivedLine(counts.archived))
                     .font(PageStyle.secondary)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.inkSecondary)
             }
         }
     }
@@ -325,7 +349,7 @@ struct StatsDocument: View {
             Text(StatsCopy.rarityLine(rarity))
                 .font(PageStyle.body)
             if let title = view.tuneTitles[rarity.tuneID] {
-                Text(title).font(.footnote).foregroundStyle(.secondary)
+                Text(title).font(.platform(.footnote)).foregroundStyle(.inkSecondary)
                     .contentMask()
             }
         }
@@ -416,8 +440,8 @@ struct KeyGridView: View {
                         .accessibilityLabel(mode)
                 }
             }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+            .font(.platform(.footnote))
+            .foregroundStyle(.inkSecondary)
             ForEach(rows, id: \.key) { row in
                 GridRow {
                     cell(

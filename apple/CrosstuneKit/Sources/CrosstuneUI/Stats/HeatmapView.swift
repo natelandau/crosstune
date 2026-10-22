@@ -54,9 +54,9 @@ struct HeatmapView: View {
             HeatmapMonthLabels(days: days).equatable()
             grid
             Text(chosen.flatMap { days.indices.contains($0) ? days[$0] : nil }.map(detail) ?? StatsCopy.activityHint)
-                .font(.footnote)
+                .font(.platform(.footnote))
                 .monospacedDigit()
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
                 .padding(.top, spacing(4))
                 .accessibilityHidden(true)
         }
@@ -159,7 +159,7 @@ private struct HeatmapMonthLabels: View, Equatable {
                     .frame(maxWidth: .infinity, minHeight: 0)
                     .overlay(alignment: .leading) {
                         if let label {
-                            Text(label).font(.caption2).foregroundStyle(.secondary).fixedSize()
+                            Text(label).font(.platform(.caption2)).foregroundStyle(.inkSecondary).fixedSize()
                         }
                     }
             }

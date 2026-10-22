@@ -29,21 +29,26 @@ public struct SignInView: View {
     let notice: String?
     let isDismissible: Bool
     let mode: AuthMode
+    let palette: AuthPalette?
 
     /// A dismissible view shows Clerk's close button and closes itself once someone signs in,
-    /// for a sheet; a view that fills the window has no way out but signing in.
-    public init(notice: String? = nil, isDismissible: Bool = false, mode: AuthMode = .signIn) {
+    /// for a sheet; a view that fills the window has no way out but signing in. Without a
+    /// `palette`, Clerk draws its own theme.
+    public init(
+        notice: String? = nil, isDismissible: Bool = false, mode: AuthMode = .signIn, palette: AuthPalette? = nil
+    ) {
         self.notice = notice
         self.isDismissible = isDismissible
         self.mode = mode
+        self.palette = palette
     }
 
     public var body: some View {
         VStack(spacing: 0) {
             if let notice {
                 Text(notice)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(palette?.noticeFont ?? .footnote)
+                    .foregroundStyle(palette.map { AnyShapeStyle($0.inkSecondary) } ?? AnyShapeStyle(.secondary))
                     .multilineTextAlignment(.center)
                     .padding()
                     // A sighted reader sees this on screen at once; VoiceOver needs the same
@@ -51,7 +56,14 @@ public struct SignInView: View {
                     .onAppear { AccessibilityNotification.Announcement(notice).post() }
             }
             AuthView(mode: mode.clerkMode, isDismissible: isDismissible)
+                #if os(macOS)
+                    // The default style draws AppKit's white bezel inside Clerk's own field.
+                    .textFieldStyle(.plain)
+                #endif
                 .environment(Clerk.shared)
+                .transformEnvironment(\.clerkTheme) { theme in
+                    if let palette { theme = .crosstune(palette) }
+                }
         }
     }
 }

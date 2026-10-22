@@ -44,7 +44,7 @@ struct PeriodTiles: View {
                 }
                 Text(option.price)
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(MacPalette.inkSecondary)
             }
         }
     #else
@@ -125,7 +125,7 @@ private struct SaveBadge: View {
 
     var body: some View {
         Text(text)
-            .font(.caption2.weight(.bold))
+            .font(.platform(.caption2).weight(.bold))
             .monospacedDigit()
             .foregroundStyle(BrandStyle.onCoral)
             .padding(.horizontal, 7)
