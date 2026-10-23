@@ -15,6 +15,9 @@ describe('routePattern', () => {
     expect(routePattern('/lists/a/tunes/b')).toBe('/lists/:id/tunes/:id')
     expect(routePattern('/settings/appearance')).toBe('/settings/appearance')
     expect(routePattern('/settings/saved-locations/p1')).toBe('/settings/saved-locations/:id')
+    expect(routePattern('/settings/recordings/locations/p1')).toBe(
+      '/settings/recordings/locations/:id',
+    )
     expect(routePattern('/settings/stats/tunes/x')).toBe('/settings/stats/tunes/:id')
     expect(routePattern('/some typed words')).toBe('/:id')
     expect(routePattern('/')).toBe('/')

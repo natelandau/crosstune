@@ -1,4 +1,8 @@
-import { SETTINGS_PAGE_IDS } from '../features/settings/settingsPaths'
+import {
+  LEGACY_SETTINGS_PAGES,
+  SAVED_LOCATIONS_SEGMENT,
+  SETTINGS_PAGE_IDS,
+} from '../features/settings/settingsPaths'
 
 const KEPT_SEGMENTS = new Set<string>([
   'catalog',
@@ -9,6 +13,8 @@ const KEPT_SEGMENTS = new Set<string>([
   'stats',
   'kit',
   ...SETTINGS_PAGE_IDS,
+  ...Object.keys(LEGACY_SETTINGS_PAGES),
+  SAVED_LOCATIONS_SEGMENT,
 ])
 
 const URL_KEYS = ['$current_url', '$initial_current_url', '$session_entry_url']

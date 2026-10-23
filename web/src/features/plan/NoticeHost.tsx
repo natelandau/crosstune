@@ -12,7 +12,7 @@ import { useOverlayOpen } from '../../ui/overlayClaim'
 import { Sheet, type SheetAction, type SheetPrimary } from '../../ui/Sheet'
 import { useLatest } from '../../ui/useLatest'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
-import { settingsPagePath } from '../settings/settingsPaths'
+import { SETTINGS_GROUPS, settingsGroupPath } from '../settings/settingsPaths'
 import {
   daysLeft,
   FIRST_RECORDING_TITLE,
@@ -149,7 +149,7 @@ export function NoticeHost({ navigate }: { navigate: (to: string) => void }) {
       label: SEE_PLAN,
       onPress: () => {
         dismiss()
-        navigate(settingsPagePath('account'))
+        navigate(settingsGroupPath('account', SETTINGS_GROUPS.plan))
       },
     }
   } else if (offer.kind === 'compare') {

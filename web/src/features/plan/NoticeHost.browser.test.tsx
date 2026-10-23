@@ -29,7 +29,7 @@ import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { noopAnalytics } from '../../usage/client'
 import { recordingAnalytics } from '../../usage/testing'
 import { NEW_RECORDING, STOP } from '../capture/recordCopy'
-import { settingsPagePath } from '../settings/settingsPaths'
+import { SETTINGS_GROUPS, settingsGroupPath } from '../settings/settingsPaths'
 import { NoticeHost } from './NoticeHost'
 import {
   daysLeft,
@@ -528,7 +528,7 @@ it('keeps OK and See your plan on the first-recording notice even with a store',
 
   await notice.getByRole('button', { name: SEE_PLAN }).click()
   await expect.element(notice).not.toBeInTheDocument()
-  expect(navigate).toHaveBeenCalledWith(settingsPagePath('account'))
+  expect(navigate).toHaveBeenCalledWith(settingsGroupPath('account', SETTINGS_GROUPS.plan))
 })
 
 it('takes Escape as a dismissal', async () => {

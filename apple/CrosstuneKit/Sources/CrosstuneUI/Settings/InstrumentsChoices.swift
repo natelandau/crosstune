@@ -1,38 +1,11 @@
 import CrosstuneVocabulary
 import SwiftUI
 
-/// The instruments a musician plays, one toggle each, answered once and kept out of the
-/// settings form so seven rows do not take half of it. Each toggle saves as it changes.
-struct InstrumentsSheet: View {
-    static let done = "Done"
-
-    let model: SettingsModel
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                InstrumentsChoices(model: model)
-            }
-            .formStyle(.grouped)
-            .navigationTitle(SettingsModel.instruments)
-            #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(Self.done) { dismiss() }
-                }
-            }
-        }
-        .partHeightSheet()
-    }
-}
-
-/// The instrument toggles and their help, as the sheet and the iPhone page both show them.
+/// The instrument toggles and their help, as the iPhone and iPad Tunes page shows them.
 struct InstrumentsChoices: View {
     let model: SettingsModel
+    /// The group's name, for a page that holds other groups beside it.
+    var title: String?
 
     /// One instrument's toggle, wherever it shows, so each reports the same event.
     static func binding(_ instrument: String, model: SettingsModel) -> Binding<Bool> {
@@ -49,7 +22,7 @@ struct InstrumentsChoices: View {
                 Toggle(Self.label(instrument), isOn: Self.binding(instrument, model: model))
             }
         } header: {
-            SettingsHelp(SettingsModel.instrumentsHelp)
+            SettingsHelp(SettingsModel.instrumentsHelp, title: title)
         } footer: {
             SettingsFailure(model.instrumentsFailure)
         }
@@ -81,12 +54,12 @@ struct SettingsHelp: View {
                 #if os(macOS)
                     Text(help)
                         .font(MacStyle.secondary)
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                 #else
                     Text(help)
                         .font(.platform(.footnote))
                         .fontWeight(.regular)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
                         .textCase(nil)
                 #endif
             }

@@ -4,6 +4,12 @@ import { ListsLayout } from '../features/lists/ListsLayout'
 import { RecordingsLayout } from '../features/recordings/RecordingsLayout'
 import { SettingsLayout } from '../features/settings/SettingsLayout'
 import { isSettingsPage } from '../features/settings/settingsPages'
+import {
+  legacySettingsGroup,
+  savedLocationPath,
+  SAVED_LOCATIONS_SEGMENT,
+  settingsGroupPath,
+} from '../features/settings/settingsPaths'
 import { StatsPage } from '../features/stats/StatsPage'
 import { CatalogTune, ListTune, RecordingsTune, StatsTune } from '../features/tune/tuneRoutes'
 import { CatalogLayout } from './CatalogLayout'
@@ -18,8 +24,14 @@ const tuneHome: RouteObject['loader'] = ({ params }) => replace(tuneHomePath(par
 
 const SETTINGS = destination('settings')
 
-const knownSettingsPage: RouteObject['loader'] = ({ params }) =>
-  isSettingsPage(params.page) ? null : replace(SETTINGS.root)
+const knownSettingsPage: RouteObject['loader'] = ({ params }) => {
+  if (isSettingsPage(params.page)) return null
+  const moved = legacySettingsGroup(params.page)
+  return replace(moved ? settingsGroupPath(moved.page, moved.group) : SETTINGS.root)
+}
+
+const legacySavedLocation: RouteObject['loader'] = ({ params }) =>
+  replace(savedLocationPath(params.placeId ?? ''))
 
 // A literal flag, so a production build drops the kit's import and never emits its chunk.
 const KIT: RouteObject[] = import.meta.env.DEV
@@ -70,7 +82,8 @@ export function appRoutes(dev: boolean): RouteObject[] {
             { index: true, element: null },
             { path: 'stats', element: <StatsPage /> },
             { path: 'stats/tunes/:tuneId', element: <StatsTune /> },
-            { path: 'saved-locations/:placeId', element: null },
+            { path: `recordings/${SAVED_LOCATIONS_SEGMENT}/:placeId`, element: null },
+            { path: 'saved-locations/:placeId', loader: legacySavedLocation },
             { path: ':page', loader: knownSettingsPage, element: null },
           ],
         },

@@ -18,6 +18,8 @@ import {
 } from '../plan/planCopy'
 import { usePremiumSheet } from '../plan/PremiumSheetProvider'
 import { StorageSummary } from '../recordings/StorageSummary'
+import { SETTINGS_GROUPS } from './settingsPaths'
+import { PendingGroup } from './PendingGroup'
 
 /** The plan's name and its end, as the Plan row shows them. */
 function planLine(plan: Plan, now: Date): { name: string; detail?: string } {
@@ -42,11 +44,15 @@ export function PlanGroup() {
   const now = useNow()
   const premium = usePremiumSheet()
   const hintId = useId()
-  if (plan.kind === 'unknown') return null
+  if (plan.kind === 'unknown') return <PendingGroup />
   const { name, detail } = planLine(plan, new Date(now))
   return (
     <>
-      <Group header={PLAN_GROUP} help={plan.kind === 'free' ? FREE_HELP : undefined}>
+      <Group
+        id={SETTINGS_GROUPS.plan}
+        header={PLAN_GROUP}
+        help={plan.kind === 'free' ? FREE_HELP : undefined}
+      >
         <AriaButton
           aria-describedby={hintId}
           onPress={() => premium.open('plan', 'plan_group')}

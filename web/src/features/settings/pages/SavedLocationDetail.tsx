@@ -13,6 +13,7 @@ import { LocationMap } from '../../../ui/LocationMap'
 import { useLatest } from '../../../ui/useLatest'
 import { SAVED_LOCATIONS } from '../../recordings/recordingsCopy'
 import {
+  RECORDINGS_SETTINGS,
   DELETE_LOCATION,
   DELETE_LOCATION_MESSAGE,
   deleteLocationTitle,
@@ -25,7 +26,7 @@ import {
 import { settingsPagePath } from '../settingsPaths'
 import { useSavedLocations } from '../useSavedLocations'
 
-const LIST = settingsPagePath('saved-locations')
+const LIST = settingsPagePath('recordings')
 
 /**
  * One saved location, titled with its name: its map, a Name field that renames at once, its
@@ -83,7 +84,7 @@ export function SavedLocationDetail({ placeId }: { placeId: string }) {
   const title = stored ?? SAVED_LOCATIONS
   return (
     <>
-      <PaneBar title={title} leading={<BackLink to={LIST} label={SAVED_LOCATIONS} onWide />} />
+      <PaneBar title={title} leading={<BackLink to={LIST} label={RECORDINGS_SETTINGS} onWide />} />
       <div className="max-w-page mx-auto w-full">
         <ColumnTitle title={title} syncBadge={false} />
         <div className="px-4 pb-12">

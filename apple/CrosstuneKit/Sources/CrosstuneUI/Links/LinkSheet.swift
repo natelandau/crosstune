@@ -86,7 +86,7 @@ private struct LinkForm: View {
         }
     #else
         var body: some View {
-            Form {
+            PaperForm {
                 Section {
                     field
                 } header: {
@@ -95,13 +95,12 @@ private struct LinkForm: View {
                     message
                 }
             }
-            .formStyle(.grouped)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(TuneFormSheet.cancel) { dismiss() }
                         .disabled(model.isSaving)
                 }
-                ToolbarItem(placement: .confirmationAction) {
+                ConfirmToolbarItem {
                     Button(LinkSheet.add, action: save)
                         .fontWeight(.semibold)
                         .disabled(model.isSaving || model.isSaved)
@@ -138,7 +137,7 @@ private struct LinkForm: View {
                 .lineLimit(2)
                 #if os(macOS)
                     .font(MacStyle.secondary)
-                    .foregroundStyle(MacPalette.inkSecondary)
+                    .foregroundStyle(Palette.inkSecondary)
                 #endif
         }
     }

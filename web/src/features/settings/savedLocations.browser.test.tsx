@@ -22,8 +22,8 @@ import {
   deleteLocationTitle,
   LOCATION_GONE,
   SAVED_LOCATION_NAME_LABEL,
+  RECORDINGS_SETTINGS,
   SAVED_LOCATIONS_EMPTY_HINT,
-  SAVED_LOCATIONS_EMPTY_TITLE,
   savedLocationRecordings,
 } from './settingsCopy'
 import { savedLocationPath, settingsPagePath } from './settingsPaths'
@@ -33,7 +33,7 @@ vi.mock('@clerk/react', () => import('../../fixture/clerkStub'))
 
 const PHONE = { width: 390, height: 844 }
 const WIDE = { width: 1280, height: 800 }
-const LIST = settingsPagePath('saved-locations')
+const LIST = settingsPagePath('recordings')
 
 let db: CrosstuneDb
 
@@ -87,7 +87,9 @@ const at = (router: { state: { location: { pathname: string } } }) => () =>
   router.state.location.pathname
 const link = (name: RegExp | string) => page.getByRole('link', { name })
 const nameField = () => page.getByRole('textbox', { name: SAVED_LOCATION_NAME_LABEL })
-const back = () => page.getByRole('main').getByRole('link', { name: SAVED_LOCATIONS })
+const back = () =>
+  page.getByRole('main').getByRole('link', { name: RECORDINGS_SETTINGS, exact: true })
+const savedGroup = () => page.getByRole('main').getByRole('region', { name: SAVED_LOCATIONS })
 const stored = async (id: string) => (await db.places.get(id))?.name
 const sentNames = (analytics: ReturnType<typeof recordingAnalytics>) => () =>
   analytics.sends().map((event) => event.name)
@@ -101,10 +103,9 @@ function countPlaceUpdates(): () => number {
   return () => count
 }
 
-it('names what is absent and how a location gets saved when there are none', async () => {
+it('says how a location gets saved when there are none', async () => {
   await setup(LIST)
-  await expect.element(page.getByText(SAVED_LOCATIONS_EMPTY_TITLE)).toBeVisible()
-  await expect.element(page.getByText(SAVED_LOCATIONS_EMPTY_HINT)).toBeVisible()
+  await expect.element(savedGroup().getByText(SAVED_LOCATIONS_EMPTY_HINT)).toBeVisible()
   expect(SAVED_LOCATIONS_EMPTY_HINT).toContain(NAME_LOCATION_TITLE)
 })
 
@@ -118,9 +119,8 @@ it('lists the locations by name with address and how many live recordings use ea
       recordingRow('r4', { place_id: 'p2' }),
     ],
   })
-  const main = page.getByRole('main', { name: SAVED_LOCATIONS })
   const names = () =>
-    main
+    savedGroup()
       .getByRole('link')
       .elements()
       .map((row) => row.querySelector('span:not([aria-hidden]) > span')?.textContent)
@@ -157,6 +157,25 @@ it('shows a map thumbnail when the server makes one', async () => {
   await expect.poll(() => image()?.getAttribute('src')).toBe('https://maps.test/a.png')
   expect(image()).toHaveClass('ph-no-capture')
   expect(queries[0]).toMatchObject({ lat: TOWN_HALL.lat, lon: TOWN_HALL.lon, accuracy_m: null })
+})
+
+it('a saved location opens under Recordings and Back returns there', async () => {
+  const { router } = await setup(LIST, { places: [TOWN_HALL], frame: PHONE })
+  await link(/^Town Hall/).click()
+  await expect.poll(at(router)).toBe('/settings/recordings/locations/p1')
+  await expect.element(nameField()).toHaveValue('Town Hall')
+  await back().click()
+  await expect.poll(at(router)).toBe(settingsPagePath('recordings'))
+  await expect
+    .element(page.getByRole('heading', { level: 1, name: RECORDINGS_SETTINGS }))
+    .toBeVisible()
+})
+
+it('sends an old saved location address to its place under Recordings', async () => {
+  const { router } = await setup('/settings/saved-locations/p1', { places: [TOWN_HALL] })
+  await expect.poll(at(router)).toBe(savedLocationPath('p1'))
+  expect(router.state.historyAction).toBe('REPLACE')
+  await expect.element(nameField()).toHaveValue('Town Hall')
 })
 
 it('opens a location at its own address, titled with its name, and browser Back returns', async () => {
@@ -216,7 +235,7 @@ it('returns to the list when its page is chosen again from a location on wide', 
   await expect.element(nameField()).toBeVisible()
   const category = page
     .getByRole('grid')
-    .getByRole('row', { name: new RegExp(`^${SAVED_LOCATIONS}`) })
+    .getByRole('row', { name: new RegExp(`^${RECORDINGS_SETTINGS}`) })
   // Still shown as the open category while one of its locations is open.
   await expect.element(category).toHaveAttribute('aria-current', 'page')
   const wash = () => getComputedStyle(category.element()).backgroundColor

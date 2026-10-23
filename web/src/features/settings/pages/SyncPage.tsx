@@ -1,22 +1,12 @@
 import { CircleAlert, CircleCheck, CloudOff, RefreshCw, type LucideIcon } from 'lucide-react'
 import type { SyncStatus } from '../../../sync/types'
 import { lastSyncedLine } from '../lastSynced'
-import { KEEP_OFFLINE_LABEL } from '../recordingCopy'
-import {
-  KEEP_OFFLINE_HELP,
-  REMOVE_DOWNLOADS,
-  REMOVE_DOWNLOADS_HELP,
-  SYNC,
-  SYNC_NOW,
-  TRANSFERS_LABEL,
-} from '../settingsCopy'
-import { useRecordingSettings } from '../useRecordingSettings'
+import { SYNC, SYNC_NOW, TRANSFERS_LABEL } from '../settingsCopy'
 import { useSyncSettings } from '../useSyncSettings'
 import { StorageSummary } from '../../recordings/StorageSummary'
 import { FieldRow } from '../../../ui/form/FieldRow'
 import { Group } from '../../../ui/form/Group'
 import { StatusRow } from '../../../ui/form/StatusRow'
-import { Switch } from '../../../ui/form/Switch'
 import { useNow } from '../../../ui/useNow'
 
 const STATUS_ICONS: Record<SyncStatus, LucideIcon> = {
@@ -29,11 +19,10 @@ const STATUS_ICONS: Record<SyncStatus, LucideIcon> = {
 
 /**
  * The full sync state, including the clean and running states the sync badge leaves out, then
- * the account's storage and the audio this device keeps.
+ * the account's storage.
  */
 export function SyncPage() {
   const sync = useSyncSettings()
-  const audio = useRecordingSettings()
   const now = useNow()
   const syncing = sync.pending || sync.status === 'syncing'
   return (
@@ -63,24 +52,6 @@ export function SyncPage() {
         <FieldRow label={TRANSFERS_LABEL} value={sync.transferLabel} />
       </Group>
       <StorageSummary />
-      <Group help={KEEP_OFFLINE_HELP} error={audio.keepError ?? undefined}>
-        <Switch
-          label={KEEP_OFFLINE_LABEL}
-          isSelected={audio.keepOffline}
-          onChange={audio.setKeepOffline}
-        />
-      </Group>
-      <Group help={REMOVE_DOWNLOADS_HELP} error={audio.removeError ?? undefined}>
-        <StatusRow
-          title={audio.localBytesLabel}
-          numeric
-          action={{
-            label: REMOVE_DOWNLOADS,
-            isDisabled: audio.keepOffline || audio.removePending,
-            onPress: audio.removeDownloads,
-          }}
-        />
-      </Group>
     </>
   )
 }

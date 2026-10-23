@@ -3,7 +3,7 @@ import { page } from 'vitest/browser'
 import type { ResolveResponse, SearchGroup, SearchResult } from '../../api/types'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
-import { settingsPagePath } from '../settings/settingsPaths'
+import { SETTINGS_GROUPS, settingsGroupPath } from '../settings/settingsPaths'
 import { toggleSearchProvider } from '../../commands/settings'
 import type { CrosstuneDb } from '../../db/schema'
 import { FIND_RECORDINGS, linkedResult, linkResult, searchService } from './findRecordingsCopy'
@@ -110,7 +110,9 @@ it('takes a musician with no music services to their settings', async () => {
   const { router } = await renderApp({ path: '/catalog/t1', db })
   await openAdd(FIND_RECORDINGS)
   await page.getByRole('button', { name: MUSIC_SERVICES }).click()
-  await expect.poll(() => router.state.location.pathname).toBe(settingsPagePath('music-services'))
+  await expect
+    .poll(() => `${router.state.location.pathname}${router.state.location.hash}`)
+    .toBe(settingsGroupPath('tunes', SETTINGS_GROUPS.musicServices))
 })
 
 it('reports find_recordings once when the sheet opens', async () => {

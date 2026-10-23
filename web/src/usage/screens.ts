@@ -14,7 +14,7 @@ const SCREEN_PATTERNS: [pattern: string, screen: Screen][] = [
   ['/settings', 'settings'],
   ['/settings/stats', 'stats'],
   ['/settings/stats/tunes/:tuneId', 'tune'],
-  ['/settings/saved-locations/:placeId', 'settings'],
+  ['/settings/recordings/locations/:placeId', 'settings'],
   ['/settings/:page', 'settings'],
 ]
 

@@ -6,7 +6,6 @@ import type { CrosstuneDb } from '../../db/schema'
 import { SEARCHABLE_PROVIDERS } from '../../db/types'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
-import { servicesSummary } from './searchProviders'
 import { useMusicServicesSetting } from './useMusicServicesSetting'
 
 let db: CrosstuneDb
@@ -34,14 +33,12 @@ describe('useMusicServicesSetting', () => {
     expect(result.current.playFirstError).toBeNull()
   })
 
-  it('writes a toggled service and counts it in the summary', async () => {
+  it('writes a toggled service', async () => {
     const { result } = setup()
     await expect.poll(() => result.current.providers).toBeDefined()
-    const all = SEARCHABLE_PROVIDERS.length
-    expect(result.current.summary).toBe(servicesSummary(all))
+    expect(result.current.providers?.has(SEARCHABLE_PROVIDERS[0]!)).toBe(true)
     act(() => result.current.toggle(SEARCHABLE_PROVIDERS[0]!, false))
-    await expect.poll(() => result.current.summary).toBe(servicesSummary(all - 1))
-    expect(result.current.providers?.has(SEARCHABLE_PROVIDERS[0]!)).toBe(false)
+    await expect.poll(() => result.current.providers?.has(SEARCHABLE_PROVIDERS[0]!)).toBe(false)
   })
 
   it('reports the full list of services after a toggle', async () => {

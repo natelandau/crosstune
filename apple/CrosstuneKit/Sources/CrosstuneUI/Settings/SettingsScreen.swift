@@ -19,8 +19,6 @@ public struct SettingsScreen: View {
         let rawValue: Int
 
         static let stats = Sections(rawValue: 1 << 0)
-        static let instruments = Sections(rawValue: 1 << 1)
-        static let musicServices = Sections(rawValue: 1 << 2)
         static let appleMusic = Sections(rawValue: 1 << 3)
         static let appearance = Sections(rawValue: 1 << 4)
         static let recording = Sections(rawValue: 1 << 5)
@@ -32,26 +30,21 @@ public struct SettingsScreen: View {
         static let newTunes = Sections(rawValue: 1 << 11)
         static let importExport = Sections(rawValue: 1 << 12)
         static let plan = Sections(rawValue: 1 << 13)
-        /// The instruments as a toggle each, in place of a row opening a sheet of them.
+        /// The instruments as a toggle each.
         static let instrumentToggles = Sections(rawValue: 1 << 14)
-        /// The music services as a toggle each, then Play first, in place of a row opening a
-        /// sheet of them.
+        /// The music services as a toggle each, then Play first.
         static let serviceToggles = Sections(rawValue: 1 << 15)
-        /// The saved locations as a card of rows, in place of the page iPhone and iPad push.
+        /// The saved locations as a group of rows, each opening its location.
         static let savedLocations = Sections(rawValue: 1 << 16)
 
         static let all: Sections = [
-            .stats, .instruments, .newTunes, .musicServices, .appleMusic, .appearance, .recording, .downloads, .sync,
-            .storage, .importExport, .plan, .account, .about,
+            .stats, .instrumentToggles, .newTunes, .serviceToggles, .appleMusic, .appearance, .recording,
+            .savedLocations, .downloads, .sync, .storage, .importExport, .plan, .account, .about,
         ]
-        /// Every group the Mac Settings window shows: the sets answered once as toggles in the
-        /// window, since nothing there opens a sheet for a setting.
-        static let macAll: Sections = all.subtracting([.instruments, .musicServices])
-            .union([.instrumentToggles, .serviceToggles, .savedLocations])
     }
 
+    nonisolated static let downloads = "Downloads"
     #if os(macOS)
-        nonisolated static let downloads = "Downloads"
         /// The downloaded audio row's button, beside the row that names the audio.
         nonisolated static let removeMac = "Remove"
     #endif
@@ -75,13 +68,16 @@ public struct SettingsScreen: View {
     @State private var model: SettingsModel?
     /// Reads no history, so opening Settings never starts the events pull.
     @State private var summary: LiveQuery<StatsSummary?>?
-    @State private var showsInstruments = false
-    /// The sheet's toggles report a refusal while it is up; the row takes it once it is gone.
-    @State private var instrumentsShowing = false
-    @State private var showsMusicServices = false
-    /// The sheet's toggles report a refusal while it is up; the row takes it once it is gone.
-    @State private var musicServicesShowing = false
     @State private var showsStats = false
+    #if os(macOS)
+        /// The music services sheet, which only a sample launch opens over the Tunes tab.
+        @State private var showsMusicServices = false
+        /// The sheet's toggles report a refusal while it is up; the tab takes it once it is gone.
+        @State private var musicServicesShowing = false
+    #else
+        /// The saved locations, read only while the form shows their group.
+        @State private var savedLocations: SavedLocationsModel?
+    #endif
 
     /// - Parameters:
     ///   - version: The app's marketing version, which the About row names.
@@ -115,33 +111,35 @@ public struct SettingsScreen: View {
 
     public var body: some View {
         form
-            #if !os(macOS)
-                .sheet(isPresented: $showsInstruments, onDismiss: { instrumentsShowing = false }) {
-                    if let model { InstrumentsSheet(model: model) }
-                }
-            #endif
-            .sheet(isPresented: $showsMusicServices, onDismiss: { musicServicesShowing = false }) {
-                if let model { MusicServicesSheet(model: model) }
-            }
             #if os(macOS)
+                .sheet(isPresented: $showsMusicServices, onDismiss: { musicServicesShowing = false }) {
+                    if let model { MusicServicesSheet(model: model) }
+                }
                 .sheet(isPresented: $showsStats) {
                     StatsSheet()
                 }
             #endif
-            #if DEBUG
-                .opensForSample(
-                    .musicServices,
-                    when: !sections.isDisjoint(with: [.musicServices, .serviceToggles]) && model?.isLoaded == true
-                ) {
+            #if DEBUG && os(macOS)
+                .opensForSample(.musicServices, when: sections.contains(.serviceToggles) && model?.isLoaded == true) {
                     showsMusicServices = true
                 }
                 .opensForSample(.stats, when: sections.contains(.stats) && opensStatsInSheet) { showsStats = true }
             #endif
             .modifier(StatsDestination(isPushed: !opensStatsInSheet && registersStats))
+            #if !os(macOS)
+                .navigationDestination(for: SavedLocationRoute.self) { route in
+                    if let savedLocations { SavedLocationDetail(model: savedLocations, placeID: route.id) }
+                }
+            #endif
             .navigationTitle(title)
             .task(id: ModelKey(store: store, engine: engine)) {
                 model = store.map { SettingsModel(store: $0, engine: engine, analytics: analytics) }
                 summary = sections.contains(.stats) ? store.map(StatsSummary.live) : nil
+                #if !os(macOS)
+                    savedLocations =
+                        sections.contains(.savedLocations)
+                        ? store.map { SavedLocationsModel(store: $0, analytics: analytics) } : nil
+                #endif
             }
     }
 
@@ -179,18 +177,20 @@ public struct SettingsScreen: View {
                 .padding(MacStyle.sheetMargin)
             }
             .scrollBounceBehavior(.basedOnSize)
-            .background(MacPalette.ground)
+            .background(Palette.ground)
         }
     #else
         private var form: some View {
-            Form {
+            PaperForm {
                 if sections.contains(.stats) && !opensStatsInSheet {
                     statsSection
                 }
                 if let model, model.isLoaded {
-                    if sections.contains(.instruments) { instrumentsSection(model) }
+                    if sections.contains(.instrumentToggles) {
+                        InstrumentsChoices(model: model, title: SettingsModel.instruments)
+                    }
                     if sections.contains(.newTunes) { newTunesSections(model) }
-                    if sections.contains(.musicServices) { musicServicesSection(model) }
+                    if sections.contains(.serviceToggles) { serviceToggleSections(model) }
                 }
                 if sections.contains(.appleMusic), let access = player?.appleMusic?.access {
                     AppleMusicSection(access: access)
@@ -198,8 +198,13 @@ public struct SettingsScreen: View {
                 if sections.contains(.appearance) {
                     appearanceSection
                 }
+                if let model, model.isLoaded, sections.contains(.recording) {
+                    recordingSections(model)
+                }
+                if sections.contains(.savedLocations) {
+                    SavedLocationsSection(model: savedLocations)
+                }
                 if let model, model.isLoaded {
-                    if sections.contains(.recording) { recordingSections(model) }
                     if sections.contains(.downloads) { downloadsSections(model) }
                     if sections.contains(.sync) { syncSection(model) }
                     if sections.contains(.storage) { storageSection(model) }
@@ -233,7 +238,6 @@ public struct SettingsScreen: View {
                     }
                 }
             }
-            .formStyle(.grouped)
         }
 
         private var appearanceSection: some View {
@@ -282,17 +286,6 @@ public struct SettingsScreen: View {
             }
         }
 
-        private func instrumentsSection(_ model: SettingsModel) -> some View {
-            sheetRowSection(
-                SettingsModel.instruments, value: model.instrumentSummary, help: SettingsModel.instrumentsHelp,
-                failure: instrumentsShowing ? nil : model.instrumentsFailure
-            ) {
-                model.clearInstrumentsFailure()
-                instrumentsShowing = true
-                showsInstruments = true
-            }
-        }
-
         /// The status and genre every new tune starts with, each a picker row.
         private func newTunesSections(_ model: SettingsModel) -> some View {
             Section {
@@ -306,39 +299,21 @@ public struct SettingsScreen: View {
                     value: Binding(get: { model.newTuneGenre }, set: { model.setNewTuneGenre($0) }),
                     suggestions: Vocabulary.genres, maxLength: Vocabulary.Limits.Tune.genre)
             } header: {
-                SettingsHelp(SettingsModel.newTunesHelp)
+                SettingsHelp(SettingsModel.newTunesHelp, title: SettingsModel.newTunes)
             } footer: {
                 SettingsFailure(model.newTuneStatusFailure ?? model.newTuneGenreFailure)
             }
         }
 
-        /// The services searched, and which version a list plays first, under one help as the web
-        /// groups them.
-        private func musicServicesSection(_ model: SettingsModel) -> some View {
+        /// The services searched as a toggle each, then which version a list plays first.
+        @ViewBuilder private func serviceToggleSections(_ model: SettingsModel) -> some View {
+            MusicServicesChoices(model: model, title: SettingsModel.musicServices)
             Section {
-                SettingsFieldRow(title: SettingsModel.musicServices, value: model.searchProvidersSummary) {
-                    model.clearSearchProvidersFailure()
-                    musicServicesShowing = true
-                    showsMusicServices = true
-                }
                 PlayFirstPicker(model: model)
             } header: {
-                SettingsHelp("\(SettingsModel.musicServicesHelp) \(PlayFirstText.help)")
+                SettingsHelp(PlayFirstText.help)
             } footer: {
-                SettingsFailure((musicServicesShowing ? nil : model.searchProvidersFailure) ?? model.playFirstFailure)
-            }
-        }
-
-        /// A field row that opens a sheet holding the choices, with the setting's help above.
-        private func sheetRowSection(
-            _ title: String, value: String, help: String, failure: String?, open: @escaping () -> Void
-        ) -> some View {
-            Section {
-                SettingsFieldRow(title: title, value: value, action: open)
-            } header: {
-                SettingsHelp(help)
-            } footer: {
-                SettingsFailure(failure)
+                SettingsFailure(model.playFirstFailure)
             }
         }
 
@@ -371,7 +346,7 @@ public struct SettingsScreen: View {
                     SettingsModel.keepOffline,
                     isOn: Binding(get: { model.keepsOffline }, set: { model.setKeepsOffline($0) }))
             } header: {
-                SettingsHelp(SettingsModel.keepOfflineHelp)
+                SettingsHelp(SettingsModel.keepOfflineHelp, title: Self.downloads)
             } footer: {
                 SettingsFailure(model.keepOfflineFailure)
             }
@@ -415,7 +390,7 @@ public struct SettingsScreen: View {
                 if let rejected = model.rejectedMessage {
                     Text(rejected)
                         .font(.platform(.footnote))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
                 }
                 if engine != nil {
                     Button(SettingsModel.syncNow) {

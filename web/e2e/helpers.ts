@@ -10,10 +10,10 @@ import { EDIT, RECORDING_NAME_LABEL } from '../src/features/recordings/recording
 import { EDIT_RECORDING_TITLE, UNFILED_HEADER } from '../src/features/recordings/recordingsCopy'
 import {
   ACCOUNT,
-  INSTRUMENTS,
   SYNC_AND_STORAGE,
   SYNC_NOW,
   SETTINGS_CATEGORIES,
+  TUNES,
 } from '../src/features/settings/settingsCopy'
 import {
   ADD_NEW_TUNE,
@@ -98,7 +98,32 @@ export async function createThrowawayUser(): Promise<{ id: string; emailAddress:
     )
   }
   const user = (await response.json()) as { id: string }
+  await waitForClerkLookup(user.id, emailAddress)
   return { id: user.id, emailAddress }
+}
+
+/**
+ * Waits until Clerk finds a new user by email. Clerk answers the create before its lookup by
+ * email, which sign-in uses, can see the user, so signing in at once can find no one.
+ */
+async function waitForClerkLookup(id: string, emailAddress: string): Promise<void> {
+  const url = `${CLERK_USERS_URL}?email_address=${encodeURIComponent(emailAddress)}`
+  await expect
+    .poll(
+      async () => {
+        const response = await fetch(url, {
+          headers: { Authorization: `Bearer ${clerkSecretKey()}` },
+        })
+        if (!response.ok) return `Clerk answered ${response.status}`
+        const users = (await response.json()) as { id: string }[]
+        return users.some((user) => user.id === id)
+      },
+      {
+        message: `Clerk never found the throwaway user ${emailAddress} by email`,
+        timeout: 15_000,
+      },
+    )
+    .toBe(true)
 }
 
 /** Clean up a throwaway user regardless of how the test that created it fared. */
@@ -161,7 +186,7 @@ export async function openTab(
   }
 }
 
-/** Open one of the Settings categories, such as Instruments, from the Settings root. */
+/** Open one of the Settings categories, such as Tunes, from the Settings root. */
 export async function openSetting(page: Page, name: string): Promise<void> {
   await openTab(page, 'settings')
   // A category's row is named for it, then for a summary of what it holds.
@@ -196,10 +221,10 @@ export async function setSwitch(page: Page, toggle: Locator, on: boolean): Promi
 /**
  * Mark an instrument as played through Settings, so the tuning field and filter for it appear.
  * A fresh database has no settings row, so nothing is played until a test says so. The page is
- * left on the Instruments page.
+ * left on the Tunes page.
  */
 export async function playInstrument(page: Page, name: string): Promise<void> {
-  await openSetting(page, INSTRUMENTS)
+  await openSetting(page, TUNES)
   await setSwitch(page, page.getByRole('switch', { name, exact: true }), true)
 }
 

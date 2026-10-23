@@ -4,16 +4,24 @@ import { Group } from '../../../ui/form/Group'
 import { Picker } from '../../../ui/form/Picker'
 import { SuggestField } from '../../../ui/form/SuggestField'
 import { NEW_TUNE_GENRE_LABEL, NEW_TUNE_STATUS_LABEL, NEW_TUNES_HELP } from '../newTunes'
+import { NEW_TUNES } from '../settingsCopy'
 import { useNewTuneSettings } from '../useNewTuneSettings'
+import { SETTINGS_GROUPS } from '../settingsPaths'
+import { PendingGroup } from '../PendingGroup'
 
 const STATUS_OPTIONS = STATUSES.map((id) => ({ id, label: STATUS_LABELS[id] }))
 
 /** The status and genre every new tune starts with. */
-export function NewTunesPage() {
+export function NewTunesGroup() {
   const { defaults, setGenre, setStatus, genreError, statusError } = useNewTuneSettings()
-  if (!defaults) return null
+  if (!defaults) return <PendingGroup />
   return (
-    <Group help={NEW_TUNES_HELP} error={statusError ?? genreError ?? undefined}>
+    <Group
+      id={SETTINGS_GROUPS.newTunes}
+      header={NEW_TUNES}
+      help={NEW_TUNES_HELP}
+      error={statusError ?? genreError ?? undefined}
+    >
       <Picker
         label={NEW_TUNE_STATUS_LABEL}
         value={defaults.status}

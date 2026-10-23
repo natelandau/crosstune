@@ -7,7 +7,7 @@
     public struct MacSettingsTabs: View {
         nonisolated public static let general = "General"
         nonisolated public static let account = AccountSections.title
-        nonisolated public static let tunes = "Tunes"
+        nonisolated public static let tunes = SettingsModel.tunes
         nonisolated public static let recordings = SettingsModel.recordings
         nonisolated public static let importExport = ImportExportSections.title
 

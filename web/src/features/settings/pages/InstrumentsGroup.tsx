@@ -1,16 +1,24 @@
 import { INSTRUMENTS } from '../../../api/vocabulary'
 import { INSTRUMENT_LABELS } from '../../../constants'
 import { INSTRUMENTS_HELP } from '../../../domain/instruments'
+import { INSTRUMENTS as INSTRUMENTS_HEADER } from '../settingsCopy'
 import { useInstrumentsSetting } from '../useInstrumentsSetting'
 import { Group } from '../../../ui/form/Group'
 import { Switch } from '../../../ui/form/Switch'
+import { SETTINGS_GROUPS } from '../settingsPaths'
+import { PendingGroup } from '../PendingGroup'
 
 /** A switch for each instrument, which decide the tuning fields a tune shows. */
-export function InstrumentsPage() {
+export function InstrumentsGroup() {
   const { instruments, toggle, error } = useInstrumentsSetting()
-  if (!instruments) return null
+  if (!instruments) return <PendingGroup />
   return (
-    <Group help={INSTRUMENTS_HELP} error={error ?? undefined}>
+    <Group
+      id={SETTINGS_GROUPS.instruments}
+      header={INSTRUMENTS_HEADER}
+      help={INSTRUMENTS_HELP}
+      error={error ?? undefined}
+    >
       {INSTRUMENTS.map((instrument) => (
         <Switch
           key={instrument}

@@ -25,12 +25,11 @@ struct StoredSettings: Equatable, Sendable {
     var localAudioBytes: Int64
 
     static func fetch(_ db: Database, settingsRow: String) throws -> StoredSettings {
-        let row = try UserSettings.fetchOne(db, key: settingsRow).flatMap { $0.deletedAt == nil ? $0 : nil }
-        let quality = row.map(\.audioQuality).flatMap { Vocabulary.audioQualities.contains($0) ? $0 : nil }
+        let row = try liveRow(db, settingsRow: settingsRow)
         return StoredSettings(
             instruments: Set(row?.instruments ?? []),
             searchProviders: Set(row?.searchProviders ?? searchableProviders),
-            audioQuality: quality ?? SettingsModel.defaultQuality,
+            audioQuality: quality(row),
             playFirst: storedPlayFirst(row),
             newTuneGenre: storedNewTuneGenre(row),
             newTuneStatus: storedNewTuneStatus(row),
@@ -40,6 +39,34 @@ struct StoredSettings: Equatable, Sendable {
             storage: try? MetaKey.storage.value(in: db, as: StorageFigures.self),
             localAudioBytes: try RecordingFile.localAudioBytes(db))
     }
+
+    /// The account's settings row, unless it is deleted.
+    static func liveRow(_ db: Database, settingsRow: String) throws -> UserSettings? {
+        try UserSettings.fetchOne(db, key: settingsRow).flatMap { $0.deletedAt == nil ? $0 : nil }
+    }
+
+    /// The row's recording quality, or the default for none or one this build does not know.
+    static func quality(_ row: UserSettings?) -> String {
+        row.map(\.audioQuality).flatMap { Vocabulary.audioQualities.contains($0) ? $0 : nil }
+            ?? SettingsModel.defaultQuality
+    }
+}
+
+/// What the Settings root's rows sum up, read on its own so the root holds no settings model.
+struct SettingsSummaries: Equatable, Sendable {
+    var instruments: Set<String>
+    var audioQuality: String
+
+    static func fetch(_ db: Database, settingsRow: String) throws -> SettingsSummaries {
+        let row = try StoredSettings.liveRow(db, settingsRow: settingsRow)
+        return SettingsSummaries(instruments: Set(row?.instruments ?? []), audioQuality: StoredSettings.quality(row))
+    }
+
+    /// Reads the summaries of `store`'s account as they change.
+    @MainActor static func live(_ store: CrosstuneStore) -> LiveQuery<SettingsSummaries?> {
+        let settingsRow = settingsID(clerkUserID: store.userID)
+        return LiveQuery(store, initial: nil) { db in try fetch(db, settingsRow: settingsRow) }
+    }
 }
 
 /// The settings screen's state: the musician's instruments and recording quality, this
@@ -48,6 +75,7 @@ struct StoredSettings: Equatable, Sendable {
 @MainActor
 @Observable
 public final class SettingsModel {
+    nonisolated public static let tunes = "Tunes"
     nonisolated public static let instruments = "Instruments"
     /// The help above the instruments setting, wherever it is asked.
     nonisolated public static let instrumentsHelp = "Tunes show a tuning for each instrument chosen here."
@@ -159,13 +187,14 @@ public final class SettingsModel {
     }
 
     /// The instruments played, by label in vocabulary order, or "Not set".
-    public var instrumentSummary: String {
-        Self.summary(Vocabulary.instruments.filter(plays))
-    }
-
     nonisolated static func summary(_ instruments: [String]) -> String {
         let labels = instruments.compactMap { Vocabulary.instrumentLabels[$0] }
         return labels.isEmpty ? TuneFieldLabels.notSet : labels.joined(separator: ", ")
+    }
+
+    /// The Settings root's Tunes summary: the vocabulary's instruments `playing` holds.
+    nonisolated static func instrumentsSummary(playing: (String) -> Bool) -> String {
+        summary(Vocabulary.instruments.filter(playing))
     }
 
     /// Turns one instrument on or off. Each toggle writes only itself, so two in a row both land.
@@ -272,11 +301,6 @@ public final class SettingsModel {
     /// The status a new tune starts with.
     public var newTuneStatus: String {
         pendingNewTuneStatus.value ?? stored.value?.newTuneStatus ?? UserSettings.defaultNewTuneStatus
-    }
-
-    /// The Settings root's line for New tunes: the genre, or Not set.
-    public var newTunesSummary: String {
-        newTuneGenre.isEmpty ? TuneFieldLabels.notSet : newTuneGenre
     }
 
     public func setNewTuneGenre(_ genre: String) {

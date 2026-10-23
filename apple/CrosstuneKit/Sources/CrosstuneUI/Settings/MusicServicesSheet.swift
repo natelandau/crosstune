@@ -2,9 +2,11 @@ import CrosstuneCommands
 import CrosstuneVocabulary
 import SwiftUI
 
-/// The services a tune's recording search covers, one toggle each, kept out of the settings
-/// form like the instruments. Each toggle saves as it changes.
+/// The services a tune's recording search covers, one toggle each, as Find recordings opens
+/// them. Each toggle saves as it changes.
 struct MusicServicesSheet: View {
+    static let done = "Done"
+
     let model: SettingsModel
 
     @Environment(\.dismiss) private var dismiss
@@ -13,7 +15,7 @@ struct MusicServicesSheet: View {
         #if os(macOS)
             MacSheet(
                 title: SettingsModel.musicServices, subtitle: SettingsModel.musicServicesHelp, size: .fitted(.standard),
-                cancel: nil, primary: .init(InstrumentsSheet.done) { dismiss() }, escape: { dismiss() }
+                cancel: nil, primary: .init(Self.done) { dismiss() }, escape: { dismiss() }
             ) {
                 // The sheet's title and subtitle name the group and say what it does.
                 MacMusicServicesSection(model: model, showsHeading: false)
@@ -21,15 +23,14 @@ struct MusicServicesSheet: View {
             .shellSheet()
         #else
             NavigationStack {
-                Form {
+                PaperForm {
                     MusicServicesChoices(model: model)
                 }
-                .formStyle(.grouped)
                 .navigationTitle(SettingsModel.musicServices)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(InstrumentsSheet.done) { dismiss() }
+                    ConfirmToolbarItem {
+                        Button(Self.done) { dismiss() }
                     }
                 }
             }
@@ -38,9 +39,11 @@ struct MusicServicesSheet: View {
     }
 }
 
-/// The service toggles and their help, as the sheet and the iPhone page both show them.
+/// The service toggles and their help, as the sheet and the iPhone and iPad Tunes page show them.
 struct MusicServicesChoices: View {
     let model: SettingsModel
+    /// The group's name, for a page that holds other groups beside it.
+    var title: String?
 
     /// One service's toggle, wherever it shows, so each reports the same event.
     static func binding(_ provider: String, model: SettingsModel) -> Binding<Bool> {
@@ -57,7 +60,7 @@ struct MusicServicesChoices: View {
                 Toggle(Self.label(provider), isOn: Self.binding(provider, model: model))
             }
         } header: {
-            SettingsHelp(SettingsModel.musicServicesHelp)
+            SettingsHelp(SettingsModel.musicServicesHelp, title: title)
         } footer: {
             SettingsFailure(model.searchProvidersFailure)
         }

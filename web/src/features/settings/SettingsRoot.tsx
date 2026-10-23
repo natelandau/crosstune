@@ -3,14 +3,11 @@ import type { Key, Selection } from 'react-aria-components'
 import { Link, useMatch, useNavigate, useParams } from 'react-router'
 import { SETTINGS_STATS_PATH, settingsPagePath } from './settingsPaths'
 import { storedAudioQuality } from '../../db/recordings'
-import { storedNewTuneGenre } from '../../db/types'
-import { NOT_SET } from '../../ui/fieldCopy'
 import { useAppearance } from '../../theme/appearance'
 import { syncedLine } from './lastSynced'
 import { aboutLine, SETTINGS_CATEGORIES } from './settingsCopy'
 import { useAccountSettings } from './useAccountSettings'
 import { useInstrumentsSetting } from './useInstrumentsSetting'
-import { useMusicServicesSetting } from './useMusicServicesSetting'
 import { useSettingsRow } from './useSettingsRow'
 import { useStatsSummary } from './useStatsSummary'
 import { useSyncSettings } from './useSyncSettings'
@@ -31,7 +28,7 @@ import { isSettingsPage, SETTINGS_PAGES, type SettingsValues } from './settingsP
 
 const SETTINGS = destination('settings')
 const CATEGORIES = SETTINGS_PAGES.filter((page) => page.id !== 'account')
-const BLOCK = 'bg-fill block rounded-(--radius-surface) px-4 py-3'
+const BLOCK = 'bg-surface block rounded-(--radius-surface) px-4 py-3'
 
 /**
  * The Settings root: the account and the catalog as blocks, then a row for each category, and
@@ -39,9 +36,9 @@ const BLOCK = 'bg-fill block rounded-(--radius-surface) px-4 py-3'
  */
 export function SettingsRoot() {
   const { page, placeId } = useParams()
-  // A saved location is open on its own address, which is the Saved locations page's.
+  // A saved location is open on its own address, under the Recordings page's.
   const onLocation = placeId !== undefined
-  const open = isSettingsPage(page) ? page : onLocation ? 'saved-locations' : undefined
+  const open = isSettingsPage(page) ? page : onLocation ? 'recordings' : undefined
   const wide = useFrame() === 'wide'
   const touch = useStampedDensity() === 'touch'
   const navigate = useNavigate()
@@ -94,7 +91,7 @@ export function SettingsRoot() {
               key={category.id}
               id={category.id}
               textValue={summary ? `${category.title}, ${summary}` : category.title}
-              leading={<Icon className="text-action size-5 shrink-0" aria-hidden />}
+              leading={<Icon className="text-ink-2 size-5 shrink-0" aria-hidden />}
               title={category.title}
               current={onLocation && wide && category.id === open}
               trailing={
@@ -119,14 +116,11 @@ export function SettingsRoot() {
 
 function useSettingsValues(): SettingsValues {
   const instruments = useInstrumentsSetting()
-  const services = useMusicServicesSetting()
   const row = useSettingsRow()
   const quality = storedAudioQuality(row)
   const appearance = useAppearance()
   return {
     instruments: instruments.instruments ? instruments.summary : '',
-    newTunes: row === undefined ? '' : (storedNewTuneGenre(row) ?? NOT_SET),
-    services: services.providers ? services.summary : '',
     quality,
     appearance,
   }
@@ -191,7 +185,7 @@ function StatsBlock({
       }}
     >
       <span className="t-body t-num block">
-        {/* The line breaks only between parts, never inside a count such as "9 h 12 m". */}
+        {/* The line breaks only between parts, never inside a count such as "9 h 12 min". */}
         {parts.map((part, index) => (
           <Fragment key={index}>
             {index > 0 && SUMMARY_SEPARATOR}

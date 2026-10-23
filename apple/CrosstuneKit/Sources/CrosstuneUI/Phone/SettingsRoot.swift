@@ -26,8 +26,9 @@ struct SettingsRoot: View {
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(\.store) private var store
     @Environment(\.colorScheme) private var colorScheme
-    @State private var model: SettingsModel?
     @State private var summary: LiveQuery<StatsSummary?>?
+    @State private var summaries: LiveQuery<SettingsSummaries?>?
+    @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
 
     /// - Parameter version: The app's marketing version, which the About page names.
     init(version: String? = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) {
@@ -35,45 +36,35 @@ struct SettingsRoot: View {
     }
 
     var body: some View {
-        Form {
+        PaperForm {
             if let session { accountCard(session) }
             if store != nil { statsCard }
             Section {
                 ForEach(SettingsCategory.allCases, id: \.self) { category in
                     SettingsPageLink(SettingsPage.category(category)) {
                         LabeledContent {
-                            Text(value(category)).foregroundStyle(.secondary).contentMask()
+                            Text(category.summary(summaries?.value ?? nil, appearance: appearance))
+                                .foregroundStyle(.inkSecondary)
                         } label: {
                             Label {
                                 Text(category.title)
                             } icon: {
-                                Image(systemName: category.systemImage).foregroundStyle(BrandStyle.accent)
+                                Image(systemName: category.systemImage).foregroundStyle(.inkSecondary)
                             }
                         }
                     }
                 }
             }
         }
-        .formStyle(.grouped)
         // On the root, not the pages it opens, so opening a page never counts as another visit.
         .screenView(.settings)
         .navigationDestination(for: SettingsPage.self) { page in
-            SettingsPageScreen(page: page, model: model, version: version)
+            SettingsPageScreen(page: page, version: version)
         }
         .navigationTitle(Destination.settings.title)
-        .task(id: ModelKey(store: store, engine: engine)) {
-            model = store.map { SettingsModel(store: $0, engine: engine) }
+        .task(id: store.map(ObjectIdentifier.init)) {
             summary = store.map(StatsSummary.live)
-        }
-    }
-
-    private func value(_ category: SettingsCategory) -> String {
-        guard let model, model.isLoaded else { return "" }
-        return switch category {
-        case .instruments: model.instrumentSummary
-        case .newTunes: model.newTunesSummary
-        case .musicServices: model.searchProvidersSummary
-        default: ""
+            summaries = store.map(SettingsSummaries.live)
         }
     }
 
@@ -92,7 +83,7 @@ struct SettingsRoot: View {
                             Text(line)
                                 .foregroundStyle(SyncBadge.swatch(attention, scheme: colorScheme).ink.color)
                         } else {
-                            Text(line).foregroundStyle(.secondary)
+                            Text(line).foregroundStyle(.inkSecondary)
                         }
                     }
                     .font(.footnote)
@@ -126,6 +117,17 @@ enum SettingsPage: Hashable {
     case account
     case stats
     case category(SettingsCategory)
+
+    /// The root row's identity: its page, so no two rows share one, and the appearance, so a
+    /// row is rebuilt when it changes.
+    struct RowIdentity: Hashable {
+        let page: SettingsPage
+        let scheme: ColorScheme
+    }
+
+    func rowIdentity(_ scheme: ColorScheme) -> RowIdentity {
+        RowIdentity(page: self, scheme: scheme)
+    }
 }
 
 /// Opens a Settings page somewhere other than the root's own stack, as the iPad's detail column.
@@ -171,7 +173,7 @@ private struct SettingsPageLink<RowLabel: View>: View {
                     label
                     Image(systemName: "chevron.forward")
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.inkTertiary)
                         .accessibilityHidden(true)
                 }
                 .contentShape(.rect)
@@ -179,10 +181,12 @@ private struct SettingsPageLink<RowLabel: View>: View {
             .buttonStyle(.plain)
             .accessibilityAddTraits(opener.current == page ? .isSelected : [])
             #if os(iOS)
-                .listRowBackground(opener.current == page ? Color(uiColor: .systemGray5) : nil)
+                .listRowBackground(opener.current == page ? Palette.field : Palette.groupedCard)
                 // A row's background keeps the appearance it first drew in, so the row is rebuilt
-                // when the appearance changes.
-                .id(colorScheme)
+                // when the appearance changes. The page keeps each row's identity its own: the
+                // grouped form lays its rows out by identity, and rows that share one draw as
+                // copies of the first.
+                .id(page.rowIdentity(colorScheme))
             #endif
         } else {
             NavigationLink(value: page) { label }
@@ -193,7 +197,6 @@ private struct SettingsPageLink<RowLabel: View>: View {
 /// The page for a `SettingsPage`.
 struct SettingsPageScreen: View {
     let page: SettingsPage
-    let model: SettingsModel?
     /// The app's marketing version, which the About page names.
     var version: String? = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
 
@@ -210,57 +213,11 @@ struct SettingsPageScreen: View {
                 // A tune opened from the stats screen is not the tab's own pushed tune.
                 .environment(\.stackTune, nil)
         case .category(let category):
-            SettingsCategoryPage(category: category, model: model, version: version)
+            SettingsScreen(
+                version: version, sections: category.sections, title: category.title, opensStatsInSheet: false,
+                registersStats: false
+            )
+            .toolbarTitleDisplayMode(.inline)
         }
-    }
-}
-
-/// One category's page. A page with rows of its own draws them from the category's
-/// `pageRows`; every other page is the settings form showing the category's `sections`.
-private struct SettingsCategoryPage: View {
-    let category: SettingsCategory
-    let model: SettingsModel?
-    let version: String?
-
-    @Environment(PlayerModel.self) private var player: PlayerModel?
-
-    var body: some View {
-        Group {
-            if category == .savedLocations {
-                SavedLocationsPage()
-            } else if category.pageRows.isEmpty {
-                SettingsScreen(
-                    version: version, sections: category.sections, title: category.title, opensStatsInSheet: false,
-                    registersStats: false)
-            } else if let model, model.isLoaded {
-                ownRows(model, rows: category.pageRows)
-                    .navigationTitle(category.title)
-                    .onAppear {
-                        if category.pageRows.contains(.instruments) { model.clearInstrumentsFailure() }
-                        if category.pageRows.contains(.musicServices) { model.clearSearchProvidersFailure() }
-                    }
-            }
-        }
-        .toolbarTitleDisplayMode(.inline)
-    }
-
-    private func ownRows(_ model: SettingsModel, rows: SettingsScreen.Sections) -> some View {
-        Form {
-            if rows.contains(.instruments) { InstrumentsChoices(model: model) }
-            if rows.contains(.musicServices) {
-                MusicServicesChoices(model: model)
-                Section {
-                    PlayFirstPicker(model: model)
-                } header: {
-                    SettingsHelp(PlayFirstText.help)
-                } footer: {
-                    SettingsFailure(model.playFirstFailure)
-                }
-            }
-            if rows.contains(.appleMusic), let access = player?.appleMusic?.access {
-                AppleMusicSection(access: access)
-            }
-        }
-        .formStyle(.grouped)
     }
 }

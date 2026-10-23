@@ -27,8 +27,12 @@ export const KEEP_OFFLINE_HELP =
 
 /** Settings group names, which are also the settings pages' titles. */
 export const ACCOUNT = 'Account'
+export const TUNES = 'Tunes'
+export const RECORDINGS_SETTINGS = 'Recordings'
 export const INSTRUMENTS = 'Instruments'
 export const NEW_TUNES = 'New tunes'
+/** The Recordings page's group for the audio kept on this device. */
+export const DOWNLOADS = 'Downloads'
 export const APPEARANCE = 'Appearance'
 export const SYNC = 'Sync'
 export const SYNC_AND_STORAGE = 'Sync and storage'
@@ -52,7 +56,6 @@ export const SETTINGS_CATEGORIES = 'Settings categories'
 
 export const SAVED_LOCATIONS_HELP =
   'Locations you have named. A recording made at one shows its name instead of its address.'
-export const SAVED_LOCATIONS_EMPTY_TITLE = 'No saved locations'
 export const SAVED_LOCATIONS_EMPTY_HINT = `Open a recording's location and choose "${NAME_LOCATION_TITLE}", or pick a nearby place.`
 export const SAVED_LOCATION_NAME_LABEL = 'Name'
 export const SAVED_LOCATION_NAME_HELP = 'Recordings at this location show this name.'

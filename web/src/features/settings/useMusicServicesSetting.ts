@@ -9,12 +9,11 @@ import { useDb } from '../../db/DbProvider'
 import { storedPlayFirst, storedSearchProviders } from '../../db/types'
 import { useAction } from '../../ui/useAction'
 import { usePendingWrite } from '../../ui/usePendingWrite'
-import { SEARCHABLE_PROVIDERS, servicesSummary, useSearchProviders } from './searchProviders'
+import { useSearchProviders } from './searchProviders'
 
 export interface MusicServicesSetting {
   /** The services a recording search covers; undefined until the settings row has been read. */
   providers: ReadonlySet<Provider> | undefined
-  summary: string
   /** Writes one toggle rather than the whole set, so two taps in a row both land. */
   toggle: (provider: Provider, on: boolean) => void
   error: string | null
@@ -50,10 +49,8 @@ export function useMusicServicesSetting(): MusicServicesSetting {
         }),
       () => {},
     )
-  const count = SEARCHABLE_PROVIDERS.filter((provider) => providers?.has(provider)).length
   return {
     providers,
-    summary: servicesSummary(count),
     toggle: (provider, on) =>
       run(() => toggleSearchProvider(db, userId, provider, on).then(reportProviders)),
     error,
