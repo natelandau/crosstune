@@ -1255,3 +1255,61 @@ private let v16Schema = """
         #expect(stored?.extra == ["storage_addon": .bool(true)])
     }
 }
+
+@Test func theV22MigrationAddsTheReferencePitchAndKeepsRowsAndQueuedChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v21")
+    let time = "2026-10-22T12:00:00.000Z"
+    try queue.write { db in
+        try db.execute(
+            sql: """
+                INSERT INTO user_settings
+                    (id, created_at, updated_at, server_seq, audio_quality, instruments, extra)
+                VALUES
+                    ('s-1', ?, ?, 0, 'high', '[]', '{}'),
+                    ('s-2', ?, ?, 3, 'standard', '[]', '{"tuner_a4_hz":442,"theme":"dark"}'),
+                    ('s-3', ?, ?, 4, 'standard', '[]', '{"tuner_a4_hz":"loud"}')
+                """,
+            arguments: [time, time, time, time, time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
+                    ('user_settings', 's-1', 'upsert', ?, '{"instruments":[]}'),
+                    ('user_settings', 's-2', 'upsert', ?, '{"tuner_a4_hz":442}'),
+                    ('user_settings', 's-4', 'upsert', ?, '{"instruments":["violin"]}'),
+                    ('tunes', 't-1', 'upsert', ?, '{"title":"Jam"}')
+                """,
+            arguments: [time, time, time, time])
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v22")
+
+    try queue.read { db in
+        let settings = try Row.fetchAll(
+            db, sql: "SELECT tuner_a4_hz, audio_quality, extra FROM user_settings ORDER BY id")
+        #expect(settings.map { $0["tuner_a4_hz"] as Int } == [440, 442, 440])
+        #expect(settings.map { $0["audio_quality"] as String } == ["high", "standard", "standard"])
+        #expect(settings.map { $0["extra"] as String } == ["{}", #"{"theme":"dark"}"#, #"{"tuner_a4_hz":"loud"}"#])
+
+        let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
+        #expect(
+            data == [
+                #"{"instruments":[],"tuner_a4_hz":440}"#,
+                #"{"tuner_a4_hz":442}"#,
+                // No row to read, so the queued change takes the default.
+                #"{"instruments":["violin"],"tuner_a4_hz":440}"#,
+                #"{"title":"Jam"}"#,
+            ])
+    }
+}
+
+@Test func anOlderRowWithoutTheFieldDecodesAs440() throws {
+    let row = try UserSettings(
+        wire: [
+            "id": .string("s-1"), "created_at": .string("2026-10-22T12:00:00.000Z"),
+            "updated_at": .string("2026-10-22T12:00:00.000Z"), "server_seq": .integer(1),
+        ])
+    #expect(row.tunerA4Hz == 440)
+    #expect(row.tunerA4Hz == UserSettings.defaultTunerA4Hz)
+    #expect(row.extra["tuner_a4_hz"] == nil)
+}

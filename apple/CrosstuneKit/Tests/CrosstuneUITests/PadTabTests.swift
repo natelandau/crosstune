@@ -24,6 +24,15 @@ import Testing
         #expect(PadTab.selected(place: place, status: nil, inSidebar: true) == .destination(.catalog))
     }
 
+    @Test func tunerSelectsItsTab() {
+        let place = ShellPlace()
+        place.tab = .tuner
+        #expect(PadTab.selected(place: place, status: "learning", inSidebar: true) == .destination(.tuner))
+        #expect(PadTab.selected(place: place, status: nil, inSidebar: false) == .destination(.tuner))
+        PadTab.choose(.destination(.tuner), place: place, catalog: nil, inSidebar: true)
+        #expect(place.tab == .tuner)
+    }
+
     @Test func topBarShowsCatalogWhateverTheStatus() {
         let place = ShellPlace()
         place.tab = .catalog

@@ -241,6 +241,12 @@ public final class AccountSession {
     /// The signed-in user's email, from Clerk's cache when offline. Nil until Clerk loads.
     public var email: String? { Clerk.shared.user?.primaryEmailAddress?.emailAddress }
 
+    /// The signed-in user's first and last name, nil when the account has neither.
+    public var name: String? {
+        let parts = [Clerk.shared.user?.firstName, Clerk.shared.user?.lastName].compactMap { $0 }.filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
+    }
+
     /// True while Apple's sheet is up for an account delete, before anything is sent.
     public private(set) var isConfirmingWithApple = false
 

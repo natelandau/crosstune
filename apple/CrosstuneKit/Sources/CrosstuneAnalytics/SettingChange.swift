@@ -9,6 +9,7 @@ public enum SettingChange: Sendable, Equatable {
     case playFirst(PlayFirst)
     case appearance(AppearanceChoice)
     case textSize(Int)
+    case tunerA4Hz(Int)
     case captureChannels(ChannelChoice)
     case downloadAll(Bool)
     case newTuneStatus(TuneStatus)
@@ -23,6 +24,7 @@ public enum SettingChange: Sendable, Equatable {
         case .playFirst: "play_first"
         case .appearance: "appearance"
         case .textSize: "text_size"
+        case .tunerA4Hz: "tuner_a4_hz"
         case .captureChannels: "capture_channels"
         case .downloadAll: "download_all"
         case .newTuneStatus: "new_tune_status"
@@ -40,6 +42,7 @@ public enum SettingChange: Sendable, Equatable {
         case .appearance(let choice): .string(choice.rawValue)
         case .captureChannels(let choice): .string(choice.rawValue)
         case .textSize(let size): .int(size)
+        case .tunerA4Hz(let hz): .int(hz)
         case .downloadAll(let on): .bool(on)
         case .newTuneStatus(let status): .string(status.rawValue)
         case .newTuneGenreSet(let isSet): .bool(isSet)

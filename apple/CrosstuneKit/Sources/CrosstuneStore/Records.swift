@@ -746,6 +746,8 @@ public struct UserSettings: SyncedRecord, Hashable {
     /// The status a new tune starts with. One of ``Vocabulary/statuses``, kept as a plain string
     /// like every vocabulary field.
     public var newTuneStatus: String
+    /// The frequency the tuner takes A4 to be, in hertz.
+    public var tunerA4Hz: Int
     public var extra: JSONObject
 
     public enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
@@ -754,6 +756,7 @@ public struct UserSettings: SyncedRecord, Hashable {
         case updatedAt = "updated_at"
         case deletedAt = "deleted_at"
         case serverSeq = "server_seq"
+        case tunerA4Hz = "tuner_a4_hz"
         case audioQuality = "audio_quality"
         case searchProviders = "search_providers"
         case playFirst = "play_first"
@@ -772,13 +775,14 @@ public struct UserSettings: SyncedRecord, Hashable {
     public static let playFirstAppleMusic = "apple_music"
     public static let defaultPlayFirst = playFirstRecordings
     public static let defaultNewTuneStatus = "want_to_learn"
+    public static let defaultTunerA4Hz = 440
 
     public static var wireDefaults: JSONObject {
         [
             "audio_quality": .string("standard"), "instruments": .array([]),
             "search_providers": .array(defaultSearchProviders.map(JSONValue.string)),
             "play_first": .string(defaultPlayFirst), "new_tune_genre": .null,
-            "new_tune_status": .string(defaultNewTuneStatus),
+            "new_tune_status": .string(defaultNewTuneStatus), "tuner_a4_hz": .integer(Int64(defaultTunerA4Hz)),
         ]
     }
 
@@ -787,7 +791,7 @@ public struct UserSettings: SyncedRecord, Hashable {
         deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, audioQuality: String = "standard",
         instruments: [String] = [], searchProviders: [String] = defaultSearchProviders,
         playFirst: String = defaultPlayFirst, newTuneGenre: String? = nil,
-        newTuneStatus: String = defaultNewTuneStatus,
+        newTuneStatus: String = defaultNewTuneStatus, tunerA4Hz: Int = defaultTunerA4Hz,
         extra: JSONObject = [:]
     ) {
         self.id = id
@@ -801,6 +805,7 @@ public struct UserSettings: SyncedRecord, Hashable {
         self.playFirst = playFirst
         self.newTuneGenre = newTuneGenre
         self.newTuneStatus = newTuneStatus
+        self.tunerA4Hz = tunerA4Hz
         self.extra = extra
     }
 }

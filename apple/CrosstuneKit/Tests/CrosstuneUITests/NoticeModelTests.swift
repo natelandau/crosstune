@@ -513,20 +513,32 @@ private let day: TimeInterval = 86_400
         #expect(steps == ["dismiss, holding true"])
 
         // The Plan sheet is asked for while the cover still holds, then the cover lets go.
-        handoff.noticeLeft { entry in
-            steps.append("open \(entry == .trialReminder), holding \(handoff.entry != nil)")
-        }
+        handoff.noticeLeft(
+            open: { entry in steps.append("open \(entry == .trialReminder), holding \(handoff.entry != nil)") },
+            seePlan: {})
         #expect(steps == ["dismiss, holding true", "open true, holding true"])
         #expect(handoff.entry == nil)
+    }
+
+    @Test func seePlanWaitsUntilTheNoticeHasGone() {
+        let handoff = CompareHandoff()
+        var steps: [String] = []
+
+        handoff.seePlan { steps.append("dismiss, holding \(handoff.isHolding)") }
+        handoff.noticeLeft(open: { _ in steps.append("compare") }, seePlan: { steps.append("see plan") })
+        handoff.noticeLeft(open: { _ in steps.append("compare") }, seePlan: { steps.append("see plan") })
+
+        #expect(steps == ["dismiss, holding true", "see plan"])
+        #expect(!handoff.isHolding)
     }
 
     @Test func aNoticeLeavingWithoutCompareOpensNothing() {
         let handoff = CompareHandoff()
         var opened: [PremiumEntry] = []
 
-        handoff.noticeLeft { opened.append($0) }
+        handoff.noticeLeft(open: { opened.append($0) }, seePlan: {})
         handoff.compare(nil) {}
-        handoff.noticeLeft { opened.append($0) }
+        handoff.noticeLeft(open: { opened.append($0) }, seePlan: {})
 
         #expect(opened.isEmpty)
     }

@@ -474,3 +474,82 @@ private let everyService = [
         #expect(storedNewTuneStatus(row) == "want_to_learn")
     }
 }
+
+@Suite struct ReferencePitchTests {
+    private func stored(_ store: CrosstuneStore) async throws -> UserSettings {
+        let id = settingsID(clerkUserID: "user_1")
+        return try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+    }
+
+    @Test func setTunerA4HzWritesTheValueAndKeepsEveryOtherField() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await commands.setAudioQuality(clerkUserID: "user_1", quality: "high", at: noon)
+        try await commands.setNewTuneGenre(clerkUserID: "user_1", genre: "Old-time", at: later(1))
+
+        try await commands.setTunerA4Hz(clerkUserID: "user_1", hz: 442, at: later(2))
+
+        let row = try await stored(store)
+        #expect(row.tunerA4Hz == 442)
+        #expect(row.audioQuality == "high")
+        #expect(row.newTuneGenre == "Old-time")
+        let entry = try #require(try await store.pendingChanges(limit: 10).last)
+        #expect(entry.data?["tuner_a4_hz"] == .integer(442))
+    }
+
+    @Test func setTunerA4HzClampsToTheRange() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+
+        try await commands.setTunerA4Hz(clerkUserID: "user_1", hz: 500, at: noon)
+        #expect(try await stored(store).tunerA4Hz == 450)
+        try await commands.setTunerA4Hz(clerkUserID: "user_1", hz: 100, at: later(1))
+        #expect(try await stored(store).tunerA4Hz == 430)
+    }
+
+    @Test func anotherSettingChangeKeepsTheReferencePitch() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await commands.setTunerA4Hz(clerkUserID: "user_1", hz: 435, at: noon)
+
+        try await commands.setInstruments(clerkUserID: "user_1", instruments: ["violin"], at: later(1))
+        try await commands.setAudioQuality(clerkUserID: "user_1", quality: "low", at: later(2))
+        try await commands.setNewTuneStatus(clerkUserID: "user_1", status: "known", at: later(3))
+
+        #expect(try await stored(store).tunerA4Hz == 435)
+        let entry = try #require(try await store.pendingChanges(limit: 10).last)
+        #expect(entry.data?["tuner_a4_hz"] == .integer(435))
+    }
+
+    @Test func anOutOfRangeStoredPitchIsPushedAs440WhenAnotherSettingChanges() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = settingsID(clerkUserID: "user_1")
+        try await store.write { writer in
+            try writer.put(UserSettings(id: id, createdAt: noon, tunerA4Hz: 455), at: noon)
+        }
+
+        try await Commands(store: store).setAudioQuality(clerkUserID: "user_1", quality: "low", at: later(1))
+
+        #expect(try await stored(store).tunerA4Hz == 440)
+        let entry = try #require(try await store.pendingChanges(limit: 10).last)
+        #expect(entry.data?["tuner_a4_hz"] == .integer(440))
+    }
+
+    @Test func aDeletedRowResetsThePitchTo440() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = settingsID(clerkUserID: "user_1")
+        try await store.write { writer in
+            try writer.put(
+                UserSettings(id: id, createdAt: noon, deletedAt: noon, tunerA4Hz: 442), at: noon)
+        }
+
+        try await Commands(store: store).setAudioQuality(clerkUserID: "user_1", quality: "low", at: later(1))
+
+        #expect(try await stored(store).tunerA4Hz == 440)
+    }
+}

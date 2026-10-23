@@ -10,13 +10,35 @@ import Testing
 @Suite struct SettingsCategoryTests {
     @Test func rootListsSubjectsInOrder() {
         #expect(
-            SettingsCategory.allCases == [.tunes, .recordings, .appearance, .syncAndStorage, .importExport, .about])
+            SettingsCategory.allCases == [
+                .tunes, .recordings, .appearance, .tuner, .syncAndStorage, .importExport, .about,
+            ])
         #expect(
             SettingsCategory.allCases.map(\.title) == [
-                SettingsModel.tunes, SettingsModel.recordings, Appearance.title, SettingsCategory.syncAndStorageTitle,
+                SettingsModel.tunes, SettingsModel.recordings, Appearance.title, SettingsModel.tuner,
+                SettingsCategory.syncAndStorageTitle,
                 ImportExportSections.title, SettingsScreen.about,
             ])
         #expect(SettingsModel.tunes == "Tunes")
+    }
+
+    @MainActor
+    @Test func settingsPageHandsCompareByTheirPlaceAndPage() {
+        let place = ShellPlace()
+        let other = ShellPlace()
+        let opener = SettingsPageOpener(place: place)
+        #expect(opener == SettingsPageOpener(place: place))
+        #expect(opener != SettingsPageOpener(place: other))
+
+        opener(.stats)
+        #expect(place.settingsPage == .stats)
+        #expect(opener != SettingsPageOpener(place: place))
+
+        let recorder = SettingsPageRecorder(place: place)
+        #expect(recorder == SettingsPageRecorder(place: place))
+        #expect(recorder != SettingsPageRecorder(place: other))
+        recorder(.account)
+        #expect(place.settingsPage == .account)
     }
 
     /// Every root row keeps its own identity, so the iPad root lists each page once and opens
@@ -48,14 +70,18 @@ import Testing
     }
 
     @Test func eachRootRowSumsUpItsPage() {
-        let summaries = SettingsSummaries(instruments: ["five_string_banjo", "violin"], audioQuality: "high")
+        let summaries = SettingsSummaries(
+            instruments: ["five_string_banjo", "violin"], audioQuality: "high", tunerA4Hz: 442)
         #expect(SettingsCategory.tunes.summary(summaries, appearance: .system) == "Violin, 5-string banjo")
         #expect(
             SettingsCategory.recordings.summary(summaries, appearance: .system) == Vocabulary.audioQualityNames["high"])
+        #expect(SettingsCategory.tuner.summary(summaries, appearance: .system) == "A4 = 442 Hz")
+        #expect(SettingsCategory.tuner.title == "Tuner")
+        #expect(SettingsCategory.tuner.systemImage == "gauge.with.needle")
         for category in [SettingsCategory.syncAndStorage, .importExport, .about] {
             #expect(category.summary(summaries, appearance: .system) == "", "\(category)")
         }
-        let none = SettingsSummaries(instruments: [], audioQuality: "standard")
+        let none = SettingsSummaries(instruments: [], audioQuality: "standard", tunerA4Hz: 440)
         #expect(SettingsCategory.tunes.summary(none, appearance: .system) == TuneFieldLabels.notSet)
     }
 

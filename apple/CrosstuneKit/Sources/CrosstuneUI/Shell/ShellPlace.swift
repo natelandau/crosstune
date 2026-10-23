@@ -29,9 +29,22 @@ final class ShellPlace {
     /// destination shares.
     var scrollAnchors: [Destination: String] = [:]
 
-    /// The page open in the iPad Settings tab's detail column.
+    /// Whether the window is compact, where Settings is a sheet rather than a tab. The shell picks
+    /// its layout from this rather than the size class, so ``widened()`` runs before the compact
+    /// shell and its sheet are torn down.
+    var isCompact = false
+    /// Whether `isCompact` has been set from the window, which happens as the shell appears.
+    private(set) var knowsSize = false
+    /// Whether the Settings sheet is up over a compact window.
+    var settingsSheetShown = false
+    /// Whether the catalog stands in for a saved Settings tab, which a compact window lacks,
+    /// until the musician closes the Settings sheet or the window widens.
+    private(set) var catalogStandsInForSettings = false
+    /// The page open in the iPad Settings tab's detail column, and the root's page the compact
+    /// window's sheet is on, so a size change keeps the same page.
     var settingsPage: SettingsPage?
-    /// The pages pushed on the iPhone Settings tab.
+    /// The pages pushed in the compact window's Settings sheet. The sheet keeps them between
+    /// showings, so it reopens where it was left.
     var settingsPath = NavigationPath() {
         didSet {
             // A page popped on iPhone must not come back in the iPad detail column when the
@@ -51,17 +64,79 @@ final class ShellPlace {
         tab = destination
     }
 
-    /// Opens `page` on the Settings tab, from the root, in both the iPhone and iPad shells.
+    /// Opens `page` from the Settings root: in the Settings sheet over a compact window, on the
+    /// Settings tab otherwise.
     func showSettingsPage(_ page: SettingsPage) {
-        showTabRoot(.settings)
-        settingsPage = page
-        settingsPath.append(page)
+        if isCompact {
+            settingsPage = page
+            settingsPath = NavigationPath([page])
+            settingsSheetShown = true
+        } else {
+            showTabRoot(.settings)
+            settingsPage = page
+            settingsPath.append(page)
+        }
     }
 
-    /// Rebuilds the iPhone Settings stack from the iPad detail column's page as the window
-    /// narrows, since the iPad shell never pushes or pops that stack.
+    /// Opens the Settings sheet over a compact window where it was left.
+    func showSettings() {
+        settingsSheetShown = true
+    }
+
+    /// Takes the sheet's own show or dismiss. The compact shell outlasts ``widened()``, so a
+    /// dismissal that arrives once the window is no longer compact is the sheet's teardown, not a
+    /// close.
+    func settingsSheetChanged(shown: Bool) {
+        guard shown || isCompact else { return }
+        settingsSheetShown = shown
+        if !shown { catalogStandsInForSettings = false }
+    }
+
+    /// The tab to save as the scene's, given the one saved now: a saved Settings while the catalog
+    /// stands in for it, so a wider window opens on Settings again, and otherwise the tab shown.
+    func tabToSave(saved: Destination) -> Destination {
+        catalogStandsInForSettings && saved == .settings && tab == .catalog ? saved : tab
+    }
+
+    /// Whether the window shows the compact shell. Until the place knows the window's size, as on
+    /// the first frame, the window's own size class says.
+    func showsCompactShell(windowIsCompact: Bool) -> Bool {
+        knowsSize ? isCompact : windowIsCompact
+    }
+
+    /// Takes the tab a scene saved. A compact window has no Settings tab, so a saved Settings
+    /// opens the catalog rather than the sheet nobody asked for.
+    func restore(tab saved: Destination, compact: Bool) {
+        knowsSize = true
+        isCompact = compact
+        catalogStandsInForSettings = compact && saved == .settings
+        tab = catalogStandsInForSettings ? .catalog : saved
+    }
+
+    /// Rebuilds the Settings sheet's stack from the iPad detail column's page as the window
+    /// narrows, since the iPad shell never pushes or pops that stack. A window narrowed on the
+    /// Settings tab, which a compact window lacks, keeps Settings up in the sheet over the catalog.
     func narrowed() {
+        knowsSize = true
+        isCompact = true
         settingsPath = settingsPage.map { NavigationPath([$0]) } ?? NavigationPath()
+        if tab == .settings {
+            catalogStandsInForSettings = true
+            tab = .catalog
+            settingsSheetShown = true
+        }
+    }
+
+    /// Moves Settings from the sheet to its tab as the window widens, since the sheet belongs to
+    /// the compact shell.
+    func widened() {
+        knowsSize = true
+        isCompact = false
+        catalogStandsInForSettings = false
+        if settingsSheetShown {
+            settingsSheetShown = false
+            tab = .settings
+        }
     }
 
     /// Shows `destination`'s row in the Mac sidebar. The Lists root and Settings, which the Mac
@@ -71,6 +146,7 @@ final class ShellPlace {
             switch destination {
             case .catalog, .lists, .settings: .catalog
             case .recordings: .recordings
+            case .tuner: .tuner
             }
     }
 

@@ -84,6 +84,7 @@
                     .hidden(rowsHidden)
                 }
                 destinationTab(.recordings)
+                destinationTab(.tuner)
                 destinationTab(.lists)
                 ForEach(loadedLists ?? []) { list in
                     Tab(list.name, systemImage: Destination.lists.systemImage, value: Slot.tab(.list(id: list.id))) {
@@ -190,23 +191,34 @@
             }
         }
 
-        /// The content column beside the detail column. A fixed pair rather than a
-        /// `NavigationSplitView`, which in a narrow portrait window floats the content column over
-        /// the detail behind a scrim and, with its visibility pinned, cannot bring it back.
+        /// A tab's columns, with the environment its screens read.
         private func split(_ destination: Destination) -> some View {
-            PadColumns(width: tabWidth) {
-                content(destination)
-                    .toolbarTitleDisplayMode(.inlineLarge)
-                    .safeAreaPadding(.bottom, PadStyle.footClearance)
-            } detail: {
-                detail(destination)
-                    .safeAreaPadding(.bottom, PadStyle.footClearance)
-            }
-            .environment(\.inPadSplit, true)
-            .environment(\.detailTune, destination == .settings ? nil : tabTunes[destination])
-            .environment(\.scrollAnchor, scrollAnchors[destination])
-            .background {
-                TabBarPlacementReader { inSidebar = $0 }
+            columns(destination)
+                .environment(\.inPadSplit, true)
+                .environment(\.detailTune, destination == .settings ? nil : tabTunes[destination])
+                .environment(\.scrollAnchor, scrollAnchors[destination])
+                .background {
+                    TabBarPlacementReader { inSidebar = $0 }
+                }
+        }
+
+        /// The content column beside the detail column, or the content alone for a destination
+        /// with no detail. A fixed pair rather than a `NavigationSplitView`, which in a narrow
+        /// portrait window floats the content column over the detail behind a scrim and, with its
+        /// visibility pinned, cannot bring it back.
+        @ViewBuilder private func columns(_ destination: Destination) -> some View {
+            let column = content(destination)
+                .toolbarTitleDisplayMode(.inlineLarge)
+                .safeAreaPadding(.bottom, PadStyle.footClearance)
+            if PadTab.hasDetailColumn(destination) {
+                PadColumns(width: tabWidth) {
+                    column
+                } detail: {
+                    detail(destination)
+                        .safeAreaPadding(.bottom, PadStyle.footClearance)
+                }
+            } else {
+                column
             }
         }
 
@@ -218,10 +230,8 @@
             case .settings:
                 NavigationStack { screen }
                     // A row the root opens replaces the detail column's page rather than pushing here.
-                    .environment(
-                        \.settingsPageOpener,
-                        SettingsPageOpener(current: place.settingsPage) { place.settingsPage = $0 })
-            case .catalog, .recordings:
+                    .environment(\.settingsPageOpener, SettingsPageOpener(place: place))
+            case .catalog, .recordings, .tuner:
                 NavigationStack { screen }
             }
         }

@@ -28,6 +28,7 @@ struct SettingsRoot: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var summary: LiveQuery<StatsSummary?>?
     @State private var summaries: LiveQuery<SettingsSummaries?>?
+    @Environment(\.settingsPageShown) private var pageShown
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
 
     /// - Parameter version: The app's marketing version, which the About page names.
@@ -60,6 +61,7 @@ struct SettingsRoot: View {
         .screenView(.settings)
         .navigationDestination(for: SettingsPage.self) { page in
             SettingsPageScreen(page: page, version: version)
+                .onAppear { pageShown?(page) }
         }
         .navigationTitle(Destination.settings.title)
         .task(id: store.map(ObjectIdentifier.init)) {
@@ -131,24 +133,50 @@ enum SettingsPage: Hashable {
 }
 
 /// Opens a Settings page somewhere other than the root's own stack, as the iPad's detail column.
-struct SettingsPageOpener {
+/// Compared by the page and the place's identity, so a body pass that hands down the same ones
+/// leaves every reader alone.
+struct SettingsPageOpener: Equatable {
     /// The page open now, which its row marks as selected.
     let current: SettingsPage?
-    private let open: @MainActor (SettingsPage) -> Void
+    private let place: ShellPlace
 
-    init(current: SettingsPage?, open: @escaping @MainActor (SettingsPage) -> Void) {
-        self.current = current
-        self.open = open
+    @MainActor init(place: ShellPlace) {
+        current = place.settingsPage
+        self.place = place
     }
 
     @MainActor func callAsFunction(_ page: SettingsPage) {
-        open(page)
+        place.settingsPage = page
+    }
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.current == rhs.current && lhs.place === rhs.place
+    }
+}
+
+/// Where a pushed Settings stack records the page it shows, which the stack itself cannot say.
+/// Compared by the place's identity, for the same reason as ``SettingsPageOpener``.
+struct SettingsPageRecorder: Equatable {
+    private let place: ShellPlace
+
+    @MainActor init(place: ShellPlace) {
+        self.place = place
+    }
+
+    @MainActor func callAsFunction(_ page: SettingsPage) {
+        place.settingsPage = page
+    }
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.place === rhs.place
     }
 }
 
 extension EnvironmentValues {
     /// Where the Settings root's rows open their pages. Nil pushes them onto the root's stack.
     @Entry var settingsPageOpener: SettingsPageOpener?
+    /// Told each time a page pushed from the Settings root shows.
+    @Entry var settingsPageShown: SettingsPageRecorder?
 }
 
 /// A Settings root row that opens `page`: a push, or a press handed to the opener.

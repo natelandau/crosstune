@@ -431,12 +431,17 @@ struct NoticeSheet: View {
     }
 }
 
-/// Compare plans' way from a notice to the Plan sheet. The entry is held until the notice's sheet
-/// has gone, since a sheet asked for while another is leaving does not show.
+/// Compare plans' way from a notice to the Plan sheet, and See your plan's to Settings, which a
+/// compact window shows in a sheet. Each is held until the notice's sheet has gone, since a sheet
+/// asked for while another is leaving does not show.
 @MainActor
 @Observable
 final class CompareHandoff {
     private(set) var entry: PremiumEntry?
+    private(set) var seesPlan = false
+
+    /// Whether a way out of the notice is held, which covers the shell so the next notice waits.
+    var isHolding: Bool { entry != nil || seesPlan }
 
     /// Holds `entry` before the notice is dismissed, so the cover never lets go in between.
     func compare(_ entry: PremiumEntry?, dismiss: @MainActor () -> Void) {
@@ -444,13 +449,23 @@ final class CompareHandoff {
         dismiss()
     }
 
-    /// Once the notice has gone, opens the Plan sheet for the held entry, then lets go. The Plan
-    /// sheet's request holds the menus before the cover lets go; the record slot returns until
-    /// that sheet appears and claims it.
-    func noticeLeft(open: @MainActor (PremiumEntry) -> Void) {
+    /// Once the notice has gone, opens Settings for a held See your plan, or the Plan sheet for
+    /// the held entry, then lets go. The next sheet's request holds the menus before the cover
+    /// lets go; the record slot returns until that sheet appears and claims it.
+    func noticeLeft(open: @MainActor (PremiumEntry) -> Void, seePlan: @MainActor () -> Void) {
+        if seesPlan {
+            seePlan()
+            seesPlan = false
+        }
         guard let entry else { return }
         open(entry)
         self.entry = nil
+    }
+
+    /// Holds See your plan before the notice is dismissed, as ``compare(_:dismiss:)`` holds its entry.
+    func seePlan(dismiss: @MainActor () -> Void) {
+        seesPlan = true
+        dismiss()
     }
 }
 
@@ -475,15 +490,12 @@ struct NoticeSheets: ViewModifier {
     func body(content: Content) -> some View {
         content
             // Covers the shell while the handoff holds, so the next notice waits.
-            .coversShell(handoff.entry != nil)
+            .coversShell(handoff.isHolding)
             .sheet(item: shown, onDismiss: openPlan) { showing in
                 NoticeSheet(
                     notice: showing.notice, endsAt: model?.trialEndsAt, plan: plan, purchase: purchase,
                     onClose: { model?.dismiss() },
-                    onSeePlan: {
-                        model?.dismiss()
-                        onSeePlan()
-                    },
+                    onSeePlan: { handoff.seePlan { model?.dismiss() } },
                     onComparePlans: {
                         handoff.compare(NoticeSheet.entry(showing.notice)) { model?.dismiss() }
                     })
@@ -491,7 +503,7 @@ struct NoticeSheets: ViewModifier {
     }
 
     private func openPlan() {
-        handoff.noticeLeft(open: onComparePlans)
+        handoff.noticeLeft(open: onComparePlans, seePlan: onSeePlan)
     }
 
     private var shown: Binding<Showing?> {

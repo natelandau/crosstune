@@ -640,7 +640,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         }
 
         @Test func macGeneralTabKeepsTheAppWideSettings() {
-            #expect(MacSettingsTabs.Pane.general.sections == [.appearance, .sync, .storage, .about])
+            #expect(MacSettingsTabs.Pane.general.sections == [.appearance, .tuner, .sync, .storage, .about])
         }
 
         /// Recording, the saved locations, and downloads share a tab, with the locations as rows.

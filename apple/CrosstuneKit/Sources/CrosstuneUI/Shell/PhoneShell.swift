@@ -5,6 +5,10 @@ enum TabSlot: Hashable {
     case destination(Destination)
     case record
 
+    /// The iPhone tab bar's destinations, in order, ahead of the record slot. Settings opens
+    /// from the account button instead.
+    static let phoneTabs: [Destination] = [.catalog, .lists, .tuner, .recordings]
+
     /// The tab to show once `self` is chosen, and whether choosing it starts a recording. The
     /// record slot records and leaves `current` in place.
     func resolved(current: Destination) -> (destination: Destination, records: Bool) {
@@ -24,7 +28,8 @@ enum TabSlot: Hashable {
 #if os(iOS)
 
     /// The iPhone frame: four tabs, Record in its own circle at the bar's trailing end, and the
-    /// player in the bar's bottom accessory while something is loaded.
+    /// player in the bar's bottom accessory while something is loaded. Settings is a sheet from
+    /// the account button at the trailing end of each tab's title row.
     struct PhoneShell: View {
         let player: PlayerModel
         let stage: EmbedStage
@@ -38,10 +43,7 @@ enum TabSlot: Hashable {
 
         var body: some View {
             TabView(selection: $selection) {
-                destinationTab(.catalog)
-                destinationTab(.lists)
-                destinationTab(.recordings)
-                destinationTab(.settings)
+                ForEach(TabSlot.phoneTabs) { destinationTab($0) }
                 Tab(value: TabSlot.record, role: Self.recordRole) {
                     Color.clear
                 } label: {
@@ -66,6 +68,9 @@ enum TabSlot: Hashable {
             .onChange(of: recordingsShown) {
                 place.tab = .recordings
             }
+            .sheet(isPresented: settingsSheetShown) {
+                SettingsSheet(place: place)
+            }
             .tabBarMinimizeBehavior(.never)
             .modifier(PlayerAccessory(player: player, stage: stage))
         }
@@ -76,6 +81,14 @@ enum TabSlot: Hashable {
         }
 
         private var recordIsEnabled: Bool { TabSlot.recordIsEnabled(cover: recordCover) }
+
+        private var settingsSheetShown: Binding<Bool> {
+            Binding {
+                place.settingsSheetShown
+            } set: {
+                place.settingsSheetChanged(shown: $0)
+            }
+        }
 
         /// The bar redraws a template glyph in its own colors, so the dot is drawn red up front.
         private static let recordDot = dot(UIColor(Color.recordingRed))
@@ -122,8 +135,6 @@ enum TabSlot: Hashable {
         var body: some View {
             if destination == .lists {
                 NavigationStack(path: $place.listPath) { root }
-            } else if destination == .settings {
-                NavigationStack(path: $place.settingsPath) { root }
             } else {
                 NavigationStack { root }
             }
@@ -133,6 +144,12 @@ enum TabSlot: Hashable {
             DestinationScreen(destination: destination)
                 .toolbarTitleDisplayMode(.inlineLarge)
                 .syncBadgeToolbar(leading: destination == .catalog)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        AccountButton { place.showSettings() }
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                }
                 .environment(\.stackTune, stackTune)
         }
     }

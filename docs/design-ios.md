@@ -15,7 +15,7 @@ there where they differ. Regular-width iPad reads this page, then
 | `Palette`    | Harbor and paper colors every Apple platform shares                                       |
 | `BrandStyle` | Coral, its ink, and the washes, read from `Palette`                                       |
 | `PageStyle`  | What a shared view draws with, resolved per platform: text styles, sizes, drawing choices |
-| `PhoneStyle` | iPhone and iPad only: practice ground, waveform colors, touch sizes, gesture timing       |
+| `PhoneStyle` | Practice ground, tuner colors (Mac too); iPhone and iPad waveform, touch sizes, timing    |
 
 - A view never types a color, text size, or row height.
 - A value that differs by platform is a `PageStyle` value, never an
@@ -59,7 +59,10 @@ there where they differ. Regular-width iPad reads this page, then
   colors, so the dot uses original rendering to stay recording red.
 - Record opens the record sheet and keeps the current tab. The slot never
   stays selected.
-- Top-level title: large, sharing a row with toolbar buttons.
+- Top-level title: large, sharing a row with toolbar buttons. The account
+  button sits at its trailing edge, masked because it shows the user's name.
+- Settings has no tab here, so the tab bar holds Catalog, Lists, Tuner,
+  Recordings, then Record.
 - A control that cannot sit in a navigation subtitle goes in the toolbar,
   named for its action.
 - More is an explicit `Menu`. Loose overflow items lose a destructive
@@ -113,9 +116,11 @@ there where they differ. Regular-width iPad reads this page, then
   on iOS. A pick ends editing.
 - Settings: root led by account identity and sync state. Each category is
   a pushed page.
+- On iPhone and compact iPad, Settings is a sheet opened from the account
+  button. It reopens where it was left, because the path is kept.
 - A link to a Settings group (the first-recording notice's See your
-  plan) switches to the Settings tab and pushes the group's page over the
-  root, so Back returns to the root.
+  plan) opens Settings on the group's page over the root, so Back returns
+  to the root. On a tab-based layout it switches to the Settings tab.
 - Category row: SF Symbol in secondary ink, name, value summary where one
   exists. No colored tiles.
 - A page clears its failure footers on open, so an old failure never reads

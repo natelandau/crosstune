@@ -14,9 +14,15 @@ enum PadTab: Hashable {
             return status.map { .status($0) } ?? .destination(.catalog)
         case .lists:
             return place.tabList.map { .list(id: $0) } ?? .destination(.lists)
-        case .recordings, .settings:
+        case .recordings, .tuner, .settings:
             return .destination(place.tab)
         }
+    }
+
+    /// Whether `destination`'s tab pairs its content with a detail column. The tuner opens
+    /// nothing to show beside it, so it fills the tab.
+    static func hasDetailColumn(_ destination: Destination) -> Bool {
+        destination != .tuner
     }
 
     /// Applies a choice. Only `.status` and, in the sidebar, `.destination(.catalog)` write the

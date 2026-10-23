@@ -394,6 +394,32 @@ enum Schema {
                     """,
                 arguments: [table])
         }
+        migrator.registerMigration("v22") { db in
+            let table = SyncTable.userSettings.rawValue
+            try db.alter(table: table) { t in
+                t.add(column: "tuner_a4_hz", .integer).notNull().defaults(sql: "440")
+            }
+            // A row pulled from a server that already had the field kept it in `extra`.
+            try db.execute(
+                sql: """
+                    UPDATE user_settings
+                    SET tuner_a4_hz = json_extract(extra, '$.tuner_a4_hz')
+                    WHERE json_type(extra, '$.tuner_a4_hz') = 'integer'
+                    """)
+            try db.execute(
+                sql: """
+                    UPDATE user_settings SET extra = json_remove(extra, '$.tuner_a4_hz')
+                    WHERE json_type(extra, '$.tuner_a4_hz') = 'integer'
+                    """)
+            try db.execute(
+                sql: """
+                    UPDATE outbox
+                    SET data = json_set(data, '$.tuner_a4_hz', coalesce(
+                        (SELECT tuner_a4_hz FROM user_settings WHERE id = outbox.row_id), 440))
+                    WHERE table_name = ? AND data IS NOT NULL AND json_type(data, '$.tuner_a4_hz') IS NULL
+                    """,
+                arguments: [table])
+        }
         return migrator
     }()
 

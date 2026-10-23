@@ -18,6 +18,7 @@ struct StoredSettings: Equatable, Sendable {
     var playFirst: String
     var newTuneGenre: String?
     var newTuneStatus: String
+    var tunerA4Hz: Int
     var keepsOffline: Bool
     var invalidChanges: Int
     var storage: StorageFigures?
@@ -33,6 +34,7 @@ struct StoredSettings: Equatable, Sendable {
             playFirst: storedPlayFirst(row),
             newTuneGenre: storedNewTuneGenre(row),
             newTuneStatus: storedNewTuneStatus(row),
+            tunerA4Hz: storedTunerA4Hz(row),
             // Anything but a stored true reads as off, as the web reads it.
             keepsOffline: (try? MetaKey.keepOffline.value(in: db, as: Bool.self)) == true,
             invalidChanges: (try? MetaKey.invalidChanges.value(in: db, as: Int.self)) ?? 0,
@@ -56,10 +58,13 @@ struct StoredSettings: Equatable, Sendable {
 struct SettingsSummaries: Equatable, Sendable {
     var instruments: Set<String>
     var audioQuality: String
+    var tunerA4Hz: Int
 
     static func fetch(_ db: Database, settingsRow: String) throws -> SettingsSummaries {
         let row = try StoredSettings.liveRow(db, settingsRow: settingsRow)
-        return SettingsSummaries(instruments: Set(row?.instruments ?? []), audioQuality: StoredSettings.quality(row))
+        return SettingsSummaries(
+            instruments: Set(row?.instruments ?? []), audioQuality: StoredSettings.quality(row),
+            tunerA4Hz: storedTunerA4Hz(row))
     }
 
     /// Reads the summaries of `store`'s account as they change.
@@ -86,6 +91,10 @@ public final class SettingsModel {
     nonisolated public static let noServices = "No services selected"
     nonisolated public static let newTunes = "New tunes"
     nonisolated public static let newTunesHelp = "Every new tune starts with these. Change them on the tune."
+    nonisolated public static let tuner = "Tuner"
+    nonisolated public static let referencePitch = "Reference pitch"
+    /// How the reference pitch reads, such as `A4 = 442 Hz`.
+    nonisolated public static func referencePitchLabel(_ hz: Int) -> String { "A4 = \(hz) Hz" }
     nonisolated public static let recording = "Recording"
     nonisolated public static let quality = "Quality"
     nonisolated public static let qualityHelp = "Higher quality makes larger files."
@@ -129,6 +138,8 @@ public final class SettingsModel {
     public private(set) var newTuneGenreFailure: String?
     /// Why the last new-tune status choice failed, cleared by the next one.
     public private(set) var newTuneStatusFailure: String?
+    /// Why the last reference pitch change failed, cleared by the next one.
+    public private(set) var tunerA4HzFailure: String?
     /// Why the last download choice failed, cleared by the next one.
     public private(set) var keepOfflineFailure: String?
     /// Why the last removal of downloaded audio failed, cleared by the next one.
@@ -148,6 +159,7 @@ public final class SettingsModel {
     private var pendingPlayFirst = PendingWrite<String>()
     private var pendingNewTuneGenre = PendingWrite<String>()
     private var pendingNewTuneStatus = PendingWrite<String>()
+    private var pendingTunerA4Hz = PendingWrite<Int>()
     /// Whether the last genre write that succeeded held a genre, so a flip is judged against what
     /// was stored even when a write between fails. Writes run one at a time, so this is exact.
     @ObservationIgnored private var landedGenreSet = false
@@ -348,6 +360,32 @@ public final class SettingsModel {
         }
     }
 
+    // MARK: Tuner
+
+    /// The pitch the tuner takes A4 to be, in hertz.
+    public var tunerA4Hz: Int {
+        pendingTunerA4Hz.value ?? stored.value?.tunerA4Hz ?? UserSettings.defaultTunerA4Hz
+    }
+
+    public func setTunerA4Hz(_ hz: Int) {
+        tunerA4HzFailure = nil
+        let range = Vocabulary.Ranges.UserSettings.tunerA4Hz
+        let hz = min(max(hz, range.lowerBound), range.upperBound)
+        let changed = hz != tunerA4Hz
+        let token = pendingTunerA4Hz.begin(hz)
+        let store = store
+        enqueue {
+            try await Commands(store: store).setTunerA4Hz(clerkUserID: store.userID, hz: hz)
+        } settled: { model, error in
+            if let error {
+                if model.pendingTunerA4Hz.fail(token) { model.tunerA4HzFailure = failureMessage(error) }
+            } else {
+                model.pendingTunerA4Hz.land(token, stored: model.stored.value?.tunerA4Hz)
+                if changed { model.analytics.send(.settingChanged(.tunerA4Hz(hz))) }
+            }
+        }
+    }
+
     // MARK: Recording
 
     /// The quality recordings are made at: `low`, `standard`, or `high`.
@@ -531,6 +569,7 @@ public final class SettingsModel {
         pendingPlayFirst.storeChanged()
         pendingNewTuneGenre.storeChanged()
         pendingNewTuneStatus.storeChanged()
+        pendingTunerA4Hz.storeChanged()
         pendingKeepOffline.storeChanged()
     }
 }
