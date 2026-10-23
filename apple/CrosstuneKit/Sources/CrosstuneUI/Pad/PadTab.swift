@@ -1,3 +1,11 @@
+/// A place in the iPad shell's tab view. New list and Record never stay chosen: choosing New
+/// list opens the new list sheet, and choosing Record records.
+enum PadSlot: Hashable {
+    case tab(PadTab)
+    case newList
+    case record
+}
+
 /// One tab of the iPad shell's `TabView`. Status and list rows exist only in the sidebar form;
 /// the top bar shows destinations alone.
 enum PadTab: Hashable {

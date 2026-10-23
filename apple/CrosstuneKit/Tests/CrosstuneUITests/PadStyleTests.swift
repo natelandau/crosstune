@@ -9,11 +9,10 @@ import Testing
         #expect(PadStyle.standReadingMinShare < 1 - PadStyle.standPracticeShare)
     }
 
-    @Test func contentColumnHoldsBetweenItsNarrowestAndWidest() {
-        #expect(PadStyle.contentColumnWidth(in: 744) == PadStyle.contentColumnMinWidth)
-        #expect(PadStyle.contentColumnWidth(in: 1376) == PadStyle.contentColumnMaxWidth)
-        let between = (PadStyle.contentColumnMinWidth + PadStyle.contentColumnMaxWidth) / 2
-        #expect(abs(PadStyle.contentColumnWidth(in: between / PadStyle.contentColumnShare) - between) < 0.001)
+    @Test func contentColumnTakesHalfAboveItsFloor() {
+        #expect(PadStyle.contentColumnWidth(in: 1376) == 688)
+        #expect(PadStyle.contentColumnWidth(in: 900) == 450)
+        #expect(PadStyle.contentColumnWidth(in: 500) == PadStyle.contentColumnMinWidth)
     }
 
     @Test func footMeetsTheTouchTarget() {
