@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router'
 import { ADD_LIST, NO_LISTS_HINT, NO_LISTS_TITLE } from './listsCopy'
 import { useListsScreen } from './useListsScreen'
 import { destination } from '../../layout/destinations'
-import { ColumnTitle } from '../../layout/ColumnTitle'
-import { PaneBar } from '../../layout/PaneBar'
+import { RootBar } from '../../layout/RootBar'
 import { Button } from '../../ui/Button'
 import { useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
@@ -39,11 +38,10 @@ export function ListsScreen() {
 
   return (
     <>
-      <PaneBar
+      <RootBar
         title={LISTS.label}
-        trailing={<Button icon={Plus} label={ADD_LIST} iconOnly onPress={add} />}
+        verbs={<Button icon={Plus} label={ADD_LIST} iconOnly onPress={add} />}
       />
-      <ColumnTitle title={LISTS.label} account />
       <ErrorLine error={error ?? played.error} place="bar" />
       {lists &&
         (lists.length === 0 ? (

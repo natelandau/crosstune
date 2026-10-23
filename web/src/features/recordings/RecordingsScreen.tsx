@@ -24,11 +24,11 @@ import { destination } from '../../layout/destinations'
 import { sortCommand, useScreenCommand } from '../../app/screenCommands'
 import { useStampedDensity } from '../../platform/density'
 import { useFrame } from '../../platform/frame'
-import { ColumnTitle } from '../../layout/ColumnTitle'
-import { PaneBar } from '../../layout/PaneBar'
+import { RootBar } from '../../layout/RootBar'
 import { MediaList, RecordingRow } from '../tune/MediaRow'
 import { tunePick } from '../tune/tunePick'
 import { Button } from '../../ui/Button'
+import { FiltersBarButton } from '../../ui/FiltersBarButton'
 import { Capsule } from '../../ui/Capsule'
 import { useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
@@ -50,8 +50,8 @@ import { usePremiumSheet } from '../plan/PremiumSheetProvider'
 
 const RECORDINGS = destination('recordings')
 
-/** The name of the row that holds the Recordings filter control and its set source. */
-const RECORDINGS_FILTER_ROW = 'Filter recordings'
+/** The name of the row that holds the recordings' set source. */
+export const RECORDINGS_FILTER_ROW = 'Filter recordings'
 
 const tunePath = (tuneId: string) => `${RECORDINGS.root}/${tuneId}`
 
@@ -87,7 +87,10 @@ export function RecordingsScreen() {
     sheetOpen: filtersOpen,
   })
   // Off wide a tune page covers the list, so its Sort by goes with it.
-  const listShown = useFrame() === 'wide' || openTuneId === undefined
+  const frame = useFrame()
+  const phone = frame === 'phone'
+  const setCount = screen.filterSet ? 1 : 0
+  const listShown = frame === 'wide' || openTuneId === undefined
   useScreenCommand(
     sortCommand(RECORDING_SORT_OPTIONS, sort, screen.setSort),
     listShown && ready && screen.listed > 0,
@@ -118,33 +121,42 @@ export function RecordingsScreen() {
 
   return (
     <div {...drop.handlers} className="flex min-h-full flex-col">
-      <PaneBar
+      <RootBar
         title={RECORDINGS.label}
-        trailing={<UploadControl onFiles={importFiles} onHeld={held} />}
+        titleRef={titleRef}
+        verbs={
+          <>
+            <UploadControl onFiles={importFiles} onHeld={held} />
+            {phone && screen.showsFilters && (
+              <FiltersBarButton count={setCount} onPress={() => setFiltersOpen(true)} />
+            )}
+          </>
+        }
+        search={
+          <SearchField
+            ref={searchRef}
+            label={SEARCH_RECORDINGS}
+            value={screen.query}
+            onChange={screen.setQuery}
+          />
+        }
       />
       <DropOverlay shown={drop.over} />
-      <ColumnTitle title={RECORDINGS.label} titleRef={titleRef} account />
-      <div className="px-4 pb-2">
-        <SearchField
-          ref={searchRef}
-          label={SEARCH_RECORDINGS}
-          value={screen.query}
-          onChange={screen.setQuery}
-        />
-      </div>
-      {screen.showsFilters && (
+      {(phone ? screen.filterSet : screen.showsFilters) && (
         <FilterRow label={RECORDINGS_FILTER_ROW}>
-          <Capsule
-            label={filtersLabel(screen.filterSet ? 1 : 0)}
-            set={screen.filterSet}
-            aria-haspopup="dialog"
-            aria-expanded={filtersOpen}
-            onPress={() => setFiltersOpen(true)}
-          >
-            <SlidersHorizontal className="size-3.5" aria-hidden />
-            {FILTERS}
-            {screen.filterSet && <span className="t-num">1</span>}
-          </Capsule>
+          {!phone && (
+            <Capsule
+              label={filtersLabel(setCount)}
+              set={screen.filterSet}
+              aria-haspopup="dialog"
+              aria-expanded={filtersOpen}
+              onPress={() => setFiltersOpen(true)}
+            >
+              <SlidersHorizontal className="size-3.5" aria-hidden />
+              {FILTERS}
+              {screen.filterSet && <span className="t-num">1</span>}
+            </Capsule>
+          )}
           {screen.filterSet && (
             <Capsule
               label={removeFilterLabel(sourceLabel(screen.source))}

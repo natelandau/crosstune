@@ -24,7 +24,10 @@ export function DropOverlay({ shown }: { shown: boolean }) {
     const barElement = pane?.bar.current
     const measure = () => {
       if (!anchor.current || !box.current) return
-      const bar = barElement?.offsetHeight ?? 0
+      // A phone root bar pins with a negative top, which hides that much of it.
+      const bar = barElement
+        ? barElement.offsetHeight + (parseFloat(getComputedStyle(barElement).top) || 0)
+        : 0
       const visible = scroller?.clientHeight ?? 0
       anchor.current.style.top = `${bar}px`
       box.current.style.height = `${Math.max(0, visible - bar - 16)}px`

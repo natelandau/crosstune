@@ -37,6 +37,7 @@ import { renderApp } from '../../test/renderApp'
 import { TUNE } from '../tune/tunePageCopy'
 import { UNDO } from '../../ui/Toast'
 import { DROP_TO_IMPORT } from './DropOverlay'
+import { RECORDINGS_FILTER_ROW } from './RecordingsScreen'
 import { ADD_TO_TUNE, SUBSCRIBE_TO_PLAY } from './recordingCopy'
 
 const PHONE = { width: 390, height: 844 }
@@ -159,6 +160,54 @@ it("keeps Filters and its token once a set source's import is deleted, so Reset 
   await expect.poll(async () => (await db.meta.get(META_RECORDINGS_ORIGIN))?.value).toBe('all')
 })
 
+it("the bar's Filters button opens the recordings filters on the phone", async () => {
+  await db.meta.put({ key: META_RECORDINGS_ORIGIN, value: 'slippery_hill' })
+  await db.recordings.bulkPut([recordingRow('r1', { label: 'Jam recording' })])
+  await show(PHONE)
+  const bar = column().element().querySelector('[data-root-bar]') as HTMLElement
+  const barFilters = page.elementLocator(bar).getByRole('button', { name: filtersLabel(1) })
+  await expect.element(barFilters).toBeVisible()
+  expect(bar.querySelector('[data-set]')).not.toBeNull()
+  await barFilters.click()
+  await expect.element(sheet()).toBeVisible()
+  await sheet().getByRole('button', { name: DONE, exact: true }).click()
+  await expect.element(sheet()).not.toBeInTheDocument()
+  await expect.element(barFilters).toHaveFocus()
+})
+
+const filterRow = () => column().getByRole('group', { name: RECORDINGS_FILTER_ROW })
+
+it("the phone's filter row holds only the set source, never a Filters capsule", async () => {
+  await db.recordings.bulkPut([
+    recordingRow('r1', { label: 'Jam recording' }),
+    recordingRow('r2', { label: 'Imported take', origin: 'slippery_hill' }),
+  ])
+  await show(PHONE)
+  await expect.element(row('Jam recording')).toBeVisible()
+  // Something to filter but nothing set: the bar's button is there and the row is not.
+  await expect.element(filters()).toBeEnabled()
+  await expect.element(filterRow()).not.toBeInTheDocument()
+  await db.meta.put({ key: META_RECORDINGS_ORIGIN, value: 'slippery_hill' })
+  await expect.element(filterRow()).toBeVisible()
+  await expect.poll(() => filterRow().getByRole('button').elements()).toHaveLength(1)
+  await expect
+    .element(filterRow().getByRole('button', { name: removeFilterLabel(SLIPPERY) }))
+    .toBeVisible()
+  await expect.element(filterRow().getByRole('button', { name: FILTERS })).not.toBeInTheDocument()
+  await expect
+    .element(filterRow().getByRole('button', { name: filtersLabel(1) }))
+    .not.toBeInTheDocument()
+})
+
+it('keeps the Filters capsule in the row off the phone', async () => {
+  await db.recordings.bulkPut([
+    recordingRow('r1', { label: 'Jam recording' }),
+    recordingRow('r2', { label: 'Imported take', origin: 'slippery_hill' }),
+  ])
+  await show()
+  await expect.element(filterRow().getByRole('button', { name: FILTERS })).toBeVisible()
+})
+
 it('moves focus to the title when Filters goes after its sheet has closed', async () => {
   await db.meta.put({ key: META_RECORDINGS_ORIGIN, value: 'slippery_hill' })
   await db.recordings.bulkPut([recordingRow('r1', { label: 'Jam recording' })])
@@ -202,6 +251,19 @@ it('moves focus to the title when removing the token leaves nothing to filter', 
   ;(token(SLIPPERY).element() as HTMLElement).focus()
   await userEvent.keyboard('{Enter}')
   await expect.element(filters()).not.toBeInTheDocument()
+  await expect
+    .element(column().getByRole('heading', { level: 1, name: RECORDINGS.label }))
+    .toHaveFocus()
+})
+
+it("the phone's token removal leaves focus on the title as the row goes", async () => {
+  await db.meta.put({ key: META_RECORDINGS_ORIGIN, value: 'slippery_hill' })
+  await db.recordings.bulkPut([recordingRow('r1', { label: 'Jam recording' })])
+  await show(PHONE)
+  await expect.element(token(SLIPPERY)).toBeVisible()
+  ;(token(SLIPPERY).element() as HTMLElement).focus()
+  await userEvent.keyboard('{Enter}')
+  await expect.element(filterRow()).not.toBeInTheDocument()
   await expect
     .element(column().getByRole('heading', { level: 1, name: RECORDINGS.label }))
     .toHaveFocus()
@@ -396,6 +458,32 @@ it('outlines the column under the pane bar while files are dragged over it', asy
   await expect
     .poll(() => box().getBoundingClientRect().top >= bar.getBoundingClientRect().bottom)
     .toBe(true)
+  drag('dragleave', [], document.body)
+  await expect.element(overlay).not.toBeInTheDocument()
+})
+
+it('outlines the column right under the pinned phone bar once the list has scrolled', async () => {
+  await db.recordings.bulkPut(
+    Array.from({ length: 30 }, (_, i) => recordingRow(`r${i}`, { label: `Take ${i}` })),
+  )
+  await show(PHONE)
+  await expect.element(row('Take 29')).toBeInTheDocument()
+  const scroller = document.querySelector<HTMLElement>('[data-column="list"]')!
+  const bar = document.querySelector<HTMLElement>('[data-root-bar]')!
+  const scrolled = new Promise((resolve) =>
+    scroller.addEventListener('scroll', resolve, { once: true }),
+  )
+  scroller.scrollTop = 600
+  await scrolled
+  await expect.element(page.elementLocator(bar)).toHaveAttribute('data-collapsed', 'true')
+  drag('dragenter', [new File(['abc'], 'jam.m4a', { type: 'audio/mp4' })])
+  const overlay = column().getByText(DROP_TO_IMPORT)
+  await expect.element(overlay).toBeVisible()
+  const box = () => overlay.element().closest('[data-drop-overlay]')!.firstElementChild!
+  // The outline is inset 8px from its anchor, which sits at the bar's visible bottom.
+  await expect
+    .poll(() => Math.round(box().getBoundingClientRect().top - bar.getBoundingClientRect().bottom))
+    .toBe(8)
   drag('dragleave', [], document.body)
   await expect.element(overlay).not.toBeInTheDocument()
 })

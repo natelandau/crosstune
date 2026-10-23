@@ -5,8 +5,8 @@ import {
   FACET_LABELS,
   MISSING_LABELS,
   NO_KEY,
-  sheetFacets,
-  sheetFilterCount,
+  ROW_FACETS,
+  setFilterCount,
   sheetResets,
   type CatalogFilters,
   type Facet,
@@ -44,14 +44,10 @@ export interface FilterToken {
   patch: Partial<CatalogFilters>
 }
 
-/** Every set sheet filter, in sheet order. A facet in `bar` shows on its own control instead. */
-function filterTokens(
-  filters: CatalogFilters,
-  visible: readonly Facet[],
-  bar?: readonly Facet[],
-): FilterToken[] {
-  const tokens: FilterToken[] = sheetFacets(visible, bar)
-    .filter((facet) => filters[facet] !== 'all')
+/** Every set sheet filter, in sheet order. Status and the row's facets show on their own control instead. */
+function filterTokens(filters: CatalogFilters, visible: readonly Facet[]): FilterToken[] {
+  const tokens: FilterToken[] = visible
+    .filter((facet) => !ROW_FACETS.includes(facet) && filters[facet] !== 'all')
     .map((facet) => ({
       key: facet,
       label: tokenLabel(facet, filters[facet]),
@@ -77,24 +73,20 @@ export function archivedCountLabel(count: number): string {
 
 /** The sheet's side of a screen's filters, from the one list of facets the screen shows itself. */
 export interface SheetFilters {
-  /** The facets the sheet lists, in sheet order. */
+  /** Every visible facet the sheet lists, Key first. */
   facets: Facet[]
-  /** How many sheet filters are set: the Filters count and the gate on Reset. */
+  /** How many filters are set, Status and Key included: the Filters count and the gate on Reset. */
   count: number
   tokens: FilterToken[]
   /** The patch Reset writes. */
   reset: Partial<CatalogFilters>
 }
 
-export function sheetFilters(
-  filters: CatalogFilters,
-  visible: readonly Facet[],
-  bar?: readonly Facet[],
-): SheetFilters {
+export function sheetFilters(filters: CatalogFilters, visible: readonly Facet[]): SheetFilters {
   return {
-    facets: sheetFacets(visible, bar),
-    count: sheetFilterCount(filters, visible, bar),
-    tokens: filterTokens(filters, visible, bar),
-    reset: sheetResets(visible, bar),
+    facets: [...visible],
+    count: setFilterCount(filters, visible),
+    tokens: filterTokens(filters, visible),
+    reset: sheetResets(visible),
   }
 }

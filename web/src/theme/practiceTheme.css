@@ -41,4 +41,8 @@
   --ink-2: var(--panel-muted);
   --field: var(--practice-fill);
   --tint-hover: var(--panel-hover);
+  /* Redeclared so the set wash mixes practice's accent rather than the root's. */
+  --set-fill: color-mix(in srgb, var(--accent) 22%, transparent);
+  --set-fill-hover: color-mix(in srgb, var(--accent) 28%, transparent);
+  --set-label: var(--ink);
 }

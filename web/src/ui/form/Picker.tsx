@@ -6,6 +6,7 @@ import {
   ListBoxItem,
   Popover,
   Select,
+  Text,
   SelectValue,
   type Key,
 } from 'react-aria-components'
@@ -18,6 +19,8 @@ import { FIELD_LABEL, FIELD_ROW_BARE, FIELD_VALUE_SHAPE, FIELD_ROW_PRESSABLE } f
 export interface PickerOption {
   id: string
   label: string
+  /** A line under the label in the list, such as a count. */
+  description?: string
 }
 
 // No option id can be the empty choice's: ids are stored values, which never hold a NUL.
@@ -102,6 +105,7 @@ export function Picker({
         items={all.map((option) => ({
           id: option.id,
           label: option.label,
+          description: option.description,
           checked: option.id === selected,
           onAction: () => {
             choose(option.id)
@@ -160,7 +164,14 @@ export function Picker({
               >
                 {({ isSelected }) => (
                   <>
-                    <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                    <Text slot="label" className="min-w-0 flex-1 truncate">
+                      {option.label}
+                    </Text>
+                    {option.description && (
+                      <Text slot="description" className="t-secondary text-ink-2 t-num shrink-0">
+                        {option.description}
+                      </Text>
+                    )}
                     {isSelected && <Check className="text-ink size-5 shrink-0" aria-hidden />}
                   </>
                 )}

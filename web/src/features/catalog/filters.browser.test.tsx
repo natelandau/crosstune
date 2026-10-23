@@ -15,7 +15,6 @@ import {
   META_CATALOG_FILTERS,
   MISSING_LABELS,
   normalizeFilters,
-  ROW_FACETS,
   type CatalogFilters,
   type Facet,
   type FacetValues,
@@ -30,7 +29,7 @@ import { renderWithProviders } from '../../test/render'
 import { renderApp } from '../../test/renderApp'
 import { CatalogFilterRow, FILTER_ROW } from './CatalogFilterRow'
 
-import { statusControlLabel } from './scope'
+import { STATUS_SCOPE, statusControlLabel } from './scope'
 
 const CROSS_A = 'Cross A (AEAE)'
 
@@ -65,11 +64,17 @@ async function seed(db: CrosstuneDb, filters: Partial<CatalogFilters> = {}) {
   await setMeta(db, META_CATALOG_FILTERS, { ...DEFAULT_FILTERS, ...filters })
 }
 
-async function mount(db: CrosstuneDb, density: 'pointer' | 'touch' = 'pointer') {
+async function mount(
+  db: CrosstuneDb,
+  density: 'pointer' | 'touch' = 'pointer',
+  frame: { width: number; height: number } = FRAMES[2][1],
+) {
   return renderApp({
     path: '/catalog',
     db,
     density,
+    // The wide frame keeps Filters in the row, which most of these tests drive.
+    frame,
     launcher: { open: () => {} },
   })
 }
@@ -129,16 +134,17 @@ it.each(['pointer', 'touch'] as const)(
   },
 )
 
-// Beside a sidebar, its status rows set the status, so the row drops Status.
+// Beside a sidebar, its status rows set the status, so the row drops Status. The phone bar
+// carries Filters, so the phone row drops it; split and wide keep it in the row.
 const FRAMES = [
-  ['phone', { width: 390, height: 844 }, 'touch', [statusControlLabel('all')]],
-  ['split', { width: 820, height: 1180 }, 'touch', []],
-  ['wide', { width: 1280, height: 800 }, 'pointer', []],
+  ['phone', { width: 390, height: 844 }, 'touch', [statusControlLabel('all')], []],
+  ['split', { width: 820, height: 1180 }, 'touch', [], [FILTERS]],
+  ['wide', { width: 1280, height: 800 }, 'pointer', [], [FILTERS]],
 ] as const
 
 it.each(FRAMES)(
-  'leads the row with Key and Filters on %s, Status only on the phone, and no Type',
-  async (_, frame, density, status) => {
+  'leads the row with Key on %s, Status only on the phone, Filters off the phone, and no Type',
+  async (_, frame, density, status, filters) => {
     const db = openTestDb()
     await seed(db)
     await renderApp({ path: '/catalog', db, frame, density, launcher: { open: () => {} } })
@@ -149,15 +155,109 @@ it.each(FRAMES)(
           .elements()
           .map((el) => el.getAttribute('aria-label') ?? el.textContent),
       )
-      .toEqual([...status, facetControlLabel('key', 'all'), FILTERS])
+      .toEqual([...status, facetControlLabel('key', 'all'), ...filters])
   },
 )
+
+const rootBar = () => document.querySelector<HTMLElement>('[data-root-bar]')
+const paneBar = () => document.querySelector<HTMLElement>('[data-pane-bar]')
+const PHONE = FRAMES[0][1]
+const mountPhone = (db: CrosstuneDb) =>
+  renderApp({ path: '/catalog', db, frame: PHONE, density: 'touch', launcher: { open: () => {} } })
+const barButton = (name: string) =>
+  page.elementLocator(rootBar()!).getByRole('button', { name, exact: true })
+
+it("the bar's Filters button opens the sheet and names what is set on the phone", async () => {
+  const db = openTestDb()
+  await seed(db, { status: 'learning' })
+  await createTune(db, { title: 'Cluck Old Hen', key: 'A' }, { status: 'learning' })
+  await mountPhone(db)
+  await expect.poll(rootBar).not.toBeNull()
+  const button = barButton(filtersLabel(1))
+  await expect.element(button).toBeVisible()
+  expect(rootBar()!.querySelector('[data-set]')).not.toBeNull()
+  await button.click()
+  await expect.element(page.getByRole('dialog', { name: FILTERS })).toBeVisible()
+})
+
+it("the bar's Filters button carries no dot while nothing is set", async () => {
+  const db = openTestDb()
+  await seed(db)
+  await mountPhone(db)
+  await expect.poll(rootBar).not.toBeNull()
+  await expect.element(barButton(FILTERS)).toBeVisible()
+  expect(rootBar()!.querySelector('[data-set]')).toBeNull()
+})
+
+it.each([
+  ['Done', () => page.getByRole('button', { name: DONE, exact: true }).click()],
+  ['Escape', () => userEvent.keyboard('{Escape}')],
+])('returns focus to the bar button when its sheet closes with %s', async (_, close) => {
+  const db = openTestDb()
+  await seed(db)
+  await mountPhone(db)
+  await expect.poll(rootBar).not.toBeNull()
+  const button = barButton(FILTERS)
+  await button.click()
+  const dialog = page.getByRole('dialog', { name: FILTERS })
+  await expect.element(dialog).toBeVisible()
+  await close()
+  await expect.element(dialog).not.toBeInTheDocument()
+  await expect.element(button).toHaveFocus()
+})
+
+it.each([0, 2])(
+  'the phone row has Status and Key and no Filters capsule with %i filters set',
+  async (setCount) => {
+    const db = openTestDb()
+    await seed(db, setCount ? { key: 'D', composer: 'Benny Thomasson' } : {})
+    await mountPhone(db)
+    await expect.element(control(statusControlLabel('all'))).toBeVisible()
+    await expect.element(control(facetControlLabel('key', setCount ? 'D' : 'all'))).toBeVisible()
+    await expect.element(control(FILTERS)).not.toBeInTheDocument()
+    await expect.element(control(filtersLabel(setCount))).not.toBeInTheDocument()
+    if (setCount) {
+      await expect
+        .element(control(removeFilterLabel(`${FACET_LABELS.composer}: Benny Thomasson`)))
+        .toBeVisible()
+      // The bar's button still names the count and opens the sheet.
+      await expect.element(barButton(filtersLabel(setCount))).toBeVisible()
+    }
+  },
+)
+
+it.each(FRAMES.slice(1))('the row keeps its Filters capsule on %s', async (_, frame, density) => {
+  const db = openTestDb()
+  await seed(db, { key: 'D' })
+  await renderApp({ path: '/catalog', db, frame, density, launcher: { open: () => {} } })
+  await expect.element(control(filtersLabel(1))).toBeVisible()
+})
+
+it('no Filters button in the bar for an empty catalog with nothing set', async () => {
+  const db = openTestDb()
+  await mountPhone(db)
+  await expect.element(page.getByRole('heading', { name: NO_TUNES_TITLE })).toBeVisible()
+  await expect.element(page.getByRole('button', { name: FILTERS })).not.toBeInTheDocument()
+})
+
+it.each(FRAMES.slice(1))('no Filters button in the bar on %s', async (_, frame, density) => {
+  const db = openTestDb()
+  await seed(db)
+  await renderApp({ path: '/catalog', db, frame, density, launcher: { open: () => {} } })
+  await expect.element(filterRow()).toBeVisible()
+  await expect.poll(paneBar).not.toBeNull()
+  const names = [...paneBar()!.querySelectorAll('button')].map((el) =>
+    el.getAttribute('aria-label'),
+  )
+  expect(names).not.toContain(FILTERS)
+})
 
 it('narrows by status from the Status capsule, which reads the stored status', async () => {
   const db = openTestDb()
   await seed(db)
   await createTune(db, { title: 'Cluck Old Hen', key: 'A' }, { status: 'learning' })
-  await mount(db)
+  await mount(db, 'pointer', PHONE)
+  await expect.poll(rootBar).not.toBeNull()
   await control(statusControlLabel('all')).click()
   const learning = page.getByRole('menuitemradio', { name: STATUS_LABELS.learning, exact: true })
   await expect.element(learning).toHaveAccessibleDescription(countTunes(1))
@@ -165,8 +265,9 @@ it('narrows by status from the Status capsule, which reads the stored status', a
   await expect.element(control(statusControlLabel('learning'))).toHaveAttribute('data-set')
   await expect.poll(rowTitles).toEqual(['Cluck Old Hen'])
   await expect.poll(async () => (await stored(db)).status).toBe('learning')
-  // Status is no sheet filter: it adds no token and leaves the Filters count alone.
-  await expect.element(control(FILTERS)).toBeVisible()
+  // Status counts in Filters but never becomes a token.
+  await expect.element(barButton(filtersLabel(1))).toBeVisible()
+  await expect.element(control(removeFilterLabel(STATUS_LABELS.learning))).not.toBeInTheDocument()
   await control(statusControlLabel('learning')).click()
   await page.getByRole('menuitemradio', { name: ANY, exact: true }).click()
   await expect.element(control(statusControlLabel('all'))).not.toHaveAttribute('data-set')
@@ -260,11 +361,11 @@ it('clears a hidden facet with the next write, and never narrows by it', async (
   expect((await stored(db)).key).toBe('D')
 })
 
-it('applies each sheet choice at once, resets only its own filters, and closes on Done', async () => {
+it('applies each sheet choice at once and Reset clears every filter in the sheet', async () => {
   const db = openTestDb()
   await seed(db, { key: 'D', composer: 'Benny Thomasson' })
   await mount(db)
-  const opener = control(filtersLabel(1))
+  const opener = control(filtersLabel(2))
   await expect.element(opener).toHaveAttribute('aria-expanded', 'false')
   // Held directly, since the row is hidden from role queries while the sheet is up.
   const openerElement = opener.element()
@@ -287,9 +388,64 @@ it('applies each sheet choice at once, resets only its own filters, and closes o
   await sheet.getByRole('button', { name: DONE }).click()
   await expect.element(sheet).not.toBeInTheDocument()
   const after = await stored(db)
-  expect(after).toMatchObject({ key: 'D', composer: 'all', archived: false, missing: 'all' })
+  expect(after).toMatchObject({
+    key: 'all',
+    status: 'all',
+    composer: 'all',
+    archived: false,
+    missing: 'all',
+  })
   await expect.element(control(FILTERS)).toBeVisible()
   await expect.element(control(removeFilterLabel(ARCHIVED_SHOWN))).not.toBeInTheDocument()
+})
+
+it("the sheet sets Status and Key, and the row's capsules show them", async () => {
+  const db = openTestDb()
+  await seed(db)
+  await createTune(db, { title: 'Cluck Old Hen', key: 'A' }, { status: 'learning' })
+  await mount(db, 'pointer', PHONE)
+  await expect.poll(rootBar).not.toBeNull()
+  await barButton(FILTERS).click()
+  const sheet = page.getByRole('dialog', { name: FILTERS })
+  await sheet.getByRole('button', { name: new RegExp(STATUS_SCOPE) }).click()
+  const learning = page.getByRole('option', { name: STATUS_LABELS.learning })
+  await expect.element(learning).toHaveAccessibleDescription(countTunes(1))
+  await learning.click()
+  await sheet.getByRole('option', { name: 'A', exact: true }).click()
+  await expect.poll(async () => (await stored(db)).status).toBe('learning')
+  await expect.poll(async () => (await stored(db)).key).toBe('A')
+  await sheet.getByRole('button', { name: DONE }).click()
+  await expect.element(sheet).not.toBeInTheDocument()
+  await expect.element(control(statusControlLabel('learning'))).toHaveAttribute('data-set')
+  await expect.element(control(facetControlLabel('key', 'A'))).toHaveAttribute('data-set')
+  await expect.element(barButton(filtersLabel(2))).toBeVisible()
+})
+
+it('counts a status set elsewhere on first render', async () => {
+  const db = openTestDb()
+  await seed(db, { status: 'learning' })
+  await mount(db)
+  await expect.element(control(filtersLabel(1))).toBeVisible()
+})
+
+it('offers the Key group in the sheet only while some tune has a key', async () => {
+  const db = openTestDb()
+  await createTune(db, { title: 'Keyless Reel', tune_type: 'reel' }, { status: 'known' })
+  await mount(db)
+  await control(FILTERS).click()
+  const sheet = page.getByRole('dialog', { name: FILTERS })
+  await expect.element(sheet.getByRole('button', { name: DONE })).toBeVisible()
+  await expect.element(sheet.getByRole('region', { name: KEY })).not.toBeInTheDocument()
+  await expect.element(sheet.getByRole('button', { name: new RegExp(STATUS_SCOPE) })).toBeVisible()
+})
+
+it('offers the Key group in the sheet when a tune has a key', async () => {
+  const db = openTestDb()
+  await seed(db)
+  await mount(db)
+  await control(FILTERS).click()
+  const sheet = page.getByRole('dialog', { name: FILTERS })
+  await expect.element(sheet.getByRole('region', { name: KEY })).toBeVisible()
 })
 
 it('leaves out the filter row while there is nothing to filter', async () => {
@@ -366,10 +522,13 @@ function RowHost({ ready, filters }: { ready: boolean; filters: Partial<CatalogF
         visible={visible}
         missing={[]}
         counts={{ visible: 4, total: 4, archived: 0, all: 4 }}
-        sheet={sheetFilters(effective, visible, ROW_FACETS)}
+        sheet={sheetFilters(effective, visible)}
         statusCounts={undefined}
         showsStatus
+        filtersInBar={false}
         title={{ current: null }}
+        sheetOpen={false}
+        onSheetOpenChange={() => {}}
         onChange={() => {}}
       />
     </MotionConfig>

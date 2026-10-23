@@ -13,7 +13,6 @@ import {
   SELECT_TUNES,
 } from './catalogCopy'
 import { CATALOG_SORT_OPTIONS } from './catalogSort'
-import { ROW_FACETS } from './filters'
 import { useCatalogScreen } from './useCatalogScreen'
 import { usePlayingTune } from '../player/usePlayingTune'
 import { useStatusCounts } from './useStatusCounts'
@@ -32,8 +31,7 @@ import { useRowScanViewer } from '../scans/useRowScanViewer'
 import { applySelection } from '../selection/applySelection'
 import { BulkSheets, SelectionBar } from '../selection/SelectionBar'
 import { useScreenSelection, useSelectionReturn } from '../selection/useScreenSelection'
-import { ColumnTitle } from '../../layout/ColumnTitle'
-import { PaneBar } from '../../layout/PaneBar'
+import { RootBar } from '../../layout/RootBar'
 import { ImportSheet } from '../import/ImportSheet'
 import { IMPORT_TUNES } from '../import/importCopy'
 import { useTuneFormLauncher } from '../tune/formLauncher'
@@ -50,6 +48,8 @@ import { SearchField } from '../../ui/SearchField'
 import { useSearchTarget } from '../keyboard/searchTarget'
 import { useToast } from '../../ui/Toast'
 import { CatalogFilterRow } from './CatalogFilterRow'
+import { catalogFiltersShown } from './filters'
+import { FiltersBarButton } from '../../ui/FiltersBarButton'
 import { HiddenMatch, SearchOffer } from './SearchOffer'
 import { TuneRow } from './TuneRow'
 import { useHadContent } from '../../ui/useHadContent'
@@ -90,7 +90,6 @@ export function CatalogScreen() {
   const screen = useCatalogScreen({
     onOpenTune: openTune,
     onCreate: (title) => form.open({ source: 'search_offer', initialTitle: title }),
-    barFacets: ROW_FACETS,
   })
   const {
     ready,
@@ -141,6 +140,8 @@ export function CatalogScreen() {
   usePageShown(refreshQuery)
 
   const phone = frame === 'phone'
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const barFilters = phone && catalogFiltersShown(ready, counts, sheet.count)
 
   const openFound = (id: string) => {
     screen.endSearch()
@@ -193,40 +194,49 @@ export function CatalogScreen() {
 
   return (
     <>
-      {selecting ? (
-        <SelectionBar selection={selection} actions={bulk} restoreFocus={restore} />
-      ) : (
-        <PaneBar
-          title={CATALOG.label}
-          trailing={
-            <>
-              <Button
-                icon={Plus}
-                label={ADD_TUNE}
-                iconOnly
-                onPress={() => form.open({ source: 'catalog' })}
-              />
-              <Menu
-                label={MORE_ACTIONS}
-                trigger={<Button ref={moreRef} icon={Ellipsis} label={MORE_ACTIONS} iconOnly />}
-                items={more}
-              />
-            </>
-          }
-        />
-      )}
-      <ColumnTitle title={CATALOG.label} titleRef={titleRef} account />
-      <div className="px-4 pb-2">
-        <SearchField
-          ref={searchRef}
-          label={SEARCH_TUNES}
-          value={query}
-          onChange={setQuery}
-          onSubmit={() => {
-            if (submit()?.kind === 'blur') searchRef.current?.blur()
-          }}
-        />
-      </div>
+      <RootBar
+        title={CATALOG.label}
+        titleRef={titleRef}
+        selection={
+          selecting ? (
+            <SelectionBar
+              selection={selection}
+              actions={bulk}
+              restoreFocus={restore}
+              inRootBar={phone}
+            />
+          ) : undefined
+        }
+        verbs={
+          <>
+            <Button
+              icon={Plus}
+              label={ADD_TUNE}
+              iconOnly
+              onPress={() => form.open({ source: 'catalog' })}
+            />
+            {barFilters && (
+              <FiltersBarButton count={sheet.count} onPress={() => setSheetOpen(true)} />
+            )}
+            <Menu
+              label={MORE_ACTIONS}
+              trigger={<Button ref={moreRef} icon={Ellipsis} label={MORE_ACTIONS} iconOnly />}
+              items={more}
+            />
+          </>
+        }
+        search={
+          <SearchField
+            ref={searchRef}
+            label={SEARCH_TUNES}
+            value={query}
+            onChange={setQuery}
+            onSubmit={() => {
+              if (submit()?.kind === 'blur') searchRef.current?.blur()
+            }}
+          />
+        }
+      />
       <CatalogFilterRow
         ready={ready}
         filters={effectiveFilters}
@@ -237,7 +247,10 @@ export function CatalogScreen() {
         sheet={sheet}
         statusCounts={statusCounts}
         showsStatus={phone}
+        filtersInBar={phone}
         title={titleRef}
+        sheetOpen={sheetOpen}
+        onSheetOpenChange={setSheetOpen}
         onChange={(patch) => void setFilters(patch)}
       />
       <ErrorLine error={filterError} place="bar" />

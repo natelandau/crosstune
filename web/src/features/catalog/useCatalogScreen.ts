@@ -38,8 +38,6 @@ const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()
 export interface CatalogScreenOptions {
   onOpenTune(id: string): void
   onCreate(title: string): void
-  /** The facets with their own control on the screen, which the sheet count leaves out. */
-  barFacets?: readonly Facet[]
   /** Times the pause after which a search counts as settled; tests pass their own. */
   settleClock?: SettleClock
 }
@@ -68,8 +66,7 @@ export interface CatalogScreen {
   /** The facets the musician can see. */
   visibleFacets: Facet[]
   missingOptions: MissingAttribute[]
-  sheetCount: number
-  /** The sheet's facets, count, tokens, and Reset, all from `barFacets`. */
+  /** The sheet's facets, count, tokens, and Reset. */
   sheet: SheetFilters
   query: string
   /** Sets the query and keeps it for the rest of the session. */
@@ -96,7 +93,6 @@ export interface CatalogScreen {
 export function useCatalogScreen({
   onOpenTune,
   onCreate,
-  barFacets,
   settleClock = realSettleClock,
 }: CatalogScreenOptions): CatalogScreen {
   const analytics = useAnalytics()
@@ -138,8 +134,8 @@ export function useCatalogScreen({
   )
   const effective = useMemo(() => ({ ...filters, ...resets }), [filters, resets])
   const sheet = useMemo(
-    () => sheetFilters(effective, visibleFacetList, barFacets),
-    [effective, visibleFacetList, barFacets],
+    () => sheetFilters(effective, visibleFacetList),
+    [effective, visibleFacetList],
   )
   const setFilters = useCallback(
     (patch: Partial<CatalogFilters>) => updateFilters({ ...resets, ...patch }),
@@ -236,7 +232,6 @@ export function useCatalogScreen({
     facets,
     visibleFacets: visibleFacetList,
     missingOptions,
-    sheetCount: sheet.count,
     sheet,
     query,
     setQuery,

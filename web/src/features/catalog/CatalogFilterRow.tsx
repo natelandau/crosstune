@@ -3,6 +3,7 @@ import { useRef, useState, type RefObject } from 'react'
 import type { TuneStatus } from '../../api/vocabulary'
 import { facetControlLabel, type SheetFilters } from './filterLabels'
 import {
+  catalogFiltersShown,
   facetChoices,
   NO_KEY,
   type CatalogCounts,
@@ -121,10 +122,10 @@ function StatusControl({
 
 /**
  * The catalog's filter row under the search field: Status when `showsStatus`, Key when the
- * catalog holds keys,
- * Filters with its count, then each set sheet filter as a token that removes it. The row is
- * absent while the list loads, and while the catalog holds no tunes and no filter is set,
- * when the empty state already says why. Focus left in a control that goes moves to `title`.
+ * catalog holds keys, Filters with its count unless the bar carries it (`filtersInBar`), then
+ * each set sheet filter as a token that removes it. The row is absent while the list loads,
+ * and while the catalog holds no tunes and no filter is set, when the empty state already
+ * says why. Focus left in a control that goes moves to `title`.
  */
 export function CatalogFilterRow({
   ready,
@@ -136,7 +137,10 @@ export function CatalogFilterRow({
   sheet,
   statusCounts,
   showsStatus,
+  filtersInBar,
   title,
+  sheetOpen,
+  onSheetOpenChange,
   onChange,
 }: {
   ready: boolean
@@ -151,14 +155,17 @@ export function CatalogFilterRow({
   statusCounts: LiveTuneCounts | undefined
   /** False beside a sidebar, whose status rows already set the status. */
   showsStatus: boolean
+  /** Whether the bar has its own Filters button, which makes the row's redundant. */
+  filtersInBar: boolean
   /** The column's title, where focus goes when the control holding it leaves. */
   title: RefObject<HTMLElement | null>
+  /** Whether the filter sheet is open; held by the screen so the bar's button opens it too. */
+  sheetOpen: boolean
+  onSheetOpenChange: (open: boolean) => void
   onChange: (patch: Partial<CatalogFilters>) => void
 }) {
-  const [sheetOpen, setSheetOpen] = useState(false)
   const setCount = sheet.count
-  const filterSet = filters.status !== 'all' || filters.key !== 'all' || setCount > 0
-  const shown = ready && (counts.all > 0 || filterSet)
+  const shown = catalogFiltersShown(ready, counts, setCount)
   const hasKey = visible.includes('key')
   const sheetClosed = useFocusFallback(title, {
     controls: {
@@ -190,17 +197,19 @@ export function CatalogFilterRow({
               onChange={(key) => onChange({ key })}
             />
           )}
-          <Capsule
-            label={filtersLabel(setCount)}
-            set={setCount > 0}
-            aria-haspopup="dialog"
-            aria-expanded={sheetOpen}
-            onPress={() => setSheetOpen(true)}
-          >
-            <SlidersHorizontal className="size-3.5" aria-hidden />
-            {FILTERS}
-            {setCount > 0 && <span className="t-num">{setCount}</span>}
-          </Capsule>
+          {!filtersInBar && (
+            <Capsule
+              label={filtersLabel(setCount)}
+              set={setCount > 0}
+              aria-haspopup="dialog"
+              aria-expanded={sheetOpen}
+              onPress={() => onSheetOpenChange(true)}
+            >
+              <SlidersHorizontal className="size-3.5" aria-hidden />
+              {FILTERS}
+              {setCount > 0 && <span className="t-num">{setCount}</span>}
+            </Capsule>
+          )}
           {sheet.tokens.map((token) => (
             <Capsule
               key={token.key}
@@ -216,13 +225,14 @@ export function CatalogFilterRow({
       )}
       <CatalogFilterSheet
         isOpen={sheetOpen}
-        onOpenChange={setSheetOpen}
+        onOpenChange={onSheetOpenChange}
         onClosed={sheetClosed}
         filters={filters}
         facets={facets}
         sheet={sheet}
         missing={missing}
         counts={counts}
+        statusCounts={statusCounts}
         onChange={onChange}
       />
     </>
