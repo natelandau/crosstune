@@ -29,6 +29,8 @@ public enum LoopModel {
     public static let minLoopMs: Int64 = 500
     public static let maxLoops = 100
     public static let colorCount = 6
+    /// Tie-break order for a new loop's color. Slot 0 is last: it is the blue closest to the accent hue.
+    public static let colorOrder = [1, 2, 3, 4, 5, 0]
     public static let snapPoints: Double = 8
     public static let dragThreshold: Double = 8
     /// Padding on each side of the playhead for a new loop.
@@ -138,7 +140,7 @@ public enum LoopModel {
         }
     }
 
-    /// The color slot least used among nearby loops, then across all loops, then lowest index.
+    /// The color slot least used among nearby loops, then across all loops, then first in `colorOrder`.
     public static func pickColor(for span: LoopSpan, among loops: [PlacedLoop]) -> Int {
         var neighbors: [PlacedLoop] = []
         var before: PlacedLoop?
@@ -164,8 +166,8 @@ public enum LoopModel {
         let nearby = counts(neighbors)
         let overall = counts(loops)
 
-        var best = 0
-        for slot in 1..<colorCount
+        var best = colorOrder[0]
+        for slot in colorOrder
         where nearby[slot] < nearby[best] || (nearby[slot] == nearby[best] && overall[slot] < overall[best]) {
             best = slot
         }

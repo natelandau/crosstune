@@ -21,7 +21,7 @@ describe('loops', () => {
       start_ms: 1000,
       end_ms: 4000,
       label: 'Bridge',
-      color: 0,
+      color: 1,
       deleted_at: null,
     })
     expect(await db.outbox.count()).toBe(1)

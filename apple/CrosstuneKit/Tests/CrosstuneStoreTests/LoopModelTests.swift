@@ -42,8 +42,32 @@ private func placed(_ id: String, _ start: Int64, _ end: Int64, _ color: Int = 0
         #expect(LoopModel.snap(10_081, to: [10_000], msPerPoint: 10) == 10_081)
     }
 
+    @Test func colorOrderPutsTheBlueLast() {
+        #expect(LoopModel.colorOrder == [1, 2, 3, 4, 5, 0])
+    }
+
+    @Test func colorOrderHoldsEverySlotOnce() {
+        #expect(LoopModel.colorOrder.sorted() == Array(0..<LoopModel.colorCount))
+    }
+
     @Test func pickColorWithNoLoops() {
-        #expect(LoopModel.pickColor(for: span(5, 8), among: []) == 0)
+        #expect(LoopModel.pickColor(for: span(5, 8), among: []) == 1)
+    }
+
+    @Test func pickColorSkipsBlueWhenOneLoopUsesIt() {
+        #expect(LoopModel.pickColor(for: span(5, 8), among: [placed("far", 100, 200, 0)]) == 1)
+    }
+
+    @Test func pickColorUsesBlueOnceTheOthersAreUsed() {
+        let loops = (1...5).map { placed("far\($0)", Int64(100 * $0), Int64(100 * $0 + 50), $0) }
+        #expect(LoopModel.pickColor(for: span(5, 8), among: loops) == 0)
+    }
+
+    @Test func pickColorAvoidsNeighborWhenAllSixUsedOnce() {
+        var loops = [placed("n", 4, 6, 2)]
+        for c in [0, 1, 3, 4, 5] { loops.append(placed("far\(c)", Int64(100 * (c + 1)), Int64(100 * (c + 1) + 50), c)) }
+        // Every other color ties at none nearby and one overall, so the order's first wins.
+        #expect(LoopModel.pickColor(for: span(5, 8), among: loops) == 1)
     }
 
     @Test func pickColorAvoidsNeighbors() {
@@ -51,12 +75,12 @@ private func placed(_ id: String, _ start: Int64, _ end: Int64, _ color: Int = 0
         #expect(LoopModel.pickColor(for: span(5, 8), among: loops) == 2)
     }
 
-    @Test func pickColorTiesGoToLowestIndex() {
+    @Test func pickColorTiesFollowColorOrder() {
         let loops = [
             placed("c0", 4, 6, 0), placed("c1", 5, 7, 1), placed("c2", 5, 7, 2),
             placed("c3", 6, 7, 3), placed("c4", 6, 7, 4), placed("c5", 6, 7, 5), placed("c3b", 6, 7, 3),
         ]
-        #expect(LoopModel.pickColor(for: span(5, 8), among: loops) == 0)
+        #expect(LoopModel.pickColor(for: span(5, 8), among: loops) == 1)
     }
 
     @Test func pickColorBreaksNeighborTieByOverallUse() {
