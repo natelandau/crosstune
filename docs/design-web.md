@@ -14,12 +14,29 @@ folder. Compose it, never rebuild it.
 
 - Colors: `web/src/theme/tokens.css`, mirrored in `tokens.ts` so tests
   measure contrast. Change both together.
+- Color tokens take the roles of Apple's `Palette`, under its names where
+  one exists (`--accent`, `--accent-fill`, `--ground`, `--surface`,
+  `--field`, `--mark-ink`). `--ink-2` is `inkSecondary`.
+- Layers: cards and blocks (form groups, the account and stats blocks),
+  the sidebar, and the tab bar on `--surface`. Search fields, chips, and
+  capsules on `--field`. A form row has no fill of its own and sits on
+  its group's card.
+- `bg-surface` is the one way to paint a surface, and a test holds every
+  view to it. Inside it, `--field` becomes `--raised` and a `bg-field`
+  control takes the `--control-edge` hairline.
+- The unknown ring takes `--unknown-on-surface` inside `.bg-surface` and
+  under any row or filter wash (`data-selected`, `data-hovered`,
+  `data-current`, `data-pressed`, `data-playing`, `data-set`, or
+  `aria-current="page"`).
+- A plain `Button` with words takes `--accent`, and so does a plain glyph
+  button in a `PageSection` heading. A plain glyph button elsewhere stays
+  `--ink`.
 - Type: `web/src/theme/type.css`, one `t-*` class per role, defined once
   for touch and a step smaller for pointer.
 - Radii, shadows, targets, timing: `web/src/theme/shape.css`.
 - A screen never types a color, text size, radius, or row height.
-- Jet: practice and trim ground only, in every appearance. Never the app
-  ground. Dark mode app ground is a neutral near-black.
+- Jet: the practice and trim ground and tooltips only. Never the app
+  ground.
 - Set filter: `set-fill` wash, `set-label` color.
 - Key pill hue: generated `--key-N` tokens, one rule for every pitch.
 - Geist is the one face, self-hosted from `@fontsource-variable/geist` so
@@ -85,20 +102,18 @@ folder. Compose it, never rebuild it.
   discard), then ends a screen state such as selection, then goes back in
   history, or exits at the root.
 - No overlay is a route. The URL never changes for a sheet or dialog.
-- Sidebar: the Mac sidebar's slate tint, inset 8px from the window with
-  `--radius-surface` corners, no hairline and no shadow. Record
-  capsule (red dot, "Record", centered) runs the sidebar's inner width at
-  its foot, 12px below Settings.
-  Selected row takes the slate wash. Sync badge leads the header.
+- Sidebar: inset 8px from the window with `--radius-surface` corners, no
+  hairline and no shadow. Record capsule (red dot, "Record", centered)
+  runs the sidebar's inner width at its foot, 12px below Settings.
+  Selected row takes the accent wash. Sync badge leads the header.
 - Phone tab bar: a capsule of Catalog, Lists, Recordings, Settings, then
   the Record disc on its own at the trailing end, recording-red dot. Both
   float over the content, which runs to the bottom of the screen and
   scrolls beneath them. Sizes match the iPhone tab bar: 62px capsule and
-  disc, 21px from the edges. Solid, in the sidebar's slate tint, hairline
-  edge, no shadow, no fade, no glass. The current tab takes a slate-wash
-  pill that slides between tabs. Panes pad their end by
-  `--float-clearance` so the last row scrolls clear. Sync badge beside the
-  screen title.
+  disc, 21px from the edges. Solid, hairline edge, no shadow, no fade, no
+  glass. The current tab takes an accent-wash pill that slides between
+  tabs. Panes pad their end by `--float-clearance` so the last row
+  scrolls clear. Sync badge beside the screen title.
 
 ### Now playing
 
@@ -131,6 +146,10 @@ folder. Compose it, never rebuild it.
 - Charts are styled elements, never SVG.
 - Only the row highlight reaches into the gutter.
 - A Settings detail has its own URL under its page.
+- A link to a Settings group adds `#group` to its page's address. The
+  page jumps the group to the top once it renders and holds it there
+  until every group has arrived or the musician acts, focus moving into
+  the page included. A group still loading renders a `PendingGroup`.
 - Settings page: phone and split push it, wide shows it in the detail
   column. The root holds only the account block, the catalog block that
   opens stats, the categories, and About.
@@ -221,7 +240,9 @@ Web form of the toolbar rule in `design.md`: actions sit at the foot.
 
 ## Practice
 
-- Jet ground in every appearance, drawn in the dark scheme.
+- Practice's colors come from `web/src/theme/practiceTheme.css`. A shared
+  control drawn on jet (the loops panel's chips) takes its tokens from
+  there, never the app's.
 - Played bars white over silver unplayed bars.
 - Covers the whole window on every frame. Phone: grows out of the
   now-playing bar and closes back into it. Controls capped and centered.
@@ -241,7 +262,7 @@ Web form of the toolbar rule in `design.md`: actions sit at the foot.
 - A status filter change slides the sidebar wash. Counts roll.
 - Practice and Record grow from the control that opened them and shrink
   back into it.
-- A new take's row slides in with a brief slate highlight.
+- A new take's row slides in with a brief accent highlight.
 - A list's rows move when a change adds, removes, or reorders them: a new
   row fades in, a removed one fades where it stood while the rows below
   slide over it, and the rest glide to their places. First paint and a
@@ -296,7 +317,7 @@ Space.
 
 ## Accessibility
 
-- Focus ring: slate, 2px outside, on `:focus-visible`, from
+- Focus ring: the accent, 2px outside, on `:focus-visible`, from
   `web/src/ui/focus.css` only. A container that only passes focus on
   (dialog, menu, grid) shows no ring.
 - Hover-revealed controls hide with opacity 0, never `visibility` or

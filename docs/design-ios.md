@@ -12,16 +12,40 @@ there where they differ. Regular-width iPad reads this page, then
 
 | Token set    | Holds                                                                                     |
 | ------------ | ----------------------------------------------------------------------------------------- |
-| `BrandStyle` | Colors every platform shares                                                              |
+| `Palette`    | Harbor and paper colors every Apple platform shares                                       |
+| `BrandStyle` | Coral, its ink, and the washes, read from `Palette`                                       |
 | `PageStyle`  | What a shared view draws with, resolved per platform: text styles, sizes, drawing choices |
 | `PhoneStyle` | iPhone and iPad only: practice ground, waveform colors, touch sizes, gesture timing       |
 
 - A view never types a color, text size, or row height.
 - A value that differs by platform is a `PageStyle` value, never an
   `#if os` branch in a shared view's body.
-- Window or scene root carries `.tint(BrandStyle.accent)`. UIKit-drawn
+- Window or scene root carries `.tint(Palette.accent)`. UIKit-drawn
   pieces (list selection, focus rings, default buttons, alerts, menus)
-  ignore tint and take the `AccentColor` asset.
+  ignore tint and take the `AccentColor` asset, which carries Harbor.
+- A list or vertical scroll root draws `paperGround()`, never the system's
+  white or black. System bars, the tab bar, and the iPad sidebar keep
+  their system materials.
+- A grouped form is a `PaperForm`, never a raw grouped `Form` or a system
+  grouped fill: page `groupedPage`, cards `groupedCard`. Light draws a
+  `surface` page with `ground` cards, dark the reverse, so a card always
+  stands off the page. A test enforces both.
+- An accent-filled button takes `.accentProminent` or
+  `.accentGlassProminent`, never a system prominent style, which fills
+  with the tint instead of `accentFill`.
+- The system fills a confirm toolbar button and a focused list selection
+  with the tint behind white, and the dark accent leaves white under
+  4.5:1. So a confirm item is a `ConfirmToolbarItem`, which draws
+  `.accentGlassProminent`, and a list that takes a selection takes its own
+  tint (below). A test enforces both.
+- A switch outside a `PaperForm`, which sets it, takes
+  `.toggleStyle(.harborSwitch)`.
+- A chip with no color of its own fills with `.neutralFill`, which reads
+  its container. `PaperForm` marks its cards, and a sheet's root
+  clears the mark.
+- A list that takes a selection carries `.listSelectionTint()`, not the
+  accent fill: the edit-mode checkmarks take the tint too and must hold
+  3:1 on the ground.
 - SF Pro text styles under Dynamic Type. Page title: large title bold.
   Section heading: title 3 semibold. Row title: regular.
 - Glass for controls only. Never content, never behind a text field.
@@ -57,7 +81,8 @@ there where they differ. Regular-width iPad reads this page, then
 
 ## Lists and filters
 
-- Search: system search field, always shown under the title.
+- Search: system search field, always shown under the title. Escape
+  follows the system field, not the empty-first order in `design.md`.
 - The filter row is the list's first row and scrolls with it: Status, Key,
   Filters, then set sheet filters as tokens. It fits one line on a phone at
   the default text size, so it never gains another capsule.
@@ -74,7 +99,7 @@ there where they differ. Regular-width iPad reads this page, then
   glass. A menu draws glass at its label's full frame, so glass cannot stay
   smaller than its tap frame.
 - A grid too wide for the column (stats key grid) scrolls sideways.
-- Play is a prominent slate capsule, Shuffle a glass capsule.
+- Play is an accent-filled capsule, Shuffle a glass capsule.
 
 ## Forms and Settings
 
@@ -91,13 +116,10 @@ there where they differ. Regular-width iPad reads this page, then
 - A link to a Settings group (the first-recording notice's See your
   plan) switches to the Settings tab and pushes the group's page over the
   root, so Back returns to the root.
-- Category row: slate SF Symbol, name, value summary where one exists. No
-  colored tiles.
-- A set answered once (instruments, music services) is chosen in place on
-  its category's page, not in a sheet.
+- Category row: SF Symbol in secondary ink, name, value summary where one
+  exists. No colored tiles.
 - A page clears its failure footers on open, so an old failure never reads
   as new.
-- Labels match the Mac's Settings window. Only grouping differs.
 
 ## Sheets
 
@@ -117,8 +139,6 @@ there where they differ. Regular-width iPad reads this page, then
   vertical drag does not.
 - Tap the accessory: practice, a full-screen cover that zooms out of the
   accessory and back into it.
-- Practice and trim: jet ground in every appearance, drawn in the dark
-  scheme.
 - Swipe down or the chevron closes practice, under Reduce Motion too.
 - Transport keeps its size at every text size. A practice value (speed
   preset, loop action) keeps its label on one line. A row of them wraps
@@ -129,8 +149,8 @@ there where they differ. Regular-width iPad reads this page, then
 - The record sheet's status dot pulses while recording.
 - A Stop that cannot run dims as a whole disc, never only its label.
 - Started from a tune page, the sheet names the tune the take files under.
-- A new take's row takes the slate wash for 1.5 seconds once shown. Not
-  shown within 5 seconds: no highlight.
+- A new take's row takes the set filter's accent wash for 1.5 seconds
+  once shown. Not shown within 5 seconds: no highlight.
 
 ## Motion
 

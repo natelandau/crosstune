@@ -70,14 +70,32 @@ Decide any case the rules below do not name.
 
 ## Color and type
 
-- The Mac draws its own accent, in `design-macos.md`; wherever this page
-  says slate, read that.
-- Slate: the one accent. Chosen state, selection, focus ring. A label on
-  slate takes the on-slate token, never white, because dark slate is a
-  light color.
-- A solid control (primary button, a loaded transport disc) fills with
-  jet in light and alabaster in dark, its label in the on-accent token.
-  The Mac fills both with its own accent fill (`design-macos.md`).
+- Harbor blue (`accent`) is the one accent: a primary action, a plain
+  button's words, a section heading's control, selection and chosen
+  states, focus, switches, and set filters. Menu items, row glyphs, and
+  form action rows stay ink. Never charts, glyphs at rest, or decoration.
+- A fill behind white text (primary button, chosen chip, loaded transport
+  disc) is `accentFill`, its label `onAccentFill`. Never `accent`, which
+  is too light in dark mode to carry white.
+- Paper layers: `ground` under content columns, pages, lists, and sheets;
+  `surface` under the sidebar, cards, and footers. `hairline` for every
+  rule and edge.
+- A control's fill follows its container: `field` on `ground`, `raised` on
+  `surface`, where `field` reads gray on gray. In light, a filled control
+  on `surface` also takes a `hairline` edge, so an empty one reads on the
+  card.
+- An on switch is `switchOn`: the accent in light, a deeper blue in dark,
+  so the white knob and the track each hold 3:1.
+- Set filter: an accent wash, 12% in light and 22% in dark. Its label is
+  the accent in light and ink in dark, where the accent falls under 4.5:1
+  on the wash over `surface`.
+- A chosen item (the current tab, a checked box, the chosen location)
+  takes the accent. A chosen label on a wash takes ink in dark, for the
+  same reason.
+- Secondary text and glyphs take `inkSecondary` (web `--ink-2`), never a
+  system's translucent secondary, which falls under 4.5:1 on `surface`
+  and `field`.
+- Charts draw in ink tones. The heatmap keeps its own ramp.
 - Coral: the mark, the selected sidebar row's glyph, the playhead of
   anything that plays back, every loop handle, and what marks Premium on a
   sheet that sells it. Nothing else. An editing strip's playhead (trim)
@@ -86,12 +104,19 @@ Decide any case the rules below do not name.
   text or a coral glyph on a light ground, which fall under 3:1.
 - Loop handle: coral whatever the loop's color. Loop color stays on its
   band and tab.
+- A new loop takes the color least used near it, then overall. On a tie
+  the blue comes last, since its hue sits beside the accent's. A saved
+  loop keeps its color.
 - Recording red: Record control, live waveform, Stop. Never a destructive
   action.
 - Danger: destructive actions only. Warning: cautionary actions only.
 - Status, key, loop, and heatmap colors are identical on every platform.
+- The want to learn ring holds 3:1 on `surface` and on every row or filter
+  wash, where the shared gray falls short.
 - Never color alone. A status glyph keeps its status color everywhere,
-  selected sidebar row included, because the color is its meaning.
+  selected rows included, because the color is its meaning. Exception: a
+  status glyph turns white on an emphasized accent selection, where every
+  status color falls under 3:1. Its shape still carries the status.
 - A control painted in a value's own color keeps that color when chosen.
 - Musical key: a colored pill everywhere. Hue from the pitch class on the
   circle of fifths, constant lightness and chroma. Unreadable key: neutral
@@ -108,8 +133,9 @@ Decide any case the rules below do not name.
 
 - Mark: geometric CT monogram. The C's top arm runs into the T's crossbar.
   The stroke turns coral where the T begins.
-- Colorways: white C on dark, slate C on light. T always coral, through the
-  `mark` token, which never follows `danger`.
+- The C takes `markInk` (slate on light, white on dark), never the accent.
+  The T is always coral, through the `mark` token, which never follows
+  `danger`.
 - Lockup: bare mark left of the name, capital height. No app bar lockup,
   no link home.
 - Icons: generated from `brand/` by `just web::icons`. Never hand-edit.
@@ -216,13 +242,14 @@ One row component per platform for every list of tunes.
 - In a list: tabular position number leading, reorder by dragging the whole
   row, no grip. The dragged row lifts under a shadow, the rows it passes
   slide aside, and a drop settles it into its slot. No drop line. Playing
-  row: animated speaker, light slate wash. Nothing to play: not-playable
+  row: animated speaker, light accent wash. Nothing to play: not-playable
   glyph in the play slot.
 - A list's row on the lists screen, never in the sidebar: Play trailing,
   and Play and Shuffle first in its menu, only when a tune in it can play.
   Otherwise the slot stays empty, so the rows align. While the list plays,
   the slot pauses and resumes it, and the row takes the playing wash.
-- Selected row: inset slate highlight, every glyph keeps its own color.
+- Selected row: inset accent highlight, every glyph keeps its own color,
+  except the status exception above.
 - Status glyph's word is its tooltip on pointer.
 - At most three visible actions. The rest in the row menu.
 - Move: a control named "Move" plus the title, in the menu and the
@@ -313,8 +340,13 @@ One row component per platform for every list of tunes.
   recording, into the new form.
 - A picker never hides a tune. Already in the list: shown, marked "In this
   list", inert. Pickers include archived tunes.
+- A picker lists the whole catalog A to Z until something is typed, then
+  the search narrows it. Over an empty catalog it shows its hint.
 - Field named for what it searches. Placeholder repeats it. "Clear search"
   while focused.
+- Escape in a search that holds text empties it first. Only the next
+  Escape closes the sheet or column, so a picker never closes on what was
+  typed.
 - Matches stored names, a parent's name included. Never text composed for
   display. Ignores case and accents.
 - Query lasts the app session. Filters persist. The new tune form and
@@ -338,7 +370,7 @@ One row component per platform for every list of tunes.
   count: "Filters, 2 set". Persisted filters must announce themselves.
 - Facets with their own on-screen control (Status, Key) never count in
   Filters and never show as tokens.
-- Filter control: quiet capsule, slate wash once it narrows.
+- Filter control: quiet capsule, accent wash once it narrows.
 - Filters with nothing to choose (list loading, empty, or nothing to tell
   apart) and no filter set: absent, never disabled.
 - Facet pull-down reads facet and value: "Key: Any", "Key: D". Colored
@@ -415,10 +447,10 @@ One row component per platform for every list of tunes.
   ground with no card, aligned to the cards' edges.
 - Closed choice: a field row that opens the one picker. A pill grid only
   where values carry color or the field is the screen's purpose.
-- A set answered once (instruments, music services): a row that names the
-  choice and opens a sheet, never rows on the screen. When the names would
-  wrap, the row shows a count instead, "2 of 7". The Mac Settings window
-  differs (`design-macos.md`).
+- A set answered once (instruments, music services): in Settings, a
+  switch per item on its page. On any other screen, a row that names the
+  choice and opens a sheet of the same switches on the same bindings.
+  When the names would wrap, the row shows a count instead, "2 of 7".
 - Fields ranked by use. Rare ones last, in one list.
 - Labeled row: label leading, value trailing, value elides first.
 - Every control has a visible label. An accessibility-only name is not a
@@ -444,9 +476,16 @@ One row component per platform for every list of tunes.
 ### Settings
 
 Settings is a root list of categories. Each category opens its own page of
-groups.
+groups. Categories follow the Mac Settings window's subjects: Tunes and
+Recordings each hold their groups on one page, not a page per group.
 
 - A new setting joins its category's page, never the root.
+- A category or group on the same subject takes the same name on every
+  platform.
+- A link to a Settings group lands on that group, never only on its
+  category. So does an old address of a page that became a group.
+- A root row shows its page's value where one exists: the instruments for
+  Tunes, the quality for Recordings, the choice for Appearance.
 - Every change saves at once. No Save button.
 - Each group's help sits above its rows, so the musician reads what a
   setting does before choosing. A failed save shows in red below the rows,
@@ -472,9 +511,10 @@ presents.
 - Menu: destructive items last, red, after a separator. Cautionary items in
   warning color.
 - A destructive action confirms through the app's own overlay. Only the
-  named action resolves true. Button: bare verb. Message names the
-  consequence and says when data cannot come back:
-  `Delete "Soldier's Joy"? This removes its links and list entries.`
+  named action resolves true. Button: bare verb. The title is the question
+  and names the thing, as stored: `Delete "Soldier's Joy"?`. The message lists
+  only the consequences and says when data cannot come back:
+  `This removes its links and list entries.`
 - Toast: only for Undo, an error that arrives after the musician left
   the screen, how a web checkout ended, or how a withdrawal for a
   refund ended, since its row goes once Premium ends. One at a time,
@@ -488,6 +528,8 @@ presents.
   whose headline names what was tapped.
 - The Plan sheet opens full height. It sells to a free or trial account
   and shows a Premium account its plan.
+- A purchase is never a sheet's default action or its first focus, so a
+  stray Return in a sheet that opened unasked never starts one.
 - A sheet sells only once the store has answered with its prices.
   Subscribe never shows without a plan the store can sell, and a sheet
   that cannot sell still shows what Premium holds.
@@ -573,6 +615,10 @@ A page reads as a document, such as the tune page or stats.
   the only controls.
 - Practice opens from the player. Playhead fixed, wave scrolls under it.
   Loop bands in loop colors.
+- Practice and trim draw on the jet ground in every appearance, in the
+  dark scheme. The accent on jet is the dark scheme's Harbor. Only the
+  transport disc and its chips are white, never `accentFill`. The Mac
+  differs (`design-macos.md`).
 - Trim reads apart from practice: plain white handles and playhead.
 
 ## Motion

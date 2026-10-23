@@ -80,6 +80,8 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
   over the root. A link to a Settings group (the first-recording
   notice's See your plan) replaces the detail page with that group's
   page.
+- The Settings root row whose page shows in the detail column takes the
+  `field` fill, never a system gray.
 - A grid that scrolls sideways on iPhone spreads to fit in the split.
 
 ## Rows and selection
