@@ -1,19 +1,11 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  type KeyboardEvent,
-  type RefObject,
-} from 'react'
+import { useEffect, useLayoutEffect, useRef, type KeyboardEvent, type RefObject } from 'react'
 import { LOOP_LIMITS } from '../../api/vocabulary'
 import { clamp } from '../../math'
 import { useLatest } from '../../ui/useLatest'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { formatDuration, formatPreciseDuration } from '../../text/format'
 import type { ShownPeaks } from './recordingRange'
-import { Waveform } from './Waveform'
-import { slicePeaks } from '../waveform/peaks'
+import { LaneBars } from './LaneBars'
 import { LoopHandle } from './LoopHandle'
 import {
   roomAround,
@@ -158,13 +150,6 @@ export function PracticeWaveform({
   const centerMs = scrubbingMs ?? playheadMs - trimStartMs
   const view = viewAt(pxPerS, centerMs, widthPx, trimStartMs)
   const endMs = view.startMs + (widthPx / pxPerS) * 1000
-  // Bars cover only the recording's own stretch, so the view past either end stays blank.
-  const drawStartMs = Math.min(lengthMs, Math.max(0, view.startMs))
-  const drawEndMs = Math.max(drawStartMs, Math.min(endMs, lengthMs))
-  const peaks = useMemo(
-    () => (shown ? slicePeaks(shown.peaks, drawStartMs, drawEndMs) : null),
-    [shown, drawStartMs, drawEndMs],
-  )
 
   const step = TICK_STEPS.find((ms) => (ms / 1000) * pxPerS >= MIN_TICK_PX) ?? 300_000
   const ticks: number[] = []
@@ -227,23 +212,13 @@ export function PracticeWaveform({
         ))}
       </div>
       <div className="relative">
-        <div
-          data-bars
-          style={{
-            marginLeft: ((drawStartMs - view.startMs) / 1000) * pxPerS,
-            width: ((drawEndMs - drawStartMs) / 1000) * pxPerS,
-          }}
-        >
-          <Waveform
-            peaks={peaks}
-            loudest={shown?.loudest}
-            lengthMs={drawEndMs - drawStartMs}
-            positionMs={centerMs - drawStartMs}
-            heightClass="practice-detail"
-            decorative
-            onSeek={() => {}}
-          />
-        </div>
+        <LaneBars
+          shown={shown}
+          startMs={view.startMs}
+          pxPerS={pxPerS}
+          lengthMs={lengthMs}
+          heightClass="practice-detail"
+        />
         {shownLoops.map((loop) => {
           const x0 = xOfMs(view, loop.startMs)
           const x1 = xOfMs(view, loop.endMs)

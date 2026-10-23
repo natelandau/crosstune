@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { barLevels, encodePeaks, fitPeaks, parsePeaks, peakByte, slicePeaks } from './peaks'
+import {
+  barLevels,
+  encodePeaks,
+  fitPeaks,
+  gridLevel,
+  parsePeaks,
+  peakByte,
+  slicePeaks,
+} from './peaks'
 
 describe('encodePeaks and parsePeaks', () => {
   it('round trips values through the header', () => {
@@ -72,5 +80,28 @@ describe('barLevels', () => {
   it('is all zero for silence or no points', () => {
     expect(barLevels(Uint8Array.from([0, 0]), 2)).toEqual([0, 0])
     expect(barLevels(new Uint8Array(0), 2)).toEqual([0, 0])
+  })
+})
+
+describe('gridLevel', () => {
+  const peaks = { pointsPerSecond: 50, values: Uint8Array.from([10, 200, 30, 40, 250, 60, 70]) }
+
+  it('takes the max of the points a bar covers, scaled to the loudest value', () => {
+    // 50 ms bars over 20 ms points: bar 1 covers 50-100 ms, points 2 to 4.
+    expect(gridLevel(peaks, 50, 0, 250)).toBe(200 / 250)
+    expect(gridLevel(peaks, 50, 1, 250)).toBe(250 / 250)
+  })
+
+  it('gives a bar at least one point when bars are narrower than points', () => {
+    expect(gridLevel(peaks, 10, 3, 250)).toBe(200 / 250)
+  })
+
+  it('is null before the first point and past the last', () => {
+    expect(gridLevel(peaks, 50, -1, 250)).toBeNull()
+    expect(gridLevel(peaks, 50, 3, 250)).toBeNull()
+  })
+
+  it('is zero for silence', () => {
+    expect(gridLevel({ pointsPerSecond: 50, values: new Uint8Array(4) }, 50, 0, 0)).toBe(0)
   })
 })

@@ -100,13 +100,38 @@ export function barLevels(
       continue
     }
     const start = Math.floor((bar * total) / count)
-    const end = Math.min(total, Math.max(start + 1, Math.floor(((bar + 1) * total) / count)))
-    let peak = 0
-    for (let i = start; i < end; i++) {
-      const v = values[i]!
-      if (v > peak) peak = v
-    }
-    levels.push(Math.min(1, peak / loudest))
+    const end = Math.floor(((bar + 1) * total) / count)
+    levels.push(levelOf(values, start, end, loudest))
   }
   return levels
+}
+
+/**
+ * The level of bar `index` in a grid of `barMs` bars laid from the start of `peaks`, from 0 to 1.
+ * A bar's level depends only on its index and the grid, so bars scrolled into view keep their
+ * height wherever the view starts. Null before the first point and past the last.
+ */
+export function gridLevel(
+  peaks: Peaks,
+  barMs: number,
+  index: number,
+  loudest: number,
+): number | null {
+  const total = peaks.values.length
+  const start = Math.floor((index * barMs * peaks.pointsPerSecond) / 1000)
+  if (index < 0 || start >= total) return null
+  if (loudest === 0) return 0
+  const end = Math.floor(((index + 1) * barMs * peaks.pointsPerSecond) / 1000)
+  return levelOf(peaks.values, start, end, loudest)
+}
+
+/** The loudest of points `start` to `end`, at least one point and none past the last. */
+function levelOf(values: Uint8Array, start: number, end: number, loudest: number): number {
+  const stop = Math.min(values.length, Math.max(start + 1, end))
+  let peak = 0
+  for (let i = start; i < stop; i++) {
+    const v = values[i]!
+    if (v > peak) peak = v
+  }
+  return Math.min(1, peak / loudest)
 }

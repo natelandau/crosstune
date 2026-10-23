@@ -2,6 +2,7 @@ import { clamp } from '../../math'
 
 export const BAR_WIDTH = 3
 export const BAR_GAP = 2
+export const BAR_STEP = BAR_WIDTH + BAR_GAP
 export const MIN_BAR = 2
 const GAIN = 2.5
 
@@ -28,7 +29,7 @@ export function createLevels(mode: WaveformLevels['mode']): WaveformLevels {
 }
 
 export function barCount(width: number): number {
-  return Math.max(0, Math.ceil(width / (BAR_WIDTH + BAR_GAP)))
+  return Math.max(0, Math.ceil(width / BAR_STEP))
 }
 
 /** Root mean square of 8-bit time-domain samples, from 0 for silence to 1 at full scale. */
@@ -65,11 +66,10 @@ export function eachBar(
   height: number,
   visit: (x: number, y: number, width: number, height: number) => void,
 ): void {
-  const step = BAR_WIDTH + BAR_GAP
   const count = state.levels.length
   for (let i = 0; i < count; i++) {
     const bar = clamp(state.levels[i]! * height * GAIN, MIN_BAR, height)
-    const x = state.mode === 'scrolling' ? width - (count - i) * step : i * step
+    const x = state.mode === 'scrolling' ? width - (count - i) * BAR_STEP : i * BAR_STEP
     visit(x, (height - bar) / 2, BAR_WIDTH, bar)
   }
 }

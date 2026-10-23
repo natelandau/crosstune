@@ -609,4 +609,18 @@ private final class Writes {
     @Test func beforeTheControlsAreLaidOutAnywhereCloses() {
         #expect(PracticeSwipe.closes(startY: 700, translation: down, areaBottom: nil))
     }
+
+    @Test func aGridBarTakesTheLoudestPointItCoversWhereverTheGridStarts() throws {
+        let values = (0..<200).map { UInt8($0 % 256) }
+        // The trim keeps points 50 to 149, the loudest point in the file is 199.
+        let shown = try #require(ShownPeaks(take(), peaks: Peaks(values: values), peaksRev: nil))
+
+        // 50 ms bars over 20 ms points: bar 1 covers 50-100 ms, points 2 to 4.
+        #expect(shown.gridLevel(barMs: 50, index: 0) == CGFloat(51) / 199)
+        #expect(shown.gridLevel(barMs: 50, index: 1) == CGFloat(54) / 199)
+        // A bar narrower than a point still takes one.
+        #expect(shown.gridLevel(barMs: 10, index: 3) == CGFloat(51) / 199)
+        #expect(shown.gridLevel(barMs: 50, index: -1) == nil)
+        #expect(shown.gridLevel(barMs: 50, index: 40) == nil)
+    }
 }

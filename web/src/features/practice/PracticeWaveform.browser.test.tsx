@@ -232,11 +232,15 @@ describe('PracticeWaveform', () => {
     pointer(surface(), 'pointermove', 250)
     pointer(surface(), 'pointermove', 390)
     await expect.poll(viewStart).toBeLessThan(-2_000)
-    await expect
-      .poll(() =>
-        parseFloat(waveform().querySelector<HTMLElement>('[data-bars]')!.style.marginLeft),
-      )
-      .toBeGreaterThan(WIDTH_PX / 2)
+    // The recording starts right of the playhead, so the bar is blank there and drawn past it.
+    const painted = (x: number) => {
+      const canvas = waveform().querySelector<HTMLCanvasElement>('[data-bars]')!
+      const scale = window.devicePixelRatio || 1
+      const y = Math.floor((canvas.clientHeight / 2) * scale)
+      return canvas.getContext('2d')!.getImageData(Math.floor(x * scale), y, 1, 1).data[3]! > 0
+    }
+    await expect.poll(() => painted(WIDTH_PX - 10)).toBe(true)
+    expect(painted(WIDTH_PX / 2 - 10)).toBe(false)
     const ticks = () => [...waveform().querySelectorAll<HTMLElement>('[data-tick]')]
     await expect.poll(() => ticks().length).toBeGreaterThan(0)
     await expect
