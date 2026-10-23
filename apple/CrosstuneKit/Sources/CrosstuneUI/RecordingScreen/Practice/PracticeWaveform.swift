@@ -217,8 +217,9 @@ struct PracticeWaveform: View {
         let x1 = min(width, lengthMs / 1000 * view.pointsPerSecond - lane.offsetX)
         if x1 > x0 {
             let height = size.height
-            // A trim past the end of the peaks leaves no points, drawn as if the peaks had not come.
-            let peaks = self.peaks.flatMap { $0.values.isEmpty ? nil : $0 }
+            // A trim past the end of the peaks leaves no points, and a silent file has no level to
+            // scale to; both draw as if the peaks had not come, as the overview strip does.
+            let peaks = self.peaks.flatMap { $0.values.isEmpty || $0.loudest == 0 ? nil : $0 }
             #if os(macOS)
                 if let peaks {
                     context.fillSplit(
@@ -595,6 +596,8 @@ extension GraphicsContext.Shading {
 extension GraphicsContext {
     /// Fills `path` in `played` left of `x` and in `unplayed` from it on.
     func fillSplit(_ path: Path, atX x: Double, played: Color, unplayed: Color) {
+        // An empty path's bounds are the null rect, whose infinite origin would make each clip NaN.
+        guard !path.isEmpty else { return }
         // Two clips sized to the path, never an inverse clip or one far past it: the GPU renderer
         // can paint a tile under both, which shows where a color is translucent.
         let bounds = path.boundingRect.insetBy(dx: -1, dy: -1)

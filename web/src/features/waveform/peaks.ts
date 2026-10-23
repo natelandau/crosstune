@@ -109,7 +109,7 @@ export function barLevels(
 /**
  * The level of bar `index` in a grid of `barMs` bars laid from the start of `peaks`, from 0 to 1.
  * A bar's level depends only on its index and the grid, so bars scrolled into view keep their
- * height wherever the view starts. Null past the end of the points.
+ * height wherever the view starts. Null before the first point and past the last.
  */
 export function gridLevel(
   peaks: Peaks,

@@ -24,16 +24,16 @@ export function LaneBars({
   lengthMs: number
   heightClass: string
 }) {
-  const { canvasRef, begin } = useBarCanvas()
+  const { canvasRef, scale, begin } = useBarCanvas()
+  // Every bar lands on the same device-pixel phase, so its edges keep their sharpness as it
+  // moves, and a scroll of less than a device pixel needs no redraw.
+  const offsetX = Math.round((startMs / 1000) * pxPerS * scale) / scale
 
   useEffect(() => {
     const draw = begin()
     if (!draw) return
-    const { context, width, height, scale } = draw
+    const { context, width, height } = draw
     const centerX = width / 2
-    // Every bar lands on the same device-pixel phase, so its edges keep their sharpness as it moves.
-    const snap = (x: number) => Math.round(x * scale) / scale
-    const offsetX = snap((startMs / 1000) * pxPerS)
     if (!shown || shown.peaks.values.length === 0) {
       const x0 = Math.max(0, -offsetX)
       const x1 = Math.min(width, (lengthMs / 1000) * pxPerS - offsetX)
@@ -57,7 +57,7 @@ export function LaneBars({
       context.fillStyle = x + BAR_WIDTH / 2 < centerX ? draw.played : draw.unplayed
       context.fillRect(x, (height - bar) / 2, BAR_WIDTH, bar)
     }
-  }, [begin, shown, startMs, pxPerS, lengthMs])
+  }, [begin, shown, offsetX, pxPerS, lengthMs])
 
   return (
     <canvas

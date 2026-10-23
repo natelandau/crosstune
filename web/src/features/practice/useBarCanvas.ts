@@ -31,9 +31,9 @@ export interface BarDraw {
 }
 
 /**
- * A canvas that tracks its own size and the bar colors. `begin` clears it for a draw and is
- * null until the canvas has a size; it changes on a resize or a theme change, so a draw effect
- * that depends on it repaints then.
+ * A canvas that tracks its own size, its device pixel ratio, and the bar colors. `begin` clears
+ * it for a draw and is null until the canvas has a size; it changes on a resize, a density
+ * change, or a theme change, so a draw effect that depends on it repaints then.
  */
 export function useBarCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -41,6 +41,16 @@ export function useBarCanvas() {
   const surface = useRef<Surface | null>(null)
   // The bar colors are read again whenever the scheme stamped on the root changes.
   const theme = useScheme()
+  const [scale, setScale] = useState(() => window.devicePixelRatio || 1)
+
+  // A move to a screen of another density changes the ratio without a resize.
+  useEffect(() => {
+    const list = window.matchMedia?.(`(resolution: ${scale}dppx)`)
+    if (!list) return
+    const onChange = () => setScale(window.devicePixelRatio || 1)
+    list.addEventListener('change', onChange)
+    return () => list.removeEventListener('change', onChange)
+  }, [scale])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -61,15 +71,15 @@ export function useBarCanvas() {
     if (!canvas || !context || size.width === 0) return null
     const { width, height } = size
     // Sizing the backing store and reading the color are the costly steps, so they run again
-    // only on a resize or a theme change, never on a position tick.
+    // only on a resize, a density change, or a theme change, never on a position tick.
     let current = surface.current
     if (
       !current ||
       current.width !== width ||
       current.height !== height ||
-      current.theme !== theme
+      current.theme !== theme ||
+      current.scale !== scale
     ) {
-      const scale = window.devicePixelRatio || 1
       canvas.width = width * scale
       canvas.height = height * scale
       context.setTransform(scale, 0, 0, scale, 0, 0)
@@ -86,7 +96,7 @@ export function useBarCanvas() {
     }
     context.clearRect(0, 0, width, height)
     return { context, ...current }
-  }, [size, theme])
+  }, [size, theme, scale])
 
-  return { canvasRef, size, begin }
+  return { canvasRef, size, scale, begin }
 }
