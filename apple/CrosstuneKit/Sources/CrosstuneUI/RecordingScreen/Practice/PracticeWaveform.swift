@@ -211,29 +211,28 @@ struct PracticeWaveform: View {
     private func draw(in context: inout GraphicsContext, size: CGSize, view: LaneView, placed: [PlacedLoop]) {
         let width = Double(size.width)
         let lengthMs = Double(model.lengthMs)
+        let lane = LaneBars(view: view, lengthMs: lengthMs, displayScale: context.environment.displayScale)
         // Bars cover only the recording's own stretch, so the view past either end stays blank.
-        let drawStart = min(lengthMs, max(0, view.startMs))
-        let drawEnd = max(drawStart, min(view.endMs, lengthMs))
-        let x0 = (drawStart - view.startMs) / 1000 * view.pointsPerSecond
-        let x1 = (drawEnd - view.startMs) / 1000 * view.pointsPerSecond
+        let x0 = max(0, -lane.offsetX)
+        let x1 = min(width, lengthMs / 1000 * view.pointsPerSecond - lane.offsetX)
         if x1 > x0 {
-            let slice = peaks?.sliced(fromMs: Int64(drawStart), toMs: Int64(drawEnd.rounded(.up)))
-            let bars = CGRect(x: x0, y: 0, width: x1 - x0, height: Double(size.height))
+            let height = size.height
+            // A trim past the end of the peaks leaves no points, drawn as if the peaks had not come.
+            let peaks = self.peaks.flatMap { $0.values.isEmpty ? nil : $0 }
             #if os(macOS)
-                let count = PeakBars.count(in: bars.width)
-                let levels = slice?.bars(count) ?? []
-                if levels.isEmpty {
-                    let first = Int(drawStart / 1000 * view.pointsPerSecond / Double(PeakBars.step))
-                    context.fill(
-                        .peakBars(levels: PeakBars.placeholder(count, from: first), in: bars),
-                        with: .color(MacWave.placeholder))
-                } else {
+                if let peaks {
                     context.fillSplit(
-                        .peakBars(levels: levels, in: bars), atX: width / 2, played: MacWave.played,
-                        unplayed: MacWave.unplayed)
+                        lane.path(height: height) { peaks.gridLevel(barMs: lane.barMs, index: $0) },
+                        atX: width / 2, played: MacWave.played, unplayed: MacWave.unplayed)
+                } else {
+                    context.fill(
+                        lane.path(height: height) { PeakBars.placeholderLevel($0) },
+                        with: .color(MacWave.placeholder))
                 }
             #else
-                let path = Path.peakBars(slice, in: bars)
+                let path =
+                    peaks.map { peaks in lane.path(height: height) { peaks.gridLevel(barMs: lane.barMs, index: $0) } }
+                    ?? Path.peakBars(levels: [], in: CGRect(x: x0, y: 0, width: x1 - x0, height: height))
                 if ground != nil {
                     // What has played, left of the fixed playhead, is white; what is to come is silver.
                     context.fillSplit(path, atX: width / 2, played: Self.wavePlayed, unplayed: Self.waveUnplayed)
@@ -656,15 +655,60 @@ enum PeakBars {
         return levels
     }
 
-    /// A low, gently uneven run of `count` bars, starting at bar `first` of the recording so it
-    /// stays put as the waveform scrolls.
-    static func placeholder(_ count: Int, from first: Int = 0) -> [CGFloat] {
-        (0..<max(0, count)).map { bar in
-            let index = Double(first + bar)
-            let ripple = 0.5 + 0.5 * sin(index * 0.21)
-            let swell = 0.6 + 0.4 * sin(index * 0.057 + 1.3)
-            return CGFloat(0.14 + 0.16 * ripple * swell)
+    /// A low, gently uneven run of `count` bars.
+    static func placeholder(_ count: Int) -> [CGFloat] {
+        (0..<max(0, count)).map(placeholderLevel)
+    }
+
+    /// The placeholder level of bar `index` of the recording.
+    static func placeholderLevel(_ index: Int) -> CGFloat {
+        let index = Double(index)
+        let ripple = 0.5 + 0.5 * sin(index * 0.21)
+        let swell = 0.6 + 0.4 * sin(index * 0.057 + 1.3)
+        return CGFloat(0.14 + 0.16 * ripple * swell)
+    }
+}
+
+/// The recording's bars across the zoomed view. Each bar covers a fixed stretch of the recording
+/// at this scale, so a scroll moves the bars rather than resampling them under a still comb.
+struct LaneBars {
+    /// How much of the recording one bar covers.
+    let barMs: Double
+    /// The x of the recording's start, negated: how far the view has scrolled into it, snapped to
+    /// a device pixel so every bar keeps the same pixel phase and its edges stay sharp as it moves.
+    let offsetX: Double
+    /// The bars in view, by index from the recording's start; nil when none are.
+    let indices: ClosedRange<Int>?
+
+    init(view: LaneView, lengthMs: Double, displayScale: CGFloat) {
+        let step = Double(PeakBars.step)
+        let scale = Double(max(1, displayScale))
+        barMs = step / view.pointsPerSecond * 1000
+        offsetX = (view.startMs / 1000 * view.pointsPerSecond * scale).rounded() / scale
+        let first = max(0, Int((offsetX / step).rounded(.down)))
+        let last = min(
+            Int((lengthMs / barMs).rounded(.up)) - 1, Int(((offsetX + view.width) / step).rounded(.down)))
+        indices = first <= last ? first...last : nil
+    }
+
+    /// The x of bar `index` from the recording's start, in the view.
+    func x(of index: Int) -> Double { Double(index) * Double(PeakBars.step) - offsetX }
+
+    /// The bars in view, `level` giving each bar's height by its index from the recording's start,
+    /// nil once past the points.
+    func path(height: CGFloat, level: (Int) -> CGFloat?) -> Path {
+        var path = Path()
+        guard let indices else { return path }
+        for index in indices {
+            guard let level = level(index) else { break }
+            let bar = max(2, level * height)
+            path.addRoundedRect(
+                in: CGRect(
+                    x: x(of: index), y: (height - bar) / 2,
+                    width: PeakBars.barWidth, height: bar),
+                cornerSize: CGSize(width: 1, height: 1))
         }
+        return path
     }
 }
 

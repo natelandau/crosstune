@@ -48,16 +48,30 @@ struct ShownPeaks: Equatable {
         min(max(Int(ms) * pointsPerSecond / 1000, 0), values.count)
     }
 
+    /// The level of bar `index` in a grid of `barMs` bars laid from the first point, as a share of
+    /// ``loudest``. A bar's level depends only on its index and the grid, so bars scrolled into
+    /// view keep their height wherever the view starts. Nil past either end of the points.
+    func gridLevel(barMs: Double, index: Int) -> CGFloat? {
+        let total = values.count
+        let perMs = Double(pointsPerSecond) / 1000
+        let start = Int((Double(index) * barMs * perMs).rounded(.down))
+        guard index >= 0, start < total else { return nil }
+        guard loudest > 0 else { return 0 }
+        return level(from: start, to: Int((Double(index + 1) * barMs * perMs).rounded(.down)))
+    }
+
     /// The loudest value in each of `count` equal runs of points, as a share of ``loudest``.
     func bars(_ count: Int) -> [CGFloat] {
         let total = values.count
         guard count > 0, total > 0, loudest > 0 else { return [] }
+        return (0..<count).map { bar in level(from: bar * total / count, to: (bar + 1) * total / count) }
+    }
+
+    /// The loudest of points `start` to `end`, at least one point and none past the last, as a
+    /// share of ``loudest``.
+    private func level(from start: Int, to end: Int) -> CGFloat {
         let base = values.startIndex
-        return (0..<count).map { bar in
-            let start = bar * total / count
-            let end = max(start + 1, (bar + 1) * total / count)
-            let peak = values[(base + start)..<(base + min(end, total))].max() ?? 0
-            return CGFloat(peak) / CGFloat(loudest)
-        }
+        let peak = values[(base + start)..<(base + min(values.count, max(start + 1, end)))].max() ?? 0
+        return CGFloat(peak) / CGFloat(loudest)
     }
 }
