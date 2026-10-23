@@ -51,6 +51,7 @@ const RANGE_OBJECTS = {
     fields: ['speed_percent', 'pitch_cents', 'trim_start_ms', 'place_accuracy_m'],
   },
   LOOP_RANGES: { schema: 'RecordingLoopRow', fields: ['start_ms', 'color'] },
+  USER_SETTINGS_RANGES: { schema: 'UserSettingsRow', fields: ['tuner_a4_hz'] },
 }
 
 /** A number field's minimum and/or maximum, directly or under anyOf. */

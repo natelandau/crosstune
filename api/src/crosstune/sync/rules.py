@@ -10,7 +10,15 @@ from sqlalchemy import func, select
 from crosstune.db.base import next_server_seq
 from crosstune.links.detect import detect_provider, normalize_url, valid_slippery_hill_ref
 from crosstune.links.resolve import unresolved_link
-from crosstune.models import Place, Recording, RecordingLoop, Scan, StatusChange, UserTune
+from crosstune.models import (
+    Place,
+    Recording,
+    RecordingLoop,
+    Scan,
+    StatusChange,
+    UserSettings,
+    UserTune,
+)
 from crosstune.places.matching import (
     MATCH_RADIUS_M,
     distance_m,
@@ -539,6 +547,27 @@ class UserTuneRules(RowRules):
         )
 
 
+class UserSettingsRules(RowRules):
+    """Keeps a stored reference pitch that a push leaves out."""
+
+    async def prepare(self, data: dict[str, Any]) -> str | None:
+        """Keep the stored `tuner_a4_hz` when the change omits it.
+
+        A client that predates the tuner sends every other setting and no reference pitch,
+        which would otherwise write the default over the one another device set.
+        """
+        if "tuner_a4_hz" in (self.change.data or {}):
+            return None
+        stored = await self.session.scalar(
+            select(UserSettings.tuner_a4_hz).where(
+                UserSettings.id == self.change.id, UserSettings.user_id == self.user_id
+            )
+        )
+        if stored is not None:
+            data["tuner_a4_hz"] = stored
+        return None
+
+
 RULES: dict[TableName, type[RowRules]] = {
     "recording_links": RecordingLinkRules,
     "places": PlaceRules,
@@ -546,5 +575,6 @@ RULES: dict[TableName, type[RowRules]] = {
     "recording_loops": RecordingLoopRules,
     "scans": ScanRules,
     "user_tunes": UserTuneRules,
+    "user_settings": UserSettingsRules,
 }
 """The tables with rules of their own. Every other table uses RowRules, which adds none."""

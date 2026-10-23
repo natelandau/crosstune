@@ -5065,6 +5065,8 @@ extension Components {
             public var searchProviders: [Components.Schemas.Provider]?
             /// - Remark: Generated from `#/components/schemas/UserSettingsRow/server_seq`.
             public var serverSeq: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/UserSettingsRow/tuner_a4_hz`.
+            public var tunerA4Hz: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/UserSettingsRow/updated_at`.
             public var updatedAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/UserSettingsRow/user_id`.
@@ -5084,6 +5086,7 @@ extension Components {
             ///   - playFirst:
             ///   - searchProviders:
             ///   - serverSeq:
+            ///   - tunerA4Hz:
             ///   - updatedAt:
             ///   - userId:
             ///   - additionalProperties: A container of undocumented properties.
@@ -5098,6 +5101,7 @@ extension Components {
                 playFirst: Components.Schemas.PlayFirst? = nil,
                 searchProviders: [Components.Schemas.Provider]? = nil,
                 serverSeq: Swift.Int,
+                tunerA4Hz: Swift.Int? = nil,
                 updatedAt: Foundation.Date,
                 userId: Swift.String,
                 additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()
@@ -5112,6 +5116,7 @@ extension Components {
                 self.playFirst = playFirst
                 self.searchProviders = searchProviders
                 self.serverSeq = serverSeq
+                self.tunerA4Hz = tunerA4Hz
                 self.updatedAt = updatedAt
                 self.userId = userId
                 self.additionalProperties = additionalProperties
@@ -5127,6 +5132,7 @@ extension Components {
                 case playFirst = "play_first"
                 case searchProviders = "search_providers"
                 case serverSeq = "server_seq"
+                case tunerA4Hz = "tuner_a4_hz"
                 case updatedAt = "updated_at"
                 case userId = "user_id"
             }
@@ -5172,6 +5178,10 @@ extension Components {
                     Swift.Int.self,
                     forKey: .serverSeq
                 )
+                self.tunerA4Hz = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .tunerA4Hz
+                )
                 self.updatedAt = try container.decode(
                     Foundation.Date.self,
                     forKey: .updatedAt
@@ -5191,6 +5201,7 @@ extension Components {
                     "play_first",
                     "search_providers",
                     "server_seq",
+                    "tuner_a4_hz",
                     "updated_at",
                     "user_id"
                 ])
@@ -5236,6 +5247,10 @@ extension Components {
                 try container.encode(
                     self.serverSeq,
                     forKey: .serverSeq
+                )
+                try container.encodeIfPresent(
+                    self.tunerA4Hz,
+                    forKey: .tunerA4Hz
                 )
                 try container.encode(
                     self.updatedAt,

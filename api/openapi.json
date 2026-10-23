@@ -4252,6 +4252,13 @@
             "title": "Server Seq",
             "type": "integer"
           },
+          "tuner_a4_hz": {
+            "default": 440,
+            "maximum": 450.0,
+            "minimum": 430.0,
+            "title": "Tuner A4 Hz",
+            "type": "integer"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
