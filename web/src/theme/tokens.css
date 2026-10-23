@@ -48,12 +48,12 @@
   /* The unknown ring on a surface or a wash, which the lighter grey falls under 3:1 on. */
   --unknown-on-surface: #737983;
   --silver: #bfc0c0;
-  --danger: #d92d20;
+  --danger: #b42318;
   /* The dark scheme's danger, which practice also uses in either appearance. */
-  --danger-dark: #ff6b5e;
+  --danger-dark: #ff8a80;
   /* A control's fill in practice, which is drawn dark in either appearance. */
   --practice-fill: rgba(118, 118, 128, 0.24);
-  --warning: #c93400;
+  --warning: #b02e00;
   --hairline: rgba(30, 40, 55, 0.12);
   --wash: color-mix(in srgb, var(--accent) 12%, transparent);
   /* The playing row's wash, lighter than a selection's so the two read apart. */

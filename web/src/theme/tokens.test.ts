@@ -39,8 +39,10 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
     ]),
     ['unknown ring on the ground', p.unknown, p.ground, 3],
     ['unknown ring on a surface', p.unknownOnSurface, p.surface, 3],
-    ['danger label', p.danger, p.ground, 4.5],
-    ['warning label', p.warning, p.ground, 4.5],
+    ...grounds.flatMap(([name, bg]): Case[] => [
+      [`danger label on ${name}`, p.danger, bg, 4.5],
+      [`warning label on ${name}`, p.warning, bg, 4.5],
+    ]),
     ['label on danger', p.onTone, p.danger, 4.5],
     ['label on warning', p.onTone, p.warning, 4.5],
     ...grounds
@@ -132,7 +134,11 @@ function washOver(values: Map<string, string>, wash: string, ground: string): st
     values.get(wash) ?? '',
   )
   if (!match) throw new Error(`${wash} is not a color-mix of a token with transparent`)
-  const [color, alpha] = [values.get(match[1]!)!, Number(match[2]) / 100]
+  return over(values.get(match[1]!)!, Number(match[2]) / 100, ground)
+}
+
+/** The hex color `color` at `alpha` paints over an opaque ground. */
+function over(color: string, alpha: number, ground: string): string {
   const channels = (hex: string) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16))
   const under = channels(ground)
   const mixed = channels(color).map((c, i) => Math.round(c * alpha + under[i]! * (1 - alpha)))
@@ -169,6 +175,16 @@ describe.each(['light', 'dark'] as const)('washes in %s', (scheme) => {
     // A plain worded button's accent label under the pointer.
     ['plain button label on its hover over the ground', '--accent', '--tint', '--ground', 4.5],
     ['plain button label on its hover over a surface', '--accent', '--tint', '--surface', 4.5],
+    ...(['--danger', '--warning'] as const).flatMap(
+      (tone): [string, string, string, string, number][] =>
+        (['--ground', '--surface'] as const).map((ground) => [
+          `${tone} label on a selected row over ${ground}`,
+          tone,
+          '--wash',
+          ground,
+          4.5,
+        ]),
+    ),
     ...(['--row-hover', '--wash', '--play-wash', '--set-fill', '--tint'] as const).flatMap(
       (wash): [string, string, string, string, number][] =>
         (['--ground', '--surface'] as const).map((ground) => [
@@ -181,5 +197,14 @@ describe.each(['light', 'dark'] as const)('washes in %s', (scheme) => {
     ),
   ])('%s passes', (_, ink, wash, ground, min) => {
     expect(ratio(token(ink), washOver(values, wash, token(ground)))).toBeGreaterThanOrEqual(min)
+  })
+
+  // A destructive or warning Button's hover is its own tone at 15% (Button.tsx).
+  it.each(
+    (['--danger', '--warning'] as const).flatMap((tone) =>
+      (['--ground', '--surface'] as const).map((ground) => [tone, ground] as const),
+    ),
+  )('%s label on its hover over %s passes', (tone, ground) => {
+    expect(ratio(token(tone), over(token(tone), 0.15, token(ground)))).toBeGreaterThanOrEqual(4.5)
   })
 })
