@@ -99,7 +99,13 @@ it('scrolls the windowed list', async () => {
   const dialog = await mountPicker(
     Array.from({ length: BIG }, (_, i) => ({ title: `Tune ${String(i).padStart(4, '0')}` })),
   )
-  const grid = dialog.getByRole('grid').element()
-  await expect.poll(() => grid.scrollHeight > grid.clientHeight).toBe(true)
-  expect(getComputedStyle(grid).overflowY).toMatch(/auto|scroll/)
+  const grid = dialog.getByRole('grid')
+  await expect.element(grid.getByRole('row').first()).toBeVisible()
+  await expect
+    .poll(() => {
+      const element = grid.element()
+      return element.scrollHeight > element.clientHeight
+    })
+    .toBe(true)
+  expect(getComputedStyle(grid.element()).overflowY).toMatch(/auto|scroll/)
 })
