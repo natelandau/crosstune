@@ -44,10 +44,10 @@ enum TabSlot: Hashable {
         var body: some View {
             TabView(selection: $selection) {
                 ForEach(TabSlot.phoneTabs) { destinationTab($0) }
-                Tab(value: TabSlot.record, role: Self.recordRole) {
+                Tab(value: TabSlot.record, role: RecordControl.tabRole) {
                     Color.clear
                 } label: {
-                    Image(uiImage: recordIsEnabled ? Self.recordDot : Self.coveredRecordDot)
+                    Image(uiImage: RecordControl.tabDot(enabled: recordIsEnabled))
                 }
                 .accessibilityLabel(RecordControl.label)
                 .disabled(!recordIsEnabled)
@@ -75,11 +75,6 @@ enum TabSlot: Hashable {
             .modifier(PlayerAccessory(player: player, stage: stage))
         }
 
-        /// The role that sets a tab apart in its own circle at the bar's trailing end.
-        private static var recordRole: TabRole {
-            if #available(iOS 27, *) { .prominent } else { .search }
-        }
-
         private var recordIsEnabled: Bool { TabSlot.recordIsEnabled(cover: recordCover) }
 
         private var settingsSheetShown: Binding<Bool> {
@@ -87,22 +82,6 @@ enum TabSlot: Hashable {
                 place.settingsSheetShown
             } set: {
                 place.settingsSheetChanged(shown: $0)
-            }
-        }
-
-        /// The bar redraws a template glyph in its own colors, so the dot is drawn red up front.
-        private static let recordDot = dot(UIColor(Color.recordingRed))
-        /// The bar draws an original image the same whether or not its tab is disabled, so a
-        /// covered slot shows its standing down with a dimmed dot of its own.
-        private static let coveredRecordDot = dot(UIColor(Color.recordingRed).withAlphaComponent(0.35))
-
-        private static func dot(_ color: UIColor) -> UIImage {
-            if let glyph = UIImage(systemName: "circle.fill") {
-                return glyph.withTintColor(color, renderingMode: .alwaysOriginal)
-            }
-            return UIGraphicsImageRenderer(size: CGSize(width: 24, height: 24)).image { context in
-                color.setFill()
-                context.cgContext.fillEllipse(in: CGRect(x: 2, y: 2, width: 20, height: 20))
             }
         }
 

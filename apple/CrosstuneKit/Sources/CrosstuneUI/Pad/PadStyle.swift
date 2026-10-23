@@ -43,4 +43,9 @@ public enum PadStyle {
     public static let footInset: CGFloat = 8
     /// The room every column leaves under its last row for the foot capsule.
     public static let footClearance: CGFloat = footHeight + 2 * footInset
+
+    /// The room a column leaves under its last row, none while the foot capsule is gone.
+    public static func footClearance(footShown: Bool) -> CGFloat {
+        footShown ? footClearance : 0
+    }
 }

@@ -33,8 +33,13 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
   window starts in top-bar form, because the sidebar breaks its rows'
   words.
 - Top-bar form: the five tabs (Catalog, Lists, Tuner, Recordings,
-  Settings) are the whole bar. Regular width keeps Settings as a tab, since
+  Settings), then Record. Regular width keeps Settings as a tab, since
   the bar has the room the phone lacks.
+- iPadOS 27 and later: Record is the iPhone's prominent slot, a tab that
+  records and never stays chosen. It takes `.tabPlacement(.pinned)`, or a
+  narrow top bar draws it as a plain word on the bar's second page. The
+  sidebar shows it as a row after Settings. iPadOS 26 has no prominent
+  role, so Record stays in the foot there.
 - Sidebar form: status rows follow Catalog, list rows follow Lists, then
   New list, which opens its sheet and never stays chosen.
 - A sidebar row that is not a destination is a `Tab` with
@@ -53,15 +58,18 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 
 ## The foot
 
-- `PadFoot`: our own glass capsule, the iPad's one app-wide control,
-  centered at the window foot in every form. Never the system bottom
-  accessory, which spans only the detail column in sidebar form.
-- Idle: Record only (red dot, "Record"). Loaded: the iPhone's player
-  accessory joins after Record, with its tap, skip swipe, and haptic, up to
-  `PadStyle.footMaxWidth`.
+- `PadFoot`: our own glass capsule, centered at the window foot in every
+  form. Never the system bottom accessory, which spans only the detail
+  column in sidebar form.
+- Holds the iPhone's player accessory while something is loaded, with its
+  tap, skip swipe, and haptic, up to `PadStyle.footMaxWidth`. Gone while
+  nothing is.
+- iPadOS 26: Record (red dot, "Record") leads the capsule, alone while
+  idle, and the player joins after it.
 - Hidden while selecting. Behind a sheet, dialog, or file picker, Record
-  dims and takes no press.
-- Columns leave `PadStyle.footClearance` under the last row.
+  dims and takes no press, in the foot and as a tab alike.
+- Columns leave `PadStyle.footClearance` under the last row only while the
+  capsule shows.
 - Fixed height, so its text stops growing at the first accessibility size.
 
 ## Columns
@@ -147,7 +155,8 @@ Labels and code still call it practice. `Stand` wraps practice,
 
 ## Motion
 
-- Starts to play: the foot grows and the player slides in after Record.
+- Starts to play: the capsule shows with the player, or on iPadOS 26 grows
+  and the player slides in after Record.
 - A list skips on the Stand: the next reading pane pushes in from the
   trailing edge.
 - Rotation: panes move to the new arrangement.

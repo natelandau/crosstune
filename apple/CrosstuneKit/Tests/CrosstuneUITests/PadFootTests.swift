@@ -21,4 +21,20 @@ import Testing
         cover.claim()
         #expect(!PadFoot.recordIsEnabled(cover: cover))
     }
+
+    @Test func footShowsOnlyWithSomethingInIt() {
+        let player = PlayerModel()
+        #expect(!PadFoot.isShown(showsRecord: false, player, nil))
+        player.play(PlayerItem(kind: .link, id: "l", title: "Soldier's Joy"))
+        #expect(PadFoot.isShown(showsRecord: false, player, nil))
+    }
+
+    @Test func footKeepsRecordWhenRecordIsNotATab() {
+        #expect(PadFoot.isShown(showsRecord: true, PlayerModel(), nil))
+    }
+
+    @Test func columnsClearTheFootOnlyWhileItShows() {
+        #expect(PadStyle.footClearance(footShown: true) == PadStyle.footClearance)
+        #expect(PadStyle.footClearance(footShown: false) == 0)
+    }
 }
