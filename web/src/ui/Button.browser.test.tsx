@@ -21,7 +21,7 @@ it.each([
     .toBeGreaterThanOrEqual(min)
 })
 
-it('fills a set capsule with the slate wash', async () => {
+it('fills a set capsule with the set filter wash', async () => {
   renderWithProviders(
     <>
       <Capsule label="Key: Any" />

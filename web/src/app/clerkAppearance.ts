@@ -2,13 +2,13 @@
 // keeps the form in step with the color scheme.
 export const APPEARANCE = {
   variables: {
-    colorPrimary: 'var(--slate)',
-    colorPrimaryForeground: 'var(--on-slate)',
+    colorPrimary: 'var(--accent-fill)',
+    colorPrimaryForeground: 'var(--on-accent-fill)',
     colorForeground: 'var(--ink)',
     colorMutedForeground: 'var(--ink-2)',
-    colorMuted: 'var(--fill)',
+    colorMuted: 'var(--surface)',
     colorBackground: 'var(--ground)',
-    colorInput: 'var(--ground)',
+    colorInput: 'var(--field)',
     colorInputForeground: 'var(--ink)',
     // Clerk fades this to about a tenth for input borders, so it takes an opaque color; the
     // already translucent hairline would vanish.

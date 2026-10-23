@@ -49,7 +49,7 @@ export function MediaList({ label, children }: { label: string; children: ReactN
 /**
  * The two-line row recordings and links share: a fixed glyph slot showing the item's state,
  * the title, then its details in secondary. The row is the control, and its name is the verb
- * plus the lines it shows. The loaded item's glyph takes slate.
+ * plus the lines it shows.
  */
 function MediaRow({
   id,
@@ -96,7 +96,7 @@ function MediaRow({
       leading={
         <span
           data-media-glyph
-          className={`flex h-(--target) w-7 shrink-0 items-center justify-start ${DISC_ROW_HOVER} ${loaded ? 'text-action' : 'text-ink-2'}`}
+          className={`flex h-(--target) w-7 shrink-0 items-center justify-start ${DISC_ROW_HOVER} ${loaded ? 'text-ink' : 'text-ink-2'}`}
         >
           {glyph}
         </span>
@@ -215,7 +215,7 @@ export function RecordingRow({
             <AriaButton
               aria-label={retryName(retry, title)}
               onPress={() => onRetry(retry)}
-              className="t-body text-action min-h-(--target-control) shrink-0 px-2"
+              className="t-body text-ink min-h-(--target-control) shrink-0 px-2"
             >
               {RETRY}
             </AriaButton>
@@ -257,7 +257,7 @@ export function LinkRow({ row: { link, pinned, actions } }: { row: LinkMediaRow 
             target="_blank"
             rel="noreferrer"
             aria-label={openOnProviderName(title, provider)}
-            className={`${LINE} text-action min-h-(--target)`}
+            className={`${LINE} text-ink min-h-(--target)`}
           >
             {linkOutText(provider)}
             <ArrowUpRight className="size-4 shrink-0" aria-hidden />

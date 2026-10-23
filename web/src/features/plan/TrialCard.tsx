@@ -19,8 +19,7 @@ export function TrialCard({ startsAt, endsAt }: { startsAt: Date | null; endsAt:
   const percent = endsAt ? Math.round(trialProgress(startsAt, endsAt, now) * 100) : null
   const lastDay = endsAt !== null && calendarDaysLeft(endsAt, now) <= 0
   return (
-    // Secondary ink falls under 4.5:1 on the slate tint, so the card takes the nav's darker one.
-    <div className="bg-tint flex flex-col gap-1 rounded-(--radius-surface) p-4 [--ink-2:var(--nav-ink-2)]">
+    <div className="bg-tint flex flex-col gap-1 rounded-(--radius-surface) p-4">
       <p className="t-secondary text-ink-2 font-semibold">{PLAN_TRIAL}</p>
       {endsAt && percent !== null && (
         <>
@@ -35,7 +34,7 @@ export function TrialCard({ startsAt, endsAt }: { startsAt: Date | null; endsAt:
             aria-valuetext={trialLeft(endsAt, now)}
             className="bg-tint-strong my-2 h-1.5 overflow-hidden rounded-full"
           >
-            <div className="bg-slate h-full rounded-full" style={{ width: `${percent}%` }} />
+            <div className="bg-ink/70 h-full rounded-full" style={{ width: `${percent}%` }} />
           </div>
         </>
       )}

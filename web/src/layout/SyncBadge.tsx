@@ -18,7 +18,7 @@ export function SyncBadge() {
       data-status={status}
       data-synced-at={lastSyncedAt ?? ''}
       className={
-        tone ? `t-secondary bg-fill rounded-(--radius-capsule) px-3 py-1 ${tone}` : undefined
+        tone ? `t-secondary bg-field rounded-(--radius-capsule) px-3 py-1 ${tone}` : undefined
       }
     >
       {tone ? SYNC_STATUS_LABELS[status] : null}

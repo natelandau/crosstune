@@ -1,6 +1,7 @@
 import { Plus, type LucideIcon } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
 import { Button } from './Button'
+import { InSectionHeading } from './sectionHeading'
 
 /**
  * One section of a document page: its heading in the section heading role with the add control
@@ -30,10 +31,12 @@ export function PageSection({
         <h2 id={headingId} className="t-heading">
           {title}
         </h2>
-        {add ??
-          (addLabel && onAdd && (
-            <Button variant="plain" icon={addIcon} label={addLabel} iconOnly onPress={onAdd} />
-          ))}
+        <InSectionHeading.Provider value={true}>
+          {add ??
+            (addLabel && onAdd && (
+              <Button variant="plain" icon={addIcon} label={addLabel} iconOnly onPress={onAdd} />
+            ))}
+        </InSectionHeading.Provider>
       </div>
       {children && <div className="pt-2">{children}</div>}
     </section>

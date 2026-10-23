@@ -526,7 +526,11 @@ async function captureExtras(browser, origin) {
     path: '/catalog',
   })
   await catalogReady(page, 'touch')
-  await page.getByRole('heading', { level: 1 }).getByRole('button').click()
+  // The phone's status menu opens from the filter row's Status capsule; the title stays Catalog.
+  await page
+    .getByRole('group', { name: 'Filter tunes' })
+    .getByRole('button', { name: /^Status: / })
+    .click()
   await still(page.getByRole('menuitemradio').first())
   await shoot(page, 'app-390-touch-light-status-menu')
   await context.close()

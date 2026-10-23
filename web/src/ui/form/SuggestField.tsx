@@ -133,12 +133,12 @@ export function SuggestField({
             <ListBoxItem
               id={item.id}
               textValue={item.text}
-              className="t-body data-[focused]:bg-fill flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1"
+              className="t-body data-[focused]:bg-field flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1"
             >
               {({ isSelected }) => (
                 <>
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                  {isSelected && <Check className="text-action size-5 shrink-0" aria-hidden />}
+                  {isSelected && <Check className="text-ink size-5 shrink-0" aria-hidden />}
                 </>
               )}
             </ListBoxItem>

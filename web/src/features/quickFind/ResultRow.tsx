@@ -30,7 +30,7 @@ export function ResultRow({ item }: { item: QuickFindItem }) {
     <ListBoxItem
       id={item.key}
       textValue={item.title}
-      className="t-body data-[focused]:bg-fill flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1 outline-none"
+      className="t-body data-[focused]:bg-field flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1 outline-none"
     >
       <span className="flex min-w-0 flex-1 flex-col">
         <Text slot="label" className="truncate">

@@ -26,7 +26,7 @@ import { IMPORT_TUNES } from '../import/importCopy'
 import { countTunes } from '../../text/format'
 import { selectedTitle } from '../selection/selectionCopy'
 import { ARCHIVE, ARCHIVED } from '../tune/archiveLabels'
-import { DELETE_TUNE_TITLE, deleteTuneMessage } from '../tune/deleteTuneMessage'
+import { deleteTuneMessage, deleteTuneTitle } from '../tune/deleteTuneMessage'
 import { EDIT_TUNE } from '../tune/tuneScreenCopy'
 import { openTestDb } from '../../test/db'
 import { viewTransitionsDone } from '../../test/viewTransitions'
@@ -580,8 +580,8 @@ it('edits, archives, and deletes a tune from its row', async () => {
 
   await row('Cluck Old Hen').click({ button: 'right' })
   await page.getByRole('menuitem', { name: DELETE }).click()
-  const alert = page.getByRole('alertdialog', { name: DELETE_TUNE_TITLE })
-  await expect.element(alert).toHaveAccessibleDescription(deleteTuneMessage('Cluck Old Hen', []))
+  const alert = page.getByRole('alertdialog', { name: deleteTuneTitle('Cluck Old Hen') })
+  await expect.element(alert).toHaveAccessibleDescription(deleteTuneMessage([]))
   await alert.getByRole('button', { name: DELETE }).click()
   await expect.element(row('Cluck Old Hen')).not.toBeInTheDocument()
   await expect
@@ -599,7 +599,7 @@ it('walks back to the list when the open tune is deleted from its row on wide', 
   await row('Forked Deer').click({ button: 'right' })
   await page.getByRole('menuitem', { name: DELETE }).click()
   await page
-    .getByRole('alertdialog', { name: DELETE_TUNE_TITLE })
+    .getByRole('alertdialog', { name: deleteTuneTitle('Forked Deer') })
     .getByRole('button', { name: DELETE })
     .click()
   await expect.poll(() => router.state.location.pathname).toBe('/catalog')

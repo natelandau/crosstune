@@ -138,7 +138,7 @@ function Slide({
     return (
       <div
         data-scan-placeholder
-        className="bg-fill m-auto grid max-h-full w-[min(100%,40rem)] place-items-center"
+        className="bg-surface m-auto grid max-h-full w-[min(100%,40rem)] place-items-center"
         style={{ aspectRatio: aspectRatio(scan) }}
       >
         {scan.state === 'ready' ? (

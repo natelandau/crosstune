@@ -68,7 +68,7 @@ export function LocationRow({
           </span>
         )}
       </span>
-      {current && <Check className="text-action size-5 shrink-0" aria-hidden />}
+      {current && <Check className="text-accent size-5 shrink-0" aria-hidden />}
     </AriaButton>
   )
 }

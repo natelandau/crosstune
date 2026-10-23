@@ -414,7 +414,7 @@ function TuneSections({
               <li key={list.id}>
                 <Link
                   to={`/lists/${list.id}`}
-                  className={`t-secondary bg-fill text-ink inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3 ${CAPSULE_HIT}`}
+                  className={`t-secondary bg-field text-ink inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3 ${CAPSULE_HIT}`}
                 >
                   {list.name}
                 </Link>

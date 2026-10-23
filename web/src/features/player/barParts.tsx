@@ -91,7 +91,7 @@ export function PlaybackBadge({ transport }: { transport: RecordingTransport }) 
   return (
     <span
       data-playback-badge
-      className="t-caption t-num bg-fill text-ink inline-flex h-6 shrink-0 items-center gap-1 rounded-(--radius-capsule) px-2"
+      className="t-caption t-num bg-field text-ink inline-flex h-6 shrink-0 items-center gap-1 rounded-(--radius-capsule) px-2"
     >
       {speedText && (
         <span>

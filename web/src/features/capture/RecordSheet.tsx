@@ -147,7 +147,7 @@ function LocationNote({ note }: { note: LocationNoteState }) {
   return (
     <section
       aria-labelledby={titleId}
-      className="bg-fill flex flex-col gap-2 rounded-(--radius-surface) p-4"
+      className="bg-surface flex flex-col gap-2 rounded-(--radius-surface) p-4"
     >
       <h3 id={titleId} className="t-heading">
         {LOCATION_NOTE_TITLE}

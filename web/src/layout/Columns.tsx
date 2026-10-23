@@ -278,7 +278,7 @@ function ColumnSeparator({
           while it is. */}
       <span
         aria-hidden
-        className="bg-slate pointer-events-none absolute inset-y-0 -start-px w-[3px] opacity-0 transition-opacity duration-(--dur-short) ease-(--ease) group-hover:opacity-40 group-data-[dragging]:opacity-100"
+        className="bg-accent pointer-events-none absolute inset-y-0 -start-px w-[3px] opacity-0 transition-opacity duration-(--dur-short) ease-(--ease) group-hover:opacity-40 group-data-[dragging]:opacity-100"
       />
     </div>
   )

@@ -1,5 +1,5 @@
 /** The bare CT mark, cropped to its cap height so an `h-*` class matches it to the text beside
- * it. The C takes the text color so the colorway follows the surface; the T takes the `mark`
+ * it. The C takes the `mark-ink` token so the colorway follows the scheme; the T takes the `mark`
  * token, coral on every surface. Decorative: the name always sits beside it. */
 export function Mark({ className = '' }: { className?: string }) {
   return (
@@ -11,9 +11,9 @@ export function Mark({ className = '' }: { className?: string }) {
     >
       <g fill="none" strokeWidth="68" strokeLinecap="round">
         <path d="M191 138 H439 M339 138 V374" stroke="var(--color-mark)" />
-        <path d="M231 367 A118 118 0 1 1 191 138" stroke="currentColor" />
+        <path d="M231 367 A118 118 0 1 1 191 138" stroke="var(--mark-ink)" />
       </g>
-      <rect x="191" y="104" width="48" height="68" fill="currentColor" />
+      <rect x="191" y="104" width="48" height="68" fill="var(--mark-ink)" />
     </svg>
   )
 }

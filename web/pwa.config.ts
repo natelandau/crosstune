@@ -7,8 +7,8 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     short_name: 'Crosstune',
     description: 'A tune catalog for folk musicians',
     // The page's theme-color tags follow the scheme; the manifest holds the light page color.
-    theme_color: '#ffffff',
-    background_color: '#ffffff',
+    theme_color: '#FFFEFC',
+    background_color: '#FFFEFC',
     display: 'standalone',
     start_url: '/',
     scope: '/',

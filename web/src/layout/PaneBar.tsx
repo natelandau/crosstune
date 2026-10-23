@@ -132,7 +132,7 @@ export function BackLink({
   return (
     <Link
       to={to}
-      className="t-body text-action flex min-h-(--target-control) items-center gap-1 pe-2"
+      className="t-body text-ink flex min-h-(--target-control) items-center gap-1 pe-2"
       onClick={(event) => {
         if (event.defaultPrevented || event.button !== 0) return
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return

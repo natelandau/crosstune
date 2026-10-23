@@ -241,7 +241,7 @@ function Thumbnail({
     )
   }
   return (
-    <span className="bg-fill grid place-items-center" style={size}>
+    <span className="bg-surface grid place-items-center" style={size}>
       {file && thumbnail.kind === 'broken' && (
         <>
           <ImageOff className="text-ink-2 size-6" aria-hidden />

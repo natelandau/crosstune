@@ -14,7 +14,7 @@ const STEPS = [
 ] as const
 
 /**
- * One cell per day, a column per week from Sunday, in slate quartile steps. The cells are too
+ * One cell per day, a column per week from Sunday, in blue-gray quartile steps. The cells are too
  * small to be targets, so the grid is one tab stop that takes the tap, hover, or arrow keys
  * itself and shows the chosen day's detail under it; each active cell also carries its detail
  * for assistive technology.

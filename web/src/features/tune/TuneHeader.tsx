@@ -133,7 +133,7 @@ function Facts({ facts, badges }: { facts: TuneFacts; badges: TuneBadge[] }) {
           {
             key: 'archived',
             node: (
-              <span className="t-caption bg-fill rounded-(--radius-capsule) px-2 py-0.5">
+              <span className="t-caption bg-field rounded-(--radius-capsule) px-2 py-0.5">
                 {ARCHIVED}
               </span>
             ),

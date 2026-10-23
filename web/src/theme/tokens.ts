@@ -3,11 +3,17 @@
 export type Scheme = 'light' | 'dark'
 
 export interface Palette {
+  accent: string
+  accentFill: string
+  onAccentFill: string
   ground: string
+  surface: string
+  field: string
+  raised: string
   ink: string
   ink2: string
-  slate: string
-  onSlate: string
+  markInk: string
+  onTone: string
   coral: string
   onCoral: string
   jet: string
@@ -15,27 +21,33 @@ export interface Palette {
   known: string
   learning: string
   unknown: string
+  unknownOnSurface: string
   silver: string
   danger: string
   warning: string
-  fill: string
   hairline: string
-  nav: string
-  navInk2: string
-  navUnknown: string
   switchOff: string
   switchOn: string
   knob: string
   glyphFaint: string
+  disabledFill: string
+  disabledInk: string
+  chosenLabel: string
 }
 
 export const PALETTE: Record<Scheme, Palette> = {
   light: {
-    ground: '#FFFFFF',
-    ink: '#1D2230',
-    ink2: '#686F7D',
-    slate: '#4F5D75',
-    onSlate: '#FFFFFF',
+    accent: '#1F5F9E',
+    accentFill: '#1F5F9E',
+    onAccentFill: '#FFFFFF',
+    ground: '#FFFEFC',
+    surface: '#F3F1ED',
+    field: '#E8E5E0',
+    raised: '#FFFEFC',
+    ink: '#1C2026',
+    ink2: '#61676F',
+    markInk: '#4F5D75',
+    onTone: '#FFFFFF',
     coral: '#EF8354',
     onCoral: '#1D2230',
     jet: '#2D3142',
@@ -43,25 +55,31 @@ export const PALETTE: Record<Scheme, Palette> = {
     known: '#248A3D',
     learning: '#FF8D28',
     unknown: '#8A909A',
+    unknownOnSurface: '#737983',
     silver: '#BFC0C0',
     danger: '#D92D20',
     warning: '#C93400',
-    fill: '#F1F2F5',
-    hairline: 'rgba(45,49,66,0.10)',
-    nav: '#E5E7EA',
-    navInk2: '#5B6270',
-    navUnknown: '#737983',
-    switchOff: '#848A94',
-    switchOn: '#2D3142',
+    hairline: 'rgba(30,40,55,0.12)',
+    switchOff: '#8A857C',
+    switchOn: '#1F5F9E',
     knob: '#FFFFFF',
-    glyphFaint: '#848A94',
+    glyphFaint: '#8A857C',
+    disabledFill: '#DDD9D3',
+    disabledInk: '#5F5B54',
+    chosenLabel: '#1F5F9E',
   },
   dark: {
-    ground: '#16181D',
-    ink: '#ECEEF2',
-    ink2: '#9AA0AB',
-    slate: '#8E9BB3',
-    onSlate: '#16181D',
+    accent: '#6AA6E6',
+    accentFill: '#2B609A',
+    onAccentFill: '#FFFFFF',
+    ground: '#16181B',
+    surface: '#1E2024',
+    field: '#292C31',
+    raised: '#34373D',
+    ink: '#ECEDF0',
+    ink2: '#9CA2AB',
+    markInk: '#FFFFFF',
+    onTone: '#16181D',
     coral: '#EF8354',
     onCoral: '#1D2230',
     jet: '#1E212C',
@@ -69,17 +87,17 @@ export const PALETTE: Record<Scheme, Palette> = {
     known: '#30D158',
     learning: '#FF9230',
     unknown: '#8A909A',
+    unknownOnSurface: '#8A909A',
     silver: '#BFC0C0',
     danger: '#FF6B5E',
     warning: '#FF9F0A',
-    fill: '#25272D',
-    hairline: 'rgba(255,255,255,0.10)',
-    nav: '#2E323B',
-    navInk2: '#9AA0AB',
-    navUnknown: '#8A909A',
-    switchOff: '#6E7482',
-    switchOn: '#8390A8',
+    hairline: 'rgba(230,240,255,0.10)',
+    switchOff: '#8A847B',
+    switchOn: '#4A86C4',
     knob: '#FFFFFF',
-    glyphFaint: '#6E7482',
+    glyphFaint: '#706B63',
+    disabledFill: '#3E3C37',
+    disabledInk: '#ABA69E',
+    chosenLabel: '#ECEDF0',
   },
 }

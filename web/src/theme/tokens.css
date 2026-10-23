@@ -1,29 +1,43 @@
 /* Twin of tokens.ts: the same values, here so CSS and Tailwind can use them. */
 
 :root {
-  --ground: #ffffff;
-  --ink: #1d2230;
-  --ink-2: #686f7d;
-  --slate: #4f5d75;
-  --on-slate: #ffffff;
-  /* The fill of a solid control, such as a primary button or an on switch, and its hover. */
-  --accent: var(--jet);
-  --on-accent: #ffffff;
-  --accent-hover: #4a4f63;
-  /* The text and glyph of a control that has no fill of its own. */
-  --action: var(--jet);
+  /* Pages and sheets, then the layers above them: cards and the sidebar, inputs and chips on
+     the ground, and controls inside a card. */
+  --ground: #fffefc;
+  --surface: #f3f1ed;
+  --field: #e8e5e0;
+  --field-hover: #ddd9d3;
+  --raised: #fffefc;
+  --raised-hover: color-mix(in srgb, var(--raised), var(--ink) 6%);
+  /* The edge a filled control takes on a surface: a hairline in light, where the raised fill
+     sits close to the card, and none in dark. */
+  --control-edge: var(--hairline);
+  --ink: #1c2026;
+  --ink-2: #61676f;
+  /* The Harbor blue of text, focus rings, selection, and set filters. */
+  --accent: #1f5f9e;
+  /* The dark scheme's accent, which practice also uses on jet in either appearance. */
+  --accent-dark: #6aa6e6;
+  /* A chosen item's label on its wash, such as the current tab. */
+  --chosen-label: var(--accent);
+  /* The fill of a solid control, such as a primary button, and its hover. */
+  --accent-fill: #1f5f9e;
+  --on-accent-fill: #ffffff;
+  --accent-fill-hover: #194f84;
+  --mark-ink: #4f5d75;
+  /* The label on a danger or warning fill. */
+  --on-tone: #ffffff;
   /* A tinted control's fill, a plain control's hover, and a tinted control's hover. */
-  --tint: color-mix(in srgb, var(--slate) 12%, transparent);
-  --tint-hover: color-mix(in srgb, var(--slate) 22%, transparent);
-  --tint-strong: color-mix(in srgb, var(--slate) 32%, transparent);
-  --fill-hover: #dfe2e8;
-  --row-hover: color-mix(in srgb, var(--slate) 8%, transparent);
+  --tint: color-mix(in srgb, var(--accent) 12%, transparent);
+  --tint-hover: color-mix(in srgb, var(--accent) 22%, transparent);
+  --tint-strong: color-mix(in srgb, var(--accent) 32%, transparent);
+  --row-hover: color-mix(in srgb, var(--accent) 8%, transparent);
   /* A filled control that is off: a neutral shape that still stands apart from the ground. */
-  --disabled-fill: #e6e8ec;
-  --disabled-ink: #6b7280;
+  --disabled-fill: #ddd9d3;
+  --disabled-ink: #5f5b54;
   /* An off switch's track, dark enough to clear 3:1 on its row and the ground, and an on one's. */
-  --switch-off: #848a94;
-  --switch-on: var(--accent);
+  --switch-off: #8a857c;
+  --switch-on: #1f5f9e;
   --knob: #ffffff;
   --coral: #ef8354;
   --jet: #2d3142;
@@ -31,6 +45,8 @@
   --known: #248a3d;
   --learning: #ff8d28;
   --unknown: #8a909a;
+  /* The unknown ring on a surface or a wash, which the lighter grey falls under 3:1 on. */
+  --unknown-on-surface: #737983;
   --silver: #bfc0c0;
   --danger: #d92d20;
   /* The dark scheme's danger, which practice also uses in either appearance. */
@@ -38,27 +54,24 @@
   /* A control's fill in practice, which is drawn dark in either appearance. */
   --practice-fill: rgba(118, 118, 128, 0.24);
   --warning: #c93400;
-  --fill: #f1f2f5;
-  --hairline: rgba(45, 49, 66, 0.1);
-  --wash: color-mix(in srgb, var(--slate) 12%, transparent);
+  --hairline: rgba(30, 40, 55, 0.12);
+  --wash: color-mix(in srgb, var(--accent) 12%, transparent);
   /* The playing row's wash, lighter than a selection's so the two read apart. */
-  --play-wash: color-mix(in srgb, var(--slate) 6%, transparent);
-  --set-fill: color-mix(in srgb, var(--slate) 14%, transparent);
-  --set-label: var(--action);
+  --play-wash: color-mix(in srgb, var(--accent) 6%, transparent);
+  /* A set filter's wash and label, the same on every platform. Over a dark surface the wash
+     leaves the accent short of 4.5:1, so the dark label is ink. */
+  --set-fill: color-mix(in srgb, var(--accent) 12%, transparent);
+  /* A set filter under the pointer: a step stronger, and no more, so the accent label holds. */
+  --set-fill-hover: color-mix(in srgb, var(--accent) 16%, transparent);
+  --set-label: var(--accent);
   /* What marks Premium on a sheet that sells it: dark ink on coral in either appearance, since
      coral text or glyphs on a light ground fall under 3:1. The column below the coral header
      takes a wash, and its values an ink, that keep 4.5:1 on that wash. */
   --on-coral: #1d2230;
-  --premium-wash: color-mix(in srgb, var(--slate) 18%, transparent);
-  --premium-ink: var(--slate);
+  --premium-wash: color-mix(in srgb, var(--accent) 18%, transparent);
+  --premium-ink: var(--accent);
   /* The faintest glyph that still clears 3:1 on a fill, for a mark that means absence. */
-  --glyph-faint: #848a94;
-  /* The navigation surfaces' tint, the Mac sidebar's: slate at 15% over the ground, 20% in
-     dark, flattened so tests can measure it. Secondary ink and the unknown ring darken on it to
-     keep their contrast. */
-  --nav: #e5e7ea;
-  --nav-ink-2: #5b6270;
-  --nav-unknown: #737983;
+  --glyph-faint: #8a857c;
   /* The name the shared mark reads its T from. */
   --color-mark: var(--coral);
   color-scheme: light;
@@ -125,8 +138,8 @@
   --loop-5: #6b3fc4;
   --loop-5-tint: rgba(107, 63, 196, 0.2);
 
-  /* The stats heatmap's four steps, from the lightest active day to the busiest: one hue, the
-     brand slate, so the steps read as amounts and never as categories. Even the lightest clears
+  /* The stats heatmap's four steps, from the lightest active day to the busiest: one hue, a cool
+     grey-blue, so the steps read as amounts and never as categories. Even the lightest clears
      3:1 against the page, so a day with any activity never reads as empty. */
   --heat-1: #8794aa;
   --heat-2: #6b7891;
@@ -135,46 +148,48 @@
 }
 
 :root[data-scheme='dark'] {
-  --ground: #16181d;
-  --ink: #eceef2;
-  --ink-2: #9aa0ab;
-  --slate: #8e9bb3;
-  --on-slate: #16181d;
-  /* The site's alabaster with its jet label: the light scheme's jet control, inverted. */
-  --accent: #dfe0e0;
-  --on-accent: #2d3142;
-  --accent-hover: #ffffff;
-  --action: var(--ink);
-  --tint: color-mix(in srgb, var(--slate) 16%, transparent);
-  --tint-hover: color-mix(in srgb, var(--slate) 28%, transparent);
-  --tint-strong: color-mix(in srgb, var(--slate) 38%, transparent);
-  --fill-hover: #353841;
-  --row-hover: color-mix(in srgb, var(--slate) 10%, transparent);
-  --disabled-fill: #363942;
-  --disabled-ink: #a3a9b4;
-  --switch-off: #6e7482;
-  /* A white knob would vanish on an alabaster track, and fall under 3:1 on slate. */
-  --switch-on: #8390a8;
+  --ground: #16181b;
+  --surface: #1e2024;
+  --field: #292c31;
+  --field-hover: #34373d;
+  --raised: #34373d;
+  --control-edge: transparent;
+  --ink: #ecedf0;
+  --ink-2: #9ca2ab;
+  --accent: var(--accent-dark);
+  --accent-fill: #2b609a;
+  --on-accent-fill: #ffffff;
+  --accent-fill-hover: #3469a5;
+  --mark-ink: #ffffff;
+  --on-tone: #16181d;
+  --tint: color-mix(in srgb, var(--accent) 16%, transparent);
+  --tint-hover: color-mix(in srgb, var(--accent) 28%, transparent);
+  --tint-strong: color-mix(in srgb, var(--accent) 38%, transparent);
+  --row-hover: color-mix(in srgb, var(--accent) 10%, transparent);
+  --disabled-fill: #3e3c37;
+  --disabled-ink: #aba69e;
+  --switch-off: #8a847b;
+  --switch-on: #4a86c4;
   --jet: #1e212c;
   --record: #ff453a;
+  --unknown-on-surface: #8a909a;
   --known: #30d158;
   --learning: #ff9230;
   --danger: var(--danger-dark);
   --warning: #ff9f0a;
-  --fill: #25272d;
-  --hairline: rgba(255, 255, 255, 0.1);
-  --wash: color-mix(in srgb, var(--slate) 24%, transparent);
-  --play-wash: color-mix(in srgb, var(--slate) 12%, transparent);
-  --set-fill: color-mix(in srgb, var(--slate) 28%, transparent);
+  --hairline: rgba(230, 240, 255, 0.1);
+  --wash: color-mix(in srgb, var(--accent) 24%, transparent);
+  --play-wash: color-mix(in srgb, var(--accent) 12%, transparent);
+  --set-fill: color-mix(in srgb, var(--accent) 22%, transparent);
+  --set-fill-hover: color-mix(in srgb, var(--accent) 28%, transparent);
   --set-label: var(--ink);
+  /* The accent falls under 4.5:1 on the dark wash over a surface. */
+  --chosen-label: var(--ink);
   --on-coral: #1d2230;
-  --premium-wash: color-mix(in srgb, var(--slate) 28%, transparent);
-  /* Slate text falls under 4.5:1 on the dark wash. */
+  --premium-wash: color-mix(in srgb, var(--accent) 28%, transparent);
+  /* Accent text falls under 4.5:1 on the dark wash. */
   --premium-ink: var(--ink);
-  --glyph-faint: #6e7482;
-  --nav: #2e323b;
-  --nav-ink-2: var(--ink-2);
-  --nav-unknown: var(--unknown);
+  --glyph-faint: #706b63;
   color-scheme: dark;
 
   --key-0-bg: #5c3232;
@@ -252,18 +267,22 @@
   --color-ground: var(--ground);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
-  --color-slate: var(--slate);
-  --color-on-slate: var(--on-slate);
+  --color-surface: var(--surface);
+  --color-field: var(--field);
+  --color-field-hover: var(--field-hover);
+  --color-raised: var(--raised);
+  --color-chosen-label: var(--chosen-label);
   --color-accent: var(--accent);
-  --color-on-accent: var(--on-accent);
-  --color-accent-hover: var(--accent-hover);
+  --color-accent-fill: var(--accent-fill);
+  --color-on-accent-fill: var(--on-accent-fill);
+  --color-accent-fill-hover: var(--accent-fill-hover);
+  --color-mark-ink: var(--mark-ink);
+  --color-on-tone: var(--on-tone);
   --color-disabled-fill: var(--disabled-fill);
   --color-disabled-ink: var(--disabled-ink);
-  --color-action: var(--action);
   --color-tint: var(--tint);
   --color-tint-hover: var(--tint-hover);
   --color-tint-strong: var(--tint-strong);
-  --color-fill-hover: var(--fill-hover);
   --color-row-hover: var(--row-hover);
   --color-coral: var(--coral);
   --color-jet: var(--jet);
@@ -274,19 +293,37 @@
   --color-silver: var(--silver);
   --color-danger: var(--danger);
   --color-warning: var(--warning);
-  --color-fill: var(--fill);
   --color-hairline: var(--hairline);
   --color-wash: var(--wash);
   --color-set-fill: var(--set-fill);
+  --color-set-fill-hover: var(--set-fill-hover);
   --color-set-label: var(--set-label);
   --color-on-coral: var(--on-coral);
   --color-premium-wash: var(--premium-wash);
   --color-premium-ink: var(--premium-ink);
   --color-glyph-faint: var(--glyph-faint);
-  --color-nav: var(--nav);
 }
 
-[data-nav] {
-  --ink-2: var(--nav-ink-2);
-  --unknown: var(--nav-unknown);
+/* A surface, and any wash a row or a filter takes, draws the unknown ring and bar in the
+   darker grey. `bg-surface` is the one way to paint a surface; a test holds every view to it. */
+.bg-surface,
+[data-hovered],
+[data-selected],
+[data-current],
+[data-pressed],
+[data-playing],
+[data-set],
+[aria-current='page'] {
+  --unknown: var(--unknown-on-surface);
+}
+
+/* A control on a surface takes the raised fill, since field reads grey on grey there, and in
+   light a hairline edge, so an empty one still reads on the card. Set on the surface's children,
+   not the surface, so a surface control's own hover to field still darkens it. */
+.bg-surface > * {
+  --field: var(--raised);
+  --field-hover: var(--raised-hover);
+}
+.bg-surface .bg-field {
+  box-shadow: inset 0 0 0 1px var(--control-edge);
 }

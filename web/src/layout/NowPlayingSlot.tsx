@@ -127,12 +127,11 @@ export function NowPlayingSlot({
     <div
       ref={setHost}
       data-now-playing
-      data-nav={floating || undefined}
       data-floating={floating || undefined}
       hidden={context?.active !== host}
       className={
         floating
-          ? 'bg-nav border-hairline shrink-0 overflow-hidden rounded-(--radius-surface) border'
+          ? 'bg-surface border-hairline shrink-0 overflow-hidden rounded-(--radius-surface) border'
           : 'bg-ground border-hairline shrink-0 border-t'
       }
     />

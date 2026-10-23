@@ -238,7 +238,7 @@ function FinderBody({
         data-search-field
         aria-label={QUICK_FIND}
         autoFocus
-        className="bg-fill flex min-h-(--target-control) shrink-0 items-center rounded-(--radius-capsule) ps-3 pe-1"
+        className="bg-field flex min-h-(--target-control) shrink-0 items-center rounded-(--radius-capsule) ps-3 pe-1"
       >
         <Search className="text-ink-2 size-4 shrink-0" aria-hidden />
         <Input

@@ -70,7 +70,7 @@ export function summaryLine(counts: Parameters<typeof summaryParts>[0]): string 
   return summaryParts(counts).join(SUMMARY_SEPARATOR)
 }
 
-/** The recorded total: `37 recordings · 9 h 12 m`. */
+/** The recorded total: `37 recordings · 9 h 12 min`. */
 export function recordedLine(recordings: number, ms: number): string {
   return `${countRecordings(recordings)} · ${formatRecorded(ms)}`
 }

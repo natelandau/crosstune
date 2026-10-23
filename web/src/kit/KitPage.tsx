@@ -204,7 +204,7 @@ function SheetSection() {
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className="bg-fill rounded-(--radius-row) px-3 py-2 text-base"
+            className="bg-field rounded-(--radius-row) px-3 py-2 text-base"
           />
         </label>
       </Sheet>

@@ -77,7 +77,7 @@ export function LocationPage({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => analytics.send('location_opened_in_maps', {})}
-              className={`${FIELD_ROW_PRESSABLE} text-action font-medium`}
+              className={`${FIELD_ROW_PRESSABLE} text-ink font-medium`}
             >
               <span className="min-w-0 flex-1">{OPEN_IN_MAPS}</span>
               <ArrowUpRight className="size-4 shrink-0" aria-hidden />

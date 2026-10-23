@@ -24,12 +24,12 @@ describe('Mark', () => {
     expect(markShapes(rendered).map(geometry)).toEqual(markShapes(source).map(geometry))
   })
 
-  it('colors the T from the mark token and the C from the text', () => {
+  it('colors the T from the mark token and the C from the mark-ink token', () => {
     const { container } = render(<Mark />)
     const [t, cArc, cRect] = markShapes(container)
     expect(t?.getAttribute('stroke')).toBe('var(--color-mark)')
-    expect(cArc?.getAttribute('stroke')).toBe('currentColor')
-    expect(cRect?.getAttribute('fill')).toBe('currentColor')
+    expect(cArc?.getAttribute('stroke')).toBe('var(--mark-ink)')
+    expect(cRect?.getAttribute('fill')).toBe('var(--mark-ink)')
   })
 
   it('binds the mark token to the coral the brand sources are drawn with', () => {

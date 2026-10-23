@@ -37,7 +37,7 @@ it('follows a system scheme change while appearance is System', async () => {
     flipSystemDark(true)
     await expect.poll(() => document.documentElement.dataset.scheme).toBe('dark')
     await expect.poll(() => document.documentElement.style.colorScheme).toBe('dark')
-    await expect.poll(() => getComputedStyle(document.body).backgroundColor).toBe('rgb(22, 24, 29)')
+    await expect.poll(() => getComputedStyle(document.body).backgroundColor).toBe('rgb(22, 24, 27)')
   } finally {
     restoreSystemDark()
     delete document.documentElement.dataset.scheme

@@ -1,4 +1,4 @@
-/* A new take slides in, and a slate wash over it fades once it has landed. The wash lies over
+/* A new take slides in, and a wash over it fades once it has landed. The wash lies over
    the row, because a touch row's content paints its own ground. Under reduced motion the row
    shows in place and only the wash fades. */
 [role='row'][data-new] {

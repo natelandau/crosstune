@@ -7,7 +7,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { recordingAnalytics } from '../../usage/testing'
-import { DELETE_TUNE_TITLE } from './deleteTuneMessage'
+import { deleteTuneTitle } from './deleteTuneMessage'
 import { ARCHIVE, UNARCHIVE } from './archiveLabels'
 import { useTuneScreen } from './useTuneScreen'
 
@@ -176,7 +176,9 @@ describe('useTuneScreen', () => {
         .onPress(),
     )
     await waitFor(() => expect(leave).toHaveBeenCalledTimes(1))
-    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ title: DELETE_TUNE_TITLE }))
+    expect(confirm).toHaveBeenCalledWith(
+      expect.objectContaining({ title: deleteTuneTitle("Soldier's Joy") }),
+    )
     expect(result.current.deletingName).toBe("Soldier's Joy")
     // The live query reports the row gone; the page is leaving, so that is not "missing".
     await waitFor(() => expect(result.current.tune).toBeUndefined())

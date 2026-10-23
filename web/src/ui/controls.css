@@ -48,10 +48,6 @@ html[data-density='pointer'] {
     box-shadow var(--dur-short) var(--ease),
     color var(--dur-short) var(--ease);
 }
-/* A light track's color is too faint on the white knob. */
-:root[data-scheme='dark'] .switch-thumb svg {
-  color: var(--on-accent);
-}
 .switch-thumb svg {
   opacity: 0;
   scale: 0.4;

@@ -29,7 +29,7 @@ function SortControl({ sort }: { sort: ListSort }) {
   const button = (
     <AriaButton
       aria-label={sort.spoken}
-      className={`t-secondary text-action inline-flex min-h-(--target-control) items-center gap-1 rounded-(--radius-capsule) px-2 ${PRESS} ${WASH_HOVER}`}
+      className={`t-secondary text-ink inline-flex min-h-(--target-control) items-center gap-1 rounded-(--radius-capsule) px-2 ${PRESS} ${WASH_HOVER}`}
     >
       {sort.label}
       <Arrow className="size-4" aria-hidden />

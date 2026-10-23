@@ -39,9 +39,9 @@ export const LONG_PRESS_SLOP_PX = 10
 const FLING_VELOCITY = 500
 
 const FILL: Record<NonNullable<RowAction['tone']>, string> = {
-  neutral: 'bg-fill text-ink',
-  warning: 'bg-warning text-on-slate',
-  danger: 'bg-danger text-on-slate',
+  neutral: 'bg-field text-ink',
+  warning: 'bg-warning text-on-tone',
+  danger: 'bg-danger text-on-tone',
 }
 
 /**
