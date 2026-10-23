@@ -34,6 +34,13 @@ export const NEW_TUNES = 'New tunes'
 /** The Recordings page's group for the audio kept on this device. */
 export const DOWNLOADS = 'Downloads'
 export const APPEARANCE = 'Appearance'
+export const TUNER_SETTINGS_TITLE = 'Tuner'
+export const REFERENCE_PITCH = 'Reference pitch'
+export const LOWER_REFERENCE_PITCH = 'Lower reference pitch'
+export const RAISE_REFERENCE_PITCH = 'Raise reference pitch'
+
+/** How the reference pitch reads, such as A4 = 442 Hz. */
+export const a4Label = (hz: number) => `A4 = ${hz} Hz`
 export const SYNC = 'Sync'
 export const SYNC_AND_STORAGE = 'Sync and storage'
 export const IMPORT_AND_EXPORT = 'Import and export'

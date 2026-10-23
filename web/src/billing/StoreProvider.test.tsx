@@ -12,7 +12,7 @@ const built = vi.hoisted(() => ({
 vi.mock('./revenueCatStore', () => built)
 
 function renderStore(userId: string, store?: Store | null) {
-  const session = { userId, getToken: async () => null, offline: false }
+  const session = { userId, getToken: async () => null, offline: false, name: null }
   const view = renderHook(() => useStore(), {
     wrapper: ({ children }: { children: ReactNode }) => (
       <AuthProvider value={session}>

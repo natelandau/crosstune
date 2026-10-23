@@ -35,7 +35,9 @@ import {
 } from './settingsPaths'
 import {
   ACCOUNT,
+  a4Label,
   APPEARANCE,
+  TUNER_SETTINGS_TITLE,
   DOWNLOADS,
   EXPORT_HEADER,
   EXPORT_HELP,
@@ -112,16 +114,24 @@ const groupHeadings = (detail: ReturnType<typeof page.getByRole>) => () =>
     .elements()
     .map((heading) => heading.textContent)
 
-it('root lists Tunes, Recordings, Appearance, Sync and storage, Import and export', async () => {
+it('root lists Tunes, Recordings, Appearance, Tuner, Sync and storage, Import and export', async () => {
   await mount('/settings', PHONE, { before: (db) => setInstruments(db, 'user_1', ['violin']) })
   await expect.element(page.getByRole('heading', { level: 1, name: SETTINGS.label })).toBeVisible()
   await expect
     .poll(rowTitles)
-    .toEqual([TUNES, RECORDINGS_SETTINGS, APPEARANCE, SYNC_AND_STORAGE, IMPORT_AND_EXPORT])
+    .toEqual([
+      TUNES,
+      RECORDINGS_SETTINGS,
+      APPEARANCE,
+      TUNER_SETTINGS_TITLE,
+      SYNC_AND_STORAGE,
+      IMPORT_AND_EXPORT,
+    ])
   const row = (name: string) => categories().getByRole('row', { name: new RegExp(`^${name}`) })
   await expect.element(row(TUNES)).toHaveTextContent(INSTRUMENT_LABELS.violin)
   await expect.element(row(RECORDINGS_SETTINGS)).toHaveTextContent(AUDIO_QUALITY_NAMES.standard)
   await expect.element(row(APPEARANCE)).toHaveTextContent(APPEARANCE_LABELS.system)
+  await expect.element(row(TUNER_SETTINGS_TITLE)).toHaveTextContent(a4Label(440))
   await expect.element(account()).toBeVisible()
   // The phone has no detail column, so nothing stands in for a page.
   await expect.element(page.getByText(NO_SETTING_SELECTED)).not.toBeInTheDocument()

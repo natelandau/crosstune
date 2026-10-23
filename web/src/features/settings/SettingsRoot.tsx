@@ -3,6 +3,7 @@ import type { Key, Selection } from 'react-aria-components'
 import { Link, useMatch, useNavigate, useParams } from 'react-router'
 import { SETTINGS_STATS_PATH, settingsPagePath } from './settingsPaths'
 import { storedAudioQuality } from '../../db/recordings'
+import { storedTunerA4Hz } from '../../db/types'
 import { useAppearance } from '../../theme/appearance'
 import { syncedLine } from './lastSynced'
 import { aboutLine, SETTINGS_CATEGORIES } from './settingsCopy'
@@ -14,11 +15,11 @@ import { useSyncSettings } from './useSyncSettings'
 import { SUMMARY_SEPARATOR } from '../stats/copy'
 import { APP_VERSION } from '../../version'
 import { useLeaveTo } from '../../layout/backTrail'
-import { destination } from '../../layout/destinations'
+import { destination, lastTab, lastTabRoot } from '../../layout/destinations'
 import { useStampedDensity } from '../../platform/density'
 import { useFrame } from '../../platform/frame'
 import { ColumnTitle } from '../../layout/ColumnTitle'
-import { PaneBar } from '../../layout/PaneBar'
+import { BackLink, PaneBar } from '../../layout/PaneBar'
 import { SYNC_ATTENTION } from '../../layout/syncAttention'
 import { Row } from '../../ui/Row'
 import { RowList } from '../../ui/RowList'
@@ -39,7 +40,8 @@ export function SettingsRoot() {
   // A saved location is open on its own address, under the Recordings page's.
   const onLocation = placeId !== undefined
   const open = isSettingsPage(page) ? page : onLocation ? 'recordings' : undefined
-  const wide = useFrame() === 'wide'
+  const frame = useFrame()
+  const wide = frame === 'wide'
   const touch = useStampedDensity() === 'touch'
   const navigate = useNavigate()
   const values = useSettingsValues()
@@ -57,7 +59,15 @@ export function SettingsRoot() {
 
   return (
     <>
-      <PaneBar title={SETTINGS.label} />
+      <PaneBar
+        title={SETTINGS.label}
+        leading={
+          // The phone opens Settings from a tab's account button, so Back returns to that tab.
+          frame === 'phone' ? (
+            <BackLink to={lastTabRoot()} label={destination(lastTab()).label} />
+          ) : undefined
+        }
+      />
       <ColumnTitle title={SETTINGS.label} />
       <div className="flex flex-col gap-4 px-4 pb-4">
         <AccountBlock current={open === 'account'} replace={replace} />
@@ -123,6 +133,7 @@ function useSettingsValues(): SettingsValues {
     instruments: instruments.instruments ? instruments.summary : '',
     quality,
     appearance,
+    tunerA4Hz: storedTunerA4Hz(row),
   }
 }
 

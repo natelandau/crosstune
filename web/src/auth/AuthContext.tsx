@@ -4,6 +4,8 @@ export interface AuthSession {
   userId: string
   getToken: () => Promise<string | null>
   offline: boolean
+  /** The account's full name, or null when it has none or Clerk has no user, as offline. */
+  name: string | null
 }
 
 const AuthContext = createContext<AuthSession | null>(null)

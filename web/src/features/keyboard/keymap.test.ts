@@ -126,7 +126,7 @@ describe('SHORTCUTS', () => {
     expect(label('record')).toBe(RECORD_TEXT)
     expect(label('search')).toBe(SEARCH_TUNES)
     expect(label('shortcuts')).toBe(SHORTCUTS_TITLE)
-    expect(['goCatalog', 'goLists', 'goRecordings', 'goSettings'].map(label)).toEqual(
+    expect(['goCatalog', 'goLists', 'goRecordings', 'goTuner', 'goSettings'].map(label)).toEqual(
       TABS.map((tab) => tab.label),
     )
   })
@@ -134,7 +134,7 @@ describe('SHORTCUTS', () => {
   it('lists each group together, in sheet order', () => {
     expect(SHORTCUTS.map((shortcut) => shortcut.group)).toEqual([
       ...Array<string>(6).fill('General'),
-      ...Array<string>(4).fill(GO_TO),
+      ...Array<string>(5).fill(GO_TO),
       'Playback',
     ])
   })

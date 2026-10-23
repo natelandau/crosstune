@@ -156,6 +156,13 @@ it('goes to Lists on G then L', async () => {
   await expect.poll(() => router.state.location.pathname).toBe('/lists')
 })
 
+it('goes to the Tuner on G then T', async () => {
+  const { router } = await mountCatalog()
+  focusBody()
+  await userEvent.keyboard('gt')
+  await expect.poll(() => router.state.location.pathname).toBe(destination('tuner').root)
+})
+
 it('drops G once the sequence has timed out', async () => {
   const { router } = await mountCatalog()
   const seen = visits(router)

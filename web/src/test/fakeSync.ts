@@ -1,3 +1,4 @@
+import { STUB_USER_NAME } from '../fixture/clerkStub'
 import type { AuthSession } from '../auth/AuthContext'
 import type { SyncEngine } from '../sync/types'
 
@@ -39,4 +40,5 @@ export const testSession: AuthSession = {
   userId: 'user_1',
   getToken: async () => 't',
   offline: false,
+  name: STUB_USER_NAME,
 }

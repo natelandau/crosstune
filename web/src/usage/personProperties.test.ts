@@ -15,6 +15,7 @@ const settings: WebSettings = {
   downloadAll: false,
   newTuneStatus: 'want_to_learn',
   newTuneGenreSet: false,
+  tunerA4Hz: 440,
 }
 
 const figures = { used_bytes: 0, quota_bytes: 1, max_file_bytes: 1 }

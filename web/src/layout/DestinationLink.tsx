@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useDestination } from './useDestination'
-import type { Destination } from '../layout/destinations'
+import type { Destination } from './destinations'
 
 /**
  * A link to a destination. A plain click goes through `go`, so the destination reopens where
@@ -15,6 +15,7 @@ export function DestinationLink({
   className,
   onChoose,
   describedBy,
+  label,
   children,
 }: {
   to: Destination
@@ -24,6 +25,8 @@ export function DestinationLink({
   /** Runs, and settles, before navigating, such as clearing the catalog's status scope. */
   onChoose?: () => void | Promise<unknown>
   describedBy?: string
+  /** The accessible name, where the children do not say where the link goes. */
+  label?: string
   children: ReactNode
 }) {
   const { go } = useDestination()
@@ -32,6 +35,7 @@ export function DestinationLink({
       to={href}
       aria-current={current ? 'page' : undefined}
       aria-describedby={describedBy}
+      aria-label={label}
       className={className}
       onClick={(event) => {
         if (event.defaultPrevented || event.button !== 0) return

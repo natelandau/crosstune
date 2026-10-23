@@ -34,7 +34,7 @@ import type { BackAdapter } from '../platform/backHandler'
 import { BackStackProvider } from './BackStackProvider'
 import { ScreenCommandsProvider } from './screenCommands'
 import type { AppRouter } from './router'
-import { AppRouterContext } from './appRouterContext'
+import { AppRouterContext } from '../layout/appRouterContext'
 
 /** The app's root. The sole caller of `useDensity`, so every leaf reads it stamped. */
 export function App({

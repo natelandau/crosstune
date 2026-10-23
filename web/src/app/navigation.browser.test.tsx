@@ -8,7 +8,7 @@ import { ListPlaybackProvider } from '../features/player/ListPlaybackProvider'
 import { PlayerProvider } from '../features/player/PlayerProvider'
 import { RecordStateProvider } from '../features/capture/RecordState'
 import { APPEARANCE } from '../features/settings/settingsCopy'
-import { RECORD_LABEL } from '../layout/tabs'
+import { ACCOUNT_BUTTON, RECORD_LABEL, TAB_BAR } from '../layout/tabs'
 import { STATS_TITLE } from '../features/stats/copy'
 import { openTestDb } from '../test/db'
 import { dataProviders } from '../test/providers'
@@ -19,8 +19,8 @@ import { ToastProvider } from '../ui/Toast'
 import { NOT_FOUND_TITLE, OPEN_CATALOG } from './NotFoundPage'
 import { createAppRouter, type AppRouter } from './router'
 import { routes } from './routes'
-import { useDestination } from './useDestination'
-import { AppRouterContext } from './appRouterContext'
+import { useDestination } from '../layout/useDestination'
+import { AppRouterContext } from '../layout/appRouterContext'
 import { usePageShown } from './usePageShown'
 import { destination, type Destination, readStored, rememberLocation } from '../layout/destinations'
 import { readStoredTrail, reloadBackTrailForTest } from '../layout/backTrail'
@@ -218,6 +218,70 @@ it('a second tap lands on the root while the first tap is still loading', async 
   await expect.poll(at(router)).toBe('/settings')
   release()
   await expect.element(page.getByText('settings', { exact: true })).toBeVisible()
+})
+
+it('the account button opens Settings and Back returns to the last tab', async () => {
+  const { router } = await renderApp({ path: '/lists', db: await seededDb() })
+  const LISTS = destination('lists')
+  await page
+    .getByRole('main', { name: LISTS.label, exact: true })
+    .getByRole('link', { name: ACCOUNT_BUTTON, exact: true })
+    .click()
+  await expect.poll(at(router)).toBe(SETTINGS.root)
+  await page
+    .getByRole('main', { name: SETTINGS.label, exact: true })
+    .getByRole('link', { name: LISTS.label, exact: true })
+    .click()
+  await expect.poll(at(router)).toBe(LISTS.root)
+})
+
+it('the account button reopens Settings where it was left, and Back still reaches the tab', async () => {
+  const { router } = await renderApp({ path: '/lists', db: await seededDb() })
+  const LISTS = destination('lists')
+  const main = (name: string) => page.getByRole('main', { name, exact: true })
+  const account = () => main(LISTS.label).getByRole('link', { name: ACCOUNT_BUTTON, exact: true })
+  await account().click()
+  await expect.poll(at(router)).toBe(SETTINGS.root)
+  await main(SETTINGS.label)
+    .getByRole('row', { name: new RegExp(`^${APPEARANCE}(,|$)`) })
+    .click()
+  await expect.poll(at(router)).toBe('/settings/appearance')
+  await page
+    .getByRole('navigation', { name: TAB_BAR })
+    .getByRole('link', { name: LISTS.label, exact: true })
+    .click()
+  await expect.poll(at(router)).toBe(LISTS.root)
+  await account().click()
+  await expect.poll(at(router)).toBe('/settings/appearance')
+  await main(APPEARANCE).getByRole('link', { name: SETTINGS.label, exact: true }).click()
+  await expect.poll(at(router)).toBe(SETTINGS.root)
+  await main(SETTINGS.label).getByRole('link', { name: LISTS.label, exact: true }).click()
+  await expect.poll(at(router)).toBe(LISTS.root)
+})
+
+it('Back from Settings opened on the tuner returns to the tuner', async () => {
+  const { router } = await renderApp({ path: '/tuner', db: await seededDb() })
+  const TUNER = destination('tuner')
+  await page
+    .getByRole('main', { name: TUNER.label, exact: true })
+    .getByRole('link', { name: ACCOUNT_BUTTON, exact: true })
+    .click()
+  await expect.poll(at(router)).toBe(SETTINGS.root)
+  await page
+    .getByRole('main', { name: SETTINGS.label, exact: true })
+    .getByRole('link', { name: TUNER.label, exact: true })
+    .click()
+  await expect.poll(at(router)).toBe(TUNER.root)
+})
+
+it('a refresh on /settings goes Back to the catalog', async () => {
+  const { router } = await renderApp({ path: SETTINGS.root, db: await seededDb() })
+  const CATALOG = destination('catalog')
+  await page
+    .getByRole('main', { name: SETTINGS.label, exact: true })
+    .getByRole('link', { name: CATALOG.label, exact: true })
+    .click()
+  await expect.poll(at(router)).toBe(CATALOG.root)
 })
 
 it('opens the root of a destination never visited', async () => {

@@ -133,6 +133,7 @@ export const SCREENS = [
   'find_recordings',
   'settings',
   'stats',
+  'tuner',
 ] as const
 
 /** The plan's `setting` enum without `capture_channels`, which only the Apple apps have. */
@@ -143,6 +144,7 @@ export const SETTING_NAMES = [
   'play_first',
   'appearance',
   'text_size',
+  'tuner_a4_hz',
   'download_all',
   'new_tune_status',
   'new_tune_genre_set',
@@ -233,6 +235,7 @@ export type SettingChange =
   | { setting: 'play_first'; value: PlayFirst }
   | { setting: 'appearance'; value: Appearance }
   | { setting: 'text_size'; value: number }
+  | { setting: 'tuner_a4_hz'; value: number }
   | { setting: 'download_all'; value: boolean }
   | { setting: 'new_tune_status'; value: TuneStatus }
   | { setting: 'new_tune_genre_set'; value: boolean }
@@ -387,6 +390,7 @@ export interface PersonProperties {
   setting_play_first?: PlayFirst
   setting_appearance?: Appearance
   setting_text_size?: number
+  setting_tuner_a4_hz?: number
   setting_download_all?: boolean
   setting_new_tune_status?: TuneStatus
   setting_new_tune_genre_set?: boolean

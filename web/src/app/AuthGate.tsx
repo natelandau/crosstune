@@ -1,3 +1,4 @@
+import { useUser } from '@clerk/react'
 import type { ReactNode } from 'react'
 import { AuthProvider } from '../auth/AuthContext'
 import { useAuthGate } from '../auth/useAuthGate'
@@ -9,9 +10,10 @@ import { Splash } from './Splash'
 /** The sign-in gate, which makes its decisions through `useAuthGate`. */
 export function AuthGate({ children }: { children: ReactNode }) {
   const { state, userId, getToken, staleSession } = useAuthGate()
+  const name = useUser().user?.fullName ?? null
   if ((state === 'signedIn' || state === 'offline') && userId) {
     return (
-      <AuthProvider value={{ userId, getToken, offline: state === 'offline' }}>
+      <AuthProvider value={{ userId, getToken, offline: state === 'offline', name }}>
         {children}
       </AuthProvider>
     )

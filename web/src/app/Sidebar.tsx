@@ -8,11 +8,11 @@ import { useStatusCounts } from '../features/catalog/useStatusCounts'
 import { useActiveLists, useMembershipCounts } from '../features/lists/useLists'
 import { countTunes } from '../text/format'
 import { destination, type Destination } from '../layout/destinations'
-import { useDestination } from './useDestination'
+import { useDestination } from '../layout/useDestination'
 import { Button } from '../ui/Button'
 import { StatusGlyph } from '../ui/StatusGlyph'
 import { useListNameLauncher } from '../features/lists/listNameLauncher'
-import { DestinationLink } from './DestinationLink'
+import { DestinationLink } from '../layout/DestinationLink'
 import { RecordControl } from './RecordControl'
 import { SyncBadge } from '../layout/SyncBadge'
 import { ROW_PRESS } from '../ui/press'
@@ -148,6 +148,7 @@ export function Sidebar() {
           selected={current === 'recordings'}
           countId={`${base}-recordings`}
         />
+        <DestinationRow id="tuner" selected={current === 'tuner'} countId={`${base}-tuner`} />
       </div>
       <section aria-labelledby={`${base}-lists`} className="flex flex-col gap-0.5">
         <div

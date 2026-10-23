@@ -43,7 +43,7 @@ export function ListsScreen() {
         title={LISTS.label}
         trailing={<Button icon={Plus} label={ADD_LIST} iconOnly onPress={add} />}
       />
-      <ColumnTitle title={LISTS.label} />
+      <ColumnTitle title={LISTS.label} account />
       <ErrorLine error={error ?? played.error} place="bar" />
       {lists &&
         (lists.length === 0 ? (

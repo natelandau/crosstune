@@ -4,6 +4,7 @@ export const SETTINGS_PAGE_IDS = [
   'tunes',
   'recordings',
   'appearance',
+  'tuner',
   'sync',
   'import-export',
 ] as const

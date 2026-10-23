@@ -19,6 +19,7 @@ export type ShortcutId =
   | 'goCatalog'
   | 'goLists'
   | 'goRecordings'
+  | 'goTuner'
   | 'goSettings'
   | 'playPause'
   | 'stepOut'
@@ -47,6 +48,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: 'goCatalog', keys: ['G', 'C'], label: tabLabel('catalog'), group: GO_TO },
   { id: 'goLists', keys: ['G', 'L'], label: tabLabel('lists'), group: GO_TO },
   { id: 'goRecordings', keys: ['G', 'R'], label: tabLabel('recordings'), group: GO_TO },
+  { id: 'goTuner', keys: ['G', 'T'], label: tabLabel('tuner'), group: GO_TO },
   { id: 'goSettings', keys: ['G', 'S'], label: tabLabel('settings'), group: GO_TO },
   { id: 'playPause', keys: ['Space'], label: PLAY_OR_PAUSE, group: 'Playback' },
 ]

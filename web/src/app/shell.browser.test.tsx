@@ -1,6 +1,8 @@
 import { page, userEvent } from 'vitest/browser'
 import { expect, it, onTestFinished } from 'vitest'
-import { RECORD_LABEL, RECORD_TEXT, TAB_BAR } from '../layout/tabs'
+import { ACCOUNT_BUTTON, PHONE_TABS, RECORD_LABEL, RECORD_TEXT, TAB_BAR } from '../layout/tabs'
+import { initials } from '../layout/initials'
+import { STUB_USER_NAME } from '../fixture/clerkStub'
 import { addToList, createList } from '../commands/lists'
 import { createTune } from '../commands/tunes'
 import { STATUS_LABELS } from '../constants'
@@ -50,18 +52,51 @@ function washOver(wash: string, ground: string): string {
 
 const sidebar = () => page.getByRole('navigation', { name: SIDEBAR })
 
-it('holds the four tabs in order, then Record, on the phone', async () => {
+it('holds Catalog, Lists, Tuner, Recordings, then Record on the phone', async () => {
   await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE })
   const tabs = page.getByRole('navigation', { name: TAB_BAR })
   await expect.element(tabs).toBeVisible()
   const controls = tabs.getByRole('link').or(tabs.getByRole('button'))
   await expect
     .poll(() => controls.elements().map((e) => e.textContent || e.ariaLabel))
-    .toEqual(['Catalog', 'Lists', 'Recordings', 'Settings', RECORD_LABEL])
+    .toEqual(['Catalog', 'Lists', 'Tuner', 'Recordings', RECORD_LABEL])
   await expect
     .element(tabs.getByRole('link', { name: 'Catalog', exact: true }))
     .toHaveAttribute('aria-current', 'page')
   await expect.element(page.getByRole('navigation', { name: SIDEBAR })).not.toBeInTheDocument()
+})
+
+it('shows the account button on each phone root screen', async () => {
+  const { router } = await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE })
+  for (const id of PHONE_TABS) {
+    const { label, root } = destination(id)
+    await router.navigate(root)
+    const account = page
+      .getByRole('main', { name: label, exact: true })
+      .getByRole('link', { name: ACCOUNT_BUTTON, exact: true })
+    await expect.element(account).toBeVisible()
+    await expect.element(account).toHaveTextContent(initials(STUB_USER_NAME)!)
+    expect(account.element().closest('[data-column-title]')).not.toBeNull()
+  }
+})
+
+it('keeps Settings in the sidebar and adds Tuner after Recordings', async () => {
+  await renderApp({ path: '/catalog', db: openTestDb(), frame: SPLIT })
+  const links = sidebar().getByRole('link')
+  await expect
+    .poll(() => links.elements().map((link) => link.textContent))
+    .toEqual(['Catalog', 'Recordings', 'Tuner', 'Lists', 'Settings'])
+})
+
+it.each([
+  ['split', SPLIT],
+  ['wide', WIDE],
+])('hides the account button on %s', async (_name, frame) => {
+  await renderApp({ path: '/catalog', db: openTestDb(), frame })
+  await expect.element(page.getByRole('heading', { name: CATALOG.label, level: 1 })).toBeVisible()
+  await expect
+    .element(page.getByRole('main').getByRole('link', { name: ACCOUNT_BUTTON, exact: true }))
+    .not.toBeInTheDocument()
 })
 
 it('floats the tab bar over the list, which runs under it and pads its end to scroll clear', async () => {

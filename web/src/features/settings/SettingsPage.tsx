@@ -10,6 +10,7 @@ import { ImportExportPage } from './pages/ImportExportPage'
 import { RecordingsPage } from './pages/RecordingsPage'
 import { SavedLocationDetail } from './pages/SavedLocationDetail'
 import { SyncPage } from './pages/SyncPage'
+import { TunerPage } from './pages/TunerPage'
 import { TunesPage } from './pages/TunesPage'
 import type { SettingsPageSpec } from './settingsPages'
 import { useLandOnGroup } from './useLandOnGroup'
@@ -21,6 +22,7 @@ const BODIES: Record<SettingsPageId, ComponentType> = {
   tunes: TunesPage,
   recordings: RecordingsPage,
   appearance: AppearancePage,
+  tuner: TunerPage,
   sync: SyncPage,
   'import-export': ImportExportPage,
 }
