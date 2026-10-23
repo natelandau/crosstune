@@ -33,3 +33,12 @@
   --field: var(--practice-fill);
   --field-hover: var(--fill-tertiary-hover);
 }
+/* The tuner's whole pane is practice's ground, so the shared title row and pane bar take its
+   inks, and the bar lets the ground, and its in-tune wash, show through. */
+[data-practice][data-tuner] {
+  --ground: transparent;
+  --ink: var(--panel-ink);
+  --ink-2: var(--panel-muted);
+  --field: var(--practice-fill);
+  --tint-hover: var(--panel-hover);
+}

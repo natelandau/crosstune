@@ -97,6 +97,9 @@ for Android and every browser. The parts that matter:
   and plays at a slower or faster speed and a shifted pitch on every device.
   A recording keeps labeled practice loops that repeat. Recordings need
   Premium. Storage is 100 MB during the trial and 3 GB on Premium.
+- Tuner. A free chromatic tuner on every platform. It hears the note
+  played and shows how far it is from in tune, with an adjustable A4
+  reference.
 - Lyrics. A full-screen reading view that keeps the screen awake.
 - Browse. The catalog filtered by status and attributes, with text search.
   Filters persist.

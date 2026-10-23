@@ -52,6 +52,12 @@ export function paintedBackground(element: Element): string {
   return getComputedStyle(document.body).backgroundColor
 }
 
+/** The WCAG relative luminance of an opaque rgb() color. */
+export function relativeLuminance(color: string): number {
+  const [r, g, b] = parts(color)
+  return luminance(r, g, b)
+}
+
 /** The WCAG ratio between a foreground, composited over the background where it is translucent. */
 export function contrastRatio(foreground: string, background: string): number {
   const [fr, fg, fb, alpha] = parts(foreground)

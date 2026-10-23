@@ -43,6 +43,13 @@
   --jet: #2d3142;
   --record: #ff3b30;
   --known: #248a3d;
+  /* The dark scheme's known, which the tuner draws on jet in either appearance. */
+  --known-dark: #30d158;
+  /* The tuner's close step, lighter than its far step of full coral, so the two read apart by
+     lightness and not only by hue. */
+  --tune-close: #f6bba1;
+  /* The tuner's ground while the note is in tune. */
+  --tune-wash: color-mix(in srgb, var(--known-dark) 14%, var(--jet));
   --learning: #ff8d28;
   --unknown: #8a909a;
   /* The unknown ring on a surface or a wash, which the lighter grey falls under 3:1 on. */

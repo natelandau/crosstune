@@ -58,6 +58,11 @@ Cloudflare also hosts the DNS zone for the product domain.
 - `web/src/platform/` owns the frame, the pointer, reduced motion,
   haptics, the wake lock, the audio session, and the back button. A
   Capacitor shell adds one file, its `BackAdapter`.
+- The tuner runs on the device and nothing it hears leaves it. The pitch
+  detector is written twice, in TypeScript and Swift, and both test against
+  `fixtures/tuner/clips.json`. A settings push that omits `tuner_a4_hz`
+  keeps the stored reference pitch, so a client older than the tuner never
+  resets it.
 - Navigation is browser history, through React Router, never
   `window.location`. Each tab or sidebar destination's last location is
   kept for the browser session.
@@ -72,16 +77,16 @@ Cloudflare also hosts the DNS zone for the product domain.
 
 ## Sources of truth
 
-| Question                 | Answer                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order, and a pull holds it shared so no write lands between its reads. A cursor never skips a row.                                                                                                                                                                                                                                                                                                                    |
-| Who owns a row           | The token.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Is a row deleted         | `deleted_at`. Deletes are soft. A tombstone is kept forever, so a deletion reaches every device. A user's delete, its cascade, and the inactivity pass clear its content; a loop the server tombstones because it no longer fits a trim keeps it.                                                                                                                                                                                                                                                                                                                         |
+| Question                 | Answer                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order, and a pull holds it shared so no write lands between its reads. A cursor never skips a row.                                                                                                                                                                                                                                                                                                                                  |
+| Who owns a row           | The token.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Is a row deleted         | `deleted_at`. Deletes are soft. A tombstone is kept forever, so a deletion reaches every device. A user's delete, its cascade, and the inactivity pass clear its content; a loop the server tombstones because it no longer fits a trim keeps it.                                                                                                                                                                                                                                                                                                                                       |
 | Which tables sync        | User settings, tunes, user-tune, recording links, recordings, saved places, scans, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items, and the server-written entitlements row. Four history tables, kept out of the main pull: plays, practice sessions, and scan views, which clients push once and never edit, and status changes, which the server writes when a user tune's status changes. Server-only, never synced: users, upload slots, background jobs, grants, pending comps, billing notices, account notices. |
-| Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file, audio, and scan images in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes other than history events (plays, practice sessions, and scan views), or while a scan is unuploaded, each with its own message. A shape change starts it over (see Pull).                                                                                                                          |
-| Which version is running | The `version` in `web/package.json`, the API package version, and the Apple apps' bundle version and build. Each is its side's Sentry release tag. Each client sends its own in `X-Client-Version` and its platform (`macos`, `ios`, `web`) in `X-Client-Platform`.                                                                                                                                                                                                                                                                                                       |
-| Host settings            | The host dashboards. Configuration says how each deployable reads them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file, audio, and scan images in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes other than history events (plays, practice sessions, and scan views), or while a scan is unuploaded, each with its own message. A shape change starts it over (see Pull).                                                                                                                                        |
+| Which version is running | The `version` in `web/package.json`, the API package version, and the Apple apps' bundle version and build. Each is its side's Sentry release tag. Each client sends its own in `X-Client-Version` and its platform (`macos`, `ios`, `web`) in `X-Client-Platform`.                                                                                                                                                                                                                                                                                                                     |
+| Host settings            | The host dashboards. Configuration says how each deployable reads them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ## Sync
 
@@ -669,13 +674,13 @@ never synced.
   the device and never calls the route.
 - A place picked in search keeps what was picked, on every client: a
   named place stores `Name, street, town`, a street address `street,
-  town`, and a town `town`. The town part is the same as the job's name.
+town`, and a town `town`. The town part is the same as the job's name.
   A venue or street address pick also creates a saved place, or links to
   the live one with the same Apple place ID, else the same name within 30 m.
   The same rule keeps every other new saved place, and Nearby's venues,
   from repeating a saved one.
 - Maps on the web: the browser loads Apple's MapKit JS. `GET
-  /v1/places/mapkit-token` issues a 30 minute token signed with the Maps
+/v1/places/mapkit-token` issues a 30 minute token signed with the Maps
   key and bound to the web origin, so the key never reaches the browser.
   `GET /v1/places/snapshot` returns a signed Apple snapshot image URL for a
   point. Both answer 503 with no Maps key. The Apple app uses MapKit on the
@@ -824,13 +829,13 @@ API.
 
 ## Configuration
 
-| Deployable     | Reads                                                                   | From                                                                                             |
-| -------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| API            | `CROSSTUNE_*` environment variables, via pydantic-settings              | Railway service variables. Locally `api/.env`. Names and defaults: `api/src/crosstune/config.py` |
-| Web client     | `VITE_*` variables at build time                                        | Workers Builds variables through `web/scripts/hosted-build.sh`. Locally `web/.env`               |
-| Worker         | `vars` and the KV binding                                               | `web/wrangler.jsonc`, in the repository                                                          |
-| Site           | `PUBLIC_POSTHOG_TOKEN` at build time                                    | Workers Builds variables through `site/scripts/hosted-build.sh`. Locally `site/.env`             |
-| GitHub Actions | `vars.*` and `secrets.*`                                                | Repository settings                                                                              |
+| Deployable     | Reads                                                      | From                                                                                             |
+| -------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| API            | `CROSSTUNE_*` environment variables, via pydantic-settings | Railway service variables. Locally `api/.env`. Names and defaults: `api/src/crosstune/config.py` |
+| Web client     | `VITE_*` variables at build time                           | Workers Builds variables through `web/scripts/hosted-build.sh`. Locally `web/.env`               |
+| Worker         | `vars` and the KV binding                                  | `web/wrangler.jsonc`, in the repository                                                          |
+| Site           | `PUBLIC_POSTHOG_TOKEN` at build time                       | Workers Builds variables through `site/scripts/hosted-build.sh`. Locally `site/.env`             |
+| GitHub Actions | `vars.*` and `secrets.*`                                   | Repository settings                                                                              |
 
 - Every name the code reads is in `api/.env.example`, `web/.env.example`,
   or `site/.env.example` with its explanation, names only a host sets
@@ -857,15 +862,15 @@ API.
 
 ## When a system is unavailable
 
-| Down                 | Effect                                                                                             |
-| -------------------- | -------------------------------------------------------------------------------------------------- |
-| Phone network        | The installed app loads from the service worker. Reads and writes work. Sync resumes later.        |
-| Cloudflare           | An installed app loads, but sync fails because `/v1` goes through the Worker. A first visit fails. |
-| Clerk                | A remembered user is admitted after 5 seconds. Sync waits. New sign-ins fail.                      |
-| API on Railway       | Reads and writes work. The outbox grows and the engine retries with backoff.                       |
-| API asleep           | The first request boots it. Clients retry a 502 or 504 for about 15 s before treating it as down.  |
-| R2                   | Audio already on the device works. Uploads wait and retry. A first download elsewhere fails.       |
-| Neon                 | The API returns 500s. The client behaves as if the API were down.                                  |
-| A streaming provider | New links save untitled. Embeds fail. Its search group offers only its own search page.            |
+| Down                 | Effect                                                                                                                      |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Phone network        | The installed app loads from the service worker. Reads and writes work. Sync resumes later.                                 |
+| Cloudflare           | An installed app loads, but sync fails because `/v1` goes through the Worker. A first visit fails.                          |
+| Clerk                | A remembered user is admitted after 5 seconds. Sync waits. New sign-ins fail.                                               |
+| API on Railway       | Reads and writes work. The outbox grows and the engine retries with backoff.                                                |
+| API asleep           | The first request boots it. Clients retry a 502 or 504 for about 15 s before treating it as down.                           |
+| R2                   | Audio already on the device works. Uploads wait and retry. A first download elsewhere fails.                                |
+| Neon                 | The API returns 500s. The client behaves as if the API were down.                                                           |
+| A streaming provider | New links save untitled. Embeds fail. Its search group offers only its own search page.                                     |
 | Apple Maps           | Place jobs wait and retry for up to 7 days. Web place search, maps, and Nearby fail quietly. The location page still works. |
-| Sentry or GitHub     | Nothing visible. Errors are dropped, or deploys and checks wait.                                   |
+| Sentry or GitHub     | Nothing visible. Errors are dropped, or deploys and checks wait.                                                            |
