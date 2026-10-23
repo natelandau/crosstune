@@ -44,13 +44,23 @@ struct CatalogFilterRow: View {
         filtersInSearch ? filters.sheetCount : nil
     }
 
-    /// Whether the row has anything to show. An empty catalog has nothing to narrow, and a row
-    /// left with no control and no token would be a gap; an error always shows.
-    nonisolated static func isShown(_ results: CatalogResults, hasErrors: Bool) -> Bool {
+    /// Whether the Mac's row has anything to show. An empty catalog has nothing to narrow, and a
+    /// row left with no control and no token would be a gap; an error always shows.
+    nonisolated static func isShownOnMac(_ results: CatalogResults, hasErrors: Bool) -> Bool {
         if hasErrors { return true }
         guard !results.entries.isEmpty else { return false }
         return !controls(results, showsStatus: false, filtersInSearch: filtersInSearch).isEmpty
             || !setFilters(results.filters).isEmpty
+    }
+
+    /// Whether the iPhone and iPad row shows: an empty catalog has nothing to narrow, unless a
+    /// stored filter is set, which the row must still let the musician clear; an error always
+    /// shows.
+    nonisolated static func isShownOnPhoneAndPad(_ results: CatalogResults, hasErrors: Bool) -> Bool {
+        if hasErrors { return true }
+        let filters = results.filters
+        return !results.entries.isEmpty || filters.status != nil || filters.facets[.key] != nil
+            || filters.sheetCount > 0
     }
 
     /// A set sheet filter as its token reads, and the change that removes it.
@@ -304,12 +314,12 @@ struct FilterControlStyle: ButtonStyle {
         }
 
         private var foreground: AnyShapeStyle {
-            if !isEnabled { return AnyShapeStyle(.tertiary) }
+            if !isEnabled { return .inkTertiary }
             return isSet ? AnyShapeStyle(BrandStyle.setLabel(colorScheme)) : AnyShapeStyle(.primary)
         }
 
         private var fill: AnyShapeStyle {
-            isSet ? AnyShapeStyle(BrandStyle.setFill(colorScheme)) : neutralFill(colorScheme)
+            isSet ? AnyShapeStyle(BrandStyle.setFill(colorScheme)) : AnyShapeStyle(.neutralFill)
         }
     }
 #endif

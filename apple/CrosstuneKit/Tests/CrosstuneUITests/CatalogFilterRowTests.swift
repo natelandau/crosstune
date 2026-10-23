@@ -41,6 +41,22 @@ import Testing
                 == [.status, .filters])
     }
 
+    @Test func emptyCatalogHidesTheFilterRow() {
+        #expect(CatalogFilterRow.isShownOnPhoneAndPad(full, hasErrors: false))
+        let empty = emptied(full)
+        #expect(!CatalogFilterRow.isShownOnPhoneAndPad(empty, hasErrors: false))
+        // An error still needs a place to read.
+        #expect(CatalogFilterRow.isShownOnPhoneAndPad(empty, hasErrors: true))
+        // A stored filter stays reachable so it can be cleared.
+        for filters in [
+            CatalogFilters(status: "learning"), CatalogFilters(facets: [.key: "D"]),
+            CatalogFilters(facets: [.genre: "Old-time"]), CatalogFilters(archived: true),
+            CatalogFilters(unheard: true), CatalogFilters(missing: .key),
+        ] {
+            #expect(CatalogFilterRow.isShownOnPhoneAndPad(withFilters(empty, filters), hasErrors: false))
+        }
+    }
+
     #if os(macOS)
         /// The Mac's filters live in the search field, so its row holds the key control and the
         /// set filters' tokens only.
@@ -61,13 +77,13 @@ import Testing
         }
 
         @Test func filterRowHiddenWhenCatalogIsEmpty() {
-            #expect(CatalogFilterRow.isShown(full, hasErrors: false))
+            #expect(CatalogFilterRow.isShownOnMac(full, hasErrors: false))
             let empty = emptied(full)
-            #expect(!CatalogFilterRow.isShown(empty, hasErrors: false))
+            #expect(!CatalogFilterRow.isShownOnMac(empty, hasErrors: false))
             // An error still needs a place to read.
-            #expect(CatalogFilterRow.isShown(empty, hasErrors: true))
+            #expect(CatalogFilterRow.isShownOnMac(empty, hasErrors: true))
             // A catalog with no key to filter by and nothing set has nothing to show either.
-            #expect(!CatalogFilterRow.isShown(results(full, facets: []), hasErrors: false))
+            #expect(!CatalogFilterRow.isShownOnMac(results(full, facets: []), hasErrors: false))
         }
 
         @Test func emptyCatalogIsNoTunesWithNoSearch() {
@@ -117,6 +133,13 @@ import Testing
             outcome: SearchOutcome(
                 entries: [CatalogEntry](), visible: [CatalogEntry](), query: "", archivedShown: false),
             total: 0, archivedCount: 0, missingChoices: base.missingChoices)
+    }
+
+    private func withFilters(_ base: CatalogResults, _ filters: CatalogFilters) -> CatalogResults {
+        CatalogResults(
+            entries: base.entries, instruments: base.instruments, filters: filters,
+            facetValues: base.facetValues, facets: base.facets, visible: base.visible, outcome: base.outcome,
+            total: base.total, archivedCount: base.archivedCount, missingChoices: base.missingChoices)
     }
 
     /// `base` offering only `facets`.

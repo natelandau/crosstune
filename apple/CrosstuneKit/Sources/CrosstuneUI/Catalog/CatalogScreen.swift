@@ -126,6 +126,8 @@ private struct CatalogContent: View {
                 .macColumnList()
             #else
                 .listStyle(.plain)
+                .paperGround()
+                .listSelectionTint()
             #endif
             #if os(macOS)
                 // The search and the catalog's own actions share one pane bar, which stays as it
@@ -252,11 +254,11 @@ private struct CatalogContent: View {
     }
 
     private func showsFilterRow(_ results: CatalogResults) -> Bool {
+        let hasErrors = model.filterError != nil || model.actionError != nil
         #if os(macOS)
-            CatalogFilterRow.isShown(
-                results, hasErrors: model.filterError != nil || model.actionError != nil)
+            return CatalogFilterRow.isShownOnMac(results, hasErrors: hasErrors)
         #else
-            true
+            return CatalogFilterRow.isShownOnPhoneAndPad(results, hasErrors: hasErrors)
         #endif
     }
 
@@ -435,6 +437,7 @@ private struct CatalogContent: View {
                 actions: tuneScreenActions),
             onSelect: { selection.enter(with: entry.tune.id) }
         )
+        .statusRingOnFill(TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune))
         .accessibilityFocused($focusedRow, equals: entry.tune.id)
         #if os(macOS)
             .macRowSelected(TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune))
@@ -462,10 +465,10 @@ private struct CatalogContent: View {
             if let offer = results.outcome.offerLabel, let typed = results.outcome.title {
                 Button(offer) { createFromSearch(typed) }
                     .contentMask()
-                    .buttonStyle(.slateProminent)
+                    .buttonStyle(.accentProminent)
             } else if noTunes {
                 Button(CatalogScreen.addTune) { form = model.newTune() }
-                    .buttonStyle(.slateProminent)
+                    .buttonStyle(.accentProminent)
                 Button(ImportCopy.title) { showsImport = true }
             }
         }
@@ -591,16 +594,16 @@ struct PushesTune: ViewModifier {
             VStack(spacing: 0) {
                 Image(systemName: Destination.catalog.systemImage)
                     .font(.system(size: 28, weight: .light))
-                    .foregroundStyle(MacPalette.inkSecondary)
+                    .foregroundStyle(Palette.inkSecondary)
                     .padding(.bottom, 12)
                     .accessibilityHidden(true)
                 Text(CatalogScreen.noTunesTitle)
                     .font(MacStyle.sectionHeading)
-                    .foregroundStyle(MacPalette.ink)
+                    .foregroundStyle(Palette.ink)
                     .padding(.bottom, 4)
                 Text(CatalogScreen.noTunesHint)
                     .font(MacStyle.body)
-                    .foregroundStyle(MacPalette.inkSecondary)
+                    .foregroundStyle(Palette.inkSecondary)
                     .frame(maxWidth: 260)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.bottom, 16)
