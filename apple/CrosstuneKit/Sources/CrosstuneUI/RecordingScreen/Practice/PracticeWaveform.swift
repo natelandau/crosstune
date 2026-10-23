@@ -595,12 +595,15 @@ extension GraphicsContext.Shading {
 extension GraphicsContext {
     /// Fills `path` in `played` left of `x` and in `unplayed` from it on.
     func fillSplit(_ path: Path, atX x: Double, played: Color, unplayed: Color) {
-        let left = Path(CGRect(x: -1_000_000, y: -1_000_000, width: 1_000_000 + x, height: 2_000_000))
+        // Two clips sized to the path, never an inverse clip or one far past it: the GPU renderer
+        // can paint a tile under both, which shows where a color is translucent.
+        let bounds = path.boundingRect.insetBy(dx: -1, dy: -1)
+        let split = min(max(CGFloat(x), bounds.minX), bounds.maxX)
         var before = self
-        before.clip(to: left)
+        before.clip(to: Path(CGRect(x: bounds.minX, y: bounds.minY, width: split - bounds.minX, height: bounds.height)))
         before.fill(path, with: .color(played))
         var after = self
-        after.clip(to: left, options: .inverse)
+        after.clip(to: Path(CGRect(x: split, y: bounds.minY, width: bounds.maxX - split, height: bounds.height)))
         after.fill(path, with: .color(unplayed))
     }
 }
