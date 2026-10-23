@@ -41,6 +41,7 @@ extension View {
         claimsShellAsSheet()
             #if os(iOS)
                 .modifier(FormSizing())
+                .presentationBackground(Palette.ground)
             #endif
     }
 
@@ -48,6 +49,9 @@ extension View {
     func partHeightSheet() -> some View {
         presentationDetents([.medium, .large])
             .claimsShellAsSheet()
+            #if os(iOS)
+                .presentationBackground(Palette.ground)
+            #endif
     }
 
     private func claimsShellAsSheet() -> some View {
@@ -55,9 +59,12 @@ extension View {
         // the bar is whole when the sheet clears it.
         modifier(Covers(cover: \.recordCover, isCovering: true, endsAsDismissed: true))
             .modifier(Covers(cover: \.openSheets, isCovering: true))
+            // A sheet takes its presenter's environment, so one opened from a card or a washed or
+            // selected row would draw its controls, chips, and rings for that card or row.
+            .environment(\.onPaperCard, false)
+            .environment(\.statusRingOnFill, false)
             #if os(macOS)
-                // A sheet takes its presenter's environment, so one opened from a card would
-                // draw its controls for the card's surface.
+                .environment(\.macRowSelected, false)
                 .environment(\.macContainer, .ground)
             #endif
     }

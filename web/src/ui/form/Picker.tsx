@@ -126,7 +126,7 @@ export function Picker({
             picking.current = false
           })
       }}
-      className={`${FIELD_ROW_BARE} hover:bg-fill-hover relative transition-colors duration-(--dur-short) ease-(--ease) data-[disabled]:opacity-40 data-[disabled]:hover:bg-transparent ${invalid}`}
+      className={`${FIELD_ROW_BARE} hover:bg-field relative transition-colors duration-(--dur-short) ease-(--ease) data-[disabled]:opacity-40 data-[disabled]:hover:bg-transparent ${invalid}`}
     >
       <Label className={`${FIELD_LABEL} ps-4`}>{label}</Label>
       {/* The button's hit area covers the whole row, so a press on the label opens it too. */}
@@ -156,12 +156,12 @@ export function Picker({
                 textValue={option.label}
                 onPressStart={() => void (picking.current = true)}
                 onPressEnd={() => void setTimeout(() => void (picking.current = false))}
-                className="t-body data-[focused]:bg-fill flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1"
+                className="t-body data-[focused]:bg-field flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1"
               >
                 {({ isSelected }) => (
                   <>
                     <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                    {isSelected && <Check className="text-action size-5 shrink-0" aria-hidden />}
+                    {isSelected && <Check className="text-ink size-5 shrink-0" aria-hidden />}
                   </>
                 )}
               </ListBoxItem>

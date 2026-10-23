@@ -124,11 +124,11 @@ public struct ScanViewer: View {
         /// The mat the page lies on: the field gray in light, so a white page stands off it, and
         /// the surface in dark, where the page is lighter than any mat.
         static func matHex(_ scheme: ColorScheme) -> String {
-            MacPalette.hex(scheme == .dark ? .surface : .field, scheme)
+            Palette.hex(scheme == .dark ? .surface : .field, scheme)
         }
 
         static var mat: Color {
-            MacPalette.dynamic(light: KeyColor.RGB(hex: matHex(.light)), dark: KeyColor.RGB(hex: matHex(.dark)))
+            Palette.dynamic(light: KeyColor.RGB(hex: matHex(.light)), dark: KeyColor.RGB(hex: matHex(.dark)))
         }
     #endif
 
@@ -315,7 +315,7 @@ private struct ScanViewerBody: View {
                     }
                     .safeAreaInset(edge: .top, spacing: 0) { failureBar }
                     .overlay(alignment: .top) {
-                        Rectangle().fill(MacPalette.hairline).frame(height: 1)
+                        Rectangle().fill(Palette.hairline).frame(height: 1)
                     }
                     .accessibilityElement(children: .contain)
                     .accessibilityLabel("\(title) \(ScanCopy.scans.lowercased())")
@@ -333,7 +333,7 @@ private struct ScanViewerBody: View {
                 isOn.wrappedValue.toggle()
             } label: {
                 Image(systemName: systemImage)
-                    .foregroundStyle(isOn.wrappedValue ? MacPalette.accent : MacPalette.inkSecondary)
+                    .foregroundStyle(isOn.wrappedValue ? Palette.accent : Palette.inkSecondary)
             }
             .buttonStyle(.macIcon)
             .help(title)
@@ -346,7 +346,7 @@ private struct ScanViewerBody: View {
             Button(title, systemImage: systemImage) { turn(by: step, ids: ids) }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.macIcon)
-                .background(MacPalette.ground.opacity(0.9), in: .circle)
+                .background(Palette.ground.opacity(0.9), in: .circle)
                 .keyboardShortcut(key, modifiers: [])
                 .help(title)
                 .padding(.horizontal, 12)

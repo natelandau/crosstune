@@ -1,12 +1,11 @@
+import CrosstuneVocabulary
 import Foundation
 
-/// A page of the iPhone Settings root: a row there, a page of its own when pushed.
-enum SettingsCategory: CaseIterable, Hashable {
-    case instruments
-    case newTunes
-    case musicServices
-    case recording
-    case savedLocations
+/// A page of the iPhone and iPad Settings root: a row there, a page of its own when opened. The
+/// pages follow the subjects of the Mac Settings window's tabs.
+enum SettingsCategory: String, CaseIterable, Hashable {
+    case tunes
+    case recordings
     case appearance
     case syncAndStorage
     case importExport
@@ -16,11 +15,8 @@ enum SettingsCategory: CaseIterable, Hashable {
 
     var title: String {
         switch self {
-        case .instruments: SettingsModel.instruments
-        case .newTunes: SettingsModel.newTunes
-        case .musicServices: SettingsModel.musicServices
-        case .recording: SettingsModel.recording
-        case .savedLocations: SavedLocationsText.title
+        case .tunes: SettingsModel.tunes
+        case .recordings: SettingsModel.recordings
         case .appearance: Appearance.title
         case .syncAndStorage: Self.syncAndStorageTitle
         case .importExport: ImportExportSections.title
@@ -30,11 +26,8 @@ enum SettingsCategory: CaseIterable, Hashable {
 
     var systemImage: String {
         switch self {
-        case .instruments: "guitars"
-        case .newTunes: "text.badge.plus"
-        case .musicServices: "music.note.list"
-        case .recording: "waveform"
-        case .savedLocations: "map"
+        case .tunes: "music.note.list"
+        case .recordings: "waveform"
         case .appearance: "circle.lefthalf.filled"
         case .syncAndStorage: "arrow.triangle.2.circlepath"
         case .importExport: "arrow.up.arrow.down"
@@ -42,26 +35,28 @@ enum SettingsCategory: CaseIterable, Hashable {
         }
     }
 
-    /// The settings form's groups the page shows. Instruments and music services have pages of
-    /// their own, so no group of the form stands for them.
+    /// The settings form's groups the page shows, each inline on the one page.
     var sections: SettingsScreen.Sections {
         switch self {
-        case .instruments, .musicServices, .savedLocations: []
-        case .newTunes: [.newTunes]
-        case .recording: [.recording]
+        case .tunes: [.instrumentToggles, .newTunes, .serviceToggles, .appleMusic]
+        case .recordings: [.recording, .savedLocations, .downloads]
         case .appearance: [.appearance]
-        case .syncAndStorage: [.sync, .storage, .downloads]
+        case .syncAndStorage: [.sync, .storage]
         case .importExport: [.importExport]
         case .about: [.about]
         }
     }
 
-    /// The settings form's groups a page builds from its own views instead of a form section.
-    var pageRows: SettingsScreen.Sections {
-        switch self {
-        case .instruments: [.instruments]
-        case .musicServices: [.musicServices, .appleMusic]
-        case .newTunes, .recording, .savedLocations, .appearance, .syncAndStorage, .importExport, .about: []
+    /// The row's value on the root, as the web's root shows them: the instruments played for
+    /// Tunes, the recording quality for Recordings, and the appearance chosen on this device.
+    /// Empty for the rest, and for the stored settings until read.
+    func summary(_ summaries: SettingsSummaries?, appearance: Appearance) -> String {
+        if self == .appearance { return appearance.label }
+        guard let summaries else { return "" }
+        return switch self {
+        case .tunes: SettingsModel.instrumentsSummary(playing: summaries.instruments.contains)
+        case .recordings: Vocabulary.audioQualityNames[summaries.audioQuality] ?? summaries.audioQuality
+        case .appearance, .syncAndStorage, .importExport, .about: ""
         }
     }
 }

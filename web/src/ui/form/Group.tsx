@@ -7,6 +7,7 @@ import { ErrorLine } from '../ErrorLine'
  * instead of `footer`, which leads the rows and stays when a message shows below them.
  */
 export function Group({
+  id,
   header,
   footer,
   help,
@@ -16,6 +17,8 @@ export function Group({
   headerRef,
   children,
 }: {
+  /** The section's id, for an address that lands on this group. */
+  id?: string
   header?: string
   footer?: string
   /** Help shown above the rows, for a settings group. */
@@ -29,12 +32,17 @@ export function Group({
   headerRef?: Ref<HTMLHeadingElement>
   children: ReactNode
 }) {
-  const id = useId()
+  const headerId = useId()
   return (
-    <section aria-labelledby={header ? id : undefined} className={header ? 'pt-6' : 'pt-4'}>
+    <section
+      id={id}
+      aria-labelledby={header ? headerId : undefined}
+      // Clears the sticky pane bar when an address scrolls the group to the top.
+      className={`scroll-mt-14 ${header ? 'pt-6' : 'pt-4'}`}
+    >
       {header && (
         <h3
-          id={id}
+          id={headerId}
           ref={headerRef}
           tabIndex={headerRef ? -1 : undefined}
           className="t-secondary text-ink-2 px-4 pb-2"
@@ -46,7 +54,7 @@ export function Group({
       {plain ? (
         children
       ) : (
-        <div className="bg-fill flex flex-col rounded-(--radius-surface) *:first:rounded-t-(--radius-surface) *:last:rounded-b-(--radius-surface)">
+        <div className="bg-surface flex flex-col rounded-(--radius-surface) *:first:rounded-t-(--radius-surface) *:last:rounded-b-(--radius-surface)">
           {children}
         </div>
       )}

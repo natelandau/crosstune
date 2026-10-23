@@ -96,7 +96,7 @@ function PasteStep({ session }: { session: ImportSession }) {
   return (
     <div
       {...drop.handlers}
-      className={`rounded-(--radius-surface) ${drop.over ? 'ring-slate ring-2' : ''}`}
+      className={`rounded-(--radius-surface) ${drop.over ? 'ring-accent ring-2' : ''}`}
     >
       <Group>
         <TextField

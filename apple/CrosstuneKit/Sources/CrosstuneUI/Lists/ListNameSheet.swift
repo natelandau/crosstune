@@ -205,7 +205,7 @@ private struct ListNameForm: View {
 
     #if os(iOS)
         var body: some View {
-            Form {
+            PaperForm {
                 Section {
                     field
                 } footer: {
@@ -216,13 +216,12 @@ private struct ListNameForm: View {
                     }
                 }
             }
-            .formStyle(.grouped)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(TuneFormSheet.cancel) { dismiss() }
                         .disabled(model.isSaving)
                 }
-                ToolbarItem(placement: .confirmationAction) {
+                ConfirmToolbarItem {
                     Button(model.isNew ? ListNameSheet.create : ListNameSheet.save, action: save)
                         .fontWeight(.semibold)
                         .disabled(model.isSaving || model.isSaved)

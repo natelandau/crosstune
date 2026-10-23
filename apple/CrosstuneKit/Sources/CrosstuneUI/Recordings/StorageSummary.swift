@@ -42,9 +42,9 @@ struct StorageSummary: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(MacPalette.surface)
+                .background(Palette.surface)
                 .overlay(alignment: .top) {
-                    Rectangle().fill(MacPalette.hairline).frame(height: 1)
+                    Rectangle().fill(Palette.hairline).frame(height: 1)
                 }
         }
     }

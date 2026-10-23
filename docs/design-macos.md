@@ -10,37 +10,19 @@ differ. iPhone and iPad never take a rule from here.
 
 ## Color
 
-- `MacPalette`: the one source of Mac color. `BrandStyle` stays the source
-  on iPhone and iPad, and coral stays the mark's color everywhere.
-- A view never types a color.
-- Roles: `ground` for content columns and sheets; `surface` for the
-  sidebar, cards, footers, the dock, and the practice stage; `field` for
-  inputs, secondary buttons, and chips; `raised` for those controls on a
-  `surface`; `hairline` for every rule and edge.
+- `Palette` (`Style/`) is the one source of Apple color, shared with
+  iPhone and iPad. `MacStyle` reads it. A view never types a color.
+- `surface` also holds the dock and the practice stage.
 - Window or scene root carries `.tint(MacStyle.accent)`. AppKit-drawn
   pieces (list selection, focus rings, default buttons, alerts, menus,
-  Settings tabs) ignore tint and take the `AccentColor` asset, whose Mac
-  idiom entries carry the Mac accent while its universal entries keep the
-  iPhone and iPad accent.
-- Accent only on a primary action, selection, focus, switches, and set
-  filters. Never on charts, glyphs at rest, or decoration. Charts and a
-  played waveform draw in ink tones.
-- A fill behind white text is `accentFill`, never `accent`: dark mode's
-  accent is too light to carry white.
-- Secondary text in a shared view is `.inkSecondary` (or `.inkTertiary`,
-  the same ink on the Mac), never the system's hierarchical `.secondary`
-  or `.tertiary`, which fall under 4.5:1 on `surface` and `field`. A test
-  enforces it.
-- A control's fill follows its container (`macContainer`): `field` on
-  `ground`, `raised` on a `surface` card or footer, which marks itself
-  with `.macSurfaceContainer()`. `field` on `surface` reads gray on gray.
-  In light, a field or secondary button on `surface` also takes a
-  hairline edge, so an empty field reads on the card; dark draws none.
+  Settings tabs) ignore tint and take the `AccentColor` asset, whose
+  universal entries carry Harbor.
+- A control reads its container from `macContainer`. A `surface` card or
+  footer marks itself with `.macSurfaceContainer()`.
 - Every sheet root resets the container to `ground` (`MacSheet`,
   `.shellSheet()`): a sheet takes its presenter's environment, so one
   opened from a card would otherwise draw for the card.
 - Cards on `surface` with no stroke.
-- The mark's C takes `markInk`, never the accent.
 
 ## Type and density
 
@@ -89,8 +71,7 @@ differ. iPhone and iPad never take a rule from here.
   a filter control: capsule, chip font, no 44pt target.
 - Row key pills share a minimum width so single letters line up.
 - States: rest (`field` and ink, or a key's own hue), chosen (`accentFill`
-  and white, or a key's hue with an accent ring), set filter (accent wash
-  with accent ink, ink in dark).
+  and white, or a key's hue with an accent ring), set filter.
 - The chosen key's accent ring keeps a line of ground between it and the
   hue: the accent sits too near a chosen hue's lightness to hold 3:1 on
   it.
@@ -126,9 +107,6 @@ differ. iPhone and iPad never take a rule from here.
   sheets, flat on `field` with no glass. Never `.searchable` on the Mac:
   the system field draws apart from the app's and takes no accessory, and
   this one carries the filter control trailing.
-- Escape in a search that holds text empties it first. Only the next
-  Escape reaches the sheet or column, so a picker never closes on what
-  was typed.
 - A column's sheet filters open from the search field's trailing glyph, in
   secondary ink at rest. Once any is set it becomes a set chip with the
   count, on `ground` so the accent label holds 4.5:1.
@@ -142,9 +120,9 @@ differ. iPhone and iPad never take a rule from here.
 - Sidebar: opaque surface, drawn under the list. A container background
   does not reach the floating sidebar pane.
 - Sidebar glyphs: secondary ink at rest, white on the key window's
-  selection, read from `backgroundProminence`. A status glyph keeps its
-  status color. Counts in tabular figures. A section's add control is a
-  plain secondary-ink glyph.
+  selection, read from `backgroundProminence`. A status glyph follows the
+  status rule in `design.md`. Counts in tabular figures. A section's add
+  control is a plain secondary-ink glyph.
 - A status pick keeps key, sheet filters, and the query. A jump to the
   catalog never clears the status.
 - Record: a capsule at the sidebar foot on the rows' selection inset. Its
@@ -208,7 +186,8 @@ differ. iPhone and iPad never take a rule from here.
 - Secondary ink on a selection that is not emphasized (an inactive window,
   an unfocused list) turns to ink, since that gray falls under 4.5:1 with
   secondary ink. The list does not report it, so the row marks itself
-  (`macRowSelected`).
+  (`macRowSelected`). On that gray the want to learn ring takes the
+  darker gray in light and ink in dark, where its gray falls under 3:1.
 - Key pills end at the row's trailing edge in every column, so they line
   up between catalog and list.
 - Playing list row: an accent wash lighter than a set filter's, in the
@@ -257,9 +236,9 @@ differ. iPhone and iPad never take a rule from here.
 - Practice takes the detail column, not a sheet, so sidebar and list stay
   in reach. Opening any tune closes practice.
 - Practice follows the appearance, on `ground` with its parts on a
-  `surface` stage card. The phone's dark practice ground would read as a
-  foreign panel beside the sidebar and list, and would flip the sheets
-  practice opens.
+  `surface` stage card and its played waveform in ink tones. The phone's
+  dark practice ground would read as a foreign panel beside the sidebar
+  and list, and would flip the sheets practice opens.
 - Waveforms: `MacWave`. Peaks not yet on hand draw muted placeholder bars,
   never a line.
 
@@ -297,10 +276,9 @@ differ. iPhone and iPad never take a rule from here.
 - A sheet with no Cancel still dismisses on Escape, and Return presses its
   default action. A sheet that gives Escape its own action, such as a
   picker emptying its search first, takes Escape from Cancel.
-- A purchase is never a sheet's default or its opening focus, so a stray
-  Return in a sheet that opened unasked never starts one. A purchase
-  button is built only by `MacSheetAction.subscribe`, which marks it a
-  purchase. A test enforces it.
+- A purchase button is built only by `MacSheetAction.subscribe`, which
+  marks it a purchase, so it never becomes the default or first focus. A
+  test enforces it.
 - A destructive confirm never takes Return.
 - Notice: the scaffold's notice variant, its buttons trailing in the
   footer. A notice answered by one button makes it the default and the
@@ -308,10 +286,8 @@ differ. iPhone and iPad never take a rule from here.
 - Reading sheet (lyrics, scans): the scaffold's reading variant. Its
   controls sit as icons on the title's line, never in a toolbar, where an
   overflow hides them.
-- Picker sheet: lists everything it can pick, A to Z, until something is
-  typed; typing narrows it. Return belongs to the search, so Done is not
-  the default.
-- Clerk's sign-in takes a theme built from `MacPalette` (`AuthPalette.mac`
+- Picker sheet: Return belongs to the search, so Done is not the default.
+- Clerk's sign-in takes a theme built from `Palette` (`AuthPalette.mac`
   into `ClerkTheme.crosstune`). Its input border stays clear: Clerk draws
   that color as a halo around a focused field, so focus shows only as the
   accent border. A dismissible Clerk flow sizes itself on the Mac, so its
@@ -394,10 +370,6 @@ differ. iPhone and iPad never take a rule from here.
   section's subtitle. The heading holds only the group's name, and a card
   whose one row names it takes none. This replaces `design.md`'s help
   above the rows.
-- A set answered once (instruments, music services) is a toggle per item
-  in its Settings tab, not a row that opens a sheet as `design.md` has
-  it: the tab has the room. A sheet that shows the same toggles elsewhere
-  uses the same bindings, so both report the same event.
 - Row control: a pop-up, a switch, a value in secondary ink, or a worded
   button. A row that opens more is one button: value and chevron
   trailing. A button that opens more (a sheet, a panel) ends in "…".

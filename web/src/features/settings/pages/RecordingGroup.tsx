@@ -1,11 +1,13 @@
 import { AUDIO_QUALITIES } from '../../../api/vocabulary'
+import { RECORDING } from '../../../text/format'
 import { useLocationPermission } from '../../../platform/locationPermission'
 import { LOCATION_ACCESS_OFF } from '../../recordings/recordingsCopy'
 import { QUALITY_LABELS } from '../audioQuality'
 import { QUALITY_HELP, QUALITY_LABEL } from '../settingsCopy'
-import { useRecordingSettings } from '../useRecordingSettings'
+import type { RecordingSettings } from '../useRecordingSettings'
 import { Group } from '../../../ui/form/Group'
 import { Picker } from '../../../ui/form/Picker'
+import { SETTINGS_GROUPS } from '../settingsPaths'
 
 const QUALITY_OPTIONS = AUDIO_QUALITIES.map((id) => ({ id, label: QUALITY_LABELS[id] }))
 
@@ -13,12 +15,17 @@ const QUALITY_OPTIONS = AUDIO_QUALITIES.map((id) => ({ id, label: QUALITY_LABELS
  * The quality a recording captures at, and a note while the browser keeps takes from saving
  * where they were made. The web records one channel, so it has no Channels.
  */
-export function RecordingPage() {
-  const { quality, setQuality, qualityError } = useRecordingSettings()
+export function RecordingGroup({ audio }: { audio: RecordingSettings }) {
+  const { quality, setQuality, qualityError } = audio
   const locationOff = useLocationPermission() === 'denied'
   return (
     <>
-      <Group help={QUALITY_HELP} error={qualityError ?? undefined}>
+      <Group
+        id={SETTINGS_GROUPS.recording}
+        header={RECORDING}
+        help={QUALITY_HELP}
+        error={qualityError ?? undefined}
+      >
         <Picker
           label={QUALITY_LABEL}
           value={quality}

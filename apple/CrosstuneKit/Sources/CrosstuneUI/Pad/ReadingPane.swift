@@ -122,7 +122,7 @@ private struct ReadingScans: View {
                 Text(ScanPager.indicator(shown: shown, ids: ids))
                     .font(.footnote)
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.inkSecondary)
                     // The scan above is what needs the room at the largest text sizes.
                     .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             }

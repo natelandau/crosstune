@@ -144,7 +144,7 @@ struct SortMenu<Sort: SortKind>: View {
                         .font(.system(size: 8, weight: .bold))
                 }
                 .font(MacStyle.secondary.weight(.medium))
-                .foregroundStyle(MacPalette.inkSecondary)
+                .foregroundStyle(Palette.inkSecondary)
                 .contentShape(.rect)
             }
             .menuStyle(.button)

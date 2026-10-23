@@ -159,6 +159,8 @@ private struct ListTunes: View {
                 .macColumnList()
             #else
                 .listStyle(.plain)
+                .paperGround()
+                .listSelectionTint()
             #endif
             .overlay {
                 if model.showArchived != nil {
@@ -495,6 +497,10 @@ private struct ListTunes: View {
             TunePreview(entry: entry.catalogEntry, instruments: model.instruments)
         }
         .listRowBackground(isCurrent && !selection.isActive ? currentRowTint : nil)
+        .statusRingOnFill(
+            isCurrent && !selection.isActive
+                || TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune)
+        )
         .accessibilityFocused($focusedRow, equals: entry.tune.id)
         #if os(macOS)
             .macRowSelected(TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune))
@@ -555,7 +561,7 @@ private struct ListTunes: View {
                 Text(ListScreen.emptyHint)
             } actions: {
                 Button(ListScreen.addTunes) { picking = true }
-                    .buttonStyle(.slateProminent)
+                    .buttonStyle(.accentProminent)
             }
         } else if rows.isEmpty {
             ContentUnavailableView {
@@ -564,7 +570,7 @@ private struct ListTunes: View {
                 Text(ListScreen.archivedHint)
             } actions: {
                 Button(ListScreen.showArchived) { Task { await model.setShowArchived(true) } }
-                    .buttonStyle(.slateProminent)
+                    .buttonStyle(.accentProminent)
             }
         }
     }

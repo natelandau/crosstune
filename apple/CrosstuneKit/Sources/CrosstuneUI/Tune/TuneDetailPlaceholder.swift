@@ -35,10 +35,10 @@ public struct TuneDetailPlaceholder: View {
                         .accessibilityHidden(true)
                     Text(Self.title)
                         .font(MacStyle.sectionHeading)
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                     Text(Self.hint)
                         .font(MacStyle.body)
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                 }
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -84,13 +84,13 @@ public struct KeyPill: View {
     #if !os(macOS)
         private var fill: AnyShapeStyle {
             if let swatch { return AnyShapeStyle(swatch.background.color) }
-            if isChosen { return AnyShapeStyle(.tint) }
-            return neutralFill(colorScheme)
+            if isChosen { return AnyShapeStyle(Palette.accentFill) }
+            return AnyShapeStyle(.neutralFill)
         }
 
         private var ink: AnyShapeStyle {
             if let swatch { return AnyShapeStyle(swatch.ink.color) }
-            return isChosen ? AnyShapeStyle(BrandStyle.onAccent(colorScheme)) : AnyShapeStyle(.primary)
+            return isChosen ? AnyShapeStyle(Palette.onAccentFill) : AnyShapeStyle(.primary)
         }
     #endif
 }

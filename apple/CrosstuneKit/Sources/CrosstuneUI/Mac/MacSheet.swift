@@ -222,7 +222,7 @@
             // A fitted sheet's window takes the height the sheet opens at and keeps it unless the
             // frame says otherwise, so content that arrives later sets the frame.
             .frame(height: size.maxHeight.flatMap(fitted.height(max:)))
-            .background(MacPalette.ground)
+            .background(Palette.ground)
             .background {
                 if let escape {
                     Button("", action: escape)
@@ -251,7 +251,7 @@
                 if style.showsMark {
                     Mark()
                         .frame(height: Self.markHeight)
-                        .foregroundStyle(MacPalette.markInk)
+                        .foregroundStyle(Palette.markInk)
                         .accessibilityHidden(true)
                         .padding(.bottom, 12)
                 }
@@ -271,7 +271,7 @@
                 if let subtitle {
                     Text(subtitle)
                         .font(MacStyle.body)
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                 }
             }
             .fixedSize(horizontal: false, vertical: true)
@@ -293,13 +293,13 @@
             case .sheet:
                 Text(title)
                     .font(MacStyle.sheetTitle)
-                    .foregroundStyle(MacPalette.ink)
+                    .foregroundStyle(Palette.ink)
                     .accessibilityAddTraits(.isHeader)
             case .page:
                 Text(title)
                     .font(MacStyle.pageTitle)
                     .tracking(MacStyle.pageTitleTracking)
-                    .foregroundStyle(MacPalette.ink)
+                    .foregroundStyle(Palette.ink)
                     .lineLimit(2)
                     .accessibilityAddTraits(.isHeader)
             }
@@ -340,10 +340,10 @@
             .padding(.horizontal, MacStyle.sheetMargin)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
-            .background(MacPalette.surface)
+            .background(Palette.surface)
             .macSurfaceContainer()
             .overlay(alignment: .top) {
-                Rectangle().fill(MacPalette.hairline).frame(height: 1)
+                Rectangle().fill(Palette.hairline).frame(height: 1)
             }
         }
 

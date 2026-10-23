@@ -55,7 +55,8 @@
             }
             .environment(\.defaultMinListRowHeight, MacStyle.sidebarRowHeight)
             .scrollContentBackground(.hidden)
-            .background(MacPalette.surface)
+            .background(Palette.surface)
+            .statusRingOnFill()
             .safeAreaBar(edge: .bottom) {
                 SidebarRecordButton(action: onRecord)
                     .disabled(!canRecord)
@@ -75,6 +76,7 @@
             _ item: SidebarItem, _ title: String, glyph: MacSidebarLabel.Glyph, count: Int?
         ) -> some View {
             MacSidebarLabel(title: title, glyph: glyph)
+                .macRowSelected(selection == item)
                 .badge(count.flatMap { $0 > 0 ? Text($0, format: .number).monospacedDigit() : nil })
                 // Outermost: a tag under the badge leaves the row never drawn as selected.
                 .tag(item)
@@ -82,7 +84,8 @@
     }
 
     /// A sidebar row's glyph and name. A glyph is secondary ink at rest and white with the name
-    /// on the key window's selection, except a status's, whose color is its meaning.
+    /// on the key window's selection. A status's glyph keeps its status color at rest and turns
+    /// white there too, through ``StatusGlyph``.
     struct MacSidebarLabel: View {
         enum Glyph: Equatable {
             case symbol(String)
@@ -100,7 +103,7 @@
 
         /// A symbol glyph's color: secondary ink at rest, the label on an accent fill once the
         /// row's selection is emphasized.
-        nonisolated static func symbolInk(emphasized: Bool) -> MacPalette.Token {
+        nonisolated static func symbolInk(emphasized: Bool) -> Palette.Token {
             emphasized ? .onAccentFill : .inkSecondary
         }
 
@@ -115,7 +118,7 @@
                     Image(systemName: name)
                         .foregroundStyle(
                             Self.symbolInk(emphasized: prominence == .increased) == .onAccentFill
-                                ? MacPalette.onAccentFill : MacPalette.inkSecondary)
+                                ? Palette.onAccentFill : Palette.inkSecondary)
                 case .status(let status):
                     // The row's name already says the status.
                     StatusGlyph(status)

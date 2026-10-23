@@ -12,34 +12,51 @@ function rgb(hex: string): string {
 
 const ratio = (fg: string, bg: string) => contrastRatio(rgb(fg), rgb(bg))
 
+type Case = [string, string, string, number]
+
 describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
   const p = PALETTE[scheme]
-  it.each([
-    ['ink', p.ink, p.ground, 4.5],
-    ['secondary ink', p.ink2, p.ground, 4.5],
-    ['secondary ink on a card', p.ink2, p.fill, 4.5],
-    ['slate', p.slate, p.ground, 4.5],
-    ['label on slate', p.onSlate, p.slate, 4.5],
+  const grounds = [
+    ['ground', p.ground],
+    ['surface', p.surface],
+    ['field', p.field],
+    ['raised', p.raised],
+  ] as const
+  const cases: Case[] = [
+    ...grounds.flatMap(([name, bg]): Case[] => [
+      [`ink on ${name}`, p.ink, bg, 4.5],
+      [`secondary ink on ${name}`, p.ink2, bg, 4.5],
+      [`accent on ${name}`, p.accent, bg, 4.5],
+    ]),
+    ['label on the accent fill', p.onAccentFill, p.accentFill, 4.5],
+    ['the mark on the ground', p.markInk, p.ground, 3],
     ['label on coral', p.onCoral, p.coral, 4.5],
-    ['absence mark on a card', p.glyphFaint, p.fill, 3],
-    ['known glyph', p.known, p.ground, 3],
-    ['unknown ring', p.unknown, p.ground, 3],
-    ['record', p.record, p.ground, 3],
+    ['absence mark on a card', p.glyphFaint, p.surface, 3],
+    ['absence mark on the ground', p.glyphFaint, p.ground, 3],
+    ...(['ground', 'surface'] as const).flatMap((name): Case[] => [
+      [`known glyph on ${name}`, p.known, p[name], 3],
+      [`record on ${name}`, p.record, p[name], 3],
+    ]),
+    ['unknown ring on the ground', p.unknown, p.ground, 3],
+    ['unknown ring on a surface', p.unknownOnSurface, p.surface, 3],
     ['danger label', p.danger, p.ground, 4.5],
     ['warning label', p.warning, p.ground, 4.5],
-    ['label on danger', p.onSlate, p.danger, 4.5],
-    ['label on warning', p.onSlate, p.warning, 4.5],
-    ['switch track off on its row', p.switchOff, p.fill, 3],
-    ['switch track off on the ground', p.switchOff, p.ground, 3],
+    ['label on danger', p.onTone, p.danger, 4.5],
+    ['label on warning', p.onTone, p.warning, 4.5],
+    ...grounds
+      .filter(([name]) => name !== 'field')
+      .flatMap(([name, bg]): Case[] => [
+        [`switch track off on ${name}`, p.switchOff, bg, 3],
+        [`switch track on on ${name}`, p.switchOn, bg, 3],
+      ]),
     ['switch knob on the track off', p.knob, p.switchOff, 3],
-    ['switch track on on its row', p.switchOn, p.fill, 3],
     ['switch knob on the track on', p.knob, p.switchOn, 3],
-    ['ink on the nav', p.ink, p.nav, 4.5],
-    ['secondary ink on the nav', p.navInk2, p.nav, 4.5],
-    ['known glyph on the nav', p.known, p.nav, 3],
-    ['unknown ring on the nav', p.navUnknown, p.nav, 3],
-    ['current tab on the nav', p.slate, p.nav, 4.5],
-  ])('%s passes', (_, fg, bg, min) => expect(ratio(fg, bg)).toBeGreaterThanOrEqual(min))
+    ['label on a disabled fill', p.disabledInk, p.disabledFill, 4.5],
+    // Off, a filled control still stands apart from what it sits on.
+    ['disabled fill on the ground', p.disabledFill, p.ground, 1.2],
+    ['disabled fill on a surface', p.disabledFill, p.surface, 1.2],
+  ]
+  it.each(cases)('%s passes', (_, fg, bg, min) => expect(ratio(fg, bg)).toBeGreaterThanOrEqual(min))
 })
 
 // Learning is Apple's system orange, below 3:1 on a light ground; its half fill carries the status.
@@ -53,6 +70,8 @@ it.each([
 it.each(['light', 'dark'] as const)('practice reads on %s jet', (scheme) => {
   const jet = PALETTE[scheme].jet
   expect(ratio('#FFFFFF', jet)).toBeGreaterThanOrEqual(4.5)
+  // Practice draws the dark scheme's accent on jet in either appearance, as text and glyphs.
+  expect(ratio(PALETTE.dark.accent, jet)).toBeGreaterThanOrEqual(4.5)
   expect(ratio(PALETTE.light.silver, jet)).toBeGreaterThanOrEqual(4.5)
   expect(ratio(PALETTE.light.coral, jet)).toBeGreaterThanOrEqual(3)
 })
@@ -125,13 +144,41 @@ describe.each(['light', 'dark'] as const)('washes in %s', (scheme) => {
   const token = (name: string) => values.get(name)!
   it.each([
     // The comparison's Premium column: the wash over the card it sits on.
-    ['Premium value on its wash', '--premium-ink', '--premium-wash', '--fill', 4.5],
-    ['Premium check on its wash', '--slate', '--premium-wash', '--fill', 3],
+    ['Premium value on its wash', '--premium-ink', '--premium-wash', '--surface', 4.5],
+    ['Premium check on its wash', '--ink', '--premium-wash', '--surface', 3],
     // A feature's icon tile, on the card its row sits on.
-    ['feature icon on its tile', '--slate', '--tint', '--fill', 3],
-    // The trial card: the tint over the sheet, with the nav's secondary ink the card takes.
-    ['trial card secondary ink on its tint', '--nav-ink-2', '--tint', '--ground', 4.5],
+    ['feature icon on its tile', '--ink-2', '--tint', '--surface', 3],
+    ['trial card secondary ink on its tint', '--ink-2', '--tint', '--ground', 4.5],
     ['trial card ink on its tint', '--ink', '--tint', '--ground', 4.5],
+    ['secondary ink on a selected row', '--ink-2', '--wash', '--ground', 4.5],
+    ['ink on a set filter', '--ink', '--set-fill', '--ground', 4.5],
+    ['secondary ink on a set filter', '--ink-2', '--set-fill', '--ground', 4.5],
+    ['set filter label on its wash over the ground', '--set-label', '--set-fill', '--ground', 4.5],
+    ['set filter label on its wash over a surface', '--set-label', '--set-fill', '--surface', 4.5],
+    [
+      'set filter label on its hover over a surface',
+      '--set-label',
+      '--set-fill-hover',
+      '--surface',
+      4.5,
+    ],
+    // A chosen item's label and glyph, such as the current tab and a checked box, on its wash.
+    ['chosen label on its wash over the ground', '--chosen-label', '--wash', '--ground', 4.5],
+    ['chosen label on its wash over a surface', '--chosen-label', '--wash', '--surface', 4.5],
+    ['chosen glyph on its wash over a surface', '--accent', '--wash', '--surface', 3],
+    // A plain worded button's accent label under the pointer.
+    ['plain button label on its hover over the ground', '--accent', '--tint', '--ground', 4.5],
+    ['plain button label on its hover over a surface', '--accent', '--tint', '--surface', 4.5],
+    ...(['--row-hover', '--wash', '--play-wash', '--set-fill', '--tint'] as const).flatMap(
+      (wash): [string, string, string, string, number][] =>
+        (['--ground', '--surface'] as const).map((ground) => [
+          `unknown ring on ${wash} over ${ground}`,
+          '--unknown-on-surface',
+          wash,
+          ground,
+          3,
+        ]),
+    ),
   ])('%s passes', (_, ink, wash, ground, min) => {
     expect(ratio(token(ink), washOver(values, wash, token(ground)))).toBeGreaterThanOrEqual(min)
   })

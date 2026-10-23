@@ -59,7 +59,7 @@
         var body: some View {
             Text(text)
                 .font(MacStyle.body)
-                .foregroundStyle(MacPalette.inkSecondary)
+                .foregroundStyle(Palette.inkSecondary)
                 .monospacedDigit()
                 .lineLimit(1)
         }
@@ -130,14 +130,14 @@
                         if let value, !value.isEmpty {
                             Text(value)
                                 .font(MacStyle.body)
-                                .foregroundStyle(MacPalette.inkSecondary)
+                                .foregroundStyle(Palette.inkSecondary)
                                 .monospacedDigit()
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                         }
                         Image(systemName: "chevron.forward")
                             .font(MacStyle.rowChevron)
-                            .foregroundStyle(MacPalette.inkSecondary)
+                            .foregroundStyle(Palette.inkSecondary)
                             .accessibilityHidden(true)
                     }
                 } label: {
@@ -166,7 +166,7 @@
             overlay {
                 if isFocused {
                     RoundedRectangle(cornerRadius: MacButtonStyle.radius)
-                        .strokeBorder(MacPalette.accent, lineWidth: MacFieldStyle.focusRingWidth)
+                        .strokeBorder(Palette.accent, lineWidth: MacFieldStyle.focusRingWidth)
                         .padding(.horizontal, -(MacForm.rowInset - 4))
                         .padding(.vertical, -2)
                         .allowsHitTesting(false)

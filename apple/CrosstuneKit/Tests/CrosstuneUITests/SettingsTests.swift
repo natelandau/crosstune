@@ -170,13 +170,19 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     }
 }
 
+/// The instruments the model shows as played, as the Settings root sums them up.
+@MainActor
+private func instrumentSummary(_ model: SettingsModel) -> String {
+    SettingsModel.instrumentsSummary(playing: model.plays)
+}
+
 @MainActor
 @Suite struct SettingsModelTests {
     @Test func readsTheMusiciansInstrumentsAndQuality() async throws {
         let root = TemporaryRoot()
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await loadedModel(store)
-        #expect(model.instrumentSummary == "Violin, 5-string banjo")
+        #expect(instrumentSummary(model) == "Violin, 5-string banjo")
         #expect(model.searchProvidersSummary == "5 of 8")
         #expect(model.plays("violin"))
         #expect(!model.plays("guitar"))
@@ -190,7 +196,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         let root = TemporaryRoot()
         let store = try root.open()
         let model = try await loadedModel(store)
-        #expect(model.instrumentSummary == "Not set")
+        #expect(instrumentSummary(model) == "Not set")
         #expect(model.audioQuality == "standard")
         #expect(model.storage == nil)
     }
@@ -234,7 +240,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         #expect(model.plays("mandolin"))
         model.setPlays("violin", true)
         try await eventually { try await storedSettings(store)?.instruments == ["violin", "mandolin"] }
-        try await eventually { model.instrumentSummary == "Violin, Mandolin" }
+        try await eventually { instrumentSummary(model) == "Violin, Mandolin" }
         #expect(try await store.pendingChangeCount() == 1)
 
         model.setPlays("mandolin", false)
@@ -318,19 +324,16 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         try await eventually { try await storedSettings(store)?.newTuneStatus == "known" }
     }
 
-    @Test func storesTheGenreANewTuneStartsWithAndSumsItUp() async throws {
+    @Test func storesTheGenreANewTuneStartsWith() async throws {
         let root = TemporaryRoot()
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await loadedModel(store)
         #expect(model.newTuneGenre == "")
-        #expect(model.newTunesSummary == TuneFieldLabels.notSet)
         model.setNewTuneGenre("Irish")
         #expect(model.newTuneGenre == "Irish")
-        #expect(model.newTunesSummary == "Irish")
         try await eventually { try await storedSettings(store)?.newTuneGenre == "Irish" }
         model.setNewTuneGenre("")
         try await eventually { try await storedSettings(store)?.newTuneGenre == nil }
-        #expect(model.newTunesSummary == TuneFieldLabels.notSet)
     }
 
     @Test func showsNoFailureForAGenreALaterKeystrokeSaved() async throws {
@@ -541,7 +544,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
 @Suite struct SettingsRootTests {
     @Test func everySettingsSectionHasOneHomeOnPhone() {
         // The two cards, then what each category's page declares.
-        var homes: [SettingsScreen.Sections] = SettingsCategory.allCases.flatMap { [$0.sections, $0.pageRows] }
+        var homes: [SettingsScreen.Sections] = SettingsCategory.allCases.map(\.sections)
         homes += [[.plan, .account], [.stats]]
         var seen: SettingsScreen.Sections = []
         for home in homes {
@@ -591,15 +594,6 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         #expect(StatusBar.byStatus(counts) == ["known": 4, "learning": 2, "want_to_learn": 9])
     }
 
-    @Test func categoriesNameTheirPages() {
-        #expect(
-            SettingsCategory.allCases.map(\.title) == [
-                "Instruments", "New tunes", "Music services", "Recording", "Saved locations", Appearance.title,
-                "Sync and storage",
-                "Import and export", SettingsScreen.about,
-            ])
-    }
-
     @Test func importAndExportFollowsSyncAndStorage() throws {
         let categories = SettingsCategory.allCases
         let index = try #require(categories.firstIndex(of: .importExport))
@@ -624,7 +618,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
                 #expect(seen.isDisjoint(with: pane.sections), "\(pane) repeats a section")
                 seen.formUnion(pane.sections)
             }
-            #expect(seen == .macAll)
+            #expect(seen == .all)
         }
 
         @Test func settingsHasFiveTabs() {
@@ -672,10 +666,6 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         @Test func tunesTabShowsInstrumentAndServiceToggles() {
             #expect(
                 MacSettingsTabs.Pane.tunes.sections == [.instrumentToggles, .newTunes, .serviceToggles, .appleMusic])
-            for pane in MacSettingsTabs.Pane.allCases {
-                #expect(!pane.sections.contains(.instruments), "\(pane) opens the instruments sheet")
-                #expect(!pane.sections.contains(.musicServices), "\(pane) opens the music services sheet")
-            }
         }
 
         @Test func signOutIsNotDestructiveOnTheMac() {

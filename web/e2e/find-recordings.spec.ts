@@ -25,6 +25,7 @@ import {
   searchService,
 } from '../src/features/links/findRecordingsCopy'
 import { DONE } from '../src/ui/confirmCopy'
+import { TUNES } from '../src/features/settings/settingsCopy'
 import { ADD_RECORDING } from '../src/features/tune/tuneMediaCopy'
 import { RECORDINGS_SECTION } from '../src/features/tune/tuneScreenCopy'
 
@@ -64,7 +65,7 @@ const GROUPS: StubbedGroup[] = [
 
 /** Chooses exactly `chosen` among the music services. */
 async function chooseServices(page: Page, chosen: string[]): Promise<void> {
-  await openSetting(page, 'Music services')
+  await openSetting(page, TUNES)
   for (const name of SERVICES) {
     await setSwitch(page, page.getByRole('switch', { name, exact: true }), chosen.includes(name))
   }

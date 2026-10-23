@@ -8,7 +8,7 @@ struct ImportHelp: View {
         #if os(macOS)
             Link(ImportCopy.whatCanIPaste, destination: Self.destination)
                 .font(MacStyle.body)
-                .foregroundStyle(MacPalette.accent)
+                .foregroundStyle(Palette.accent)
         #else
             Link(destination: Self.destination) {
                 Label(ImportCopy.whatCanIPaste, systemImage: "questionmark.circle")

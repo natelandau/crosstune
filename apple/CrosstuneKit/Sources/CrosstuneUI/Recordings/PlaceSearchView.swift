@@ -379,7 +379,7 @@ struct PlaceSearchView: View {
                             if model.foundNothing {
                                 Text(PlaceSearchText.noPlacesFound)
                                     .font(MacStyle.body)
-                                    .foregroundStyle(MacPalette.inkSecondary)
+                                    .foregroundStyle(Palette.inkSecondary)
                                     .padding(.horizontal, 8)
                             }
                             ForEach(model.completions, id: \.self, content: resultButton)
@@ -400,12 +400,12 @@ struct PlaceSearchView: View {
                         Text(current.name)
                             .contentMask()
                             .font(MacStyle.body)
-                            .foregroundStyle(MacPalette.ink)
+                            .foregroundStyle(Palette.ink)
                         if let address = model.currentAddress {
                             Text(address)
                                 .contentMask()
                                 .font(MacStyle.secondary)
-                                .foregroundStyle(MacPalette.inkSecondary)
+                                .foregroundStyle(Palette.inkSecondary)
                         }
                     }
                     .lineLimit(1)
@@ -444,7 +444,7 @@ struct PlaceSearchView: View {
         }
     #else
         private var page: some View {
-            Form {
+            PaperForm {
                 if let coordinate = model.mapCoordinate {
                     Section {
                         LocationMap(coordinate: coordinate, accuracyM: coordinate.accuracyM)
@@ -469,14 +469,13 @@ struct PlaceSearchView: View {
                     Section {
                         if model.foundNothing {
                             Text(PlaceSearchText.noPlacesFound)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.inkSecondary)
                         }
                         ForEach(model.completions, id: \.self, content: resultButton)
                     }
                 }
                 LocationAccessSection()
             }
-            .formStyle(.grouped)
             .navigationTitle(EditRecordingText.place)
         }
 
@@ -489,7 +488,7 @@ struct PlaceSearchView: View {
                         if let address = model.currentAddress {
                             Text(address)
                                 .contentMask()
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.inkSecondary)
                         }
                     }
                 }

@@ -11,16 +11,17 @@
         nonisolated static let focusRingWidth: CGFloat = 2
 
         /// The full accent: a partial one falls under 3:1 on the field fill.
-        nonisolated static let focusRingToken = MacPalette.Token.accent
+        nonisolated static let focusRingToken = Palette.Token.accent
 
         nonisolated static func focusRingRGB(_ scheme: ColorScheme) -> KeyColor.RGB {
-            KeyColor.RGB(hex: MacPalette.hex(focusRingToken, scheme))
+            KeyColor.RGB(hex: Palette.hex(focusRingToken, scheme))
         }
 
         /// A glyph inside the field's leading padding that says what the field takes, such as a
         /// link.
         var leadingSymbol: String?
 
+        // periphery:ignore - SwiftUI calls it through the style's underscored requirement
         func _body(configuration: TextField<_Label>) -> some View {
             MacFieldBody(field: configuration, leadingSymbol: leadingSymbol)
         }
@@ -45,7 +46,7 @@
                 if let leadingSymbol {
                     Image(systemName: leadingSymbol)
                         .font(.system(size: 12))
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                         .accessibilityHidden(true)
                 }
                 field
@@ -113,7 +114,7 @@
                 if isFocused {
                     RoundedRectangle(cornerRadius: cornerRadius + MacFieldStyle.focusRingWidth)
                         .strokeBorder(
-                            MacPalette.color(MacFieldStyle.focusRingToken), lineWidth: MacFieldStyle.focusRingWidth
+                            Palette.color(MacFieldStyle.focusRingToken), lineWidth: MacFieldStyle.focusRingWidth
                         )
                         .padding(-MacFieldStyle.focusRingWidth)
                         .allowsHitTesting(false)
@@ -211,7 +212,7 @@
         var isSet = false
 
         static func valueRGB(isSet: Bool, scheme: ColorScheme) -> KeyColor.RGB {
-            KeyColor.RGB(hex: MacPalette.hex(isSet ? .accent : .inkSecondary, scheme))
+            KeyColor.RGB(hex: Palette.hex(isSet ? .accent : .inkSecondary, scheme))
         }
 
         func makeBody(configuration: Configuration) -> some View {

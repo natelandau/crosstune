@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  LOOP_COLOR_COUNT,
+  LOOP_COLOR_ORDER,
   adjacent,
   freeGap,
   loopAt,
@@ -47,8 +49,36 @@ describe('snapMs', () => {
 })
 
 describe('pickColor', () => {
-  it('returns 0 with no loops', () => {
-    expect(pickColor(s(5, 8), [])).toBe(0)
+  it('exports the tie-break order with the blue last', () => {
+    expect(LOOP_COLOR_ORDER).toEqual([1, 2, 3, 4, 5, 0])
+  })
+
+  it('orders every color slot exactly once', () => {
+    expect([...LOOP_COLOR_ORDER].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: LOOP_COLOR_COUNT }, (_, slot) => slot),
+    )
+  })
+
+  it('returns 1 with no loops', () => {
+    expect(pickColor(s(5, 8), [])).toBe(1)
+  })
+
+  it('returns 1 when one loop elsewhere uses color 0', () => {
+    expect(pickColor(s(5, 8), [placed('far', 100, 200, 0)])).toBe(1)
+  })
+
+  it('returns 0 once colors 1 to 5 are each used and 0 is not', () => {
+    const loops = [1, 2, 3, 4, 5].map((c) => placed(`far${c}`, 100 * c, 100 * c + 50, c))
+    expect(pickColor(s(5, 8), loops)).toBe(0)
+  })
+
+  it('still avoids a color a neighbor uses when all six are used once', () => {
+    const loops = [
+      placed('n', 4, 6, 2),
+      ...[0, 1, 3, 4, 5].map((c) => placed(`far${c}`, 100 * (c + 1), 100 * (c + 1) + 50, c)),
+    ]
+    // Every other color ties at none nearby and one overall, so the order's first wins.
+    expect(pickColor(s(5, 8), loops)).toBe(1)
   })
 
   it('avoids colors used by overlapping and adjacent neighbors', () => {
@@ -56,7 +86,7 @@ describe('pickColor', () => {
     expect(pickColor(s(5, 8), loops)).toBe(2)
   })
 
-  it('picks the lowest index when neighbors tie and overall counts tie', () => {
+  it('picks the first color in tie-break order when neighbors tie and overall counts tie', () => {
     const loops = [
       placed('c0', 4, 6, 0),
       placed('c1', 5, 7, 1),
@@ -66,7 +96,7 @@ describe('pickColor', () => {
       placed('c5', 6, 7, 5),
       placed('c3b', 6, 7, 3),
     ]
-    expect(pickColor(s(5, 8), loops)).toBe(0)
+    expect(pickColor(s(5, 8), loops)).toBe(1)
   })
 
   it('breaks a neighbor tie by least use across all loops', () => {

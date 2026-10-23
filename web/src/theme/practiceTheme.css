@@ -5,6 +5,9 @@
   --panel-ink: #ffffff;
   --panel-on-ink: var(--jet);
   --panel-muted: var(--silver);
+  /* The dark scheme's Harbor, which reads on jet in either appearance. Only the transport disc
+     and its chips are white. */
+  --accent: var(--accent-dark);
   --panel-danger: var(--danger-dark);
   /* So a shared error line on jet reads as the dark scheme's. */
   --danger: var(--danger-dark);
@@ -27,6 +30,6 @@
 [data-practice] [data-loops-panel] {
   --ink: var(--panel-ink);
   --ink-2: var(--panel-muted);
-  --slate: var(--panel-ink);
-  --fill: var(--practice-fill);
+  --field: var(--practice-fill);
+  --field-hover: var(--fill-tertiary-hover);
 }

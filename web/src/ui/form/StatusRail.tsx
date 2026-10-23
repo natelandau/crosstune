@@ -55,7 +55,7 @@ export function StatusRail({
         <ToggleButton
           key={status}
           id={status}
-          className={`${CAPSULE_HIT} bg-fill text-ink hover:bg-fill-hover inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3 ${PRESS} data-[selected]:font-medium ${CHOSEN[status]}`}
+          className={`${CAPSULE_HIT} bg-field text-ink hover:bg-field-hover inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3 ${PRESS} data-[selected]:font-medium ${CHOSEN[status]}`}
         >
           <StatusGlyph status={status} labelled />
           {status === chosen && <TraceRing color={RING[status]} run={picked === status} />}

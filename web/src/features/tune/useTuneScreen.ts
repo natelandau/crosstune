@@ -16,7 +16,7 @@ import { useRecordingsWithFiles, type RecordingView } from '../recordings/useRec
 import { tuningDisplay, tuningInstruments, tuningKey } from '../../domain/instruments'
 import { useInstruments } from '../settings/useInstruments'
 import { ARCHIVE, UNARCHIVE } from './archiveLabels'
-import { DELETE_TUNE_TITLE, deleteTuneMessage } from './deleteTuneMessage'
+import { deleteTuneMessage, deleteTuneTitle } from './deleteTuneMessage'
 import { useTune, type TuneView } from './useTune'
 import { useTuneActions } from './useTuneActions'
 
@@ -171,8 +171,8 @@ export function useTuneScreen(
         tone: 'error',
         onPress: () =>
           void deletion.start(view.tune.title, {
-            title: DELETE_TUNE_TITLE,
-            message: deleteTuneMessage(view.tune.title, recordings ?? []),
+            title: deleteTuneTitle(view.tune.title),
+            message: deleteTuneMessage(recordings ?? []),
             action: DELETE,
           }),
       },

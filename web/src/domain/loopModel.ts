@@ -3,7 +3,9 @@ import { clamp } from '../math'
 
 export const MIN_LOOP_MS = 500
 export const MAX_LOOPS = 100
-const LOOP_COLOR_COUNT = 6
+export const LOOP_COLOR_COUNT = 6
+/** Tie-break order for a new loop's color. Slot 0 is last: it is the blue closest to the accent hue. */
+export const LOOP_COLOR_ORDER: readonly number[] = [1, 2, 3, 4, 5, 0]
 const SNAP_PX = 8
 export const DRAG_THRESHOLD_PX = 8
 const NEW_LOOP_PAD_MS = 4000
@@ -71,7 +73,7 @@ export function snapMs(ms: number, targets: readonly number[], msPerPx: number):
 const byPosition = (a: PlacedLoop, b: PlacedLoop) =>
   a.startMs - b.startMs || a.endMs - b.endMs || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
 
-/** The color slot least used among nearby loops, then across all loops, then lowest index. */
+/** The color slot least used among nearby loops, then across all loops, then first in LOOP_COLOR_ORDER. */
 export function pickColor(span: Span, loops: readonly PlacedLoop[]): number {
   const neighbors = new Set<PlacedLoop>()
   let before: PlacedLoop | null = null
@@ -98,8 +100,8 @@ export function pickColor(span: Span, loops: readonly PlacedLoop[]): number {
   const nearby = count(neighbors)
   const overall = count(loops)
 
-  let best = 0
-  for (let slot = 1; slot < LOOP_COLOR_COUNT; slot++) {
+  let best = LOOP_COLOR_ORDER[0]!
+  for (const slot of LOOP_COLOR_ORDER) {
     if (
       nearby[slot]! < nearby[best]! ||
       (nearby[slot] === nearby[best] && overall[slot]! < overall[best]!)

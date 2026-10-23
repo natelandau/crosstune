@@ -53,7 +53,7 @@ public enum StatsCopy {
         "Show all \(groupedThousands(count))"
     }
 
-    /// The recorded total: `37 recordings · 9 h 12 m`.
+    /// The recorded total: `37 recordings · 9 h 12 min`.
     nonisolated public static func recordedLine(recordings: Int, ms: Int) -> String {
         "\(countRecordings(recordings)) · \(formatRecorded(ms))"
     }

@@ -11,12 +11,12 @@
         /// parts the two, and outside the ring is the ground or surface the chip sits on.
         @Test(arguments: [ColorScheme.light, .dark])
         func chosenKeyRingHoldsContrastOnEveryHue(scheme: ColorScheme) {
-            let ring = MacPalette.hex(MacChip.ringToken, scheme)
-            let gap = MacPalette.hex(MacChip.ringGapToken, scheme)
+            let ring = Palette.hex(MacChip.ringToken, scheme)
+            let gap = Palette.hex(MacChip.ringGapToken, scheme)
             #expect(MacChip.ringGapWidth > 0)
             #expect(contrastRatio(ring, gap) >= 3)
-            for ground in [MacPalette.Token.ground, .surface] {
-                #expect(contrastRatio(ring, MacPalette.hex(ground, scheme)) >= 3, "\(ground)")
+            for ground in [Palette.Token.ground, .surface] {
+                #expect(contrastRatio(ring, Palette.hex(ground, scheme)) >= 3, "\(ground)")
             }
             // The side the ring faces inward: the hue itself where it holds, else the gap.
             for pitchClass in 0..<12 {
@@ -30,8 +30,8 @@
         @Test(arguments: [ColorScheme.light, .dark])
         func setChipLabelPassesContrastOnItsWash(scheme: ColorScheme) {
             let label = MacChip.labelRGB(state: .set, scheme: scheme).hex
-            for ground in [MacPalette.Token.ground, .surface] {
-                let wash = MacChip.setWashHex(over: MacPalette.hex(ground, scheme), scheme: scheme)
+            for ground in [Palette.Token.ground, .surface] {
+                let wash = MacChip.setWashHex(over: Palette.hex(ground, scheme), scheme: scheme)
                 #expect(contrastRatio(label, wash) >= 4.5, "\(scheme) on \(ground)")
             }
         }
@@ -40,14 +40,14 @@
         @Test(arguments: [ColorScheme.light, .dark])
         func chosenChipWithoutHueUsesAccentFill(scheme: ColorScheme) {
             #expect(
-                MacChip.solidFillHex(state: .chosen, scheme: scheme) == MacPalette.hex(.accentFill, scheme).lowercased()
+                MacChip.solidFillHex(state: .chosen, scheme: scheme) == Palette.hex(.accentFill, scheme).lowercased()
             )
             #expect(
                 MacChip.labelRGB(state: .chosen, scheme: scheme).hex
-                    == MacPalette.hex(.onAccentFill, scheme).lowercased())
+                    == Palette.hex(.onAccentFill, scheme).lowercased())
             #expect(
                 contrastRatio(
-                    MacChip.labelRGB(state: .chosen, scheme: scheme).hex, MacPalette.hex(.accentFill, scheme)) >= 4.5)
+                    MacChip.labelRGB(state: .chosen, scheme: scheme).hex, Palette.hex(.accentFill, scheme)) >= 4.5)
         }
 
         @Test func rowKeyPillHasMinimumWidth() {

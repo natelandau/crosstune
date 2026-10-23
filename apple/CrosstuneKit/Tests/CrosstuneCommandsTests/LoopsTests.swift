@@ -33,7 +33,7 @@ private let noon = Timestamp.now
         #expect(row.recordingID == recordingID)
         #expect(row.startMs == 1000)
         #expect(row.endMs == 4000)
-        #expect(row.color == 0)
+        #expect(row.color == 1)
         let queued = try await store.pendingChanges(limit: 10).filter { $0.rowID == created.id }
         #expect(queued.count == 1)
         #expect(queued.first?.op == .upsert)
@@ -53,9 +53,9 @@ private let noon = Timestamp.now
         let first = try await commands.addLoop(recordingID: recordingID, startMs: 0, endMs: 1000, label: nil)
         let third = try await commands.addLoop(recordingID: recordingID, startMs: 4000, endMs: 5000, label: nil)
         let middle = try await commands.addLoop(recordingID: recordingID, startMs: 2000, endMs: 3000, label: nil)
-        #expect(try await loop(store, first.id)?.color == 0)
-        #expect(try await loop(store, third.id)?.color == 1)
-        #expect(try await loop(store, middle.id)?.color == 2)
+        #expect(try await loop(store, first.id)?.color == 1)
+        #expect(try await loop(store, third.id)?.color == 2)
+        #expect(try await loop(store, middle.id)?.color == 3)
     }
 
     private func seededWithTrim(start: Int64, end: Int64?, duration: Int64?) async throws -> (CrosstuneStore, Commands)

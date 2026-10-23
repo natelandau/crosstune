@@ -1,0 +1,94 @@
+#if os(macOS)
+    import Foundation
+    import Testing
+
+    @testable import CrosstuneUI
+
+    @Suite struct InkTests {
+        /// Lines whose hierarchical style is proven to hold where it draws, by file. Each entry
+        /// covers one line, so a second line with the same text still fails. A new entry names the
+        /// ground it sits on and why `inkSecondary` cannot stand in.
+        static let allowed: [String: [String]] = [
+            // Drawn only on the jet practice ground, a dark ground where the system's
+            // hierarchical styles resolve against the dark scheme and hold contrast.
+            "RecordingScreen/Practice/PracticeWaveform.swift": [
+                "return .style(.tertiary)",
+                "return .style(.secondary)",
+            ],
+            // The audio a trim cuts away is faded back on purpose, so it stays quieter than ink.
+            "RecordingScreen/TrimScreen.swift": ["context.fill(cut, with: .style(.quaternary))"],
+        ]
+
+        /// A hierarchical style as a foreground: `.foregroundStyle(.secondary)`, one in a
+        /// ternary, a canvas `.style(.tertiary)`, `Color.secondary`, or `.foregroundColor(.tertiary)`.
+        /// AppKit resolves these as a translucent gray that falls under 4.5:1 on the Mac's surface
+        /// and field fills, and UIKit's falls under it on paper.
+        private static var foreground: Regex<(Substring, Substring, Substring)> {
+            /(\.(?:foreground(?:Style|Color)|style)\((?:[^\n]*[^A-Za-z0-9_])?\.|\bColor\.)(secondary|tertiary|quaternary)\b/
+                .wordBoundaryKind(.simple)
+        }
+
+        /// A secondary or tertiary style handed on as a value: `AnyShapeStyle(.secondary)`, a
+        /// switch case or `default:` that yields one, or `return .tertiary`.
+        private static var handedOn: Regex<(Substring, Substring)> {
+            /(?:\bAnyShapeStyle\(|\b(?:case\b[^\n]*|default):\s*|\breturn\s+)\.(secondary|tertiary)\b/
+                .wordBoundaryKind(.simple)
+        }
+
+        static func offenders(in text: String) -> [String] {
+            SourceScan.withoutComments(text).split(separator: "\n")
+                .filter { $0.contains(foreground) || $0.contains(handedOn) }
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+        }
+
+        /// `found` less one line for each allowed entry, and the entries no line used.
+        static func unallowed(_ found: [String], allowed: [String]) -> (lines: [String], unused: [String]) {
+            var lines = found
+            var unused: [String] = []
+            for entry in allowed {
+                if let index = lines.firstIndex(of: entry) {
+                    lines.remove(at: index)
+                } else {
+                    unused.append(entry)
+                }
+            }
+            return (lines, unused)
+        }
+
+        @Test func compiledCodeDrawsNoHierarchicalInk() throws {
+            var found: [String] = []
+            var stale: [String] = []
+            for file in SourceScan.files() {
+                let name = SourceScan.relative(file)
+                let text = try SourceScan.text(at: file)
+                let (lines, unused) = Self.unallowed(Self.offenders(in: text), allowed: Self.allowed[name] ?? [])
+                found += lines.map { "\(name) \($0)" }
+                stale += unused.map { "\(name) \($0)" }
+            }
+            #expect(found.isEmpty, "\(found.count) lines:\n\(found.joined(separator: "\n"))")
+            #expect(stale.isEmpty, "allowed lines no longer in the source:\n\(stale.joined(separator: "\n"))")
+        }
+
+        @Test func scanCatchesEachSpelling() {
+            #expect(Self.offenders(in: ".foregroundStyle(.secondary)").count == 1)
+            #expect(Self.offenders(in: ".foregroundStyle(.secondary.opacity(0.5))").count == 1)
+            #expect(Self.offenders(in: ".foregroundStyle(isOn ? .primary : .tertiary)").count == 1)
+            #expect(Self.offenders(in: "context.fill(path, with: .style(.secondary))").count == 1)
+            #expect(Self.offenders(in: "context.fill(path, with: .style(.tertiary))").count == 1)
+            #expect(Self.offenders(in: "let c = Color.secondary").count == 1)
+            #expect(Self.offenders(in: "let c = AnyShapeStyle(.secondary)").count == 1)
+            #expect(Self.offenders(in: "let c = premium ? ink : AnyShapeStyle(.tertiary)").count == 1)
+            #expect(Self.offenders(in: "case .ring: .secondary").count == 1)
+            #expect(Self.offenders(in: "case .ring: .secondary.opacity(0.4)").count == 1)
+            #expect(Self.offenders(in: "case .a, .b: .tertiary").count == 1)
+            #expect(Self.offenders(in: "default: .tertiary").count == 1)
+            #expect(Self.offenders(in: "return .secondary").count == 1)
+            #expect(Self.offenders(in: "if off { return .tertiary }").count == 1)
+            #expect(Self.offenders(in: "case .secondary, .destructive: control").isEmpty)
+            #expect(Self.offenders(in: "case .caption: self = .secondary").isEmpty)
+            #expect(Self.offenders(in: "AnyShapeStyle(.quaternary)").isEmpty)
+            #expect(Self.offenders(in: ".foregroundStyle(Palette.inkSecondary)").isEmpty)
+            #expect(Self.offenders(in: ".font(MacStyle.secondary)").isEmpty)
+        }
+    }
+#endif

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
 import type { SearchGroup, SearchResult } from '../../api/types'
 import type { Provider } from '../../api/vocabulary'
-import { settingsPagePath } from '../settings/settingsPaths'
+import { SETTINGS_GROUPS, settingsGroupPath } from '../settings/settingsPaths'
 import { PROVIDER_LABELS } from '../../constants'
 import {
   BACK,
@@ -66,7 +66,7 @@ export function FindRecordingsSheet({
   const fieldRef = useRef<HTMLInputElement>(null)
   const find = useFindRecordings(isOpen ? tuneId : null, service, {
     onClose: () => onOpenChange(false),
-    onOpenSettings: () => navigate(settingsPagePath('music-services')),
+    onOpenSettings: () => navigate(settingsGroupPath('tunes', SETTINGS_GROUPS.musicServices)),
   })
   const { shown, search } = find
 
@@ -110,7 +110,7 @@ export function FindRecordingsSheet({
 
   const searchOnRow = (group: SearchGroup) => (
     <a
-      className={`${FIELD_ROW_PRESSABLE} text-action font-medium`}
+      className={`${FIELD_ROW_PRESSABLE} text-ink font-medium`}
       href={group.search_url}
       target="_blank"
       rel="noopener noreferrer"

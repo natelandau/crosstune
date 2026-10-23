@@ -9,7 +9,7 @@ import { CLOSE_PLAYER } from '../player/transportCopy'
 import { PLAY } from '../recordings/recordingNames'
 import { ADD_SCANS, NO_SCANS, SCANS } from '../scans/scanCopy'
 import { addToList, createList } from '../../commands/lists'
-import { DELETE_TUNE_TITLE, deleteTuneMessage } from './deleteTuneMessage'
+import { deleteTuneMessage, deleteTuneTitle } from './deleteTuneMessage'
 import {
   ADD_NOTES,
   EDIT_LYRICS,
@@ -208,8 +208,8 @@ it('asks before a delete and goes back to the parent once it lands', async () =>
   await expect.element(pageTitle()).toHaveTextContent('Forked Deer')
   await page.getByRole('button', { name: MORE_ACTIONS }).click()
   await page.getByRole('menuitem', { name: DELETE }).click()
-  const dialog = page.getByRole('alertdialog', { name: DELETE_TUNE_TITLE })
-  await expect.element(dialog).toHaveTextContent(deleteTuneMessage('Forked Deer', []))
+  const dialog = page.getByRole('alertdialog', { name: deleteTuneTitle('Forked Deer') })
+  await expect.element(dialog).toHaveTextContent(deleteTuneMessage([]))
   await dialog.getByRole('button', { name: DELETE }).click()
   await expect.poll(path(router)).toBe(CATALOG.root)
   // Back, not a replace, so history holds the catalog once and no entry for the gone tune.

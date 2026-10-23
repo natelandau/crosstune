@@ -5,7 +5,7 @@ import SwiftUI
 /// Words for the Play first setting.
 public enum PlayFirstText {
     public static let label = "Play first"
-    public static let help = "Which version plays when a tune has both and none is pinned."
+    public static let help = "Which plays first when a tune has both a recording and Apple Music, and none is pinned."
     /// A choice's name in the picker, by its stored value.
     public static let names: [String: String] = [
         UserSettings.playFirstRecordings: "Recordings",

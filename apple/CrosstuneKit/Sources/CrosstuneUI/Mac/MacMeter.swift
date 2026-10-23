@@ -13,11 +13,11 @@
 
         var body: some View {
             Capsule()
-                .fill(MacPalette.hairline)
+                .fill(Palette.hairline)
                 .overlay(alignment: .leading) {
                     GeometryReader { proxy in
                         Capsule()
-                            .fill(MacPalette.ink.opacity(0.55))
+                            .fill(Palette.ink.opacity(0.55))
                             .frame(width: proxy.size.width * Self.clamped(fraction))
                     }
                 }

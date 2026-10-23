@@ -13,11 +13,6 @@ export const MUSIC_SERVICES_HELP =
 
 export const NO_SERVICES = 'No services selected'
 
-/** The settings row's summary: how many of the searchable services are on. */
-export function servicesSummary(count: number): string {
-  return count === 0 ? NO_SERVICES : `${count} of ${SEARCHABLE_PROVIDERS.length}`
-}
-
 /** The services to search, or undefined until the settings row has been read. */
 export function useSearchProviders(): ReadonlySet<Provider> | undefined {
   const row = useSettingsRow()

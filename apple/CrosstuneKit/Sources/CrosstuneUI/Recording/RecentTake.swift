@@ -94,11 +94,7 @@ private struct NewTakeHighlight: ViewModifier {
     }
 
     private static func wash(_ scheme: ColorScheme) -> Color {
-        #if os(macOS)
-            MacStyle.setFill(scheme)
-        #else
-            BrandStyle.setFill(scheme)
-        #endif
+        BrandStyle.setFill(scheme)
     }
 
     private func set(_ on: Bool, _ duration: Duration) {

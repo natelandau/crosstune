@@ -16,7 +16,7 @@ const SHAPE =
 // Forced colors drop a gradient, which would leave Learning a bare ring like Unknown, so there
 // it paints itself in the system's text color.
 const SHAPES: Record<Known, string> = {
-  known: 'border-known bg-known text-on-slate',
+  known: 'border-known bg-known text-on-tone',
   learning:
     'border-learning bg-[linear-gradient(90deg,var(--learning)_50%,transparent_50%)] forced-colors:border-[CanvasText] forced-colors:bg-[linear-gradient(90deg,CanvasText_50%,transparent_50%)] forced-colors:[forced-color-adjust:none]',
   want_to_learn: 'border-unknown',

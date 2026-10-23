@@ -10,4 +10,5 @@ export const PLAY_FIRST_LABELS: Record<PlayFirst, string> = {
   apple_music: 'Apple Music',
 }
 
-export const PLAY_FIRST_HELP = 'Which version plays when a tune has both and none is pinned.'
+export const PLAY_FIRST_HELP =
+  'Which plays first when a tune has both a recording and Apple Music, and none is pinned.'

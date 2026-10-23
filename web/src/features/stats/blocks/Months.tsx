@@ -12,7 +12,7 @@ import { PageSection } from '../../../ui/PageSection'
 import { Capsule } from '../../../ui/Capsule'
 
 /**
- * Tunes added and recordings made per month, as two strips of slate bars over the same months.
+ * Tunes added and recordings made per month, as two strips of ink bars over the same months.
  * A month with nothing keeps its empty slot, so the spacing reads as time.
  */
 export function Months({ months }: { months: MonthsData }) {
@@ -66,7 +66,7 @@ function Strip({
             <span className="sr-only">{monthBarLabel(month.month, count(month))}</span>
             <span
               aria-hidden
-              className="bg-slate block rounded-t-sm"
+              className="bg-ink/70 block rounded-t-sm"
               style={{ height: `${(count(month) / max) * 100}%` }}
             />
           </li>

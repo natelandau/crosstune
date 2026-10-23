@@ -83,6 +83,7 @@ struct TunePage: View {
             #endif
             .frame(maxWidth: .infinity)
         }
+        .paperGround()
         .onAppear {
             // TuneScreen cross-fades the pages; the new title lifts into place as it does.
             withAnimation(reduceMotion ? nil : .spring(duration: 0.25)) { risen = true }
@@ -412,7 +413,7 @@ private struct TunePageHeader: View {
         #if os(macOS)
             // Neutral: archived is a state the musician chose, not a warning.
             Text(TuneRowText.archived)
-                .macChip(state: .rest, hueInk: MacPalette.inkSecondary, size: .row)
+                .macChip(state: .rest, hueInk: Palette.inkSecondary, size: .row)
                 .padding(.leading, 2)
         #else
             Text(TuneRowText.archived)
@@ -431,8 +432,6 @@ private struct ListToken: View {
     let model: TuneModel
     let membership: TuneMembership
 
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
         OpensList(listID: membership.list.id) { _ in
             #if os(macOS)
@@ -448,7 +447,7 @@ private struct ListToken: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
                     .frame(minHeight: PageStyle.smallControlHeight)
-                    .background(neutralFill(colorScheme), in: .capsule)
+                    .background(.neutralFill, in: .capsule)
                     .contentShape(.capsule)
                     .tapTarget(visibleHeight: PageStyle.smallControlHeight, minimum: PageStyle.minTarget)
             #endif

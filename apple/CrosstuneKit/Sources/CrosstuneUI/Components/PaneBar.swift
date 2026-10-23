@@ -154,7 +154,7 @@
                 .font(MacStyle.body)
                 .imageScale(.large)
                 .lineLimit(1)
-                .foregroundStyle(MacPalette.ink.opacity(isEnabled ? 1 : MacButtonStyle.disabledOpacity))
+                .foregroundStyle(Palette.ink.opacity(isEnabled ? 1 : MacButtonStyle.disabledOpacity))
                 .padding(.horizontal, 8)
                 .frame(minWidth: MacStyle.paneIconWidth)
                 .frame(height: MacStyle.paneControlHeight)

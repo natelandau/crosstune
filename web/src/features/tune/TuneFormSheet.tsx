@@ -349,7 +349,7 @@ function ModeRows({ form }: { form: TuneForm }) {
       {canAddPartMode(form.values.modes) && (
         <AriaButton
           onPress={form.addPartMode}
-          className={`${FIELD_ROW_PRESSABLE} text-action font-medium`}
+          className={`${FIELD_ROW_PRESSABLE} text-ink font-medium`}
         >
           <Plus className="size-5 shrink-0" aria-hidden />
           {ADD_PART_MODE}

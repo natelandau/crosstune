@@ -320,29 +320,38 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(model.results?.outcome == SearchOutcome.none)
     }
 
-    @Test func tunePickerListsTheCatalogWhenIdle() async throws {
+    @Test func idlePickerListsEveryTuneAToZ() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store)
         let catalog = try await store.read { try CatalogModel.fetchEntries($0) }
-        let expected = CatalogSearch.sorted(
-            catalog.filter { !$0.isArchived }, by: .default, lastPlayed: [:]
-        ).map(\.tune.title)
+        let expected = CatalogSearch.sorted(catalog, by: .default, lastPlayed: [:]).map(\.tune.title)
         let rows = try #require(model.idleResults)
         #expect(rows.map(\.entry.tune.title) == expected)
-        #expect(!rows.isEmpty)
+        #expect(rows.contains { $0.entry.isArchived }, "archived tunes show")
         #expect(rows.contains { $0.isTaken }, "a tune in the list shows, marked")
         model.query = "soldier"
         #expect(model.idleResults?.isEmpty == true, "typing hands the rows to the search")
     }
 
-    @Test func idleListingOrdersByTitleAToZAndLeavesArchivedOut() async throws {
+    @Test func tunePickerSaysWhatItIsForOnlyWhileTheCatalogIsEmpty() async throws {
+        let empty = try root.open()
+        let bare = TunePickerModel(store: empty, listID: "no_such_list")
+        try await eventually { bare.idleResults != nil }
+        #expect(bare.showsHint, "an empty catalog shows the hint")
+        let full = try await picker(try await SampleCatalog.copiedStore(root: root.url))
+        #expect(!full.showsHint)
+        full.query = "soldier"
+        #expect(!full.showsHint, "typing hands the screen to the search")
+    }
+
+    @Test func idleListingOrdersByTitleAToZAndIncludesArchived() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let entries = try await store.read { try CatalogModel.fetchEntries($0) }
         let titles = TunePickerModel.idleListing(entries.reversed()).map(\.tune.title)
         #expect(
             titles == [
                 "A tune with no key yet", "Ashokan Farewell", "Big Scioty", "Blackberry Blossom", "Cluck Old Hen",
-                "Elzic's Farewell", "Kitchen Girl", "Soldier's Joy", "Tam Lin", "The Butterfly",
+                "Elzic's Farewell", "Kitchen Girl", "Say Old Man", "Soldier's Joy", "Tam Lin", "The Butterfly",
             ])
     }
 

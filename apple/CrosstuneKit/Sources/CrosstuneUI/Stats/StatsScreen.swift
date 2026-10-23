@@ -146,6 +146,7 @@ private struct StatsContent: View {
                 .padding(margins)
                 .frame(maxWidth: .infinity)
         }
+        .paperGround()
     }
 
     /// A sheet's margins under a sheet's title, or the page's own.

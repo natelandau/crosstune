@@ -1,10 +1,7 @@
 import {
   ArrowDownUp,
   AudioLines,
-  Guitar,
-  ListPlus,
-  MapPin,
-  Mic,
+  ListMusic,
   RefreshCw,
   SunMoon,
   UserRound,
@@ -13,26 +10,23 @@ import {
 import type { AudioQuality } from '../../api/vocabulary'
 import { SETTINGS_PAGE_IDS, type SettingsPageId } from './settingsPaths'
 import { AUDIO_QUALITY_NAMES } from '../../constants'
-import { RECORDING } from '../../text/format'
 import { APPEARANCE_LABELS, type Appearance } from '../../theme/appearance'
-import { SAVED_LOCATIONS } from '../recordings/recordingsCopy'
-import { MUSIC_SERVICES } from './searchProviders'
 import {
   ACCOUNT,
   APPEARANCE,
   IMPORT_AND_EXPORT,
-  INSTRUMENTS,
-  NEW_TUNES,
+  RECORDINGS_SETTINGS,
   SYNC_AND_STORAGE,
+  TUNES,
 } from './settingsCopy'
 
 /** What the root reads once, so each category's summary is a plain pick from it. */
 export interface SettingsValues {
-  /** Empty until the settings row has been read, so the row never flashes Not set. */
+  /**
+   * The instruments played, empty until the settings row has been read so the row never flashes
+   * Not set.
+   */
   instruments: string
-  /** The genre a new tune starts with, empty until the settings row has been read. */
-  newTunes: string
-  services: string
   quality: AudioQuality
   appearance: Appearance
 }
@@ -48,30 +42,17 @@ export interface SettingsPageSpec {
 export const SETTINGS_PAGES: readonly SettingsPageSpec[] = [
   { id: 'account', title: ACCOUNT, icon: UserRound },
   {
-    id: 'instruments',
-    title: INSTRUMENTS,
-    icon: Guitar,
+    id: 'tunes',
+    title: TUNES,
+    icon: ListMusic,
     summary: (values) => values.instruments,
   },
   {
-    id: 'new-tunes',
-    title: NEW_TUNES,
-    icon: ListPlus,
-    summary: (values) => values.newTunes,
-  },
-  {
-    id: 'music-services',
-    title: MUSIC_SERVICES,
+    id: 'recordings',
+    title: RECORDINGS_SETTINGS,
     icon: AudioLines,
-    summary: (values) => values.services,
-  },
-  {
-    id: 'recording',
-    title: RECORDING,
-    icon: Mic,
     summary: (values) => AUDIO_QUALITY_NAMES[values.quality],
   },
-  { id: 'saved-locations', title: SAVED_LOCATIONS, icon: MapPin },
   {
     id: 'appearance',
     title: APPEARANCE,

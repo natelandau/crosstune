@@ -11,13 +11,13 @@
             .primary, .secondary, .destructive, .destructiveFilled,
         ]
 
-        /// A disabled primary keeps the accent fill and fades as a whole, so it never reads as a
-        /// gray button.
+        /// A disabled primary keeps the accent fill, which nothing but the role and the press
+        /// decides, and fades as a whole, so it never reads as a gray button.
         @Test(arguments: [ColorScheme.light, .dark])
         func primaryKeepsItsFillWhenInactiveAndDisabled(scheme: ColorScheme) throws {
             let disabled = try #require(
-                MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: false, isEnabled: false))
-            #expect(disabled.hex == MacPalette.hex(.accentFill, scheme).lowercased())
+                MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: false))
+            #expect(disabled.hex == Palette.hex(.accentFill, scheme).lowercased())
             #expect(MacButtonStyle.disabledOpacity == 0.45)
         }
 
@@ -37,7 +37,7 @@
                     for isPressed in [false, true] {
                         let fill = try #require(
                             MacButtonStyle.fillRGB(
-                                for: role, scheme: scheme, container: container, isPressed: isPressed, isEnabled: true))
+                                for: role, scheme: scheme, container: container, isPressed: isPressed))
                         #expect(contrastRatio(label, fill) >= 4.5, "\(role) in \(container) pressed: \(isPressed)")
                     }
                 }
@@ -51,13 +51,13 @@
             for role in [MacButtonStyle.Role.secondary, .destructive] {
                 let onGround = try #require(
                     MacButtonStyle.fillRGB(
-                        for: role, scheme: scheme, container: .ground, isPressed: false, isEnabled: true))
-                #expect(onGround.hex == MacPalette.hex(.field, scheme).lowercased())
+                        for: role, scheme: scheme, container: .ground, isPressed: false))
+                #expect(onGround.hex == Palette.hex(.field, scheme).lowercased())
                 let onSurface = try #require(
                     MacButtonStyle.fillRGB(
-                        for: role, scheme: scheme, container: .surface, isPressed: false, isEnabled: true))
-                #expect(onSurface.hex == MacPalette.hex(.raised, scheme).lowercased())
-                #expect(relativeLuminance(onSurface.hex) > relativeLuminance(MacPalette.hex(.surface, scheme)))
+                        for: role, scheme: scheme, container: .surface, isPressed: false))
+                #expect(onSurface.hex == Palette.hex(.raised, scheme).lowercased())
+                #expect(relativeLuminance(onSurface.hex) > relativeLuminance(Palette.hex(.surface, scheme)))
             }
         }
 
@@ -82,7 +82,7 @@
                 let label = MacButtonStyle.labelRGB(for: role, scheme: scheme).hex
                 for container in MacContainer.allCases {
                     for ground in [container.fill, container.controlFill] {
-                        #expect(contrastRatio(label, MacPalette.hex(ground, scheme)) >= 4.5, "\(role) on \(ground)")
+                        #expect(contrastRatio(label, Palette.hex(ground, scheme)) >= 4.5, "\(role) on \(ground)")
                     }
                 }
             }
@@ -91,9 +91,9 @@
         @Test(arguments: [ColorScheme.light, .dark])
         func pressedPrimaryDarkens(scheme: ColorScheme) throws {
             let rest = try #require(
-                MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: false, isEnabled: true))
+                MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: false))
             let pressed = try #require(
-                MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: true, isEnabled: true))
+                MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: true))
             #expect(
                 contrastRatio(pressed, KeyColor.RGB(hex: "#000000")) < contrastRatio(rest, KeyColor.RGB(hex: "#000000"))
             )
@@ -118,7 +118,7 @@
         func destructiveRolesUseTheDangerRed(scheme: ColorScheme) throws {
             #expect(MacButtonStyle.labelRGB(for: .destructive, scheme: scheme) == SignalSwatch.danger(scheme).ink)
             let filled = try #require(
-                MacButtonStyle.fillRGB(for: .destructiveFilled, scheme: scheme, isPressed: false, isEnabled: true))
+                MacButtonStyle.fillRGB(for: .destructiveFilled, scheme: scheme, isPressed: false))
             #expect(filled == SignalSwatch.danger(.light).ink)
         }
     }

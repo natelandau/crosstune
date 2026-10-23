@@ -75,13 +75,13 @@ public struct RecordToolbarButton: View {
                         .symbolEffect(.bounce, value: reduceMotion ? 0 : presses)
                     Text(RecordControl.shortLabel)
                         .font(MacStyle.body.weight(.medium))
-                        .foregroundStyle(MacPalette.ink)
+                        .foregroundStyle(Palette.ink)
                 }
                 .padding(.leading, Self.dotInset)
                 .padding(.trailing, 14)
                 .frame(height: MacStyle.paneControlHeight)
-                .background(MacPalette.field, in: .capsule)
-                .overlay(Capsule().strokeBorder(MacPalette.hairline))
+                .background(Palette.field, in: .capsule)
+                .overlay(Capsule().strokeBorder(Palette.hairline))
                 .contentShape(.capsule)
                 .opacity(isEnabled ? 1 : 0.5)
             }

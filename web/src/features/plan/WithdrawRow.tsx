@@ -59,7 +59,7 @@ export function WithdrawRow({ until }: { until: Date }) {
   return (
     <div className="border-hairline not-first:border-t">
       <Button
-        className={`${FIELD_ROW_PRESSABLE} text-action w-full text-start`}
+        className={`${FIELD_ROW_PRESSABLE} text-ink w-full text-start`}
         isDisabled={pending || withdrawn}
         aria-describedby={dateId}
         onPress={() => void press()}

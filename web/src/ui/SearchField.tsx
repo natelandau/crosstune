@@ -38,7 +38,7 @@ export function SearchField({
       onChange={onChange}
       onSubmit={onSubmit}
       onFocusChange={setFocused}
-      className="bg-fill relative flex min-h-(--target-control) items-center rounded-(--radius-capsule) ps-3 pe-1"
+      className="bg-field relative flex min-h-(--target-control) items-center rounded-(--radius-capsule) ps-3 pe-1"
     >
       <Search className="text-ink-2 size-4 shrink-0" aria-hidden />
       <Input

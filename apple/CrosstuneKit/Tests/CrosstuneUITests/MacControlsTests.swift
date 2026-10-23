@@ -11,18 +11,18 @@
         func macSegmentedKeepsSelectionVisibleWhenInactive(scheme: ColorScheme) {
             // Lighter means further from black.
             let chosen = contrastRatio(MacSegmented<Int>.chosenFillHex(scheme), "#000000")
-            let track = contrastRatio(MacPalette.hex(.field, scheme), "#000000")
+            let track = contrastRatio(Palette.hex(.field, scheme), "#000000")
             #expect(chosen > track, "\(scheme)")
-            #expect(MacSegmented<Int>.chosenFillHex(.light) == MacPalette.groundLight)
+            #expect(MacSegmented<Int>.chosenFillHex(.light) == Palette.groundLight)
         }
 
         /// A segment's label and its badge read on the chosen token and on the bare track.
         @Test(arguments: [ColorScheme.light, .dark])
         func macSegmentedTextPassesContrast(scheme: ColorScheme) {
-            for back in [MacSegmented<Int>.chosenFillHex(scheme), MacPalette.hex(.field, scheme)] {
-                #expect(contrastRatio(MacPalette.hex(.ink, scheme), back) >= 4.5, "\(scheme) label on \(back)")
+            for back in [MacSegmented<Int>.chosenFillHex(scheme), Palette.hex(.field, scheme)] {
+                #expect(contrastRatio(Palette.hex(.ink, scheme), back) >= 4.5, "\(scheme) label on \(back)")
                 #expect(
-                    contrastRatio(MacPalette.hex(.inkSecondary, scheme), back) >= 4.5, "\(scheme) badge on \(back)")
+                    contrastRatio(Palette.hex(.inkSecondary, scheme), back) >= 4.5, "\(scheme) badge on \(back)")
             }
         }
 
@@ -52,13 +52,13 @@
         /// reads on the accent fill.
         @Test(arguments: [ColorScheme.light, .dark])
         func macCheckboxPassesContrast(scheme: ColorScheme) {
-            let stroke = MacPalette.hex(MacCheckboxStyle.restStroke, scheme)
-            for ground in [MacPalette.Token.ground, .surface, .field] {
-                #expect(contrastRatio(stroke, MacPalette.hex(ground, scheme)) >= 3, "\(ground)")
+            let stroke = Palette.hex(MacCheckboxStyle.restStroke, scheme)
+            for ground in [Palette.Token.ground, .surface, .field] {
+                #expect(contrastRatio(stroke, Palette.hex(ground, scheme)) >= 3, "\(ground)")
             }
             #expect(
                 contrastRatio(
-                    MacPalette.hex(MacCheckboxStyle.check, scheme), MacPalette.hex(MacCheckboxStyle.onFill, scheme))
+                    Palette.hex(MacCheckboxStyle.check, scheme), Palette.hex(MacCheckboxStyle.onFill, scheme))
                     >= 4.5)
             #expect(MacCheckboxStyle.onFill == .accentFill)
         }

@@ -76,13 +76,13 @@ struct SheetCloseButton: View {
         }
     }
 
-    /// A sheet's primary button: full width and slate prominent.
+    /// A sheet's primary button: full width and accent prominent.
     struct SheetPrimaryButtonStyle: PrimitiveButtonStyle {
         func makeBody(configuration: Configuration) -> some View {
             Button(role: configuration.role, action: configuration.trigger) {
                 configuration.label.frame(maxWidth: .infinity)
             }
-            .buttonStyle(.slateProminent)
+            .buttonStyle(.accentProminent)
         }
     }
 

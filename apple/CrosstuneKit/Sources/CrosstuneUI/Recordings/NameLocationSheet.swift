@@ -52,7 +52,7 @@ struct NameLocationSheet: View {
                         field
                         Text(NameLocationText.help)
                             .font(MacStyle.secondary)
-                            .foregroundStyle(MacPalette.inkSecondary)
+                            .foregroundStyle(Palette.inkSecondary)
                     }
                 }
             }
@@ -78,7 +78,7 @@ struct NameLocationSheet: View {
     #if os(iOS)
         var body: some View {
             NavigationStack {
-                Form {
+                PaperForm {
                     if !candidates.isEmpty {
                         Section(NameLocationText.savedHere) {
                             ForEach(candidates, id: \.id) { place in
@@ -98,14 +98,13 @@ struct NameLocationSheet: View {
                         Text(NameLocationText.help)
                     }
                 }
-                .formStyle(.grouped)
                 .navigationTitle(NameLocationText.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button(TuneFormSheet.cancel) { dismiss() }
                     }
-                    ToolbarItem(placement: .confirmationAction) {
+                    ConfirmToolbarItem {
                         Button(ListNameSheet.save, action: save)
                             .fontWeight(.semibold)
                             .disabled(isBlank)

@@ -8,7 +8,8 @@ import SwiftUI
 enum SavedLocationsText {
     static let title = "Saved locations"
     static let help = "Locations you have named. A recording made at one shows its name instead of its address."
-    static let emptyTitle = "No saved locations"
+    /// The glyph of a saved location where none is drawn on a map.
+    static let systemImage = "map"
     static let emptyHint =
         "Open a recording's location and choose \"\(NameLocationText.title)\", or pick a nearby place."
     static let nameLabel = "Name"
@@ -141,75 +142,58 @@ final class SavedLocationsModel {
     }
 }
 
-/// A row of the page opens the location with this id.
+/// A saved location's row opens the location with this id.
 struct SavedLocationRoute: Hashable {
     let id: String
 }
 
-/// Settings > Saved locations: each saved location with a thumbnail, its name and address, and
-/// how many recordings use it. A row opens the location.
-struct SavedLocationsPage: View {
-    @Environment(\.store) private var store
-    @Environment(\.analytics) private var analytics
-    @State private var model: SavedLocationsModel?
+#if !os(macOS)
+    /// The Recordings page's Saved locations group: each saved location with a thumbnail, its
+    /// name and address, and how many recordings use it. A row pushes the location onto the
+    /// stack the page is in, which on iPad is the detail column's.
+    struct SavedLocationsSection: View {
+        let model: SavedLocationsModel?
 
-    var body: some View {
-        Form {
-            if let model, let rows = model.rows, !rows.isEmpty {
+        var body: some View {
+            if let model, let rows = model.rows {
                 Section {
+                    if rows.isEmpty {
+                        Text(SavedLocationsText.emptyHint).foregroundStyle(.inkSecondary)
+                    }
                     ForEach(rows) { row in
                         NavigationLink(value: SavedLocationRoute(id: row.id)) {
                             SavedLocationRowView(row: row)
                         }
                     }
                 } header: {
-                    SettingsHelp(SavedLocationsText.help)
+                    SettingsHelp(SavedLocationsText.help, title: SavedLocationsText.title)
                 }
             }
-        }
-        .formStyle(.grouped)
-        .overlay {
-            if model?.rows?.isEmpty == true {
-                ContentUnavailableView {
-                    Label(SavedLocationsText.emptyTitle, systemImage: SettingsCategory.savedLocations.systemImage)
-                } description: {
-                    Text(SavedLocationsText.emptyHint)
-                }
-            }
-        }
-        .navigationDestination(for: SavedLocationRoute.self) { route in
-            if let model { SavedLocationDetail(model: model, placeID: route.id) }
-        }
-        .navigationTitle(SavedLocationsText.title)
-        .task(id: store.map(ObjectIdentifier.init)) {
-            model = store.map { SavedLocationsModel(store: $0, analytics: analytics) }
         }
     }
-}
 
-private struct SavedLocationRowView: View {
-    let row: SavedLocationRow
+    private struct SavedLocationRowView: View {
+        let row: SavedLocationRow
 
-    var body: some View {
-        HStack(spacing: 12) {
-            LocationThumbnail(coordinate: Coordinate(lat: row.place.lat, lon: row.place.lon), accuracyM: nil)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(row.place.name).contentMask()
-                if let address = row.place.address {
-                    Text(address)
+        var body: some View {
+            HStack(spacing: 12) {
+                LocationThumbnail(coordinate: Coordinate(lat: row.place.lat, lon: row.place.lon), accuracyM: nil)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(row.place.name).contentMask()
+                    if let address = row.place.address {
+                        Text(address)
+                            .font(.platform(.footnote))
+                            .foregroundStyle(.inkSecondary)
+                            .contentMask()
+                    }
+                    Text(SavedLocationsText.recordingsCount(row.recordings))
                         .font(.platform(.footnote))
                         .foregroundStyle(.inkSecondary)
-                        .contentMask()
                 }
-                Text(SavedLocationsText.recordingsCount(row.recordings))
-                    .font(.platform(.footnote))
-                    .foregroundStyle(.inkSecondary)
             }
         }
     }
-}
-
-#if os(macOS)
+#else
     /// The Recordings tab's Saved locations card: each location as a row, which opens it in a
     /// sheet over the window, since a push inside a Settings tab puts its Back button among the
     /// tabs.
@@ -228,7 +212,7 @@ private struct SavedLocationRowView: View {
                         if rows.isEmpty {
                             Text(SavedLocationsText.emptyHint)
                                 .font(MacStyle.body)
-                                .foregroundStyle(MacPalette.inkSecondary)
+                                .foregroundStyle(Palette.inkSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(.vertical, 6)
                         } else {
@@ -271,22 +255,22 @@ private struct SavedLocationRowView: View {
                         Text(row.place.name)
                             .contentMask()
                             .font(MacStyle.body)
-                            .foregroundStyle(MacPalette.ink)
+                            .foregroundStyle(Palette.ink)
                         if let address = row.place.address {
                             Text(address)
                                 .contentMask()
                                 .font(MacStyle.secondary)
-                                .foregroundStyle(MacPalette.inkSecondary)
+                                .foregroundStyle(Palette.inkSecondary)
                         }
                         Text(SavedLocationsText.recordingsCount(row.recordings))
                             .font(MacStyle.secondary)
-                            .foregroundStyle(MacPalette.inkSecondary)
+                            .foregroundStyle(Palette.inkSecondary)
                     }
                     .lineLimit(1)
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.forward")
                         .font(MacStyle.rowChevron)
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                         .accessibilityHidden(true)
                 }
                 .padding(.vertical, 6)

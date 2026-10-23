@@ -4,7 +4,7 @@ import type { Manage, Membership } from './membership'
 import { WithdrawRow } from './WithdrawRow'
 import { APP_STORE_SUBSCRIPTIONS_URL, MANAGE_APP_STORE, MANAGE_SUBSCRIPTION } from './planCopy'
 
-const MANAGE_ROW = `${FIELD_ROW_PRESSABLE} border-hairline text-action not-first:border-t`
+const MANAGE_ROW = `${FIELD_ROW_PRESSABLE} border-hairline text-ink not-first:border-t`
 
 /**
  * A member's plan: when it renews or ends, or that Crosstune granted it, and where to manage it.
@@ -22,7 +22,7 @@ export function MembershipCard({
 }) {
   if (!membership && manage.length === 0 && !withdrawUntil) return null
   return (
-    <div className="bg-fill flex flex-col rounded-(--radius-surface) *:first:rounded-t-(--radius-surface) *:last:rounded-b-(--radius-surface)">
+    <div className="bg-surface flex flex-col rounded-(--radius-surface) *:first:rounded-t-(--radius-surface) *:last:rounded-b-(--radius-surface)">
       {membership && (
         <p className="t-body flex min-h-(--target) items-center gap-3 px-4">
           <span className="shrink-0">{membership.label}</span>

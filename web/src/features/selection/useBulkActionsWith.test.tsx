@@ -14,7 +14,6 @@ import { recordingRow } from '../../test/rows'
 import { DELETE } from '../../ui/confirmCopy'
 import { isNotUploaded } from '../../db/recordings'
 import { deleteTunesMessage } from '../tune/deleteTuneMessage'
-import { countTunes } from '../../text/format'
 import {
   archiveLabel,
   archivedToast,
@@ -115,7 +114,7 @@ describe('useBulkActionsWith', () => {
     const unsentFile = await db.recording_files.get(unsent)
     expect(isNotUploaded(unsentFile)).toBe(true)
     expect(confirm.mock.calls[0]![0]).toMatchObject({
-      message: deleteTunesMessage(countTunes(3), [{ file: unsentFile }, { file: undefined }]),
+      message: deleteTunesMessage([{ file: unsentFile }, { file: undefined }]),
     })
   })
 

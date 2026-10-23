@@ -7,7 +7,7 @@ export function IncludedList() {
   return (
     <section className="flex flex-col gap-2">
       <h4 className="t-heading">{INCLUDED}</h4>
-      <ul className="bg-fill flex flex-col rounded-(--radius-surface)">
+      <ul className="bg-surface flex flex-col rounded-(--radius-surface)">
         {INCLUDED_FEATURES.map(({ title, detail, icon }) => (
           <li
             key={title}

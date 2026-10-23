@@ -32,8 +32,8 @@ export function RecordControl({ shape }: { shape: 'disc' | 'capsule' }) {
         data-lift
         className={`group ${
           disc
-            ? `bg-nav border-hairline not-disabled:hover:bg-fill-hover inline-flex size-[62px] items-center justify-center rounded-full border ${PRESS}`
-            : `t-body bg-fill text-ink not-disabled:hover:bg-fill-hover flex min-h-(--target-control) w-full items-center justify-center gap-2 rounded-(--radius-capsule) px-4 disabled:opacity-60 ${PRESS}`
+            ? `bg-surface border-hairline not-disabled:hover:bg-field inline-flex size-[62px] items-center justify-center rounded-full border ${PRESS}`
+            : `t-body bg-field text-ink not-disabled:hover:bg-field-hover flex min-h-(--target-control) w-full items-center justify-center gap-2 rounded-(--radius-capsule) px-4 disabled:opacity-60 ${PRESS}`
         }`}
       >
         <span

@@ -14,5 +14,5 @@ export const SPLASH_LABEL = 'Loading'
 
 export const SIGN_IN_HEADLINE = 'The tune list in your case, rebuilt for your phone.'
 export const SIGN_IN_LINE =
-  "The tunes you know and the tunes you're learning, with a recording one tap away."
+  "The tunes you know and the tunes you're learning, with a recording close at hand."
 export const SIGN_UP_LINE = 'Free forever, with 30 days of Premium included. No card needed.'

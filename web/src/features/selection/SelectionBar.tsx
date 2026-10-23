@@ -50,7 +50,7 @@ function Cell({
       aria-label={caption === label ? undefined : label}
       isDisabled={isDisabled}
       onPress={onPress}
-      className={`t-caption text-action flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-(--radius-row) disabled:opacity-40 ${PRESS} ${WASH_HOVER}`}
+      className={`t-caption text-ink flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-(--radius-row) disabled:opacity-40 ${PRESS} ${WASH_HOVER}`}
     >
       <Icon className="size-6" aria-hidden />
       {caption}

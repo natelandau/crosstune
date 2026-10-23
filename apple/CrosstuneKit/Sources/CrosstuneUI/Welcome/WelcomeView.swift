@@ -38,9 +38,9 @@ public struct WelcomeView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(MacPalette.surface.ignoresSafeArea())
+                    .background(Palette.surface.ignoresSafeArea())
                     Rectangle()
-                        .fill(MacPalette.hairline)
+                        .fill(Palette.hairline)
                         .frame(width: 1)
                         .ignoresSafeArea()
                 }
@@ -51,7 +51,7 @@ public struct WelcomeView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .frame(maxWidth: .infinity)
-                .background(MacPalette.ground.ignoresSafeArea())
+                .background(Palette.ground.ignoresSafeArea())
             }
             .toolbar(removing: .title)
             .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
@@ -81,20 +81,20 @@ public struct WelcomeView: View {
                 Text(WelcomeCopy.headline(for: .mac))
                     .font(MacStyle.pageTitle)
                     .tracking(MacStyle.pageTitleTracking)
-                    .foregroundStyle(MacPalette.ink)
+                    .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
                     .padding(.top, 18)
                 Text(WelcomeCopy.line)
                     .font(MacStyle.lead)
-                    .foregroundStyle(MacPalette.inkSecondary)
+                    .foregroundStyle(Palette.inkSecondary)
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 10)
                 if let notice {
                     Text(notice)
                         .font(MacStyle.body)
-                        .foregroundStyle(MacPalette.ink)
+                        .foregroundStyle(Palette.ink)
                         .padding(.top, 16)
                         .onAppear { AccessibilityNotification.Announcement(notice).post() }
                 }
@@ -120,7 +120,7 @@ public struct WelcomeView: View {
                     .padding(.top, spacing(14))
                 Text(WelcomeCopy.line)
                     .font(lineFont)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.inkSecondary)
                     .padding(.top, spacing.stackGap)
                 if let notice {
                     Text(notice)
@@ -161,7 +161,7 @@ public struct WelcomeView: View {
 }
 
 #if !os(macOS)
-    /// The filled slate style for the prominent button, and a borderless one in the tint for the
+    /// The filled accent style for the prominent button, and a borderless one in the tint for the
     /// rest.
     private struct WelcomeButtonStyle: PrimitiveButtonStyle {
         let prominent: Bool
@@ -170,7 +170,7 @@ public struct WelcomeView: View {
 
         @ViewBuilder func makeBody(configuration: Configuration) -> some View {
             if prominent {
-                Button(configuration).buttonStyle(.slateProminent)
+                Button(configuration).buttonStyle(.accentProminent)
             } else {
                 Button(role: configuration.role, action: configuration.trigger) {
                     configuration.label
@@ -195,6 +195,7 @@ private struct FillingScroll<Content: View>: View {
                     .frame(minHeight: proxy.size.height)
             }
             .scrollBounceBehavior(.basedOnSize)
+            .paperGround()
         }
     }
 }

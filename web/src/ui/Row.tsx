@@ -69,7 +69,7 @@ export function Row({
   dimmed?: boolean
   /** The row of the item the player has loaded, under a light wash. */
   playing?: boolean
-  /** A row just added, such as a new take, which slides in under a brief slate highlight. */
+  /** A row just added, such as a new take, which slides in under a brief highlight. */
   fresh?: boolean
   /** Two lines or more on every density, as a recording row is: the title, then `detail`. */
   stacked?: boolean

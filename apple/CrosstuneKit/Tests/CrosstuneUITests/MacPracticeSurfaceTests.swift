@@ -59,7 +59,7 @@
 
         /// In light the scans' mat is the field gray, so a white page stands off it.
         @Test func scanMatSetsThePageApart() {
-            #expect(ScanViewer.matHex(.light) == MacPalette.hex(.field, .light))
+            #expect(ScanViewer.matHex(.light) == Palette.hex(.field, .light))
             #expect(contrastRatio("#FFFFFF", ScanViewer.matHex(.light)) > 1.2)
         }
 

@@ -4,14 +4,8 @@ import SwiftUI
 /// Tunes added and recordings made per month, as two strips of bars over the same months. A
 /// month with nothing keeps its empty slot, so the spacing reads as time.
 struct MonthBarsView: View {
-    /// Bars in ink on the Mac, where the accent marks only what can be chosen.
-    static var barFill: Color {
-        #if os(macOS)
-            MacPalette.ink.opacity(0.7)
-        #else
-            BrandStyle.accent
-        #endif
-    }
+    /// Bars in ink, since the accent marks only what can be chosen.
+    static var barFill: Color { Palette.ink.opacity(0.7) }
 
     let months: Stats.Months
     var allTime = false

@@ -71,7 +71,7 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
         </div>
       </div>
       {countLines && (
-        <ul className="bg-fill t-body marker:text-ink-2 mt-4 flex list-disc flex-col gap-1 rounded-(--radius-surface) py-3 ps-9 pe-4">
+        <ul className="bg-surface t-body marker:text-ink-2 mt-4 flex list-disc flex-col gap-1 rounded-(--radius-surface) py-3 ps-9 pe-4">
           {countLines.map((line) => (
             <li key={line}>{line}</li>
           ))}
@@ -89,7 +89,7 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
                   href={link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-action inline-flex items-center gap-0.5"
+                  className="text-ink inline-flex items-center gap-0.5"
                 >
                   {MANAGE_APP_STORE}
                   <ArrowUpRight className="size-3.5 shrink-0" aria-hidden />

@@ -86,7 +86,7 @@ struct SuggestionPicker: View {
                             .imageScale(.small)
                             .accessibilityHidden(true)
                     }
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.inkSecondary)
                 }
             } label: {
                 Text(rowLabel)

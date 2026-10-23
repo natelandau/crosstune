@@ -117,7 +117,7 @@ private struct LyricsReaderPage: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: pointSize * 0.9) {
                         LyricsBody(lyrics: lyrics)
-                            .foregroundStyle(MacPalette.ink)
+                            .foregroundStyle(Palette.ink)
                         // After the words: a musician who has read to the end is already here.
                         Button(LyricsReader.editLyrics) { editing = true }
                             .buttonStyle(.macPlain)
@@ -159,6 +159,7 @@ private struct LyricsReaderPage: View {
                     // read, rather than against the bottom edge.
                     .padding(.bottom, 160)
                 }
+                .paperGround()
                 .navigationTitle(title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -267,7 +268,7 @@ private struct LyricsEditSheet: View {
                             Button(TuneFormSheet.cancel) { dismiss() }
                                 .disabled(model.isSaving)
                         }
-                        ToolbarItem(placement: .confirmationAction) {
+                        ConfirmToolbarItem {
                             Button(LyricsReader.done, action: save)
                                 .fontWeight(.semibold)
                                 .disabled(model.isSaving)

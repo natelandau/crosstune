@@ -25,8 +25,8 @@ import Testing
         "value",
         // The catalog's offer to add the typed search as a tune.
         "offerLabel",
-        // The genre new tunes start with, and the settings line that shows it.
-        "newTuneGenre", "newTunesSummary",
+        // The genre new tunes start with.
+        "newTuneGenre",
         // The line an import read a candidate from.
         "source",
     ]
@@ -327,8 +327,6 @@ import Testing
         ("Components/UndoBanner.swift", "Text(message)"),
         ("Catalog/SearchOffer.swift", "Label(label"),
         ("Catalog/SearchOffer.swift", "Text(match.note)"),
-        // A category's summary, which for New tunes is the genre.
-        ("Phone/SettingsRoot.swift", "Text(value(category))"),
         // The system picker shows a typed value as its own choice and as the row's selection.
         ("TuneForm/SuggestionPicker.swift", "Picker(selection: selection)"),
         // An import row's second line, which can repeat the line it was read from, and the list

@@ -11,11 +11,11 @@ const COMPACT = 'h-[22px] px-2 t-caption in-[html[data-density=pointer]]:h-[18px
 function pillColors(pitch: number | null, chosen: boolean, flood: boolean): CSSProperties {
   const rest =
     pitch === null
-      ? { bg: 'var(--fill)', ink: 'var(--ink)' }
+      ? { bg: 'var(--field)', ink: 'var(--ink)' }
       : { bg: `var(--key-${pitch}-bg)`, ink: `var(--key-${pitch}-ink)` }
   const on =
     pitch === null
-      ? { bg: 'var(--accent)', ink: 'var(--on-accent)' }
+      ? { bg: 'var(--accent-fill)', ink: 'var(--on-accent-fill)' }
       : { bg: `var(--key-${pitch}-on-bg)`, ink: `var(--key-${pitch}-on-ink)` }
   // A flooding pill keeps its resting ground; its bubbles carry the chosen color over it.
   return {

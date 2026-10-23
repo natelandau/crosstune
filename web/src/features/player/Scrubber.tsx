@@ -32,7 +32,7 @@ export function Scrubber({
   return (
     <div
       data-scrubber
-      className="relative h-(--target-control) min-w-0 flex-1 rounded-(--radius-row) has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-(--slate)"
+      className="relative h-(--target-control) min-w-0 flex-1 rounded-(--radius-row) has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-(--accent)"
     >
       <div aria-hidden className="bg-hairline absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2">
         <div className="bg-ink-2 h-full" style={{ width: at }} />

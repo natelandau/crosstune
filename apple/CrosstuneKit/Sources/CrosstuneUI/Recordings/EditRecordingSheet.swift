@@ -597,13 +597,12 @@ private struct EditRecordingForm: View {
             .interactiveDismissDisabled(model.isEdited || model.isSaving)
             .onAppear(perform: focusNameOnce)
         #else
-            Form {
+            PaperForm {
                 nameSection
                 dateSection
                 playersSection
                 notesSection
             }
-            .formStyle(.grouped)
             .navigationDestination(for: EditRecordingPage.self) { _ in
                 if let placeSearch {
                     PlaceSearchView(
@@ -615,7 +614,7 @@ private struct EditRecordingForm: View {
                     Button(TuneFormSheet.cancel) { dismiss() }
                         .disabled(model.isSaving)
                 }
-                ToolbarItem(placement: .confirmationAction) {
+                ConfirmToolbarItem {
                     Button(ListNameSheet.save, action: save)
                         .fontWeight(.semibold)
                         .disabled(model.isSaving || model.isSaved)
@@ -842,12 +841,12 @@ private struct EditRecordingForm: View {
                 HStack(spacing: 8) {
                     Text(model.place?.name ?? EditRecordingText.noPlace)
                         .contentMask()
-                        .foregroundStyle(model.place == nil ? MacPalette.inkSecondary : MacPalette.ink)
+                        .foregroundStyle(model.place == nil ? Palette.inkSecondary : Palette.ink)
                         .lineLimit(1)
                     if placeSearch != nil {
                         Image(systemName: "chevron.right")
                             .font(MacStyle.rowChevron)
-                            .foregroundStyle(MacPalette.inkSecondary)
+                            .foregroundStyle(Palette.inkSecondary)
                             .accessibilityHidden(true)
                     }
                 }

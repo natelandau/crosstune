@@ -6,7 +6,7 @@ import { DURATION, EASE } from '../../theme/motion'
 export const DROP_TO_IMPORT = 'Drop to import'
 
 /**
- * What a column shows while files are dragged over it: an inset slate outline and "Drop to
+ * What a column shows while files are dragged over it: an inset accent outline and "Drop to
  * import" over the column's visible part, fading in and out. It sticks under the pane bar, so
  * it never covers it, and takes no pointer events, so the drag still lands on the column
  * beneath.
@@ -50,9 +50,9 @@ export function DropOverlay({ shown }: { shown: boolean }) {
         >
           <div
             ref={box}
-            className="border-slate bg-wash absolute inset-x-2 top-2 flex items-center justify-center rounded-(--radius-surface) border-2"
+            className="border-accent bg-wash absolute inset-x-2 top-2 flex items-center justify-center rounded-(--radius-surface) border-2"
           >
-            <p className="t-heading text-action">{DROP_TO_IMPORT}</p>
+            <p className="t-heading text-ink">{DROP_TO_IMPORT}</p>
           </div>
         </motion.div>
       )}

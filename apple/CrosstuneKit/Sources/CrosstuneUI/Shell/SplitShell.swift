@@ -174,7 +174,7 @@
         /// A content or detail column on the paper ground, with no toolbar hairline until its
         /// content scrolls under the bar.
         fileprivate func columnGround() -> some View {
-            background(MacPalette.ground)
+            background(Palette.ground)
                 .scrollEdgeEffectStyle(.soft, for: .top)
         }
     }

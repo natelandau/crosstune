@@ -15,7 +15,7 @@ struct LocationThumbnail: View {
     /// elsewhere.
     private static var placeholder: AnyShapeStyle {
         #if os(macOS)
-            AnyShapeStyle(MacPalette.field)
+            AnyShapeStyle(Palette.field)
         #else
             AnyShapeStyle(.quaternary)
         #endif

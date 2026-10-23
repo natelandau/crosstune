@@ -12,11 +12,11 @@ const PREMIUM_COLUMN = `${COLUMN} bg-premium-wash`
 
 /**
  * Free beside Premium, a row per feature with its icon. Premium's header is a coral tab over a
- * slate-washed column, so the plan being sold carries the weight.
+ * washed column, so the plan being sold carries the weight.
  */
 export function PlanComparison() {
   return (
-    <div className="bg-fill overflow-hidden rounded-(--radius-surface)">
+    <div className="bg-surface overflow-hidden rounded-(--radius-surface)">
       <table className="t-secondary w-full border-collapse">
         <thead>
           <tr className="t-caption align-bottom">
@@ -63,7 +63,7 @@ function CellMark({ cell, premium }: { cell: Cell; premium: boolean }) {
   }
   const included = cell.kind === 'included'
   const Icon = included ? Check : Minus
-  const ink = premium ? 'text-slate' : included ? 'text-ink-2' : 'text-glyph-faint'
+  const ink = premium ? 'text-ink' : included ? 'text-ink-2' : 'text-glyph-faint'
   return (
     <>
       <Icon className={`inline-block size-4 ${ink}`} strokeWidth={premium ? 2.75 : 2} aria-hidden />

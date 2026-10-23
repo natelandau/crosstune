@@ -56,7 +56,7 @@ import Testing
         func clerkThemeUsesMacTokens(appearance: NSAppearance.Name, scheme: ColorScheme) {
             let theme = ClerkTheme.crosstune(.mac)
             let colors = theme.colors
-            let expected: [(Color, MacPalette.Token, String)] = [
+            let expected: [(Color, Palette.Token, String)] = [
                 (colors.primary, .accentFill, "primary"), (colors.ring, .accent, "ring"),
                 (colors.inputBorderFocused, .accent, "inputBorderFocused"), (colors.background, .ground, "background"),
                 (colors.input, .surface, "input"), (colors.muted, .surface, "muted"),
@@ -66,12 +66,12 @@ import Testing
                 (colors.primaryForeground, .onAccentFill, "primaryForeground"),
             ]
             for (color, token, name) in expected {
-                #expect(resolved(color, in: appearance)?.hex == MacPalette.hex(token, scheme).lowercased(), "\(name)")
+                #expect(resolved(color, in: appearance)?.hex == Palette.hex(token, scheme).lowercased(), "\(name)")
             }
             // The 4pt halo Clerk draws around a field is the input border; it stays clear.
             #expect(resolved(colors.inputBorder, in: appearance)?.alpha == 0)
             // Pressed follows the Mac primary button's pressed fill in each appearance.
-            let pressed = MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: true, isEnabled: true)
+            let pressed = MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: true)
             #expect(resolved(colors.primaryPressed, in: appearance)?.hex == pressed?.hex)
             #expect(theme.design.borderRadius == 8)
         }

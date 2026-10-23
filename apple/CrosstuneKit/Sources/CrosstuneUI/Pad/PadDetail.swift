@@ -1,5 +1,3 @@
-import CrosstuneStore
-import CrosstuneSync
 import SwiftUI
 
 /// The detail column: the tab's tune page, or its placeholder.
@@ -28,25 +26,15 @@ struct SettingsDetailPlaceholder: View {
     }
 }
 
-/// The Settings detail column's page, with a settings model of its own that reads the same
-/// stored settings as the content column's.
+/// The Settings detail column's page.
 struct SettingsDetail: View {
     let page: SettingsPage?
 
-    @Environment(SyncEngine.self) private var engine: SyncEngine?
-    @Environment(\.store) private var store
-    @State private var model: SettingsModel?
-
     var body: some View {
-        Group {
-            if let page {
-                SettingsPageScreen(page: page, model: model)
-            } else {
-                SettingsDetailPlaceholder()
-            }
-        }
-        .task(id: ModelKey(store: store, engine: engine)) {
-            model = store.map { SettingsModel(store: $0, engine: engine) }
+        if let page {
+            SettingsPageScreen(page: page)
+        } else {
+            SettingsDetailPlaceholder()
         }
     }
 }

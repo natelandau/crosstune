@@ -41,7 +41,7 @@ struct RecordingsGroupHeading: View {
         Text(title)
             .font(PageStyle.sectionHeading)
             #if os(macOS)
-                .foregroundStyle(MacPalette.ink)
+                .foregroundStyle(Palette.ink)
             #else
                 .foregroundStyle(.primary)
             #endif
@@ -170,6 +170,8 @@ private struct RecordingsContent: View {
         }
         #if os(iOS)
             .listStyle(.plain)
+            .paperGround()
+            .listSelectionTint()
         #endif
         .overlay {
             Group {
@@ -442,7 +444,7 @@ private struct RecordingsContent: View {
                 if blocksPlay(rows) {
                     Text(MediaText.stopRecordingToPlay)
                         .font(MacStyle.secondary)
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                 }
             }
             .headerInsets()
@@ -574,7 +576,7 @@ private struct RecordingsContent: View {
                 .frame(minHeight: MacStyle.smallControlHeight)
             #else
                 .font(.footnote.bold())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
                 .frame(minHeight: minimumTapTarget)
             #endif
             .contentShape(.rect)

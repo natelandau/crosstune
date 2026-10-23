@@ -43,10 +43,10 @@ private struct Fixture: Decodable {
 
 @Suite struct FormatRecordedTests {
     @Test(arguments: [
-        (0, "0 m"),
-        (59_999, "0 m"),
-        (720_000, "12 m"),
-        (33_120_000, "9 h 12 m"),
+        (0, "0 min"),
+        (59_999, "0 min"),
+        (720_000, "12 min"),
+        (33_120_000, "9 h 12 min"),
     ])
     func formats(_ ms: Int, _ text: String) {
         #expect(formatRecorded(ms) == text)

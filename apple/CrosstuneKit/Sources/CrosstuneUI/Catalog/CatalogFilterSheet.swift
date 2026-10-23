@@ -62,7 +62,7 @@ struct CatalogFilterSheet: View {
                 HStack(spacing: 12) {
                     Text(Self.footerCount(visible: results.visible.count, total: results.total))
                         .font(MacStyle.secondary)
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                         .monospacedDigit()
                         .contentTransition(.numericText())
                     Button(Self.reset) {
@@ -91,7 +91,7 @@ struct CatalogFilterSheet: View {
     #endif
 
     private func form(_ results: CatalogResults) -> some View {
-        Form {
+        PaperForm {
             Section {
                 ForEach(results.sheetFacets, id: \.self) { facet in
                     facetPopUp(facet, results)
@@ -112,7 +112,6 @@ struct CatalogFilterSheet: View {
                     .monospacedDigit()
             }
         }
-        .formStyle(.grouped)
         .navigationTitle(Self.title)
         #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -124,7 +123,7 @@ struct CatalogFilterSheet: View {
                 }
                 .disabled(results.filters.sheetCount == 0)
             }
-            ToolbarItem(placement: .confirmationAction) {
+            ConfirmToolbarItem {
                 Button(Self.done) { dismiss() }
             }
         }

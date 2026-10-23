@@ -18,6 +18,7 @@ public struct FindRecordingsSheet: View {
     public static let noResults = "No results"
     public static let noServices = SettingsModel.noServices
     public static let back = "Back"
+    public static let done = "Done"
 
     /// A row for one service, and the tune menu's item when only one service is chosen.
     nonisolated public static func searchService(_ service: String) -> String { "Search \(service)" }
@@ -123,6 +124,7 @@ private struct FindRecordingsForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.store) private var store
+    @Environment(\.analytics) private var analytics
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @State private var settings: SettingsModel?
@@ -136,7 +138,7 @@ private struct FindRecordingsForm: View {
             MacSheet(
                 title: FindRecordingsSheet.title(shown: model.shown), size: FindRecordingsSheet.macSize,
                 cancel: canGoBack ? .cancel(FindRecordingsSheet.back) { model.back() } : nil,
-                primary: .init(InstrumentsSheet.done, isDefault: false) { dismiss() },
+                primary: .init(FindRecordingsSheet.done, isDefault: false) { dismiss() },
                 escape: {
                     FilterSearchField.escape(clearing: queryBinding) {
                         if canGoBack { model.back() } else { dismiss() }
@@ -157,7 +159,7 @@ private struct FindRecordingsForm: View {
                         if hasStatus {
                             status
                                 .font(MacStyle.secondary)
-                                .foregroundStyle(MacPalette.inkSecondary)
+                                .foregroundStyle(Palette.inkSecondary)
                                 .padding(.horizontal, MacStyle.sheetMargin)
                                 .padding(.bottom, 8)
                         }
@@ -173,7 +175,7 @@ private struct FindRecordingsForm: View {
                                     if let footer = FindRecordingsSheet.footer(group) {
                                         Text(footer)
                                             .font(MacStyle.secondary)
-                                            .foregroundStyle(MacPalette.inkSecondary)
+                                            .foregroundStyle(Palette.inkSecondary)
                                             .padding(.horizontal, 8)
                                             .padding(.top, 4)
                                     }
@@ -200,7 +202,7 @@ private struct FindRecordingsForm: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(FindRecordingsSheet.noServices)
                     .font(MacStyle.body)
-                    .foregroundStyle(MacPalette.inkSecondary)
+                    .foregroundStyle(Palette.inkSecondary)
                 Button(SettingsModel.musicServices, action: openMusicServices)
                     .buttonStyle(.macSecondary)
             }
@@ -212,7 +214,7 @@ private struct FindRecordingsForm: View {
         private func macRowGlyph(_ name: String) -> some View {
             Image(systemName: name)
                 .font(.system(size: 12))
-                .foregroundStyle(MacPalette.inkSecondary)
+                .foregroundStyle(Palette.inkSecondary)
                 .frame(width: MacPickGlyph.width)
                 .accessibilityHidden(true)
         }
@@ -221,7 +223,7 @@ private struct FindRecordingsForm: View {
         private func macTrailingMark(_ name: String) -> some View {
             Image(systemName: name)
                 .font(MacStyle.rowChevron)
-                .foregroundStyle(MacPalette.inkSecondary)
+                .foregroundStyle(Palette.inkSecondary)
                 .accessibilityHidden(true)
         }
 
@@ -267,11 +269,11 @@ private struct FindRecordingsForm: View {
                         Text(result.title)
                             .contentMask()
                             .font(MacStyle.body)
-                            .foregroundStyle(MacPalette.ink)
+                            .foregroundStyle(Palette.ink)
                         if let subtitle = result.subtitle {
                             Text(subtitle)
                                 .font(MacStyle.secondary)
-                                .foregroundStyle(MacPalette.inkSecondary)
+                                .foregroundStyle(Palette.inkSecondary)
                         }
                     }
                     Spacer(minLength: 0)
@@ -314,7 +316,7 @@ private struct FindRecordingsForm: View {
     #endif
 
     private func openMusicServices() {
-        if settings == nil, let store { settings = SettingsModel(store: store, engine: engine) }
+        if settings == nil, let store { settings = SettingsModel(store: store, engine: engine, analytics: analytics) }
         showsMusicServices = true
     }
 
@@ -333,7 +335,7 @@ private struct FindRecordingsForm: View {
 
     #if os(iOS)
         private var phoneBody: some View {
-            Form {
+            PaperForm {
                 if model.hasNoServices {
                     noServices
                 } else if model.isLoaded {
@@ -356,7 +358,6 @@ private struct FindRecordingsForm: View {
                     }
                 }
             }
-            .formStyle(.grouped)
             .toolbar {
                 if model.shown != nil && !model.isDirect {
                     ToolbarItem(placement: .cancellationAction) {
@@ -364,8 +365,8 @@ private struct FindRecordingsForm: View {
                             .labelStyle(.titleAndIcon)
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(InstrumentsSheet.done) { dismiss() }
+                ConfirmToolbarItem {
+                    Button(FindRecordingsSheet.done) { dismiss() }
                 }
             }
             .onDisappear { model.cancel() }
@@ -430,7 +431,7 @@ private struct FindRecordingsForm: View {
                         if let subtitle = result.subtitle {
                             Text(subtitle)
                                 .font(.platform(.subheadline))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.inkSecondary)
                         }
                     }
                     Spacer(minLength: 0)
@@ -470,7 +471,7 @@ private struct FindRecordingsForm: View {
                         .foregroundStyle(.primary)
                     Spacer(minLength: 0)
                     Image(systemName: inApp ? "chevron.forward" : "arrow.up.right")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
                         .accessibilityHidden(true)
                 }
                 .contentShape(.rect)

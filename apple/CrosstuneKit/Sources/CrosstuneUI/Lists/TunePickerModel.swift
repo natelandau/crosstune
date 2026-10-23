@@ -112,19 +112,21 @@ public final class TunePickerModel {
             outcome: SearchOutcome(entries: entries, visible: matches, query: query, archivedShown: true))
     }
 
-    /// The catalog A to Z while the search field is empty, for a picker that lists it at idle;
-    /// empty once something is typed, when ``results`` takes over. Archived tunes stay out until
-    /// searched for. Nil until the catalog and the list are read.
+    /// The whole catalog A to Z while the search field is empty, archived tunes included; empty
+    /// once something is typed, when ``results`` takes over. Nil until the catalog and the list
+    /// are read.
     public var idleResults: [Row]? {
         guard let entries = entries.value, let members = members.value else { return nil }
         guard isIdle else { return [] }
         return Self.idleListing(entries.map(\.entry)).map { Row(entry: $0, isTaken: members.contains($0.id)) }
     }
 
-    /// The tunes a picker lists before anything is typed: every live tune, A to Z.
+    /// Whether the idle picker has nothing to list, so its sheet says what it is for.
+    public var showsHint: Bool { isIdle && members.value != nil && entries.value?.isEmpty == true }
+
+    /// The tunes a picker lists before anything is typed: every tune, A to Z.
     nonisolated static func idleListing(_ entries: [CatalogEntry]) -> [CatalogEntry] {
-        CatalogSearch.sorted(
-            entries.filter { !$0.isArchived }, by: SortChoice(sort: .title, descending: false), lastPlayed: [:])
+        CatalogSearch.sorted(entries, by: SortChoice(sort: .title, descending: false), lastPlayed: [:])
     }
 
     /// Adds a tune to the list and clears the search for the next. A tune already in the list,

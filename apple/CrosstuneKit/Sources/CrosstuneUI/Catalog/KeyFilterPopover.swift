@@ -43,7 +43,7 @@ struct KeyFilterPopover: View {
             #if !os(macOS)
                 Text(CatalogFacet.key.label)
                     .font(PageStyle.secondary.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.inkSecondary)
                     .accessibilityAddTraits(.isHeader)
             #endif
             FlowLayout(spacing: Self.gap, lineSpacing: 8) {

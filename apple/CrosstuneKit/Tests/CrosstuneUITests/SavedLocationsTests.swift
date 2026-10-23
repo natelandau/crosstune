@@ -61,7 +61,6 @@ import Testing
         let model = try await loaded(store)
 
         #expect(model.rows?.isEmpty == true)
-        #expect(SavedLocationsText.emptyTitle == "No saved locations")
         #expect(SavedLocationsText.emptyHint.contains(NameLocationText.title))
         #expect(!SavedLocationsText.emptyHint.contains("\u{2014}"))
     }
@@ -205,14 +204,5 @@ import Testing
 
         #expect(model.failure == CommandError.placeNotFoundMessage)
         #expect(sink.captures.isEmpty)
-    }
-
-    @Test func settingsListsSavedLocationsBetweenRecordingAndAppearance() throws {
-        let categories = SettingsCategory.allCases
-        let index = try #require(categories.firstIndex(of: .savedLocations))
-        #expect(categories[index - 1] == .recording)
-        #expect(SettingsCategory.savedLocations.title == "Saved locations")
-        #expect(SettingsCategory.savedLocations.pageRows.isEmpty)
-        #expect(SettingsCategory.savedLocations.sections.isEmpty)
     }
 }

@@ -102,7 +102,7 @@ export function ListPickerSheet({
             <AriaButton
               isDisabled={pending}
               onPress={() => picker.setCreating(true)}
-              className={`${FIELD_ROW_PRESSABLE} text-action font-medium disabled:opacity-40`}
+              className={`${FIELD_ROW_PRESSABLE} text-ink font-medium disabled:opacity-40`}
             >
               <Plus className="size-5 shrink-0" aria-hidden />
               {NEW_LIST_ITEM}

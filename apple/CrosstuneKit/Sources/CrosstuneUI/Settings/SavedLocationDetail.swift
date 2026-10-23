@@ -37,7 +37,7 @@ struct SavedLocationDetail: View {
         }
 
         private var form: some View {
-            Form {
+            PaperForm {
                 if let row {
                     Section {
                         LocationMap(coordinate: Coordinate(lat: row.place.lat, lon: row.place.lon), accuracyM: nil)
@@ -51,7 +51,7 @@ struct SavedLocationDetail: View {
                             .submitLabel(.done)
                             .onSubmit { focused = false }
                         if let address = row.place.address {
-                            Text(address).foregroundStyle(.secondary).contentMask()
+                            Text(address).foregroundStyle(.inkSecondary).contentMask()
                         }
                         LabeledContent(
                             SettingsModel.recordings, value: SavedLocationsText.recordingsCount(row.recordings))
@@ -68,11 +68,10 @@ struct SavedLocationDetail: View {
                     }
                 }
             }
-            .formStyle(.grouped)
             .overlay {
                 if row == nil, model.rows != nil {
                     ContentUnavailableView(
-                        SavedLocationsText.gone, systemImage: SettingsCategory.savedLocations.systemImage)
+                        SavedLocationsText.gone, systemImage: SavedLocationsText.systemImage)
                 }
             }
         }
@@ -173,14 +172,14 @@ struct SavedLocationDetail: View {
                                     Text(address)
                                         .contentMask()
                                         .font(MacStyle.body)
-                                        .foregroundStyle(MacPalette.inkSecondary)
+                                        .foregroundStyle(Palette.inkSecondary)
                                         .padding(.leading, MacFieldStyle.horizontalInset)
                                 }
                             }
                             MacFormRow(SettingsModel.recordings) {
                                 Text(SavedLocationsText.recordingsCount(row.recordings))
                                     .font(MacStyle.body)
-                                    .foregroundStyle(MacPalette.inkSecondary)
+                                    .foregroundStyle(Palette.inkSecondary)
                                     .padding(.leading, MacFieldStyle.horizontalInset)
                             }
                         }
@@ -197,7 +196,7 @@ struct SavedLocationDetail: View {
                 } else if model.rows != nil {
                     Text(SavedLocationsText.gone)
                         .font(MacStyle.body)
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }

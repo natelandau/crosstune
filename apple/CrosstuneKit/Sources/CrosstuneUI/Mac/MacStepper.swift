@@ -36,7 +36,7 @@
                 Text(value)
                     .font(MacStyle.body.weight(.semibold))
                     .monospacedDigit()
-                    .foregroundStyle(MacPalette.ink)
+                    .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .frame(minWidth: Self.valueMinWidth)
                     .padding(.horizontal, 4)
@@ -44,7 +44,7 @@
                 MacStepperHalf(systemImage: "plus", isEnabled: canIncrement, action: increment)
             }
             .frame(height: Self.height)
-            .background(MacPalette.field, in: .capsule)
+            .background(Palette.field, in: .capsule)
             .clipShape(.capsule)
             .macFocusRing(focused, cornerRadius: Self.height / 2)
             .fixedSize()
@@ -72,7 +72,7 @@
 
         private var divider: some View {
             Rectangle()
-                .fill(MacPalette.hairline)
+                .fill(Palette.hairline)
                 .frame(width: 1, height: Self.height - 12)
         }
     }
@@ -109,7 +109,7 @@
 
         var body: some View {
             configuration.label
-                .foregroundStyle(MacPalette.ink)
+                .foregroundStyle(Palette.ink)
                 .frame(width: MacStepper.halfWidth, height: MacStepper.height)
                 .background(fill)
                 .contentShape(.rect)
@@ -119,8 +119,8 @@
 
         private var fill: Color {
             guard isEnabled else { return .clear }
-            if configuration.isPressed { return MacPalette.inkSecondary.opacity(0.22) }
-            return isHovered ? MacPalette.hairline : .clear
+            if configuration.isPressed { return Palette.inkSecondary.opacity(0.22) }
+            return isHovered ? Palette.hairline : .clear
         }
     }
 #endif

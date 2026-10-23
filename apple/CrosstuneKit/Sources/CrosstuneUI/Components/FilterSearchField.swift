@@ -42,7 +42,7 @@ import SwiftUI
         var body: some View {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundStyle(MacPalette.inkSecondary)
+                    .foregroundStyle(Palette.inkSecondary)
                     .accessibilityHidden(true)
                 TextField(prompt, text: $query)
                     .contentMask()
@@ -58,7 +58,7 @@ import SwiftUI
                         query = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(MacPalette.inkSecondary)
+                            .foregroundStyle(Palette.inkSecondary)
                             .frame(minWidth: hitTarget, minHeight: hitTarget)
                             .contentShape(.rect)
                     }
@@ -90,7 +90,7 @@ import SwiftUI
         /// What the set chip's wash lands on. The field under it is too dark for the accent label
         /// to hold 4.5:1 through the wash, so the chip carries the column's ground, as the set
         /// tokens under the field do.
-        static let chipGround = MacPalette.Token.ground
+        static let chipGround = Palette.Token.ground
 
         let isSet: Bool
 
@@ -112,10 +112,10 @@ import SwiftUI
                 if isSet {
                     configuration.label
                         .macChip(state: .set, size: .row, emphasis: emphasis)
-                        .background(MacPalette.color(SearchFiltersStyle.chipGround), in: .capsule)
+                        .background(Palette.color(SearchFiltersStyle.chipGround), in: .capsule)
                 } else {
                     configuration.label
-                        .foregroundStyle(isHovered ? MacPalette.ink : MacPalette.inkSecondary)
+                        .foregroundStyle(isHovered ? Palette.ink : Palette.inkSecondary)
                         .frame(width: MacChip.Size.row.height + 4, height: MacChip.Size.row.height + 4)
                         .background(
                             Color.black.opacity(MacChip.hoverDarkening * emphasis), in: .rect(cornerRadius: 5))

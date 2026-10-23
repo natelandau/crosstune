@@ -25,7 +25,7 @@ export function Checkbox({
       <svg
         aria-hidden
         viewBox="0 0 18 18"
-        className="check-mark text-ink-2 group-data-[hovered]:text-action group-data-[selected]:text-action relative size-[22px] fill-none stroke-current stroke-2 transition-[color,scale] duration-(--dur-short) ease-(--ease) [stroke-linecap:round] [stroke-linejoin:round] group-data-[pressed]:scale-[0.88]"
+        className="check-mark text-ink-2 group-data-[hovered]:text-ink group-data-[selected]:text-accent relative size-[22px] fill-none stroke-current stroke-2 transition-[color,scale] duration-(--dur-short) ease-(--ease) [stroke-linecap:round] [stroke-linejoin:round] group-data-[pressed]:scale-[0.88]"
       >
         <path d="M 1 9 L 1 9 c 0 -5 3 -8 8 -8 L 9 1 C 14 1 17 5 17 9 L 17 9 c 0 4 -4 8 -8 8 L 9 17 C 5 17 1 14 1 9 L 1 9 Z" />
         <polyline points="1 9 7 14 15 4" className="stroke-[2.5]" />

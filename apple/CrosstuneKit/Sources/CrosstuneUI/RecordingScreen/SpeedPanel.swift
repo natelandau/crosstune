@@ -163,7 +163,7 @@ struct SpeedPresetRow: View {
             HStack(spacing: 8) {
                 Text(title)
                     .font(MacStyle.label)
-                    .foregroundStyle(MacPalette.inkSecondary)
+                    .foregroundStyle(Palette.inkSecondary)
                     .accessibilityHidden(true)
                 Spacer(minLength: 0)
                 trailing
@@ -216,7 +216,7 @@ struct SpeedPresetRow: View {
         private func caption(_ text: String?) -> some View {
             Text(text ?? "")
                 .font(MacStyle.secondary)
-                .foregroundStyle(MacPalette.inkSecondary)
+                .foregroundStyle(Palette.inkSecondary)
                 .accessibilityHidden(true)
         }
     }
@@ -229,15 +229,13 @@ struct SpeedPresetRow: View {
         let systemImage: String
         let action: () -> Void
 
-        @Environment(\.colorScheme) private var colorScheme
-
         var body: some View {
             Button(action: action) {
                 Label(name, systemImage: systemImage)
                     .labelStyle(.iconOnly)
                     .font(.platform(.body).weight(.semibold))
                     .frame(width: minimumTapTarget, height: minimumTapTarget)
-                    .background(neutralFill(colorScheme), in: .circle)
+                    .background(.neutralFill, in: .circle)
                     .contentShape(.circle)
             }
             .buttonStyle(.plain)

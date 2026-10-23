@@ -51,7 +51,7 @@ function SlotButton({
     <AriaButton
       aria-label={name}
       onPress={onPress}
-      className={`${SLOT} rounded-full transition-[scale,opacity] duration-(--dur-short) ease-(--ease) data-[pressed]:scale-90 ${DISC_HOVER} ${loaded ? 'text-action' : ''}`}
+      className={`${SLOT} rounded-full transition-[scale,opacity] duration-(--dur-short) ease-(--ease) data-[pressed]:scale-90 ${DISC_HOVER} ${loaded ? 'text-ink' : ''}`}
     >
       {children}
     </AriaButton>

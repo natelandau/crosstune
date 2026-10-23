@@ -143,10 +143,10 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
                 Recording(tuneID: "t1", source: "recorded", addedAt: noon, durationMs: 33_120_000))
         }
         let summary = try await loadedSummary(store)
-        #expect(summary.value?.line == "2 tunes · 1 list · 1 recording · 9 h 12 m")
+        #expect(summary.value?.line == "2 tunes · 1 list · 1 recording · 9 h 12 min")
         #expect(
             StatsCopy.summaryLine(tunes: 1, lists: 0, recordings: 2, scans: 0, ms: 0)
-                == "1 tune · 0 lists · 2 recordings · 0 m")
+                == "1 tune · 0 lists · 2 recordings · 0 min")
         #expect(
             StatsCopy.summaryLine(tunes: 1_212, lists: 1, recordings: 1, scans: 0, ms: 60_000).hasPrefix("1,212 tunes"))
     }
@@ -159,7 +159,7 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
             try addTune(writer, "t2", "Cluck Old Hen")
         }
         let summary = try await loadedSummary(store)
-        #expect(summary.value?.line == "2 tunes · 0 lists · 0 recordings · 0 m")
+        #expect(summary.value?.line == "2 tunes · 0 lists · 0 recordings · 0 min")
         let model = try await loaded(store)
         #expect(model.stats?.counts.scans == 0)
 
@@ -170,7 +170,7 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
         }
         try await eventually { model.stats?.counts.scans == 3 }
         try await eventually { summary.value?.scans == 3 }
-        #expect(summary.value?.line == "2 tunes · 0 lists · 0 recordings · 3 scans · 0 m")
+        #expect(summary.value?.line == "2 tunes · 0 lists · 0 recordings · 3 scans · 0 min")
         let counts = try #require(model.stats?.counts)
         #expect(StatsCopy.scansLine(scans: counts.scans, tunes: counts.scanTunes) == "3 scans across 2 tunes")
     }
@@ -193,7 +193,7 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
         let model = try await loaded(try root.open())
         let view = try #require(model.view)
         #expect(StatsBlock.blocks(view.stats).map(\.header) == [StatsCopy.countsHeader, StatsCopy.recordedHeader])
-        #expect(StatsCopy.recordedLine(recordings: view.stats.recorded.count, ms: 0) == "0 recordings · 0 m")
+        #expect(StatsCopy.recordedLine(recordings: view.stats.recorded.count, ms: 0) == "0 recordings · 0 min")
     }
 
     @Test func unusedAttributeHasNoSection() async throws {
@@ -337,10 +337,10 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
         #expect(StatsCopy.scansLine(scans: 1, tunes: 1) == "1 scan across 1 tune")
         #expect(
             StatsCopy.summaryLine(tunes: 212, lists: 14, recordings: 37, scans: 86, ms: 33_120_000)
-                == "212 tunes · 14 lists · 37 recordings · 86 scans · 9 h 12 m")
+                == "212 tunes · 14 lists · 37 recordings · 86 scans · 9 h 12 min")
         #expect(
             StatsCopy.summaryLine(tunes: 1, lists: 1, recordings: 1, scans: 1, ms: 0)
-                == "1 tune · 1 list · 1 recording · 1 scan · 0 m")
+                == "1 tune · 1 list · 1 recording · 1 scan · 0 min")
         let day = Stats.Day(
             date: "2026-03-14", musicMs: 0, plays: 12, practiceSessions: 2, scanViews: 3, tunesAdded: 3,
             recordings: 0, statusChanges: 0, level: 2)

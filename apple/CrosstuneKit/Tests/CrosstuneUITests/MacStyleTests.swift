@@ -24,8 +24,8 @@
         /// window, and the label on an accent fill.
         @Test(arguments: [ColorScheme.light, .dark])
         func paletteTextPassesContrast(scheme: ColorScheme) {
-            let hex = { MacPalette.hex($0, scheme) }
-            for ground in [MacPalette.Token.ground, .surface, .field, .raised] {
+            let hex = { Palette.hex($0, scheme) }
+            for ground in [Palette.Token.ground, .surface, .field, .raised] {
                 #expect(contrastRatio(hex(.ink), hex(ground)) >= 4.5, "ink on \(ground)")
                 #expect(contrastRatio(hex(.inkSecondary), hex(ground)) >= 4.5, "secondary ink on \(ground)")
             }
@@ -45,30 +45,32 @@
 
         @Test(arguments: [ColorScheme.light, .dark])
         func everyTokenResolvesToItsHex(scheme: ColorScheme) {
-            let colors: [MacPalette.Token: Color] = [
-                .accent: MacPalette.accent, .accentFill: MacPalette.accentFill,
-                .onAccentFill: MacPalette.onAccentFill, .ground: MacPalette.ground, .surface: MacPalette.surface,
-                .field: MacPalette.field, .raised: MacPalette.raised, .ink: MacPalette.ink,
-                .inkSecondary: MacPalette.inkSecondary,
-                .markInk: MacPalette.markInk,
+            let colors: [Palette.Token: Color] = [
+                .accent: Palette.accent, .accentFill: Palette.accentFill,
+                .onAccentFill: Palette.onAccentFill, .ground: Palette.ground, .surface: Palette.surface,
+                .field: Palette.field, .raised: Palette.raised, .ink: Palette.ink,
+                .inkSecondary: Palette.inkSecondary,
+                .markInk: Palette.markInk, .groupedPage: Palette.groupedPage,
+                .groupedCard: Palette.groupedCard, .switchOn: Palette.switchOn,
+                .listSelection: Palette.listSelection,
             ]
-            for token in MacPalette.Token.allCases {
-                #expect(resolved(colors[token]!, in: scheme) == MacPalette.hex(token, scheme).lowercased(), "\(token)")
+            for token in Palette.Token.allCases {
+                #expect(resolved(colors[token]!, in: scheme) == Palette.hex(token, scheme).lowercased(), "\(token)")
             }
         }
 
         /// Reduce Transparency's fill is the sidebar's surface, with no wash over it.
         @Test(arguments: [ColorScheme.light, .dark])
         func opaqueGlassFillsWithSurface(scheme: ColorScheme) {
-            #expect(resolved(MacGlassMode.opaqueFill, in: scheme) == MacPalette.hex(.surface, scheme).lowercased())
+            #expect(resolved(MacGlassMode.opaqueFill, in: scheme) == Palette.hex(.surface, scheme).lowercased())
         }
 
         /// The mark's C stays slate on light, whatever the accent.
         @Test func markInkNeverFollowsAccent() {
-            #expect(MacPalette.hex(.markInk, .light) == "#4F5D75")
-            #expect(MacPalette.hex(.markInk, .dark) == "#FFFFFF")
+            #expect(Palette.hex(.markInk, .light) == "#4F5D75")
+            #expect(Palette.hex(.markInk, .dark) == "#FFFFFF")
             for scheme in [ColorScheme.light, .dark] {
-                #expect(MacPalette.hex(.markInk, scheme) != MacPalette.hex(.accent, scheme))
+                #expect(Palette.hex(.markInk, scheme) != Palette.hex(.accent, scheme))
             }
         }
 
@@ -76,25 +78,25 @@
         /// deeper accent fill, never the accent itself.
         @Test(arguments: [ColorScheme.light, .dark])
         func onAccentIsTheLabelOnAnAccentFill(scheme: ColorScheme) {
-            #expect(resolved(MacPalette.onAccentFill, in: scheme) == "#ffffff")
-            #expect(contrastRatio(MacPalette.hex(.onAccentFill, scheme), MacPalette.hex(.accentFill, scheme)) >= 4.5)
+            #expect(resolved(Palette.onAccentFill, in: scheme) == "#ffffff")
+            #expect(contrastRatio(Palette.hex(.onAccentFill, scheme), Palette.hex(.accentFill, scheme)) >= 4.5)
         }
 
         /// The hairline is ink at a low opacity: dark slate on light, near white on dark.
         @Test func hairlineHoldsItsValues() {
-            #expect(MacPalette.hairlineLight.rgb.hex == "#1e2837")
-            #expect(MacPalette.hairlineLight.alpha == 0.12)
-            #expect(MacPalette.hairlineDark.rgb.hex == "#e6f0ff")
-            #expect(MacPalette.hairlineDark.alpha == 0.10)
+            #expect(Palette.hairlineLight.rgb.hex == "#1e2837")
+            #expect(Palette.hairlineLight.alpha == 0.12)
+            #expect(Palette.hairlineDark.rgb.hex == "#e6f0ff")
+            #expect(Palette.hairlineDark.alpha == 0.10)
         }
 
         /// A set filter's label on its accent wash, over the grounds a filter row sits on.
         @Test(arguments: [ColorScheme.light, .dark])
         func setLabelPassesContrastOnItsWash(scheme: ColorScheme) {
-            let accent = MacPalette.hex(.accent, scheme)
-            let label = MacStyle.setLabelIsAccent(scheme) ? accent : MacPalette.hex(.ink, scheme)
-            for ground in [MacPalette.Token.ground, .surface] {
-                let wash = blend(accent, over: MacPalette.hex(ground, scheme), opacity: MacStyle.setFillOpacity(scheme))
+            let accent = Palette.hex(.accent, scheme)
+            let label = BrandStyle.setLabelIsAccent(scheme) ? accent : Palette.hex(.ink, scheme)
+            for ground in [Palette.Token.ground, .surface] {
+                let wash = blend(accent, over: Palette.hex(ground, scheme), opacity: BrandStyle.setFillOpacity(scheme))
                 #expect(contrastRatio(label, wash) >= 4.5, "\(scheme) on \(ground)")
             }
         }
@@ -141,8 +143,8 @@
         @Test(arguments: [ColorScheme.light, .dark])
         func undoBannerPassesContrast(scheme: ColorScheme) {
             #expect(MacStyle.undoBannerHeight == 36)
-            let fill = MacPalette.hex(.ink, scheme)
-            #expect(contrastRatio(MacPalette.hex(.ground, scheme), fill) >= 4.5)
+            let fill = Palette.hex(.ink, scheme)
+            #expect(contrastRatio(Palette.hex(.ground, scheme), fill) >= 4.5)
             #expect(contrastRatio(MacStyle.undoActionHex(scheme), fill) >= 4.5)
             #expect(resolved(MacStyle.undoAction, in: scheme) == MacStyle.undoActionHex(scheme).lowercased())
         }
@@ -167,8 +169,8 @@
             let text = SourceScan.withoutComments(try SourceScan.text(at: file))
             let track = try #require(text.range(of: "struct ScrubberTrack"))
             let body = text[track.lowerBound...]
-            #expect(body.contains("MacPalette.hairline"))
-            #expect(body.contains("MacPalette.ink.opacity(ScrubberTrack.fillOpacity)"))
+            #expect(body.contains("Palette.hairline"))
+            #expect(body.contains("Palette.ink.opacity(ScrubberTrack.fillOpacity)"))
             #expect(!body.contains(".quaternary"))
         }
 

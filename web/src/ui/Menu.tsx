@@ -123,7 +123,7 @@ function MenuList({
       id={id}
       textValue={text}
       isDisabled={disabled}
-      className={`t-body data-[focused]:bg-fill data-[disabled]:text-ink-2 flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1 ${TONE[tone]}`}
+      className={`t-body data-[focused]:bg-field data-[disabled]:text-ink-2 flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1 ${TONE[tone]}`}
     >
       {({ isSelected }) => (
         <>
@@ -138,7 +138,7 @@ function MenuList({
           ) : (
             <span className="min-w-0 flex-1">{text}</span>
           )}
-          {isSelected && <Check className="text-action size-5 shrink-0" aria-hidden />}
+          {isSelected && <Check className="text-ink size-5 shrink-0" aria-hidden />}
         </>
       )}
     </MenuItem>

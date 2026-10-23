@@ -34,7 +34,7 @@ extension PlanSheet {
 }
 
 /// Free beside Premium, a row per feature. Premium's header is a coral tab over a column in the
-/// slate wash a set filter wears, its checks and values in `BrandStyle.premiumInk`; on the Mac,
+/// accent wash a set filter wears, its checks and values in `BrandStyle.premiumInk`; on the Mac,
 /// where coral alone marks Premium, the column is a coral wash with its checks and values in ink.
 /// The wash is one band behind every row, so the dividers cross it rather than cut it into blocks.
 struct PlanComparison: View {
@@ -82,7 +82,7 @@ struct PlanComparison: View {
         HStack(spacing: 0) {
             Spacer(minLength: 0)
             Text(PlanText.compareFree)
-                .foregroundStyle(PlanInk.secondary)
+                .foregroundStyle(Palette.inkSecondary)
                 .frame(width: columnWidth)
                 .padding(.vertical, 6)
             Text(PlanText.comparePremium)
@@ -123,12 +123,11 @@ struct PlanComparison: View {
     @ViewBuilder
     private func cell(_ cell: PlanSheet.Cell, column: String, premium: Bool) -> some View {
         #if os(macOS)
-            let color = AnyShapeStyle(premium ? MacPalette.ink : MacPalette.inkSecondary)
+            let color = AnyShapeStyle(premium ? Palette.ink : Palette.inkSecondary)
             let valueColor = color
         #else
-            let color = premium ? AnyShapeStyle(BrandStyle.premiumInk(scheme)) : AnyShapeStyle(.secondary)
-            // A Free value is text, and the system secondary falls short of 4.5:1 on the card.
-            let valueColor = premium ? color : AnyShapeStyle(BrandStyle.washSecondary(scheme))
+            let color = premium ? AnyShapeStyle(BrandStyle.premiumInk(scheme)) : AnyShapeStyle(Palette.inkSecondary)
+            let valueColor = color
         #endif
         switch cell {
         case .included:
@@ -137,10 +136,9 @@ struct PlanComparison: View {
                 .foregroundStyle(color)
                 .accessibilityLabel("\(column), \(Self.includedLabel)")
         case .excluded:
-            // Secondary is the faintest label color that keeps a glyph at 3:1 on the card.
             Image(systemName: "minus")
                 .font(.platform(.subheadline))
-                .foregroundStyle(PlanInk.secondary)
+                .foregroundStyle(Palette.inkSecondary)
                 .accessibilityLabel("\(column), \(Self.excludedLabel)")
         case .value(let amount):
             Text(amount)
@@ -153,7 +151,7 @@ struct PlanComparison: View {
     }
 }
 
-/// A feature's symbol on a slate-washed tile, as the comparison and the included list draw it.
+/// A feature's symbol on an accent-washed tile, as the comparison and the included list draw it.
 /// The glyph takes the set filter's label color, which holds 3:1 on the wash in each appearance.
 /// On the Mac the tile is a field with the glyph in secondary ink, since accent never sits on
 /// a glyph at rest.
@@ -166,7 +164,7 @@ struct FeatureTile: View {
 
     var body: some View {
         #if os(macOS)
-            let (glyph, fill) = (MacPalette.inkSecondary, MacPalette.field)
+            let (glyph, fill) = (Palette.inkSecondary, Palette.field)
         #else
             let (glyph, fill) = (BrandStyle.setLabel(scheme), BrandStyle.setFill(scheme))
         #endif
@@ -180,7 +178,7 @@ struct FeatureTile: View {
 }
 
 /// The Plan sheet's inset card: the grouped row fill on iPhone and iPad, where a tinted card
-/// takes the slate wash instead; on the Mac every card is `surface` with no stroke.
+/// takes the accent wash instead; on the Mac every card is `surface` with no stroke.
 private struct PlanCard: ViewModifier {
     let tinted: Bool
 
@@ -189,7 +187,7 @@ private struct PlanCard: ViewModifier {
     func body(content: Content) -> some View {
         #if os(macOS)
             content
-                .background(MacPalette.surface, in: .rect(cornerRadius: MacForm.cardRadius))
+                .background(Palette.surface, in: .rect(cornerRadius: MacForm.cardRadius))
                 .clipShape(.rect(cornerRadius: MacForm.cardRadius))
                 .macSurfaceContainer()
         #else
@@ -202,7 +200,7 @@ private struct PlanCard: ViewModifier {
     #if !os(macOS)
         private var fill: AnyShapeStyle {
             if tinted { return AnyShapeStyle(BrandStyle.setFill(scheme)) }
-            return AnyShapeStyle(Color(uiColor: .secondarySystemGroupedBackground))
+            return AnyShapeStyle(Palette.groupedCard)
         }
     #endif
 }
@@ -211,20 +209,9 @@ private struct PlanCard: ViewModifier {
 struct PlanDivider: View {
     var body: some View {
         #if os(macOS)
-            Rectangle().fill(MacPalette.hairline).frame(height: 1)
+            Rectangle().fill(Palette.hairline).frame(height: 1)
         #else
             Divider()
-        #endif
-    }
-}
-
-/// The secondary ink of the Plan sheet's quiet glyphs and labels.
-enum PlanInk {
-    static var secondary: AnyShapeStyle {
-        #if os(macOS)
-            AnyShapeStyle(MacPalette.inkSecondary)
-        #else
-            AnyShapeStyle(.secondary)
         #endif
     }
 }
@@ -250,7 +237,7 @@ extension View {
         #if os(macOS)
             self
         #else
-            background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+            background(Palette.groupedPage.ignoresSafeArea())
         #endif
     }
 }

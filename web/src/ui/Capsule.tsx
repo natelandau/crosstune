@@ -27,8 +27,8 @@ const SHAPE =
 
 function tone(set: boolean | undefined): string {
   return set
-    ? 'bg-set-fill font-medium text-set-label hover:bg-tint-strong'
-    : 'bg-fill text-ink hover:bg-fill-hover'
+    ? 'bg-set-fill font-medium text-set-label hover:bg-set-fill-hover'
+    : 'bg-field text-ink hover:bg-field-hover'
 }
 
 export function Capsule({ label, children, set, onRemove, removeLabel, ...rest }: CapsuleProps) {

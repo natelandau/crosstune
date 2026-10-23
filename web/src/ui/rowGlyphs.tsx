@@ -5,15 +5,15 @@ import type { ReactNode } from 'react'
 // in a disc: tinted while idle, solid once it holds what plays.
 const DISC =
   'grid size-7 shrink-0 place-items-center rounded-full transition-[background-color,color,scale] duration-(--dur-short) ease-(--ease) in-[html[data-density=pointer]]:size-6'
-const IDLE = 'bg-tint text-action'
-const LOADED = 'bg-accent text-on-accent'
+const IDLE = 'bg-tint text-ink'
+const LOADED = 'bg-accent-fill text-on-accent-fill'
 
 /** For a control holding a disc: the disc fills while the pointer is over the control. */
 export const DISC_HOVER =
-  'hover:[&_[data-transport-disc]]:bg-accent hover:[&_[data-transport-disc]]:text-on-accent'
+  'hover:[&_[data-transport-disc]]:bg-accent-fill hover:[&_[data-transport-disc]]:text-on-accent-fill'
 /** For a row that is itself the control: the disc fills while the pointer is over the row. */
 export const DISC_ROW_HOVER =
-  'group-hover:[&_[data-transport-disc]]:bg-accent group-hover:[&_[data-transport-disc]]:text-on-accent'
+  'group-hover:[&_[data-transport-disc]]:bg-accent-fill group-hover:[&_[data-transport-disc]]:text-on-accent-fill'
 
 function Disc({ loaded, children }: { loaded: boolean; children: ReactNode }) {
   return (

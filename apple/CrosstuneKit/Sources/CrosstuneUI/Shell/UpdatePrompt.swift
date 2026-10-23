@@ -14,7 +14,7 @@ public enum UpdatePromptText {
     public static let message =
         "This version can't sync anymore. Your changes are saved on this device and will sync after you update."
     public static let update = "Update"
-    public static let notNow = "Not Now"
+    public static let notNow = "Not now"
 
     /// The App Store page for the app with Apple ID `id`, or nil without one. The Mac opens it in
     /// the App Store app, which a web link would leave to the browser.
@@ -173,14 +173,14 @@ private struct UpdatePrompt: ViewModifier {
 
 #if os(macOS)
     /// The update prompt as a Mac notice: the mark, the title, and why, with Update the primary
-    /// and Not Now beside it.
+    /// and Not now beside it.
     struct UpdatePromptSheet: View {
         let appStoreURL: URL?
 
         @Environment(\.dismiss) private var dismiss
         @Environment(\.openURL) private var openURL
 
-        /// Update as the default primary and Not Now as Cancel, or Not Now alone as the primary
+        /// Update as the default primary and Not now as Cancel, or Not now alone as the primary
         /// when there is no App Store page to update from.
         static func footer(
             canUpdate: Bool, update: @escaping @MainActor () -> Void, notNow: @escaping @MainActor () -> Void
@@ -207,7 +207,7 @@ private struct UpdatePrompt: ViewModifier {
             ) {
                 Text(UpdatePromptText.message)
                     .font(MacStyle.body)
-                    .foregroundStyle(MacPalette.ink)
+                    .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .shellSheet()

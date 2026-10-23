@@ -5,35 +5,14 @@
     /// The Mac app's accent, type, and spacing tokens.
     public enum MacStyle {
         /// Harbor blue, lighter in dark mode so text on the window keeps its contrast.
-        public static var accent: Color { MacPalette.accent }
+        public static var accent: Color { Palette.accent }
         /// Coral, the mark's color.
         public static var coral: Color { BrandStyle.coral }
-
-        /// How strongly a set filter's accent wash shows over the window.
-        public static func setFillOpacity(_ scheme: ColorScheme) -> Double {
-            scheme == .dark ? 0.22 : 0.12
-        }
-
-        /// Whether a set filter's label is the accent. Over dark mode's surface the wash leaves
-        /// the accent short of 4.5:1, so in dark mode the label takes ink.
-        public static func setLabelIsAccent(_ scheme: ColorScheme) -> Bool {
-            scheme != .dark
-        }
 
         /// How strongly the accent washes the row a playing list is on: lighter than a set
         /// filter's wash, so the row reads as marked rather than chosen.
         public static func playingWashOpacity(_ scheme: ColorScheme) -> Double {
             scheme == .dark ? 0.18 : 0.10
-        }
-
-        /// A set filter's wash, the fill of a filter control or token once it narrows the list.
-        public static func setFill(_ scheme: ColorScheme) -> Color {
-            accent.opacity(setFillOpacity(scheme))
-        }
-
-        /// A set filter's label on its wash.
-        public static func setLabel(_ scheme: ColorScheme) -> Color {
-            setLabelIsAccent(scheme) ? accent : MacPalette.ink
         }
 
         // SF Pro at fixed sizes: a Mac view never takes a SwiftUI text style, whose sizes follow
@@ -141,7 +120,7 @@
 
         /// The undo banner's Undo: the other appearance's accent, which reads on the banner's ink.
         static func undoActionHex(_ scheme: ColorScheme) -> String {
-            MacPalette.hex(.accent, scheme == .dark ? .light : .dark)
+            Palette.hex(.accent, scheme == .dark ? .light : .dark)
         }
 
         static var undoAction: Color {
@@ -184,7 +163,7 @@
 
         /// The opaque mode's fill: the sidebar's surface, so floating chrome reads as the pane it
         /// sits over.
-        static var opaqueFill: Color { MacPalette.surface }
+        static var opaqueFill: Color { Palette.surface }
     }
 
     /// Liquid Glass in `shape`, drawn as ``MacGlassMode`` resolves.

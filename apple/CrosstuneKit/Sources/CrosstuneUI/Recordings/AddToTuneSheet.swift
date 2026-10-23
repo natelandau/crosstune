@@ -75,9 +75,8 @@ public final class AddToTuneModel {
             outcome: SearchOutcome(entries: entries, visible: matches, query: query, archivedShown: true))
     }
 
-    /// The catalog A to Z while the search field is empty, as the Mac lists it at idle; empty
-    /// once something is typed, when ``results`` takes over. Archived tunes stay out until
-    /// searched for. Nil until the catalog is read.
+    /// The whole catalog A to Z while the search field is empty, archived tunes included; empty
+    /// once something is typed, when ``results`` takes over. Nil until the catalog is read.
     public var idleResults: [CatalogEntry]? {
         guard let entries = entries.value else { return nil }
         guard isIdle else { return [] }
@@ -268,7 +267,11 @@ private struct AddToTuneContent: View {
                         .font(.platform(.footnote))
                         .foregroundStyle(.red)
                 }
-                if let results = model.results {
+                if model.isIdle {
+                    ForEach(model.idleResults ?? []) { entry in
+                        row(entry)
+                    }
+                } else if let results = model.results {
                     ForEach(results.rows) { entry in
                         row(entry)
                     }
@@ -278,6 +281,7 @@ private struct AddToTuneContent: View {
                 }
             }
             .listStyle(.plain)
+            .paperGround()
             .searchable(text: $model.query, placement: Self.searchPlacement, prompt: AddToTuneSheet.searchPrompt)
             .searchFocused($searchFocused)
             .onSubmit(of: .search, submitSearch)

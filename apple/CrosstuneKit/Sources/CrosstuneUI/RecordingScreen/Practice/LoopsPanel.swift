@@ -61,7 +61,7 @@ struct LoopsPanel: View {
                 Label {
                     Text(PracticeText.newLoop)
                 } icon: {
-                    Image(systemName: "plus").foregroundStyle(MacPalette.accent)
+                    Image(systemName: "plus").foregroundStyle(Palette.accent)
                 }
             }
             .buttonStyle(.macSecondary)
@@ -84,7 +84,7 @@ struct LoopsPanel: View {
                 if model.deleteSelected() { onDeleted() }
             }
             // A plain button takes no color from its role.
-            .foregroundStyle(canDelete ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+            .foregroundStyle(canDelete ? AnyShapeStyle(.red) : .inkSecondary)
             .disabled(!canDelete)
         #endif
     }
@@ -104,7 +104,7 @@ struct LoopsPanel: View {
                 .padding(.horizontal, spacing(12))
                 .padding(.vertical, spacing.chipVertical)
                 .frame(minHeight: minimumTapTarget)
-                .background(neutralFill(colorScheme), in: .capsule)
+                .background(.neutralFill, in: .capsule)
                 .contentShape(.capsule)
             }
             .buttonStyle(.plain)

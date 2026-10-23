@@ -49,7 +49,7 @@ struct LocationAccessSection: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(LocationAccessText.off)
                         .font(MacStyle.secondary)
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Button(LocationAccessText.openSettings) { openURL(url) }
                         .buttonStyle(.macSecondary)
