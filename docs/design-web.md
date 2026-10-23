@@ -106,14 +106,16 @@ folder. Compose it, never rebuild it.
   hairline and no shadow. Record capsule (red dot, "Record", centered)
   runs the sidebar's inner width at its foot, 12px below Settings.
   Selected row takes the accent wash. Sync badge leads the header.
-- Phone tab bar: a capsule of Catalog, Lists, Recordings, Settings, then
+- Phone tab bar: a capsule of Catalog, Lists, Tuner, Recordings, then
   the Record disc on its own at the trailing end, recording-red dot. Both
   float over the content, which runs to the bottom of the screen and
   scrolls beneath them. Sizes match the iPhone tab bar: 62px capsule and
   disc, 21px from the edges. Solid, hairline edge, no shadow, no fade, no
   glass. The current tab takes an accent-wash pill that slides between
   tabs. Panes pad their end by `--float-clearance` so the last row
-  scrolls clear. Sync badge beside the screen title.
+  scrolls clear. Sync badge beside the screen title. Settings opens from
+  the account button at the top-trailing edge of the title row, and
+  reopens at its remembered place.
 
 ### Now playing
 
@@ -292,16 +294,16 @@ Web form of the toolbar rule in `design.md`: actions sit at the foot.
 Single-key shortcuts only on pointer frames. A focused control or row keeps
 Space.
 
-| Keys                      | Action                                        |
-| ------------------------- | --------------------------------------------- |
-| Cmd-K or Ctrl-K           | Quick Find, at every density                  |
-| `N`                       | New tune                                      |
-| `R`                       | Record                                        |
-| `?`                       | Shortcut sheet                                |
-| `/`                       | Focus the screen's search                     |
-| `G`, then `C` `L` `R` `S` | Go to Catalog, Lists, Recordings, or Settings |
-| Space                     | Play or pause                                 |
-| Escape                    | Step out, at every density                    |
+| Keys                          | Action                                               |
+| ----------------------------- | ---------------------------------------------------- |
+| Cmd-K or Ctrl-K               | Quick Find, at every density                         |
+| `N`                           | New tune                                             |
+| `R`                           | Record                                               |
+| `?`                           | Shortcut sheet                                       |
+| `/`                           | Focus the screen's search                            |
+| `G`, then `C` `L` `R` `T` `S` | Go to Catalog, Lists, Recordings, Tuner, or Settings |
+| Space                         | Play or pause                                        |
+| Escape                        | Step out, at every density                           |
 
 - Never take a combination the browser owns (Cmd-N, Cmd-R).
 - Cmd-K works from a text field too, and stands down while another overlay

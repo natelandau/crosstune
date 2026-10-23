@@ -9,8 +9,8 @@ const field = ([k, v]: [string, string]) =>
   `<div class="prec field"><span>${k}</span><span class="v">${v}</span></div>`
 
 const markup = () => `
-  <div data-l="0" data-y="68" data-hidem>${browser(
-    1280,
+  <div data-r="0" data-y="68" data-hidem>${browser(
+    1040,
     1000,
     `<div class="wa">${wSide('Learning')}
     <div class="wc">

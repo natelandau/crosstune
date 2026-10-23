@@ -3,12 +3,13 @@ import { SHORTCUTS, typedKey, type KeyPress, type ShortcutId } from './keymap'
 /** How long after G the destination letter still counts. */
 export const GO_SEQUENCE_MS = 1500
 
-export type GoTarget = 'catalog' | 'lists' | 'recordings' | 'settings'
+export type GoTarget = 'catalog' | 'lists' | 'recordings' | 'tuner' | 'settings'
 
 const TARGETS: Partial<Record<ShortcutId, GoTarget>> = {
   goCatalog: 'catalog',
   goLists: 'lists',
   goRecordings: 'recordings',
+  goTuner: 'tuner',
   goSettings: 'settings',
 }
 

@@ -42,6 +42,7 @@ function llmsText(): string {
         `[Home](${SITE_URL}/): features, pricing, and sign-up`,
         `[Sign in](${APP_URL}): the web app`,
         `[Import your tunes](${SITE_URL}/help/import): bring a tune list from Notes, a document, or a file`,
+        `[Use the tuner](${SITE_URL}/help/tuner): read the tuner and tune an upright bass`,
         `[Support](${SITE_URL}/support): help and contact, ${SUPPORT_EMAIL}`,
         `[Privacy policy](${SITE_URL}/privacy)`,
         `[Terms of use](${SITE_URL}/terms)`,

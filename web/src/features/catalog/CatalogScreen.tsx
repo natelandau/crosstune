@@ -215,7 +215,7 @@ export function CatalogScreen() {
           }
         />
       )}
-      <ColumnTitle title={CATALOG.label} titleRef={titleRef} />
+      <ColumnTitle title={CATALOG.label} titleRef={titleRef} account />
       <div className="px-4 pb-2">
         <SearchField
           ref={searchRef}

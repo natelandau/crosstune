@@ -7,6 +7,7 @@ enum SettingsCategory: String, CaseIterable, Hashable {
     case tunes
     case recordings
     case appearance
+    case tuner
     case syncAndStorage
     case importExport
     case about
@@ -17,6 +18,7 @@ enum SettingsCategory: String, CaseIterable, Hashable {
         switch self {
         case .tunes: SettingsModel.tunes
         case .recordings: SettingsModel.recordings
+        case .tuner: SettingsModel.tuner
         case .appearance: Appearance.title
         case .syncAndStorage: Self.syncAndStorageTitle
         case .importExport: ImportExportSections.title
@@ -28,6 +30,7 @@ enum SettingsCategory: String, CaseIterable, Hashable {
         switch self {
         case .tunes: "music.note.list"
         case .recordings: "waveform"
+        case .tuner: "gauge.with.needle"
         case .appearance: "circle.lefthalf.filled"
         case .syncAndStorage: "arrow.triangle.2.circlepath"
         case .importExport: "arrow.up.arrow.down"
@@ -40,6 +43,7 @@ enum SettingsCategory: String, CaseIterable, Hashable {
         switch self {
         case .tunes: [.instrumentToggles, .newTunes, .serviceToggles, .appleMusic]
         case .recordings: [.recording, .savedLocations, .downloads]
+        case .tuner: [.tuner]
         case .appearance: [.appearance]
         case .syncAndStorage: [.sync, .storage]
         case .importExport: [.importExport]
@@ -56,6 +60,7 @@ enum SettingsCategory: String, CaseIterable, Hashable {
         return switch self {
         case .tunes: SettingsModel.instrumentsSummary(playing: summaries.instruments.contains)
         case .recordings: Vocabulary.audioQualityNames[summaries.audioQuality] ?? summaries.audioQuality
+        case .tuner: SettingsModel.referencePitchLabel(summaries.tunerA4Hz)
         case .appearance, .syncAndStorage, .importExport, .about: ""
         }
     }

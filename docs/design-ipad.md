@@ -32,7 +32,9 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
   form, and the person's toggle wins. At accessibility text sizes the
   window starts in top-bar form, because the sidebar breaks its rows'
   words.
-- Top-bar form: the four tabs are the whole bar.
+- Top-bar form: the five tabs (Catalog, Lists, Tuner, Recordings,
+  Settings) are the whole bar. Regular width keeps Settings as a tab, since
+  the bar has the room the phone lacks.
 - Sidebar form: status rows follow Catalog, list rows follow Lists, then
   New list, which opens its sheet and never stays chosen.
 - A sidebar row that is not a destination is a `Tab` with

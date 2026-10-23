@@ -11,6 +11,7 @@ public enum Screen: String, CaseIterable, Sendable {
     case settings
     case stats
     case stand
+    case tuner
 }
 
 /// Where an action started, for a feature with more than one way in.

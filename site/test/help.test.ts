@@ -41,8 +41,33 @@ describe('/help/import', () => {
   })
 })
 
+describe('/help/tuner', () => {
+  const doc = readPage('/help/tuner')
+  const text = (doc.body.textContent ?? '').replace(/\s+/g, ' ')
+
+  it('has one h1', () => {
+    expect(doc.querySelectorAll('h1')).toHaveLength(1)
+  })
+
+  it.each([/open/i, /read/i, /reference pitch/i, /upright bass/i])(
+    'has a heading matching %s',
+    (pattern) => {
+      const headings = [...doc.querySelectorAll('h2')].map((h) => h.textContent ?? '')
+      expect(headings.some((h) => pattern.test(h))).toBe(true)
+    },
+  )
+
+  it('tells a bass player to hold the phone near the bridge', () => {
+    expect(text).toContain('near the bridge')
+  })
+})
+
 describe('/support', () => {
   it('links the import help page', () => {
     expect(readPage('/support').querySelector('a[href="/help/import"]')).not.toBeNull()
+  })
+
+  it('links the tuner help page from support', () => {
+    expect(readPage('/support').querySelector('a[href="/help/tuner"]')).not.toBeNull()
   })
 })

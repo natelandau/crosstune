@@ -11,6 +11,7 @@ import type {
   LocalScan,
   LocalRecordingLoop,
   LocalTune,
+  LocalUserSettings,
   LocalUserTune,
 } from '../db/types'
 
@@ -283,6 +284,28 @@ export function placeRow(id: string, name: string, extra: Partial<LocalPlace> = 
     lon: -80.92,
     address: null,
     apple_place_id: null,
+    ...extra,
+  }
+}
+
+export function userSettingsRow(
+  id: string,
+  extra: Partial<LocalUserSettings> = {},
+): LocalUserSettings {
+  const at = '2026-09-11T09:00:00.000Z'
+  return {
+    id,
+    created_at: at,
+    updated_at: at,
+    deleted_at: null,
+    server_seq: 1,
+    instruments: [],
+    audio_quality: 'standard',
+    play_first: 'recordings',
+    search_providers: [],
+    new_tune_genre: null,
+    new_tune_status: 'want_to_learn',
+    tuner_a4_hz: 440,
     ...extra,
   }
 }

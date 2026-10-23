@@ -24,7 +24,9 @@
         @Environment(CatalogModel.self) private var catalog: CatalogModel?
         /// Nil until the first read, so a list chosen before the lists load is not taken for a deleted one.
         @State private var lists: LiveQuery<[ListSummary]?>?
-        @State private var columns = NavigationSplitViewVisibility.automatic
+        /// One value for both layouts, since a visibility means a different set of columns in a
+        /// two-column split than in a three-column one.
+        @State private var sidebarHidden = false
         /// The detail column's tune as the screens see it. The practice view takes the column, and
         /// opening any tune closes it.
         @State private var detailTune: ShellValue<String?>
@@ -55,43 +57,84 @@
             try ListSummary.fetchAll(db)
         }
 
+        /// Whether `item` fills the content and detail columns rather than pairing a content
+        /// column with the tune it opens. The tuner opens nothing to show beside it.
+        nonisolated static func fillsDetail(_ item: SidebarItem) -> Bool {
+            item == .tuner
+        }
+
+        /// Whether the sidebar is hidden with `columns`. A two-column split's double column is the
+        /// sidebar and the detail; a three-column split's is the content and the detail.
+        nonisolated static func sidebarHidden(_ columns: NavigationSplitViewVisibility, twoColumn: Bool) -> Bool {
+            if columns == .detailOnly { return true }
+            return !twoColumn && columns == .doubleColumn
+        }
+
+        /// The columns that show, with the sidebar hidden or not.
+        nonisolated static func visibility(sidebarHidden: Bool, twoColumn: Bool) -> NavigationSplitViewVisibility {
+            guard sidebarHidden else { return .all }
+            return twoColumn ? .detailOnly : .doubleColumn
+        }
+
         var body: some View {
-            NavigationSplitView(columnVisibility: $columns) {
-                MacSidebar(
-                    selection: sidebarSelection, lists: loadedLists, counts: counts?.value ?? nil,
-                    canRecord: recordShows, onRecord: onRecord, newList: newList
-                )
-                .navigationSplitViewColumnWidth(min: 200, ideal: 240)
-            } content: {
-                contentWithToolbar
-                    .columnGround()
-                    .navigationSplitViewColumnWidth(min: 300, ideal: 340)
-                    .environment(\.detailTune, detailTune)
-                    .environment(\.sidebarSelection, openedRow)
-            } detail: {
-                detail
-                    .columnGround()
-                    .environment(\.detailTune, detailTune)
-                    .environment(\.sidebarSelection, openedRow)
+            split
+                .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+                // The dock shows a link's player in full, so a play here must not leave a full player
+                // waiting to open.
+                .onChange(of: player.isExpanded, initial: true) {
+                    if player.isExpanded && player.item?.link != nil { player.isExpanded = false }
+                }
+                .task(id: store.userID) {
+                    lists = LiveQuery(store, initial: nil) { try Self.sidebarLists($0) }
+                }
+                .onChange(of: recordingsShown) {
+                    place.sidebar = .recordings
+                }
+                .onChange(of: lists?.value) {
+                    guard let loaded = lists?.value ?? nil else { return }
+                    place.sidebar = place.sidebar.kept(among: loaded.map(\.list))
+                }
+                .onChange(of: place.sidebar, initial: true) { syncSidebar(place: place, catalog: catalog) }
+                .onChange(of: catalog?.status) { syncSidebar(place: place, catalog: catalog) }
+        }
+
+        @ViewBuilder private var split: some View {
+            // The two layouts are different split views, so moving between them rebuilds the
+            // sidebar, which keeps its selection in the place and scrolls back to it.
+            if Self.fillsDetail(place.sidebar) {
+                NavigationSplitView(columnVisibility: columns(twoColumn: true)) {
+                    sidebar
+                } detail: {
+                    withShellToolbar(DestinationScreen(destination: .tuner))
+                        .playerDock(player, stage: stage)
+                        .columnGround()
+                        .environment(\.detailTune, detailTune)
+                        .environment(\.sidebarSelection, openedRow)
+                }
+            } else {
+                NavigationSplitView(columnVisibility: columns(twoColumn: false)) {
+                    sidebar
+                } content: {
+                    withShellToolbar(content)
+                        .columnGround()
+                        .navigationSplitViewColumnWidth(min: 300, ideal: 340)
+                        .environment(\.detailTune, detailTune)
+                        .environment(\.sidebarSelection, openedRow)
+                } detail: {
+                    detail
+                        .columnGround()
+                        .environment(\.detailTune, detailTune)
+                        .environment(\.sidebarSelection, openedRow)
+                }
             }
-            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
-            // The dock shows a link's player in full, so a play here must not leave a full player
-            // waiting to open.
-            .onChange(of: player.isExpanded, initial: true) {
-                if player.isExpanded && player.item?.link != nil { player.isExpanded = false }
-            }
-            .task(id: store.userID) {
-                lists = LiveQuery(store, initial: nil) { try Self.sidebarLists($0) }
-            }
-            .onChange(of: recordingsShown) {
-                place.sidebar = .recordings
-            }
-            .onChange(of: lists?.value) {
-                guard let loaded = lists?.value ?? nil else { return }
-                place.sidebar = place.sidebar.kept(among: loaded.map(\.list))
-            }
-            .onChange(of: place.sidebar, initial: true) { syncSidebar(place: place, catalog: catalog) }
-            .onChange(of: catalog?.status) { syncSidebar(place: place, catalog: catalog) }
+        }
+
+        private var sidebar: some View {
+            MacSidebar(
+                selection: sidebarSelection, lists: loadedLists, counts: counts?.value ?? nil,
+                canRecord: recordShows, onRecord: onRecord, newList: newList
+            )
+            .navigationSplitViewColumnWidth(min: 200, ideal: 240)
         }
 
         @ViewBuilder private var detail: some View {
@@ -126,8 +169,14 @@
         private var recordShows: Bool { selecting?.isCovered != true }
 
         /// True while the sidebar is open, so its own record button stands in for the toolbar's.
-        private var sidebarHoldsRecord: Bool {
-            columns != .doubleColumn && columns != .detailOnly
+        private var sidebarHoldsRecord: Bool { !sidebarHidden }
+
+        private func columns(twoColumn: Bool) -> Binding<NavigationSplitViewVisibility> {
+            Binding {
+                Self.visibility(sidebarHidden: sidebarHidden, twoColumn: twoColumn)
+            } set: {
+                sidebarHidden = Self.sidebarHidden($0, twoColumn: twoColumn)
+            }
         }
 
         /// A row is always chosen: clearing the selection chooses the catalog the content column
@@ -147,8 +196,10 @@
             listSheets?.name(.new)
         }
 
-        private var contentWithToolbar: some View {
-            content
+        /// The first column after the sidebar, with Record while the sidebar is hidden and the
+        /// sync badge.
+        private func withShellToolbar(_ column: some View) -> some View {
+            column
                 .toolbar {
                     if recordShows && !sidebarHoldsRecord {
                         ToolbarItem(placement: .navigation) {

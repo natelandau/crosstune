@@ -325,6 +325,8 @@ import Testing
     static let handMasks: [(file: String, marker: String)] = [
         ("Components/RemoveFilterCapsule.swift", "Text(label)"),
         ("Components/UndoBanner.swift", "Text(message)"),
+        // The account's initials, read from its name.
+        ("Shell/AccountButton.swift", "Text(letters)"),
         ("Catalog/SearchOffer.swift", "Label(label"),
         ("Catalog/SearchOffer.swift", "Text(match.note)"),
         // The system picker shows a typed value as its own choice and as the row's selection.

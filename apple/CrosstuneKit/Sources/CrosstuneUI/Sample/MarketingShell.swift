@@ -17,6 +17,7 @@
         @State private var listPlayback: ListPlayback
         @State private var stage = EmbedStage()
         @State private var recorders: RecorderHost
+        @State private var tuner: TunerModel
         @State private var place = Self.makePlace()
 
         /// - Parameter fixture: The marketing catalog, `apple/Marketing/catalog.json`.
@@ -26,7 +27,9 @@
             let player = PlayerModel()
             _player = State(initialValue: player)
             _listPlayback = State(initialValue: ListPlayback.device(player: player))
-            _recorders = State(initialValue: Self.makeRecorders())
+            let recorders = Self.makeRecorders()
+            _recorders = State(initialValue: recorders)
+            _tuner = State(initialValue: TunerModel(input: TunerInput(), recorders: recorders))
         }
 
         /// Records from the file named by `-RecordFromFile <path>` when given, else the microphone.
@@ -58,11 +61,13 @@
                 // An empty body would never start the task that opens the store.
                 Color.clear
                 if let store {
-                    AppShell(store: store, player: player, stage: stage, recorders: recorders, place: place)
-                        .environment(engine)
-                        .environment(listPlayback)
-                        // A capture never shows the system review request.
-                        .environment(\.reviewPrompt, nil)
+                    AppShell(
+                        store: store, player: player, stage: stage, recorders: recorders, tuner: tuner, place: place
+                    )
+                    .environment(engine)
+                    .environment(listPlayback)
+                    // A capture never shows the system review request.
+                    .environment(\.reviewPrompt, nil)
                 } else if let failure {
                     ContentUnavailableView(
                         "The marketing catalog did not open", systemImage: "exclamationmark.triangle",

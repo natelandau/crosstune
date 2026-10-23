@@ -6,6 +6,7 @@ import { platforms } from './platforms'
 import { practice } from './practice'
 import { record } from './record'
 import { tunePage } from './tunePage'
+import { tuner } from './tuner'
 import { tunes } from './tunes'
 import type { DemoDef, DemoName } from './types'
 
@@ -17,6 +18,7 @@ export const DEMOS: Record<DemoName, DemoDef> = {
   tunePage,
   record,
   practice,
+  tuner,
   lists,
   listen,
   folk,

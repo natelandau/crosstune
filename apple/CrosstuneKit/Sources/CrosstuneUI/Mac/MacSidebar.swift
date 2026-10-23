@@ -3,7 +3,7 @@
     import CrosstuneVocabulary
     import SwiftUI
 
-    /// The Mac sidebar: the catalog with its statuses under it and Recordings, then the lists,
+    /// The Mac sidebar: the catalog with its statuses under it, Recordings, and Tuner, then the lists,
     /// each with a count, and the record capsule at its foot.
     struct MacSidebar: View {
         /// The shell's selection, whose setter turns a status row into the catalog's filter.
@@ -19,19 +19,30 @@
         @State private var deleting: ListSummary?
 
         var body: some View {
+            ScrollViewReader { proxy in
+                list
+                    // The shell rebuilds the sidebar as it moves to or from the Tuner's layout, so
+                    // the chosen row is brought back into view, a hop later, once its rows exist.
+                    .onAppear {
+                        guard let target = selection.map(Self.scrollTarget) else { return }
+                        Task { proxy.scrollTo(target) }
+                    }
+            }
+        }
+
+        /// The identity the sidebar's rows go by for `selection`: a list row is known by its
+        /// list's id, every other row by the item itself.
+        nonisolated static func scrollTarget(_ selection: SidebarItem) -> AnyHashable {
+            if case .list(let id) = selection { return id }
+            return selection
+        }
+
+        private var list: some View {
             List(selection: $selection) {
                 Section {
-                    row(
-                        .catalog, Destination.catalog.title, glyph: .symbol(Destination.catalog.systemImage),
-                        count: counts?.catalog)
-                    ForEach(Vocabulary.statuses, id: \.self) { status in
-                        row(
-                            .status(status), StatusStyle.label(status), glyph: .status(status),
-                            count: counts?.byStatus[status])
+                    ForEach(Self.destinationRows(statuses: Vocabulary.statuses), id: \.self) { item in
+                        destinationRow(item)
                     }
-                    row(
-                        .recordings, Destination.recordings.title,
-                        glyph: .symbol(Destination.recordings.systemImage), count: counts?.recordings)
                 }
                 Section {
                     ForEach(lists ?? []) { list in
@@ -65,6 +76,31 @@
                     .padding(.vertical, 12)
             }
             .confirmsListDelete($deleting)
+        }
+
+        /// The first section's rows, in order: the catalog with its statuses under it, then the
+        /// destinations that are not the catalog.
+        static func destinationRows(statuses: [String]) -> [SidebarItem] {
+            [.catalog] + statuses.map(SidebarItem.status) + [.recordings, .tuner]
+        }
+
+        @ViewBuilder private func destinationRow(_ item: SidebarItem) -> some View {
+            switch item {
+            case .status(let status):
+                row(item, StatusStyle.label(status), glyph: .status(status), count: counts?.byStatus[status])
+            case .catalog:
+                destinationRow(item, .catalog, count: counts?.catalog)
+            case .recordings:
+                destinationRow(item, .recordings, count: counts?.recordings)
+            case .tuner:
+                destinationRow(item, .tuner, count: nil)
+            case .list:
+                EmptyView()
+            }
+        }
+
+        private func destinationRow(_ item: SidebarItem, _ destination: Destination, count: Int?) -> some View {
+            row(item, destination.title, glyph: .symbol(destination.systemImage), count: count)
         }
 
         private var newListButton: some View {

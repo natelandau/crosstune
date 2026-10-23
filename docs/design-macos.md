@@ -125,6 +125,10 @@ differ. iPhone and iPad never take a rule from here.
   control is a plain secondary-ink glyph.
 - A status pick keeps key, sheet filters, and the query. A jump to the
   catalog never clears the status.
+- Tuner is a sidebar row that fills the content and detail columns as one
+  pane (a two-column split). It keeps listening while its window is visible
+  without focus, so it works beside another app. It stops when the window
+  is minimized, hidden, or closed, or another row is picked.
 - Record: a capsule at the sidebar foot on the rows' selection inset. Its
   full name and shortcut go in its tooltip, so it never truncates.
 
@@ -350,6 +354,7 @@ differ. iPhone and iPad never take a rule from here.
 
 ## Settings
 
+- The reference pitch lives in General.
 - Settings is a window of a few tabs, each a subject (General, Account,
   Tunes, Recordings, Import and export). A new setting joins the tab
   whose subject it serves; a new tab only for a new subject.

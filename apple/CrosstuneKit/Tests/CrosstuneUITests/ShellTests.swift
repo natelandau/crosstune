@@ -224,7 +224,11 @@ import Testing
 
     @Test func choosingTheRecordSlotRecordsAndKeepsTheTab() {
         #expect(TabSlot.record.resolved(current: .lists) == (.lists, true))
-        #expect(TabSlot.destination(.settings).resolved(current: .lists) == (.settings, false))
+        #expect(TabSlot.destination(.tuner).resolved(current: .lists) == (.tuner, false))
+    }
+
+    @Test func thePhoneTabsAreCatalogListsTunerRecordings() {
+        #expect(TabSlot.phoneTabs == [.catalog, .lists, .tuner, .recordings])
     }
 }
 
@@ -244,6 +248,73 @@ import Testing
         }
     #endif
 
+    #if os(macOS)
+        @Test func onlyTheTunerFillsTheContentAndDetailColumns() {
+            #expect(SplitShell.fillsDetail(.tuner))
+            for item in [SidebarItem.catalog, .status("known"), .recordings, .list(id: "a")] {
+                #expect(!SplitShell.fillsDetail(item))
+            }
+        }
+
+        @Test func theSidebarReadsHiddenByTheSplitsColumnCount() {
+            #expect(!SplitShell.sidebarHidden(.all, twoColumn: false))
+            #expect(SplitShell.sidebarHidden(.doubleColumn, twoColumn: false))
+            #expect(SplitShell.sidebarHidden(.detailOnly, twoColumn: false))
+            #expect(!SplitShell.sidebarHidden(.doubleColumn, twoColumn: true))
+            #expect(!SplitShell.sidebarHidden(.all, twoColumn: true))
+            #expect(SplitShell.sidebarHidden(.detailOnly, twoColumn: true))
+        }
+
+        @Test func eachLayoutShowsItsColumnsForTheSidebarsState() {
+            #expect(SplitShell.visibility(sidebarHidden: false, twoColumn: false) == .all)
+            #expect(SplitShell.visibility(sidebarHidden: true, twoColumn: false) == .doubleColumn)
+            #expect(SplitShell.visibility(sidebarHidden: false, twoColumn: true) == .all)
+            #expect(SplitShell.visibility(sidebarHidden: true, twoColumn: true) == .detailOnly)
+            // A sidebar hidden on the Tuner stays hidden in the other layout, and the other way.
+            for twoColumn in [false, true] {
+                for hidden in [false, true] {
+                    let shown = SplitShell.visibility(sidebarHidden: hidden, twoColumn: twoColumn)
+                    #expect(SplitShell.sidebarHidden(shown, twoColumn: twoColumn) == hidden)
+                }
+            }
+        }
+
+        @Test func theMacSidebarPutsTunerAfterRecordings() {
+            let rows = MacSidebar.destinationRows(statuses: ["learning", "known"])
+            #expect(rows == [.catalog, .status("learning"), .status("known"), .recordings, .tuner])
+        }
+
+        /// The rebuilt sidebar scrolls to its selection by the identity its rows go by: the
+        /// destination rows' items, and the lists' ids.
+        @Test func theMacSidebarScrollsToTheIdentityItsRowsGoBy() {
+            #expect(MacSidebar.scrollTarget(.tuner) == AnyHashable(SidebarItem.tuner))
+            #expect(MacSidebar.scrollTarget(.status("known")) == AnyHashable(SidebarItem.status("known")))
+            #expect(MacSidebar.scrollTarget(.list(id: "l1")) == AnyHashable("l1"))
+        }
+
+        /// A row's tag stays its outermost modifier, which a List needs to select and draw it.
+        @Test func theMacSidebarRowEndsWithItsTag() throws {
+            let source = SourceScan.withoutComments(
+                try SourceScan.text(at: SourceScan.sources.appending(path: "Mac/MacSidebar.swift")))
+            let flat = source.filter { !$0.isWhitespace }
+            let row = try #require(flat.range(of: "privatefuncrow("))
+            let open = try #require(flat[row.upperBound...].firstIndex(of: "{"))
+            // The function's own closing brace, past any closure inside it.
+            var depth = 0
+            var close = open
+            for index in flat[open...].indices {
+                if flat[index] == "{" { depth += 1 }
+                if flat[index] == "}" { depth -= 1 }
+                if depth == 0 {
+                    close = index
+                    break
+                }
+            }
+            #expect(flat[open..<close].hasSuffix(".tag(item)"))
+            #expect(!flat.contains(".id(item)"))
+        }
+    #endif
+
     @Test func aDeletedListsSelectionFallsBackToTheCatalog() {
         let lists = SampleCatalog.lists
         #expect(SidebarItem.list(id: lists[1].id).kept(among: lists) == .list(id: lists[1].id))
@@ -254,6 +325,7 @@ import Testing
     @Test func eachRowButAListOpensItsDestination() {
         #expect(SidebarItem.catalog.destination == .catalog)
         #expect(SidebarItem.recordings.destination == .recordings)
+        #expect(SidebarItem.tuner.destination == .tuner)
         #expect(SidebarItem.list(id: "a").destination == nil)
     }
 
@@ -264,6 +336,7 @@ import Testing
         #expect(SidebarItem.catalog.statusFilter == .some(nil))
         #expect(SidebarItem.status("known").statusFilter == .some("known"))
         #expect(SidebarItem.recordings.statusFilter == nil)
+        #expect(SidebarItem.tuner.statusFilter == nil)
         #expect(SidebarItem.list(id: "a").statusFilter == nil)
         #expect(SidebarItem.status("known").kept(among: []) == .status("known"))
     }
@@ -563,8 +636,9 @@ import Testing
         #expect(place.settingsPage == nil)
     }
 
-    @Test func poppingTheIPhoneSettingsPageClosesItForTheIPadLayoutToo() {
+    @Test func poppingASettingsPageInTheSheetClosesItForTheIPadLayoutToo() {
         let place = ShellPlace()
+        place.isCompact = true
         place.showSettingsPage(.account)
 
         place.settingsPath.removeLast()
@@ -572,10 +646,10 @@ import Testing
         #expect(place.settingsPage == nil)
     }
 
-    @Test func narrowingShowsTheIPadSettingsPageAloneOnTheIPhoneStack() {
+    @Test func narrowingShowsTheIPadSettingsPageAloneInTheSheet() {
         let place = ShellPlace()
         place.showSettingsPage(.account)
-        // Picked in the iPad detail column, which never touches the iPhone stack.
+        // Picked in the iPad detail column, which never touches the sheet's stack.
         place.settingsPage = .stats
 
         place.narrowed()
@@ -587,6 +661,200 @@ import Testing
         place.narrowed()
 
         #expect(place.settingsPath.isEmpty)
+    }
+
+    @Test func narrowingFromTheSettingsTabPresentsTheSheetOverTheCatalog() {
+        let place = ShellPlace()
+        place.showSettingsPage(.account)
+
+        place.narrowed()
+
+        #expect(place.isCompact)
+        #expect(place.tab == .catalog)
+        #expect(place.settingsSheetShown)
+        #expect(place.settingsPath.count == 1)
+    }
+
+    @Test func narrowingFromAnotherTabKeepsItAndLeavesTheSheetDown() {
+        let place = ShellPlace()
+        place.tab = .tuner
+
+        place.narrowed()
+
+        #expect(place.tab == .tuner)
+        #expect(!place.settingsSheetShown)
+    }
+
+    @Test func wideningWithTheSheetUpShowsTheSettingsTab() {
+        let place = ShellPlace()
+        place.isCompact = true
+        place.tab = .lists
+        place.showSettingsPage(.stats)
+
+        place.widened()
+
+        #expect(!place.isCompact)
+        #expect(!place.settingsSheetShown)
+        #expect(place.tab == .settings)
+        #expect(place.settingsPage == .stats)
+    }
+
+    @Test func wideningWithTheSheetDownKeepsTheTab() {
+        let place = ShellPlace()
+        place.isCompact = true
+        place.tab = .recordings
+
+        place.widened()
+
+        #expect(place.tab == .recordings)
+    }
+
+    @Test func seePlanOnACompactWindowPresentsSettingsAndPushesAccount() {
+        let place = ShellPlace()
+        place.isCompact = true
+        place.tab = .recordings
+        place.showSettingsPage(.stats)
+
+        place.showSettingsPage(.account)
+
+        #expect(place.settingsSheetShown)
+        #expect(place.settingsPath.count == 1)
+        #expect(place.settingsPage == .account)
+        #expect(place.tab == .recordings)
+    }
+
+    @Test func showSettingsPresentsTheRoot() {
+        let place = ShellPlace()
+        place.isCompact = true
+
+        place.showSettings()
+
+        #expect(place.settingsSheetShown)
+        #expect(place.settingsPath.isEmpty)
+    }
+
+    @Test func theSettingsSheetReopensWhereItWasLeft() {
+        let place = ShellPlace()
+        place.isCompact = true
+        place.showSettingsPage(.stats)
+        place.settingsSheetShown = false
+
+        place.showSettings()
+
+        #expect(place.settingsSheetShown)
+        #expect(place.settingsPath == NavigationPath([SettingsPage.stats]))
+    }
+
+    @Test func aRestoredSettingsTabOpensTheCatalogInACompactWindow() {
+        let place = ShellPlace()
+        place.restore(tab: .settings, compact: true)
+        #expect(place.isCompact)
+        #expect(place.tab == .catalog)
+        #expect(!place.settingsSheetShown)
+
+        place.restore(tab: .settings, compact: false)
+        #expect(!place.isCompact)
+        #expect(place.tab == .settings)
+
+        place.restore(tab: .tuner, compact: true)
+        #expect(place.tab == .tuner)
+    }
+
+    @Test func theCompactShellOutlastsWidening() {
+        let place = ShellPlace()
+        #expect(place.showsCompactShell(windowIsCompact: true))
+        #expect(!place.showsCompactShell(windowIsCompact: false))
+
+        place.restore(tab: .catalog, compact: true)
+        #expect(place.showsCompactShell(windowIsCompact: false))
+
+        // The size class has changed, but the compact shell and its sheet stay until this runs.
+        place.widened()
+        #expect(!place.showsCompactShell(windowIsCompact: true))
+    }
+
+    @Test func theSheetsTeardownAfterWideningStillOpensTheSettingsTab() {
+        let place = ShellPlace()
+        place.restore(tab: .lists, compact: true)
+        place.showSettings()
+
+        place.widened()
+        place.settingsSheetChanged(shown: false)
+
+        #expect(place.tab == .settings)
+        #expect(!place.settingsSheetShown)
+    }
+
+    @Test func aCloseBeforeWideningIsAClose() {
+        let place = ShellPlace()
+        place.restore(tab: .lists, compact: true)
+        place.showSettings()
+
+        place.settingsSheetChanged(shown: false)
+        place.widened()
+
+        #expect(place.tab == .lists)
+        #expect(!place.settingsSheetShown)
+    }
+
+    @Test func closingTheSheetInACompactWindowClosesIt() {
+        let place = ShellPlace()
+        place.isCompact = true
+        place.showSettings()
+        place.settingsSheetChanged(shown: false)
+        #expect(!place.settingsSheetShown)
+
+        place.widened()
+        #expect(place.tab == .catalog)
+    }
+
+    @Test func aSavedSettingsTabStaysSavedWhileACompactWindowShowsTheCatalog() {
+        let place = ShellPlace()
+        place.restore(tab: .settings, compact: true)
+        #expect(place.tabToSave(saved: .settings) == .settings)
+        #expect(place.tabToSave(saved: .lists) == .catalog)
+        place.tab = .lists
+        #expect(place.tabToSave(saved: .settings) == .lists)
+
+        place.restore(tab: .settings, compact: false)
+        place.tab = .catalog
+        #expect(place.tabToSave(saved: .settings) == .catalog)
+    }
+
+    @Test func closingTheSheetEndsTheCatalogsStandIn() {
+        let place = ShellPlace()
+        place.restore(tab: .settings, compact: true)
+        place.showSettings()
+        place.settingsSheetChanged(shown: false)
+        #expect(place.tabToSave(saved: .settings) == .catalog)
+
+        let narrowed = ShellPlace()
+        narrowed.tab = .settings
+        narrowed.narrowed()
+        #expect(narrowed.tabToSave(saved: .settings) == .settings)
+        narrowed.settingsSheetChanged(shown: false)
+        #expect(narrowed.tabToSave(saved: .settings) == .catalog)
+    }
+
+    @Test func wideningShowsThePageTheSheetWasOn() {
+        let place = ShellPlace()
+        place.isCompact = true
+        place.showSettingsPage(.account)
+        // Back to the root, then on to another page, as the sheet's own stack does.
+        place.settingsPath = NavigationPath()
+        place.settingsPath.append(SettingsPage.stats)
+        place.settingsPage = .stats
+
+        place.widened()
+
+        #expect(place.tab == .settings)
+        #expect(place.settingsPage == .stats)
+    }
+
+    @Test func theMacSidebarShowsTheTunerRow() {
+        let place = ShellPlace()
+        place.showSidebarRoot(.tuner)
+        #expect(place.sidebar == .tuner)
     }
 
     @Test func theMacSidebarFallsBackToTheCatalogWithNoRowOfItsOwn() {
@@ -616,6 +884,10 @@ import Testing
         PadTab.choose(.destination(.lists), place: place, catalog: nil, inSidebar: false)
         #expect(place.tabTunes[.lists] == "t1")
         #expect(place.scrollAnchors[.lists] == "item-3")
+    }
+
+    @Test func onlyTheTunerFillsItsTabWithNoDetailColumn() {
+        #expect(Destination.allCases.filter { !PadTab.hasDetailColumn($0) } == [.tuner])
     }
 
     @Test func settingsDetailNamesNoSetting() { #expect(SettingsDetailPlaceholder.title == "No setting selected") }

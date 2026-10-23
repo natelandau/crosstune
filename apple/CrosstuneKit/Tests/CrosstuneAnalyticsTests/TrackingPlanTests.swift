@@ -209,6 +209,7 @@ private let settingSamples: [SettingChange] = [
     .playFirst(PlayFirst("recordings")!),
     .appearance(.dark),
     .textSize(3),
+    .tunerA4Hz(442),
     .captureChannels(.stereo),
     .downloadAll(true),
     .newTuneStatus(TuneStatus("learning")!),

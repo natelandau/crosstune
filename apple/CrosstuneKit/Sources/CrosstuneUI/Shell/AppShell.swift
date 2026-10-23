@@ -18,6 +18,7 @@ public struct AppShell: View {
     private let player: PlayerModel
     private let stage: EmbedStage
     private let recorders: RecorderHost
+    private let tuner: TunerModel
 
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(AccountSession.self) private var session: AccountSession?
@@ -62,20 +63,24 @@ public struct AppShell: View {
     ///   - stage: The web view every window shares for a loaded link, so the link plays once and
     ///     moves between layouts rather than reloading.
     ///   - recorders: The recorder every window shares.
-    public init(store: CrosstuneStore, player: PlayerModel, stage: EmbedStage, recorders: RecorderHost) {
+    ///   - tuner: The tuner every window shares, so only one ever holds the microphone.
+    public init(
+        store: CrosstuneStore, player: PlayerModel, stage: EmbedStage, recorders: RecorderHost, tuner: TunerModel
+    ) {
         self.store = store
         self.player = player
         self.stage = stage
         self.recorders = recorders
+        self.tuner = tuner
     }
 
     #if DEBUG
         /// Opens on `place`, so a marketing capture starts on the tune or list it shows.
         init(
             store: CrosstuneStore, player: PlayerModel, stage: EmbedStage, recorders: RecorderHost,
-            place: ShellPlace
+            tuner: TunerModel, place: ShellPlace
         ) {
-            self.init(store: store, player: player, stage: stage, recorders: recorders)
+            self.init(store: store, player: player, stage: stage, recorders: recorders, tuner: tuner)
             _place = State(initialValue: place)
         }
     #endif
@@ -84,7 +89,7 @@ public struct AppShell: View {
         layout
             #if os(iOS)
                 .onChange(of: sizeClass) { _, next in
-                    if next == .compact { place.narrowed() }
+                    if next == .compact { place.narrowed() } else if next == .regular { place.widened() }
                 }
             #endif
             .modifier(TuneFormSheets())
@@ -128,6 +133,8 @@ public struct AppShell: View {
             .environment(recentTakeForPlatform)
             .environment(catalog)
             .environment(recordings)
+            .environment(tuner)
+            .environment(\.tunerSelected, tunerSelected)
             .environment(\.catalogCounts, counts)
             .environment(\.openSheets, openSheets)
             .environment(\.recordCover, recordCover)
@@ -192,13 +199,16 @@ public struct AppShell: View {
                 }
             #endif
             .onAppear {
-                player.isCapturing = { [recorders] in recorders.isCapturing || Recorder.hasActiveCapture }
+                player.isCapturing = { [recorders] in
+                    recorders.isCapturing || Recorder.hasActiveCapture
+                }
                 stage.onOpened = { [player] in player.embedOpened($0) }
             }
             #if os(iOS)
-                .environment(\.windowIsRegular, sizeClass == .regular)
-                .onAppear { place.tab = savedTab }
-                .onChange(of: place.tab) { savedTab = place.tab }
+                // The shell's own layout rather than the size class, which turns a frame before it.
+                .environment(\.windowIsRegular, !place.showsCompactShell(windowIsCompact: sizeClass == .compact))
+                .onAppear { place.restore(tab: savedTab, compact: sizeClass == .compact) }
+                .onChange(of: place.tabToSave(saved: savedTab)) { _, next in savedTab = next }
             #endif
     }
 
@@ -208,6 +218,14 @@ public struct AppShell: View {
             recentTake
         #else
             nil
+        #endif
+    }
+
+    private var tunerSelected: Bool {
+        #if os(iOS)
+            place.tab == .tuner
+        #else
+            place.sidebar == .tuner
         #endif
     }
 
@@ -279,7 +297,7 @@ public struct AppShell: View {
     }
 
     /// Opens the Plan group: the Settings window's Account tab on the Mac, Settings › Account
-    /// elsewhere.
+    /// elsewhere, in the Settings sheet in a compact window.
     private func seePlan() {
         #if os(macOS)
             MacSettingsTabs.select(.account)
@@ -292,7 +310,7 @@ public struct AppShell: View {
     @ViewBuilder private var layout: some View {
         #if os(iOS)
             // Both shells read the same tab fields, so a size change keeps the tab, list, and tune.
-            if sizeClass == .compact {
+            if place.showsCompactShell(windowIsCompact: sizeClass == .compact) {
                 PhoneShell(
                     player: player, stage: stage, place: place, recordingsShown: recordingsShown, onRecord: record)
             } else {

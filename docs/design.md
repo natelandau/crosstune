@@ -182,8 +182,11 @@ Decide any case the rules below do not name.
   only once scrolled away, so it never reads twice.
 - Detail column: always a page or a placeholder, never a list. A
   placeholder names what it waits for and how to get one.
-- Sidebar order: Catalog with its statuses under it, Recordings, Lists,
-  Settings. Phone tab order: Catalog, Lists, Recordings, Settings.
+- Sidebar order: Catalog with its statuses under it, Recordings, Tuner,
+  Lists, Settings. Phone tab order: Catalog, Lists, Tuner, Recordings, then
+  Record. Settings is no phone tab: it opens from the account button
+  (initials, or a person icon when the account has no name) at the
+  top-trailing edge of each top-level screen's title row.
 - Sidebar count: absolute (non-archived tunes, ignoring filters). Zero
   hidden. The list header gives the narrowed count.
 - Sidebar status rows, the catalog's Status control, and stats links all
@@ -199,6 +202,35 @@ Decide any case the rules below do not name.
   dialog, and file picker, and while a screen is selecting.
 - One action reached from several places opens one component, over the
   current screen. Finishing returns the musician where they were.
+
+## Tuner
+
+- One display style, sharps only (`C♯`, never `D♭`). The tuner names the
+  note it hears and never guesses the instrument or the tuning.
+- In tune is 3 cents or less either way. Flat or Sharp shows in words
+  outside it, since color alone never carries state.
+- A target zone at each edge spans 10 cents either way of the note's line,
+  so the player always has a fixed mark to bring the bar into.
+- Outside the zone the bar color steps: light coral within 15 cents,
+  otherwise coral. A step, so the color is still while a far reading
+  wobbles. Inside the zone it blends from light coral to green, full green
+  in tune, so a peg turn shows as steady progress.
+- A wash behind the readout tells in tune from a distance, with the
+  instrument in hand. It grows with the same blend, none outside the zone
+  and full in tune.
+- The last note stays on screen until a new one replaces it. A plucked
+  string decays before the player looks up. A new listening session
+  starts with the prompt.
+- A screen reader hears only a change of note or a change into or out of
+  in tune. Announcing every reading would talk over the instrument.
+- Entering the tuner pauses playback, keeping queue and position, and
+  leaving never resumes it: the microphone would hear the speaker. A play
+  started while the tuner shows stops listening until playback pauses.
+  A link playing in its embed closes instead: the provider's page offers
+  no pause the app can reach.
+- It listens only while shown, visible, and uncovered. A sheet or dialog
+  over it stops listening and closing the sheet resumes. It keeps the
+  display awake while uncovered.
 
 ## Errors and states
 

@@ -6,6 +6,7 @@ import {
   type PlayFirst,
   type Provider,
   type TuneStatus,
+  USER_SETTINGS_RANGES,
 } from '../api/vocabulary'
 import { storedAudioQualityValue } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
@@ -17,6 +18,7 @@ import {
   storedPlayFirstValue,
   SEARCHABLE_PROVIDERS,
   storedSearchProviderValues,
+  storedTunerA4Hz,
   type LocalUserSettings,
 } from '../db/types'
 import { now, putRow, writeTx } from './write'
@@ -49,6 +51,7 @@ async function writeSettings(
     play_first?: PlayFirst
     new_tune_genre?: string | null
     new_tune_status?: TuneStatus
+    tuner_a4_hz?: number
   },
 ): Promise<void> {
   const at = now()
@@ -66,6 +69,7 @@ async function writeSettings(
     new_tune_genre:
       patch.new_tune_genre === undefined ? storedNewTuneGenre(existing) : patch.new_tune_genre,
     new_tune_status: patch.new_tune_status ?? storedNewTuneStatusValue(existing),
+    tuner_a4_hz: patch.tuner_a4_hz ?? storedTunerA4Hz(existing),
   })
 }
 
@@ -167,5 +171,19 @@ export async function toggleSearchProvider(
     const known = SEARCHABLE_PROVIDERS.filter((p) => next.has(p))
     const unknown = [...next].filter((v) => !SEARCHABLE_PROVIDERS.some((p) => p === v))
     await writeSettings(db, id, existing, { search_providers: [...known, ...unknown] })
+  })
+}
+
+/** Sets the pitch the tuner takes A4 to be, a whole number held within the allowed range. */
+export async function setTunerA4Hz(
+  db: CrosstuneDb,
+  clerkUserId: string,
+  hz: number,
+): Promise<void> {
+  const id = settingsId(clerkUserId)
+  const { min, max } = USER_SETTINGS_RANGES.tuner_a4_hz
+  const held = Math.min(Math.max(Math.round(hz), min), max)
+  await writeTx(db, async () => {
+    await writeSettings(db, id, await db.user_settings.get(id), { tuner_a4_hz: held })
   })
 }

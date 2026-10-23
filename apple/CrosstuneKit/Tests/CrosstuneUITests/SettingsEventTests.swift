@@ -85,6 +85,19 @@ import Testing
             ])
     }
 
+    @Test func settingTheReferencePitchSendsSettingChanged() async throws {
+        let store = try root.open()
+        let model = try await loaded(store)
+        #expect(model.tunerA4Hz == 440)
+
+        model.setTunerA4Hz(440)
+        model.setTunerA4Hz(442)
+        model.setTunerA4Hz(442)
+
+        #expect(try await poll { model.tunerA4Hz == 442 && sink.captures.count == 1 })
+        #expect(sink.captures == [changed("tuner_a4_hz", .int(442))])
+    }
+
     @Test func reportsAGenreBeingSetOnceHoweverManyKeysAreTyped() async throws {
         let store = try root.open()
         let model = try await loaded(store)

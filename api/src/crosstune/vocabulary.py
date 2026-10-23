@@ -258,6 +258,10 @@ MAX_LOOPS_PER_RECORDING: Final[int] = 100
 MAX_SCANS_PER_TUNE: Final[int] = 20
 PLACE_ACCURACY_M_MAX: Final[int] = 1_000_000
 """The widest accuracy a place keeps, in meters; a client stores a wider fix's as this."""
+TUNER_A4_HZ_DEFAULT: Final[int] = 440
+TUNER_A4_HZ_MIN: Final[int] = 430
+TUNER_A4_HZ_MAX: Final[int] = 450
+"""The tuner's reference pitch for A4, in whole hertz: its default and the bounds a user may set."""
 LOOP_COLOR_COUNT: Final[int] = 6
 """How many palette colors a loop can name; a loop stores an index below this."""
 

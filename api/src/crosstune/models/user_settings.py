@@ -4,14 +4,22 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import CheckConstraint, ForeignKey, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
-from crosstune.models._checks import in_list
+from crosstune.models._checks import between, in_list
 from crosstune.models.tune import TUNE
-from crosstune.vocabulary import SEARCHABLE_PROVIDERS, AudioQuality, PlayFirst, TuneStatus
+from crosstune.vocabulary import (
+    SEARCHABLE_PROVIDERS,
+    TUNER_A4_HZ_DEFAULT,
+    TUNER_A4_HZ_MAX,
+    TUNER_A4_HZ_MIN,
+    AudioQuality,
+    PlayFirst,
+    TuneStatus,
+)
 
 
 class UserSettings(SyncColumns, Base):
@@ -36,6 +44,10 @@ class UserSettings(SyncColumns, Base):
             in_list("new_tune_status", tuple(TuneStatus), nullable=False),
             name="ck_user_settings_new_tune_status",
         ),
+        CheckConstraint(
+            between("tuner_a4_hz", TUNER_A4_HZ_MIN, TUNER_A4_HZ_MAX),
+            name="ck_user_settings_tuner_a4_hz",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
@@ -55,4 +67,10 @@ class UserSettings(SyncColumns, Base):
     new_tune_genre: Mapped[str | None] = mapped_column(String(TUNE["genre"]), nullable=True)
     new_tune_status: Mapped[str] = mapped_column(
         String(20), nullable=False, default=TuneStatus.WANT_TO_LEARN.value
+    )
+    tuner_a4_hz: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=TUNER_A4_HZ_DEFAULT,
+        server_default=str(TUNER_A4_HZ_DEFAULT),
     )

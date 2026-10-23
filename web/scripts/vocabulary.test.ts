@@ -55,6 +55,9 @@ const ROWS = {
       color: { type: 'integer', minimum: 0, maximum: 5 },
     },
   },
+  UserSettingsRow: {
+    properties: { tuner_a4_hz: { type: 'integer', minimum: 430, maximum: 450 } },
+  },
   PlaceRow: {
     properties: { name: { type: 'string', maxLength: 200 } },
   },
@@ -141,6 +144,9 @@ describe('vocabulary generator', () => {
     )
     expect(text).toContain(
       'export const LOOP_RANGES = {\n  start_ms: { min: 0 },\n  color: { min: 0, max: 5 },\n} as const',
+    )
+    expect(text).toContain(
+      'export const USER_SETTINGS_RANGES = {\n  tuner_a4_hz: { min: 430, max: 450 },\n} as const',
     )
   })
 

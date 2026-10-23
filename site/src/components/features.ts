@@ -7,7 +7,8 @@
 type FeatureLayout = 'right' | 'left' | 'tall'
 
 /** The demo a feature section shows; `<DemoPanel>` takes these names. */
-type FeatureDemo = 'tunes' | 'tunePage' | 'record' | 'practice' | 'lists' | 'listen' | 'folk'
+type FeatureDemo =
+  'tunes' | 'tunePage' | 'record' | 'practice' | 'tuner' | 'lists' | 'listen' | 'folk'
 
 type Feature = {
   id: string
@@ -71,11 +72,19 @@ export const FEATURES: readonly Feature[] = [
     layout: 'left',
   },
   {
+    id: 'tuner',
+    heading: 'A tuner on the stand',
+    body: 'Crosstune hears the note you play and shows how far off it is, from upright bass to fiddle. Tune up without leaving the app.',
+    points: ['Works for any instrument', 'Reads low bass strings', 'Free on every plan'],
+    demo: 'tuner',
+    layout: 'right',
+  },
+  {
     id: 'lists',
     heading: 'Flexible lists of tunes',
     body: "Build a set list for Saturday's gig, a practice list for this month, or a list of every tune you picked up at Clifftop. A tune can be on as many lists as you like, in whatever order you put it. Press play and listen to a list straight through, like a playlist.",
     demo: 'lists',
-    layout: 'right',
+    layout: 'left',
   },
   {
     id: 'listen',
@@ -87,14 +96,14 @@ export const FEATURES: readonly Feature[] = [
       'Where supported, download a recording to play offline, slow down, and loop like any other',
     ],
     demo: 'listen',
-    layout: 'left',
+    layout: 'right',
   },
   {
     id: 'folk',
     heading: 'Built for folk musicians',
     body: "General music apps don't know what cross-tuning is. Crosstune tracks the details folk players care about: AEAE on fiddle, double C on banjo, crooked parts, AABB structure, modal keys, and who you learned a tune from. Your whole catalog lives on your phone, so it works at a festival campground with no signal and syncs when you're back in range.",
     demo: 'folk',
-    layout: 'right',
+    layout: 'left',
   },
 ]
 

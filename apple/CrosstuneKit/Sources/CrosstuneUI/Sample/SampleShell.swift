@@ -20,6 +20,7 @@
         @State private var listPlayback: ListPlayback
         @State private var stage = EmbedStage()
         @State private var recorders: RecorderHost
+        @State private var tuner: TunerModel
         @State private var plan: PlanModel?
         @State private var noticeClaim = NoticeClaim()
         @State private var place: ShellPlace
@@ -46,9 +47,10 @@
             samplePlan = plan ?? screen?.plan
             self.screen = screen
             _place = State(initialValue: screen?.place() ?? ShellPlace())
-            _recorders = State(
-                initialValue: screen == .record
-                    ? RecorderHost(makeInput: { FileInput(url: Self.recordTone) }) : RecorderHost())
+            let recorders =
+                screen == .record ? RecorderHost(makeInput: { FileInput(url: Self.recordTone) }) : RecorderHost()
+            _recorders = State(initialValue: recorders)
+            _tuner = State(initialValue: TunerModel(input: TunerInput(), recorders: recorders))
             // The playlist must sit on the same player the shell shows.
             let player = PlayerModel()
             _player = State(initialValue: player)
@@ -62,13 +64,15 @@
                 if screen?.isSignedOut == true {
                     WelcomeView(notice: nil)
                 } else if let store {
-                    AppShell(store: store, player: player, stage: stage, recorders: recorders, place: place)
-                        .environment(engine)
-                        .environment(listPlayback)
-                        // A capture never shows the system review request.
-                        .environment(\.reviewPrompt, nil)
-                        .environment(\.plan, plan)
-                        .environment(\.noticeClaim, noticeClaim)
+                    AppShell(
+                        store: store, player: player, stage: stage, recorders: recorders, tuner: tuner, place: place
+                    )
+                    .environment(engine)
+                    .environment(listPlayback)
+                    // A capture never shows the system review request.
+                    .environment(\.reviewPrompt, nil)
+                    .environment(\.plan, plan)
+                    .environment(\.noticeClaim, noticeClaim)
                 } else if let failure {
                     ContentUnavailableView(
                         "The sample catalog did not open", systemImage: "exclamationmark.triangle",

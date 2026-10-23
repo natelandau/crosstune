@@ -1,6 +1,7 @@
 import {
   ArrowDownUp,
   AudioLines,
+  Gauge,
   ListMusic,
   RefreshCw,
   SunMoon,
@@ -12,11 +13,13 @@ import { SETTINGS_PAGE_IDS, type SettingsPageId } from './settingsPaths'
 import { AUDIO_QUALITY_NAMES } from '../../constants'
 import { APPEARANCE_LABELS, type Appearance } from '../../theme/appearance'
 import {
+  a4Label,
   ACCOUNT,
   APPEARANCE,
   IMPORT_AND_EXPORT,
   RECORDINGS_SETTINGS,
   SYNC_AND_STORAGE,
+  TUNER_SETTINGS_TITLE,
   TUNES,
 } from './settingsCopy'
 
@@ -29,6 +32,7 @@ export interface SettingsValues {
   instruments: string
   quality: AudioQuality
   appearance: Appearance
+  tunerA4Hz: number
 }
 
 export interface SettingsPageSpec {
@@ -58,6 +62,12 @@ export const SETTINGS_PAGES: readonly SettingsPageSpec[] = [
     title: APPEARANCE,
     icon: SunMoon,
     summary: (values) => APPEARANCE_LABELS[values.appearance],
+  },
+  {
+    id: 'tuner',
+    title: TUNER_SETTINGS_TITLE,
+    icon: Gauge,
+    summary: (values) => a4Label(values.tunerA4Hz),
   },
   { id: 'sync', title: SYNC_AND_STORAGE, icon: RefreshCw },
   { id: 'import-export', title: IMPORT_AND_EXPORT, icon: ArrowDownUp },

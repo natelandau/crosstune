@@ -374,6 +374,21 @@ def test_user_settings_new_tunes_start_with_no_genre_and_want_to_learn() -> None
     assert settings.new_tune_status == "want_to_learn"
 
 
+def test_user_settings_tuner_a4_hz_defaults_to_440() -> None:
+    assert UserSettingsData(created_at=NOW).tuner_a4_hz == 440
+
+
+@pytest.mark.parametrize("hz", [429, 451])
+def test_user_settings_tuner_a4_hz_rejects_out_of_range(hz: int) -> None:
+    with pytest.raises(ValidationError):
+        UserSettingsData(tuner_a4_hz=hz, created_at=NOW)
+
+
+@pytest.mark.parametrize("hz", [430, 450])
+def test_user_settings_tuner_a4_hz_accepts_the_bounds(hz: int) -> None:
+    assert UserSettingsData(tuner_a4_hz=hz, created_at=NOW).tuner_a4_hz == hz
+
+
 def test_user_settings_rejects_unknown_new_tune_status() -> None:
     with pytest.raises(ValidationError):
         UserSettingsData(new_tune_status="mastered", created_at=NOW)

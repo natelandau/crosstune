@@ -3,10 +3,6 @@ import CrosstuneStore
 import CrosstuneVocabulary
 import SwiftUI
 
-#if os(iOS)
-    import UIKit
-#endif
-
 /// The words at reading distance, over the whole shell: a size the musician can grow or shrink,
 /// kept from device sleep while it is up. Full screen on iPhone and iPad; a window-filling sheet
 /// on Mac, closed by Escape or Done.
@@ -283,27 +279,6 @@ private struct LyricsEditSheet: View {
         Task {
             if await model.save(draft) { dismiss() }
         }
-    }
-}
-
-/// Disables the device's idle timer while `content` is on screen, restoring it on dismiss and
-/// while the app is not active, since a screen backgrounded mid-reading is not being read.
-struct KeepsScreenAwake: ViewModifier {
-    @Environment(\.scenePhase) private var scenePhase
-
-    func body(content: Content) -> some View {
-        content
-            .onAppear { setIdleTimerDisabled(scenePhase == .active) }
-            .onDisappear { setIdleTimerDisabled(false) }
-            .onChange(of: scenePhase) { _, phase in
-                setIdleTimerDisabled(phase == .active)
-            }
-    }
-
-    private func setIdleTimerDisabled(_ disabled: Bool) {
-        #if os(iOS)
-            UIApplication.shared.isIdleTimerDisabled = disabled
-        #endif
     }
 }
 

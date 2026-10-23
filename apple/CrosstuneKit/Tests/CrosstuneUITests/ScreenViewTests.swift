@@ -17,6 +17,7 @@ import Testing
         ("Lists/ListsScreen.swift", "lists"),
         ("Lists/ListScreen.swift", "list"),
         ("Recordings/RecordingsScreen.swift", "recordings"),
+        ("Tuner/TunerScreen.swift", "tuner"),
         ("RecordingScreen/RecordingScreen.swift", "recording"),
         ("Phone/SettingsRoot.swift", "settings"),
         ("Mac/MacSettingsTabs.swift", "settings"),

@@ -1,10 +1,10 @@
 import { motion, useIsPresent } from 'motion/react'
 import { DURATION, EASE } from '../theme/motion'
 import { destination, type Destination } from '../layout/destinations'
-import { useDestination } from './useDestination'
-import { DestinationLink } from './DestinationLink'
+import { useDestination } from '../layout/useDestination'
+import { DestinationLink } from '../layout/DestinationLink'
 import { RecordControl } from './RecordControl'
-import { TAB_BAR } from '../layout/tabs'
+import { PHONE_TABS, TAB_BAR } from '../layout/tabs'
 
 function Tab({ id }: { id: Destination }) {
   const { current } = useDestination()
@@ -50,10 +50,9 @@ export function TabBar() {
       className="flex items-center gap-2"
     >
       <div className="bg-surface border-hairline grid h-[62px] min-w-0 flex-1 grid-cols-4 items-center rounded-full border px-1">
-        <Tab id="catalog" />
-        <Tab id="lists" />
-        <Tab id="recordings" />
-        <Tab id="settings" />
+        {PHONE_TABS.map((id) => (
+          <Tab key={id} id={id} />
+        ))}
       </div>
       <RecordControl shape="disc" />
     </motion.nav>

@@ -123,7 +123,7 @@ export function RecordingsScreen() {
         trailing={<UploadControl onFiles={importFiles} onHeld={held} />}
       />
       <DropOverlay shown={drop.over} />
-      <ColumnTitle title={RECORDINGS.label} titleRef={titleRef} />
+      <ColumnTitle title={RECORDINGS.label} titleRef={titleRef} account />
       <div className="px-4 pb-2">
         <SearchField
           ref={searchRef}

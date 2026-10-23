@@ -11,6 +11,7 @@ const SCREEN_PATTERNS: [pattern: string, screen: Screen][] = [
   ['/lists/:listId/tunes/:tuneId', 'tune'],
   ['/recordings', 'recordings'],
   ['/recordings/:tuneId', 'tune'],
+  ['/tuner', 'tuner'],
   ['/settings', 'settings'],
   ['/settings/stats', 'stats'],
   ['/settings/stats/tunes/:tuneId', 'tune'],

@@ -43,6 +43,7 @@ vi.mock('@clerk/react', () => ({
     getToken: async () => clerk.token,
     signOut: clerk.signOut,
   }),
+  useUser: () => ({ isLoaded: clerk.isLoaded, user: null }),
   SignIn: (props: Record<string, unknown>) => {
     clerk.signIn = props
     return (

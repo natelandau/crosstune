@@ -36,10 +36,12 @@ public struct SettingsScreen: View {
         static let serviceToggles = Sections(rawValue: 1 << 15)
         /// The saved locations as a group of rows, each opening its location.
         static let savedLocations = Sections(rawValue: 1 << 16)
+        /// The reference pitch.
+        static let tuner = Sections(rawValue: 1 << 17)
 
         static let all: Sections = [
             .stats, .instrumentToggles, .newTunes, .serviceToggles, .appleMusic, .appearance, .recording,
-            .savedLocations, .downloads, .sync, .storage, .importExport, .plan, .account, .about,
+            .savedLocations, .downloads, .tuner, .sync, .storage, .importExport, .plan, .account, .about,
         ]
     }
 
@@ -206,6 +208,7 @@ public struct SettingsScreen: View {
                 }
                 if let model, model.isLoaded {
                     if sections.contains(.downloads) { downloadsSections(model) }
+                    if sections.contains(.tuner) { tunerSection(model) }
                     if sections.contains(.sync) { syncSection(model) }
                     if sections.contains(.storage) { storageSection(model) }
                 }
@@ -340,6 +343,21 @@ public struct SettingsScreen: View {
             LocationAccessSection(helpAbove: true)
         }
 
+        private func tunerSection(_ model: SettingsModel) -> some View {
+            Section {
+                let hz = Binding(get: { model.tunerA4Hz }, set: { model.setTunerA4Hz($0) })
+                Stepper(value: hz, in: Vocabulary.Ranges.UserSettings.tunerA4Hz) {
+                    LabeledContent(
+                        SettingsModel.referencePitch, value: SettingsModel.referencePitchLabel(model.tunerA4Hz))
+                }
+                .accessibilityValue(SettingsModel.referencePitchLabel(model.tunerA4Hz))
+            } header: {
+                SettingsHelp(nil, title: SettingsModel.tuner)
+            } footer: {
+                SettingsFailure(model.tunerA4HzFailure)
+            }
+        }
+
         @ViewBuilder private func downloadsSections(_ model: SettingsModel) -> some View {
             Section {
                 Toggle(
@@ -435,6 +453,7 @@ public struct SettingsScreen: View {
             }
             if let model, model.isLoaded {
                 if sections.contains(.downloads) { macDownloads(model) }
+                if sections.contains(.tuner) { macTuner(model) }
                 if sections.contains(.sync) { macSync(model) }
                 if sections.contains(.storage) { macStorage(model) }
             }
@@ -532,6 +551,21 @@ public struct SettingsScreen: View {
                         options: CaptureChannels.allCases, label: SettingsModel.channelLabel)
                 }
                 MacLocationAccessRow()
+            }
+        }
+
+        private func macTuner(_ model: SettingsModel) -> some View {
+            let range = Vocabulary.Ranges.UserSettings.tunerA4Hz
+            return MacFormSection(SettingsModel.tuner, failure: model.tunerA4HzFailure) {
+                MacSettingsRow(SettingsModel.referencePitch) {
+                    MacStepper(
+                        value: SettingsModel.referencePitchLabel(model.tunerA4Hz),
+                        decrement: { model.setTunerA4Hz(model.tunerA4Hz - 1) },
+                        increment: { model.setTunerA4Hz(model.tunerA4Hz + 1) },
+                        canDecrement: model.tunerA4Hz > range.lowerBound,
+                        canIncrement: model.tunerA4Hz < range.upperBound,
+                        accessibilityLabel: SettingsModel.referencePitch)
+                }
             }
         }
 

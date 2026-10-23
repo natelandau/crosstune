@@ -1190,6 +1190,7 @@ describe('schema', () => {
       play_first: 'recordings',
       new_tune_genre: null,
       new_tune_status: 'want_to_learn',
+      tuner_a4_hz: 440,
     })
     await db.recording_chunks.put({ recording_id: 'rec-1', idx: 0, blob: new Blob(['abc']) })
     await db.scan_files.put(scanFile('scan-1', new Blob(['jpg'], { type: 'image/jpeg' })))

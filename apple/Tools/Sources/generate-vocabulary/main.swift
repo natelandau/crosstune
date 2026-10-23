@@ -51,6 +51,7 @@ let limitNamespaces: [(name: String, rows: [String])] = [
 let rangeNamespaces: [(name: String, schema: String, fields: [String])] = [
     ("Recording", "RecordingData", ["pitch_cents", "place_accuracy_m", "speed_percent"]),
     ("RecordingLoop", "RecordingLoopRow", ["color"]),
+    ("UserSettings", "UserSettingsRow", ["tuner_a4_hz"]),
 ]
 
 func camelCase(_ snakeCase: String) -> String {

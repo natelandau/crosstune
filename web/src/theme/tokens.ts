@@ -19,6 +19,7 @@ export interface Palette {
   jet: string
   record: string
   known: string
+  tuneClose: string
   learning: string
   unknown: string
   unknownOnSurface: string
@@ -53,6 +54,7 @@ export const PALETTE: Record<Scheme, Palette> = {
     jet: '#2D3142',
     record: '#FF3B30',
     known: '#248A3D',
+    tuneClose: '#F6BBA1',
     learning: '#FF8D28',
     unknown: '#8A909A',
     unknownOnSurface: '#737983',
@@ -85,6 +87,7 @@ export const PALETTE: Record<Scheme, Palette> = {
     jet: '#1E212C',
     record: '#FF453A',
     known: '#30D158',
+    tuneClose: '#F6BBA1',
     learning: '#FF9230',
     unknown: '#8A909A',
     unknownOnSurface: '#8A909A',

@@ -9,6 +9,7 @@ struct DestinationScreen: View {
         case .catalog: CatalogScreen()
         case .lists: ListsScreen()
         case .recordings: RecordingsScreen()
+        case .tuner: TunerScreen()
         case .settings: SettingsRoot()
         }
     }

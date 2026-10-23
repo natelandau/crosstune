@@ -83,5 +83,8 @@ public enum Vocabulary {
         public enum RecordingLoop {
             public static let color = 0...5
         }
+        public enum UserSettings {
+            public static let tunerA4Hz = 430...450
+        }
     }
 }

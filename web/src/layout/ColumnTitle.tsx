@@ -1,22 +1,26 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode, type Ref, type RefObject } from 'react'
 import { usePane } from './pane'
+import { AccountButton } from './AccountButton'
 import { ScreenSyncBadge } from './SyncBadge'
 
 /**
  * A column's title as the first line of its content, in the screen title role. It scrolls with
  * the content, and tells the pane bar once it has gone under the bar, so the bar takes over.
- * `trailing` sits beside it. The phone's sync badge follows, unless `syncBadge` is false.
+ * `trailing` sits beside it. The phone's sync badge follows, unless `syncBadge` is false. On a
+ * destination's root screen, `account` puts the phone's account button at the row's end.
  * `titleRef` reaches the heading, where focus lands when a control holding it leaves the column.
  */
 export function ColumnTitle({
   title,
   trailing,
   syncBadge = true,
+  account = false,
   titleRef,
 }: {
   title: string
   trailing?: ReactNode
   syncBadge?: boolean
+  account?: boolean
   titleRef?: Ref<HTMLHeadingElement>
 }) {
   const line = useRef<HTMLDivElement>(null)
@@ -33,6 +37,7 @@ export function ColumnTitle({
           {syncBadge && <ScreenSyncBadge />}
         </div>
       )}
+      {account && <AccountButton />}
     </div>
   )
 }

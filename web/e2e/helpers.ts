@@ -23,7 +23,14 @@ import {
 } from '../src/features/tune/tuneFormCopy'
 import { TUNE } from '../src/features/tune/tunePageCopy'
 import { MORE_ACTIONS } from '../src/ui/menuCopy'
-import { RECORD_LABEL, TABS, tabLabel, TAB_BAR } from '../src/layout/tabs'
+import {
+  ACCOUNT_BUTTON,
+  PHONE_TABS,
+  RECORD_LABEL,
+  TABS,
+  tabLabel,
+  TAB_BAR,
+} from '../src/layout/tabs'
 import { STATUS_LABELS } from '../src/constants'
 import { e2eUserEmails } from './users'
 import { KEY } from '../src/ui/keyName'
@@ -162,20 +169,26 @@ export const tuneRow = (page: Page, title: string): Locator =>
     .getByRole('grid', { name: TUNE_LIST })
     .getByRole('row', { name: new RegExp(`^${escapeRegExp(title)},`) })
 
-/** A destination on the tab bar, by its id, such as `catalog`. */
+/** A destination, by its id, such as `catalog`. */
 export type Tab = (typeof TABS)[number]['tab']
 
+const spec = (id: Tab) => TABS.find((tab) => tab.tab === id)!
+
+const within = (path: string, href: string) => path === href || path.startsWith(`${href}/`)
+
 /**
- * Open a destination from the tab bar. A destination reopens where it was left, and a second
- * tap on the current one returns to its root, so by default this taps again until the root is
- * showing. Pass `root: false` to stay where the destination was left.
+ * Open a destination from the tab bar, or Settings from the account button. A destination
+ * reopens where it was left, and a second tap on the current one returns to its root, so by
+ * default this taps again until the root is showing. Pass `root: false` to stay where the
+ * destination was left.
  */
 export async function openTab(
   page: Page,
   id: Tab,
   { root = true }: { root?: boolean } = {},
 ): Promise<void> {
-  const { label, href } = TABS.find((tab) => tab.tab === id)!
+  if (id === 'settings') return openSettings(page, root)
+  const { label, href } = spec(id)
   const tab = tabBar(page).getByRole('link', { name: label, exact: true })
   const path = () => new URL(page.url()).pathname
   await tab.click()
@@ -183,6 +196,33 @@ export async function openTab(
   if (root && path() !== href) {
     await tab.click()
     await expect.poll(path).toBe(href)
+  }
+}
+
+/**
+ * Open Settings from the account button, which only a tab's root screen shows. From deeper in a
+ * tab it goes through another tab's root, so the tab it leaves keeps its place.
+ */
+async function openSettings(page: Page, root: boolean): Promise<void> {
+  const { label, href } = spec('settings')
+  const path = () => new URL(page.url()).pathname
+  if (!within(path(), href)) {
+    // Off a tab's root the account button is absent, so the detour never waits on it.
+    if (!PHONE_TABS.some((id) => path() === spec(id).href)) {
+      const here = PHONE_TABS.find((id) => within(path(), spec(id).href))
+      await openTab(
+        page,
+        PHONE_TABS.find((id) => id !== here)!,
+      )
+    }
+    await page.getByRole('main').getByRole('link', { name: ACCOUNT_BUTTON, exact: true }).click()
+    await expect.poll(path).toMatch(new RegExp(`^${href}(/|$)`))
+  }
+  // Each page under Settings goes Back to its parent, named for Settings.
+  while (root && path() !== href) {
+    const before = path()
+    await page.getByRole('main').getByRole('link', { name: label, exact: true }).click()
+    await expect.poll(path).not.toBe(before)
   }
 }
 

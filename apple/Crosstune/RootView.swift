@@ -9,6 +9,7 @@ struct RootView: View {
     let listPlayback: ListPlayback
     let stage: EmbedStage
     let recorders: RecorderHost
+    let tuner: TunerModel
 
     @Environment(\.undoManager) private var undoManager
 
@@ -21,7 +22,7 @@ struct RootView: View {
                 WelcomeView(notice: session.showsDeletedNotice ? DeletedNotice.text : nil)
             case .signedIn:
                 if let store = session.store {
-                    AppShell(store: store, player: player, stage: stage, recorders: recorders)
+                    AppShell(store: store, player: player, stage: stage, recorders: recorders, tuner: tuner)
                         .environment(session.syncEngine)
                 } else if let failure = session.storeFailure {
                     StoreFailureView(session: session, failure: failure)

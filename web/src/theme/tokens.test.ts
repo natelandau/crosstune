@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { contrastRatio } from '../test/contrast'
+import { contrastRatio, relativeLuminance } from '../test/contrast'
 import { PALETTE, type Palette } from './tokens'
 
 // contrastRatio measures rgb() strings, and the palette is hex.
@@ -78,6 +78,30 @@ it.each(['light', 'dark'] as const)('practice reads on %s jet', (scheme) => {
   expect(ratio(PALETTE.light.coral, jet)).toBeGreaterThanOrEqual(3)
 })
 
+// The tuner's two off-pitch steps on jet: both legible, and apart in lightness as well as hue,
+// so they stay apart under red-green color blindness.
+it.each(['light', 'dark'] as const)('tuner steps read on %s jet', (scheme) => {
+  const p = PALETTE[scheme]
+  expect(ratio(p.tuneClose, p.jet)).toBeGreaterThanOrEqual(3)
+  expect(ratio(p.coral, p.jet)).toBeGreaterThanOrEqual(3)
+  const gap = relativeLuminance(rgb(p.tuneClose)) - relativeLuminance(rgb(p.coral))
+  expect(Math.abs(gap)).toBeGreaterThanOrEqual(0.1)
+})
+
+// Inside the target zone the bars blend from the close step to green; every color between
+// stays legible on jet.
+it.each(['light', 'dark'] as const)('tuner bars read on %s jet across the blend', (scheme) => {
+  const p = PALETTE[scheme]
+  const bytes = (hex: string) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16))
+  const [close, green] = [bytes(p.tuneClose), bytes(PALETTE.dark.known)]
+  for (let step = 0; step <= 10; step++) {
+    const share = step / 10
+    const mixed = close.map((c, i) => Math.round(c * (1 - share) + green[i]! * share))
+    const hex = `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`
+    expect(ratio(hex, p.jet), `${share} green`).toBeGreaterThanOrEqual(3)
+  }
+})
+
 // Read from disk: the unit project hands CSS imports, raw ones included, over empty.
 const css = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8')
 
@@ -126,6 +150,37 @@ it("gives practice the dark scheme's danger in either appearance", () => {
   expect(normal(declared(':root').get('--danger-dark') ?? 'missing')).toBe(
     normal(PALETTE.dark.danger),
   )
+})
+
+it("gives the tuner the dark scheme's known in either appearance", () => {
+  expect(normal(declared(':root').get('--known-dark') ?? 'missing')).toBe(
+    normal(PALETTE.dark.known),
+  )
+})
+
+const channels = (hex: string) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16))
+const toHex = (values: number[]) =>
+  `#${values.map((c) => Math.round(c).toString(16).padStart(2, '0')).join('')}`
+
+/** The hex color a `color-mix(in srgb, var(--a) N%, var(--b))` token resolves to. */
+function mixOf(values: Map<string, string>, name: string): string {
+  const match = /^color-mix\(in srgb, var\((--[\w-]+)\) (\d+)%, var\((--[\w-]+)\)\)$/.exec(
+    values.get(name) ?? '',
+  )
+  if (!match) throw new Error(`${name} is not a color-mix of two tokens`)
+  const [a, share, b] = [channels(values.get(match[1]!)!), Number(match[2]) / 100, match[3]!]
+  const under = channels(values.get(b)!)
+  return toHex(a.map((c, i) => c * share + under[i]! * (1 - share)))
+}
+
+// The in-tune wash replaces jet under the tuner's white type and green bars.
+describe.each(['light', 'dark'] as const)('the tuner wash in %s', (scheme) => {
+  const values = tokens(scheme)
+  const wash = () => mixOf(values, '--tune-wash')
+  it('keeps white type legible', () => expect(ratio('#FFFFFF', wash())).toBeGreaterThanOrEqual(4.5))
+  it('keeps the green bars legible', () =>
+    expect(ratio(values.get('--known-dark')!, wash())).toBeGreaterThanOrEqual(3))
+  it('reads apart from jet', () => expect(wash()).not.toBe(values.get('--jet')))
 })
 
 /** The hex color a translucent wash token paints over an opaque ground. */

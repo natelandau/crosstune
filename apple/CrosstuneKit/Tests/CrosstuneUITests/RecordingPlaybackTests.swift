@@ -230,6 +230,32 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         #expect(audio.loaded == audioURL)
     }
 
+    @Test func pausesForTheTunerAndKeepsTheRecording() async throws {
+        let audio = FakeAudio()
+        let player = PlayerModel(audio: audio)
+        player.audioSource = { _ in playable() }
+        player.play(.recording(recording(), tuneTitle: nil))
+        try await eventually { audio.isPlaying }
+
+        player.quietForTuner()
+
+        #expect(!audio.isPlaying)
+        #expect(player.isLoaded)
+    }
+
+    @Test func closesAnEmbedForTheTuner() throws {
+        let player = PlayerModel(audio: FakeAudio())
+        let video = RecordingLink(
+            id: "l1", tuneID: "t1", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", provider: "youtube",
+            providerRef: "dQw4w9WgXcQ")
+        player.play(try #require(PlayerItem.link(video)))
+        #expect(player.embed != nil)
+
+        player.quietForTuner()
+
+        #expect(!player.isLoaded)
+    }
+
     @Test func playsOneThingAtATime() async throws {
         let audio = FakeAudio()
         let player = PlayerModel(audio: audio)

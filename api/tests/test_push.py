@@ -394,6 +394,30 @@ async def test_push_user_settings_new_tune_defaults_round_trip(client, auth_head
     assert [(r["new_tune_genre"], r["new_tune_status"]) for r in stored] == [("Old-time", "known")]
 
 
+async def test_push_user_settings_tuner_a4_hz_round_trip(client, auth_headers) -> None:
+    headers = auth_headers("user_a")
+    results = await push(client, headers, change("user_settings", uid(), T0, tuner_a4_hz=442))
+    assert results[0]["status"] == "applied"
+    rows = (await pull(client, headers))["rows"]
+    stored = [r["row"] for r in rows if r["table"] == "user_settings"]
+    assert [r["tuner_a4_hz"] for r in stored] == [442]
+
+
+async def test_push_user_settings_without_tuner_a4_hz_keeps_the_stored_value(
+    client, auth_headers
+) -> None:
+    # A client older than the tuner sends every other field and no reference pitch.
+    headers = auth_headers("user_a")
+    id_ = uid()
+    await push(client, headers, change("user_settings", id_, T0, tuner_a4_hz=442))
+    results = await push(client, headers, change("user_settings", id_, T1, audio_quality="high"))
+    assert results[0]["status"] == "applied"
+    assert results[0]["row"]["tuner_a4_hz"] == 442
+    rows = (await pull(client, headers))["rows"]
+    stored = [r["row"] for r in rows if r["table"] == "user_settings"]
+    assert [(r["audio_quality"], r["tuner_a4_hz"]) for r in stored] == [("high", 442)]
+
+
 async def test_push_user_tune_pin_round_trips(client, auth_headers) -> None:
     headers = auth_headers("user_a")
     tune_id, us_id, rec_id = uid(), uid(), uid()

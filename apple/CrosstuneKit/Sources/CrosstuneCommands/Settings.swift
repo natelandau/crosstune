@@ -95,6 +95,15 @@ public func storedNewTuneStatus(_ row: UserSettings?) -> String {
     return row.newTuneStatus
 }
 
+/// The reference pitch the tuner uses, or 440 when there is no live row or a stored value is
+/// outside the range.
+public func storedTunerA4Hz(_ row: UserSettings?) -> Int {
+    guard let row, row.deletedAt == nil, Vocabulary.Ranges.UserSettings.tunerA4Hz.contains(row.tunerA4Hz) else {
+        return UserSettings.defaultTunerA4Hz
+    }
+    return row.tunerA4Hz
+}
+
 /// The new-tune status a write keeps: the stored one even when this build does not know it.
 private func storedNewTuneStatusValue(_ row: UserSettings?) -> String {
     guard let row, row.deletedAt == nil else { return UserSettings.defaultNewTuneStatus }
@@ -107,7 +116,7 @@ extension StoreWriter {
     private func writeSettings(
         id: String, existing: UserSettings?, instruments: [String]? = nil, audioQuality: String? = nil,
         searchProviders: [String]? = nil, playFirst: String? = nil, newTuneGenre: String?? = nil,
-        newTuneStatus: String? = nil, at time: Timestamp = .now
+        newTuneStatus: String? = nil, tunerA4Hz: Int? = nil, at time: Timestamp = .now
     ) throws {
         try put(
             UserSettings(
@@ -118,6 +127,7 @@ extension StoreWriter {
                 playFirst: playFirst ?? storedPlayFirstValue(existing),
                 newTuneGenre: newTuneGenre ?? storedNewTuneGenre(existing),
                 newTuneStatus: newTuneStatus ?? storedNewTuneStatusValue(existing),
+                tunerA4Hz: tunerA4Hz ?? storedTunerA4Hz(existing),
                 extra: existing?.extra ?? [:]),
             at: time)
     }
@@ -170,6 +180,15 @@ extension StoreWriter {
         let id = settingsID(clerkUserID: clerkUserID)
         try writeSettings(
             id: id, existing: try UserSettings.fetchOne(db, key: id), newTuneStatus: status, at: time)
+    }
+
+    /// The pitch the tuner takes A4 to be, held within ``Vocabulary/Ranges/UserSettings/tunerA4Hz``.
+    public func setTunerA4Hz(clerkUserID: String, hz: Int, at time: Timestamp = .now) throws {
+        let id = settingsID(clerkUserID: clerkUserID)
+        let range = Vocabulary.Ranges.UserSettings.tunerA4Hz
+        try writeSettings(
+            id: id, existing: try UserSettings.fetchOne(db, key: id),
+            tunerA4Hz: min(max(hz, range.lowerBound), range.upperBound), at: time)
     }
 
     /// Turns one searched service on or off, read inside this call like
@@ -232,6 +251,12 @@ extension Commands {
     public func setNewTuneStatus(clerkUserID: String, status: String, at time: Timestamp = .now) async throws {
         try await store.write { writer in
             try writer.setNewTuneStatus(clerkUserID: clerkUserID, status: status, at: time)
+        }
+    }
+
+    public func setTunerA4Hz(clerkUserID: String, hz: Int, at time: Timestamp = .now) async throws {
+        try await store.write { writer in
+            try writer.setTunerA4Hz(clerkUserID: clerkUserID, hz: hz, at: time)
         }
     }
 

@@ -66,6 +66,7 @@ const GO_TO: { id: ShortcutId; to: Destination }[] = [
   { id: 'goCatalog', to: 'catalog' },
   { id: 'goLists', to: 'lists' },
   { id: 'goRecordings', to: 'recordings' },
+  { id: 'goTuner', to: 'tuner' },
   { id: 'goSettings', to: 'settings' },
 ]
 

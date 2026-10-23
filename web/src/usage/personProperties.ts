@@ -7,6 +7,7 @@ import {
   storedNewTuneStatusValue,
   storedPlayFirstValue,
   storedSearchProviderValues,
+  storedTunerA4Hz,
 } from '../db/types'
 import { readAppearance, readTextSize, type Appearance, type TextSize } from '../theme/appearance'
 import { settingsId } from '../commands/settings'
@@ -40,6 +41,7 @@ export interface WebSettings {
   newTuneStatus: string
   /** Only whether a genre is set: the genre is free text, which analytics never carries. */
   newTuneGenreSet: boolean
+  tunerA4Hz: number
 }
 
 export async function readWebSettings(db: CrosstuneDb, userId: string): Promise<WebSettings> {
@@ -54,6 +56,7 @@ export async function readWebSettings(db: CrosstuneDb, userId: string): Promise<
     downloadAll: await getKeepOffline(db),
     newTuneStatus: storedNewTuneStatusValue(row),
     newTuneGenreSet: isFilled(storedNewTuneGenre(row)),
+    tunerA4Hz: storedTunerA4Hz(row),
   }
 }
 
@@ -142,5 +145,6 @@ export async function personProperties(
     setting_download_all: settings.downloadAll,
     ...(newTuneStatus ? { setting_new_tune_status: newTuneStatus } : {}),
     setting_new_tune_genre_set: settings.newTuneGenreSet,
+    setting_tuner_a4_hz: settings.tunerA4Hz,
   }
 }

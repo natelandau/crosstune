@@ -3,13 +3,20 @@ import { pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { PROVIDERS } from '../api/vocabulary'
-import { SEARCHABLE_PROVIDERS, storedSearchProviders, type LocalUserSettings } from '../db/types'
+import {
+  SEARCHABLE_PROVIDERS,
+  storedSearchProviders,
+  storedTunerA4Hz,
+  TUNER_A4_HZ_DEFAULT,
+  type LocalUserSettings,
+} from '../db/types'
 import {
   setAudioQuality,
   setInstruments,
   setNewTuneGenre,
   setNewTuneStatus,
   setPlayFirst,
+  setTunerA4Hz,
   settingsId,
   toggleInstrumentSetting,
   toggleSearchProvider,
@@ -42,6 +49,7 @@ async function putStoredRow(fields: Record<string, unknown>): Promise<void> {
     search_providers: [],
     new_tune_genre: null,
     new_tune_status: 'want_to_learn',
+    tuner_a4_hz: 440,
     ...fields,
   } as never)
 }
@@ -113,6 +121,7 @@ describe('toggleInstrumentSetting', () => {
       play_first: 'recordings',
       new_tune_genre: null,
       new_tune_status: 'want_to_learn',
+      tuner_a4_hz: 440,
     })
     await toggleInstrumentSetting(db, 'user_1', 'five_string_banjo', true)
     const row = await db.user_settings.get(settingsId('user_1'))
@@ -131,6 +140,7 @@ describe('toggleInstrumentSetting', () => {
       play_first: 'recordings',
       new_tune_genre: null,
       new_tune_status: 'want_to_learn',
+      tuner_a4_hz: 440,
     })
     await toggleInstrumentSetting(db, 'user_1', 'five_string_banjo', true)
     const row = await db.user_settings.get(settingsId('user_1'))
@@ -305,6 +315,7 @@ describe('toggleSearchProvider', () => {
       play_first: 'recordings',
       new_tune_genre: null,
       new_tune_status: 'want_to_learn',
+      tuner_a4_hz: 440,
       search_providers: ['tidal', 'future_service'],
     } as never)
     await toggleSearchProvider(db, 'user_1', 'spotify', true)
@@ -346,6 +357,7 @@ describe('toggleSearchProvider', () => {
       play_first: 'recordings',
       new_tune_genre: null,
       new_tune_status: 'want_to_learn',
+      tuner_a4_hz: 440,
       search_providers: stored,
     } as never)
     await setInstruments(db, 'user_1', ['violin'])
@@ -371,6 +383,7 @@ describe('new tune defaults', () => {
     expect((await pendingFor(db, 'user_settings', settingsId('user_1')))?.data).toMatchObject({
       new_tune_genre: null,
       new_tune_status: 'want_to_learn',
+      tuner_a4_hz: 440,
     })
   })
 
@@ -403,5 +416,58 @@ describe('new tune defaults', () => {
     expect((await pendingFor(db, 'user_settings', settingsId('user_1')))?.data).toMatchObject({
       new_tune_status: 'future_status',
     })
+  })
+})
+
+describe('setTunerA4Hz', () => {
+  it('writes the value and keeps every other field', async () => {
+    await putStoredRow({ instruments: ['violin'], audio_quality: 'high', new_tune_genre: 'Reels' })
+    await setTunerA4Hz(db, 'user_1', 442)
+    expect(await db.user_settings.get(settingsId('user_1'))).toMatchObject({
+      instruments: ['violin'],
+      audio_quality: 'high',
+      new_tune_genre: 'Reels',
+      tuner_a4_hz: 442,
+    })
+    expect((await pendingFor(db, 'user_settings', settingsId('user_1')))?.data).toMatchObject({
+      tuner_a4_hz: 442,
+    })
+  })
+
+  it.each([
+    [425, 430],
+    [460, 450],
+    [441.6, 442],
+  ])('holds %s Hz to %s Hz', async (asked, held) => {
+    await setTunerA4Hz(db, 'user_1', asked)
+    expect((await db.user_settings.get(settingsId('user_1')))?.tuner_a4_hz).toBe(held)
+  })
+
+  it('writeSettings keeps tuner_a4_hz when another setting changes', async () => {
+    await putStoredRow({ tuner_a4_hz: 442 })
+    await setAudioQuality(db, 'user_1', 'high')
+    expect(await db.user_settings.get(settingsId('user_1'))).toMatchObject({
+      audio_quality: 'high',
+      tuner_a4_hz: 442,
+    })
+    expect((await pendingFor(db, 'user_settings', settingsId('user_1')))?.data).toMatchObject({
+      tuner_a4_hz: 442,
+    })
+  })
+})
+
+describe('storedTunerA4Hz', () => {
+  it('falls back to 440 for a missing or out-of-range value', () => {
+    const row = (hz: unknown) => ({ tuner_a4_hz: hz }) as unknown as LocalUserSettings
+    expect(TUNER_A4_HZ_DEFAULT).toBe(440)
+    expect(storedTunerA4Hz(undefined)).toBe(440)
+    expect(storedTunerA4Hz(null)).toBe(440)
+    expect(storedTunerA4Hz(row(undefined))).toBe(440)
+    expect(storedTunerA4Hz(row(429))).toBe(440)
+    expect(storedTunerA4Hz(row(451))).toBe(440)
+    expect(storedTunerA4Hz(row(441.5))).toBe(440)
+    expect(storedTunerA4Hz(row(442))).toBe(442)
+    expect(storedTunerA4Hz(row(430))).toBe(430)
+    expect(storedTunerA4Hz(row(450))).toBe(450)
   })
 })

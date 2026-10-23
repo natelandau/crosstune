@@ -68,6 +68,7 @@ extension PlayerModel {
         asksAccess: Bool, fail: @escaping @MainActor (_ emptyingQueue: Bool) -> Void
     ) {
         linkAudio = .deciding
+        holdsAutoplay = false
         if !queued { isExpanded = false }
         let id = item.id
         startDeadline(id) { fail(true) }
@@ -87,7 +88,15 @@ extension PlayerModel {
                 fail(false)
                 return
             }
+            // Checked here as well as after the load: yielding would switch the session of a
+            // take that started while access was looked up.
+            guard !isCapturing() else {
+                close()
+                return
+            }
             if queued { audio.yieldSessionToMusic() }
+            var started = false
+            defer { if queued && !started { playbackDidNotStart() } }
             guard await appleMusic.player.load(kind, guarded: queued), isDeciding(id) else {
                 guard isDeciding(id) else { return }
                 fail(true)
@@ -100,7 +109,7 @@ extension PlayerModel {
             }
             // The queue left while the song loaded, so nothing watches this guard queue to play it.
             let abandoned = queued && queue == nil
-            if autoplay && !abandoned {
+            if autoplay && !abandoned && !holdsAutoplay {
                 guard await appleMusic.player.start(), isDeciding(id) else {
                     guard isDeciding(id) else {
                         // A start that lands after the deadline or a close would play under the
@@ -111,6 +120,7 @@ extension PlayerModel {
                     fail(true)
                     return
                 }
+                started = true
             }
             finishDeciding()
             linkAudio = .native

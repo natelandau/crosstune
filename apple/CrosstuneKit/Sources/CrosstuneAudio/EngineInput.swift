@@ -200,6 +200,7 @@ final class EngineRunner: @unchecked Sendable {
     /// Touched only on `queue`.
     private var engine: AVAudioEngine?
     private var observer: NSObjectProtocol?
+    private let sessionOwner = AudioSessionOwner()
 
     init(
         queue: DispatchQueue = DispatchQueue(label: "app.crosstune.audio-engine", qos: .userInitiated),
@@ -298,6 +299,7 @@ final class EngineRunner: @unchecked Sendable {
 
         nonisolated(nonsending) func activateSession(stereo: StereoRequest?) async throws {
             try await run("activate") {
+                AudioSessionClaims.shared.claim(self.sessionOwner)
                 let session = AVAudioSession.sharedInstance()
                 // Full-bandwidth Bluetooth recording where the headset supports it, such as recent
                 // AirPods, and HFP otherwise, so any headset records rather than only plays.
@@ -345,7 +347,9 @@ final class EngineRunner: @unchecked Sendable {
 
         nonisolated(nonsending) func deactivateSession() async {
             _ = try? await run("deactivate") {
-                try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+                AudioSessionClaims.shared.release(self.sessionOwner) {
+                    try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+                }
             }
         }
     #else

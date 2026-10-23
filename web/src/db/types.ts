@@ -26,6 +26,7 @@ import {
   type RecordingPrecision,
   STATUSES,
   type TuneStatus,
+  USER_SETTINGS_RANGES,
 } from '../api/vocabulary'
 
 export type { TableName }
@@ -202,6 +203,18 @@ export function storedNewTuneStatusValue(row: LocalUserSettings | null | undefin
   return row && !row.deleted_at && typeof row.new_tune_status === 'string'
     ? row.new_tune_status
     : storedNewTuneStatus(null)
+}
+
+/** The reference pitch for A4 when a settings row holds none. */
+export const TUNER_A4_HZ_DEFAULT = 440
+
+/** The reference pitch a settings row holds, or 440 Hz when it is missing or outside the range. */
+export function storedTunerA4Hz(row: LocalUserSettings | null | undefined): number {
+  const hz = row && !row.deleted_at ? row.tuner_a4_hz : undefined
+  const { min, max } = USER_SETTINGS_RANGES.tuner_a4_hz
+  return typeof hz === 'number' && Number.isInteger(hz) && hz >= min && hz <= max
+    ? hz
+    : TUNER_A4_HZ_DEFAULT
 }
 
 export interface LocalRows {

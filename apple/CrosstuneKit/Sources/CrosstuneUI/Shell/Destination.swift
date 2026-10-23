@@ -5,11 +5,13 @@ public enum Destination: String, CaseIterable, Hashable, Identifiable, Sendable 
     case catalog
     case lists
     case recordings
+    case tuner
     case settings
 
     public static let catalogTitle = "Catalog"
     public static let listsTitle = "Lists"
     public static let recordingsTitle = "Recordings"
+    public static let tunerTitle = "Tuner"
     public static let settingsTitle = "Settings"
 
     public var id: Self { self }
@@ -19,6 +21,7 @@ public enum Destination: String, CaseIterable, Hashable, Identifiable, Sendable 
         case .catalog: Self.catalogTitle
         case .lists: Self.listsTitle
         case .recordings: Self.recordingsTitle
+        case .tuner: Self.tunerTitle
         case .settings: Self.settingsTitle
         }
     }
@@ -28,6 +31,7 @@ public enum Destination: String, CaseIterable, Hashable, Identifiable, Sendable 
         case .catalog: "music.note"
         case .lists: "music.note.list"
         case .recordings: "waveform"
+        case .tuner: "gauge.with.needle"
         case .settings: "gearshape"
         }
     }
@@ -40,6 +44,7 @@ public enum SidebarItem: Hashable, Sendable {
     /// The catalog with this status filter set, as the Catalog row is the catalog with none.
     case status(String)
     case recordings
+    case tuner
     case list(id: String)
 
     public static let newList = "New list…"
@@ -55,7 +60,7 @@ public enum SidebarItem: Hashable, Sendable {
         switch self {
         case .catalog: .some(nil)
         case .status(let status): .some(status)
-        case .recordings, .list: nil
+        case .recordings, .tuner, .list: nil
         }
     }
 
@@ -64,6 +69,7 @@ public enum SidebarItem: Hashable, Sendable {
         switch self {
         case .catalog, .status: .catalog
         case .recordings: .recordings
+        case .tuner: .tuner
         case .list: nil
         }
     }

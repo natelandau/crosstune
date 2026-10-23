@@ -13,7 +13,9 @@ struct CrosstuneApp: App {
     @State private var player: PlayerModel
     @State private var listPlayback: ListPlayback
     @State private var stage = EmbedStage()
-    @State private var recorders = RecorderHost(makeLocation: { DeviceLocationProvider() })
+    @State private var recorders: RecorderHost
+    /// One for the app, so two windows on the Tuner share one microphone session.
+    @State private var tuner: TunerModel
     @State private var locationAccess = LocationAccess()
     /// The open store's plan, made again for each store so another account starts unknown.
     @State private var plan: PlanModel?
@@ -36,6 +38,9 @@ struct CrosstuneApp: App {
         self.diagnostics = diagnostics
         let configuration = AppConfiguration.main
         let reviewPrompt = ReviewPrompt()
+        let recorders = RecorderHost(makeLocation: { DeviceLocationProvider() })
+        _recorders = State(initialValue: recorders)
+        _tuner = State(initialValue: TunerModel(input: TunerInput(), recorders: recorders))
         _reviewPrompt = State(initialValue: reviewPrompt)
         // With a stored choice, the SDK is set up now (or never, when sharing is off). With none,
         // setup waits for the region default and the remembered user is applied then.
@@ -165,6 +170,8 @@ struct CrosstuneApp: App {
     }
 
     private var root: some View {
-        RootView(session: session, player: player, listPlayback: listPlayback, stage: stage, recorders: recorders)
+        RootView(
+            session: session, player: player, listPlayback: listPlayback, stage: stage, recorders: recorders,
+            tuner: tuner)
     }
 }

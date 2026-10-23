@@ -2288,6 +2288,11 @@ export interface components {
             /** Server Seq */
             server_seq: number;
             /**
+             * Tuner A4 Hz
+             * @default 440
+             */
+            tuner_a4_hz: number;
+            /**
              * Updated At
              * Format: date-time
              */

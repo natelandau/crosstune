@@ -41,7 +41,7 @@
 
             var sections: SettingsScreen.Sections {
                 switch self {
-                case .general: [.appearance, .sync, .storage, .about]
+                case .general: [.appearance, .tuner, .sync, .storage, .about]
                 case .account: [.plan, .account, .stats]
                 case .tunes: [.instrumentToggles, .newTunes, .serviceToggles, .appleMusic]
                 case .recordings: [.recording, .savedLocations, .downloads]

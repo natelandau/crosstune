@@ -151,3 +151,7 @@ export const LOOP_RANGES = {
   start_ms: { min: 0 },
   color: { min: 0, max: 5 },
 } as const
+
+export const USER_SETTINGS_RANGES = {
+  tuner_a4_hz: { min: 430, max: 450 },
+} as const

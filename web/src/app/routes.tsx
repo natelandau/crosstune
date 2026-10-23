@@ -11,6 +11,7 @@ import {
   settingsGroupPath,
 } from '../features/settings/settingsPaths'
 import { StatsPage } from '../features/stats/StatsPage'
+import { TunerScreen } from '../features/tuner/TunerScreen'
 import { CatalogTune, ListTune, RecordingsTune, StatsTune } from '../features/tune/tuneRoutes'
 import { CatalogLayout } from './CatalogLayout'
 import { DestinationTracker } from './DestinationTracker'
@@ -73,6 +74,7 @@ export function appRoutes(dev: boolean): RouteObject[] {
           element: <RecordingsLayout />,
           children: [{ path: ':tuneId', element: <RecordingsTune /> }],
         },
+        { path: '/tuner', element: <TunerScreen /> },
         {
           path: '/settings',
           // The layout reads the page from the address; the routes only admit the known ones.

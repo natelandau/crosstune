@@ -192,7 +192,8 @@
       "find_recordings",
       "settings",
       "stats",
-      "stand"
+      "stand",
+      "tuner"
     ],
     "audio_format": [
       "m4a",
@@ -234,6 +235,7 @@
       "play_first",
       "appearance",
       "text_size",
+      "tuner_a4_hz",
       "capture_channels",
       "download_all",
       "new_tune_status",
@@ -459,6 +461,14 @@
         "web"
       ]
     },
+    "setting_tuner_a4_hz": {
+      "type": "number",
+      "set": "always",
+      "clients": [
+        "apple",
+        "web"
+      ]
+    },
     "setting_capture_channels": {
       "type": "string",
       "enum": "capture_channels",
@@ -528,6 +538,9 @@
       "enum": "appearance"
     },
     "text_size": {
+      "type": "number"
+    },
+    "tuner_a4_hz": {
       "type": "number"
     },
     "capture_channels": {

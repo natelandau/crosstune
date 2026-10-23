@@ -29,6 +29,7 @@ const row = {
   play_first: 'recordings',
   new_tune_genre: null,
   new_tune_status: 'want_to_learn',
+  tuner_a4_hz: 440,
 }
 
 describe('instrumentsFrom', () => {

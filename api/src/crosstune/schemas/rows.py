@@ -30,6 +30,9 @@ from crosstune.vocabulary import (
     SEARCHABLE_PROVIDERS,
     SPEED_PERCENT_MAX,
     SPEED_PERCENT_MIN,
+    TUNER_A4_HZ_DEFAULT,
+    TUNER_A4_HZ_MAX,
+    TUNER_A4_HZ_MIN,
     TUNING_LENGTH,
     AudioQuality,
     GrantSource,
@@ -383,6 +386,9 @@ class UserSettingsData(_Data):
     search_providers: Annotated[
         list[Provider], AfterValidator(_distinct), AfterValidator(_no_other)
     ] = Field(default_factory=lambda: list(SEARCHABLE_PROVIDERS))
+    tuner_a4_hz: int = Field(
+        default=TUNER_A4_HZ_DEFAULT, ge=TUNER_A4_HZ_MIN, le=TUNER_A4_HZ_MAX, validate_default=True
+    )
 
 
 class _PlayEventFields(_Data):
