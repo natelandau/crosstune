@@ -78,17 +78,25 @@ folder. Compose it, never rebuild it.
 
 ## Placement
 
-- Verbs bar: top-trailing on phone, pane bar on split and wide. On wide,
-  the detail column has its own pane bar for Edit and More.
+- Verbs bar: on split and wide, the pane bar. On wide, the detail column
+  has its own pane bar for Edit and More. On a phone root screen it is
+  part of `RootBar`'s one row (see Shell).
 - App-wide zone: bottom on phone, sidebar foot on split and wide.
 - Catalog's title is always Catalog. Status is a filter, never the title.
 - Pointer selection: bulk actions take the pane bar's trailing place.
   Select all is an icon, so the count keeps its word at the default column
   width. Phone: they replace the tab bar.
+- Phone: Catalog and Recordings pin the search field under `RootBar`'s row.
+  The filter row scrolls with the content. `FiltersBarButton` sits in the
+  row's verbs, absent when the filter row is absent.
 - Filter row: touch, one line that scrolls sideways and fades at its end.
   Pointer, wraps.
-- Catalog filter row: Status, Key, Filters. Split and wide drop Status:
-  the sidebar's status rows set it.
+- Catalog filter row: Status, Key, then set filters as tokens on the phone,
+  where the bar's Filters button opens the sheet. Split and wide drop
+  Status, since the sidebar's status rows set it, and keep a Filters
+  control in the row, since their bars have none.
+- Recordings filter row: on the phone only the set source's token, and no
+  row while none is set. Split and wide add the Filters control.
 
 ## Shell
 
@@ -113,9 +121,14 @@ folder. Compose it, never rebuild it.
   disc, 21px from the edges. Solid, hairline edge, no shadow, no fade, no
   glass. The current tab takes an accent-wash pill that slides between
   tabs. Panes pad their end by `--float-clearance` so the last row
-  scrolls clear. Sync badge beside the screen title. Settings opens from
-  the account button at the top-trailing edge of the title row, and
-  reopens at its remembered place.
+  scrolls clear. Settings opens from the account button and reopens at
+  its remembered place.
+- Phone root screens use `RootBar`, which replaces the pane bar and the
+  column title. Split and wide keep both.
+- The row is sticky. It collapses once the content scrolls past its 8px
+  top padding: the title and badge scale (not resize) from the leading
+  edge, so nothing reflows. A pane that opens scrolled starts collapsed.
+- Focus returns to `FiltersBarButton` when the filter sheet closes.
 
 ### Now playing
 

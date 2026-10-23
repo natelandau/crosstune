@@ -59,8 +59,21 @@ there where they differ. Regular-width iPad reads this page, then
   colors, so the dot uses original rendering to stay recording red.
 - Record opens the record sheet and keeps the current tab. The slot never
   stays selected.
-- Top-level title: large, sharing a row with toolbar buttons. The account
-  button sits at its trailing edge, masked because it shows the user's name.
+- Top-level title: large, sharing a row with the toolbar buttons, which
+  stay pinned as it shrinks.
+- The account button is `AccountToolbarItem`, the last item in each root
+  screen's toolbar, so it is outermost trailing with the verbs' glass
+  group inboard of it. A set-wash disc with initials or `person.fill`,
+  about 32pt in a 44pt target, no glass, masked because it shows the
+  user's name. Hidden while selecting.
+- Filters is an icon-only toolbar item, filled glyph once any filter is
+  set. On Catalog it sits between Add and More, on Recordings after
+  Upload. It shows only when the list has something to filter or a filter
+  is set, and not while selecting (Catalog: `showsBarFilters`).
+- A pushed list follows the tune page: the name is the page's heading,
+  and `barTitle` shows it small in the bar once the heading is under it.
+  While selecting the heading stays in place, invisible, so it keeps
+  reporting its position, and the bar shows the selection count.
 - Settings has no tab here, so the tab bar holds Catalog, Lists, Tuner,
   Recordings, then Record.
 - A control that cannot sit in a navigation subtitle goes in the toolbar,
@@ -84,12 +97,19 @@ there where they differ. Regular-width iPad reads this page, then
 
 ## Lists and filters
 
-- Search: system search field, always shown under the title. Escape
+- Search: system search field, always shown under the title, pinned. Escape
   follows the system field, not the empty-first order in `design.md`.
-- The filter row is the list's first row and scrolls with it: Status, Key,
-  Filters, then set sheet filters as tokens. It fits one line on a phone at
-  the default text size, so it never gains another capsule.
+- The filter row is the list's first row and scrolls with it. Catalog: Status,
+  Key, then set sheet filters as tokens. Recordings: the set source as a
+  token, and no row while none is set. The row holds no Filters control,
+  since the bar's Filters item opens the sheet.
+- A row on the paper ground clears its row background, so the ground shows
+  through (`unselectedRowGround`). A selected row keeps the system fill.
+  The Mac keeps the system row background.
 - Status menu: Any, then each status with its non-archived count.
+- The filter sheet's Status picker names each status with no count: a
+  system picker shows the chosen value inline, where a number reads as part
+  of the value. The Mac pop-up shares the picker and drops the count too.
 - The key popover stays a popover at compact width.
 - Accessibility text sizes: controls wrap instead of clipping, token labels
   wrap instead of truncating.
