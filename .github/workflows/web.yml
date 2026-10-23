@@ -93,7 +93,10 @@ jobs:
       # The component tests run in real Chromium, because they measure
       # layout, paint, and drive real input, which jsdom does not do. WebKit
       # runs the tests that lean on how Safari keeps a hidden pane's state.
+      # The browsers' system libraries come from Ubuntu's mirror on every run, and a slow mirror
+      # can stall setup for the whole job timeout, so the step fails fast and leaves a rerun.
       - uses: ./.github/actions/setup-node
+        timeout-minutes: 5
         with:
           module: web
           chromium: "true"
