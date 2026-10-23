@@ -855,9 +855,9 @@ private let blankAndSentinel = CatalogSearch.entries(
         /// The tunings and position read in secondary ink at rest and on a selected row's fill.
         @Test(arguments: [ColorScheme.light, .dark])
         func rowDetailInkPassesContrast(scheme: ColorScheme) {
-            let rest = MacPalette.hex(MacTuneRow.detailInk(emphasized: false), scheme)
+            let rest = Palette.hex(MacTuneRow.detailInk(emphasized: false), scheme)
             #expect(MacTuneRow.detailInk(emphasized: false) == .inkSecondary)
-            #expect(contrastRatio(rest, MacPalette.hex(.ground, scheme)) >= 4.5)
+            #expect(contrastRatio(rest, Palette.hex(.ground, scheme)) >= 4.5)
             #expect(MacTuneRow.detailInk(emphasized: true) == .onAccentFill)
             #expect(MacTuneRow.detailInk(emphasized: true, rowSelected: true) == .onAccentFill)
         }
@@ -873,7 +873,7 @@ private let blankAndSentinel = CatalogSearch.entries(
             }
             let fill = try #require(resolved)
             let rgb = KeyColor.RGB(red: fill.redComponent, green: fill.greenComponent, blue: fill.blueComponent)
-            return blend(rgb.hex, over: MacPalette.hex(.ground, scheme), opacity: fill.alphaComponent)
+            return blend(rgb.hex, over: Palette.hex(.ground, scheme), opacity: fill.alphaComponent)
         }
 
         /// Secondary text on a selection that is not emphasized turns to ink, which holds 4.5:1 on
@@ -881,14 +881,14 @@ private let blankAndSentinel = CatalogSearch.entries(
         @MainActor @Test(arguments: [ColorScheme.light, .dark])
         func secondaryInkHoldsContrastOnAnInactiveSelection(scheme: ColorScheme) throws {
             let gray = try Self.inactiveSelectionHex(scheme)
-            let token = MacSecondaryInk.token(emphasized: false, rowSelected: true)
+            let token = SecondaryInk.token(emphasized: false, rowSelected: true)
             #expect(token == .ink)
             #expect(MacTuneRow.detailInk(emphasized: false, rowSelected: true) == token)
-            #expect(contrastRatio(MacPalette.hex(token, scheme), gray) >= 4.5, "\(gray)")
+            #expect(contrastRatio(Palette.hex(token, scheme), gray) >= 4.5, "\(gray)")
             // A link line under the pointer on that gray keeps the selection's ink.
             #expect(MacHoverAccent.token(hovered: true, emphasized: false, rowSelected: true) == token)
-            #expect(MacSecondaryInk.token(emphasized: false, rowSelected: false) == .inkSecondary)
-            #expect(MacSecondaryInk.token(emphasized: true, rowSelected: false) == .onAccentFill)
+            #expect(SecondaryInk.token(emphasized: false, rowSelected: false) == .inkSecondary)
+            #expect(SecondaryInk.token(emphasized: true, rowSelected: false) == .onAccentFill)
         }
 
         /// A media row's link lines follow the row's selection as its other secondary text does,

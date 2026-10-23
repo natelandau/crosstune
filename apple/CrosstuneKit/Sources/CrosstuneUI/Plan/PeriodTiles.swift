@@ -44,7 +44,7 @@ struct PeriodTiles: View {
                 }
                 Text(option.price)
                     .monospacedDigit()
-                    .foregroundStyle(MacPalette.inkSecondary)
+                    .foregroundStyle(Palette.inkSecondary)
             }
         }
     #else
@@ -55,7 +55,7 @@ struct PeriodTiles: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Image(systemName: selected ? "largecircle.fill.circle" : "circle")
                         .font(.body)
-                        .foregroundStyle(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                        .foregroundStyle(selected ? AnyShapeStyle(.tint) : .inkSecondary)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 4) {
                         // The badge shares the label's line, and drops below it rather than cover it.
@@ -80,7 +80,7 @@ struct PeriodTiles: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 12)
                 .background(
-                    Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12)
+                    Palette.groupedCard, in: RoundedRectangle(cornerRadius: 12)
                 )
                 .overlay {
                     RoundedRectangle(cornerRadius: 12)
@@ -96,7 +96,7 @@ struct PeriodTiles: View {
         private func label(_ option: PlanSheet.PeriodOption) -> some View {
             Text(option.label)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
         }
 
         @ViewBuilder
@@ -114,7 +114,7 @@ struct PeriodTiles: View {
                 .monospacedDigit()
             Text(option.per)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
         }
     #endif
 }

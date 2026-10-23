@@ -21,8 +21,8 @@
 
         /// The tunings' and position's ink: secondary at rest, white on a key window's selection,
         /// and ink on a selection that is not emphasized.
-        nonisolated static func detailInk(emphasized: Bool, rowSelected: Bool = false) -> MacPalette.Token {
-            MacSecondaryInk.token(emphasized: emphasized, rowSelected: rowSelected)
+        nonisolated static func detailInk(emphasized: Bool, rowSelected: Bool = false) -> Palette.Token {
+            SecondaryInk.token(emphasized: emphasized, rowSelected: rowSelected)
         }
 
         /// One way the tunings may read: some of them, and how many more are set past them.
@@ -45,7 +45,7 @@
         }
 
         private var detailColor: Color {
-            MacPalette.color(Self.detailInk(emphasized: prominence == .increased, rowSelected: rowSelected))
+            Palette.color(Self.detailInk(emphasized: prominence == .increased, rowSelected: rowSelected))
         }
 
         public var body: some View {

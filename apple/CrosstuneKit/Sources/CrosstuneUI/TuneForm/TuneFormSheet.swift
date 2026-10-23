@@ -173,7 +173,7 @@ private struct TuneFormContent: View {
                     .labelsHidden()
                     .textFieldStyle(.plain)
                     .font(MacStyle.formTitle)
-                    .foregroundStyle(MacPalette.ink)
+                    .foregroundStyle(Palette.ink)
                     // A plain field sizes to its body line, which clips the larger title's descenders.
                     .frame(minHeight: MacStyle.formTitleSize + 8)
                     .focusEffectDisabled()
@@ -181,7 +181,7 @@ private struct TuneFormContent: View {
                     .focused($titleFocused)
                     .onSubmit(save)
                 Rectangle()
-                    .fill(titleFocused ? MacPalette.accent : MacPalette.hairline)
+                    .fill(titleFocused ? Palette.accent : Palette.hairline)
                     .frame(height: titleFocused ? 2 : 1)
                 if let validation = model.validation {
                     FailureText(validation)
@@ -208,7 +208,7 @@ private struct TuneFormContent: View {
                             .disabled(model.isSaving)
                     }
                     if model.phase == .ready {
-                        ToolbarItem(placement: .confirmationAction) {
+                        ConfirmToolbarItem {
                             Button(model.isNew ? TuneFormSheet.addTune : TuneFormSheet.save) { save() }
                                 .fontWeight(.semibold)
                                 .disabled(!model.canSave)
@@ -220,7 +220,7 @@ private struct TuneFormContent: View {
         }
 
         private var form: some View {
-            Form {
+            PaperForm {
                 if let failure = model.failure {
                     Section {
                         Text(failure)
@@ -261,7 +261,6 @@ private struct TuneFormContent: View {
                 }
                 detailsSection
             }
-            .formStyle(.grouped)
             .onAppear {
                 if model.isNew && model.values.title.isEmpty { titleFocused = true }
             }

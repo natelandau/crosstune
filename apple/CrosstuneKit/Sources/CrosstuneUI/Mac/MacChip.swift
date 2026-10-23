@@ -27,35 +27,35 @@
         /// Single-letter key pills in a row share this width so a column of them lines up.
         static let minRowWidth: CGFloat = 28
         static let ringWidth: CGFloat = 2
-        static let ringToken = MacPalette.Token.accent
+        static let ringToken = Palette.Token.accent
         /// A line of ground between the chosen key's ring and its hue: the accent and a key's
         /// chosen hue sit near one lightness, so the ring holds 3:1 only against ground.
         static let ringGapWidth: CGFloat = 1
-        static let ringGapToken = MacPalette.Token.ground
+        static let ringGapToken = Palette.Token.ground
         static let hoverDarkening = 0.06
 
         static func labelRGB(state: MacChipState, scheme: ColorScheme) -> KeyColor.RGB {
             switch state {
-            case .rest: KeyColor.RGB(hex: MacPalette.hex(.ink, scheme))
-            case .chosen: KeyColor.RGB(hex: MacPalette.hex(.onAccentFill, scheme))
-            case .set: KeyColor.RGB(hex: MacPalette.hex(MacStyle.setLabelIsAccent(scheme) ? .accent : .ink, scheme))
+            case .rest: KeyColor.RGB(hex: Palette.hex(.ink, scheme))
+            case .chosen: KeyColor.RGB(hex: Palette.hex(.onAccentFill, scheme))
+            case .set: KeyColor.RGB(hex: Palette.hex(BrandStyle.setLabelIsAccent(scheme) ? .accent : .ink, scheme))
             }
         }
 
         /// The opaque fill of a state with no hue, or nil for the set wash, which is translucent.
         static func solidFillHex(state: MacChipState, scheme: ColorScheme) -> String? {
             switch state {
-            case .rest: MacPalette.hex(.field, scheme).lowercased()
-            case .chosen: MacPalette.hex(.accentFill, scheme).lowercased()
+            case .rest: Palette.hex(.field, scheme).lowercased()
+            case .chosen: Palette.hex(.accentFill, scheme).lowercased()
             case .set: nil
             }
         }
 
         /// The set wash as it lands on `ground`.
         static func setWashHex(over ground: String, scheme: ColorScheme) -> String {
-            let accent = KeyColor.RGB(hex: MacPalette.hex(.accent, scheme))
+            let accent = KeyColor.RGB(hex: Palette.hex(.accent, scheme))
             let base = KeyColor.RGB(hex: ground)
-            let opacity = MacStyle.setFillOpacity(scheme)
+            let opacity = BrandStyle.setFillOpacity(scheme)
             func mix(_ upper: Double, _ lower: Double) -> Double { upper * opacity + lower * (1 - opacity) }
             return KeyColor.RGB(
                 red: mix(accent.red, base.red), green: mix(accent.green, base.green),
@@ -147,7 +147,7 @@
             if let hex = MacChip.solidFillHex(state: state, scheme: scheme) {
                 return AnyShapeStyle(KeyColor.RGB(hex: hex).color)
             }
-            return AnyShapeStyle(MacStyle.setFill(scheme))
+            return AnyShapeStyle(BrandStyle.setFill(scheme))
         }
 
         /// The chosen key's accent ring, or the light outline that keeps a pill legible on a
@@ -156,8 +156,8 @@
             if state == .chosen, hue != nil {
                 ZStack {
                     Capsule().strokeBorder(
-                        MacPalette.color(MacChip.ringGapToken), lineWidth: MacChip.ringWidth + MacChip.ringGapWidth)
-                    Capsule().strokeBorder(MacPalette.color(MacChip.ringToken), lineWidth: MacChip.ringWidth)
+                        Palette.color(MacChip.ringGapToken), lineWidth: MacChip.ringWidth + MacChip.ringGapWidth)
+                    Capsule().strokeBorder(Palette.color(MacChip.ringToken), lineWidth: MacChip.ringWidth)
                 }
             } else if onSelectedRow {
                 Capsule().strokeBorder(Color.white.opacity(0.85), lineWidth: 1)

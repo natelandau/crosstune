@@ -65,7 +65,7 @@ struct WhatPlaysSheet: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(WhatPlaysText.groupTitle(group.reason))
                                 .font(MacStyle.label)
-                                .foregroundStyle(MacPalette.inkSecondary)
+                                .foregroundStyle(Palette.inkSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(.horizontal, 8)
                                 .padding(.bottom, 2)
@@ -101,11 +101,11 @@ struct WhatPlaysSheet: View {
     #if os(iOS)
         private var phoneStack: some View {
             NavigationStack {
-                Form {
+                PaperForm {
                     Section {
                         Text(WhatPlaysText.lead)
                             .font(.platform(.footnote))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.inkSecondary)
                     }
                     ForEach(WhatPlaysText.groups(report), id: \.reason) { group in
                         Section(WhatPlaysText.groupTitle(group.reason)) {
@@ -125,11 +125,10 @@ struct WhatPlaysSheet: View {
                         }
                     }
                 }
-                .formStyle(.grouped)
                 .navigationTitle(WhatPlaysText.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
+                    ConfirmToolbarItem {
                         Button(WhatPlaysText.done) { dismiss() }
                     }
                 }

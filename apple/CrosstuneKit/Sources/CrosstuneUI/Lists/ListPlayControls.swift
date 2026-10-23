@@ -69,13 +69,13 @@ struct ListPlayControls: View {
 }
 
 extension View {
-    /// Play is a prominent slate capsule and Shuffle a glass one. Where glass cannot draw,
+    /// Play is a prominent accent capsule and Shuffle a glass one. Where glass cannot draw,
     /// the bordered styles stand in.
     @ViewBuilder fileprivate func playControlStyle(prominent: Bool, glass: Bool) -> some View {
         switch (prominent, glass) {
-        case (true, true): buttonStyle(.slateGlassProminent)
+        case (true, true): buttonStyle(.accentGlassProminent)
         case (false, true): buttonStyle(.glass)
-        case (true, false): buttonStyle(.slateProminent)
+        case (true, false): buttonStyle(.accentProminent)
         case (false, false): buttonStyle(.bordered)
         }
     }

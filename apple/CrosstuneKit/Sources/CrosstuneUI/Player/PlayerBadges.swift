@@ -21,14 +21,12 @@ struct SettingsBadge: View {
 struct SettingsBadgeLabel: View {
     let text: String
 
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
         #if os(macOS)
             Text(text)
                 .font(MacStyle.secondary)
                 .monospacedDigit()
-                .foregroundStyle(MacPalette.inkSecondary)
+                .foregroundStyle(Palette.inkSecondary)
                 .frame(minHeight: PlayerBadge.macHeight)
                 .fixedSize()
         #else
@@ -37,7 +35,7 @@ struct SettingsBadgeLabel: View {
                 .monospacedDigit()
                 .padding(.horizontal, 8)
                 .frame(minHeight: 22)
-                .background(neutralFill(colorScheme), in: .capsule)
+                .background(.neutralFill, in: .capsule)
                 .fixedSize()
         #endif
     }
@@ -72,7 +70,7 @@ struct RepeatBadge: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .frame(maxWidth: maxTextWidth)
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                         .frame(minHeight: PlayerBadge.macHeight)
                         .contentShape(.rect)
                 #else
@@ -82,10 +80,10 @@ struct RepeatBadge: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .frame(maxWidth: maxTextWidth)
-                        .onSlateLabel()
+                        .onAccentLabel()
                         .padding(.horizontal, 8)
                         .frame(minHeight: 22)
-                        .background(.tint, in: .capsule)
+                        .background(Palette.accentFill, in: .capsule)
                         .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                         .contentShape(.rect)
                 #endif

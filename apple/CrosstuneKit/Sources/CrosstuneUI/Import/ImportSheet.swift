@@ -107,7 +107,7 @@ private struct ImportContent: View {
                 if model.step == .paste {
                     Text(ImportCopy.recordingsNote)
                         .font(MacStyle.secondary)
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             } content: {
@@ -181,7 +181,7 @@ private struct ImportContent: View {
             if model.review?.dropped ?? 0 > 0 {
                 Text(ImportCopy.overLimitNote)
                     .font(MacStyle.secondary)
-                    .foregroundStyle(MacPalette.inkSecondary)
+                    .foregroundStyle(Palette.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if model.showsHelp {
@@ -199,7 +199,7 @@ private struct ImportContent: View {
 
     #if os(iOS)
         var body: some View {
-            Form {
+            PaperForm {
                 if let failure = model.failure {
                     Section {
                         Text(failure)
@@ -212,7 +212,6 @@ private struct ImportContent: View {
                 case .review: reviewStep
                 }
             }
-            .formStyle(.grouped)
             .navigationTitle(ImportCopy.title)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -224,7 +223,7 @@ private struct ImportContent: View {
                             .disabled(model.isAdding)
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) {
+                ConfirmToolbarItem {
                     switch model.step {
                     case .paste:
                         Button(ImportCopy.continueAction) { Task { await model.continueToReview() } }
@@ -249,7 +248,7 @@ private struct ImportContent: View {
                     .overlay(alignment: .topLeading) {
                         if model.text.isEmpty {
                             Text(ImportCopy.pastePlaceholder)
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.inkTertiary)
                                 // The text editor's own text inset, so the placeholder sits where typing starts.
                                 .padding(.top, 8)
                                 .padding(.leading, 5)
@@ -266,7 +265,7 @@ private struct ImportContent: View {
                 ImportHelp()
                 Text(ImportCopy.recordingsNote)
                     .font(.platform(.footnote))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.inkSecondary)
             }
         }
 
@@ -281,7 +280,7 @@ private struct ImportContent: View {
             if model.review?.dropped ?? 0 > 0 {
                 Section {
                     Text(ImportCopy.overLimitNote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
                 }
             }
             if model.showsHelp {
@@ -467,7 +466,7 @@ private struct ImportReviewRow: View {
             } label: {
                 Image(systemName: configuration.isOn ? "checkmark.square.fill" : "square")
                     .imageScale(.large)
-                    .foregroundStyle(configuration.isOn ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(configuration.isOn ? AnyShapeStyle(.tint) : .inkSecondary)
             }
             .buttonStyle(.borderless)
             .accessibilityRepresentation {

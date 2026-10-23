@@ -31,12 +31,11 @@ struct RecordingsFilterSheet: View {
             .partHeightSheet()
         #else
             NavigationStack {
-                Form {
+                PaperForm {
                     Section {
                         sourcePicker
                     }
                 }
-                .formStyle(.grouped)
                 .navigationTitle(CatalogFilterSheet.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -46,7 +45,7 @@ struct RecordingsFilterSheet: View {
                         }
                         .disabled(model.filterCount == 0)
                     }
-                    ToolbarItem(placement: .confirmationAction) {
+                    ConfirmToolbarItem {
                         Button(CatalogFilterSheet.done) { dismiss() }
                     }
                 }

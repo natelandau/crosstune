@@ -77,7 +77,7 @@ private func matches(_ color: KeyColor.RGB, _ hex: String) -> Bool {
         #expect(StatusStyle.label("known") == "Known")
         #expect(StatusStyle.label("learning") == "Learning")
         #expect(StatusStyle.label("want_to_learn") == "Unknown")
-        #expect(StatusStyle.dot("known") == .filled(.green))
+        #expect(StatusStyle.dot("known") == .filled(StatusStyle.known))
         #expect(StatusStyle.dot("learning") == .filled(.orange))
         #expect(StatusStyle.dot("want_to_learn") == .ring)
     }

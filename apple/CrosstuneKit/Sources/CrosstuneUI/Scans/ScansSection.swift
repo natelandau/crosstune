@@ -237,7 +237,7 @@ private struct ScanThumbnailEdge: ViewModifier {
             content
                 .overlay { Color.black.opacity(colorScheme == .dark ? ScansSection.darkDimming : 0) }
                 .clipShape(shape)
-                .overlay { shape.strokeBorder(MacPalette.hairline, lineWidth: 1) }
+                .overlay { shape.strokeBorder(Palette.hairline, lineWidth: 1) }
         #else
             content.clipShape(.rect(cornerRadius: cornerRadius))
         #endif

@@ -216,7 +216,7 @@ struct NoticeSheet: View {
                 if let message = Self.firstRecordingBody(endsAt: endsAt) {
                     Text(message)
                         .font(MacStyle.body)
-                        .foregroundStyle(MacPalette.ink)
+                        .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -241,7 +241,7 @@ struct NoticeSheet: View {
                         ForEach(Self.loses, id: \.self) { lose in
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 Image(systemName: "xmark")
-                                    .foregroundStyle(MacPalette.inkSecondary)
+                                    .foregroundStyle(Palette.inkSecondary)
                                     .accessibilityHidden(true)
                                 Text(lose)
                             }
@@ -256,7 +256,7 @@ struct NoticeSheet: View {
                     }
                 }
                 .font(MacStyle.body)
-                .foregroundStyle(MacPalette.ink)
+                .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
             }
             .task(id: PlanSheet.OfferAsk(sells: sells, offline: purchase?.isOffline)) {
@@ -288,7 +288,7 @@ struct NoticeSheet: View {
                         HStack {
                             seePlan
                             Spacer()
-                            ok.buttonStyle(.slateProminent)
+                            ok.buttonStyle(.accentProminent)
                         }
                     }
                 }
@@ -332,7 +332,7 @@ struct NoticeSheet: View {
                             heading(Self.title(notice, endsAt: endsAt))
                             if let daysLeft = Self.subtitle(notice, endsAt: endsAt, now: now ?? Date()) {
                                 Text(daysLeft)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(.inkSecondary)
                             }
                         }
                         VStack(alignment: .leading, spacing: 8) {
@@ -340,7 +340,7 @@ struct NoticeSheet: View {
                                 Label {
                                     Text(lose).fixedSize(horizontal: false, vertical: true)
                                 } icon: {
-                                    Image(systemName: "xmark").foregroundStyle(.secondary)
+                                    Image(systemName: "xmark").foregroundStyle(.inkSecondary)
                                 }
                             }
                         }
@@ -395,7 +395,7 @@ struct NoticeSheet: View {
                     }
                     Spacer()
                     primary(offer.primary)
-                        .buttonStyle(.slateProminent)
+                        .buttonStyle(.accentProminent)
                 }
             }
             if let price = offer.annualPrice {

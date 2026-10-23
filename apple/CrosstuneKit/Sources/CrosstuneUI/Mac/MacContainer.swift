@@ -8,7 +8,7 @@
         case surface
 
         /// The fill of a field, a secondary button, and a hover here.
-        var controlFill: MacPalette.Token {
+        var controlFill: Palette.Token {
             switch self {
             case .ground: .field
             case .surface: .raised
@@ -16,7 +16,7 @@
         }
 
         /// The container's own fill.
-        var fill: MacPalette.Token {
+        var fill: Palette.Token {
             switch self {
             case .ground: .ground
             case .surface: .surface
@@ -31,8 +31,8 @@
 
         var controlColor: Color {
             switch self {
-            case .ground: MacPalette.field
-            case .surface: MacPalette.raised
+            case .ground: Palette.field
+            case .surface: Palette.raised
             }
         }
     }
@@ -47,7 +47,7 @@
             overlay {
                 if container.strokesControls(scheme) {
                     RoundedRectangle(cornerRadius: cornerRadius)
-                        .strokeBorder(MacPalette.hairline, lineWidth: 1)
+                        .strokeBorder(Palette.hairline, lineWidth: 1)
                         .allowsHitTesting(false)
                 }
             }

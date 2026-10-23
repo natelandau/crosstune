@@ -49,7 +49,7 @@ struct OverviewStrip: View {
             #if os(macOS)
                 context.fillPeakBars(nil, in: wave, with: .color(MacWave.placeholder))
             #else
-                context.fillPeakBars(nil, in: wave, with: .style(.tertiary))
+                context.fillPeakBars(nil, in: wave, with: .quietBars(onGround: ground != nil))
             #endif
             return
         }
@@ -64,7 +64,7 @@ struct OverviewStrip: View {
                     played: MacWave.played, unplayed: MacWave.unplayed)
             }
         #else
-            context.fillPeakBars(peaks, in: wave, with: .style(.tertiary))
+            context.fillPeakBars(peaks, in: wave, with: .quietBars(onGround: ground != nil))
         #endif
         let selected = model.selectedID
         for loop in model.placedLoops {
@@ -84,8 +84,8 @@ struct OverviewStrip: View {
                 x: x(view.startMs), y: 1, width: x(view.endMs) - x(view.startMs), height: Self.waveHeight - 2)
             #if os(macOS)
                 let frame = Path(roundedRect: box.insetBy(dx: 0.5, dy: 0.5), cornerRadius: 4)
-                context.fill(frame, with: .color(MacPalette.accent.opacity(0.12)))
-                context.stroke(frame, with: .color(MacPalette.accent), lineWidth: 1)
+                context.fill(frame, with: .color(Palette.accent.opacity(0.12)))
+                context.stroke(frame, with: .color(Palette.accent), lineWidth: 1)
             #else
                 context.stroke(Path(roundedRect: box, cornerRadius: 4), with: .style(.tint), lineWidth: 2)
             #endif

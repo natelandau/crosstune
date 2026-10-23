@@ -152,19 +152,19 @@
         /// count reads on the field it sits in.
         @Test(arguments: [ColorScheme.light, .dark])
         func searchFiltersCountReadsOnTheField(scheme: ColorScheme) {
-            let field = MacPalette.hex(.field, scheme)
-            let wash = MacChip.setWashHex(over: MacPalette.hex(SearchFiltersStyle.chipGround, scheme), scheme: scheme)
+            let field = Palette.hex(.field, scheme)
+            let wash = MacChip.setWashHex(over: Palette.hex(SearchFiltersStyle.chipGround, scheme), scheme: scheme)
             let label = MacChip.labelRGB(state: .set, scheme: scheme).hex
             #expect(contrastRatio(label, wash) >= 4.5)
-            #expect(contrastRatio(MacPalette.hex(.inkSecondary, scheme), field) >= 3)
+            #expect(contrastRatio(Palette.hex(.inkSecondary, scheme), field) >= 3)
         }
 
         @Test(arguments: [ColorScheme.light, .dark])
         func popUpValuePassesContrastOnEveryGround(scheme: ColorScheme) {
             for isSet in [false, true] {
                 let value = MacPopUpStyle.valueRGB(isSet: isSet, scheme: scheme).hex
-                for ground in [MacPalette.Token.ground, .surface, .field, .raised] {
-                    #expect(contrastRatio(value, MacPalette.hex(ground, scheme)) >= 4.5, "set \(isSet) on \(ground)")
+                for ground in [Palette.Token.ground, .surface, .field, .raised] {
+                    #expect(contrastRatio(value, Palette.hex(ground, scheme)) >= 4.5, "set \(isSet) on \(ground)")
                 }
             }
         }
@@ -172,10 +172,10 @@
         @Test(arguments: [ColorScheme.light, .dark])
         func popUpValueTakesTheAccentOnlyWhenSet(scheme: ColorScheme) {
             #expect(
-                MacPopUpStyle.valueRGB(isSet: true, scheme: scheme).hex == MacPalette.hex(.accent, scheme).lowercased())
+                MacPopUpStyle.valueRGB(isSet: true, scheme: scheme).hex == Palette.hex(.accent, scheme).lowercased())
             #expect(
                 MacPopUpStyle.valueRGB(isSet: false, scheme: scheme).hex
-                    == MacPalette.hex(.inkSecondary, scheme).lowercased())
+                    == Palette.hex(.inkSecondary, scheme).lowercased())
         }
 
         /// The ring is a non-text indicator, so it holds 3:1 against the fill it rings and the
@@ -183,9 +183,9 @@
         @Test(arguments: [ColorScheme.light, .dark])
         func focusRingIsTheFullAccent(scheme: ColorScheme) {
             let ring = MacFieldStyle.focusRingRGB(scheme).hex
-            #expect(ring == MacPalette.hex(.accent, scheme).lowercased())
-            for ground in [MacPalette.Token.ground, .surface, .field, .raised] {
-                #expect(contrastRatio(ring, MacPalette.hex(ground, scheme)) >= 3, "\(ground)")
+            #expect(ring == Palette.hex(.accent, scheme).lowercased())
+            for ground in [Palette.Token.ground, .surface, .field, .raised] {
+                #expect(contrastRatio(ring, Palette.hex(ground, scheme)) >= 3, "\(ground)")
             }
             #expect(MacFieldStyle.focusRingWidth == 2)
         }
@@ -195,15 +195,15 @@
         @Test(arguments: [ColorScheme.light, .dark])
         func fieldsReadOnEveryContainer(scheme: ColorScheme) {
             for container in MacContainer.allCases {
-                let fill = MacPalette.hex(container.controlFill, scheme)
-                #expect(contrastRatio(MacPalette.hex(.ink, scheme), fill) >= 4.5, "text in \(container)")
-                #expect(contrastRatio(MacPalette.hex(.inkSecondary, scheme), fill) >= 4.5, "prompt in \(container)")
-                #expect(fill != MacPalette.hex(container.fill, scheme))
+                let fill = Palette.hex(container.controlFill, scheme)
+                #expect(contrastRatio(Palette.hex(.ink, scheme), fill) >= 4.5, "text in \(container)")
+                #expect(contrastRatio(Palette.hex(.inkSecondary, scheme), fill) >= 4.5, "prompt in \(container)")
+                #expect(fill != Palette.hex(container.fill, scheme))
             }
             #expect(MacContainer.surface.controlFill != .field)
             #expect(
-                relativeLuminance(MacPalette.hex(MacContainer.surface.controlFill, scheme))
-                    > relativeLuminance(MacPalette.hex(.surface, scheme)))
+                relativeLuminance(Palette.hex(MacContainer.surface.controlFill, scheme))
+                    > relativeLuminance(Palette.hex(.surface, scheme)))
         }
 
         /// Fields, pop-ups, and the search field take their fill from the container, never a
@@ -211,7 +211,7 @@
         @Test func controlsTakeTheirFillFromTheContainer() throws {
             for name in ["Mac/MacFieldStyle.swift", "Mac/MacButtonStyle.swift", "Components/FilterSearchField.swift"] {
                 let text = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.sources.appending(path: name)))
-                #expect(!text.contains("MacPalette.field"), "\(name)")
+                #expect(!text.contains("Palette.field"), "\(name)")
                 #expect(text.contains("@Environment(\\.macContainer)"), "\(name)")
                 #expect(text.contains(".macControlEdge("), "\(name)")
             }

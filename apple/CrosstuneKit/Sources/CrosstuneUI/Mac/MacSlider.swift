@@ -59,21 +59,21 @@
                 let anchorX = x(of: detent ?? range.lowerBound, width: width)
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(MacPalette.inkSecondary.opacity(0.25))
+                        .fill(Palette.inkSecondary.opacity(0.25))
                         .frame(height: Self.trackHeight)
                     Capsule()
-                        .fill(MacPalette.accent)
+                        .fill(Palette.accent)
                         .frame(width: abs(thumbX - anchorX), height: Self.trackHeight)
                         .offset(x: min(thumbX, anchorX))
                     if let detent {
                         Capsule()
-                            .fill(MacPalette.inkSecondary)
+                            .fill(Palette.inkSecondary)
                             .frame(width: 2, height: 10)
                             .offset(x: x(of: detent, width: width) - 1)
                     }
                     Circle()
-                        .fill(scheme == .dark ? MacPalette.ink : .white)
-                        .overlay { Circle().strokeBorder(MacPalette.hairline) }
+                        .fill(scheme == .dark ? Palette.ink : .white)
+                        .overlay { Circle().strokeBorder(Palette.hairline) }
                         .shadow(color: .black.opacity(0.2), radius: 1.5, y: 0.5)
                         .frame(width: Self.thumbDiameter, height: Self.thumbDiameter)
                         .macFocusRing(focused, cornerRadius: Self.thumbDiameter / 2)

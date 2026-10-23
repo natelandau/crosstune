@@ -27,7 +27,7 @@
                 Button(add, systemImage: "plus", action: onAdd)
                     .labelStyle(.iconOnly)
                     .buttonStyle(.plain)
-                    .foregroundStyle(MacPalette.inkSecondary)
+                    .foregroundStyle(Palette.inkSecondary)
                     .help(add)
             }
             .padding(.leading, Self.leadingInset)

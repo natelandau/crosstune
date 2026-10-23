@@ -91,7 +91,7 @@ public struct PlayerBar: View {
         HStack(spacing: 4) {
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, minHeight: minimumTapTarget, alignment: .leading)
             closeButton
@@ -104,7 +104,7 @@ public struct PlayerBar: View {
         PlayerCloseButton(player: player)
             .labelStyle(.iconOnly)
             .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(.inkSecondary)
             .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
             .contentShape(.rect)
     }
@@ -174,7 +174,7 @@ public struct PlayerBar: View {
         HStack(spacing: 12) {
             if glyph {
                 Image(systemName: "play.fill")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.inkSecondary)
                     .accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 0) {
@@ -186,7 +186,7 @@ public struct PlayerBar: View {
                     Text(subtitle)
                         .contentMask()
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.inkSecondary)
                         .lineLimit(1)
                 }
                 if let failure = player.failure {

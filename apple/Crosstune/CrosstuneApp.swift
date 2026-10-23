@@ -126,13 +126,7 @@ struct CrosstuneApp: App {
         #endif
     }
 
-    private var appTint: Color {
-        #if os(macOS)
-            MacStyle.accent
-        #else
-            BrandStyle.accent
-        #endif
-    }
+    private var appTint: Color { Palette.accent }
 
     #if os(macOS)
         @ViewBuilder private var settings: some View {

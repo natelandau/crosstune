@@ -15,7 +15,7 @@ public struct StatusGlyph: View {
 
         Image(systemName: Self.symbol(for: status))
             .font(PageStyle.body)
-            .foregroundStyle(Self.color(for: status))
+            .foregroundStyle(StatusGlyphStyle(status: status))
             .help(label)
             .accessibilityLabel(label)
             .contentTransition(
@@ -36,12 +36,33 @@ public struct StatusGlyph: View {
             "circle"
         }
     }
+}
 
-    /// The status color; the hollow ring's status is secondary.
-    static func color(for status: String) -> Color {
+/// How a status glyph draws: its status color, darkened for the ring where it sits on a fill,
+/// and white on an emphasized accent selection, where green, orange, and the ring's gray each
+/// fall under 3:1. The check, the half fill, and the ring still carry the status.
+struct StatusGlyphStyle: ShapeStyle {
+    let status: String
+
+    enum Ink: Equatable {
+        case white
+        case status(Color)
+        case ring(UnknownRing.Placement)
+    }
+
+    func resolve(in environment: EnvironmentValues) -> Color {
+        switch Self.ink(status, in: environment) {
+        case .white: Palette.color(.onAccentFill)
+        case .status(let color): color
+        case .ring(let placement): BrandStyle.color(hex: UnknownRing.hex(placement, scheme: environment.colorScheme))
+        }
+    }
+
+    static func ink(_ status: String, in environment: EnvironmentValues) -> Ink {
+        if environment.backgroundProminence == .increased { return .white }
         switch StatusStyle.dot(status) {
-        case .filled(let color): color
-        case .ring: .secondary
+        case .filled(let color): return .status(color)
+        case .ring: return .ring(UnknownRing.placement(in: environment))
         }
     }
 }

@@ -557,7 +557,7 @@ struct RecordingScreenContent: View {
                 }
             }
             .padding(16)
-            .background(MacPalette.surface, in: .rect(cornerRadius: MacStyle.stageRadius))
+            .background(Palette.surface, in: .rect(cornerRadius: MacStyle.stageRadius))
         }
 
         /// The recording's title as the page's heading, with its date, length, and credits under it.

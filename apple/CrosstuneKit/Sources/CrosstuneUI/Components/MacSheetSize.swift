@@ -14,8 +14,6 @@ struct MacSheetSize {
 
     var isFitted: Bool { maxHeight != nil }
 
-    /// A short form, as tall as its fields need.
-    static func form(minHeight: CGFloat) -> MacSheetSize { MacSheetSize(minHeight: minHeight) }
     /// A searchable list to pick from.
     static let picker = MacSheetSize(minHeight: 480, idealHeight: 560)
     /// A form long enough to scroll, such as a tune's.

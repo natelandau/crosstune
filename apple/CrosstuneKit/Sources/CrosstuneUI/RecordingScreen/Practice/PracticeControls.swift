@@ -169,9 +169,9 @@ private struct GroundPlayFace: View {
             Image(systemName: face.systemImage)
                 .font(.system(size: 18, weight: .semibold))
                 .contentTransition(.symbolEffect(.replace))
-                .foregroundStyle(MacPalette.onAccentFill)
+                .foregroundStyle(Palette.onAccentFill)
                 .frame(width: MacStyle.transportDiameter, height: MacStyle.transportDiameter)
-                .background(MacPalette.accentFill, in: .circle)
+                .background(Palette.accentFill, in: .circle)
                 .opacity(isEnabled ? 1 : MacButtonStyle.disabledOpacity)
                 .contentShape(.circle)
         }

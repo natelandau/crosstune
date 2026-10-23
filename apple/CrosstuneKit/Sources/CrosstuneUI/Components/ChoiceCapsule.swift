@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// One choice in a rail of capsules: a neutral fill at rest, the tint when chosen, and a 44
+/// One choice in a rail of capsules: a neutral fill at rest, the accent fill when chosen, and a 44
 /// point target whatever its text size, which takes no more room than the capsule. The Mac
 /// draws it as a ``MacChip``.
 public struct ChoiceCapsule<Label: View>: View {
@@ -8,7 +8,6 @@ public struct ChoiceCapsule<Label: View>: View {
     private let action: () -> Void
     private let label: Label
 
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.spacing) private var spacing
 
     public init(chosen: Bool, action: @escaping () -> Void, @ViewBuilder label: () -> Label) {
@@ -31,11 +30,13 @@ public struct ChoiceCapsule<Label: View>: View {
                     .fixedSize()
                     .font(.subheadline)
                     .foregroundStyle(
-                        isChosen ? AnyShapeStyle(BrandStyle.onAccent(colorScheme)) : AnyShapeStyle(.primary)
+                        isChosen ? AnyShapeStyle(Palette.onAccentFill) : AnyShapeStyle(.primary)
                     )
                     .padding(.horizontal, spacing(14))
                     .padding(.vertical, spacing.chipVertical)
-                    .background(isChosen ? AnyShapeStyle(.tint) : neutralFill(colorScheme), in: .capsule)
+                    .background(
+                        isChosen ? AnyShapeStyle(Palette.accentFill) : AnyShapeStyle(.neutralFill), in: .capsule
+                    )
                     .tapTarget()
             }
             .buttonStyle(.plain)
@@ -49,7 +50,6 @@ struct ChoiceCapsuleLabel: View {
     let text: String
     let chosen: Bool
 
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.spacing) private var spacing
 
     var body: some View {
@@ -61,10 +61,10 @@ struct ChoiceCapsuleLabel: View {
             Text(text)
                 .font(.subheadline)
                 .lineLimit(1)
-                .foregroundStyle(chosen ? AnyShapeStyle(BrandStyle.onAccent(colorScheme)) : AnyShapeStyle(.primary))
+                .foregroundStyle(chosen ? AnyShapeStyle(Palette.onAccentFill) : AnyShapeStyle(.primary))
                 .padding(.horizontal, spacing(14))
                 .padding(.vertical, spacing.chipVertical)
-                .background(chosen ? AnyShapeStyle(.tint) : neutralFill(colorScheme), in: .capsule)
+                .background(chosen ? AnyShapeStyle(Palette.accentFill) : AnyShapeStyle(.neutralFill), in: .capsule)
                 .tapTarget()
         #endif
     }

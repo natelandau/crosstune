@@ -601,10 +601,10 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         let bulk = BulkActions(store: store)
         let many = try #require(await bulk.deleteQuestion([sample("Soldier's Joy"), sample("Cluck Old Hen")]))
         #expect(many.title == "Delete 2 tunes?")
-        #expect(many.message == "Delete 2 tunes? This removes their links, list entries, and 2 recordings.")
+        #expect(many.message == "This removes their links, list entries, and 2 recordings.")
         let one = try #require(await bulk.deleteQuestion([sample("Tam Lin")]))
-        #expect(one.title == DeleteTuneMessage.title)
-        #expect(one.message == "Delete \"Tam Lin\"? This removes its links and list entries.")
+        #expect(one.title == DeleteTuneMessage.title(for: "Tam Lin"))
+        #expect(one.message == "This removes its links and list entries.")
 
         #expect(await bulk.delete(many))
         #expect(bulk.offer == nil, "a delete has nothing to undo")

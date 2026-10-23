@@ -29,13 +29,12 @@ public struct AccountView: View {
             .shellSheet()
         #else
             NavigationStack {
-                Form {
+                PaperForm {
                     AccountSections(session: session)
                 }
-                .formStyle(.grouped)
                 .navigationTitle(AccountSections.title)
                 .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
+                    ConfirmToolbarItem {
                         Button(Self.done) { dismiss() }
                     }
                 }

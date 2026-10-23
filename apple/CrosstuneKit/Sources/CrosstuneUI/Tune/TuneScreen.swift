@@ -205,7 +205,7 @@ private struct TuneContent: View {
                     TuneFormSheet(target: target) { _ in }
                 }
                 .coversShell(confirmsDelete)
-                .confirmationDialog(DeleteTuneMessage.title, isPresented: $confirmsDelete, titleVisibility: .visible) {
+                .confirmationDialog(detail.deleteTitle, isPresented: $confirmsDelete, titleVisibility: .visible) {
                     Button(DeleteTuneMessage.delete, role: .destructive) {
                         Task {
                             if await model.delete() { leave() }
@@ -447,7 +447,7 @@ struct TuneMediaRows: View {
             if blocksPlay(showsRecordings: !collapses || showsRecordings) {
                 Text(MediaText.stopRecordingToPlay)
                     .font(MacStyle.secondary)
-                    .foregroundStyle(MacPalette.inkSecondary)
+                    .foregroundStyle(Palette.inkSecondary)
             }
         #endif
         if collapses {

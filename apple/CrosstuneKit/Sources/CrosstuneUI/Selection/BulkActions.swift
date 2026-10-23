@@ -224,11 +224,10 @@ public final class BulkActions {
             return nil
         }
         let only = entries.count == 1 ? entries.first : nil
-        let subject = CatalogSearch.tunes(entries.count)
         return BulkDeleteQuestion(
-            title: only == nil ? "\(BulkActionText.delete(entries.count))?" : DeleteTuneMessage.title,
-            message: only.map { DeleteTuneMessage.one(title: $0.tune.title, files: files) }
-                ?? DeleteTuneMessage.many(subject: subject, files: files),
+            title: only.map { DeleteTuneMessage.title(for: $0.tune.title) }
+                ?? "\(BulkActionText.delete(entries.count))?",
+            message: only == nil ? DeleteTuneMessage.many(files: files) : DeleteTuneMessage.one(files: files),
             userTuneIDs: entries.map(\.userTune.id))
     }
 

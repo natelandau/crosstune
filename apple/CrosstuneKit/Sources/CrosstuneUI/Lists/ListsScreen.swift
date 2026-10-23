@@ -54,6 +54,7 @@ public struct ListsScreen: View {
             }
         }
         .listStyle(.plain)
+        .paperGround()
         .navigationDestination(for: ListRoute.self) { route in
             ListScreen(listID: route.id)
                 // A destination takes the stack's environment, not this screen's.
@@ -67,7 +68,7 @@ public struct ListsScreen: View {
                     Text(Self.noListsHint)
                 } actions: {
                     Button(Self.addList) { listSheets?.name(.new) }
-                        .buttonStyle(.slateProminent)
+                        .buttonStyle(.accentProminent)
                         .disabled(listSheets == nil)
                 }
             }

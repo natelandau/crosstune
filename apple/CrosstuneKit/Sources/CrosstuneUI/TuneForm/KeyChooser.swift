@@ -16,7 +16,6 @@ struct KeyChooser: View {
     /// True over tunes whose keys disagree, where no choice is shown as made.
     var isMixed = false
 
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.spacing) private var spacing
 
     /// The pills on the grid: the quick keys, then a chosen key they lack.
@@ -80,7 +79,7 @@ struct KeyChooser: View {
                         .foregroundStyle(.primary)
                         .padding(.horizontal, spacing(14))
                         .padding(.vertical, spacing.chipVertical)
-                        .background(neutralFill(colorScheme), in: .capsule)
+                        .background(.neutralFill, in: .capsule)
                         .tapTarget()
                 #endif
             }

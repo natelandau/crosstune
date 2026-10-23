@@ -55,9 +55,7 @@ struct Lockup: View {
         HStack(alignment: .firstTextBaseline, spacing: capHeight * 0.4) {
             Mark()
                 .frame(height: capHeight)
-                #if os(macOS)
-                    .foregroundStyle(MacPalette.markInk)
-                #endif
+                .foregroundStyle(Palette.markInk)
                 .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
                 .accessibilityHidden(true)
             Text("Crosstune")

@@ -22,14 +22,14 @@ struct SignInSheet: View {
         /// Clerk's flow in the Mac palette.
         static var mac: AuthPalette {
             let pressed = { (scheme: ColorScheme) in
-                MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: true, isEnabled: true)
-                    ?? KeyColor.RGB(hex: MacPalette.hex(.accentFill, scheme))
+                MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: true)
+                    ?? KeyColor.RGB(hex: Palette.hex(.accentFill, scheme))
             }
             return AuthPalette(
-                accent: MacPalette.accent, accentFill: MacPalette.accentFill,
-                accentFillPressed: MacPalette.dynamic(light: pressed(.light), dark: pressed(.dark)),
-                onAccentFill: MacPalette.onAccentFill, ground: MacPalette.ground, surface: MacPalette.surface,
-                ink: MacPalette.ink, inkSecondary: MacPalette.inkSecondary, hairline: MacPalette.hairline,
+                accent: Palette.accent, accentFill: Palette.accentFill,
+                accentFillPressed: Palette.dynamic(light: pressed(.light), dark: pressed(.dark)),
+                onAccentFill: Palette.onAccentFill, ground: Palette.ground, surface: Palette.surface,
+                ink: Palette.ink, inkSecondary: Palette.inkSecondary, hairline: Palette.hairline,
                 noticeFont: MacStyle.secondary)
         }
     }

@@ -40,10 +40,10 @@ import CrosstuneAnalytics
                 PlayerDockBar(player: player)
             }
             .frame(maxWidth: .infinity)
-            .background(MacPalette.surface)
+            .background(Palette.surface)
             .macSurfaceContainer()
             .overlay(alignment: .top) {
-                MacPalette.hairline.frame(height: 1)
+                Palette.hairline.frame(height: 1)
             }
             .animation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0.15), value: upperKind)
         }
@@ -130,7 +130,7 @@ import CrosstuneAnalytics
                     // so it never looks like a play button.
                     Image(systemName: Self.nowPlayingSymbol)
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                         .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
                         .accessibilityHidden(true)
                 }
@@ -237,10 +237,10 @@ import CrosstuneAnalytics
                 } label: {
                     Image(systemName: playing ? "pause.fill" : "play.fill")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(MacPalette.ground)
+                        .foregroundStyle(Palette.ground)
                         .contentTransition(.symbolEffect(.replace))
                         .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
-                        .background(MacPalette.ink, in: .circle)
+                        .background(Palette.ink, in: .circle)
                         .contentShape(.circle)
                 }
                 .buttonStyle(.plain)
@@ -254,7 +254,7 @@ import CrosstuneAnalytics
             } else {
                 Image(systemName: "exclamationmark.circle")
                     .font(.system(size: 15))
-                    .foregroundStyle(MacPalette.inkSecondary)
+                    .foregroundStyle(Palette.inkSecondary)
                     .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
                     .accessibilityHidden(true)
             }
@@ -288,7 +288,7 @@ import CrosstuneAnalytics
                     .font(.system(size: 13, weight: .medium))
                     .imageScale(.medium)
                     // On the label, which wins over the icon style's secondary ink.
-                    .foregroundStyle(highlighted ? MacPalette.accent : MacPalette.inkSecondary)
+                    .foregroundStyle(highlighted ? Palette.accent : Palette.inkSecondary)
                     .frame(width: 16, height: 16)
             }
             .buttonStyle(.mac(.icon))
@@ -321,9 +321,9 @@ import CrosstuneAnalytics
                 let knob: CGFloat = hovering || dragging ? 12 : 9
                 let x = width * min(max(fraction, 0), 1)
                 ZStack(alignment: .leading) {
-                    Capsule().fill(MacPalette.hairline)
+                    Capsule().fill(Palette.hairline)
                         .frame(height: Self.lineHeight)
-                    Capsule().fill(MacPalette.ink.opacity(ScrubberTrack.fillOpacity))
+                    Capsule().fill(Palette.ink.opacity(ScrubberTrack.fillOpacity))
                         .frame(width: x, height: Self.lineHeight)
                     Circle()
                         .fill(MacStyle.coral)

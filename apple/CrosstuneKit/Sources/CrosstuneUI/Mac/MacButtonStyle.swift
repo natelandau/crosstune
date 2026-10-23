@@ -1,7 +1,7 @@
 #if os(macOS)
     import SwiftUI
 
-    /// Every content button on the Mac, by role. Fills come from ``MacPalette`` and never read
+    /// Every content button on the Mac, by role. Fills come from ``Palette`` and never read
     /// whether the window is key, so a primary stays Harbor blue in an inactive window, where
     /// AppKit's own prominent bezel turns gray.
     struct MacButtonStyle: ButtonStyle {
@@ -57,14 +57,14 @@
 
         /// The fill a role draws on `container`, or nil where it draws none. A disabled button
         /// keeps its fill and fades as a whole by ``disabledOpacity``, so a disabled primary never
-        /// turns gray; `isEnabled` therefore never changes the fill.
+        /// turns gray.
         nonisolated static func fillRGB(
-            for role: Role, scheme: ColorScheme, container: MacContainer = .ground, isPressed: Bool, isEnabled: Bool
+            for role: Role, scheme: ColorScheme, container: MacContainer = .ground, isPressed: Bool
         ) -> KeyColor.RGB? {
-            let control = KeyColor.RGB(hex: MacPalette.hex(container.controlFill, scheme))
+            let control = KeyColor.RGB(hex: Palette.hex(container.controlFill, scheme))
             let rest: KeyColor.RGB? =
                 switch role {
-                case .primary: KeyColor.RGB(hex: MacPalette.hex(.accentFill, scheme))
+                case .primary: KeyColor.RGB(hex: Palette.hex(.accentFill, scheme))
                 case .secondary, .destructive: control
                 // The light danger red in both appearances: dark mode's pale red would not
                 // carry a white label.
@@ -77,9 +77,9 @@
         }
 
         static func fill(
-            for role: Role, scheme: ColorScheme, container: MacContainer = .ground, isPressed: Bool, isEnabled: Bool
+            for role: Role, scheme: ColorScheme, container: MacContainer = .ground, isPressed: Bool
         ) -> Color? {
-            fillRGB(for: role, scheme: scheme, container: container, isPressed: isPressed, isEnabled: isEnabled)?.color
+            fillRGB(for: role, scheme: scheme, container: container, isPressed: isPressed)?.color
         }
 
         /// Whether the role takes the container's control fill, and so its edge on a light card.
@@ -89,11 +89,11 @@
 
         static func labelRGB(for role: Role, scheme: ColorScheme) -> KeyColor.RGB {
             switch role {
-            case .primary, .destructiveFilled: KeyColor.RGB(hex: MacPalette.hex(.onAccentFill, scheme))
-            case .secondary: KeyColor.RGB(hex: MacPalette.hex(.ink, scheme))
-            case .plain: KeyColor.RGB(hex: MacPalette.hex(.accent, scheme))
-            case .quiet: KeyColor.RGB(hex: MacPalette.hex(.inkSecondary, scheme))
-            case .icon: KeyColor.RGB(hex: MacPalette.hex(.inkSecondary, scheme))
+            case .primary, .destructiveFilled: KeyColor.RGB(hex: Palette.hex(.onAccentFill, scheme))
+            case .secondary: KeyColor.RGB(hex: Palette.hex(.ink, scheme))
+            case .plain: KeyColor.RGB(hex: Palette.hex(.accent, scheme))
+            case .quiet: KeyColor.RGB(hex: Palette.hex(.inkSecondary, scheme))
+            case .icon: KeyColor.RGB(hex: Palette.hex(.inkSecondary, scheme))
             case .destructive: SignalSwatch.danger(scheme).ink
             }
         }
@@ -119,7 +119,6 @@
         static var macQuiet: Self { MacButtonStyle(.quiet) }
         static var macIcon: Self { MacButtonStyle(.icon) }
         static var macDestructive: Self { MacButtonStyle(.destructive) }
-        static var macDestructiveFilled: Self { MacButtonStyle(.destructiveFilled) }
 
         static func mac(_ role: MacButtonStyle.Role, size: MacButtonStyle.Size = .regular) -> Self {
             MacButtonStyle(role, size: size)
@@ -164,9 +163,7 @@
         private var labelColor: Color { MacButtonStyle.label(for: role, scheme: scheme) }
 
         private var fill: Color? {
-            MacButtonStyle.fill(
-                for: role, scheme: scheme, container: container, isPressed: configuration.isPressed,
-                isEnabled: isEnabled)
+            MacButtonStyle.fill(for: role, scheme: scheme, container: container, isPressed: configuration.isPressed)
         }
 
         private var filled: some View {

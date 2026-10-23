@@ -124,7 +124,8 @@ struct PracticeWaveform: View {
             #if os(macOS)
                 context.fillPeakBars(nil, in: CGRect(origin: .zero, size: size), with: .color(MacWave.placeholder))
             #else
-                context.fillPeakBars(nil, in: CGRect(origin: .zero, size: size), with: .style(.tertiary))
+                context.fillPeakBars(
+                    nil, in: CGRect(origin: .zero, size: size), with: .quietBars(onGround: ground != nil))
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -237,7 +238,7 @@ struct PracticeWaveform: View {
                     // What has played, left of the fixed playhead, is white; what is to come is silver.
                     context.fillSplit(path, atX: width / 2, played: Self.wavePlayed, unplayed: Self.waveUnplayed)
                 } else {
-                    context.fill(path, with: .style(.tertiary))
+                    context.fill(path, with: .quietBars(onGround: false))
                 }
             #endif
         }
@@ -273,17 +274,18 @@ struct PracticeWaveform: View {
                     with: .color(MacWave.tick))
                 let text = rulerLabels.value(for: label, in: environment) {
                     context.resolve(
-                        Text(label).font(MacStyle.secondary).monospacedDigit().foregroundStyle(MacPalette.inkSecondary))
+                        Text(label).font(MacStyle.secondary).monospacedDigit().foregroundStyle(Palette.inkSecondary))
                 }
                 let labelWidth = Double(text.measure(in: size).width)
                 if Self.rulerLabelFits(atX: x, labelWidth: labelWidth, width: Double(size.width)) {
                     context.draw(text, at: CGPoint(x: x, y: 0), anchor: .top)
                 }
             #else
-                context.fill(Path(CGRect(x: x, y: 0, width: 1, height: size.height)), with: .style(.secondary))
+                context.fill(
+                    Path(CGRect(x: x, y: 0, width: 1, height: size.height)), with: .rulerTick(onGround: ground != nil))
                 let text = rulerLabels.value(for: label, in: environment) {
                     context.resolve(
-                        Text(label).font(.platform(.caption2)).monospacedDigit().foregroundStyle(.secondary))
+                        Text(label).font(.platform(.caption2)).monospacedDigit().foregroundStyle(.inkSecondary))
                 }
                 context.draw(text, at: CGPoint(x: x + 3, y: 0), anchor: .topLeading)
             #endif
@@ -474,7 +476,7 @@ struct PracticeReadout: View {
                 Text(RecordingScreenText.preciseTime(milliseconds: Int64(model.shownCenterMs(at: model.clock()))))
                     #if os(macOS)
                         .font(MacStyle.readout)
-                        .foregroundStyle(MacPalette.ink)
+                        .foregroundStyle(Palette.ink)
                     #else
                         .font(.platform(.title3).weight(.semibold))
                         .monospacedDigit()
@@ -498,7 +500,7 @@ private struct Backing: ViewModifier {
             content
                 .background {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(MacPalette.ground.opacity(0.92))
+                        .fill(Palette.ground.opacity(0.92))
                         .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
                 }
                 .contentShape(.rect(cornerRadius: 8))
@@ -576,17 +578,17 @@ extension GraphicsContext.Shading {
     extension Color {
         /// A point of the stage's color around a coral handle or playhead, so it reads where it
         /// crosses a loop's orange band.
-        static var markOutline: Color { MacPalette.surface }
+        static var markOutline: Color { Palette.surface }
     }
 
     /// The Mac waveform's inks on the practice stage: what has played, left of the fixed
     /// playhead, near full ink, and what is to come faint, in both appearances.
     enum MacWave {
-        static var played: Color { MacPalette.ink.opacity(0.85) }
-        static var unplayed: Color { MacPalette.ink.opacity(0.28) }
+        static var played: Color { Palette.ink.opacity(0.85) }
+        static var unplayed: Color { Palette.ink.opacity(0.28) }
         /// Bars standing in for a waveform not yet on hand, quieter than any real bar.
-        static var placeholder: Color { MacPalette.ink.opacity(0.12) }
-        static var tick: Color { MacPalette.inkSecondary.opacity(0.6) }
+        static var placeholder: Color { Palette.ink.opacity(0.12) }
+        static var tick: Color { Palette.inkSecondary.opacity(0.6) }
         static let tickHeight: CGFloat = 5
     }
 #endif
@@ -611,6 +613,20 @@ extension GraphicsContext {
             fill(Path(rect.insetBy(dx: -1, dy: 0)), with: .color(.markOutline))
         #endif
         fill(Path(rect), with: .playhead(onGround: onGround))
+    }
+}
+
+extension GraphicsContext.Shading {
+    /// Quiet bars on the page, in ink; on the jet practice ground, the system's tertiary.
+    static func quietBars(onGround: Bool) -> Self {
+        if !onGround { return .color(Palette.inkSecondary) }
+        return .style(.tertiary)
+    }
+
+    /// Ruler ticks on the page, in ink; on the jet practice ground, the system's secondary.
+    static func rulerTick(onGround: Bool) -> Self {
+        if !onGround { return .color(Palette.inkSecondary) }
+        return .style(.secondary)
     }
 }
 

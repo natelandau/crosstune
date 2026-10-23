@@ -170,7 +170,7 @@ struct PaperEcho: View {
 
     private func dotColor(_ status: String) -> Color {
         if case .filled(let color) = StatusStyle.dot(status) { return color }
-        return .secondary
+        return Palette.inkSecondary
     }
 }
 

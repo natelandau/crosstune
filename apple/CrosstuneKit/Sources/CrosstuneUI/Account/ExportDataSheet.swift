@@ -58,14 +58,14 @@ public struct ExportDataSheet: View {
                     if let note = Self.macBodyNote(model.note) {
                         Text(note)
                             .font(MacStyle.body)
-                            .foregroundStyle(MacPalette.ink)
+                            .foregroundStyle(Palette.ink)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if let progress = model.progress, let text = model.progressText {
                         ProgressView(value: Double(progress.done), total: Double(progress.total)) {
                             Text(text)
                                 .font(MacStyle.secondary)
-                                .foregroundStyle(MacPalette.inkSecondary)
+                                .foregroundStyle(Palette.inkSecondary)
                                 .monospacedDigit()
                         }
                     }
@@ -99,7 +99,7 @@ public struct ExportDataSheet: View {
     #else
         private var content: some View {
             NavigationStack {
-                Form {
+                PaperForm {
                     Section {
                         if let note = model.note {
                             Text(note)
@@ -120,7 +120,6 @@ public struct ExportDataSheet: View {
                             .disabled(!model.canStart)
                     }
                 }
-                .formStyle(.grouped)
                 .navigationTitle(Self.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

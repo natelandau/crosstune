@@ -199,7 +199,7 @@ struct RecordSheetBody: View {
                     .contentTransition(.opacity)
             }
             .font(.platform(.subheadline))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(.inkSecondary)
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.updatesFrequently)
         }
@@ -212,7 +212,7 @@ struct RecordSheetBody: View {
                 Text(RecordSheet.filingUnder(title))
                     .contentMask()
                     .font(.platform(.subheadline))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.inkSecondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
             }
@@ -232,7 +232,7 @@ struct RecordSheetBody: View {
                 #if os(macOS)
                     .foregroundStyle(model.phase == .saved ? .inkSecondary : AnyShapeStyle(Color.red))
                 #else
-                    .foregroundStyle(model.phase == .saved ? Color.secondary : Color.red)
+                    .foregroundStyle(model.phase == .saved ? Palette.inkSecondary : Color.red)
                 #endif
                 .multilineTextAlignment(.center)
         }
@@ -300,17 +300,17 @@ struct RecordSheetBody: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "location.fill")
                     .font(.system(size: 20))
-                    .foregroundStyle(MacPalette.inkSecondary)
+                    .foregroundStyle(Palette.inkSecondary)
                     .frame(width: 24)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(RecordSheetModel.locationNoteTitle)
                         .font(MacStyle.sectionHeading)
-                        .foregroundStyle(MacPalette.ink)
+                        .foregroundStyle(Palette.ink)
                         .accessibilityAddTraits(.isHeader)
                     Text(RecordSheetModel.locationNoteBody)
                         .font(MacStyle.body)
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -340,7 +340,7 @@ struct RecordSheetBody: View {
                 Button(RecordSheetModel.continueToLocation) {
                     Task { await model.continueFromLocationNote() }
                 }
-                .buttonStyle(.slateProminent)
+                .buttonStyle(.accentProminent)
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
                 .disabled(model.isContinuing)

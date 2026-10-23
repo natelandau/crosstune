@@ -68,7 +68,7 @@
 
         var body: some View {
             configuration.label
-                .foregroundStyle(isHovered ? MacPalette.ink : MacPalette.inkSecondary)
+                .foregroundStyle(isHovered ? Palette.ink : Palette.inkSecondary)
                 .opacity(configuration.isPressed ? 0.6 : 1)
                 .onHover { isHovered = $0 }
         }

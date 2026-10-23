@@ -44,7 +44,7 @@
         /// raised: the ground in light, a lifted gray in dark. Deep enough in dark that a badge in
         /// secondary ink keeps 4.5:1.
         static func chosenFillHex(_ scheme: ColorScheme) -> String {
-            scheme == .dark ? "#33373D" : MacPalette.groundLight
+            scheme == .dark ? "#33373D" : Palette.groundLight
         }
 
         /// ``chosenFillHex(_:)`` following the appearance. It reads only the appearance, never
@@ -118,7 +118,7 @@
             }
             .padding(Self.inset)
             .frame(height: Self.height)
-            .background(MacPalette.field, in: .rect(cornerRadius: Self.radius))
+            .background(Palette.field, in: .rect(cornerRadius: Self.radius))
             // With no segment chosen the ring goes round the whole control.
             .macFocusRing(focused && chosen == nil, cornerRadius: Self.radius)
             .fixedSize(horizontal: !fillsWidth, vertical: true)
@@ -185,7 +185,7 @@
                         .font(MacStyle.label)
                         .monospacedDigit()
                         .foregroundStyle(
-                            look == .accent && isChosen ? MacPalette.onAccentFill : MacPalette.inkSecondary)
+                            look == .accent && isChosen ? Palette.onAccentFill : Palette.inkSecondary)
                 }
             }
             .lineLimit(1)
@@ -205,14 +205,14 @@
         private var raised: Bool { look == .token && isChosen }
 
         private var labelColor: Color {
-            look == .accent && isChosen ? MacPalette.onAccentFill : MacPalette.ink
+            look == .accent && isChosen ? Palette.onAccentFill : Palette.ink
         }
 
         private var fill: Color {
             if isChosen {
-                return look == .accent ? MacPalette.accentFill : MacSegmented<Int>.chosenFill
+                return look == .accent ? Palette.accentFill : MacSegmented<Int>.chosenFill
             }
-            return isHovered ? MacPalette.hairline : .clear
+            return isHovered ? Palette.hairline : .clear
         }
     }
 #endif

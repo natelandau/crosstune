@@ -13,7 +13,7 @@ extension PlanSheet {
 }
 
 /// A trial's days left, the day it ends, how much of it has passed, and what it holds and keeps,
-/// on the slate wash.
+/// on the accent wash.
 struct TrialCard: View {
     /// When the trial began, nil when the plan does not say.
     let startsAt: Date?
@@ -73,7 +73,7 @@ struct TrialCard: View {
     /// secondary elsewhere.
     private var secondary: Color {
         #if os(macOS)
-            MacPalette.inkSecondary
+            Palette.inkSecondary
         #else
             BrandStyle.washSecondary(scheme)
         #endif
@@ -81,15 +81,15 @@ struct TrialCard: View {
 
     private var label: Color {
         #if os(macOS)
-            MacPalette.inkSecondary
+            Palette.inkSecondary
         #else
             BrandStyle.setLabel(scheme)
         #endif
     }
 }
 
-/// How much of the trial has passed: slate over a stronger wash than the card's, since a system
-/// progress bar's gray track all but vanishes on the wash.
+/// How much of the trial has passed: ink, as a chart is drawn, over a stronger wash than the
+/// card's, since a system progress bar's gray track all but vanishes on the wash.
 private struct TrialBar: View {
     let fraction: Double
     /// What VoiceOver reads: what is left, since a bare percent does not say of what.
@@ -103,7 +103,7 @@ private struct TrialBar: View {
             .overlay(alignment: .leading) {
                 GeometryReader { proxy in
                     Capsule()
-                        .fill(bar)
+                        .fill(Palette.ink)
                         .frame(width: proxy.size.width * fraction)
                 }
             }
@@ -114,10 +114,8 @@ private struct TrialBar: View {
     }
 
     #if os(macOS)
-        private var track: Color { MacPalette.field }
-        private var bar: Color { MacPalette.ink }
+        private var track: Color { Palette.field }
     #else
         private var track: Color { BrandStyle.tintStrong(scheme) }
-        private var bar: Color { BrandStyle.accent }
     #endif
 }

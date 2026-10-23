@@ -477,7 +477,7 @@ struct PlanSheet: View {
                     }
                 }
                 .font(MacStyle.body)
-                .foregroundStyle(MacPalette.ink)
+                .foregroundStyle(Palette.ink)
             }
         }
 
@@ -494,7 +494,7 @@ struct PlanSheet: View {
             }
             if let line = Self.macOutcomeLine(sale, line: purchase?.line) {
                 Text(line)
-                    .foregroundStyle(sale == .offline || sale == .notSelling ? MacPalette.inkSecondary : MacPalette.ink)
+                    .foregroundStyle(sale == .offline || sale == .notSelling ? Palette.inkSecondary : Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if case .choice(let offers) = sale, let purchase,
@@ -515,7 +515,7 @@ struct PlanSheet: View {
             if let purchase, let line = Self.restoreLine(purchase) {
                 Text(line)
                     .font(MacStyle.secondary)
-                    .foregroundStyle(MacPalette.inkSecondary)
+                    .foregroundStyle(Palette.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -523,7 +523,7 @@ struct PlanSheet: View {
 #endif
 
 #if !os(macOS)
-    /// The sheet's one prominent button: large, slate, and full width.
+    /// The sheet's one prominent button: large, accent, and full width.
     private struct PrimaryAction<Content: View>: View {
         @ViewBuilder let content: Content
 
@@ -550,17 +550,12 @@ struct WaitingSubscribeButton: View {
 
 /// The CT mark heading the sheet: a slate C on light, a white C on dark, and the coral T on both.
 private struct PlanMark: View {
-    @Environment(\.colorScheme) private var scheme
     @ScaledMetric(relativeTo: .title) private var height: CGFloat = 40
 
     var body: some View {
         Mark()
             .frame(height: height)
-            #if os(macOS)
-                .foregroundStyle(MacPalette.markInk)
-            #else
-                .foregroundStyle(scheme == .dark ? Color.white : BrandStyle.accent)
-            #endif
+            .foregroundStyle(Palette.markInk)
             .accessibilityHidden(true)
     }
 }

@@ -95,7 +95,7 @@ private struct ListPickerContent: View {
                                         Text(note)
                                             .font(MacStyle.secondary)
                                             .monospacedDigit()
-                                            .foregroundStyle(MacPalette.inkSecondary)
+                                            .foregroundStyle(Palette.inkSecondary)
                                     }
                                 }
                             }
@@ -162,7 +162,7 @@ private struct ListPickerContent: View {
 
     #if os(iOS)
         var body: some View {
-            Form {
+            PaperForm {
                 if model.isLoaded {
                     Section {
                         ForEach(model.rows) { row in
@@ -177,7 +177,7 @@ private struct ListPickerContent: View {
                                     if let note = row.note {
                                         Text(note)
                                             .monospacedDigit()
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(.inkSecondary)
                                     }
                                 }
                                 .contentShape(.rect)
@@ -194,7 +194,6 @@ private struct ListPickerContent: View {
                     }
                 }
             }
-            .formStyle(.grouped)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(ListPickerSheet.cancel) { dismiss() }

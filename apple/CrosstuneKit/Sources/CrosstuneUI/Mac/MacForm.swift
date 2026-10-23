@@ -101,7 +101,7 @@
                         if let subtitle {
                             Text(subtitle)
                                 .font(MacStyle.secondary)
-                                .foregroundStyle(MacPalette.inkSecondary)
+                                .foregroundStyle(Palette.inkSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -125,14 +125,14 @@
                 if let title {
                     Text(title)
                         .font(MacStyle.sectionHeading)
-                        .foregroundStyle(MacPalette.ink)
+                        .foregroundStyle(Palette.ink)
                         .accessibilityAddTraits(.isHeader)
                 }
                 Spacer(minLength: 0)
                 if let caption {
                     Text(caption)
                         .font(MacStyle.secondary)
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                 }
                 accessory
             }
@@ -149,7 +149,7 @@
                             .overlay(alignment: .top) {
                                 if index > 0 {
                                     Rectangle()
-                                        .fill(MacPalette.hairline)
+                                        .fill(Palette.hairline)
                                         .frame(height: 1)
                                         .padding(.horizontal, MacForm.rowInset)
                                 }
@@ -160,7 +160,7 @@
             .modifier(MacFormLabelColumnReader())
             .labeledContentStyle(.macFormRow)
             .toggleStyle(.macFormSwitch)
-            .background(MacPalette.surface, in: .rect(cornerRadius: MacForm.cardRadius))
+            .background(Palette.surface, in: .rect(cornerRadius: MacForm.cardRadius))
             .macSurfaceContainer()
         }
     }
@@ -207,7 +207,7 @@
                         if let first = lines.first {
                             first
                                 .font(MacStyle.body)
-                                .foregroundStyle(MacPalette.ink)
+                                .foregroundStyle(Palette.ink)
                                 .background {
                                     if leads { labelWidth(first) }
                                 }
@@ -215,7 +215,7 @@
                         ForEach(lines.dropFirst()) { line in
                             line
                                 .font(MacStyle.secondary)
-                                .foregroundStyle(MacPalette.inkSecondary)
+                                .foregroundStyle(Palette.inkSecondary)
                         }
                     }
                 }
@@ -304,12 +304,13 @@
         func body(content: Content) -> some View {
             content
                 .toggleStyle(.switch)
+                .switchOnTint()
                 .controlSize(.small)
                 .labelsHidden()
                 .overlay {
                     if !isOn && container.strokesControls(scheme) {
                         Capsule()
-                            .strokeBorder(MacPalette.hairline, lineWidth: 1)
+                            .strokeBorder(Palette.hairline, lineWidth: 1)
                             .allowsHitTesting(false)
                     }
                 }
@@ -392,7 +393,7 @@
                     if text.isEmpty {
                         Text(placeholder)
                             .font(MacStyle.body)
-                            .foregroundStyle(MacPalette.inkSecondary)
+                            .foregroundStyle(Palette.inkSecondary)
                             // TextEditor's own line fragment inset, so the prompt sits where typing starts.
                             .padding(.leading, 5)
                             .allowsHitTesting(false)
@@ -457,7 +458,7 @@
             configuration.label
                 .environment(\.macPickRowHighlighted, isEnabled && (isHovered || isFocused))
                 .font(MacStyle.body)
-                .foregroundStyle(isEnabled ? MacPalette.ink : MacPalette.inkSecondary)
+                .foregroundStyle(isEnabled ? Palette.ink : Palette.inkSecondary)
                 .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity, minHeight: MacPickRowStyle.minHeight, alignment: .leading)
                 .background(fill, in: .rect(cornerRadius: MacPickRowStyle.radius))
@@ -467,7 +468,7 @@
 
         private var fill: Color {
             guard isEnabled else { return .clear }
-            return isHovered || configuration.isPressed ? MacPalette.field : .clear
+            return isHovered || configuration.isPressed ? Palette.field : .clear
         }
     }
 
@@ -503,11 +504,11 @@
                 switch kind {
                 case .add, .addOnHighlight:
                     Image(systemName: "plus")
-                        .foregroundStyle(MacPalette.inkSecondary)
+                        .foregroundStyle(Palette.inkSecondary)
                         .opacity(Self.shows(kind, highlighted: highlighted) ? 1 : 0)
                 case .done:
                     Image(systemName: "checkmark")
-                        .foregroundStyle(MacPalette.accent)
+                        .foregroundStyle(Palette.accent)
                 case .none:
                     Color.clear
                 }

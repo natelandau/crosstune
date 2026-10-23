@@ -311,7 +311,7 @@ public struct MediaRow: View {
             #if os(macOS)
                 .macHoverAccent()
             #else
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
             #endif
             .lineTarget(stacked: stacksLineControls, reach: 14)
         }
@@ -335,7 +335,7 @@ public struct MediaRow: View {
             #if os(macOS)
                 .macHoverAccent()
             #else
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.inkSecondary)
             #endif
             .lineTarget(stacked: stacksLineControls, reach: 14)
         }
@@ -403,7 +403,7 @@ public struct MediaRow: View {
     /// is over the row, so the row reads as the control.
     private var idleGlyphStyle: AnyShapeStyle {
         #if os(macOS)
-            isHovered ? AnyShapeStyle(MacPalette.accent) : AnyShapeStyle(MacPalette.ink)
+            isHovered ? AnyShapeStyle(Palette.accent) : AnyShapeStyle(Palette.ink)
         #else
             AnyShapeStyle(.primary)
         #endif
@@ -454,15 +454,15 @@ extension EnvironmentValues {
         @Environment(\.backgroundProminence) private var prominence
         @Environment(\.macRowSelected) private var rowSelected
 
-        nonisolated static func token(hovered: Bool, emphasized: Bool, rowSelected: Bool) -> MacPalette.Token {
+        nonisolated static func token(hovered: Bool, emphasized: Bool, rowSelected: Bool) -> Palette.Token {
             if hovered, !emphasized, !rowSelected { return .accent }
-            return MacSecondaryInk.token(emphasized: emphasized, rowSelected: rowSelected)
+            return SecondaryInk.token(emphasized: emphasized, rowSelected: rowSelected)
         }
 
         func body(content: Content) -> some View {
             content
                 .foregroundStyle(
-                    MacPalette.color(
+                    Palette.color(
                         Self.token(hovered: isHovered, emphasized: prominence == .increased, rowSelected: rowSelected))
                 )
                 .onHover { isHovered = $0 }

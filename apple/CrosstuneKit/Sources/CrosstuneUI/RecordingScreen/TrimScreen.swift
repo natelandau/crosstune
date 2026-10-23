@@ -106,7 +106,7 @@ struct TrimScreen: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button(RecordingScreenText.cancel) { leave() }
             }
-            ToolbarItem(placement: .confirmationAction) {
+            ConfirmToolbarItem {
                 Button(RecordingScreenText.save) { model.isConfirming = true }
                     .disabled(!model.isChanged || model.isSaving)
             }

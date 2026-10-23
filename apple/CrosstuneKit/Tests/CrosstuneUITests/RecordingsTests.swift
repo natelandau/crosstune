@@ -927,10 +927,13 @@ private struct RefusingSyncAPI: SyncAPI {
         _ = try await commands.createTune(TuneInput(title: "Kitchen Girl"), userTune: UserTuneInput(status: "known"))
         _ = try await commands.createTune(
             TuneInput(title: "Ashokan Farewell"), userTune: UserTuneInput(status: "learning"))
+        let archived = try await commands.createTune(
+            TuneInput(title: "Big Scioty"), userTune: UserTuneInput(status: "known"))
+        try await commands.setArchived(archived.userTuneID, archived: true)
         try await putRecording(store, "r1")
         let model = AddToTuneModel(store: store, recordingID: "r1")
         try await eventually { model.idleResults != nil }
-        #expect(model.idleResults?.map(\.tune.title) == ["Ashokan Farewell", "Kitchen Girl"])
+        #expect(model.idleResults?.map(\.tune.title) == ["Ashokan Farewell", "Big Scioty", "Kitchen Girl"])
         model.query = "kitchen"
         #expect(model.idleResults?.isEmpty == true, "typing hands the rows to the search")
     }

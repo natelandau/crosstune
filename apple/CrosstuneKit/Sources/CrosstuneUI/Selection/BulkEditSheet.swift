@@ -72,7 +72,7 @@ struct BulkEditSheet: View {
     #if os(iOS)
         private var phoneBody: some View {
             NavigationStack {
-                Form {
+                PaperForm {
                     Section {
                         if let failure = bulk.editFailure {
                             Text(failure)
@@ -111,7 +111,6 @@ struct BulkEditSheet: View {
                         ForEach(details, id: \.self) { row($0) }
                     }
                 }
-                .formStyle(.grouped)
                 .navigationTitle(BulkActionText.editTitle(entries.count))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -119,7 +118,7 @@ struct BulkEditSheet: View {
                         Button(TuneFormSheet.cancel) { dismiss() }
                             .disabled(bulk.isPending)
                     }
-                    ToolbarItem(placement: .confirmationAction) {
+                    ConfirmToolbarItem {
                         Button(TuneFormSheet.save, action: save)
                             .fontWeight(.semibold)
                             .disabled(!form.isEdited || bulk.isPending)
@@ -235,7 +234,7 @@ private struct BulkChoiceRow: View {
                             .imageScale(.small)
                             .accessibilityHidden(true)
                     }
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.inkSecondary)
                 }
                 // A plain menu keeps the value secondary, as the tune form shows its values, where
                 // the default style would tint it.
