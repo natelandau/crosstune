@@ -91,13 +91,27 @@ test-unit *args:
 test-browser *args:
     {{ gate }} web-test-browser --argc "$#" --file .env --tool 'node --version' pnpm vitest run --project browser --project browser-webkit "$@"
 
-# Run tests shuffled, a new order each run, and list the seeds that failed; SEED=<n> replays one
+# Once per finished branch: run tests shuffled, by default the branch's changed test files; SEED=<n> replays one
 [group('test')]
 [positional-arguments]
 stress runs *args:
     #!/usr/bin/env bash
     set -uo pipefail
     shift
+    if (( $# == 0 )); then
+        base=$(git merge-base main HEAD)
+        files=()
+        while IFS= read -r file; do files+=("$file"); done < <(
+            { git diff --name-only --relative --diff-filter=AMR "$base"; git ls-files --others --exclude-standard; } \
+                | grep -E '\.test\.tsx?$' | sort -u
+        )
+        if (( ${#files[@]} == 0 )); then
+            echo "no test files changed since main; pass files or vitest args to stress others"
+            exit 0
+        fi
+        printf 'stressing %s\n' "${files[@]}"
+        set -- "${files[@]}"
+    fi
     # Shuffling exposes a test that leans on state an earlier test left behind, which file
     # order hides.
     if [[ -n "${SEED:-}" ]]; then

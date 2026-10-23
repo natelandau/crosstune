@@ -175,8 +175,12 @@ fails there at random. Every web test follows these rules:
   leaves no timer, listener, overlay, or module-level state for the next
   test. A test database comes from `openTestDb()`, which deletes it after
   the tree unmounts; never delete it in an `afterEach`, which runs while
-  the tree is still mounted. Before committing a new or changed test file,
-  run `just web::stress 5 <file>`, which shuffles the tests on each run.
+  the tree is still mounted.
+- A stress recipe, such as `just web::stress`, runs once per branch, when
+  its work is done and before it lands or opens a pull request. It never
+  runs per commit or per task, and a subagent executing part of a plan
+  never runs it. `just web::stress 5` with no files shuffles every test
+  file the branch added or changed since `main`.
 - Never raise a timeout or add a retry to make a test pass. CI retries a
   failed browser test so one race doesn't fail the run, and the job summary
   lists every test that needed a retry. A listed test is a bug to fix.
