@@ -79,13 +79,16 @@ public final class AudioPlayer: AudioPlayback {
         @ObservationIgnored private var outputs: Set<OutputPort> = []
     #endif
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
+    @ObservationIgnored private let sessionOwner = AudioSessionOwner()
 
-    /// Whether a take is being recorded now, which keeps playback silent.
+    /// Whether a take is being recorded, which keeps playback silent.
     private let isCapturing: @MainActor () -> Bool
 
-    /// - Parameter isCapturing: Whether a take is being recorded now. Tests pass their own, so
-    ///   they never share the process-wide answer.
-    public convenience init(isCapturing: @escaping @MainActor () -> Bool = { Recorder.hasActiveCapture }) {
+    /// - Parameter isCapturing: Whether a take is being recorded. Tests pass their own, so they
+    ///   never share the process-wide answer.
+    public convenience init(
+        isCapturing: @escaping @MainActor () -> Bool = { Recorder.hasActiveCapture }
+    ) {
         self.init(isCapturing: isCapturing, rendersOffline: false)
     }
 
@@ -239,11 +242,13 @@ public final class AudioPlayer: AudioPlayback {
         } catch {
             markFailed(error)
             deactivateSession()
+            TunerInput.playbackDidNotStart()
             return
         }
         guard schedule(from: elapsed) else {
             engine.pause()
             deactivateSession()
+            TunerInput.playbackDidNotStart()
             return
         }
         node.play()
@@ -482,6 +487,8 @@ public final class AudioPlayer: AudioPlayback {
         /// sound effect. Recording sets its own category for the take, and closes the player
         /// before it does.
         private func activateSession() {
+            TunerInput.yieldToPlayback()
+            AudioSessionClaims.shared.claim(sessionOwner)
             let session = AVAudioSession.sharedInstance()
             do {
                 try session.setCategory(.playback, mode: .default, policy: .longFormAudio)
@@ -494,6 +501,8 @@ public final class AudioPlayer: AudioPlayback {
         /// Mixable, so MusicKit's own session plays beside this one. The default policy, since
         /// `.mixWithOthers` cannot be combined with long-form.
         public func yieldSessionToMusic() {
+            TunerInput.yieldToPlayback()
+            AudioSessionClaims.shared.claim(sessionOwner)
             let session = AVAudioSession.sharedInstance()
             do {
                 try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
@@ -515,10 +524,12 @@ public final class AudioPlayer: AudioPlayback {
         }
 
         private func endSession() {
-            do {
-                try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-            } catch {
-                logger.debug("The audio session did not deactivate: \(error, privacy: .public)")
+            AudioSessionClaims.shared.release(sessionOwner) {
+                do {
+                    try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+                } catch {
+                    logger.debug("The audio session did not deactivate: \(error, privacy: .public)")
+                }
             }
         }
 

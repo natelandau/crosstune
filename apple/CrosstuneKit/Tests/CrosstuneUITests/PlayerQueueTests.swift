@@ -119,6 +119,58 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(!rig.player.isExpanded)
     }
 
+    @Test func aQueuedSongLoadedPausedTellsTheTunerItYieldedForNothing() async throws {
+        let rig = rig()
+        var told = 0
+        rig.player.playbackDidNotStart = { told += 1 }
+        rig.player.playQueued(
+            try songItem(), nowPlaying: queuedNowPlaying, autoplay: false, trigger: .autoAdvance)
+        try await eventually { rig.player.linkAudio == .native }
+
+        #expect(rig.audio.calls == ["yieldSessionToMusic"])
+        #expect(!rig.music.calls.contains("play"))
+        #expect(told == 1)
+    }
+
+    @Test func aQueuedSongThatPlaysLeavesTheTunerWaiting() async throws {
+        let rig = rig()
+        var told = 0
+        rig.player.playbackDidNotStart = { told += 1 }
+        try await queueSong(rig)
+
+        #expect(rig.music.calls == ["load", "play"])
+        #expect(told == 0)
+    }
+
+    @Test func aSongStillBeingLookedUpLoadsPausedForTheTuner() async throws {
+        let rig = rig()
+        rig.music.holdsLoads = true
+        rig.player.play(try songItem())
+        try await eventually { rig.music.isHoldingLoad }
+        #expect(rig.player.linkAudio == .deciding)
+
+        rig.player.quietForTuner()
+        rig.music.release()
+
+        try await eventually { rig.player.linkAudio == .native }
+        #expect(rig.music.calls == ["load"])
+        #expect(rig.player.isLoaded)
+    }
+
+    @Test func aQueuedSongStillBeingLookedUpLoadsPausedForTheTuner() async throws {
+        let rig = rig()
+        rig.music.holdsLoads = true
+        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { rig.music.isHoldingLoad }
+
+        rig.player.quietForTuner()
+        rig.music.release()
+
+        try await eventually { rig.player.linkAudio == .native }
+        #expect(rig.music.calls == ["load"])
+        #expect(rig.player.queue != nil)
+    }
+
     @Test func queuingTheLoadedSongAgainReloadsIt() async throws {
         let rig = rig()
         try await queueSong(rig)
@@ -277,6 +329,19 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(!rig.player.isLoaded)
         #expect(rig.player.queue == nil)
         #expect(rig.audio.calls.last == "releaseSession")
+    }
+
+    @Test func aTakeStartingBeforeASongLoadsLeavesTheSessionAlone() async throws {
+        let rig = rig()
+        let capturing = Mutex(false)
+        rig.player.isCapturing = { capturing.withLock { $0 } }
+        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        // Before the decision's access lookup returns, as a tuner or take can start meanwhile.
+        capturing.withLock { $0 = true }
+        try await eventually { rig.queue.calls == ["leftQueue"] }
+        #expect(!rig.audio.calls.contains("yieldSessionToMusic"))
+        #expect(rig.music.loaded.isEmpty)
+        #expect(!rig.player.isLoaded)
     }
 
     @Test func aSongNotDecidedByTheTimeoutReportsCouldNotPlay() async throws {

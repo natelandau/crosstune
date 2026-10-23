@@ -86,8 +86,10 @@ public final class AppleMusicPlayer: MusicPlayback {
     /// Moves on with each start, so a load that a play overtook leaves the playing queue alone.
     @ObservationIgnored private var plays = 0
 
-    /// - Parameter isCapturing: Whether a take is being recorded now, when nothing may play.
-    public init(isCapturing: @escaping @MainActor () -> Bool = { Recorder.hasActiveCapture }) {
+    /// - Parameter isCapturing: Whether a take is being recorded, when nothing may play.
+    public init(
+        isCapturing: @escaping @MainActor () -> Bool = { Recorder.hasActiveCapture }
+    ) {
         self.isCapturing = isCapturing
     }
 
@@ -127,12 +129,17 @@ public final class AppleMusicPlayer: MusicPlayback {
         guard let player, !isCapturing() else { return false }
         plays += 1
         hasLetGo = false
+        #if os(iOS)
+            // MusicKit's playback interrupts a session the tuner set up for the microphone.
+            TunerInput.yieldToPlayback()
+        #endif
         do {
             try await player.play()
             if guarded && realEntryID == nil { watchMoves(of: player) }
             return true
         } catch {
             logger.error("An Apple Music track did not start: \(error, privacy: .public)")
+            TunerInput.playbackDidNotStart()
             return false
         }
     }

@@ -88,6 +88,8 @@ public final class PlayerModel {
     /// audio session under the microphone, or be recorded into the take. The shell answers it
     /// from every window's record sheet; the audio player also stays silent during a take.
     @ObservationIgnored public var isCapturing: @MainActor () -> Bool = { false }
+    /// Tells a tuner that yielded the session to a song that it did not start; a test watches it.
+    @ObservationIgnored var playbackDidNotStart: @MainActor () -> Void = { TunerInput.playbackDidNotStart() }
 
     /// The open store's plan, which the app sets as each store opens. While it holds recordings
     /// back, no recording loads, and one already loaded closes. Nil holds nothing back.
@@ -124,6 +126,9 @@ public final class PlayerModel {
     @ObservationIgnored private var fetch: Task<Void, Never>?
     /// Asking for access and finding the loaded Apple Music link's track.
     @ObservationIgnored var deciding: Task<Void, Never>?
+    /// Set while a link is decided to load it paused rather than start it, as when the tuner
+    /// opens; each decision starts with it clear.
+    @ObservationIgnored var holdsAutoplay = false
     /// Ends a decision that the network holds up, so the link falls back to its embed.
     @ObservationIgnored var deadline: Task<Void, Never>?
     /// How long finding and starting an Apple Music track may take before the embed plays
