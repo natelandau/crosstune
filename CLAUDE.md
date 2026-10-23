@@ -25,7 +25,9 @@ The code is the source of truth for everything except `docs/architecture.md`.
 
 The repository is public. Feature specs, plans, design records, host
 settings, credentials, and anything else that should not be public never
-go in it.
+go in it. Neither do the commands an operator runs against production,
+such as granting a comp or a trial: `docs/` describes the code, never how
+to act on live accounts.
 
 ## Naming
 
@@ -103,6 +105,10 @@ every label. The glossary in `docs/product.md` has the reasons.
   Never put a check through it that reads a service or anything else
   neither can name. `api-test` is the one exception: its Postgres
   databases are made from the tree on every run (`docs/operations.md`).
+- While iterating on web code, run `pnpm exec eslint <files>` and
+  `pnpm exec prettier --check <files>` from `web/` on the files you
+  changed. `just web::lint` checks the whole module, so run it once before
+  you commit.
 - Spell check with `just typos [paths]`. Never run typos or any other tool
   through `uvx`. Do not add another task runner.
 
@@ -157,6 +163,9 @@ fails there at random. Every web test follows these rules:
   engine and store state, and mock call counts. A plain `expect` reads only
   a value that can no longer change, such as a pure function's result or a
   mock call's arguments once a poll has seen the call.
+- Under fake timers, a poll advances the clock by its interval on each
+  miss, so it can fire a timer the test means to hold. There, poll with
+  `pollStill` and `elementStill` from `web/src/test/stillPoll.ts`.
 - Never wait a fixed time for something to happen. A fixed wait proves only
   that something did not happen, after a poll has seen the thing that did.
 - Behavior driven by elapsed time or animation frames takes its clock or

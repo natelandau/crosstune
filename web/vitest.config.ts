@@ -77,6 +77,7 @@ export default defineConfig((env) =>
           include: ['src/**/*.{ts,tsx}', 'worker/**/*.ts'],
           exclude: ['**/*.test.{ts,tsx}', 'src/test/**', 'src/**/*.d.ts'],
           reportsDirectory: '.cache/coverage',
+          // No html reporter: ESLint lints `.cache/`, and the report's generated scripts fail it.
           reporter: [['text', { skipFull: true }], 'lcovonly'],
           // Just under the measured coverage, so merging or removing tests cannot lower it unseen.
           // A CI shard sees only its share of the files, so only the merged report is held to it.

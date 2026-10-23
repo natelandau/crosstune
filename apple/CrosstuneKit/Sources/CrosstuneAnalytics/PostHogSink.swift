@@ -21,7 +21,8 @@ protocol PostHogBackend: Sendable {
 
 /// Sends analytics to PostHog while the musician shares usage data. The app's stored choice is
 /// the only consent store: with sharing off at launch the SDK is never set up, so nothing at all
-/// leaves the device. Meanwhile the sink keeps who is signed in, so turning sharing on sends as
+/// leaves the device. Opted out is not enough, since setup stores a device ID and fetches the
+/// project's remote config either way. Meanwhile the sink keeps who is signed in, so turning sharing on sends as
 /// the right person.
 final class PostHogSink: AnalyticsSink {
     /// The user the SDK was last identified as, kept so the sink can tell before setup whether
@@ -251,7 +252,8 @@ struct LivePostHog: PostHogBackend {
         config.captureScreenViews = false
         config.captureApplicationLifecycleEvents = true
         config.personProfiles = .identifiedOnly
-        // Feature flags and surveys are unused, so launch fetches no flags and no survey can show.
+        // Feature flags and surveys are unused, so no flags are fetched and no survey can show.
+        // Setup still fetches the remote config, which the SDK always loads.
         config.preloadFeatureFlags = false
         // Autocapture reads control text, which here is the musician's own, so only named events
         // are sent, whatever the PostHog dashboard enables.
