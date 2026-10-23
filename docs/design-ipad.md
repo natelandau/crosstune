@@ -69,10 +69,10 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 - Each tab: content column plus detail column.
 - Content column: the iPhone screen for its tab, iPhone zones, large title
   scrolling with the rows.
-- Fixed pair. Content column between `PadStyle.contentColumnMinWidth` and
-  `PadStyle.contentColumnMaxWidth`. Never `NavigationSplitView`: in a narrow
-  portrait window it floats the content column over the detail behind a
-  scrim, and the tab view's sidebar is the one sidebar.
+- Fixed pair, splitting the tab's width evenly. The content column never
+  falls under `PadStyle.contentColumnMinWidth`. Never `NavigationSplitView`:
+  in a narrow portrait window it floats the content column over the detail
+  behind a scrim, and the tab view's sidebar is the one sidebar.
 - Choosing a row never pushes over the content column. A list's page pushes
   inside the Lists column. A list opened from a tune page shows on the
   Lists tab.

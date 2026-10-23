@@ -13,14 +13,15 @@ public enum PadStyle {
     public static let standControlsMaxWidth: CGFloat = 640
     /// A scan thumbnail's height on a regular-width tune page.
     public static let scanThumbnailHeight: CGFloat = 180
-    /// The content column's share of a tab's width, held between its narrowest and widest.
-    public static let contentColumnShare: CGFloat = 0.36
+    /// The content column's share of a tab's width: half, so the list and the page it opens
+    /// split the tab evenly.
+    public static let contentColumnShare: CGFloat = 0.5
+    /// The narrowest the content column gets, so a tune row still reads in a small window.
     public static let contentColumnMinWidth: CGFloat = 320
-    public static let contentColumnMaxWidth: CGFloat = 360
 
     /// The content column's width in a tab `width` wide.
     public static func contentColumnWidth(in width: CGFloat) -> CGFloat {
-        min(max(width * contentColumnShare, contentColumnMinWidth), contentColumnMaxWidth)
+        max(width * contentColumnShare, contentColumnMinWidth)
     }
 
     /// The foot capsule's height, Record and the player alike.
