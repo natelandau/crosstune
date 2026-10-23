@@ -636,7 +636,7 @@ import Testing
             #expect(keys.cancel == .cancellation)
         }
 
-        /// Without an App Store page there is nothing to update from, so Not Now is the one
+        /// Without an App Store page there is nothing to update from, so Not now is the one
         /// primary.
         @Test func withoutAStorePageNotNowIsThePrimary() {
             let footer = UpdatePromptSheet.footer(canUpdate: false, update: {}, notNow: {})

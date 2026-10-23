@@ -1,7 +1,7 @@
 import { activeRecordingsForTune } from '../../commands/recordings'
 import type { CrosstuneDb } from '../../db/schema'
 import { countTunes } from '../../text/format'
-import { DELETE_TUNE_TITLE, deleteTuneMessage, deleteTunesMessage } from './deleteTuneMessage'
+import { deleteTuneMessage, deleteTunesMessage, deleteTuneTitle } from './deleteTuneMessage'
 import type { CatalogEntry } from '../../db/types'
 
 /**
@@ -21,9 +21,9 @@ export async function deleteTunesQuestion(
   const views = files.map((file) => ({ file }))
   const only = entries.length === 1 ? entries[0] : undefined
   return only
-    ? { title: DELETE_TUNE_TITLE, message: deleteTuneMessage(only.tune.title, views) }
+    ? { title: deleteTuneTitle(only.tune.title), message: deleteTuneMessage(views) }
     : {
         title: `Delete ${countTunes(entries.length)}?`,
-        message: deleteTunesMessage(countTunes(entries.length), views),
+        message: deleteTunesMessage(views),
       }
 }

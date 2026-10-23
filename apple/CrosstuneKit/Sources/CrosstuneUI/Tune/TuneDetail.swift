@@ -108,9 +108,12 @@ public struct TuneDetail: Hashable, Sendable {
             Date.FormatStyle(locale: locale, calendar: calendar, timeZone: .gmt).month(.abbreviated).day().year())
     }
 
+    /// The delete confirmation's title, which names the tune.
+    public var deleteTitle: String { DeleteTuneMessage.title(for: tune.title) }
+
     /// The delete confirmation's message.
     public var deleteMessage: String {
-        DeleteTuneMessage.one(title: tune.title, files: recordings.map(\.file))
+        DeleteTuneMessage.one(files: recordings.map(\.file))
     }
 
     /// A tune's rows with the musician's own before imported ones, each in the order given.
@@ -146,32 +149,33 @@ public struct TuneDetail: Hashable, Sendable {
     }
 }
 
-/// The delete confirmation's words, which name what else goes with the tune and warn when a
+/// The delete confirmation's words, which list what else goes with the tune and warn when a
 /// recording that goes has not reached the server.
 public enum DeleteTuneMessage {
-    public static let title = "Delete tune?"
+    /// The title of one tune's confirmation: `Delete "Soldier's Joy"?`, the tune as stored.
+    public static func title(for tune: String) -> String { "Delete \"\(tune)\"?" }
     public static let delete = "Delete"
     public static let deleting = "Deleting…"
     static let notUploaded = "Some recordings have not uploaded, so they cannot be recovered."
 
-    /// `Delete "Soldier's Joy"? This removes its links and list entries.` `files` holds each
-    /// recording's local file, nil where this device has none.
-    public static func one(title: String, files: [RecordingFile?]) -> String {
-        message(subject: "\"\(title)\"", possessive: "its", files: files)
+    /// `This removes its links and list entries.` `files` holds each recording's local file, nil
+    /// where this device has none.
+    public static func one(files: [RecordingFile?]) -> String {
+        message(possessive: "its", files: files)
     }
 
-    /// The same for a selection, whose subject counts it: "Delete 12 tunes? This removes their…"
-    public static func many(subject: String, files: [RecordingFile?]) -> String {
-        message(subject: subject, possessive: "their", files: files)
+    /// The same for a selection: "This removes their…"
+    public static func many(files: [RecordingFile?]) -> String {
+        message(possessive: "their", files: files)
     }
 
-    private static func message(subject: String, possessive: String, files: [RecordingFile?]) -> String {
+    private static func message(possessive: String, files: [RecordingFile?]) -> String {
         let count = files.count
         let removed =
             count == 0
             ? "\(possessive) links and list entries"
             : "\(possessive) links, list entries, and \(count) \(count == 1 ? "recording" : "recordings")"
-        let text = "Delete \(subject)? This removes \(removed)."
+        let text = "This removes \(removed)."
         return files.contains(where: { $0?.localState.isNotUploaded == true }) ? "\(text) \(notUploaded)" : text
     }
 }

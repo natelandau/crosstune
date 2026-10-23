@@ -14,36 +14,40 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 @Suite struct DeleteTuneMessageTests {
     @Test func namesOnlyLinksAndListEntriesWhenThereAreNoRecordings() {
         #expect(
-            DeleteTuneMessage.one(title: "Cluck Old Hen", files: [])
-                == "Delete \"Cluck Old Hen\"? This removes its links and list entries.")
+            DeleteTuneMessage.one(files: [])
+                == "This removes its links and list entries.")
     }
 
     @Test func countsASingleRecordingInTheSingular() {
         #expect(
-            DeleteTuneMessage.one(title: "Cluck Old Hen", files: [file(.uploaded)])
-                == "Delete \"Cluck Old Hen\"? This removes its links, list entries, and 1 recording.")
+            DeleteTuneMessage.one(files: [file(.uploaded)])
+                == "This removes its links, list entries, and 1 recording.")
     }
 
     @Test func countsSeveralRecordingsInThePlural() {
         #expect(
-            DeleteTuneMessage.one(title: "Cluck Old Hen", files: [file(.uploaded), nil])
-                == "Delete \"Cluck Old Hen\"? This removes its links, list entries, and 2 recordings.")
+            DeleteTuneMessage.one(files: [file(.uploaded), nil])
+                == "This removes its links, list entries, and 2 recordings.")
     }
 
     @Test func warnsWhenAnyRecordingHasNotUploaded() {
         #expect(
-            DeleteTuneMessage.one(title: "Cluck Old Hen", files: [file(.downloaded), file(.failedUpload)])
-                == "Delete \"Cluck Old Hen\"? This removes its links, list entries, and 2 recordings. "
+            DeleteTuneMessage.one(files: [file(.downloaded), file(.failedUpload)])
+                == "This removes its links, list entries, and 2 recordings. "
                 + "Some recordings have not uploaded, so they cannot be recovered.")
+    }
+
+    @Test func titleNamesTheTuneAsStored() {
+        #expect(DeleteTuneMessage.title(for: "Soldier's Joy") == "Delete \"Soldier's Joy\"?")
     }
 
     @Test func speaksOfASelectionRatherThanOneTune() {
         #expect(
-            DeleteTuneMessage.many(subject: "12 tunes", files: [])
-                == "Delete 12 tunes? This removes their links and list entries.")
+            DeleteTuneMessage.many(files: [])
+                == "This removes their links and list entries.")
         #expect(
-            DeleteTuneMessage.many(subject: "2 tunes", files: [file(.uploaded), file(.captured)])
-                == "Delete 2 tunes? This removes their links, list entries, and 2 recordings. "
+            DeleteTuneMessage.many(files: [file(.uploaded), file(.captured)])
+                == "This removes their links, list entries, and 2 recordings. "
                 + "Some recordings have not uploaded, so they cannot be recovered.")
     }
 }
@@ -157,8 +161,8 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(detail.instruments == SampleCatalog.instruments)
         #expect(detail.searchProviders == SampleCatalog.searchProviders)
         #expect(detail.tunings == ["Violin: Standard (GDAE)"])
-        #expect(
-            detail.deleteMessage == "Delete \"Soldier's Joy\"? This removes its links, list entries, and 1 recording.")
+        #expect(detail.deleteTitle == "Delete \"Soldier's Joy\"?")
+        #expect(detail.deleteMessage == "This removes its links, list entries, and 1 recording.")
     }
 
     @Test func showsAnUnknownTuneAsGone() async throws {

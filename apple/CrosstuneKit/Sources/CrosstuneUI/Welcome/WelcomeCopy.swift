@@ -34,7 +34,7 @@ public enum WelcomeCopy {
         return "The tune list in your case, rebuilt for your \(name)."
     }
 
-    public static let line = "The tunes you know and the tunes you're learning, with a recording one tap away."
+    public static let line = "The tunes you know and the tunes you're learning, with a recording close at hand."
     public static let createAccount = "Create account"
     public static let signIn = "Sign in"
 }
