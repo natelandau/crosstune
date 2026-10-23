@@ -47,7 +47,7 @@ export function PaneScroller({
     <PaneContext value={scope}>
       {/* Relative, so an absolute box inside, such as a hidden announcer, is clipped and
           scrolled by the pane instead of stretching the window. */}
-      <div ref={scroller} className={`relative ${className}`} {...rest}>
+      <div ref={scroller} data-pane-scroller className={`relative ${className}`} {...rest}>
         {children}
       </div>
     </PaneContext>

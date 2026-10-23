@@ -123,16 +123,13 @@ private struct RecordingsContent: View {
                         .plainListRow()
                 }
             #else
-                if model.showsFilters {
-                    RecordingsFilterRow(
-                        choice: model.choice, count: model.filterCount, onFilters: { showsFilters = true },
-                        onReset: { Task { await model.resetSource() } }
-                    )
-                    .listRowInsets(
-                        EdgeInsets(top: spacing.stackGap, leading: 16, bottom: spacing.stackGap, trailing: 16)
-                    )
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                if model.filterCount > 0 {
+                    RecordingsFilterRow(choice: model.choice) { Task { await model.resetSource() } }
+                        .listRowInsets(
+                            EdgeInsets(top: spacing.stackGap, leading: 16, bottom: spacing.stackGap, trailing: 16)
+                        )
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                 }
             #endif
             #if os(macOS)
@@ -233,6 +230,12 @@ private struct RecordingsContent: View {
                     Button(RecordingImport.upload, systemImage: "plus") { upload() }
                     .accessibilityLabel(RecordingImport.uploadAudio)
                 }
+                if model.showsFilters {
+                    ToolbarItem(placement: .primaryAction) {
+                        FiltersButton(setCount: model.filterCount, iconOnly: true) { showsFilters = true }
+                    }
+                }
+                AccountToolbarItem()
             }
         #endif
         .coversShell(importing)
@@ -274,6 +277,7 @@ private struct RecordingsContent: View {
         }
         #if DEBUG
             .opensForSample(.recordingsFilters) { showsFilters = true }
+            .opensForSample(.recordingsSetFilters) { Task { await model.setChoice(RecordingText.ownOrigin) } }
             .opensForSample(.editRecording, when: model.view(SampleScreen.editedRecordingID) != nil) {
                 editing = model.view(SampleScreen.editedRecordingID)
             }
@@ -534,6 +538,7 @@ private struct RecordingsContent: View {
         }
         .newTakeHighlight(view.id)
         .mediaRowInsets()
+        .unselectedRowGround(isSelected: openRecording?.wrappedValue == view.id)
         #if os(macOS)
             .macRowSelected(openRecording?.wrappedValue == view.id)
         #endif
@@ -611,6 +616,7 @@ private struct RecordingsContent: View {
             verb: row.verb, action: { discarding = capture }
         )
         .mediaRowInsets()
+        .unselectedRowGround(isSelected: false)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) { discard }
         .contextMenu { discard }
     }

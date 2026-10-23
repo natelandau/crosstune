@@ -17,12 +17,10 @@ import {
   isFilterValue,
   titleMatches,
   missingChoices,
-  sheetFilterCount,
+  setFilterCount,
   sheetResets,
   NO_KEY,
   normalizeFilters,
-  ROW_FACETS,
-  sheetFacets,
   tuneCountLabel,
   visibleFacets,
 } from './filters'
@@ -353,20 +351,34 @@ describe('type and composer', () => {
     expect(normalizeFilters({ key: 'D' }).tune_type).toBe('all')
   })
 
-  it('keeps Type on the bar, not in the sheet', () => {
-    expect(sheetFacets(['key', 'tune_type', 'genre'])).toEqual(['genre'])
+  it('puts every visible facet in the sheet, Key first, and counts Status and Key', () => {
+    const visible: Facet[] = ['key', 'tune_type', 'genre']
+    expect(sheetFilters(DEFAULT_FILTERS, visible).facets).toEqual(['key', 'tune_type', 'genre'])
+    expect(setFilterCount({ ...DEFAULT_FILTERS, status: 'learning' }, visible)).toBe(1)
+    expect(setFilterCount({ ...DEFAULT_FILTERS, key: 'D' }, visible)).toBe(1)
+    expect(
+      setFilterCount({ ...DEFAULT_FILTERS, status: 'known', key: 'D', genre: 'Old-time' }, visible),
+    ).toBe(3)
   })
 
-  it('puts Type first in the sheet when only Key has a control on the row', () => {
-    const visible: Facet[] = ['key', 'tune_type', 'genre']
-    const set = { ...DEFAULT_FILTERS, key: 'D', tune_type: 'reel' }
-    const sheet = sheetFilters(set, visible, ROW_FACETS)
-    expect(sheet.facets).toEqual(['tune_type', 'genre'])
-    expect(sheet.count).toBe(1)
-    expect(sheetFilterCount(set, visible)).toBe(0)
-    expect(sheet.reset).toMatchObject({ tune_type: 'all' })
-    expect(sheet.reset).not.toHaveProperty('key')
-    expect(sheet.tokens.map((token) => token.label)).toEqual(['reel'])
+  it('resets Status and Key with the rest of the sheet', () => {
+    expect(sheetResets(['key', 'genre'])).toMatchObject({
+      status: 'all',
+      key: 'all',
+      genre: 'all',
+      archived: false,
+      unheard: false,
+      missing: 'all',
+    })
+  })
+
+  it('never makes Status or Key a token', () => {
+    const sheet = sheetFilters(
+      { ...DEFAULT_FILTERS, status: 'known', key: 'D', tune_type: 'reel' },
+      ['key', 'tune_type'],
+    )
+    expect(sheet.tokens.map((t) => t.label)).toEqual(['reel'])
+    expect(sheet.count).toBe(3)
   })
 })
 
@@ -502,8 +514,8 @@ describe('missing', () => {
 
   it('counts and resets the new sheet filters', () => {
     const set = { ...DEFAULT_FILTERS, unheard: true, missing: 'genre' as const }
-    expect(sheetFilterCount(set, [])).toBe(2)
-    expect(sheetResets([])).toMatchObject({ unheard: false, missing: 'all' })
+    expect(setFilterCount(set, [])).toBe(2)
+    expect(sheetResets([])).toMatchObject({ status: 'all', unheard: false, missing: 'all' })
   })
 
   it('resets a missing tuning whose facet is hidden', () => {
@@ -585,8 +597,12 @@ describe('composer and learned from facets', () => {
     expect(filters.learned_from).toBe('all')
   })
 
-  it('keeps both off the bar', () => {
-    expect(sheetFacets(['key', 'composer', 'learned_from'])).toEqual(['composer', 'learned_from'])
+  it('lists both in the sheet', () => {
+    expect(sheetFilters(DEFAULT_FILTERS, ['key', 'composer', 'learned_from']).facets).toEqual([
+      'key',
+      'composer',
+      'learned_from',
+    ])
   })
 
   it('searches the learned from', () => {

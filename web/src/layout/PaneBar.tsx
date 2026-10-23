@@ -15,6 +15,7 @@ export function PaneBar({
   titleAlways = false,
   leading,
   trailing,
+  bare = false,
 }: {
   title?: string
   /** Shown instead of `title` when the sides leave too little room for it. */
@@ -23,6 +24,8 @@ export function PaneBar({
   titleAlways?: boolean
   leading?: ReactNode
   trailing?: ReactNode
+  /** Draws the row alone, for a phone root bar that holds it. */
+  bare?: boolean
 }) {
   const pane = usePane()
   const leadingRef = useRef<HTMLDivElement>(null)
@@ -37,7 +40,7 @@ export function PaneBar({
     const lead = leadingRef.current
     const trail = trailingRef.current
     const full = fullRef.current
-    const bar = lead?.closest<HTMLElement>('[data-pane-bar]')
+    const bar = lead?.closest<HTMLElement>('[data-pane-bar], [data-root-row]')
     if (!compact || !lead || !trail || !full || !bar) return
     const measure = () => {
       const style = getComputedStyle(bar)
@@ -63,9 +66,10 @@ export function PaneBar({
   // title over and truncates it instead of drawing over it.
   return (
     <div
-      ref={pane?.bar}
-      data-pane-bar
-      className="bg-ground sticky top-0 z-10 grid min-h-11 grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-2 px-2"
+      ref={bare ? undefined : pane?.bar}
+      data-pane-bar={bare ? undefined : true}
+      data-root-row={bare ? true : undefined}
+      className={`grid grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-2 px-2 ${bare ? 'h-11' : 'bg-ground sticky top-0 z-10 min-h-11'}`}
     >
       <div className="flex min-w-0 items-center justify-start">
         <div ref={leadingRef} className="flex items-center">

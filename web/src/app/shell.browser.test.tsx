@@ -12,7 +12,7 @@ import { META_CATALOG_FILTERS, normalizeFilters } from '../features/catalog/filt
 import { readSearchQuery, writeSearchQuery } from '../ui/searchSession'
 import { countTunes } from '../text/format'
 import { OFFLINE } from '../sync/labels'
-import { contrastRatio, glyphInk, paintedBackground } from '../test/contrast'
+import { contrastRatio, glyphInk, paintedBackground, washOver } from '../test/contrast'
 import { openTestDb } from '../test/db'
 import { restoreSystemDark, stubSystemDark } from '../test/scheme'
 import { destination, DESTINATIONS } from '../layout/destinations'
@@ -38,16 +38,6 @@ async function seed(db: CrosstuneDb) {
   const listId = await createList(db, 'Tuesday jam')
   await addToList(db, listId, userTuneId)
   await createList(db, 'Contest')
-}
-
-/** The wash is a translucent color(srgb ...), which the contrast helpers do not read. */
-function washOver(wash: string, ground: string): string {
-  const [r, g, b, alpha = 1] = (/color\(srgb ([^)]*)\)/.exec(wash)?.[1] ?? '')
-    .split(/[\s/]+/)
-    .map(Number)
-  const [gr, gg, gb] = ground.match(/[\d.]+/g)!.map(Number)
-  const mix = (top: number, under: number) => Math.round(top * 255 * alpha + under * (1 - alpha))
-  return `rgb(${mix(r!, gr!)}, ${mix(g!, gg!)}, ${mix(b!, gb!)})`
 }
 
 const sidebar = () => page.getByRole('navigation', { name: SIDEBAR })
@@ -76,7 +66,7 @@ it('shows the account button on each phone root screen', async () => {
       .getByRole('link', { name: ACCOUNT_BUTTON, exact: true })
     await expect.element(account).toBeVisible()
     await expect.element(account).toHaveTextContent(initials(STUB_USER_NAME)!)
-    expect(account.element().closest('[data-column-title]')).not.toBeNull()
+    expect(account.element().closest('[data-root-bar]')).not.toBeNull()
   }
 })
 
@@ -421,7 +411,10 @@ it('recedes the whole shell behind a touch sheet', async () => {
   await renderApp({ path: '/catalog', db, frame: PHONE, density: 'touch' })
   const tabs = page.getByRole('navigation', { name: TAB_BAR })
   await expect.element(tabs).toBeVisible()
-  await page.getByRole('button', { name: /^Filters/ }).click()
+  await page
+    .getByRole('button', { name: /^Filters/ })
+    .first()
+    .click()
   await expect.element(page.getByRole('dialog')).toBeVisible()
   const scale = () => {
     const root = tabs.element().closest<HTMLElement>('[data-sheet-root]')

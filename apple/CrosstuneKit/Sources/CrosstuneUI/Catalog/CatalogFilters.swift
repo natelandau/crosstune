@@ -209,16 +209,13 @@ public struct CatalogFilters: Hashable, Sendable {
         return filters
     }
 
-    /// How many of the sheet's filters are set: the count on the Filters button and the gate on
-    /// Reset. Status and key sit on the screen, so they are not among them.
-    public var sheetCount: Int {
-        facets.keys.count(where: \.isInSheet) + (archived ? 1 : 0) + (unheard ? 1 : 0) + (missing != nil ? 1 : 0)
+    /// How many filters are set: the count on the Filters button and the gate on Reset.
+    public var setCount: Int {
+        (status != nil ? 1 : 0) + facets.count + (archived ? 1 : 0) + (unheard ? 1 : 0) + (missing != nil ? 1 : 0)
     }
 
-    /// These filters with the sheet's cleared and the screen's kept.
-    public var sheetReset: CatalogFilters {
-        CatalogFilters(status: status, facets: facets.filter { !$0.key.isInSheet })
-    }
+    /// These filters with every one cleared.
+    public var cleared: CatalogFilters { CatalogFilters() }
 }
 
 /// Matching, sorting, and counting the catalog, ignoring case and accents throughout. Matching

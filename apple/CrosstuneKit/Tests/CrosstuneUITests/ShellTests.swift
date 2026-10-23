@@ -919,3 +919,13 @@ import Testing
         }
     }
 #endif
+
+@Suite struct AccountItemTests {
+    @Test func showsOnlyWithTheShellsActionAndNotWhileSelecting() {
+        let action = MenuAction {}
+        #expect(showsAccountItem(showAccount: action, isSelecting: false))
+        #expect(!showsAccountItem(showAccount: action, isSelecting: true))
+        #expect(!showsAccountItem(showAccount: nil, isSelecting: false))
+        #expect(!showsAccountItem(showAccount: nil, isSelecting: true))
+    }
+}

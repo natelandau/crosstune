@@ -170,7 +170,7 @@ describe('useCatalogScreen', () => {
     await ready(result)
     await act(() => result.current.setFilters({ archived: true }))
     await expect.poll(() => result.current.effectiveFilters.archived).toBe(true)
-    expect(result.current.sheetCount).toBeGreaterThan(0)
+    expect(result.current.sheet.count).toBeGreaterThan(0)
   })
 
   describe('analytics', () => {

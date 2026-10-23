@@ -1,8 +1,8 @@
 import CrosstuneAnalytics
 import SwiftUI
 
-/// Every facet the catalog filters on, plus the archived setting. Each choice applies at once;
-/// Reset clears the sheet's filters and leaves status alone; Done closes it.
+/// Every filter the catalog has: status, every facet, and the archived setting. Each choice
+/// applies at once; Reset clears them all; Done closes it.
 struct CatalogFilterSheet: View {
     static let title = "Filters"
     static let reset = "Reset"
@@ -11,6 +11,7 @@ struct CatalogFilterSheet: View {
     static let showArchived = "Show archived"
     static let onlyUnheard = "Only unheard"
     nonisolated static let missing = "Missing"
+    static let status = "Status"
 
     /// "3 archived tunes", under the Show archived switch.
     nonisolated static func archivedFooter(_ count: Int) -> String {
@@ -23,6 +24,7 @@ struct CatalogFilterSheet: View {
     }
 
     let model: CatalogModel
+    let statusChoices: [StatusScope.Choice]
 
     @Environment(\.dismiss) private var dismiss
 
@@ -66,14 +68,15 @@ struct CatalogFilterSheet: View {
                         .monospacedDigit()
                         .contentTransition(.numericText())
                     Button(Self.reset) {
-                        model.updateFilters { $0 = $0.sheetReset }
+                        model.updateFilters { $0 = $0.cleared }
                     }
                     .buttonStyle(.macPlain)
-                    .disabled(results.filters.sheetCount == 0)
+                    .disabled(results.filters.setCount == 0)
                 }
             } content: {
                 VStack(alignment: .leading, spacing: MacForm.sectionGap) {
                     MacFormSection {
+                        statusPicker(results)
                         ForEach(results.sheetFacets, id: \.self) { facet in
                             facetPopUp(facet, results)
                         }
@@ -93,13 +96,16 @@ struct CatalogFilterSheet: View {
     private func form(_ results: CatalogResults) -> some View {
         PaperForm {
             Section {
-                ForEach(results.sheetFacets, id: \.self) { facet in
-                    facetPopUp(facet, results)
-                }
+                statusPicker(results)
             } header: {
                 Text(results.countLabel)
                     .monospacedDigit()
                     .contentTransition(.numericText())
+            }
+            Section {
+                ForEach(results.sheetFacets, id: \.self) { facet in
+                    facetPopUp(facet, results)
+                }
             }
             Section {
                 unheardToggle(results)
@@ -119,14 +125,42 @@ struct CatalogFilterSheet: View {
         .toolbar {
             ToolbarItem(placement: Self.resetPlacement) {
                 Button(Self.reset) {
-                    model.updateFilters { $0 = $0.sheetReset }
+                    model.updateFilters { $0 = $0.cleared }
                 }
-                .disabled(results.filters.sheetCount == 0)
+                .disabled(results.filters.setCount == 0)
             }
             ConfirmToolbarItem {
                 Button(Self.done) { dismiss() }
             }
         }
+    }
+
+    /// The status choices, with a set status none of them holds kept, so a stale filter never
+    /// reads as Any.
+    nonisolated static func statusOptions(_ choices: [StatusScope.Choice], set: String?) -> [StatusScope.Choice] {
+        guard let set, !choices.contains(where: { $0.status == set }) else { return choices }
+        return choices + [StatusScope.Choice(status: set, label: set, count: nil)]
+    }
+
+    @ViewBuilder private func statusPicker(_ results: CatalogResults) -> some View {
+        let status = Binding {
+            results.filters.status
+        } set: { status in
+            model.updateFilters { $0.status = status }
+        }
+        let options = Self.statusOptions(statusChoices, set: results.filters.status)
+        #if os(macOS)
+            MacPopUp(
+                Self.status, selection: status, options: options.map(\.status),
+                label: { value in options.first { $0.status == value }?.label ?? value ?? "" },
+                isSet: results.filters.status != nil)
+        #else
+            Picker(Self.status, selection: status) {
+                ForEach(options) { choice in
+                    Text(choice.label).tag(choice.status)
+                }
+            }
+        #endif
     }
 
     @ViewBuilder private func facetPopUp(_ facet: CatalogFacet, _ results: CatalogResults) -> some View {

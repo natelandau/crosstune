@@ -279,7 +279,7 @@ it('falls back to the default width when the stored one is not a width', async (
 it('shows the pane bar title only once the column title scrolls away', async () => {
   const db = openTestDb()
   await seedMany(db, 60)
-  await renderApp({ path: '/catalog', db, frame: PHONE })
+  await renderApp({ path: '/catalog', db, frame: SPLIT })
   await expect.element(catalog().getByRole('heading', { name: CATALOG })).toBeVisible()
   await expect.element(catalog().getByRole('row', { name: /^Tune 059\b/ })).toBeInTheDocument()
   const barTitle = () => listColumn().querySelector<HTMLElement>('[data-pane-title]')!
@@ -304,9 +304,10 @@ it('shows Offline beside the catalog title on the phone', async () => {
   await expect.element(title).toBeVisible()
   const badge = page.getByTestId('sync-status')
   await expect.element(badge).toHaveTextContent(OFFLINE)
-  expect(badge.element().closest('[data-column-title]')).toBe(
-    title.element().closest('[data-column-title]'),
+  expect(badge.element().closest('[data-root-bar]')).toBe(
+    title.element().closest('[data-root-bar]'),
   )
+  expect(title.element().closest('[data-root-bar]')).not.toBeNull()
 })
 
 it('keeps the sync badge in the sidebar alone on wide', async () => {

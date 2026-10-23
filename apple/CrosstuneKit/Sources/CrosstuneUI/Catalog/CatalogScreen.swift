@@ -26,10 +26,20 @@ public struct CatalogScreen: View {
         return results.entries.isEmpty && query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// Whether the search field's filters button stands down: while selecting, as the column's
-    /// own actions do, and in a catalog with no tune to filter. Up while the catalog loads.
-    nonisolated static func filtersStandDown(_ results: CatalogResults?, isSelecting: Bool) -> Bool {
-        isSelecting || results?.entries.isEmpty == true
+    #if os(macOS)
+        /// Whether the search field's filters button stands down: while selecting, as the column's
+        /// own actions do, and in a catalog with no tune to filter. Up while the catalog loads.
+        nonisolated static func filtersStandDown(_ results: CatalogResults?, isSelecting: Bool) -> Bool {
+            isSelecting || results?.entries.isEmpty == true
+        }
+    #endif
+
+    /// Whether the phone bar carries Filters: never while selecting, whose controls take the
+    /// row, and in an empty catalog only while a stored filter is set, so it can still be cleared.
+    nonisolated static func showsBarFilters(entries: [CatalogEntry], filters: CatalogFilters, isSelecting: Bool)
+        -> Bool
+    {
+        !isSelecting && (!entries.isEmpty || filters.setCount > 0)
     }
 
     @Environment(CatalogModel.self) private var model: CatalogModel?
@@ -102,9 +112,7 @@ private struct CatalogContent: View {
     @AccessibilityFocusState private var focusedRow: String?
     @FocusState private var searchFocused: Bool
     @Namespace private var zoom
-    #if os(iOS)
-        @Environment(\.catalogCounts) private var counts
-    #endif
+    @Environment(\.catalogCounts) private var counts
 
     /// The sort as the musician changes it, which is what reports.
     private var chosenSort: Binding<CatalogSortChoice> {
@@ -160,10 +168,19 @@ private struct CatalogContent: View {
                 .toolbar {
                     if !selection.isActive {
                         ToolbarItem(placement: .primaryAction) { addButton }
-                        if results?.visible.isEmpty == false {
-                            ToolbarItem(placement: .primaryAction) { moreMenu }
+                    }
+                    if let results,
+                        CatalogScreen.showsBarFilters(
+                            entries: results.entries, filters: results.filters, isSelecting: selection.isActive)
+                    {
+                        ToolbarItem(placement: .primaryAction) {
+                            FiltersButton(setCount: results.filters.setCount, iconOnly: true) { showsFilters = true }
                         }
                     }
+                    if !selection.isActive, results?.visible.isEmpty == false {
+                        ToolbarItem(placement: .primaryAction) { moreMenu }
+                    }
+                    AccountToolbarItem()
                 }
             #endif
             .selectionMode(
@@ -173,7 +190,7 @@ private struct CatalogContent: View {
             .modifier(RefreshesBySync(engine: engine))
             .modifier(PushesTune(tuneID: $pushed, isPushing: detailTune == nil, zoom: zoom))
             .sheet(isPresented: $showsFilters) {
-                CatalogFilterSheet(model: model)
+                CatalogFilterSheet(model: model, statusChoices: StatusScope.choices(counts?.value ?? nil))
             }
             #if DEBUG
                 .opensForSample(.catalogFilters) { showsFilters = true }
@@ -355,20 +372,16 @@ private struct CatalogContent: View {
                 }
             #endif
             if let results, showsFilterRow(results), !Self.selectionBarShows(selection) {
-                CatalogFilterRow(
-                    results: results, model: model, statusChoices: statusChoices, isSelecting: selection.isActive
-                ) {
-                    showsFilters = true
-                }
-                #if os(macOS)
-                    .frame(minHeight: MacStyle.columnBarHeight)
-                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { filterRowHeight = $0 }
-                    .listRowInsets(MacStyle.columnBarInsets)
-                #else
-                    .listRowInsets(
-                        EdgeInsets(top: spacing.stackGap, leading: 16, bottom: spacing.stackGap, trailing: 16))
-                #endif
-                .plainListRow()
+                CatalogFilterRow(results: results, model: model, statusChoices: statusChoices)
+                    #if os(macOS)
+                        .frame(minHeight: MacStyle.columnBarHeight)
+                        .onGeometryChange(for: CGFloat.self, of: \.size.height) { filterRowHeight = $0 }
+                        .listRowInsets(MacStyle.columnBarInsets)
+                    #else
+                        .listRowInsets(
+                            EdgeInsets(top: spacing.stackGap, leading: 16, bottom: spacing.stackGap, trailing: 16))
+                    #endif
+                    .plainListRow()
             }
             if let results, results.visible.isEmpty, !Self.onboards(results, query: model.query) {
                 emptyState(results)
@@ -436,6 +449,9 @@ private struct CatalogContent: View {
                 tuneID: entry.tune.id, tunesWithScans: scanTunes, premium: premium, origin: .row,
                 actions: tuneScreenActions),
             onSelect: { selection.enter(with: entry.tune.id) }
+        )
+        .unselectedRowGround(
+            isSelected: TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune)
         )
         .statusRingOnFill(TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune))
         .accessibilityFocused($focusedRow, equals: entry.tune.id)

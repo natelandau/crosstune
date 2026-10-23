@@ -341,31 +341,17 @@ export function hiddenResets(
   return resets
 }
 
-/** Facets with their own control on the filter bar; every other visible facet lives in the sheet. */
-const BAR_FACETS: readonly Facet[] = ['key', 'tune_type']
-
 /**
  * Facets with their own control on the filter row, which matches the Apple apps:
- * Status, Key, then Filters, with Type in the sheet.
+ * Status, Key, then Filters. The sheet holds them too, but they never show as tokens.
  */
 export const ROW_FACETS: readonly Facet[] = ['key']
 
-/** The visible facets the sheet lists: every one without its own control in `bar`. */
-export function sheetFacets(
-  visible: readonly Facet[],
-  bar: readonly Facet[] = BAR_FACETS,
-): Facet[] {
-  return visible.filter((facet) => !bar.includes(facet))
-}
-
-/** How many sheet filters are set: the badge on the Filters button and the gate on Reset. */
-export function sheetFilterCount(
-  filters: CatalogFilters,
-  visible: readonly Facet[],
-  bar: readonly Facet[] = BAR_FACETS,
-): number {
-  const facets = sheetFacets(visible, bar).filter((facet) => filters[facet] !== 'all').length
+/** How many filters are set, Status and Key included: the badge on the Filters button and the gate on Reset. */
+export function setFilterCount(filters: CatalogFilters, visible: readonly Facet[]): number {
+  const facets = visible.filter((facet) => filters[facet] !== 'all').length
   return (
+    (filters.status !== 'all' ? 1 : 0) +
     facets +
     (filters.archived ? 1 : 0) +
     (filters.unheard ? 1 : 0) +
@@ -373,13 +359,15 @@ export function sheetFilterCount(
   )
 }
 
-/** A patch that clears the sheet's filters and nothing else. */
-export function sheetResets(
-  visible: readonly Facet[],
-  bar: readonly Facet[] = BAR_FACETS,
-): Partial<CatalogFilters> {
-  const patch: Partial<CatalogFilters> = { archived: false, unheard: false, missing: 'all' }
-  for (const facet of sheetFacets(visible, bar)) patch[facet] = 'all'
+/** A patch that clears every filter the sheet holds and nothing else. */
+export function sheetResets(visible: readonly Facet[]): Partial<CatalogFilters> {
+  const patch: Partial<CatalogFilters> = {
+    status: 'all',
+    archived: false,
+    unheard: false,
+    missing: 'all',
+  }
+  for (const facet of visible) patch[facet] = 'all'
   return patch
 }
 
@@ -389,4 +377,13 @@ export function missingFilterChoices(
   set: CatalogFilters['missing'],
 ): readonly MissingAttribute[] {
   return set === 'all' || offered.includes(set) ? offered : [...offered, set]
+}
+
+/** Whether the filter row, and the phone bar's Filters button, show. */
+export function catalogFiltersShown(
+  ready: boolean,
+  counts: CatalogCounts,
+  setCount: number,
+): boolean {
+  return ready && (counts.all > 0 || setCount > 0)
 }

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ColumnTitle } from '../../layout/ColumnTitle'
+import { RootBar } from '../../layout/RootBar'
 import { PaneScroller } from '../../layout/pane'
-import { PaneBar } from '../../layout/PaneBar'
 import { useDocumentVisible } from '../../platform/visibility'
 import { useWakeLock } from '../../platform/wakeLock'
 import { useShellCovered } from '../../ui/overlayClaim'
@@ -70,8 +69,7 @@ export function TunerScreen() {
           backgroundColor: green > 0 ? blend('--jet', '--tune-wash', green) : undefined,
         }}
       >
-        <PaneBar title={TUNER_TITLE} />
-        <ColumnTitle title={TUNER_TITLE} account />
+        <RootBar title={TUNER_TITLE} />
         {reference && <p className="t-secondary px-4 text-(--panel-muted)">{reference}</p>}
         <div
           data-tuner-stage

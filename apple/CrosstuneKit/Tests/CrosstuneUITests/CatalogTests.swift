@@ -167,21 +167,22 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(CatalogSearch.countLabel(visible: 0, total: 0) == "0 tunes")
     }
 
-    @Test func countsTheSheetsFiltersAndResetsOnlyThem() {
+    @Test func countsEveryFilterAndResetsThemAll() {
         let filters = CatalogFilters(
             status: "learning", facets: [.key: "D", .tuneType: "Reel", .genre: "Irish", .mode: "dorian"],
             archived: true)
-        #expect(filters.sheetCount == 4)
-        #expect(filters.sheetReset == CatalogFilters(status: "learning", facets: [.key: "D"]))
-        #expect(CatalogFilters(status: "known", facets: [.key: "D"]).sheetCount == 0)
+        #expect(filters.setCount == 6)
+        #expect(filters.cleared == CatalogFilters())
+        #expect(filters.cleared.setCount == 0)
+        #expect(filters.cleared.status == nil)
         #expect(FiltersButton.name(setCount: 0) == "Filters")
-        #expect(FiltersButton.name(setCount: 2) == "Filters, 2 set")
+        #expect(FiltersButton.name(setCount: filters.setCount) == "Filters, 6 set")
     }
 
-    @Test func keepsKeyOnTheScreenAndTheRestInTheSheet() {
-        #expect(CatalogFacet.all.filter { !$0.isInSheet } == [.key])
-        #expect(CatalogFacet.tuneType.isInSheet && CatalogFacet.tuning("violin").isInSheet)
-        #expect(CatalogFacet.mode.isInSheet && CatalogFacet.genre.isInSheet)
+    @Test func keepsKeyOffTheTokensAndEveryFacetInTheSheet() {
+        #expect(CatalogFacet.all.filter { !$0.isToken } == [.key])
+        #expect(CatalogFacet.tuneType.isToken && CatalogFacet.tuning("violin").isToken)
+        #expect(CatalogFacet.mode.isToken && CatalogFacet.genre.isToken)
     }
 
     @Test func showsASetKeyOnItsControlAndASetTypeAsAToken() {
@@ -410,10 +411,10 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(CatalogFilters(missing: .composer).clearingHidden(visible: []).missing == .composer)
     }
 
-    @Test func countsAndResetsBothInTheSheet() {
+    @Test func countsAndClearsStatusUnheardAndMissing() {
         let filters = CatalogFilters(status: "known", unheard: true, missing: .key)
-        #expect(filters.sheetCount == 2)
-        #expect(filters.sheetReset == CatalogFilters(status: "known"))
+        #expect(filters.setCount == 3)
+        #expect(filters.cleared == CatalogFilters())
     }
 
     @Test func showsCapsulesForBoth() {

@@ -119,7 +119,9 @@
             recording(
                 "ready_here", tune: 0, label: "Jam at Mike's", state: "ready", seconds: 184,
                 file: .downloaded, minutesAgo: 60 * 26, place: savedPlaces[0]),
-            recording("ready_server", tune: 1, state: "ready", seconds: 95, file: nil, minutesAgo: 60 * 50),
+            recording(
+                "ready_server", tune: 1, state: "ready", seconds: 95, file: nil, minutesAgo: 60 * 50,
+                origin: "internet_archive"),
             recording("waiting", tune: 2, state: "pending_upload", seconds: 42, file: .captured, minutesAgo: 5),
             recording(
                 "upload_failed", tune: 6, state: "pending_upload", seconds: 61, file: .failedUpload,
@@ -250,14 +252,15 @@
 
         private static func recording(
             _ name: String, tune: Int?, label: String? = nil, state: String, seconds: Int64?,
-            file: LocalFileState?, fileError: String? = nil, minutesAgo: Int64, place: SavedPlace? = nil
+            file: LocalFileState?, fileError: String? = nil, minutesAgo: Int64, place: SavedPlace? = nil,
+            origin: String = "own"
         ) -> RecordingEntry {
             let id = "sample_recording_\(name)"
             let recordedAt = Timestamp(milliseconds: now.milliseconds - minutesAgo * 60_000)
             let tuneEntry = tune.map { entries[$0] }
             return RecordingEntry(
                 recording: Recording(
-                    id: id, createdAt: recordedAt, tuneID: tuneEntry?.tune.id, source: "microphone",
+                    id: id, createdAt: recordedAt, tuneID: tuneEntry?.tune.id, source: "microphone", origin: origin,
                     recordedAt: recordedAt, recordedPrecision: RecordingPrecision.time.rawValue, label: label,
                     state: state, durationMs: seconds.map { $0 * 1000 }, placeName: place?.name,
                     placeLat: place?.lat, placeLon: place?.lon, placeID: place?.id,

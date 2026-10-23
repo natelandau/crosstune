@@ -164,29 +164,46 @@ Decide any case the rules below do not name.
 
 ## Shell and placement
 
-| Zone            | Holds                                                        | Never holds                 |
-| --------------- | ------------------------------------------------------------ | --------------------------- |
-| Title           | What the screen shows                                        | Actions, filters            |
-| Verbs bar       | Main verb first (Add, or Edit on a page), then one More menu | Filters, sort, view options |
-| Under the title | Search field, then one filter row                            | Verbs                       |
-| List header     | Count leading, sort trailing, directly above the rows        | Anything else               |
-| App-wide        | Tabs, Record, now playing, selection bar                     | A screen's own actions      |
+| Zone            | Holds                                                        | Never holds            |
+| --------------- | ------------------------------------------------------------ | ---------------------- |
+| Title           | What the screen shows                                        | Actions, filters       |
+| Verbs bar       | Main verb first (Add, or Edit on a page), then one More menu | Sort, view options     |
+| Under the title | Search field, then one filter row                            | Verbs                  |
+| List header     | Count leading, sort trailing, directly above the rows        | Anything else          |
+| App-wide        | Tabs, Record, now playing, selection bar                     | A screen's own actions |
 
-- At most two items in the verbs bar. Select is never a toolbar button.
+- Phone root screen: the title, the verbs bar, and the account button
+  share one row. Order, leading to trailing: title, the main verb,
+  Filters on a screen with filters, More where the screen has one, then
+  the account button outermost. Search pins directly under it. It is the
+  only second line of chrome.
+- The row stays pinned as the list scrolls: the title shrinks to heading
+  size in place and the verbs, Filters, and account button never move.
+- Selection takes the whole row. The account button steps aside, search
+  stays, and the row returns when selection ends.
+- Phone root screen with no verbs (Tuner): the row alone.
+- Phone pushed page: Back and verbs in the bar. The name is the page's
+  first heading, and the bar shows it small once the heading has scrolled
+  under it.
+- At most two verbs in the bar. Filters, where a screen has one, does not
+  count toward them. Select is never a toolbar button.
 - Exception under the title: a list page's play row (Play, Shuffle, what
   will play).
 - A section's verb sits trailing on that section's heading.
 - Screen-wide actions (Edit, Delete) live in More, never in a panel.
 - A control sits over the pane it acts on.
 - A column's title is its first line and scrolls with it. The bar shows it
-  only once scrolled away, so it never reads twice.
+  only once scrolled away, so it never reads twice. A phone root screen's
+  row is the exception: it is the title's only place.
 - Detail column: always a page or a placeholder, never a list. A
   placeholder names what it waits for and how to get one.
 - Sidebar order: Catalog with its statuses under it, Recordings, Tuner,
   Lists, Settings. Phone tab order: Catalog, Lists, Tuner, Recordings, then
-  Record. Settings is no phone tab: it opens from the account button
-  (initials, or a person icon when the account has no name) at the
-  top-trailing edge of each top-level screen's title row.
+  Record. Settings is no phone tab: it opens from the account button on the
+  Catalog, Lists, Tuner, and Recordings roots, outermost trailing in the
+  title row. A disc in the set wash with initials in set ink, or a filled
+  person glyph when the account has no name. Never on a pushed page,
+  sheet, or Settings itself.
 - Sidebar count: absolute (non-archived tunes, ignoring filters). Zero
   hidden. The list header gives the narrowed count.
 - Sidebar status rows, the catalog's Status control, and stats links all
@@ -397,12 +414,23 @@ One row component per platform for every list of tunes.
 
 ## Filters
 
-- Most-used facets on screen, the rest in a filter sheet.
-- Filters control sits with search, never in the toolbar, and carries a
-  count: "Filters, 2 set". Persisted filters must announce themselves.
-- Facets with their own on-screen control (Status, Key) never count in
-  Filters and never show as tokens.
-- Filter control: quiet capsule, accent wash once it narrows.
+- The most-used facets also show on screen as a shortcut.
+- The filter sheet holds every filter of the list, in this order: Status,
+  Key, the other facets, unheard and missing, then archived. The filter
+  row is a shortcut to the same filters.
+- Filters carries a count of every set filter, Status and Key included:
+  "Filters, 2 set". Persisted filters must announce themselves.
+- Status and Key never show as tokens, since their controls already name
+  their value.
+- Phone: an icon-only Filters button sits in the bar, beside the verbs, so
+  the sheet is reachable from anywhere in the list. Named for the count,
+  with an accent mark once any filter is set. Absent when there is
+  nothing to filter and nothing set. Where the bar holds Filters (the
+  phone and iOS), the filter row holds no Filters control, only Status
+  and Key where the screen has them, then set filters as tokens. Split,
+  wide, and the Mac, whose bars have no Filters button, keep a Filters
+  control in the row or the search field.
+- Filter row control: quiet capsule, accent wash once it narrows.
 - Filters with nothing to choose (list loading, empty, or nothing to tell
   apart) and no filter set: absent, never disabled.
 - Facet pull-down reads facet and value: "Key: Any", "Key: D". Colored
@@ -413,7 +441,7 @@ One row component per platform for every list of tunes.
   narrows in silence.
 - A stored value the catalog no longer holds still gets an option, so a
   stale filter never reads as Any.
-- Sheet choices apply at once. Reset clears the sheet's filters only. Done
+- Sheet choices apply at once. Reset clears every filter in the sheet. Done
   closes.
 - Set filter: removable capsule named for its value. Its remove control
   reads "Remove filter" plus the value. A tuning names its instrument,

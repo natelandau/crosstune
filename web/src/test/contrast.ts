@@ -70,3 +70,13 @@ export function contrastRatio(foreground: string, background: string): number {
   const under = luminance(br, bg, bb)
   return (Math.max(over, under) + 0.05) / (Math.min(over, under) + 0.05)
 }
+
+/** A translucent color(srgb ...) wash, such as a color-mix, laid over an opaque ground. */
+export function washOver(wash: string, ground: string): string {
+  const [r, g, b, alpha = 1] = (/color\(srgb ([^)]*)\)/.exec(wash)?.[1] ?? '')
+    .split(/[\s/]+/)
+    .map(Number)
+  const [gr, gg, gb] = ground.match(/[\d.]+/g)!.map(Number)
+  const mix = (top: number, under: number) => Math.round(top * 255 * alpha + under * (1 - alpha))
+  return `rgb(${mix(r!, gr!)}, ${mix(g!, gg!)}, ${mix(b!, gb!)})`
+}

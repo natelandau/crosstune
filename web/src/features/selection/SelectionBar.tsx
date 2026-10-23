@@ -58,9 +58,15 @@ function Cell({
   )
 }
 
-/** Fades in the controls of the pane bar in `pane`, so one bar swapping for another reads as a change of mode. */
+/**
+ * Fades in the controls of the pane bar in `pane`, so one bar swapping for another reads as a
+ * change of mode.
+ */
 function fadeInBar(pane: Element | null) {
-  const bar = pane?.querySelector(':scope > [data-pane-bar]')
+  // A phone root bar keeps its search under the row, so only the row swaps.
+  const bar = pane?.querySelector(
+    ':scope > [data-pane-bar], :scope > [data-root-bar] > [data-root-row]',
+  )
   if (!bar) return
   // Its controls and title, never the bar's own ground, which hides the rows scrolling under it.
   for (const part of bar.children) {
@@ -70,18 +76,22 @@ function fadeInBar(pane: Element | null) {
 
 /**
  * The pane bar a screen wears while it selects: Select all leading, the count as the title, and
- * Done trailing. On pointer frames the bulk actions sit beside Done; on the phone they take the
- * tab bar's place: Set status, Edit, Add to list, then More, whose destructive items go last.
- * Leaving by Done drops focus with the bar, so `restoreFocus` puts it back where selecting began.
+ * Done trailing. In a phone root bar it takes the title row's place. On pointer frames the bulk
+ * actions sit beside Done; on the phone they take the tab bar's place: Set status, Edit, Add to
+ * list, then More, whose destructive items go last. Leaving by Done drops focus with the bar, so
+ * `restoreFocus` puts it back where selecting began.
  */
 export function SelectionBar({
   selection,
   actions,
   restoreFocus,
+  inRootBar = false,
 }: {
   selection: SelectionMode
   actions: BulkActionsState
   restoreFocus: () => void
+  /** Draws the controls as a bare row, in place of a phone root bar's title row. */
+  inRootBar?: boolean
 }) {
   const phone = useFrame() === 'phone'
   const slot = useContext(SelectionSlot)
@@ -94,7 +104,7 @@ export function SelectionBar({
   // In and out: the pane holding the bar outlasts it, so leaving can fade in the screen's own
   // bar once that commit has put it back.
   useLayoutEffect(() => {
-    const pane = lead.current?.closest('[data-pane-bar]')?.parentElement ?? null
+    const pane = lead.current?.closest('[data-pane-bar], [data-root-bar]')?.parentElement ?? null
     fadeInBar(pane)
     return () => queueMicrotask(() => fadeInBar(pane))
   }, [])
@@ -143,6 +153,7 @@ export function SelectionBar({
         title={words.title}
         compactTitle={String(count)}
         titleAlways
+        bare={inRootBar}
         leading={
           <span ref={lead} className="contents">
             {/* An icon on pointer, like the verbs beside Done, so the count keeps its width in

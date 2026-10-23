@@ -10,7 +10,7 @@ const SETTINGS = destination('settings')
 
 /**
  * The phone's way into Settings, which has no tab there: the account's initials in a disc at
- * the end of a root screen's title row, or a person when the account has no name. It opens
+ * the end of a root screen's bar, or a filled person when the account has no name. It opens
  * Settings where it was left, as a page pushed over the tab. Split and wide keep Settings in the
  * sidebar, so there it renders nothing.
  */
@@ -24,13 +24,13 @@ export function AccountButton() {
       href={SETTINGS.root}
       current={false}
       label={ACCOUNT_BUTTON}
-      className="group ms-auto flex size-(--target-control) shrink-0 items-center justify-center rounded-full"
+      className="group flex size-(--target-control) shrink-0 items-center justify-center rounded-full"
     >
       <span
         aria-hidden
-        className="bg-field text-ink t-caption group-hover:bg-tint-hover flex size-8 items-center justify-center rounded-full font-semibold transition-colors duration-(--dur-short) ease-(--ease)"
+        className="bg-set-fill text-set-label t-caption group-hover:bg-set-fill-hover flex size-8 items-center justify-center rounded-full font-semibold transition-colors duration-(--dur-short) ease-(--ease)"
       >
-        {letters ?? <UserRound className="size-5" aria-hidden />}
+        {letters ?? <UserRound className="size-5 fill-current" aria-hidden />}
       </span>
     </DestinationLink>
   )

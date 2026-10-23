@@ -123,12 +123,7 @@ enum TabSlot: Hashable {
             DestinationScreen(destination: destination)
                 .toolbarTitleDisplayMode(.inlineLarge)
                 .syncBadgeToolbar(leading: destination == .catalog)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        AccountButton { place.showSettings() }
-                    }
-                    .sharedBackgroundVisibility(.hidden)
-                }
+                .environment(\.showAccount, MenuAction(id: ObjectIdentifier(place)) { place.showSettings() })
                 .environment(\.stackTune, stackTune)
         }
     }

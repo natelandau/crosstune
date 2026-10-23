@@ -13,6 +13,14 @@ html[data-text-size='roomy'] {
     'Noto Sans Symbols 2', sans-serif;
 }
 
+/* A screen title shrunk to the heading's size, for a phone root bar that collapses it in place. */
+:root {
+  --screen-title-collapsed: calc(1.0625 / 1.75);
+}
+html[data-density='pointer'] {
+  --screen-title-collapsed: calc(0.9375 / 1.375);
+}
+
 /* A layer, so a utility such as font-bold overrides a role. */
 @layer components {
   .t-page-title {

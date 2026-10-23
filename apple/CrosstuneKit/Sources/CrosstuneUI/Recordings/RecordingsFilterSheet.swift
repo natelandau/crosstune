@@ -89,25 +89,15 @@ struct RecordingsFilterBar: View {
     }
 }
 
-/// The iPhone recordings list's first row while there is a source to choose: the Filters
-/// capsule, then the set source as a removable token that wraps under it when the row is full.
+/// The iPhone recordings list's first row while a source is set: the source as a removable
+/// token. The bar's Filters button opens the sheet.
 struct RecordingsFilterRow: View {
     let choice: String
-    /// How many filters are set, the model's `filterCount`.
-    let count: Int
-    let onFilters: () -> Void
     let onReset: () -> Void
 
     var body: some View {
-        FlowLayout(spacing: 6, lineSpacing: 6) {
-            FiltersButton(setCount: count, action: onFilters)
-                .buttonStyle(FilterControlStyle(isSet: count > 0))
-            if count > 0 {
-                RemoveFilterCapsule(label: RecordingsFilterSheet.label(for: choice), action: onReset)
-                    .phoneTransition(RemoveFilterCapsule.insertion)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .phoneAnimation(value: count)
+        RemoveFilterCapsule(label: RecordingsFilterSheet.label(for: choice), action: onReset)
+            .phoneTransition(RemoveFilterCapsule.insertion)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

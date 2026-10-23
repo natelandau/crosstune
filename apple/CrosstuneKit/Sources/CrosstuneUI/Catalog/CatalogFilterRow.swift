@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The catalog's filters on one row: the status and key pull-downs, the Filters button with its
-/// count, then each set sheet filter as a token that removes it. The Mac leaves status to its
-/// sidebar and the Filters button to its search field.
+/// The catalog's filters on one row: the status and key pull-downs, then each set sheet filter as
+/// a token that removes it. The Filters button lives in the bar on iPhone and iPad and in the
+/// search field on the Mac, which also leaves status to its sidebar.
 struct CatalogFilterRow: View {
     nonisolated static let archivedShown = "Archived shown"
     nonisolated static let unheardShown = "Unheard"
@@ -19,7 +19,6 @@ struct CatalogFilterRow: View {
     enum Control: Hashable, Sendable {
         case status
         case key
-        case filters
     }
 
     /// Whether the Filters button sits in the search field rather than on this row.
@@ -31,17 +30,17 @@ struct CatalogFilterRow: View {
         #endif
     }
 
-    /// The row's controls in order. Status shows when `showsStatus`, a facet the catalog does not
-    /// offer has no control, and Filters shows unless it is in the search field.
-    nonisolated static func controls(_ results: CatalogResults, showsStatus: Bool, filtersInSearch: Bool) -> [Control] {
+    /// The row's controls in order. Status shows when `showsStatus`, and a facet the catalog does
+    /// not offer has no control.
+    nonisolated static func controls(_ results: CatalogResults, showsStatus: Bool) -> [Control] {
         var controls: [Control] = showsStatus ? [.status] : []
         if results.facets.contains(.key) { controls.append(.key) }
-        return filtersInSearch ? controls : controls + [.filters]
+        return controls
     }
 
     /// The count the search field's Filters button carries, or nil where the field has none.
     nonisolated static func searchFilterCount(_ filters: CatalogFilters, filtersInSearch: Bool) -> Int? {
-        filtersInSearch ? filters.sheetCount : nil
+        filtersInSearch ? filters.setCount : nil
     }
 
     /// Whether the Mac's row has anything to show. An empty catalog has nothing to narrow, and a
@@ -49,7 +48,7 @@ struct CatalogFilterRow: View {
     nonisolated static func isShownOnMac(_ results: CatalogResults, hasErrors: Bool) -> Bool {
         if hasErrors { return true }
         guard !results.entries.isEmpty else { return false }
-        return !controls(results, showsStatus: false, filtersInSearch: filtersInSearch).isEmpty
+        return !controls(results, showsStatus: false).isEmpty
             || !setFilters(results.filters).isEmpty
     }
 
@@ -58,9 +57,7 @@ struct CatalogFilterRow: View {
     /// shows.
     nonisolated static func isShownOnPhoneAndPad(_ results: CatalogResults, hasErrors: Bool) -> Bool {
         if hasErrors { return true }
-        let filters = results.filters
-        return !results.entries.isEmpty || filters.status != nil || filters.facets[.key] != nil
-            || filters.sheetCount > 0
+        return !results.entries.isEmpty || results.filters.setCount > 0
     }
 
     /// A set sheet filter as its token reads, and the change that removes it.
@@ -73,7 +70,7 @@ struct CatalogFilterRow: View {
 
     /// Every set sheet filter, in sheet order. A set key shows on its own control.
     nonisolated static func setFilters(_ filters: CatalogFilters) -> [SetFilter] {
-        var set = CatalogFacet.all.filter(\.isInSheet).compactMap { facet in
+        var set = CatalogFacet.all.filter(\.isToken).compactMap { facet in
             filters[facet].map {
                 SetFilter(id: facet.storageKey, label: facet.capsuleLabel($0)) { $0[facet] = nil }
             }
@@ -96,34 +93,24 @@ struct CatalogFilterRow: View {
     private let statusChoices: [StatusScope.Choice]?
     private let errors: [String]
     private let onChange: (@escaping @Sendable (inout CatalogFilters) -> Void) -> Void
-    private let onFilters: () -> Void
-    /// The sheet's filters stand down while selecting, as the catalog's own actions do.
-    private let isSelecting: Bool
 
     @State private var choosingKey = false
 
-    /// `onFilters` opens the filter sheet, which the screen presents.
-    init(
-        results: CatalogResults, model: CatalogModel, statusChoices: [StatusScope.Choice]?, isSelecting: Bool,
-        onFilters: @escaping () -> Void
-    ) {
+    init(results: CatalogResults, model: CatalogModel, statusChoices: [StatusScope.Choice]?) {
         self.init(
             results: results, statusChoices: statusChoices,
             errors: [model.filterError, model.actionError].compactMap { $0 },
-            onChange: model.updateFilters, isSelecting: isSelecting, onFilters: onFilters)
+            onChange: model.updateFilters)
     }
 
     init(
         results: CatalogResults, statusChoices: [StatusScope.Choice]? = nil, errors: [String],
-        onChange: @escaping (@escaping @Sendable (inout CatalogFilters) -> Void) -> Void,
-        isSelecting: Bool = false, onFilters: @escaping () -> Void
+        onChange: @escaping (@escaping @Sendable (inout CatalogFilters) -> Void) -> Void
     ) {
         self.results = results
         self.statusChoices = statusChoices
         self.errors = errors
         self.onChange = onChange
-        self.isSelecting = isSelecting
-        self.onFilters = onFilters
     }
 
     var body: some View {
@@ -157,14 +144,10 @@ struct CatalogFilterRow: View {
     }
 
     private var controls: some View {
-        ForEach(
-            Self.controls(results, showsStatus: statusChoices != nil, filtersInSearch: Self.filtersInSearch),
-            id: \.self
-        ) { control in
+        ForEach(Self.controls(results, showsStatus: statusChoices != nil), id: \.self) { control in
             switch control {
             case .status: statusControl
             case .key: keyControl
-            case .filters: filtersControl
             }
         }
     }
@@ -210,13 +193,6 @@ struct CatalogFilterRow: View {
         #if DEBUG
             .opensForSample(.keyFilter) { choosingKey = true }
         #endif
-    }
-
-    private var filtersControl: some View {
-        let count = results.filters.sheetCount
-        return FiltersButton(setCount: count, action: onFilters)
-            .buttonStyle(FilterControlStyle(isSet: count > 0))
-            .disabled(isSelecting)
     }
 
     @ViewBuilder private func wrappedTokens(_ tokens: [SetFilter]) -> some View {

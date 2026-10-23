@@ -48,8 +48,8 @@ public struct CatalogResults: Sendable {
         return missingChoices + [set]
     }
 
-    /// The visible facets the filter sheet sets.
-    public var sheetFacets: [CatalogFacet] { facets.filter(\.isInSheet) }
+    /// The visible facets the filter sheet sets, in `CatalogFacet.all` order, so Key is first.
+    public var sheetFacets: [CatalogFacet] { facets }
 }
 
 /// What the catalog says as a whole, worked out when the stored tunes or the instruments change
