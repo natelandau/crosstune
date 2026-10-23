@@ -79,6 +79,21 @@ describe('every demo', () => {
     })
   }
 
+  it('draws the phone tabs in the app order, with Record selecting Recordings', () => {
+    const tabs = (markup: string) =>
+      [...markup.matchAll(/<span class="(on)?">(?:<svg[\s\S]*?<\/svg>)?([A-Za-z]+)<\/span>/g)].map(
+        ([, on, label]) => (on ? `[${label}]` : label),
+      )
+    const bar = (markup: string) =>
+      markup.slice(markup.indexOf('class="ph-tabcap"'), markup.indexOf('class="ph-disc"'))
+    expect(tabs(bar(DEMOS.record.markup()))).toEqual(['Catalog', 'Lists', 'Tuner', '[Recordings]'])
+  })
+
+  it('includes the tuner as a tall phone demo', () => {
+    expect(DEMOS.tuner.kind).toBe('tall')
+    expect(DEMOS.tuner.label).toContain('tuner')
+  })
+
   it('says scans, never notation', () => {
     const text = Object.values(DEMOS)
       .map((d) => d.markup() + d.label)

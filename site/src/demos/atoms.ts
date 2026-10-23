@@ -66,8 +66,8 @@ const phStatus = (on = true) =>
 const TABS: [string, string][] = [
   ['music', 'Catalog'],
   ['list', 'Lists'],
+  ['gauge', 'Tuner'],
   ['wave', 'Recordings'],
-  ['gear', 'Settings'],
 ]
 const phTab = (on = 0) =>
   `<div class="ph-tab"><div class="ph-tabcap">${TABS.map(

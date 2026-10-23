@@ -26,7 +26,7 @@ const meta = (title: string) => {
 }
 
 const markup = () => `
-  <div data-l="0" data-y="68" data-lm="-232" data-ym="40">${browser(
+  <div data-r="0" data-y="68" data-lm="-232" data-ym="40">${browser(
     1280,
     940,
     `<div class="wa">${wSide('Jalopy')}

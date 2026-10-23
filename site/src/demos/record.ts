@@ -24,7 +24,7 @@ const markup = () => `
       ${recRow('With the band', '0:30 · Added Sep 13, 2026', 'Bibb County Hoedown')}
       ${recRow('Joe at Clifftop', '0:45 · Added Aug 6, 2026', 'Sail Away Ladies')}`,
     {
-      tab: 2,
+      tab: 3,
       extra: `<div class="scrim" data-scrim></div>
       <div class="sheet rec-sheet" data-rec>
         <div class="grab"></div>

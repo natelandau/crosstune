@@ -2,7 +2,16 @@ import type { CamKind } from './camera'
 import type { Demo } from './runner'
 
 export type DemoName =
-  'hero' | 'tunes' | 'tunePage' | 'record' | 'practice' | 'lists' | 'listen' | 'folk' | 'platforms'
+  | 'hero'
+  | 'tunes'
+  | 'tunePage'
+  | 'record'
+  | 'practice'
+  | 'tuner'
+  | 'lists'
+  | 'listen'
+  | 'folk'
+  | 'platforms'
 
 export type DemoDef = {
   /** Which scale formula the camera uses. */

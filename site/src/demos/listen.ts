@@ -16,7 +16,7 @@ const RESULTS: [string, string, string, string, boolean][] = [
 ]
 
 const markup = () => `
-  <div data-r="0" data-y="68" data-hidem>${browser(
+  <div data-l="0" data-y="68" data-hidem>${browser(
     1180,
     1000,
     `<div class="wa">${wSide('Learning')}
@@ -47,7 +47,7 @@ const markup = () => `
   </div>`,
     '/tunes/sail-away-ladies',
   )}</div>
-  <div class="ph" data-l="36" data-y="124" data-cm data-ym="66">${phone(
+  <div class="ph" data-r="56" data-y="124" data-cm data-ym="66">${phone(
     `
       <div class="ph-nav"><span class="ph-btn">${ic('left')}</span><span class="ph-btn">${ic('more')}</span></div>
       <div class="ph-title">Sail Away Ladies</div>

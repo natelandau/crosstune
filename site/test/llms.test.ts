@@ -24,6 +24,13 @@ describe('/llms.txt', () => {
     expect(text).toContain('[Home](https://crosstune.app/): features, pricing, and sign-up')
   })
 
+  it('lists the tuner feature and its help page', () => {
+    const tuner = FEATURES.find((feature) => feature.id === 'tuner')
+    expect(tuner).toBeDefined()
+    expect(text).toContain(`### ${tuner?.heading}`)
+    expect(text).toContain('https://crosstune.app/help/tuner')
+  })
+
   it('never says notation or song', () => {
     expect(text).not.toMatch(/\bnotation\b|\bsong\b/i)
   })
