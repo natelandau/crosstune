@@ -137,6 +137,7 @@ struct TunerScreen: View {
         #else
             .navigationTitle(Destination.tunerTitle)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar { AccountToolbarItem() }
         #endif
         .screenView(.tuner)
         .task(id: store.map(ObjectIdentifier.init)) {

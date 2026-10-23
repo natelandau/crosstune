@@ -142,6 +142,7 @@ private struct ListTunes: View {
     @State private var form: TuneFormTarget?
     @State private var confirmsDelete = false
     @State private var selection = TuneSelection()
+    @State private var nameShows = true
     #if os(macOS)
         @Environment(\.openSheets) private var openSheets
         /// This screen's own Select tunes, never taken for another window's.
@@ -180,7 +181,11 @@ private struct ListTunes: View {
                     if !selection.isActive { toolbar(rows) }
                 }
                 .navigationTitle(selection.isActive ? TuneSelection.title(selection.ids.count) : list.name)
-                .toolbarTitleDisplayMode(.inlineLarge)
+                .barTitle(
+                    selection.isActive ? TuneSelection.title(selection.ids.count) : list.name,
+                    shown: selection.isActive || model.showArchived == nil
+                        || !nameShows
+                )
             #else
                 // The bar stays as it is while selecting, so nothing in it moves; the selection's
                 // actions are in the list's selection bar.
@@ -277,6 +282,12 @@ private struct ListTunes: View {
                         .listRowInsets(MacStyle.columnRowInsets())
                         .plainListRow()
                 #else
+                    // Stays in the list while selecting, hidden, so it keeps reporting its visibility.
+                    ListNameHeading(name: list.name) { nameShows = $0 }
+                        .opacity(selection.isActive ? 0 : 1)
+                        .accessibilityHidden(selection.isActive)
+                        .listRowInsets(EdgeInsets(top: PageStyle.pageMargin, leading: 20, bottom: 0, trailing: 20))
+                        .plainListRow()
                     if let play = playOffer(rows) {
                         ListPlayControls(offer: play)
                             .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
@@ -496,7 +507,15 @@ private struct ListTunes: View {
         } preview: {
             TunePreview(entry: entry.catalogEntry, instruments: model.instruments)
         }
-        .listRowBackground(isCurrent && !selection.isActive ? currentRowTint : nil)
+        #if os(macOS)
+            .listRowBackground(isCurrent && !selection.isActive ? currentRowTint : nil)
+        #else
+            .listRowBackground(
+                TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune)
+                    && !(isCurrent && !selection.isActive)
+                    ? nil : AnyView(rowBackground(isCurrent: isCurrent && !selection.isActive))
+            )
+        #endif
         .statusRingOnFill(
             isCurrent && !selection.isActive
                 || TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune)
@@ -507,6 +526,11 @@ private struct ListTunes: View {
         #endif
         .tag(entry.tune.id)
         .moveDisabled(!reorderable)
+    }
+
+    /// The playing tune's wash, or nothing, so the list's ground shows through.
+    @ViewBuilder private func rowBackground(isCurrent: Bool) -> some View {
+        if isCurrent { currentRowTint } else { Color.clear }
     }
 
     /// The light wash on the tune a playing list is on.
@@ -611,3 +635,22 @@ private struct MoveActions<Buttons: View>: ViewModifier {
         }
     }
 }
+
+#if os(iOS)
+    /// The list's name as the first heading of the page, which scrolls away under the bar.
+    private struct ListNameHeading: View {
+        let name: String
+        let onShows: (Bool) -> Void
+
+        var body: some View {
+            Text(name)
+                .contentMask()
+                .font(PageStyle.pageTitle)
+                .tracking(PageStyle.pageTitleTracking)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+                .onScrollVisibilityChange(threshold: 0.5, onShows)
+        }
+    }
+#endif

@@ -14,6 +14,9 @@ struct FiltersButton: View {
     }
 
     let setCount: Int
+    /// Leaves the count to the filled glyph and the spoken name, for a bar whose glass group
+    /// must not widen as filters are set.
+    var iconOnly = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let action: () -> Void
 
@@ -27,7 +30,7 @@ struct FiltersButton: View {
                         // The search field's chip is the Mac's set state, so the glyph stays bare.
                         .fontWeight(.medium)
                     #endif
-                if setCount > 0 {
+                if setCount > 0, !iconOnly {
                     Text(setCount, format: .number)
                         .monospacedDigit()
                         .contentTransition(

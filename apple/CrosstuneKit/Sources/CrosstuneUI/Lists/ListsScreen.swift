@@ -50,7 +50,12 @@ public struct ListsScreen: View {
                     onEdit: { listSheets?.name(.rename(listID: summary.id, name: summary.name)) },
                     onDelete: { deleting = summary }
                 )
-                .listRowBackground(listPlayback?.listID == summary.id ? BrandStyle.setFill(colorScheme) : nil)
+                #if os(macOS)
+                    .listRowBackground(listPlayback?.listID == summary.id ? BrandStyle.setFill(colorScheme) : nil)
+                #else
+                    .listRowBackground(
+                        listPlayback?.listID == summary.id ? BrandStyle.setFill(colorScheme) : Color.clear)
+                #endif
             }
         }
         .listStyle(.plain)
@@ -80,6 +85,9 @@ public struct ListsScreen: View {
                 Button(Self.addList, systemImage: "plus") { listSheets?.name(.new) }
                     .disabled(listSheets == nil)
             }
+            #if os(iOS)
+                AccountToolbarItem()
+            #endif
         }
         .modifier(RefreshesBySync(engine: engine))
         .confirmsListDelete($deleting)

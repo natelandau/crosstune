@@ -25,20 +25,33 @@ import Testing
     }
 
     @Test func rowOmitsAControlForAFacetTheCatalogLacks() {
-        #expect(CatalogFilterRow.controls(full, showsStatus: false, filtersInSearch: false) == [.key, .filters])
+        #expect(CatalogFilterRow.controls(full, showsStatus: false) == [.key])
         let keyless = results(full, facets: full.facets.filter { $0 != .key })
-        #expect(CatalogFilterRow.controls(keyless, showsStatus: false, filtersInSearch: false) == [.filters])
-        #expect(
-            CatalogFilterRow.controls(results(full, facets: []), showsStatus: false, filtersInSearch: false)
-                == [.filters])
+        #expect(CatalogFilterRow.controls(keyless, showsStatus: false).isEmpty)
+        #expect(CatalogFilterRow.controls(results(full, facets: []), showsStatus: false).isEmpty)
     }
 
     @Test func statusLeadsTheRowWhereItShows() {
-        #expect(
-            CatalogFilterRow.controls(full, showsStatus: true, filtersInSearch: false) == [.status, .key, .filters])
-        #expect(
-            CatalogFilterRow.controls(results(full, facets: []), showsStatus: true, filtersInSearch: false)
-                == [.status, .filters])
+        #expect(CatalogFilterRow.controls(full, showsStatus: true) == [.status, .key])
+        #expect(CatalogFilterRow.controls(results(full, facets: []), showsStatus: true) == [.status])
+    }
+
+    /// The bar carries Filters on iPhone and iPad, so the row's controls never include it and the
+    /// search field holds no count.
+    @Test func filtersStayOutOfTheRowOnIOS() {
+        #if os(iOS)
+            #expect(!CatalogFilterRow.filtersInSearch)
+        #endif
+    }
+
+    @Test func barFiltersShowOnlyWithSomethingToFilterOrSet() {
+        let empty = emptied(full)
+        let set = withFilters(empty, CatalogFilters(status: "learning"))
+        #expect(CatalogScreen.showsBarFilters(entries: set.entries, filters: set.filters, isSelecting: false))
+        #expect(!CatalogScreen.showsBarFilters(entries: set.entries, filters: set.filters, isSelecting: true))
+        #expect(!CatalogScreen.showsBarFilters(entries: empty.entries, filters: empty.filters, isSelecting: false))
+        #expect(CatalogScreen.showsBarFilters(entries: full.entries, filters: full.filters, isSelecting: false))
+        #expect(!CatalogScreen.showsBarFilters(entries: full.entries, filters: full.filters, isSelecting: true))
     }
 
     @Test func emptyCatalogHidesTheFilterRow() {
@@ -63,15 +76,14 @@ import Testing
         @Test func macFilterRowHasNoFiltersButton() {
             #expect(CatalogFilterRow.filtersInSearch)
             #expect(
-                CatalogFilterRow.controls(full, showsStatus: false, filtersInSearch: CatalogFilterRow.filtersInSearch)
-                    == [.key])
+                CatalogFilterRow.controls(full, showsStatus: false) == [.key])
             let keyless = results(full, facets: full.facets.filter { $0 != .key })
-            #expect(CatalogFilterRow.controls(keyless, showsStatus: false, filtersInSearch: true).isEmpty)
+            #expect(CatalogFilterRow.controls(keyless, showsStatus: false).isEmpty)
         }
 
         @Test func macSearchFieldCarriesTheFilterCount() {
             let filters = CatalogFilters(facets: [.key: "D", .genre: "Old-time", .tuneType: "Reel"])
-            #expect(CatalogFilterRow.searchFilterCount(filters, filtersInSearch: true) == 2)
+            #expect(CatalogFilterRow.searchFilterCount(filters, filtersInSearch: true) == 3)
             #expect(CatalogFilterRow.searchFilterCount(CatalogFilters(), filtersInSearch: true) == 0)
             #expect(CatalogFilterRow.searchFilterCount(filters, filtersInSearch: false) == nil)
         }
@@ -104,10 +116,26 @@ import Testing
         }
     #endif
 
-    @Test func sheetCountNeverCountsStatusOrKey() {
-        let filters = CatalogFilters(status: "learning", facets: [.key: "D"])
-        #expect(filters.sheetCount == 0)
-        #expect(CatalogFilterRow.setFilters(filters).isEmpty)
+    @Test func setCountCountsStatusAndKey() {
+        #expect(CatalogFilters(status: "known", facets: [.key: "D"]).setCount == 2)
+        #expect(CatalogFilters(status: "learning").setCount == 1)
+        #expect(CatalogFilterRow.setFilters(CatalogFilters(status: "learning", facets: [.key: "D"])).isEmpty)
+    }
+
+    @Test func sheetListsEveryShownFacetInAllOrderKeyFirst() {
+        #expect(full.sheetFacets.first == .key)
+        #expect(full.sheetFacets == CatalogFacet.all.filter(full.facets.contains))
+        let values: [CatalogFacet: [String]] = [.genre: ["Irish"], .key: ["D"], .tuneType: ["Reel"]]
+        #expect(
+            CatalogSearch.visibleFacets(values, instruments: []) == [.key, .tuneType, .genre])
+    }
+
+    @Test func statusPickerKeepsAStaleStatus() {
+        let choices = StatusScope.choices(nil)
+        #expect(CatalogFilterSheet.statusOptions(choices, set: nil) == choices)
+        #expect(CatalogFilterSheet.statusOptions(choices, set: "known") == choices)
+        let stale = CatalogFilterSheet.statusOptions(choices, set: "retired")
+        #expect(stale.count == choices.count + 1 && stale.last?.status == "retired")
     }
 
     /// The sample catalog's results with no filter, as the model works them out.

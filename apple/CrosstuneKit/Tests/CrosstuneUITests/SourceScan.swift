@@ -271,6 +271,14 @@ enum SourceScan {
             .map(\.line).joined(separator: "\n")
     }
 
+    /// Every line the iOS build compiles: all but the branches only the Mac takes. `#if` lines
+    /// are dropped, so line numbers do not carry over.
+    static func iOSCompiled(_ text: String) -> String {
+        branches(of: text)
+            .filter { !($0.stack.contains(.mac) && !$0.stack.contains(.other)) }
+            .map(\.line).joined(separator: "\n")
+    }
+
     /// Every line the Mac build compiles: all but the branches only iOS takes.
     static func macCompiled(_ text: String) -> String {
         branches(of: text).filter { !$0.stack.contains(.other) }.map(\.line).joined(separator: "\n")

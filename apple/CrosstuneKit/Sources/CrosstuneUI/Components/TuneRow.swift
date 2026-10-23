@@ -115,6 +115,16 @@ extension View {
                 .listRowSeparator(.hidden)
         #endif
     }
+
+    /// A list row's background on the paper ground: clear, so the ground shows through, unless
+    /// the list selects the row, which keeps the system's selection fill.
+    func unselectedRowGround(isSelected: Bool) -> some View {
+        #if os(macOS)
+            self
+        #else
+            listRowBackground(isSelected ? nil : Color.clear)
+        #endif
+    }
 }
 
 #if DEBUG

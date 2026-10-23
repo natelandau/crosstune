@@ -25,6 +25,8 @@
         case listSelecting = "list-selecting"
         case undoBanner = "undo-banner"
         case recordingsFilters = "recordings-filters"
+        /// Recordings narrowed to the musician's own, so the screen shows its Filters controls.
+        case recordingsSetFilters = "recordings-set-filters"
         case editRecording = "edit-recording"
         /// The edit sheet opened on its location page, for a recording at a saved location.
         case editLocation = "edit-location"
@@ -93,7 +95,7 @@
         @MainActor func place() -> ShellPlace {
             let place = ShellPlace()
             switch self {
-            case .recordings, .recordingsFilters, .editRecording, .editLocation, .addToTune:
+            case .recordings, .recordingsFilters, .recordingsSetFilters, .editRecording, .editLocation, .addToTune:
                 place.sidebar = .recordings
             case .list, .listSelecting, .tunePicker, .whatPlays: place.sidebar = .list(id: Self.listID)
             default: break
