@@ -110,21 +110,20 @@ private struct TunePickerContent: View {
                                     .padding(.horizontal, 8)
                             }
                             if model.isIdle {
-                                let idle = model.idleResults
-                                if idle?.isEmpty == true {
+                                if model.showsHint {
                                     Text(TunePickerSheet.hint)
                                         .font(MacStyle.secondary)
-                                        .foregroundStyle(MacPalette.inkSecondary)
+                                        .foregroundStyle(Palette.inkSecondary)
                                         .padding(.horizontal, 8)
                                 }
-                                ForEach(idle ?? []) { macRow($0) }
+                                ForEach(model.idleResults ?? []) { macRow($0) }
                             } else if let results = model.results {
                                 ForEach(results.rows) { macRow($0) }
                                 if let note = results.noTuneCalled {
                                     Text(note)
                                         .contentMask()
                                         .font(MacStyle.secondary)
-                                        .foregroundStyle(MacPalette.inkSecondary)
+                                        .foregroundStyle(Palette.inkSecondary)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
                                 }
@@ -203,27 +202,20 @@ private struct TunePickerContent: View {
                         .foregroundStyle(.red)
                 }
                 if model.isIdle {
-                    Text(TunePickerSheet.hint)
-                        .font(.platform(.footnote))
-                        .foregroundStyle(.secondary)
-                        .listRowSeparator(.hidden)
-                }
-                if let results = model.results {
-                    ForEach(results.rows) { row in
-                        Group {
-                            if row.isTaken {
-                                taken(row)
-                            } else {
-                                offered(row)
-                            }
-                        }
-                        .scaledRowInsets()
+                    if model.showsHint {
+                        Text(TunePickerSheet.hint)
+                            .font(.platform(.footnote))
+                            .foregroundStyle(.inkSecondary)
+                            .listRowSeparator(.hidden)
                     }
+                    ForEach(model.idleResults ?? []) { pickerRow($0) }
+                } else if let results = model.results {
+                    ForEach(results.rows) { pickerRow($0) }
                     if let note = results.noTuneCalled {
                         Text(note)
                             .contentMask()
                             .font(.platform(.footnote))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.inkSecondary)
                     }
                     if let offer = results.outcome.offerLabel, let title = results.outcome.title {
                         SearchOfferRow(label: offer) { create(title) }
@@ -231,11 +223,12 @@ private struct TunePickerContent: View {
                 }
             }
             .listStyle(.plain)
+            .paperGround()
             .searchable(text: $model.query, placement: Self.searchPlacement, prompt: CatalogScreen.searchPrompt)
             .searchFocused($searchFocused)
             .onSubmit(of: .search, submitSearch)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
+                ConfirmToolbarItem {
                     Button(TunePickerSheet.done) { dismiss() }
                         .fontWeight(.semibold)
                 }
@@ -246,6 +239,17 @@ private struct TunePickerContent: View {
         }
 
         private static var searchPlacement: SearchFieldPlacement { .navigationBarDrawer(displayMode: .always) }
+
+        private func pickerRow(_ row: TunePickerModel.Row) -> some View {
+            Group {
+                if row.isTaken {
+                    taken(row)
+                } else {
+                    offered(row)
+                }
+            }
+            .scaledRowInsets()
+        }
 
         private func offered(_ row: TunePickerModel.Row) -> some View {
             Button {
@@ -279,7 +283,7 @@ private struct TunePickerContent: View {
                 Spacer(minLength: 0)
                 Text(TunePickerModel.inThisList)
                     .font(.platform(.footnote))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.inkSecondary)
                     .fixedSize()
             }
             .accessibilityElement(children: .combine)

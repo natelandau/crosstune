@@ -47,6 +47,10 @@ export default defineConfig((env) =>
   mergeConfig(
     viteConfig(env),
     defineConfig({
+      // React Aria's virtualizer renders every row under a test environment unless this is set,
+      // and a browser has no `process` to hold it. It applies to every test project, so a jsdom
+      // test of a virtualized list sees no rows: measure such a list in a browser project.
+      define: { 'process.env.VIRT_ON': '"1"' },
       // The dev server's strict port would reach each browser project's server, so a second
       // run in the same checkout would fail instead of taking the next port.
       // The export tests read the golden fixture the Apple tests share, at the repository root.

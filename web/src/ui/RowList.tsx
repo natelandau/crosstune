@@ -3,9 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import {
   DropIndicator,
   GridList,
+  ListLayout,
   useDragAndDrop,
   type Key,
   type Selection,
+  Virtualizer,
 } from 'react-aria-components'
 import { useStampedDensity } from '../platform/density'
 import { useListMotion } from './listMotion'
@@ -27,6 +29,8 @@ import { SwipeGroup, useSwipeGate } from './RowSwipe'
 const ROW_DRAG_TYPE = 'application/x-crosstune-row'
 // How far a mouse press moves before it becomes a drag, so a click with a shaky hand stays one.
 const DRAG_SLOP_PX = 4
+// A row's height before it is measured, which sizes the scrollbar of a virtualized list.
+const VIRTUAL_LAYOUT = { estimatedRowHeight: 48 }
 
 /** The keys whose selection differs between two selections, or null when either is all. */
 function changed(before: Selection, after: Selection): Key[] | null {
@@ -64,6 +68,7 @@ export function RowList({
   moveLabel = (item) => moveRowLabel(item.title),
   frames,
   arriving = false,
+  virtualized = false,
 }: {
   label: string
   children: ReactNode
@@ -94,6 +99,11 @@ export function RowList({
   frames?: FrameSource
   /** Fades in, since it took the place of an empty state; see `useHadContent`. */
   arriving?: boolean
+  /**
+   * Renders only the rows in view, in a scroll area of its own capped at 60dvh, for
+   * a list as long as the catalog. Rows of a virtualized list are plain items: no reorder.
+   */
+  virtualized?: boolean
 }) {
   const gate = useSwipeGate()
   const list = useRef<HTMLDivElement>(null)
@@ -261,7 +271,7 @@ export function RowList({
         renderDropIndicator: (target) => (
           <DropIndicator
             target={target}
-            className="data-[drop-target]:bg-slate -my-px h-0.5 rounded-full"
+            className="data-[drop-target]:bg-accent -my-px h-0.5 rounded-full"
           />
         ),
       }),
@@ -278,38 +288,47 @@ export function RowList({
     }),
     [moveLabelRef, onReorderRef, beginDragRef],
   )
+  const grid = (
+    <GridList
+      key={reorderable ? 'reorderable' : 'fixed'}
+      ref={listRef}
+      aria-label={label}
+      // A letter belongs to the app's shortcuts, and `/` searches.
+      disallowTypeAhead
+      dragAndDropHooks={reorderable ? dragAndDropHooks : undefined}
+      selectionMode={selectionMode}
+      selectionBehavior={selectionBehavior}
+      disallowEmptySelection={disallowEmptySelection}
+      selectedKeys={selection}
+      disabledKeys={disabledKeys}
+      onSelectionChange={(keys) => {
+        if (changed(selection, keys)?.some(gate.blocks)) return
+        setOwnSelection(keys)
+        onSelectionChange?.(keys)
+      }}
+      onAction={
+        onAction &&
+        ((key) => {
+          if (!gate.blocks(key)) onAction(key)
+        })
+      }
+      // Positioned and isolated, so a removed row's last frame is placed within the list and
+      // fades beneath the rows that slide over it.
+      className={`relative isolate ${virtualized ? '' : 'flex flex-col'} ${bleed ? '-mx-3' : 'px-2'} ${arriving ? 'arrive' : ''} ${virtualized ? 'max-h-[60dvh] overflow-y-auto' : ''}`}
+    >
+      {children}
+    </GridList>
+  )
   return (
     <SwipeGroup gate={gate}>
       <ReorderContext value={reorderable ? reorder : null}>
-        <GridList
-          key={reorderable ? 'reorderable' : 'fixed'}
-          ref={listRef}
-          aria-label={label}
-          // A letter belongs to the app's shortcuts, and `/` searches.
-          disallowTypeAhead
-          dragAndDropHooks={reorderable ? dragAndDropHooks : undefined}
-          selectionMode={selectionMode}
-          selectionBehavior={selectionBehavior}
-          disallowEmptySelection={disallowEmptySelection}
-          selectedKeys={selection}
-          disabledKeys={disabledKeys}
-          onSelectionChange={(keys) => {
-            if (changed(selection, keys)?.some(gate.blocks)) return
-            setOwnSelection(keys)
-            onSelectionChange?.(keys)
-          }}
-          onAction={
-            onAction &&
-            ((key) => {
-              if (!gate.blocks(key)) onAction(key)
-            })
-          }
-          // Positioned and isolated, so a removed row's last frame is placed within the list and
-          // fades beneath the rows that slide over it.
-          className={`relative isolate flex flex-col ${bleed ? '-mx-3' : 'px-2'} ${arriving ? 'arrive' : ''}`}
-        >
-          {children}
-        </GridList>
+        {virtualized ? (
+          <Virtualizer layout={ListLayout} layoutOptions={VIRTUAL_LAYOUT}>
+            {grid}
+          </Virtualizer>
+        ) : (
+          grid
+        )}
       </ReorderContext>
     </SwipeGroup>
   )

@@ -58,7 +58,7 @@ export function TunePickerSheet({
         onCreate={picker.create}
         rowName={addTuneName}
         taken={{ ids: picker.taken, note: IN_THIS_LIST }}
-        hint={PICKER_HINT}
+        emptyHint={PICKER_HINT}
         error={picker.error}
         keepFocus
       />
