@@ -115,8 +115,8 @@ private struct ListPickerContent: View {
 
         /// + for a list the pick adds to, a check for one that already holds every tune.
         private func glyph(_ row: ListPickerModel.Row) -> MacPickGlyph.Kind {
-            guard row.note != nil else { return .none }
-            return row.isOffered ? .add : .done
+            if row.isOffered { return .add }
+            return row.note == nil ? .none : .done
         }
 
         @ViewBuilder private var macNewList: some View {
@@ -171,6 +171,7 @@ private struct ListPickerContent: View {
                             } label: {
                                 HStack {
                                     Text(row.name)
+                                        .foregroundStyle(nameStyle(row))
                                         .contentMask()
                                         .rowLineLimit()
                                     Spacer()
@@ -201,6 +202,11 @@ private struct ListPickerContent: View {
                 }
             }
             .interactiveDismissDisabled(model.isPending)
+        }
+
+        /// A row that cannot add reads as inert, whether it is full or still loading.
+        private func nameStyle(_ row: ListPickerModel.Row) -> AnyShapeStyle {
+            row.isOffered ? AnyShapeStyle(.primary) : AnyShapeStyle(.inkSecondary)
         }
 
         @ViewBuilder private var newList: some View {

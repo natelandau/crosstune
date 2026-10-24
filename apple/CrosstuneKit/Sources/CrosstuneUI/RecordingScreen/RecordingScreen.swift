@@ -221,9 +221,10 @@ struct RecordingScreenContent: View {
     /// The page the edit sheet opens on, nil for its form.
     @State private var editingPage: EditRecordingPage?
     @State private var filing: RecordingView?
-    /// A tune the add to tune sheet asked to start, opened once that sheet has gone.
+    /// A tune the add to tune sheet asked to start, made once that sheet has gone.
     @State private var creating: String?
-    @State private var form: CreatingTune?
+    @Environment(\.openTune) private var openTune
+    @Environment(AddedTuneOffer.self) private var addedTune: AddedTuneOffer?
     @State private var deleting: RecordingView?
     @State private var failure: String?
     /// The open trim screen's model, kept until the screen has gone.
@@ -252,12 +253,6 @@ struct RecordingScreenContent: View {
         let fileName: String?
         let fileRev: String?
         let rowRev: String?
-    }
-
-    /// The tune form opened from the add to tune sheet.
-    private struct CreatingTune: Identifiable {
-        let title: String
-        var id: String { title }
     }
 
     /// - Parameters:
@@ -361,11 +356,6 @@ struct RecordingScreenContent: View {
         }
         .sheet(item: $filing, onDismiss: openCreated) { view in
             AddToTuneSheet(recordingID: view.id) { title in creating = title }
-        }
-        .sheet(item: $form) { creating in
-            TuneFormSheet(target: .new(title: creating.title, source: .recordingScreen)) { tuneID in
-                file(under: tuneID)
-            }
         }
         .coversShell(deleting != nil)
         .confirmationDialog(
@@ -765,17 +755,24 @@ struct RecordingScreenContent: View {
         }
     }
 
+    /// Creates the tune the add to tune sheet asked for and files this recording under it, then
+    /// closes practice and opens the tune, as going to a recording's tune does. A refused filing
+    /// still opens the tune it made, with the refusal in the window's banner, since this screen
+    /// is closing.
     private func openCreated() {
-        guard let creating else { return }
-        form = CreatingTune(title: creating)
+        guard let creating, let commands else { return }
         self.creating = nil
-    }
-
-    private func file(under tuneID: String) {
-        let recording = rows.recording
+        let recordingID = rows.recording.id
+        let analytics = player.analytics
         Task {
-            if await run({ try await $0.updateRecording(recording.id, tuneID: .value(tuneID)) }) {
-                player.analytics.recordingFiled(recording, under: tuneID)
+            failure = nil
+            do {
+                let created = try await commands.createTitleOnly(
+                    title: creating, source: .recordingScreen, recordingID: recordingID, analytics: analytics)
+                if created.filingError != nil { addedTune?.notify(AddToTuneModel.failed) }
+                openTune?(created.tuneID)
+            } catch {
+                failure = failureMessage(error)
             }
         }
     }

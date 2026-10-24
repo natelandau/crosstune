@@ -233,6 +233,7 @@ export function RecordingsScreen() {
         source="recordings_list"
         view={screen.filing}
         onClose={() => screen.setFiling(null)}
+        onOpenTune={openTune}
       />
     </div>
   )

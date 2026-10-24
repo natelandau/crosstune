@@ -3,7 +3,6 @@ import { ADD_TUNES, addTuneName, IN_THIS_LIST, PICKER_HINT } from './listsCopy'
 import { useTunePicker } from './useTunePicker'
 import { DONE } from '../../ui/confirmCopy'
 import { TuneSearchList } from '../recordings/TuneSearchList'
-import { useTuneFormLauncher } from '../tune/formLauncher'
 import { Sheet } from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
 import { useEndOnClose } from '../../ui/useEndOnClose'
@@ -11,7 +10,7 @@ import { useEndOnClose } from '../../ui/useEndOnClose'
 /**
  * Searches the catalog and adds tunes to one list, several in one visit. A tune already in
  * the list says so and cannot be picked; a title nothing matches offers a new tune, which
- * joins the list once saved.
+ * joins the list at once and shows there as taken.
  */
 export function TunePickerSheet({
   listId,
@@ -26,13 +25,11 @@ export function TunePickerSheet({
   onOpenChange: (open: boolean) => void
 }) {
   const toast = useToast()
-  const form = useTuneFormLauncher()
   const picker = useTunePicker(isOpen, listId, { toast: toast.show, taken })
 
   const finish = () => {
-    const title = picker.dismissed()
+    picker.dismissed()
     onOpenChange(false)
-    if (title !== null) form.open({ source: 'list', initialTitle: title, listId })
   }
 
   useEndOnClose(picker.closing, finish)

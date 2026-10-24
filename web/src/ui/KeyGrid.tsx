@@ -81,7 +81,8 @@ export function KeyGrid({
       // Escape belongs to the popover or sheet around the grid; React Aria's default would
       // clear the chosen key first.
       escapeKeyBehavior="none"
-      autoFocus={autoFocus}
+      // With nothing chosen, React Aria would focus the grid itself rather than a pill.
+      autoFocus={autoFocus && (chosenId === null ? 'first' : true)}
       items={choices}
       className="flex flex-wrap gap-2"
     >

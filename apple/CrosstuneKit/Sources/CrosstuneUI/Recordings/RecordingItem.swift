@@ -157,51 +157,58 @@ extension View {
         onAddToTune: (() -> Void)?, onRemoveFromTune: @escaping () -> Void, onGoToTune: (() -> Void)? = nil,
         onDelete: @escaping () -> Void
     ) -> some View {
-        let buttons = RecordingRowButtons(
-            pinned: pinned, onTogglePin: onTogglePin, onEdit: onEdit, onAddToTune: onAddToTune,
-            onRemoveFromTune: onRemoveFromTune, onGoToTune: onGoToTune, onOpenOrigin: onOpenOrigin,
-            onDelete: onDelete)
-        let canAddToTune = onAddToTune != nil
-        let canGoToTune = onGoToTune != nil
-        let canPin = onTogglePin != nil
-        let originSite = onOpenOrigin == nil ? nil : originLabel
-        return
-            self
+        recordingRowActions(
+            RecordingRowHandlers(
+                filed: filed, pinned: pinned, onTogglePin: onTogglePin, originLabel: originLabel,
+                onOpenOrigin: onOpenOrigin, onEdit: onEdit, onAddToTune: onAddToTune,
+                onRemoveFromTune: onRemoveFromTune, onGoToTune: onGoToTune, onDelete: onDelete))
+    }
+
+    /// Swipe actions and a context menu for a recording row, from `handlers`.
+    func recordingRowActions(_ handlers: RecordingRowHandlers) -> some View {
+        self
             // A long swipe only reveals the actions; no swipe acts on its own.
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                ForEach(
-                    RecordingRowAction.swipe(
-                        filed: filed, canAddToTune: canAddToTune, canGoToTune: canGoToTune, canPin: canPin),
-                    id: \.self
-                ) { action in
-                    buttons.button(action, short: true).tint(RecordingRowButtons.swipeTint(action))
+                ForEach(handlers.swipe, id: \.self) { action in
+                    handlers.button(action, short: true).tint(RecordingRowHandlers.swipeTint(action))
                 }
             }
             .contextMenu {
-                ForEach(
-                    RecordingRowAction.menu(
-                        filed: filed, canAddToTune: canAddToTune, canGoToTune: canGoToTune, canPin: canPin,
-                        originSite: originSite),
-                    id: \.self
-                ) { action in
+                ForEach(handlers.menu, id: \.self) { action in
                     if action == .delete { Divider() }
-                    buttons.button(action, short: false)
+                    handlers.button(action, short: false)
                 }
             }
     }
 }
 
-/// The button for each of a recording row's actions, wired to what it does.
+/// What a recording row's actions do, and so which of them the row offers.
 @MainActor
-private struct RecordingRowButtons {
-    let pinned: Bool
-    let onTogglePin: (() -> Void)?
+struct RecordingRowHandlers {
+    let filed: Bool
+    var pinned = false
+    var onTogglePin: (() -> Void)?
+    var originLabel: String?
+    var onOpenOrigin: (() -> Void)?
     let onEdit: () -> Void
     let onAddToTune: (() -> Void)?
     let onRemoveFromTune: () -> Void
-    let onGoToTune: (() -> Void)?
-    let onOpenOrigin: (() -> Void)?
+    var onGoToTune: (() -> Void)?
     let onDelete: () -> Void
+
+    /// The swipe actions, from the trailing edge in.
+    var swipe: [RecordingRowAction] {
+        RecordingRowAction.swipe(
+            filed: filed, canAddToTune: onAddToTune != nil, canGoToTune: onGoToTune != nil,
+            canPin: onTogglePin != nil)
+    }
+
+    /// The context menu's actions, top to bottom.
+    var menu: [RecordingRowAction] {
+        RecordingRowAction.menu(
+            filed: filed, canAddToTune: onAddToTune != nil, canGoToTune: onGoToTune != nil,
+            canPin: onTogglePin != nil, originSite: onOpenOrigin == nil ? nil : originLabel)
+    }
 
     static func swipeTint(_ action: RecordingRowAction) -> Color? {
         switch action {

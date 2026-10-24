@@ -2,7 +2,6 @@ import { expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
-import { ADD_NEW_TUNE, NEW_TUNE_TITLE } from '../tune/tuneFormCopy'
 import { updateLoop } from '../../commands/loops'
 import { PAUSE } from '../player/transportCopy'
 import { ARROW_LARGE_STEP_MS, ARROW_STEP_MS } from './PracticeWaveform'
@@ -320,9 +319,9 @@ it('leaves the pitch lock notice out elsewhere', async () => {
   expect(dialog.getByText(PITCH_PAUSES_ON_LOCK).query()).toBeNull()
 })
 
-it('reports a tune made from the practice overlay as from the recording screen', async () => {
+it('files under a tune made from the practice overlay, opens it, and reports it as from the recording screen', async () => {
   const analytics = recordingAnalytics()
-  await mountPlaying(WIDE, {
+  const { router, db } = await mountPlaying(WIDE, {
     filed: false,
     wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
   })
@@ -336,10 +335,6 @@ it('reports a tune made from the practice overlay as from the recording screen',
       name: addOfferLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
     })
     .click()
-  await page
-    .getByRole('dialog', { name: NEW_TUNE_TITLE })
-    .getByRole('button', { name: ADD_NEW_TUNE, exact: true })
-    .click()
   // Playing and practice report too, as their plays end.
   const filing = () =>
     analytics.sends().filter((send) => !/^(playback|practice)_ended$/.test(send.name))
@@ -347,4 +342,7 @@ it('reports a tune made from the practice overlay as from the recording screen',
     .poll(() => filing().map((send) => send.name))
     .toEqual(['tune_created', 'recording_filed'])
   expect(filing()[0]!.props).toMatchObject({ source: 'recording_screen' })
+  const [tune] = await db.tunes.where('title').equals('Sally Goodin').toArray()
+  await expect.poll(() => router.state.location.pathname).toBe(`/catalog/${tune!.id}`)
+  await expect.element(page.getByRole('dialog', { name: TAKE })).not.toBeInTheDocument()
 })

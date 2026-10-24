@@ -1,45 +1,46 @@
-import { AudioLines, Ellipsis, NotebookPen, Pencil, Plus } from 'lucide-react'
+import { BookOpen, Ellipsis, Plus } from 'lucide-react'
 import {
   addTransitionType,
   startTransition,
   use,
   useEffect,
   useMemo,
+  useRef,
   useState,
   ViewTransition,
+  type ReactNode,
+  type Ref,
 } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
-import { Link, useLocation } from 'react-router'
+import { useLocation } from 'react-router'
 import { useDb } from '../../db/DbProvider'
 import type { LocalRecordingLink } from '../../db/types'
-import { ADD_TO_LIST } from '../lists/listPickerCopy'
-import { lyricOpening } from '../lyrics/lyricLines'
+import { lyricLines } from '../lyrics/lyricLines'
+import { Verses } from '../lyrics/Verses'
 import { NEW_RECORDING } from '../capture/recordCopy'
 import type { RecordingView } from '../recordings/useRecordings'
 import { ADD_RECORDING } from './tuneMediaCopy'
 import {
-  ADD_NOTES,
+  ADD_LYRICS,
+  ADD_LYRICS_TEXT,
+  ADD_SCAN,
+  ADD_SCAN_TEXT,
+  ADDING_SCAN,
   ADD_TO_LIST_TITLE,
+  ADD_TO_TUNE,
   EDIT_LYRICS,
-  EDIT_NOTES,
-  EDIT_TUNE,
-  learnedLine,
-  LISTS_SECTION,
   LYRICS_SECTION,
-  NO_TUNE_NOTES,
-  NO_TUNE_NOTES_HINT,
-  NO_TUNE_RECORDINGS,
-  NO_TUNE_RECORDINGS_HINT,
   NOTES_SECTION,
   OPEN_LYRICS,
   RECORDINGS_SECTION,
+  SCANS_SECTION,
 } from './tuneScreenCopy'
 import { useTuneMedia } from './useTuneMedia'
 import { RecordingsLine } from './RecordingsLine'
 import { recordingsPlayable } from '../../billing/plan'
 import { usePlanOrUnknown } from '../../billing/usePlan'
 import { useTuneScreen, type TuneScreenData } from './useTuneScreen'
-import { DELETING } from '../../ui/confirmCopy'
+import { DELETING, EDIT } from '../../ui/confirmCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { useLeaveTo } from '../../layout/backTrail'
 import { FindRecordingsSheet } from '../links/FindRecordingsSheet'
@@ -52,21 +53,27 @@ import { useDetailPage } from '../../layout/Columns'
 import { BackLink, PaneBar } from '../../layout/PaneBar'
 import { RECORD_UNAVAILABLE, useRecordLauncher } from '../../app/recordLauncher'
 import { Button } from '../../ui/Button'
-import { CAPSULE_HIT } from '../../ui/Capsule'
 import { useConfirm } from '../../ui/Confirm'
+import { useToast } from '../../ui/Toast'
 import { ErrorLine } from '../../ui/ErrorLine'
 import { Menu } from '../../ui/Menu'
 import { menuEntries } from '../../ui/sharedActions'
+import { useElementSize } from '../../ui/useElementSize'
+import { LISTS_GROUP } from './factCopy'
+import { bandGutter, factsLayout } from './factsLayout'
+import { takeFresh } from './freshTune'
 import { useTuneFormLauncher } from './formLauncher'
 import { LinkRow, MediaList, RecordingRow } from './MediaRow'
+import { NotesField } from './NotesField'
+import { FirstRecordingCard } from './FirstRecordingCard'
 import { PageSection } from '../../ui/PageSection'
-import { SectionEmpty } from '../../ui/SectionEmpty'
-import { TuneHeader } from './TuneHeader'
+import { TuneBand } from './TuneBand'
+import { AddedLine, TuneFacts, TuneLists } from './TuneFacts'
 import { isQuietPick } from './tunePick'
-import { TuneScans } from './TuneScans'
+import { useTuneScans, type TuneScansParts } from './useTuneScans'
+import { TuneVerbs } from './TuneVerbs'
 import { readTuneTitle, rememberTuneTitle } from './tuneTitle'
-import { ROW_PRESS } from '../../ui/press'
-import { useHadContent } from '../../ui/useHadContent'
+import { WASH_HOVER } from '../../ui/press'
 
 const NO_RECORDINGS: readonly RecordingView[] = []
 const NO_LINKS: readonly LocalRecordingLink[] = []
@@ -117,6 +124,10 @@ export function TunePage({
   )
   // One keyed list, so the page held on screen keeps its state while the next one reads.
   const documents = waiting ? [shown, tuneId] : [tuneId]
+  // Measured here rather than in a page, since a page reading behind another is hidden and
+  // has no width.
+  const root = useRef<HTMLDivElement>(null)
+  const layout = factsLayout(useElementSize(root).width)
   return (
     // On phone and split a page pushes in over the list; on wide it fades in beside it, and a
     // swap to the next tune cross-fades. Any other change, including the next page mounting
@@ -127,7 +138,7 @@ export function TunePage({
       exit="none"
       default="none"
     >
-      <div>
+      <div ref={root}>
         {documents.map((id) =>
           id === tuneId ? (
             <TuneDocument
@@ -136,6 +147,7 @@ export function TunePage({
               parent={parent}
               parentLabel={parentLabel}
               knownTitle={knownTitle}
+              layout={layout}
               current
               hidden={waiting}
               onRead={reveal}
@@ -146,6 +158,7 @@ export function TunePage({
               tuneId={id}
               parent={parent}
               parentLabel={parentLabel}
+              layout={layout}
               current={false}
               onRead={noop}
             />
@@ -163,6 +176,7 @@ function TuneDocument({
   tuneId,
   parent,
   parentLabel,
+  layout,
   current,
   knownTitle,
   hidden = false,
@@ -171,6 +185,8 @@ function TuneDocument({
   tuneId: string
   parent: string
   parentLabel: string
+  /** The facts beside the content as a rail, or above it as a card. */
+  layout: 'rail' | 'card'
   /** True for the page of the tune the address names; false for one held while it reads. */
   current: boolean
   /** The title read before the page showed, for its heading until the facts read. */
@@ -192,9 +208,29 @@ function TuneDocument({
     confirm,
     startRecording: record.start,
   })
+  const scans = useTuneScans(tuneId)
   const { ready, missing, facts, deletingName } = screen
+  useUndoWithdrawn(
+    tuneId,
+    !media.empty ||
+      scans.has ||
+      screen.inLists.length > 0 ||
+      Boolean(screen.notes?.trim()) ||
+      (facts?.hasLyrics ?? false),
+  )
   const [picking, setPicking] = useState(false)
   const [reading, setReading] = useState(false)
+  const [lyricsOpen, setLyricsOpen] = useState(false)
+  // Counts the verb row's Lyrics presses, so each one scrolls the section in once it has opened.
+  const [lyricsAsked, setLyricsAsked] = useState(0)
+  const lyricsSection = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const section = lyricsSection.current
+    if (lyricsAsked === 0 || !section) return
+    section.scrollIntoView({ block: 'start' })
+    // Focus follows the words, so the next Tab reads on from the section, not the band.
+    section.querySelector<HTMLElement>('h2 button')?.focus({ preventScroll: true })
+  }, [lyricsAsked])
 
   useEffect(() => {
     if (ready || missing) onRead()
@@ -212,52 +248,108 @@ function TuneDocument({
 
   const shownFacts = ready && !deletingName ? facts : null
   const title = shownFacts?.title ?? deletingName ?? knownTitle ?? undefined
-  const more = menuEntries(screen.menuFor(() => setPicking(true)))
+  const editAll = () => form.open({ tuneId })
+  const addToList = () => setPicking(true)
+  const more = menuEntries(screen.menuFor({ onAddToList: addToList, onEditAll: editAll }))
+  const view = shownFacts ? screen.tune : undefined
+  const rail = layout === 'rail'
+  // Off the phone More is the tune's own control on its title row, whichever way the facts show.
+  const moreOnTitle = useFrame() !== 'phone'
+  const gutter = bandGutter(layout)
+  const moreMenu = shownFacts && (
+    <Menu
+      label={MORE_ACTIONS}
+      trigger={<Button icon={Ellipsis} label={MORE_ACTIONS} iconOnly />}
+      items={more}
+    />
+  )
+  const showLyrics = shownFacts?.hasLyrics
+    ? () => {
+        setLyricsOpen(true)
+        setLyricsAsked((count) => count + 1)
+      }
+    : null
+
+  const factsPanel = view && screen.instruments && (
+    <TuneFacts
+      view={view}
+      instruments={screen.instruments}
+      inLists={screen.inLists}
+      createdAt={view.tune.created_at}
+      layout={layout}
+      onAddToList={addToList}
+    />
+  )
+  const sections = shownFacts && (
+    <TuneSections
+      tuneId={tuneId}
+      screen={screen}
+      media={media}
+      scans={scans}
+      recordAvailable={record.available}
+      onRecord={() => record.start({ tuneId, source: 'tune' })}
+      onEditLyrics={() => form.open({ tuneId, focus: 'lyrics' })}
+      onReadLyrics={() => setReading(true)}
+      lyricsOpen={lyricsOpen}
+      onLyricsOpenChange={setLyricsOpen}
+      lyricsRef={lyricsSection}
+      lists={
+        !rail &&
+        view && (
+          <>
+            <PageSection title={LISTS_GROUP}>
+              <TuneLists inLists={screen.inLists} onAddToList={addToList} />
+            </PageSection>
+            {/* A hairline, unlike between sections, so the date reads as the tune's, not the lists'. */}
+            <AddedLine
+              createdAt={view.tune.created_at}
+              className="border-hairline mt-8 border-t pt-3"
+            />
+          </>
+        )
+      }
+    />
+  )
 
   return (
     <div hidden={hidden} inert={hidden}>
       <PaneBar
         title={title}
         leading={<BackLink to={parent} label={parentLabel} />}
-        trailing={
-          shownFacts && (
-            <>
-              <Button label={EDIT_TUNE} onPress={() => form.open({ source: 'tune', tuneId })} />
-              <Menu
-                label={MORE_ACTIONS}
-                trigger={<Button icon={Ellipsis} label={MORE_ACTIONS} iconOnly />}
-                items={more}
-              />
-            </>
-          )
-        }
+        trailing={!moreOnTitle && moreMenu}
       />
-      <article className="max-w-page mx-auto w-full px-4 pt-2 pb-12">
-        <TuneHeader
+      <article>
+        <TuneBand
           tuneId={tuneId}
+          view={view}
           facts={shownFacts}
           title={title}
-          badges={screen.badges}
           active={!hidden}
+          gutter={gutter}
+          more={moreOnTitle ? moreMenu : undefined}
+          verbs={<TuneVerbs tuneId={tuneId} media={media} onLyrics={showLyrics} />}
         />
-        {deletingName && (
-          <p role="status" className="t-secondary text-ink-2 -mt-4 pb-6">
-            {DELETING}
-          </p>
-        )}
-        <ErrorLine error={screen.error} place="title" />
-        {shownFacts && (
-          <TuneSections
-            tuneId={tuneId}
-            screen={screen}
-            media={media}
-            recordAvailable={record.available}
-            onEdit={() => form.open({ source: 'tune', tuneId })}
-            onAddToList={() => setPicking(true)}
-            onReadLyrics={() => setReading(true)}
-          />
+        <div className={gutter}>
+          {deletingName && (
+            <p role="status" className="t-secondary text-ink-2 pb-6">
+              {DELETING}
+            </p>
+          )}
+          <ErrorLine error={screen.error} place="inline" />
+        </div>
+        {rail ? (
+          <div className="grid grid-cols-[minmax(0,1fr)_auto]">
+            <div className="max-w-page w-full px-7 pt-4 pb-12">{sections}</div>
+            {factsPanel}
+          </div>
+        ) : (
+          <div className="max-w-page mx-auto flex w-full flex-col gap-8 px-4 pb-12">
+            {factsPanel}
+            <div>{sections}</div>
+          </div>
         )}
       </article>
+      {scans.overlays}
       <ListPickerSheet
         isOpen={picking && current && !deletingName}
         onOpenChange={setPicking}
@@ -288,56 +380,93 @@ function TuneDocument({
   )
 }
 
+/**
+ * Withdraws the Undo a just-created tune's toast offers once anything is added to the tune, so
+ * Undo never deletes the musician's work. The page takes the tune's mark as it opens, so a
+ * page left behind forgets it.
+ */
+function useUndoWithdrawn(tuneId: string, attached: boolean) {
+  const toast = useToast()
+  // A ref, so the double mount of development's strict mode keeps what the first took.
+  const toastId = useRef<number | null>(null)
+  useEffect(() => {
+    const taken = takeFresh(tuneId)
+    if (taken !== null) toastId.current = taken
+  }, [tuneId])
+  useEffect(() => {
+    if (!attached || toastId.current === null) return
+    toast.dropUndo(toastId.current)
+    toastId.current = null
+  }, [attached, toast])
+}
+
 function TuneSections({
   tuneId,
   screen,
   media,
+  scans,
   recordAvailable,
-  onEdit,
-  onAddToList,
+  onRecord,
+  onEditLyrics,
   onReadLyrics,
+  lyricsOpen,
+  onLyricsOpenChange,
+  lyricsRef,
+  lists,
 }: {
   tuneId: string
   screen: TuneScreenData
   media: ReturnType<typeof useTuneMedia>
+  scans: TuneScansParts
   recordAvailable: boolean
-  /** Opens the tune form, where lyrics and notes are written. */
-  onEdit: () => void
-  onAddToList: () => void
+  /** Opens the recorder, filing the take under this tune. */
+  onRecord: () => void
+  /** Opens the tune form at its lyrics, where they are written and edited. */
+  onEditLyrics: () => void
   onReadLyrics: () => void
+  lyricsOpen: boolean
+  onLyricsOpenChange: (open: boolean) => void
+  lyricsRef: Ref<HTMLElement>
+  /** The lists and the day added, which end the page where the facts are a card. */
+  lists: ReactNode
 }) {
   const lyrics = screen.tune?.tune.lyrics
-  const opening = useMemo(() => lyricOpening(lyrics, 1)[0], [lyrics])
+  const verses = useMemo(() => lyricLines(lyrics), [lyrics])
+  const hasLyrics = screen.facts?.hasLyrics ?? false
   const addItems = media.addItems.map((item) =>
     item.label === NEW_RECORDING && !recordAvailable
       ? { ...item, disabled: RECORD_UNAVAILABLE }
       : item,
   )
-  const learned = learnedLine(screen.learnedFrom, screen.learnedOn)
-  const hadMedia = useHadContent(!media.empty)
-  const hadNotes = useHadContent(Boolean(screen.notes || screen.learned))
   // A free plan folds its recordings into one line; opening it lasts for this visit only.
   const folded = !recordingsPlayable(usePlanOrUnknown()) && media.recordingRows.length > 0
   const [unfolded, setUnfolded] = useState(false)
   const recordingRows = folded && !unfolded ? [] : media.recordingRows
+  const addScan = scans.loaded && !scans.has && !scans.adding
+  // A first scan has no section to show it until it lands, so the add line says it is coming.
+  const addingFirstScan = !scans.has && scans.adding
+  const scansError = <ErrorLine error={scans.error} place="inline" />
   return (
     <>
       <PageSection
         title={RECORDINGS_SECTION}
         add={
-          <Menu
-            label={ADD_RECORDING}
-            trigger={<Button icon={Plus} label={ADD_RECORDING} iconOnly />}
-            items={menuEntries(addItems)}
-          />
+          // The start card is the one way to add while the section is empty.
+          media.empty ? undefined : (
+            <Menu
+              label={ADD_RECORDING}
+              trigger={<Button icon={Plus} label={ADD_RECORDING} iconOnly />}
+              items={menuEntries(addItems)}
+            />
+          )
         }
       >
         {media.empty ? (
-          <SectionEmpty
-            arriving={hadMedia}
-            icon={AudioLines}
-            title={NO_TUNE_RECORDINGS}
-            hint={NO_TUNE_RECORDINGS_HINT}
+          <FirstRecordingCard
+            recordAvailable={recordAvailable}
+            find={media.find}
+            onRecord={onRecord}
+            onPaste={() => media.setPasting(true)}
           />
         ) : (
           <>
@@ -368,61 +497,69 @@ function TuneSections({
         <ErrorLine error={media.error} place="inline" />
       </PageSection>
 
-      <TuneScans tuneId={tuneId} />
-
-      {screen.facts?.hasLyrics && (
-        <PageSection title={LYRICS_SECTION} addLabel={EDIT_LYRICS} addIcon={Pencil} onAdd={onEdit}>
-          <AriaButton
-            onPress={onReadLyrics}
-            className={`-mx-3 flex min-h-(--target) w-[calc(100%+1.5rem)] flex-col items-start rounded-(--radius-row) px-3 py-1.5 text-start ${ROW_PRESS}`}
-          >
-            <span className="t-body">{OPEN_LYRICS}</span>
-            {opening && <span className="t-secondary text-ink-2 truncate">{opening}</span>}
-          </AriaButton>
+      {hasLyrics && (
+        <PageSection
+          ref={lyricsRef}
+          title={LYRICS_SECTION}
+          open={lyricsOpen}
+          onOpenChange={onLyricsOpenChange}
+          add={
+            <span className="flex items-center gap-1">
+              <Button label={EDIT} name={EDIT_LYRICS} onPress={onEditLyrics} />
+              <Button icon={BookOpen} label={OPEN_LYRICS} iconOnly onPress={onReadLyrics} />
+            </span>
+          }
+        >
+          <Verses verses={verses} />
         </PageSection>
       )}
 
-      <PageSection
-        title={NOTES_SECTION}
-        addLabel={screen.notes ? EDIT_NOTES : ADD_NOTES}
-        addIcon={screen.notes ? Pencil : Plus}
-        onAdd={onEdit}
-      >
-        {!screen.notes && !screen.learned && (
-          <SectionEmpty
-            arriving={hadNotes}
-            icon={NotebookPen}
-            title={NO_TUNE_NOTES}
-            hint={NO_TUNE_NOTES_HINT}
-          />
-        )}
-        {screen.learned && (
-          <p className="t-secondary text-ink-2">
-            {learned.words}
-            {learned.date && <span className="t-num">{learned.date}</span>}
-          </p>
-        )}
-        {screen.notes && (
-          <p className="t-body pt-1 whitespace-pre-wrap select-text">{screen.notes}</p>
-        )}
+      {scans.has && (
+        <PageSection title={SCANS_SECTION} add={scans.controls}>
+          {scans.content}
+          {scansError}
+        </PageSection>
+      )}
+
+      <PageSection title={NOTES_SECTION}>
+        <NotesField tuneId={tuneId} notes={screen.notes} />
       </PageSection>
 
-      {screen.inLists.length > 0 && (
-        <PageSection title={LISTS_SECTION} addLabel={ADD_TO_LIST} onAdd={onAddToList}>
-          <ul className="flex flex-wrap gap-2">
-            {screen.inLists.map((list) => (
-              <li key={list.id}>
-                <Link
-                  to={`/lists/${list.id}`}
-                  className={`t-secondary bg-field text-ink inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3 ${CAPSULE_HIT}`}
-                >
-                  {list.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </PageSection>
+      {(addScan || addingFirstScan || !hasLyrics) && (
+        <div role="group" aria-label={ADD_TO_TUNE} className="-mx-2 flex flex-wrap gap-1 pt-6">
+          {!hasLyrics && (
+            <AddAction name={ADD_LYRICS} text={ADD_LYRICS_TEXT} onPress={onEditLyrics} />
+          )}
+          {addScan && <AddAction name={ADD_SCAN} text={ADD_SCAN_TEXT} onPress={scans.add} />}
+          {/* Mounted empty with the line, so screen readers hear the text when it arrives. */}
+          <p
+            role="status"
+            className={
+              addingFirstScan
+                ? 't-secondary text-ink-2 flex min-h-(--target) items-center px-2'
+                : 'sr-only'
+            }
+          >
+            {addingFirstScan ? ADDING_SCAN : ''}
+          </p>
+        </div>
       )}
+      {/* A first add that failed leaves no Scans and images section to say so. */}
+      {!scans.has && scansError}
+      {lists}
     </>
+  )
+}
+
+function AddAction({ name, text, onPress }: { name: string; text: string; onPress: () => void }) {
+  return (
+    <AriaButton
+      aria-label={name}
+      onPress={onPress}
+      className={`t-secondary text-ink-2 flex min-h-(--target) items-center gap-1 rounded-(--radius-row) px-2 ${WASH_HOVER}`}
+    >
+      <Plus className="text-accent size-4" aria-hidden />
+      {text}
+    </AriaButton>
   )
 }

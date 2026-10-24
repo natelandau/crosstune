@@ -21,6 +21,7 @@ export function TextField({
   placeholder = standalone ? label : NOT_SET,
   maxLength,
   rows = 3,
+  grow = false,
   inputMode,
   enterKeyHint,
   isInvalid = false,
@@ -39,6 +40,8 @@ export function TextField({
   placeholder?: string
   maxLength?: number
   rows?: number
+  /** A multiline field that grows with its text from `rows` tall, rather than scrolling. */
+  grow?: boolean
   inputMode?: 'text' | 'numeric' | 'url'
   enterKeyHint?: 'done' | 'next'
   isInvalid?: boolean
@@ -54,7 +57,9 @@ export function TextField({
       ref={ref}
       rows={rows}
       placeholder={placeholder}
-      className={`${BOX} w-full resize-none px-4 py-3`}
+      className={`${BOX} w-full resize-none px-4 py-3 ${grow ? '[field-sizing:content]' : ''}`}
+      // Sized to its content, a field no longer takes its height from `rows`.
+      style={grow ? { minHeight: `calc(${rows}lh + 1.5rem)` } : undefined}
     />
   ) : (
     <Input

@@ -27,6 +27,7 @@ import { ErrorLine } from '../../ui/ErrorLine'
 import { Group } from '../../ui/form/Group'
 import { PartialDateField } from '../../ui/form/PartialDateField'
 import { Picker, type PickerOption } from '../../ui/form/Picker'
+import { asOptions } from '../../ui/form/pickerOptions'
 import { SuggestField } from '../../ui/form/SuggestField'
 import { KeyGrid } from '../../ui/KeyGrid'
 import { Sheet } from '../../ui/Sheet'
@@ -36,9 +37,6 @@ import type { CatalogEntry } from '../../db/types'
 
 // No option can be this: options are stored values, which never hold a NUL.
 const CLEAR = '\u0000clear'
-
-const asOptions = (values: readonly string[]): PickerOption[] =>
-  values.map((value) => ({ id: value, label: value }))
 
 const CLOSED: Partial<Record<EditField, PickerOption[]>> = {
   status: STATUSES.map((status) => ({ id: status, label: STATUS_LABELS[status] })),

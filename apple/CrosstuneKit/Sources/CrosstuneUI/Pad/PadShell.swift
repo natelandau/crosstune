@@ -265,6 +265,7 @@
                 NavigationStack {
                     PadDetail(tuneID: place.tabTunes[destination])
                 }
+                .addedTuneBanner()
                 // A tune page opens one of its lists on the Lists tab, never over the detail column.
                 .environment(\.sidebarSelection, openList)
             }

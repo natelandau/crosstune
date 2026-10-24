@@ -9,7 +9,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import { FIND_RECORDINGS, linkedResult, linkResult, searchService } from './findRecordingsCopy'
 import { ADD_LINK, LINK_FIELD, LINK_NOT_WEB, PASTE_LINK } from './pasteLinkCopy'
 import { MUSIC_SERVICES, SEARCHABLE_PROVIDERS } from '../settings/searchProviders'
-import { ADD_RECORDING } from '../tune/tuneMediaCopy'
+import { FIND_A_RECORDING } from '../tune/tuneMediaCopy'
 import type { SyncEngine } from '../../sync/types'
 import { openTestDb } from '../../test/db'
 import { tuneRow, userTuneRow } from '../../test/rows'
@@ -23,9 +23,9 @@ async function seedTune(db: CrosstuneDb) {
   await db.user_tunes.put(userTuneRow('u-t1', 't1'))
 }
 
-async function openAdd(item: string) {
-  await tunePage().getByRole('button', { name: ADD_RECORDING }).click()
-  await page.getByRole('menuitem', { name: item }).click()
+/** Presses a start card button; every tune here has no recording or link yet. */
+async function openAdd(button: string) {
+  await tunePage().getByRole('button', { name: button, exact: true }).click()
 }
 
 const silver: SearchResult = {
@@ -85,7 +85,7 @@ it('searches a service only once it is tapped, and links a result', async () => 
     groups: [apple],
   }))
   await renderApp({ path: '/catalog/t1', db, sync: { searchRecordings } })
-  await openAdd(FIND_RECORDINGS)
+  await openAdd(FIND_A_RECORDING)
   const sheet = page.getByRole('dialog', { name: FIND_RECORDINGS })
   const appleRow = sheet.getByRole('button', { name: searchService('Apple Music') })
   await expect.element(appleRow).toBeVisible()
@@ -108,7 +108,7 @@ it('takes a musician with no music services to their settings', async () => {
     await toggleSearchProvider(db, 'user_1', provider, false)
   }
   const { router } = await renderApp({ path: '/catalog/t1', db })
-  await openAdd(FIND_RECORDINGS)
+  await openAdd(FIND_A_RECORDING)
   await page.getByRole('button', { name: MUSIC_SERVICES }).click()
   await expect
     .poll(() => `${router.state.location.pathname}${router.state.location.hash}`)
@@ -124,7 +124,7 @@ it('reports find_recordings once when the sheet opens', async () => {
     db,
     wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
   })
-  await openAdd(FIND_RECORDINGS)
+  await openAdd(FIND_A_RECORDING)
   await expect.element(page.getByRole('dialog', { name: FIND_RECORDINGS })).toBeVisible()
   const found = () =>
     analytics.calls.filter((c) => c.type === 'screen' && c.name === 'find_recordings')

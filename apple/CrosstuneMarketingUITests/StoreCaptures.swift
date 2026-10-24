@@ -14,6 +14,7 @@ final class StoreCaptures: CaptureTestCase {
         app.collectionViews.firstMatch.swipeUp()
         shown(row(app, "Sail Away Ladies")).tap()
         shown(app.staticTexts["Joe at Clifftop"])
+        showLearned(app)
         captureStill()
     }
 
@@ -60,7 +61,7 @@ final class StoreCaptures: CaptureTestCase {
         let app = launchMarketing()
         app.collectionViews.firstMatch.pressAndDrag(from: CGVector(dx: 0.5, dy: 0.7), to: CGVector(dx: 0.5, dy: 0.4))
         shown(row(app, "Lost Indian")).tap()
-        shown(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Crooked'")).firstMatch)
+        showCrooked(app)
         captureStill()
     }
 
@@ -111,6 +112,7 @@ final class StoreCaptures: CaptureTestCase {
         let app = try launchPad()
         app.staticTexts["Sail Away Ladies"].firstMatch.tap()
         shown(app.staticTexts["Joe at Clifftop"])
+        showLearned(app)
         captureStill()
     }
 

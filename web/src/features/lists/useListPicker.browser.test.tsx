@@ -8,6 +8,8 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { useListPicker } from './useListPicker'
+import { ALL_ALREADY_IN_LIST, someAlreadyInList } from './listPickerCopy'
+import { IN_THIS_LIST } from './listsCopy'
 
 let db: CrosstuneDb
 let jam: string
@@ -24,15 +26,22 @@ beforeEach(async () => {
   }
 })
 
-function setup(options: { excludeListId?: string } = {}) {
+function setup(options: { excludeListId?: string; ids?: string[] } = {}) {
   const onAdded = vi.fn()
   const onClose = vi.fn()
   const analytics = recordingAnalytics()
-  const view = renderHook(() => useListPicker(true, tunes, { ...options, onAdded, onClose }), {
-    wrapper: dataProviders({ db, analytics }),
-  })
+  const view = renderHook(
+    () => useListPicker(true, options.ids ?? tunes, { ...options, onAdded, onClose }),
+    {
+      wrapper: dataProviders({ db, analytics }),
+    },
+  )
   return { ...view, onAdded, onClose, analytics }
 }
+
+/** Rows stay disabled until the membership counts have loaded. */
+const loaded = (result: { current: ReturnType<typeof useListPicker> }) =>
+  result.current.rows.length > 0 && result.current.rows.every((row) => !row.disabled || row.note)
 
 const noteOf = (result: { current: ReturnType<typeof useListPicker> }, id: string) =>
   result.current.rows.find((row) => row.id === id)?.note
@@ -43,16 +52,26 @@ describe('useListPicker', () => {
     await addToList(db, jam, tunes[1]!)
     for (const id of tunes) await addToList(db, dance, id)
     const { result } = setup()
-    await expect.poll(() => noteOf(result, jam)).toBe('2 of 3 in it')
-    expect(noteOf(result, dance)).toBe('all in it')
+    await expect.poll(() => noteOf(result, jam)).toBe(someAlreadyInList(2, 3))
+    expect(noteOf(result, dance)).toBe(ALL_ALREADY_IN_LIST)
     const full = result.current.rows.find((row) => row.id === dance)!
     expect(full.disabled).toBe(true)
     expect(result.current.rows.find((row) => row.id === jam)!.disabled).toBe(false)
   })
 
-  it('says none in it for a list with none of the selection', async () => {
+  it('gives no note to a list with none of the selection', async () => {
     const { result } = setup()
-    await expect.poll(() => noteOf(result, jam)).toBe('none in it')
+    await expect.poll(() => loaded(result)).toBe(true)
+    expect(noteOf(result, jam)).toBeNull()
+  })
+
+  it('says In this list, inert, for one tune a list holds, and gives no note otherwise', async () => {
+    await addToList(db, jam, tunes[0]!)
+    const { result } = setup({ ids: [tunes[0]!] })
+    await expect.poll(() => noteOf(result, jam)).toBe(IN_THIS_LIST)
+    expect(result.current.rows.find((row) => row.id === jam)!.disabled).toBe(true)
+    expect(noteOf(result, dance)).toBeNull()
+    expect(result.current.rows.find((row) => row.id === dance)!.disabled).toBe(false)
   })
 
   it('leaves the excluded list off', async () => {
@@ -62,7 +81,7 @@ describe('useListPicker', () => {
 
   it('adds the selection to a list, closes, and reports the addition', async () => {
     const { result, onAdded } = setup()
-    await expect.poll(() => noteOf(result, jam)).toBe('none in it')
+    await expect.poll(() => loaded(result)).toBe(true)
     act(() => result.current.add(jam))
     await expect.poll(() => onAdded.mock.calls.length).toBe(1)
     expect(onAdded).toHaveBeenCalledWith(
@@ -87,7 +106,7 @@ describe('useListPicker', () => {
   it('reports tunes added to an existing list with the number actually added', async () => {
     await addToList(db, jam, tunes[0]!)
     const { result, onAdded, analytics } = setup()
-    await expect.poll(() => noteOf(result, jam)).toBe('1 of 3 in it')
+    await expect.poll(() => noteOf(result, jam)).toBe(someAlreadyInList(1, 3))
     act(() => result.current.add(jam))
     await expect.poll(() => onAdded.mock.calls.length).toBe(1)
     expect(analytics.sends()).toEqual([

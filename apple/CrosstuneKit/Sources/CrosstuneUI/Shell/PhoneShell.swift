@@ -112,11 +112,15 @@ enum TabSlot: Hashable {
         }
 
         var body: some View {
-            if destination == .lists {
-                NavigationStack(path: $place.listPath) { root }
-            } else {
-                NavigationStack { root }
+            Group {
+                if destination == .lists {
+                    NavigationStack(path: $place.listPath) { root }
+                } else {
+                    NavigationStack { root }
+                }
             }
+            // Over the stack, so it stays as a new tune's page is pushed.
+            .addedTuneBanner()
         }
 
         private var root: some View {

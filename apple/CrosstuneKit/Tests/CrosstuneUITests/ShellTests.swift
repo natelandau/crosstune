@@ -573,27 +573,6 @@ import Testing
 }
 
 @MainActor
-@Suite struct NewTuneContextTests {
-    @Test func theLatestScreenOnShowDecidesWhereANewTuneGoes() {
-        let contexts = NewTuneContexts()
-        #expect(contexts.current == nil)
-        let catalog = UUID()
-        let list = UUID()
-        contexts.register(NewTuneContextBox(), id: catalog)
-        // The list arrives before the catalog it replaces has left.
-        let box = NewTuneContextBox(NewTuneContext(listID: "list"))
-        contexts.register(box, id: list)
-        contexts.unregister(catalog)
-        #expect(contexts.current?.listID == "list")
-        // A screen that redraws with a new context is read afresh.
-        box.context = NewTuneContext(listID: "renamed")
-        #expect(contexts.current?.listID == "renamed")
-        contexts.unregister(list)
-        #expect(contexts.current == nil)
-    }
-}
-
-@MainActor
 @Suite struct ShellPlaceTests {
     @Test func aTunePushedOverOneListLeavesWithIt() {
         let place = ShellPlace()
@@ -612,6 +591,45 @@ import Testing
         place.tabList = "list-2"
         #expect(place.scrollAnchors == [.catalog: "ut-2"])
     }
+
+    #if os(iOS)
+        @Test func aTuneOpensInATabThatShowsTunesOrElseTheCatalog() {
+            let place = ShellPlace()
+            place.tab = .recordings
+            place.openTune("t1")
+            #expect(place.tab == .recordings)
+            #expect(place.tabTunes[.recordings] == "t1")
+
+            place.tab = .lists
+            place.tabList = "l1"
+            place.openTune("t2")
+            #expect(place.tab == .lists)
+            #expect(place.tabTunes[.lists] == "t2")
+
+            place.tabList = nil
+            place.openTune("t3")
+            #expect(place.tab == .catalog)
+            #expect(place.tabTunes[.catalog] == "t3")
+
+            place.tab = .tuner
+            place.openTune("t4")
+            #expect(place.tab == .catalog)
+            #expect(place.tabTunes[.catalog] == "t4")
+        }
+    #else
+        @Test func aTuneOpensInTheDetailColumnBesideACatalogWhereTheTunerFillsIt() {
+            let place = ShellPlace()
+            place.sidebar = .recordings
+            place.openTune("t1")
+            #expect(place.sidebar == .recordings)
+            #expect(place.detailTune == "t1")
+
+            place.sidebar = .tuner
+            place.openTune("t2")
+            #expect(place.sidebar == .catalog)
+            #expect(place.detailTune == "t2")
+        }
+    #endif
 
     @Test func theListsStackIsTheOpenList() {
         let place = ShellPlace()

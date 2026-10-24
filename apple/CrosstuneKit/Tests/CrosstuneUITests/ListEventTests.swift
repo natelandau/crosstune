@@ -23,7 +23,7 @@ import Testing
     private func picker(_ store: CrosstuneStore, titles: [String]) async throws -> ListPickerModel {
         let model = ListPickerModel(
             store: store, userTuneIDs: titles.map { entry($0).userTune.id }, analytics: sink.client)
-        #expect(try await poll { model.isLoaded && model.rows.allSatisfy { $0.note != nil } })
+        #expect(try await poll { model.isLoaded && model.rows.allSatisfy { $0.isOffered || $0.note != nil } })
         return model
     }
 

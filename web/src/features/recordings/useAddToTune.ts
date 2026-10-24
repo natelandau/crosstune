@@ -25,7 +25,7 @@ export interface AddToTune {
   cancel: () => void
   /**
    * The sheet's onClose, run once its dismissal ends. Calls `onClose`, then returns the title
-   * to open the tune form with, if the close was a create offer.
+   * to create a tune by, if the close was a create offer.
    */
   dismissed: () => string | null
   /** The last refusal of a pick. */
@@ -36,7 +36,7 @@ export interface AddToTune {
  * Search for the tune a recording belongs to, or start a new one to file it under. `view` is
  * null for a closed sheet; the parent nulls it from `onClose`.
  *
- * The create path spans a dismissal, where `onClose` runs before the tune form opens, so the
+ * The create path spans a dismissal, where `onClose` runs before the tune is created, so the
  * caller must keep this hook mounted for as long as its screen lives.
  */
 export function useAddToTune(

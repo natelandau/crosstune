@@ -207,7 +207,7 @@ private struct Covers: ViewModifier {
 
 /// When each menu command can act, from what covers the shell.
 enum MenuGates {
-    /// New tune opens its form, unless a sheet or dialog is up, or a screen is selecting.
+    /// New tune opens its draft, unless a sheet or dialog is up, or a screen is selecting.
     static func newTune(sheetsOpen: Bool, selecting: Bool) -> Bool {
         !sheetsOpen && !selecting
     }

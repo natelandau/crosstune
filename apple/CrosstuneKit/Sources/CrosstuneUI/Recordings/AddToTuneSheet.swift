@@ -138,7 +138,7 @@ public struct AddToTuneSheet: View {
     @State private var model: AddToTuneModel?
 
     /// - Parameter onCreate: The musician chose to start a tune by this title; the sheet is
-    ///   closing, and the caller opens the tune form once it has gone.
+    ///   closing, and the caller creates the tune once it has gone.
     public init(recordingID: String, onCreate: @escaping (_ title: String) -> Void) {
         self.recordingID = recordingID
         self.onCreate = onCreate

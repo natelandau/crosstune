@@ -433,4 +433,7 @@ capture setup for store screenshots. It reads one fixture,
 - The recipe makes two simulators on the newest installed iOS runtime,
   `Crosstune Capture iPhone 17 Pro Max` and `Crosstune Capture iPad`. They
   are never signed in to an Apple Account, so no system alert covers a
-  capture.
+  capture. Location is refused for the app there, so a take never opens
+  on the location note.
+- The `Marketing` test plan turns code coverage off. With coverage on,
+  the Swift compiler crashes building the tuner's `isolated deinit`.

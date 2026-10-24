@@ -357,12 +357,16 @@ public final class CatalogModel {
         }
     }
 
-    /// Opens the new tune form, ending any search: a tune created from a search ends that search,
-    /// whatever the form's outcome.
-    public func newTune(title: String? = nil) -> TuneFormTarget {
-        if title != nil { reportSearch(tookOffer: true) }
+    /// A new tune's draft is opening, which ends any search.
+    public func newTune() {
         query = ""
-        return .new(title: title, source: title == nil ? .catalog : .searchOffer)
+    }
+
+    /// The search's add row or Return is creating a tune by the typed title, which ends the
+    /// search whatever the create's outcome.
+    public func searchOfferTaken() {
+        reportSearch(tookOffer: true)
+        query = ""
     }
 
     /// A result of the search was opened: the search, settled or not, is done with.

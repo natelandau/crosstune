@@ -52,7 +52,7 @@ final class FeatureCaptures: CaptureTestCase {
 
     func test_tune_scans() throws {
         let app = launchMarketing()
-        // Scrolled on to the lyrics row so the chips, which the clip's zoom would cut, are off screen.
+        // Scrolled on to the Lyrics heading, just above the scans, so the clip's zoom keeps them whole.
         openSailAway(app, scrolledTo: app.buttons["Open lyrics"])
         let scan = app.buttons["Open scan 1"]
         XCTAssertTrue(scan.isHittable, "the first scan scrolled off screen")
@@ -73,13 +73,15 @@ final class FeatureCaptures: CaptureTestCase {
 
     func test_tune_learned() throws {
         let app = launchMarketing()
-        let learned = app.staticTexts["Learned from Joe at Clifftop on Aug 6, 2026"]
-        // The page opens above the notes, and the scene scrolls down to them.
-        openSailAway(app, scrolledTo: app.buttons["Open lyrics"])
+        let learned = button(app, startingWith: "Learned from, Joe at Clifftop")
+        let more = openSailAway(app, scrolledTo: app.buttons["More details"])
+        // The facts card opens its Learned group, and the scene scrolls down to it.
         let timeline = sceneStart()
+        timeline.tap(more)
+        shown(learned)
         timeline.drag(
-            app.scrollViews.firstMatch, from: CGVector(dx: 0.5, dy: 0.7), to: CGVector(dx: 0.5, dy: 0.35))
-        XCTAssertTrue(learned.isHittable, "the learned-from line scrolled off screen")
+            app.scrollViews.firstMatch, from: CGVector(dx: 0.5, dy: 0.7), to: CGVector(dx: 0.5, dy: 0.45))
+        XCTAssertTrue(learned.isHittable, "the learned-from row scrolled off screen")
         sceneEnd(timeline)
     }
 
@@ -153,7 +155,7 @@ final class FeatureCaptures: CaptureTestCase {
         let app = launchMarketing()
         app.collectionViews.firstMatch.pressAndDrag(from: CGVector(dx: 0.5, dy: 0.7), to: CGVector(dx: 0.5, dy: 0.4))
         shown(row(app, "Lost Indian")).tap()
-        shown(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Crooked'")).firstMatch)
+        showCrooked(app)
         captureStill()
     }
 

@@ -53,13 +53,13 @@ public enum ScanAddChoice: String, Hashable, Sendable, Identifiable {
     }
 }
 
-/// The Scans header's add control: a menu of the ways this device adds scans, or a plain
-/// button where there is only one. With `onGate`, a plain button that calls it in place of
-/// any picker.
-struct ScanAddMenu: View {
+/// A control that adds scans: a menu of the ways this device adds them, or a plain button
+/// where there is only one. With `onGate`, a plain button that calls it in place of any picker.
+struct ScanAddMenu<Label: View>: View {
     let isEnabled: Bool
     @Binding var choice: ScanAddChoice?
     var onGate: (@MainActor () -> Void)?
+    @ViewBuilder let label: Label
 
     var body: some View {
         let choices = ScanAddChoice.onThisDevice
@@ -85,13 +85,19 @@ struct ScanAddMenu: View {
             }
         }
         .disabled(!isEnabled)
-        #if os(macOS)
-            .help(ScanCopy.addScans)
-        #endif
     }
+}
 
-    /// Glyph only, on the label itself, since on the menu the style would reach its items too.
-    private var label: some View {
+extension ScanAddMenu where Label == ScanAddGlyph {
+    /// The Scans header's add control, a glyph.
+    init(isEnabled: Bool, choice: Binding<ScanAddChoice?>, onGate: (@MainActor () -> Void)?) {
+        self.init(isEnabled: isEnabled, choice: choice, onGate: onGate) { ScanAddGlyph() }
+    }
+}
+
+/// Glyph only, on the label itself, since on the menu the style would reach its items too.
+struct ScanAddGlyph: View {
+    var body: some View {
         Label(ScanCopy.addScans, systemImage: "plus")
             .labelStyle(.iconOnly)
     }

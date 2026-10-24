@@ -2,13 +2,13 @@ import { page, userEvent } from 'vitest/browser'
 import { expect, it } from 'vitest'
 import type { PullRow } from '../../api/types'
 import { RECORD_LABEL, TAB_BAR } from '../../layout/tabs'
-import { createList } from '../../commands/lists'
+import { addToList, createList } from '../../commands/lists'
 import { setInstruments } from '../../commands/settings'
 import { createTune } from '../../commands/tunes'
 import { STATUS_LABELS } from '../../constants'
 import type { CrosstuneDb } from '../../db/schema'
-import { ADD_TO_LIST, NONE_IN_IT } from '../lists/listPickerCopy'
-import { EMPTY_LIST_TITLE } from '../lists/listsCopy'
+import { ADD_TO_LIST } from '../lists/listPickerCopy'
+import { EMPTY_LIST_TITLE, IN_THIS_LIST } from '../lists/listsCopy'
 import {
   archiveLabel,
   EDIT_SELECTED,
@@ -26,7 +26,8 @@ import {
   SELECTION_ACTIONS,
 } from './selectionCopy'
 import { DETAIL_LABELS } from '../tune/detailFields'
-import { ADD_TO_LIST_TITLE, LISTS_SECTION } from '../tune/tuneScreenCopy'
+import { ADD_TO_LIST_TITLE } from '../tune/tuneScreenCopy'
+import { FACTS_LABEL } from '../tune/factCopy'
 import { applyPullPage } from '../../sync/apply'
 import { openTestDb } from '../../test/db'
 import { tuneRow, userTuneRow } from '../../test/rows'
@@ -430,33 +431,46 @@ it('removes three tunes from a list together, with Undo', async () => {
   await expect.element(row('Forked Deer')).toBeVisible()
 })
 
+it("marks a list that already holds the tune page's tune and keeps it inert", async () => {
+  const db = openTestDb()
+  const ids = await seedCatalog(db)
+  const listId = await createList(db, 'Thursday jam')
+  await createList(db, 'Square dance set')
+  const userTune = await db.user_tunes.where('tune_id').equals(ids['Forked Deer']!).first()
+  await addToList(db, listId, userTune!.id)
+  await renderApp({ path: `/catalog/${ids['Forked Deer']}`, db, frame: WIDE })
+  const tunePage = page.getByRole('main', { name: TUNE })
+  await tunePage.getByRole('button', { name: MORE_ACTIONS }).click()
+  await page.getByRole('menuitem', { name: ADD_TO_LIST }).click()
+  const picker = page.getByRole('dialog', { name: ADD_TO_LIST_TITLE })
+  const jam = picker.getByRole('button', { name: /Thursday jam/ })
+  await expect.element(jam).toHaveTextContent(IN_THIS_LIST)
+  await expect.element(jam).toBeDisabled()
+  const dance = picker.getByRole('button', { name: 'Square dance set', exact: true })
+  await expect.element(dance).toBeEnabled()
+})
+
 it("adds the tune page's tune to a list from the picker", async () => {
   const db = openTestDb()
   const ids = await seedCatalog(db)
   const listId = await createList(db, 'Thursday jam')
   await renderApp({ path: `/catalog/${ids['Forked Deer']}`, db, frame: WIDE })
   const tunePage = page.getByRole('main', { name: TUNE })
-  // A tune in no list has no Lists section, so adding starts from the page's More menu.
+  const facts = tunePage.getByRole('complementary', { name: FACTS_LABEL })
   const more = tunePage.getByRole('button', { name: MORE_ACTIONS })
   await expect.element(more).toBeVisible()
-  await expect
-    .element(tunePage.getByRole('heading', { name: LISTS_SECTION }))
-    .not.toBeInTheDocument()
+  await expect.element(facts).toBeVisible()
+  expect(facts.getByRole('link').elements()).toHaveLength(0)
   await more.click()
   await page.getByRole('menuitem', { name: ADD_TO_LIST }).click()
 
   const picker = page.getByRole('dialog', { name: ADD_TO_LIST_TITLE })
   await expect.element(picker).toBeVisible()
-  const jam = picker.getByRole('button', { name: /Thursday jam/ })
-  await expect.element(jam).toHaveTextContent(NONE_IN_IT)
+  // A list that holds none of the tune carries no note, so its name is the whole label.
+  const jam = picker.getByRole('button', { name: 'Thursday jam', exact: true })
+  await expect.element(jam).toBeVisible()
   await jam.click()
   await expect.element(picker).not.toBeInTheDocument()
   await expect.poll(async () => await db.list_items.where('list_id').equals(listId).count()).toBe(1)
-  await expect
-    .element(
-      tunePage
-        .getByRole('region', { name: LISTS_SECTION })
-        .getByRole('link', { name: 'Thursday jam' }),
-    )
-    .toBeVisible()
+  await expect.element(facts.getByRole('link', { name: 'Thursday jam' })).toBeVisible()
 })

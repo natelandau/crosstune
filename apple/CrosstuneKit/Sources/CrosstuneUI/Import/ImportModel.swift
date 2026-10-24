@@ -145,12 +145,9 @@ public final class ImportModel {
     }
 
     nonisolated static func read(_ db: Database, settingsID: String) throws -> Opening {
-        let settings = try UserSettings.fetchOne(db, key: settingsID)
+        let newTune = NewTuneDefaults(try UserSettings.fetchOne(db, key: settingsID))
         let lists = activeByPosition(try TuneList.fetchAll(db)).map { ListOption(id: $0.id, name: $0.name) }
-        return Opening(
-            status: storedNewTuneStatus(settings),
-            genre: storedNewTuneGenre(settings)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
-            lists: lists)
+        return Opening(status: newTune.status, genre: newTune.genre ?? "", lists: lists)
     }
 
     /// Replaces the text with a picked file's, and refuses a file that is not `.txt`.

@@ -5,6 +5,7 @@ import { ColumnTitle } from './ColumnTitle'
 import { usePane } from './pane'
 import { PaneBar } from './PaneBar'
 import { ScreenSyncBadge } from './SyncBadge'
+import { InBar } from '../ui/inBar'
 
 interface RootBarProps {
   title: string
@@ -96,8 +97,10 @@ function PhoneRootBar({ title, titleRef, verbs, search, selection }: RootBarProp
               <ScreenSyncBadge />
             </div>
           </div>
-          {verbs && <div className="flex shrink-0 items-center gap-1">{verbs}</div>}
-          <AccountButton />
+          <InBar value>
+            {verbs && <div className="flex shrink-0 items-center gap-1">{verbs}</div>}
+            <AccountButton />
+          </InBar>
         </div>
       )}
       {search && (

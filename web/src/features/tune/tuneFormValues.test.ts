@@ -120,28 +120,18 @@ describe('tuneFormValues', () => {
   })
 
   describe('typeChanged', () => {
-    it("sets a new tune's untouched default time signature", () => {
-      const next = typeChanged({ ...emptyValues(), time_signature: '4/4' }, 'Jig', true, false)
-      expect(next).toMatchObject({ tune_type: 'Jig', time_signature: '6/8' })
+    it("keeps a tune's stored time signature", () => {
+      const next = typeChanged({ ...emptyValues(), time_signature: '4/4' }, 'Jig')
+      expect(next).toMatchObject({ tune_type: 'Jig', time_signature: '4/4' })
     })
 
-    it('keeps a time signature the player chose on a new tune', () => {
-      const next = typeChanged({ ...emptyValues(), time_signature: '4/4' }, 'Jig', true, true)
-      expect(next.time_signature).toBe('4/4')
-    })
-
-    it("keeps an edited tune's stored time signature", () => {
-      const next = typeChanged({ ...emptyValues(), time_signature: '4/4' }, 'Jig', false, false)
-      expect(next.time_signature).toBe('4/4')
-    })
-
-    it("fills an edited tune's empty time signature", () => {
-      const next = typeChanged({ ...emptyValues(), time_signature: '' }, 'Slide', false, false)
+    it("fills a tune's empty time signature", () => {
+      const next = typeChanged({ ...emptyValues(), time_signature: '' }, 'Slide')
       expect(next.time_signature).toBe('12/8')
     })
 
     it('leaves the time signature for a type without one', () => {
-      const next = typeChanged({ ...emptyValues(), time_signature: '' }, 'Air', false, false)
+      const next = typeChanged({ ...emptyValues(), time_signature: '' }, 'Air')
       expect(next.time_signature).toBe('')
     })
   })

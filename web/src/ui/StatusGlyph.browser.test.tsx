@@ -91,3 +91,22 @@ it('starts the pop in the same commit as the new status, before any frame can pa
   await expect.poll(() => poppedAtCommit).not.toBeNull()
   expect(poppedAtCommit).toBe(true)
 })
+
+it('mounts without a warning inside an inert column, as a list behind a pushed page', async () => {
+  const warn = vi.spyOn(console, 'warn')
+  onTestFinished(() => warn.mockRestore())
+  renderWithProviders(
+    <div inert>
+      <StatusGlyph status="known" />
+    </div>,
+    { density: 'pointer' },
+  )
+  await expect
+    .element(page.getByRole('img', { name: STATUS_LABELS.known, includeHidden: true }))
+    .toBeInTheDocument()
+  // The tooltip wiring checks its target once it has mounted.
+  await expect
+    .poll(() => document.querySelector('[role="img"]')?.getAttribute('tabindex'))
+    .toBe('-1')
+  expect(warn.mock.calls.filter(([message]) => String(message).includes('Focusable'))).toEqual([])
+})

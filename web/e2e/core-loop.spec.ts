@@ -2,7 +2,6 @@ import { expect, test } from '@playwright/test'
 import { addTune, escapeRegExp, expectSynced, openTab, signIn, tunePage, unique } from './helpers'
 import { ADD_LINK, LINK_FIELD, PASTE_LINK } from '../src/features/links/pasteLinkCopy'
 import { PLAYER_REGION } from '../src/features/player/playerCopy'
-import { ADD_RECORDING } from '../src/features/tune/tuneMediaCopy'
 import { RECORDINGS_SECTION } from '../src/features/tune/tuneScreenCopy'
 import { TUNE_LIST } from '../src/features/catalog/catalogCopy'
 import { KEY } from '../src/ui/keyName'
@@ -15,9 +14,8 @@ test('add a tune, link a recording, find it by key, and play it in the player', 
   const since = new Date().toISOString()
   await addTune(page, title, 'D')
 
-  // Every way to add one lives behind Add recording on the Recordings heading.
-  await tunePage(page).getByRole('button', { name: ADD_RECORDING }).click()
-  await page.getByRole('menuitem', { name: PASTE_LINK, exact: true }).click()
+  // A tune with nothing yet adds its first through the start card.
+  await tunePage(page).getByRole('button', { name: PASTE_LINK, exact: true }).click()
   const sheet = page.getByRole('dialog', { name: PASTE_LINK })
   await sheet
     .getByRole('textbox', { name: LINK_FIELD })

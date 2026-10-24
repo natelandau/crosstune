@@ -8,7 +8,8 @@ import { SEARCH_TUNES, TUNE_LIST, SELECT_TUNES } from '../catalog/catalogCopy'
 import { PAUSE, PLAY } from '../player/transportCopy'
 import { NEW_RECORDING } from '../capture/recordCopy'
 import { EDIT_SELECTED, editTunesTitle, selectedTitle } from '../selection/selectionCopy'
-import { NEW_TUNE_TITLE } from '../tune/tuneFormCopy'
+import { TUNE_TITLE_LABEL } from '../tune/tuneFormCopy'
+import { NEW_TUNE_PATH } from '../../layout/tuneHome'
 import { openTestDb } from '../../test/db'
 import { fakeMediaForTest } from '../../test/fakeMedia'
 import type { PlaybackEngine } from '../player/playbackEngine'
@@ -111,20 +112,20 @@ it('leaves / to the browser on a tune page that hides the catalog search', async
   expect(heard[0]!.defaultPrevented).toBe(false)
 })
 
-it('types n into the search without opening the tune form', async () => {
-  const open = vi.fn()
-  await mountCatalog({ launcher: { open } })
+it('types n into the search without opening the new tune page', async () => {
+  const { router } = await mountCatalog()
   await search().click()
   await userEvent.keyboard('n')
   await expect.element(search()).toHaveValue('n')
-  expect(open).not.toHaveBeenCalled()
+  expect(router.state.location.pathname).toBe('/catalog')
 })
 
-it('opens the tune form for a new tune on N', async () => {
-  await mountCatalog()
+it('opens the new tune page on N', async () => {
+  const { router } = await mountCatalog()
   focusBody()
   await userEvent.keyboard('n')
-  await expect.element(page.getByRole('dialog', { name: NEW_TUNE_TITLE })).toBeVisible()
+  await expect.poll(() => router.state.location.pathname).toBe(NEW_TUNE_PATH)
+  await expect.element(page.getByRole('textbox', { name: TUNE_TITLE_LABEL })).toHaveFocus()
 })
 
 it('opens the record sheet on R', async () => {
@@ -235,8 +236,7 @@ it('leaves Space to a focused button', async () => {
 })
 
 it('runs letter shortcuts with focus on a sidebar link', async () => {
-  const open = vi.fn()
-  const { router } = await mountCatalog({ launcher: { open } })
+  const { router } = await mountCatalog()
   const link = page
     .getByRole('navigation', { name: SIDEBAR })
     .getByRole('link', { name: destination('catalog').label, exact: true })
@@ -244,7 +244,8 @@ it('runs letter shortcuts with focus on a sidebar link', async () => {
   await expect.element(link).toHaveFocus()
 
   await userEvent.keyboard('n')
-  await expect.poll(() => open.mock.calls).toEqual([[{ source: 'menu' }]])
+  await expect.poll(() => router.state.location.pathname).toBe(NEW_TUNE_PATH)
+  await link.click()
   await expect.element(link).toHaveFocus()
   await userEvent.keyboard('gl')
   await expect.poll(() => router.state.location.pathname).toBe('/lists')
@@ -281,11 +282,10 @@ async function mountOnRow(launcher: TuneFormLauncher) {
   return app
 }
 
-it('opens the tune form on N with focus on a row a tune with N heads', async () => {
-  const open = vi.fn()
-  await mountOnRow({ open })
+it('opens the new tune page on N with focus on a row a tune with N heads', async () => {
+  const { router } = await mountOnRow({ open: vi.fn() })
   await userEvent.keyboard('n')
-  await expect.poll(() => open.mock.calls).toEqual([[{ source: 'menu' }]])
+  await expect.poll(() => router.state.location.pathname).toBe(NEW_TUNE_PATH)
 })
 
 it('goes to Lists on G then L with focus on a row, past a tune with G', async () => {
@@ -295,8 +295,7 @@ it('goes to Lists on G then L with focus on a row, past a tune with G', async ()
 })
 
 it('leaves N alone at touch density', async () => {
-  const open = vi.fn()
-  await mountCatalog({ launcher: { open }, density: 'touch', frame: PHONE })
+  const { router } = await mountCatalog({ density: 'touch', frame: PHONE })
   await expect.poll(() => document.documentElement.dataset.density).toBe('touch')
   const heard: string[] = []
   const hear = (event: KeyboardEvent) => heard.push(event.key)
@@ -306,7 +305,7 @@ it('leaves N alone at touch density', async () => {
   focusBody()
   await userEvent.keyboard('n')
   await expect.poll(() => heard).toEqual(['n'])
-  expect(open).not.toHaveBeenCalled()
+  expect(router.state.location.pathname).toBe('/catalog')
 })
 
 it('opens the shortcut sheet on ?, and types ? in a field', async () => {

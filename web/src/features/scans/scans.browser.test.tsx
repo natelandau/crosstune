@@ -25,7 +25,7 @@ import {
   ZOOM,
 } from './scanCopy'
 import { DOUBLE_TAP_MS } from './useScanViewer'
-import { EDIT_TUNE } from '../tune/tuneScreenCopy'
+import { EDIT_TUNE, SCANS_SECTION } from '../tune/tuneScreenCopy'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { planSheet } from '../../test/planSheet'
@@ -85,7 +85,7 @@ const pageShown = () => {
     : null
 }
 const scansSection = () =>
-  page.getByRole('main', { name: TUNE }).getByRole('region', { name: SCANS })
+  page.getByRole('main', { name: TUNE }).getByRole('region', { name: SCANS_SECTION })
 const thumbnail = (index: number) =>
   scansSection().getByRole('button', { name: openScanName(index), exact: true })
 // A poll gives up long before `expect.element` stops waiting for an element to appear, so a

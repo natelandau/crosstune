@@ -168,20 +168,11 @@ export function partModeChanged(
   return modeRows(modes).map((mode, i) => (i === index ? asMode(value) : mode))
 }
 
-/**
- * The values after choosing a type. The type's time signature replaces one the player has
- * not chosen: an empty one, or a new tune's untouched default.
- */
-export function typeChanged(
-  values: TuneFormValues,
-  type: string,
-  isNew: boolean,
-  timeSignatureTouched: boolean,
-): TuneFormValues {
+/** The values after choosing a type, whose time signature fills one the tune does not have. */
+export function typeChanged(values: TuneFormValues, type: string): TuneFormValues {
   const next = { ...values, tune_type: type }
   const fill = timeSignatureFor(type)
-  const replaceable = values.time_signature === '' || (isNew && !timeSignatureTouched)
-  return fill && replaceable ? { ...next, time_signature: fill } : next
+  return fill && values.time_signature === '' ? { ...next, time_signature: fill } : next
 }
 
 export const TITLE_REQUIRED = 'A title is required'

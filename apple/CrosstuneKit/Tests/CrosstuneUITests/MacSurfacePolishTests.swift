@@ -32,16 +32,6 @@
             #expect(!SourceScan.macCompiled(text).contains("Text(TunePickerModel.inThisList)"))
         }
 
-        /// An empty section on the tune page reads as one quiet line, never a centered block
-        /// with a large glyph.
-        @Test func pageEmptyStateIsOneLineOnTheMac() throws {
-            let text = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.sources.appending(path: "Components/PageEmptyState.swift")))
-            let mac = SourceScan.macCompiled(text)
-            #expect(!mac.contains(".system(size: 28)"))
-            #expect(!mac.contains("multilineTextAlignment(.center)"))
-        }
-
         /// A list's head is one height whether the play line, nothing, or the selection bar
         /// sits under its title, so entering selection never moves the rows.
         @Test func listHeadKeepsItsHeightWhateverItHolds() {

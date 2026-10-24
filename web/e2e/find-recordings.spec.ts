@@ -26,7 +26,7 @@ import {
 } from '../src/features/links/findRecordingsCopy'
 import { DONE } from '../src/ui/confirmCopy'
 import { TUNES } from '../src/features/settings/settingsCopy'
-import { ADD_RECORDING } from '../src/features/tune/tuneMediaCopy'
+import { FIND_A_RECORDING } from '../src/features/tune/tuneMediaCopy'
 import { RECORDINGS_SECTION } from '../src/features/tune/tuneScreenCopy'
 
 const HIT_TITLE = 'The Silver Spear'
@@ -71,11 +71,11 @@ async function chooseServices(page: Page, chosen: string[]): Promise<void> {
   }
 }
 
-/** Opens the tune page left on the Catalog tab, then its add menu. */
-async function openAddMenu(page: Page, title: string): Promise<void> {
+/** Opens the tune page left on the Catalog tab, then presses Find a recording on its start card. */
+async function openFind(page: Page, title: string): Promise<void> {
   await openTab(page, 'catalog', { root: false })
   await expect(tunePage(page).getByRole('heading', { name: title, level: 1 })).toBeVisible()
-  await tunePage(page).getByRole('button', { name: ADD_RECORDING }).click()
+  await tunePage(page).getByRole('button', { name: FIND_A_RECORDING, exact: true }).click()
 }
 
 /** The signed-in user is shared with other specs, so put the setting back. A reload first
@@ -104,8 +104,7 @@ test('pick a service, find a recording on it, play it inline, and link it', asyn
       page,
       SERVICES.filter((name) => name !== 'SoundCloud'),
     )
-    await openAddMenu(page, title)
-    await page.getByRole('menuitem', { name: FIND_RECORDINGS, exact: true }).click()
+    await openFind(page, title)
     const find = page.getByRole('dialog', { name: FIND_RECORDINGS })
     await expect(find).toBeVisible()
 
@@ -169,9 +168,8 @@ test('go straight to the one chosen service', async ({ page }) => {
 
   try {
     await chooseServices(page, ['TIDAL'])
-    await openAddMenu(page, title)
-    // With one service chosen, the add menu searches it in place of listing the services.
-    await page.getByRole('menuitem', { name: searchService('TIDAL'), exact: true }).click()
+    await openFind(page, title)
+    // With one service chosen, Find a recording searches it in place of listing the services.
     const service = page.getByRole('dialog', { name: 'TIDAL' })
     await expect(service).toBeVisible()
     await expect(service.getByText(NO_RESULTS)).toBeVisible()
@@ -182,9 +180,8 @@ test('go straight to the one chosen service', async ({ page }) => {
     await expectNoOverlay(page)
 
     await chooseServices(page, ['Spotify'])
-    await openAddMenu(page, title)
     const popup = page.waitForEvent('popup')
-    await page.getByRole('menuitem', { name: searchService('Spotify'), exact: true }).click()
+    await openFind(page, title)
     const tab = await popup
     await tab.waitForURL(SPOTIFY_SEARCH)
     await tab.close()

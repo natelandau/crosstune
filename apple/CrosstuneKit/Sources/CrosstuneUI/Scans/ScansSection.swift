@@ -74,7 +74,11 @@ struct ScanHeaderControls: View {
             }
             ScanAddMenu(
                 isEnabled: layout.canAdd && !model.isAdding && (!layout.gatesAdd || premium != nil),
-                choice: $adding, onGate: layout.gatesAdd ? offerPremium : nil)
+                choice: $adding, onGate: layout.gatesAdd ? offerPremium : nil
+            )
+            #if os(macOS)
+                .help(ScanCopy.addScans)
+            #endif
         }
         .onChange(of: layout.showsEdit) { _, shows in
             if !shows { editing = false }

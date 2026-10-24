@@ -203,7 +203,7 @@ export function useCatalogScreen({
     const typed = title ?? (outcome.kind === 'create' ? outcome.title : undefined)
     if (typed === undefined) return
     settler.finish(true)
-    // A tune created from the search ends that search, whatever the form's outcome.
+    // A tune created from the search ends that search, whether or not the create lands.
     setQuery('')
     onCreate(typed)
   }

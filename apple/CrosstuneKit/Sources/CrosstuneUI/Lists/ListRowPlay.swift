@@ -61,22 +61,33 @@ public enum ListRowPlay {
         for entry: ListEntry, playFirst: String, loaded: (String) -> Bool = { _ in false },
         downloading: (String) -> Bool = { _ in false }, recordingsPlay: Bool = true
     ) -> Action? {
+        action(
+            tuneTitle: entry.tune.title, userTune: entry.userTune, recordings: entry.recordings, files: entry.files,
+            links: entry.links, playFirst: playFirst, loaded: loaded, downloading: downloading,
+            recordingsPlay: recordingsPlay)
+    }
+
+    /// The same for a tune's parts given loose, which the tune page has in hand rather than a list entry.
+    static func action(
+        tuneTitle: String, userTune: UserTune, recordings: [Recording], files: [String: RecordingFile],
+        links: [RecordingLink], playFirst: String, loaded: (String) -> Bool = { _ in false },
+        downloading: (String) -> Bool = { _ in false }, recordingsPlay: Bool = true
+    ) -> Action? {
         guard
             let source = rowSource(
-                userTune: entry.userTune, recordings: entry.recordings, links: entry.links, playFirst: playFirst,
+                userTune: userTune, recordings: recordings, links: links, playFirst: playFirst,
                 recordingsPlay: recordingsPlay)
         else {
             // Inert rather than nil, which would read as a tune with nothing at all.
-            return !recordingsPlay && hasLiveRecording(userTune: entry.userTune, recordings: entry.recordings)
-                ? .inert : nil
+            return !recordingsPlay && hasLiveRecording(userTune: userTune, recordings: recordings) ? .inert : nil
         }
         switch source {
         case .recording(let recording):
             let control = RecordingText.control(
-                recording, file: entry.files[recording.id], loaded: loaded(recording.id),
+                recording, file: files[recording.id], loaded: loaded(recording.id),
                 downloading: downloading(recording.id))
             switch control {
-            case .play, .close, .download: return .play(.recording(recording, tuneTitle: entry.tune.title))
+            case .play, .close, .download: return .play(.recording(recording, tuneTitle: tuneTitle))
             case .downloading: return .downloading
             case .none: return .inert
             }

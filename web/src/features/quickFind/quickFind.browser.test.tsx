@@ -7,12 +7,12 @@ import { SEARCH_TUNES, TUNE_LIST, SELECT_TUNES } from '../catalog/catalogCopy'
 import { CATALOG_SORT_LABELS } from '../catalog/catalogSort'
 import { NEW_LIST_TITLE } from '../lists/listsCopy'
 import { NO_MATCHES, QUICK_FIND_PLACEHOLDER, QUICK_FIND_SECTIONS } from './quickFindResults'
-import { NEW_TUNE_TITLE } from '../tune/tuneFormCopy'
+import { NEW_TUNE_PATH } from '../../layout/tuneHome'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { recordingRow } from '../../test/rows'
-import { QUICK_FIND, SHORTCUTS_TITLE } from '../keyboard/keymap'
+import { NEW_TUNE_TITLE, QUICK_FIND, SHORTCUTS_TITLE } from '../keyboard/keymap'
 import { SORT_BY } from '../../ui/sortCopy'
 import { readBackEntries } from '../../ui/backEntries'
 
@@ -289,8 +289,7 @@ it('shows no matches for a query nothing holds', async () => {
 
 it('shows no matches in an empty catalog, and still runs a command', async () => {
   onPlatform('MacIntel')
-  const open = vi.fn()
-  await mount('/catalog', { db: openTestDb(), launcher: { open } })
+  const { router } = await mount('/catalog', { db: openTestDb() })
   focusBody()
   await commandK()
   await userEvent.keyboard('soldier')
@@ -300,7 +299,7 @@ it('shows no matches in an empty catalog, and still runs a command', async () =>
   await userEvent.keyboard('new tune')
   await expect.element(command(NEW_TUNE_TITLE)).toBeVisible()
   await userEvent.keyboard('{Enter}')
-  await expect.poll(() => open.mock.calls).toEqual([[{ source: 'menu' }]])
+  await expect.poll(() => router.state.location.pathname).toBe(NEW_TUNE_PATH)
   await expect.element(quickFind()).not.toBeInTheDocument()
 })
 

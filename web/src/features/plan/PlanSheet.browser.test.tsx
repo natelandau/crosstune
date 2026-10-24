@@ -30,7 +30,7 @@ import { recordingAnalytics } from '../../usage/testing'
 import { addedDay } from '../../text/format'
 import { NEW_RECORDING } from '../capture/recordCopy'
 import { SEARCH_RECORDINGS, UPLOAD_AUDIO } from '../recordings/recordingsCopy'
-import { ADD_RECORDING } from '../tune/tuneMediaCopy'
+import { RECORD as CARD_RECORD } from '../tune/tuneMediaCopy'
 import { TUNE } from '../tune/tunePageCopy'
 import { COMPARISON, type Cell } from './comparison'
 import { CELL_EXCLUDED, CELL_INCLUDED } from './PlanComparison'
@@ -152,13 +152,15 @@ it('opens the recorder from Record during a trial', async () => {
   expect(shown(analytics)).toEqual([])
 })
 
-it("answers New recording in a tune's Add menu with the Plan sheet on a free plan", async () => {
+it("answers Record on a tune's start card with the Plan sheet on a free plan", async () => {
   fakeMediaForTest()
   const db = openTestDb()
   const { tuneId } = await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
   const { analytics } = await mount(db, `/catalog/${tuneId}`, FREE)
-  await page.getByRole('main', { name: TUNE }).getByRole('button', { name: ADD_RECORDING }).click()
-  await page.getByRole('menuitem', { name: NEW_RECORDING }).click()
+  await page
+    .getByRole('main', { name: TUNE })
+    .getByRole('button', { name: CARD_RECORD, exact: true })
+    .click()
 
   await expect.element(headline(PREMIUM_RECORDINGS_TITLE)).toBeVisible()
   await expect.element(recordSheet()).not.toBeInTheDocument()

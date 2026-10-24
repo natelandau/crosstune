@@ -35,10 +35,17 @@ enum PageStyle {
         static let keyGridSpreads = true
         /// A Mac sheet keeps its actions in its form, with the platform's own buttons.
         static let pinsSheetActions = false
-        /// The tune page's key pill names the mode too, "D major", so key and mode never part.
-        static let keyPillHoldsMode = true
         /// A tune page's section, heading and controls included, keeps a readable measure.
         static let sectionMaxWidth = MacStyle.pageRowMaxWidth
+        /// A fact row on the tune page, a list row's height with a list row's rounded wash.
+        static let factRowHeight = MacStyle.rowHeight
+        static let factRowRadius = MacStyle.rowRadius
+        /// A surface on the page: a card, the notes field, or the start card's outline.
+        static let surfaceRadius = MacForm.cardRadius
+        static let factsCardRadius = surfaceRadius
+        static let startCardPadding: CGFloat = 16
+        /// Where a facts card's row text starts from the card's edge.
+        static let factsCardInset = MacForm.rowInset
     #else
         static let body = Font.body
         static let secondary = Font.subheadline
@@ -69,10 +76,21 @@ enum PageStyle {
         /// A sheet's actions pin to its bottom edge, a full-width primary over centered
         /// secondaries, and Close is the system close button.
         static let pinsSheetActions = true
-        /// The key pill shows the key alone and the mode leads the facet line.
-        static let keyPillHoldsMode = false
         static let sectionMaxWidth = CGFloat.infinity
+        static let factRowHeight = minimumTapTarget
+        static let factRowRadius: CGFloat = 8
+        static let surfaceRadius: CGFloat = 12
+        static let factsCardRadius = surfaceRadius
+        static let startCardPadding: CGFloat = 20
+        static let factsCardInset: CGFloat = 16
     #endif
+
+    /// The tune page's facts rail, beside the content once the detail column has room for both.
+    static let factsRailWidth: CGFloat = 236
+    /// The narrowest the tune page's content column reads at beside the facts rail: room
+    /// enough that an 11-inch or larger iPad in landscape, with the sidebar hidden, takes the
+    /// rail, while the open iPhone Duo and a narrow Mac window take the card.
+    static let contentMinWidth: CGFloat = 340
 
     /// The space between lines of tokens drawn at ``smallControlHeight``: at least `base`, and
     /// enough that their hit areas, reaching to ``minTarget``, meet without overlapping.

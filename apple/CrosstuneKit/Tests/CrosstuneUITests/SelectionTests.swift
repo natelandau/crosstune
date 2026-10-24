@@ -418,7 +418,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         #expect(undoManager.canUndo)
         #expect(undoManager.undoActionName == BulkActionText.setStatus)
 
-        offer.undo()
+        offer.undo?()
         try await eventually { try await userTune(store, "The Butterfly").status == "want_to_learn" }
         #expect(try await userTune(store, "Elzic's Farewell").status == "want_to_learn")
         #expect(!undoManager.canUndo, "the banner's undo withdraws the system one")
@@ -545,7 +545,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         #expect(bulk.offer?.message == "Removed 2 tunes from Tuesday session")
         #expect(try await order().count == 3)
 
-        bulk.offer?.undo()
+        bulk.offer?.undo?()
         try await eventually { try await order() == before }
     }
 
@@ -592,7 +592,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
                 ListAddition(listID: "l", listName: "Waltzes", added: 3, created: false, itemIDs: []))
                 == "Added 3 tunes to Waltzes")
 
-        bulk.offer?.undo()
+        bulk.offer?.undo?()
         try await eventually { try await store.read { try ListSummary.fetchAll($0).count } == 2 }
     }
 

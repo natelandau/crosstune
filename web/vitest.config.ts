@@ -51,6 +51,9 @@ export default defineConfig((env) =>
       // and a browser has no `process` to hold it. It applies to every test project, so a jsdom
       // test of a virtualized list sees no rows: measure such a list in a browser project.
       define: { 'process.env.VIRT_ON': '"1"' },
+      // Prebundled up front so a browser project whose optimizer cache predates the import never
+      // meets it mid-run, which reloads the page and fails the file.
+      optimizeDeps: { include: ['react-aria'] },
       // The dev server's strict port would reach each browser project's server, so a second
       // run in the same checkout would fail instead of taking the next port.
       // The export tests read the golden fixture the Apple tests share, at the repository root.
@@ -125,6 +128,10 @@ export default defineConfig((env) =>
               retry: browserRetry,
               browser: { ...browserBase(), instances: [{ browser: 'webkit' as const }] },
             },
+            // This project runs one file and rarely, so its optimizer cache falls behind the
+            // app's imports; a dependency first met mid-run reloads the page and leaves the file
+            // a second copy of Vitest.
+            optimizeDeps: { force: true },
           },
         ],
       },

@@ -7,3 +7,6 @@ export function tuneHomePath(tuneId: string | undefined): string {
 export function listTunePath(listId: string, tuneId: string): string {
   return `/lists/${listId}/tunes/${tuneId}`
 }
+
+/** The title-only page a new tune starts on, in the Catalog stack. */
+export const NEW_TUNE_PATH = '/catalog/new'

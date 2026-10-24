@@ -34,6 +34,7 @@ export function PartialDateField({
   refusedPart = null,
   describedBy,
   onLeave,
+  autoFocus = false,
   ref,
 }: {
   value: DateParts
@@ -45,6 +46,8 @@ export function PartialDateField({
   describedBy?: string
   /** Called when focus leaves the date, though not for one of its own pickers opening. */
   onLeave?: () => void
+  /** Focuses the year as the date mounts. */
+  autoFocus?: boolean
   /** Holds every part, for a form that moves focus to the refused one. */
   ref?: Ref<HTMLDivElement>
 }) {
@@ -74,6 +77,7 @@ export function PartialDateField({
         inputMode="numeric"
         enterKeyHint="done"
         maxLength={4}
+        autoFocus={autoFocus}
         isInvalid={refusedPart === 'year'}
         describedBy={refusedPart === 'year' ? describedBy : undefined}
         onChange={(year) => edit({ year: year.replace(/\D/g, '') })}

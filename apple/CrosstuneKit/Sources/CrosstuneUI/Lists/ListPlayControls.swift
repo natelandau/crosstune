@@ -40,19 +40,18 @@ struct ListPlayControls: View {
     var body: some View {
         let disabled = offer.report.playable.isEmpty || !offer.canStart
         VStack(alignment: .leading, spacing: spacing.stackGap) {
-            HStack(spacing: spacing(3)) {
+            VerbRow {
                 Button(action: offer.onPlay) {
                     Label(ListPlayText.play, systemImage: "play.fill")
                         .frame(maxWidth: .infinity)
                 }
-                .playControlStyle(prominent: true, glass: drawsGlass)
+                .verbStyle(prominent: true, glass: drawsGlass)
                 Button(action: offer.onShuffle) {
                     Label(ListPlayText.shuffle, systemImage: "shuffle")
                         .frame(maxWidth: .infinity)
                 }
-                .playControlStyle(prominent: false, glass: drawsGlass)
+                .verbStyle(prominent: false, glass: drawsGlass)
             }
-            .controlSize(.large)
             .disabled(disabled)
             Button(action: offer.onWhatPlays) {
                 Text(ListPlayText.line(for: offer.report))
@@ -64,19 +63,6 @@ struct ListPlayControls: View {
             }
             .buttonStyle(.plain)
             .accessibilityHint(ListPlayText.whatPlaysHint)
-        }
-    }
-}
-
-extension View {
-    /// Play is a prominent accent capsule and Shuffle a glass one. Where glass cannot draw,
-    /// the bordered styles stand in.
-    @ViewBuilder fileprivate func playControlStyle(prominent: Bool, glass: Bool) -> some View {
-        switch (prominent, glass) {
-        case (true, true): buttonStyle(.accentGlassProminent)
-        case (false, true): buttonStyle(.glass)
-        case (true, false): buttonStyle(.accentProminent)
-        case (false, false): buttonStyle(.bordered)
         }
     }
 }

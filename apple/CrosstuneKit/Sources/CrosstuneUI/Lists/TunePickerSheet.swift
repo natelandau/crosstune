@@ -16,22 +16,15 @@ public struct TunePickerSheet: View {
     }
 
     private let listID: String
-    private let onCreate: (_ title: String) -> Void
     private let onLateFailure: @MainActor (String) -> Void
 
     @Environment(\.store) private var store
     @Environment(\.analytics) private var analytics
     @State private var model: TunePickerModel?
 
-    /// - Parameters:
-    ///   - onCreate: The musician chose to create a tune by this title; the sheet is closing.
-    ///   - onLateFailure: A pick failed after the sheet closed.
-    public init(
-        listID: String, onCreate: @escaping (_ title: String) -> Void,
-        onLateFailure: @escaping @MainActor (String) -> Void
-    ) {
+    /// - Parameter onLateFailure: A pick or create failed after the sheet closed.
+    public init(listID: String, onLateFailure: @escaping @MainActor (String) -> Void) {
         self.listID = listID
-        self.onCreate = onCreate
         self.onLateFailure = onLateFailure
     }
 
@@ -39,7 +32,7 @@ public struct TunePickerSheet: View {
         #if os(macOS)
             Group {
                 if let model {
-                    TunePickerContent(model: model, onCreate: onCreate)
+                    TunePickerContent(model: model)
                 } else {
                     Color.clear.macSheetFrame(.picker)
                 }
@@ -62,7 +55,7 @@ public struct TunePickerSheet: View {
             NavigationStack {
                 Group {
                     if let model {
-                        TunePickerContent(model: model, onCreate: onCreate)
+                        TunePickerContent(model: model)
                     } else {
                         Color.clear
                     }
@@ -79,7 +72,6 @@ public struct TunePickerSheet: View {
 
 private struct TunePickerContent: View {
     @Bindable var model: TunePickerModel
-    let onCreate: (_ title: String) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.spacing) private var spacing
@@ -290,8 +282,9 @@ private struct TunePickerContent: View {
         }
     #endif
 
+    /// Creates and stays, since a musician often adds several tunes to a set list in a row.
     private func create(_ title: String) {
-        onCreate(title)
-        dismiss()
+        searchFocused = true
+        Task { await model.create(title) }
     }
 }

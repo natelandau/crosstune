@@ -56,6 +56,7 @@ private struct RecordingsContent: View {
 
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
+    @Environment(AddedTuneOffer.self) private var addedTune: AddedTuneOffer?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.detailTune) private var detailTune
@@ -78,10 +79,9 @@ private struct RecordingsContent: View {
     @State private var showsFilters = false
     @State private var filing: RecordingView?
     @State private var editing: RecordingView?
-    /// A tune the add to tune sheet asked to start, with the recording to file under it, opened
+    /// A tune the add to tune sheet asked to start, with the recording to file under it, made
     /// once that sheet has gone.
-    @State private var creating: (recordingID: String, target: TuneFormTarget)?
-    @State private var form: CreatingTune?
+    @State private var creating: (recordingID: String, title: String)?
     @State private var deleting: RecordingView?
     @State private var discarding: RecordingFile?
     @Namespace private var zoom
@@ -89,14 +89,6 @@ private struct RecordingsContent: View {
     /// Whether the empty state for an account with no recordings shows over the list.
     private var hasNoRecordingsAtAll: Bool {
         model.hasNoRecordings && model.unfinished.isEmpty
-    }
-
-    /// The tune form opened from the add to tune sheet, and the recording it files once saved.
-    private struct CreatingTune: Identifiable {
-        let recordingID: String
-        let target: TuneFormTarget
-
-        var id: TuneFormTarget { target }
     }
 
     var body: some View {
@@ -266,14 +258,7 @@ private struct RecordingsContent: View {
             EditRecordingSheet(view: view)
         }
         .sheet(item: $filing, onDismiss: openCreated) { view in
-            AddToTuneSheet(recordingID: view.id) { title in
-                creating = (view.id, .new(title: title, source: .recordingsList))
-            }
-        }
-        .sheet(item: $form) { creating in
-            TuneFormSheet(target: creating.target) { tuneID in
-                Task { await file(creating.recordingID, under: tuneID) }
-            }
+            AddToTuneSheet(recordingID: view.id) { title in creating = (view.id, title) }
         }
         #if DEBUG
             .opensForSample(.recordingsFilters) { showsFilters = true }
@@ -638,20 +623,18 @@ private struct RecordingsContent: View {
         Task { await model.delete(view.id) }
     }
 
+    /// Creates the tune the add to tune sheet asked for, files the recording under it, and opens
+    /// it, once the sheet has gone so the page opens over a screen with no sheet left. A refused
+    /// filing still opens the tune, with the refusal in the window's banner over it, since the
+    /// tune's page covers this screen's own failure line on iPhone.
     private func openCreated() {
         guard let creating else { return }
-        form = CreatingTune(recordingID: creating.recordingID, target: creating.target)
         self.creating = nil
-    }
-
-    private func file(_ recordingID: String, under tuneID: String) async {
-        await model.file(recordingID, under: tuneID, failure: FilingFailed())
-    }
-
-    /// A filing under a tune started from the add to tune sheet, reported once the sheet has
-    /// gone.
-    private struct FilingFailed: LocalizedError {
-        var errorDescription: String? { AddToTuneModel.failed }
+        Task {
+            guard let created = await model.createTune(creating.title, filing: creating.recordingID) else { return }
+            if created.filingError != nil { addedTune?.notify(AddToTuneModel.failed) }
+            openTune(created.tuneID)
+        }
     }
 }
 

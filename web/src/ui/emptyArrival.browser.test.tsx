@@ -7,11 +7,9 @@ import { renderWithProviders } from '../test/render'
 import { EmptyState } from './EmptyState'
 import { Row } from './Row'
 import { RowList } from './RowList'
-import { SectionEmpty } from './SectionEmpty'
 import { useHadContent } from './useHadContent'
 
 const NOTHING = 'No tunes yet'
-const NOTHING_HERE = 'Nothing in this section'
 
 type Set = (titles: string[]) => void
 
@@ -32,9 +30,6 @@ function Screen({ start, onSet }: { start: string[]; onSet: (set: Set) => void }
           ))}
         </RowList>
       )}
-      {titles.length === 0 && (
-        <SectionEmpty arriving={hadTunes} icon={Music} title={NOTHING_HERE} />
-      )}
     </>
   )
 }
@@ -53,14 +48,12 @@ const fading = (element: Element) =>
     .getAnimations()
     .some((animation) => (animation as CSSAnimation).animationName === 'arrive')
 const emptyState = () => page.getByRole('heading', { name: NOTHING }).element().parentElement!
-const sectionEmpty = () => page.getByText(NOTHING_HERE).element().parentElement!
 const list = () => page.getByRole('grid', { name: 'Tunes' }).element()
 
 it('shows an empty state there on load without motion', async () => {
   await mounted([])
   await expect.element(page.getByRole('heading', { name: NOTHING })).toBeVisible()
   expect(fading(emptyState())).toBe(false)
-  expect(fading(sectionEmpty())).toBe(false)
 })
 
 it('shows a list there on load without motion', async () => {
@@ -74,7 +67,6 @@ it('fades the empty state in when the last row goes, and the list back in after'
   await expect.element(page.getByRole('grid', { name: 'Tunes' })).toBeVisible()
   set([])
   expect(fading(emptyState())).toBe(true)
-  expect(fading(sectionEmpty())).toBe(true)
   set(['Salt Creek'])
   expect(fading(list())).toBe(true)
 })

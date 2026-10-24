@@ -15,12 +15,8 @@ import {
   SETTINGS_CATEGORIES,
   TUNES,
 } from '../src/features/settings/settingsCopy'
-import {
-  ADD_NEW_TUNE,
-  NEW_TUNE_TITLE,
-  STATUS_HEADER,
-  TITLE_FIELD,
-} from '../src/features/tune/tuneFormCopy'
+import { TUNE_TITLE_LABEL } from '../src/features/tune/tuneFormCopy'
+import { KEY_TILE_EMPTY } from '../src/features/tune/tuneScreenCopy'
 import { TUNE } from '../src/features/tune/tunePageCopy'
 import { MORE_ACTIONS } from '../src/ui/menuCopy'
 import {
@@ -31,7 +27,6 @@ import {
   tabLabel,
   TAB_BAR,
 } from '../src/layout/tabs'
-import { STATUS_LABELS } from '../src/constants'
 import { e2eUserEmails } from './users'
 import { KEY } from '../src/ui/keyName'
 
@@ -299,7 +294,7 @@ export async function expectNoOverlay(page: Page): Promise<void> {
   await expect(page.locator('[role="dialog"], [role="alertdialog"], [role="menu"]')).toHaveCount(0)
 }
 
-/** Add a Learning tune from the catalog root, landing on its page. */
+/** Add a tune from the catalog root with its title and key, landing on its page. */
 export async function addTune(page: Page, title: string, key: string): Promise<void> {
   // The screen's own Add tune control, which leads the page, not the one an empty catalog offers.
   await page
@@ -307,18 +302,15 @@ export async function addTune(page: Page, title: string, key: string): Promise<v
     .getByRole('button', { name: ADD_TUNE, exact: true })
     .first()
     .click()
-  const sheet = page.getByRole('dialog', { name: NEW_TUNE_TITLE })
-  await sheet.getByRole('textbox', { name: TITLE_FIELD, exact: true }).fill(title)
-  await sheet
-    .getByRole('radiogroup', { name: STATUS_HEADER })
-    .getByRole('radio', { name: STATUS_LABELS.learning, exact: true })
-    .click()
-  await sheet
+  await page.getByRole('textbox', { name: TUNE_TITLE_LABEL, exact: true }).fill(title)
+  await page.keyboard.press('Enter')
+  await expect(tunePage(page).getByRole('heading', { name: title, level: 1 })).toBeVisible()
+  await tunePage(page).getByRole('button', { name: KEY_TILE_EMPTY, exact: true }).click()
+  await page
     .getByRole('listbox', { name: KEY })
     .getByRole('option', { name: key, exact: true })
     .click()
-  await sheet.getByRole('button', { name: ADD_NEW_TUNE, exact: true }).click()
-  await expect(tunePage(page).getByRole('heading', { name: title, level: 1 })).toBeVisible()
+  await page.keyboard.press('Escape')
 }
 
 // The press-and-hold rule of LONG_PRESS_MS in src/ui/RowSwipe.tsx, with room for a slow frame.

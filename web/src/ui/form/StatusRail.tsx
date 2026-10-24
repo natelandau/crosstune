@@ -26,11 +26,14 @@ const RING: Record<TuneStatus, string> = {
 export function StatusRail({
   label,
   value,
+  autoFocus = false,
   onChange,
 }: {
   label: string
   /** The stored status; one this client cannot read shows as want to learn. */
   value: string
+  /** Focuses the chosen status as the rail mounts, as the first field of an editor. */
+  autoFocus?: boolean
   onChange: (status: TuneStatus) => void
 }) {
   const chosen = isTuneStatus(value) ? value : 'want_to_learn'
@@ -55,6 +58,7 @@ export function StatusRail({
         <ToggleButton
           key={status}
           id={status}
+          autoFocus={autoFocus && status === chosen}
           className={`${CAPSULE_HIT} bg-field text-ink hover:bg-field-hover inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3 ${PRESS} data-[selected]:font-medium ${CHOSEN[status]}`}
         >
           <StatusGlyph status={status} labelled />

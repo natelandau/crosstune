@@ -25,7 +25,7 @@ async function mountPicker(tunes: { title: string; archived?: boolean }[], inLis
   const Data = dataProviders({ db })
   renderWithProviders(
     <Data>
-      <TuneFormProvider navigate={() => {}}>
+      <TuneFormProvider>
         <TunePickerSheet listId="l1" taken={taken} isOpen onOpenChange={() => {}} />
       </TuneFormProvider>
     </Data>,

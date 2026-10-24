@@ -22,7 +22,6 @@ import {
   SAVE_RECORDING,
 } from './recordingsCopy'
 import type { RecordingView } from './useRecordings'
-import { ADD_NEW_TUNE, NEW_TUNE_TITLE, TITLE_FIELD } from '../tune/tuneFormCopy'
 import { openTestDb } from '../../test/db'
 import { fakeLocationPermissionForTest } from '../../test/fakeLocationPermission'
 import { dataProviders } from '../../test/providers'
@@ -32,7 +31,6 @@ import { CLEAR_DATE, YEAR_LABEL } from '../../ui/partialDate'
 import { renderWithProviders } from '../../test/render'
 import { seen } from '../../test/events'
 import { renderApp } from '../../test/renderApp'
-import { TuneFormProvider } from '../tune/TuneFormProvider'
 import { TUNE } from '../tune/tunePageCopy'
 import { UNDO } from '../../ui/Toast'
 import { AddToTuneSheet } from './AddToTuneSheet'
@@ -157,12 +155,21 @@ function view(): RecordingView {
 }
 
 /** Stands in for the screen that opens the sheet: it nulls the recording once the sheet closes. */
-function Host({ initial, onClose }: { initial: RecordingView; onClose: () => void }) {
+function Host({
+  initial,
+  onClose,
+  onOpenTune,
+}: {
+  initial: RecordingView
+  onClose: () => void
+  onOpenTune: (tuneId: string) => void
+}) {
   const [shown, setShown] = useState<RecordingView | null>(initial)
   return (
     <AddToTuneSheet
       source="recordings_list"
       view={shown}
+      onOpenTune={onOpenTune}
       onClose={() => {
         setShown(null)
         onClose()
@@ -174,20 +181,18 @@ function Host({ initial, onClose }: { initial: RecordingView; onClose: () => voi
 async function mountAdd() {
   const db = openTestDb()
   await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
-  const navigated: string[] = []
   const onClose = vi.fn()
+  const onOpenTune = vi.fn<(tuneId: string) => void>()
   const analytics = recordingAnalytics()
   const Data = dataProviders({ db, analytics })
   renderWithProviders(
     <Data>
-      <TuneFormProvider navigate={(to) => navigated.push(to)}>
-        <Host initial={view()} onClose={onClose} />
-      </TuneFormProvider>
+      <Host initial={view()} onClose={onClose} onOpenTune={onOpenTune} />
     </Data>,
   )
   const dialog = sheet(ADD_TO_TUNE_TITLE)
   await expect.element(dialog).toBeVisible()
-  return { db, dialog, onClose, navigated, analytics }
+  return { db, dialog, onClose, onOpenTune, analytics }
 }
 
 it('files a recording under the tune picked, with an Undo', async () => {
@@ -203,8 +208,8 @@ it('files a recording under the tune picked, with an Undo', async () => {
   await expect.poll(async () => (await db.recordings.get('r1'))?.tune_id).toBeNull()
 })
 
-it('files a recording under a new tune made from the typed title', async () => {
-  const { db, dialog, onClose, navigated, analytics } = await mountAdd()
+it('files a recording under a new tune made from the typed title, and opens it', async () => {
+  const { db, dialog, onClose, onOpenTune, analytics } = await mountAdd()
   await dialog.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally Goodin')
   await dialog
     .getByRole('button', {
@@ -213,14 +218,11 @@ it('files a recording under a new tune made from the typed title', async () => {
     .click()
   await expect.element(dialog).not.toBeInTheDocument()
   await expect.poll(() => onClose).toHaveBeenCalledOnce()
-  const form = sheet(NEW_TUNE_TITLE)
-  await expect.element(form.getByRole('textbox', { name: TITLE_FIELD })).toHaveValue('Sally Goodin')
-  await form.getByRole('button', { name: ADD_NEW_TUNE, exact: true }).click()
-  await expect.element(form).not.toBeInTheDocument()
+  await expect.poll(() => db.tunes.where('title').equals('Sally Goodin').count()).toBe(1)
   const [tune] = await db.tunes.where('title').equals('Sally Goodin').toArray()
-  expect(tune).toBeDefined()
   await expect.poll(async () => (await db.recordings.get('r1'))?.tune_id).toBe(tune!.id)
-  expect(navigated).toEqual([])
+  await expect.poll(() => onOpenTune).toHaveBeenCalledExactlyOnceWith(tune!.id)
+  expect(page.getByRole('dialog').elements()).toHaveLength(0)
   await expect
     .poll(() => analytics.sends())
     .toEqual([

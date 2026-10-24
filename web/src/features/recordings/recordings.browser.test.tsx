@@ -22,7 +22,6 @@ import {
 } from './recordingsCopy'
 import { SORT_LABELS } from './sortCopy'
 
-import { ADD_NEW_TUNE, NEW_TUNE_TITLE } from '../tune/tuneFormCopy'
 import { openTestDb } from '../../test/db'
 import { entitlementRow, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
 import { PREMIUM_RECORDINGS_TITLE } from '../plan/planCopy'
@@ -366,7 +365,7 @@ it('files an unfiled recording from its row action, with an Undo', async () => {
   await expect.poll(groupHeadings).toEqual([UNFILED_HEADER])
 })
 
-it('files an unfiled recording under a new tune from its menu, and stays on Recordings', async () => {
+it('files an unfiled recording under a new tune from its menu, and opens its page', async () => {
   await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
   const { router } = await show()
   await row('Jam recording').click({ button: 'right' })
@@ -378,12 +377,17 @@ it('files an unfiled recording under a new tune from its menu, and stays on Reco
       name: addOfferLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
     })
     .click()
-  const form = page.getByRole('dialog', { name: NEW_TUNE_TITLE })
-  await form.getByRole('button', { name: ADD_NEW_TUNE, exact: true }).click()
-  await expect.element(form).not.toBeInTheDocument()
-  await expect.poll(async () => (await db.recordings.get('r1'))?.tune_id).not.toBeNull()
-  await expect.poll(groupHeadings).toEqual([FILED_HEADER])
-  expect(router.state.location.pathname).toBe(RECORDINGS.root)
+  await expect.poll(() => db.tunes.where('title').equals('Sally Goodin').count()).toBe(1)
+  const [tune] = await db.tunes.where('title').equals('Sally Goodin').toArray()
+  await expect.poll(async () => (await db.recordings.get('r1'))?.tune_id).toBe(tune!.id)
+  await expect.poll(() => router.state.location.pathname).toBe(`${RECORDINGS.root}/${tune!.id}`)
+  await expect
+    .element(
+      page
+        .getByRole('main', { name: TUNE })
+        .getByRole('heading', { level: 1, name: 'Sally Goodin' }),
+    )
+    .toBeVisible()
 })
 
 it('sits the storage summary after the last group', async () => {

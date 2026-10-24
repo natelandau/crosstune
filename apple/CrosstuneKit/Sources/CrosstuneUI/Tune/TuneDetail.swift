@@ -23,8 +23,6 @@ public struct TuneMembership: Hashable, Sendable, Identifiable {
 /// Everything the tune screen shows about one tune, read in one pass so it never shows a tune
 /// beside another moment's links or recordings.
 public struct TuneDetail: Hashable, Sendable {
-    public static let crooked = "Crooked"
-
     public let tune: Tune
     public let userTune: UserTune
     /// The tune's links, in position order.
@@ -37,14 +35,15 @@ public struct TuneDetail: Hashable, Sendable {
     public let instruments: Set<String>
     /// The music services the musician searches for recordings, in the order they list.
     public let searchProviders: [String]
+    /// What the musician plays first for a tune: its recordings or a music service's link.
+    public let playFirst: String
     /// Whether the lyrics hold words: whitespace alone would open the reading view on a blank page.
     public let hasLyrics: Bool
-    /// The lyrics' first line, or nil when they have none.
-    public let lyricsOpening: String?
 
     public init(
         tune: Tune, userTune: UserTune, links: [RecordingLink] = [], recordings: [TuneRecording] = [],
-        lists: [TuneMembership] = [], instruments: Set<String> = [], searchProviders: [String] = searchableProviders
+        lists: [TuneMembership] = [], instruments: Set<String> = [], searchProviders: [String] = searchableProviders,
+        playFirst: String = UserSettings.defaultPlayFirst
     ) {
         self.tune = tune
         self.userTune = userTune
@@ -53,9 +52,8 @@ public struct TuneDetail: Hashable, Sendable {
         self.lists = lists
         self.instruments = instruments
         self.searchProviders = searchProviders
-        let verses = LyricLines.lines(tune.lyrics)
-        hasLyrics = !verses.isEmpty
-        lyricsOpening = verses.first?.first.flatMap { $0.isEmpty ? nil : $0 }
+        self.playFirst = playFirst
+        hasLyrics = !LyricLines.lines(tune.lyrics).isEmpty
     }
 
     public var isArchived: Bool { userTune.archivedAt != nil }
@@ -64,10 +62,15 @@ public struct TuneDetail: Hashable, Sendable {
     /// for, standard included, each naming its instrument: two instruments can share a tuning's
     /// name.
     public var tunings: [String] {
-        Vocabulary.instruments.compactMap { instrument in
+        tuningInstruments.compactMap { tuningDisplay(tune.tunings, instrument: $0, withInstrument: true) }
+    }
+
+    /// The instruments whose tuning the tune shows: those the musician plays and those the tune
+    /// holds a tuning or capo for, in vocabulary order.
+    var tuningInstruments: [String] {
+        Vocabulary.instruments.filter { instrument in
             let entry = tuningEntry(tune.tunings, instrument: instrument)
-            guard instruments.contains(instrument) || entry.tuning != nil || entry.capo != nil else { return nil }
-            return tuningDisplay(tune.tunings, instrument: instrument, withInstrument: true)
+            return instruments.contains(instrument) || entry.tuning != nil || entry.capo != nil
         }
     }
 
@@ -87,7 +90,7 @@ public struct TuneDetail: Hashable, Sendable {
         let from = Self.present(userTune.learnedFrom)
         let on = Self.present(userTune.learnedOn)
         guard from != nil || on != nil else { return nil }
-        var text = "Learned"
+        var text = FactCopy.learnedGroup
         if let from { text += " from \(from)" }
         if let on { text += " on \(Self.learnedOn(on, locale: locale))" }
         return text
@@ -125,8 +128,7 @@ public struct TuneDetail: Hashable, Sendable {
     /// The tune `tuneID` with everything its screen shows, or nil when it is gone.
     nonisolated static func fetch(_ db: Database, tuneID: String, settingsID: String) throws -> TuneDetail? {
         guard let tune = try Tune.fetchOne(db, key: tuneID), tune.deletedAt == nil,
-            let userTune = try UserTune.filter(UserTune.CodingKeys.tuneID == tuneID)
-                .filter(UserTune.CodingKeys.deletedAt == nil).fetchOne(db)
+            let userTune = try UserTune.live(tuneID: tuneID, in: db)
         else { return nil }
         let links = activeByPosition(
             try RecordingLink.filter(RecordingLink.CodingKeys.tuneID == tuneID).fetchAll(db))
@@ -145,7 +147,7 @@ public struct TuneDetail: Hashable, Sendable {
                 itemByList[list.id].map { TuneMembership(list: list, itemID: $0) }
             },
             instruments: settings?.deletedAt == nil ? Set(settings?.instruments ?? []) : [],
-            searchProviders: chosenSearchProviders(settings))
+            searchProviders: chosenSearchProviders(settings), playFirst: storedPlayFirst(settings))
     }
 }
 
@@ -177,5 +179,13 @@ public enum DeleteTuneMessage {
             : "\(possessive) links, list entries, and \(count) \(count == 1 ? "recording" : "recordings")"
         let text = "This removes \(removed)."
         return files.contains(where: { $0?.localState.isNotUploaded == true }) ? "\(text) \(notUploaded)" : text
+    }
+}
+
+extension UserTune {
+    /// The musician's own live row for the tune `tuneID`, or nil when there is none.
+    nonisolated static func live(tuneID: String, in db: Database) throws -> UserTune? {
+        try UserTune.filter(UserTune.CodingKeys.tuneID == tuneID)
+            .filter(UserTune.CodingKeys.deletedAt == nil).fetchOne(db)
     }
 }

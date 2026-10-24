@@ -801,14 +801,14 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(genres.count(where: { $0 == "Old-time" }) == 1)
     }
 
-    @Test func openingTheNewTuneFormClearsTheSearch() async throws {
+    @Test func takingTheSearchOfferOrOpeningANewTuneClearsTheSearch() async throws {
         let root = TemporaryRoot()
         let model = CatalogModel(store: try await sampleStore(root))
         model.query = "Rove Riley"
-        #expect(model.newTune(title: "Rove Riley") == .new(title: "Rove Riley", source: .searchOffer))
+        model.searchOfferTaken()
         #expect(model.query == "")
         model.query = "Rove"
-        #expect(model.newTune() == .new(title: nil, source: .catalog))
+        model.newTune()
         #expect(model.query == "")
     }
 

@@ -91,39 +91,6 @@ import Testing
         }
         #expect(try await store.read { db in try Tune.fetchCount(db) } == 0)
     }
-
-    @Test func createsATuneAtTheEndOfAList() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        let commands = Commands(store: store)
-        let listID = try await commands.createList("Waltzes", at: noon)
-        let first = try await commands.createTune(
-            TuneInput(title: "Ashokan Farewell"), userTune: UserTuneInput(status: "known"), inList: listID, at: noon)
-        let second = try await commands.createTune(
-            TuneInput(title: "Rove Riley"), userTune: UserTuneInput(status: "known"), inList: listID, at: later(1))
-
-        let items = try await store.read { db in
-            try ListItem.filter(ListItem.CodingKeys.listID == listID).order(ListItem.CodingKeys.position).fetchAll(db)
-        }
-        #expect(items.map(\.userTuneID) == [first.userTuneID, second.userTuneID])
-    }
-
-    @Test func keepsTheTuneWhenItsListHasGone() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        let commands = Commands(store: store)
-        let listID = try await commands.createList("Waltzes", at: noon)
-        try await commands.deleteList(listID, at: noon)
-
-        let created = try await commands.createTune(
-            TuneInput(title: "Rove Riley"), userTune: UserTuneInput(status: "known"), inList: listID, at: later(1))
-
-        #expect(try await store.read { db in try UserTune.fetchOne(db, key: created.userTuneID) } != nil)
-        let items = try await store.read { db in
-            try ListItem.filter(ListItem.CodingKeys.userTuneID == created.userTuneID).fetchCount(db)
-        }
-        #expect(items == 0)
-    }
 }
 
 @Suite struct UpdateTuneTests {

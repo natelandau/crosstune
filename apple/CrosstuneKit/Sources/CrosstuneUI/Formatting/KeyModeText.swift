@@ -14,13 +14,18 @@ public struct KeyModeText: Hashable, Sendable {
     public init?(key: String?, modes: [String]) {
         guard let key = key?.trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty else { return nil }
         self.key = key
-        guard let mode = modes.first, mode != "other", let suffix = Vocabulary.modeAbbreviations[mode] else {
+        guard let mode = modes.first, Self.isNamed(mode), let suffix = Vocabulary.modeAbbreviations[mode] else {
             suffix = ""
             spoken = key
             return
         }
         self.suffix = suffix
         spoken = "\(key) \(mode)"
+    }
+
+    /// Whether a mode is worth showing: one this build can name, and not `other`, which says nothing.
+    public static func isNamed(_ mode: String) -> Bool {
+        mode != "other" && Vocabulary.modeAbbreviations[mode] != nil
     }
 
     /// The key and its abbreviated mode together: `Dm`, `E dor`, `G`.

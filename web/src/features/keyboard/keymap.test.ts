@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { RECORD_TEXT, TABS } from '../../layout/tabs'
 import { SEARCH_TUNES } from '../catalog/catalogCopy'
-import { NEW_TUNE_TITLE } from '../tune/tuneFormCopy'
 import {
   GO_TO,
   isSequence,
   keyLabel,
   keySpoken,
   matchShortcut,
+  NEW_TUNE_TITLE,
   SHORTCUTS,
   SHORTCUTS_TITLE,
 } from './keymap'

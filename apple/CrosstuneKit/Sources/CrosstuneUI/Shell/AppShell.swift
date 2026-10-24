@@ -24,6 +24,8 @@ public struct AppShell: View {
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(\.analytics) private var analytics
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.undoManager) private var undoManager
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
     @Environment(\.plan) private var plan
     @Environment(\.noticeClaim) private var noticeClaim
@@ -34,6 +36,7 @@ public struct AppShell: View {
     #endif
     @State private var catalog: CatalogModel?
     @State private var recordings: RecordingsModel?
+    @State private var addedTune: AddedTuneOffer?
     @State private var counts: LiveQuery<CatalogCounts?>?
     @State private var take: RecordTake?
     @State private var openSheets = ShellCover()
@@ -92,7 +95,7 @@ public struct AppShell: View {
                     if next == .compact { place.narrowed() } else if next == .regular { place.widened() }
                 }
             #endif
-            .modifier(TuneFormSheets())
+            .modifier(NewTuneCommand(open: openNewTune))
             .modifier(ListSheets())
             .modifier(LinkSheets())
             .modifier(
@@ -133,6 +136,7 @@ public struct AppShell: View {
             .environment(recentTakeForPlatform)
             .environment(catalog)
             .environment(recordings)
+            .environment(addedTune)
             .environment(tuner)
             .environment(\.tunerSelected, tunerSelected)
             .environment(\.catalogCounts, counts)
@@ -144,6 +148,7 @@ public struct AppShell: View {
             .environment(\.playerWindow, playerWindow)
             .environment(\.standVisit, standVisit)
             .environment(\.openCatalogRoot, MenuAction(id: ShellActionID.openCatalogRoot) { showCatalogRoot() })
+            .environment(\.openTune, TuneOpener(id: ObjectIdentifier(place)) { openTune($0) })
             .focusedSceneValue(
                 \.recordAction,
                 canRecord ? MenuAction(id: recordID) { startRecording(tuneID: nil, source: .menu) } : nil
@@ -168,6 +173,9 @@ public struct AppShell: View {
                         .flatMap(CatalogSortChoice.init(rawValue:)) ?? .default,
                     analytics: analytics)
                 recordings = RecordingsModel(store: store, analytics: analytics)
+                addedTune = AddedTuneOffer(store: store, analytics: analytics)
+                addedTune?.undoManager = undoManager
+                addedTune?.voiceOverRunning = voiceOver
                 counts = LiveQuery(store, initial: nil) { try CatalogCounts.fetch($0) }
             }
             .onChange(of: plan.map(ObjectIdentifier.init), initial: true) {
@@ -191,6 +199,8 @@ public struct AppShell: View {
             .onChange(of: scenePhase) {
                 if scenePhase == .background { catalog?.leftForeground() }
             }
+            .onChange(of: undoManager.map(ObjectIdentifier.init)) { addedTune?.undoManager = undoManager }
+            .onChange(of: voiceOver) { addedTune?.voiceOverRunning = voiceOver }
             #if os(macOS)
                 .onAppQuit {
                     catalog?.leftForeground()
@@ -258,6 +268,17 @@ public struct AppShell: View {
         #else
             place.sidebar = destination == .recordings ? .recordings : .catalog
         #endif
+    }
+
+    private func openTune(_ tuneID: String) {
+        player.isExpanded = false
+        place.openTune(tuneID)
+    }
+
+    private func openNewTune() {
+        catalog?.newTune()
+        player.isExpanded = false
+        place.openNewTune(source: .menu)
     }
 
     private func showCatalogRoot() {

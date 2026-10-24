@@ -28,6 +28,7 @@ import type { Player } from '../player/usePlayer'
 import { closeRecordingName, playName } from '../recordings/recordingNames'
 import { countTunes } from '../../text/format'
 import { removedFromListToast, selectedTitle } from '../selection/selectionCopy'
+import { listTunePath } from '../../layout/tuneHome'
 import { EDIT_TUNE } from '../tune/tuneScreenCopy'
 import { applyPullPage } from '../../sync/apply'
 import { openTestDb } from '../../test/db'
@@ -395,14 +396,13 @@ it('removes a tune from its row with an Undo toast', async () => {
   await expect.poll(async () => (await activeItems(db, 'l1')).length).toBe(3)
 })
 
-it('edits a tune from its row through the tune form', async () => {
-  const { launcher } = await mount('/lists/l1', WIDE)
+it("a list row's Edit opens the tune in the list", async () => {
+  const { launcher, router } = await mount('/lists/l1', WIDE)
   const row = tuneRows().getByRole('row', { name: /Forked Deer/ })
   await row.hover()
   await row.getByRole('button', { name: EDIT_TUNE }).click()
-  await expect
-    .poll(() => launcher.open)
-    .toHaveBeenCalledWith({ source: 'list', tuneId: 'forked-deer' })
+  await expect.poll(at(router)).toBe(listTunePath('l1', 'forked-deer'))
+  expect(launcher.open).not.toHaveBeenCalled()
 })
 
 it('offers Select tunes in More, which starts selecting', async () => {
@@ -432,8 +432,8 @@ it('adds tunes from the picker, marking those already in the list', async () => 
   await expect.poll(rowTitles).toContain('Big Sciota')
 })
 
-it('opens the tune form for a typed title from the picker as from a list', async () => {
-  const { launcher } = await mount('/lists/l1', WIDE)
+it('the list picker adds a new tune and stays open', async () => {
+  const { db } = await mount('/lists/l1', WIDE)
   await page.getByRole('button', { name: ADD_TUNES }).click()
   const dialog = page.getByRole('dialog', { name: ADD_TUNES })
   await dialog.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally Goodin')
@@ -442,9 +442,13 @@ it('opens the tune form for a typed title from the picker as from a list', async
       name: addOfferLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
     })
     .click()
+  const added = dialog.getByRole('row', { name: /Sally Goodin/ })
+  await expect.element(added).toHaveAccessibleName(new RegExp(`${IN_THIS_LIST}$`))
+  await expect.element(dialog).toBeVisible()
   await expect
-    .poll(() => launcher.open)
-    .toHaveBeenCalledWith({ source: 'list', initialTitle: 'Sally Goodin', listId: 'l1' })
+    .element(dialog.getByRole('searchbox', { name: SEARCH_TUNES }))
+    .toHaveValue('Sally Goodin')
+  await expect.poll(() => db.tunes.where('title').equals('Sally Goodin').count()).toBe(1)
 })
 
 it('shows an empty list with a way to add tunes', async () => {

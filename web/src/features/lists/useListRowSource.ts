@@ -19,7 +19,7 @@ interface TuneMedia {
 }
 
 /** Each tune's own media in tune-screen order, keyed by tune id, because a row's view carries none. */
-async function readTuneMedia(
+export async function readTuneMedia(
   db: CrosstuneDb,
   tuneIds: readonly string[],
 ): Promise<ReadonlyMap<string, TuneMedia>> {
@@ -45,19 +45,24 @@ async function readTuneMedia(
   return media
 }
 
-function rowSource(
-  entry: ListItemView,
-  media: TuneMedia,
-  playFirst: PlayFirst,
-  recordingsPlay: boolean,
-): RowSource | null {
+/** What a tune plays: its pin, else the Play first order over its own media. */
+export function sourceFor({
+  tuneId,
+  pin,
+  media,
+  playFirst,
+  recordingsPlay,
+}: {
+  tuneId: string
+  pin: { recordingId: string | null; linkId: string | null }
+  media: TuneMedia
+  playFirst: PlayFirst
+  recordingsPlay: boolean
+}): RowSource | null {
   const { views, links } = media
   const chosen = chooseRowSource({
-    tuneId: entry.tune.id,
-    pin: {
-      recordingId: entry.userTune.play_recording_id ?? null,
-      linkId: entry.userTune.play_link_id ?? null,
-    },
+    tuneId,
+    pin,
     recordings: views.map((view) => view.recording),
     links,
     playFirst,
@@ -92,7 +97,20 @@ export function useListRowSources(
   for (const row of rows) {
     const tuneMedia = media.get(row.tune.id)
     // A row whose tune joined after the last read waits for the next one.
-    if (tuneMedia) sources.set(row.item.id, rowSource(row, tuneMedia, playFirst, recordingsPlay))
+    if (tuneMedia)
+      sources.set(
+        row.item.id,
+        sourceFor({
+          tuneId: row.tune.id,
+          pin: {
+            recordingId: row.userTune.play_recording_id ?? null,
+            linkId: row.userTune.play_link_id ?? null,
+          },
+          media: tuneMedia,
+          playFirst,
+          recordingsPlay,
+        }),
+      )
   }
   return sources
 }
