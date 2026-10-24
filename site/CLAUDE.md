@@ -18,7 +18,7 @@ design rules in `docs/design*.md` do not apply here.
   layer, and phones sit in front of browsers.
 - Scrolling stays native: no scroll-jacking, no snap, no pinned runways, no
   scroll-linked transforms. A demo plays only while it is in view.
-- Coral is the brand color and may be used freely; the app's color rules do not
+- Coral is the brand color and can be used freely; the app's color rules do not
   bind the page.
 - The app calls them scans, never notation. A test fails on "notation".
 - The hero's and the closing band's Create account buttons carry "Already have

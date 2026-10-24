@@ -1,8 +1,8 @@
 # Crosstune operations
 
-How to work on Crosstune: set up, run, test, commit, release, deploy, roll
-back, and smoke check. How each deployable reads its settings is in the
-Configuration section of `architecture.md`.
+Setup, and the procedures and gotchas of testing, releasing, deploying,
+and rolling back. `just --list` describes every recipe. How each
+deployable reads its settings: `architecture.md`, Configuration.
 
 ## Prerequisites
 
@@ -11,269 +11,159 @@ Configuration section of `architecture.md`.
 | [uv](https://docs.astral.sh/uv/)                       | any            | Installs Python 3.13, the API's dependencies, and the git hooks.                |
 | [Node.js](https://nodejs.org/)                         | 22.22 or newer | Runs the web toolchain.                                                         |
 | [pnpm](https://pnpm.io/)                               | 12.11.2        | Pinned in `web/package.json`. `corepack enable` installs it.                    |
-| [just](https://just.systems)                           | any            | The task runner. `just --list` shows every recipe.                              |
+| [just](https://just.systems)                           | any            | The task runner.                                                                |
 | [Docker](https://docs.docker.com/get-docker/)          | any            | Runs Postgres 18 and RustFS for development and the API tests. Must be running. |
 | [ffmpeg](https://ffmpeg.org/)                          | any            | Transcodes recordings. Without it the API tests that use audio skip.            |
 | [Xcode](https://developer.apple.com/xcode/)            | 27             | Builds and tests the Apple app. Root `lint`, `format`, and `test` need it.      |
 | [Periphery](https://github.com/peripheryapp/periphery) | 3.8            | Finds unused Swift code for `just apple::deadcode`.                             |
 
-You also need a free [Clerk](https://clerk.com) development instance with
-email verification code sign-in enabled. From its dashboard, copy the Frontend API
-URL (`https://<slug>.clerk.accounts.dev`) and the publishable key
+Also a free [Clerk](https://clerk.com) development instance with email
+verification code sign-in on. From its dashboard: the Frontend API URL
+(`https://<slug>.clerk.accounts.dev`) and the publishable key
 (`pk_test_...`).
 
 ## Set up once
 
+In the main checkout:
+
 1. Start Docker.
-2. Run `just dev-setup`. It installs the Python and JavaScript dependencies
-   and Chromium, installs the git hooks, creates `api/.env`, `web/.env`,
-   and `apple/.env` from their examples, starts Postgres and RustFS, and creates the
-   `crosstune-local` and `crosstune-e2e` buckets.
+2. Run `just dev-setup`. It installs dependencies and the git hooks,
+   creates each module's `.env` from its example, and starts Postgres and
+   RustFS with their buckets.
 3. In `api/.env`, set `CROSSTUNE_CLERK_ISSUER` to the Frontend API URL.
 4. In `web/.env`, set `VITE_CLERK_PUBLISHABLE_KEY` to the publishable key.
 5. In Xcode > Settings > Locations, set Derived Data to Relative,
-   `.build/DerivedData`. Xcode then builds into the folder the `apple`
-   recipes use, inside the checkout, so removing a worktree removes its
-   build.
+   `.build/DerivedData`, so removing a worktree removes its build.
 
 Migrations run every time `just dev` starts. Nothing is created by hand.
-
-Run `just dev-setup` in the main checkout only. The git hooks every
-checkout shares call the `prek` of the checkout that installed them, so
-installing them from a worktree breaks them once that worktree is removed.
-Create a worktree with `just worktree <branch>`: it copies each module's
-`.env` and `apple/Config/Secrets.xcconfig` from the main checkout and runs
-`just setup`, so `just e2e` works there. In a worktree made another way,
-run `just worktree-env`, then `just setup`.
-
-A worktree never uses the main checkout's database or bucket, since
-branches write migrations at the same time. `just api::worktree-db` copies
-the `crosstune` database into `crosstune_wt_<name>` and every object in
-`crosstune-local` into `crosstune-wt-<name>`, migrates the copy, and points
-the worktree's `api/.env` at both. `just worktree` runs it, and so does
-`just dev` in a worktree. The copy is a snapshot of the main checkout;
-`just api::worktree-db reset` replaces it with a fresh one.
-`just worktree` also runs `just api::prune-worktree-dbs`, which drops the
-database and bucket of every worktree that no longer exists.
+Worktrees: `CLAUDE.md`, Task runner.
 
 ## Run
 
-| Command             | Does                                                                                                                                                                                                                                                                                                                  |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `just dev`          | Starts Postgres and RustFS, applies migrations, runs the API on 8000, the web client on 5173, and the site on 4321; start at `localhost:4321`, where Sign in leads to the app. Ctrl-C stops all three. If a port is taken, it names what holds it and offers to stop a Crosstune server left from an earlier session. |
-| `just dev-down`     | Stops Postgres and RustFS.                                                                                                                                                                                                                                                                                            |
-| `just api::run`     | The API alone, reloading on changes under `api/src`.                                                                                                                                                                                                                                                                  |
-| `just web::run`     | The web client alone.                                                                                                                                                                                                                                                                                                 |
-| `just site::dev`    | The site alone, on Astro's dev server.                                                                                                                                                                                                                                                                                |
-| `just web::preview` | A production build on 4173 with the same `/v1` proxy.                                                                                                                                                                                                                                                                 |
+- Start at `localhost:4321`, where Sign in leads to the app on 5173. The
+  API answers `{"status":"ok"}` at `localhost:8000/healthz`.
+- `just api::testdata <account>` seeds and sets the billing state of a
+  local account. It needs `CROSSTUNE_TESTDATA_ENABLED=true` in `api/.env`.
+- Browsers reach RustFS through the dev server's `/storage` proxy. Its
+  console is at `localhost:9001` (`crosstune` / `crosstune-local-secret`).
+- A restart of the API runs the orphan sweep, which deletes every local
+  file with no user, recording, or scan row.
+- `just dev-down` keeps the Postgres and RustFS volumes.
+  `docker compose down -v` removes them.
 
-Open http://localhost:5173 and sign in with an email address. The API
-answers `{"status":"ok"}` at http://localhost:8000/healthz. Every checkout
-and worktree shares one Postgres container, and each worktree has its own
-database in it. Browsers reach
-RustFS through the dev server's `/storage` proxy, so a phone on the dev
-server's Tailscale Serve URL can record and play back too.
+Apple app:
 
-The Apple app's Debug build calls the API on port 8000 and signs in
-against the Clerk development instance. Start the API with `just dev` or
-`just api::run`, then run the Mac app with `just apple::run [app args]`
-and quit it with `just apple::done`. Every worktree runs one installed
-copy, so the keychain asks for its password once rather than once per
-worktree; `run` waits while another worktree holds it.
-`just apple::shots name…` runs the Debug app over sample data, opened on
-each named surface or `settings-<tab>`, and saves its windows to
-`apple/.build/shots/`; the screen must be unlocked. For a Simulator,
-open `apple/Crosstune.xcodeproj` and run the `Crosstune` scheme. Recordings need `just dev`: the local
-API signs recording URLs as `/storage/...`, and the app sends them through
-the web dev server's proxy on port 5173, as a browser does. The local API listens on the Mac only,
-so a device build reaches it through Tailscale Serve: run `just dev`, then
-`tailscale serve 5173`, and list `.ts.net` in `LOCAL_ALLOWED_HOSTS` in
-`web/.env`. The dev server proxies `/v1` to the API and `/storage` to
-RustFS, so one URL serves both. The device's origins live in
-`apple/Config/Local.xcconfig`, which git ignores and only Debug builds
-read. `just apple::setup` writes it with this Mac's Tailscale hostname
-(`apple/scripts/apple-local-xcconfig.sh`), and `just worktree` copies the main
-checkout's copy into each worktree. Its settings carry `[sdk=iphoneos*]`,
-so the Simulator and the Mac keep localhost.
-
-RustFS holds local recordings. Its console is at http://localhost:9001,
-sign in with `crosstune` and `crosstune-local-secret`. List objects with
-`just api::storage ls [prefix]` and download one with
-`just api::storage get <key> [dest]`. Both read the bucket `api/.env`
-names, and take `--bucket crosstune-e2e` to read the end-to-end bucket.
-`just api::storage-reset [bucket]` deletes every object in a bucket, the
-one `api/.env` names by default. A restart of the API runs the orphan sweep,
-which deletes every file that has no user row or no recording or
-scan row in the local database. `docker compose down -v`
-removes the Postgres and RustFS volumes; `just dev-down` keeps them.
-
-`just api::testdata <account>` seeds, clears, and sets the billing state of
-a local development account. It refuses to run unless `api/.env` sets
-`CROSSTUNE_TESTDATA_ENABLED=true`.
+- The Debug build calls the API on 8000 and signs in against the Clerk
+  development instance. Recordings need `just dev`: the local API signs
+  recording URLs as `/storage/...`, which go through the web dev server's
+  proxy on 5173.
+- A device build reaches the Mac through Tailscale Serve: run `just dev`,
+  then `tailscale serve 5173`, and list `.ts.net` in `LOCAL_ALLOWED_HOSTS`
+  in `web/.env`. `just apple::setup` writes the device's origins into
+  `apple/Config/Local.xcconfig`, which git ignores and only Debug builds
+  read. Its settings carry `[sdk=iphoneos*]`, so the Simulator and the Mac
+  keep localhost.
+- `just apple::shots` needs the screen unlocked.
 
 ## Test
 
-| Command                        | Runs                                                                                                                                                                                                         |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `just lint`                    | Every linter in every module, then the hooks no module covers, such as the spell check and the workflow linters.                                                                                             |
-| `just test`                    | API tests on databases of their own in the test Postgres, a memory-backed server apart from the development one, web unit and browser tests, the Swift package tests, and the tracking plan checker's tests. |
-| `just api::test [args]`        | API tests. Args narrow the run and drop coverage.                                                                                                                                                            |
-| `just web::test [args]`        | Web tests with coverage. Args go to vitest and drop coverage.                                                                                                                                                |
-| `just web::stress <n> [args]`  | Web tests `n` times, shuffled, a new order each run; with no args, the test files the branch changed since `main`. Run once per finished branch. Prints failing seeds; `SEED=<seed>` replays one.            |
-| `just site::test [args]`       | Builds the site, then runs its tests against the output. Args go to vitest.                                                                                                                                  |
-| `just apple::test [args]`      | Swift package tests on the Mac. Args go to `swift test`.                                                                                                                                                     |
-| `just analytics::test [args]`  | Tracking plan checker tests. Args go to pytest.                                                                                                                                                              |
-| `just apple::build [platform]` | The app for the iOS Simulator and macOS, unsigned, or for one: `ios` or `macos`.                                                                                                                             |
-| `just apple::deadcode`         | Builds the app and the Swift package, then fails on unused code. `// periphery:ignore - <why>` above a declaration keeps one the index cannot see used.                                                      |
-| `just typos [paths]`           | Spell check.                                                                                                                                                                                                 |
-| `just e2e [args]`              | The Playwright suite. Args go to Playwright.                                                                                                                                                                 |
+`just test` runs every unit and integration suite. `just e2e` runs
+Playwright.
+
+### Gate cache
 
 A lint or test recipe runs through
-[gate-cache](https://github.com/natelandau/gate-cache), an API dev
-dependency. It records a pass against the git tree of every file git does
-not ignore, committed or not, and skips when the recipe runs again on the
-same tree. Hooks, people, and
-agents run the same recipes, so a pass from one skips the gate for the
-others, in every worktree. gate-cache turns itself off when `CI` is set,
-so CI never skips a gate.
+[gate-cache](https://github.com/natelandau/gate-cache). It records a pass
+against the git tree of every file git does not ignore, committed or not,
+and skips when the recipe runs again on the same tree. Hooks, people, and
+agents share the passes, in every worktree. It turns itself off when `CI`
+is set.
 
 - A recipe run with args always runs and records nothing. A recipe that
-  forwards its args passes their count to the gate with `--argc "$#"` and
-  appends them to the command, so it spells the command once.
-- A pass on uncommitted work covers the commit of that work, so the commit
-  and pre-push hooks skip the gate.
+  forwards args passes their count with `--argc "$#"` and appends them to
+  the command, so it spells the command once.
 - A gate that reads an ignored file, such as a module's `.env`, names it
-  with `--file` after the gate name. One whose result depends on a tool
-  no lockfile pins, such as Node, ffmpeg, or Xcode's Swift, names the
-  command that prints its version with `--tool`. A hash of both joins
-  the gate name, so a change to either runs the gate again.
+  with `--file`. One that depends on a tool no lockfile pins, such as Node,
+  ffmpeg, or Xcode's Swift, names its version command with `--tool`. A
+  hash of both joins the gate name.
 - A gate never reads a service, since gate-cache cannot see one change.
-  `api-test` is the one exception: it starts the test Postgres, but
-  every run creates and migrates databases of its own from the tree and
-  drops them after, so nothing Postgres already holds reaches the result.
-- `just gate status` lists the gates that passed on the current tree and
-  the gates that ran on it without a pass. `just gate status --name <gate>`
-  says whether one gate would skip; a gate keyed with `--file` or
-  `--tool` carries its hash, as in `web-test@3f9a1c2b7d10`.
-- `GATE_CACHE_DISABLE=1 just <recipe>` forces a full run.
-- After a change to any other input git does not track, run
-  `just gate clear`.
+  `api-test` is the one exception: every run creates and migrates its own
+  databases from the tree and drops them after.
+- `just gate status --name <gate>` says whether one gate would skip.
 
-The end-to-end suite:
+### End-to-end suite
 
-- Signs in through the Clerk development instance and spends its usage
-  limits. It needs `CLERK_SECRET_KEY` and `E2E_CLERK_USER_EMAILS` in
-  `web/.env`, and the same development key as `CROSSTUNE_CLERK_SECRET_KEY`
-  in `api/.env`.
-- Runs one worker per address in `E2E_CLERK_USER_EMAILS`, and each worker
-  signs in as its own user, so workers never share data. A spec that
-  deletes or changes the account makes its own user with
-  `createThrowawayUser` and removes it with `removeClerkUser`, both in
-  `web/e2e/helpers.ts`.
-- Serves the API on 8001 against `crosstune_e2e`, created for the run and
-  dropped afterwards, so it runs beside `just dev` and starts empty.
-- To keep the database after a failure, run `just api::run-e2e`, then
-  `just web::e2e` in a second terminal. `just api::e2e-db-reset` empties it.
-- Queries by accessible name. A renamed label, heading, or group needs
-  `web/e2e/` checked, and only this suite catches it.
-- Runs the recording specs in `web/e2e/`, the only place they run.
+- Needs `CLERK_SECRET_KEY` and `E2E_CLERK_USER_EMAILS` in `web/.env`, and
+  the same development key as `CROSSTUNE_CLERK_SECRET_KEY` in `api/.env`.
+- One worker per address in `E2E_CLERK_USER_EMAILS`, each signed in as its
+  own user, so workers never share data. A spec that deletes or changes
+  the account makes its own user with `createThrowawayUser` and removes it
+  with `removeClerkUser` (`web/e2e/helpers.ts`).
+- The recording specs run only here.
+- To keep the database after a failure: `just api::run-e2e`, then
+  `just web::e2e` in a second terminal. `just api::e2e-db-reset` empties
+  it.
 
-In CI, a failed Playwright test reruns once before it fails the run. A test
-that passed only on a rerun leaves the job green and uploads the
-`playwright-report` artifact. The `Web` workflow's browser tests rerun up to
-twice, and its job summary lists every test that needed a rerun.
+### In CI
 
-An API test that reads or writes RustFS skips locally when RustFS is down
-and fails instead in CI, where the `API` workflow always starts it.
+- A failed Playwright test reruns once. One that passed only on a rerun
+  leaves the job green and uploads `playwright-report`. The `Web`
+  workflow's browser tests rerun up to twice, and its job summary lists
+  every test that needed a rerun.
+- An API test that uses RustFS skips locally when RustFS is down, and
+  fails in CI, where it always runs.
 
 ## Commit
 
-- Commit messages follow conventional commits. The commit-msg hook rejects
-  any other. `just commit` writes one interactively.
-- Commitizen is configured in `.cz.toml` at the root, so every `cz` command
-  runs from the root.
+- Conventional commits. The commit-msg hook rejects any other. Every `cz`
+  command runs from the root, where `.cz.toml` is.
 - A model change: `just api::makemigrations "message"`, review the file,
   then `just api::migrate`.
-- An API change: `just contract` regenerates the OpenAPI file, the typed
-  web client, the web client's generated vocabulary file, the Apple app's
-  Swift client, and its own generated vocabulary file. CI fails when the
-  committed copies drift.
-- A validated value or length limit: edit `api/src/crosstune/vocabulary.py`,
-  write the migration for the check constraint or column it changes, run
-  `just contract`, and give any new value its label in
+- An API change: `just contract` regenerates the OpenAPI file and every
+  generated client and vocabulary copy.
+- A validated value or length: edit `api/src/crosstune/vocabulary.py`,
+  write the migration for its check constraint or column, run
+  `just contract`, and give a new value its label in
   `web/src/constants.ts`.
-- The repository takes squash merges only. The PR title and body become the
-  commit message.
+- Squash merges only. The PR title and body become the commit message, so
+  a breaking change needs `!` in the PR title and a `BREAKING CHANGE:`
+  paragraph in the PR body. The branch commits' footers are dropped.
 
 ## Delivery
 
-- A merge to `main` deploys development. Railway rebuilds the API when a
-  file under `api/` changed. Workers Builds deploys the web client to the
-  Preview `main` when a file under `web/` changed.
-- A merge to `main` that changes a file under `site/` deploys the site to
-  production. The site has no development deploy and no part in a release.
-- A version tag deploys the API and the web client to production. The
+- A merge to `main` deploys development: Railway when `api/` changed,
+  Workers Builds when `web/` changed. A development deploy waits for CI.
+- A merge to `main` that changes `site/` deploys the site to production.
+  The site has no development deploy and no part in a release, so copy
+  about an unreleased feature waits until that release ships.
+- A version tag deploys the API and the web client to production: the
   `Release` workflow moves the `production` branch to the tag, and both
-  hosts deploy from that branch. Nothing else writes to `production`.
-- A pull request from a branch of this repository that changes a file
-  under `api/` gets its own API, database, and recording prefix. Any other
-  PR's preview uses the development API. A PR from a fork or from
-  Dependabot gets none, because its run has no Actions secrets. The
-  `Preview` workflow creates a Neon branch `pr-<n>` from development and a
-  Railway environment `pr-<n>` on the PR branch, with the `pr-<n>/` prefix
-  of the preview bucket. A KV entry maps the PR's Preview name to that
-  API. Every push resets the Neon branch and migrates it to the PR's
-  schema, so preview data is lost. Every push also copies into the prefix
-  each object of the development bucket whose copy is missing, has a
-  different size, or is older. Closing the PR deletes the Railway
-  environment, the Neon branch, the KV entry, the
-  `pr-<n>/` prefix, and the `crosstune / pr-<n>` GitHub environment that
-  Railway's deploys create. The 90-day lifecycle rule on the preview bucket is
-  the backstop for a failed prefix deletion. If cleanup fails, run the
-  workflow from the Actions tab with the PR number.
-- CI runs on every pull request and push to `main`. `API` lints, type
-  checks, tests on Postgres 18, and checks the OpenAPI contract. It
-  builds the API image only when the workflow, the Dockerfile, or the
-  API's dependencies change, and on every release. Its lint job also
-  runs actionlint and zizmor on the workflows and shellcheck on the
-  scripts, so it starts for any change under `.github/`. `Web`
-  lints, type checks, tests, builds, and checks the generated types.
-  `Site` lints, type checks, tests the built pages, and validates the
-  Worker config with a dry run. `Analytics` checks the tracking plan and
-  tests its checker. On a push to `main`, it then syncs the plan to the
-  PostHog event definitions, with the key from the `posthog` GitHub
-  environment.
-  All four start on every PR, skip their jobs when it touches nothing
-  they cover, and are required checks. A skipped job passes a required
-  check.
-  `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift
-  package tests, builds for the iOS Simulator and macOS, and checks the
-  generated Swift client and vocabulary file. It runs
-  only when `apple/`, the contract, or the tracking plan changes, and no host
-  deploys from it. It is not a required
-  check, because a required check must run on every PR and macOS minutes
-  cost more. `E2E` runs Playwright on a PR that changes `web/` or `api/`
-  beyond their unit and browser tests, test helpers, and Markdown, and on
-  demand. It
-  is not a required check, because a Clerk outage would block unrelated
-  merges. It skips fork and Dependabot PRs, which cannot sign in.
+  hosts deploy from it. Nothing else writes to `production`. The workflow
+  is production's only gate.
+- A pull request from a branch of this repository that changes `api/` gets
+  its own API (Railway `pr-<n>`), database (Neon branch), and recording
+  prefix, through the `Preview` workflow. Any other PR's preview uses the
+  development API. A fork or Dependabot PR gets none: its run has no
+  Actions secrets.
+- Every push to such a PR resets its Neon branch, so preview data is lost.
+  Closing the PR deletes its environment. If cleanup fails, run `Preview`
+  from the Actions tab with the PR number. The preview bucket's lifecycle
+  rule is the backstop.
+- `API`, `Web`, `Site`, and `Analytics` start on every PR and skip jobs for
+  what it does not touch, so they can be required checks. `Apple` runs
+  only when `apple/`, the contract, or the tracking plan changes, so it is
+  not required. `E2E` is not required, so a Clerk outage never blocks
+  unrelated merges.
 - A workflow from a fork runs only after you approve it on the PR.
 - Dependabot runs monthly and skips a release until it is seven days old.
-  npm and uv updates arrive as one grouped PR per ecosystem; every other
-  ecosystem opens one PR per dependency, so closing that PR skips the
-  version. To decline one update in a grouped PR, comment
-  `@dependabot ignore <dependency>` instead of closing it. Its PR title is
-  the squashed commit's subject. Check a PR that bumps
-  `packageManager` in `web/package.json`: it needs the pnpm step below.
-- A change to `.github/dependabot.yml` makes Dependabot close every grouped
-  PR the old config built. Merge the open ones before you push the change.
-- A development deploy waits for CI (Railway's Wait for CI). Production has
-  no host-side gate; the `Release` workflow is the gate. The site's gate is
-  the pull request's checks.
-- An idle Railway environment should show the API as sleeping within 10
-  minutes. If it never does, something sends outbound traffic: an open
-  connection, a timer, or telemetry. `railway logs --network` shows the
-  connections.
+  To decline one update in a grouped PR, comment
+  `@dependabot ignore <dependency>`. Closing a grouped PR declines all of
+  it. A PR that bumps `packageManager` needs the pnpm step under Release.
+- A change to `.github/dependabot.yml` closes every grouped PR the old
+  config built. Merge the open ones first.
+- An idle Railway environment shows the API as sleeping within 10 minutes.
+  If it never does, something holds outbound traffic open: a connection, a
+  timer, or telemetry. `railway logs --network` shows the connections.
 
 ## Release
 
@@ -285,155 +175,116 @@ just bump
 git push --follow-tags origin main
 ```
 
-- `just bump` runs commitizen. It picks the increment from the commits,
-  writes the version to the API package, `web/package.json`, the Apple
-  app's `apple/Config/Version.xcconfig`, and `.cz.toml`,
-  refreshes `api/uv.lock`, updates `CHANGELOG.md`, commits, and tags
+- `just bump` picks the increment from the commits, writes the version
+  everywhere it lives, updates `CHANGELOG.md`, commits, and tags
   `v<version>`. `just bump --dry-run` shows the plan.
 - Bump on `main` only. A tag on a PR branch points at a commit the squash
   merge never lands, and the workflow refuses it.
-- The tag push runs the `API`, `Web`, and `Apple` workflows on the tagged
-  commit, checks that it is on `main`, and force-pushes `production`. The
-  bump commit itself skips CI on `main`, so each release runs the checks
-  once. Every release rebuilds both services. A failing `Apple` check or
-  **Archive the Apple apps** job holds the whole release.
-- The archive job signs the iOS and macOS release builds with build number
-  `<run number>.<attempt>` beside the checks. After `production` moves, the
-  **Upload to TestFlight** job uploads those archives, and the internal
-  testers get them once Apple processes them.
+- The tag push runs `API`, `Web`, and `Apple` on the tagged commit, then
+  force-pushes `production`. A failing `Apple` check or **Archive the Apple
+  apps** job holds the whole release.
+- After `production` moves, **Upload to TestFlight** uploads the archives
+  built as `<run number>.<attempt>`.
+- A failed upload does not undo production. Re-run **Archive the Apple
+  apps**, which raises the attempt. A re-run of the upload alone sends the
+  same build number, which App Store Connect refuses. From a Mac:
+  `just apple::testflight <build number>`, higher than every uploaded
+  build. It needs the Sentry variables in `apple/.env`, the PostHog token
+  and `SENTRY_DSN` in `apple/Config/Secrets.xcconfig`, and `sentry-cli`.
 - The App Store gets a release only when you submit its TestFlight build
-  for review in App Store Connect. The App Store version must equal the
-  build's `MARKETING_VERSION`. An App Store release cannot be rolled back.
-  A fix reaches the App Store as a new build, after its own review.
-- A failed upload does not undo production. Re-run the **Archive the Apple
-  apps** job, which raises the attempt and re-runs the jobs after it. A
-  re-run of the upload alone sends the same build number, which App Store
-  Connect refuses once it has that build. The same release runs from a Mac
-  with `just apple::testflight <build number>`. It needs the key and the
-  `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` variables in
-  `apple/.env`, the PostHog project token and `SENTRY_DSN` in
-  `apple/Config/Secrets.xcconfig`, and `sentry-cli` installed.
-  Use a build number higher than every uploaded build.
-- Each version is its side's Sentry release tag. The archive job also uploads
-  the Apple debug symbols to Sentry, and a failed upload holds the release.
-- A home-screen install keeps the icon it was installed with. A release that
-  changes the icon says so.
-- When you bump pnpm in `web/package.json` or `site/package.json`, change
+  for review. The App Store version must equal the build's
+  `MARKETING_VERSION`. An App Store release cannot be rolled back. A fix
+  is a new build, after its own review.
+- A home-screen install keeps the icon it was installed with. A release
+  that changes the icon says so.
+- A pnpm bump in `web/package.json` or `site/package.json` changes
   `PNPM_VERSION` in that Worker's build variables in the same change. Node
   is the module's `.node-version`.
 
-A change to the shape of a synced row:
+### A change to a synced row's shape
 
-- The API refuses a push with an unknown field or a missing required
-  field, and the refused edit is lost. A push without an optional field
-  stores its default, so a client that predates the field resets it. One
-  tag deploys the API and the web client within minutes of each other, in
-  either order. App Store builds arrive days later, after review, and older
-  builds keep running until each musician updates.
-- A shape change is staged so no edit is lost:
-  1. An API release that accepts both shapes.
-  2. The clients that send the new shape, through App Store review.
-  3. `CROSSTUNE_APPLE_MIN_VERSION` raised past every Apple build that
-     sends the old shape ("Supported client versions" in
-     `docs/architecture.md`).
-  4. An API release that drops the old shape.
-- A migration renaming or dropping a table or column breaks the running API
-  between the pre-deploy migration and the new API passing its healthcheck.
-  Sync requests that touch the changed table fail with a retryable 5xx and
-  no edit is lost, but a transcode claimed in that gap uses one retry. A
-  pull reads every table, so every pull fails in that window. A push
-  succeeds only when neither its rows nor their parent rows are in the
-  changed table.
+The API and the web client deploy within minutes of each other, in either
+order. App Store builds arrive days later, and old builds run until each
+musician updates. The API refuses a push with an unknown or missing
+required field, and that edit is lost. So a shape change is staged:
+
+1. An API release that accepts both shapes.
+2. The clients that send the new shape, through App Store review.
+3. `CROSSTUNE_APPLE_MIN_VERSION` raised past every Apple build that sends
+   the old shape (`architecture.md`, Supported client versions).
+4. An API release that drops the old shape.
+
+- A migration that renames or drops a table or column breaks the running
+  API between the pre-deploy migration and the new API's healthcheck.
+  Every pull fails in that window, and a push fails when its rows or their
+  parents are in the changed table. No edit is lost, but a transcode
+  claimed in the gap spends a retry.
 - A value added to a validated vocabulary is recognized by the clients in
-  one release and offered in a later one. The web client can offer it in
-  the next release, once the API that accepts it is live. The Apple app
-  can offer it once `CROSSTUNE_APPLE_MIN_VERSION` is at or past the first
-  build that recognizes it, because an older build pulls a value it does
-  not know.
+  one release and offered in a later one: on the web once the API that
+  accepts it is live, on Apple once `CROSSTUNE_APPLE_MIN_VERSION` is past
+  the first build that recognizes it.
 - A local shape change adds a Dexie version with an upgrader on the web
   and appends a migration to `Schema.migrator` on Apple, and extends that
-  client's migration test. Neither may drop unsent edits or unuploaded
-  recordings or scans. A merged Apple migration is never
-  edited, since a store that applied it never runs it again, and never
-  renamed, since a store holding an identifier the build does not know
-  reads as one a newer build wrote and the app deletes it.
+  client's migration test. Neither drops unsent edits or unuploaded files.
+  A merged Apple migration is never edited, since a store that applied it
+  never runs it again. Never renamed: a store holding an identifier the
+  build does not know reads as one a newer build wrote, and the app
+  deletes it.
 
-Rollback:
+### Rollback
 
 - One host: redeploy an earlier build from its dashboard.
-- The site: revert on `main`, or roll back to an earlier version on the
-  `crosstune-site` Worker's Deployments tab. A release does not touch it.
-- Both hosts: Actions tab, `Release` workflow, **Run workflow**, choose the
-  older tag under **Use workflow from**. It also uploads that version to
-  TestFlight with a new build number, so testers get the build that matches
-  the API. App Store installs keep the build they have.
-- A rollback past an API release that accepts a new shape makes the API
-  refuse pushes from the App Store builds that send it, and those edits
-  are lost. Roll forward instead.
-- A rollback across a migration fails the pre-deploy command. Roll forward,
-  or downgrade the schema first.
-- A client outage loses no edits. The outbox holds them.
-- A rollback past a release that changed a local database, a web
-  rollback or an older TestFlight build, deletes that local database on
-  every device and pulls again, losing unsent edits and unuploaded
-  recordings and scans. Roll forward instead.
+- The site: revert on `main`, or roll back on the `crosstune-site` Worker's
+  Deployments tab.
+- Both hosts: Actions tab, `Release` workflow, **Run workflow**, the older
+  tag under **Use workflow from**. It also uploads that version to
+  TestFlight with a new build number. App Store installs keep their build.
+- Roll forward instead of rolling back past an API release that accepts a
+  new shape: the API would refuse pushes from App Store builds that send
+  it, and those edits are lost.
+- Roll forward instead of rolling back past a release that changed a local
+  database: every device deletes it and pulls again, losing unsent edits
+  and unuploaded files.
+- A rollback across a migration fails the pre-deploy command. Roll
+  forward, or downgrade the schema first.
 
 ## Smoke check
 
-After a deploy, from the repository root, with no credentials:
+After a deploy, from the root, with no credentials:
 
 ```bash
 just smoke https://api.<domain> https://my.<domain> https://<domain>
 ```
 
 The `Smoke` workflow runs the same script. Blank inputs use the
-`API_ORIGIN_PRODUCTION`, `WEB_ORIGIN_PRODUCTION`, and
-`SITE_ORIGIN_PRODUCTION` Actions variables. It checks that `/healthz`
-answers ok, that an anonymous `/v1/me` is a 401 problem document from the
-API and through the web origin, and that the web origin serves the app
-shell, the manifest, the service worker, and the shell for a client-side
-route. The site origin is optional. With it, the script also checks the
-home page, `/privacy`, `/terms`, `/support`, a revalidating `/sw.js`, and
-that `/v1/me` on the site is a 404, since the site never proxies the API.
+`*_ORIGIN_PRODUCTION` Actions variables. For a pull request, point it at
+the PR's Railway hostname and preview URLs.
 
-For a pull request, point it at the PR's Railway hostname and preview URLs.
-
-The manual phone test covers what the script cannot:
+By hand on a phone, for what the script cannot check:
 
 1. Open `https://my.<domain>` and sign in.
 2. Add a tune and paste a YouTube link.
 3. Install the app to the home screen.
 4. Turn on airplane mode and edit the tune.
 5. Turn off airplane mode.
-6. Confirm the edit synced. Settings shows the last sync time.
+6. Make sure that the edit synced. Settings shows the last sync time.
 
-## Record marketing captures
+## App Store captures
 
-The site draws its own demos and uses no captures. The Apple app keeps a
-capture setup for store screenshots. It reads one fixture,
-`apple/Marketing/catalog.json`, and its files in `apple/Marketing/assets/`.
+Store screenshots and the App Preview come from XCTest recordings over one
+fixture, `apple/Marketing/catalog.json`. The site uses no captures.
 
-| Command                             | Does                                                                                                                                   |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `just apple::capture-test [names…]` | Runs the tests in `apple/CrosstuneMarketingUITests/` and exports their attachments to `apple/.build/capture/`.                         |
-| `just apple::capture-mac`           | Runs the signed Mac app on the fixture once for each Mac still and saves its window. The screen must be unlocked.                      |
-| `just apple::store-frames`          | Frames the stills that `apple/Marketing/store.json` names under their headlines, at App Store sizes, in `apple/.build/capture/store/`. |
-| `just apple::store-preview`         | Cuts the `preview-filter` capture into the iPhone App Preview, `apple/.build/capture/store/iphone-preview.mp4`.                        |
-
-- A capture name is a test method without its `test` prefix. With no
-  names, every capture runs. A run replaces every earlier capture, so run
-  all of a set in one call.
-- A name with `ipad` in it runs on the iPad, and `folk` and `store-folk`
-  run under a status bar with no signal.
+- A capture name is a test method without its `test` prefix. A run
+  replaces every earlier capture, so run all of a set in one call.
+- A name with `ipad` runs on the iPad. `folk` and `store-folk` run under a
+  status bar with no signal.
 - Run `capture-test` before `capture-mac`, since it clears the folder the
-  Mac stills land in, and frame after both.
-- The framing renders HTML in Google Chrome, with the site's Schibsted
-  Grotesk from `site/node_modules`, so it needs Chrome and `just setup`.
-  The preview needs `ffmpeg`.
-- The recipe makes two simulators on the newest installed iOS runtime,
-  `Crosstune Capture iPhone 17 Pro Max` and `Crosstune Capture iPad`. They
-  are never signed in to an Apple Account, so no system alert covers a
-  capture. Location is refused for the app there, so a take never opens
-  on the location note.
-- The `Marketing` test plan turns code coverage off. With coverage on,
-  the Swift compiler crashes building the tuner's `isolated deinit`.
+  Mac stills land in, and frame after both. `capture-mac` needs the screen
+  unlocked.
+- Framing renders HTML in Google Chrome with the site's font, so it needs
+  Chrome and `just setup`. The preview needs ffmpeg.
+- The capture simulators are never signed in to an Apple Account, so no
+  system alert covers a capture, and location is refused, so a take never
+  opens on the location note.
+- The `Marketing` test plan turns code coverage off: with it on, the Swift
+  compiler crashes on the tuner's `isolated deinit`.

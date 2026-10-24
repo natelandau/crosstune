@@ -9,174 +9,97 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 ## Principles
 
 - iPhone's rows, zones, and tokens. The Mac's composition and tab order.
-- Two jobs, one tap apart: the library and the Stand. The foot capsule
-  moves between them.
+- Two jobs, one tap apart: the library and the Stand (practice beside the
+  playing tune's scans and lyrics).
 - The Stand gets the boldest design. Everything else stays quiet.
 
 ## Tokens
 
-- `PadStyle`: iPad-only sizes and proportions (Stand shares, scan
-  thumbnail height, foot metrics). The iPad adds no color.
+- `PadStyle`: iPad-only sizes and proportions. The iPad adds no color.
 - A view never types a share, width, or height. A new iPad size is a
   `PadStyle` value.
 - Layout reads size class, available width, and the shell's environment,
   never `userInterfaceIdiom`.
-- A column in the split carries the window's size class, regular however
-  narrow the column. A view that draws larger in the split reads
-  `inPadSplit`, and one that fits the column reads its width. Neither
-  reads the size class or `detailTune`.
-- A sheet's environment carries the presentation's size class, not the
-  window's. The shell hands the window's width down as `windowIsRegular`.
 
 ## Shell
 
 - Root: `TabView` with `.sidebarAdaptable`. iPadOS picks sidebar or top-bar
-  form, and the person's toggle wins. At accessibility text sizes the
-  window starts in top-bar form, because the sidebar breaks its rows'
-  words.
-- Top-bar form: the five tabs (Catalog, Lists, Tuner, Recordings,
-  Settings), then Record. Regular width keeps Settings as a tab, since
-  the bar has the room the phone lacks.
-- iPadOS 27 and later: Record is the iPhone's prominent slot, a tab that
-  records and never stays chosen. It takes `.tabPlacement(.pinned)`, or a
-  narrow top bar draws it as a plain word on the bar's second page. The
-  sidebar shows it as a row after Settings. iPadOS 26 has no prominent
-  role, so Record stays in the foot there.
-- Sidebar form: status rows follow Catalog, list rows follow Lists, then
-  New list, which opens its sheet and never stays chosen.
-- A sidebar row that is not a destination is a `Tab` with
-  `.tabPlacement(.sidebarOnly)`, declared in sidebar order. Never in a
-  `TabSection`, which draws below every loose tab. iPadOS cannot indent a
-  tab, so these rows sit flush with Catalog.
-- Leaving sidebar form: sidebar-only rows hide, or the top bar keeps the
-  last chosen as an extra item. They hide one turn after the form change,
-  because hiding during it leaves the columns' top inset under the bar.
-- A sidebar list row takes Edit and Delete in swipe actions and context
-  menu.
-- Sync badge: sidebar header in sidebar form, catalog toolbar in top-bar
-  form.
-- The catalog keeps its Status capsule in both forms.
-- A form change also keeps the open list and each destination's tune.
+  form, and the person's toggle wins.
+- Settings is a tab at regular width, since the bar has the room the
+  phone lacks.
+- iPadOS 27 and later: Record is the iPhone's prominent slot. iPadOS 26
+  has no prominent role, so Record sits in the foot there.
+- A form change keeps every destination's state.
 
 ## The foot
 
 - `PadFoot`: our own glass capsule, centered at the window foot in every
-  form. Never the system bottom accessory, which spans only the detail
-  column in sidebar form.
-- Holds the iPhone's player accessory while something is loaded, with its
-  tap, skip swipe, and haptic, up to `PadStyle.footMaxWidth`. Gone while
-  nothing is.
-- iPadOS 26: Record (red dot, "Record") leads the capsule, alone while
-  idle, and the player joins after it.
-- Hidden while selecting. Behind a sheet, dialog, or file picker, Record
-  dims and takes no press, in the foot and as a tab alike.
+  form.
+- Holds the iPhone's player accessory while something is loaded, up to
+  `PadStyle.footMaxWidth`.
 - Columns leave `PadStyle.footClearance` under the last row only while the
   capsule shows.
 - Fixed height, so its text stops growing at the first accessibility size.
 
 ## Columns
 
-- Each tab: content column plus detail column.
-- Content column: the iPhone screen for its tab, iPhone zones, large title
-  scrolling with the rows.
-- Fixed pair, splitting the tab's width evenly. The content column never
-  falls under `PadStyle.contentColumnMinWidth`. Never `NavigationSplitView`:
-  in a narrow portrait window it floats the content column over the detail
-  behind a scrim, and the tab view's sidebar is the one sidebar.
-- Choosing a row never pushes over the content column. A list's page pushes
-  inside the Lists column. A list opened from a tune page shows on the
-  Lists tab.
-- Detail placeholder: "+" on touch, "⌘N" with a hardware keyboard.
-- Settings: root in the content column, page in the detail column. A root
-  row, account card, or stats card replaces the detail page, never pushes
-  over the root. A link to a Settings group (the first-recording
-  notice's See your plan) replaces the detail page with that group's
-  page.
-- The Settings root row whose page shows in the detail column takes the
-  `field` fill, never a system gray.
-- A grid that scrolls sideways on iPhone spreads to fit in the split.
+- Each tab: a content column (the iPhone screen for that tab) plus a
+  detail column.
+- Choosing a row never pushes over the content column. It replaces the
+  detail page.
 
 ## Rows and selection
 
 - iPhone rows at touch sizes. Row controls stay visible with a pointer,
   since a control waiting for hover is invisible without one.
-- Selecting: the column's bottom bar holds bulk actions as glyphs named in
-  words. Select All leads the top bar, Done trails. Never move the actions
-  to the top bar: a 360pt column has no room, and iPadOS then drops Done.
 
-## Tune page
+## Pages
 
-- Over the facts card, the iPhone's document, centered in the detail
-  column.
-- Scan thumbnails `PadStyle.scanThumbnailHeight` tall, wrapping into rows,
-  decoded at drawn size.
-- More on the title's row in a regular-width window, over the card too;
-  in a compact window, in the bar as on iPhone.
-- A fact editor is a popover at its row or the key tile in a regular-width
-  window, the iPhone's sheet in a compact one.
-- Tune facts take the rail on an 11-inch iPad or larger in landscape with
-  the sidebar hidden. In portrait, with the sidebar shown, or on an iPad
-  mini, the detail column is too narrow and takes the card.
-- The fading-out page takes no taps.
+- Images decode at their drawn size.
+- A page fading out takes no taps.
 
 ## The Stand
 
-Practice at regular width, beside the playing tune's scans and lyrics.
-Labels and code still call it practice. `Stand` wraps practice,
-`StandArrangement` picks the layout.
-
-- Full-screen cover on the jet practice ground, dark scheme.
-- Landscape: practice leads at `PadStyle.standPracticeShare`, reading
-  trails.
-- Portrait: practice over reading. Reading takes
-  `PadStyle.standReadingShare` while practice's controls fit, then gives
-  way down to `PadStyle.standReadingMinShare`. Whole controls beat a larger
-  scan.
-- Accessibility text sizes: panes stack in landscape too.
-- Nothing to read (no scans or lyrics, unfiled take, link with no tune) or
-  reading hidden: practice takes the Stand, capped at
-  `PadStyle.standControlsMaxWidth`, centered.
-- Header toggle hides or shows reading. The device remembers it.
-- One layout whose axis changes, so practice keeps state across rotation
-  and a hidden pane.
-- A link the app plays itself stands on the same cover, its music card in
-  place of the waveform. A provider embed opens the embed sheet.
-- Swipe down, the chevron, or Escape closes it. Escape only once nothing
-  else is open.
-- List playing: header names the list and the tune's place in it.
-
-### Reading pane
-
-- Scans and lyrics: opens on Scans, with a Scans and Lyrics segmented
-  control. One kind: no control.
-- Scans page sideways on their own paper. The first shows from the start,
-  so a pinch or double tap zooms at once. A single tap opens the
-  full-window viewer.
-- Lyrics at the lyrics reader's stored size.
-- List playing: follows the list's tune. The old pane holds until the next
-  has read.
+- `Stand` wraps practice and `StandArrangement` picks the layout. Labels
+  and code call it practice.
+- One layout whose axis changes, so practice keeps its state across
+  rotation and a hidden pane.
+- Whole controls beat a larger scan: reading gives way before practice's
+  controls clip. Shares are `PadStyle` values.
 
 ## Sheets
 
-- Every `.shellSheet()` sheet, record sheet included, is a centered `.form`
-  sheet. Part-height sheets keep their detents. Full-screen readers and the
-  Stand stay full screen.
+- Every `.shellSheet()` sheet is a centered `.form` sheet. Part-height
+  sheets keep their detents. Full-screen readers and the Stand stay full
+  screen.
 
 ## Motion
 
-- Starts to play: the capsule shows with the player, or on iPadOS 26 grows
-  and the player slides in after Record.
-- A list skips on the Stand: the next reading pane pushes in from the
-  trailing edge.
-- Rotation: panes move to the new arrangement.
-- Nothing zooms out of the foot. The Stand and record sheet open plainly,
-  because a cover or sheet cannot grow from an overlay capsule, and the
-  system accessory that could crashes on iPadOS 26.5.
 - A reader opened from the Stand opens plainly, since its source is behind
   the cover.
 
 ## Accessibility
 
 - Every target at least 44pt.
-- Lyric text (white) passes 7:1 on the practice ground in both appearances.
-  A test asserts it.
+- Lyric text passes 7:1 on the practice ground in both appearances. A
+  test asserts it.
+
+## Framework limits
+
+SwiftUI and iPadOS behavior that a new screen runs into.
+
+- A column in the split carries the window's size class, regular however
+  narrow the column. A view that draws larger in the split reads
+  `inPadSplit`, and one that fits the column reads its width.
+- A sheet's environment carries the presentation's size class, not the
+  window's. The shell hands the window's width down as `windowIsRegular`.
+- Never `NavigationSplitView`: in a narrow portrait window it floats the
+  content column over the detail behind a scrim, and the tab view's
+  sidebar is the one sidebar. Columns are a fixed pair splitting the width
+  evenly, the content column never under `PadStyle.contentColumnMinWidth`.
+- Selecting: the column's bottom bar holds bulk actions as glyphs named in
+  words. Never the top bar: a 360pt column has no room, and iPadOS then
+  drops Done.
+- Nothing zooms out of the foot: a cover or sheet cannot grow from an
+  overlay capsule, and the system accessory, which can, crashes on iPadOS
+  26.5.

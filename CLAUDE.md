@@ -2,13 +2,30 @@
 
 ## Documentation
 
-Read `docs/README.md` first. It maps each task to a page and says what each
-page holds and never holds. Check that contract before you write to a page.
-The code is the source of truth for everything except `docs/architecture.md`.
+Docs exist for a future session that has none of today's context. The
+code is the source of truth. A doc holds only what the code cannot say and
+that session needs.
 
-- Design or implementation work: `docs/product.md`, then `docs/decisions.md`
-  before you propose a different stack, host, or approach.
-- The API, the client's data layers, sync, sign-in, links, or recordings:
+- Keep: guardrails, constraints, boundaries, sources of truth, and patterns
+  every screen or module follows. "Every list filters by every facet of its
+  items", not "the catalog filters by key".
+- Less is more. Record a rule only when breaking it is likely and costly.
+  Leave the rest to the agent's judgment.
+- Never: a log of decisions or changes, what was tried, what a screen or
+  module does, anything about one release (that goes in the pull
+  request), or a line that restates code or config.
+- State what holds now. Why it changed belongs in the commit message.
+- Written for agents, not people: fragments, bullets, and tables in plain
+  words. A reason only when it stops a future change from undoing the rule.
+- When a change makes a line false, fix the line in the same change.
+- `docs/README.md` says what each page holds and never holds. Check it
+  before you write to a page.
+
+Read, by task:
+
+- Design or implementation work: `docs/product.md`.
+- The stack, the API, the client's data layers, sync, sign-in, links, or
+  recordings:
   `docs/architecture.md`.
 - A screen, row, form, gesture, or label: `docs/design.md`.
 - A Mac screen, row, control, or window: `docs/design.md`, then
@@ -20,14 +37,15 @@ The code is the source of truth for everything except `docs/architecture.md`.
 - A web screen, row, control, or sheet: `docs/design.md`, then
   `docs/design-web.md`.
 - Before you add or change a design rule: "Writing these pages" in
-  `docs/design.md` says what to record and which page it goes in.
-- Deployment or CI: `docs/operations.md`.
+  `docs/design.md` says which page it goes in.
+- Setup, tests, releases, deployment, or CI: `docs/operations.md`.
+- Analytics events: `docs/analytics.md`.
 
-The repository is public. Feature specs, plans, design records, host
-settings, credentials, and anything else that should not be public never
-go in it. Neither do the commands an operator runs against production,
-such as granting a comp or a trial: `docs/` describes the code, never how
-to act on live accounts.
+The repository is public, and so is everything committed: docs, comments,
+commit messages, and pull requests. Feature specs, plans, design records,
+host settings, credentials, account details, and anything else that should
+not be public never go in it. Neither do the commands an operator runs
+against production, such as granting a comp or a trial.
 
 ## Naming
 
@@ -92,19 +110,13 @@ every label. The glossary in `docs/product.md` has the reasons.
   tagged with a `[group(...)]` that matches their neighbors. A root
   aggregate calls every module.
 - Lint and test recipes skip a gate that already passed on the same
-  tree (gate-cache; `docs/operations.md`). Run the recipe again rather than
-  judging whether it needs to run. A pass on uncommitted work also covers
-  its commit. `just gate status` lists what passed and failed on the tree
-  without running, `GATE_CACHE_DISABLE=1 just <recipe>` forces a run, and
-  `just gate clear` follows a change to an input no gate is keyed on. A new
-  lint or test recipe runs through `{{ gate }}` under a name no other gate
-  uses; one that forwards args passes `--argc "$#"`, so only its bare form
-  is cached. A gate that reads an ignored
-  file names it with `--file`, and one that depends on a tool no lockfile
-  pins names its version command with `--tool` (`scripts/gate-cache.sh`).
-  Never put a check through it that reads a service or anything else
-  neither can name. `api-test` is the one exception: its Postgres
-  databases are made from the tree on every run (`docs/operations.md`).
+  tree. Run the recipe again rather than judging whether it needs to run.
+  A pass on uncommitted work also covers its commit. `just gate status`
+  lists what passed and failed on the tree without running,
+  `GATE_CACHE_DISABLE=1 just <recipe>` forces a run, and `just gate clear`
+  follows a change to an input no gate is keyed on.
+- A new lint or test recipe runs through `{{ gate }}` under a name no other
+  gate uses, following "Gate cache" in `docs/operations.md`.
 - While iterating on web code, run `pnpm exec eslint <files>` and
   `pnpm exec prettier --check <files>` from `web/` on the files you
   changed. `just web::lint` checks the whole module, so run it once before
@@ -128,8 +140,8 @@ every label. The glossary in `docs/product.md` has the reasons.
   `web/src/ui/useLatest.ts`, named `…Ref`, never a hand-written ref plus
   effect.
 - A user-facing string that more than one file needs, tests included, is an
-  exported constant beside the component that shows it; never retype it.
-  The rule and its reason are in `docs/design.md`.
+  exported constant beside the component that shows it. Every other file
+  imports it, so a wording change is one edit.
 - Every sheet, dialog, alert, and file picker in
   `apple/CrosstuneKit/Sources/CrosstuneUI` claims the shell while it shows:
   a sheet's root view carries `.shellSheet()` or `.partHeightSheet()`; a
@@ -163,6 +175,8 @@ fails there at random. Every web test follows these rules:
   engine and store state, and mock call counts. A plain `expect` reads only
   a value that can no longer change, such as a pure function's result or a
   mock call's arguments once a poll has seen the call.
+- `expect.poll` gives up after 1 s by default. To wait for an element to
+  appear, use `expect.element`, which waits the full test timeout.
 - Under fake timers, a poll advances the clock by its interval on each
   miss, so it can fire a timer the test means to hold. There, poll with
   `pollStill` and `elementStill` from `web/src/test/stillPoll.ts`.

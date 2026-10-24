@@ -80,6 +80,8 @@
                         split(.catalog)
                     }
                     .badge(sidebarCount(choice.count))
+                    // A loose sidebar-only tab rather than a `TabSection`, which draws below every
+                    // loose tab. iPadOS cannot indent a tab.
                     .tabPlacement(.sidebarOnly)
                     .hidden(rowsHidden)
                 }
@@ -118,6 +120,7 @@
                     }
                     .accessibilityLabel(RecordControl.label)
                     .disabled(!recordIsEnabled)
+                    // Unpinned, a narrow top bar draws it as a plain word on the bar's second page.
                     .tabPlacement(.pinned)
                 }
             }
@@ -130,6 +133,8 @@
                 SyncBadgeItem(hidesWhileSelecting: false)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
+            // Our own capsule, since the system bottom accessory spans only the detail column in
+            // the sidebar form.
             .overlay(alignment: .bottom) {
                 PadFootSlot(player: player, onRecord: onRecord)
             }

@@ -37,7 +37,12 @@ export function PageSection({
   const headingId = useId()
   const disclosure = open !== undefined
   return (
-    <section ref={ref} aria-labelledby={headingId} className="scroll-mt-14 pt-8 first:pt-0">
+    <section
+      ref={ref}
+      aria-labelledby={headingId}
+      // Clears the sticky pane bar, so a section scrolled into view never hides its heading.
+      className="scroll-mt-14 pt-8 first:pt-0"
+    >
       <div className="flex min-h-11 items-center justify-between gap-3">
         <h2 id={headingId} className="t-heading">
           {disclosure ? (

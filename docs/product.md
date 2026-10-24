@@ -26,14 +26,6 @@ The tools they have do not fit that:
 - Musicians who learn by ear, in old-time, bluegrass, Irish, klezmer, and
   other folk traditions. They play alone, in small sessions, and at large
   jams.
-- Free keeps the catalog, lists, sync, offline, import, and export.
-  Premium adds recordings, scans, and 3 GB of storage. Every new account
-  starts with a 30-day Premium trial. A lapsed account cannot play its
-  recordings or open its scans, but keeps every file until it goes a year
-  without syncing. Then it loses its recordings and scans after two warning
-  emails. Premium is one
-  subscription for every device, bought on the web or in the App Store at the
-  same price.
 - Success is musicians using Crosstune as their one place for tunes,
   recordings, and practice, in place of paper lists and voice memo apps, and
   other players asking for an account.
@@ -58,73 +50,35 @@ Jams are one important setting among several. At a jam, a musician filters
 the catalog by key, taps a tune, and hears how it goes. That path stays
 fast. No feature assumes that the musician is at a jam.
 
-## What it does
+## What it promises
 
-A native app for iPhone, iPad, and Mac, and an installable web app (PWA)
-for Android and every browser. The parts that matter:
+- A native app for iPhone, iPad, and Mac, and an installable web app for
+  Android and every browser.
+- Each catalog is private to its owner.
+- The full catalog lives on the device. Reads and writes work offline and
+  sync when a connection returns. Search of other services needs a
+  connection.
+- Paste accepts a link from any site. In-app search covers only the
+  services whose APIs allow it (`architecture.md`, Links and playback).
+- Tuning fields and filters appear only for the instruments the musician
+  plays.
+- A setting syncs unless it describes the device: appearance, text size,
+  recording channels, and sort choices stay per device.
+- Export (one zip of tunes, lists, recordings, and scans) and import work
+  on any plan.
 
-- Accounts. Sign in with an emailed code, Google, or Apple. Each
-  catalog is private to its owner.
-- Catalog. Tunes with musical attributes (key, mode for each part, tunings,
-  genre, type, time signature, part structure, composer), lyrics, where and
-  when they were learned, notes, and a status. Tunes can be archived.
-- Lists. Ordered, named lists such as a set list. A tune can be in many.
-  Each tune plays from its row: the recording or link the musician pinned,
-  or else the one the Play first setting picks. A list also plays as a
-  playlist, with shuffle and repeat. The Apple app plays its recordings and
-  full Apple Music tracks, with next and previous on the lock screen. The
-  web client plays its recordings.
-- Links. Paste a URL from YouTube, Spotify, Apple Music, TIDAL, Bandcamp,
-  SoundCloud, the Internet Archive, Slippery-Hill, or any site. The app
-  resolves title and artwork. Supported providers play in an in-app dock;
-  every link also opens the provider. On iPhone, iPad, and Mac, an Apple
-  Music subscriber hears Apple Music tracks and albums in full. Everyone
-  else hears the preview.
-- Find recordings. From a tune, pick one of the musician's chosen services
-  and search it. Apple Music, TIDAL, and Internet Archive results play in
-  place and link with one tap. YouTube, Spotify, Bandcamp, SoundCloud, and
-  Slippery-Hill open their own search page. With one service chosen, the
-  tune goes straight to it. Search needs a connection.
-- Recordings. Record with the phone's microphone, upload audio, or save the
-  audio of a Slippery-Hill link. A recording is filed under a tune or waits
-  unfiled, and keeps where it came from, when it was added, notes, the
-  players, and, when known, when and where it was recorded. Takes at the
-  same spot can share a saved location the musician names, and search
-  finds recordings by location. A take or an
-  uploaded file plays at once and uploads in the background. Saved link
-  audio is fetched by the server and plays once it is ready. Every recording
-  reaches the musician's other devices. A recording can be trimmed for good,
-  and plays at a slower or faster speed and a shifted pitch on every device.
-  A recording keeps labeled practice loops that repeat. Recordings need
-  Premium. Storage is 100 MB during the trial and 3 GB on Premium.
-- Tuner. A free chromatic tuner on every platform. It hears the note
-  played and shows how far it is from in tune, with an adjustable A4
-  reference.
-- Lyrics. A full-screen reading view that keeps the screen awake.
-- Browse. The catalog filtered by status and attributes, with text search.
-  Filters persist.
-- Instruments. The musician records which instruments they play, from
-  those with a per-tune tuning. Tuning fields and filters appear only for
-  those.
-- Music services. The musician chooses which services Find recordings
-  offers. Every service starts chosen. The choice syncs like every setting.
-- Appearance. Light, dark, or system, and a text size: three sizes on the
-  web, the device's size shifted up or down on Apple. Per device.
-- Scans. Images attached to a tune: written music, a lyric sheet, or
-  handwritten notes. Scan them on iPhone and iPad, or add an image from a
-  file on Mac and the web. View, reorder, and delete them on every device.
-  Scans need Premium. Every scan downloads to every device, and every
-  scan counts toward the same storage as recordings.
-- Offline. The full catalog is on the device. Reads and writes work offline
-  and sync when a connection returns.
-- Import. Paste a tune list, or open a text file, from Settings or the
-  empty catalog. Review the tunes, with tunes already in the catalog shown
-  unchecked, and add them all at once.
-- Export. One zip from Settings: tunes, lists, and recordings as
-  spreadsheets, plus every recording and scan, on any plan.
-- Stats. A page from Settings counts the catalog and its recordings, shows
-  when the musician added and played, and finds rarities and anniversaries.
-  It shows only the attributes the musician uses.
+## Plans
+
+- Free: the catalog, lists, links, sync, offline, the tuner, import, and
+  export.
+- Premium: recordings, scans, and 3 GB of storage for both. One
+  subscription for every device, the same price on the web and in the App
+  Store.
+- Every new account starts with a 30-day Premium trial, with 100 MB of
+  storage.
+- A lapsed account cannot play its recordings or open its scans, but keeps
+  every file until it goes a year without syncing. It then loses its
+  recordings and scans, after two warning emails.
 
 ## Designed for, not built
 
@@ -147,8 +101,6 @@ Each has a place in the data model and no code:
 - Musical facets live on the tune (key, mode, tuning, part structure). The
   user's record holds only the relationship: status, learned from, when,
   notes.
-- Vanilla Postgres. No vendor extensions, so the database host changes with
-  a connection string.
 
 ## Glossary
 

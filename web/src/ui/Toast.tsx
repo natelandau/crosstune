@@ -174,7 +174,8 @@ export function ToastProvider({
   return (
     <ToastContext value={api}>
       {children}
-      {/* Portaled above the modal layer; the top-layer marker keeps it out of aria-hidden. */}
+      {/* Portaled above the modal layer, and the top-layer marker keeps it out of aria-hidden,
+          so Undo stays in reach behind a sheet. */}
       {createPortal(
         <div
           role="status"

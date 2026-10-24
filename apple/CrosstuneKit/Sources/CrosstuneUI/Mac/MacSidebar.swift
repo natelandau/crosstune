@@ -66,6 +66,8 @@
             }
             .environment(\.defaultMinListRowHeight, MacStyle.sidebarRowHeight)
             .scrollContentBackground(.hidden)
+            // Drawn under the list, since a container background never reaches the floating
+            // sidebar pane.
             .background(Palette.surface)
             .statusRingOnFill()
             .safeAreaBar(edge: .bottom) {

@@ -1,8 +1,8 @@
 # Crosstune design rules
 
-Rules for every screen on every platform. When a screen and a rule
-disagree, the screen is the bug. A platform page adds to this page and
-wins where the two differ:
+The design system and the rules every screen follows, on every platform.
+When a screen and a rule disagree, the screen is the bug. A platform page
+adds to this page and wins where the two differ:
 
 - [Web](design-web.md)
 - [Mac](design-macos.md)
@@ -11,16 +11,15 @@ wins where the two differ:
 
 ## Writing these pages
 
-- Record decisions that bind future screens, never what a screen holds.
-  "Every list filters by every facet of its items", not "the catalog
-  filters by key, type, and tuning". The code shows the design itself.
+General rules for every doc: `CLAUDE.md`, Documentation. Here, only what
+a new screen must follow: tokens, patterns, placement, and words. Never
+how one screen behaves; its code says that.
+
 - A rule two or more platforms share goes here, once. A platform page
   holds only what differs or exists on that platform, and never restates
   a rule from this page.
 - A platform difference that is unintended is a bug: fix the code or
   track it as a bug, never document it as a platform rule.
-- Terse bullets and fragments. No paragraphs. Give a reason only when it
-  stops a future change from undoing the rule.
 - Gotchas (a framework limit, a crash, a workaround) go on the platform
   page, with the reason.
 - A component's location goes in a platform page only when it is the one
@@ -35,19 +34,20 @@ Decide any case the rules below do not name.
 - Each kind of control has one home. A control's job tells the musician
   where it is.
 - Quiet chrome, musical content. Color comes from the music and one
-  accent. Strong color only in key pills and in practice.
-- A tune is a document, not a form. Read on a page, edit one fact in
+  accent.
+- An item is a document, not a form. Read on a page, edit one fact in
   place, edit many in a sheet.
+- Layout follows the width of the column it sits in, never the device.
+- Looks back, never nudges. No streaks, no points, no badges for use.
 
 ## Words
 
-- Tune, never song. Violin, never fiddle. Glossary: `product.md`.
 - The plainest word for any folk tradition and a non-native speaker. No
   genre slang.
 - Sentence case. Proper nouns keep capitals.
 - Button: bare imperative verb (Edit, Save, Delete). Object only when the
   target is ambiguous (Add tune, Add to list).
-- Acts on several tunes: carry the count ("Archive 3 tunes", "1 tune").
+- Acts on several items: carry the count ("Archive 3 tunes").
 - Title inside a message: straight double quotes, `Delete "Soldier's Joy"?`
 - Help text: one or two sentences, with a period. Label: no period.
 - Example placeholder: lowercase, ends in an ellipsis. Search placeholder:
@@ -56,91 +56,52 @@ Decide any case the rules below do not name.
 - Glyph-only control: named in words. Pointer platforms also show the name
   as a tooltip.
 - Control acting on one thing: action plus thing, "Edit Soldier's Joy".
-  Row as control: verb plus the row's lines.
 - Picker's empty choice named for its effect: "Not set" (field empty),
-  "Any" or "All" (widen a filter), "Clear" (erase across tunes), "Keep"
-  (no change). Tunes that disagree: "Mixed".
+  "Any" or "All" (widen a filter), "Clear" (erase across items), "Keep"
+  (no change). Items that disagree: "Mixed".
 - Relative date carries its verb: "Edited today", "Edited Mar 4". Year only
   when not the current one.
-- Same field, same label on every screen and platform. A row under a header
-  that names part of the field can drop that part: under "Tuning", a row
-  reads "Violin". Its accessible name keeps the full label.
-- A string that more than one file needs, tests included, is an exported
-  constant beside the component that shows it. Every other file imports
-  it, so a wording change is one edit.
+- Same field, same label on every screen and platform.
 
 ## Color and type
 
 - Harbor blue (`accent`) is the one accent: a primary action, a plain
-  button's words, a section heading's control, selection and chosen
-  states, focus, switches, and set filters. Menu items, row glyphs, and
-  form action rows stay ink. Never charts, glyphs at rest, or decoration.
-- A fill behind white text (primary button, chosen chip, loaded transport
-  disc) is `accentFill`, its label `onAccentFill`. Never `accent`, which
-  is too light in dark mode to carry white.
-- Paper layers: `ground` under content columns, pages, lists, and sheets;
+  button's words, selection and chosen states, focus, switches, and set
+  filters. Menu items, row glyphs, and form action rows stay ink. Never
+  charts, glyphs at rest, or decoration.
+- A fill behind white text is `accentFill`, its label `onAccentFill`.
+  Never `accent`, which is too light in dark mode to carry white.
+- Paper layers: `ground` under content, pages, lists, and sheets;
   `surface` under the sidebar, cards, and footers. `hairline` for every
-  rule and edge.
-- A control's fill follows its container: `field` on `ground`, `raised` on
-  `surface`, where `field` reads gray on gray. In light, a filled control
-  on `surface` also takes a `hairline` edge, so an empty one reads on the
-  card.
-- An on switch is `switchOn`: the accent in light, a deeper blue in dark,
-  so the white knob and the track each hold 3:1.
-- Set filter: an accent wash, 12% in light and 22% in dark. Its label is
-  the accent in light and ink in dark, where the accent falls under 4.5:1
-  on the wash over `surface`.
-- A chosen item (the current tab, a checked box, the chosen location)
-  takes the accent. A chosen label on a wash takes ink in dark, for the
-  same reason.
-- Secondary text and glyphs take `inkSecondary` (web `--ink-2`), never a
-  system's translucent secondary, which falls under 4.5:1 on `surface`
-  and `field`.
-- Charts draw in ink tones. The heatmap keeps its own ramp.
+  rule and edge. A control's fill follows its container: `field` on
+  `ground`, `raised` on `surface`.
+- Secondary text and glyphs take `inkSecondary`, never a system's
+  translucent secondary, which falls under 4.5:1.
 - Coral: the mark, the selected sidebar row's glyph, the playhead of
-  anything that plays back, every loop handle, and what marks Premium on a
-  sheet that sells it. Nothing else. An editing strip's playhead (trim)
-  stays plain.
-- Premium's coral is a fill with dark ink in both appearances, never coral
-  text or a coral glyph on a light ground, which fall under 3:1.
-- Loop handle: coral whatever the loop's color. Loop color stays on its
-  band and tab.
-- A new loop takes the color least used near it, then overall. On a tie
-  the blue comes last, since its hue sits beside the accent's. A saved
-  loop keeps its color.
-- Recording red: Record control, live waveform, Stop. Never a destructive
-  action.
+  anything that plays back, loop handles, and what marks Premium. Nothing
+  else. Premium's coral is a fill with dark ink, never coral text.
+- Recording red: recording only, never a destructive action.
 - Danger: destructive actions only. Warning: cautionary actions only.
+- Charts draw in ink tones.
 - Status, key, loop, and heatmap colors are identical on every platform.
-- The want to learn ring holds 3:1 on `surface` and on every row or filter
-  wash, where the shared gray falls short.
-- Never color alone. A status glyph keeps its status color everywhere,
-  selected rows included, because the color is its meaning. Exception: a
-  status glyph turns white on an emphasized accent selection, where every
-  status color falls under 3:1. Its shape still carries the status.
-- A control painted in a value's own color keeps that color when chosen.
-- Musical key: a colored pill everywhere. Hue from the pitch class on the
-  circle of fifths, constant lightness and chroma. Unreadable key: neutral
-  pill. Two sizes: full (tap target) and compact (row metadata).
-- Tabular numerals wherever a number changes or lines up.
+- Never color alone: a state shown in color also shows in shape or words.
+  A glyph keeps its own color on a selected row, because the color is its
+  meaning.
 - Text passes 4.5:1, glyphs 3:1, in both appearances and on every ground.
-  Tests measure the token pairs. Exception: Learning is Apple's system
-  orange everywhere, below 3:1 on a light ground, so its half fill carries
-  the status.
+  Tests measure the token pairs, so a new color is a token with a test.
+- Tabular numerals wherever a number changes or lines up.
 - Depth only on floating surfaces and bars. No row, card, or section casts
   a shadow.
+- Practice and trim draw on the jet ground in the dark scheme, in every
+  appearance (the Mac differs).
 
 ## Identity
 
-- Mark: geometric CT monogram. The C's top arm runs into the T's crossbar.
-  The stroke turns coral where the T begins.
-- The C takes `markInk` (slate on light, white on dark), never the accent.
-  The T is always coral, through the `mark` token, which never follows
-  `danger`.
+- The mark's C takes `markInk`, never the accent. The T is always coral,
+  through the `mark` token, which never follows `danger`.
 - Lockup: bare mark left of the name, capital height. No app bar lockup,
   no link home.
 - Icons: generated from `brand/` by `just web::icons`. Never hand-edit.
-- Status bar takes the page background.
 
 ## Input and density
 
@@ -153,11 +114,7 @@ Decide any case the rules below do not name.
 - Every gesture has a visible equivalent. Swipe actions are also menu
   items. A drag has Move.
 - Swipe left reveals one to three full-height, equal-width actions in their
-  tone (neutral, warning, danger). Label too long: shorter text, full
-  accessible name.
-- Full swipe only opens the row. No swipe is destructive.
-- Destructive glyph names what it destroys: trash (gone for good), list
-  with a cross (removed from a list).
+  tone. Full swipe only opens the row. No swipe is destructive.
 - Long press or right-click on a row opens its menu.
 - Shortcuts stand down while a text field or overlay holds the keyboard.
 - Arrow keys walk rows, Enter opens, Escape steps out (top overlay, then
@@ -165,106 +122,43 @@ Decide any case the rules below do not name.
 
 ## Shell and placement
 
-| Zone            | Holds                                                        | Never holds            |
-| --------------- | ------------------------------------------------------------ | ---------------------- |
-| Title           | What the screen shows                                        | Actions, filters       |
-| Verbs bar       | Main verb first (Add), then one More menu                    | Sort, view options     |
-| Under the title | Search field, then one filter row                            | Verbs                  |
-| List header     | Count leading, sort trailing, directly above the rows        | Anything else          |
-| App-wide        | Tabs, Record, now playing, selection bar                     | A screen's own actions |
+| Zone            | Holds                                                 | Never holds            |
+| --------------- | ----------------------------------------------------- | ---------------------- |
+| Title           | What the screen shows                                 | Actions, filters       |
+| Verbs bar       | Main verb first (Add), then one More menu             | Sort, view options     |
+| Under the title | Search field, then one filter row                     | Verbs                  |
+| List header     | Count leading, sort trailing, directly above the rows | Anything else          |
+| App-wide        | Tabs, Record, now playing, selection bar              | A screen's own actions |
 
-- Phone root screen: the title, the verbs bar, and the account button
-  share one row. Order, leading to trailing: title, the main verb,
-  Filters on a screen with filters, More where the screen has one, then
-  the account button outermost. Search pins directly under it. It is the
-  only second line of chrome.
-- The row stays pinned as the list scrolls: the title shrinks to heading
-  size in place and the verbs, Filters, and account button never move.
-- Selection takes the whole row. The account button steps aside, search
-  stays, and the row returns when selection ends.
-- Phone root screen with no verbs (Tuner): the row alone.
-- Phone pushed page: Back and verbs in the bar. The name is the page's
-  first heading, and the bar shows it small once the heading has scrolled
-  under it.
-- At most two verbs in the bar. Filters, where a screen has one, does not
-  count toward them. Select is never a toolbar button.
-- Exception under the title: a pushed page's main actions sit in a row
-  under its heading, as page content (a list's play row, a tune's verb
-  row). Its verbs bar then holds only More. Off the phone the tune
-  page's More sits on its title's row instead, and its bar holds none.
+- At most two verbs in the bar. Select is never a toolbar button.
+- A pushed page's main actions can sit in a verb row under its heading, as
+  page content. Its bar then holds only More.
 - A section's verb sits trailing on that section's heading.
 - Screen-wide actions (Edit, Delete) live in More, never in a panel.
 - A control sits over the pane it acts on.
 - A column's title is its first line and scrolls with it. The bar shows it
-  only once scrolled away, so it never reads twice. A phone root screen's
-  row is the exception: it is the title's only place.
+  only once scrolled away, so it never reads twice.
 - Detail column: always a page or a placeholder, never a list. A
   placeholder names what it waits for and how to get one.
-- Sidebar order: Catalog with its statuses under it, Recordings, Tuner,
-  Lists, Settings. Phone tab order: Catalog, Lists, Tuner, Recordings, then
-  Record. Settings is no phone tab: it opens from the account button on the
-  Catalog, Lists, Tuner, and Recordings roots, outermost trailing in the
-  title row. A disc in the set wash with initials in set ink, or a filled
-  person glyph when the account has no name. Never on a pushed page,
-  sheet, or Settings itself.
-- Sidebar count: absolute (non-archived tunes, ignoring filters). Zero
-  hidden. The list header gives the narrowed count.
-- Sidebar status rows, the catalog's Status control, and stats links all
-  set the same stored status filter.
 - A resize, rotation, or frame change keeps selection, scroll, open
   destination, and the playing item.
 - Bottom chrome reserves its own room. Every column scrolls its last row
   clear of it.
 - A control with nothing to act on is absent, never shown disabled.
-  Exceptions, shown disabled: form buttons, a mode panel's controls, Sign
-  out offline.
-- Record control and sheet-opening commands stand down behind every sheet,
-  dialog, and file picker, and while a screen is selecting.
+  Exceptions, shown disabled: form buttons and a mode panel's controls.
+- App-wide controls (Record, sheet-opening commands) stand down behind
+  every sheet, dialog, and file picker, and while a screen is selecting.
 - One action reached from several places opens one component, over the
   current screen. Finishing returns the musician where they were.
 
-## Tuner
-
-- One display style, sharps only (`C♯`, never `D♭`). The tuner names the
-  note it hears and never guesses the instrument or the tuning.
-- In tune is 3 cents or less either way. Flat or Sharp shows in words
-  outside it, since color alone never carries state.
-- A target zone at each edge spans 10 cents either way of the note's line,
-  so the player always has a fixed mark to bring the bar into.
-- Outside the zone the bar color steps: light coral within 15 cents,
-  otherwise coral. A step, so the color is still while a far reading
-  wobbles. Inside the zone it blends from light coral to green, full green
-  in tune, so a peg turn shows as steady progress.
-- A wash behind the readout tells in tune from a distance, with the
-  instrument in hand. It grows with the same blend, none outside the zone
-  and full in tune.
-- The last note stays on screen until a new one replaces it. A plucked
-  string decays before the player looks up. A new listening session
-  starts with the prompt.
-- A screen reader hears only a change of note or a change into or out of
-  in tune. Announcing every reading would talk over the instrument.
-- Entering the tuner pauses playback, keeping queue and position, and
-  leaving never resumes it: the microphone would hear the speaker. A play
-  started while the tuner shows stops listening until playback pauses.
-  A link playing in its embed closes instead: the provider's page offers
-  no pause the app can reach.
-- It listens only while shown, visible, and uncovered. A sheet or dialog
-  over it stops listening and closing the sheet resumes. It keeps the
-  display awake while uncovered.
-
 ## Errors and states
 
-- Error beside its control. A field or group shows its error in red, where
-  Forms says. Row action: reports under its list. Screen action: above the
-  rows.
+- Error beside its control. Row action: reports under its list. Screen
+  action: above the rows.
 - Empty list: icon, title naming what is absent, optional hint, optional
   action.
 - Loading is silence. The body shows nothing until its data is read.
-  Spinners only on the sign-in splash and a transfer in progress.
-- Sync badge shows only `Update required`, `Offline`, `Sign in again`,
-  `Sync failed`, in that order of precedence. `Update required` reopens
-  the update prompt. Full state and the one manual sync control live in
-  Settings.
+  Spinners only for sign-in and a transfer in progress.
 - A system permission is asked the first time a feature needs it, after an
   inline note saying why, with one button, Continue, that leads to the
   system prompt. No way past the note but the prompt (App Review 5.1.1).
@@ -272,500 +166,138 @@ Decide any case the rules below do not name.
   feature's Settings page, with a control opening the system setting
   where the platform has one.
 - Offline: a network control refuses on tap rather than disables, so its
-  name survives and the reason lands on the row. Exception: Sign out
-  disables, because the local catalog must not be deleted mid-session.
-- A musician signed in before opens the app offline as soon as the device
-  reports no connection, or after 5 seconds with no answer from sign-in.
-  The account row says "Signed in (offline)".
+  name survives and the reason lands on the row.
 
-## Rows
+## Lists and rows
 
-One row component per platform for every list of tunes.
-
-- Tune row: status glyph, title, tunings in secondary, compact key pill
-  trailing so keys form a column. No separator.
-- Title keeps its width first. Tunings truncate, then drop out, before the
-  title shrinks.
-- Row metadata: status, key with first mode, non-standard tunings and capos
-  for played instruments, "Archived". Each omitted when unset. A screen
-  reader hears a comma between parts.
-- Archived row: dimmed as a whole.
-- Tap opens the tune. While selecting, tap toggles.
-- In a list: tabular position number leading, reorder by dragging the whole
-  row, no grip. The dragged row lifts under a shadow, the rows it passes
-  slide aside, and a drop settles it into its slot. No drop line. Playing
-  row: animated speaker, light accent wash. Nothing to play: not-playable
-  glyph in the play slot.
-- A list's row on the lists screen, never in the sidebar: Play trailing,
-  and Play and Shuffle first in its menu, only when a tune in it can play.
-  Otherwise the slot stays empty, so the rows align. While the list plays,
-  the slot pauses and resumes it, and the row takes the playing wash.
-- Selected row: inset accent highlight, every glyph keeps its own color,
-  except the status exception above.
-- Status glyph's word is its tooltip on pointer.
-- At most three visible actions. The rest in the row menu.
-- Move: a control named "Move" plus the title, in the menu and the
-  accessibility actions. After a move, a live region says where the tune
-  landed.
-
-### Recording and link rows
-
-- Two lines: title in body, details in secondary. A fixed leading glyph
-  slot shows state. The transport glyph sits in a disc: tinted while idle,
-  solid once it holds what plays.
-- The row is the control and always answers a tap: play, download, embed,
-  or open the provider.
-- Title: most specific name (typed, resolved, then composed from the date).
-  Drop what the heading above already says.
-- Second line: middle-dot metadata, or the link out. Recording: duration
-  and one date, or a status word. Words only for what needs attention.
-- Date follows the sort ("Added <date>" under Date added). Omitted when the
-  title is composed from it.
-- Sizes truncate, never round. Durations `m:ss`. Provider named once.
-- Imported recording: a source line (site name, external-link icon) opens
-  the origin page.
-- A row shown outside its parent's group (a recording outside its tune)
-  adds a line that names the parent, with a chevron. That line opens the
-  parent, and only the name is the target. A red transfer error line with
-  Retry follows it. Each such line keeps a 44pt target, and the row grows.
-- All the rows that answer one question form one list under one header,
-  the musician's own recordings first.
+- One row component per platform for every list of tunes.
+- A row's title keeps its width first. Secondary details truncate, then
+  drop out, before the title shrinks.
+- Archived: dimmed as a whole.
+- Reorder: drag the whole row, no grip. The dragged row lifts, the others
+  slide aside, and a drop settles it. No drop line.
+- Playing row: an animated speaker and a light accent wash.
+- Selected row: inset accent highlight.
+- At most three visible actions on a row. The rest in its menu.
 - An action that leaves the app is menu-only, never a swipe action.
-- A pinned item plays first in lists and shows a pin mark.
-- A recording with audio a free account cannot play is dimmed as a whole
-  and keeps its menu. One with nothing to play yet is not dimmed. On a
-  tune page a free account's recordings collapse to one line,
-  "N recordings, subscribe to play", which expands in place to the
-  dimmed rows.
+- A media row is itself the control and always answers a tap.
+- Row title: the most specific name. Drop what the heading above already
+  says.
+- Sizes truncate, never round. Durations `m:ss`.
+- A row shown outside its parent's group adds a line naming the parent,
+  which opens it.
+- A field that holds a value always shows, even where a setting would hide
+  it, so data never becomes unreachable.
 
-## Tune data
+## Search, filters, sorting
 
-- Key with first mode, abbreviated on rows: key alone for major, `Dm`,
-  `E dor`, `A mix`, `G modal`. A screen reader hears "E dorian". No key, no
-  mode. Modes lowercase.
-- One mode per part. The tune page shows all, a row the first.
-- Type is the tune's form (reel, jig, waltz). Suggestions follow genre, then
-  catalog use. Choosing a type fills an unset time signature, never one the
-  player chose.
-- On a row, a facet shows only when the tune holds a value. The tune page
-  shows every fact, set or not (Tune page).
-- Tuning field, filter, or badge only for a played instrument, unless the
-  field already holds a value, so data never becomes unreachable.
-- Open vocabularies (tuning, genre, type, composer, learned from, part
-  structure, players): a text field the musician types straight into.
-  Suggestions narrow as they type, and a pick sets one. Any typed value
-  stands. Empty means empty: no `Not set`, no `Other…`. Closed lists the
-  API validates: mode, time signature.
-- Key: closed grid of pills, never typed. Both spellings of a black key,
-  one hue. A stored key missing from the grid joins it as its own pill.
-- Tuning suggestion: name, then strings, lowercase drone. "Cross A (AEAE)".
-- A row omits an instrument's standard tuning unless a capo is set. Capo
-  after the tuning, "Open G (gDGBD), capo 2", or alone, "Capo 2". The tune
-  page shows every tuning.
-- Capo: fretted instruments only, closed list None to 12.
-- A row names the instrument only when the musician plays more than one.
-  The tune page always names it.
+- A search field is named for what it searches, and its placeholder
+  repeats it.
+- Search matches stored names, never text composed for display. Ignores
+  case and accents.
+- Escape in a search that holds text empties it first, so a picker never
+  closes on what was typed.
+- A picker never hides an item. One that cannot be picked shows, inert,
+  with the reason.
+- Every list filters by every facet of its items. The filter sheet holds
+  them all, and the filter row is a shortcut to the same filters.
+- A facet shows only when the list holds values for it. A stored value the
+  list no longer holds still gets an option, so a stale filter never reads
+  as Any.
+- Filters persist, so they announce themselves: the Filters control
+  carries the count of set filters, and the header reads "11 of 84
+  tunes" while narrowed.
+- Set filter: a removable capsule named for its value.
+- Filter choices apply at once. Reset clears them all.
+- Sort sits trailing in the list header and shows choice and direction.
+  One Sort menu: choosing the current choice again reverses it. Dates
+  start newest first, names at A. Unknown sorts last either way.
 
-## Status
-
-- "Known", "Learning", "Unknown" (want to learn). One word fits a phone.
-- Glyph shape carries the meaning: filled check, half-filled circle, empty
-  ring, in status color. Its word is its accessible name. Word shown beside
-  it: glyph hidden from assistive technology.
-- Set from the tune page's Status fact and from the tune form, one choice
-  per word.
-- Required field never clears: pressing the chosen value keeps it. Optional
-  field: pressing clears.
-- Unrecognized value shows as Unknown.
-
-## Search
-
-- Every tune search also offers to create. A recording search does not.
-- Non-empty query: add row under results, `Add "query"`, or
-  `Add another "query"` when the title exists. Titles are not unique.
-- Exact match hidden by a filter or the archived setting: named with an
-  Open link, before the add row.
-- Enter: opens the only visible result, else the hidden exact match, else
-  creates. Two or more results: closes the keyboard only. Never creates a
-  duplicate title.
-- The add row creates the tune from the typed title and opens its page.
-  No form.
-- A list picker's add row creates the tune, adds it to the list, and stays
-  in the picker, since a set list often gains several tunes in a row.
-- Filing a recording under a new tune opens the new tune's page. From
-  practice, that leaves practice, as Go to tune does.
-- A picker never hides a tune. Already in the list: shown, marked "In this
-  list", inert. Pickers include archived tunes.
-- A picker lists the whole catalog A to Z until something is typed, then
-  the search narrows it. Over an empty catalog it shows its hint.
-- Field named for what it searches. Placeholder repeats it. "Clear search"
-  while focused.
-- Escape in a search that holds text empties it first. Only the next
-  Escape closes the sheet or column, so a picker never closes on what was
-  typed.
-- Matches stored names, a parent's name included. Never text composed for
-  display. Ignores case and accents.
-- Query lasts the app session. Filters persist. Creating a tune from the
-  search and sign-out clear the query.
-
-### Other services
-
-- Nothing is kept until the musician saves a result.
-- A previewable result plays in its own row. One thing plays at a time
-  across the app.
-- Result row controls carry the title: "Link Soldier's Joy".
-- Each service's results end with "Search on {service}". Nothing found or a
-  failure says so below it, so every answer leaves a way on.
-- Search starts only from a tap, never from opening a screen, unless one
-  choice leaves nothing else to pick.
-
-## Filters
-
-- The most-used facets also show on screen as a shortcut.
-- The filter sheet holds every filter of the list, in this order: Status,
-  Key, the other facets, unheard and missing, then archived. The filter
-  row is a shortcut to the same filters.
-- Filters carries a count of every set filter, Status and Key included:
-  "Filters, 2 set". Persisted filters must announce themselves.
-- Status and Key never show as tokens, since their controls already name
-  their value.
-- Phone: an icon-only Filters button sits in the bar, beside the verbs, so
-  the sheet is reachable from anywhere in the list. Named for the count,
-  with an accent mark once any filter is set. Absent when there is
-  nothing to filter and nothing set. Where the bar holds Filters (the
-  phone and iOS), the filter row holds no Filters control, only Status
-  and Key where the screen has them, then set filters as tokens. Split,
-  wide, and the Mac, whose bars have no Filters button, keep a Filters
-  control in the row or the search field.
-- Filter row control: quiet capsule, accent wash once it narrows.
-- Filters with nothing to choose (list loading, empty, or nothing to tell
-  apart) and no filter set: absent, never disabled.
-- Facet pull-down reads facet and value: "Key: Any", "Key: D". Colored
-  values open a popover of pills, since a menu draws images in one color.
-  Choosing closes it.
-- A facet shows only when the catalog holds values for it, a tuning only
-  for a played instrument. Every write clears a hidden facet, so it never
-  narrows in silence.
-- A stored value the catalog no longer holds still gets an option, so a
-  stale filter never reads as Any.
-- Sheet choices apply at once. Reset clears every filter in the sheet. Done
-  closes.
-- Set filter: removable capsule named for its value. Its remove control
-  reads "Remove filter" plus the value. A tuning names its instrument,
-  composer and learned-from name their field, since values can collide.
-- Header count: "84 tunes", "11 of 84 tunes" while narrowed, absent when
-  the catalog is empty.
-- Each list screen keeps its own Show archived setting.
-
-## Sorting
-
-- Sort sits trailing in the list header, which scrolls with the list. One
-  sort over several lists: once, above the first.
-- Shows choice and direction as text and arrow ("Title" up is A to Z or
-  oldest first). Spoken: "Sort by Title, A to Z".
-- One menu, Sort, marks the current choice. Choosing it again reverses.
-- Hidden while selecting and while nothing is listed.
-- Dates start newest first, names at A. Unnamed sorts after named.
-- A partial date sorts as the start of its period. An unknown date sorts
-  last in either direction.
-- Grouped by parent: one card, a short heading line per group that opens
-  the parent. Rows drop what that line says.
-
-## Selection and bulk actions
+## Selection
 
 - Component state, never a URL.
 - Enter from Select in More or a row's menu. Exit by the exit control,
-  Escape, leaving the screen, completing an action, or Android back.
-- Each row's own control becomes its checkbox. A leading check mark is
-  decoration only.
-- Count: a digit beside a word that can elide. No back button while
-  selecting. No swipe actions, no reorder.
-- Holds only visible tunes. Hidden by search, a filter, or the archived
-  setting: leaves the selection. Select all means the current view and
-  never clears.
-- Shift-click extends.
-- Focus moves to a checkbox on entry, back to the opener or the screen
-  landmark on exit.
-- Every action applies at once, ends the mode, and toasts with Undo. No
-  confirmation, because it gets clicked through and leaves no way back. A
-  failed write keeps mode and selection. Cancelling a sheet keeps the
-  selection.
-- Exception: Delete confirms and raises no toast, since recordings cannot
-  come back.
-- Bulk edit: the tune form over many tunes. Each row shows the shared
-  value, `Not set`, or `Mixed`. Only touched rows write. Save stays
-  disabled until a row is touched.
-- Bulk edit, open vocabulary where the tunes disagree: an empty field with
-  `Mixed` as a dimmed placeholder. Typing or a pick replaces it, `Mixed`
-  among the suggestions restores it, and deleting the text empties the
-  field on every tune.
-- A field unique to one tune is never bulk editable.
+  Escape, leaving the screen, or finishing an action.
+- Holds only visible items. An item hidden by search or a filter leaves
+  the selection.
+- Every bulk action applies at once, ends the mode, and toasts with Undo.
+  No confirmation, because it gets clicked through. Exception: a delete
+  that cannot come back confirms instead.
+- Bulk edit is the item's form over many items. Each field shows the
+  shared value or `Mixed`, and only touched fields write.
 
 ## Forms
 
 - Every form is a sheet over the current screen. No form route, no save
-  bar. Exception: one fact on the tune page edits in place.
-- An in-place editor saves on every dismissal: Enter, a pick, a click
-  outside, Done, a swipe down. Only Escape cancels. Closing never loses
-  input, so its sheet is not locked.
+  bar.
+- An in-place editor saves on every dismissal. Only Escape cancels.
 - Toolbar: `Cancel` leading, bold primary action trailing, named for what
-  it does. A sheet whose rows are the actions: Cancel alone.
+  it does.
 - Sections of related fields. The header names the group, and the footer
-  carries help. A validation message replaces the help, in red. Help is
-  never a row. Settings place help differently (see Settings).
-- A control that is not a list of rows (pill grid, chip rail) sits on the
-  ground with no card, aligned to the cards' edges.
-- Closed choice: a field row that opens the one picker. A pill grid only
-  where values carry color or the field is the screen's purpose.
-- A set answered once (instruments, music services): in Settings, a
-  switch per item on its page. On any other screen, a row that names the
-  choice and opens a sheet of the same switches on the same bindings.
-  When the names would wrap, the row shows a count instead, "2 of 7".
-- Fields ranked by use. Rare ones last, in one list.
-- Labeled row: label leading, value trailing, value elides first.
+  carries help. A validation message replaces the help, in red.
 - Every control has a visible label. An accessibility-only name is not a
   label.
-- A row that opens its own form: name and chevron, no value summary.
-- Empty row reads "Not set", except an open-vocabulary field, which shows
-  nothing. Standalone field: a placeholder naming what goes in, never an
-  example value.
-- An empty selection that turns a feature off reads as that feature's empty
-  state ("No services selected"), because "Not set" reads as defaults.
-- Single-field sheet: no header, the title names the field.
+- Labeled row: label leading, value trailing, value elides first. Empty
+  reads "Not set".
+- Closed choice: a field row that opens a picker. A pill grid only where
+  values carry color.
+- Open vocabulary: a text field with suggestions. Any typed value stands,
+  and empty means empty. Closed lists are only what the API validates.
+- A required field never clears: pressing the chosen value keeps it. An
+  optional one clears.
+- A set of switches answered once (instruments, music services) lives in
+  Settings. Elsewhere, a row opens a sheet of the same switches.
+- Fields ranked by use. Rare ones last.
 - Reject as little as possible. Every limit that can be a typing cap is
-  one. The rest: message under the field, focus, invalid mark, cleared at
-  the first keystroke.
-- Partial date: Year, optional Month, optional Day, Clear date.
+  one.
 - Visible fields are decided at open. Nothing disappears mid-edit.
-- Form buttons always show. The primary action is disabled while a write
-  is pending or the form cannot succeed.
 - A sheet that can lose typed work refuses backdrop tap, drag down, and
-  Escape. Cancel is the way out. Any sheet refuses while its own write is
-  pending.
-
-### Settings
-
-Settings is a root list of categories. Each category opens its own page of
-groups. Categories follow the Mac Settings window's subjects: Tunes and
-Recordings each hold their groups on one page, not a page per group.
-
-- A new setting joins its category's page, never the root.
-- A category or group on the same subject takes the same name on every
-  platform.
-- A link to a Settings group lands on that group, never only on its
-  category. So does an old address of a page that became a group.
-- A root row shows its page's value where one exists: the instruments for
-  Tunes, the quality for Recordings, the choice for Appearance.
-- Every change saves at once. No Save button.
-- Each group's help sits above its rows, so the musician reads what a
-  setting does before choosing. A failed save shows in red below the rows,
-  and the help stays. The Mac places help differently (`design-macos.md`).
-- A closed choice is a picker row, even one the tune form shows as
-  segments. The default status for new tunes is a picker row, not the
-  status segments.
-- The Plan group sits on the Account page.
-- The Plan group holds only the plan row, which opens the Plan sheet for
-  every account, and the storage meter. Buying, managing, and restoring
-  happen in the Plan sheet.
-- Kept on the device and through sign-out: the appearance, text size, and
-  recording channels settings, and every list's sort choice.
+  Escape. Cancel is the way out.
+- Settings: a new setting joins its category's page, never the root.
+  Every change saves at once. A group's help sits above its rows, so the
+  musician reads what a setting does before choosing. A category or group
+  takes the same name on every platform, and a link to a group lands on
+  that group.
 
 ## Overlays
 
-Each overlay is one component per platform. Platform pages say how it
-presents.
-
-- Sheet opens part height, or full height for a long body or many fields.
-  Its title names the dialog. A sheet that opens on its own headline (the
-  Plan sheet) shows no title, and the headline names it.
-- Menu: destructive items last, red, after a separator. Cautionary items in
-  warning color.
-- A destructive action confirms through the app's own overlay. Only the
-  named action resolves true. Button: bare verb. The title is the question
-  and names the thing, as stored: `Delete "Soldier's Joy"?`. The message lists
-  only the consequences and says when data cannot come back:
-  `This removes its links and list entries.`
-- Toast: only for Undo, an error that arrives after the musician left
-  the screen, how a web checkout ended, or how a withdrawal for a
-  refund ended, since its row goes once Premium ends. One at a time,
-  above the bottom chrome.
-- A question the app must have answered: no Cancel, waits for a clean
-  sync, never opens over another modal.
-- A destructive edit that needs more room than a confirmation (trimming a
-  recording): its own screen, `Cancel` and bold `Save`. Save confirms,
-  naming what the edit keeps.
-- A gated control stays in place and answers a tap with the Plan sheet,
-  whose headline names what was tapped.
-- The Plan sheet opens full height. It sells to a free or trial account
-  and shows a Premium account its plan.
-- A purchase is never a sheet's default action or its first focus, so a
-  stray Return in a sheet that opened unasked never starts one.
-- A sheet sells only once the store has answered with its prices.
-  Subscribe never shows without a plan the store can sell, and a sheet
-  that cannot sell still shows what Premium holds.
-- While the store loads, a disabled Subscribe holds its place in the Plan
-  sheet and in a trial notice, so a fast tap never lands on a control
-  that moved.
-- On Apple a checkout's outcome shows as a line by the button that
-  started it, never a toast. Restore purchases sits in the Plan sheet.
-- No sheet explains trial billing. The terms of use say that a purchase
-  during a trial starts billing that day.
-- A one-time notice (first recording, trial reminder, trial end) is a
-  sheet, one at a time, never during a capture and never over another
-  modal. Dismissing it marks it seen for the account.
-- The Apple app asks for an App Store review once per device, ever. It
-  asks just after adding a tune, saving a recording, or ending practice,
-  once that device has done all three, has opened at least 10 times, and
-  has had the app a week. It waits out what a notice waits out. Work
-  synced from another device does not count.
-- A trial notice sells in place: its primary buys Annual at the store's
-  price, and Compare plans opens the Plan sheet. A trial notice that
-  cannot sell offers only Compare plans. The first-recording notice does
-  not sell.
-- A live recording refuses swipe dismissal. Discarding captured audio
-  confirms.
+- Each overlay is one component per platform. Platform pages say how it
+  presents.
+- Sheet: part height, or full height for a long body. Its title names the
+  dialog.
+- Menu: destructive items last, red, after a separator.
+- A destructive action confirms through the app's own overlay. The title
+  is the question and names the thing. The message lists only the
+  consequences and says when data cannot come back.
+- Toast: only for Undo, or for an outcome that arrives after the musician
+  left the screen. One at a time, above the bottom chrome.
+- A one-time notice is a sheet, one at a time, never during a capture and
+  never over another modal.
+- A gated control stays in place and answers a tap with the Plan sheet.
+- A purchase is never a sheet's default action or its first focus.
+  Subscribe shows only once the store has answered with a price it can
+  sell.
 
 ## Pages
 
-A page reads as a document, such as the tune page or stats.
-
-- Plain ground, no cards. At most 680 wide, centered, or leading beside
-  the tune page's rail. The tune page's facts card and start card are
-  the only cards.
-- Title in the page title role, selectable, in the content.
-- Section: heading with its controls trailing, one height with or without
-  controls. Space separates sections, never a hairline. Exception: the
-  tune page's closing date, so it never reads as part of Lists.
-- Empty section the page always holds: heading, add control, and one
-  quiet line in place of its rows, never an empty-state block. The tune
-  page's Recordings shows its start card instead (Tune page).
-- A section that only some items fill is absent, heading included, until
-  it holds something. Its add sits in a line of add actions at the page's
-  end.
-- Row text and glyphs start on the heading's leading edge, glyphs in a
-  fixed slot.
-- Group header: a form section label is secondary text. A header naming
-  what its rows belong to is a heading. Leads somewhere: chevron, and the
-  whole line is the target.
-- Moving to another tune cross-fades. The current page stays until the next
+- Plain ground, no cards, at most 680 wide. The tune page's facts card
+  and start card are the only cards.
+- Title in the content, selectable.
+- Section: heading with its controls trailing. Space separates sections,
+  never a hairline.
+- An empty section a page always holds shows its heading, add control,
+  and one quiet line, never an empty-state block. A section only some
+  items fill is absent until it holds something.
+- Verb row: what the musician does with the item, never editing. A verb
+  shows only when it can act now, and is never disabled.
+- Facts: the same facts in the same order on every item, so nothing moves
+  between items. An unset value reads "Add".
+- Moving between items cross-fades. The current page stays until the next
   has read, so the column never goes blank.
-
-### Tune page
-
-- A band leads the page, on the ground. Only the key tile takes the key's
-  color. The band holds the key tile, the title, other titles, and the
-  verb row.
-- Key tile: the key pill's colors, the key large over the first mode. With
-  no key, a dashed Add key tile. It opens the Key fact's editor.
-- More: on every layout but the phone's, trailing on the title's row,
-  centered on its first line, so it reads as the tune's control. The
-  phone keeps it in the bar. It follows the frame, never whether the
-  rail or the card shows.
-- Verb row: what a musician does with the tune, never editing. Play
-  (primary), Practice, Lyrics, each only when it can act on this device
-  now. Nothing in it is ever disabled. A tune with no such verb has no
-  row. The primary is named for what a press does: Play, Stop, or Open.
-- Never Download in the verb row, which reads as downloading the tune.
-  A take not on the device gives no Play or Practice until its own row
-  downloads it. Add to list is editing: it lives in Lists and More.
-- Lyrics opens the Lyrics section and scrolls it into view.
-- On the phone the verbs share the row in equal columns. A label never
-  wraps.
-- Ways to add audio live in Recordings, never in the verb row, where a
-  link button does not say what it adds. While the section is empty, a
-  dashed start card with Record, Paste link, and Find a recording is the
-  only way in, and the heading has no add control. Once anything is in it,
-  the heading's add menu holds them.
-- Facts: the same facts in the same order on every tune, so nothing moves
-  from tune to tune. An unset value reads "Add".
-- Wide: the facts are a rail beside the content, on the ground behind a
-  hairline. Groups under small headers: Details, About, Learned, Lists.
-  Its first header lines up with the first section heading, and it stays
-  in view as the content scrolls. A rail taller than its pane scrolls on
-  its own.
-- Rail row: two columns. The label in a fixed-width column in secondary
-  ink, one step smaller than the value; the value in ink, starting at the
-  second column. Each wraps inside its own column, never into the other.
-  The row's wash spans both.
-- Narrow and phone: a card under the verb row, with More details opening
-  the rest in place. Lists and the date end the content column instead,
-  since between the card and Recordings they split the facts from the
-  content.
-- Sections, in order: Recordings, Lyrics, Scans and images, Notes, the
-  add line, then Lists where the card shows.
-- Lyrics: a disclosure heading, closed on each visit, opening the words
-  in place in selectable body text. Edit and the reader trail the
-  heading.
-- Notes autosave as typed. While edited, "Saves as you type" sits under
-  the field with a Done that ends editing, since nothing else shows the
-  words are kept.
-- The tune's date reads "Added to catalog <date>", in secondary ink at
-  caption size, last in the rail or last on the page. On the page a
-  hairline and a section's space set it apart from Lists.
-- Rail or card follows the detail column's width, never the device: the
-  rail shows while the column holds the rail plus the content's minimum
-  width.
-- Title stays selectable. A click that selects nothing, or Rename, turns it
-  into a field. Enter or leaving saves, Escape restores. An empty title
-  never saves.
-- A tune's Edit, on a row or anywhere else, opens its page. The full form
-  opens from Edit all details in More.
-- A tune is created from its title alone. The new-tune settings fill
-  status and genre.
-- Add and New tune open a new-tune page holding only the title field.
-  Leaving it with a title creates the tune. Leaving it empty discards it,
-  so no untitled tunes exist.
-- A create that attaches nothing toasts "Added" with Undo. Undo is
-  withdrawn once anything is attached, and never deletes a tune with work:
-  one that finds work keeps the tune and toasts that it was kept. Undo
-  leaves the musician on the page they are on. A create that files or
-  lists in the same step shows no Undo.
-
-### Mode panels
-
-- A screen whose tools are modes: segmented control under the main surface.
-- Each mode shows only its own controls. The panel keeps its tallest mode's
-  height, so switching never moves anything.
-- A mode shows its value beside its name only when off its default.
-- A control that cannot run: stays in place, disabled, reason to assistive
-  technology only.
-
-### Stats
-
-- Looks back. Never nudges. No streaks, no points.
-- Shows only what the musician uses. Tunes, lists, recordings always, zero
-  included. Everything else only when a non-archived tune holds it.
-- Blocks run whole to particular: counts, recorded total, months, activity,
-  on this day, breakdowns, rarities.
-- Simplest chart that shows the point. Breakdown over 8 values: top 8 plus
-  "Show all" with the full count, expanding in place.
-- A value that is a catalog filter opens the catalog root with exactly that
-  filter set and everything else cleared, so it shows exactly the tunes
-  counted. Row with a chevron. A value that is not a filter, or that the
-  filter would read as Any, is inert, with no chevron.
-- Every chart mark carries its value as text. Marks too small to tap: the
-  chart is one tab stop that takes taps, hover, and arrow keys, and shows
-  the chosen mark's detail under it.
-- Shading steps: quartiles of the musician's own values. Empty slots keep
-  their place, so spacing reads as time.
-
-## Player and practice
-
-- The player opens only from a play tap. Opening a tune never loads a
-  player. At most one item loaded, and it stays while the musician browses.
-- Bar: thin scrubber with a coral playhead. While a list plays, previous,
-  next, shuffle, and repeat join it where it is wide enough.
-- An embed grows up out of the bar.
-- A link the app plays itself (Apple Music through MusicKit) starts in the
-  bar like a recording. A provider embed opens in full, because it holds
-  the only controls.
-- Practice opens from the player. Playhead fixed, wave scrolls under it.
-  Loop bands in loop colors.
-- Practice and trim draw on the jet ground in every appearance, in the
-  dark scheme. The accent on jet is the dark scheme's Harbor. Only the
-  transport disc and its chips are white, never `accentFill`. The Mac
-  differs (`design-macos.md`).
-- Trim reads apart from practice: plain white handles and playhead.
+- Mode panels: a segmented control under the main surface. The panel
+  keeps its tallest mode's height, so switching never moves anything.
+- Charts: the simplest one that shows the point. Every mark carries its
+  value as text.
 
 ## Motion
 

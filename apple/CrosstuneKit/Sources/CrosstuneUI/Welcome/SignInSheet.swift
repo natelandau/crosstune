@@ -7,7 +7,8 @@ struct SignInSheet: View {
 
     var body: some View {
         #if os(macOS)
-            // A dismissible AuthView sizes itself on the Mac, so the sheet takes Clerk's frame.
+            // A dismissible AuthView sizes itself on the Mac, so the sheet sets no frame: a
+            // narrower one clips the flow.
             SignInView(notice: nil, isDismissible: true, mode: mode, palette: .mac)
                 .shellSheet()
         #else

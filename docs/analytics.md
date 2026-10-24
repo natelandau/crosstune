@@ -6,8 +6,9 @@ buckets. This page never lists them.
 
 ## Site and app
 
-One PostHog project receives the public site and the app. Two super
-properties separate them.
+One PostHog Cloud project, production only, receives the public site and
+the app. No other environment has a token. Two super properties separate
+the two.
 
 - `product` is `site` or `app`. Every event carries it.
 - `platform` is `site`, `web`, `ios`, `ipados`, or `macos`. Every event
@@ -17,6 +18,12 @@ properties separate them.
 
 Filter every chart by `product`. A chart with no `product` filter mixes
 two audiences.
+
+- The site is anonymous. The app identifies a person by Clerk user ID,
+  never by email or name.
+- Events leave through PostHog's managed reverse proxy on a product
+  subdomain, so a blocker that lists PostHog's host does not drop them.
+  Never a proxy of our own.
 
 ## Rules
 

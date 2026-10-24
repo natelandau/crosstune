@@ -406,8 +406,9 @@
     }
 
     /// A segmented choice drawn in the Mac's own colors: the chosen segment on the accent fill,
-    /// the rest in ink on the field fill. Like the system control it is one keyboard stop whose
-    /// arrows move the choice, and VoiceOver reads it as the system's segmented picker.
+    /// which the system segment's chosen fill ignores, and the rest in ink on the field fill.
+    /// Like the system control it is one keyboard stop whose arrows move the choice, and
+    /// VoiceOver reads it as the system's segmented picker.
     struct MacSegmentedPicker<Value: Hashable>: View {
         private let title: String
         @Binding private var selection: Value?
