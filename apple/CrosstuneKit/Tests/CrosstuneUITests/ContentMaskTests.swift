@@ -347,6 +347,8 @@ import Testing
         ("Recordings/PlaceSearchView.swift", "Text(address)"),
         // The map of a recording's spot, which shows where it was made.
         ("Recordings/LocationMap.swift", "Map(initialPosition"),
+        // A fact's value, read from the row it is handed.
+        ("Tune/TuneFacts.swift", "Text(Self.value(row))"),
     ]
 
     @Test func everyHandMaskStaysInPlace() throws {

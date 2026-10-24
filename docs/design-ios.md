@@ -92,7 +92,11 @@ there where they differ. Regular-width iPad reads this page, then
   tunings, capos, and "Archived" only.
 - Accessibility text sizes: the key pill moves under the title.
 - A row on a page takes a context menu, never swipe actions. Page items
-  reorder through a move menu.
+  reorder through a move menu. Exception: a recording row keeps its swipe
+  actions on the tune page, as in Recordings.
+- SwiftUI runs swipe actions only on a `List`'s rows. Rows that swipe
+  inside a page's scroll view sit in `SwipeRows`, a `List` that never
+  scrolls and takes its rows' height.
 - List reorder: long press and drag.
 
 ## Lists and filters
@@ -122,7 +126,16 @@ there where they differ. Regular-width iPad reads this page, then
   glass. A menu draws glass at its label's full frame, so glass cannot stay
   smaller than its tap frame.
 - A grid too wide for the column (stats key grid) scrolls sideways.
-- Play is an accent-filled capsule, Shuffle a glass capsule.
+- A verb row is `VerbRow`, a list's play row and a tune's verbs alike:
+  the main verb an accent-filled capsule, the others glass capsules, in
+  equal shares of the width.
+- Where a share is too narrow for a verb's label, the glyphs go first,
+  then the label insets tighten. `VerbRow` reports the widest verb times
+  the column count as its ideal width, since `ViewThatFits` otherwise
+  sums the labels' widths and never falls back.
+- Tune facts rail threshold: `PageStyle.factsRailWidth +
+  PageStyle.contentMinWidth`. The content minimum stays near an iPhone's
+  width, which the phone layout already reads well at.
 
 ## Forms and Settings
 
@@ -151,6 +164,9 @@ there where they differ. Regular-width iPad reads this page, then
 - A sheet's actions pin to its bottom edge: a full-width prominent
   primary over centered borderless secondaries.
 - Close is the system close button, the glass xmark.
+- A fact editor (`factEditor`) is a part-height sheet with Done as its
+  confirm item in the bar, never pinned actions. A compact width or a
+  compact height takes the sheet, so an iPhone in landscape does too.
 - The Plan sheet pins nothing: its period choice, Subscribe, and
   disclosures close its scrolling page, so the comparison is never
   covered.

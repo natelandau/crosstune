@@ -147,21 +147,6 @@ extension StoreWriter {
         return (tuneID, userTuneID)
     }
 
-    /// Creates a tune and adds it to the end of a list. A list that has gone leaves the tune in
-    /// the catalog alone, since the musician still asked for the tune.
-    @discardableResult
-    public func createTune(
-        _ tune: TuneInput, userTune: UserTuneInput, inList listID: String, at time: Timestamp = .now
-    ) throws -> (tuneID: String, userTuneID: String) {
-        let created = try createTune(tune, userTune: userTune, at: time)
-        do {
-            try addToList(listID, userTuneID: created.userTuneID, at: time)
-        } catch CommandError.listNotFound {
-            // Refused before any write, so the tune's rows stand on their own.
-        }
-        return created
-    }
-
     /// Applies `patch` to a live tune. Refuses a title that trims to nothing before touching the
     /// row, and refuses a missing or tombstoned tune.
     public func updateTune(_ tuneID: String, patch: TunePatch, at time: Timestamp = .now) throws {
@@ -276,15 +261,6 @@ extension Commands {
         _ tune: TuneInput, userTune: UserTuneInput, at time: Timestamp = .now
     ) async throws -> (tuneID: String, userTuneID: String) {
         try await store.write { writer in try writer.createTune(tune, userTune: userTune, at: time) }
-    }
-
-    /// Creates a tune and adds it to a list in one write; see
-    /// ``StoreWriter/createTune(_:userTune:inList:at:)``.
-    @discardableResult
-    public func createTune(
-        _ tune: TuneInput, userTune: UserTuneInput, inList listID: String, at time: Timestamp = .now
-    ) async throws -> (tuneID: String, userTuneID: String) {
-        try await store.write { writer in try writer.createTune(tune, userTune: userTune, inList: listID, at: time) }
     }
 
     public func updateTune(_ tuneID: String, patch: TunePatch, at time: Timestamp = .now) async throws {

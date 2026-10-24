@@ -116,15 +116,11 @@
         /// Catalog, a list, Recordings, and the tune page set their titles on one baseline.
         @Test(arguments: [
             "Mac/ColumnTitle.swift", "Mac/MacListTitle.swift", "Recordings/RecordingsScreen.swift",
-            "Tune/TunePage.swift",
+            "Tune/TuneBand.swift",
         ])
         func everyColumnUsesTheOneTitleBaseline(path: String) throws {
             let file = SourceScan.sources.appending(path: path)
-            var text = SourceScan.withoutComments(try SourceScan.text(at: file))
-            if path == "Tune/TunePage.swift" {
-                let header = try #require(text.range(of: "struct TunePageHeader"))
-                text = String(text[header.lowerBound...])
-            }
+            let text = SourceScan.withoutComments(try SourceScan.text(at: file))
             #expect(SourceScan.macOSRegions(of: text, in: file).contains("columnTitleBaseline"))
         }
 

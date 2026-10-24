@@ -105,12 +105,11 @@ public struct TuneFormValues: Hashable, Sendable {
         return rows.count < Vocabulary.Limits.Tune.modes && rows.last != ""
     }
 
-    /// Sets the type. The type's own time signature replaces one the player has not chosen: an
-    /// empty one, or a new tune's untouched default. A time signature the player chose stays.
-    public mutating func setType(_ type: String, isNew: Bool, timeSignatureTouched: Bool) {
+    /// Sets the type. The type's own time signature fills an empty one; a time signature already
+    /// set stays.
+    public mutating func setType(_ type: String) {
         tuneType = type
-        let replaceable = timeSignature.isEmpty || (isNew && !timeSignatureTouched)
-        if replaceable, let fill = TuneSuggestions.timeSignature(for: type) { timeSignature = fill }
+        if timeSignature.isEmpty, let fill = TuneSuggestions.timeSignature(for: type) { timeSignature = fill }
     }
 
     /// The instrument's tuning and capo, empty when unset.
@@ -118,7 +117,7 @@ public struct TuneFormValues: Hashable, Sendable {
         tunings[instrument] ?? TuningValues()
     }
 
-    /// A new tune to create from these values.
+    /// The tune fields as the form holds them, trimmed, for comparing against what is stored.
     public var tuneInput: TuneInput {
         TuneInput(
             title: trimmed(title), alternateTitles: splitTitles(alternateTitles), genre: blankToNil(genre),
@@ -128,7 +127,7 @@ public struct TuneFormValues: Hashable, Sendable {
             isCrooked: isCrooked)
     }
 
-    /// The musician's own row to create beside a new tune.
+    /// The musician's own row fields as the form holds them, trimmed.
     public var userTuneInput: UserTuneInput {
         UserTuneInput(
             status: status, learnedFrom: blankToNil(learnedFrom), learnedOn: learnedOn.isEmpty ? nil : learnedOn,

@@ -3,25 +3,32 @@ import CrosstuneStore
 import CrosstuneVocabulary
 import SwiftUI
 
-/// What the tune form opens on: a new tune, perhaps with a title typed into a search and a list
-/// it lands in, or an existing tune to edit. A new tune names where it was asked for.
-public enum TuneFormTarget: Hashable, Identifiable, Sendable {
-    case new(title: String?, listID: String? = nil, source: ActionSource)
-    case edit(tuneID: String, userTuneID: String)
-
-    public var id: Self { self }
+/// A field the tune form can open focused on.
+public enum TuneFormFocus: Hashable, Sendable {
+    case lyrics
 }
 
-/// The tune form, as a sheet over the screen that opened it. Fields run from the most touched to
-/// the rarest: title, status, key, tunings, notes, lyrics, then the details.
+/// The tune the form edits, and the field it opens focused on, if any.
+public struct TuneFormTarget: Hashable, Identifiable, Sendable {
+    public let tuneID: String
+    public let userTuneID: String
+    public let focus: TuneFormFocus?
+
+    public var id: Self { self }
+
+    public static func edit(tuneID: String, userTuneID: String, focus: TuneFormFocus? = nil) -> Self {
+        Self(tuneID: tuneID, userTuneID: userTuneID, focus: focus)
+    }
+}
+
+/// The tune form, as a sheet over the screen that opened it. It edits one tune.
+/// Fields run from the most touched to the rarest: title, status, key, tunings, notes, lyrics, then the details.
 ///
 /// Reads the store from the environment.
 public struct TuneFormSheet: View {
-    public static let newTitle = "New tune"
-    public static let editTitle = "Edit tune"
+    public static let title = "Edit tune"
     public static let cancel = "Cancel"
     public static let save = "Save"
-    public static let addTune = CatalogScreen.addTune
 
     private let target: TuneFormTarget
     private let onSaved: (_ tuneID: String) -> Void
@@ -56,7 +63,7 @@ public struct TuneFormSheet: View {
                     } else {
                         // Loading is silence.
                         Color.clear
-                            .navigationTitle(Self.title(target))
+                            .navigationTitle(Self.title)
                     }
                 }
                 .navigationBarTitleDisplayMode(.inline)
@@ -72,11 +79,6 @@ public struct TuneFormSheet: View {
         await model.load()
         self.model = model
     }
-
-    static func title(_ target: TuneFormTarget) -> String {
-        if case .edit = target { return editTitle }
-        return newTitle
-    }
 }
 
 private struct TuneFormContent: View {
@@ -85,16 +87,15 @@ private struct TuneFormContent: View {
 
     @Environment(\.dismiss) private var dismiss
     @FocusState private var titleFocused: Bool
+    @FocusState private var lyricsFocused: Bool
 
     var body: some View {
         #if os(macOS)
             MacSheet(
-                title: TuneFormSheet.title(model.target), size: .longForm,
+                title: TuneFormSheet.title, size: .longForm,
                 cancel: .cancel(TuneFormSheet.cancel, isEnabled: !model.isSaving) { dismiss() },
                 primary: model.phase == .ready
-                    ? .init(
-                        model.isNew ? TuneFormSheet.addTune : TuneFormSheet.save, isEnabled: model.canSave,
-                        action: save)
+                    ? .init(TuneFormSheet.save, isEnabled: model.canSave, action: save)
                     : nil
             ) {
                 phaseContent
@@ -154,14 +155,13 @@ private struct TuneFormContent: View {
                     )
                     .contentMask()
                     .characterLimit(Vocabulary.Limits.Tune.lyrics, text: $model.values.lyrics)
+                    .focused($lyricsFocused)
                 }
                 MacFormSection(TuneFieldLabels.details, subtitle: TuneFieldLabels.detailsFooter) {
                     detailRows
                 }
             }
-            .onAppear {
-                if model.isNew && model.values.title.isEmpty { titleFocused = true }
-            }
+            .onAppear { lyricsFocused = model.target.focus == .lyrics }
         }
 
         /// The tune's title as the form's large heading: no label, since the prompt and the size
@@ -201,7 +201,7 @@ private struct TuneFormContent: View {
     #if os(iOS)
         private var phoneBody: some View {
             phaseContent
-                .navigationTitle(TuneFormSheet.title(model.target))
+                .navigationTitle(TuneFormSheet.title)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button(TuneFormSheet.cancel) { dismiss() }
@@ -209,7 +209,7 @@ private struct TuneFormContent: View {
                     }
                     if model.phase == .ready {
                         ConfirmToolbarItem {
-                            Button(model.isNew ? TuneFormSheet.addTune : TuneFormSheet.save) { save() }
+                            Button(TuneFormSheet.save) { save() }
                                 .fontWeight(.semibold)
                                 .disabled(!model.canSave)
                         }
@@ -258,12 +258,11 @@ private struct TuneFormContent: View {
                     .contentMask()
                     .lineLimit(6...)
                     .characterLimit(Vocabulary.Limits.Tune.lyrics, text: $model.values.lyrics)
+                    .focused($lyricsFocused)
                 }
                 detailsSection
             }
-            .onAppear {
-                if model.isNew && model.values.title.isEmpty { titleFocused = true }
-            }
+            .onAppear { lyricsFocused = model.target.focus == .lyrics }
         }
 
         private var titleSection: some View {

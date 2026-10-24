@@ -2,18 +2,23 @@ import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 
-/// One tune as a document: a centered readable column with the title large in the content, a
-/// quiet facet line, then plain sections for how it sounds, its scans, lyrics, notes, and lists,
-/// with lyrics and lists only once the tune has them.
+/// One tune as a document: the band with its key, title, and verbs across the top, then the
+/// content beside the facts rail, or under the facts card where the column is narrow.
 struct TunePage: View {
     let model: TuneModel
     let detail: TuneDetail
-    /// Opens the tune form, where notes are written.
-    let onEdit: () -> Void
+    /// More's items the screen carries out, where More sits on the title's row.
+    let more: TuneMoreHandlers?
+    /// Opens the whole tune form on its lyrics field.
+    let onAddLyrics: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var risen = false
     @State private var titleShows = true
+    /// Nil until the detail column's width is read, so a wide column never shows the card first.
+    @State private var factsLayout: FactsLayout?
+    /// The bar's height over the scroll view's top edge, where the rail pins.
+    @State private var barInset: CGFloat = 0
     // periphery:ignore - read through its binding
     @State private var editing: RecordingView?
     // periphery:ignore - read through its binding
@@ -23,66 +28,43 @@ struct TunePage: View {
     // periphery:ignore - read through its binding
     @State private var deletingScan: Scan?
 
-    init(model: TuneModel, detail: TuneDetail, onEdit: @escaping () -> Void) {
+    /// Whether the page replaces the new-tune draft its tune was made on.
+    private let replacesDraft: Bool
+
+    /// - Parameter draftLayout: The layout the new-tune draft this page replaces read for the
+    ///   column, so the page shows on its first frame.
+    init(
+        model: TuneModel, detail: TuneDetail, draftLayout: FactsLayout? = nil, more: TuneMoreHandlers? = nil,
+        onAddLyrics: @escaping () -> Void
+    ) {
         self.model = model
         self.detail = detail
-        self.onEdit = onEdit
-    }
-
-    /// What the tune is after its key: modes, type, genre, time, crooked, and parts, each left
-    /// out when unset, in the words its facets use. `skippingModes` leaves out the leading modes
-    /// the key pill already names.
-    nonisolated static func facetLine(_ detail: TuneDetail, skippingModes: Int = 0) -> String {
-        let tune = detail.tune
-        let parts: [String?] =
-            Array(tune.modes.dropFirst(skippingModes)) + [
-                tune.tuneType, tune.genre, tune.timeSignature, tune.isCrooked ? TuneDetail.crooked : nil,
-                tune.partStructure,
-            ]
-        return parts.compactMap { $0.flatMap { $0.isEmpty ? nil : $0 } }.joined(separator: " · ")
-    }
-
-    /// The header's facts: the key pill's words and the facet line after it.
-    struct Facts: Equatable {
-        /// The key, or nil for a tune with none.
-        let key: String?
-        /// What follows the key in its pill: the mode, spelled out, where the pill holds it.
-        let keySuffix: String
-        let line: String
-
-        var pill: String? { key.map { $0 + keySuffix } }
-    }
-
-    /// The key and the facet line. With `modeInPill` the pill names the first mode with the key,
-    /// "D major", so the two never part across the pill's edge; a mode the key cannot name
-    /// stays in the line.
-    nonisolated static func facts(_ detail: TuneDetail, modeInPill: Bool) -> Facts {
-        guard let keyMode = KeyModeText(key: detail.tune.key, modes: detail.tune.modes) else {
-            return Facts(key: nil, keySuffix: "", line: facetLine(detail))
-        }
-        let holdsMode = modeInPill && keyMode.spoken != keyMode.key
-        return Facts(
-            key: keyMode.key, keySuffix: holdsMode ? String(keyMode.spoken.dropFirst(keyMode.key.count)) : "",
-            line: facetLine(detail, skippingModes: holdsMode ? 1 : 0))
+        self.more = more
+        self.onAddLyrics = onAddLyrics
+        replacesDraft = draftLayout != nil
+        _factsLayout = State(initialValue: draftLayout)
     }
 
     var body: some View {
         ScrollView {
             TunePageColumn(
-                model: model, detail: detail, editing: $editing, deleting: $deleting,
-                addingScans: $addingScans, deletingScan: $deletingScan, onEdit: onEdit,
-                titleRise: risen || reduceMotion ? 0 : PageStyle.titleRise,
+                model: model, detail: detail, layout: factsLayout ?? .card, pinnedTop: barInset + Self.railPinGap,
+                editing: $editing, deleting: $deleting, addingScans: $addingScans, deletingScan: $deletingScan,
+                more: more, onAddLyrics: onAddLyrics,
+                // The title a draft became is already in its place.
+                titleRise: risen || reduceMotion || replacesDraft ? 0 : PageStyle.titleRise,
                 onTitleShows: { titleShows = $0 }
             )
-            .frame(maxWidth: PageStyle.pageMaxWidth, alignment: .leading)
-            #if os(macOS)
-                // The title's own room sets it on the columns' title baseline.
-                .padding([.horizontal, .bottom], PageStyle.pageMargin)
-            #else
-                .padding(PageStyle.pageMargin)
-            #endif
-            .frame(maxWidth: .infinity)
+            .opacity(factsLayout == nil ? 0 : 1)
         }
+        .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentInsets.top }) { _, top in barInset = top }
+        .readsFactsLayout(
+            into: Binding {
+                factsLayout ?? .card
+            } set: {
+                factsLayout = $0
+            }
+        )
         .paperGround()
         .onAppear {
             // TuneScreen cross-fades the pages; the new title lifts into place as it does.
@@ -94,79 +76,192 @@ struct TunePage: View {
                 model: model, editing: $editing, deleting: $deleting, addingScans: $addingScans,
                 deletingScan: $deletingScan))
     }
+
+    /// Air between the bar and the pinned rail's first row.
+    private static let railPinGap: CGFloat = 8
 }
 
-/// The page's column, laid out at its full height so a snapshot can draw it without the
+/// The page's band and column, laid out at full height so a snapshot can draw it without the
 /// scroll view.
 struct TunePageColumn: View {
     let model: TuneModel
     let detail: TuneDetail
+    var layout: FactsLayout = .card
+    /// How far below the scroll view's top edge the facts rail pins.
+    var pinnedTop: CGFloat = 0
     @Binding var editing: RecordingView?
     @Binding var deleting: RecordingView?
     @Binding var addingScans: ScanAddChoice?
     @Binding var deletingScan: Scan?
-    /// Opens the tune form, where notes are written.
-    var onEdit: () -> Void = {}
-    /// How far below its place the header sits, for the page's arrival.
+    /// More's items the screen carries out; nil leaves More off the title's row.
+    var more: TuneMoreHandlers?
+    /// Opens the whole tune form on its lyrics field, where lyrics are written and edited.
+    var onAddLyrics: () -> Void = {}
+    /// How far below its place the band sits, for the page's arrival.
     var titleRise: CGFloat = 0
     /// Hears whether the title is on screen as the page scrolls.
     var onTitleShows: (Bool) -> Void = { _ in }
 
     @Environment(\.tuneScreenActions) private var actions
     @Environment(\.lyricsZoom) private var lyricsZoom
-    @Environment(\.tunePageLeaving) private var leaving
+    @Environment(\.premium) private var premium
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var editingScans = false
+    @State private var lyricsOpen = false
 
-    /// The sections of a tune's page, in the order the page shows them.
-    enum Section: CaseIterable {
-        case recordings, scans, lyrics, notes, lists
+    /// The parts of a tune's content column, in the order the page shows them.
+    enum Section: Hashable {
+        case recordings, lyrics, scans, notes, addLine, lists
     }
 
-    /// The sections the page shows: recordings, scans, and notes always, each with its empty
-    /// state while it holds nothing, and lyrics and lists only once the tune has them.
-    nonisolated static func sections(_ detail: TuneDetail) -> [Section] {
-        Section.allCases.filter { section in
-            switch section {
-            case .recordings, .scans, .notes: true
-            case .lyrics: detail.hasLyrics
-            case .lists: !detail.lists.isEmpty
-            }
-        }
+    /// What the add line offers: the sections the tune lacks.
+    enum AddLineItem: Hashable {
+        case lyrics, scan
+    }
+
+    /// Recordings and Notes always; Lyrics once the tune has lyrics; Scans and images once it
+    /// has a scan; the add line while it offers something; and Lists where the facts show as a
+    /// card, which leaves the lists out.
+    nonisolated static func sections(
+        _ detail: TuneDetail, scans: Int, addLine: [AddLineItem], listsAtEnd: Bool = false
+    ) -> [Section] {
+        var sections: [Section] = [.recordings]
+        if detail.hasLyrics { sections.append(.lyrics) }
+        if scans > 0 { sections.append(.scans) }
+        sections.append(.notes)
+        if !addLine.isEmpty { sections.append(.addLine) }
+        if listsAtEnd { sections.append(.lists) }
+        return sections
+    }
+
+    /// Lyrics while the tune has none; a scan once the scans have read and none is being added,
+    /// so it never offers one the tune may already hold, and only where adding can act.
+    nonisolated static func addLine(
+        _ detail: TuneDetail, scans: Int, scansLoaded: Bool, addingScans: Bool, scanAddable: Bool
+    ) -> [AddLineItem] {
+        (detail.hasLyrics ? [] : [.lyrics])
+            + (scansLoaded && scans == 0 && !addingScans && scanAddable ? [.scan] : [])
+    }
+
+    /// The verses the Lyrics section shows under its heading: none while closed, else the whole
+    /// lyrics as the reader parses them, one verse per run of lines between blank ones.
+    nonisolated static func lyricsShown(_ detail: TuneDetail, open: Bool) -> [[String]]? {
+        guard open else { return nil }
+        return LyricLines.lines(detail.tune.lyrics)
+    }
+
+    /// Whether Recordings opens on the start card, which is then the one way to add.
+    nonisolated static func startsWithCard(_ detail: TuneDetail) -> Bool {
+        detail.recordings.isEmpty && detail.links.isEmpty
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: PageStyle.sectionGap) {
-            TunePageHeader(model: model, detail: detail, onTitleShows: onTitleShows)
-                .offset(y: titleRise)
-            ForEach(Self.sections(detail), id: \.self) { section in
-                switch section {
-                case .recordings: media
-                case .scans: scans
-                case .lyrics: lyrics(detail.lyricsOpening)
-                case .notes: notes
-                case .lists: lists
+        ScrollViewReader { proxy in
+            column { showLyrics(proxy) }
+        }
+    }
+
+    /// Opens Lyrics and brings its heading to the top of the page.
+    private func showLyrics(_ proxy: ScrollViewProxy) {
+        withAnimation(reduceMotion ? nil : .default) {
+            lyricsOpen = true
+            proxy.scrollTo(Section.lyrics, anchor: .top)
+        }
+    }
+
+    private func column(onShowLyrics: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            TuneBand(
+                model: model, detail: detail, more: more, onShowLyrics: onShowLyrics, onTitleShows: onTitleShows
+            )
+            .offset(y: titleRise)
+            .tuneBandPlacement(layout)
+            switch layout {
+            case .rail:
+                HStack(alignment: .top, spacing: 0) {
+                    content
+                        .padding([.horizontal, .bottom], PageStyle.pageMargin)
+                        .frame(maxWidth: Self.columnMaxWidth, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    facts
                 }
+                // The rail fills the row's height, so its hairline and its pin reach the content's end.
+                .fixedSize(horizontal: false, vertical: true)
+            case .card:
+                VStack(alignment: .leading, spacing: PageStyle.sectionGap) {
+                    facts
+                    content
+                }
+                .padding([.horizontal, .bottom], PageStyle.pageMargin)
+                .frame(maxWidth: Self.columnMaxWidth, alignment: .leading)
+                .frame(maxWidth: .infinity)
             }
         }
         .font(PageStyle.body)
+    }
+
+    /// The column's width with its margins.
+    fileprivate static var columnMaxWidth: CGFloat { PageStyle.pageMaxWidth + 2 * PageStyle.pageMargin }
+
+    private var facts: some View {
+        TuneFacts(model: model, detail: detail, layout: layout, pinnedTop: pinnedTop, onAddToList: addToList)
+    }
+
+    private var addToList: (() -> Void)? {
+        actions.addToList.map { add in { add(detail.userTune.id) } }
+    }
+
+    /// What the add line offers now.
+    private var addLineItems: [AddLineItem] {
+        let scans = model.scans
+        let layout = scans.layout
+        return Self.addLine(
+            detail, scans: layout.scanCount, scansLoaded: scans.isLoaded, addingScans: scans.isAdding,
+            // A free plan's add offers Premium, which needs the presenter to open.
+            scanAddable: !layout.gatesAdd || premium != nil)
+    }
+
+    private var content: some View {
+        let scans = model.scans
+        let addLine = addLineItems
+        let sections = Self.sections(
+            detail, scans: scans.layout.scanCount, addLine: addLine, listsAtEnd: layout == .card)
+        return VStack(alignment: .leading, spacing: PageStyle.sectionGap) {
+            ForEach(sections, id: \.self) { section in
+                switch section {
+                case .recordings: media
+                case .lyrics: lyrics.id(Section.lyrics)
+                case .scans: scansSection
+                case .notes: notes
+                case .addLine: addLineView(addLine)
+                case .lists: lists
+                }
+            }
+            // A first add that failed leaves no Scans and images section to say so.
+            if !sections.contains(.scans), let failure = scans.failure {
+                FailureText(failure)
+            }
+        }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var media: some View {
-        PageSection(TuneScreen.recordingsHeader, maxWidth: PageStyle.sectionMaxWidth) {
-            TuneMediaAddMenu(model: model, detail: detail)
+        let startsWithCard = Self.startsWithCard(detail)
+        return PageSection(TuneScreen.recordingsHeader, maxWidth: PageStyle.sectionMaxWidth) {
+            if !startsWithCard {
+                TuneMediaAddMenu(model: model, detail: detail)
+            }
         } content: {
             VStack(alignment: .leading, spacing: Self.mediaRowGap) {
-                if detail.recordings.isEmpty && detail.links.isEmpty {
-                    PageEmptyState(
-                        title: TuneScreen.noMediaTitle, hint: TuneScreen.noMediaHint,
-                        systemImage: Destination.recordings.systemImage)
+                if startsWithCard {
+                    FirstRecordingCard(model: model, detail: detail)
+                } else {
+                    TuneMediaRows(model: model, detail: detail, editing: $editing, deleting: $deleting)
+                        #if os(macOS)
+                            .environment(\.hangsMediaGlyph, true)
+                            .environment(\.mediaNoticeInHeading, true)
+                        #endif
                 }
-                TuneMediaRows(model: model, detail: detail, editing: $editing, deleting: $deleting)
-                    #if os(macOS)
-                        .environment(\.hangsMediaGlyph, true)
-                        .environment(\.mediaNoticeInHeading, true)
-                    #endif
                 if let failure = model.failure(at: .media) {
                     FailureText(failure)
                 }
@@ -175,27 +270,62 @@ struct TunePageColumn: View {
     }
 
     #if os(macOS)
-        private static let mediaRowGap: CGFloat = 8
+        static let mediaRowGap: CGFloat = 8
     #else
-        private static let mediaRowGap: CGFloat = 10
+        static let mediaRowGap: CGFloat = 10
     #endif
 
-    private var scans: some View {
+    /// The lyrics under a heading that opens them in place, with Edit and the reader trailing.
+    private var lyrics: some View {
+        PageSection(TuneFieldLabels.lyrics, maxWidth: PageStyle.sectionMaxWidth, expanded: $lyricsOpen) {
+            lyricsControls
+        } content: {
+            if let verses = Self.lyricsShown(detail, open: lyricsOpen) {
+                PageVerses(verses: verses)
+            }
+        }
+    }
+
+    private var lyricsControls: some View {
+        HStack(spacing: 4) {
+            #if os(macOS)
+                // A glyph like the other headings' pencils, so a page has one edit idiom.
+                Button(LyricsReader.editLyrics, systemImage: "pencil", action: onAddLyrics)
+                    .labelStyle(.iconOnly)
+                    .help(LyricsReader.editLyrics)
+            #else
+                Button(ScanCopy.edit, action: onAddLyrics)
+                    .font(.platform(.body))
+                    .accessibilityLabel(LyricsReader.editLyrics)
+            #endif
+            if let readLyrics = actions.readLyrics {
+                Button(TuneScreen.openLyrics, systemImage: "arrow.up.left.and.arrow.down.right") {
+                    readLyrics(detail.tune.id)
+                }
+                .labelStyle(.iconOnly)
+                .zoomSource(id: detail.tune.id, in: lyricsZoom)
+                #if os(macOS)
+                    .help(TuneScreen.openLyrics)
+                #endif
+            }
+        }
+    }
+
+    private var scansSection: some View {
         let scans = model.scans
         let layout = scans.layout
-        return PageSection(ScanCopy.scans, maxWidth: PageStyle.sectionMaxWidth) {
-            ScanHeaderControls(model: scans, editing: $editingScans, adding: $addingScans)
+        return PageSection(TuneScreen.scansHeader, maxWidth: PageStyle.sectionMaxWidth) {
+            if !layout.showsEmptyState {
+                ScanHeaderControls(model: scans, editing: $editingScans, adding: $addingScans)
+            }
         } content: {
             VStack(alignment: .leading, spacing: 6) {
-                if layout.showsEmptyState {
-                    if scans.isLoaded {
-                        PageEmptyState(
-                            title: ScanCopy.emptyTitle, hint: ScanCopy.emptyHint, systemImage: "doc.richtext")
+                if !layout.showsEmptyState {
+                    if editingScans {
+                        ScanEditRows(model: scans, deleting: $deletingScan)
+                    } else {
+                        ScanStrip(model: scans, tuneID: detail.tune.id)
                     }
-                } else if editingScans {
-                    ScanEditRows(model: scans, deleting: $deletingScan)
-                } else {
-                    ScanStrip(model: scans, tuneID: detail.tune.id)
                 }
                 if let failure = scans.failure {
                     FailureText(failure)
@@ -208,205 +338,123 @@ struct TunePageColumn: View {
         }
     }
 
-    /// A row that opens the reader, led by the lyrics' first line so the page says which
-    /// words it holds, or by the plain label when there is no line to quote.
-    private func lyrics(_ firstLine: String?) -> some View {
-        PageSection(TuneFieldLabels.lyrics, maxWidth: PageStyle.sectionMaxWidth) {
-            Button {
-                actions.readLyrics?(detail.tune.id)
-            } label: {
-                HangingGlyphLine(alignment: .center) {
-                    Image(systemName: "text.quote")
-                        .foregroundStyle(.inkSecondary)
-                } content: {
-                    Text(firstLine ?? TuneScreen.openLyrics)
-                        .contentMask()
-                        .lineLimit(1)
-                        .foregroundStyle(.primary)
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.right")
-                        .font(PageStyle.secondary.weight(.semibold))
-                        .foregroundStyle(.inkTertiary)
-                        #if os(macOS)
-                            // Centered on the section headings' icon controls above it.
-                            .frame(width: MacButtonStyle.Size.small.iconDiameter)
-                        #endif
-                }
-                #if !os(macOS)
-                    .frame(minHeight: PageStyle.minTarget)
-                    .contentShape(.rect)
-                #endif
-            }
-            .buttonStyle(.plain)
-            .zoomSource(id: detail.tune.id, in: lyricsZoom)
-            .disabled(actions.readLyrics == nil)
-            .help(TuneScreen.openLyrics)
-            .accessibilityLabel(TuneScreen.openLyrics)
-        }
-    }
-
-    private var lists: some View {
-        PageSection(TuneScreen.listsHeader, maxWidth: PageStyle.sectionMaxWidth) {
-            Button(TuneScreen.addToList, systemImage: "plus") {
-                actions.addToList?(detail.userTune.id)
-            }
-            .labelStyle(.iconOnly)
-            .disabled(actions.addToList == nil)
-            .help(TuneScreen.addToList)
-        } content: {
-            VStack(alignment: .leading, spacing: 6) {
-                FlowLayout(spacing: 6, lineSpacing: PageStyle.tokenLineGap(6)) {
-                    ForEach(detail.lists) { membership in
-                        ListToken(model: model, membership: membership)
-                    }
-                }
-                if let failure = model.failure(at: .lists) {
-                    FailureText(failure)
-                }
-            }
-        }
-    }
-
-    private var hasNotes: Bool { detail.notes != nil }
-
     private var notes: some View {
-        let label = hasNotes ? TuneScreen.editNotes : TuneScreen.addNotes
-        return PageSection(TuneScreen.notesHeader, maxWidth: PageStyle.sectionMaxWidth) {
-            Button(label, systemImage: hasNotes ? "pencil" : "plus", action: onEdit)
-                .labelStyle(.iconOnly)
-                .disabled(leaving)
-                .help(label)
-        } content: {
-            VStack(alignment: .leading, spacing: 6) {
-                if !hasNotes && detail.learned() == nil {
-                    PageEmptyState(
-                        title: TuneScreen.noNotesTitle, hint: TuneScreen.noNotesHint,
-                        systemImage: "note.text")
+        PageSection(TuneScreen.notesHeader, maxWidth: PageStyle.sectionMaxWidth) {
+            NotesField(model: model, stored: detail.userTune.notes)
+        }
+    }
+
+    /// The lists the tune is in and the day it was added, ending the page where the facts show
+    /// as a card.
+    private var lists: some View {
+        VStack(alignment: .leading, spacing: PageStyle.sectionGap) {
+            if !detail.lists.isEmpty || addToList != nil {
+                PageSection(FactCopy.listsGroup, maxWidth: PageStyle.sectionMaxWidth) {
+                    TuneListTokens(model: model, detail: detail, onAddToList: addToList)
                 }
-                if let learned = detail.learned() {
-                    Text(learned)
-                        .contentMask()
-                        .font(PageStyle.secondary)
-                        .monospacedDigit()
-                        .foregroundStyle(.inkSecondary)
-                }
-                if let notes = detail.notes {
-                    Text(notes)
-                        .contentMask()
-                        .lineSpacing(3)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
+            }
+            AddedOn(detail: detail, endsPage: true)
+                .frame(maxWidth: PageStyle.sectionMaxWidth, alignment: .leading)
+        }
+    }
+
+    /// Small actions for the sections the tune lacks, at the column's end.
+    private func addLineView(_ items: [AddLineItem]) -> some View {
+        let layout = model.scans.layout
+        return FlowLayout(spacing: 4, lineSpacing: PageStyle.tokenLineGap(4)) {
+            ForEach(items, id: \.self) { item in
+                switch item {
+                case .scan:
+                    ScanAddMenu(
+                        isEnabled: true, choice: $addingScans,
+                        onGate: layout.gatesAdd ? offerPremiumForScans : nil
+                    ) {
+                        Label(TuneScreen.addScanText, systemImage: "plus")
+                    }
+                    .accessibilityLabel(TuneScreen.addScan)
+                case .lyrics:
+                    Button(action: onAddLyrics) {
+                        Label(TuneScreen.addLyricsText, systemImage: "plus")
+                    }
+                    .accessibilityLabel(TuneScreen.addLyrics)
                 }
             }
         }
+        .menuIndicator(.hidden)
+        .menuStyle(.button)
+        .modifier(AddLineStyle())
+        // The first action's plus starts at the column's text edge, past its button's inset.
+        .padding(.leading, -AddLineStyle.inset)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(TuneScreen.addToTune)
+    }
+
+    private func offerPremiumForScans() {
+        ScansSection.offerPremiumForAdd(premium)
     }
 }
 
-/// The title, the tune's other names and composer, the key with the facet line, and the
-/// status with every tuning, archived last.
-private struct TunePageHeader: View {
-    let model: TuneModel
-    let detail: TuneDetail
-    let onTitleShows: (Bool) -> Void
+extension View {
+    /// Places the band at the top of the page: within the page's margins, across the detail
+    /// column beside a rail, and in the content column's width over a card. The new-tune draft
+    /// places its band the same way.
+    func tuneBandPlacement(_ layout: FactsLayout) -> some View {
+        padding(.horizontal, PageStyle.pageMargin)
+            #if !os(macOS)
+                .padding(.top, PageStyle.pageMargin)
+            #endif
+            .padding(.bottom, PageStyle.sectionGap)
+            .frame(maxWidth: layout == .rail ? .infinity : TunePageColumn.columnMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: layout == .rail ? .leading : .center)
+    }
+}
+
+/// Lyrics in body text on the page: each line its own paragraph, a wrap hung under it so it
+/// reads apart from a new line, and verses a line's height apart. Each line's words select, so
+/// they can be copied.
+private struct PageVerses: View {
+    let verses: [[String]]
+
+    #if os(macOS)
+        private let pointSize = MacStyle.bodySize
+    #else
+        @ScaledMetric(relativeTo: .body) private var pointSize: CGFloat = 17
+    #endif
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(detail.tune.title)
-                .contentMask()
-                .font(PageStyle.pageTitle)
-                .tracking(PageStyle.pageTitleTracking)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
-                .onScrollVisibilityChange(threshold: 0.5, onTitleShows)
-                #if os(macOS)
-                    .columnTitleBaseline(.page, size: MacStyle.pageTitleSize)
-                #endif
-            if detail.alternateTitles != nil || detail.tune.composer != nil {
-                VStack(alignment: .leading, spacing: 2) {
-                    if let alternateTitles = detail.alternateTitles {
-                        Text(alternateTitles)
-                            .contentMask()
-                    }
-                    if let composer = detail.tune.composer {
-                        Text("\(TuneScreen.composerLabel): \(composer)")
-                            .contentMask()
+        VStack(alignment: .leading, spacing: pointSize * 0.9) {
+            ForEach(Array(verses.enumerated()), id: \.offset) { _, verse in
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(verse.enumerated()), id: \.offset) { _, line in
+                        LyricLineText(text: line, pointSize: pointSize, lineSpacing: 0, selectable: true)
                     }
                 }
-                .foregroundStyle(.inkSecondary)
-                .textSelection(.enabled)
-            }
-            facets
-                .padding(.top, 4)
-            status
-            if let failure = model.failure(at: .screen) {
-                FailureText(failure)
             }
         }
+        .contentMask()
     }
+}
 
-    @ViewBuilder private var facets: some View {
-        let facts = TunePage.facts(detail, modeInPill: PageStyle.keyPillHoldsMode)
-        let line = facts.line
-        if facts.key != nil || !line.isEmpty {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                if let key = facts.key, let pill = facts.pill {
-                    KeyPill(key, suffix: facts.keySuffix, size: .compact)
-                        .accessibilityLabel("\(TuneRowText.keyPrefix) \(pill)")
-                }
-                if !line.isEmpty {
-                    Text(Self.breakingAfterDots(line))
-                        .contentMask()
-                        .foregroundStyle(.inkSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-    }
+/// The add line's actions, in the platform's existing quiet styles.
+private struct AddLineStyle: ViewModifier {
+    /// How far each style draws its label in from the button's edge.
+    #if os(macOS)
+        static let inset: CGFloat = 0
+    #else
+        static let inset: CGFloat = 6
+    #endif
 
-    /// A wrapped line breaks after a middle dot, never before one, so no line starts with a
-    /// dot.
-    private static func breakingAfterDots(_ line: String) -> String {
-        line.replacingOccurrences(of: " · ", with: "\u{00A0}· ")
-    }
-
-    private var status: some View {
-        let status = detail.userTune.status
-        let words = [StatusStyle.label(status)] + detail.tunings
-        return HangingGlyphLine(inlineSpacing: 6) {
-            // The word beside the glyph names the status, so the glyph is not read twice.
-            StatusGlyph(status)
-                .accessibilityHidden(true)
-        } content: {
-            Text(Self.breakingAfterDots(words.joined(separator: " · ")))
-                .foregroundStyle(.inkSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-            if detail.isArchived {
-                archivedChip
-            }
-        }
-    }
-
-    private var archivedChip: some View {
+    func body(content: Content) -> some View {
         #if os(macOS)
-            // Neutral: archived is a state the musician chose, not a warning.
-            Text(TuneRowText.archived)
-                .macChip(state: .rest, hueInk: Palette.inkSecondary, size: .row)
-                .padding(.leading, 2)
+            content.buttonStyle(MacButtonStyle(.quiet, size: .small))
         #else
-            Text(TuneRowText.archived)
-                .font(PageStyle.secondary.weight(.medium))
-                .foregroundStyle(Color.orange)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 2)
-                .background(Color.orange.opacity(0.18), in: .capsule)
-                .padding(.leading, 2)
+            content.buttonStyle(PageControlStyle())
         #endif
     }
 }
 
 /// A list the tune is in, as a token that opens it, with Remove in its context menu.
-private struct ListToken: View {
+struct ListToken: View {
     let model: TuneModel
     let membership: TuneMembership
 

@@ -96,9 +96,9 @@ private struct CatalogContent: View {
     @Environment(ScanTunes.self) private var scanTunes: ScanTunes?
     @Environment(\.premium) private var premium
     @Environment(\.tuneScreenActions) private var tuneScreenActions
+    @Environment(AddedTuneOffer.self) private var addedTune: AddedTuneOffer?
     @AppStorage(CatalogSortChoice.storageKey) private var sort = CatalogSortChoice.default
     @State private var pushed: String?
-    @State private var form: TuneFormTarget?
     @State private var showsFilters = false
     @State private var showsImport = false
     @State private var isShown = false
@@ -153,7 +153,7 @@ private struct CatalogContent: View {
                 .columnTitled(macTitle)
                 .overlay {
                     if CatalogScreen.isEmptyCatalog(results, query: model.query) {
-                        MacEmptyCatalog(onAdd: { form = model.newTune() }, onImport: { showsImport = true })
+                        MacEmptyCatalog(onAdd: newTune, onImport: { showsImport = true })
                     }
                 }
             #else
@@ -205,11 +205,6 @@ private struct CatalogContent: View {
             .sheet(isPresented: $showsImport) {
                 ImportSheet(entry: .emptyCatalog)
             }
-            .sheet(item: $form) { target in
-                TuneFormSheet(target: target) { tuneID in
-                    if case .new = target { open(tuneID) }
-                }
-            }
             .onAppear { isShown = true }
             .onDisappear { isShown = false }
             // Opening a tune, by a row, Return, or the list's selection, ends the search behind it.
@@ -222,8 +217,6 @@ private struct CatalogContent: View {
             .task(id: sort.sort == .played) {
                 if sort.sort == .played { await engine?.pullEvents() }
             }
-            // The menu's New tune opens the tune it makes, as Add tune does.
-            .newTuneContext(onSaved: open)
             // A tab the musician is not looking at stays alive, so it must not answer the menu.
             .focusedSceneValue(
                 \.catalogSort,
@@ -313,7 +306,7 @@ private struct CatalogContent: View {
     #endif
 
     private var addButton: some View {
-        Button(CatalogScreen.addTune, systemImage: "plus") { form = model.newTune() }
+        Button(CatalogScreen.addTune, systemImage: "plus", action: newTune)
     }
 
     private var selectButton: some View {
@@ -443,7 +436,7 @@ private struct CatalogContent: View {
         .tuneRowInsets()
         .catalogRowActions(
             entry, instruments: instruments, isSelecting: selection.isActive,
-            onEdit: { form = .edit(tuneID: entry.tune.id, userTuneID: entry.userTune.id) },
+            onEdit: { open(entry.tune.id) },
             onArchive: { Task { await model.setArchived(entry, archived: !entry.isArchived) } },
             onScans: TuneRowActions.scansAction(
                 tuneID: entry.tune.id, tunesWithScans: scanTunes, premium: premium, origin: .row,
@@ -483,7 +476,7 @@ private struct CatalogContent: View {
                     .contentMask()
                     .buttonStyle(.accentProminent)
             } else if noTunes {
-                Button(CatalogScreen.addTune) { form = model.newTune() }
+                Button(CatalogScreen.addTune, action: newTune)
                     .buttonStyle(.accentProminent)
                 Button(ImportCopy.title) { showsImport = true }
             }
@@ -498,8 +491,19 @@ private struct CatalogContent: View {
         }
     }
 
+    /// Opens the new-tune draft where this screen opens tunes.
+    private func newTune() {
+        model.newTune()
+        open(NewTuneDraft.id(source: .catalog))
+    }
+
+    /// Creates the tune by the typed title and opens its page, with Undo in the Added banner.
     private func createFromSearch(_ title: String) {
-        form = model.newTune(title: title)
+        guard let addedTune else { return }
+        model.searchOfferTaken()
+        Task {
+            if let tuneID = await addedTune.addAfterAnyRunning(title: title, source: .searchOffer) { open(tuneID) }
+        }
     }
 
     private func submitSearch() {
@@ -546,6 +550,7 @@ struct PushesTune: ViewModifier {
                 TuneScreen(tuneID: tuneID)
                     // A list opened from the tune pushes its own tunes, which the shell does not keep.
                     .environment(\.stackTune, nil)
+                    .environment(\.pushedTune, keptTuneID)
                     #if os(iOS)
                         .modifier(ZoomsFromSource(sourceID: tuneID, zoom: zoom))
                     #endif

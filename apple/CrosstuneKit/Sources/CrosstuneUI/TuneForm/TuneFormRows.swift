@@ -145,6 +145,18 @@ struct ModeRows: View {
 struct TuningRows: View {
     let instruments: [String]
     @Binding var values: TuneFormValues
+    /// The tuning field's focus, for a single instrument's rows whose caller moves it.
+    var focus: FocusState<Bool>.Binding?
+    /// Runs with a chosen tuning suggestion in place of setting it.
+    var onPickTuning: ((_ instrument: String, _ tuning: String) -> Void)?
+
+    #if !os(macOS)
+        @Environment(\.rowsOutsideForm) private var outsideForm
+    #endif
+
+    nonisolated static func takesCapo(_ instrument: String) -> Bool {
+        Vocabulary.capoInstruments.contains(instrument)
+    }
 
     var body: some View {
         ForEach(instruments, id: \.self) { instrument in
@@ -156,9 +168,10 @@ struct TuningRows: View {
                     values.tunings[instrument, default: TuningValues()].tuning = tuning
                 },
                 suggestions: Vocabulary.tuningSuggestions[instrument] ?? [],
-                maxLength: Vocabulary.Limits.Tune.tuning)
+                maxLength: Vocabulary.Limits.Tune.tuning, focus: focus,
+                onPick: onPickTuning.map { pick in { pick(instrument, $0) } })
             // The Tuning header does not name the instrument, so the capo row keeps its full name.
-            if Vocabulary.capoInstruments.contains(instrument) {
+            if Self.takesCapo(instrument) {
                 let capo = Binding {
                     values.tuning(instrument).capo
                 } set: { capo in
@@ -170,16 +183,28 @@ struct TuningRows: View {
                         options: [nil] + Vocabulary.capoFrets.map(Optional.some),
                         label: { $0.map { "\($0)" } ?? TuneFieldLabels.noCapo })
                 #else
-                    Picker(TuneFieldLabels.capo(instrument), selection: capo) {
-                        Text(TuneFieldLabels.noCapo).tag(Int64?.none)
-                        ForEach(Vocabulary.capoFrets, id: \.self) { fret in
-                            Text("\(fret)").tag(Int64?.some(fret))
+                    if outsideForm {
+                        LabeledContent(TuneFieldLabels.capo(instrument)) {
+                            capoPicker(instrument, capo).labelsHidden()
                         }
+                    } else {
+                        capoPicker(instrument, capo)
                     }
                 #endif
             }
         }
     }
+
+    #if !os(macOS)
+        private func capoPicker(_ instrument: String, _ capo: Binding<Int64?>) -> some View {
+            Picker(TuneFieldLabels.capo(instrument), selection: capo) {
+                Text(TuneFieldLabels.noCapo).tag(Int64?.none)
+                ForEach(Vocabulary.capoFrets, id: \.self) { fret in
+                    Text("\(fret)").tag(Int64?.some(fret))
+                }
+            }
+        }
+    #endif
 }
 
 /// The day the musician learned the tune, or Not set. Setting it starts at today.

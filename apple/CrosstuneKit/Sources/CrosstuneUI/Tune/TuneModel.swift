@@ -1,10 +1,15 @@
 import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
+import CrosstuneSync
 import Foundation
 import GRDB
 import Observation
 import os
+
+/// One fact's change to a tune, applied to the form's values as the store holds them when the
+/// write runs.
+public typealias FactPatch = @Sendable (inout TuneFormValues) -> Void
 
 /// The tune screen's state: the live tune with its media and lists, and the writes the screen
 /// makes against it.
@@ -35,6 +40,14 @@ public final class TuneModel {
         case media
         /// Under the lists.
         case lists
+        /// Beside the tune's facts: a single-fact edit.
+        case facts
+        /// Under the notes field.
+        case notes
+
+        /// Whether writes here keep their failure apart from every other place's: notes write at
+        /// typing speed, and a fact write must not clear another section's failure.
+        var isField: Bool { self == .facts || self == .notes }
     }
 
     /// A failed write's message and where it shows.
@@ -46,13 +59,23 @@ public final class TuneModel {
     public let tuneID: String
     /// The tune's scans and the writes the Scans section makes.
     public let scans: ScansModel
-    /// The last write failure, cleared by the next write.
+    /// The last write failure above the rows, under the media, or under the lists, cleared by the
+    /// next write to any of those.
     public private(set) var failure: Failure?
+    /// The last fact write's and notes write's failures, each cleared only by the next write to
+    /// its own place.
+    private var fieldFailures: [Place: String] = [:]
 
     private let store: CrosstuneStore
     private let analytics: AnalyticsClient
     private let detail: LiveQuery<TuneDetail??>
     private var deletingTitle: String?
+    /// The last fact write or notes step queued. Each waits for the one before, so writes land in
+    /// the order they were made and a notes session ends after its last keystroke has landed.
+    private var factSteps: Task<Void, Never>?
+    private var notesSessionOpen = false
+    /// The stored notes when the open session began, or nil when they could not be read.
+    private var notesAtSessionStart: String??
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "tune")
 
     public init(store: CrosstuneStore, tuneID: String, analytics: AnalyticsClient = .noop, plan: PlanModel? = nil) {
@@ -213,24 +236,155 @@ public final class TuneModel {
         }
     }
 
+    /// Writes one fact to this tune under the tune form's rules: a type fills an unset time
+    /// signature, a title never empties, and only a whole learned-on date saves. Reports the
+    /// fields it changed once it lands, leaving notes typed in an open session to that session.
+    public func write(_ change: @escaping FactPatch) {
+        write(change, at: .facts)
+    }
+
+    /// Writes the notes as typed, reporting a refusal under the notes field.
+    public func writeNotes(_ notes: String) {
+        write({ $0.notes = notes }, at: .notes)
+    }
+
+    private func write(_ change: @escaping FactPatch, at place: Place) {
+        let tuneID = tuneID
+        let inNotesSession = notesSessionOpen
+        enqueueFactStep { [self] in
+            var landed: FactWrite?
+            await run(place) { _ in
+                landed = try await store.write { writer in try Self.applyFact(writer, tuneID: tuneID, change: change) }
+            }
+            guard let landed else { return }
+            var after = landed.after
+            if inNotesSession { after.notes = landed.before.notes }
+            reportEdit(
+                analytics: analytics, before: landed.before, after: after, storedTunings: landed.storedTunings,
+                tuneID: tuneID)
+        }
+    }
+
+    /// Opens or closes a notes editing session. Closing it reports the notes once, when they differ
+    /// from where the session began.
+    public func noteEditing(began: Bool) {
+        guard began != notesSessionOpen else { return }
+        notesSessionOpen = began
+        let tuneID = tuneID
+        enqueueFactStep { [self] in
+            let notes = await storedNotes(tuneID)
+            if began {
+                notesAtSessionStart = notes
+            } else if let notes, let start = notesAtSessionStart, notes != start {
+                analytics.send(.tuneEdited(fieldsChanged: [.notes], tuneID: tuneID))
+            }
+        }
+    }
+
+    private func enqueueFactStep(_ step: @escaping @MainActor () async -> Void) {
+        let previous = factSteps
+        factSteps = Task {
+            await previous?.value
+            await step()
+        }
+    }
+
+    /// The tune's stored notes, or nil when they could not be read.
+    private func storedNotes(_ tuneID: String) async -> String?? {
+        do {
+            return try await store.read { db in try UserTune.live(tuneID: tuneID, in: db)?.notes }
+        } catch {
+            Self.logger.warning("A tune's notes could not be read: \(error)")
+            return nil
+        }
+    }
+
+    /// A landed fact write: the form's values before and after it, and the tunings it wrote over.
+    private struct FactWrite: Sendable {
+        let before: TuneFormValues
+        let after: TuneFormValues
+        let storedTunings: JSONObject
+    }
+
+    /// A fact write the form's rules refuse, in the form's own words.
+    private struct FactRefusal: LocalizedError {
+        let message: String
+        var errorDescription: String? { message }
+    }
+
+    /// Reads the tune and applies `change` in the write's own transaction, so a keystroke or a
+    /// sync pull that landed since the screen last read is never written over.
+    nonisolated private static func applyFact(_ writer: StoreWriter, tuneID: String, change: FactPatch) throws
+        -> FactWrite
+    {
+        guard let tune = try Tune.fetchOne(writer.db, key: tuneID), tune.deletedAt == nil,
+            let userTune = try UserTune.live(tuneID: tuneID, in: writer.db)
+        else { throw CommandError.tuneNotFound }
+        let before = TuneFormValues(tune: tune, userTune: userTune)
+        var after = before
+        change(&after)
+        if after.tuneType != before.tuneType {
+            after.setType(after.tuneType)
+        }
+        guard !after.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw FactRefusal(message: TuneFormModel.titleRequired)
+        }
+        // Only a change that sets the date answers for it; a stored one is the form's to fix.
+        if after.learnedOn != before.learnedOn, !after.learnedOn.isEmpty, CalendarDay.date(after.learnedOn) == nil {
+            throw FactRefusal(message: LearnedOnEditor.incomplete)
+        }
+        let patches = after.patches(from: before, storedTunings: tune.tunings)
+        try writer.updateTuneEntry(
+            tuneID: tuneID, userTuneID: userTune.id, tune: patches.tune, userTune: patches.userTune)
+        return FactWrite(before: before, after: after, storedTunings: tune.tunings)
+    }
+
     /// Runs a write, keeping its failure's message for the screen to show at `place`. True
     /// when it landed.
     @discardableResult
     private func run(_ place: Place, _ write: (Commands) async throws -> Void) async -> Bool {
-        failure = nil
+        if place.isField { fieldFailures[place] = nil } else { failure = nil }
         do {
             try await write(Commands(store: store))
             return true
         } catch {
             Self.logger.warning("A tune screen write failed: \(error)")
-            failure = Failure(
-                message: failureMessage(error), place: place)
+            let message = failureMessage(error)
+            if place.isField {
+                fieldFailures[place] = message
+            } else {
+                failure = Failure(message: message, place: place)
+            }
             return false
         }
     }
 
     /// The failure to show at `place`, if the last write failed there.
     public func failure(at place: Place) -> String? {
-        failure?.place == place ? failure?.message : nil
+        if place.isField { return fieldFailures[place] }
+        return failure?.place == place ? failure?.message : nil
+    }
+}
+
+extension TuneModel {
+    /// Starts Find recordings for the tune, as the Recordings add menu and the start card both
+    /// do: the sheet, or a service's own search page.
+    func findRecordings(
+        _ entry: FindRecordingsEntry, for detail: TuneDetail, offline: Bool, engine: SyncEngine?,
+        openSheet: (@MainActor (_ tuneID: String, _ service: String?) -> Void)?,
+        open: @escaping @MainActor (URL) -> Void
+    ) {
+        var search: FindRecordingsModel.Search?
+        if let engine {
+            search = { q, providers, country in
+                await engine.searchRecordings(q: q, providers: providers, country: country)
+            }
+        }
+        let tuneID = detail.tune.id
+        let query = FindRecordingsSnapshot.prefill(detail.tune)
+        Task {
+            await chooseFindRecordings(
+                entry, tuneID: tuneID, query: query, offline: offline, search: search, openSheet: openSheet, open: open)
+        }
     }
 }

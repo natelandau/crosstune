@@ -1,20 +1,36 @@
 import SwiftUI
 
 /// An action the musician can take back, offered in a short banner. System undo (Cmd-Z, the
-/// Edit menu, shake) carries the same undo; the banner makes it visible.
+/// Edit menu, shake) carries the same undo; the banner makes it visible. An offer with no undo
+/// is a notice, such as why an undo did not run.
 public struct UndoOffer: Identifiable {
-    public let id = UUID()
+    public let id: UUID
     public let message: String
-    public let undo: () -> Void
+    public let undo: (() -> Void)?
 
     /// `message` says what happened: "Archived 3 tunes".
     public init(message: String, undo: @escaping () -> Void) {
+        self.init(id: UUID(), message: message, undo: undo)
+    }
+
+    /// A notice with no Undo.
+    public init(message: String) {
+        self.init(id: UUID(), message: message, undo: nil)
+    }
+
+    private init(id: UUID, message: String, undo: (() -> Void)?) {
+        self.id = id
         self.message = message
         self.undo = undo
     }
+
+    /// The same banner with its Undo taken away, kept on screen as it was rather than shown anew.
+    public func withoutUndo() -> UndoOffer {
+        UndoOffer(id: id, message: message, undo: nil)
+    }
 }
 
-/// A floating banner with a message and an Undo button.
+/// A floating banner with a message and an Undo button, or the message alone.
 public struct UndoBanner: View {
     nonisolated public static let undo = "Undo"
     /// How long a banner stays before it leaves on its own.
@@ -28,9 +44,10 @@ public struct UndoBanner: View {
     }
 
     private let message: String
-    private let onUndo: () -> Void
+    private let onUndo: (() -> Void)?
 
-    public init(message: String, onUndo: @escaping () -> Void) {
+    /// - Parameter onUndo: Nil leaves Undo out.
+    public init(message: String, onUndo: (() -> Void)?) {
         self.message = message
         self.onUndo = onUndo
     }
@@ -57,14 +74,16 @@ public struct UndoBanner: View {
                     .foregroundStyle(Palette.ground)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Button(action: onUndo) {
-                    Text(Self.undo)
-                        .font(MacStyle.body.weight(.semibold))
-                        .foregroundStyle(MacStyle.undoAction)
-                        .frame(maxHeight: .infinity)
-                        .contentShape(.rect)
+                if let onUndo {
+                    Button(action: onUndo) {
+                        Text(Self.undo)
+                            .font(MacStyle.body.weight(.semibold))
+                            .foregroundStyle(MacStyle.undoAction)
+                            .frame(maxHeight: .infinity)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
             .padding(.horizontal, 16)
             .frame(height: MacStyle.undoBannerHeight)
@@ -81,15 +100,19 @@ public struct UndoBanner: View {
                     .font(.platform(.subheadline, mac: .body))
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                Button(action: onUndo) {
-                    Text(Self.undo)
-                        .font(.platform(.subheadline, mac: .body).weight(.semibold))
-                        .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
-                        .contentShape(.rect)
+                if let onUndo {
+                    Button(action: onUndo) {
+                        Text(Self.undo)
+                            .font(.platform(.subheadline, mac: .body).weight(.semibold))
+                            .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.tint)
             }
+            // A notice keeps the height a banner with Undo has.
+            .frame(minHeight: minimumTapTarget)
             .padding(.leading, 20)
             .padding(.trailing, 16)
             .padding(.vertical, spacing(4))
@@ -108,13 +131,15 @@ extension EnvironmentValues {
 extension View {
     /// Shows `offer` in a banner at the bottom of this view until the musician takes it, the
     /// banner times out, or a newer offer replaces it.
-    public func undoBanner(_ offer: Binding<UndoOffer?>) -> some View {
-        modifier(UndoBannerModifier(offer: offer))
+    /// - Parameter timesOut: False for an owner that ends the offer on its own deadline.
+    public func undoBanner(_ offer: Binding<UndoOffer?>, timesOut: Bool = true) -> some View {
+        modifier(UndoBannerModifier(offer: offer, timesOut: timesOut))
     }
 }
 
 private struct UndoBannerModifier: ViewModifier {
     @Binding var offer: UndoOffer?
+    let timesOut: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
@@ -124,10 +149,15 @@ private struct UndoBannerModifier: ViewModifier {
         content
             .overlay(alignment: .bottom) {
                 if let current = offer {
-                    UndoBanner(message: current.message) {
-                        offer = nil
-                        current.undo()
-                    }
+                    UndoBanner(
+                        message: current.message,
+                        onUndo: current.undo.map { undo in
+                            {
+                                offer = nil
+                                undo()
+                            }
+                        }
+                    )
                     .padding(.horizontal, 16)
                     #if os(macOS)
                         // Lifted clear of the column's last row and the window's corner.
@@ -147,7 +177,7 @@ private struct UndoBannerModifier: ViewModifier {
                 if let offer { AccessibilityNotification.Announcement(offer.message).post() }
             }
             .task(id: offer?.id) {
-                guard let shown = offer?.id else { return }
+                guard timesOut, let shown = offer?.id else { return }
                 try? await Task.sleep(for: UndoBanner.timeout(voiceOver: voiceOver))
                 if !Task.isCancelled, offer?.id == shown { offer = nil }
             }

@@ -87,7 +87,7 @@ differ. iPhone and iPad never take a rule from here.
   puts its controls there, because a Mac toolbar puts a content column's
   trailing items over the detail column.
 - Pane control: a glyph control is a glass capsule; glyph-only controls
-  share one width. A worded control (Edit, Close) is a secondary
+  share one width. A worded control (Close) is a secondary
   button. Pane bar menus show no chevron. The action that leads a set (a
   list's Play) is a primary button, the one after it (Shuffle) a
   secondary.
@@ -216,16 +216,15 @@ differ. iPhone and iPad never take a rule from here.
   a pencil edits; never a worded Edit).
 - A section, heading included, stops at `pageRowMaxWidth`, so its controls
   and a row's trailing controls stay near the text.
-- One leading edge for every section's text. Glyphs that lead a line
-  (play, quote, status) hang in `pageGlyphColumn`, inside the margin.
-- An empty section is one line of hint in secondary ink at the section's
-  text edge, its glyph hung; never a centered block with a large glyph.
-- A page's key pill holds the mode with the key ("D major"), so the two
-  never part.
+- One leading edge for every section's text. A glyph that leads a line
+  (play) hangs in `pageGlyphColumn`, inside the margin.
 - A link line is secondary ink, the accent only under the pointer. On a
   selected row it takes the selection's secondary ink, under the pointer
   too.
 - A wrapped middle-dot facts line breaks after a dot, never before.
+- Tune facts rail threshold: `PageStyle.factsRailWidth +
+  PageStyle.contentMinWidth`.
+- A fact editor is a popover at its row or the key tile (`factEditor`).
 
 ## Player and practice
 

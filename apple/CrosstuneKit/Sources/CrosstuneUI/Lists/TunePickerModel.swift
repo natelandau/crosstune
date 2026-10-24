@@ -62,6 +62,8 @@ public final class TunePickerModel {
     private let members: LiveQuery<Set<String>?>
     private let storedInstruments: LiveQuery<Set<String>?>
     private var adding: Set<String> = []
+    /// True from a create until it lands or fails, so a second press or Return makes no second tune.
+    @ObservationIgnored private var isCreating = false
     @ObservationIgnored private var isClosed = false
     /// Takes a failure that lands after the sheet has closed, which has no line of its own left.
     @ObservationIgnored private let onLateFailure: @MainActor (String) -> Void
@@ -146,6 +148,28 @@ public final class TunePickerModel {
             added += 1
         } catch {
             Self.logger.warning("A tune pick failed: \(error)")
+            if isClosed {
+                onLateFailure(failureMessage(error))
+            } else {
+                failure = failureMessage(error)
+            }
+        }
+    }
+
+    /// Creates a tune by the typed title and adds it to the list. The picker stays open with the
+    /// search as typed, so the new tune shows among the results as in this list. A list that
+    /// refused it leaves the tune made, with the refusal on the sheet.
+    public func create(_ title: String) async {
+        guard !isCreating else { return }
+        isCreating = true
+        defer { isCreating = false }
+        failure = nil
+        do {
+            let created = try await Commands(store: store).createTitleOnly(
+                title: title, source: .list, listID: listID, analytics: analytics)
+            if let refusal = created.filingError { throw refusal }
+        } catch {
+            Self.logger.warning("A tune could not be created from the picker: \(error)")
             if isClosed {
                 onLateFailure(failureMessage(error))
             } else {

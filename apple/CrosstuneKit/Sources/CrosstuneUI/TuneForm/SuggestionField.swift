@@ -20,10 +20,15 @@ struct SuggestionField: View {
     enum Edit: Equatable {
         case keep
         case set(String)
+        /// A suggestion chosen from the Mac's list, for a field that acts on a pick.
+        case pick(String)
     }
 
     /// The text the Mac's Keep suggestion completes to. No typed value can hold it.
     nonisolated static let keepToken = "\u{0}keep"
+    /// What starts the text a Mac suggestion completes to in a field that acts on a pick, so the
+    /// pick reads apart from typing. No typed value can hold it.
+    nonisolated static let pickToken = "\u{0}pick:"
     /// The most suggestion rows shown under a focused field on iOS, so a long catalog list never
     /// pushes the rest of the form away. Typing narrows to the rest.
     nonisolated static let rowLimit = 6
@@ -34,16 +39,25 @@ struct SuggestionField: View {
     private let suggestions: [String]
     private let maxLength: Int?
     private let keep: Keep?
+    private let focus: FocusState<Bool>.Binding?
+    private let onPick: ((String) -> Void)?
 
     @FocusState private var focused: Bool
+    #if os(iOS)
+        @Environment(\.rowsOutsideForm) private var outsideForm
+    #endif
 
     /// - Parameters:
     ///   - label: The field's full name, which is its accessible name.
     ///   - rowLabel: The row's visible label, for a row under a header that already carries half
     ///     the name. Defaults to `label`.
+    ///   - focus: The field's focus, for a caller that moves it; the field holds its own without.
+    ///   - onPick: Runs with a chosen suggestion in place of setting `value`, for a field where a
+    ///     pick is itself a decision, such as one that saves and closes an editor.
     init(
         _ label: String, rowLabel: String? = nil, value: Binding<String>, suggestions: [String],
-        maxLength: Int? = nil, keep: Keep? = nil
+        maxLength: Int? = nil, keep: Keep? = nil, focus: FocusState<Bool>.Binding? = nil,
+        onPick: ((String) -> Void)? = nil
     ) {
         self.label = label
         self.rowLabel = rowLabel ?? label
@@ -51,6 +65,8 @@ struct SuggestionField: View {
         self.suggestions = suggestions
         self.maxLength = maxLength
         self.keep = keep
+        self.focus = focus
+        self.onPick = onPick
     }
 
     /// The suggestions offered for `typed`: all of them while it is empty, else those holding it,
@@ -64,6 +80,7 @@ struct SuggestionField: View {
     /// empty, so an empty write to it is the field settling rather than the musician clearing it.
     nonisolated static func edit(_ text: String, kept: Bool) -> Edit? {
         if text == keepToken { return .keep }
+        if text.hasPrefix(pickToken) { return .pick(String(text.dropFirst(pickToken.count))) }
         if kept && text.isEmpty { return nil }
         return .set(text)
     }
@@ -75,22 +92,24 @@ struct SuggestionField: View {
             Text(rowLabel)
         }
         #if os(iOS)
-            if focused {
+            if isFocused.wrappedValue {
                 if let keep, !keep.kept {
                     Button(keep.label) {
                         keep.onKeep()
-                        focused = false
+                        isFocused.wrappedValue = false
                     }
+                    .modifier(SuggestionRow(outsideForm: outsideForm))
                 }
                 ForEach(Self.matches(suggestions, typed: text.wrappedValue).prefix(Self.rowLimit), id: \.self) {
                     suggestion in
                     Button {
-                        text.wrappedValue = suggestion
-                        focused = false
+                        if let onPick { onPick(suggestion) } else { text.wrappedValue = suggestion }
+                        isFocused.wrappedValue = false
                     } label: {
                         Text(suggestion)
                             .contentMask()
                     }
+                    .modifier(SuggestionRow(outsideForm: outsideForm))
                 }
             }
         #endif
@@ -106,7 +125,7 @@ struct SuggestionField: View {
             #else
                 .multilineTextAlignment(.trailing)
             #endif
-            .focused($focused)
+            .focused(isFocused)
             .characterLimit(maxLength, text: text)
             #if os(macOS)
                 .textInputSuggestions {
@@ -117,7 +136,7 @@ struct SuggestionField: View {
                     ForEach(Self.matches(suggestions, typed: text.wrappedValue), id: \.self) { suggestion in
                         Text(suggestion)
                         .contentMask()
-                        .textInputCompletion(suggestion)
+                        .textInputCompletion(onPick == nil ? suggestion : Self.pickToken + suggestion)
                     }
                 }
             #endif
@@ -136,6 +155,8 @@ struct SuggestionField: View {
         return keep.label
     }
 
+    private var isFocused: FocusState<Bool>.Binding { focus ?? $focused }
+
     private var text: Binding<String> {
         Binding {
             keep?.kept == true ? "" : value
@@ -143,8 +164,39 @@ struct SuggestionField: View {
             switch Self.edit(typed, kept: keep?.kept == true) {
             case .keep: keep?.onKeep()
             case .set(let next): value = next
+            case .pick(let picked): if let onPick { onPick(picked) } else { value = picked }
             case nil: break
             }
         }
     }
 }
+
+#if os(iOS)
+    /// A suggestion row. In a form it is the form's own row; outside one it draws as a list row
+    /// would, the full width pressable at a touch's height under a hairline, rather than as a
+    /// bare tinted button.
+    private struct SuggestionRow: ViewModifier {
+        let outsideForm: Bool
+
+        func body(content: Content) -> some View {
+            if outsideForm {
+                content.buttonStyle(SuggestionRowStyle())
+            } else {
+                content
+            }
+        }
+    }
+
+    private struct SuggestionRowStyle: ButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            VStack(spacing: 0) {
+                Divider()
+                configuration.label
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, minHeight: minimumTapTarget, alignment: .leading)
+                    .contentShape(.rect)
+            }
+            .opacity(configuration.isPressed ? 0.6 : 1)
+        }
+    }
+#endif

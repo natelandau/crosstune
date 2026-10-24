@@ -100,17 +100,30 @@ import Testing
         #expect(sink.calls.isEmpty)
     }
 
-    @Test func filingFromTheRecordingsScreenReportsWhereItWas() async throws {
+    @Test func filingUnderANewTuneFromTheRecordingsScreenReportsTheCreateAndWhereItWas() async throws {
         let store = try root.open()
-        let tuneID = try await tune("Kitchen Girl", in: store)
         try await put(recording("r1"), in: store)
         let model = RecordingsModel(store: store, analytics: sink.client)
         #expect(try await poll { model.view("r1") != nil })
 
-        await model.file("r1", under: tuneID, failure: URLError(.badURL))
+        let tuneID = try #require(await model.createTune("Kitchen Girl", filing: "r1")).tuneID
 
-        #expect(sink.captures.map(\.name) == ["recording_filed"])
-        #expect(sink.captures.first?.properties["from"] == .string("unfiled"))
+        #expect(try await poll { model.view("r1")?.tuneID == tuneID })
+        #expect(sink.captures.map(\.name) == ["tune_created", "recording_filed"])
+        #expect(sink.captures.first?.properties["source"] == .string("recordings_list"))
+        #expect(sink.captures.last?.properties["from"] == .string("unfiled"))
+        #expect(model.failure == nil)
+    }
+
+    @Test func aRecordingThatRefusesItsNewTuneStillOpensTheTune() async throws {
+        let store = try root.open()
+        let model = RecordingsModel(store: store, analytics: sink.client)
+
+        let created = try #require(await model.createTune("Kitchen Girl", filing: "missing"))
+
+        #expect(created.filingError as? CommandError == .recordingNotFound)
+        // The tune's page opens over this screen, so the refusal goes to the window's banner.
+        #expect(model.failure == nil)
     }
 
     @Test func unfilingAndDeletingReportTheRecordingsOrigin() async throws {

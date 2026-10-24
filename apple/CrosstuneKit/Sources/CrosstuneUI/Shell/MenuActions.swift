@@ -71,7 +71,7 @@ public enum MenuCommand {
 }
 
 extension FocusedValues {
-    /// Opens the new tune form. Published by the shell.
+    /// Opens the new-tune draft. Published by the shell.
     @Entry public var newTuneAction: MenuAction?
     /// Starts making a list. Published by the shell.
     @Entry public var newListAction: MenuAction?

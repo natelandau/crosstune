@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import Observation
 import SwiftUI
 
@@ -63,6 +64,43 @@ final class ShellPlace {
         }
         tab = destination
     }
+
+    /// Opens a tune from outside any tab's own screens: in the Mac detail column, beside the
+    /// catalog where the tuner fills it, and on iPhone and iPad in the tab on show where that tab
+    /// shows tunes, else in the catalog's.
+    func openTune(_ tuneID: String) {
+        #if os(macOS)
+            if sidebar == .tuner { sidebar = .catalog }
+            detailTune = tuneID
+        #else
+            if !showsTunes(tab) { tab = .catalog }
+            tabTunes[tab] = tuneID
+        #endif
+    }
+
+    /// Opens the new-tune draft: in the Mac detail column, beside the catalog where the tuner
+    /// fills it, and on iPhone and iPad on the catalog's tab.
+    func openNewTune(source: ActionSource) {
+        let draft = NewTuneDraft.id(source: source)
+        #if os(macOS)
+            if sidebar == .tuner { sidebar = .catalog }
+            detailTune = draft
+        #else
+            tab = .catalog
+            tabTunes[.catalog] = draft
+        #endif
+    }
+
+    #if os(iOS)
+        /// Whether a tab's screen opens tunes: the catalog, the recordings, and an open list.
+        private func showsTunes(_ destination: Destination) -> Bool {
+            switch destination {
+            case .catalog, .recordings: true
+            case .lists: tabList != nil
+            case .tuner, .settings: false
+            }
+        }
+    #endif
 
     /// Opens `page` from the Settings root: in the Settings sheet over a compact window, on the
     /// Settings tab otherwise.

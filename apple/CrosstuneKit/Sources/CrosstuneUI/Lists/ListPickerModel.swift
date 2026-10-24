@@ -68,17 +68,34 @@ public struct ListPickerRequest: Identifiable {
 @MainActor
 @Observable
 public final class ListPickerModel {
-    public static let noneInIt = "none in it"
-    public static let allInIt = "all in it"
+    public static let allAlreadyIn = "All already in this list"
 
     /// One list on offer.
     public struct Row: Identifiable, Equatable {
         public let id: String
         public let name: String
-        /// How much of the selection the list holds; nil until membership is read.
+        /// How much of the selection the list holds; nil when it holds none or membership is unread.
         public let note: String?
         /// False while membership is unread or the list already holds every tune.
         public let isOffered: Bool
+
+        /// `holding` is how many of the `total` tunes the list holds, nil until membership is read.
+        @MainActor init(id: String, name: String, holding: Int?, total: Int) {
+            self.id = id
+            self.name = name
+            guard let holding else {
+                note = nil
+                isOffered = false
+                return
+            }
+            note = ListPickerModel.note(inList: holding, total: total)
+            isOffered = !(total > 0 && holding >= total)
+        }
+    }
+
+    /// `1 of 3 already in this list`.
+    public static func someAlreadyIn(_ inList: Int, of total: Int) -> String {
+        "\(inList) of \(total) already in this list"
     }
 
     public let userTuneIDs: [String]
@@ -114,11 +131,12 @@ public final class ListPickerModel {
         "Add \(CatalogSearch.tunes(count)) to a list"
     }
 
-    /// How much of a selection of `total` tunes a list holding `inList` of them already has.
-    public static func note(inList: Int, total: Int) -> String {
-        if inList == 0 { return noneInIt }
-        if total > 0 && inList >= total { return allInIt }
-        return "\(inList) of \(total) in it"
+    /// How much of a selection of `total` tunes a list holding `inList` of them already has, or nil when none.
+    /// One tune is only ever in the list or not, so it never reads as a count.
+    public static func note(inList: Int, total: Int) -> String? {
+        if inList == 0 { return nil }
+        if total > 0 && inList >= total { return total == 1 ? TunePickerModel.inThisList : allAlreadyIn }
+        return someAlreadyIn(inList, of: total)
     }
 
     /// How many of the tunes each list holds, keyed by list id.
@@ -140,11 +158,7 @@ public final class ListPickerModel {
         let total = Set(userTuneIDs).count
         let counts = counts.value
         return (lists.value ?? []).filter { $0.id != excludeListID }.map { summary in
-            let inList = counts?[summary.id] ?? 0
-            let full = total > 0 && inList >= total
-            return Row(
-                id: summary.id, name: summary.name, note: counts.map { _ in Self.note(inList: inList, total: total) },
-                isOffered: counts != nil && !full)
+            Row(id: summary.id, name: summary.name, holding: counts.map { $0[summary.id] ?? 0 }, total: total)
         }
     }
 

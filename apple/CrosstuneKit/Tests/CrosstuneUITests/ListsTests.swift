@@ -484,7 +484,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     {
         let model = ListPickerModel(
             store: store, userTuneIDs: titles.map { sample($0).userTune.id }, excludeListID: excluding)
-        try await eventually { model.rows.allSatisfy { $0.note != nil } && model.isLoaded }
+        try await eventually { model.isLoaded && model.rows.allSatisfy { $0.isOffered || $0.note != nil } }
         return model
     }
 
@@ -495,16 +495,32 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func readsHowMuchOfTheSelectionEachListHolds() {
-        #expect(ListPickerModel.note(inList: 0, total: 2) == "none in it")
-        #expect(ListPickerModel.note(inList: 1, total: 2) == "1 of 2 in it")
-        #expect(ListPickerModel.note(inList: 2, total: 2) == "all in it")
+        #expect(ListPickerModel.note(inList: 0, total: 1) == nil)
+        #expect(ListPickerModel.note(inList: 1, total: 1) == TunePickerModel.inThisList)
+        #expect(ListPickerModel.note(inList: 0, total: 2) == nil)
+        #expect(ListPickerModel.note(inList: 1, total: 2) == ListPickerModel.someAlreadyIn(1, of: 2))
+        #expect(ListPickerModel.note(inList: 2, total: 2) == ListPickerModel.allAlreadyIn)
+    }
+
+    @Test func neitherOffersNorNotesARowBeforeMembershipLoads() {
+        let row = ListPickerModel.Row(id: "l", name: "Tuesday session", holding: nil, total: 2)
+        #expect(row.note == nil)
+        #expect(!row.isOffered)
+    }
+
+    @Test func closesAListHoldingBothTunesOfASelection() async throws {
+        let store = try await SampleCatalog.copiedStore(root: root.url)
+        let model = try await picker(store, titles: ["Soldier's Joy", "Cluck Old Hen"])
+        let row = try #require(model.rows.first { $0.name == "Tuesday session" })
+        #expect(row.note == ListPickerModel.allAlreadyIn)
+        #expect(!row.isOffered)
     }
 
     @Test func offersEveryListButAFullOne() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store, titles: ["Soldier's Joy"])
         #expect(model.rows.map(\.name) == ["Tuesday session", "Waltzes"])
-        #expect(model.rows.map(\.note) == ["all in it", "none in it"])
+        #expect(model.rows.map(\.note) == [TunePickerModel.inThisList, nil])
         #expect(model.rows.map(\.isOffered) == [false, true])
         #expect(await model.add(to: model.rows[0]) == nil)
     }
@@ -518,7 +534,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     @Test func addsOnlyTheTunesAListLacks() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store, titles: ["Soldier's Joy", "The Butterfly"])
-        #expect(model.rows[0].note == "1 of 2 in it")
+        #expect(model.rows[0].note == ListPickerModel.someAlreadyIn(1, of: 2))
         let addition = try #require(await model.add(to: model.rows[0]))
         #expect(addition.added == 1)
         #expect(!addition.created)
@@ -588,21 +604,6 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(model.isEdited)
         #expect(await model.save() == waltzes.id)
         #expect(try await store.read { try TuneList.fetchOne($0, key: waltzes.id)?.name } == "Slow waltzes")
-    }
-}
-
-@Suite @MainActor struct NewTuneInListTests {
-    private let root = TemporaryRoot()
-
-    @Test func landsANewTuneInTheListThePickerNamed() async throws {
-        let store = try await SampleCatalog.copiedStore(root: root.url)
-        let model = TuneFormModel(store: store, target: .new(title: "Rove Riley", listID: waltzes.id, source: .list))
-        await model.load()
-        #expect(await model.save() != nil)
-        let titles = try await store.read { db in
-            try ListContents.fetch(db, listID: waltzes.id)?.entries.map(\.tune.title)
-        }
-        #expect(titles == ["Ashokan Farewell", "Rove Riley"])
     }
 }
 

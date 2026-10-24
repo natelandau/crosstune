@@ -45,6 +45,8 @@
         public static let timerTracking: CGFloat = -1
 
         public static let rowHeight: CGFloat = 32
+        /// The corners of a row's hover wash where the row stands on the ground, not in a list.
+        public static let rowRadius: CGFloat = 7
         public static let sidebarRowHeight: CGFloat = 28
         /// A column's header line: its count and sort.
         public static let headerRowHeight: CGFloat = 28

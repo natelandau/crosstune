@@ -289,18 +289,22 @@ public final class RecordingsModel {
         if removed, let recording { analytics.recordingUnfiled(recording) }
     }
 
-    /// Files a recording under a tune. A failure is reported as `failure`, so the caller can
-    /// word it for where the filing started.
-    public func file(_ recordingID: String, under tuneID: String, failure: some Error) async {
-        let recording = view(recordingID)?.recording
-        let filed = await run { commands in
-            do {
-                try await commands.updateRecording(recordingID, tuneID: .value(tuneID))
-            } catch {
-                throw failure
+    /// Creates a tune from its title and files the recording under it. The tune made, whose
+    /// ``CreatedTune/filingError`` says the recording refused it; nil when the create failed,
+    /// which shows as ``failure``.
+    public func createTune(_ title: String, filing recordingID: String) async -> CreatedTune? {
+        failure = nil
+        do {
+            let created = try await CrosstuneCommands.Commands(store: store).createTitleOnly(
+                title: title, source: .recordingsList, recordingID: recordingID, analytics: analytics)
+            if let refusal = created.filingError {
+                Self.logger.warning("A recording could not be filed under its new tune: \(refusal)")
             }
+            return created
+        } catch {
+            report(error)
+            return nil
         }
-        if filed, let recording { analytics.recordingFiled(recording, under: tuneID) }
     }
 
     /// Throws away a capture recovery could not save.

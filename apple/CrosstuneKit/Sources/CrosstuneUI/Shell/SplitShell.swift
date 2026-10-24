@@ -8,6 +8,9 @@
     /// the chosen one, and the tune or the practice view in the detail column. The player docks
     /// across the foot of the detail column.
     struct SplitShell: View {
+        static let sidebarIdealWidth: CGFloat = 240
+        static let contentIdealWidth: CGFloat = 340
+
         let store: CrosstuneStore
         let player: PlayerModel
         let stage: EmbedStage
@@ -117,7 +120,7 @@
                 } content: {
                     withShellToolbar(content)
                         .columnGround()
-                        .navigationSplitViewColumnWidth(min: 300, ideal: 340)
+                        .navigationSplitViewColumnWidth(min: 300, ideal: Self.contentIdealWidth)
                         .environment(\.detailTune, detailTune)
                         .environment(\.sidebarSelection, openedRow)
                 } detail: {
@@ -134,7 +137,7 @@
                 selection: sidebarSelection, lists: loadedLists, counts: counts?.value ?? nil,
                 canRecord: recordShows, onRecord: onRecord, newList: newList
             )
-            .navigationSplitViewColumnWidth(min: 200, ideal: 240)
+            .navigationSplitViewColumnWidth(min: 200, ideal: Self.sidebarIdealWidth)
         }
 
         @ViewBuilder private var detail: some View {
@@ -143,6 +146,8 @@
                 // The page stays mounted under the practice view, so closing it returns to the
                 // page as it was left, scrolled where it was.
                 tunePage
+                    // Inside the dock, so the banner rises clear of it.
+                    .addedTuneBanner()
                     .playerDock(player, stage: stage)
                     .opacity(practicing ? 0 : 1)
                     .disabled(practicing)

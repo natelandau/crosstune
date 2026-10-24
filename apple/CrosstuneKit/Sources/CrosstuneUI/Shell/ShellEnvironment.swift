@@ -20,6 +20,9 @@ extension EnvironmentValues {
     /// The tune the split view's detail column shows, by id. Nil on iPhone, where a screen
     /// pushes the tune onto its own stack instead.
     @Entry public var detailTune: ShellValue<String?>?
+    /// The tune a screen pushed on iPhone, as the pushed page sees it, so a new-tune draft can
+    /// hand its place to the tune it makes. Nil outside a pushed tune page.
+    @Entry var pushedTune: Binding<String?>?
     /// Whether a screen sits in either column of the iPad shell's split.
     @Entry var inPadSplit = false
     /// The tune a tab's screen pushes on iPhone, kept by the shell so a switch to the split view
@@ -35,6 +38,9 @@ extension EnvironmentValues {
     /// Shows the Catalog at its root in this window, as from a stats value. Nil outside the
     /// shell, as in the Mac Settings window, which cannot switch the main window's destination.
     @Entry var openCatalogRoot: MenuAction?
+    /// Closes the practice view and opens a tune where this window shows tunes. Nil outside the
+    /// shell.
+    @Entry var openTune: TuneOpener?
     /// The counts beside the catalog's status choices, read once for the window and shared by
     /// every screen that shows them. Nil outside the shell.
     @Entry var catalogCounts: LiveQuery<CatalogCounts?>?
@@ -61,6 +67,27 @@ public final class ShellValue<Value> {
     public var value: Value {
         get { read() }
         set { write(newValue) }
+    }
+}
+
+/// Opens a tune from somewhere that has no tune column or stack of its own, such as the practice
+/// view. Two openers are equal when they share an identity, so the shell making it again on its
+/// next pass redraws nothing.
+struct TuneOpener: Equatable {
+    private let id: AnyHashable
+    private let open: @MainActor (_ tuneID: String) -> Void
+
+    init(id: some Hashable, open: @escaping @MainActor (_ tuneID: String) -> Void) {
+        self.id = AnyHashable(id)
+        self.open = open
+    }
+
+    static func == (lhs: TuneOpener, rhs: TuneOpener) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    @MainActor func callAsFunction(_ tuneID: String) {
+        open(tuneID)
     }
 }
 

@@ -204,36 +204,23 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
 }
 
 @Suite struct TypeTimeSignatureTests {
-    @Test func setsANewTunesUntouchedDefaultTimeSignature() {
-        var values = TuneFormValues()
-        values.setType("Jig", isNew: true, timeSignatureTouched: false)
-        #expect(values.tuneType == "Jig")
-        #expect(values.timeSignature == "6/8")
-    }
-
-    @Test func keepsATimeSignatureThePlayerChoseOnANewTune() {
-        var values = TuneFormValues()
-        values.setType("Jig", isNew: true, timeSignatureTouched: true)
-        #expect(values.timeSignature == "4/4")
-    }
-
     @Test func keepsAnEditedTunesStoredTimeSignature() {
         var values = TuneFormValues()
-        values.setType("Jig", isNew: false, timeSignatureTouched: false)
+        values.setType("Jig")
         #expect(values.timeSignature == "4/4")
     }
 
     @Test func fillsAnEditedTunesEmptyTimeSignature() {
         var values = TuneFormValues()
         values.timeSignature = ""
-        values.setType("Slide", isNew: false, timeSignatureTouched: false)
+        values.setType("Slide")
         #expect(values.timeSignature == "12/8")
     }
 
     @Test func leavesTheTimeSignatureForATypeWithoutOne() {
         var values = TuneFormValues()
         values.timeSignature = ""
-        values.setType("Air", isNew: false, timeSignatureTouched: false)
+        values.setType("Air")
         #expect(values.timeSignature == "")
     }
 
@@ -398,36 +385,6 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         }
     }
 
-    @Test func startsANewTuneWithTheSearchTitleCappedAndNoGenreHoweverManyTunesHoldOne() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        try await seed(store, tunes: [tune("a", genre: "Irish"), tune("b", genre: "irish"), tune("c", genre: "Cajun")])
-        let long = String(repeating: "x", count: Vocabulary.Limits.Tune.title + 20)
-        let model = TuneFormModel(store: store, target: .new(title: long, source: .catalog))
-        await model.load()
-
-        #expect(model.phase == .ready)
-        #expect(model.values.title.count == Vocabulary.Limits.Tune.title)
-        #expect(model.values.genre == "")
-        #expect(model.values.status == "want_to_learn")
-        #expect(model.tuningInstruments == ["violin"])
-        // A carried title is work a swipe would lose.
-        #expect(model.isEdited)
-    }
-
-    @Test func startsANewTuneWithTheGenreTrimmedAndStatusTheSettingsChoose() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        try await seed(store, newTuneGenre: "Old-time ", newTuneStatus: "known")
-        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog))
-        await model.load()
-
-        #expect(model.values.genre == "Old-time")
-        #expect(model.values.status == "known")
-        // The settings' choices are where the form starts, not work a swipe would lose.
-        #expect(!model.isEdited)
-    }
-
     @Test func editsATuneWithItsOwnGenreAndStatusNotTheNewTuneSettings() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -445,12 +402,41 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         #expect(model.values.status == "learning")
     }
 
+    private func editing(_ store: CrosstuneStore, _ tuneID: String, focus: TuneFormFocus? = nil) async throws
+        -> TuneFormModel
+    {
+        let userTuneID = try await store.read { db in
+            try UserTune.filter(UserTune.CodingKeys.tuneID == tuneID).fetchOne(db)!.id
+        }
+        let model = TuneFormModel(store: store, target: .edit(tuneID: tuneID, userTuneID: userTuneID, focus: focus))
+        await model.load()
+        return model
+    }
+
+    @Test func opensOnNoFieldUnlessAskedForLyrics() {
+        #expect(TuneFormTarget.edit(tuneID: "t", userTuneID: "u").focus == nil)
+        #expect(TuneFormTarget.edit(tuneID: "t", userTuneID: "u", focus: .lyrics).focus == .lyrics)
+        #expect(
+            TuneFormTarget.edit(tuneID: "t", userTuneID: "u", focus: .lyrics)
+                != TuneFormTarget.edit(tuneID: "t", userTuneID: "u"))
+    }
+
+    @Test func carriesTheLyricsFocusToTheModel() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let stored = tune("Angeline")
+        try await seed(store, tunes: [stored])
+        #expect(try await editing(store, stored.id, focus: .lyrics).target.focus == .lyrics)
+        #expect(try await editing(store, stored.id).target.focus == nil)
+    }
+
     @Test func offersTheLearnedFromNamesOfEveryLiveUserTune() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let other = tune("Other")
         let gone = tune("Gone")
-        try await seed(store, tunes: [other, gone])
+        let subject = tune("Subject")
+        try await seed(store, tunes: [other, gone, subject])
         try await store.write { writer in
             var kept = userTune(other.id)
             kept.learnedFrom = "Kevin"
@@ -460,8 +446,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
             removed.deletedAt = noon
             try writer.put(removed, at: noon)
         }
-        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog))
-        await model.load()
+        let model = try await editing(store, subject.id)
 
         #expect(model.learnedFromOptions == ["Kevin"])
     }
@@ -469,7 +454,8 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
     @Test func suggestsNamesOnlyFromTunesInTheCatalog() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        try await seed(store)
+        let subject = tune("Subject")
+        try await seed(store, tunes: [subject])
         // A live user tune on a deleted tune, and a live tune whose user tune is deleted, are
         // neither of them in the catalog, so neither suggests a name.
         let deleted = tune("Deleted", composer: "Lost Composer", deleted: true)
@@ -485,89 +471,69 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
             dropped.deletedAt = noon
             try writer.put(dropped, at: noon)
         }
-        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog))
-        await model.load()
+        let model = try await editing(store, subject.id)
 
         #expect(model.learnedFromOptions == [])
         #expect(model.composerOptions == [TuneSuggestions.traditional])
     }
 
-    @Test func holdsAnUntouchedNewTuneAsUneditedAndRefusesToSaveItWithoutATitle() async throws {
+    @Test func holdsAnUntouchedTuneAsUneditedAndRefusesToSaveItWithoutATitle() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        try await seed(store)
-        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog))
-        await model.load()
+        let stored = tune("Angeline")
+        try await seed(store, tunes: [stored])
+        let model = try await editing(store, stored.id)
 
         #expect(!model.isEdited)
+        #expect(model.canSave)
+        model.setTitle(" ")
         #expect(!model.canSave)
         #expect(await model.save() == nil)
         #expect(model.validation == TuneFormModel.titleRequired)
-        model.setTitle("Angeline")
+        model.setTitle("Angeline the Baker")
         #expect(model.validation == nil)
         #expect(model.isEdited)
         #expect(model.canSave)
+    }
+
+    @Test func savesAnEditOnceAndNeverCreatesATune() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let stored = tune("Angeline", type: "Reel")
+        try await seed(store, tunes: [stored])
+        let model = try await editing(store, stored.id)
+        model.values.key = "D"
+        model.values.status = "learning"
+        model.setType("Jig")
+
+        #expect(await model.save() == stored.id)
+        #expect(await model.save() == nil)
+        #expect(!model.canSave)
+
+        let saved = try await store.read { db in
+            (try Tune.fetchAll(db), try UserTune.fetchAll(db))
+        }
+        #expect(saved.0.map(\.id) == [stored.id])
+        #expect(saved.0.first?.key == "D")
+        #expect(saved.0.first?.tuneType == "Jig")
+        #expect(saved.1.map(\.status) == ["learning"])
     }
 
     @Test func holdsAChoiceThatSavesNothingAsNoEdit() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await seed(store, instruments: ["guitar"])
-        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog))
-        await model.load()
+        let stored = tune("Angeline")
+        try await store.write { writer in
+            try writer.put(stored, at: noon)
+            try writer.put(userTune(stored.id), at: noon)
+        }
+        let model = try await editing(store, stored.id)
         model.values.tunings["guitar"] = TuningValues(tuning: "", capo: nil)
         model.values.composer = ""
         #expect(!model.isEdited)
         model.values.tunings["guitar"]?.capo = 2
         #expect(model.isEdited)
-    }
-
-    @Test func keepsAReChosenTimeSignatureWhenATypeFollows() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        try await seed(store)
-        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog))
-        await model.load()
-        // Picking the 4/4 already shown is still the player's choice.
-        model.setTimeSignature(model.values.timeSignature)
-        model.setType("Slide")
-        #expect(model.values.timeSignature == "4/4")
-    }
-
-    @Test func createsTheTuneAndTheMusiciansRowOnce() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        try await seed(store)
-        let model = TuneFormModel(store: store, target: .new(title: "Angeline", source: .catalog))
-        await model.load()
-        model.values.key = "D"
-        model.values.status = "learning"
-        model.setType("Jig")
-
-        let tuneID = try #require(await model.save())
-        #expect(await model.save() == nil)
-        #expect(!model.canSave)
-
-        let saved = try await store.read { db in
-            (try Tune.fetchOne(db, key: tuneID), try UserTune.filter(UserTune.CodingKeys.tuneID == tuneID).fetchAll(db))
-        }
-        let tune = try #require(saved.0)
-        #expect(tune.title == "Angeline")
-        #expect(tune.key == "D")
-        #expect(tune.tuneType == "Jig")
-        #expect(tune.timeSignature == "6/8")
-        #expect(saved.1.map(\.status) == ["learning"])
-    }
-
-    @Test func keepsATimeSignatureThePlayerPickedWhenATypeFollows() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        try await seed(store)
-        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog))
-        await model.load()
-        model.setTimeSignature("4/4")
-        model.setType("Jig")
-        #expect(model.values.timeSignature == "4/4")
     }
 
     @Test func editsOnlyTheFieldsTheMusicianChanged() async throws {

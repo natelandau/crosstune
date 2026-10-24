@@ -8,14 +8,14 @@ import Observation
 import os
 
 /// The tune form's state: the values being edited, what they were when the form opened, and the
-/// save that creates or edits the tune.
+/// save that edits the tune.
 ///
-/// Everything the form decides at open, such as which tuning rows show and the genre a new tune
-/// starts in, is read once, so no field appears or disappears while the musician types.
+/// Everything the form decides at open, such as which tuning rows show, is read once, so no field
+/// appears or disappears while the musician types.
 @MainActor
 @Observable
 public final class TuneFormModel {
-    public static let titleRequired = "A title is required"
+    nonisolated public static let titleRequired = "A title is required"
 
     /// Where the form stands with its tune.
     public enum Phase: Equatable {
@@ -33,8 +33,6 @@ public final class TuneFormModel {
         var tunes: [Tune]
         var userTunes: [UserTune]
         var instruments: Set<String>
-        var newTuneGenre: String?
-        var newTuneStatus: String
         var editing: (tune: Tune, userTune: UserTune)?
     }
 
@@ -44,7 +42,7 @@ public final class TuneFormModel {
     /// The instruments to show a tuning row for, in the vocabulary's order.
     public private(set) var tuningInstruments: [String] = []
     public private(set) var isSaving = false
-    /// Set once a save lands; the form never saves twice, so a second press creates no second tune.
+    /// Set once a save lands; the form never saves twice.
     public private(set) var isSaved = false
     /// The last save's failure, cleared by the next save.
     public private(set) var failure: String?
@@ -57,8 +55,6 @@ public final class TuneFormModel {
     private var storedTunings: JSONObject = [:]
     /// The catalog the suggestions read: live user tunes joined to live tunes, as the web reads it.
     private var catalog: [CatalogEntry] = []
-    /// Whether the player has chosen a time signature, which a type then never replaces.
-    private var timeSignatureTouched = false
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "tune-form")
 
     public init(store: CrosstuneStore, target: TuneFormTarget, analytics: AnalyticsClient = .noop) {
@@ -67,15 +63,8 @@ public final class TuneFormModel {
         self.analytics = analytics
     }
 
-    public var isNew: Bool {
-        if case .new = target { return true }
-        return false
-    }
-
-    /// Whether the form holds work a dismissal would lose. A title carried in from a search
-    /// counts, since the search that held it is already cleared.
-    /// Compared as a save would write it, so a choice that saves nothing, such as Not set on an
-    /// empty field, is no edit.
+    /// Whether the form holds work a dismissal would lose. Compared as a save would write it, so a
+    /// choice that saves nothing, such as Not set on an empty field, is no edit.
     public var isEdited: Bool {
         let (tune, userTune) = values.patches(from: opened, storedTunings: storedTunings)
         return !tune.isEmpty || !userTune.isEmpty
@@ -114,40 +103,24 @@ public final class TuneFormModel {
         let settings = try UserSettings.fetchOne(db, key: settingsID)
         let instruments = settings.flatMap { $0.deletedAt == nil ? Set($0.instruments) : nil } ?? []
         var editing: (Tune, UserTune)?
-        if case .edit(let tuneID, let userTuneID) = target,
-            let tune = tunes.first(where: { $0.id == tuneID }),
-            let userTune = try UserTune.fetchOne(db, key: userTuneID), userTune.deletedAt == nil
+        if let tune = tunes.first(where: { $0.id == target.tuneID }),
+            let userTune = try UserTune.fetchOne(db, key: target.userTuneID), userTune.deletedAt == nil
         {
             editing = (tune, userTune)
         }
-        return Opening(
-            tunes: tunes, userTunes: userTunes, instruments: instruments,
-            newTuneGenre: storedNewTuneGenre(settings), newTuneStatus: storedNewTuneStatus(settings),
-            editing: editing)
+        return Opening(tunes: tunes, userTunes: userTunes, instruments: instruments, editing: editing)
     }
 
     func open(_ opening: Opening) {
         catalog = CatalogSearch.entries(tunes: opening.tunes, userTunes: opening.userTunes)
-        switch target {
-        case .new(let title, _, _):
-            var start = TuneFormValues()
-            start.genre = opening.newTuneGenre?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            start.status = opening.newTuneStatus
-            opened = start
-            // A search has no limit of its own, so a carried title is capped here.
-            start.title = String((title ?? "").prefix(Vocabulary.Limits.Tune.title))
-            values = start
-            tuningInstruments = Self.tuningInstruments(opening.instruments, tunings: [:])
-        case .edit:
-            guard let (tune, userTune) = opening.editing else {
-                phase = .gone
-                return
-            }
-            opened = TuneFormValues(tune: tune, userTune: userTune)
-            values = opened
-            storedTunings = tune.tunings
-            tuningInstruments = Self.tuningInstruments(opening.instruments, tunings: tune.tunings)
+        guard let (tune, userTune) = opening.editing else {
+            phase = .gone
+            return
         }
+        opened = TuneFormValues(tune: tune, userTune: userTune)
+        values = opened
+        storedTunings = tune.tunings
+        tuningInstruments = Self.tuningInstruments(opening.instruments, tunings: tune.tunings)
         phase = .ready
     }
 
@@ -166,18 +139,17 @@ public final class TuneFormModel {
         validation = nil
     }
 
-    /// Sets the type, filling a time signature the player has not chosen.
+    /// Sets the type, filling a time signature the tune lacks.
     public func setType(_ type: String) {
-        values.setType(type, isNew: isNew, timeSignatureTouched: timeSignatureTouched)
+        values.setType(type)
     }
 
     public func setTimeSignature(_ timeSignature: String) {
-        timeSignatureTouched = true
         values.timeSignature = TuneFormValues.timeSignature(timeSignature)
     }
 
-    /// Creates or edits the tune. The saved tune's id once the save lands; nil when it could not
-    /// run or failed, with the reason in ``validation`` or ``failure``.
+    /// Saves the edit. The tune's id once the save lands; nil when it could not run or failed,
+    /// with the reason in ``validation`` or ``failure``.
     public func save() async -> String? {
         guard phase == .ready, !isSaving, !isSaved else { return nil }
         guard canSave else {
@@ -191,41 +163,18 @@ public final class TuneFormModel {
         defer { isSaving = false }
         let commands = Commands(store: store)
         do {
-            switch target {
-            case .new(_, let listID, let source):
-                let created =
-                    if let listID {
-                        try await commands.createTune(values.tuneInput, userTune: values.userTuneInput, inList: listID)
-                    } else {
-                        try await commands.createTune(values.tuneInput, userTune: values.userTuneInput)
-                    }
-                isSaved = true
-                // Measured from a blank form rather than `opened`, so a suggested genre kept as
-                // offered counts as set: the new tune carries it.
-                let fieldsSet = values.changedFields(from: TuneFormValues(), storedTunings: [:])
-                analytics.send(.tuneCreated(source: source, fieldsSet: fieldsSet, tuneID: created.tuneID))
-                return created.tuneID
-            case .edit(let tuneID, let userTuneID):
-                let patches = values.patches(from: opened, storedTunings: storedTunings)
-                try await commands.updateTuneEntry(
-                    tuneID: tuneID, userTuneID: userTuneID, tune: patches.tune, userTune: patches.userTune)
-                isSaved = true
-                reportEdit(tuneID)
-                return tuneID
-            }
+            let patches = values.patches(from: opened, storedTunings: storedTunings)
+            try await commands.updateTuneEntry(
+                tuneID: target.tuneID, userTuneID: target.userTuneID, tune: patches.tune, userTune: patches.userTune)
+            isSaved = true
+            reportEdit(
+                analytics: analytics, before: opened, after: values, storedTunings: storedTunings,
+                tuneID: target.tuneID)
+            return target.tuneID
         } catch {
             Self.logger.warning("A tune form save failed: \(error)")
             failure = failureMessage(error)
             return nil
-        }
-    }
-
-    private func reportEdit(_ tuneID: String) {
-        let fields = values.changedFields(from: opened, storedTunings: storedTunings)
-        guard !fields.isEmpty else { return }
-        analytics.send(.tuneEdited(fieldsChanged: fields, tuneID: tuneID))
-        if fields.contains(.status), let from = TuneStatus(opened.status), let to = TuneStatus(values.status) {
-            analytics.send(.tuneStatusChanged(from: from, to: to, tuneID: tuneID))
         }
     }
 }

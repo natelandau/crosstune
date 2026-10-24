@@ -13,6 +13,10 @@ struct SuggestionPicker: View {
     private let emptyLabel: String
     private let reportsRepicks: Bool
 
+    #if !os(macOS)
+        @Environment(\.rowsOutsideForm) private var outsideForm
+    #endif
+
     /// - Parameters:
     ///   - label: The field's full name, which is its accessible name.
     ///   - rowLabel: The row's visible label, for a row under a header that already carries half
@@ -47,7 +51,9 @@ struct SuggestionPicker: View {
             .accessibilityLabel(label)
             .contentMask()
         #else
-            if reportsRepicks {
+            // Outside a form a system picker shows its value without its label, so the row draws
+            // its own.
+            if reportsRepicks || outsideForm {
                 menu
             } else {
                 picker
@@ -115,6 +121,11 @@ struct SuggestionPicker: View {
             value = tag == Self.noneTag ? "" : tag
         }
     }
+}
+
+extension EnvironmentValues {
+    /// True for form rows laid out on their own rather than in a `Form`, as in a fact editor.
+    @Entry var rowsOutsideForm = false
 }
 
 extension View {

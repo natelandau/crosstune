@@ -435,7 +435,7 @@
     /// A row in a Mac picker sheet: a leading glyph slot, then the row's own content, on the
     /// ground with a field fill under the pointer.
     struct MacPickRowStyle: ButtonStyle {
-        static let radius: CGFloat = 7
+        static let radius = MacStyle.rowRadius
         static let minHeight: CGFloat = 32
 
         func makeBody(configuration: Configuration) -> some View {

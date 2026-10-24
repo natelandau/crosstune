@@ -137,9 +137,6 @@ private struct ListTunes: View {
     @State private var chosen: String?
     @State private var pushed: String?
     @State private var picking = false
-    /// A tune the picker asked to create, opened once the picker has gone.
-    @State private var creating: TuneFormTarget?
-    @State private var form: TuneFormTarget?
     @State private var confirmsDelete = false
     @State private var selection = TuneSelection()
     @State private var nameShows = true
@@ -219,14 +216,9 @@ private struct ListTunes: View {
             }
             .onChange(of: session?.hasNetwork) { Task { await readAppleMusic() } }
             .modifier(RefreshesBySync(engine: engine))
-            // The menu's New tune files the tune in this list, as the picker's add row does.
-            .newTuneContext(listID: list.id)
             .modifier(PushesTune(tuneID: $pushed, isPushing: detailTune == nil, zoom: zoom))
-            .sheet(isPresented: $picking, onDismiss: openCreated) {
-                TunePickerSheet(
-                    listID: list.id,
-                    onCreate: { creating = .new(title: $0, listID: list.id, source: .list) },
-                    onLateFailure: model.report)
+            .sheet(isPresented: $picking) {
+                TunePickerSheet(listID: list.id, onLateFailure: model.report)
             }
             .sheet(isPresented: $showsWhatPlays, onDismiss: openChosen) {
                 WhatPlaysSheet(
@@ -245,9 +237,6 @@ private struct ListTunes: View {
                     onOpenSettings: {
                         if let url = AppleMusicRowAction.systemSettingsURL { openURL(url) }
                     })
-            }
-            .sheet(item: $form) { target in
-                TuneFormSheet(target: target) { _ in }
             }
             #if DEBUG
                 .opensForSample(.tunePicker) { picking = true }
@@ -360,10 +349,14 @@ private struct ListTunes: View {
     private func openChosen() {
         guard let id = chosen else { return }
         chosen = nil
+        open(id)
+    }
+
+    private func open(_ tuneID: String) {
         if let detailTune {
-            detailTune.value = id
+            detailTune.value = tuneID
         } else {
-            pushed = id
+            pushed = tuneID
         }
     }
 
@@ -431,7 +424,7 @@ private struct ListTunes: View {
                 tune: entry.tune, userTune: entry.userTune, instruments: model.instruments, position: position)
         #endif
         let hint = ListRowText.hint(hasAction: playAction != nil, isCurrent: isCurrent, isSelecting: selection.isActive)
-        let edit = { form = .edit(tuneID: entry.tune.id, userTuneID: entry.userTune.id) }
+        let edit = { open(entry.tune.id) }
         let remove: () -> Void = { Task { await model.remove(entry) } }
         let scans = TuneRowActions.scansAction(
             tuneID: entry.tune.id, tunesWithScans: scanTunes, premium: premium, origin: .list(id: list.id),
@@ -597,11 +590,6 @@ private struct ListTunes: View {
                     .buttonStyle(.accentProminent)
             }
         }
-    }
-
-    private func openCreated() {
-        form = creating
-        creating = nil
     }
 }
 

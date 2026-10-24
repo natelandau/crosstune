@@ -21,8 +21,10 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
   `PadStyle` value.
 - Layout reads size class, available width, and the shell's environment,
   never `userInterfaceIdiom`.
-- A column in the split reports compact width. A view that draws larger in
-  the split reads `inPadSplit`, never the size class or `detailTune`.
+- A column in the split carries the window's size class, regular however
+  narrow the column. A view that draws larger in the split reads
+  `inPadSplit`, and one that fits the column reads its width. Neither
+  reads the size class or `detailTune`.
 - A sheet's environment carries the presentation's size class, not the
   window's. The shell hands the window's width down as `windowIsRegular`.
 
@@ -104,10 +106,17 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 
 ## Tune page
 
-- The iPhone's document, centered in the detail column.
+- Over the facts card, the iPhone's document, centered in the detail
+  column.
 - Scan thumbnails `PadStyle.scanThumbnailHeight` tall, wrapping into rows,
   decoded at drawn size.
-- Edit and More at the detail column's top-trailing edge.
+- More on the title's row in a regular-width window, over the card too;
+  in a compact window, in the bar as on iPhone.
+- A fact editor is a popover at its row or the key tile in a regular-width
+  window, the iPhone's sheet in a compact one.
+- Tune facts take the rail on an 11-inch iPad or larger in landscape with
+  the sidebar hidden. In portrait, with the sidebar shown, or on an iPad
+  mini, the detail column is too narrow and takes the card.
 - The fading-out page takes no taps.
 
 ## The Stand

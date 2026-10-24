@@ -9,6 +9,9 @@ import SwiftUI
 
 @main
 struct CrosstuneApp: App {
+    #if os(macOS)
+        @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    #endif
     @State private var session: AccountSession
     @State private var player: PlayerModel
     @State private var listPlayback: ListPlayback
@@ -175,3 +178,14 @@ struct CrosstuneApp: App {
             tuner: tuner)
     }
 }
+
+#if os(macOS)
+    final class AppDelegate: NSObject, NSApplicationDelegate {
+        /// A new-tune draft with a title makes its tune before the app quits, as closing its
+        /// window does.
+        func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+            OpenDrafts.shared.holdsQuit { sender.reply(toApplicationShouldTerminate: true) }
+                ? .terminateLater : .terminateNow
+        }
+    }
+#endif

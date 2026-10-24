@@ -8,7 +8,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-/// The tune form reports a tune created or edited once its save lands, naming only which fields
+/// The tune form reports a tune edited once its save lands, naming only which fields
 /// changed and never what they hold.
 @MainActor
 @Suite struct TuneEventTests {
@@ -37,57 +37,13 @@ import Testing
         return model
     }
 
-    @Test func reportsATuneCreatedWithWhereItStartedAndTheFieldsSet() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        try await seed(store)
-        let model = TuneFormModel(
-            store: store, target: .new(title: "Angeline", source: .searchOffer), analytics: sink.client)
-        await model.load()
-        model.values.key = "D"
-
-        let tuneID = try #require(await model.save())
-
-        #expect(
-            sink.captures == [
-                .init(
-                    name: "tune_created",
-                    properties: [
-                        "source": .string("search_offer"), "fields_set": .strings(["title", "key"]),
-                        "tune_id": .string(tuneID),
-                    ])
-            ])
-    }
-
-    @Test func reportsATuningOnANewTune() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        try await seed(store)
-        let model = TuneFormModel(
-            store: store, target: .new(title: nil, listID: nil, source: .list), analytics: sink.client)
-        await model.load()
-        model.setTitle("Sally Ann")
-        model.values.tunings["violin"] = TuningValues(tuning: "AEAE")
-
-        let tuneID = try #require(await model.save())
-
-        #expect(
-            sink.captures == [
-                .init(
-                    name: "tune_created",
-                    properties: [
-                        "source": .string("list"), "fields_set": .strings(["title", "tuning"]),
-                        "tune_id": .string(tuneID),
-                    ])
-            ])
-    }
-
     @Test func reportsNothingForASaveThatDoesNotRun() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        try await seed(store)
-        let model = TuneFormModel(store: store, target: .new(title: nil, source: .catalog), analytics: sink.client)
-        await model.load()
+        let stored = Tune(id: "t1", createdAt: noon, title: "Sally Ann")
+        try await seed(store, tune: stored)
+        let model = try await editing(store, stored)
+        model.setTitle("  ")
 
         #expect(await model.save() == nil)
 
@@ -160,29 +116,6 @@ import Testing
         _ = try #require(await model.save())
 
         #expect(sink.calls.isEmpty)
-    }
-
-    @Test func creatingATuneReportsTheFieldsSetAndItsID() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        try await seed(store)
-        let model = TuneFormModel(
-            store: store, target: .new(title: "Angeline", source: .catalog), analytics: sink.client)
-        await model.load()
-        model.values.lyrics = "Angeline the baker"
-        model.values.key = "D"
-
-        let tuneID = try #require(await model.save())
-
-        #expect(
-            sink.captures == [
-                .init(
-                    name: "tune_created",
-                    properties: [
-                        "source": .string("catalog"), "fields_set": .strings(["title", "key", "lyrics"]),
-                        "tune_id": .string(tuneID),
-                    ])
-            ])
     }
 
     private func shown(_ store: CrosstuneStore, tuneID: String) async throws -> TuneModel {

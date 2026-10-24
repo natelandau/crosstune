@@ -102,6 +102,20 @@ extension CaptureTestCase {
         Thread.sleep(forTimeInterval: 1)
     }
 
+    /// Opens the facts card's More details, which holds the Crooked row.
+    func showCrooked(_ app: XCUIApplication) {
+        shown(app.buttons["More details"]).tap()
+        shown(button(app, startingWith: "Crooked"))
+    }
+
+    /// Opens the facts card's More details where the card folds them away, so the Learned
+    /// group shows. A rail shows it already.
+    func showLearned(_ app: XCUIApplication) {
+        let more = app.buttons["More details"]
+        if more.exists { more.tap() }
+        shown(button(app, startingWith: "Learned from"))
+    }
+
     /// A fresh simulator's first keyboard opens under a swipe-to-type tip.
     func dismissKeyboardTip(_ app: XCUIApplication) {
         let tip = app.buttons["Continue"]
