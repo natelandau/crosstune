@@ -1,3 +1,22 @@
+## v1.1.0 (2026-10-24)
+
+### Feat
+
+- **tune**: rebuild the tune page around in-place facts (#224)
+- **shell**: rebuild the phone top bar and filter sheet (#223)
+- **apple**: support iPhone Duo (#222)
+- **tuner**: add a chromatic tuner to every platform (#220)
+- **design**: bring the new color palette to iPhone, iPad, and web (#218)
+- **apple**: redesign the Mac app on its own design system (#217)
+- **recordings**: add saved locations and street-address names (#216)
+- **recordings**: polish location capture and editing (#215)
+
+### Fix
+
+- **web**: refit the verb row once the page's fonts load
+- **practice**: stop the waveform shimmering as it scrolls (#219)
+- **web**: raise danger and warning text contrast
+
 ## v1.0.0 (2026-10-19)
 
 ### Feat
