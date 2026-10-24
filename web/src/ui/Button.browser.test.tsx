@@ -4,6 +4,7 @@ import { expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
 import { Button } from './Button'
 import { Capsule } from './Capsule'
+import { InBar } from './inBar'
 import { removeFilterLabel } from './filterCopy'
 
 it.each([
@@ -173,4 +174,34 @@ it('keeps an icon button, and its focus, when the density changes', async () => 
   await expect.poll(() => getComputedStyle(before).minHeight).toBe('44px')
   expect(before.isConnected).toBe(true)
   await expect.element(button).toHaveFocus()
+})
+
+it('rounds a labeled button to the control radius and keeps an icon-only one round', async () => {
+  renderWithProviders(
+    <>
+      <Button label="Save" variant="primary" />
+      <Button label="Cancel" />
+      <Button icon={Plus} label="Add tune" iconOnly />
+    </>,
+  )
+  const radius = (name: string) =>
+    getComputedStyle(page.getByRole('button', { name, exact: true }).element()).borderTopLeftRadius
+  await expect.poll(() => radius('Save')).toBe('10px')
+  expect(radius('Cancel')).toBe('10px')
+  expect(parseFloat(radius('Add tune'))).toBeGreaterThan(1000)
+})
+
+it('keeps a labeled button round in a bar', async () => {
+  renderWithProviders(
+    <InBar value>
+      <Button label="Done" />
+    </InBar>,
+  )
+  await expect
+    .poll(() =>
+      parseFloat(
+        getComputedStyle(page.getByRole('button', { name: 'Done' }).element()).borderTopLeftRadius,
+      ),
+    )
+    .toBeGreaterThan(1000)
 })

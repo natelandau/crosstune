@@ -1,60 +1,25 @@
 import { page, userEvent, type Locator } from 'vitest/browser'
-import { expect, it, vi } from 'vitest'
-import { listTunePath, tuneHomePath } from '../../layout/tuneHome'
-import { recordingAnalytics } from '../../usage/testing'
-import type { Source } from '../../usage/events'
-import { createList } from '../../commands/lists'
-import type * as tunes from '../../commands/tunes'
+import { expect, it } from 'vitest'
 import { createTune, deleteTune } from '../../commands/tunes'
-import { LIST_NOT_FOUND } from '../../commands/messages'
-import { STATUS_LABELS } from '../../constants'
 import type { CrosstuneDb } from '../../db/schema'
-import { ADD_TUNE, SEARCH_TUNES, addOfferLabel } from '../catalog/catalogCopy'
 import { DAY_LABEL, MONTH_LABEL, MONTH_LABELS, YEAR_FORMAT, YEAR_LABEL } from '../../ui/partialDate'
 import { ADD_PART_MODE, DETAIL_LABELS, PART_MODE_LABELS } from './detailFields'
-import {
-  ADD_NEW_TUNE,
-  EDIT_TUNE_TITLE,
-  NEW_TUNE_TITLE,
-  SAVE_TUNE,
-  STATUS_HEADER,
-  TITLE_FIELD,
-} from './tuneFormCopy'
-import { LEARNED_ON_INCOMPLETE, TITLE_REQUIRED } from './tuneFormValues'
-import { EDIT_TUNE, LYRICS_SECTION } from './tuneScreenCopy'
+import { EDIT_TUNE_TITLE, SAVE_TUNE, TITLE_FIELD } from './tuneFormCopy'
+import { LEARNED_ON_INCOMPLETE } from './tuneFormValues'
+import { ADD_LYRICS, ADD_TO_TUNE, EDIT_ALL_DETAILS, LYRICS_SECTION } from './tuneScreenCopy'
+import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { openTestDb } from '../../test/db'
-import { dataProviders } from '../../test/providers'
 import { CANCEL } from '../../ui/confirmCopy'
-import { spokenKey } from '../../ui/keyName'
 import { renderApp } from '../../test/renderApp'
-import { renderWithProviders } from '../../test/render'
-import { Button } from '../../ui/Button'
-import { useTuneFormLauncher, type TuneFormOptions } from './formLauncher'
-import { TuneFormProvider } from './TuneFormProvider'
-import { TuneFormSheet } from './TuneFormSheet'
 import { seen } from '../../test/events'
-
-// A passthrough one test holds open, to cancel the form while its save is running.
-vi.mock('../../commands/tunes', async (original) => {
-  const actual = await original<typeof tunes>()
-  return { ...actual, createTune: vi.fn(actual.createTune) }
-})
 
 const PHONE = { width: 390, height: 844 }
 
-const path = (router: { state: { location: { pathname: string } } }) => () =>
-  router.state.location.pathname
-
 const sheet = (name: string) => page.getByRole('dialog', { name })
-const titleField = (name = NEW_TUNE_TITLE) =>
+const titleField = (name = EDIT_TUNE_TITLE) =>
   sheet(name).getByRole('textbox', { name: TITLE_FIELD })
 const primary = (name: string, label: string) =>
   sheet(name).getByRole('button', { name: label, exact: true })
-
-async function onlyTune(db: CrosstuneDb) {
-  const tunes = await db.tunes.toArray()
-  return tunes.length === 1 ? tunes[0] : undefined
-}
 
 /** Clicks the backdrop near the top of the window, clear of a sheet or a centered dialog. */
 async function clickBackdrop(): Promise<void> {
@@ -63,96 +28,42 @@ async function clickBackdrop(): Promise<void> {
   await userEvent.click(page.elementLocator(scrim), { position: { x: 20, y: 10 } })
 }
 
-async function editTune(db: CrosstuneDb, tune: Parameters<typeof createTune>[1]) {
+async function editTune(
+  db: CrosstuneDb,
+  tune: Parameters<typeof createTune>[1],
+  density: 'pointer' | 'touch' = 'pointer',
+) {
   const { tuneId } = await createTune(db, tune, { status: 'learning' })
-  const app = await renderApp({ path: `/catalog/${tuneId}`, db, frame: PHONE })
-  await page.getByRole('button', { name: EDIT_TUNE, exact: true }).click()
+  const app = await renderApp({ path: `/catalog/${tuneId}`, db, frame: PHONE, density })
+  await page.getByRole('button', { name: MORE_ACTIONS }).click()
+  await page.getByRole('menuitem', { name: EDIT_ALL_DETAILS }).click()
   await expect.element(titleField(EDIT_TUNE_TITLE)).toHaveValue(tune.title)
   return { ...app, tuneId }
 }
 
-it('carries the title typed into search into a new tune, and opens it once added', async () => {
+it('keeps typed work through Escape and a backdrop tap, and Cancel discards it', async () => {
   const db = openTestDb()
-  const { router } = await renderApp({ path: '/catalog', db, frame: PHONE })
-  await page.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally Goodin')
-  await page
-    .getByRole('button', {
-      name: addOfferLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
-    })
-    .click()
-  await expect.element(titleField()).toHaveValue('Sally Goodin')
+  const { tuneId } = await editTune(db, { title: 'Forked Deer' })
+  await titleField().fill('Forked Deer Reel')
 
-  await sheet(NEW_TUNE_TITLE)
-    .getByRole('option', { name: spokenKey('G') })
-    .click()
-  await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
-  await expect.element(sheet(NEW_TUNE_TITLE)).not.toBeInTheDocument()
-  await expect.poll(() => onlyTune(db)).toMatchObject({ title: 'Sally Goodin', key: 'G' })
-  const tune = (await onlyTune(db))!
-  await expect.poll(path(router)).toBe(`/catalog/${tune.id}`)
+  const escapes = seen('keyup', (event) => (event as KeyboardEvent).key === 'Escape')
+  await userEvent.keyboard('{Escape}')
+  await expect.poll(escapes).toBe(1)
+  const clicks = seen('click')
+  await clickBackdrop()
+  await expect.poll(clicks).toBe(1)
+  await expect.element(titleField()).toHaveValue('Forked Deer Reel')
+
+  await sheet(EDIT_TUNE_TITLE).getByRole('button', { name: CANCEL }).click()
+  await expect.element(sheet(EDIT_TUNE_TITLE)).not.toBeInTheDocument()
+  expect((await db.tunes.get(tuneId))?.title).toBe('Forked Deer')
 })
-
-function renderSheet(db: CrosstuneDb, density: 'pointer' | 'touch' = 'pointer') {
-  const onOpenChange = vi.fn<(open: boolean) => void>()
-  const Data = dataProviders({ db })
-  renderWithProviders(
-    <Data>
-      <TuneFormSheet source="catalog" isOpen onOpenChange={onOpenChange} />
-    </Data>,
-    { density },
-  )
-  return onOpenChange
-}
-
-it.each(['pointer', 'touch'] as const)(
-  'keeps typed work through Escape and a backdrop tap on %s, and Cancel discards it',
-  async (density) => {
-    const db = openTestDb()
-    const onOpenChange = renderSheet(db, density)
-    await titleField().fill('Forked Deer')
-
-    const escapes = seen('keyup', (event) => (event as KeyboardEvent).key === 'Escape')
-    await userEvent.keyboard('{Escape}')
-    await expect.poll(escapes).toBe(1)
-    const clicks = seen('click')
-    await clickBackdrop()
-    await expect.poll(clicks).toBe(1)
-    expect(onOpenChange).not.toHaveBeenCalled()
-    await expect.element(titleField()).toHaveValue('Forked Deer')
-
-    await sheet(NEW_TUNE_TITLE).getByRole('button', { name: CANCEL }).click()
-    await expect.poll(() => onOpenChange.mock.calls).toEqual([[false]])
-    expect(await db.tunes.count()).toBe(0)
-  },
-)
 
 it('closes on Escape while it holds no typed work', async () => {
   const db = openTestDb()
-  const onOpenChange = renderSheet(db)
-  await expect.element(titleField()).toBeVisible()
+  await editTune(db, { title: 'Forked Deer' })
   await userEvent.keyboard('{Escape}')
-  await expect.poll(() => onOpenChange.mock.calls).toEqual([[false]])
-})
-
-it('keeps the chosen status when it is pressed again', async () => {
-  const db = openTestDb()
-  await renderApp({ path: '/catalog', db, frame: PHONE })
-  await page.getByRole('button', { name: ADD_TUNE }).first().click()
-  const rail = sheet(NEW_TUNE_TITLE).getByRole('radiogroup', { name: STATUS_HEADER })
-  const known = rail.getByRole('radio', { name: STATUS_LABELS.known })
-  await known.click()
-  await expect.element(known).toBeChecked()
-  await known.click()
-  await expect.element(known).toBeChecked()
-
-  await titleField().fill('Cluck Old Hen')
-  await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
-  await expect.poll(() => onlyTune(db)).toBeDefined()
-  const userTune = await db.user_tunes
-    .where('tune_id')
-    .equals((await onlyTune(db))!.id)
-    .first()
-  expect(userTune?.status).toBe('known')
+  await expect.element(sheet(EDIT_TUNE_TITLE)).not.toBeInTheDocument()
 })
 
 it('takes a value typed straight into an open vocabulary', async () => {
@@ -182,33 +93,32 @@ it('empties an open vocabulary when its text is deleted', async () => {
 
 it('takes lyrics in their own field and saves them with the tune', async () => {
   const db = openTestDb()
-  const onOpenChange = renderSheet(db)
-  await titleField().fill('Cluck Old Hen')
-  const form = sheet(NEW_TUNE_TITLE)
+  const { tuneId } = await editTune(db, { title: 'Cluck Old Hen' })
+  const form = sheet(EDIT_TUNE_TITLE)
   // Lyrics are a field of their own, not a row in Details that opens another sheet.
   await expect
     .element(form.getByRole('button', { name: LYRICS_SECTION, exact: true }))
     .not.toBeInTheDocument()
   await form.getByRole('textbox', { name: LYRICS_SECTION }).fill('My old hen\nShe’s a good old hen')
-  await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
-  await expect.poll(() => onOpenChange.mock.calls).toEqual([[false]])
+  await primary(EDIT_TUNE_TITLE, SAVE_TUNE).click()
+  await expect.element(form).not.toBeInTheDocument()
   await expect
-    .poll(() => onlyTune(db))
-    .toMatchObject({ lyrics: 'My old hen\nShe’s a good old hen' })
+    .poll(async () => (await db.tunes.get(tuneId))?.lyrics)
+    .toBe('My old hen\nShe’s a good old hen')
 })
 
 it('shows an empty suggested field empty, and takes typing with no pick', async () => {
   const db = openTestDb()
-  renderSheet(db)
-  const composer = sheet(NEW_TUNE_TITLE).getByRole('combobox', { name: DETAIL_LABELS.composer })
+  const { tuneId } = await editTune(db, { title: 'Cluck Old Hen' })
+  const form = sheet(EDIT_TUNE_TITLE)
+  const composer = form.getByRole('combobox', { name: DETAIL_LABELS.composer })
   await expect.element(composer).toHaveValue('')
   await composer.click()
   await userEvent.keyboard('Ed Haley')
   await expect.element(composer).toHaveValue('Ed Haley')
   await userEvent.keyboard('{Tab}')
-  await titleField().fill('Cluck Old Hen')
-  await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
-  await expect.poll(() => onlyTune(db)).toMatchObject({ composer: 'Ed Haley' })
+  await primary(EDIT_TUNE_TITLE, SAVE_TUNE).click()
+  await expect.poll(async () => (await db.tunes.get(tuneId))?.composer).toBe('Ed Haley')
 })
 
 it('saves a mode picked for the tune and one for its B part', async () => {
@@ -222,62 +132,6 @@ it('saves a mode picked for the tune and one for its B part', async () => {
   await page.getByRole('option', { name: 'major' }).click()
   await primary(EDIT_TUNE_TITLE, SAVE_TUNE).click()
   await expect.poll(async () => (await db.tunes.get(tuneId))?.modes).toEqual(['dorian', 'major'])
-})
-
-it.each(['pointer', 'touch'] as const)(
-  'lets a type set the time signature after its picker is dismissed on %s',
-  async (density) => {
-    const db = openTestDb()
-    renderSheet(db, density)
-    const form = sheet(NEW_TUNE_TITLE)
-    const signature = form.getByRole('button', { name: new RegExp(DETAIL_LABELS.time_signature) })
-    await expect.element(signature).toHaveTextContent('4/4')
-    await signature.click()
-    const list =
-      density === 'touch'
-        ? page.getByRole('dialog', { name: DETAIL_LABELS.time_signature })
-        : page.getByRole('option', { name: '6/8' })
-    await expect.element(list).toBeVisible()
-    await userEvent.keyboard('{Escape}')
-    await expect.element(list).not.toBeInTheDocument()
-    await expect.element(form).toBeVisible()
-    await form.getByRole('combobox', { name: DETAIL_LABELS.tune_type }).click()
-    await page.getByRole('option', { name: 'Jig', exact: true }).click()
-    await expect.element(signature).toHaveTextContent('6/8')
-  },
-)
-
-it('keeps a time signature picked as shown when a type is chosen after', async () => {
-  const db = openTestDb()
-  const onOpenChange = renderSheet(db)
-  await titleField().fill('Haste to the Wedding')
-  const form = sheet(NEW_TUNE_TITLE)
-  const signature = form.getByRole('button', { name: new RegExp(DETAIL_LABELS.time_signature) })
-  await expect.element(signature).toHaveTextContent('4/4')
-  await signature.click()
-  await page.getByRole('option', { name: '4/4' }).click()
-  await form.getByRole('combobox', { name: DETAIL_LABELS.tune_type }).click()
-  await page.getByRole('option', { name: 'Jig', exact: true }).click()
-  await expect.element(signature).toHaveTextContent('4/4')
-  await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
-  await expect.poll(() => onOpenChange.mock.calls).toEqual([[false]])
-  await expect.poll(() => onlyTune(db)).toMatchObject({ tune_type: 'Jig', time_signature: '4/4' })
-})
-
-it('reports a missing title under the field, focuses it, and clears at the first keystroke', async () => {
-  const db = openTestDb()
-  await renderApp({ path: '/catalog', db, frame: PHONE })
-  await page.getByRole('button', { name: ADD_TUNE }).first().click()
-  await expect.element(primary(NEW_TUNE_TITLE, ADD_NEW_TUNE)).toBeDisabled()
-  await titleField().click()
-  await userEvent.keyboard('{Enter}')
-  const alert = sheet(NEW_TUNE_TITLE).getByRole('alert')
-  await expect.element(alert).toHaveTextContent(TITLE_REQUIRED)
-  await expect.element(titleField()).toHaveFocus()
-  await expect.element(titleField()).toHaveAttribute('aria-invalid', 'true')
-  await userEvent.keyboard('S')
-  await expect.element(alert).not.toBeInTheDocument()
-  await expect.element(titleField()).not.toHaveAttribute('aria-invalid', 'true')
 })
 
 it('refuses a learned-on year that is not four digits once the date is left', async () => {
@@ -333,8 +187,8 @@ it('saves learned on only as a whole date, asking for the part left out', async 
 
 it("waits on touch while the date's own picker is open", async () => {
   const db = openTestDb()
-  renderSheet(db, 'touch')
-  const form = sheet(NEW_TUNE_TITLE)
+  await editTune(db, { title: 'Angeline the Baker' }, 'touch')
+  const form = sheet(EDIT_TUNE_TITLE)
   await form.getByRole('textbox', { name: YEAR_LABEL }).fill('2019')
   const month = form.getByRole('button', { name: new RegExp(MONTH_LABEL) })
   // Opened from the keyboard, because the menu focuses whichever item opens under the pointer.
@@ -358,95 +212,15 @@ it('closes an edit when its tune is deleted elsewhere', async () => {
   await expect.element(sheet(EDIT_TUNE_TITLE)).not.toBeInTheDocument()
 })
 
-const OPEN_FORM = 'Open form'
-
-function Opener({ options }: { options: TuneFormOptions }) {
-  const launcher = useTuneFormLauncher()
-  return <Button label={OPEN_FORM} onPress={() => launcher.open(options)} />
-}
-
-function renderProvider(
-  db: CrosstuneDb,
-  options: TuneFormOptions,
-  analytics = recordingAnalytics(),
-) {
-  const navigated: string[] = []
-  const Data = dataProviders({ db, analytics })
-  renderWithProviders(
-    <Data>
-      <TuneFormProvider navigate={(to) => navigated.push(to)}>
-        <Opener options={options} />
-      </TuneFormProvider>
-    </Data>,
-  )
-  return navigated
-}
-
-it.each<Source>(['catalog', 'search_offer', 'list', 'recordings_list', 'recording_screen', 'menu'])(
-  'reports a tune added from %s with that source',
-  async (source) => {
-    const db = openTestDb()
-    const analytics = recordingAnalytics()
-    renderProvider(db, { source, initialTitle: 'Sally Goodin' }, analytics)
-    await page.getByRole('button', { name: OPEN_FORM }).click()
-    await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
-    await expect.poll(() => onlyTune(db)).toBeDefined()
-    const tune = (await onlyTune(db))!
-    expect(analytics.sends()).toEqual([
-      { name: 'tune_created', props: { source, fields_set: ['title'], tune_id: tune.id } },
-    ])
-  },
-)
-
-it('opens a new tune added from a list in that list', async () => {
+it('+ Lyrics opens the form with the lyrics field focused', async () => {
   const db = openTestDb()
-  const listId = await createList(db, 'Session')
-  const navigated = renderProvider(db, { source: 'list', initialTitle: 'Sally Goodin', listId })
-  await page.getByRole('button', { name: OPEN_FORM }).click()
-  await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
-  await expect.poll(() => navigated.length).toBe(1)
-  const tune = (await onlyTune(db))!
-  expect(navigated).toEqual([listTunePath(listId, tune.id)])
-})
-
-it('opens a tune its list refused in the catalog, and says why', async () => {
-  const db = openTestDb()
-  const navigated = renderProvider(db, {
-    source: 'list',
-    initialTitle: 'Sally Goodin',
-    listId: 'gone',
-  })
-  await page.getByRole('button', { name: OPEN_FORM }).click()
-  await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
-  await expect.element(page.getByRole('status')).toHaveTextContent(LIST_NOT_FOUND)
-  const tune = (await onlyTune(db))!
-  expect(navigated).toEqual([tuneHomePath(tune.id)])
-})
-
-it('stays put when the form is cancelled while its new tune saves', async () => {
-  const db = openTestDb()
-  let release = () => {}
-  const gate = new Promise<void>((resolve) => {
-    release = resolve
-  })
-  const actual = await vi.importActual<typeof tunes>('../../commands/tunes')
-  vi.mocked(createTune).mockImplementationOnce(async (...args) => {
-    await gate
-    return actual.createTune(...args)
-  })
-  const callsBefore = vi.mocked(createTune).mock.calls.length
-  const navigated = renderProvider(db, {
-    source: 'list',
-    initialTitle: 'Sally Goodin',
-    listId: 'gone',
-  })
-  await page.getByRole('button', { name: OPEN_FORM }).click()
-  await primary(NEW_TUNE_TITLE, ADD_NEW_TUNE).click()
-  await expect.poll(() => vi.mocked(createTune).mock.calls.length).toBe(callsBefore + 1)
-  await sheet(NEW_TUNE_TITLE).getByRole('button', { name: CANCEL }).click()
-  await expect.element(sheet(NEW_TUNE_TITLE)).not.toBeInTheDocument()
-  release()
-  // The refused filing's toast is the sign the save has landed and been answered.
-  await expect.element(page.getByRole('status')).toHaveTextContent(LIST_NOT_FOUND)
-  expect(navigated).toEqual([])
+  const { tuneId } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'learning' })
+  await renderApp({ path: `/catalog/${tuneId}`, db, frame: PHONE })
+  await page
+    .getByRole('group', { name: ADD_TO_TUNE })
+    .getByRole('button', { name: ADD_LYRICS })
+    .click()
+  await expect
+    .element(sheet(EDIT_TUNE_TITLE).getByRole('textbox', { name: LYRICS_SECTION }))
+    .toHaveFocus()
 })

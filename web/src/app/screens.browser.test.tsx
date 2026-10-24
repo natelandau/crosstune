@@ -33,6 +33,9 @@ async function mount(path: string) {
 it('reports each screen as the path changes', async () => {
   const { analytics, router } = await mount('/catalog')
   await act(() => router.navigate('/catalog/t1'))
+  // The tune page holds the catalog on screen until it has read the title, and a navigation
+  // away before then replaces it unseen, so the tune shows before the test moves on.
+  await expect.poll(() => screens(analytics)).toEqual(['catalog', 'tune'])
   await act(() => router.navigate('/lists'))
   await expect.poll(() => screens(analytics)).toEqual(['catalog', 'tune', 'lists'])
 })

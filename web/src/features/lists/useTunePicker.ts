@@ -7,6 +7,7 @@ import { useDb } from '../../db/DbProvider'
 import { messageFor, useAction } from '../../ui/useAction'
 import { useResetOnChange } from '../../ui/useResetOnChange'
 import { useTuneMatches, type TuneMatches } from '../catalog/useTuneMatches'
+import { useCreateTune } from '../tune/useCreateTune'
 
 export interface TunePicker {
   query: string
@@ -17,16 +18,16 @@ export interface TunePicker {
   taken: ReadonlySet<string>
   /** Adds a tune without closing, so several go in one visit. */
   pick: (userTuneId: string) => void
-  /** Asks to create a tune by this title; the picker closes first and `dismissed` hands the title back. */
+  /** Creates a tune by this title into the list, keeping the search so it shows as taken. */
   create: (title: string) => void
   /** The last rejection of a pick, while the visit that made it is still open. */
   error: string | null
-  /** Set by Done or the create offer; the sheet closes itself and reports once, when dismissal ends. */
+  /** Set by Done; the sheet closes itself and reports once, when dismissal ends. */
   closing: boolean
   /** Done. */
   done: () => void
-  /** The sheet's onClose: the title to create, if the close was a create offer. */
-  dismissed: () => string | null
+  /** The sheet's onClose. */
+  dismissed: () => void
 }
 
 const NOTHING_TAKEN: ReadonlySet<string> = new Set()
@@ -57,12 +58,14 @@ export function useTunePicker(
 ): TunePicker {
   const db = useDb()
   const analytics = useAnalytics()
+  const createTune = useCreateTune()
   const { error, run, clear } = useAction()
   const [query, setQuery] = useState('')
   const [closing, setClosing] = useState(false)
   // Tunes whose add is in flight. A ref, because two taps in one tick both read the same state.
   const adding = useRef(new Set<string>())
-  const creating = useRef<string | null>(null)
+  // A create in flight, so a second press or Enter cannot make the tune twice.
+  const creating = useRef(false)
   // The open visit. A pick keeps the visit it was made in, so a rejection that outlives it
   // reports as a toast rather than landing inline on a later one, and its add counts toward
   // that visit's report.
@@ -125,17 +128,26 @@ export function useTunePicker(
   }
 
   const create = (title: string) => {
-    if (creating.current !== null) return
-    creating.current = title
-    setClosing(true)
+    if (creating.current) return
+    creating.current = true
+    const at = visit.current
+    run(async () => {
+      try {
+        const { filingError } = await createTune({ title, source: 'list', listId })
+        if (filingError !== undefined) throw new Error(filingError)
+      } catch (caught) {
+        // As with a pick, a refusal that outlives its visit takes the toast.
+        if (!at.gone && at === visit.current) throw caught
+        toast(messageFor(caught))
+      } finally {
+        creating.current = false
+      }
+    })
   }
 
   const dismissed = () => {
-    const title = creating.current
-    creating.current = null
     visit.current.gone = true
     reportIfDone(visit.current)
-    return title
   }
 
   return {

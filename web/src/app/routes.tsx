@@ -12,7 +12,13 @@ import {
 } from '../features/settings/settingsPaths'
 import { StatsPage } from '../features/stats/StatsPage'
 import { TunerScreen } from '../features/tuner/TunerScreen'
-import { CatalogTune, ListTune, RecordingsTune, StatsTune } from '../features/tune/tuneRoutes'
+import {
+  CatalogNewTune,
+  CatalogTune,
+  ListTune,
+  RecordingsTune,
+  StatsTune,
+} from '../features/tune/tuneRoutes'
 import { CatalogLayout } from './CatalogLayout'
 import { DestinationTracker } from './DestinationTracker'
 import { NOT_FOUND } from './notFound'
@@ -56,7 +62,10 @@ export function appRoutes(dev: boolean): RouteObject[] {
           path: '/catalog',
           // No index route: at the root the outlet is empty, which is what shows the list alone.
           element: <CatalogLayout />,
-          children: [{ path: ':tuneId', element: <CatalogTune /> }],
+          children: [
+            { path: 'new', element: <CatalogNewTune /> },
+            { path: ':tuneId', element: <CatalogTune /> },
+          ],
         },
         {
           path: '/lists',

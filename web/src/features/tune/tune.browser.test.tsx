@@ -1,28 +1,44 @@
 import { page, userEvent } from 'vitest/browser'
 import { expect, it, onTestFinished, vi } from 'vitest'
-import { setInstruments } from '../../commands/settings'
 import { deleteTune } from '../../commands/tunes'
-import { STATUS_LABELS } from '../../constants'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalTune } from '../../db/types'
 import { CLOSE_PLAYER } from '../player/transportCopy'
 import { PLAY } from '../recordings/recordingNames'
-import { ADD_SCANS, NO_SCANS, SCANS } from '../scans/scanCopy'
+import type * as images from '../scans/prepareImage'
+import { prepareImage, UndecodableImageError } from '../scans/prepareImage'
+import { ADD_SCANS, CHOOSE_SCAN_FILES, unreadableFilesMessage } from '../scans/scanCopy'
 import { addToList, createList } from '../../commands/lists'
 import { deleteTuneMessage, deleteTuneTitle } from './deleteTuneMessage'
 import {
-  ADD_NOTES,
+  ADD_LYRICS,
+  ADD_SCAN,
+  ADDING_SCAN,
+  ADD_TO_TUNE,
+  EDIT_ALL_DETAILS,
   EDIT_LYRICS,
-  EDIT_NOTES,
-  LISTS_SECTION,
+  EDIT_TUNE,
   LYRICS_SECTION,
-  NO_TUNE_NOTES,
-  NO_TUNE_RECORDINGS,
+  NOTES_SAVE_HINT,
   NOTES_SECTION,
   OPEN_LYRICS,
   RECORDINGS_SECTION,
   recordingsLine,
+  WRITE_A_NOTE,
 } from './tuneScreenCopy'
+import {
+  ABOUT_GROUP,
+  ADDED_ON,
+  DETAILS_GROUP,
+  factRowName,
+  FACTS_LABEL,
+  LEARNED_GROUP,
+  LISTS_GROUP,
+} from './factCopy'
+import { DETAIL_LABELS } from './detailFields'
+import { addedDay } from '../../text/format'
+import { DONE } from '../../ui/confirmCopy'
+import { lyricsTitle } from '../lyrics/lyricsCopy'
 import { openTestDb } from '../../test/db'
 import {
   entitlementRow,
@@ -39,14 +55,33 @@ import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { TUNE } from './tunePageCopy'
+import { PRACTICE } from './tuneVerbsCopy'
+import { PLAY as TRANSPORT_PLAY } from '../player/transportCopy'
+import { ADD_TO_LIST } from '../lists/listPickerCopy'
+import {
+  ADD_RECORDING,
+  FIND_A_RECORDING,
+  FIRST_RECORDING_TITLE,
+  PASTE_LINK,
+  RECORD,
+} from './tuneMediaCopy'
+import { SEARCH_NEEDS_CONNECTION } from '../links/findRecordingsCopy'
 import { destination } from '../../layout/destinations'
 import { renderApp } from '../../test/renderApp'
 import { DELETE } from '../../ui/Confirm'
 import type { TuneFormLauncher } from './formLauncher'
-import { tuneTitleTransition } from './TuneHeader'
+import { tuneTitleTransition } from './TuneBand'
+
+// A passthrough a test can hold once; every other test reads its files for real.
+vi.mock('../scans/prepareImage', async (original) => {
+  const actual = await original<typeof images>()
+  return { ...actual, prepareImage: vi.fn(actual.prepareImage) }
+})
 
 const PHONE = { width: 390, height: 844 }
 const WIDE = { width: 1280, height: 800 }
+/** Split, where the detail column is too narrow for the rail. */
+const SPLIT = { width: 800, height: 800 }
 
 const CATALOG = destination('catalog')
 
@@ -65,139 +100,490 @@ const pageTitle = () => tunePage().getByRole('heading', { level: 1 })
 const path = (router: { state: { location: { pathname: string } } }) => () =>
   router.state.location.pathname
 
-it('shows the facts a tune holds in its header', async () => {
-  const db = openTestDb()
-  await setInstruments(db, 'user_1', ['violin'])
-  await seedTune(db, 't1', "Soldier's Joy", {
-    key: 'D',
-    modes: ['major', 'mixolydian'],
-    tune_type: 'reel',
-    time_signature: '2/2',
-    part_structure: 'AABB',
-    tunings: { violin: { tuning: 'Cross A (AEAE)' } },
-  })
-  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
-  await expect.element(pageTitle()).toHaveTextContent("Soldier's Joy")
-  const header = tunePage()
-  for (const fact of ['major', 'mixolydian', 'reel', '2/2', 'AABB']) {
-    await expect.element(header.getByText(fact, { exact: true })).toBeVisible()
-  }
-  await expect.element(header.getByText('D', { exact: true })).toBeVisible()
-  await expect.element(header.getByText(/Violin.*Cross A \(AEAE\)/)).toBeVisible()
-  await expect.element(header.getByText(STATUS_LABELS.known, { exact: true })).toBeVisible()
-})
+const barButtons = () =>
+  [...tunePage().element().querySelectorAll<HTMLElement>('[data-pane-bar] button')].map(
+    (button) => button.getAttribute('aria-label') ?? button.textContent,
+  )
+const middle = (element: Element | Range) => {
+  const box = element.getBoundingClientRect()
+  return box.top + box.height / 2
+}
 
-it('never opens a wrapped facts line with a dot', async () => {
+it('the phone toolbar holds only More', async () => {
   const db = openTestDb()
-  await setInstruments(db, 'user_1', ['violin', 'five_string_banjo'])
-  await seedTune(db, 't1', "Soldier's Joy", {
-    key: 'D',
-    modes: ['major'],
-    tune_type: 'Breakdown',
-    time_signature: '2/2',
-    part_structure: 'AABB',
-    genre: 'Old-time',
-    tunings: {
-      violin: { tuning: 'Standard (GDAE)' },
-      five_string_banjo: { tuning: 'Open G (gDGBD)', capo: 2 },
-    },
-  })
+  await seedTune(db, 't1', 'Cluck Old Hen')
   await renderApp({ path: '/catalog/t1', db, frame: PHONE })
-  await expect.element(tunePage().getByText(/5-string banjo/)).toBeVisible()
-  const lineStarts = () =>
-    [...tunePage().element().querySelectorAll<HTMLElement>('[data-part]')].filter(
-      (part, index, parts) => index === 0 || parts[index - 1]!.offsetTop !== part.offsetTop,
-    )
-  // The tunings do not fit beside the status at this width, so some part opens a new line.
-  await expect.poll(() => lineStarts().length).toBeGreaterThan(2)
-  for (const part of lineStarts()) {
-    const clip = part.parentElement!.parentElement!.getBoundingClientRect().left
-    const dot = part.firstElementChild!.getBoundingClientRect()
-    expect(dot.right).toBeLessThanOrEqual(clip + 0.5)
-  }
+  await expect.element(tunePage().getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
+  await expect.poll(barButtons).toEqual([MORE_ACTIONS])
+  expect(tunePage().getByRole('button', { name: EDIT_TUNE, exact: true }).elements()).toHaveLength(
+    0,
+  )
 })
 
 it.each([
-  [RECORDINGS_SECTION, NO_TUNE_RECORDINGS],
-  [SCANS, NO_SCANS],
-  [NOTES_SECTION, NO_TUNE_NOTES],
-])('shows an empty %s section with its heading and an empty state', async (title, empty) => {
+  ['split', SPLIT],
+  ['wide', WIDE],
+] as const)("%s puts More on the title's row, centered on its first line", async (_, frame) => {
   const db = openTestDb()
   await seedTune(db, 't1', 'Cluck Old Hen')
-  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
-  const section = tunePage().getByRole('region', { name: title })
-  await expect.element(section.getByRole('heading', { name: title })).toBeVisible()
-  await expect.element(section.getByText(empty, { exact: true })).toBeVisible()
-  // The empty state names what is absent under the section's own heading, not as another one.
-  expect(section.getByRole('heading').elements()).toHaveLength(1)
+  await renderApp({ path: '/catalog/t1', db, frame })
+  // It follows the frame, not the facts: split shows the card, yet More is on the title's row.
+  const facts =
+    frame === SPLIT
+      ? tunePage().getByRole('region', { name: FACTS_LABEL })
+      : tunePage().getByRole('complementary', { name: FACTS_LABEL })
+  await expect.element(facts).toBeVisible()
+  const more = tunePage().getByRole('button', { name: MORE_ACTIONS })
+  await expect.element(more).toBeVisible()
+  await expect.poll(barButtons).toEqual([])
+  await expect.element(pageTitle()).toHaveTextContent('Cluck Old Hen')
+  await expect
+    .poll(() => Math.abs(middle(more.element()) - middle(pageTitle().element())))
+    .toBeLessThanOrEqual(1)
+  await expect
+    .poll(() => more.element().getBoundingClientRect().left)
+    .toBeGreaterThan(pageTitle().element().getBoundingClientRect().right)
+  expect(tunePage().getByRole('button', { name: EDIT_TUNE, exact: true }).elements()).toHaveLength(
+    0,
+  )
 })
 
-it('keeps the scans add control in an empty Scans section', async () => {
+it("the rail's first group lines up with Recordings and stays in view as the page scrolls", async () => {
   const db = openTestDb()
   await seedTune(db, 't1', 'Cluck Old Hen')
-  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
-  const scans = tunePage().getByRole('region', { name: SCANS })
-  await expect.element(scans.getByRole('button', { name: ADD_SCANS })).toBeVisible()
+  for (let n = 0; n < 24; n++) {
+    await db.recording_links.put(linkRow(`l${n}`, 't1', { title: `Take ${n}`, position: n }))
+  }
+  await renderApp({ path: '/catalog/t1', db, frame: WIDE })
+  const rail = tunePage().getByRole('complementary', { name: FACTS_LABEL })
+  const heading = tunePage().getByRole('heading', { name: RECORDINGS_SECTION, level: 2 })
+  await expect.element(rail).toBeVisible()
+  // The header's text, not its box, which carries the padding that sets it level.
+  const firstHeader = () => {
+    const range = document.createRange()
+    range.selectNodeContents(rail.getByRole('heading').first().element())
+    return range
+  }
+  await expect
+    .poll(() => Math.abs(middle(firstHeader()) - middle(heading.element())))
+    .toBeLessThanOrEqual(1)
+
+  const scroller = tunePage().element().closest<HTMLElement>('[data-pane-scroller]')!
+  scroller.scrollTop = 600
+  await expect.poll(() => scroller.scrollTop).toBe(600)
+  const bar = tunePage().element().querySelector('[data-pane-bar]')!
+  await expect
+    .poll(() => rail.element().getBoundingClientRect().top)
+    .toBeGreaterThanOrEqual(bar.getBoundingClientRect().bottom)
+  await expect
+    .poll(() => rail.element().getBoundingClientRect().top - bar.getBoundingClientRect().bottom)
+    .toBeLessThan(40)
 })
 
-it('leaves out the lyrics and lists sections while they hold nothing', async () => {
+it('a rail taller than the pane scrolls on its own to the day added', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  for (let n = 0; n < 24; n++) {
+    await db.recording_links.put(linkRow(`l${n}`, 't1', { title: `Take ${n}`, position: n }))
+  }
+  await renderApp({ path: '/catalog/t1', db, frame: { width: 1280, height: 480 } })
+  const rail = tunePage().getByRole('complementary', { name: FACTS_LABEL })
+  await expect.element(rail).toBeVisible()
+  await expect
+    .poll(() => rail.element().scrollHeight - rail.element().clientHeight)
+    .toBeGreaterThan(0)
+  const scroller = tunePage().element().closest<HTMLElement>('[data-pane-scroller]')!
+  const added = rail.getByText(ADDED_ON(addedDay((await db.tunes.get('t1'))!.created_at)))
+  added.element().scrollIntoView({ block: 'nearest' })
+  await expect.poll(() => rail.element().scrollTop).toBeGreaterThan(0)
+  await expect
+    .poll(() => added.element().getBoundingClientRect().bottom)
+    .toBeLessThanOrEqual(scroller.getBoundingClientRect().bottom + 1)
+})
+
+it('More offers Edit all details', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  const launcher = { open: vi.fn<TuneFormLauncher['open']>() }
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE, launcher })
+  await tunePage().getByRole('button', { name: MORE_ACTIONS }).click()
+  await page.getByRole('menuitem', { name: EDIT_ALL_DETAILS }).click()
+  await expect.poll(() => launcher.open.mock.calls).toEqual([[{ tuneId: 't1' }]])
+})
+
+it('a new tune shows the start card, no verb row, and no empty-state blocks', async () => {
   const db = openTestDb()
   await seedTune(db, 't1', 'Cluck Old Hen')
   await renderApp({ path: '/catalog/t1', db, frame: PHONE })
-  await expect.element(tunePage().getByRole('heading', { name: RECORDINGS_SECTION })).toBeVisible()
-  for (const title of [LYRICS_SECTION, LISTS_SECTION]) {
-    expect(tunePage().getByRole('heading', { name: title, exact: true }).elements()).toHaveLength(0)
+  const recordings = tunePage().getByRole('region', { name: RECORDINGS_SECTION })
+  await expect.element(recordings.getByText(FIRST_RECORDING_TITLE, { exact: true })).toBeVisible()
+  // The card is the way on; with nothing to play there is no verb row at all.
+  for (const name of [RECORD, PASTE_LINK, FIND_A_RECORDING]) {
+    await expect.element(recordings.getByRole('button', { name, exact: true })).toBeVisible()
+  }
+  await expect
+    .poll(() => document.querySelector('div[aria-hidden][class="min-h-(--target-control)"]'))
+    .toBeNull()
+  for (const verb of [TRANSPORT_PLAY, PRACTICE]) {
+    expect(tunePage().getByRole('button', { name: verb, exact: true }).query()).toBeNull()
+  }
+  await expect
+    .element(tunePage().getByRole('textbox', { name: NOTES_SECTION }))
+    .toHaveAttribute('placeholder', WRITE_A_NOTE)
+  // No Lyrics or Scans and images until they hold something; both wait in the add line.
+  await expect.poll(headings).toEqual([RECORDINGS_SECTION, NOTES_SECTION, LISTS_GROUP])
+  const add = tunePage().getByRole('group', { name: ADD_TO_TUNE })
+  await expect.element(add.getByRole('button', { name: ADD_SCAN })).toBeVisible()
+  await expect.element(add.getByRole('button', { name: ADD_LYRICS })).toBeVisible()
+  for (const gone of ['No recordings yet', 'No scans yet', 'No notes yet']) {
+    expect(tunePage().getByText(gone).elements()).toHaveLength(0)
   }
 })
 
-it('shows the lyrics, lists, and notes sections once they hold something', async () => {
+it('the heading has no add control while the start card shows, and gets one with the first link', async () => {
   const db = openTestDb()
-  await db.tunes.put(tuneRow('t1', 'Cluck Old Hen', { lyrics: 'My old hen' }))
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  const recordings = tunePage().getByRole('region', { name: RECORDINGS_SECTION })
+  await expect.element(recordings.getByText(FIRST_RECORDING_TITLE, { exact: true })).toBeVisible()
+  expect(recordings.getByRole('button', { name: ADD_RECORDING }).query()).toBeNull()
+
+  await db.recording_links.put(linkRow('l1', 't1', { title: 'Henry Reed' }))
+  await expect
+    .element(recordings.getByText(FIRST_RECORDING_TITLE, { exact: true }))
+    .not.toBeInTheDocument()
+  await expect.element(recordings.getByRole('button', { name: ADD_RECORDING })).toBeVisible()
+})
+
+it('Find a recording refuses on tap while offline and clears once back online', async () => {
+  const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+  onTestFinished(() => onLine.mockRestore())
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  const recordings = tunePage().getByRole('region', { name: RECORDINGS_SECTION })
+  await recordings.getByRole('button', { name: FIND_A_RECORDING, exact: true }).click()
+  await expect.element(recordings.getByText(SEARCH_NEEDS_CONNECTION)).toBeVisible()
+  expect(page.getByRole('dialog').query()).toBeNull()
+
+  onLine.mockReturnValue(true)
+  window.dispatchEvent(new Event('online'))
+  await expect.element(recordings.getByText(SEARCH_NEEDS_CONNECTION)).not.toBeInTheDocument()
+})
+
+it('keeps Add to list reachable on a tune with nothing to play', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  await renderApp({ path: '/catalog/t1', db, frame: WIDE })
+  const facts = tunePage().getByRole('complementary', { name: FACTS_LABEL })
+  await expect.element(facts.getByRole('button', { name: ADD_TO_LIST })).toBeVisible()
+  await tunePage().getByRole('button', { name: MORE_ACTIONS }).click()
+  await expect.element(page.getByRole('menuitem', { name: ADD_TO_LIST })).toBeVisible()
+  await userEvent.keyboard('{Escape}')
+})
+
+it('says why a first scan was not added', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  await expect.element(tunePage().getByRole('button', { name: ADD_SCAN })).toBeVisible()
+  await userEvent.upload(
+    page.getByLabelText(CHOOSE_SCAN_FILES),
+    new File(['not an image'], 'notes.png', { type: 'image/png' }),
+  )
+  await expect
+    .element(tunePage().getByRole('alert'))
+    .toHaveTextContent(unreadableFilesMessage(['notes.png']))
+  // Nothing was added, so the scan waits in the add line still.
+  await expect.element(tunePage().getByRole('button', { name: ADD_SCAN })).toBeVisible()
+})
+
+it('says a first scan is being added while it is read', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  let fail: (reason: unknown) => void = () => {}
+  vi.mocked(prepareImage).mockImplementationOnce(
+    () => new Promise((_, reject) => void (fail = reject)),
+  )
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  await expect.element(tunePage().getByRole('button', { name: ADD_SCAN })).toBeVisible()
+  // The live region is there, empty, before the add, so its text is announced as it arrives.
+  const adding = tunePage().getByRole('group', { name: ADD_TO_TUNE }).getByRole('status')
+  await expect.element(adding).toBeInTheDocument()
+  await expect.element(adding).toHaveTextContent('')
+  const region = adding.element()
+  await userEvent.upload(
+    page.getByLabelText(CHOOSE_SCAN_FILES),
+    new File(['held'], 'sheet.png', { type: 'image/png' }),
+  )
+  await expect.element(adding).toHaveTextContent(ADDING_SCAN)
+  expect(adding.element()).toBe(region)
+  fail(new UndecodableImageError('sheet.png', null))
+  await expect.element(adding).toHaveTextContent('')
+  await expect.element(tunePage().getByRole('button', { name: ADD_SCAN })).toBeVisible()
+})
+
+it('+ Lyrics opens the tune form', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  const launcher = { open: vi.fn<TuneFormLauncher['open']>() }
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE, launcher })
+  await tunePage()
+    .getByRole('group', { name: ADD_TO_TUNE })
+    .getByRole('button', { name: ADD_LYRICS })
+    .click()
+  await expect.poll(() => launcher.open.mock.calls).toEqual([[{ tuneId: 't1', focus: 'lyrics' }]])
+})
+
+async function seedWithLyrics(db: CrosstuneDb, extra: Partial<LocalTune> = {}) {
+  await db.tunes.put(
+    tuneRow('t1', 'Cluck Old Hen', { lyrics: "My old hen\nShe won't lay", ...extra }),
+  )
   await db.user_tunes.put(userTuneRow('u-t1', 't1', { notes: 'Lift the B part' }))
+}
+
+const headings = () =>
+  tunePage()
+    .getByRole('heading', { level: 2 })
+    .elements()
+    .map((heading) => heading.textContent)
+
+it('orders the sections on the phone, ending with Lists and the day added', async () => {
+  const db = openTestDb()
+  await seedWithLyrics(db)
   const listId = await createList(db, 'Tuesday jam')
   await addToList(db, listId, 'u-t1')
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  await expect
+    .poll(headings)
+    .toEqual([RECORDINGS_SECTION, LYRICS_SECTION, NOTES_SECTION, LISTS_GROUP])
+  // Lists left the card for the end of the page.
+  const lists = tunePage().getByRole('region', { name: LISTS_GROUP })
+  await expect.element(lists.getByRole('link')).toHaveTextContent('Tuesday jam')
+  await expect.element(lists.getByRole('button', { name: ADD_TO_LIST })).toBeVisible()
+  const card = tunePage().getByRole('region', { name: FACTS_LABEL })
+  expect(card.getByRole('link').query()).toBeNull()
+  const added = tunePage().getByText(ADDED_ON(addedDay((await db.tunes.get('t1'))!.created_at)), {
+    exact: true,
+  })
+  await expect.element(added).toBeVisible()
+  // The date ends the page, after the lists.
+  expect(
+    lists.element().compareDocumentPosition(added.element()) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy()
+  expect(added.element().nextElementSibling).toBeNull()
+  await expect
+    .element(tunePage().getByRole('textbox', { name: NOTES_SECTION }))
+    .toHaveValue('Lift the B part')
+  // Lyrics are set, so the add line offers a scan alone, and only there: no scans yet means
+  // no Scans and images section.
+  const add = tunePage().getByRole('group', { name: ADD_TO_TUNE })
+  await expect.element(add.getByRole('button', { name: ADD_SCAN })).toBeVisible()
+  expect(add.getByRole('button', { name: ADD_LYRICS }).elements()).toHaveLength(0)
+  expect(tunePage().getByRole('button', { name: ADD_SCANS }).elements()).toHaveLength(0)
+})
+
+it('leaves Lists and the day added to the rail on wide', async () => {
+  const db = openTestDb()
+  await seedWithLyrics(db)
+  await renderApp({ path: '/catalog/t1', db, frame: WIDE })
+  const rail = tunePage().getByRole('complementary', { name: FACTS_LABEL })
+  await expect.element(rail.getByRole('button', { name: ADD_TO_LIST })).toBeVisible()
+  // The rail's groups follow the content in the outline, as its peers, not under Notes.
+  await expect
+    .poll(headings)
+    .toEqual([
+      RECORDINGS_SECTION,
+      LYRICS_SECTION,
+      NOTES_SECTION,
+      DETAILS_GROUP,
+      ABOUT_GROUP,
+      LEARNED_GROUP,
+      LISTS_GROUP,
+    ])
+  const added = ADDED_ON(addedDay((await db.tunes.get('t1'))!.created_at))
+  expect(tunePage().getByText(added, { exact: true }).elements()).toHaveLength(1)
+  await expect.element(rail.getByText(added, { exact: true })).toBeVisible()
+})
+
+it('opens and closes the Lyrics section in place, starting closed', async () => {
+  const db = openTestDb()
+  await seedWithLyrics(db)
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  const section = tunePage().getByRole('region', { name: LYRICS_SECTION })
+  const toggle = section.getByRole('button', { name: LYRICS_SECTION, exact: true })
+  await expect.element(toggle).toHaveAttribute('aria-expanded', 'false')
+  expect(section.getByText('My old hen').query()).toBeNull()
+  await toggle.click()
+  await expect.element(toggle).toHaveAttribute('aria-expanded', 'true')
+  await expect.element(section.getByText('My old hen', { exact: true })).toBeVisible()
+  await expect.element(section.getByText("She won't lay", { exact: true })).toBeVisible()
+  await toggle.click()
+  await expect.element(section.getByText('My old hen')).not.toBeInTheDocument()
+})
+
+it("the verb row's Lyrics opens the section and scrolls it into view", async () => {
+  const db = openTestDb()
+  await seedWithLyrics(db)
+  for (let n = 0; n < 24; n++) {
+    await db.recording_links.put(
+      linkRow(`l${n}`, 't1', { title: `Take ${n}`, position: n, provider: 'apple_music' }),
+    )
+  }
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  const section = tunePage().getByRole('region', { name: LYRICS_SECTION })
+  const toggle = section.getByRole('button', { name: LYRICS_SECTION, exact: true })
+  await expect.element(toggle).toBeInTheDocument()
+  // Below the fold until the verb brings it up.
+  await expect
+    .poll(() => section.element().getBoundingClientRect().top)
+    .toBeGreaterThan(PHONE.height)
+  // The verb row comes before the section's own heading button.
+  await tunePage().getByRole('button', { name: LYRICS_SECTION, exact: true }).first().click()
+  await expect.element(toggle).toHaveAttribute('aria-expanded', 'true')
+  const bar = tunePage().element().querySelector('[data-pane-bar]')!
+  await expect
+    .poll(() => section.element().getBoundingClientRect().top)
+    .toBeGreaterThanOrEqual(bar.getBoundingClientRect().bottom - 1)
+  await expect
+    .poll(() => section.element().getBoundingClientRect().top)
+    .toBeLessThan(PHONE.height / 2)
+  await expect.element(toggle).toHaveFocus()
+})
+
+it("the Lyrics section's Edit opens the tune form at the lyrics", async () => {
+  const db = openTestDb()
+  await seedWithLyrics(db)
   const launcher = { open: vi.fn<TuneFormLauncher['open']>() }
   await renderApp({ path: '/catalog/t1', db, frame: PHONE, launcher })
-  await expect
-    .element(tunePage().getByRole('region', { name: LISTS_SECTION }).getByRole('link'))
-    .toHaveTextContent('Tuesday jam')
-  // Lists close the page, after the notes.
-  expect(
-    tunePage()
-      .getByRole('heading', { level: 2 })
-      .elements()
-      .map((heading) => heading.textContent),
-  ).toEqual([RECORDINGS_SECTION, SCANS, LYRICS_SECTION, NOTES_SECTION, LISTS_SECTION])
-  for (const [title, edit] of [
-    [LYRICS_SECTION, EDIT_LYRICS],
-    [NOTES_SECTION, EDIT_NOTES],
-  ] as const) {
-    const section = tunePage().getByRole('region', { name: title })
-    await expect.element(section.getByRole('button', { name: edit })).toBeVisible()
-  }
-  await tunePage().getByRole('button', { name: EDIT_NOTES }).click()
-  await expect.poll(() => launcher.open.mock.calls).toEqual([[{ source: 'tune', tuneId: 't1' }]])
+  await tunePage()
+    .getByRole('region', { name: LYRICS_SECTION })
+    .getByRole('button', { name: EDIT_LYRICS, exact: true })
+    .click()
+  await expect.poll(() => launcher.open.mock.calls).toEqual([[{ tuneId: 't1', focus: 'lyrics' }]])
 })
 
-it('shows a learned date alone in the notes section, with no empty state', async () => {
+it("the Lyrics section's reader button opens the reader", async () => {
   const db = openTestDb()
-  await db.tunes.put(tuneRow('t1', 'Cluck Old Hen'))
-  await db.user_tunes.put(userTuneRow('u-t1', 't1', { learned_from: 'Jim' }))
+  await seedWithLyrics(db)
   await renderApp({ path: '/catalog/t1', db, frame: PHONE })
-  const notes = tunePage().getByRole('region', { name: NOTES_SECTION })
-  await expect.element(notes.getByText('Learned from Jim')).toBeVisible()
-  await expect.element(notes.getByRole('button', { name: ADD_NOTES })).toBeVisible()
-  expect(notes.getByText(NO_TUNE_NOTES).elements()).toHaveLength(0)
+  await tunePage()
+    .getByRole('region', { name: LYRICS_SECTION })
+    .getByRole('button', { name: OPEN_LYRICS, exact: true })
+    .click()
+  const reader = page.getByRole('dialog', { name: lyricsTitle('Cluck Old Hen') })
+  await expect.element(reader.getByText('My old hen', { exact: true })).toBeVisible()
+  await userEvent.keyboard('{Escape}')
+  await expect.element(reader).not.toBeInTheDocument()
 })
 
-it('adds notes from an empty Notes section through the tune form', async () => {
+it('notes say they save as typed while edited, and Done ends editing', async () => {
   const db = openTestDb()
   await seedTune(db, 't1', 'Cluck Old Hen')
-  const launcher = { open: vi.fn<TuneFormLauncher['open']>() }
-  await renderApp({ path: '/catalog/t1', db, frame: PHONE, launcher })
-  const notes = tunePage().getByRole('region', { name: NOTES_SECTION })
-  await notes.getByRole('button', { name: ADD_NOTES }).click()
-  await expect.poll(() => launcher.open.mock.calls).toEqual([[{ source: 'tune', tuneId: 't1' }]])
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  const notes = tunePage().getByRole('textbox', { name: NOTES_SECTION })
+  const hint = tunePage().getByText(NOTES_SAVE_HINT, { exact: true })
+  const done = tunePage().getByRole('button', { name: DONE, exact: true })
+  await expect.element(notes).toBeVisible()
+  expect(hint.query()).toBeNull()
+  await notes.click()
+  await expect.element(hint).toBeVisible()
+  await userEvent.keyboard('Long bow')
+  // Tabbing to Done keeps the line, so a keyboard can reach it.
+  await userEvent.tab()
+  await expect.element(done).toHaveFocus()
+  await expect.element(hint).toBeVisible()
+  await notes.click()
+  await done.click()
+  await expect.element(notes).not.toHaveFocus()
+  await expect.element(hint).not.toBeInTheDocument()
+  await expect.poll(async () => (await db.user_tunes.get('u-t1'))?.notes).toBe('Long bow')
+})
+
+it('notes save as typed and report once on blur', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  const analytics = recordingAnalytics()
+  await renderApp({
+    path: '/catalog/t1',
+    db,
+    frame: PHONE,
+    wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
+  })
+  const notes = tunePage().getByRole('textbox', { name: NOTES_SECTION })
+  const elsewhere = tunePage().getByRole('heading', { name: RECORDINGS_SECTION })
+  await notes.click()
+  await userEvent.keyboard('Long bow')
+  await expect.poll(async () => (await db.user_tunes.get('u-t1'))?.notes).toBe('Long bow')
+  await userEvent.keyboard(' on the B')
+  await expect.poll(async () => (await db.user_tunes.get('u-t1'))?.notes).toBe('Long bow on the B')
+  const edits = () => analytics.sends().filter((send) => send.name === 'tune_edited')
+  expect(edits()).toEqual([])
+  await userEvent.click(elsewhere)
+  await expect.element(notes).not.toHaveFocus()
+  await expect
+    .poll(edits)
+    .toEqual([{ name: 'tune_edited', props: { fields_changed: ['notes'], tune_id: 't1' } }])
+  // Focusing and leaving with nothing changed reports nothing.
+  await notes.click()
+  await userEvent.click(elsewhere)
+  await expect.element(notes).not.toHaveFocus()
+  expect(edits()).toHaveLength(1)
+})
+
+it('notes typed and left by leaving the page report once', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  const analytics = recordingAnalytics()
+  await renderApp({
+    path: '/catalog/t1',
+    db,
+    frame: PHONE,
+    wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
+  })
+  const notes = tunePage().getByRole('textbox', { name: NOTES_SECTION })
+  await notes.click()
+  await userEvent.keyboard('Long bow')
+  await expect.poll(async () => (await db.user_tunes.get('u-t1'))?.notes).toBe('Long bow')
+  await expect.element(notes).toHaveFocus()
+  // Back is a link, so pressing it from the keyboard leaves while the field keeps focus.
+  ;(
+    tunePage().getByRole('link', { name: CATALOG.label, exact: true }).element() as HTMLElement
+  ).click()
+  await expect.element(page.getByRole('main', { name: CATALOG.label })).toBeVisible()
+  await expect
+    .poll(() => analytics.sends().filter((send) => send.name === 'tune_edited'))
+    .toEqual([{ name: 'tune_edited', props: { fields_changed: ['notes'], tune_id: 't1' } }])
+})
+
+it.each([
+  ['wide', WIDE, 'rail'],
+  ['phone', PHONE, 'card'],
+] as const)('shows the facts as a %s layout', async (_, frame, layout) => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  await renderApp({ path: '/catalog/t1', db, frame })
+  const recordings = tunePage().getByRole('region', { name: RECORDINGS_SECTION })
+  await expect.element(recordings).toBeVisible()
+  if (layout === 'rail') {
+    const rail = tunePage().getByRole('complementary', { name: FACTS_LABEL })
+    await expect.element(rail).toBeVisible()
+    // Beside the content, on its trailing side, with their tops level.
+    await expect
+      .poll(() => rail.element().getBoundingClientRect().left)
+      .toBeGreaterThanOrEqual(recordings.element().getBoundingClientRect().right)
+    await expect
+      .poll(() => rail.element().getBoundingClientRect().top)
+      .toBeLessThanOrEqual(recordings.element().getBoundingClientRect().top)
+  } else {
+    const card = tunePage().getByRole('region', { name: FACTS_LABEL })
+    await expect.element(card).toBeVisible()
+    expect(tunePage().getByRole('complementary', { name: FACTS_LABEL }).elements()).toHaveLength(0)
+    // Above the content.
+    await expect
+      .poll(() => card.element().getBoundingClientRect().bottom)
+      .toBeLessThanOrEqual(recordings.element().getBoundingClientRect().top)
+  }
 })
 
 it('asks before a delete and goes back to the parent once it lands', async () => {
@@ -456,8 +842,12 @@ it.each([
   await renderApp({ path: '/catalog/t1', db, frame, density })
   const recordings = tunePage().getByRole('region', { name: RECORDINGS_SECTION })
   await expect.element(recordings.getByText('Henry Reed')).toBeVisible()
-  const lyrics = tunePage().getByText(OPEN_LYRICS, { exact: true })
-  await expect.element(lyrics).toBeVisible()
+  const lyrics = tunePage()
+    .getByRole('region', { name: LYRICS_SECTION })
+    .getByRole('button', { name: LYRICS_SECTION, exact: true })
+  await lyrics.click()
+  const verse = tunePage().getByText('Grasshopper sitting on a sweet potato vine', { exact: true })
+  await expect.element(verse).toBeVisible()
   const left = (element: Element) => element.getBoundingClientRect().left
   const edge = () => left(recordings.getByRole('heading', { name: RECORDINGS_SECTION }).element())
   const titles = () => [...recordings.element().querySelectorAll('[data-row-title]')]
@@ -466,5 +856,45 @@ it.each([
   await expect.poll(() => Math.abs(left(titles()[0]!) - left(titles()[1]!))).toBeLessThan(1)
   const glyph = () => recordings.element().querySelector('[data-media-glyph] svg')!
   await expect.poll(() => Math.abs(left(glyph()) - edge())).toBeLessThan(1.5)
-  await expect.poll(() => Math.abs(left(lyrics.element()) - edge())).toBeLessThan(1)
+  await expect.poll(() => Math.abs(left(verse.element()) - edge())).toBeLessThan(1)
 })
+
+it('saves a fact typed in an open editor when browser Back leaves the page', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Forked Deer')
+  const { router } = await renderApp({ path: '/catalog', db, frame: WIDE })
+  await page.getByRole('row', { name: /Forked Deer/ }).click()
+  await expect.element(pageTitle()).toHaveTextContent('Forked Deer')
+  await tunePage()
+    .getByRole('button', { name: factRowName(DETAIL_LABELS.composer) })
+    .click()
+  await page.getByRole('combobox', { name: DETAIL_LABELS.composer }).fill('Kenny Baker')
+  await router.navigate(-1)
+  await expect.poll(path(router)).toBe(CATALOG.root)
+  await expect.poll(async () => (await db.tunes.get('t1'))?.composer).toBe('Kenny Baker')
+})
+
+it.each([
+  ['tune', (db: CrosstuneDb) => db.tunes.update('t1', { deleted_at: '2026-02-01T00:00:00.000Z' })],
+  [
+    "tune's user row",
+    (db: CrosstuneDb) => db.user_tunes.update('u-t1', { deleted_at: '2026-02-01T00:00:00.000Z' }),
+  ],
+] as const)(
+  'closes an open fact editor with nothing written when the %s is deleted elsewhere',
+  async (_, remove) => {
+    const db = openTestDb()
+    await seedTune(db, 't1', 'Forked Deer')
+    const { router } = await renderApp({ path: '/catalog/t1', db, frame: WIDE })
+    await tunePage()
+      .getByRole('button', { name: factRowName(DETAIL_LABELS.composer) })
+      .click()
+    const dialog = page.getByRole('dialog', { name: DETAIL_LABELS.composer })
+    await page.getByRole('combobox', { name: DETAIL_LABELS.composer }).fill('Someone')
+    await remove(db)
+    await expect.element(dialog).not.toBeInTheDocument()
+    await expect.poll(path(router)).toBe(CATALOG.root)
+    expect((await db.tunes.get('t1'))?.composer).toBeNull()
+    expect(page.getByRole('alert').elements()).toHaveLength(0)
+  },
+)

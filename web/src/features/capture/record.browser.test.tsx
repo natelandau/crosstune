@@ -16,7 +16,7 @@ import {
   STOP,
 } from './recordCopy'
 import { RECORDINGS_SECTION } from '../tune/tuneScreenCopy'
-import { ADD_RECORDING } from '../tune/tuneMediaCopy'
+import { RECORD } from '../tune/tuneMediaCopy'
 import { openTestDb } from '../../test/db'
 import { FakeRecorder, fakeMediaForTest } from '../../test/fakeMedia'
 import {
@@ -43,10 +43,12 @@ async function seedTune(db: CrosstuneDb, title = "Soldier's Joy") {
   return tuneId
 }
 
-/** Opens the recorder from the tune page's Add recording menu, which files under that tune. */
+/** Opens the recorder from the tune page's start card, which files under that tune. */
 async function recordFromTunePage() {
-  await page.getByRole('main', { name: TUNE }).getByRole('button', { name: ADD_RECORDING }).click()
-  await page.getByRole('menuitem', { name: NEW_RECORDING }).click()
+  await page
+    .getByRole('main', { name: TUNE })
+    .getByRole('button', { name: RECORD, exact: true })
+    .click()
 }
 
 /**

@@ -5,7 +5,8 @@ import { addTunesToList, createListWithTunes, type Undo } from '../../commands/b
 import { useDb } from '../../db/DbProvider'
 import { useAction } from '../../ui/useAction'
 import { useResetOnChange } from '../../ui/useResetOnChange'
-import { NONE_IN_IT } from './listPickerCopy'
+import { ALL_ALREADY_IN_LIST, someAlreadyInList } from './listPickerCopy'
+import { IN_THIS_LIST } from './listsCopy'
 import { useActiveLists, useMembershipCounts } from './useLists'
 
 /**
@@ -97,13 +98,15 @@ export function useListPicker(
     const loaded = counts !== undefined
     const inList = counts?.get(list.id) ?? 0
     const full = loaded && total > 0 && inList >= total
-    const note = !loaded
-      ? null
-      : inList === 0
-        ? NONE_IN_IT
-        : full
-          ? 'all in it'
-          : `${inList} of ${total} in it`
+    // One tune reads as the tune picker's word; several say how many are there already.
+    const note =
+      !loaded || inList === 0
+        ? null
+        : total === 1
+          ? IN_THIS_LIST
+          : full
+            ? ALL_ALREADY_IN_LIST
+            : someAlreadyInList(inList, total)
     return { id: list.id, name: list.name, note, disabled: full || pending || !loaded }
   })
 

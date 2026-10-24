@@ -41,6 +41,7 @@ export function Picker({
   isDisabled = false,
   isInvalid = false,
   describedBy,
+  autoFocus = false,
   onChange,
   onChoose,
 }: {
@@ -56,6 +57,8 @@ export function Picker({
   isInvalid?: boolean
   /** The id of the message that says why the row is refused. */
   describedBy?: string
+  /** Focuses the row as it mounts, as the first field of an editor that just opened. */
+  autoFocus?: boolean
   onChange: (id: string | null) => void
   /** Called on every pick, never on a dismissal. A pick of the value already chosen sends no
    * change, so this is the one sign that the musician chose it. */
@@ -93,6 +96,7 @@ export function Picker({
         trigger={
           <AriaButton
             isDisabled={isDisabled}
+            autoFocus={autoFocus}
             aria-describedby={isInvalid ? describedBy : undefined}
             data-invalid={isInvalid || undefined}
             className={`${FIELD_ROW_PRESSABLE} disabled:opacity-40 ${invalid}`}
@@ -122,6 +126,7 @@ export function Picker({
       onChange={(id) => choose(id as Key | null)}
       isDisabled={isDisabled}
       isInvalid={isInvalid}
+      autoFocus={autoFocus}
       onOpenChange={(open) => {
         if (open) picking.current = false
         else

@@ -45,11 +45,15 @@ function differing(before: Inputs, after: Inputs): TuneField[] {
 }
 
 /**
- * The fields a new tune carries, measured from a blank form so a genre suggested and kept
- * counts as set. A time signature of 4/4 and a status of want to learn are the blank form's own.
+ * The fields a tune created from its title alone carries. It starts from the blank form less
+ * the form's preset time signature, which such a tune never takes.
  */
-export function tuneFieldsSet(input: TuneInput, userInput: UserTuneInput): TuneField[] {
-  return differing(inputsFromValues(emptyValues()), { tune: input, userTune: userInput })
+export function titleOnlyFieldsSet(input: TuneInput, userInput: UserTuneInput): TuneField[] {
+  const blank = inputsFromValues(emptyValues())
+  return differing(
+    { ...blank, tune: { ...blank.tune, time_signature: null } },
+    { tune: input, userTune: userInput },
+  )
 }
 
 /**

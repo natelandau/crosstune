@@ -1,6 +1,7 @@
 import type { ReactNode, RefObject } from 'react'
 import { Dialog, Popover, type PopoverProps } from 'react-aria-components'
 import { OverlayClaim } from './overlayClaim'
+import { InBar } from './inBar'
 
 /**
  * A named dialog in a popover at `triggerRef`, for a pointer control whose choice is not a
@@ -35,7 +36,7 @@ export function PopoverDialog({
     >
       <OverlayClaim close={() => onOpenChange(false)} />
       <Dialog aria-label={label} className="outline-none">
-        {children}
+        <InBar value={false}>{children}</InBar>
       </Dialog>
     </Popover>
   )

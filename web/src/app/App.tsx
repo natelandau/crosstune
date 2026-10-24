@@ -80,7 +80,7 @@ export function App({
   const routed = tuneFormLauncher ? (
     <TuneFormLauncherProvider value={tuneFormLauncher}>{sheeted}</TuneFormLauncherProvider>
   ) : (
-    <TuneFormProvider navigate={(to) => void router.navigate(to)}>{sheeted}</TuneFormProvider>
+    <TuneFormProvider>{sheeted}</TuneFormProvider>
   )
   // Above the router, so practice's holds reach the bar and the overlay in every route, and the
   // disc, the capsule, and a tune page reach the one recorder.

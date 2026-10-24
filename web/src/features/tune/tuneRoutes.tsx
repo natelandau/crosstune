@@ -3,6 +3,7 @@ import { SETTINGS_STATS_PATH } from '../settings/settingsPaths'
 import { useActiveLists } from '../lists/useLists'
 import { STATS_TITLE } from '../stats/copy'
 import { destination } from '../../layout/destinations'
+import { NewTunePage } from './NewTunePage'
 import { TunePage } from './TunePage'
 
 /** A tune opened from the catalog, in the catalog's detail column. */
@@ -10,6 +11,11 @@ export function CatalogTune() {
   const { tuneId = '' } = useParams()
   const catalog = destination('catalog')
   return <TunePage tuneId={tuneId} parent={catalog.root} parentLabel={catalog.label} />
+}
+
+/** The title-only page a new catalog tune starts on, in the catalog's detail column. */
+export function CatalogNewTune() {
+  return <NewTunePage />
 }
 
 /** A tune opened from a list, in the lists' detail column; Back names the list. */

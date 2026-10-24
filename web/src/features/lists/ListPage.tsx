@@ -34,7 +34,6 @@ import { BulkSheets, SelectionBar } from '../selection/SelectionBar'
 import { useSelectionReturn, useSelectionShell } from '../selection/useScreenSelection'
 import { ColumnTitle } from '../../layout/ColumnTitle'
 import { BackLink, PaneBar } from '../../layout/PaneBar'
-import { useTuneFormLauncher } from '../tune/formLauncher'
 import { tunePick } from '../tune/tunePick'
 import { Button } from '../../ui/Button'
 import { useConfirm } from '../../ui/Confirm'
@@ -64,7 +63,6 @@ export function ListPage({ listId }: { listId: string }) {
   const wide = useFrame() === 'wide'
   const confirm = useConfirm()
   const toast = useToast()
-  const form = useTuneFormLauncher()
   const leaveTo = useLeaveTo()
   const screen = useListScreen(listId, { confirm, leave: () => leaveTo(LISTS.root) })
   const { list, items, deletingName, showArchived, instruments, notFound, error, setError } = screen
@@ -203,7 +201,6 @@ export function ListPage({ listId }: { listId: string }) {
                 instruments={instruments}
                 tuneId={tuneId}
                 wide={wide}
-                onEdit={(view) => form.open({ source: 'list', tuneId: view.tune.id })}
                 onRemove={(view) => void remove(view)}
                 onSelect={(view) => fromRow(view.userTune.id)}
                 announce={announce}
@@ -242,7 +239,6 @@ function ListTunes({
   instruments,
   tuneId,
   wide,
-  onEdit,
   onRemove,
   onSelect,
   announce,
@@ -256,7 +252,6 @@ function ListTunes({
   /** The tune open beside or over the list. */
   tuneId: string | undefined
   wide: boolean
-  onEdit: (view: ListItemView) => void
   onRemove: (view: ListItemView) => void
   onSelect: (view: ListItemView) => void
   announce: (text: string) => void
@@ -356,7 +351,7 @@ function ListTunes({
             instruments={instruments}
             source={sources?.get(view.item.id)}
             moves={tunes.moveItems(view, index)}
-            onEdit={() => onEdit(view)}
+            onEdit={() => open(view)}
             onRemove={() => onRemove(view)}
             onSelect={() => onSelect(view)}
             onViewScans={

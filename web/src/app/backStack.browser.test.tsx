@@ -4,14 +4,16 @@ import { RECORD_LABEL } from '../layout/tabs'
 import { addToList, createList } from '../commands/lists'
 import { createTune } from '../commands/tunes'
 import type { CrosstuneDb } from '../db/schema'
-import { ADD_TUNE, TUNE_LIST, SELECT_TUNES } from '../features/catalog/catalogCopy'
+import { TUNE_LIST, SELECT_TUNES } from '../features/catalog/catalogCopy'
 import { PAUSE } from '../features/player/transportCopy'
 import { DISCARD_TITLE, NEW_RECORDING } from '../features/capture/recordCopy'
 import { TRIM } from '../features/practice/trimCopy'
 import { START_HANDLE } from '../features/practice/TrimStrip'
 import { GENRES } from '../constants'
 import { DETAIL_LABELS } from '../features/tune/detailFields'
-import { NEW_TUNE_TITLE, TITLE_FIELD } from '../features/tune/tuneFormCopy'
+import { EDIT_TUNE_TITLE, TITLE_FIELD } from '../features/tune/tuneFormCopy'
+import { TUNE } from '../features/tune/tunePageCopy'
+import { EDIT_ALL_DETAILS } from '../features/tune/tuneScreenCopy'
 import { openTestDb } from '../test/db'
 import { FakeRecorder, fakeMediaForTest } from '../test/fakeMedia'
 import { MORE_ACTIONS } from '../ui/menuCopy'
@@ -36,6 +38,18 @@ async function seedList(db: CrosstuneDb): Promise<string> {
     await addToList(db, listId, userTuneId)
   }
   return listId
+}
+
+/** Seeds the tune whose edit form a test opens. */
+async function seedTune(db: CrosstuneDb) {
+  const { tuneId } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'learning' })
+  return tuneId
+}
+
+/** Opens the open tune's edit form from its page's menu. */
+async function showEditForm() {
+  await page.getByRole('main', { name: TUNE }).getByRole('button', { name: MORE_ACTIONS }).click()
+  await page.getByRole('menuitem', { name: EDIT_ALL_DETAILS }).click()
 }
 
 it('closes a menu, then ends selection, then goes back, then exits at the root', async () => {
@@ -84,10 +98,10 @@ it('closes a menu, then ends selection, then goes back, then exits at the root',
 it('keeps a tune form holding typed work open on back', async () => {
   const android = useAndroidBackForTest()
   const db = openTestDb()
-  await createTune(db, { title: 'Cluck Old Hen' }, { status: 'learning' })
-  await renderApp({ path: '/catalog', db, frame: PHONE, density: 'touch', android })
-  await page.getByRole('button', { name: ADD_TUNE }).first().click()
-  const form = page.getByRole('dialog', { name: NEW_TUNE_TITLE })
+  const tuneId = await seedTune(db)
+  await renderApp({ path: `/catalog/${tuneId}`, db, frame: PHONE, density: 'touch', android })
+  await showEditForm()
+  const form = page.getByRole('dialog', { name: EDIT_TUNE_TITLE })
   const title = form.getByRole('textbox', { name: TITLE_FIELD })
   await title.fill('Forked Deer')
 
@@ -100,10 +114,10 @@ it('keeps a tune form holding typed work open on back', async () => {
 it("closes a field's suggestions, then the form holding no typed work", async () => {
   const android = useAndroidBackForTest()
   const db = openTestDb()
-  await createTune(db, { title: 'Cluck Old Hen' }, { status: 'learning' })
-  await renderApp({ path: '/catalog', db, frame: PHONE, density: 'touch', android })
-  await page.getByRole('button', { name: ADD_TUNE }).first().click()
-  const form = page.getByRole('dialog', { name: NEW_TUNE_TITLE })
+  const tuneId = await seedTune(db)
+  await renderApp({ path: `/catalog/${tuneId}`, db, frame: PHONE, density: 'touch', android })
+  await showEditForm()
+  const form = page.getByRole('dialog', { name: EDIT_TUNE_TITLE })
   await form.getByRole('combobox', { name: DETAIL_LABELS.genre }).click()
   const suggestions = page.getByRole('option', { name: GENRES[1], exact: true })
   await expect.element(suggestions).toBeVisible()
@@ -167,10 +181,10 @@ it('steps back from trim to practice, which stays open', async () => {
 it("closes a picker's list on pointer and leaves the form under it open", async () => {
   const android = useAndroidBackForTest()
   const db = openTestDb()
-  await createTune(db, { title: 'Cluck Old Hen' }, { status: 'learning' })
-  await renderApp({ path: '/catalog', db, frame: WIDE, density: 'pointer', android })
-  await page.getByRole('button', { name: ADD_TUNE }).first().click()
-  const form = page.getByRole('dialog', { name: NEW_TUNE_TITLE })
+  const tuneId = await seedTune(db)
+  await renderApp({ path: `/catalog/${tuneId}`, db, frame: WIDE, density: 'pointer', android })
+  await showEditForm()
+  const form = page.getByRole('dialog', { name: EDIT_TUNE_TITLE })
   await form.getByRole('button', { name: new RegExp(DETAIL_LABELS.time_signature) }).click()
   const list = page.getByRole('option', { name: '6/8', exact: true })
   await expect.element(list).toBeVisible()

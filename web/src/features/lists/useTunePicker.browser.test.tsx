@@ -3,6 +3,7 @@ import { act } from 'react'
 import { recordingAnalytics } from '../../usage/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { addToList, createList } from '../../commands/lists'
+import * as tunes from '../../commands/tunes'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -10,6 +11,7 @@ import { dataProviders } from '../../test/providers'
 import { useTunePicker } from './useTunePicker'
 
 vi.mock('../../commands/lists', { spy: true })
+vi.mock('../../commands/tunes', { spy: true })
 
 let db: CrosstuneDb
 let listId: string
@@ -137,19 +139,45 @@ describe('useTunePicker', () => {
       .toEqual({ kind: 'create', title: 'Kesh Jig', another: false })
   })
 
-  it('closes on create and hands the title back once dismissed', async () => {
-    const { result } = setup()
+  it('creates a tune by the typed title into the list, keeping the search and staying open', async () => {
+    const { result, analytics } = setup()
+    act(() => result.current.setQuery('Kesh Jig'))
     act(() => result.current.create('Kesh Jig'))
-    expect(result.current.closing).toBe(true)
-    let title: string | null = null
-    act(() => {
-      title = result.current.dismissed()
-    })
-    expect(title).toBe('Kesh Jig')
-    act(() => {
-      title = result.current.dismissed()
-    })
-    expect(title).toBeNull()
+    await expect.poll(() => db.tunes.where('title').equals('Kesh Jig').count()).toBe(1)
+    const [tune] = await db.tunes.where('title').equals('Kesh Jig').toArray()
+    const userTune = await db.user_tunes.where('tune_id').equals(tune!.id).first()
+    await expect
+      .poll(async () => (await itemsIn()).map((i) => i.user_tune_id))
+      .toEqual([userTune!.id])
+    await expect.poll(() => result.current.taken.has(userTune!.id)).toBe(true)
+    expect(result.current.query).toBe('Kesh Jig')
+    expect(result.current.closing).toBe(false)
+    expect(analytics.sends()).toEqual([
+      {
+        name: 'tune_created',
+        props: { source: 'list', fields_set: ['title'], tune_id: tune!.id },
+      },
+    ])
+  })
+
+  it('shows a refused filing of a new tune in the error line', async () => {
+    const { result } = setup()
+    vi.mocked(addToList).mockRejectedValueOnce(new Error('Disk full'))
+    act(() => result.current.create('Kesh Jig'))
+    await expect.poll(() => result.current.error).toBe('Disk full')
+    expect(await db.tunes.where('title').equals('Kesh Jig').count()).toBe(1)
+    expect(result.current.closing).toBe(false)
+  })
+
+  it('toasts a failed create that outlives its visit', async () => {
+    const { result, rerender, toast } = setup()
+    vi.mocked(tunes.createTune).mockRejectedValueOnce(new Error('Disk full'))
+    act(() => result.current.create('Kesh Jig'))
+    act(() => void result.current.dismissed())
+    rerender({ open: false })
+    await expect.poll(() => toast.mock.calls.length).toBe(1)
+    expect(toast).toHaveBeenCalledWith('Disk full')
+    expect(result.current.error).toBeNull()
   })
 
   it('toasts a failed add that outlives its visit', async () => {

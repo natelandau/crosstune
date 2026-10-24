@@ -1,9 +1,10 @@
 import { RECORD_TEXT, tabLabel } from '../../layout/tabs'
 import { SEARCH_TUNES } from '../catalog/catalogCopy'
-import { NEW_TUNE_TITLE } from '../tune/tuneFormCopy'
 import type { KeyPlatform } from '../../platform/keyPlatform'
 
 export const QUICK_FIND = 'Quick Find'
+/** The shortcut, and Quick Find's command, that opens a new tune's page. */
+export const NEW_TUNE_TITLE = 'New tune'
 export const SHORTCUTS_TITLE = 'Keyboard shortcuts'
 const PLAY_OR_PAUSE = 'Play or pause'
 const STEP_OUT = 'Step out'

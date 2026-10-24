@@ -149,6 +149,7 @@ describe('useTuneMedia', () => {
     const { addItems } = result.current.media
     expect(addItems.map(label)).toEqual([NEW_RECORDING, PASTE_LINK, FIND_RECORDINGS])
     expect(addItems[2]!.refused).toBeUndefined()
+    expect(result.current.media.find).toBe(addItems[2])
     act(() => addItems[0]!.onPress())
     expect(start).toHaveBeenCalledWith({ tuneId: ids.tuneId, source: 'tune' })
     act(() => addItems[1]!.onPress())

@@ -36,7 +36,8 @@ Decide any case the rules below do not name.
   where it is.
 - Quiet chrome, musical content. Color comes from the music and one
   accent. Strong color only in key pills and in practice.
-- A tune is a document, not a form. Read on a page, edit in a sheet.
+- A tune is a document, not a form. Read on a page, edit one fact in
+  place, edit many in a sheet.
 
 ## Words
 
@@ -167,7 +168,7 @@ Decide any case the rules below do not name.
 | Zone            | Holds                                                        | Never holds            |
 | --------------- | ------------------------------------------------------------ | ---------------------- |
 | Title           | What the screen shows                                        | Actions, filters       |
-| Verbs bar       | Main verb first (Add, or Edit on a page), then one More menu | Sort, view options     |
+| Verbs bar       | Main verb first (Add), then one More menu                    | Sort, view options     |
 | Under the title | Search field, then one filter row                            | Verbs                  |
 | List header     | Count leading, sort trailing, directly above the rows        | Anything else          |
 | App-wide        | Tabs, Record, now playing, selection bar                     | A screen's own actions |
@@ -187,8 +188,10 @@ Decide any case the rules below do not name.
   under it.
 - At most two verbs in the bar. Filters, where a screen has one, does not
   count toward them. Select is never a toolbar button.
-- Exception under the title: a list page's play row (Play, Shuffle, what
-  will play).
+- Exception under the title: a pushed page's main actions sit in a row
+  under its heading, as page content (a list's play row, a tune's verb
+  row). Its verbs bar then holds only More. Off the phone the tune
+  page's More sits on its title's row instead, and its bar holds none.
 - A section's verb sits trailing on that section's heading.
 - Screen-wide actions (Edit, Delete) live in More, never in a panel.
 - A control sits over the pane it acts on.
@@ -344,8 +347,8 @@ One row component per platform for every list of tunes.
 - Type is the tune's form (reel, jig, waltz). Suggestions follow genre, then
   catalog use. Choosing a type fills an unset time signature, never one the
   player chose.
-- A facet shows only when the tune holds a value. A tune's facts sit in one
-  wrapping row, key first.
+- On a row, a facet shows only when the tune holds a value. The tune page
+  shows every fact, set or not (Tune page).
 - Tuning field, filter, or badge only for a played instrument, unless the
   field already holds a value, so data never becomes unreachable.
 - Open vocabularies (tuning, genre, type, composer, learned from, part
@@ -369,8 +372,8 @@ One row component per platform for every list of tunes.
 - Glyph shape carries the meaning: filled check, half-filled circle, empty
   ring, in status color. Its word is its accessible name. Word shown beside
   it: glyph hidden from assistive technology.
-- Set only in the tune's edit form, one choice per word. The tune page
-  shows status and never sets it.
+- Set from the tune page's Status fact and from the tune form, one choice
+  per word.
 - Required field never clears: pressing the chosen value keeps it. Optional
   field: pressing clears.
 - Unrecognized value shows as Unknown.
@@ -385,8 +388,12 @@ One row component per platform for every list of tunes.
 - Enter: opens the only visible result, else the hidden exact match, else
   creates. Two or more results: closes the keyboard only. Never creates a
   duplicate title.
-- The add row carries the typed title, and from a picker the list or
-  recording, into the new form.
+- The add row creates the tune from the typed title and opens its page.
+  No form.
+- A list picker's add row creates the tune, adds it to the list, and stays
+  in the picker, since a set list often gains several tunes in a row.
+- Filing a recording under a new tune opens the new tune's page. From
+  practice, that leaves practice, as Go to tune does.
 - A picker never hides a tune. Already in the list: shown, marked "In this
   list", inert. Pickers include archived tunes.
 - A picker lists the whole catalog A to Z until something is typed, then
@@ -398,8 +405,8 @@ One row component per platform for every list of tunes.
   typed.
 - Matches stored names, a parent's name included. Never text composed for
   display. Ignores case and accents.
-- Query lasts the app session. Filters persist. The new tune form and
-  sign-out clear the query.
+- Query lasts the app session. Filters persist. Creating a tune from the
+  search and sign-out clear the query.
 
 ### Other services
 
@@ -497,7 +504,10 @@ One row component per platform for every list of tunes.
 ## Forms
 
 - Every form is a sheet over the current screen. No form route, no save
-  bar.
+  bar. Exception: one fact on the tune page edits in place.
+- An in-place editor saves on every dismissal: Enter, a pick, a click
+  outside, Done, a swipe down. Only Escape cancels. Closing never loses
+  input, so its sheet is not locked.
 - Toolbar: `Cancel` leading, bold primary action trailing, named for what
   it does. A sheet whose rows are the actions: Cancel alone.
 - Sections of related fields. The header names the group, and the footer
@@ -619,14 +629,19 @@ presents.
 
 A page reads as a document, such as the tune page or stats.
 
-- Plain ground, no cards. At most 680 wide, centered.
+- Plain ground, no cards. At most 680 wide, centered, or leading beside
+  the tune page's rail. The tune page's facts card and start card are
+  the only cards.
 - Title in the page title role, selectable, in the content.
 - Section: heading with its controls trailing, one height with or without
-  controls. Space separates sections, never a hairline.
-- Empty section the page always holds: heading, add control, and the
-  empty-list icon, title, and hint, smaller, with the title not a heading.
+  controls. Space separates sections, never a hairline. Exception: the
+  tune page's closing date, so it never reads as part of Lists.
+- Empty section the page always holds: heading, add control, and one
+  quiet line in place of its rows, never an empty-state block. The tune
+  page's Recordings shows its start card instead (Tune page).
 - A section that only some items fill is absent, heading included, until
-  it holds something. Its add lives in the page's menu or edit form.
+  it holds something. Its add sits in a line of add actions at the page's
+  end.
 - Row text and glyphs start on the heading's leading edge, glyphs in a
   fixed slot.
 - Group header: a form section label is secondary text. A header naming
@@ -634,6 +649,77 @@ A page reads as a document, such as the tune page or stats.
   whole line is the target.
 - Moving to another tune cross-fades. The current page stays until the next
   has read, so the column never goes blank.
+
+### Tune page
+
+- A band leads the page, on the ground. Only the key tile takes the key's
+  color. The band holds the key tile, the title, other titles, and the
+  verb row.
+- Key tile: the key pill's colors, the key large over the first mode. With
+  no key, a dashed Add key tile. It opens the Key fact's editor.
+- More: on every layout but the phone's, trailing on the title's row,
+  centered on its first line, so it reads as the tune's control. The
+  phone keeps it in the bar. It follows the frame, never whether the
+  rail or the card shows.
+- Verb row: what a musician does with the tune, never editing. Play
+  (primary), Practice, Lyrics, each only when it can act on this device
+  now. Nothing in it is ever disabled. A tune with no such verb has no
+  row. The primary is named for what a press does: Play, Stop, or Open.
+- Never Download in the verb row, which reads as downloading the tune.
+  A take not on the device gives no Play or Practice until its own row
+  downloads it. Add to list is editing: it lives in Lists and More.
+- Lyrics opens the Lyrics section and scrolls it into view.
+- On the phone the verbs share the row in equal columns. A label never
+  wraps.
+- Ways to add audio live in Recordings, never in the verb row, where a
+  link button does not say what it adds. While the section is empty, a
+  dashed start card with Record, Paste link, and Find a recording is the
+  only way in, and the heading has no add control. Once anything is in it,
+  the heading's add menu holds them.
+- Facts: the same facts in the same order on every tune, so nothing moves
+  from tune to tune. An unset value reads "Add".
+- Wide: the facts are a rail beside the content, on the ground behind a
+  hairline. Groups under small headers: Details, About, Learned, Lists.
+  Its first header lines up with the first section heading, and it stays
+  in view as the content scrolls. A rail taller than its pane scrolls on
+  its own.
+- Rail row: two columns. The label in a fixed-width column in secondary
+  ink, one step smaller than the value; the value in ink, starting at the
+  second column. Each wraps inside its own column, never into the other.
+  The row's wash spans both.
+- Narrow and phone: a card under the verb row, with More details opening
+  the rest in place. Lists and the date end the content column instead,
+  since between the card and Recordings they split the facts from the
+  content.
+- Sections, in order: Recordings, Lyrics, Scans and images, Notes, the
+  add line, then Lists where the card shows.
+- Lyrics: a disclosure heading, closed on each visit, opening the words
+  in place in selectable body text. Edit and the reader trail the
+  heading.
+- Notes autosave as typed. While edited, "Saves as you type" sits under
+  the field with a Done that ends editing, since nothing else shows the
+  words are kept.
+- The tune's date reads "Added to catalog <date>", in secondary ink at
+  caption size, last in the rail or last on the page. On the page a
+  hairline and a section's space set it apart from Lists.
+- Rail or card follows the detail column's width, never the device: the
+  rail shows while the column holds the rail plus the content's minimum
+  width.
+- Title stays selectable. A click that selects nothing, or Rename, turns it
+  into a field. Enter or leaving saves, Escape restores. An empty title
+  never saves.
+- A tune's Edit, on a row or anywhere else, opens its page. The full form
+  opens from Edit all details in More.
+- A tune is created from its title alone. The new-tune settings fill
+  status and genre.
+- Add and New tune open a new-tune page holding only the title field.
+  Leaving it with a title creates the tune. Leaving it empty discards it,
+  so no untitled tunes exist.
+- A create that attaches nothing toasts "Added" with Undo. Undo is
+  withdrawn once anything is attached, and never deletes a tune with work:
+  one that finds work keeps the tune and toasts that it was kept. Undo
+  leaves the musician on the page they are on. A create that files or
+  lists in the same step shows no Undo.
 
 ### Mode panels
 

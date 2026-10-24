@@ -30,7 +30,8 @@ import { useShortcutSheet } from '../keyboard/shortcutSheetLauncher'
 import { useListNameLauncher } from '../lists/listNameLauncher'
 import { useStampedDensity } from '../../platform/density'
 import { useRecordLauncher } from '../../app/recordLauncher'
-import { useTuneFormLauncher } from '../tune/formLauncher'
+import { newTuneState } from '../tune/newTuneState'
+import { NEW_TUNE_PATH } from '../../layout/tuneHome'
 import type { TunePick } from '../tune/tunePick'
 import { useOverlayClaim } from '../../ui/overlayClaim'
 import { PointerOverlay } from '../../ui/PointerOverlay'
@@ -72,7 +73,6 @@ const GO_TO: { id: ShortcutId; to: Destination }[] = [
 
 /** The showing screen's commands, then every command the app offers from anywhere. */
 function useCommands(navigate: QuickFindNavigate): QuickFindCommand[] {
-  const form = useTuneFormLauncher()
   const record = useRecordLauncher()
   const listName = useListNameLauncher()
   const sheet = useShortcutSheet()
@@ -83,7 +83,7 @@ function useCommands(navigate: QuickFindNavigate): QuickFindCommand[] {
       id: 'newTune',
       label: shortcutLabel('newTune'),
       shortcut: 'newTune',
-      run: () => form.open({ source: 'menu' }),
+      run: () => navigate(NEW_TUNE_PATH, newTuneState('menu')),
     },
     ...(record.available
       ? [

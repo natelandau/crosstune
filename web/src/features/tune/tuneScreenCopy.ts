@@ -1,36 +1,49 @@
-/** The tune's own Edit, which opens the tune form. */
+/** A catalog or list row's Edit, which opens the tune's page to edit it in place. */
 export const EDIT_TUNE = 'Edit'
-export const ADD_NOTES = 'Add notes'
-/** The lyrics and notes controls once there is something to edit. */
+/** The page's More entry that opens the full tune form. */
+export const EDIT_ALL_DETAILS = 'Edit all details'
+/** The name of a control that edits a tune's lyrics, in the reader and on the Lyrics section. */
 export const EDIT_LYRICS = 'Edit lyrics'
-export const EDIT_NOTES = 'Edit notes'
 export const ADD_TO_LIST_TITLE = 'Add to a list'
+/** The Lyrics section's control that opens the lyrics reader. */
 export const OPEN_LYRICS = 'Open lyrics'
 
 /** The headings of a tune page's sections, in the order the page shows them. */
 export const RECORDINGS_SECTION = 'Recordings'
 export const LYRICS_SECTION = 'Lyrics'
+export const SCANS_SECTION = 'Scans and images'
 export const NOTES_SECTION = 'Notes'
-export const LISTS_SECTION = 'Lists'
 
-/**
- * The line that says how a tune was learned, as the words before the date and the date, so a
- * page can set the date in tabular figures.
- */
-export function learnedLine(
-  from: string | null,
-  on: string | null,
-): { words: string; date: string | null } {
-  return { words: `Learned${from ? ` from ${from}` : ''}${on ? ' on ' : ''}`, date: on }
-}
+export const WRITE_A_NOTE = 'Write a note…'
+/** Under the notes while they are edited, since nothing else says the words are kept. */
+export const NOTES_SAVE_HINT = 'Saves as you type'
 
-/** The empty states of a tune page's sections. */
-export const NO_TUNE_RECORDINGS = 'No recordings yet'
-export const NO_TUNE_RECORDINGS_HINT = 'Record one, paste a link, or find one on a music service.'
-export const NO_TUNE_NOTES = 'No notes yet'
-export const NO_TUNE_NOTES_HINT = 'Who you learned it from, bowings, or anything else to remember.'
+/** The add line, which offers the sections a tune has not used. */
+export const ADD_TO_TUNE = 'Add to this tune'
+/** The add line's actions: each one's name, then the text it shows after its plus. */
+export const ADD_SCAN = 'Add scan or image'
+export const ADD_SCAN_TEXT = 'Scan or image'
+export const ADD_LYRICS = 'Add lyrics'
+export const ADD_LYRICS_TEXT = 'Lyrics'
+/** In the add line while a tune's first scan is read and added. */
+export const ADDING_SCAN = 'Adding scan…'
+
+/** The title's control, named with the title it renames. */
+export const EDIT_TITLE = 'Rename'
+/** The key tile of a tune with no key. */
+export const KEY_TILE_EMPTY = 'Add key'
 
 /** A free plan's recordings on a tune page, folded into one line. */
 export function recordingsLine(count: number): string {
   return count === 1 ? '1 recording, subscribe to play' : `${count} recordings, subscribe to play`
+}
+
+/** The toast after a tune is created from the catalog search, which offers Undo. */
+export function addedMessage(title: string): string {
+  return `Added ${title}`
+}
+
+/** The toast after an Undo that kept the tune, since something was added to it meanwhile. */
+export function keptMessage(title: string): string {
+  return `Kept ${title}, since something was added to it`
 }

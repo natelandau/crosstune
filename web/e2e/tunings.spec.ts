@@ -11,7 +11,8 @@ import {
 } from './helpers'
 import { capoLabel, NO_CAPO } from '../src/domain/instruments'
 import { EDIT_TUNE_TITLE, SAVE_TUNE } from '../src/features/tune/tuneFormCopy'
-import { EDIT_TUNE } from '../src/features/tune/tuneScreenCopy'
+import { EDIT_ALL_DETAILS } from '../src/features/tune/tuneScreenCopy'
+import { MORE_ACTIONS } from '../src/ui/menuCopy'
 import { SEARCH_TUNES } from '../src/features/catalog/catalogCopy'
 
 test('a guitar capo shows on the catalog row', async ({ page }) => {
@@ -21,7 +22,8 @@ test('a guitar capo shows on the catalog row', async ({ page }) => {
   await openTab(page, 'catalog')
   await addTune(page, title, 'G')
 
-  await tunePage(page).getByRole('button', { name: EDIT_TUNE, exact: true }).click()
+  await tunePage(page).getByRole('button', { name: MORE_ACTIONS }).click()
+  await page.getByRole('menuitem', { name: EDIT_ALL_DETAILS }).click()
   const form = page.getByRole('dialog', { name: EDIT_TUNE_TITLE })
   // A closed choice is a field row, named for its field and then its value, that opens a picker.
   await form.getByRole('button', { name: `${capoLabel('guitar')} ${NO_CAPO}`, exact: true }).click()

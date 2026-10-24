@@ -50,9 +50,11 @@ folder. Compose it, never rebuild it.
 - Fixed box for a number: size in em. Never `ch` or figure spaces, which
   measure Geist's proportional zero.
 - Touch text fields never below 16px, so iOS Safari does not zoom.
-- Radius follows hierarchy: capsules and pills fully round. Sheets,
-  dialogs, popovers, toast, and Quick Find `--radius-surface`. Row
-  highlights and inputs `--radius-row`.
+- Radius follows hierarchy: capsules, pills, toggle groups, and icon-only
+  buttons fully round. A labeled button in content (sheet footers, dialogs,
+  forms, verb rows) `--radius-control`; one in a bar (pane bar, root bar,
+  selection bar) stays round. Sheets, dialogs, popovers, toast, and Quick
+  Find `--radius-surface`. Row highlights and inputs `--radius-row`.
 - Only floating surfaces cast `--shadow-float`. In dark mode they also take
   a faint light edge, since a black shadow vanishes on near-black.
 - 4px spacing grid.
@@ -79,8 +81,9 @@ folder. Compose it, never rebuild it.
 ## Placement
 
 - Verbs bar: on split and wide, the pane bar. On wide, the detail column
-  has its own pane bar for Edit and More. On a phone root screen it is
-  part of `RootBar`'s one row (see Shell).
+  has its own pane bar; the tune page's More sits on its title row
+  instead (design.md, Tune page). On a phone root screen it is part of
+  `RootBar`'s one row (see Shell).
 - App-wide zone: bottom on phone, sidebar foot on split and wide.
 - Catalog's title is always Catalog. Status is a filter, never the title.
 - Pointer selection: bulk actions take the pane bar's trailing place.
@@ -165,6 +168,15 @@ folder. Compose it, never rebuild it.
   page jumps the group to the top once it renders and holds it there
   until every group has arrived or the musician acts, focus moving into
   the page included. A group still loading renders a `PendingGroup`.
+- Tune facts fold from the rail into a card once the detail column is
+  narrower than `RAIL_WIDTH + MIN_CONTENT_WIDTH` (`factsLayout.ts`).
+- Where a share of a `VerbRow` is too narrow for its label, the icons go
+  first, then the padding narrows.
+- The web has no tertiary ink. Text quieter than secondary (rail group
+  headers, the tune's date, the notes hint) is `t-caption` in `--ink-2`,
+  never `--ink-2` faded, which falls under 4.5:1.
+- A section scrolled into view stops under the sticky pane bar
+  (`PageSection`'s scroll margin), so its heading never hides behind it.
 - Settings page: phone and split push it, wide shows it in the detail
   column. The root holds only the account block, the catalog block that
   opens stats, the categories, and About.
@@ -188,6 +200,8 @@ folder. Compose it, never rebuild it.
   short question or a menu.
 - Lyrics reader and scan viewer cover the whole window.
 - A sheet that can lose typed work sets `locked`.
+- A fact editor (`FactEditor.tsx`) is a popover at its row off the phone
+  frame, and a part-height sheet with Done on it.
 - A long list behind a sheet is virtualized or short: opening a sheet costs
   time in proportion to the page under it.
 - Toast: `TOAST_MS`, held while hovered or focused. Phone: above the
@@ -247,6 +261,9 @@ Web form of the toolbar rule in `design.md`: actions sit at the foot.
   pointer. Never a segmented control: it announces as a tab list and spends
   width on unchosen values.
 - Status is a rail of capsules, one per word.
+- An autosaving field's Done keeps focus in the field through its press
+  (`preventFocusOnPress`). Otherwise the field's blur hides Done before
+  the press lands.
 - A settings group's action is a button in the row that states what it
   acts on (`StatusRow`): trailing on pointer, full width under the text on
   touch. Bordered, or filled for the one action the group exists to offer.

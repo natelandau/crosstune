@@ -105,6 +105,10 @@ function PracticeModal({ id, onClose }: { id: string; onClose: () => void }) {
     view ? { speed: view.recording.speed_percent, pitch: view.recording.pitch_cents } : undefined,
   )
 
+  const openTune = (tuneId: string) => {
+    onClose()
+    void navigate(`${CATALOG.root}/${tuneId}`)
+  }
   const confirm = useConfirm()
   const recordingsPlay = recordingsPlayable(usePlanOrUnknown())
   const actions = useRecordingActionsWith({
@@ -115,9 +119,7 @@ function PracticeModal({ id, onClose }: { id: string; onClose: () => void }) {
       ? trimBlocker(view.recording, view.file, state.audio, recordingsPlay)
       : undefined,
     onOpenTune: (opened) => {
-      if (!opened.tuneId) return
-      onClose()
-      void navigate(`${CATALOG.root}/${opened.tuneId}`)
+      if (opened.tuneId) openTune(opened.tuneId)
     },
     onEdit: state.setEditing,
     onAddToTune: state.setFiling,
@@ -282,6 +284,7 @@ function PracticeModal({ id, onClose }: { id: string; onClose: () => void }) {
         source="recording_screen"
         view={state.filing}
         onClose={() => state.setFiling(null)}
+        onOpenTune={openTune}
       />
     </>
   )

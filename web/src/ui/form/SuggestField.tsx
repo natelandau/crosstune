@@ -37,7 +37,9 @@ export function SuggestField({
   suggestions,
   maxLength,
   keep,
+  autoFocus = false,
   onChange,
+  onPick,
 }: {
   /** The accessible name, and the visible label unless `rowLabel` shortens it. */
   label: string
@@ -47,7 +49,10 @@ export function SuggestField({
   suggestions: readonly string[]
   maxLength?: number
   keep?: SuggestKeep
+  autoFocus?: boolean
   onChange: (value: string) => void
+  /** Called after `onChange` when the value came from picking a suggestion rather than typing. */
+  onPick?: (value: string) => void
 }) {
   // Whether the press now down began on the field row: its label, input, or chevron. The list
   // opens as the press starts, so a quick click can lift over an option, and React Aria picks
@@ -66,7 +71,10 @@ export function SuggestField({
     // already carries.
     if (key === null) return
     if (key === KEEP) keep?.onKeep()
-    else onChange(String(key))
+    else {
+      onChange(String(key))
+      onPick?.(String(key))
+    }
   }
 
   return (
@@ -111,6 +119,7 @@ export function SuggestField({
         )}
       </Label>
       <Input
+        autoFocus={autoFocus}
         maxLength={maxLength}
         placeholder={kept ? keep.label : undefined}
         className="t-body text-ink placeholder:text-ink-2 min-h-(--target) min-w-0 flex-1 truncate bg-transparent text-end in-[html[data-density=touch]]:text-[max(16px,1rem)]"

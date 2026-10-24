@@ -1,5 +1,5 @@
 import { page, userEvent } from 'vitest/browser'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
 import { setInstruments } from '../../commands/settings'
@@ -28,6 +28,8 @@ import { selectedTitle } from '../selection/selectionCopy'
 import { ARCHIVE, ARCHIVED } from '../tune/archiveLabels'
 import { deleteTuneMessage, deleteTuneTitle } from '../tune/deleteTuneMessage'
 import { EDIT_TUNE } from '../tune/tuneScreenCopy'
+import { clearFresh } from '../tune/freshTune'
+import { NEW_TUNE_PATH, tuneHomePath } from '../../layout/tuneHome'
 import { openTestDb } from '../../test/db'
 import { viewTransitionsDone } from '../../test/viewTransitions'
 import { ANY, FILTERS } from '../../ui/filterCopy'
@@ -44,6 +46,9 @@ import { DELETE } from '../../ui/Confirm'
 import { FILTER_ROW } from './CatalogFilterRow'
 import { STATUS_SCOPE, statusControlLabel } from './scope'
 import { SIDEBAR } from '../../app/Sidebar'
+
+// A search create marks its tune fresh for the page that opens.
+afterEach(clearFresh)
 
 const PHONE = { width: 390, height: 844 }
 const WIDE = { width: 1280, height: 800 }
@@ -123,6 +128,8 @@ const rowsSettled = () =>
     .elements()
     .every((e) => e.getAnimations().length === 0)
 const search = () => page.getByRole('searchbox', { name: SEARCH_TUNES })
+/** The search under a tune page, which covers the list on phone. */
+const coveredSearch = () => page.getByRole('searchbox', { name: SEARCH_TUNES, includeHidden: true })
 const tunePage = () => page.getByRole('main', { name: TUNE })
 const title = () => page.getByRole('heading', { level: 1 })
 
@@ -387,9 +394,8 @@ it('offers to add another tune by a title already taken', async () => {
       name: addOfferLabel({ kind: 'create', title: 'Forked Deer', another: true }),
     })
     .click()
-  await expect
-    .poll(() => launcher.open)
-    .toHaveBeenCalledWith({ source: 'search_offer', initialTitle: 'Forked Deer' })
+  await expect.poll(() => db.tunes.where('title').equals('Forked Deer').count()).toBe(2)
+  expect(launcher.open).not.toHaveBeenCalled()
 })
 
 it('names an exact match the filters hide', async () => {
@@ -422,11 +428,11 @@ it('adds a tune by the typed title on Enter when nothing matches', async () => {
   const { launcher, router } = await mount(db)
   await search().fill('Sally Goodin')
   await userEvent.keyboard('{Enter}')
-  await expect
-    .poll(() => launcher.open)
-    .toHaveBeenCalledWith({ source: 'search_offer', initialTitle: 'Sally Goodin' })
-  await expect.element(search()).toHaveValue('')
-  expect(router.state.location.pathname).toBe('/catalog')
+  await expect.poll(() => db.tunes.where('title').equals('Sally Goodin').count()).toBe(1)
+  const [tune] = await db.tunes.where('title').equals('Sally Goodin').toArray()
+  await expect.poll(() => router.state.location.pathname).toBe(`/catalog/${tune!.id}`)
+  await expect.element(coveredSearch()).toHaveValue('')
+  expect(launcher.open).not.toHaveBeenCalled()
 })
 
 it('only closes the keyboard on Enter with two or more results', async () => {
@@ -476,13 +482,12 @@ it('offers to add the typed title under the results', async () => {
     name: addOfferLabel({ kind: 'create', title: 'Joy', another: false }),
   })
   await offer.click()
-  await expect
-    .poll(() => launcher.open)
-    .toHaveBeenCalledWith({ source: 'search_offer', initialTitle: 'Joy' })
-  await expect.element(search()).toHaveValue('')
+  await expect.poll(() => db.tunes.where('title').equals('Joy').count()).toBe(1)
+  await expect.element(coveredSearch()).toHaveValue('')
+  expect(launcher.open).not.toHaveBeenCalled()
 })
 
-it(`opens the tune form with the title from the empty state's Add`, async () => {
+it(`adds a tune by the title from the empty state's Add`, async () => {
   const db = openTestDb()
   await createTune(db, { title: 'Forked Deer' }, { status: 'known' })
   const { launcher } = await mount(db)
@@ -492,26 +497,25 @@ it(`opens the tune form with the title from the empty state's Add`, async () => 
       name: addOfferLabel({ kind: 'create', title: "Soldier's Joy", another: false }),
     })
     .click()
-  await expect
-    .poll(() => launcher.open)
-    .toHaveBeenCalledWith({ source: 'search_offer', initialTitle: "Soldier's Joy" })
+  await expect.poll(() => db.tunes.where('title').equals("Soldier's Joy").count()).toBe(1)
+  expect(launcher.open).not.toHaveBeenCalled()
 })
 
-it('opens an empty tune form from Add', async () => {
+it('opens the new tune page from Add', async () => {
   const db = openTestDb()
   await seed(db)
-  const { launcher } = await mount(db)
+  const { router } = await mount(db)
   await page.getByRole('button', { name: ADD_TUNE }).click()
-  await expect.poll(() => launcher.open).toHaveBeenCalledWith({ source: 'catalog' })
+  await expect.poll(() => router.state.location.pathname).toBe(NEW_TUNE_PATH)
 })
 
 it('invites the first tune into an empty catalog', async () => {
-  const { launcher } = await mount(openTestDb())
+  const { router } = await mount(openTestDb())
   await expect.element(page.getByRole('heading', { name: NO_TUNES_TITLE })).toBeVisible()
   await expect.element(page.getByText(NO_TUNES_HINT)).toBeVisible()
   const main = page.getByRole('main', { name: CATALOG })
   await main.getByRole('button', { name: ADD_TUNE }).last().click()
-  await expect.poll(() => launcher.open).toHaveBeenCalledWith({ source: 'catalog' })
+  await expect.poll(() => router.state.location.pathname).toBe(NEW_TUNE_PATH)
 })
 
 it('offers import in an empty catalog', async () => {
@@ -564,16 +568,20 @@ it('holds Select tunes in More, which starts selecting', async () => {
   await expect.element(page.getByText(selectedTitle(0), { exact: true })).toBeVisible()
 })
 
-it('edits, archives, and deletes a tune from its row', async () => {
+it("a catalog row's Edit opens the tune page", async () => {
   const db = openTestDb()
   const { ids } = await seed(db)
-  const { launcher } = await mount(db)
+  const { launcher, router } = await mount(db)
   await row('Forked Deer').click({ button: 'right' })
   await page.getByRole('menuitem', { name: EDIT_TUNE }).click()
-  await expect
-    .poll(() => launcher.open)
-    .toHaveBeenCalledWith({ source: 'catalog', tuneId: ids['Forked Deer'] })
+  await expect.poll(() => router.state.location.pathname).toBe(tuneHomePath(ids['Forked Deer']))
+  expect(launcher.open).not.toHaveBeenCalled()
+})
 
+it('archives and deletes a tune from its row', async () => {
+  const db = openTestDb()
+  const { ids } = await seed(db)
+  await mount(db)
   await row('Forked Deer').click({ button: 'right' })
   await page.getByRole('menuitem', { name: ARCHIVE }).click()
   await expect.element(row('Forked Deer')).not.toBeInTheDocument()

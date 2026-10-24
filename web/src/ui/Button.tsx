@@ -4,6 +4,7 @@ import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react
 import { useStampedDensity } from '../platform/density'
 import { iconMotion } from './iconMotion'
 import { PRESS } from './press'
+import { InBar } from './inBar'
 import { InSectionHeading } from './sectionHeading'
 import { Tip, TipTrigger } from './Tip'
 
@@ -86,6 +87,7 @@ export function Button({
 }: ButtonProps) {
   const density = useStampedDensity()
   const inHeading = useContext(InSectionHeading)
+  const inBar = useContext(InBar)
   const tone = variant === 'plain' && iconOnly && !inHeading ? PLAIN_GLYPH : VARIANT[variant]
   const button = (
     <AriaButton
@@ -93,7 +95,11 @@ export function Button({
       aria-label={iconOnly ? label : name}
       // A filled button rises under the pointer; controls.css holds the lift.
       data-lift={FILLED[variant] || undefined}
-      className={`t-body inline-flex shrink-0 items-center justify-center gap-2 rounded-(--radius-capsule) select-none ${PRESS} ${
+      className={`t-body inline-flex shrink-0 items-center justify-center gap-2 select-none ${PRESS} ${
+        // A labeled button in content takes the control corner; an icon alone, or any button in
+        // a bar, stays round.
+        iconOnly || inBar ? 'rounded-(--radius-capsule)' : 'rounded-(--radius-control)'
+      } ${
         FILLED[variant]
           ? ''
           : 'font-medium disabled:opacity-40 disabled:hover:bg-transparent aria-disabled:opacity-40 aria-disabled:hover:bg-transparent'

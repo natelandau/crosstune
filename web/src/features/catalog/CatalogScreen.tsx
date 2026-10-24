@@ -1,7 +1,7 @@
 import { Ellipsis, ListChecks, Music, Plus } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import type { Key, Selection } from 'react-aria-components'
-import { useNavigate, useParams } from 'react-router'
+import { useLocation, useNavigate, useParams } from 'react-router'
 import { useDb } from '../../db/DbProvider'
 import {
   ADD_TUNE,
@@ -34,8 +34,10 @@ import { useScreenSelection, useSelectionReturn } from '../selection/useScreenSe
 import { RootBar } from '../../layout/RootBar'
 import { ImportSheet } from '../import/ImportSheet'
 import { IMPORT_TUNES } from '../import/importCopy'
-import { useTuneFormLauncher } from '../tune/formLauncher'
 import { useTuneActions } from '../tune/useTuneActions'
+import { useAddTune } from '../tune/useAddTune'
+import { newTuneState } from '../tune/newTuneState'
+import { NEW_TUNE_PATH } from '../../layout/tuneHome'
 import { tunePick } from '../tune/tunePick'
 import { Button } from '../../ui/Button'
 import { useConfirm } from '../../ui/Confirm'
@@ -66,9 +68,9 @@ export function CatalogScreen() {
   const tuneActions = useTuneActions()
   const navigate = useNavigate()
   const { tuneId } = useParams()
+  const { pathname } = useLocation()
   const frame = useFrame()
   const wide = frame === 'wide'
-  const form = useTuneFormLauncher()
   const confirm = useConfirm()
   const toast = useToast()
   const { error, run } = useAction()
@@ -87,9 +89,16 @@ export function CatalogScreen() {
     setOpening(id)
     void navigate(`${CATALOG.root}/${id}`, { state: tunePick() })
   }
+  const addTune = useAddTune()
+  const addNewTune = () => void navigate(NEW_TUNE_PATH, { state: newTuneState('catalog') })
+  const addFromSearch = (title: string) =>
+    run(async () => {
+      const id = await addTune({ title, source: 'search_offer' })
+      openTune(id)
+    })
   const screen = useCatalogScreen({
     onOpenTune: openTune,
-    onCreate: (title) => form.open({ source: 'search_offer', initialTitle: title }),
+    onCreate: addFromSearch,
   })
   const {
     ready,
@@ -179,7 +188,7 @@ export function CatalogScreen() {
   ]
 
   // Off wide a tune page covers the list, so its commands go with it.
-  const listShown = wide || tuneId === undefined
+  const listShown = wide || (tuneId === undefined && pathname !== NEW_TUNE_PATH)
   useScreenCommand(
     { id: 'selectTunes', label: SELECT_TUNES, run: fromMore },
     listShown && !selecting,
@@ -209,12 +218,7 @@ export function CatalogScreen() {
         }
         verbs={
           <>
-            <Button
-              icon={Plus}
-              label={ADD_TUNE}
-              iconOnly
-              onPress={() => form.open({ source: 'catalog' })}
-            />
+            <Button icon={Plus} label={ADD_TUNE} iconOnly onPress={addNewTune} />
             {barFilters && (
               <FiltersBarButton count={sheet.count} onPress={() => setSheetOpen(true)} />
             )}
@@ -303,11 +307,7 @@ export function CatalogScreen() {
                   </div>
                 ) : empty.noTunes ? (
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="primary"
-                      label={ADD_TUNE}
-                      onPress={() => form.open({ source: 'catalog' })}
-                    />
+                    <Button variant="primary" label={ADD_TUNE} onPress={addNewTune} />
                     <Button
                       variant="plain"
                       label={IMPORT_TUNES}
@@ -346,7 +346,7 @@ export function CatalogScreen() {
                     key={entry.tune.id}
                     entry={entry}
                     instruments={instruments}
-                    onEdit={() => form.open({ source: 'catalog', tuneId: entry.tune.id })}
+                    onEdit={() => openTune(entry.tune.id)}
                     onArchive={(archived) =>
                       run(() =>
                         tuneActions.archive(

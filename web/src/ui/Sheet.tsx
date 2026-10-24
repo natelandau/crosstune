@@ -26,6 +26,7 @@ import { useLatest } from './useLatest'
 import { useStampedDensity } from '../platform/density'
 import { DURATION, EASE, SPRING } from '../theme/motion'
 import { Button } from './Button'
+import { InBar } from './inBar'
 import { TONE_VARIANT, type ActionTone } from './toneVariant'
 import { PointerOverlay } from './PointerOverlay'
 import { recede } from './recede'
@@ -130,14 +131,17 @@ export interface SheetProps {
 export function Sheet(props: SheetProps) {
   const density = useStampedDensity()
   return (
-    <AnimatePresence onExitComplete={props.onClosed}>
-      {props.isOpen &&
-        (density === 'touch' ? (
-          <TouchSheet key="touch" {...props} />
-        ) : (
-          <PointerDialog key="pointer" {...props} />
-        ))}
-    </AnimatePresence>
+    // A sheet opened from a bar is content, not part of the bar.
+    <InBar value={false}>
+      <AnimatePresence onExitComplete={props.onClosed}>
+        {props.isOpen &&
+          (density === 'touch' ? (
+            <TouchSheet key="touch" {...props} />
+          ) : (
+            <PointerDialog key="pointer" {...props} />
+          ))}
+      </AnimatePresence>
+    </InBar>
   )
 }
 

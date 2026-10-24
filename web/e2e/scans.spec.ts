@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
 import {
-  ADD_SCANS,
   CHOOSE_SCAN_FILES,
   openScanName,
   SCANS,
@@ -19,6 +18,7 @@ import {
   unique,
 } from './helpers'
 import { SEARCH_TUNES } from '../src/features/catalog/catalogCopy'
+import { ADD_SCAN } from '../src/features/tune/tuneScreenCopy'
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/scan.jpg', import.meta.url))
 
@@ -28,7 +28,7 @@ test('adds a scan and opens it from the catalog row', async ({ page }) => {
   const since = new Date().toISOString()
   await addTune(page, title, 'A')
 
-  await expect(tunePage(page).getByRole('button', { name: ADD_SCANS })).toBeVisible()
+  await expect(tunePage(page).getByRole('button', { name: ADD_SCAN })).toBeVisible()
   await page.getByLabel(CHOOSE_SCAN_FILES).setInputFiles(FIXTURE)
   await expect(tunePage(page).getByRole('button', { name: openScanName(0) })).toBeVisible()
   await expectSynced(page, since)

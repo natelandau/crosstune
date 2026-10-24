@@ -8,6 +8,7 @@ import {
   signIn,
   swipeLeft,
   swipeState,
+  tunePage,
   tuneRow,
   unique,
 } from './helpers'
@@ -19,9 +20,8 @@ import {
   NEW_LIST_TITLE,
 } from '../src/features/lists/listsCopy'
 import { ARCHIVE } from '../src/features/tune/archiveLabels'
-import { EDIT_TUNE_TITLE } from '../src/features/tune/tuneFormCopy'
 import { EDIT_TUNE } from '../src/features/tune/tuneScreenCopy'
-import { CANCEL, DELETE } from '../src/ui/confirmCopy'
+import { DELETE } from '../src/ui/confirmCopy'
 import { SEARCH_TUNES } from '../src/features/catalog/catalogCopy'
 
 /** A list's row on the Lists screen, named for the list, its tune count, and when it was edited. */
@@ -44,11 +44,13 @@ test('swipe a tune row to edit and archive, and a list row to delete', async ({ 
   // replaced under the finger takes the gesture with it, so the gesture waits for it.
   await expectSynced(page, since)
   await swipeLeft(page, row)
+  // A row's Edit opens the tune's page, where its facts edit in place.
   await row.getByRole('button', { name: EDIT_TUNE, exact: true }).click()
-  const form = page.getByRole('dialog', { name: EDIT_TUNE_TITLE })
-  await expect(form).toBeVisible()
-  await form.getByRole('button', { name: CANCEL, exact: true }).click()
-  await expect(page).toHaveURL('/catalog')
+  await expect(tunePage(page).getByRole('heading', { name: title, level: 1 })).toBeVisible()
+  await tunePage(page)
+    .getByRole('link', { name: tabLabel('catalog'), exact: true })
+    .click()
+  await expect(page).toHaveURL(/\/catalog(\?|$)/)
 
   await swipeLeft(page, row)
   await row.getByRole('button', { name: ARCHIVE, exact: true }).click()

@@ -1,21 +1,10 @@
-import { Plus } from 'lucide-react'
-import { Fragment, useEffect, useId, useRef, useState } from 'react'
-import { Button as AriaButton } from 'react-aria-components'
-import { MODES, TIME_SIGNATURES, TUNE_LIMITS } from '../../api/vocabulary'
-import { CAPO_FRETS, CAPO_INSTRUMENTS, INSTRUMENT_LABELS, TUNINGS } from '../../constants'
-import { capoLabel, NO_CAPO, tuningLabel } from '../../domain/instruments'
+import { useEffect, useId, useRef, useState } from 'react'
+import { TIME_SIGNATURES, TUNE_LIMITS } from '../../api/vocabulary'
+import { DETAIL_FIELDS, DETAIL_LABELS, DETAILS_FOOTER } from './detailFields'
+import { ModeRows, TuningRows } from './tuneFieldRows'
 import {
-  ADD_PART_MODE,
-  DETAIL_FIELDS,
-  DETAIL_LABELS,
-  DETAILS_FOOTER,
-  PART_MODE_LABELS,
-} from './detailFields'
-import {
-  ADD_NEW_TUNE,
   DETAILS_HEADER,
   EDIT_TUNE_TITLE,
-  NEW_TUNE_TITLE,
   LYRICS_PLACEHOLDER,
   NOTES_PLACEHOLDER,
   SAVE_TUNE,
@@ -26,11 +15,9 @@ import {
 } from './tuneFormCopy'
 import {
   asTimeSignature,
-  canAddPartMode,
   learnedOnParts,
   learnedOnRefusedPart,
   learnedOnText,
-  modeRows,
 } from './tuneFormValues'
 import { LYRICS_SECTION, NOTES_SECTION } from './tuneScreenCopy'
 import { useTuneForm, type TuneForm } from './useTuneForm'
@@ -38,10 +25,10 @@ import { NOT_SET } from '../../ui/fieldCopy'
 import { KEY } from '../../ui/keyName'
 import { useLatest } from '../../ui/useLatest'
 import { ErrorLine } from '../../ui/ErrorLine'
-import { FIELD_ROW_PRESSABLE } from '../../ui/form/FieldRow'
 import { Group } from '../../ui/form/Group'
 import { PartialDateField } from '../../ui/form/PartialDateField'
 import { Picker } from '../../ui/form/Picker'
+import { asOptions } from '../../ui/form/pickerOptions'
 import { StatusRail } from '../../ui/form/StatusRail'
 import { SuggestField } from '../../ui/form/SuggestField'
 import { Switch } from '../../ui/form/Switch'
@@ -56,18 +43,10 @@ type FieldRef = HTMLInputElement & HTMLTextAreaElement
 export interface TuneFormSheetProps extends TuneFormOptions {
   isOpen: boolean
   onOpenChange: (open: boolean) => void
-  /**
-   * Called once a save lands, after the sheet asks to close. `dismissed` says the sheet was
-   * closed while the save was running, so the musician has moved on from it.
-   */
-  onSaved?: (tuneId: string, result: { filingError?: string; dismissed: boolean }) => void
 }
 
-const asOptions = (values: readonly string[]) =>
-  values.map((value) => ({ id: value, label: value }))
-
 /**
- * A new tune, or an edit of one, as a full-height sheet on touch and a dialog on pointer.
+ * An edit of a tune as a full-height sheet on touch and a dialog on pointer.
  * Fields are ranked by use: title, status, key, tunings, notes, and lyrics, then the rarer
  * details.
  */
@@ -80,36 +59,21 @@ export function TuneFormSheet(props: TuneFormSheetProps) {
   return <TuneFormBody key={opens} {...props} />
 }
 
-function TuneFormBody({
-  isOpen,
-  onOpenChange,
-  source,
-  tuneId,
-  initialTitle,
-  listId,
-  recordingId,
-  onSaved,
-}: TuneFormSheetProps) {
+function TuneFormBody({ isOpen, onOpenChange, tuneId, focus }: TuneFormSheetProps) {
   const titleRef = useRef<FieldRef>(null)
   const dateRef = useRef<HTMLDivElement>(null)
   const dateErrorId = useId()
   // Counts refused saves, so focus moves to the refused field on a save and never as one types.
   const [refusals, setRefusals] = useState(0)
   const closeRef = useLatest(() => onOpenChange(false))
-  const onSavedRef = useLatest(onSaved)
   const isOpenRef = useLatest(isOpen)
 
   const form = useTuneForm({
-    source,
     tuneId,
-    initialTitle,
-    listId,
-    recordingId,
     enabled: isOpen,
-    onSaved: (id, { filingError }) => {
-      const dismissed = !isOpenRef.current
-      if (!dismissed) closeRef.current()
-      onSavedRef.current?.(id, { filingError, dismissed })
+    onSaved: () => {
+      // Closed while the save ran, the sheet has already gone.
+      if (isOpenRef.current) closeRef.current()
     },
   })
   const { values, set, errors } = form
@@ -134,17 +98,16 @@ function TuneFormBody({
     if (form.save() === 'invalid') setRefusals((count) => count + 1)
   }
 
-  const editing = tuneId !== undefined
   const typed = Object.values(form.touched).some(Boolean)
   return (
     <Sheet
       isOpen={isOpen}
       onOpenChange={onOpenChange}
-      title={editing ? EDIT_TUNE_TITLE : NEW_TUNE_TITLE}
+      title={EDIT_TUNE_TITLE}
       height="full"
       locked={typed || form.pending}
       primary={{
-        label: editing ? SAVE_TUNE : ADD_NEW_TUNE,
+        label: SAVE_TUNE,
         onPress: save,
         isDisabled: !form.canSave,
       }}
@@ -194,25 +157,12 @@ function TuneFormBody({
           {form.visibleFields.tunings.length > 0 && (
             <Group header={TUNING_HEADER}>
               {form.visibleFields.tunings.map((instrument) => (
-                <Fragment key={instrument}>
-                  <SuggestField
-                    label={tuningLabel(instrument)}
-                    rowLabel={INSTRUMENT_LABELS[instrument]}
-                    value={values.tunings[instrument]?.tuning ?? ''}
-                    suggestions={TUNINGS[instrument]}
-                    maxLength={TUNE_LIMITS.tuning}
-                    onChange={(tuning) => form.setTuning(instrument, { tuning })}
-                  />
-                  {CAPO_INSTRUMENTS[instrument] && (
-                    <Picker
-                      label={capoLabel(instrument)}
-                      value={values.tunings[instrument]?.capo || null}
-                      options={asOptions(CAPO_FRETS)}
-                      emptyLabel={NO_CAPO}
-                      onChange={(capo) => form.setTuning(instrument, { capo: capo ?? '' })}
-                    />
-                  )}
-                </Fragment>
+                <TuningRows
+                  key={instrument}
+                  instrument={instrument}
+                  entry={values.tunings[instrument]}
+                  onChange={(patch) => form.setTuning(instrument, patch)}
+                />
               ))}
             </Group>
           )}
@@ -234,6 +184,7 @@ function TuneFormBody({
               standalone
               multiline
               rows={6}
+              autoFocus={focus === 'lyrics'}
               label={LYRICS_SECTION}
               placeholder={LYRICS_PLACEHOLDER}
               value={values.lyrics}
@@ -285,7 +236,7 @@ function DetailRows({ form }: { form: TuneForm }) {
           />
         )
       case 'modes':
-        return <ModeRows key={field.key} form={form} />
+        return <FormModeRows key={field.key} form={form} />
       case 'switch':
         return (
           <Switch
@@ -332,29 +283,6 @@ function DetailRows({ form }: { form: TuneForm }) {
  * One mode per part. Rows are only added while the form is open, so clearing one empties it
  * rather than removing it; the save drops empty rows.
  */
-function ModeRows({ form }: { form: TuneForm }) {
-  const rows = modeRows(form.values.modes)
-  return (
-    <>
-      {rows.map((mode, index) => (
-        <Picker
-          key={PART_MODE_LABELS[index]}
-          label={PART_MODE_LABELS[index]!}
-          value={mode || null}
-          options={asOptions(MODES)}
-          emptyLabel={NOT_SET}
-          onChange={(value) => form.setPartMode(index, value ?? '')}
-        />
-      ))}
-      {canAddPartMode(form.values.modes) && (
-        <AriaButton
-          onPress={form.addPartMode}
-          className={`${FIELD_ROW_PRESSABLE} text-ink font-medium`}
-        >
-          <Plus className="size-5 shrink-0" aria-hidden />
-          {ADD_PART_MODE}
-        </AriaButton>
-      )}
-    </>
-  )
+function FormModeRows({ form }: { form: TuneForm }) {
+  return <ModeRows modes={form.values.modes} onChange={form.setPartMode} onAdd={form.addPartMode} />
 }

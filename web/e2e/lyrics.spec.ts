@@ -2,7 +2,12 @@ import { expect, test } from '@playwright/test'
 import { addTune, expectSynced, signIn, tunePage, unique } from './helpers'
 import { LARGER_TEXT, lyricsTitle } from '../src/features/lyrics/lyricsCopy'
 import { EDIT_TUNE_TITLE, SAVE_TUNE } from '../src/features/tune/tuneFormCopy'
-import { EDIT_TUNE, LYRICS_SECTION, OPEN_LYRICS } from '../src/features/tune/tuneScreenCopy'
+import {
+  ADD_LYRICS,
+  ADD_TO_TUNE,
+  LYRICS_SECTION,
+  OPEN_LYRICS,
+} from '../src/features/tune/tuneScreenCopy'
 import { CLOSE } from '../src/ui/confirmCopy'
 
 test('type lyrics on a tune and read them full screen at a larger size', async ({ page }) => {
@@ -11,7 +16,10 @@ test('type lyrics on a tune and read them full screen at a larger size', async (
   const since = new Date().toISOString()
   await addTune(page, title, 'A')
 
-  await tunePage(page).getByRole('button', { name: EDIT_TUNE, exact: true }).click()
+  await tunePage(page)
+    .getByRole('group', { name: ADD_TO_TUNE })
+    .getByRole('button', { name: ADD_LYRICS })
+    .click()
   const form = page.getByRole('dialog', { name: EDIT_TUNE_TITLE })
   await form
     .getByRole('textbox', { name: LYRICS_SECTION })
@@ -19,9 +27,8 @@ test('type lyrics on a tune and read them full screen at a larger size', async (
   await form.getByRole('button', { name: SAVE_TUNE, exact: true }).click()
   await expectSynced(page, since)
 
-  await tunePage(page)
-    .getByRole('button', { name: new RegExp(`^${OPEN_LYRICS}`) })
-    .click()
+  // The Lyrics section's reader button.
+  await tunePage(page).getByRole('button', { name: OPEN_LYRICS, exact: true }).click()
   const reading = page.getByRole('dialog', { name: lyricsTitle(title) })
   const larger = reading.getByRole('button', { name: LARGER_TEXT })
   await expect(larger).toBeVisible()

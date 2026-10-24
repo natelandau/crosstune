@@ -22,6 +22,7 @@ import {
 } from '../auth/session'
 import { readSearchQuery, writeSearchQuery } from '../ui/searchSession'
 import { CLERK_LOAD_GRACE_MS, useAuthGate, type GateClock } from '../auth/useAuthGate'
+import { computedColor } from '../test/color'
 import { renderWithProviders } from '../test/render'
 import { AuthGate } from './AuthGate'
 
@@ -435,12 +436,7 @@ describe('the sign-in layout', () => {
     await renderAt(390)
     const t = document.querySelector('main svg path')!
     const coral = getComputedStyle(document.documentElement).getPropertyValue('--coral').trim()
-    const probe = document.createElement('span')
-    probe.style.color = coral
-    document.body.append(probe)
-    const expected = getComputedStyle(probe).color
-    probe.remove()
-    await expect.poll(() => getComputedStyle(t).stroke).toBe(expected)
+    await expect.poll(() => getComputedStyle(t).stroke).toBe(computedColor(coral))
   })
 
   it.each([320, 768, 1200])('never scrolls sideways at %ipx', async (width) => {

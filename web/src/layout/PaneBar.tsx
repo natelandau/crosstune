@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { useLeaveTo } from './backTrail'
 import { useFrame } from '../platform/frame'
 import { usePane } from './pane'
+import { InBar } from '../ui/inBar'
 
 /**
  * The bar over one pane: a leading control, the pane's title small once its column title has
@@ -73,7 +74,7 @@ export function PaneBar({
     >
       <div className="flex min-w-0 items-center justify-start">
         <div ref={leadingRef} className="flex items-center">
-          {leading}
+          <InBar value>{leading}</InBar>
         </div>
       </div>
       {title ? (
@@ -97,7 +98,7 @@ export function PaneBar({
       )}
       <div className="flex min-w-0 items-center justify-end">
         <div ref={trailingRef} className="flex items-center gap-1">
-          {trailing}
+          <InBar value>{trailing}</InBar>
         </div>
       </div>
       {compact && title && (

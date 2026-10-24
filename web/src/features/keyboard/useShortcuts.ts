@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { usePlayer } from '../player/usePlayer'
 import { decideBack } from '../../platform/backStack'
@@ -12,7 +13,8 @@ import { useDestination } from '../../layout/useDestination'
 import { useStampedDensity } from '../../platform/density'
 import { useQuickFindLauncher } from '../quickFind/quickFindLauncher'
 import { useRecordLauncher } from '../../app/recordLauncher'
-import { useTuneFormLauncher } from '../tune/formLauncher'
+import { newTuneState } from '../tune/newTuneState'
+import { NEW_TUNE_PATH } from '../../layout/tuneHome'
 import { useOverlayOpen } from '../../ui/overlayClaim'
 import { useShortcutSheet } from './shortcutSheetLauncher'
 
@@ -37,7 +39,7 @@ export function useShortcuts(focusSearch: () => boolean): void {
     overlayOpen: useOverlayOpen(),
     recordingLoaded: usePlayer().item?.kind === 'recording',
     focusSearch,
-    tuneForm: useTuneFormLauncher(),
+    navigate: useNavigate(),
     record: useRecordLauncher(),
     sheet: useShortcutSheet(),
     quickFind: useQuickFindLauncher(),
@@ -81,7 +83,7 @@ export function useShortcuts(focusSearch: () => boolean): void {
           return
         case 'newTune':
           event.preventDefault()
-          actions.tuneForm.open({ source: 'menu' })
+          void actions.navigate(NEW_TUNE_PATH, { state: newTuneState('menu') })
           return
         case 'record':
           if (!actions.record.available) return

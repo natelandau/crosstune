@@ -1,14 +1,14 @@
 import { expect, it } from 'vitest'
 import { tuneRow, userTuneRow } from '../test/rows'
-import { tuneFieldsChanged, tuneFieldsSet, bulkPatchFields } from './tuneFields'
+import { bulkPatchFields, titleOnlyFieldsSet, tuneFieldsChanged } from './tuneFields'
 
-const blank = { title: 'Soldier', time_signature: '4/4' as const }
+const blank = { title: 'Soldier', time_signature: null }
 const user = { status: 'want_to_learn' as const }
 
-it('sets only the fields a new tune carries beyond the blank form', () => {
-  expect(tuneFieldsSet(blank, user)).toEqual(['title'])
+it('sets only the fields a new tune carries beyond its title', () => {
+  expect(titleOnlyFieldsSet(blank, user)).toEqual(['title'])
   expect(
-    tuneFieldsSet(
+    titleOnlyFieldsSet(
       {
         ...blank,
         key: 'D',
@@ -24,15 +24,15 @@ it('sets only the fields a new tune carries beyond the blank form', () => {
 
 it('leaves out empty values', () => {
   expect(
-    tuneFieldsSet(
+    titleOnlyFieldsSet(
       { ...blank, key: null, modes: [], composer: null, alternate_titles: [], tunings: {} },
       { ...user, learned_from: null, notes: null },
     ),
   ).toEqual(['title'])
 })
 
-it('counts a cleared time signature as set', () => {
-  expect(tuneFieldsSet({ ...blank, time_signature: null }, user)).toEqual([
+it('counts a time signature as set', () => {
+  expect(titleOnlyFieldsSet({ ...blank, time_signature: '4/4' }, user)).toEqual([
     'title',
     'time_signature',
   ])

@@ -25,7 +25,10 @@ interface ToastState {
 }
 
 interface ToastApi {
-  show: (message: string, undo?: () => void) => void
+  /** Returns the toast's id, which `dropUndo` takes. */
+  show: (message: string, undo?: () => void) => number
+  /** Removes Undo from the toast with this id; a newer toast is left alone. */
+  dropUndo: (id: number) => void
 }
 
 const ToastContext = createContext<ToastApi | null>(null)
@@ -135,8 +138,18 @@ export function ToastProvider({
       setLeaving(false)
       setToast({ id: nextId.current, message, undo })
       start(TOAST_MS)
+      return nextId.current
     },
     [start, restoreFocus],
+  )
+
+  const dropUndo = useCallback(
+    (id: number) => {
+      if (nextId.current !== id) return
+      restoreFocus()
+      setToast((current) => (current?.id === id ? { ...current, undo: undefined } : current))
+    },
+    [restoreFocus],
   )
 
   useEffect(() => stop, [stop])
@@ -156,7 +169,7 @@ export function ToastProvider({
     }
   }, [leaving, toast?.id])
 
-  const api = useMemo(() => ({ show }), [show])
+  const api = useMemo(() => ({ show, dropUndo }), [show, dropUndo])
 
   return (
     <ToastContext value={api}>

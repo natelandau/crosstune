@@ -68,6 +68,8 @@ export interface TuneMediaData {
   retry: (view: RecordingView, kind: 'upload' | 'transcode') => void
   /** The ways to add a recording: record, paste a link, and find one. */
   addItems: MenuItem[]
+  /** The last of those, also offered on its own by an empty Recordings section. */
+  find: MenuItem
   /** What a search starts from, the tune's name and type; empty until read. */
   prefill: string | undefined
   /** The one chosen search service, or null when none or several are chosen. */
@@ -213,6 +215,8 @@ export function useTuneMedia(
     },
   ]
 
+  const findItem: MenuItem = { ...find, refused: online ? undefined : SEARCH_NEEDS_CONNECTION }
+
   return {
     userTune,
     recordingRows: recordings.map((view) => ({
@@ -236,8 +240,9 @@ export function useTuneMedia(
         onPress: () => startRecording({ tuneId, source: 'tune' }),
       },
       { label: PASTE_LINK, icon: Link, onPress: () => setPasting(true) },
-      { ...find, refused: online ? undefined : SEARCH_NEEDS_CONNECTION },
+      findItem,
     ],
+    find: findItem,
     prefill,
     only,
     pasting,

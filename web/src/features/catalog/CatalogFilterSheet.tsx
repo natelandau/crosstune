@@ -5,6 +5,7 @@ import { DONE } from '../../ui/confirmCopy'
 import { ANY, FILTERS, RESET } from '../../ui/filterCopy'
 import { Group } from '../../ui/form/Group'
 import { Picker } from '../../ui/form/Picker'
+import { asOptions } from '../../ui/form/pickerOptions'
 import { Switch } from '../../ui/form/Switch'
 import { KEY } from '../../ui/keyName'
 import { KeyGrid } from '../../ui/KeyGrid'
@@ -26,9 +27,6 @@ import {
 } from './filters'
 import { STATUS_SCOPE } from './scope'
 import type { LiveTuneCounts } from './useStatusCounts'
-
-const asOptions = (values: readonly string[]) =>
-  values.map((value) => ({ id: value, label: value }))
 
 /**
  * Every catalog filter: Status, Key, the other facets, the unheard and missing filters, and

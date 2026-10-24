@@ -6,7 +6,8 @@ import type { CrosstuneDb } from '../../db/schema'
 import { LARGER_TEXT, lyricsTitle, SMALLER_TEXT } from './lyricsCopy'
 import { DEFAULT_LYRICS_STEP, LYRICS_STEPS, setLyricsStep } from './lyricsSize'
 import { EDIT_TUNE_TITLE, SAVE_TUNE } from '../tune/tuneFormCopy'
-import { EDIT_LYRICS, EDIT_TUNE, LYRICS_SECTION, OPEN_LYRICS } from '../tune/tuneScreenCopy'
+import { EDIT_ALL_DETAILS, EDIT_LYRICS, LYRICS_SECTION, OPEN_LYRICS } from '../tune/tuneScreenCopy'
+import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { tuneRow, userTuneRow } from '../../test/rows'
@@ -32,7 +33,7 @@ async function seedTune(db: CrosstuneDb) {
 }
 
 const reader = () => page.getByRole('dialog', { name: lyricsTitle('Uncle Joe') })
-const openRow = () => page.getByRole('button', { name: new RegExp(`^${OPEN_LYRICS}`) })
+const openButton = () => page.getByRole('button', { name: OPEN_LYRICS, exact: true })
 const size = () => reader().element().querySelector<HTMLElement>('[data-lyrics-size]')
 
 async function openReader(frame = PHONE) {
@@ -44,7 +45,7 @@ async function openReader(frame = PHONE) {
     frame,
     density: frame === PHONE ? 'touch' : 'pointer',
   })
-  await openRow().click()
+  await openButton().click()
   await expect.element(reader()).toBeVisible()
   return db
 }
@@ -69,15 +70,15 @@ it.each([
   },
 )
 
-it('closes on Escape and from Close, handing focus back to the row', async () => {
+it('closes on Escape and from Close, handing focus back to the reader button', async () => {
   await openReader()
   await userEvent.keyboard('{Escape}')
   await expect.element(reader()).not.toBeInTheDocument()
-  await expect.element(openRow()).toHaveFocus()
-  await openRow().click()
+  await expect.element(openButton()).toHaveFocus()
+  await openButton().click()
   await reader().getByRole('button', { name: CLOSE, exact: true }).click()
   await expect.element(reader()).not.toBeInTheDocument()
-  await expect.element(openRow()).toHaveFocus()
+  await expect.element(openButton()).toHaveFocus()
 })
 
 it('steps the text up, and holds Larger text disabled at the largest', async () => {
@@ -136,7 +137,8 @@ it('leaves the tune alone while the form edits its words, until the form saves',
   const db = openTestDb()
   await seedTune(db)
   await renderApp({ path: '/catalog/t1', db, frame: PHONE, density: 'touch' })
-  await page.getByRole('button', { name: EDIT_TUNE, exact: true }).click()
+  await page.getByRole('button', { name: MORE_ACTIONS }).click()
+  await page.getByRole('menuitem', { name: EDIT_ALL_DETAILS }).click()
   const form = page.getByRole('dialog', { name: EDIT_TUNE_TITLE })
   const words = form.getByRole('textbox', { name: LYRICS_SECTION })
   await expect.element(words).toHaveValue(WORDS)

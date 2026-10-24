@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
 import type { Instrument } from '../../api/vocabulary'
-import type { LocalUserTune } from '../../db/types'
 import type { MenuItem } from '../../ui/menuTypes'
 import { DELETE } from '../../ui/confirmCopy'
 import { useAction } from '../../ui/useAction'
@@ -13,26 +12,19 @@ import { useListActions } from '../lists/useListActions'
 import { useActiveLists, useMembership } from '../lists/useLists'
 import { lyricOpening } from '../lyrics/lyricLines'
 import { useRecordingsWithFiles, type RecordingView } from '../recordings/useRecordings'
-import { tuningDisplay, tuningInstruments, tuningKey } from '../../domain/instruments'
 import { useInstruments } from '../settings/useInstruments'
 import { ARCHIVE, UNARCHIVE } from './archiveLabels'
 import { deleteTuneMessage, deleteTuneTitle } from './deleteTuneMessage'
 import { useTune, type TuneView } from './useTune'
+import { EDIT_ALL_DETAILS } from './tuneScreenCopy'
 import { useTuneActions } from './useTuneActions'
-
-export interface TuneBadge {
-  field: string
-  label: string
-}
 
 /** What a tune says about itself in its header, ready to draw. */
 export interface TuneFacts {
   title: string
   alternateTitles: string[]
-  composer: string | null
   key: string | null
   modes: string[]
-  status: LocalUserTune['status']
   archived: boolean
   /** True only for words: whitespace alone would open a reading view on a blank page. */
   hasLyrics: boolean
@@ -57,12 +49,6 @@ export interface TuneScreenData {
   instruments: ReadonlySet<Instrument> | undefined
   recordings: readonly RecordingView[] | undefined
   facts: TuneFacts | null
-  badges: TuneBadge[]
-  /** The learned-on date as a local calendar date, or null when none is set. */
-  learnedOn: string | null
-  learnedFrom: string | null
-  /** True when either who or when it was learned is set. */
-  learned: boolean
   notes: string | null
   inLists: TuneListMembership[]
   /** The tune's user row id as a one-item list, stable across renders for a list picker. */
@@ -74,8 +60,9 @@ export interface TuneScreenData {
   /** The title of a tune whose confirmed delete is running. */
   deletingName: string | null
   removeFromList: (itemId: string) => void
-  /** Add to list, Archive or Unarchive, and Delete, in the order a menu shows them. */
-  menuFor: (onAddToList: () => void) => MenuItem[]
+  /** Edit all details, Add to list, Archive or Unarchive, and Delete, in the order a menu
+   * shows them. */
+  menuFor: (handlers: { onAddToList: () => void; onEditAll: () => void }) => MenuItem[]
 }
 
 /**
@@ -155,10 +142,11 @@ export function useTuneScreen(
     })
   }
 
-  const menuFor = (onAddToList: () => void): MenuItem[] => {
+  const menuFor: TuneScreenData['menuFor'] = ({ onAddToList, onEditAll }) => {
     if (!view) return []
     const archived = view.userTune.archived_at !== null
     return [
+      { label: EDIT_ALL_DETAILS, onPress: onEditAll },
       { label: ADD_TO_LIST, onPress: onAddToList },
       {
         label: archived ? UNARCHIVE : ARCHIVE,
@@ -189,20 +177,12 @@ export function useTuneScreen(
       ? {
           title: view.tune.title,
           alternateTitles: view.tune.alternate_titles,
-          composer: view.tune.composer || null,
           key: view.tune.key || null,
           modes: view.tune.modes,
-          status: view.userTune.status,
           archived: view.userTune.archived_at !== null,
           hasLyrics,
         }
       : null,
-    badges: view && instruments ? badgesFor(view, instruments) : [],
-    learnedOn: view?.userTune.learned_on ? formatLearnedOn(view.userTune.learned_on) : null,
-    learnedFrom: view?.userTune.learned_from ?? null,
-    learned: view
-      ? view.userTune.learned_from !== null || view.userTune.learned_on !== null
-      : false,
     notes: view?.userTune.notes || null,
     inLists: (lists ?? []).flatMap((list) => {
       const itemId = membership.get(list.id)
@@ -215,36 +195,4 @@ export function useTuneScreen(
     removeFromList: removeItem,
     menuFor,
   }
-}
-
-function badgesFor(
-  { tune }: TuneView,
-  instruments: NonNullable<ReturnType<typeof useInstruments>>,
-): TuneBadge[] {
-  return [
-    // Two instruments can share a tuning's name, so each badge names its instrument.
-    ...tuningInstruments(instruments, tune).map((instrument) => ({
-      field: tuningKey(instrument),
-      label: tuningDisplay(instrument, tune.tunings, { withInstrument: true }),
-    })),
-    { field: 'time_signature', label: tune.time_signature },
-    { field: 'is_crooked', label: tune.is_crooked ? 'Crooked' : null },
-    { field: 'tune_type', label: tune.tune_type },
-    { field: 'genre', label: tune.genre },
-    { field: 'part_structure', label: tune.part_structure },
-  ].filter((badge): badge is TuneBadge => Boolean(badge.label))
-}
-
-const LEARNED_ON_FORMAT = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-})
-
-/** A stored YYYY-MM-DD read as a local calendar date, so no timezone moves it a day. */
-function formatLearnedOn(value: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
-  if (!match) return value
-  const [, year, month, day] = match
-  return LEARNED_ON_FORMAT.format(new Date(Number(year), Number(month) - 1, Number(day)))
 }

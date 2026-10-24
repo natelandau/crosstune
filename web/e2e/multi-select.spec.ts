@@ -23,7 +23,7 @@ import {
   NEW_LIST_TITLE,
   REMOVE,
 } from '../src/features/lists/listsCopy'
-import { ADD_TO_LIST, addTunesToListTitle, NONE_IN_IT } from '../src/features/lists/listPickerCopy'
+import { ADD_TO_LIST, addTunesToListTitle } from '../src/features/lists/listPickerCopy'
 import {
   addedToListToast,
   editedToast,
@@ -167,8 +167,8 @@ test('hold a tune, set its status, and add it to a list', async ({ page }) => {
   await selectionBar(page).getByRole('button', { name: ADD_TO_LIST, exact: true }).click()
   const picker = page.getByRole('dialog', { name: addTunesToListTitle(1) })
   await expect(picker).toBeVisible()
-  // Each list says how much of the selection it already holds.
-  await picker.getByRole('button', { name: `${listName} ${NONE_IN_IT}`, exact: true }).click()
+  // A list that holds none of the selection carries no note.
+  await picker.getByRole('button', { name: listName, exact: true }).click()
   await expect(toast(page, addedToListToast(1, listName))).toBeVisible()
 
   await openTab(page, 'lists')

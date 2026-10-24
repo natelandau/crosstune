@@ -1,17 +1,10 @@
 import { createContext, useContext } from 'react'
-import type { Source } from '../../usage/events'
 
 export interface TuneFormOptions {
-  /** Where the musician opened the form, reported when it adds a tune. */
-  source: Source
-  /** The title typed into a search, carried into a new tune. */
-  initialTitle?: string
-  /** The tune to edit; without one the form adds a tune. */
-  tuneId?: string
-  /** The list a new tune joins. */
-  listId?: string
-  /** The recording a new tune takes. */
-  recordingId?: string
+  /** The tune to edit. */
+  tuneId: string
+  /** The field that takes focus as the form opens, in place of the title. */
+  focus?: 'lyrics'
 }
 
 export interface TuneFormLauncher {

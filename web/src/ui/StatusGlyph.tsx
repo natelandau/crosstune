@@ -1,8 +1,14 @@
 import { Check } from 'lucide-react'
-import { useLayoutEffect, useRef, type CSSProperties } from 'react'
+import {
+  useLayoutEffect,
+  useRef,
+  type ComponentProps,
+  type CSSProperties,
+  type RefObject,
+} from 'react'
 import { useReducedMotionConfig } from 'motion/react'
 import { DURATION, springEasing } from '../theme/motion'
-import { Focusable } from 'react-aria-components'
+import { mergeProps, useFocusable } from 'react-aria'
 import { STATUS_LABELS } from '../constants'
 import { useStampedDensity } from '../platform/density'
 import { Tip, TipTrigger } from './Tip'
@@ -50,16 +56,19 @@ export function StatusGlyph({ status, labelled = false }: { status: string; labe
       { duration: DURATION.long * 1000, easing: springEasing() },
     )
   }, [key, reduceMotion])
+  const tip = !labelled && density !== 'touch'
   const shape = (
-    <span
+    <Shape
       ref={ref}
-      tabIndex={labelled || density === 'touch' ? undefined : -1}
+      tip={tip}
+      // Focusable for its tooltip, but never a tab stop: a label is not a control.
+      tabIndex={tip ? -1 : undefined}
       {...(labelled ? { 'aria-hidden': true } : { role: 'img', 'aria-label': label })}
       className={`${SHAPE} ${SHAPES[key]} transition-colors duration-(--dur-base) ease-(--ease)`}
       style={style}
     >
       {key === 'known' && <Check className="size-[70%]" strokeWidth={3.5} aria-hidden />}
-    </span>
+    </Shape>
   )
   if (labelled) {
     return (
@@ -69,12 +78,25 @@ export function StatusGlyph({ status, labelled = false }: { status: string; labe
       </span>
     )
   }
-  if (density === 'touch') return shape
+  if (!tip) return shape
   return (
     <TipTrigger>
-      {/* Focusable makes its child a tab stop unless it sets tabIndex -1; a label is not a control. */}
-      <Focusable>{shape}</Focusable>
+      {shape}
       <Tip>{label}</Tip>
     </TipTrigger>
   )
+}
+
+/**
+ * The glyph's span. With `tip` it takes its tooltip's trigger wiring, as `Focusable` would give
+ * it; `Focusable` warns whenever its child mounts in an inert subtree, which every row in a list
+ * behind a pushed page does.
+ */
+function Shape({
+  ref,
+  tip,
+  ...props
+}: ComponentProps<'span'> & { ref: RefObject<HTMLSpanElement | null>; tip: boolean }) {
+  const { focusableProps } = useFocusable({ isDisabled: !tip }, ref)
+  return <span ref={ref} {...mergeProps(focusableProps, props)} />
 }

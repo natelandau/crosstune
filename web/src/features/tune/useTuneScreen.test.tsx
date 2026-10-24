@@ -22,6 +22,8 @@ function gate() {
   return { opened, open }
 }
 
+const NO_HANDLERS = { onAddToList: () => {}, onEditAll: () => {} }
+
 let db: CrosstuneDb
 let ids: { tuneId: string; userTuneId: string }
 
@@ -57,7 +59,7 @@ afterEach(() => {
 async function press(result: { current: ReturnType<typeof useTuneScreen> }, label: string) {
   await act(async () =>
     result.current
-      .menuFor(() => {})
+      .menuFor(NO_HANDLERS)
       .find((item) => item.label === label)!
       .onPress(),
   )
@@ -82,36 +84,19 @@ describe('useTuneScreen', () => {
     await waitFor(() => expect(result.current.tune).toBeDefined())
   })
 
-  it('assembles the facts, badges, and learned date once read', async () => {
+  it('assembles the facts and notes once read', async () => {
     const { result } = mount()
     await waitFor(() => expect(result.current.ready).toBe(true))
-    const { facts, badges, learnedOn, learnedFrom, notes } = result.current
-    expect(facts).toMatchObject({
+    const { facts, notes } = result.current
+    expect(facts).toEqual({
       title: "Soldier's Joy",
       alternateTitles: ['Joy'],
-      composer: 'Trad.',
       key: 'D',
       modes: ['major'],
-      status: 'learning',
       archived: false,
       hasLyrics: false,
     })
-    expect(badges.map((badge) => badge.label)).toEqual([
-      'Violin: Standard (GDAE)',
-      'Crooked',
-      'Old-time',
-    ])
-    expect(learnedOn).toBe('Mar 5, 2024')
-    expect(learnedFrom).toBe('Jim')
     expect(notes).toBe('Watch the B part.')
-  })
-
-  it('reads a learned date with nothing set as null', async () => {
-    const other = await createTune(db, { title: 'Angeline' }, { status: 'known' })
-    const { result } = mount(other.tuneId)
-    await waitFor(() => expect(result.current.ready).toBe(true))
-    expect(result.current.learnedOn).toBeNull()
-    expect(result.current.facts?.hasLyrics).toBe(false)
   })
 
   it('lists the lists the tune is in, with the item that removes it', async () => {
@@ -154,11 +139,11 @@ describe('useTuneScreen', () => {
   it('archives and unarchives through the menu', async () => {
     const { result } = mount()
     await waitFor(() => expect(result.current.ready).toBe(true))
-    const labels = () => result.current.menuFor(() => {}).map((item) => item.label)
+    const labels = () => result.current.menuFor(NO_HANDLERS).map((item) => item.label)
     expect(labels()).toContain(ARCHIVE)
     await act(async () => {
       result.current
-        .menuFor(() => {})
+        .menuFor(NO_HANDLERS)
         .find((item) => item.label === ARCHIVE)!
         .onPress()
     })
@@ -171,7 +156,7 @@ describe('useTuneScreen', () => {
     await waitFor(() => expect(result.current.ready).toBe(true))
     await act(async () =>
       result.current
-        .menuFor(() => {})
+        .menuFor(NO_HANDLERS)
         .find((i) => i.label === 'Delete')!
         .onPress(),
     )
@@ -191,7 +176,7 @@ describe('useTuneScreen', () => {
     await waitFor(() => expect(result.current.ready).toBe(true))
     await act(async () =>
       result.current
-        .menuFor(() => {})
+        .menuFor(NO_HANDLERS)
         .find((i) => i.label === 'Delete')!
         .onPress(),
     )

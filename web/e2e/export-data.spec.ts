@@ -16,7 +16,7 @@ import {
   EXPORT_TITLE,
 } from '../src/features/settings/export/exportCopy'
 import { IMPORT_AND_EXPORT } from '../src/features/settings/settingsCopy'
-import { ADD_RECORDING } from '../src/features/tune/tuneMediaCopy'
+import { RECORD } from '../src/features/tune/tuneMediaCopy'
 import { RECORDINGS_SECTION, recordingsLine } from '../src/features/tune/tuneScreenCopy'
 import { CLOSE } from '../src/ui/confirmCopy'
 import {
@@ -145,11 +145,7 @@ test('an account whose trial has ended exports every recording and scan', async 
     await expect(tunePage(page).getByRole('button', { name: openScanName(0) })).toBeVisible()
 
     await page.goto(firstUrl)
-    await tunePage(page).getByRole('button', { name: ADD_RECORDING, exact: true }).click()
-    await page
-      .getByRole('menu', { name: ADD_RECORDING })
-      .getByRole('menuitem', { name: NEW_RECORDING, exact: true })
-      .click()
+    await tunePage(page).getByRole('button', { name: RECORD, exact: true }).click()
     const recorder = page.getByRole('dialog', { name: NEW_RECORDING })
     await expect(recorder.getByRole('timer')).toHaveText(/^0:0[3-9]$/, { timeout: 15_000 })
     await recorder.getByRole('button', { name: STOP, exact: true }).click()
