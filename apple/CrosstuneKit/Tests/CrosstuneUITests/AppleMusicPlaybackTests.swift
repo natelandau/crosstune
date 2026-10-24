@@ -198,7 +198,8 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         music.found = found
         let player = PlayerModel(audio: FakeAudio(), appleMusic: AppleMusic(access: access, player: music))
         // A held load waits on the test, never on the clock, so a stalled runner cannot let the
-        // decision deadline fall back to the embed mid-test. The deadline's own tests set their own.
+        // decision deadline fall back to the embed mid-test. The deadline's own tests end it with
+        // a `ManualSleep`.
         player.decisionTimeout = .seconds(86_400)
         return (player, access, music)
     }
@@ -206,6 +207,12 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
     private func play(_ player: PlayerModel, _ row: RecordingLink = appleLink()) async throws {
         player.play(try #require(PlayerItem.link(row)))
         try await eventually { player.linkAudio != .deciding }
+    }
+
+    /// Ends the decision deadline on `sleep` once it is waiting.
+    private func passDeadline(_ sleep: ManualSleep) async throws {
+        try await eventually { !sleep.pending.isEmpty }
+        sleep.wake()
     }
 
     @Test func playsASongInFullInTheBarForASubscriber() async throws {
@@ -291,9 +298,10 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         music.holdsLoads = true
         player.play(try #require(PlayerItem.link(appleLink())))
         try await eventually { music.isHoldingLoad }
+        let decision = player.deciding
         player.close()
         music.release()
-        try await Task.sleep(for: .milliseconds(20))
+        await decision?.value
         #expect(!music.calls.contains("play"))
         #expect(!player.isLoaded)
         #expect(player.linkAudio == nil)
@@ -403,9 +411,10 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         access.holdsRequests = true
         player.play(try #require(PlayerItem.link(appleLink())))
         try await eventually { access.isHoldingRequest }
+        let decision = player.deciding
         player.close()
         access.releaseRequest()
-        try await Task.sleep(for: .milliseconds(20))
+        await decision?.value
         #expect(!music.calls.contains("load"))
         #expect(!player.isLoaded)
     }
@@ -429,14 +438,19 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
 
     @Test func aStalledDecisionFallsBackToTheEmbed() async throws {
         let (player, _, music) = model(.fullTracks)
-        player.decisionTimeout = .milliseconds(50)
+        let sleep = ManualSleep()
+        player.sleep = sleep.sleep
         music.holdsLoads = true
         player.play(try #require(PlayerItem.link(appleLink())))
+        try await eventually { music.isHoldingLoad }
+        let decision = player.deciding
+        try await passDeadline(sleep)
         try await eventually { player.linkAudio == .embed }
         #expect(player.isExpanded)
         #expect(music.calls.last == "stop")
         music.release()
-        try await Task.sleep(for: .milliseconds(20))
+        await decision?.value
+        #expect(music.loadResults == [false])
         #expect(!music.calls.contains("play"))
         #expect(player.linkAudio == .embed)
     }
@@ -529,8 +543,12 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
     @Test func aStalledSubscriptionReadAfterThePromptFallsBackToTheEmbed() async throws {
         let (player, access, music) = model(.notAsked)
         access.stallsAfterRequest = true
-        player.decisionTimeout = .milliseconds(50)
+        let sleep = ManualSleep()
+        player.sleep = sleep.sleep
         player.play(try #require(PlayerItem.link(appleLink())))
+        // The prompt cancels the first deadline; the second runs while the subscription is read.
+        try await eventually { access.requests == 1 && sleep.cancelled == 1 }
+        try await passDeadline(sleep)
         try await eventually { player.linkAudio == .embed }
         #expect(access.requests == 1)
         #expect(!music.calls.contains("load"))
@@ -539,10 +557,12 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
 
     @Test func aTrackThatStartsAfterTheDeadlineIsStoppedAgain() async throws {
         let (player, _, music) = model(.fullTracks)
-        player.decisionTimeout = .milliseconds(50)
+        let sleep = ManualSleep()
+        player.sleep = sleep.sleep
         music.holdsStarts = true
         player.play(try #require(PlayerItem.link(appleLink())))
         try await eventually { music.isHoldingStart }
+        try await passDeadline(sleep)
         try await eventually { player.linkAudio == .embed }
         music.releaseStart()
         try await eventually { music.calls.last == "stop" && music.calls.contains("play") }
