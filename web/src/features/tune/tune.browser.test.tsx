@@ -1,6 +1,7 @@
 import { page, userEvent } from 'vitest/browser'
 import { expect, it, onTestFinished, vi } from 'vitest'
-import { deleteTune } from '../../commands/tunes'
+import type * as tunes from '../../commands/tunes'
+import { deleteTune, updateUserTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalTune } from '../../db/types'
 import { CLOSE_PLAYER } from '../player/transportCopy'
@@ -76,6 +77,12 @@ import { tuneTitleTransition } from './TuneBand'
 vi.mock('../scans/prepareImage', async (original) => {
   const actual = await original<typeof images>()
   return { ...actual, prepareImage: vi.fn(actual.prepareImage) }
+})
+
+// A passthrough a test can hold once.
+vi.mock('../../commands/tunes', async (original) => {
+  const actual = await original<typeof tunes>()
+  return { ...actual, updateUserTune: vi.fn(actual.updateUserTune) }
 })
 
 const PHONE = { width: 390, height: 844 }
@@ -554,6 +561,33 @@ it('notes typed and left by leaving the page report once', async () => {
   await expect
     .poll(() => analytics.sends().filter((send) => send.name === 'tune_edited'))
     .toEqual([{ name: 'tune_edited', props: { fields_changed: ['notes'], tune_id: 't1' } }])
+})
+
+it('notes typed while a save is held write only the latest text once it lands', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  const actual = await vi.importActual<typeof tunes>('../../commands/tunes')
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  vi.mocked(updateUserTune).mockImplementationOnce(async (...args) => {
+    await gate
+    return actual.updateUserTune(...args)
+  })
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  const notes = tunePage().getByRole('textbox', { name: NOTES_SECTION })
+  await notes.click()
+  await userEvent.keyboard('L')
+  await expect.poll(() => vi.mocked(updateUserTune).mock.calls.length).toBe(1)
+  await userEvent.keyboard('ong bow')
+  await expect.element(notes).toHaveValue('Long bow')
+  release()
+  await expect.poll(async () => (await db.user_tunes.get('u-t1'))?.notes).toBe('Long bow')
+  expect(vi.mocked(updateUserTune).mock.calls.map(([, , patch]) => patch)).toEqual([
+    { notes: 'L' },
+    { notes: 'Long bow' },
+  ])
 })
 
 it.each([

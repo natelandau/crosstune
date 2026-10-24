@@ -14,7 +14,7 @@ import { NOTES_SAVE_HINT, NOTES_SECTION, WRITE_A_NOTE } from './tuneScreenCopy'
 const stored = (text: string): string | null => text.trim() || null
 
 /**
- * A tune's notes, typed straight into the page. Each change saves as it is typed; the edit is
+ * A tune's notes, typed straight into the page. Changes save as they are typed; the edit is
  * reported once per visit to the field, as it is left. While focus is in the field, a line under
  * it says the words are kept, and its Done leaves the field.
  */
@@ -32,8 +32,10 @@ export function NotesField({ tuneId, notes }: { tuneId: string; notes: string | 
     if (!focused) setTyped(null)
   }
   const atFocus = useRef<string | null>(null)
-  // Writes run in the order typed, so a slow one never lands over a later keystroke.
+  // One save runs at a time, so a slow one never lands over a later keystroke. Keystrokes made
+  // while one runs share a single save queued behind it, which writes the latest text.
   const queue = useRef<Promise<unknown>>(Promise.resolve())
+  const pending = useRef<(() => Promise<void>) | null>(null)
 
   const report = (text: string | null) => {
     const started = atFocus.current
@@ -48,11 +50,18 @@ export function NotesField({ tuneId, notes }: { tuneId: string; notes: string | 
 
   const change = (text: string) => {
     setTyped(text)
-    const next = queue.current.then(async () => {
+    const queued = pending.current !== null
+    pending.current = async () => {
       const userTune = await db.user_tunes.where('tune_id').equals(tuneId).first()
       if (userTune && !userTune.deleted_at) {
         await updateUserTune(db, userTune.id, { notes: stored(text) })
       }
+    }
+    if (queued) return
+    const next = queue.current.then(() => {
+      const save = pending.current
+      pending.current = null
+      return save?.()
     })
     queue.current = next.catch(() => {})
     run(() => next)
