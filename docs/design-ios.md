@@ -110,7 +110,8 @@ there where they differ. Regular-width iPad reads this page, then
 
 - Contrast also holds for silver, white, and coral on the practice ground.
 - Spacing scales with Dynamic Type. A control out of room wraps, never
-  clips.
+  clips. Exception: a fixed-size tile, such as the key tile, caps its
+  type at the default size and shows the Large Content Viewer.
 - System alerts and confirmation dialogs follow the system size.
 
 ## Framework limits

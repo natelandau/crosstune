@@ -197,6 +197,8 @@ private struct KeyTile: View {
         }
         .buttonStyle(KeyTileStyle())
         .accessibilityLabel(TuneBand.keyTileLabel(face))
+        // The tile's type does not grow with the text size, so a long press shows it enlarged.
+        .accessibilityShowsLargeContentViewer()
         .focused($focused)
         .accessibilityFocused($accessibilityFocused)
         .onAppear {
@@ -232,7 +234,10 @@ private struct KeyTile: View {
                 Text(TuneFieldLabels.key)
                     .font(PageStyle.secondary.weight(.medium))
             }
+            .lineLimit(1)
             .foregroundStyle(.inkSecondary)
+            // The tile's size is fixed, so larger type would wrap the label inside it.
+            .dynamicTypeSize(...DynamicTypeSize.large)
         }
     }
 

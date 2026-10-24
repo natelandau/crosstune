@@ -146,7 +146,7 @@ function KeyTile({
           </>
         ) : (
           <span className="t-secondary flex items-center gap-0.5 font-medium">
-            <Plus className="size-3.5" aria-hidden />
+            <Plus className="size-3.5 shrink-0" aria-hidden />
             {KEY}
           </span>
         )}
