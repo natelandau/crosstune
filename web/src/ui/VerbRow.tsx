@@ -44,7 +44,18 @@ export function VerbRow({ children, tight = false }: { children: ReactNode; tigh
     // The row's height follows the text size, so a text size change refits it too.
     const observer = new ResizeObserver(() => fitRow(element))
     observer.observe(element)
-    return () => observer.disconnect()
+    // A web font swapping in changes label widths without resizing the row.
+    const refit = () => fitRow(element)
+    let live = true
+    document.fonts.addEventListener('loadingdone', refit)
+    void document.fonts.ready.then(() => {
+      if (live) refit()
+    })
+    return () => {
+      live = false
+      observer.disconnect()
+      document.fonts.removeEventListener('loadingdone', refit)
+    }
   }, [])
   return (
     <div

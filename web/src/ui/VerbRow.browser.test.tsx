@@ -39,6 +39,25 @@ it('keeps its icons where three labels fit', async () => {
   await expect.poll(() => Math.min(...insets())).toBeGreaterThanOrEqual(4)
 })
 
+it('refits once the page fonts finish loading', async () => {
+  await page.viewport(390, 844)
+  // A fixed height keeps the stale fit from resizing the row, which would refit it on its own.
+  renderWithProviders(<div className="[&_[data-fit]]:h-12">{row()}</div>, { density: 'touch' })
+  const element = document.querySelector<HTMLElement>('[data-fit]')!
+  // An observer starts with a first notification; wait for the row's own so it cannot refit later.
+  await new Promise<void>((resolve) => {
+    const observer = new ResizeObserver(() => {
+      observer.disconnect()
+      resolve()
+    })
+    observer.observe(element)
+  })
+  await expect.poll(() => element.dataset.fit).toBe('full')
+  element.dataset.fit = 'bare'
+  document.fonts.dispatchEvent(new Event('loadingdone'))
+  await expect.poll(() => element.dataset.fit).toBe('full')
+})
+
 it.each([
   ['a narrow phone', undefined],
   ['a narrow phone at the largest text size', 'roomy'],
