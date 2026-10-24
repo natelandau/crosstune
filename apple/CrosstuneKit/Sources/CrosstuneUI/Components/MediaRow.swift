@@ -432,7 +432,8 @@ public struct MediaRow: View {
         case .waiting:
             Image(systemName: "clock").font(Self.glyphFont).foregroundStyle(.inkSecondary)
         case .none:
-            Color.clear
+            // No height of its own, so a hanging slot never stretches the row to its column.
+            Color.clear.frame(height: 0)
         }
     }
 }

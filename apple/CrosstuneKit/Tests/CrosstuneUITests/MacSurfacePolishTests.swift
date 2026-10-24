@@ -53,6 +53,17 @@
             #expect(height(play: nil, selecting: true) == playing)
         }
 
+        /// A page's media row with no glyph keeps its own height when its column offers more,
+        /// as a tune's content does beside a taller facts rail.
+        @Test func glyphlessPageRowKeepsItsHeight() throws {
+            let url = try #require(URL(string: "https://example.com/tune"))
+            let row = MediaRow(glyph: .none, title: "Bibb County Hoedown", secondLine: .link("Open", url, name: "Open"))
+                .environment(\.hangsMediaGlyph, true)
+            let host = NSHostingController(rootView: row)
+            let fitting = host.sizeThatFits(in: CGSize(width: 420, height: CGFloat.infinity)).height
+            #expect(host.sizeThatFits(in: CGSize(width: 420, height: 1000)).height == fitting)
+        }
+
         /// A taken row in the tune picker reads everything an open row does, then that it is in
         /// the list.
         @Test func takenRowReadsTheWholeRow() {
