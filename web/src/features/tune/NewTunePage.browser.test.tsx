@@ -237,6 +237,8 @@ it('Back while the create is still running keeps the page Back went to', async (
 })
 
 it("Quick Find's New tune opens the same page", async () => {
+  // Cmd is the command key only on a Mac.
+  vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel')
   const { router, db, analytics } = await setup()
   await userEvent.keyboard('{Meta>}k{/Meta}')
   const finder = page.getByRole('dialog', { name: QUICK_FIND })
