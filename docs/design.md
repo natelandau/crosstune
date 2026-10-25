@@ -84,6 +84,9 @@ Decide any case the rules below do not name.
 - Danger: destructive actions only. Warning: cautionary actions only.
 - Charts draw in ink tones.
 - Status, key, loop, and heatmap colors are identical on every platform.
+- A tune's status has one visual language: the same glyph in the same
+  color everywhere it shows, menus included. A menu tints its symbols, so
+  a status glyph goes in as an image that is already colored.
 - Never color alone: a state shown in color also shows in shape or words.
   A glyph keeps its own color on a selected row, because the color is its
   meaning.

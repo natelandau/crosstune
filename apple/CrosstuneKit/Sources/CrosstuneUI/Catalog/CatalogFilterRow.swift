@@ -95,6 +95,7 @@ struct CatalogFilterRow: View {
     private let onChange: (@escaping @Sendable (inout CatalogFilters) -> Void) -> Void
 
     @State private var choosingKey = false
+    @Environment(\.colorScheme) private var colorScheme
 
     init(results: CatalogResults, model: CatalogModel, statusChoices: [StatusScope.Choice]?) {
         self.init(
@@ -156,13 +157,23 @@ struct CatalogFilterRow: View {
         let selected = results.filters.status
         return Menu {
             ForEach(statusChoices ?? []) { choice in
-                Button {
-                    if choice.status != selected { onChange { $0.status = choice.status } }
-                } label: {
+                // A toggle, so the menu checks the chosen status and VoiceOver hears it, beside a
+                // glyph in the color the rows draw it.
+                Toggle(
+                    isOn: Binding {
+                        selected == choice.status
+                    } set: { isOn in
+                        if isOn, choice.status != selected { onChange { $0.status = choice.status } }
+                    }
+                ) {
                     Label {
                         Text(choice.count.map { "\(choice.label) \($0)" } ?? choice.label)
                     } icon: {
-                        Image(systemName: selected == choice.status ? "checkmark" : choice.systemImage)
+                        if let status = choice.status {
+                            StatusMenuIcon.image(status, scheme: colorScheme)
+                        } else {
+                            Image(systemName: choice.systemImage)
+                        }
                     }
                 }
             }
