@@ -26,6 +26,8 @@ struct RecordSheets: ViewModifier {
     @Environment(\.tuneScreenActions) private var tuneScreenActions
     /// The take on screen, kept past the dismissal that clears `take`.
     @State private var shown: RecordSheetModel?
+    @State private var source = UUID()
+    @State private var latestRecord = LatestRecord()
 
     func body(content: Content) -> some View {
         content
@@ -54,8 +56,18 @@ struct RecordSheets: ViewModifier {
 
     /// The tune screen's actions as set further out, with New recording opening the sheet.
     private var withRecord: TuneScreenActions {
-        var actions = tuneScreenActions
-        actions.record = { tuneID in record(tuneID) }
-        return actions
+        // `record` reads the shell's state as of this render, so the action handed down calls
+        // the newest one rather than the one captured when the actions last changed.
+        latestRecord.record = record
+        let latest = latestRecord
+        return tuneScreenActions.supplied(by: source) { actions in
+            actions.record = { tuneID in latest.record?(tuneID) }
+        }
     }
+}
+
+/// The newest record closure the shell handed ``RecordSheets``.
+@MainActor
+private final class LatestRecord {
+    var record: (@MainActor (_ tuneID: String?) -> Void)?
 }
