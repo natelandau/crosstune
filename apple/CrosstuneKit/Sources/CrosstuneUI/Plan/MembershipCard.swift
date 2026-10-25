@@ -116,7 +116,7 @@ struct MembershipCard: View {
                     }
                     .macPlanRow()
                 }
-                ForEach(Array(rest.enumerated()), id: \.element) { index, place in
+                ForEach(rest.enumerated(), id: \.element) { index, place in
                     if membership != nil || index > 0 {
                         Rectangle().fill(Palette.hairline).frame(height: 1).padding(.horizontal, MacForm.rowInset)
                     }
@@ -168,7 +168,7 @@ struct MembershipCard: View {
                     membershipRow(membership)
                         .padding()
                 }
-                ForEach(Array(manage.enumerated()), id: \.element) { index, place in
+                ForEach(manage.enumerated(), id: \.element) { index, place in
                     if membership != nil || index > 0 {
                         Divider().padding(.leading)
                     }

@@ -423,9 +423,9 @@ private struct PageVerses: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: pointSize * 0.9) {
-            ForEach(Array(verses.enumerated()), id: \.offset) { _, verse in
+            ForEach(verses.enumerated(), id: \.offset) { _, verse in
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(verse.enumerated()), id: \.offset) { _, line in
+                    ForEach(verse.enumerated(), id: \.offset) { _, line in
                         LyricLineText(text: line, pointSize: pointSize, lineSpacing: 0, selectable: true)
                     }
                 }

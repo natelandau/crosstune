@@ -98,7 +98,7 @@
             .frame(
                 minWidth: Self.size.width, maxWidth: Self.maxWidth, minHeight: Self.size.height, maxHeight: .infinity
             )
-            .background(ResizableWindow())
+            .background { ResizableWindow() }
             // A window of its own, so the shell's Plan sheet and purchase model never reach it.
             .modifier(PlanPurchases())
             // The window rather than each tab, so opening Settings reports once.

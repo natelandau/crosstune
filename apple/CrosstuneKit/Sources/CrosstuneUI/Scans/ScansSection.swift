@@ -107,7 +107,7 @@ struct ScanStrip: View {
         let height = tileHeight
         let opens = model.opens
         FlowLayout(spacing: spacing(12), lineSpacing: spacing(12)) {
-            ForEach(Array(model.scans.enumerated()), id: \.element.id) { index, scan in
+            ForEach(model.scans.enumerated(), id: \.element.id) { index, scan in
                 tile(scan, index: index, height: height, opens: opens)
             }
         }
@@ -164,7 +164,7 @@ struct ScanEditRows: View {
     var body: some View {
         let scans = model.scans
         let layout = model.layout
-        ForEach(Array(scans.enumerated()), id: \.element.id) { index, scan in
+        ForEach(scans.enumerated(), id: \.element.id) { index, scan in
             editRow(scan, index: index, count: scans.count, layout: layout)
         }
     }

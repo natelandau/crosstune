@@ -138,7 +138,7 @@ extension View {
 
     #Preview("List rows") {
         List {
-            ForEach(Array(SampleCatalog.entries.prefix(4).enumerated()), id: \.element.tune.id) { index, entry in
+            ForEach(SampleCatalog.entries.prefix(4).enumerated(), id: \.element.tune.id) { index, entry in
                 TuneRow(
                     tune: entry.tune, userTune: entry.userTune, instruments: ["violin"], position: index + 1)
             }

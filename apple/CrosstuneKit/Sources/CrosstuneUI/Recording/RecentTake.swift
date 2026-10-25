@@ -80,9 +80,9 @@ private struct NewTakeHighlight: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(
+            .background {
                 RoundedRectangle(cornerRadius: 10).fill(Self.wash(scheme)).opacity(lit ? 1 : 0)
-            )
+            }
             // Keyed on the id, so a take marked before the row appears still lights it.
             .task(id: recentTake?.id) {
                 guard let recentTake, recentTake.id == recordingID else { return }

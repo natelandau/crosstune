@@ -44,7 +44,7 @@ struct RenewalTerms<Leading: View>: View {
     @ViewBuilder
     private func links(dotted: Bool) -> some View {
         leading
-        ForEach(Array(PlanSheet.links.enumerated()), id: \.element.url) { index, link in
+        ForEach(PlanSheet.links.enumerated(), id: \.element.url) { index, link in
             if dotted && (index > 0 || hasLeading) {
                 Text(verbatim: "\u{00B7}")
                     .foregroundStyle(Palette.inkSecondary)

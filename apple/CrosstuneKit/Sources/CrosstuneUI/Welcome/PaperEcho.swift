@@ -141,7 +141,7 @@ struct PaperEcho: View {
                 KeyPill(group.key, size: .compact)
                     .padding(.top, 0.6 * unit)
                     .padding(.bottom, 0.2 * unit)
-                ForEach(Array(group.rows.enumerated()), id: \.offset) { _, status in
+                ForEach(group.rows.enumerated(), id: \.offset) { _, status in
                     row(status)
                 }
             }

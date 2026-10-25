@@ -54,9 +54,15 @@ private func slipperyHillRef(_ path: String) -> String? {
 }
 
 private func host(of url: URL) -> String {
-    let raw = (url.host ?? "").lowercased()
+    let raw = (url.host(percentEncoded: false) ?? "").lowercased()
     guard raw.hasPrefix("www.") || raw.hasPrefix("m."), let dot = raw.firstIndex(of: ".") else { return raw }
     return String(raw[raw.index(after: dot)...])
+}
+
+/// The URL's path decoded and without a trailing slash, so `/watch/` matches `/watch`.
+private func decodedPath(_ url: URL) -> String {
+    let path = url.path(percentEncoded: false)
+    return path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
 }
 
 private func trimSlashes(_ path: String) -> String {
@@ -71,7 +77,7 @@ private func queryItem(_ name: String, in url: URL) -> String? {
 }
 
 private func youtubeRef(_ url: URL) -> String? {
-    let path = url.path
+    let path = decodedPath(url)
     var candidate: String?
     if path == "/watch" {
         candidate = queryItem("v", in: url)
@@ -85,7 +91,7 @@ private func youtubeRef(_ url: URL) -> String? {
 
 private func appleRef(_ url: URL) -> String? {
     if let item = queryItem("i", in: url), !item.isEmpty { return item }
-    var path = Substring(url.path)
+    var path = Substring(decodedPath(url))
     if path.hasSuffix("/") { path.removeLast() }
     let last = path.split(separator: "/", omittingEmptySubsequences: false).last.map(String.init) ?? ""
     return !last.isEmpty && last.allSatisfy({ $0.isASCII && $0.isNumber }) ? last : nil
@@ -106,7 +112,7 @@ public func appleMusicKind(_ raw: String) -> AppleMusicKind? {
     else { return nil }
     if queryItem("i", in: url)?.isEmpty == false { return .song(id: id) }
     // music.apple.com/{storefront}/{kind}/{slug}/{id}, where some links leave out the storefront.
-    switch url.path.split(separator: "/").prefix(2).first(where: { $0 == "song" || $0 == "album" }) {
+    switch decodedPath(url).split(separator: "/").prefix(2).first(where: { $0 == "song" || $0 == "album" }) {
     case "song": return .song(id: id)
     case "album": return .album(id: id)
     default: return nil
@@ -126,11 +132,11 @@ public func detectProvider(_ raw: String) -> DetectedProvider {
         return DetectedProvider(provider: "youtube", providerRef: youtubeRef(url))
     }
     if host == "youtu.be" {
-        let id = trimSlashes(url.path)
+        let id = trimSlashes(decodedPath(url))
         return DetectedProvider(provider: "youtube", providerRef: id.wholeMatch(of: youtubeIDPattern) != nil ? id : nil)
     }
     if host == "open.spotify.com" {
-        return DetectedProvider(provider: "spotify", providerRef: typedRef(spotifyPathPattern, in: url.path))
+        return DetectedProvider(provider: "spotify", providerRef: typedRef(spotifyPathPattern, in: decodedPath(url)))
     }
     if host == "music.apple.com" {
         return DetectedProvider(provider: "apple_music", providerRef: appleRef(url))
@@ -142,11 +148,11 @@ public func detectProvider(_ raw: String) -> DetectedProvider {
         return DetectedProvider(provider: "soundcloud", providerRef: nil)
     }
     if host == "tidal.com" || host == "listen.tidal.com" {
-        return DetectedProvider(provider: "tidal", providerRef: typedRef(tidalPathPattern, in: url.path))
+        return DetectedProvider(provider: "tidal", providerRef: typedRef(tidalPathPattern, in: decodedPath(url)))
     }
     if host == "archive.org" {
         return DetectedProvider(
-            provider: "internet_archive", providerRef: firstCapture(archivePathPattern, in: url.path))
+            provider: "internet_archive", providerRef: firstCapture(archivePathPattern, in: decodedPath(url)))
     }
     if host == "slippery-hill.com" {
         return DetectedProvider(provider: "slippery_hill", providerRef: slipperyHillRef(url.path(percentEncoded: true)))

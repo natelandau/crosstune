@@ -38,7 +38,7 @@ public struct WelcomeView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Palette.surface.ignoresSafeArea())
+                    .background { Palette.surface.ignoresSafeArea() }
                     Rectangle()
                         .fill(Palette.hairline)
                         .frame(width: 1)
@@ -51,7 +51,7 @@ public struct WelcomeView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .frame(maxWidth: .infinity)
-                .background(Palette.ground.ignoresSafeArea())
+                .background { Palette.ground.ignoresSafeArea() }
             }
             .toolbar(removing: .title)
             .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)

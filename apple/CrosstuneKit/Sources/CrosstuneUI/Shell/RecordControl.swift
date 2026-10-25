@@ -117,7 +117,7 @@ public struct RecordToolbarButton: View {
                 .padding(.trailing, 14)
                 .frame(height: MacStyle.paneControlHeight)
                 .background(Palette.field, in: .capsule)
-                .overlay(Capsule().strokeBorder(Palette.hairline))
+                .overlay { Capsule().strokeBorder(Palette.hairline) }
                 .contentShape(.capsule)
                 .opacity(isEnabled ? 1 : 0.5)
             }
