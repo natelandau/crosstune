@@ -7,7 +7,7 @@ extension View {
         #if os(macOS)
             self
         #else
-            scrollContentBackground(.hidden).background(Palette.ground.ignoresSafeArea())
+            scrollContentBackground(.hidden).background { Palette.ground.ignoresSafeArea() }
         #endif
     }
 
@@ -16,7 +16,7 @@ extension View {
         #if os(macOS)
             self
         #else
-            scrollContentBackground(.hidden).background(Palette.groupedPage.ignoresSafeArea())
+            scrollContentBackground(.hidden).background { Palette.groupedPage.ignoresSafeArea() }
         #endif
     }
 

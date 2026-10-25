@@ -224,7 +224,7 @@ struct ExportZip: Transferable {
                     // Backing out of one service, as from the Files picker, leaves the share
                     // sheet up for another, but the sheet may also be on its way out, so look
                     // again once this turn's dismissal has started.
-                    DispatchQueue.main.async {
+                    Task { @MainActor in
                         if Self.isGone(activity) { finish() }
                     }
                 }

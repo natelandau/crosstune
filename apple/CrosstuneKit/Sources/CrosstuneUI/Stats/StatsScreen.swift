@@ -236,7 +236,7 @@ struct StatsDocument: View {
         case .onThisDay:
             PageSection(block.header) {
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(Array(stats.onThisDay.enumerated()), id: \.offset) { _, line in
+                    ForEach(stats.onThisDay.enumerated(), id: \.offset) { _, line in
                         Text(StatsCopy.onThisDayLine(line, title: view.title(for: line)))
                             .contentMask()
                             .font(PageStyle.body)
@@ -252,7 +252,7 @@ struct StatsDocument: View {
         case .rarities:
             PageSection(block.header) {
                 VStack(alignment: .leading, spacing: 4) {
-                    ForEach(Array(stats.rarities.enumerated()), id: \.offset) { _, rarity in
+                    ForEach(stats.rarities.enumerated(), id: \.offset) { _, rarity in
                         rarityRow(rarity)
                     }
                 }

@@ -29,7 +29,7 @@ struct IncludedList: View {
                 .font(.platform(.headline, mac: .sectionHeading))
                 .accessibilityAddTraits(.isHeader)
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(PlanSheet.included.enumerated()), id: \.element.title) { index, feature in
+                ForEach(PlanSheet.included.enumerated(), id: \.element.title) { index, feature in
                     if index > 0 {
                         PlanDivider().padding(.leading, tileSide + 28)
                     }

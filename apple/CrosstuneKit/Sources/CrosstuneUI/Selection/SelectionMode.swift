@@ -149,7 +149,7 @@ private struct SelectionMode: ViewModifier {
             #endif
             #if os(iOS)
                 .environment(\.editMode, .constant(selection.isActive ? .active : .inactive))
-                .toolbar(selection.isActive ? .hidden : .automatic, for: .tabBar)
+                .toolbarVisibility(selection.isActive ? .hidden : .automatic, for: .tabBar)
                 // A screen wearing the selection toolbar shows no back button.
                 .navigationBarBackButtonHidden(selection.isActive)
             #endif

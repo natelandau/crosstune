@@ -92,7 +92,7 @@ private struct ReadingScans: View {
             if let store {
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: 0) {
-                        ForEach(Array(scans.enumerated()), id: \.element.id) { index, scan in
+                        ForEach(scans.enumerated(), id: \.element.id) { index, scan in
                             ScanSlide(
                                 scan: scan, index: index, folder: store.scansFolder, invert: false,
                                 // Only the scans beside the one shown hold their image.
