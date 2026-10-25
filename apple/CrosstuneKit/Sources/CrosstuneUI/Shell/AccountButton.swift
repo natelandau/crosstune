@@ -44,10 +44,14 @@ func showsAccountItem(showAccount: MenuAction?, isSelecting: Bool) -> Bool {
                 .frame(width: 32, height: 32)
                 .background(BrandStyle.setFill(colorScheme), in: .circle)
             }
+            // The disc does not grow, so its letters stop at the default size and a long press
+            // shows the button enlarged.
+            .dynamicTypeSize(...DynamicTypeSize.large)
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(.rect)
             .buttonStyle(.plain)
             .accessibilityLabel(Destination.settingsTitle)
+            .accessibilityShowsLargeContentViewer()
         }
     }
 

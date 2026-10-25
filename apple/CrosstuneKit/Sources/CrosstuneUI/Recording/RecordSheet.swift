@@ -145,6 +145,7 @@ struct RecordSheetBody: View {
     let model: RecordSheetModel
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -223,16 +224,19 @@ struct RecordSheetBody: View {
         if model.phase == .interrupted {
             Text(RecordSheetModel.interruptedMessage)
                 .font(.platform(.footnote))
-                .foregroundStyle(.orange)
+                .foregroundStyle(SignalSwatch.warning(colorScheme).ink.color)
                 .multilineTextAlignment(.center)
         }
         if let message = model.message {
             Text(message)
                 .font(.platform(.footnote))
                 #if os(macOS)
-                    .foregroundStyle(model.phase == .saved ? .inkSecondary : AnyShapeStyle(Color.red))
+                    .foregroundStyle(
+                        model.phase == .saved
+                            ? .inkSecondary : AnyShapeStyle(SignalSwatch.danger(colorScheme).ink.color))
                 #else
-                    .foregroundStyle(model.phase == .saved ? Palette.inkSecondary : Color.red)
+                    .foregroundStyle(
+                        model.phase == .saved ? Palette.inkSecondary : SignalSwatch.danger(colorScheme).ink.color)
                 #endif
                 .multilineTextAlignment(.center)
         }
@@ -427,12 +431,12 @@ private struct StopButton: View {
         Group {
             #if os(macOS)
                 // Glass tinted red draws gray in a sheet, so the Mac's Stop is always solid.
-                button.background(Circle().fill(Color.recordingRed))
+                button.background(Color.recordingRed, in: .circle)
             #else
                 if drawsGlass {
                     button.glassEffect(.regular.tint(.recordingRed).interactive(), in: .circle)
                 } else {
-                    button.background(Circle().fill(Color.recordingRed))
+                    button.background(Color.recordingRed, in: .circle)
                 }
             #endif
         }

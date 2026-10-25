@@ -306,7 +306,7 @@ private struct BandTitle: View {
                         // A pointer finds it on the title and the keyboard by focus; touch has no
                         // hover, so it always shows there.
                         .focused($renameFocused)
-                        .opacity(isHovered || renameFocused ? 1 : 0)
+                        .opacity(isHovered || renameFocused ? 1 : 0.001)
                     #endif
             }
         }

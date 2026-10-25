@@ -467,6 +467,9 @@ private struct ImportReviewRow: View {
                 Image(systemName: configuration.isOn ? "checkmark.square.fill" : "square")
                     .imageScale(.large)
                     .foregroundStyle(configuration.isOn ? AnyShapeStyle(.tint) : .inkSecondary)
+                    // A borderless button takes taps only within its label, so the label fills the target.
+                    .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
+                    .contentShape(.rect)
             }
             .buttonStyle(.borderless)
             .accessibilityRepresentation {

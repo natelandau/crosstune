@@ -742,7 +742,7 @@ actor ReadCount {
         @Test func stopIsAlwaysRecordingRedOnTheMac() throws {
             let file = SourceScan.sources.appending(path: "Recording/RecordSheet.swift")
             let mac = SourceScan.macCompiled(SourceScan.withoutComments(try SourceScan.text(at: file)))
-            #expect(mac.contains("Circle().fill(Color.recordingRed)"))
+            #expect(mac.contains("background(Color.recordingRed, in: .circle)"))
             #expect(!mac.contains("glassEffect"))
         }
 

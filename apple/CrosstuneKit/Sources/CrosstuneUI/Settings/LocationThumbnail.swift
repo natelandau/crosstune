@@ -54,11 +54,13 @@ struct LocationThumbnail: View {
             Image(systemName: "pin.circle.fill")
                 .font(.platform(.title3))
                 .foregroundStyle(.red, .white)
+                // The thumbnail keeps its size, so the pin does too.
+                .dynamicTypeSize(...DynamicTypeSize.large)
         } else if let accuracyM {
             let diameter = Self.side * 2 * Double(accuracyM) / Self.spanM(accuracyM: accuracyM)
             Circle()
                 .fill(.tint.opacity(0.2))
-                .overlay(Circle().stroke(.tint, lineWidth: 1))
+                .stroke(.tint, lineWidth: 1)
                 .frame(width: diameter, height: diameter)
         }
     }

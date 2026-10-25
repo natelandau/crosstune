@@ -420,6 +420,7 @@ struct WaveformOverlay: View {
                             .contentShape(.rect)
                     }
                     .disabled(model.scale == nil)
+                    .accessibilityShowsLargeContentViewer()
                 #endif
                 iconButton(RecordingScreenText.zoomIn, systemImage: "plus.magnifyingglass") {
                     model.zoom(by: PracticeModel.zoomStep)
@@ -455,6 +456,8 @@ struct WaveformOverlay: View {
             #endif
         }
         .help(name)
+        // Capped at the default text size, so a long press shows it enlarged.
+        .accessibilityShowsLargeContentViewer()
     }
 }
 

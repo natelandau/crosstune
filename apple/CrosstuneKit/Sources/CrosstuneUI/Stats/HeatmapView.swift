@@ -154,7 +154,7 @@ private struct HeatmapMonthLabels: View, Equatable {
 
     var body: some View {
         HStack(spacing: HeatmapView.gap) {
-            ForEach(Array(StatsCopy.weekMonthLabels(days).enumerated()), id: \.offset) { _, label in
+            ForEach(StatsCopy.weekMonthLabels(days).enumerated(), id: \.offset) { _, label in
                 Color.clear
                     .frame(maxWidth: .infinity, minHeight: 0)
                     .overlay(alignment: .leading) {
@@ -165,6 +165,8 @@ private struct HeatmapMonthLabels: View, Equatable {
             }
         }
         .frame(height: 14)
+        // Each label overhangs a column a few points wide, so larger type would run labels together.
+        .dynamicTypeSize(...DynamicTypeSize.large)
         .accessibilityHidden(true)
     }
 }

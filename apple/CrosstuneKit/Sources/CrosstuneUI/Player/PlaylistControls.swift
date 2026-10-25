@@ -34,6 +34,8 @@ public enum PlaylistControlText {
 public struct PlaylistControls: View {
     private let playback: ListPlayback
 
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+
     public init(playback: ListPlayback) {
         self.playback = playback
     }
@@ -72,6 +74,11 @@ public struct PlaylistControls: View {
             Image(systemName: symbol)
                 .imageScale(.large)
                 .foregroundStyle(highlighted ? AnyShapeStyle(.tint) : .inkSecondary)
+                // Off and on share a symbol, so without color a disc marks on.
+                .padding(6)
+                .background {
+                    if highlighted && differentiateWithoutColor { Circle().fill(.tint.opacity(0.18)) }
+                }
                 .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                 .contentShape(.rect)
         }
