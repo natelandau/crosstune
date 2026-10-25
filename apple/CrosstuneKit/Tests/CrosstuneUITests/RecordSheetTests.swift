@@ -55,28 +55,26 @@ import Testing
         bars.push(0, capacity: 3)
         bars.push(1, capacity: 3)
         let rects = bars.layout(width: 100, height: 40)
-        #expect(rects[0].height == 2)
-        #expect(rects[0].minY == 19)
+        #expect(rects[0].height == WaveformBars.minimumBar)
+        #expect(rects[0].minY == (40 - WaveformBars.minimumBar) / 2)
         #expect(rects[1].height == 40)
         #expect(rects[1].minY == 0)
         #expect(rects.allSatisfy { $0.width == WaveformBars.barWidth })
     }
 
     @Test(arguments: [WaveformBars.Mode.scrolling, .fixed])
-    func thePathHoldsEachLaidOutBarAsARoundedRectangle(_ mode: WaveformBars.Mode) {
+    func thePathCoversEachLaidOutBarAndNoGap(_ mode: WaveformBars.Mode) {
         var bars = WaveformBars(mode: mode)
-        for level: Float in [0, 0.1, 0.25, 0.6, 1] { bars.push(level, capacity: 4) }
+        for level: Float in [0.3, 0, 0.1, 0.25, 0.6, 1] { bars.push(level, capacity: 5) }
         let rects = bars.layout(width: 100, height: 40)
-        var separate = Path()
-        for rect in rects {
-            separate.addPath(Path(roundedRect: rect, cornerRadius: WaveformBars.barWidth / 2))
-        }
         let path = bars.path(width: 100, height: 40)
-        #expect(path.description == separate.description)
-        // SwiftUI's own hit test treats the gaps between rounded rectangles as filled.
-        let shape = path.cgPath
+        #expect(path.width == WaveformBars.barWidth)
+        let shape = path.lines.strokedPath(StrokeStyle(lineWidth: path.width, lineCap: .round)).cgPath
         for rect in rects {
             #expect(shape.contains(CGPoint(x: rect.midX, y: rect.midY)))
+            #expect(shape.contains(CGPoint(x: rect.midX, y: rect.minY + 0.1)))
+            #expect(shape.contains(CGPoint(x: rect.midX, y: rect.maxY - 0.1)))
+            #expect(!shape.contains(CGPoint(x: rect.midX, y: rect.minY - 0.1)))
             #expect(!shape.contains(CGPoint(x: rect.maxX + WaveformBars.barGap / 2, y: rect.midY)))
         }
     }

@@ -47,9 +47,9 @@ struct OverviewStrip: View {
         let length = Double(model.lengthMs)
         guard length > 0 else {
             #if os(macOS)
-                context.fillPeakBars(nil, in: wave, with: .color(MacWave.placeholder))
+                context.fill(.peakBars(nil, in: wave), with: .color(MacWave.placeholder))
             #else
-                context.fillPeakBars(nil, in: wave, with: .quietBars(onGround: ground != nil))
+                context.fill(.peakBars(nil, in: wave), with: .quietBars(onGround: ground != nil))
             #endif
             return
         }
@@ -57,14 +57,14 @@ struct OverviewStrip: View {
         #if os(macOS)
             let levels = peaks?.bars(PeakBars.count(in: wave.width)) ?? []
             if levels.isEmpty {
-                context.fillPeakBars(nil, in: wave, with: .color(MacWave.placeholder))
+                context.fill(.peakBars(nil, in: wave), with: .color(MacWave.placeholder))
             } else {
                 context.fillSplit(
                     .peakBars(levels: levels, in: wave), atX: Double(x(Double(model.centerMs))),
                     played: MacWave.played, unplayed: MacWave.unplayed)
             }
         #else
-            context.fillPeakBars(peaks, in: wave, with: .quietBars(onGround: ground != nil))
+            context.fill(.peakBars(peaks, in: wave), with: .quietBars(onGround: ground != nil))
         #endif
         let selected = model.selectedID
         for loop in model.placedLoops {

@@ -12,8 +12,9 @@ struct WaveformBars: Equatable, Sendable {
     static let barWidth: CGFloat = 3
     static let barGap: CGFloat = 2
     static let step = barWidth + barGap
-    /// A silent bar still shows, so the waveform reads as listening rather than empty.
-    static let minimumBar: CGFloat = 2
+    /// A silent bar still shows, so the waveform reads as listening rather than empty. No shorter
+    /// than a bar is wide, the least a round-capped line can draw.
+    static let minimumBar: CGFloat = barWidth
     /// Speech and a violin at arm's length sit well under full scale, so levels are lifted to
     /// fill the height.
     static let gain: CGFloat = 2.5
@@ -54,12 +55,11 @@ struct WaveformBars: Equatable, Sendable {
         levels.indices.map { rect(at: $0, width: width, height: height) }
     }
 
-    /// Every bar as rounded rectangles in one path, so a frame fills them all at once.
-    func path(width: CGFloat, height: CGFloat) -> Path {
-        var path = Path()
-        let corner = CGSize(width: Self.barWidth / 2, height: Self.barWidth / 2)
+    /// Every bar in one path, so a frame draws them all at once.
+    func path(width: CGFloat, height: CGFloat) -> BarPath {
+        var path = BarPath(width: Self.barWidth)
         for index in levels.indices {
-            path.addRoundedRect(in: rect(at: index, width: width, height: height), cornerSize: corner)
+            path.add(rect(at: index, width: width, height: height))
         }
         return path
     }

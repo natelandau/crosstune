@@ -122,10 +122,11 @@ struct PracticeWaveform: View {
     private var timelineBar: some View {
         Canvas { context, size in
             #if os(macOS)
-                context.fillPeakBars(nil, in: CGRect(origin: .zero, size: size), with: .color(MacWave.placeholder))
+                context.fill(
+                    .peakBars(nil, in: CGRect(origin: .zero, size: size)), with: .color(MacWave.placeholder))
             #else
-                context.fillPeakBars(
-                    nil, in: CGRect(origin: .zero, size: size), with: .quietBars(onGround: ground != nil))
+                context.fill(
+                    .peakBars(nil, in: CGRect(origin: .zero, size: size)), with: .quietBars(onGround: ground != nil))
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -227,13 +228,12 @@ struct PracticeWaveform: View {
                         atX: width / 2, played: MacWave.played, unplayed: MacWave.unplayed)
                 } else {
                     context.fill(
-                        lane.path(height: height) { PeakBars.placeholderLevel($0) },
-                        with: .color(MacWave.placeholder))
+                        lane.path(height: height) { PeakBars.placeholderLevel($0) }, with: .color(MacWave.placeholder))
                 }
             #else
                 let path =
                     peaks.map { peaks in lane.path(height: height) { peaks.gridLevel(barMs: lane.barMs, index: $0) } }
-                    ?? Path.peakBars(levels: [], in: CGRect(x: x0, y: 0, width: x1 - x0, height: height))
+                    ?? BarPath.peakBars(levels: [], in: CGRect(x: x0, y: 0, width: x1 - x0, height: height))
                 if ground != nil {
                     // What has played, left of the fixed playhead, is white; what is to come is silver.
                     context.fillSplit(path, atX: width / 2, played: Self.wavePlayed, unplayed: Self.waveUnplayed)
@@ -595,7 +595,7 @@ extension GraphicsContext.Shading {
 
 extension GraphicsContext {
     /// Fills `path` in `played` left of `x` and in `unplayed` from it on.
-    func fillSplit(_ path: Path, atX x: Double, played: Color, unplayed: Color) {
+    func fillSplit(_ path: BarPath, atX x: Double, played: Color, unplayed: Color) {
         // An empty path's bounds are the null rect, whose infinite origin would make each clip NaN.
         guard !path.isEmpty else { return }
         // Two clips sized to the path, never an inverse clip or one far past it: the GPU renderer
@@ -632,14 +632,6 @@ extension GraphicsContext.Shading {
     static func rulerTick(onGround: Bool) -> Self {
         if !onGround { return .color(Palette.inkSecondary) }
         return .style(.secondary)
-    }
-}
-
-extension GraphicsContext {
-    /// Draws `peaks` as bars across `rect`, or with none, a plain timeline bar, or on the Mac
-    /// muted placeholder bars.
-    func fillPeakBars(_ peaks: ShownPeaks?, in rect: CGRect, with shading: Shading) {
-        fill(.peakBars(peaks, in: rect), with: shading)
     }
 }
 
@@ -702,45 +694,39 @@ struct LaneBars {
 
     /// The bars in view, `level` giving each bar's height by its index from the recording's start,
     /// nil once past the points.
-    func path(height: CGFloat, level: (Int) -> CGFloat?) -> Path {
-        var path = Path()
+    func path(height: CGFloat, level: (Int) -> CGFloat?) -> BarPath {
+        var path = BarPath(width: PeakBars.barWidth)
         guard let indices else { return path }
         for index in indices {
             guard let level = level(index) else { break }
             let bar = max(2, level * height)
-            path.addRoundedRect(
-                in: CGRect(
-                    x: x(of: index), y: (height - bar) / 2,
-                    width: PeakBars.barWidth, height: bar),
-                cornerSize: CGSize(width: 1, height: 1))
+            path.add(CGRect(x: x(of: index), y: (height - bar) / 2, width: PeakBars.barWidth, height: bar))
         }
         return path
     }
 }
 
-extension Path {
+extension BarPath {
     /// `peaks` as bars across `rect`, or with none, a plain timeline bar, or on the Mac
     /// placeholder bars.
-    static func peakBars(_ peaks: ShownPeaks?, in rect: CGRect) -> Path {
+    static func peakBars(_ peaks: ShownPeaks?, in rect: CGRect) -> BarPath {
         peakBars(levels: PeakBars.levels(peaks, count: PeakBars.count(in: rect.width)), in: rect)
     }
 
     /// `levels` as bars across `rect`, or a plain timeline bar when there are none.
-    static func peakBars(levels: [CGFloat], in rect: CGRect) -> Path {
-        var path = Path()
-        if levels.isEmpty {
-            path.addRoundedRect(
-                in: CGRect(x: rect.minX, y: rect.midY - 2, width: rect.width, height: 4),
-                cornerSize: CGSize(width: 2, height: 2))
-        } else {
-            for (index, level) in levels.enumerated() {
-                let bar = max(2, level * rect.height)
-                path.addRoundedRect(
-                    in: CGRect(
-                        x: rect.minX + CGFloat(index) * PeakBars.step, y: rect.midY - bar / 2,
-                        width: PeakBars.barWidth, height: bar),
-                    cornerSize: CGSize(width: 1, height: 1))
-            }
+    static func peakBars(levels: [CGFloat], in rect: CGRect) -> BarPath {
+        guard !levels.isEmpty else {
+            var path = BarPath(width: 4)
+            path.add(CGRect(x: rect.minX, y: rect.midY - 2, width: rect.width, height: 4))
+            return path
+        }
+        var path = BarPath(width: PeakBars.barWidth)
+        for (index, level) in levels.enumerated() {
+            let bar = max(2, level * rect.height)
+            path.add(
+                CGRect(
+                    x: rect.minX + CGFloat(index) * PeakBars.step, y: rect.midY - bar / 2,
+                    width: PeakBars.barWidth, height: bar))
         }
         return path
     }
