@@ -444,29 +444,32 @@ private struct TrimStrip: View {
         let levels =
             peaks?.sliced(fromMs: Int64(range.lowerBound - low), toMs: Int64((range.upperBound - low).rounded(.up)))
             .bars(Int(size.width / step)) ?? []
-        var kept = Path()
-        var cut = Path()
+        var kept = BarPath(width: Self.barWidth)
+        var cut = BarPath(width: levels.isEmpty ? 4 : Self.barWidth)
+        // With no bars, the kept stretch of the plain line has square ends where the trim cuts it.
+        var keptLine = Path()
         if levels.isEmpty {
             let line = CGRect(x: 0, y: (size.height - 4) / 2, width: size.width, height: 4)
-            cut.addRoundedRect(in: line, cornerSize: CGSize(width: 2, height: 2))
+            cut.add(line)
             let from = min(max(startX, 0), size.width)
             let to = min(max(endX, 0), size.width)
-            kept.addRect(CGRect(x: from, y: line.minY, width: max(0, to - from), height: line.height))
+            keptLine.addRect(CGRect(x: from, y: line.minY, width: max(0, to - from), height: line.height))
         } else {
             for (index, level) in levels.enumerated() {
                 let bar = max(2, level * size.height)
                 let rect = CGRect(
                     x: CGFloat(index) * step, y: (size.height - bar) / 2, width: Self.barWidth, height: bar)
                 if rect.midX >= startX && rect.midX <= endX {
-                    kept.addRoundedRect(in: rect, cornerSize: CGSize(width: 1, height: 1))
+                    kept.add(rect)
                 } else {
-                    cut.addRoundedRect(in: rect, cornerSize: CGSize(width: 1, height: 1))
+                    cut.add(rect)
                 }
             }
         }
         // What the trim cuts away is faded back.
         context.fill(cut, with: .style(.quaternary))
         context.fill(kept, with: .style(.tint))
+        context.fill(keptLine, with: .style(.tint))
         let playhead = fraction(playheadMs, in: range)
         if (0...1).contains(playhead) {
             let x = min(max(0, playhead * size.width - 1), size.width - 2)
