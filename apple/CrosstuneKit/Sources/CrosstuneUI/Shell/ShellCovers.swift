@@ -253,12 +253,20 @@ enum MenuGates {
     private struct FormSizing: ViewModifier {
         @Environment(\.windowIsRegular) private var windowIsRegular
 
+        // One sizing that switches, rather than two branches, so a resize across the size
+        // classes keeps the sheet's content and what was typed in it.
         func body(content: Content) -> some View {
-            if windowIsRegular {
-                content.presentationSizing(.form)
-            } else {
-                content
-            }
+            content.presentationSizing(ShellFormSizing(isRegular: windowIsRegular))
+        }
+    }
+
+    private struct ShellFormSizing: PresentationSizing {
+        let isRegular: Bool
+
+        func proposedSize(for root: PresentationSizingRoot, context: PresentationSizingContext) -> ProposedViewSize {
+            isRegular
+                ? FormPresentationSizing.form.proposedSize(for: root, context: context)
+                : AutomaticPresentationSizing.automatic.proposedSize(for: root, context: context)
         }
     }
 #endif

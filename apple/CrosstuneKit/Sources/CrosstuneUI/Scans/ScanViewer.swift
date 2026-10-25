@@ -191,6 +191,7 @@ private struct ScanViewerBody: View {
     let onShow: (Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(ScanViewer.invertStorageKey) private var invert = false
     @State private var shown: String?
     @State private var scale = ScanZoom.fit
@@ -199,7 +200,7 @@ private struct ScanViewerBody: View {
     private func turn(by step: Int, ids: [String]) {
         let index = (shown.flatMap { ids.firstIndex(of: $0) } ?? 0) + step
         guard ids.indices.contains(index) else { return }
-        withAnimation(.snappy) { shown = ids[index] }
+        withAnimation(reduceMotion ? nil : .snappy) { shown = ids[index] }
     }
 
     init(model: ScanViewerModel, title: String, scans: [Scan], startIndex: Int, onShow: @escaping (Int) -> Void) {
@@ -217,7 +218,7 @@ private struct ScanViewerBody: View {
         Binding {
             scale > ScanZoom.fit
         } set: { zoomed in
-            withAnimation(.snappy) { scale = zoomed ? ScanZoom.double : ScanZoom.fit }
+            withAnimation(reduceMotion ? nil : .snappy) { scale = zoomed ? ScanZoom.double : ScanZoom.fit }
         }
     }
 
@@ -226,7 +227,7 @@ private struct ScanViewerBody: View {
         let shownIndex = shownIndex
         return ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
-                ForEach(Array(scans.enumerated()), id: \.element.id) { index, scan in
+                ForEach(scans.enumerated(), id: \.element.id) { index, scan in
                     ScanSlide(
                         scan: scan, index: index, folder: model.folder, invert: invert,
                         // Only the scans beside the one shown hold their image, so twenty
@@ -254,6 +255,12 @@ private struct ScanViewerBody: View {
         // A zoomed scan pans under the finger rather than turning to the next.
         .scrollDisabled(scale > ScanZoom.fit)
         .onChange(of: shown) { scale = ScanZoom.fit }
+        // A deleted scan hands its place to the one that took its position.
+        .onChange(of: ids) { old, new in
+            guard let shown, !new.contains(shown) else { return }
+            let index = old.firstIndex(of: shown) ?? 0
+            self.shown = new.isEmpty ? nil : new[min(index, new.count - 1)]
+        }
         .onChange(of: shownIndex, initial: true) { onShow(shownIndex) }
     }
 
@@ -363,7 +370,7 @@ private struct ScanViewerBody: View {
                     .accessibilityLabel("\(title) \(ScanCopy.scans.lowercased())")
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button(ScanCopy.close) { dismiss() }
+                            Button(role: .close) { dismiss() }
                         }
                         ToolbarItemGroup(placement: .primaryAction) {
                             Toggle(isOn: zoomed) {
@@ -396,6 +403,7 @@ struct ScanSlide: View {
     /// A single tap, where there is one. It waits out a double tap, which zooms.
     var onTap: (() -> Void)?
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var decoded: (key: String, image: CGImage?)?
     @State private var pinchStart: CGFloat?
     @State private var offset: CGSize = .zero
@@ -455,7 +463,7 @@ struct ScanSlide: View {
             .accessibilityAddTraits(.isImage)
             .contentShape(.rect)
             .onTapGesture(count: 2) {
-                withAnimation(.snappy) { scale = ScanZoom.toggled(scale) }
+                withAnimation(reduceMotion ? nil : .snappy) { scale = ScanZoom.toggled(scale) }
             }
             // After the double tap, so a single tap waits until it is not the first of two.
             .modifier(SlideTap(onTap: onTap))
@@ -578,6 +586,7 @@ struct ScanScreens: ViewModifier {
     @State private var tunes: ScanTunes?
     /// Made once the store is known, for that store; nil while there is none.
     @State private var log: ScanViewLog?
+    @State private var source = UUID()
     @Environment(\.analytics) private var analytics
     @Environment(\.tuneScreenActions) private var tuneScreenActions
     @Environment(\.store) private var store
@@ -646,10 +655,10 @@ struct ScanScreens: ViewModifier {
 
     /// The tune screen's actions as set further out, with the viewer opening on a scan.
     private var withViewScans: TuneScreenActions {
-        var actions = tuneScreenActions
-        actions.viewScans = { tuneID, startIndex, origin in
-            request = ScanRequest(tuneID: tuneID, startIndex: startIndex, origin: origin)
+        tuneScreenActions.supplied(by: source) { actions in
+            actions.viewScans = { tuneID, startIndex, origin in
+                request = ScanRequest(tuneID: tuneID, startIndex: startIndex, origin: origin)
+            }
         }
-        return actions
     }
 }

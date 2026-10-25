@@ -39,7 +39,11 @@ import Testing
 
     @Test(arguments: [(-3.44, "\u{2212}3.4¢"), (7.66, "+7.7¢"), (0, "+0.0¢"), (-0.04, "+0.0¢")])
     func centsLabelSignsTheTenths(cents: Double, label: String) {
-        #expect(TunerText.centsLabel(cents) == label)
+        #expect(TunerText.centsLabel(cents, locale: Locale(identifier: "en_US")) == label)
+    }
+
+    @Test func centsLabelUsesTheLocalesDecimalSeparator() {
+        #expect(TunerText.centsLabel(-3.44, locale: Locale(identifier: "de_DE")) == "\u{2212}3,4¢")
     }
 
     @Test func barOffsetClampsAtFiftyCents() {

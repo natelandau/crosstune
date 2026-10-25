@@ -25,9 +25,10 @@ public enum TunerText {
     }
 
     /// The offset to a tenth of a cent, always signed, with a true minus sign.
-    public static func centsLabel(_ cents: Double) -> String {
+    public static func centsLabel(_ cents: Double, locale: Locale = .current) -> String {
         let shown = tenths(cents)
-        return "\(shown < 0 ? "\u{2212}" : "+")\(String(format: "%.1f", abs(shown)))¢"
+        let magnitude = abs(shown).formatted(.number.precision(.fractionLength(1)).locale(locale))
+        return "\(shown < 0 ? "\u{2212}" : "+")\(magnitude)¢"
     }
 
     /// A reading as a screen reader speaks it, such as A4, 3 cents flat.

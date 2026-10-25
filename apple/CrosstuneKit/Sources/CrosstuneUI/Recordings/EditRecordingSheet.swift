@@ -565,12 +565,21 @@ private struct EditRecordingForm: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.placeSearch) private var placeSearch
     @Environment(\.nearbySearch) private var nearbySearch
+    @Environment(\.locale) private var locale
     @Environment(\.analytics) private var analytics
     @FocusState private var focused: Field?
     /// Set once Name takes focus, so coming back from the location page leaves focus alone.
     @State private var focusedName = false
 
     private static let months = Array(1...12)
+
+    /// A month's name in the form's locale. The draft holds Gregorian month numbers, so the
+    /// names come from that calendar whatever calendar the device uses.
+    private func monthName(_ month: Int) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = locale
+        return calendar.standaloneMonthSymbols[month - 1]
+    }
 
     var body: some View {
         #if os(macOS)
@@ -714,7 +723,7 @@ private struct EditRecordingForm: View {
                             model.setMonth($0)
                         },
                         options: [nil] + Self.months.map(Optional.some),
-                        label: { $0.map { Calendar.current.standaloneMonthSymbols[$0 - 1] } ?? EditRecordingText.any }
+                        label: { $0.map(monthName) ?? EditRecordingText.any }
                     )
                     .disabled(!date.isMonthEnabled)
                     MacPopUp(
@@ -796,7 +805,7 @@ private struct EditRecordingForm: View {
                 Picker(EditRecordingText.month, selection: month) {
                     Text(EditRecordingText.any).tag(Int?.none)
                     ForEach(Self.months, id: \.self) { choice in
-                        Text(Calendar.current.standaloneMonthSymbols[choice - 1]).tag(Int?.some(choice))
+                        Text(monthName(choice)).tag(Int?.some(choice))
                     }
                 }
                 .disabled(!date.isMonthEnabled)
@@ -855,10 +864,8 @@ private struct EditRecordingForm: View {
             }
         #else
             let shown = LabeledContent(EditRecordingText.place) {
-                if let name = model.place?.name {
-                    Text(name)
-                        .contentMask()
-                }
+                Text(model.place?.name ?? TuneFieldLabels.notSet)
+                    .contentMask()
             }
         #endif
         if placeSearch != nil {

@@ -340,7 +340,7 @@ import Testing
         // The Mac recording heading's second line, which ends with the players and the place.
         ("RecordingScreen/RecordingScreen.swift", "Text(subtitle)"),
         // The edit sheet's place row, and a place suggestion's second line, which names the region.
-        ("Recordings/EditRecordingSheet.swift", "Text(name)"),
+        ("Recordings/EditRecordingSheet.swift", "Text(model.place?.name"),
         ("Recordings/PlaceSearchView.swift", "Text(completion.subtitle)"),
         // A location row's name and address, handed in by the location page.
         ("Recordings/PlaceSearchView.swift", "Text(name)"),
