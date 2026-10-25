@@ -26,12 +26,14 @@ public struct ListsScreen: View {
     @State private var playable: LiveQuery<ListsPlayOffers.Snapshot?>?
     /// Whether this device plays Apple Music in full, nil until read.
     @State private var appleMusic: AppleMusicAccessState?
+    /// What each list would play now, by list id, rebuilt only when what decides it changes
+    /// rather than on each redraw, since it walks every entry of every list.
+    @State private var offers: [String: PlaylistReport] = [:]
 
     public init() {}
 
     public var body: some View {
         let lists = lists?.value
-        let offers = offers
         List {
             ForEach(lists ?? []) { summary in
                 let report = offers[summary.id]
@@ -103,16 +105,27 @@ public struct ListsScreen: View {
             guard let access = player?.appleMusic?.access else { return }
             appleMusic = await access.current()
         }
+        .onChange(of: offerInputs, initial: true) { _, inputs in
+            offers = ListsPlayOffers.reports(
+                inputs.snapshot, canStart: inputs.canStart, fullTracks: inputs.fullTracks, online: inputs.online,
+                recordingsPlay: inputs.recordingsPlay)
+        }
     }
 
-    /// What each list would play now, by list id.
-    private var offers: [String: PlaylistReport] {
-        // Unread until the Apple Music access reads, where there is one to read.
-        let fullTracks: Bool? = player?.appleMusic?.access == nil ? false : appleMusic.map { $0 == .fullTracks }
-        return ListsPlayOffers.reports(
-            playable?.value ?? nil, canStart: listPlayback != nil && !(recorders?.isCapturing ?? false),
-            fullTracks: fullTracks, online: session?.hasNetwork ?? true,
-            recordingsPlay: plan.recordingsPlay)
+    private struct OfferInputs: Equatable {
+        var snapshot: ListsPlayOffers.Snapshot?
+        var canStart: Bool
+        var fullTracks: Bool?
+        var online: Bool
+        var recordingsPlay: Bool
+    }
+
+    private var offerInputs: OfferInputs {
+        OfferInputs(
+            snapshot: playable?.value ?? nil, canStart: listPlayback != nil && !(recorders?.isCapturing ?? false),
+            // Unread until the Apple Music access reads, where there is one to read.
+            fullTracks: player?.appleMusic?.access == nil ? false : appleMusic.map { $0 == .fullTracks },
+            online: session?.hasNetwork ?? true, recordingsPlay: plan.recordingsPlay)
     }
 
     private func start(_ summary: ListSummary, report: PlaylistReport, shuffled: Bool) {

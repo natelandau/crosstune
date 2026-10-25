@@ -76,11 +76,12 @@ public final class AddToTuneModel {
     }
 
     /// The whole catalog A to Z while the search field is empty, archived tunes included; empty
-    /// once something is typed, when ``results`` takes over. Nil until the catalog is read.
+    /// once something is typed, when ``results`` takes over. Nil until the catalog is read, which
+    /// reads it in that order.
     public var idleResults: [CatalogEntry]? {
         guard let entries = entries.value else { return nil }
         guard isIdle else { return [] }
-        return TunePickerModel.idleListing(entries.map(\.entry))
+        return entries.map(\.entry)
     }
 
     /// A result row's spoken name. Pickers search archived tunes on purpose, so the name says

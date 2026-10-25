@@ -135,15 +135,11 @@
     }
 
     extension View {
-        /// Leads this row with its selection checkbox while `isSelecting`.
-        @ViewBuilder
+        /// Leads this row with its selection checkbox while `isSelecting`. The row stays in one
+        /// stack either way, so entering selection keeps its state.
         func selectionCheckbox(_ isSelecting: Bool, title: String, isOn: Binding<Bool>) -> some View {
-            if isSelecting {
-                HStack(spacing: 8) {
-                    MacSelectionCheckbox(title: title, isOn: isOn)
-                    self
-                }
-            } else {
+            HStack(spacing: 8) {
+                if isSelecting { MacSelectionCheckbox(title: title, isOn: isOn) }
                 self
             }
         }

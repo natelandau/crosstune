@@ -59,43 +59,42 @@ extension View {
     /// Gives a catalog row its actions: Edit and Archive as trailing swipe actions and as context
     /// menu items, the menu with a preview of the tune. `onScans` adds Scans to both, for a
     /// tune with scans. `onSelect` adds Select to the menu, which enters selection with this row.
-    /// A row that is selecting has none of them.
-    @ViewBuilder
+    /// A row that is selecting has none of them. The condition sits inside each builder, since
+    /// an empty menu shows nothing and the row keeps one shape either way.
     func catalogRowActions(
         _ entry: CatalogEntry, instruments: Set<String>, isSelecting: Bool = false, onEdit: @escaping () -> Void,
         onArchive: @escaping () -> Void, onScans: (@MainActor () -> Void)? = nil, onSelect: (() -> Void)? = nil
     ) -> some View {
         let archived = entry.isArchived
-        if isSelecting {
-            self
-        } else {
-            self
-                // A long swipe only reveals the actions: SwiftUI's full swipe would run the edge action,
-                // and no swipe acts on its own.
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    // The first action sits at the trailing edge, so Edit reads first from the left.
-                    Button(
-                        TuneRowActions.archiveLabel(archived: archived),
-                        systemImage: TuneRowActions.archiveSystemImage(archived: archived), action: onArchive
-                    )
-                    .tint(.orange)
-                    Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
-                        .tint(.gray)
-                    if let onScans { ScansRowAction(action: onScans) }
+        // A long swipe only reveals the actions: SwiftUI's full swipe would run the edge action,
+        // and no swipe acts on its own.
+        return swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if !isSelecting {
+                // The first action sits at the trailing edge, so Edit reads first from the left.
+                Button(
+                    TuneRowActions.archiveLabel(archived: archived),
+                    systemImage: TuneRowActions.archiveSystemImage(archived: archived), action: onArchive
+                )
+                .tint(.orange)
+                Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
+                    .tint(.gray)
+                if let onScans { ScansRowAction(action: onScans) }
+            }
+        }
+        .contextMenu {
+            if !isSelecting {
+                if let onScans { ScansRowAction(action: onScans) }
+                Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
+                Button(
+                    TuneRowActions.archiveLabel(archived: archived),
+                    systemImage: TuneRowActions.archiveSystemImage(archived: archived), action: onArchive)
+                if let onSelect {
+                    Divider()
+                    Button(TuneRowActions.select, systemImage: "checkmark.circle", action: onSelect)
                 }
-                .contextMenu {
-                    if let onScans { ScansRowAction(action: onScans) }
-                    Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
-                    Button(
-                        TuneRowActions.archiveLabel(archived: archived),
-                        systemImage: TuneRowActions.archiveSystemImage(archived: archived), action: onArchive)
-                    if let onSelect {
-                        Divider()
-                        Button(TuneRowActions.select, systemImage: "checkmark.circle", action: onSelect)
-                    }
-                } preview: {
-                    TunePreview(entry: entry, instruments: instruments)
-                }
+            }
+        } preview: {
+            TunePreview(entry: entry, instruments: instruments)
         }
     }
 }
@@ -123,7 +122,7 @@ struct TunePreview: View {
                     Text(StatusStyle.label(text.status)).lineLimit(1)
                 }
                 .fixedSize()
-                ForEach(Array(details.enumerated()), id: \.offset) { Text($0.element) }
+                ForEach(details.enumerated(), id: \.offset) { Text($0.element) }
             }
             .font(.platform(.subheadline))
             .foregroundStyle(.inkSecondary)

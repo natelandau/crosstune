@@ -247,6 +247,14 @@ struct RecordingScreenContent: View {
         let peaks: Peaks
         /// The server revision these are, or nil for peaks made while recording.
         let rev: String?
+        /// Found once as the peaks load, since every redraw would otherwise scan the whole file.
+        let loudest: UInt8
+
+        init(peaks: Peaks, rev: String?) {
+            self.peaks = peaks
+            self.rev = rev
+            loudest = peaks.values.max() ?? 0
+        }
     }
 
     private struct PeaksKey: Equatable {
@@ -598,7 +606,7 @@ struct RecordingScreenContent: View {
     }
 
     private var shownPeaks: ShownPeaks? {
-        peaks.flatMap { ShownPeaks(rows.recording, peaks: $0.peaks, peaksRev: $0.rev) }
+        peaks.flatMap { ShownPeaks(rows.recording, peaks: $0.peaks, peaksRev: $0.rev, loudest: $0.loudest) }
     }
 
     /// The Mac heading's second line: the date, the length, and the credits.

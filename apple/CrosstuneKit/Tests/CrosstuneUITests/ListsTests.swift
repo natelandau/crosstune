@@ -345,9 +345,8 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func idleListingOrdersByTitleAToZAndIncludesArchived() async throws {
-        let store = try await SampleCatalog.copiedStore(root: root.url)
-        let entries = try await store.read { try CatalogModel.fetchEntries($0) }
-        let titles = TunePickerModel.idleListing(entries.reversed()).map(\.tune.title)
+        let model = try await picker(try await SampleCatalog.copiedStore(root: root.url))
+        let titles = try #require(model.idleResults).map(\.entry.tune.title)
         #expect(
             titles == [
                 "A tune with no key yet", "Ashokan Farewell", "Big Scioty", "Blackberry Blossom", "Cluck Old Hen",

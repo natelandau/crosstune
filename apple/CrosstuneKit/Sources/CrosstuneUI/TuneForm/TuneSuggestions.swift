@@ -11,10 +11,21 @@ public enum TuneSuggestions {
     /// Type suggestions for a tune: its genre's types, else the catalog's by use, then the rest
     /// alphabetically.
     public static func types(genre: String, tunes: [Tune]) -> [String] {
+        types(genre: genre, catalogTypes: catalogTypes(tunes))
+    }
+
+    /// ``types(genre:tunes:)`` with the catalog's types already counted by ``catalogTypes(_:)``,
+    /// so a form can count once and follow its genre field.
+    public static func types(genre: String, catalogTypes: [String]) -> [String] {
         let own = lookup(Vocabulary.genreTypes, trimmed(genre)) ?? []
-        let lead = own.isEmpty ? mostFirst(tally(tunes.map(\.tuneType), canonical: Vocabulary.tuneTypes)) : own
+        let lead = own.isEmpty ? catalogTypes : own
         let rest = without(Vocabulary.tuneTypes, lead).sorted(by: ordered)
         return lead + rest
+    }
+
+    /// The types the catalog uses, most used first.
+    public static func catalogTypes(_ tunes: [Tune]) -> [String] {
+        mostFirst(tally(tunes.map(\.tuneType), canonical: Vocabulary.tuneTypes))
     }
 
     /// Composer suggestions: Traditional first, then every composer the catalog holds,

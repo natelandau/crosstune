@@ -179,8 +179,13 @@ public final class CrosstuneStore: Sendable {
         removeInBackground(trash)
     }
 
+    /// A recursive delete blocks its thread for as long as the folder takes, so it runs here
+    /// rather than on Swift's cooperative pool, where a few at once could hold every thread.
+    private static let trashQueue = DispatchQueue(
+        label: "app.crosstune.store.trash", qos: .utility, attributes: .concurrent)
+
     private static func removeInBackground(_ url: URL) {
-        Task.detached(priority: .utility) { try? FileManager.default.removeItem(at: url) }
+        trashQueue.async { try? FileManager.default.removeItem(at: url) }
     }
 
     /// Closes the database. The store cannot be used after this. A close that throws leaves the
