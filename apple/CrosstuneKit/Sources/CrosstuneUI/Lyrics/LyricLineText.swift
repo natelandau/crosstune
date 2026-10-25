@@ -106,6 +106,8 @@ private func hangingIndentStyle(characterWidth: CGFloat, lineSpacing: CGFloat) -
                 string: text,
                 attributes: [
                     .font: font,
+                    // Attributed text without a color draws in black, whatever the appearance.
+                    .foregroundColor: NSColor.labelColor,
                     .paragraphStyle: hangingIndentStyle(characterWidth: characterWidth, lineSpacing: lineSpacing),
                 ])
         }

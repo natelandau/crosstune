@@ -1,6 +1,7 @@
 @preconcurrency import AVFoundation
 import CrosstuneStore
 import Foundation
+import Synchronization
 
 /// The waveform peaks file: one byte per 20 ms window, the amplitude both clients draw.
 ///
@@ -76,17 +77,25 @@ public struct Peaks: Equatable, Sendable {
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else {
             throw PeaksError.noAudioTrack
         }
-        return try await withCheckedThrowingContinuation { continuation in
-            readQueue.async {
-                onStart?()
-                continuation.resume(with: Result { try readPeaks(of: track, in: asset) })
+        // The loop runs on a queue no task owns, so it checks this flag to stop a cancelled decode.
+        let cancelled = DecodeCancellation()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                readQueue.async {
+                    onStart?()
+                    continuation.resume(with: Result { try readPeaks(of: track, in: asset, cancelled: cancelled) })
+                }
             }
+        } onCancel: {
+            cancelled.cancel()
         }
     }
 
     /// Reads `track` to the end as mono float PCM, one peak byte per 20 ms window. Blocks its
     /// thread for the whole decode.
-    private static func readPeaks(of track: AVAssetTrack, in asset: AVURLAsset) throws -> Peaks {
+    private static func readPeaks(
+        of track: AVAssetTrack, in asset: AVURLAsset, cancelled: DecodeCancellation
+    ) throws -> Peaks {
         let reader = try AVAssetReader(asset: asset)
         let output = AVAssetReaderTrackOutput(
             track: track,
@@ -102,6 +111,10 @@ public struct Peaks: Equatable, Sendable {
         var meter = PeakMeter()
         var values: [UInt8] = []
         while let sampleBuffer = output.copyNextSampleBuffer() {
+            if cancelled.isCancelled {
+                reader.cancelReading()
+                throw CancellationError()
+            }
             if let buffer = try pcmBuffer(from: sampleBuffer) {
                 values.append(contentsOf: meter.peaks(of: buffer))
             }
@@ -130,6 +143,17 @@ public struct Peaks: Equatable, Sendable {
     /// Scales a window's loudest sample magnitude to a byte, 0 to 255 at full scale.
     static func byte(from peak: Float) -> UInt8 {
         UInt8((min(max(peak, 0), 1) * 255).rounded())
+    }
+}
+
+/// Set once the task waiting on a decode is cancelled, read by the loop on its own queue.
+private final class DecodeCancellation: Sendable {
+    private let flag = Atomic<Bool>(false)
+
+    var isCancelled: Bool { flag.load(ordering: .relaxed) }
+
+    func cancel() {
+        flag.store(true, ordering: .relaxed)
     }
 }
 

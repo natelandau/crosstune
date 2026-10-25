@@ -285,12 +285,15 @@ struct AddedOn: View {
     /// Where it ends the page rather than the rail, under a hairline.
     var endsPage = false
 
+    @Environment(\.locale) private var locale
+    @Environment(\.timeZone) private var timeZone
+
     var body: some View {
         VStack(alignment: .leading, spacing: PageStyle.headingGap) {
             if endsPage {
                 Rectangle().fill(Palette.hairline).frame(height: 1)
             }
-            Text(FactCopy.addedOn(detail.tune.createdAt.date))
+            Text(FactCopy.addedOn(detail.tune.createdAt.date, locale: locale, timeZone: timeZone))
                 .font(.platform(.caption))
                 .foregroundStyle(.inkSecondary)
         }

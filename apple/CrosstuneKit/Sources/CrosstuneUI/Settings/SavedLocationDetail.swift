@@ -61,10 +61,11 @@ struct SavedLocationDetail: View {
                         SettingsFailure(model.failure)
                     }
                     Section {
-                        Button(SavedLocationsText.deleteLocation, role: .destructive) {
-                            deleteName = row.place.name
-                            model.askDelete(placeID)
-                        }
+                        confirmsDelete(
+                            Button(SavedLocationsText.deleteLocation, role: .destructive) {
+                                deleteName = row.place.name
+                                model.askDelete(placeID)
+                            })
                     }
                 }
             }
@@ -100,6 +101,11 @@ struct SavedLocationDetail: View {
                     if !active { saveTyped() }
                 }
             #endif
+    }
+
+    /// The Delete control with its confirmation, which an iPad shows as a popover pointing at it.
+    private func confirmsDelete(_ control: some View) -> some View {
+        control
             .coversShell(asksDelete.wrappedValue)
             .confirmationDialog(
                 SavedLocationsText.deleteTitle(deleteName), isPresented: asksDelete, titleVisibility: .visible
@@ -185,11 +191,12 @@ struct SavedLocationDetail: View {
                         }
                         MacFormSection {
                             MacSettingsRow(SavedLocationsText.deleteLocation, help: SavedLocationsText.deleteMessage) {
-                                MacSettingsButton(SavedLocationsText.deleteMac, role: .destructive) {
-                                    deleteName = row.place.name
-                                    model.askDelete(placeID)
-                                }
-                                .accessibilityLabel(SavedLocationsText.deleteLocation)
+                                confirmsDelete(
+                                    MacSettingsButton(SavedLocationsText.deleteMac, role: .destructive) {
+                                        deleteName = row.place.name
+                                        model.askDelete(placeID)
+                                    }
+                                    .accessibilityLabel(SavedLocationsText.deleteLocation))
                             }
                         }
                     }

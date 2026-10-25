@@ -131,7 +131,7 @@ public struct MediaRow: View {
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
                 }
-                ForEach(Array(lineControls.enumerated()), id: \.offset) { _, control in
+                ForEach(lineControls) { control in
                     innerControl(control)
                 }
                 if let notice, !noticeInHeading {
@@ -150,7 +150,7 @@ public struct MediaRow: View {
                 }
             }
             Spacer(minLength: 0)
-            ForEach(Array(trailingControls.enumerated()), id: \.offset) { _, control in
+            ForEach(trailingControls) { control in
                 innerControl(control)
                     #if os(macOS)
                         // On the title's first baseline, as the glyph keeps to the title's line.
@@ -221,7 +221,7 @@ public struct MediaRow: View {
     }
 
     /// A control inside the row, over the row's own.
-    enum InnerControl {
+    enum InnerControl: Identifiable {
         case linkOut(String, URL, name: String)
         case sourceLine(SourceLine)
         case tuneLine(TuneLine)
@@ -233,6 +233,16 @@ public struct MediaRow: View {
             case .sourceLine(let line): line.name
             case .tuneLine(let line): line.name
             case .retry(let retry): retry.name
+            }
+        }
+
+        /// The control's kind, which a row holds at most one of.
+        var id: String {
+            switch self {
+            case .linkOut: "linkOut"
+            case .sourceLine: "sourceLine"
+            case .tuneLine: "tuneLine"
+            case .retry: "retry"
             }
         }
 

@@ -141,13 +141,15 @@
         private var rows: some View {
             VStack(spacing: 0) {
                 Group(subviews: content) { subviews in
-                    ForEach(subviews.indices, id: \.self) { index in
-                        subviews[index]
+                    // Identified by the subview rather than its place, so a row that comes or goes
+                    // above leaves the rows below their own state.
+                    ForEach(subviews) { row in
+                        row
                             .frame(maxWidth: .infinity, minHeight: MacForm.rowMinHeight, alignment: .leading)
                             .padding(.horizontal, MacForm.rowInset)
                             .padding(.vertical, 4)
                             .overlay(alignment: .top) {
-                                if index > 0 {
+                                if row.id != subviews.first?.id {
                                     Rectangle()
                                         .fill(Palette.hairline)
                                         .frame(height: 1)
