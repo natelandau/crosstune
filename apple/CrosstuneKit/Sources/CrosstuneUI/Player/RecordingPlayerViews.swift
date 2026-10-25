@@ -57,6 +57,8 @@ struct RecordingPlayButton: View {
     let player: PlayerModel
     var font: Font = .platform(.title3)
 
+    @Environment(AccountSession.self) private var session: AccountSession?
+
     var body: some View {
         if let transport = player.transport {
             TransportToggle(transport: transport, font: font)
@@ -77,7 +79,11 @@ struct RecordingPlayButton: View {
                 .font(font)
                 .foregroundStyle(.inkSecondary)
                 .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
-                .accessibilityHidden(true)
+                // Stands where play would, so VoiceOver hears why there is none.
+                .accessibilityLabel(
+                    RecordingPlayerText.status(
+                        player.recordingAudio, hasFailed: player.audio.hasFailed, offline: session?.isOffline == true)
+                        ?? RecordingPlayerText.playFailed)
         }
     }
 }

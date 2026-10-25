@@ -164,6 +164,8 @@ struct SortMenu<Sort: SortKind>: View {
                         .imageScale(.small)
                 }
                 .font(.footnote)
+                .frame(minHeight: minimumTapTarget)
+                .contentShape(.rect)
             }
             .menuStyle(.button)
             // Borderless, so a list row holding it takes no tap of its own and the menu keeps its tint.

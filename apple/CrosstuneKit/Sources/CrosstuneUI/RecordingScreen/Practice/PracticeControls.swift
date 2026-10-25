@@ -99,6 +99,8 @@ private struct Transport: View {
         .buttonStyle(.plain)
         .accessibilityLabel(face.label)
         .help(face.label)
+        // Capped at the default text size, so a long press shows it enlarged.
+        .accessibilityShowsLargeContentViewer()
     }
 
     #if !os(macOS)
@@ -133,6 +135,8 @@ private struct Transport: View {
             .buttonStyle(.plain)
         #endif
         .help(name(abs(seconds)))
+        // Capped at the default text size, so a long press shows it enlarged.
+        .accessibilityShowsLargeContentViewer()
     }
 }
 

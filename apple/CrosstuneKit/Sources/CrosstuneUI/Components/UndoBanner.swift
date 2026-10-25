@@ -171,7 +171,12 @@ private struct UndoBannerModifier: ViewModifier {
                     .id(current.id)
                 }
             }
-            .animation(.default, value: offer?.id)
+            #if os(macOS)
+                // The Mac animates nothing under Reduce Motion; iOS keeps the cross-fade.
+                .animation(reduceMotion ? nil : .default, value: offer?.id)
+            #else
+                .animation(.default, value: offer?.id)
+            #endif
             // Every offer is announced, including one that replaces another on screen.
             .onChange(of: offer?.id, initial: true) {
                 if let offer { AccessibilityNotification.Announcement(offer.message).post() }

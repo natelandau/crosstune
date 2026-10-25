@@ -68,12 +68,14 @@ public struct PlayerBar: View {
     }
 
     /// Show player and the item's name, an album's track, then a recording's speed and pitch
-    /// when either is away from its default, since the button's name replaces the label's.
+    /// when either is away from its default, and a failure the bar shows, since the button's
+    /// name replaces the label's.
     static func showLabel(_ player: PlayerModel, playback: ListPlayback? = nil) -> String {
         let badge =
             player.item?.kind == .recording
             ? RecordingScreenText.badgeLabel(speedPercent: player.speedPercent, pitchCents: player.pitchCents) : nil
-        return [show, title(player, playback), playlistSubtitle(playback) ?? subtitle(player), badge].compactMap(\.self)
+        return [show, title(player, playback), playlistSubtitle(playback) ?? subtitle(player), badge, player.failure]
+            .compactMap(\.self)
             .joined(separator: ", ")
     }
 
@@ -115,6 +117,7 @@ public struct PlayerBar: View {
         HStack(spacing: 4) {
             if player.playsInBar {
                 RecordingPlayButton(player: player)
+                    .dynamicTypeSize(...DynamicTypeSize.large)
             }
             if !Self.canExpand(player) {
                 itemLabel(glyph: glyph)

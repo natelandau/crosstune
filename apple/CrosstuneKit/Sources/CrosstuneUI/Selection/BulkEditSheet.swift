@@ -272,15 +272,15 @@ private struct BulkChoiceRow: View {
         field.kind == .yesNo ? .flag(option == BulkEditForm.yes) : .text(option)
     }
 
-    @ViewBuilder
+    /// A toggle, so the check reads as the choice's state rather than as an icon.
     private func choice(_ title: String, isCurrent: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            if isCurrent {
-                Label(title, systemImage: "checkmark")
-            } else {
-                Text(title)
-            }
-        }
+        Toggle(
+            title,
+            isOn: Binding {
+                isCurrent
+            } set: { _ in
+                action()
+            })
     }
 }
 

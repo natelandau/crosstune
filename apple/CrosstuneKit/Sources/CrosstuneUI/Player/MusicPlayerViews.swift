@@ -102,6 +102,7 @@ struct MusicPlayerBody: View {
                 }
             }
             .frame(maxWidth: .infinity)
+            .dynamicTypeSize(...DynamicTypeSize.large)
         }
     }
 

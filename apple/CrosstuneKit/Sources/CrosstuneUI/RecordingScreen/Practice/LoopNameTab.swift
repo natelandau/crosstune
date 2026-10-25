@@ -82,7 +82,8 @@ struct LoopNameField: View {
             .textFieldStyle(.plain)
             .font(.platform(.footnote))
             .padding(.horizontal, 8)
-            .frame(width: Self.width, height: 32)
+            .frame(width: Self.width)
+            .frame(minHeight: 32)
             .background(.background, in: UnevenRoundedRectangle(bottomLeadingRadius: 5, bottomTrailingRadius: 5))
             .overlay {
                 UnevenRoundedRectangle(bottomLeadingRadius: 5, bottomTrailingRadius: 5).strokeBorder(color)
