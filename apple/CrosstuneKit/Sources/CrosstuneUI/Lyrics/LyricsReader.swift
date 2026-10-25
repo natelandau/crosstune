@@ -189,12 +189,12 @@ struct LyricsBody: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: pointSize * 0.9) {
-            ForEach(Array(LyricLines.lines(lyrics).enumerated()), id: \.offset) { _, verse in
+            ForEach(LyricLines.lines(lyrics).enumerated(), id: \.offset) { _, verse in
                 // The same gap the paragraph style puts between a line's own wrapped rows, so a
                 // wrapped continuation and a new lyric line read at the same distance from the
                 // row above them.
                 VStack(alignment: .leading, spacing: pointSize * 0.3) {
-                    ForEach(Array(verse.enumerated()), id: \.offset) { _, line in
+                    ForEach(verse.enumerated(), id: \.offset) { _, line in
                         LyricLineText(text: line, pointSize: pointSize, lineSpacing: pointSize * 0.3)
                     }
                 }
@@ -292,6 +292,7 @@ private struct LyricsRequest: Identifiable {
 /// The lyrics reader the tune screen asks for, presented once, over the whole shell.
 struct LyricsScreens: ViewModifier {
     @State private var request: LyricsRequest?
+    @State private var source = UUID()
     @Environment(\.tuneScreenActions) private var tuneScreenActions
     #if os(iOS)
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -319,8 +320,8 @@ struct LyricsScreens: ViewModifier {
 
     /// The tune screen's actions as set further out, with Open lyrics opening the reader.
     private var withReadLyrics: TuneScreenActions {
-        var actions = tuneScreenActions
-        actions.readLyrics = { tuneID in request = LyricsRequest(tuneID: tuneID) }
-        return actions
+        tuneScreenActions.supplied(by: source) { actions in
+            actions.readLyrics = { tuneID in request = LyricsRequest(tuneID: tuneID) }
+        }
     }
 }

@@ -187,6 +187,7 @@ private struct TuneSheetRequest: Identifiable {
 struct LinkSheets: ViewModifier {
     @State private var pasting: TuneSheetRequest?
     @State private var finding: TuneSheetRequest?
+    @State private var source = UUID()
     @Environment(\.tuneScreenActions) private var tuneScreenActions
 
     func body(content: Content) -> some View {
@@ -203,9 +204,11 @@ struct LinkSheets: ViewModifier {
     /// The tune screen's actions as set further out, with Add link and Find recordings opening
     /// their sheets.
     private var withLinkSheets: TuneScreenActions {
-        var actions = tuneScreenActions
-        actions.addLink = { tuneID in pasting = TuneSheetRequest(tuneID: tuneID) }
-        actions.findRecordings = { tuneID, service in finding = TuneSheetRequest(tuneID: tuneID, service: service) }
-        return actions
+        tuneScreenActions.supplied(by: source) { actions in
+            actions.addLink = { tuneID in pasting = TuneSheetRequest(tuneID: tuneID) }
+            actions.findRecordings = { tuneID, service in
+                finding = TuneSheetRequest(tuneID: tuneID, service: service)
+            }
+        }
     }
 }

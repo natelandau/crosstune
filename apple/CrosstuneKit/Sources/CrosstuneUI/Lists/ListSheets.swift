@@ -1,15 +1,24 @@
 import SwiftUI
 
-/// Opens the list sheets the shell presents once, over every screen.
-public struct ListSheetActions {
+/// Opens the list sheets the shell presents once, over every screen. Equal when the same host
+/// supplied them, whose closures reach only its own state, so its redraws reach no reader.
+public struct ListSheetActions: Equatable {
     private let naming: @MainActor (ListNameTarget) -> Void
     private let picking: @MainActor (ListPickerRequest) -> Void
+    private let source: UUID
 
+    /// - Parameter source: The supplying host's stable id. Left out, the actions equal no other.
     public init(
-        name: @escaping @MainActor (ListNameTarget) -> Void, pick: @escaping @MainActor (ListPickerRequest) -> Void
+        source: UUID = UUID(), name: @escaping @MainActor (ListNameTarget) -> Void,
+        pick: @escaping @MainActor (ListPickerRequest) -> Void
     ) {
+        self.source = source
         naming = name
         picking = pick
+    }
+
+    public static func == (lhs: ListSheetActions, rhs: ListSheetActions) -> Bool {
+        lhs.source == rhs.source
     }
 
     /// Opens the list name sheet, to make a list or rename one.
@@ -32,13 +41,14 @@ extension EnvironmentValues {
 struct ListSheets: ViewModifier {
     @State private var naming: ListNameTarget?
     @State private var picking: ListPickerRequest?
+    @State private var source = UUID()
     @Environment(\.tuneScreenActions) private var tuneScreenActions
     @Environment(\.openSheets) private var openSheets
     @Environment(\.playerWindow) private var window
 
     func body(content: Content) -> some View {
         content
-            .environment(\.listSheets, ListSheetActions(name: { naming = $0 }, pick: { picking = $0 }))
+            .environment(\.listSheets, ListSheetActions(source: source, name: { naming = $0 }, pick: { picking = $0 }))
             .environment(\.tuneScreenActions, withAddToList)
             .focusedSceneValue(
                 \.newListAction,
@@ -58,10 +68,10 @@ struct ListSheets: ViewModifier {
 
     /// The tune screen's actions as set further out, with Add to list opening the picker.
     private var withAddToList: TuneScreenActions {
-        var actions = tuneScreenActions
-        actions.addToList = { userTuneID in
-            picking = ListPickerRequest(userTuneIDs: [userTuneID], title: ListPickerSheet.tuneTitle)
+        tuneScreenActions.supplied(by: source) { actions in
+            actions.addToList = { userTuneID in
+                picking = ListPickerRequest(userTuneIDs: [userTuneID], title: ListPickerSheet.tuneTitle)
+            }
         }
-        return actions
     }
 }
