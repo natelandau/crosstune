@@ -116,20 +116,15 @@ public final class TunePickerModel {
 
     /// The whole catalog A to Z while the search field is empty, archived tunes included; empty
     /// once something is typed, when ``results`` takes over. Nil until the catalog and the list
-    /// are read.
+    /// are read. The catalog is read in that order, so nothing sorts it on each redraw.
     public var idleResults: [Row]? {
         guard let entries = entries.value, let members = members.value else { return nil }
         guard isIdle else { return [] }
-        return Self.idleListing(entries.map(\.entry)).map { Row(entry: $0, isTaken: members.contains($0.id)) }
+        return entries.map { Row(entry: $0.entry, isTaken: members.contains($0.id)) }
     }
 
     /// Whether the idle picker has nothing to list, so its sheet says what it is for.
     public var showsHint: Bool { isIdle && members.value != nil && entries.value?.isEmpty == true }
-
-    /// The tunes a picker lists before anything is typed: every tune, A to Z.
-    nonisolated static func idleListing(_ entries: [CatalogEntry]) -> [CatalogEntry] {
-        CatalogSearch.sorted(entries, by: SortChoice(sort: .title, descending: false), lastPlayed: [:])
-    }
 
     /// Adds a tune to the list and clears the search for the next. A tune already in the list,
     /// or one whose add is running, is left alone.

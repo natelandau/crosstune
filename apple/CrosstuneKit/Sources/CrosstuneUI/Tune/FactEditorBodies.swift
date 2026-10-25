@@ -355,7 +355,9 @@ private struct SuggestionEditor: View {
     let suggestions: Suggestions
 
     @Environment(\.store) private var store
-    @State private var catalog = FactCatalog()
+    /// The catalog's suggestions, built once as the catalog arrives rather than on each
+    /// keystroke's redraw.
+    @State private var built: [String]?
 
     var body: some View {
         SuggestionField(
@@ -364,15 +366,16 @@ private struct SuggestionEditor: View {
         )
         .onSubmit { controls.done() }
         .task {
-            guard case .catalog = suggestions, let store else { return }
-            if let read = try? await store.read(FactCatalog.read) { catalog = read }
+            guard case .catalog(let build) = suggestions else { return }
+            let read = (try? await store?.read(FactCatalog.read)) ?? FactCatalog()
+            built = build(read)
         }
     }
 
     private var shown: [String] {
         switch suggestions {
         case .fixed(let list): list
-        case .catalog(let build): build(catalog)
+        case .catalog(let build): built ?? build(FactCatalog())
         }
     }
 }

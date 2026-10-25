@@ -144,7 +144,13 @@ private struct TunePickerContent: View {
             .focusedSceneValue(\.findAction, MenuAction { searchFocused = true })
         }
 
-        @ViewBuilder private func macRow(_ row: TunePickerModel.Row) -> some View {
+        private func macRow(_ row: TunePickerModel.Row) -> some View {
+            // A stack around the branches, so every row has one shape and the stack identifies
+            // rows by id.
+            VStack(spacing: 0) { macRowContent(row) }
+        }
+
+        @ViewBuilder private func macRowContent(_ row: TunePickerModel.Row) -> some View {
             if row.isTaken {
                 // The check says the tune is in the list, so every row's key pill keeps the same
                 // trailing slot; VoiceOver hears it in words.
@@ -233,7 +239,8 @@ private struct TunePickerContent: View {
         private static var searchPlacement: SearchFieldPlacement { .navigationBarDrawer(displayMode: .always) }
 
         private func pickerRow(_ row: TunePickerModel.Row) -> some View {
-            Group {
+            // A stack, not a Group, so every row has one shape and the list identifies rows by id.
+            VStack(alignment: .leading, spacing: 0) {
                 if row.isTaken {
                     taken(row)
                 } else {

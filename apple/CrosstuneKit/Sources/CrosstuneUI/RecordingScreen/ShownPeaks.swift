@@ -17,7 +17,9 @@ struct ShownPeaks: Equatable {
     ///   made on this device while recording. Those cover the whole source from its start; the
     ///   server's cover its playback file, which starts at the row's `playbackStartMs`, and only
     ///   for the revision the row names.
-    init?(_ recording: Recording, peaks: Peaks?, peaksRev: String?) {
+    /// - Parameter loudest: The loudest value in `peaks`, when the caller has it, so a redraw
+    ///   need not scan the whole file again.
+    init?(_ recording: Recording, peaks: Peaks?, peaksRev: String?, loudest: UInt8? = nil) {
         guard let peaks else { return nil }
         if let peaksRev, peaksRev != recording.peaksRev { return nil }
         let fileStartMs = peaksRev == nil ? 0 : (recording.playbackStartMs ?? 0)
@@ -25,7 +27,8 @@ struct ShownPeaks: Equatable {
         let startMs = max(0, recording.trimStartMs - fileStartMs)
         let endMs = recording.trimEndMs.map { $0 - fileStartMs } ?? fileLengthMs
         self.init(
-            values: peaks.values[...], pointsPerSecond: peaks.pointsPerSecond, loudest: peaks.values.max() ?? 0)
+            values: peaks.values[...], pointsPerSecond: peaks.pointsPerSecond,
+            loudest: loudest ?? peaks.values.max() ?? 0)
         self = sliced(fromMs: startMs, toMs: max(startMs, endMs))
     }
 

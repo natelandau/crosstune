@@ -283,8 +283,8 @@ private struct ListTunes: View {
                             .plainListRow()
                     }
                 #endif
-                ForEach(Array(rows.enumerated()), id: \.element.id) { index, entry in
-                    row(entry, position: index + 1, reorderable: rows.count > 1 && !selection.isActive)
+                ForEach(rows.enumerated(), id: \.element.id) { index, entry in
+                    row(entry, index: index, count: rows.count, reorderable: rows.count > 1 && !selection.isActive)
                         .tuneRowInsets()
                 }
                 .onMove(perform: reorder)
@@ -407,7 +407,9 @@ private struct ListTunes: View {
         Button(ListScreen.deleteList, systemImage: "trash", role: .destructive) { confirmsDelete = true }
     }
 
-    private func row(_ entry: ListEntry, position: Int, reorderable: Bool) -> some View {
+    private func row(_ entry: ListEntry, index: Int, count: Int, reorderable: Bool) -> some View {
+        let position = index + 1
+        let moves = MovePlace.places(at: index, count: count)
         let playAction = ListRowPlay.action(
             for: entry, playFirst: model.playFirst, loaded: { player?.holds(.recording, id: $0) ?? false },
             downloading: { transfers?.isDownloading($0) ?? false }, recordingsPlay: recordingsPlay)
@@ -435,7 +437,7 @@ private struct ListTunes: View {
                 tuneRow
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityHint(hint)
-                    .modifier(MoveActions(entry: entry, reorderable: reorderable, buttons: moveButtons))
+                    .modifier(MoveActions(reorderable: reorderable) { moveButtons(entry, moves) })
                     #if os(macOS)
                         .selectionCheckbox(
                             selection.isActive, title: entry.tune.title,
@@ -453,7 +455,7 @@ private struct ListTunes: View {
                 // Not the automatic style, so the play button beside the row keeps its own tap.
                 .buttonStyle(.plain)
                 .accessibilityHint(hint)
-                .modifier(MoveActions(entry: entry, reorderable: reorderable, buttons: moveButtons))
+                .modifier(MoveActions(reorderable: reorderable) { moveButtons(entry, moves) })
                 .matchedTransitionSource(id: entry.tune.id, in: zoom)
             }
             #if os(macOS)
@@ -488,12 +490,12 @@ private struct ListTunes: View {
                 .tint(.gray)
             if let scans { ScansRowAction(action: scans) }
             #if os(iOS)
-                if reorderable { moveMenu(entry) }
+                if reorderable { moveMenu(entry, moves) }
             #endif
         } menu: {
             if let scans { ScansRowAction(action: scans) }
             Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: edit)
-            if reorderable { moveItems(entry) }
+            if reorderable { moveItems(entry, moves) }
             Button(ListScreen.remove, systemImage: "text.badge.xmark", role: .destructive) { remove() }
             Divider()
             Button(TuneRowActions.select, systemImage: "checkmark.circle") { selection.enter(with: entry.tune.id) }
@@ -506,7 +508,7 @@ private struct ListTunes: View {
             .listRowBackground(
                 TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune)
                     && !(isCurrent && !selection.isActive)
-                    ? nil : AnyView(rowBackground(isCurrent: isCurrent && !selection.isActive))
+                    ? nil : rowBackground(isCurrent: isCurrent && !selection.isActive)
             )
         #endif
         .statusRingOnFill(
@@ -540,10 +542,10 @@ private struct ListTunes: View {
 
     #if os(iOS)
         /// Move as a menu on the row's swipe, since the row carries no move button.
-        private func moveMenu(_ entry: ListEntry) -> some View {
+        private func moveMenu(_ entry: ListEntry, _ moves: [MovePlace]) -> some View {
             Menu {
                 Section(ListScreen.move(entry.tune.title)) {
-                    moveButtons(entry)
+                    moveButtons(entry, moves)
                 }
             } label: {
                 Label(ListScreen.reorder(entry.tune.title), systemImage: "arrow.up.arrow.down")
@@ -552,16 +554,18 @@ private struct ListTunes: View {
         }
     #endif
 
-    @ViewBuilder private func moveButtons(_ entry: ListEntry) -> some View {
-        ForEach(model.places(for: entry), id: \.self) { place in
+    /// The row's moves, from its place among the rows the list draws, so building them never
+    /// reads the whole list again.
+    @ViewBuilder private func moveButtons(_ entry: ListEntry, _ moves: [MovePlace]) -> some View {
+        ForEach(moves, id: \.self) { place in
             Button(place.label, systemImage: place.systemImage) { model.move(entry, to: place) }
         }
     }
 
     /// The row's move menu, in its context menu.
-    private func moveItems(_ entry: ListEntry) -> some View {
+    private func moveItems(_ entry: ListEntry, _ moves: [MovePlace]) -> some View {
         Menu(ListScreen.moveSubmenu, systemImage: "arrow.up.arrow.down") {
-            moveButtons(entry)
+            moveButtons(entry, moves)
         }
     }
 
@@ -594,18 +598,22 @@ private struct ListTunes: View {
 }
 
 extension View {
-    /// A list row's swipe actions and context menu, or neither while the row is selecting.
-    @ViewBuilder
+    /// A list row's swipe actions and context menu, or neither while the row is selecting. The
+    /// condition sits inside each builder, since an empty menu shows nothing and the row keeps
+    /// one shape either way.
     fileprivate func selectableRowActions(
         isSelecting: Bool, @ViewBuilder swipe: () -> some View, @ViewBuilder menu: () -> some View,
         @ViewBuilder preview: () -> some View
     ) -> some View {
-        if isSelecting {
-            self
-        } else {
-            self
-                .swipeActions(edge: .trailing, allowsFullSwipe: false, content: swipe)
-                .contextMenu(menuItems: menu, preview: preview)
+        let swipeItems = swipe()
+        let menuItems = menu()
+        return swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if !isSelecting { swipeItems }
+        }
+        .contextMenu {
+            if !isSelecting { menuItems }
+        } preview: {
+            preview()
         }
     }
 }
@@ -613,13 +621,12 @@ extension View {
 /// A list row's moves as accessibility actions, which have no move button on the row, so they
 /// are reachable without the context menu.
 private struct MoveActions<Buttons: View>: ViewModifier {
-    let entry: ListEntry
     let reorderable: Bool
-    let buttons: (ListEntry) -> Buttons
+    @ViewBuilder let buttons: () -> Buttons
 
     func body(content: Content) -> some View {
         content.accessibilityActions {
-            if reorderable { buttons(entry) }
+            if reorderable { buttons() }
         }
     }
 }

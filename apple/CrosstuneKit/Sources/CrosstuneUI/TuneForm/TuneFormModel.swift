@@ -53,8 +53,8 @@ public final class TuneFormModel {
     private let analytics: AnalyticsClient
     private var opened = TuneFormValues()
     private var storedTunings: JSONObject = [:]
-    /// The catalog the suggestions read: live user tunes joined to live tunes, as the web reads it.
-    private var catalog: [CatalogEntry] = []
+    /// The catalog's types by use, counted once when the form opens.
+    private var catalogTypes: [String] = []
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "tune-form")
 
     public init(store: CrosstuneStore, target: TuneFormTarget, analytics: AnalyticsClient = .noop) {
@@ -77,11 +77,13 @@ public final class TuneFormModel {
     }
 
     /// Type suggestions for the genre the form holds.
-    public var typeOptions: [String] { TuneSuggestions.types(genre: values.genre, tunes: catalog.map(\.tune)) }
+    public var typeOptions: [String] { TuneSuggestions.types(genre: values.genre, catalogTypes: catalogTypes) }
 
-    public var composerOptions: [String] { TuneSuggestions.composers(catalog.map(\.tune)) }
+    /// Counted when the form opens rather than on each read, since every keystroke redraws the
+    /// form and the count walks the whole catalog.
+    public private(set) var composerOptions: [String] = []
 
-    public var learnedFromOptions: [String] { TuneSuggestions.learnedFrom(catalog.map(\.userTune)) }
+    public private(set) var learnedFromOptions: [String] = []
 
     /// Reads what the form opens on. Runs once.
     public func load() async {
@@ -112,7 +114,11 @@ public final class TuneFormModel {
     }
 
     func open(_ opening: Opening) {
-        catalog = CatalogSearch.entries(tunes: opening.tunes, userTunes: opening.userTunes)
+        // Live user tunes joined to live tunes, as the web reads the suggestions.
+        let catalog = CatalogSearch.entries(tunes: opening.tunes, userTunes: opening.userTunes)
+        catalogTypes = TuneSuggestions.catalogTypes(catalog.map(\.tune))
+        composerOptions = TuneSuggestions.composers(catalog.map(\.tune))
+        learnedFromOptions = TuneSuggestions.learnedFrom(catalog.map(\.userTune))
         guard let (tune, userTune) = opening.editing else {
             phase = .gone
             return

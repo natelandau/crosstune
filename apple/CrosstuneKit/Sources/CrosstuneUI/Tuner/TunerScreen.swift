@@ -38,7 +38,6 @@ struct TunerScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.openURL) private var openURL
     /// This window's claim on the app's one tuner.
     @State private var client = UUID()
     @State private var appeared = false
@@ -46,11 +45,9 @@ struct TunerScreen: View {
         @State private var windowVisible = false
     #endif
     @State private var settings: LiveQuery<SettingsSummaries?>?
-    /// The newest reading, held until the next one replaces it, since a plucked string decays
-    /// before the player looks up. Forgotten once listening stops, so the next session starts with
-    /// the prompt.
-    @State private var last: Reading?
-    @State private var announcer = TunerAnnouncer()
+    /// Forgotten once listening stops, so the next session starts with the prompt. Only the
+    /// ground and the stage read it, so a reading never redraws the whole screen.
+    @State private var held = TunerHeld()
 
     /// The account's reference pitch, nil until its settings load.
     private var loadedA4: Int? {
@@ -92,15 +89,6 @@ struct TunerScreen: View {
 
     private var status: TunerModel.Status { model?.status ?? .idle }
 
-    private var reading: Reading? { status == .listening ? model?.reading : nil }
-
-    private var shown: Reading? { status == .listening ? reading ?? last : nil }
-
-    /// How far the shown note has come toward in tune, which greens the bars and the ground.
-    private var green: Double {
-        shown.map { greenness(cents: $0.note.cents) } ?? 0
-    }
-
     private var motion: Animation? { reduceMotion ? nil : Self.change }
 
     var body: some View {
@@ -119,14 +107,12 @@ struct TunerScreen: View {
                     .foregroundStyle(PhoneStyle.tuneMuted)
                     .padding(.horizontal, PageStyle.pageMargin)
             }
-            stage
+            TunerStage(model: model, held: held, motion: motion)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .environment(\.colorScheme, .dark)
         .background {
-            BrandStyle.color(hex: PhoneStyle.tuneGroundHex(colorScheme, green: green))
-                .ignoresSafeArea()
-                .animation(motion, value: green)
+            TunerGround(model: model, held: held, colorScheme: colorScheme, motion: motion)
         }
         // A visited tab stays alive behind the selected one, so being on screen is not enough.
         .modifier(KeepsScreenAwake(active: lifecycle.shown && lifecycle.foreground && !covered))
@@ -149,8 +135,7 @@ struct TunerScreen: View {
         }
         .onDisappear {
             appeared = false
-            last = nil
-            announcer = TunerAnnouncer()
+            held.forget()
             // A disappeared view runs no more changes, so the stop is sent here.
             var gone = lifecycle
             gone.shown = false
@@ -158,22 +143,12 @@ struct TunerScreen: View {
         }
         .onChange(of: lifecycle, initial: true) {
             // Forgotten here as well as on the model's stop, which arrives a moment later.
-            if lifecycle.a4 == nil { last = nil }
+            if lifecycle.a4 == nil { held.last = nil }
             drive(lifecycle)
         }
         // The next session starts fresh, with the prompt and its own announcements.
         .onChange(of: status) {
-            if status != .listening {
-                last = nil
-                announcer = TunerAnnouncer()
-            }
-        }
-        .onChange(of: reading) {
-            guard let reading else { return }
-            last = reading
-            if let words = announcer.next(reading) {
-                AccessibilityNotification.Announcement(words).post()
-            }
+            if status != .listening { held.forget() }
         }
     }
 
@@ -184,82 +159,6 @@ struct TunerScreen: View {
                 client: client, shown: lifecycle.shown, foreground: lifecycle.foreground, covered: lifecycle.covered,
                 playing: lifecycle.playing, a4: lifecycle.a4)
         }
-    }
-
-    @ViewBuilder private var stage: some View {
-        ZStack {
-            switch status {
-            case .denied:
-                message(heading: TunerText.micDeniedTitle, body: TunerText.micDeniedBody, opensSettings: true)
-            case .unavailable:
-                message(heading: nil, body: TunerText.micUnavailable, opensSettings: false)
-            case .idle:
-                EmptyView()
-            case .listening:
-                if let shown {
-                    TunerBars(cents: shown.note.cents, animation: motion)
-                    readout(shown)
-                } else {
-                    Text(TunerText.listening)
-                        .font(PageStyle.body)
-                        .foregroundStyle(PhoneStyle.tuneMuted)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    /// The note on the stage's middle, level with in-tune bars, and the cents hanging below it.
-    private func readout(_ shown: Reading) -> some View {
-        let note = shown.note
-        return VStack(spacing: 0) {
-            Color.clear.frame(maxHeight: .infinity)
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Text(note.name.rawValue)
-                    .font(.system(size: Self.noteSize, weight: .light))
-                Text(String(note.octave))
-                    .font(.system(size: Self.octaveSize, weight: .light))
-            }
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
-            VStack(spacing: 8) {
-                Text(TunerText.centsLabel(note.cents))
-                    .font(PageStyle.sectionHeading.monospacedDigit())
-                if let hint = TunerText.hintLabel(cents: note.cents) {
-                    Text(hint)
-                        .font(PageStyle.body)
-                        .foregroundStyle(PhoneStyle.tuneMuted)
-                }
-            }
-            .padding(.top, 8)
-            .frame(maxHeight: .infinity, alignment: .top)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(TunerText.spokenReading(note))
-    }
-
-    private func message(heading: String?, body: String, opensSettings: Bool) -> some View {
-        VStack(spacing: 8) {
-            if let heading {
-                Text(heading)
-                    .font(PageStyle.sectionHeading)
-                    .accessibilityAddTraits(.isHeader)
-            }
-            Text(body)
-                .font(PageStyle.body)
-                .foregroundStyle(PhoneStyle.tuneMuted)
-            if opensSettings, let url = Recorder.settingsURL {
-                Button(TunerText.openSettings) { openURL(url) }
-                    #if os(macOS)
-                        .buttonStyle(.macSecondary)
-                    #else
-                        .buttonStyle(.bordered)
-                    #endif
-                    .padding(.top, 8)
-            }
-        }
-        .multilineTextAlignment(.center)
-        .padding(.horizontal, 32)
     }
 }
 

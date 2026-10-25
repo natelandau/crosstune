@@ -513,12 +513,11 @@ public final class SettingsModel {
         _ date: Date, now: Date, locale: Locale = .current, inSentence: Bool = false
     ) -> String {
         if now.timeIntervalSince(date) < 60 { return inSentence ? justNowInSentence : justNow }
-        let formatter = RelativeDateTimeFormatter()
-        if inSentence { formatter.formattingContext = .middleOfSentence }
-        formatter.locale = locale
-        formatter.dateTimeStyle = .named
-        formatter.unitsStyle = .full
-        return formatter.localizedString(for: date, relativeTo: now)
+        // The anchor is the date described; the value formatted is the moment it is told from.
+        return now.formatted(
+            Date.AnchoredRelativeFormatStyle(
+                anchor: date, presentation: .named, unitsStyle: .wide, locale: locale,
+                capitalizationContext: inSentence ? .middleOfSentence : .unknown))
     }
 
     /// The account's storage figures, once the server has reported them. A free account's carry

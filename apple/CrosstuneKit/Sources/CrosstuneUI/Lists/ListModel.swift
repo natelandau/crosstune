@@ -190,13 +190,6 @@ public final class ListModel {
         showArchived == true ? entries : entries.filter { !$0.isArchived }
     }
 
-    /// The moves that go somewhere from this row among the rows on screen.
-    func places(for entry: ListEntry) -> [MovePlace] {
-        let rows = rows
-        guard let index = rows.firstIndex(where: { $0.id == entry.id }) else { return [] }
-        return MovePlace.places(at: index, count: rows.count)
-    }
-
     /// Sends a row where the menu says, among the rows on screen when it is chosen.
     func move(_ entry: ListEntry, to place: MovePlace) {
         let rows = rows

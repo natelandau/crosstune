@@ -408,7 +408,8 @@ private struct CatalogContent: View {
 
     @ViewBuilder private func row(_ entry: CatalogEntry, instruments: Set<String>) -> some View {
         let tuneRow = TuneRow(tune: entry.tune, userTune: entry.userTune, instruments: instruments)
-        Group {
+        // A stack, not a Group, so every row has one shape and the list identifies rows by id.
+        VStack(alignment: .leading, spacing: 0) {
             if detailTune != nil || selection.isActive {
                 // The list's selection drives the detail column, or is the selection.
                 tuneRow
