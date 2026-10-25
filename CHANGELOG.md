@@ -1,3 +1,11 @@
+## v1.1.1 (2026-10-25)
+
+### Fix
+
+- **apple**: stop waveform bars merging into darker blocks (#226)
+- **apple**: keep a glyphless link row at its own height
+- **tune**: keep the empty key tile's label on one line
+
 ## v1.1.0 (2026-10-24)
 
 ### Feat
