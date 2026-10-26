@@ -2,7 +2,7 @@ import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 
-/// One tune as a document: the band with its key, title, and verbs across the top, then the
+/// One tune as a document: the band with its key, title, and action buttons across the top, then the
 /// content beside the facts rail, or under the facts card where the column is narrow.
 struct TunePage: View {
     let model: TuneModel
@@ -192,7 +192,7 @@ struct TunePageColumn: View {
     }
 
     private var readLyrics: (() -> Void)? {
-        actions.readLyrics.map { read in { read(detail.tune.id, .verb) } }
+        actions.readLyrics.map { read in { read(detail.tune.id, .actionButton) } }
     }
 
     private var addToList: (() -> Void)? {

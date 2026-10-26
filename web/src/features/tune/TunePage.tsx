@@ -70,7 +70,7 @@ import { TuneBand } from './TuneBand'
 import { AddedLine, TuneFacts, TuneLists } from './TuneFacts'
 import { isQuietPick } from './tunePick'
 import { useTuneScans, type TuneScansParts } from './useTuneScans'
-import { TuneVerbs } from './TuneVerbs'
+import { TuneActionButtons } from './TuneActionButtons'
 import { readTuneTitle, rememberTuneTitle } from './tuneTitle'
 import { WASH_HOVER } from '../../ui/press'
 
@@ -310,8 +310,8 @@ function TuneDocument({
           active={!hidden}
           gutter={gutter}
           more={moreOnTitle ? moreMenu : undefined}
-          verbs={
-            <TuneVerbs
+          actions={
+            <TuneActionButtons
               tuneId={tuneId}
               media={media}
               onLyrics={shownFacts?.hasLyrics ? readLyrics : null}

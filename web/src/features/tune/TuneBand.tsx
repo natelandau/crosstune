@@ -27,7 +27,7 @@ export const tuneTitleTransition = (tuneId: string) => `tune-title-${tuneId}`
 
 /**
  * The top of a tune's page, on the page ground: the key tile in the key's color, the title in
- * the page title role, other names, and the verb row. The title renames in place, and the tile
+ * the page title role, other names, and the action button row. The title renames in place, and the tile
  * opens the key editor. Off the phone More ends the title's row. Until the facts have read it
  * is the title alone, or a hidden "Tune" while even that is unknown, so focus and the morph have
  * one heading to land on throughout.
@@ -40,7 +40,7 @@ export function TuneBand({
   facts,
   title,
   active,
-  verbs,
+  actions,
   more,
   gutter,
 }: {
@@ -51,7 +51,7 @@ export function TuneBand({
   /** The title to show before the facts have read; the facts' own title wins. */
   title: string | undefined
   active: boolean
-  verbs: ReactNode
+  actions: ReactNode
   /** The page's More, where it sits on the title's row rather than in the pane bar. */
   more?: ReactNode
   /** Classes that set the band's content in line with the page's column below it. */
@@ -92,7 +92,7 @@ export function TuneBand({
           </div>
         </div>
         <ErrorLine error={write.error} place="inline" />
-        {facts && verbs}
+        {facts && actions}
       </div>
     </header>
   )

@@ -40,7 +40,7 @@ export function ListsScreen() {
     <>
       <RootBar
         title={LISTS.label}
-        verbs={<Button icon={Plus} label={ADD_LIST} iconOnly onPress={add} />}
+        actions={<Button icon={Plus} label={ADD_LIST} iconOnly onPress={add} />}
       />
       <ErrorLine error={error ?? played.error} place="bar" />
       {lists &&

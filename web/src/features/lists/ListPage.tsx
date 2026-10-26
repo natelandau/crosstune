@@ -131,7 +131,7 @@ export function ListPage({ listId }: { listId: string }) {
           title={title}
           leading={<BackLink to={LISTS.root} label={LISTS.label} />}
           trailing={
-            // The menu's words state the archived setting, so the verbs wait until it is read.
+            // The menu's words state the archived setting, so the menu items wait until it is read.
             list &&
             screen.settingsRead && (
               <>

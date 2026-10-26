@@ -32,7 +32,13 @@ function fitRow(element: HTMLElement) {
  * the labels still do not fit, at a narrow window or a larger text size, the row drops its
  * icons, then narrows the padding further.
  */
-export function VerbRow({ children, tight = false }: { children: ReactNode; tight?: boolean }) {
+export function ActionButtonRow({
+  children,
+  tight = false,
+}: {
+  children: ReactNode
+  tight?: boolean
+}) {
   const row = useRef<HTMLDivElement>(null)
   // Labels can change on any render, so each one refits.
   useLayoutEffect(() => {
@@ -61,12 +67,12 @@ export function VerbRow({ children, tight = false }: { children: ReactNode; tigh
     <div
       ref={row}
       data-fit="full"
-      className={`group/verbs flex whitespace-nowrap ${tight ? 'gap-2' : 'gap-3'}`}
+      className={`group/actions flex whitespace-nowrap ${tight ? 'gap-2' : 'gap-3'}`}
     >
       {Children.toArray(children).map((child, index) => (
         <div
           key={index}
-          className={`min-w-0 flex-1 group-data-[fit=bare]/verbs:[&_svg]:hidden group-data-[fit=tightest]/verbs:[&_svg]:hidden group-data-[fit=tightest]/verbs:[&>button]:px-1 ${tight ? '[&>button]:px-2' : ''}`}
+          className={`min-w-0 flex-1 group-data-[fit=bare]/actions:[&_svg]:hidden group-data-[fit=tightest]/actions:[&_svg]:hidden group-data-[fit=tightest]/actions:[&>button]:px-1 ${tight ? '[&>button]:px-2' : ''}`}
         >
           {child}
         </div>

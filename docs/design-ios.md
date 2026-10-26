@@ -67,8 +67,8 @@ there where they differ. Regular-width iPad reads this page, then
 
 ## Pages and forms
 
-- A verb row is `VerbRow`: the main verb an accent-filled capsule, the
-  others glass capsules, in equal shares.
+- An action button row is `ActionButtonRow`: the main button an
+  accent-filled capsule, the others glass capsules, in equal shares.
 - A form keeps the native inset grouped style. A screen that only reads is
   a document page.
 - Open vocabulary: matching suggestions show as rows under the field while

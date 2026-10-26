@@ -129,15 +129,15 @@ Decide any case the rules below do not name.
 | Zone            | Holds                                                 | Never holds            |
 | --------------- | ----------------------------------------------------- | ---------------------- |
 | Title           | What the screen shows                                 | Actions, filters       |
-| Verbs bar       | Main verb first (Add), then one More menu             | Sort, view options     |
-| Under the title | Search field, then one filter row                     | Verbs                  |
+| Actions bar     | Main action first (Add), then one More menu           | Sort, view options     |
+| Under the title | Search field, then one filter row                     | Action buttons         |
 | List header     | Count leading, sort trailing, directly above the rows | Anything else          |
 | App-wide        | Tabs, Record, now playing, selection bar              | A screen's own actions |
 
-- At most two verbs in the bar. Select is never a toolbar button.
-- A pushed page's main actions can sit in a verb row under its heading, as
+- At most two buttons in the bar. Select is never a toolbar button.
+- A pushed page's main actions can sit in an action button row under its heading, as
   page content. Its bar then holds only More.
-- A section's verb sits trailing on that section's heading.
+- A section's button sits trailing on that section's heading.
 - Screen-wide actions (Edit, Delete) live in More, never in a panel.
 - A control sits over the pane it acts on.
 - A column's title is its first line and scrolls with it. The bar shows it
@@ -292,8 +292,8 @@ Decide any case the rules below do not name.
 - An empty section a page always holds shows its heading, add control,
   and one quiet line, never an empty-state block. A section only some
   items fill is absent until it holds something.
-- Verb row: what the musician does with the item, never editing. A verb
-  shows only when it can act now, and is never disabled.
+- Action button row: what the musician does with the item, never editing.
+  A button shows only when it can act now, and is never disabled.
 - Facts: the same facts in the same order on every item, so nothing moves
   between items. An unset value reads "Add".
 - Moving between items cross-fades. The current page stays until the next

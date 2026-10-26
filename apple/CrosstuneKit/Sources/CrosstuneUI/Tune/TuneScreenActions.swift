@@ -2,8 +2,8 @@ import SwiftUI
 
 /// The tune page control the lyrics reader opens from, which it zooms out of and back into.
 public enum LyricsOrigin: Hashable, Sendable {
-    /// The verb row's Lyrics.
-    case verb
+    /// The Lyrics button in the action button row.
+    case actionButton
     /// The Lyrics section's reader button.
     case section
 }
