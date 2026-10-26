@@ -4,7 +4,7 @@ import { distanceM, NEARBY_LIMIT, NEARBY_RADIUS_M } from '../../domain/placeDist
 import type { MapKit, MapKitPlace } from '../../platform/mapkit'
 import { useMapKit } from '../../platform/useMapKit'
 
-/** A place of interest near a take, which picking saves as a location at its own point. */
+/** A place of interest near a recording, which picking saves as a location at its own point. */
 export interface NearbyPlace {
   name: string
   /** The address line shown under the name: `street, town`, or the town with no street. */

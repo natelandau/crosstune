@@ -23,7 +23,7 @@ final class WaveformFeed {
     /// Takes the levels a recorder has measured since the last call. `levels` is its recent
     /// window, newest last, and `total` how many it has measured in all.
     func receive(_ levels: [Float], total: Int) {
-        // A smaller total is a new take, whose levels are all new.
+        // A smaller total is a new recording, whose levels are all new.
         let fresh = total < seen ? total : total - seen
         seen = total
         queue.append(contentsOf: levels.suffix(min(fresh, levels.count)))

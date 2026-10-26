@@ -89,7 +89,7 @@ describe('shownPlaceName', () => {
     ['p2', placeRow('p2', 'Old Hall', { deleted_at: '2026-02-01T00:00:00.000Z' })],
   ])
 
-  it('uses the live saved place, even when the take has no name of its own', () => {
+  it('uses the live saved place, even when the recording has no name of its own', () => {
     expect(shownPlaceName(recordingRow('r1', { place_id: 'p1', place_name: null }), places)).toBe(
       'The Barn',
     )
@@ -98,7 +98,7 @@ describe('shownPlaceName', () => {
     ).toBe('The Barn')
   })
 
-  it("falls back to the take's own name when the place is deleted or unknown", () => {
+  it("falls back to the recording's own name when the place is deleted or unknown", () => {
     expect(
       shownPlaceName(recordingRow('r1', { place_id: 'p2', place_name: 'Galax, VA' }), places),
     ).toBe('Galax, VA')
@@ -108,7 +108,7 @@ describe('shownPlaceName', () => {
     expect(shownPlaceName(recordingRow('r1', { place_id: 'p2' }), places)).toBeNull()
   })
 
-  it("is the take's own name when it is not linked", () => {
+  it("is the recording's own name when it is not linked", () => {
     expect(shownPlaceName(recordingRow('r1', { place_name: 'Galax, VA' }), places)).toBe(
       'Galax, VA',
     )

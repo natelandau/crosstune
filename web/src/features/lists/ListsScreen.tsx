@@ -31,7 +31,7 @@ export function ListsScreen() {
   const playback = useListPlayback()
   const recording = useRecordState().recording
   const readable = usePlayableLists()
-  // A take recording holds the audio, so no list starts until it ends.
+  // A recording under way holds the audio, so no list starts until it ends.
   const playable = recording ? NOTHING : readable
   const played = useAction()
   const add = useListNameLauncher().open

@@ -19,7 +19,7 @@ public protocol AudioInput: AnyObject {
     /// answer.
     func requestPermission() async -> Bool
 
-    /// Readies the microphone for a take, asking for stereo when `channels` is stereo, and
+    /// Readies the microphone for a recording, asking for stereo when `channels` is stereo, and
     /// returns how many channels the input delivers. Nothing is captured until ``start``;
     /// ``stop()`` releases a prepared input that never started.
     func prepare(preferring channels: CaptureChannels) async throws -> Int

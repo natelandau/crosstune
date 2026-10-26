@@ -31,7 +31,7 @@ public final class RecentRecording {
 
     public func clear() { markedID = nil }
 
-    /// Clears the mark only while it is still `id`, so a row finishing late never wipes a newer take.
+    /// Clears the mark only while it is still `id`, so a row finishing late never wipes a newer recording.
     func clear(ifID id: String) {
         if markedID == id { markedID = nil }
     }
@@ -46,7 +46,7 @@ enum HighlightTiming {
 }
 
 /// One highlight's sequence: light up, hold, fade out, then clear the mark. Cut short, by a
-/// newer take, an expired mark, or the row going away, it fades out from where it is rather
+/// newer recording, an expired mark, or the row going away, it fades out from where it is rather
 /// than snapping off, and leaves the mark alone.
 @MainActor
 struct HighlightRun {
@@ -69,7 +69,7 @@ struct HighlightRun {
     }
 }
 
-/// Washes a recording's row in the accent while it is the take just saved, then clears the mark.
+/// Washes a recording's row in the accent while it is the recording just saved, then clears the mark.
 private struct NewRecordingHighlight: ViewModifier {
     let recordingID: String
 
@@ -83,7 +83,7 @@ private struct NewRecordingHighlight: ViewModifier {
             .background {
                 RoundedRectangle(cornerRadius: 10).fill(Self.wash(scheme)).opacity(isHighlighted ? 1 : 0)
             }
-            // Keyed on the id, so a take marked before the row appears still lights it.
+            // Keyed on the id, so a recording marked before the row appears still lights it.
             .task(id: recentRecording?.id) {
                 guard let recentRecording, recentRecording.id == recordingID else { return }
                 await HighlightRun(

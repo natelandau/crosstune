@@ -111,7 +111,7 @@ private func pull(_ row: Entitlement, into store: CrosstuneStore) async throws {
         #expect(player.plan == nil)
     }
 
-    @Test func followsTheTakesKeptLocalUntilSubscribed() async throws {
+    @Test func followsTheRecordingsKeptLocalUntilSubscribed() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let model = PlanModel(store: store)

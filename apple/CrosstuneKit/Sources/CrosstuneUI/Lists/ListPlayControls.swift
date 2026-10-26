@@ -29,7 +29,7 @@ struct ListPlayAvailability {
     }
 
     let report: PlaylistReport
-    /// False when no playlist player is available, or while a take is being recorded.
+    /// False when no playlist player is available, or while a recording is being recorded.
     let canStart: Bool
     /// Non-nil while this list plays.
     var playing: Playing? = nil

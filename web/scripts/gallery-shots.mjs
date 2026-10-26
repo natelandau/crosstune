@@ -27,7 +27,7 @@ const LIST = 'thursday-jam'
 const LIST_TUNE_TITLE = 'Forked Deer'
 const SELECTED_TITLES = ['Angeline the Baker', 'Arkansas Traveler', 'Ashokan Farewell']
 const RECORDING_LABEL = 'Porch jam'
-// The take on TUNE the fixture holds audio and loops for, and the loop it leaves unnamed.
+// The recording on TUNE the fixture holds audio and loops for, and the loop it leaves unnamed.
 const PRACTICE_LABEL = 'Slow practice'
 const UNNAMED_LOOP = 'loop-joy-b'
 // Finds Soldier's Joy among tunes beside whatever else it matches.

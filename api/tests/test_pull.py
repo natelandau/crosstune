@@ -173,7 +173,7 @@ async def test_pull_scopes_every_table_to_the_caller(client, auth_headers) -> No
                 tune_id=tune,
                 url=f"https://example.com/{user}",
                 provider="other",
-                title="A take",
+                title="A recording",
             ),
             recording(rec, T0),
             change("recording_loops", loop, T0, recording_id=rec, start_ms=0, end_ms=4000, color=0),

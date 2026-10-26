@@ -139,8 +139,9 @@ class Recording(SyncColumns, Base):
         String(LIMITS["recordings"]["place_name"]), nullable=True
     )
     place_accuracy_m: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    # The saved place this take is filed under, if any. The take keeps its own coordinates, so
-    # a deleted place leaves it where it was. The origin is set exactly when coordinates are.
+    # The saved place this recording is filed under, if any. The recording keeps its own
+    # coordinates, so a deleted place leaves it where it was. The origin is set exactly when
+    # coordinates are.
     place_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("places.id", ondelete="SET NULL"), nullable=True, index=True
     )

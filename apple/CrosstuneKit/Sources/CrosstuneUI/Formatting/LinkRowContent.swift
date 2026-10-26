@@ -23,13 +23,13 @@ public struct LinkRowContent: Hashable, Sendable {
     public let outboundLabel: String
     /// The link out's spoken name: "Open Soldier's Joy on YouTube".
     public let outboundName: String
-    /// A play while a take is recorded keeps its name and tap but reads dimmed.
+    /// A play while a recording is recorded keeps its name and tap but reads dimmed.
     public let isDimmed: Bool
     /// Why a dimmed play does nothing.
     public let notice: String?
 
     /// `embeddable` says whether the player can play this link in the app; `loaded` whether it
-    /// is the item the player holds now; `playBlocked` whether a take is being recorded, when
+    /// is the item the player holds now; `playBlocked` whether a recording is being recorded, when
     /// nothing may play.
     public init(link: RecordingLink, embeddable: Bool, loaded: Bool = false, playBlocked: Bool = false) {
         title = LinkText.title(link)

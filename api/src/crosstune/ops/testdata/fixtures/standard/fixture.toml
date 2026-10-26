@@ -11,7 +11,7 @@ first_created = 2025-06-01
 seed          = 7
 
 [files]
-    audio        = "take.m4a"
+    audio        = "recording.m4a"
     image        = "scan.jpg"
     image_height = 2200
     image_width  = 1700
@@ -19,7 +19,7 @@ seed          = 7
 # The kinds are proportions, scaled when --recordings asks for another count.
 [recordings]
     count = 10
-    labels = ["Jam take", "Practice take", "Slow run-through", "Up to tempo", "With the band"]
+    labels = ["Jam recording", "Practice recording", "Slow run-through", "Up to tempo", "With the band"]
     microphone = 5
     slippery_hill = 2
     slippery_hill_urls = [

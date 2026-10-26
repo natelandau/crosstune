@@ -81,10 +81,10 @@ public final class AudioPlayer: AudioPlayback {
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     @ObservationIgnored private let sessionOwner = AudioSessionOwner()
 
-    /// Whether a take is being recorded, which keeps playback silent.
+    /// Whether a recording is being recorded, which keeps playback silent.
     private let isCapturing: @MainActor () -> Bool
 
-    /// - Parameter isCapturing: Whether a take is being recorded. Tests pass their own, so they
+    /// - Parameter isCapturing: Whether a recording is being recorded. Tests pass their own, so they
     ///   never share the process-wide answer.
     public convenience init(
         isCapturing: @escaping @MainActor () -> Bool = { Recorder.hasActiveCapture }
@@ -231,7 +231,7 @@ public final class AudioPlayer: AudioPlayback {
     }
 
     private func startPlayback() {
-        // A take in progress owns the session, and the microphone would hear the playback.
+        // A recording in progress owns the session, and the microphone would hear the playback.
         guard file != nil, !hasFailed, !isPlaying, !isCapturing() else { return }
         activateSession()
         // A finished window starts over, as a player's play button does at the end.
@@ -484,7 +484,7 @@ public final class AudioPlayer: AudioPlayback {
     #if os(iOS)
         /// Playback on its own, so it goes on with the screen locked and the ring switch set to
         /// silent, and long-form, so AirPlay treats it as a listening session rather than a
-        /// sound effect. Recording sets its own category for the take, and closes the player
+        /// sound effect. Recording sets its own category for the recording, and closes the player
         /// before it does.
         private func activateSession() {
             TunerInput.yieldToPlayback()

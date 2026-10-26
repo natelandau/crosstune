@@ -18,7 +18,7 @@ const RULER_PX = 20
 
 const offClass = (blocked?: string) => (blocked ? 'pointer-events-none opacity-50' : '')
 
-/** The whole take with the view's window on it, or a plain bar until there is a length. */
+/** The whole recording with the view's window on it, or a plain bar until there is a length. */
 export function PracticeOverview({
   timeline,
   loops,
@@ -108,7 +108,7 @@ export function PracticeWaveformSlot({
             />
           </div>
         ) : (
-          // Until the take's length is known there is no scale, only a plain bar.
+          // Until the recording's length is known there is no scale, only a plain bar.
           <div
             data-practice-waveform
             data-timeline-bar
@@ -208,12 +208,12 @@ export function PracticeLoopsPanel({
   )
 }
 
-/** A drawn playhead (trimmed timeline) held to the take, on the source timeline. */
+/** A drawn playhead (trimmed timeline) held to the recording, on the source timeline. */
 function sourceMs(timeline: PracticeTimeline, ms: number): number {
   return timeline.bounds.startMs + (timeline.loaded ? clamp(ms, 0, timeline.lengthMs) : 0)
 }
 
-/** The take as one plain bar, for a stretch with no length to scale yet. */
+/** The recording as one plain bar, for a stretch with no length to scale yet. */
 function TimelineBar({ heightClass }: { heightClass: string }) {
   return (
     <Waveform

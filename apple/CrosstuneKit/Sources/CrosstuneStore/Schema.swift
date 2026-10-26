@@ -157,7 +157,7 @@ enum Schema {
         migrator.registerMigration("v11") { db in
             // The server splits the date the same way, so no repull is needed. The one date
             // always said when the row was added; it says when the music was played only for a
-            // take, the one source captured as it was played.
+            // recording, the one source captured as it was played.
             let table = SyncTable.recordings.rawValue
             try db.execute(sql: "ALTER TABLE recordings RENAME COLUMN recorded_at TO added_at")
             try db.alter(table: table) { t in

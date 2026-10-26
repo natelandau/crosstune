@@ -31,11 +31,11 @@ public struct CaptureFinisher: Sendable {
     /// recording, returning its `updatedAt` as written. A capture with no audio in it is
     /// discarded instead, and this returns nil.
     ///
-    /// `peaks` is the waveform a live take metered as it recorded, fitted to the exported
+    /// `peaks` is the waveform a live recording metered as it recorded, fitted to the exported
     /// duration before it is written. Recovery, with no live meter to draw on, decodes the
     /// exported file for its waveform instead.
     ///
-    /// `coordinate` is where a live take was made, saved as its place with no name.
+    /// `coordinate` is where a live recording was made, saved as its place with no name.
     ///
     /// Every step can be repeated: an export a crash cut short is redone, and a finished file
     /// whose capture is already gone is recorded as it is.

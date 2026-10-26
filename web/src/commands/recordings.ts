@@ -63,7 +63,7 @@ async function putRecordingRow(
     tuneId: string | null
     source: 'microphone' | 'upload' | 'import'
     label: string | null
-    /** When the music was played, known only for a take. */
+    /** When the music was played, known only for a microphone recording. */
     recordedAt: string | null
     origin?: string
     originUrl?: string
@@ -91,7 +91,7 @@ async function putRecordingRow(
     place_lat: fields.place?.lat ?? null,
     place_lon: fields.place?.lon ?? null,
     place_accuracy_m: fields.place?.accuracyM ?? null,
-    // A take was added the moment it was played.
+    // A microphone recording was added the moment it was played.
     added_at: fields.recordedAt ?? at,
     recorded_at: fields.recordedAt,
     recorded_precision: fields.recordedAt === null ? null : 'time',
@@ -196,9 +196,9 @@ export async function finishCapture(
 }
 
 /**
- * Gives a saved take the place from a fix that arrived after Stop. It writes only to a take
- * whose row is still stamped `savedAt`, the updated_at its save wrote, and has no place: any
- * edit since, a cleared place included, wins over the fix.
+ * Gives a saved recording the place from a fix that arrived after Stop. It writes only to a
+ * recording whose row is still stamped `savedAt`, the updated_at its save wrote, and has no
+ * place: any edit since, a cleared place included, wins over the fix.
  */
 export async function fillCapturedPlace(
   db: CrosstuneDb,

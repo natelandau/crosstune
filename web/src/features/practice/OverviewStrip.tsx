@@ -39,7 +39,7 @@ export function OverviewStrip({
   const line = useRef<HTMLDivElement>(null)
   const box = useRef<HTMLDivElement>(null)
   const share = (ms: number) => (lengthMs > 0 ? (ms / lengthMs) * 100 : 0)
-  // Held to the take: a scrub pulled past an end is drawn there by the zoomed waveform alone.
+  // Held to the recording: a scrub pulled past an end is drawn there by the zoomed waveform alone.
   const position = useMemo<Moving<number>>(
     () => ({ get: () => clamp(playhead.get(), 0, lengthMs), subscribe: playhead.subscribe }),
     [playhead, lengthMs],

@@ -595,7 +595,7 @@ struct TuneMediaRows: View {
     }
 
     #if os(macOS)
-        /// Whether a take under way disables a shown row's play, which the Mac says once
+        /// Whether a recording under way disables a shown row's play, which the Mac says once
         /// above the rows rather than under each.
         private func blocksPlay(showsRecordings: Bool) -> Bool {
             guard recorders?.isCapturing == true else { return false }

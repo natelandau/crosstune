@@ -44,7 +44,7 @@ interface Press {
  * is and reports the playhead it draws to `onShow` (trimmed timeline), and a touch released
  * while moving starts a momentum scroll with exponential decay. A drag past either end pulls on with
  * resistance and springs back to that end on release, so what it shows can briefly lie outside
- * the take. `onShow` gets null once it lets go.
+ * the recording. `onShow` gets null once it lets go.
  * Once still, the engine seeks there once and plays on if it was playing. A press released
  * without moving is a tap, reported with its x from the element's left edge and the element
  * it began on.

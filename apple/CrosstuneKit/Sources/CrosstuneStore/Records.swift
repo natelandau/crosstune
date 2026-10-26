@@ -449,8 +449,8 @@ public enum RecordingPrecision: String, CaseIterable, Codable, Sendable {
     case year, month, day, time
 }
 
-/// A location the user saved: a name for a point, which takes can link to. A take keeps its own
-/// coordinates, so a saved place's point moving never moves a take.
+/// A location the user saved: a name for a point, which recordings can link to. A recording keeps its own
+/// coordinates, so a saved place's point moving never moves a recording.
 public struct SavedPlace: SyncedRecord, Hashable {
     public static let table = SyncTable.places
 
@@ -544,7 +544,7 @@ public struct Recording: SyncedRecord, Hashable {
     public var placeLat: Double?
     public var placeLon: Double?
     public var placeAccuracyM: Int?
-    /// The saved location the take is linked to, if any. The link never changes how the
+    /// The saved location the recording is linked to, if any. The link never changes how the
     /// coordinates were obtained, which `placeOrigin` records.
     public var placeID: String?
     /// How the coordinates were obtained, as a ``PlaceOrigin`` raw value; nil exactly when

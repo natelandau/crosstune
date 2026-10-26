@@ -729,7 +729,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(ListRowPlay.action(for: silent, playFirst: UserSettings.playFirstRecordings) == .inert)
     }
 
-    @Test func blocksOnlyPlayWhileATakeIsRecorded() {
+    @Test func blocksOnlyPlayWhileARecordingIsRecorded() {
         let item = PlayerItem(kind: .recording, id: "r1", title: "x")
         let url = URL(string: "https://example.com")!
         #expect(ListRowPlay.isBlocked(.play(item), capturing: true))
@@ -857,7 +857,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(playing.isShuffleDisabled)
     }
 
-    @Test func holdsBothWhileATakeRecords() {
+    @Test func holdsBothWhileARecordingIsUnderWay() {
         let recording = offer(canStart: false, playing: .init(isPlaying: true, isSettled: true))
         #expect(recording.isPlayDisabled)
         #expect(recording.isShuffleDisabled)
@@ -1045,7 +1045,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
             try ListsPlayability.Snapshot.fetch(db, settingsID: settingsID(clerkUserID: store.userID))
         }
         #expect(!ListsPlayability.reports(snapshot, canStart: true, fullTracks: false, online: false).isEmpty)
-        // A take records, or no playlist player is there.
+        // A recording is under way, or no playlist player is there.
         #expect(ListsPlayability.reports(snapshot, canStart: false, fullTracks: false, online: false).isEmpty)
         // The Apple Music access has not read, so a song's count would flash wrong.
         #expect(ListsPlayability.reports(snapshot, canStart: true, fullTracks: nil, online: false).isEmpty)

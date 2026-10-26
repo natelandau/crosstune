@@ -60,7 +60,7 @@ public enum AppearanceChoice: String, CaseIterable, Sendable {
     case dark
 }
 
-/// The channels a take records, as the setting reports it.
+/// The channels the microphone records, as the setting reports it.
 public enum ChannelChoice: String, CaseIterable, Sendable {
     case mono
     case stereo

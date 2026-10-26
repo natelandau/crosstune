@@ -7,7 +7,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-private func take() -> Recording {
+private func recording() -> Recording {
     Recording(
         id: "r1", tuneID: nil, source: "microphone", addedAt: noon, label: "Jam", state: "ready",
         sourceDurationMs: 60_000, trimStartMs: 0, speedPercent: 100, pitchCents: 0)
@@ -45,9 +45,9 @@ private func take() -> Recording {
 
     /// The recording loaded paused on its screen.
     private func opened() async throws -> PracticeModel {
-        player.open(.recording(take(), tuneTitle: nil), playing: false, source: .recordingsList)
+        player.open(.recording(recording(), tuneTitle: nil), playing: false, source: .recordingsList)
         #expect(try await poll { player.recordingAudio == .loaded })
-        let model = PracticeModel(player: player, recording: take(), file: nil, writer: writer, announce: { _ in })
+        let model = PracticeModel(player: player, recording: recording(), file: nil, writer: writer, announce: { _ in })
         model.enter()
         return model
     }
@@ -121,7 +121,7 @@ private func take() -> Recording {
 
     @Test func reportsATrimOnceItIsSaved() async throws {
         let trim = TrimModel(
-            recording: take(), file: nil, write: { _, _, _ in }, hold: { _ in }, analytics: sink.client)
+            recording: recording(), file: nil, write: { _, _, _ in }, hold: { _ in }, analytics: sink.client)
         trim.drag(.start, to: 5_000)
 
         #expect(try await trim.save())
@@ -132,7 +132,8 @@ private func take() -> Recording {
     @Test func reportsNoTrimThatFailedToSave() async throws {
         struct Refused: Error {}
         let trim = TrimModel(
-            recording: take(), file: nil, write: { _, _, _ in throw Refused() }, hold: { _ in }, analytics: sink.client)
+            recording: recording(), file: nil, write: { _, _, _ in throw Refused() }, hold: { _ in },
+            analytics: sink.client)
         trim.drag(.start, to: 5_000)
 
         _ = try? await trim.save()

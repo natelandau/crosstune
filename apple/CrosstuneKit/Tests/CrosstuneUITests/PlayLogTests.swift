@@ -82,7 +82,7 @@ struct ActivityFixture {
 
     /// Plays recording `id` from `origin` and waits until its audio plays and is being timed.
     func playRecording(_ id: String = "r1", tuneID: String? = "t1", origin: PlayOrigin = .row) async throws {
-        player.play(.recording(loggedTake(id, tuneID: tuneID), tuneTitle: nil), origin: origin)
+        player.play(.recording(loggedRecording(id, tuneID: tuneID), tuneTitle: nil), origin: origin)
         try await waitFor { audio.isPlaying }
         try await heard(playing: true)
     }
@@ -103,7 +103,7 @@ struct ActivityFixture {
     }
 }
 
-func loggedTake(_ id: String = "r1", tuneID: String? = "t1") -> Recording {
+func loggedRecording(_ id: String = "r1", tuneID: String? = "t1") -> Recording {
     Recording(
         id: id, tuneID: tuneID, source: "microphone", recordedAt: noon, label: "Jam", state: "ready",
         sourceDurationMs: 60_000, speedPercent: 100, pitchCents: 0)
@@ -301,7 +301,7 @@ private let linkTap = PlayAttribution(
 
     @Test func aPausedOpenLogsNoPlay() async throws {
         let fixture = ActivityFixture()
-        fixture.player.open(.recording(loggedTake(), tuneTitle: nil), playing: false)
+        fixture.player.open(.recording(loggedRecording(), tuneTitle: nil), playing: false)
         try await waitFor { fixture.player.recordingAudio == .loaded }
         try await fixture.heard(playing: false)
         fixture.clock.advance(30_000)
@@ -325,7 +325,7 @@ private let linkTap = PlayAttribution(
         let fixture = ActivityFixture()
         try await fixture.playRecording("r1")
         fixture.clock.advance(15_000)
-        fixture.player.play(.recording(loggedTake("r2"), tuneTitle: nil))
+        fixture.player.play(.recording(loggedRecording("r2"), tuneTitle: nil))
         #expect(fixture.recorded.plays.map(\.recordingID) == ["r1"])
         #expect(fixture.recorded.plays.map(\.listenedMs) == [15_000])
     }
@@ -374,7 +374,8 @@ private let linkTap = PlayAttribution(
         let playback = ListPlayback(player: fixture.player, commands: NoTrackCommands(), defaults: suite.defaults)
         playback.resolve = { _, tuneID in
             ListPlayback.Turn(
-                title: "Tune \(tuneID)", item: .recording(loggedTake("r\(tuneID)", tuneID: tuneID), tuneTitle: nil))
+                title: "Tune \(tuneID)", item: .recording(loggedRecording("r\(tuneID)", tuneID: tuneID), tuneTitle: nil)
+            )
         }
         playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b"], shuffled: false)
         try await waitFor { fixture.audio.isPlaying && fixture.player.item?.id == "ra" }
@@ -537,7 +538,7 @@ private final class NoTrackCommands: TrackCommands {
         let store = try root.open()
         try await store.database.write { db in
             try Tune(id: "t1", title: "Silver Spear").insert(db)
-            try loggedTake("r1", tuneID: "t1").insert(db)
+            try loggedRecording("r1", tuneID: "t1").insert(db)
             try link("l1").insert(db)
         }
         let writer = ActivityWriter.store(store)
@@ -583,7 +584,7 @@ private final class EndedPlays {
         let fixture = ActivityFixture()
         try await fixture.playRecording("r1")
         fixture.clock.advance(3_000)
-        fixture.player.play(.recording(loggedTake("r2"), tuneTitle: nil))
+        fixture.player.play(.recording(loggedRecording("r2"), tuneTitle: nil))
         try await waitFor { fixture.sent("playback_ended").count == 1 }
         let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["listened_bucket"] == .string("<10s"))
@@ -663,7 +664,7 @@ private final class EndedPlays {
 
     @Test func aSingleListRowPlayIsNotAPlaylist() async throws {
         let fixture = ActivityFixture()
-        fixture.player.play(.recording(loggedTake(), tuneTitle: nil), origin: .list(id: "list1"), source: .list)
+        fixture.player.play(.recording(loggedRecording(), tuneTitle: nil), origin: .list(id: "list1"), source: .list)
         try await waitFor { fixture.audio.isPlaying }
         try await fixture.heard(playing: true)
         fixture.clock.advance(12_000)
@@ -716,8 +717,8 @@ private final class EndedPlays {
         let store = try root.open()
         try await store.database.write { db in
             try Tune(id: "t1", title: "Silver Spear").insert(db)
-            try loggedTake("r1", tuneID: "t1").insert(db)
-            try loggedTake("r2", tuneID: nil).insert(db)
+            try loggedRecording("r1", tuneID: "t1").insert(db)
+            try loggedRecording("r2", tuneID: nil).insert(db)
         }
         let fixture = ActivityFixture()
         fixture.player.activityWriter = .store(store)

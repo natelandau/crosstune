@@ -62,7 +62,7 @@ import Testing
         #expect(tuneID == listTuneID)
     }
 
-    @Test func refiledTakeReadsItsNewTune() async throws {
+    @Test func refiledRecordingReadsItsNewTune() async throws {
         let store = try await store()
         let item = recordingItem(0)
         var refiled = try #require(item.recording)
@@ -75,7 +75,7 @@ import Testing
         #expect(tuneID == newTuneID)
     }
 
-    @Test func unfiledTakeHasNoReading() async throws {
+    @Test func unfiledRecordingHasNoReading() async throws {
         let store = try await store()
         let index = try #require(SampleCatalog.recordings.firstIndex { $0.id.contains("processing") })
         let item = recordingItem(index)

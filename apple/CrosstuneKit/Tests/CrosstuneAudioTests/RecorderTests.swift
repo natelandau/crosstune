@@ -72,7 +72,7 @@ final class ChannelSetting {
         #expect(recorder.levelCount == 0)
     }
 
-    @Test func stoppingSavesTheTakeAsARecordingUnderItsTune() async throws {
+    @Test func stoppingSavesTheRecordingUnderItsTune() async throws {
         let (tuneID, _) = try await Commands(store: store).createTune(
             TuneInput(title: "Soldier's Joy"), userTune: UserTuneInput(status: "known"))
         await recorder.start(tuneID: tuneID)
@@ -92,7 +92,7 @@ final class ChannelSetting {
         #expect(fileExists(CaptureFinisher(store: store).finishedURL(saved)))
     }
 
-    @Test func aPhoneCallPausesTheTakeAndOffersResumeOnceItEnds() async throws {
+    @Test func aPhoneCallPausesTheRecordingAndOffersResumeOnceItEnds() async throws {
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
 
@@ -198,7 +198,7 @@ final class ChannelSetting {
         await recorder.discard()
     }
 
-    @Test func stoppingWhileTheMicrophoneResumesKeepsTheTakeStopped() async throws {
+    @Test func stoppingWhileTheMicrophoneResumesKeepsTheRecordingStopped() async throws {
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
         input.send(.interrupted)
@@ -232,7 +232,7 @@ final class ChannelSetting {
         #expect(recorder.errorMessage == nil)
     }
 
-    @Test func aResumeThatFailsSaysTheMicrophoneFailedAndKeepsTheTakePaused() async throws {
+    @Test func aResumeThatFailsSaysTheMicrophoneFailedAndKeepsTheRecordingPaused() async throws {
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
         input.send(.interrupted)
@@ -243,10 +243,10 @@ final class ChannelSetting {
 
         #expect(recorder.state == .paused)
         #expect(recorder.errorMessage == Recorder.microphoneFailed)
-        #expect(await recorder.stop() != nil, "the take so far can still be saved")
+        #expect(await recorder.stop() != nil, "the recording so far can still be saved")
     }
 
-    @Test func aTakeCanBeStoppedWhilePaused() async throws {
+    @Test func aRecordingCanBeStoppedWhilePaused() async throws {
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
         input.send(.interrupted)
@@ -265,7 +265,7 @@ final class ChannelSetting {
         #expect(recorder.errorMessage == Recorder.partialSave)
     }
 
-    @Test func aTakeStopsAndSavesAtTheSizeLimit() async throws {
+    @Test func aRecordingStopsAndSavesAtTheSizeLimit() async throws {
         let maxFileBytes = 100_000
         try await store.setMeta(
             .storage, to: StorageUsage(usedBytes: 0, quotaBytes: 1_000_000, maxFileBytes: maxFileBytes))
@@ -286,7 +286,7 @@ final class ChannelSetting {
         #expect(Double(bytes) > Double(maxFileBytes) * 0.9)
     }
 
-    @Test func stoppingATakeWithNoAudioSaysNothingWasRecorded() async throws {
+    @Test func stoppingARecordingWithNoAudioSaysNothingWasRecorded() async throws {
         await recorder.start(tuneID: nil)
 
         #expect(await recorder.stop() == nil)
@@ -376,7 +376,7 @@ final class ChannelSetting {
         #expect(files.isEmpty)
     }
 
-    @Test func launchRecoveryLeavesTheLiveTakeAlone() async throws {
+    @Test func launchRecoveryLeavesTheLiveRecordingAlone() async throws {
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
 
@@ -420,7 +420,7 @@ final class ChannelSetting {
         #expect(clock.requested.isEmpty)
     }
 
-    @Test func aFixStillPendingAtStopIsWrittenToTheSavedTakeOnceItSettles() async throws {
+    @Test func aFixStillPendingAtStopIsWrittenToTheSavedRecordingOnceItSettles() async throws {
         let fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
         location.fix = fix
         location.holds = true
@@ -512,7 +512,7 @@ final class ChannelSetting {
         #expect(row.placeAccuracyM == nil)
     }
 
-    @Test func aNewTakeLeavesThePreviousTakesLateFixToLand() async throws {
+    @Test func aNewRecordingLeavesThePreviousRecordingsLateFixToLand() async throws {
         let fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
         location.fix = fix
         location.holds = true
@@ -598,7 +598,7 @@ final class ChannelSetting {
 
 @MainActor
 @Suite struct RecorderStartTests {
-    @Test func aSecondStartWhileTheFirstIsUnderWayBeginsNoSecondTake() async throws {
+    @Test func aSecondStartWhileTheFirstIsUnderWayBeginsNoSecondRecording() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let recorder = Recorder(store: store, input: FakeInput(), channels: { .mono })

@@ -53,7 +53,7 @@ function listOf(origin: PlayOrigin, report: PlayAttribution): { list_id?: string
   return report.source === 'list' && origin.listId ? { list_id: origin.listId } : {}
 }
 
-/** A recording without its row reads as a take, the commonest kind. */
+/** A recording without its row reads as `recorded`, the commonest kind. */
 function recordingKind(row: { source: string } | undefined): Kind {
   return row ? recordingOrigin(row) : 'recorded'
 }

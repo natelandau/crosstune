@@ -407,7 +407,7 @@ function TuneSections({
   media: ReturnType<typeof useTuneMedia>
   scans: TuneScansParts
   recordAvailable: boolean
-  /** Opens the recorder, filing the take under this tune. */
+  /** Opens the recorder, filing the recording under this tune. */
   onRecord: () => void
   /** Opens the tune form at its lyrics, where they are written and edited. */
   onEditLyrics: () => void

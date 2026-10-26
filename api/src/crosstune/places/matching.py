@@ -1,4 +1,4 @@
-"""Link a take's coordinates to a saved place."""
+"""Link a recording's coordinates to a saved place."""
 
 from __future__ import annotations
 
@@ -102,8 +102,8 @@ async def matching_place_id(
     return near[0] if len(near) == 1 else None
 
 
-async def link_earlier_takes(session: AsyncSession, place: Place) -> int:
-    """Link the user's unlinked device and file takes whose only saved place is this one.
+async def link_earlier_recordings(session: AsyncSession, place: Place) -> int:
+    """Link the user's unlinked device and file recordings whose only saved place is this one.
 
     Takes the same server_seq bump as any server write and leaves `updated_at` alone.
 
@@ -122,8 +122,8 @@ async def link_earlier_takes(session: AsyncSession, place: Place) -> int:
     recordings = rows.all()
     if not recordings:
         return 0
-    # A take this place matches lies within one radius of it, so every other place that take
-    # matches lies within two, and one read of them serves every take.
+    # A recording this place matches lies within one radius of it, so every other place that
+    # recording matches lies within two, and one read of them serves every recording.
     neighbors = (
         await session.execute(
             select(Place.id, Place.lat, Place.lon).where(
@@ -156,10 +156,10 @@ async def link_earlier_takes(session: AsyncSession, place: Place) -> int:
 async def rematch_neighbor_places(
     session: AsyncSession, *, user_id: uuid.UUID, lat: float, lon: float
 ) -> int:
-    """Link earlier takes to every live saved place that shares takes with a point's match radius.
+    """Link earlier recordings to each live place that shares them with a point's match radius.
 
-    A take matches no place while two lie within its radius, so removing a place at this
-    point can leave a neighbor as some take's only match. Such a neighbor lies within two
+    A recording matches no place while two lie within its radius, so removing a place at this
+    point can leave a neighbor as some recording's only match. Such a neighbor lies within two
     match radii of the point.
 
     Returns:
@@ -175,7 +175,7 @@ async def rematch_neighbor_places(
     linked = 0
     for place in rows.all():
         if distance_m(lat, lon, place.lat, place.lon) <= 2 * MATCH_RADIUS_M:
-            linked += await link_earlier_takes(session, place)
+            linked += await link_earlier_recordings(session, place)
     return linked
 
 

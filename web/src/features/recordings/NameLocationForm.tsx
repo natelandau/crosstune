@@ -6,7 +6,7 @@ import { LocationRow } from './LocationRows'
 import { LOCATION_NAME_LABEL, NAME_LOCATION_HELP, SAVED_HERE } from './recordingsCopy'
 
 /**
- * Names the take's point: the saved locations already within 30 m first, so reusing one is one
+ * Names the recording's point: the saved locations already within 30 m first, so reusing one is one
  * press, then a name field that saves a new one. Nothing is written until the edit sheet saves.
  */
 export function NameLocationForm({

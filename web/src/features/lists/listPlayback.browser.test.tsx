@@ -63,7 +63,7 @@ const AT = '2026-01-01T00:00:00.000Z'
 const TITLES = { t1: 'Old Joe Clark', t2: 'Forked Deer', t3: "Soldier's Joy" } as const
 type TuneId = keyof typeof TITLES
 
-/** How each tune of Thursday jam plays: a take this device holds, a take only the server
+/** How each tune of Thursday jam plays: a recording this device holds, a recording only the server
  * holds, a link only, or nothing at all. */
 type Media = 'held' | 'server' | 'link' | 'none'
 
@@ -275,7 +275,7 @@ it('keeps the queue controls off the phone bar and in practice', async () => {
   await expect.element(page.getByRole('dialog', { name: `${TITLES.t3} take` })).toBeVisible()
 })
 
-/** The list playing on the phone, with full-screen practice open on its first take. */
+/** The list playing on the phone, with full-screen practice open on its first recording. */
 async function phonePractice(
   media: Record<TuneId, Media> = ALL_HELD,
   options: { download?: () => Promise<Blob | null> } = {},
@@ -283,9 +283,9 @@ async function phonePractice(
   const app = await mount(PHONE, media, options)
   await startList()
   await player()
-    .getByRole('button', { name: OPEN_RECORDING(take('t1')) })
+    .getByRole('button', { name: OPEN_RECORDING(recordingLabel('t1')) })
     .click()
-  await expect.element(page.getByRole('dialog', { name: take('t1') })).toBeVisible()
+  await expect.element(page.getByRole('dialog', { name: recordingLabel('t1') })).toBeVisible()
   return app
 }
 
@@ -299,8 +299,8 @@ it("reads the list's place under the title in phone practice, with no header ski
   expect(header.getByRole('button', { name: NEXT_TUNE }).query()).toBeNull()
   await page.getByRole('dialog').getByRole('button', { name: NEXT_TUNE }).click()
   await expect.poll(subtitle).toBe(listPosition('Thursday jam', 2, 3))
-  // Practice has read the next take and its audio plays, so nothing is left writing.
-  await expect.element(page.getByRole('dialog', { name: take('t2') })).toBeVisible()
+  // Practice has read the next recording and its audio plays, so nothing is left writing.
+  await expect.element(page.getByRole('dialog', { name: recordingLabel('t2') })).toBeVisible()
   await expect.poll(() => engine.getState().playing).toBe(true)
 })
 
@@ -308,10 +308,10 @@ it('keeps focus on Next tune in phone practice as the list moves on', async () =
   await phonePractice()
   const next = page.getByRole('dialog').getByRole('button', { name: NEXT_TUNE })
   await next.click()
-  await expect.element(page.getByRole('dialog', { name: take('t2') })).toBeVisible()
+  await expect.element(page.getByRole('dialog', { name: recordingLabel('t2') })).toBeVisible()
   await expect.poll(() => document.activeElement?.getAttribute('aria-label')).toBe(NEXT_TUNE)
   await next.click()
-  await expect.element(page.getByRole('dialog', { name: take('t3') })).toBeVisible()
+  await expect.element(page.getByRole('dialog', { name: recordingLabel('t3') })).toBeVisible()
   await expect.poll(() => document.activeElement?.getAttribute('aria-label')).toBe(NEXT_TUNE)
 })
 
@@ -322,14 +322,14 @@ it('keeps focus on Play in phone practice when a tune ends and the list moves on
   await dialog.getByRole('button', { name: PLAY, exact: true }).click()
   await expect.poll(() => document.activeElement?.getAttribute('aria-label')).toBe(PAUSE)
   endTune()
-  await expect.element(page.getByRole('dialog', { name: take('t2') })).toBeVisible()
+  await expect.element(page.getByRole('dialog', { name: recordingLabel('t2') })).toBeVisible()
   await expect
     .poll(() => document.activeElement?.closest('[data-focus-key]')?.getAttribute('data-focus-key'))
     .toBe('play')
 })
 
-/** Phone practice whose second take only the server holds, its download held until
- * `release`, playing the first take with focus on Pause. */
+/** Phone practice whose second recording only the server holds, its download held until
+ * `release`, playing the first recording with focus on Pause. */
 async function heldPhonePractice() {
   let land: (blob: Blob) => void = () => {}
   const held = new Promise<Blob | null>((resolve) => {
@@ -343,7 +343,7 @@ async function heldPhonePractice() {
   await dialog.getByRole('button', { name: PAUSE }).click()
   await dialog.getByRole('button', { name: PLAY, exact: true }).click()
   await expect.poll(() => document.activeElement?.getAttribute('aria-label')).toBe(PAUSE)
-  /** The download lands, storing the take's audio as the sync engine does. */
+  /** The download lands, storing the recording's audio as the sync engine does. */
   const release = async () => {
     const blob = new Blob(['x'], { type: 'audio/mp4' })
     await app.db.recording_files.put(recordingFile('r-t2', { blob, local_duration_ms: 3000 }))
@@ -378,11 +378,11 @@ function watchFocus() {
   }
 }
 
-it('holds focus on Play in phone practice while the next take loads', async () => {
+it('holds focus on Play in phone practice while the next recording loads', async () => {
   const { engine, endTune, release } = await heldPhonePractice()
   const focus = watchFocus()
   endTune()
-  await expect.element(page.getByRole('dialog', { name: take('t2') })).toBeVisible()
+  await expect.element(page.getByRole('dialog', { name: recordingLabel('t2') })).toBeVisible()
   await expect.poll(focusKey).toBe('play')
   focus.stop()
   expect(focus.seen.length).toBeGreaterThan(0)
@@ -392,10 +392,10 @@ it('holds focus on Play in phone practice while the next take loads', async () =
   await expect.poll(() => document.activeElement?.getAttribute('aria-label')).toBe(PAUSE)
 })
 
-it('leaves phone practice open when Space is pressed while the next take loads', async () => {
+it('leaves phone practice open when Space is pressed while the next recording loads', async () => {
   const { engine, endTune, release } = await heldPhonePractice()
   endTune()
-  const next = page.getByRole('dialog', { name: take('t2') })
+  const next = page.getByRole('dialog', { name: recordingLabel('t2') })
   await expect.element(next).toBeVisible()
   // Space reaches whatever holds focus, so it must be Play, which ignores it, and not Close.
   await expect.poll(focusKey).toBe('play')
@@ -408,10 +408,10 @@ it('leaves phone practice open when Space is pressed while the next take loads',
   await expect.element(next).toBeVisible()
 })
 
-it('leaves focus where it was moved while the next take loads in phone practice', async () => {
+it('leaves focus where it was moved while the next recording loads in phone practice', async () => {
   const { engine, endTune, release } = await heldPhonePractice()
   endTune()
-  await expect.element(page.getByRole('dialog', { name: take('t2') })).toBeVisible()
+  await expect.element(page.getByRole('dialog', { name: recordingLabel('t2') })).toBeVisible()
   await userEvent.keyboard('{Tab}')
   await expect.poll(focusKey).not.toBe('play')
   const moved = document.activeElement
@@ -528,7 +528,7 @@ it('says nothing is left on the phone bar, and Close clears it', async () => {
   await expect.element(bar).not.toBeInTheDocument()
 })
 
-it('clears what the stopped list said once a take starts', async () => {
+it('clears what the stopped list said once a recording starts', async () => {
   fakeMediaForTest()
   await mount(WIDE, { t1: 'server', t2: 'server', t3: 'link' }, { download: async () => null })
   await expect.element(page.getByRole('button', { name: willPlayLabel(2, 3) })).toBeVisible()
@@ -536,11 +536,11 @@ it('clears what the stopped list said once a take starts', async () => {
   await expect.element(player().getByText(NOTHING_LEFT)).toBeVisible()
   await page.getByRole('button', { name: RECORD_LABEL }).click()
   await expect.element(page.getByRole('dialog', { name: NEW_RECORDING })).toBeVisible()
-  // Behind the sheet too, so the bar never comes back saying it once the take is done.
+  // Behind the sheet too, so the bar never comes back saying it once the recording is done.
   await expect.poll(() => document.body.textContent?.includes(NOTHING_LEFT)).toBe(false)
 })
 
-it('disables Play and Shuffle while a take records', async () => {
+it('disables Play and Shuffle while a recording is under way', async () => {
   fakeMediaForTest()
   await mount(WIDE, ONE_LINK)
   await expect.element(playButton()).toBeEnabled()
@@ -551,14 +551,14 @@ it('disables Play and Shuffle while a take records', async () => {
   await expect.element(page.getByRole('button', { name: SHUFFLE, ...hidden })).toBeDisabled()
 })
 
-const take = (id: TuneId) => `${TITLES[id]} take`
+const recordingLabel = (id: TuneId) => `${TITLES[id]} take`
 
-/** Practice on the list's first take, opened from the dock, then Trim from More. */
+/** Practice on the list's first recording, opened from the dock, then Trim from More. */
 async function openTrim(engine: ReturnType<typeof fakePlaybackEngine>) {
   await player()
-    .getByRole('button', { name: OPEN_RECORDING(take('t1')) })
+    .getByRole('button', { name: OPEN_RECORDING(recordingLabel('t1')) })
     .click()
-  const practice = page.getByRole('dialog', { name: take('t1') })
+  const practice = page.getByRole('dialog', { name: recordingLabel('t1') })
   await practice.getByRole('button', { name: MORE_ACTIONS }).click()
   await page.getByRole('menuitem', { name: TRIM }).click()
   const start = page.getByRole('dialog', { name: TRIM }).getByRole('slider', { name: START_HANDLE })
@@ -582,10 +582,12 @@ it('holds the list at the end of a tune being trimmed, and saves its own trim', 
   await question.getByRole('button', { name: TRIM_CONFIRM_ACTION }).click()
   await expect.poll(async () => (await db.recordings.get('r-t1'))?.trim_start_ms).toBe(1000)
   expect((await db.recordings.get('r-t2'))?.trim_start_ms).toBe(0)
-  // Back in practice on the same take: had the list moved on, practice would have closed.
+  // Back in practice on the same recording: had the list moved on, practice would have closed.
   await expect
     .element(
-      page.getByRole('dialog', { name: take('t1') }).getByRole('button', { name: MORE_ACTIONS }),
+      page
+        .getByRole('dialog', { name: recordingLabel('t1') })
+        .getByRole('button', { name: MORE_ACTIONS }),
     )
     .toBeVisible()
   await expect.element(row('t1', { includeHidden: true })).toHaveAttribute('data-playing')
@@ -595,15 +597,15 @@ it('holds the list at the end of a tune whose Edit sheet is open, keeping what w
   const { db, engine, endTune } = await mount(WIDE, ALL_HELD)
   await startList()
   await player()
-    .getByRole('button', { name: OPEN_RECORDING(take('t1')) })
+    .getByRole('button', { name: OPEN_RECORDING(recordingLabel('t1')) })
     .click()
-  const practice = page.getByRole('dialog', { name: take('t1') })
+  const practice = page.getByRole('dialog', { name: recordingLabel('t1') })
   await expect.poll(() => engine.getState().playing).toBe(true)
   await practice.getByRole('button', { name: MORE_ACTIONS }).click()
   await page.getByRole('menuitem', { name: EDIT }).click()
   const sheet = page.getByRole('dialog', { name: EDIT_RECORDING_TITLE })
   const name = sheet.getByRole('textbox', { name: RECORDING_NAME_LABEL })
-  await expect.element(name).toHaveValue(take('t1'))
+  await expect.element(name).toHaveValue(recordingLabel('t1'))
   await name.fill('Slow take')
   endTune()
   // The end has reached the engine, so the list has had its chance to move on.
@@ -615,7 +617,7 @@ it('holds the list at the end of a tune whose Edit sheet is open, keeping what w
   await expect.element(held).toBeVisible()
   // Next lands on the second tune only if the end did not already move the list on.
   await held.getByRole('button', { name: NEXT_TUNE }).click()
-  await expect.element(page.getByRole('dialog', { name: take('t2') })).toBeVisible()
+  await expect.element(page.getByRole('dialog', { name: recordingLabel('t2') })).toBeVisible()
 })
 
 it('follows a playing list in practice without carrying over what it said', async () => {
@@ -623,10 +625,10 @@ it('follows a playing list in practice without carrying over what it said', asyn
   await startList()
   await openTrim(engine)
   await db.recordings.update('r-t1', { trim_start_ms: 500 })
-  const first = page.getByRole('dialog', { name: take('t1') })
+  const first = page.getByRole('dialog', { name: recordingLabel('t1') })
   await expect.element(first.getByText(TRIM_CHANGED_ELSEWHERE)).toBeVisible()
   endTune()
-  const second = page.getByRole('dialog', { name: take('t2') })
+  const second = page.getByRole('dialog', { name: recordingLabel('t2') })
   await expect.element(second).toBeVisible()
   await expect.element(second.getByText(TRIM_CHANGED_ELSEWHERE)).not.toBeInTheDocument()
 })

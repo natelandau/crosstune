@@ -379,7 +379,7 @@ async def test_an_error_while_reaching_back_keeps_place_coordinates_out_of_sentr
             headers=headers,
         )
     sentry_sdk.flush()
-    [linking] = [f for f in _frames(live_sentry) if f["function"] == "link_earlier_takes"]
+    [linking] = [f for f in _frames(live_sentry) if f["function"] == "link_earlier_recordings"]
     assert linking["vars"]
     sent = _sent_event(live_sentry)
     for text in _CONTENT_TEXT:

@@ -87,7 +87,7 @@ public final class CrosstuneStore: Sendable {
     /// recovery has run.
     ///
     /// Only files already there when the store opened are candidates, so an import, download,
-    /// scan, or take written since, whose row lands after its file, is never touched. A capture
+    /// scan, or recording written since, whose row lands after its file, is never touched. A capture
     /// is left for recovery, and so is the finished file of a row still capturing, which
     /// recovery records.
     public func deleteUnnamedFiles() async {

@@ -76,7 +76,7 @@ function heldRead(readDb: CrosstuneDb, listId: string) {
   return read
 }
 
-/** Thursday jam: three tunes, each with one take this device holds. */
+/** Thursday jam: three tunes, each with one recording this device holds. */
 async function seedList() {
   const row = { created_at: AT, updated_at: AT, deleted_at: null, server_seq: 0 }
   const list: LocalList = { id: 'l1', ...row, name: 'Thursday jam', position: 0 }
@@ -278,7 +278,7 @@ describe('ListPlayback', () => {
     expect(loadedId()).toBe('r-t1')
   })
 
-  it("plays a tune's own take before an imported one placed ahead of it", async () => {
+  it("plays a tune's own recording before an imported one placed ahead of it", async () => {
     await db.recordings.put(
       recordingRow('r-t1-imported', {
         tune_id: 't1',

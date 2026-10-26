@@ -243,7 +243,8 @@ export class CrosstuneDb extends Dexie {
       .upgrade(repull)
 
     // A recording's one date splits in two. It always said when the row was added; it says
-    // when the music was played only for a take, the one source captured as it was played.
+    // when the music was played only for a microphone recording, the one source captured as it
+    // was played.
     this.version(12)
       .stores({})
       .upgrade(async (tx) => {

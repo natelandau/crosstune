@@ -90,7 +90,7 @@ import Testing
         #expect(names(layout) == ["Play"])
     }
 
-    @Test func dropsPlayAndPracticeWhileATakeIsRecording() {
+    @Test func dropsPlayAndPracticeWhileARecordingIsUnderWay() {
         #expect(buttons(detail(recordings: [recording(held: true)]), capturing: true) == .buttons([]))
         #expect(names(buttons(detail(links: [page()]), capturing: true)) == ["Open"])
     }
@@ -141,7 +141,7 @@ import Testing
         #expect(names(buttons(detail(links: [video()]), loaded: ["l1"])).first == "Stop")
     }
 
-    @Test func offersNoPlayWhileTheTakeDownloads() {
+    @Test func offersNoPlayWhileTheRecordingDownloads() {
         let downloading = TuneRecording(
             recording: Recording(id: "r1", tuneID: tune.id, source: "microphone", state: "ready"),
             file: RecordingFile(id: "r1", localState: .downloading))

@@ -256,7 +256,7 @@ public final class ListPlayback: PlayerQueue {
         title = resolved.title
         // The bar's title and subtitle change together, once the tune is the one held.
         position = order?.position ?? 0
-        // Refused while a take is recording, or for a recording the plan holds back, either of
+        // Refused while a recording is under way, or for a recording the plan holds back, either of
         // which the playlist gives way to.
         let origin = listID.map { PlayOrigin.list(id: $0) } ?? .dock
         let nowPlaying = NowPlaying(title: resolved.title, tuneTitle: listName)

@@ -785,7 +785,7 @@ describe('schema', () => {
       return row as { id: string; updated_at: string }
     }
     const rows = [
-      legacy('take', 'microphone', '2026-01-01T12:00:00.000Z'),
+      legacy('microphone', 'microphone', '2026-01-01T12:00:00.000Z'),
       legacy('upload', 'upload', '2026-02-01T12:00:00.000Z'),
       legacy('import', 'import', '2026-03-01T12:00:00.000Z'),
     ]
@@ -812,7 +812,7 @@ describe('schema', () => {
     try {
       await opened.open()
       const expected = {
-        take: {
+        microphone: {
           added_at: '2026-01-01T12:00:00.000Z',
           recorded_at: '2026-01-01T12:00:00.000Z',
           recorded_precision: 'time',

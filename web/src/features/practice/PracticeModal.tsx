@@ -77,7 +77,7 @@ export function PracticeModal({ id, onClose }: { id: string; onClose: () => void
   const reduceMotion = useReducedMotionConfig() ?? false
   const state = usePracticeOverlayView(id)
   const { view, title, subtitle, shows } = state
-  // A take practiced with the device propped up with the hands on the violin, must not dim.
+  // A recording practiced with the device propped up with the hands on the violin, must not dim.
   useWakeLock(true)
   const playback = useListPlayback()
   const listed = playback.active?.message === null ? playback.active : null

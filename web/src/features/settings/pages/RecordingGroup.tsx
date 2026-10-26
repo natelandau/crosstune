@@ -12,7 +12,7 @@ import { SETTINGS_GROUPS } from '../settingsPaths'
 const QUALITY_OPTIONS = AUDIO_QUALITIES.map((id) => ({ id, label: QUALITY_LABELS[id] }))
 
 /**
- * The quality a recording captures at, and a note while the browser keeps takes from saving
+ * The quality a recording captures at, and a note while the browser keeps recordings from saving
  * where they were made. The web records one channel, so it has no Channels.
  */
 export function RecordingGroup({ audio }: { audio: RecordingSettings }) {

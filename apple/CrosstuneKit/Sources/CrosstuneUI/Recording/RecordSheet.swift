@@ -2,8 +2,8 @@ import CrosstuneAnalytics
 import CrosstuneAudio
 import SwiftUI
 
-/// Records one take over whatever screen is open, so finishing returns the musician to where
-/// they were. A live take refuses a swipe away; Stop and Cancel are the ways out.
+/// Records one recording over whatever screen is open, so finishing returns the musician to where
+/// they were. A live recording refuses a swipe away; Stop and Cancel are the ways out.
 public struct RecordSheet: View {
     private let model: RecordSheetModel
     private let claim: @MainActor () -> Bool
@@ -15,7 +15,7 @@ public struct RecordSheet: View {
         self.claim = claim
     }
 
-    /// The line naming the tune a take is filed under.
+    /// The line naming the tune a recording is filed under.
     public static func filingUnder(_ title: String) -> String {
         "Filing under \(title)"
     }
@@ -62,8 +62,8 @@ public struct RecordSheet: View {
             minWidth: MacStyle.recordPanelWidth, idealWidth: MacStyle.recordPanelWidth, minHeight: 440,
             idealHeight: 480)
 
-        /// The take's state names the sheet, so no status line repeats it; the location note
-        /// before the first take keeps the sheet's own name.
+        /// The recording's state names the sheet, so no status line repeats it; the location note
+        /// before the first recording keeps the sheet's own name.
         static func macTitle(asksLocation: Bool, status: String) -> String {
             asksLocation ? RecordSheetModel.title : status
         }
@@ -72,7 +72,7 @@ public struct RecordSheet: View {
             Self.macTitle(asksLocation: model.asksLocation, status: model.status)
         }
 
-        /// Continue, which shows the location prompt, while the note before the first take shows;
+        /// Continue, which shows the location prompt, while the note before the first recording shows;
         /// afterward the sheet has no primary and Stop takes Return.
         static func macPrimary(
             asksLocation: Bool, isContinuing: Bool, action: @escaping @MainActor () -> Void
@@ -91,8 +91,8 @@ public struct RecordSheet: View {
     #endif
 }
 
-/// What the sheet does around its take on both platforms: the discard question, the claim on
-/// the recorder, and closing once the take has an outcome.
+/// What the sheet does around its recording on both platforms: the discard question, the claim on
+/// the recorder, and closing once the recording has an outcome.
 private struct RecordSheetLifecycle: ViewModifier {
     let model: RecordSheetModel
     let claim: @MainActor () -> Bool
@@ -123,7 +123,7 @@ private struct RecordSheetLifecycle: ViewModifier {
 }
 
 #if os(macOS)
-    /// The pulsing red dot on the Mac sheet's title line while a take is under way.
+    /// The pulsing red dot on the Mac sheet's title line while a recording is under way.
     private struct RecordingDot: View {
         let model: RecordSheetModel
 
@@ -296,7 +296,7 @@ struct RecordSheetBody: View {
 }
 
 #if os(macOS)
-    /// Says why the take will ask for location, ahead of the system prompt, laid out as a notice:
+    /// Says why the recording will ask for location, ahead of the system prompt, laid out as a notice:
     /// the glyph leading, the headline, and the reason under it. The footer's Continue shows the
     /// prompt.
     private struct MacLocationNote: View {
@@ -324,7 +324,7 @@ struct RecordSheetBody: View {
 #endif
 
 #if os(iOS)
-    /// Says why the take will ask for location, ahead of the system prompt, which Continue shows.
+    /// Says why the recording will ask for location, ahead of the system prompt, which Continue shows.
     private struct LocationNoteCard: View {
         let model: RecordSheetModel
 
@@ -358,7 +358,7 @@ struct RecordSheetBody: View {
     }
 #endif
 
-/// The take's length, read apart from the sheet, since the recorder moves it on with every
+/// The recording's length, read apart from the sheet, since the recorder moves it on with every
 /// buffer it captures.
 private struct RecordTimer: View {
     let model: RecordSheetModel

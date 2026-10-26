@@ -234,10 +234,10 @@ enum MenuCommandAvailability {
         isShown && !sheetsOpen && !selecting && hasRows
     }
 
-    /// Record opens its sheet, unless a sheet or dialog is up, a screen is selecting, a take is
-    /// already asked for, or some window's take has the microphone.
-    static func record(sheetsOpen: Bool, selecting: Bool, takePending: Bool, capturing: Bool) -> Bool {
-        !sheetsOpen && !selecting && !takePending && !capturing
+    /// Record opens its sheet, unless a sheet or dialog is up, a screen is selecting, a recording is
+    /// already asked for, or some window's recording has the microphone.
+    static func record(sheetsOpen: Bool, selecting: Bool, recordingPending: Bool, capturing: Bool) -> Bool {
+        !sheetsOpen && !selecting && !recordingPending && !capturing
     }
 
     /// The player's commands and the destination commands act unless a sheet or dialog is up,

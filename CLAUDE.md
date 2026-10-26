@@ -56,6 +56,10 @@ against production, such as granting a comp or a trial.
   a button is a button, a toolbar is a toolbar. No metaphor, and no coined
   term that needs a glossary. The glossary's terms are the only project
   vocabulary.
+- No metaphor, colloquialism, idiom, or slang in code, comments, docs, or
+  user-facing copy unless explicitly asked for: "is disabled", not "stands
+  down"; "recording", not "take". Plain words survive translation and a
+  reader new to the project.
 
 ## Task runner
 

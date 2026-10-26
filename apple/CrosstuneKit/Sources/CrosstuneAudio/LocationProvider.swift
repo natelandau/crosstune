@@ -8,7 +8,7 @@ import Observation
     import UIKit
 #endif
 
-/// Where the device is, asked for once as a take starts.
+/// Where the device is, asked for once as a recording starts.
 @MainActor
 public protocol LocationProvider: AnyObject {
     /// The device's position with its reported accuracy, or nil when location is refused,
@@ -36,10 +36,10 @@ public final class DeviceLocationProvider: NSObject, LocationProvider {
     typealias Sleep = @MainActor (Duration) async throws -> Void
 
     /// How long a granted request waits for a fix, matching the web. Time on the permission
-    /// prompt does not count, so a slow answer to it does not cost the take its place.
+    /// prompt does not count, so a slow answer to it does not cost the recording its place.
     static let fixTimeout: Duration = .seconds(30)
     /// The oldest fix the system holds that a request takes instead of asking anew, matching
-    /// the web's `maximumAge`. A fix takes seconds to settle, so a short take would otherwise
+    /// the web's `maximumAge`. A fix takes seconds to settle, so a short recording would otherwise
     /// end before one does.
     static let heldFixMaximumAge: TimeInterval = 60
     /// A wider fix is stored as this, the widest accuracy the API takes.

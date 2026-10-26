@@ -1,4 +1,4 @@
-"""Operator command that renames existing takes with the street-address naming rules.
+"""Operator command that renames existing recordings with the street-address naming rules.
 
 Run as `just api::places rename-automatic`. It re-looks-up every live recording whose
 coordinates came from a device fix or a file and whose name the server wrote, at a paced rate that
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 DEFAULT_PER_SECOND = 2.0
-# A busy Maps key is waited out this many times for one take before it counts as failed.
+# A busy Maps key is waited out this many times for one recording before it counts as failed.
 _BUSY_ATTEMPTS = 3
 _MAX_BUSY_WAIT_SECONDS = 300.0
 _OUTAGE_WAIT_SECONDS = 5.0
@@ -54,7 +54,7 @@ class _Namer(Protocol):
 
 @dataclass(slots=True)
 class RenameCounts:
-    """What a run did: renamed (or would rename), unchanged, skipped, and failed takes."""
+    """What a run did: renamed (or would rename), unchanged, skipped, and failed recordings."""
 
     renamed: int = 0
     unchanged: int = 0
@@ -109,7 +109,7 @@ async def _lookup(
     timeout: float,  # noqa: ASYNC109
     sleep: Callable[[float], Awaitable[None]],
 ) -> str | None:
-    """Name one take, waiting out a busy key; raises MapsError when Maps stays unavailable."""
+    """Name one recording, waiting out a busy key; raises MapsError when Maps stays unavailable."""
     for attempt in range(_BUSY_ATTEMPTS):
         try:
             return await maps.reverse_name(
@@ -129,7 +129,7 @@ async def _lookup(
 async def _write(
     sessionmaker: async_sessionmaker[AsyncSession], item: _Candidate, name: str
 ) -> bool:
-    """Store the new name if the take's coordinates and name are what the lookup saw."""
+    """Store the new name if the recording's coordinates and name are what the lookup saw."""
     async with sessionmaker() as session, session.begin():
         await lock_user(session, item.user_id)
         current = await session.get(Recording, item.id, populate_existing=True)
@@ -156,13 +156,13 @@ async def rename_automatic(
     dry_run: bool,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> RenameCounts:
-    """Re-name device-fix takes at `per_second` lookups a second, one take at a time.
+    """Re-name device-fix recordings at `per_second` lookups a second, one recording at a time.
 
-    A Maps outage or rate limit backs off and moves on to the next take, so one bad stretch
+    A Maps outage or rate limit backs off and moves on to the next recording, so one bad stretch
     never aborts the run.
 
     Returns:
-        RenameCounts: How many takes were renamed, left alone, skipped, and failed.
+        RenameCounts: How many recordings were renamed, left alone, skipped, and failed.
     """
     counts = RenameCounts()
     for item in await _candidates(sessionmaker):
@@ -187,7 +187,7 @@ def build_parser() -> argparse.ArgumentParser:
     """The `rename-automatic` subcommand."""
     parser = argparse.ArgumentParser(prog="crosstune.ops.places", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    rename = commands.add_parser("rename-automatic", help="re-name takes the server named")
+    rename = commands.add_parser("rename-automatic", help="re-name recordings the server named")
     rename.add_argument(
         "--per-second", type=float, default=DEFAULT_PER_SECOND, help="lookups a second (default 2)"
     )

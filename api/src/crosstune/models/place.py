@@ -1,4 +1,4 @@
-"""A saved location a user names once and links their takes to."""
+"""A saved location a user names once and links their recordings to."""
 
 from __future__ import annotations
 

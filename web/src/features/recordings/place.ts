@@ -47,7 +47,7 @@ export function recordingPlayers(recordings: LocalRecording[]): string[] {
 
 /**
  * The name to show for a recording's place: its saved location's name while that location is
- * live, else the name the take carries itself, null when it has neither.
+ * live, else the name the recording carries itself, null when it has neither.
  */
 export function shownPlaceName(
   r: LocalRecording,

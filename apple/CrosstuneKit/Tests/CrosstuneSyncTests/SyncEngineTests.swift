@@ -588,7 +588,7 @@ import Testing
 
     // MARK: Plan
 
-    func putTake(_ id: String) async throws {
+    func putRecording(_ id: String) async throws {
         try await store.write { writer in
             try writer.put(
                 Recording(
@@ -601,10 +601,10 @@ import Testing
         try await store.read { db in try StoreWriter.localOnlyRows(in: db) }
     }
 
-    @Test func aFreePlanLeavesALocalOnlyTakeOutButSendsItsDelete() async throws {
+    @Test func aFreePlanLeavesALocalOnlyRecordingOutButSendsItsDelete() async throws {
         try await storeEntitlement(store, source: nil)
         let tune = try await createTune(store, title: "X")
-        try await putTake("r1")
+        try await putRecording("r1")
         try await store.write { writer in try writer.keepLocalUntilSubscribed(["r1"]) }
         let engine = engine()
 
@@ -625,10 +625,10 @@ import Testing
         #expect(try await localOnlyRows().isEmpty)
     }
 
-    @Test func aPremiumPlanJudgedByTheEnginesClockSendsALocalOnlyTake() async throws {
+    @Test func aPremiumPlanJudgedByTheEnginesClockSendsALocalOnlyRecording() async throws {
         // Ended by the real clock, but not by the engine's.
         try await storeEntitlement(store, source: "trial", expiresAt: later(3_600_000))
-        try await putTake("r1")
+        try await putRecording("r1")
         try await store.write { writer in try writer.keepLocalUntilSubscribed(["r1"]) }
         api.respondToPush = { changes in changes.map { PushResult(table: $0.table, id: $0.id, status: .applied) } }
         let engine = engine(now: { noon.date })
@@ -641,9 +641,9 @@ import Testing
         #expect(try await localOnlyRows().isEmpty)
     }
 
-    @Test func aLocalOnlyTakesDeleteTheServerNeverStoredStillReleasesIt() async throws {
+    @Test func aLocalOnlyRecordingsDeleteTheServerNeverStoredStillReleasesIt() async throws {
         try await storeEntitlement(store, source: nil)
-        try await putTake("r1")
+        try await putRecording("r1")
         try await store.write { writer in
             try writer.keepLocalUntilSubscribed(["r1"])
             try writer.tombstone(Recording.self, id: "r1", at: later(1_000))
@@ -659,8 +659,8 @@ import Testing
         #expect(try await localOnlyRows().isEmpty)
     }
 
-    @Test func localOnlyTakesFillingWholeBatchesDoNotStarveTheEditsBehindThem() async throws {
-        for id in ["r1", "r2", "r3"] { try await putTake(id) }
+    @Test func localOnlyRecordingsFillingWholeBatchesDoNotStarveTheEditsBehindThem() async throws {
+        for id in ["r1", "r2", "r3"] { try await putRecording(id) }
         let tune = try await createTune(store, title: "X")
         api.respondToPush = { changes in
             changes.map { change in
@@ -689,8 +689,8 @@ import Testing
         }
     }
 
-    @Test func aLocalOnlyTakesLoopStaysQueuedWithItAndGoesOutOnceReleased() async throws {
-        try await putTake("r1")
+    @Test func aLocalOnlyRecordingsLoopStaysQueuedWithItAndGoesOutOnceReleased() async throws {
+        try await putRecording("r1")
         try await putLoop("l1", on: "r1")
         api.respondToPush = { changes in
             changes.map { change in
@@ -716,10 +716,10 @@ import Testing
         #expect(try await localOnlyRows().isEmpty)
     }
 
-    @Test func aFreePlanLeavesALocalOnlyTakesLoopOut() async throws {
+    @Test func aFreePlanLeavesALocalOnlyRecordingsLoopOut() async throws {
         try await storeEntitlement(store, source: nil)
         let tune = try await createTune(store, title: "X")
-        try await putTake("r1")
+        try await putRecording("r1")
         try await putLoop("l1", on: "r1")
         try await store.write { writer in try writer.keepLocalUntilSubscribed(["r1"]) }
 
@@ -741,7 +741,7 @@ import Testing
     }
 
     /// Refuses every recording as Premium only and every row that names one as missing it.
-    func refuseTakesAndTheirRows() {
+    func refuseRecordingsAndTheirRows() {
         api.respondToPush = { changes in
             changes.map { change in
                 PushResult(
@@ -751,11 +751,11 @@ import Testing
         }
     }
 
-    @Test func aLocalOnlyTakesPlayAndPracticeStayQueuedWithItAndGoOutOnceReleased() async throws {
-        try await putTake("r1")
+    @Test func aLocalOnlyRecordingsPlayAndPracticeStayQueuedWithItAndGoOutOnceReleased() async throws {
+        try await putRecording("r1")
         try await recordPlay(store, id: "e1")
         try await recordPractice("s1", on: "r1")
-        refuseTakesAndTheirRows()
+        refuseRecordingsAndTheirRows()
         let engine = engine()
 
         await engine.sync()
@@ -774,7 +774,7 @@ import Testing
     @Test func aRowMissingARecordingThatIsNotLocalOnlySettles() async throws {
         try await recordPlay(store, id: "e1")
         try await putLoop("l1", on: "r1")
-        refuseTakesAndTheirRows()
+        refuseRecordingsAndTheirRows()
 
         await engine().sync()
 
@@ -783,8 +783,8 @@ import Testing
         #expect(try await store.meta(.invalidChanges, as: Int.self) == 1)
     }
 
-    @Test func aLocalOnlyTakesDeleteReleasesItsRowsInTheSameBatch() async throws {
-        try await putTake("r1")
+    @Test func aLocalOnlyRecordingsDeleteReleasesItsRowsInTheSameBatch() async throws {
+        try await putRecording("r1")
         try await recordPlay(store, id: "e1")
         try await store.write { writer in
             try writer.keepLocalUntilSubscribed(["r1"])
@@ -808,15 +808,15 @@ import Testing
     /// A tune's delete drops its recordings' queued changes rather than queuing their deletes,
     /// as the server's cascade covers them.
     @Test(arguments: [nil, "comp"])
-    func aLocalOnlyTakeDroppedByACascadeLetsItsRowsSettle(source: String?) async throws {
+    func aLocalOnlyRecordingDroppedByACascadeLetsItsRowsSettle(source: String?) async throws {
         try await storeEntitlement(store, source: source)
-        try await putTake("r1")
+        try await putRecording("r1")
         try await recordPlay(store, id: "e1")
         try await store.write { writer in
             try writer.keepLocalUntilSubscribed(["r1"])
             try writer.tombstone(Recording.self, id: "r1", at: later(1_000), enqueueDelete: false)
         }
-        refuseTakesAndTheirRows()
+        refuseRecordingsAndTheirRows()
 
         await engine().sync()
 
@@ -826,7 +826,7 @@ import Testing
     }
 
     @Test func aPushWhoseResultsAreAllKeptLocalEnds() async throws {
-        try await putTake("r1")
+        try await putRecording("r1")
         api.respondToPush = { changes in
             changes.map {
                 PushResult(table: $0.table, id: $0.id, status: .invalid, reason: premiumRequiredReason)

@@ -7,8 +7,8 @@ import Testing
 
 @testable import CrosstuneUI
 
-/// The record sheet reports a take once the microphone is capturing, and how it ended with its
-/// length in a bucket. A take that never captured reports nothing.
+/// The record sheet reports a recording once the microphone is capturing, and how it ended with its
+/// length in a bucket. A recording that never captured reports nothing.
 @MainActor
 @Suite struct RecordingEventTests {
     private let root = TemporaryRoot()
@@ -28,7 +28,7 @@ import Testing
         sink.captures.first { $0.name == "recording_saved" }
     }
 
-    @Test func reportsATakeStartedAndSavedWithItsLength() async throws {
+    @Test func reportsARecordingStartedAndSavedWithItsLength() async throws {
         let model = sheet(source: .menu)
         await model.begin()
         #expect(sink.captures == [.init(name: "recording_started", properties: ["source": .string("menu")])])
@@ -49,7 +49,7 @@ import Testing
             ])
     }
 
-    @Test func aTakeSavedFromATuneIsFiled() async throws {
+    @Test func aRecordingSavedFromATuneIsFiled() async throws {
         let model = sheet(source: .tune, tuneID: "t1")
         await model.begin()
         try input.play(seconds: 5)
@@ -64,7 +64,7 @@ import Testing
             ])
     }
 
-    @Test func aTakeSavedFromTheDockIsNot() async throws {
+    @Test func aRecordingSavedFromTheDockIsNot() async throws {
         let model = sheet()
         await model.begin()
         try input.play(seconds: 5)
@@ -78,7 +78,7 @@ import Testing
             ])
     }
 
-    @Test func reportsATakeDiscardedAfterItCaptured() async throws {
+    @Test func reportsARecordingDiscardedAfterItCaptured() async throws {
         let model = sheet()
         await model.begin()
         try input.play(seconds: 5)
@@ -130,7 +130,7 @@ import Testing
         #expect(sink.captures.map(\.name) == ["recording_started", "recording_saved"])
     }
 
-    @Test func reportsATakeKeptWhenItsSheetIsAbandoned() async throws {
+    @Test func reportsARecordingKeptWhenItsSheetIsAbandoned() async throws {
         let model = sheet()
         await model.begin()
         try input.play(seconds: 0.5)

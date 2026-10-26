@@ -25,7 +25,7 @@ enum ListsPlayability {
 
     /// The report for each list with a tune that plays, by list id. A list missing here offers no
     /// Play. Empty until `snapshot` and `fullTracks` have read, so a count never flashes a
-    /// subscription skip, and while `canStart` is false: a take records, or no playlist player
+    /// subscription skip, and while `canStart` is false: a recording is under way, or no playlist player
     /// is there. `recordingsPlay` false plays no recording, as on a free plan.
     static func reports(
         _ snapshot: Snapshot?, canStart: Bool, fullTracks: Bool?, online: Bool, recordingsPlay: Bool = true

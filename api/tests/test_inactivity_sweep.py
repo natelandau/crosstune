@@ -192,7 +192,7 @@ async def test_warns_then_deletes(
 ) -> None:
     seeded = await seed_user(verify_session, clerk, store)
     await verify_session.execute(
-        update(Recording).where(Recording.id == seeded.recording.id).values(label="Take one")
+        update(Recording).where(Recording.id == seeded.recording.id).values(label="Recording one")
     )
     await verify_session.execute(
         update(RecordingLoop).where(RecordingLoop.id == seeded.loop.id).values(label="B part")

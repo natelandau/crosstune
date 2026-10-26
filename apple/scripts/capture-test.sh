@@ -37,7 +37,7 @@ print(max(ios, key=lambda r: [int(p) for p in r["version"].split(".")])["identif
     # The first keyboard otherwise opens under a swipe-to-type tip.
     xcrun simctl spawn "$device" defaults write com.apple.keyboard.preferences \
         DidShowContinuousPathIntroduction -bool true
-    # Location refused up front, so no take opens on the location note or tags a place.
+    # Location refused up front, so no recording opens on the location note or tags a place.
     xcrun simctl privacy "$device" revoke location app.crosstune.Crosstune
     status_bar "$device" full
     echo "$device"

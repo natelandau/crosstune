@@ -45,7 +45,7 @@ export interface EditRecording {
   /** Whether there is a date for Clear date to clear. */
   canClearDate: boolean
   clearDate: () => void
-  /** The take's exact time, shown only while its date parts are left alone. */
+  /** The recording's exact time, shown only while its date parts are left alone. */
   timeNote: string | null
   dateError: string | null
   notes: string
@@ -58,7 +58,7 @@ export interface EditRecording {
   place: PlaceChoice | null
   /** The line under the location's name: a saved location's address, when it says more. */
   placeAddress: string | null
-  /** The point the map shows, with the take's accuracy, named or not. */
+  /** The point the map shows, with the recording's accuracy, named or not. */
   placePoint: PlacePoint | null
   /** Where Open in Maps goes: the saved location's own point when linked to one. */
   mapsPoint: PlacePoint | null
@@ -72,14 +72,14 @@ export interface EditRecording {
   pickRecent: (place: PlaceChoice) => void
   /** Picks a search result, which saves its venue or street address as a location on Save. */
   pickSearch: (result: PlaceResult) => void
-  /** Links a place near the take; a venue not yet saved is saved at its own point on Save. */
+  /** Links a place near the recording; a venue not yet saved is saved at its own point on Save. */
   pickNearby: (row: NearbyRow) => void
   /**
-   * Links a saved location. From the saved list the take keeps its own coordinates; while
+   * Links a saved location. From the saved list the recording keeps its own coordinates; while
    * naming, it moves to the point picked here, as the name would.
    */
   pickSaved: (place: LocalPlace, options?: { whileNaming?: boolean }) => void
-  /** Saves `name` as a new location at the take's point on Save, linking this take alone. */
+  /** Saves `name` as a new location at the recording's point on Save, linking it alone. */
   nameLocation: (name: string) => void
   clearPlace: () => void
   /** The places on the musician's recordings, this one's included, most recent first. */
@@ -102,7 +102,7 @@ export interface EditRecording {
 
 /**
  * A recording's name, the date it was recorded, its notes, players, and place. The date is a
- * year, optionally narrowed to a month and a day; a take's exact time survives only while its
+ * year, optionally narrowed to a month and a day; a recording's exact time survives only while its
  * date parts are left alone. A place left alone keeps its accuracy. `view` is null for a closed
  * sheet; the parent nulls it from `onClose`.
  */

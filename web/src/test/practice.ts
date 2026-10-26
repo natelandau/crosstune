@@ -18,15 +18,15 @@ const RECORDINGS = destination('recordings')
 
 export const PHONE = { width: 390, height: 844 }
 export const WIDE = { width: 1280, height: 800 }
-export const TAKE = 'Fast take'
+export const RECORDING_LABEL = 'Fast take'
 
 export interface PracticeSeed {
-  /** The server has the take too. */
+  /** The server has the recording too. */
   ready?: boolean
   /** Filed under the tune; unfiled plays from Recordings. */
   filed?: boolean
-  /** More of the take's row, such as its speed. */
-  take?: Partial<LocalRecording>
+  /** More of the recording's row, such as its speed. */
+  recording?: Partial<LocalRecording>
   playbackEngine?: ReturnType<typeof fakePlaybackEngine>
   android?: AndroidBackForTest
   density?: Density
@@ -34,16 +34,19 @@ export interface PracticeSeed {
   wrap?: (app: ReactElement) => ReactElement
 }
 
-/** A tune with a minute-long take this device holds. */
-async function seed(db: CrosstuneDb, { ready = false, filed = true, take = {} }: PracticeSeed) {
+/** A tune with a minute-long recording this device holds. */
+async function seed(
+  db: CrosstuneDb,
+  { ready = false, filed = true, recording = {} }: PracticeSeed,
+) {
   await db.tunes.put(tuneRow('t1', 'Old Joe Clark'))
   await db.user_tunes.put(userTuneRow('u-t1', 't1'))
   const row: Partial<LocalRecording> = {
     tune_id: filed ? 't1' : null,
-    label: TAKE,
+    label: RECORDING_LABEL,
     duration_ms: 60_000,
     source_duration_ms: 60_000,
-    ...take,
+    ...recording,
   }
   await db.recordings.put(recordingRow('r1', ready ? { ...row, state: 'ready' } : row))
   await db.recording_files.put(
@@ -54,7 +57,7 @@ async function seed(db: CrosstuneDb, { ready = false, filed = true, take = {} }:
   )
 }
 
-/** The app at `frame`, playing the seeded take from its row. */
+/** The app at `frame`, playing the seeded recording from its row. */
 export async function mountPlaying(
   frame: { width: number; height: number },
   options: PracticeSeed = {},
@@ -75,7 +78,7 @@ export async function mountPlaying(
   })
   const rows = filed ? page.getByRole('main', { name: TUNE }) : page
   await rows
-    .getByRole('row', { name: new RegExp(TAKE) })
+    .getByRole('row', { name: new RegExp(RECORDING_LABEL) })
     .first()
     .click()
   await expect.element(player()).toBeVisible()
@@ -83,7 +86,8 @@ export async function mountPlaying(
 }
 
 export const player = () => page.getByRole('region', { name: PLAYER_REGION })
-export const openButton = () => player().getByRole('button', { name: OPEN_RECORDING(TAKE) })
+export const openButton = () =>
+  player().getByRole('button', { name: OPEN_RECORDING(RECORDING_LABEL) })
 export const practice = () => document.querySelector<HTMLElement>('[data-practice]')
 export const waveform = () => practice()?.querySelector<HTMLElement>('[data-practice-waveform]')
 

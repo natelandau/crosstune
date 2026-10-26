@@ -10,7 +10,7 @@ public enum NameLocationText {
     public static let help = "Recordings made here show this name."
 }
 
-/// Names the take's own point: the saved locations already within 30 m first, so reusing one is
+/// Names the recording's own point: the saved locations already within 30 m first, so reusing one is
 /// one tap, then a Name field that saves a new one. Nothing is written until the edit sheet saves.
 struct NameLocationSheet: View {
     let candidates: [SavedPlace]

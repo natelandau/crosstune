@@ -127,7 +127,7 @@ public enum ListRowPlay {
         return holds(item.kind, item.id)
     }
 
-    /// Whether a take being recorded holds the control back. Only playing waits; a link out
+    /// Whether a recording being recorded holds the control back. Only playing waits; a link out
     /// does not touch the audio session.
     static func isBlocked(_ action: Action, capturing: Bool) -> Bool {
         guard case .play = action else { return false }

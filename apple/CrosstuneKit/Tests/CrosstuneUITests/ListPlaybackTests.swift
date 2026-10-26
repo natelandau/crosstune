@@ -657,7 +657,8 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
             player: fixture.player, commands: commands, defaults: suite.defaults, analytics: fixture.sink.client)
         playback.resolve = { _, tuneID in
             ListPlayback.Turn(
-                title: "Tune \(tuneID)", item: .recording(loggedTake("r\(tuneID)", tuneID: tuneID), tuneTitle: nil))
+                title: "Tune \(tuneID)", item: .recording(loggedRecording("r\(tuneID)", tuneID: tuneID), tuneTitle: nil)
+            )
         }
         return playback
     }
@@ -714,7 +715,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(fixture.sent("playlist_started").isEmpty)
     }
 
-    @Test func aPlaylistRefusedDuringATakeReportsNoStart() async throws {
+    @Test func aPlaylistRefusedDuringARecordingReportsNoStart() async throws {
         let fixture = ActivityFixture()
         fixture.player.isCapturing = { true }
         let playback = playlist(fixture)

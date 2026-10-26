@@ -5,9 +5,9 @@ import MapKit
 
 /// The distances the location page works to, the same on every client.
 enum PlaceDistances {
-    /// How far from a take the page looks for places near it.
+    /// How far from a recording the page looks for places near it.
     static let nearbyRadiusM = 150.0
-    /// The most places the page lists as near a take.
+    /// The most places the page lists as near a recording.
     static let nearbyLimit = 10
     /// How close a saved location sits to count as the same spot.
     static let matchRadiusM = 30.0
@@ -53,7 +53,7 @@ extension SavedPlace {
     }
 }
 
-/// A place of interest near a take, which picking saves as a location at its own point.
+/// A place of interest near a recording, which picking saves as a location at its own point.
 public struct NearbyPlace: Hashable, Sendable {
     public let name: String
     /// The street address line shown under the name.

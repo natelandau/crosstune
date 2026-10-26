@@ -34,7 +34,7 @@ public enum PlaceOrigin: String, CaseIterable, Sendable {
 }
 
 /// The name to show for a recording's place: its saved location's name while that location
-/// is live, else the name the take carries itself.
+/// is live, else the name the recording carries itself.
 public func shownPlaceName(_ recording: Recording, places: [String: SavedPlace]) -> String? {
     if let id = recording.placeID, let place = places[id], place.deletedAt == nil { return place.name }
     return recording.placeName

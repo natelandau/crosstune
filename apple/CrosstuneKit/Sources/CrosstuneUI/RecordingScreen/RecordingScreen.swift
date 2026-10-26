@@ -22,7 +22,7 @@ struct ScreenRows: Equatable, Sendable {
     let tuneTitle: String?
     /// The tune's part structure, which names loops.
     let partStructure: String?
-    /// The location's name to show: its saved location's while that is live, else the take's own.
+    /// The location's name to show: its saved location's while that is live, else the recording's own.
     let shownPlace: String?
 
     var view: RecordingView {
@@ -666,7 +666,7 @@ struct RecordingScreenContent: View {
         editing = view
     }
 
-    /// The control that opens the edit sheet on its location page, absent while the take has no
+    /// The control that opens the edit sheet on its location page, absent while the recording has no
     /// shown location.
     @ViewBuilder private var locationControl: some View {
         if let name = rows.shownPlace, let label = RecordingScreenText.editLocation(name) {

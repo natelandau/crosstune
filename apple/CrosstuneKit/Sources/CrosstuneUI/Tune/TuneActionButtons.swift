@@ -73,7 +73,7 @@ struct TuneActionButtons: View {
         if let primary = primary(
             detail: detail, playFirst: playFirst, recordingsPlay: recordingsPlay, holds: holds,
             downloading: downloading),
-            // Playing waits on a take being recorded; a link out does not touch the audio session.
+            // Playing waits on a recording being recorded; a link out does not touch the audio session.
             !ListRowPlay.isBlocked(primary.action, capturing: capturing)
         {
             buttons.append(.play(primary))

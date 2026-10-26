@@ -20,7 +20,7 @@ import { MORE_ACTIONS } from '../ui/menuCopy'
 
 import { useAndroidBackForTest } from '../test/androidBack'
 import { tap } from '../test/gestures'
-import { mountPlaying, openPractice, player, practice, TAKE } from '../test/practice'
+import { mountPlaying, openPractice, player, practice, RECORDING_LABEL } from '../test/practice'
 import { renderApp } from '../test/renderApp'
 import { SELECTION_ACTIONS } from '../features/selection/selectionCopy'
 
@@ -165,8 +165,8 @@ it('steps back from trim to practice, which stays open', async () => {
   const android = useAndroidBackForTest()
   const { engine } = await mountPlaying(WIDE, { android })
   await openPractice()
-  const take = page.getByRole('dialog', { name: TAKE })
-  await take.getByRole('button', { name: MORE_ACTIONS }).click()
+  const practiceDialog = page.getByRole('dialog', { name: RECORDING_LABEL })
+  await practiceDialog.getByRole('button', { name: MORE_ACTIONS }).click()
   await page.getByRole('menuitem', { name: TRIM }).click()
   const handle = page.getByRole('slider', { name: START_HANDLE })
   await expect.element(handle).toBeVisible()
@@ -174,7 +174,7 @@ it('steps back from trim to practice, which stays open', async () => {
 
   expect(android.press()).toMatchObject({ kind: 'entry', entry: { layer: 'overlay' } })
   await expect.element(handle).not.toBeInTheDocument()
-  await expect.element(take.getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
+  await expect.element(practiceDialog.getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
   expect(practice()).not.toBeNull()
 })
 

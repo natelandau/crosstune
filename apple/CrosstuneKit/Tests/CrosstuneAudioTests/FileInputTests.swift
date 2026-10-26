@@ -116,7 +116,7 @@
             writer.close()
         }
 
-        @Test func loopsWhenATakeRunsLongerThanTheFile() async throws {
+        @Test func loopsWhenARecordingRunsLongerThanTheFile() async throws {
             let input = FileInput(url: try makeSource(seconds: 0.3))
             let writer = try makeWriter()
             _ = try await input.prepare(preferring: .mono)

@@ -6,7 +6,7 @@
     /// microphone would record silence. Debug builds only.
     ///
     /// The file is fed to the writer at real time in buffers of about 100 ms and loops when a
-    /// take outlasts it.
+    /// recording outlasts it.
     @MainActor
     public final class FileInput: AudioInput {
         private nonisolated static let chunk = 0.1
@@ -92,14 +92,14 @@
                 }
                 report(meters.level.levels(of: buffer))
                 sent += Double(buffer.frameLength) / format.sampleRate
-                // Pace to real time so the waveform and the clock move as they do on a live take.
+                // Pace to real time so the waveform and the clock move as they do on a live recording.
                 try? await Task.sleep(until: started + .seconds(sent), clock: .continuous)
             }
             return false
         }
     }
 
-    /// One take's metering state, carried across resumes and touched only by the running feed.
+    /// One recording's metering state, carried across resumes and touched only by the running feed.
     private final class Meters: @unchecked Sendable {
         var level = LevelMeter()
         var peak = PeakMeter()

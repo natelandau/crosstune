@@ -84,9 +84,9 @@ public final class PlayerModel {
     /// Where settled speed and pitch changes go. The shell sets it; without it they only play.
     @ObservationIgnored public var saveSettings: SettingsWriter?
 
-    /// Whether a take is being recorded, when nothing may play: playback would change the
-    /// audio session under the microphone, or be recorded into the take. The shell answers it
-    /// from every window's record sheet; the audio player also stays silent during a take.
+    /// Whether a recording is being recorded, when nothing may play: playback would change the
+    /// audio session under the microphone, or be recorded into the recording. The shell answers it
+    /// from every window's record sheet; the audio player also stays silent during a recording.
     @ObservationIgnored public var isCapturing: @MainActor () -> Bool = { false }
     /// Tells a tuner that yielded the session to a song that it did not start; a test watches it.
     @ObservationIgnored var playbackDidNotStart: @MainActor () -> Void = { TunerInput.playbackDidNotStart() }
@@ -305,7 +305,7 @@ public final class PlayerModel {
     /// full, since its provider's player is what plays it; a recording and a link MusicKit plays
     /// play from the bar, and a tap on the one already loaded resumes it, carrying on its play.
     /// `origin` is where the play is logged as asked for, and `source` where it is reported as
-    /// started from. Refused, returning false, while a take is being recorded, and for a
+    /// started from. Refused, returning false, while a recording is being recorded, and for a
     /// recording while the plan holds recordings back.
     @discardableResult
     public func play(_ item: PlayerItem, origin: PlayOrigin = .dock, source: ActionSource = .dock) -> Bool {
@@ -346,7 +346,7 @@ public final class PlayerModel {
     /// song's guard queue is spent once it reports an end. The player stays shown in full or not
     /// as it was, since the queue's controls live there. A track that cannot play here, which
     /// never falls back to an embed, closes the item and reaches
-    /// ``PlayerQueue/playerCouldNotPlay()``. Refused, returning false, while a take is being
+    /// ``PlayerQueue/playerCouldNotPlay()``. Refused, returning false, while a recording is being
     /// recorded, and for a recording while the plan holds recordings back. A song with
     /// `autoplay` false loads paused at its start. Each load is a new play, logged as asked for
     /// from `origin` and reported as a list's track that `trigger` started.
@@ -428,7 +428,7 @@ public final class PlayerModel {
 
     /// Shows a recording's screen in `window`, loading the recording first when it is not the
     /// one loaded: started, or paused at its start when `playing` is false. One loaded paused
-    /// and closed before it ever plays is unloaded. Refused, returning false, while a take is
+    /// and closed before it ever plays is unloaded. Refused, returning false, while a recording is
     /// being recorded or the plan holds recordings back. `source` is where the screen was asked
     /// for.
     @discardableResult
@@ -551,7 +551,7 @@ public final class PlayerModel {
                 return
             }
             if let position { audio.seek(to: position) }
-            // A take started while the audio was fetched keeps the microphone to itself.
+            // A recording started while the audio was fetched keeps the microphone to itself.
             if playing && !isCapturing() { audio.play() }
         }
     }

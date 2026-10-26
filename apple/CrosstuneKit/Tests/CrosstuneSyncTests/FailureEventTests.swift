@@ -138,7 +138,7 @@ extension TransfersTests {
     @Test func aRefusedUploadReportsItsReasonAndOrigin() async throws {
         let sink = RecordingAnalyticsSink()
         try await captured("r1")
-        api.transferFailures["slot r1"] = APIStatusError(status: 422, detail: "Not an audio file at /tmp/take.m4a")
+        api.transferFailures["slot r1"] = APIStatusError(status: 422, detail: "Not an audio file at /tmp/recording.m4a")
 
         await engine(analytics: sink.client).transfer()
 

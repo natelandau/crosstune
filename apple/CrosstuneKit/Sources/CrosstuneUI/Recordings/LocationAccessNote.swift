@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The words that say location access is off and lead to where it turns back on.
 public enum LocationAccessText {
-    public static let off = "Location access is off, so new takes don’t save where they were made."
+    public static let off = "Location access is off, so new recordings don’t save where they were made."
     public static let openSettings = "Open Settings"
 }
 

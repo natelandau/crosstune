@@ -65,7 +65,8 @@ export interface RecordingSessionDeps<S extends MediaStreamLike> {
   clock: SessionClock
   tuneId: string | null
   /** Where the device is. Never awaited: a slow, failed, or denied fix only means no place, or a
-   * place written to the saved take once the fix lands, if that is within `LATE_FIX_MS` of Stop. */
+   * place written to the saved recording once the fix lands, if that is within `LATE_FIX_MS` of
+   * Stop. */
   getPosition?: () => Promise<RecordingPlace | null>
 }
 
@@ -88,7 +89,7 @@ export interface RecordingSession {
 
 const TICK_MS = 250
 const PEAK_WINDOW_MS = 20
-/** How long after Stop a fix still counts as where the take was made. */
+/** How long after Stop a fix still counts as where the recording was made. */
 export const LATE_FIX_MS = 10_000
 
 export const MIC_DENIED =
@@ -136,13 +137,13 @@ export function createRecordingSession<S extends MediaStreamLike>(
   let sizeLimited = false
   let interrupted = false
   // Set only if the fix settles before the recording ends; a later one is written to the saved
-  // take instead, or dropped.
+  // recording instead, or dropped.
   let place: RecordingPlace | null = null
   let placing: Promise<void> = Promise.resolve()
   let stoppedAt = 0
   let discarded = false
   let savedAt: string | null = null
-  // One peak byte per 20 ms window, built up live so an offline take has a waveform before
+  // One peak byte per 20 ms window, built up live so an offline recording has a waveform before
   // the server ever builds one.
   const peakValues: number[] = []
 
@@ -300,7 +301,7 @@ export function createRecordingSession<S extends MediaStreamLike>(
     }
     if (abandoned()) return abandonStart()
 
-    // Asked only once the microphone and the capture lock are held, so a take that cannot
+    // Asked only once the microphone and the capture lock are held, so a recording that cannot
     // start never prompts for location.
     placing = Promise.resolve()
       .then(() => deps.getPosition?.() ?? null)
@@ -310,7 +311,8 @@ export function createRecordingSession<S extends MediaStreamLike>(
           return
         }
         if (!fix || discarded || clock.now() - stoppedAt > LATE_FIX_MS) return
-        // A short take often ends before the device has a fix, and the save never waits on one.
+        // A short recording often ends before the device has a fix, and the save never waits on
+        // one.
         return ending.then(() => {
           if (savedAt) return fillCapturedPlace(db, recordingId, fix, savedAt)
         })

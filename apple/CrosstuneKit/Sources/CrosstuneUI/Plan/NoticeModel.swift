@@ -53,7 +53,7 @@ extension EnvironmentValues {
 }
 
 /// Decides when a one-time plan notice shows in one window: the one due now that the account
-/// has not seen, one at a time, only while nothing covers this window's shell and no take is
+/// has not seen, one at a time, only while nothing covers this window's shell and no recording is
 /// capturing, and only while no other window sharing its ``NoticeClaim`` shows one. Made for
 /// one `PlanModel`, so it follows the open store's plan.
 @MainActor
@@ -110,7 +110,7 @@ final class NoticeModel {
     }
 
     /// Reports what covers the shell. A notice waits while a sheet, dialog, or selection covers
-    /// it, or a take is capturing, and shows once none does.
+    /// it, or a recording is capturing, and shows once none does.
     func coverChanged(covered: Bool, capturing: Bool) {
         self.covered = covered
         self.capturing = capturing

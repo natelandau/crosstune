@@ -81,7 +81,7 @@ describe('useEditRecording', () => {
     expect(result.current.parts).toEqual({ year: '2024', month: '', day: '' })
   })
 
-  it('shows the take’s exact time only while the date is left alone', () => {
+  it('shows the recording’s exact time only while the date is left alone', () => {
     const { result } = setup(viewOf())
     const at = recordingRow('r1').recorded_at!
     expect(result.current.timeNote).toBe(recordedAtNote(recordedTime(at)))
@@ -421,7 +421,7 @@ describe('useEditRecording', () => {
       return (await db.recordings.get('r1'))!
     }
 
-    it('naming creates a saved place at the take and links it, on Save', async () => {
+    it('naming creates a saved place at the recording and links it, on Save', async () => {
       const { result, analytics } = await open(captured())
       expect(result.current.canNamePlace).toBe(true)
       act(() => result.current.nameLocation('  Tom’s kitchen  '))
@@ -460,7 +460,7 @@ describe('useEditRecording', () => {
       })
     })
 
-    it('naming on a linked take relinks only that take', async () => {
+    it('naming on a linked recording relinks only that recording', async () => {
       const barn = placeRow('p1', 'The barn', { lat: spot.lat, lon: spot.lon })
       await db.recordings.put(captured({ place_id: 'p1' }).recording)
       await db.recordings.put({ ...captured({ place_id: 'p1' }).recording, id: 'r2' })
@@ -485,7 +485,7 @@ describe('useEditRecording', () => {
       ).toBe(true)
     })
 
-    it('picking a nearby venue saves it at its own point and the take keeps its own', async () => {
+    it('picking a nearby venue saves it at its own point and the recording keeps its own', async () => {
       const { result, analytics } = await open(captured())
       act(() => result.current.pickNearby({ kind: 'venue', venue: rex }))
       expect(result.current.place?.name).toBe('Rex Theater')
@@ -516,7 +516,7 @@ describe('useEditRecording', () => {
       })
     })
 
-    it('picking a searched venue saves it and moves the take', async () => {
+    it('picking a searched venue saves it and moves the recording', async () => {
       const { result, analytics } = await open(captured())
       act(() => result.current.pickSearch(jalopyResult))
       const row = await save(result)
@@ -573,7 +573,7 @@ describe('useEditRecording', () => {
       expect(await db.outbox.count()).toBe(0)
     })
 
-    it('a linked take with no name of its own shows the saved name and is not unnamed', async () => {
+    it('a linked recording with no name of its own shows the saved name and is not unnamed', async () => {
       const barn = placeRow('p1', 'The barn', { lat: spot.lat, lon: spot.lon, address: street })
       const { result } = await open(captured({ place_name: null, place_id: 'p1' }), [barn])
       await expect.poll(() => result.current.place?.name).toBe('The barn')
@@ -666,7 +666,7 @@ describe('useEditRecording', () => {
       expect(analytics.sends().map((e) => e.name)).not.toContain('saved_location_created')
     })
 
-    it('naming a take picked by hand saves no address', async () => {
+    it('naming a recording picked by hand saves no address', async () => {
       const { result } = await open(
         viewOf({ ...placeOf(jalopy), place_origin: 'picked', place_accuracy_m: null }),
       )
@@ -676,7 +676,7 @@ describe('useEditRecording', () => {
       expect((await db.places.toArray())[0]?.address).toBeNull()
     })
 
-    it('a picked saved location deleted meanwhile falls back to the take’s own', async () => {
+    it('a picked saved location deleted meanwhile falls back to the recording’s own', async () => {
       const barn = placeRow('p1', 'The barn', { lat: spot.lat, lon: spot.lon })
       const { result } = await open(captured(), [barn])
       act(() => result.current.pickSaved(result.current.savedPlaces[0]!))
@@ -707,7 +707,7 @@ describe('useEditRecording', () => {
       })
     })
 
-    it('a saved pick over a staged search pick keeps the take’s own point', async () => {
+    it('a saved pick over a staged search pick keeps the recording’s own point', async () => {
       const barn = placeRow('p1', 'The barn', { lat: 36.67, lon: -80.93 })
       const { result } = await open(captured(), [barn])
       act(() => result.current.pickSearch(townResult(jalopy)))
@@ -754,7 +754,7 @@ describe('useEditRecording', () => {
       })
     })
 
-    it('a linked take leaves the recent locations', async () => {
+    it('a linked recording leaves the recent locations', async () => {
       const barn = placeRow('p1', 'The barn', { lat: spot.lat, lon: spot.lon })
       await db.recordings.put({ ...captured({ place_id: 'p1' }).recording, id: 'r2' })
       const other = viewOf({ ...placeOf(GALAX), added_at: '2026-03-01T12:00:00.000Z' })

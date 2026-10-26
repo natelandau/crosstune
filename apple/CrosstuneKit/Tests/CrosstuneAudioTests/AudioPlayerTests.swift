@@ -514,7 +514,7 @@ private func eventually(_ condition: () -> Bool) async throws {
         player.unload()
     }
 
-    @Test func staysSilentWhileATakeIsRecorded() async throws {
+    @Test func staysSilentWhileARecordingIsRecorded() async throws {
         let root = TemporaryRoot()
         try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
         let url = root.url.appending(path: "tone.aac")
@@ -537,7 +537,7 @@ private func eventually(_ condition: () -> Bool) async throws {
         player.publishes = { published.append($0) }
         player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
 
-        // Refused while a take is recorded.
+        // Refused while a recording is recorded.
         published = []
         player.play()
         #expect(!player.isPlaying)

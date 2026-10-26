@@ -22,7 +22,7 @@ from crosstune.models import (
 from crosstune.places.matching import (
     MATCH_RADIUS_M,
     distance_m,
-    link_earlier_takes,
+    link_earlier_recordings,
     matching_place_id,
     rematch_neighbor_places,
     unlink_place,
@@ -194,7 +194,7 @@ def _settle_repick(data: dict[str, Any], stored: Recording | None, *, same_point
 
 
 class PlaceRules(RowRules):
-    """Link earlier takes to a created or moved place, and unlink them from a deleted one."""
+    """Link earlier recordings to a created or moved place, and unlink them from a deleted one."""
 
     # The stored point as it was before the upsert, which refreshes the stored row in place.
     stored_point: tuple[float, float] | None = None
@@ -207,14 +207,14 @@ class PlaceRules(RowRules):
         return None
 
     async def applied(self, row: Place) -> None:
-        """Link earlier takes to a new or moved place, and to the neighbors of its old point.
+        """Link earlier recordings to a new or moved place, and to the neighbors of its old point.
 
         Runs for a replayed or stale push too, which leaves the point as it was and so
         links nothing a second time.
         """
         if row.deleted_at is None and self.stored_point != (row.lat, row.lon):
-            await link_earlier_takes(self.session, row)
-            # Moving away can leave a neighbor of the old point as some take's only match.
+            await link_earlier_recordings(self.session, row)
+            # Moving away can leave a neighbor of the old point as some recording's only match.
             if self.stored_point is not None:
                 lat, lon = self.stored_point
                 await rematch_neighbor_places(self.session, user_id=self.user_id, lat=lat, lon=lon)
@@ -229,8 +229,9 @@ class PlaceRules(RowRules):
     async def deleted(self, row: Place) -> None:
         """Unlink the recordings filed under a deleted place, then rematch its neighbors.
 
-        The unlinked takes keep their own names. A take that matched both this place and a
-        neighbor matched neither, so each live place near the deleted one links its earlier takes again.
+        The unlinked recordings keep their own names. A recording that matched both this place and
+        a neighbor matched neither, so each live place near the deleted one links its earlier
+        recordings again.
         """
         await unlink_place(self.session, row.id)
         if self.deleted_point is not None:
@@ -294,7 +295,7 @@ class RecordingRules(RowRules):
         coordinates is inferred again rather than trusted. A link is stored only when it
         names a live place of this user, and a link the stored row already had survives
         new coordinates only while they stay within the match radius of the place, so a
-        stale or raced link is dropped instead of refusing the take. A device or file fix
+        stale or raced link is dropped instead of refusing the recording. A device or file fix
         at new coordinates is linked to the one saved place it matches, so it shows that
         name even before, or without, an Apple Maps lookup.
         """
@@ -308,8 +309,8 @@ class RecordingRules(RowRules):
         if "place_id" not in (self.change.data or {}) and stored is not None:
             data["place_id"] = stored.place_id
         _settle_repick(data, stored, same_point=same_point)
-        # The server links a device or file fix without touching updated_at, so a client that
-        # has not pulled that link yet pushes null for it; no client unlinks such a take in place.
+        # The server links a device or file fix without touching updated_at, so a client that has
+        # not pulled that link yet pushes null for it; no client unlinks such a recording in place.
         if (
             data["place_id"] is None
             and stored is not None
@@ -357,7 +358,7 @@ class RecordingRules(RowRules):
     async def _keeps_link(
         self, data: dict[str, Any], stored: Recording | None, *, same_point: bool
     ) -> bool:
-        """Whether the pushed `place_id` names a live place of this user the take may link to.
+        """Whether the pushed `place_id` names a live place of this user the recording may link to.
 
         A link the stored row already had, pushed again with new coordinates, is the stale
         echo of a client that predates saved places, unless the new point still lies within

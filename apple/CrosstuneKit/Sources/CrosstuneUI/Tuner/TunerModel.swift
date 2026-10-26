@@ -41,7 +41,7 @@ public final class TunerModel {
     }
 
     /// Single entry point for every lifecycle signal, one `client` per window; listens while any
-    /// client is shown, foreground, and uncovered, nothing plays, and no record sheet or take
+    /// client is shown, foreground, and uncovered, nothing plays, and no record sheet or recording
     /// holds the microphone. Each window calls it again whenever `recorders.isCapturing`
     /// changes, as well as when any argument does, and with `shown` false as it goes. The player
     /// and the reference pitch are the app's, so the newest call's `playing` and `a4` hold for
@@ -55,7 +55,7 @@ public final class TunerModel {
         } else {
             wanting.remove(client)
         }
-        // A record sheet or a take being saved has the microphone first, and a play stops the
+        // A record sheet or a recording being saved has the microphone first, and a play stops the
         // tuner, which would hear it.
         wanted = !wanting.isEmpty && !recorders.isCapturing && !playing
         if !wanted {

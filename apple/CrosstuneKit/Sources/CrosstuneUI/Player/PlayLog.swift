@@ -94,7 +94,7 @@ struct PlayAttribution: Equatable, Sendable {
 }
 
 extension PlaybackKind {
-    /// What `item` is. A recording without its row reads as a take, the commonest kind.
+    /// What `item` is. A recording without its row reads as one made with the microphone, the commonest kind.
     init(_ item: PlayerItem) {
         switch item.kind {
         case .link: self = .link

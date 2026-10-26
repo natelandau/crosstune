@@ -44,7 +44,7 @@
 
         // MARK: Record sheet
 
-        /// Before the first take Continue is the footer's primary and Return presses it; once
+        /// Before the first recording Continue is the footer's primary and Return presses it; once
         /// recording, the footer has no primary and Stop takes Return.
         @MainActor @Test func recordSheetContinueIsThePrimary() throws {
             let asking = try #require(RecordSheet.macPrimary(asksLocation: true, isContinuing: false) {})

@@ -7,7 +7,7 @@ export const PREMIUM_REQUIRED_PROBLEM = 'urn:crosstune:premium-required'
 
 /** The push reason the server gives a change the account's plan refuses. */
 export const PREMIUM_REQUIRED_REASON = 'premium required'
-/** The push reason for a row whose recording the server does not have, as for a loop on a take
+/** The push reason for a row whose recording the server does not have, as for a loop on a recording
  * kept local until the user subscribes. */
 export const MISSING_RECORDING_REASON = 'recording_id does not reference one of your recordings'
 

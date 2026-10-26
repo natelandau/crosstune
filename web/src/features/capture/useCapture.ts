@@ -45,11 +45,11 @@ export function useCapture({
   position = null,
 }: {
   tuneId: string | null
-  /** Runs when the component went away mid-take and the take was kept all the same. */
+  /** Runs when the component went away mid-recording and the recording was kept all the same. */
   onKept?: (kept: { recordingId: string; elapsedMs: number }) => void
   /** False holds the start until it turns true. It must never turn back. */
   armed?: boolean
-  /** A position request already made, which the take reads its place from instead of asking. */
+  /** A position request already made, which the recording reads its place from, not asking. */
   position?: Promise<RecordingPlace | null> | null
 }): CaptureHandle {
   const onKeptRef = useLatest(onKept)

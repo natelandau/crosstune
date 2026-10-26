@@ -90,7 +90,7 @@ extension StoreWriter {
         ).updatedAt
     }
 
-    /// Saves a take's fix that settled after the take did, as its place with no name. Only a
+    /// Saves a recording's fix that settled after the recording did, as its place with no name. Only a
     /// live recording still exactly as its save left it, at `savedAt`, with no coordinates and
     /// no name takes it, so any edit since, a cleared place included, is never undone. Returns
     /// whether it was written.
@@ -154,7 +154,7 @@ extension StoreWriter {
         return recordingID
     }
 
-    /// `recordedAt` is known only for a take, which was added the moment it was played.
+    /// `recordedAt` is known only for a recording, which was added the moment it was played.
     @discardableResult
     private func putNewRecording(
         _ recordingID: String, tuneID: String?, source: String, label: String?, recordedAt: Timestamp?,

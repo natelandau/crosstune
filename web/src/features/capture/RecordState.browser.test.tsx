@@ -60,7 +60,7 @@ describe('RecordStateProvider', () => {
     act(() => result.current.start({ source: 'dock' }))
     expect(result.current.target).toEqual({ tuneId: null, source: 'dock' })
     act(() => result.current.close())
-    // A discarded take keeps the last save.
+    // A discarded recording keeps the last save.
     expect(result.current.lastSaved?.recordingId).toBe('r1')
   })
 })

@@ -2196,7 +2196,7 @@ async def test_upload_slot_model_names_the_unique_constraints_the_migration_crea
 
 
 ADDED = datetime(2026, 5, 1, 9, 30, tzinfo=UTC)
-TAKE = "018f0000-0000-7000-8000-000000000021"
+MICROPHONE = "018f0000-0000-7000-8000-000000000021"
 UPLOAD = "018f0000-0000-7000-8000-000000000022"
 IMPORT = "018f0000-0000-7000-8000-000000000023"
 DATES = text(
@@ -2216,18 +2216,18 @@ async def _seed_three_sources(engine) -> None:
             text(
                 "insert into recordings (id, user_id, source, origin, origin_url, recorded_at, "
                 "state, created_at, updated_at) values "
-                "(:take, '018f0000-0000-7000-8000-000000000001', 'microphone', 'own', null, "
+                "(:microphone, '018f0000-0000-7000-8000-000000000001', 'microphone', 'own', null, "
                 ":at, 'ready', now(), now()), "
                 "(:upload, '018f0000-0000-7000-8000-000000000001', 'upload', 'own', null, "
                 ":at, 'ready', now(), now()), "
                 "(:import, '018f0000-0000-7000-8000-000000000001', 'import', 'slippery_hill', "
                 "'https://www.slippery-hill.com/content/x', :at, 'ready', now(), now())"
             ),
-            {"take": TAKE, "upload": UPLOAD, "import": IMPORT, "at": ADDED},
+            {"microphone": MICROPHONE, "upload": UPLOAD, "import": IMPORT, "at": ADDED},
         )
 
 
-async def test_0028_keeps_only_a_takes_recorded_date(
+async def test_0028_keeps_only_a_microphone_recordings_recorded_date(
     engine, database_url: str, truncate_all: None
 ) -> None:
     config = Config("alembic.ini")
@@ -2240,7 +2240,7 @@ async def test_0028_keeps_only_a_takes_recorded_date(
     async with engine.connect() as conn:
         rows = (await conn.execute(DATES)).tuples().all()
     assert rows == [
-        (TAKE, ADDED, ADDED, "time"),
+        (MICROPHONE, ADDED, ADDED, "time"),
         (UPLOAD, ADDED, None, None),
         (IMPORT, ADDED, None, None),
     ]
@@ -2275,7 +2275,7 @@ async def test_downgrade_to_0027_restores_a_recorded_date_on_every_row(
 ) -> None:
     config = Config("alembic.ini")
     config.set_main_option("sqlalchemy.url", database_url)
-    take_at = datetime(1998, 10, 3, 16, 12, tzinfo=UTC)
+    microphone_at = datetime(1998, 10, 3, 16, 12, tzinfo=UTC)
     try:
         await anyio.to_thread.run_sync(command.downgrade, config, "0027")
         await _seed_three_sources(engine)
@@ -2283,7 +2283,7 @@ async def test_downgrade_to_0027_restores_a_recorded_date_on_every_row(
         async with engine.begin() as conn:
             await conn.execute(
                 text("update recordings set recorded_at = :at where id = :id"),
-                {"at": take_at, "id": TAKE},
+                {"at": microphone_at, "id": MICROPHONE},
             )
         await anyio.to_thread.run_sync(command.downgrade, config, "0027")
         async with engine.connect() as conn:
@@ -2315,7 +2315,7 @@ async def test_downgrade_to_0027_restores_a_recorded_date_on_every_row(
             ).scalar_one()
     finally:
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
-    assert rows == [(TAKE, take_at), (UPLOAD, ADDED), (IMPORT, ADDED)]
+    assert rows == [(MICROPHONE, microphone_at), (UPLOAD, ADDED), (IMPORT, ADDED)]
     assert columns == 0
     assert nullable == "NO"
 

@@ -36,7 +36,7 @@ describe('partsOf', () => {
     })
   })
 
-  it('reads a take as the local day it shows', () => {
+  it('reads a recording as the local day it shows', () => {
     // 01:30 UTC on Oct 4 is still Oct 3 in Los Angeles.
     expect(partsOf('2026-10-04T01:30:00.000Z', 'time')).toEqual({
       year: '2026',

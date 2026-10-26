@@ -27,7 +27,7 @@ export type StagedPlace =
   | { kind: 'search'; place: PlaceChoice; saving: SavedPlaceDraft | null }
   /**
    * A saved location that exists already, linked over the place picked before it, whose point
-   * the take moves to, or over the take's own point when `over` is null.
+   * the recording moves to, or over the recording's own point when `over` is null.
    */
   | {
       kind: 'link'
@@ -47,7 +47,7 @@ export type StagedPlace =
 /** A point with the fix's accuracy, null for a point picked by hand or a file's. */
 export type PlacePoint = { lat: number; lon: number; accuracyM: number | null }
 
-/** The place picked here whose point the take moves to, null when it keeps its own. */
+/** The place picked here whose point the recording moves to, null when it keeps its own. */
 export function pendingPlace(staged: StagedPlace | null): PlaceChoice | null {
   switch (staged?.kind) {
     case 'place':
@@ -81,7 +81,7 @@ export function searchDraft(result: PlaceResult): SavedPlaceDraft | null {
   }
 }
 
-/** A place near the take: a saved location or a venue not yet saved. */
+/** A place near the recording: a saved location or a venue not yet saved. */
 export type NearbyRow = { kind: 'saved'; place: LocalPlace } | { kind: 'venue'; venue: NearbyPlace }
 
 const metersFrom = (center: { lat: number; lon: number }, place: { lat: number; lon: number }) =>
@@ -99,7 +99,7 @@ const byDistance = <T extends { lat: number; lon: number }>(
     .map(({ place }) => place)
 
 /**
- * The saved locations within 150 m of the take, nearest first, then the venues not saved by
+ * The saved locations within 150 m of the recording, nearest first, then the venues not saved by
  * `savedPlaceFor`'s rule, at most 10 in all. Empty until the venue search answers, and when it fails.
  */
 export function nearbyRows(
@@ -165,8 +165,11 @@ export class LocationState {
     return this.fellBack && this.staged?.kind === 'search' ? 'search' : picked
   }
 
-  /** Where the take will be once saved, with the fix's accuracy: the point picked here, else its own. */
-  get takePoint(): PlacePoint | null {
+  /**
+   * Where the recording will be once saved, with the fix's accuracy: the point picked here, else
+   * its own.
+   */
+  get recordingPoint(): PlacePoint | null {
     const pending = pendingPlace(this.staged)
     if (pending) return point(pending)
     const { place_lat: lat, place_lon: lon, place_accuracy_m: accuracyM } = this.current
@@ -191,7 +194,7 @@ export class LocationState {
    */
   get place(): PlaceChoice | null {
     const staged = this.staged
-    const at = this.takePoint
+    const at = this.recordingPoint
     switch (staged?.kind) {
       case undefined: {
         if (!at || (this.current.place_id && this.places === undefined)) return null
@@ -227,25 +230,28 @@ export class LocationState {
     return address === this.place?.name ? null : address
   }
 
-  /** The point the map shows, with the take's accuracy, named or not. Null with no location. */
+  /** The point the map shows, with the recording's accuracy, named or not. Null with no place. */
   get point(): PlacePoint | null {
     const staged = this.staged
     switch (staged?.kind) {
       case undefined:
-        return this.takePoint
+        return this.recordingPoint
       case 'cleared':
         return null
       case 'place':
       case 'search':
         return point(staged.place)
       case 'link':
-        return this.takePoint ?? point(staged.place)
+        return this.recordingPoint ?? point(staged.place)
       case 'create':
-        return this.takePoint ?? point(staged.draft)
+        return this.recordingPoint ?? point(staged.draft)
     }
   }
 
-  /** Where Open in Maps goes: the saved location's own point when linked to one, else the take's. */
+  /**
+   * Where Open in Maps goes: the saved location's own point when linked to one, else the
+   * recording's.
+   */
   get mapsPoint(): PlacePoint | null {
     const linked = this.linked
     if (linked) return point(linked)
@@ -263,8 +269,8 @@ export class LocationState {
   }
 
   /**
-   * The street address line of where the take will be, null when it is not known: a name the
-   * server gave the take's own fix, or the address of the saved location or search result
+   * The street address line of where the recording will be, null when it is not known: a name the
+   * server gave the recording's own fix, or the address of the saved location or search result
    * picked. A name picked by hand, such as `Venue, street, town`, is not one.
    */
   get streetLine(): string | null {
@@ -313,7 +319,7 @@ export class LocationState {
     return recordingPlace(this.current) !== null || this.current.place_id != null
   }
 
-  /** The saved location this take is named for: its typed name at the point it will be. */
+  /** The saved location this recording is named for: its typed name at the point it will be. */
   namedDraft(name: string): SavedPlaceDraft | null {
     const trimmed = name.trim()
     const at = this.point

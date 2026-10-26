@@ -13,7 +13,7 @@ import Testing
         try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
     }
 
-    private func seededTake(_ store: CrosstuneStore) async throws {
+    private func seededRecording(_ store: CrosstuneStore) async throws {
         try await store.write { writer in
             try writer.put(
                 Recording(
@@ -85,10 +85,10 @@ import Testing
         await #expect(throws: CommandError.placeNotFound) { try await commands.deleteSavedPlace("missing") }
     }
 
-    @Test func nearbyPickKeepsTheTakesCoordinatesAndLinks() async throws {
+    @Test func nearbyPickKeepsTheRecordingsCoordinatesAndLinks() async throws {
         let store = try root.open()
         let commands = Commands(store: store)
-        try await seededTake(store)
+        try await seededRecording(store)
         let place = try await commands.createSavedPlace(
             name: "The Down Home", lat: 36.3, lon: -82.4, address: nil, applePlaceID: nil)
 
@@ -105,7 +105,7 @@ import Testing
         #expect(queued.data?["place_origin"] == .string("picked"))
     }
 
-    @Test func aSavedPickOnATakeWithNoCoordinatesTakesThePlacesPoint() async throws {
+    @Test func aSavedPickOnARecordingWithNoCoordinatesTakesThePlacesPoint() async throws {
         let store = try root.open()
         let commands = Commands(store: store)
         try await store.write { writer in
@@ -160,7 +160,7 @@ import Testing
     @Test func refusesAPickOfAMissingOrDeletedPlaceOrRecording() async throws {
         let store = try root.open()
         let commands = Commands(store: store)
-        try await seededTake(store)
+        try await seededRecording(store)
         let place = try await commands.createSavedPlace(name: "Gone", lat: 1, lon: 2, address: nil, applePlaceID: nil)
         try await commands.deleteSavedPlace(place.id)
         let deleted = try #require(try await store.read { db in try SavedPlace.fetchOne(db, key: place.id) })

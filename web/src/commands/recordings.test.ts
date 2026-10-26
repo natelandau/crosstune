@@ -153,7 +153,7 @@ describe('capture', () => {
     },
   )
 
-  /** The stamp the take's save left on its row. */
+  /** The stamp the recording's save left on its row. */
   const savedAt = async (id: string) => (await db.recordings.get(id))!.updated_at
 
   it('returns the stamp the finished take was saved with', async () => {
@@ -172,7 +172,7 @@ describe('capture', () => {
     expect(await finishCapture(db, id, fields)).toBeNull()
   })
 
-  it('fills a saved take with no place from a late fix and queues it', async () => {
+  it('fills a saved recording with no place from a late fix and queues it', async () => {
     const id = await captured()
     await fillCapturedPlace(
       db,
@@ -192,7 +192,7 @@ describe('capture', () => {
     expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject(expected)
   })
 
-  it('puts a failed upload back in the queue when a late fix fills the take', async () => {
+  it('puts a failed upload back in the queue when a late fix fills the recording', async () => {
     const id = await captured()
     await setFileState(db, id, 'failed_upload', 'bad type')
     await fillCapturedPlace(db, id, { lat: 36.66, lon: -80.92, accuracyM: 12 }, await savedAt(id))
@@ -202,7 +202,7 @@ describe('capture', () => {
   it.each([
     ['coordinates', { place_lat: 1, place_lon: 2, place_accuracy_m: 3 }],
     ['a name', { place_name: 'Galax, VA' }],
-  ])('never fills a take that already has %s', async (_, place) => {
+  ])('never fills a recording that already has %s', async (_, place) => {
     const id = await captured()
     await db.recordings.update(id, place)
     const before = await db.recordings.get(id)
@@ -213,7 +213,7 @@ describe('capture', () => {
   it.each([
     ['cleared its place', { place_name: null, place_lat: null, place_lon: null }],
     ['renamed it', { label: 'Jam' }],
-  ])('never fills a take once the musician %s after the save', async (_, patch) => {
+  ])('never fills a recording once the musician %s after the save', async (_, patch) => {
     const id = await captured()
     const stamp = await savedAt(id)
     await updateRecording(db, id, patch)

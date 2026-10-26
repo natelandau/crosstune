@@ -13,7 +13,7 @@ public enum RecordingText {
     public static let downloadFailed = "Couldn't download"
     public static let processing = "Processing"
     public static let processFailed = "Couldn't process"
-    /// A take the server refused as Premium only, which waits here until the account subscribes.
+    /// A recording the server refused as Premium only, which waits here until the account subscribes.
     public static let isLocalUntilSubscribed = "On this device only. Syncs when you subscribe."
 
     /// What a recording row the plan holds back says instead of its play.
@@ -75,7 +75,7 @@ public enum RecordingText {
         return fraction == 0 ? "\(whole) \(unit)" : "\(whole).\(fraction) \(unit)"
     }
 
-    /// When the music was played, worded only as far as its precision knows. A take reads as a
+    /// When the music was played, worded only as far as its precision knows. A recording reads as a
     /// medium date and short time in `timeZone`.
     public static func recordedDate(
         _ at: Timestamp, precision: RecordingPrecision, locale: Locale = .current, timeZone: TimeZone = .current
@@ -164,7 +164,7 @@ public enum RecordingText {
     /// that needs nothing shows a date in place of a status, unless `dateInTitle` says its title
     /// already shows the same one. Under Date added the date is when the recording was added;
     /// under every other sort, or none, it is when it was played. `offline` marks a download that
-    /// cannot start, and replaces the status. A take kept local until subscribed says so in place
+    /// cannot start, and replaces the status. A recording kept local until subscribed says so in place
     /// of its status. The file's own length is shown until the server reports the recording's.
     public static func meta(
         _ recording: Recording, file: RecordingFile?, storage: StorageUsage? = nil, offline: Bool = false,

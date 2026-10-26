@@ -83,7 +83,7 @@ describe('recordedDateLabel', () => {
     expect(recordedDateLabel('1998-10-03T00:00:00Z', 'day')).toBe('Oct 3, 1998')
   })
 
-  it('formats a take with its date and time', () => {
+  it('formats a recording with its date and time', () => {
     expect(recordedDateLabel('2026-10-03T16:12:00Z', 'time')).toBe('Oct 3, 2026, 4:12 PM')
   })
 

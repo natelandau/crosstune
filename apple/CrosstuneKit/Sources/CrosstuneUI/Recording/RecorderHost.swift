@@ -35,7 +35,7 @@ public final class RecorderHost {
     }
 
     /// True when a record sheet over `store` could take the recorder now: no other sheet has
-    /// it, and no take a closed sheet left behind is still being saved.
+    /// it, and no recording a closed sheet left behind is still being saved.
     public func isFree(for store: CrosstuneStore) -> Bool {
         let recorder = recorder(for: store)
         return !isClaimed && recorder.state == .idle && !recorder.isStarting
@@ -48,7 +48,7 @@ public final class RecorderHost {
         return recorder(for: store)
     }
 
-    /// True while a record sheet is up in some window, or a take is starting, recording, or
+    /// True while a record sheet is up in some window, or a recording is starting, recording, or
     /// being saved. Nothing plays meanwhile.
     public var isCapturing: Bool {
         isClaimed || held.map { $0.recorder.state != .idle || $0.recorder.isStarting } == true

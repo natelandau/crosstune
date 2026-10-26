@@ -20,7 +20,7 @@ const AT = '2026-01-01T00:00:00.000Z'
 const LISTS = destination('lists')
 
 /**
- * Thursday jam holds a take this device holds and a link-only tune, so it plays. Session tunes
+ * Thursday jam holds a recording this device holds and a link-only tune, so it plays. Session tunes
  * holds only the link-only tune, and Empty holds nothing, so neither plays.
  */
 async function seed(db: CrosstuneDb) {
@@ -120,7 +120,7 @@ it('leaves Play and Shuffle out of the menu of a list with nothing to play', asy
   expect(page.getByRole('menuitem', { name: SHUFFLE, exact: true }).query()).toBeNull()
 })
 
-it('takes Play away while a take records', async () => {
+it('takes Play away while a recording is under way', async () => {
   fakeMediaForTest()
   await mount()
   await expect.element(playList('Thursday jam')).toBeInTheDocument()

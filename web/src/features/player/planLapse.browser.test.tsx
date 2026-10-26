@@ -15,7 +15,7 @@ const WIDE = { width: 1280, height: 800 }
 const BEFORE_END = Date.parse('2026-10-10T12:00:00.000Z')
 const TRIAL_END = '2026-10-10T12:00:10.000Z'
 
-it('stops a playing take and hands focus back to its row when the trial ends', async () => {
+it('stops a playing recording and hands focus back to its row when the trial ends', async () => {
   const db = openTestDb()
   await db.entitlements.put(
     entitlementRow({

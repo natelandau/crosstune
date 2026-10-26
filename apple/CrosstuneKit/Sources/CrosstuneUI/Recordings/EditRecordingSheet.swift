@@ -28,7 +28,7 @@ public enum EditRecordingText {
     public static let details = "Details"
     public static let noPlace = "None"
 
-    /// `Recorded at <time>`: the exact time of a take, which its date parts cannot show.
+    /// `Recorded at <time>`: the exact time of a recording, which its date parts cannot show.
     public static func recordedAtNote(
         _ at: Timestamp, locale: Locale = .current, timeZone: TimeZone = .current
     ) -> String {
@@ -45,14 +45,14 @@ enum StagedPlace: Sendable {
     /// A search result, with the saved location it makes when it is a venue or a street address.
     case search(RecordingPlace, saving: SavedPlaceDraft?)
     /// A saved location that exists already, linked over the place picked before it, whose point
-    /// the take moves to, or over the take's own point when `over` is nil. `saving` is the search
+    /// the recording moves to, or over the recording's own point when `over` is nil. `saving` is the search
     /// result's own saved location, made should the linked one go.
     case link(SavedPlace, over: RecordingPlace?, saving: SavedPlaceDraft? = nil)
     /// A saved location made on Save and then linked, with how it came to be, over the place
     /// picked before it as for ``link(_:over:)``.
     case create(SavedPlaceDraft, made: SavedLocationMethod, over: RecordingPlace?)
 
-    /// The place picked here whose point the take moves to, nil when it keeps its own.
+    /// The place picked here whose point the recording moves to, nil when it keeps its own.
     var pending: RecordingPlace? {
         switch self {
         case .place(let place), .search(let place, _): place
@@ -115,7 +115,7 @@ public final class EditRecordingModel {
     private let now: () -> Timestamp
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "edit-recording")
 
-    /// `timeZone` reads a take's day; `now` decides which dates are still to come.
+    /// `timeZone` reads a recording's day; `now` decides which dates are still to come.
     public init(
         store: CrosstuneStore, recording: Recording, timeZone: TimeZone = .current,
         now: @escaping () -> Timestamp = { .now }, analytics: AnalyticsClient = .noop
@@ -165,9 +165,9 @@ public final class EditRecordingModel {
         return !live.contains(where: { $0.id == place.id })
     }
 
-    /// Where the take will be once saved, with the fix's accuracy: the point picked here, else its
+    /// Where the recording will be once saved, with the fix's accuracy: the point picked here, else its
     /// own.
-    private var takePoint: Coordinate? {
+    private var recordingPoint: Coordinate? {
         if let pending = staged?.pending { return pending.coordinate }
         guard let lat = current.placeLat, let lon = current.placeLon else { return nil }
         return Coordinate(lat: lat, lon: lon, accuracyM: current.placeAccuracyM)
@@ -188,7 +188,7 @@ public final class EditRecordingModel {
     public var place: RecordingPlace? {
         switch staged {
         case nil:
-            guard let point = takePoint, current.placeID == nil || saved.value != nil,
+            guard let point = recordingPoint, current.placeID == nil || saved.value != nil,
                 let name = shownPlaceName(current, places: savedByID)
             else { return nil }
             return RecordingPlace(name: name, coordinate: point)
@@ -198,9 +198,11 @@ public final class EditRecordingModel {
             return place
         case .link(let place, _, _):
             let live = linkedPlace ?? place
-            return RecordingPlace(name: live.name, coordinate: takePoint ?? Coordinate(lat: live.lat, lon: live.lon))
+            return RecordingPlace(
+                name: live.name, coordinate: recordingPoint ?? Coordinate(lat: live.lat, lon: live.lon))
         case .create(let draft, _, _):
-            return RecordingPlace(name: draft.name, coordinate: takePoint ?? Coordinate(lat: draft.lat, lon: draft.lon))
+            return RecordingPlace(
+                name: draft.name, coordinate: recordingPoint ?? Coordinate(lat: draft.lat, lon: draft.lon))
         }
     }
 
@@ -216,14 +218,14 @@ public final class EditRecordingModel {
         return address == place?.name ? nil : address
     }
 
-    /// The point the map shows, with the take's accuracy, named or not. Nil with no location.
+    /// The point the map shows, with the recording's accuracy, named or not. Nil with no location.
     public var placeCoordinate: Coordinate? {
         switch staged {
-        case nil: takePoint
+        case nil: recordingPoint
         case .cleared: nil
         case .place(let place), .search(let place, _): place.coordinate
-        case .link(let place, _, _): takePoint ?? Coordinate(lat: place.lat, lon: place.lon)
-        case .create(let draft, _, _): takePoint ?? Coordinate(lat: draft.lat, lon: draft.lon)
+        case .link(let place, _, _): recordingPoint ?? Coordinate(lat: place.lat, lon: place.lon)
+        case .create(let draft, _, _): recordingPoint ?? Coordinate(lat: draft.lat, lon: draft.lon)
         }
     }
 
@@ -302,8 +304,8 @@ public final class EditRecordingModel {
         }
     }
 
-    /// Links a place near the take. A venue not yet saved is saved at its own point on Save, and
-    /// the take keeps its own coordinates.
+    /// Links a place near the recording. A venue not yet saved is saved at its own point on Save, and
+    /// the recording keeps its own coordinates.
     func pickNearby(_ row: NearbyRow) {
         switch row {
         case .saved(let place): stage(.link(place, over: staged?.pending), method: .nearby)
@@ -311,14 +313,14 @@ public final class EditRecordingModel {
         }
     }
 
-    /// Links a saved location. From the saved list the take keeps its own coordinates; while
+    /// Links a saved location. From the saved list the recording keeps its own coordinates; while
     /// naming, it moves to the point picked here, as the name would.
     public func pickSaved(_ place: SavedPlace, whileNaming: Bool = false) {
         stage(.link(place, over: whileNaming ? staged?.pending : nil), method: .saved)
     }
 
-    /// Saves `name` as a new location at the take's own point on Save, with the take's own street
-    /// address under it, and links this take alone. A name that trims to nothing does nothing.
+    /// Saves `name` as a new location at the recording's own point on Save, with the recording's own street
+    /// address under it, and links this recording alone. A name that trims to nothing does nothing.
     public func nameLocation(_ name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let point = placeCoordinate else { return }
@@ -329,8 +331,8 @@ public final class EditRecordingModel {
         stage(.create(draft, made: .custom, over: staged?.pending), method: .saved)
     }
 
-    /// The street address line of where the take will be, nil when it is not known: a name the
-    /// server gave the take's own fix, or the address of the saved location or search result
+    /// The street address line of where the recording will be, nil when it is not known: a name the
+    /// server gave the recording's own fix, or the address of the saved location or search result
     /// picked. A name picked by hand, such as `Venue, street, town`, is not one.
     private var streetLine: String? {
         switch staged {
@@ -445,8 +447,8 @@ public final class EditRecordingModel {
         at time: Timestamp
     ) throws -> Bool {
         func linked(_ place: SavedPlace, over: RecordingPlace?) -> PlacePick {
-            // A link over a place picked here moves the take to that place's point, as a search
-            // pick does; otherwise the take keeps its own.
+            // A link over a place picked here moves the recording to that place's point, as a search
+            // pick does; otherwise the recording keeps its own.
             if let over { return .search(RecordingSuggestions.picked(over), savedPlaceID: place.id) }
             return method == .nearby ? .nearby(place) : .saved(place)
         }
@@ -708,7 +710,7 @@ private struct EditRecordingForm: View {
                 MacFormSection(
                     EditRecordingText.dateHeader,
                     subtitle: model.dateFailure == nil
-                        ? date.keptTake.map { EditRecordingText.recordedAtNote($0) } : nil
+                        ? date.keptTime.map { EditRecordingText.recordedAtNote($0) } : nil
                 ) {
                     MacFormRow(EditRecordingText.year) {
                         yearField
@@ -825,8 +827,8 @@ private struct EditRecordingForm: View {
                 if let dateFailure = model.dateFailure {
                     Text(dateFailure)
                         .foregroundStyle(.red)
-                } else if let take = date.keptTake {
-                    Text(EditRecordingText.recordedAtNote(take))
+                } else if let time = date.keptTime {
+                    Text(EditRecordingText.recordedAtNote(time))
                 }
             }
         }

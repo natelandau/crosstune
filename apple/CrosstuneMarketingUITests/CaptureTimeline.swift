@@ -104,10 +104,10 @@ class CaptureTestCase: XCTestCase {
             return XCUIApplication()
         }
         let catalog = URL(fileURLWithPath: fixture).standardizedFileURL
-        let take = catalog.deletingLastPathComponent().appending(path: "assets/jam-take.m4a")
+        let recording = catalog.deletingLastPathComponent().appending(path: "assets/jam-recording.m4a")
         let app = XCUIApplication()
         app.launchArguments = [
-            "-MarketingShell", catalog.path, "-RecordFromFile", take.path, "-crosstune.appearance", "light",
+            "-MarketingShell", catalog.path, "-RecordFromFile", recording.path, "-crosstune.appearance", "light",
         ]
         app.launch()
         // The catalog title shows before its rows load on a cold launch.

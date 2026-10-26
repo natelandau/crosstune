@@ -166,7 +166,7 @@ describe('applyPushResults under the plan', () => {
   const localOnlyResult = (id: string) =>
     ({ table: 'recordings', id, status: 'invalid', reason: PREMIUM_REQUIRED_REASON }) as const
 
-  it('keeps a take the server refused for Premium queued and local-only, uncounted', async () => {
+  it('keeps a recording the server refused for Premium queued and local-only, uncounted', async () => {
     const id = await captureRecording(db)
     const sent = await pendingBatch(db)
     const { invalid, settled, keptLocal } = await applyPushResults(db, sent, [localOnlyResult(id)])
@@ -178,7 +178,7 @@ describe('applyPushResults under the plan', () => {
     expect(await getInvalidChangeCount(db)).toBe(0)
   })
 
-  it('releases a local-only take once it is applied', async () => {
+  it('releases a local-only recording once it is applied', async () => {
     const id = await captureRecording(db)
     await keepLocalUntilSubscribed(db, [id])
     const sent = await pendingBatch(db)
@@ -187,7 +187,7 @@ describe('applyPushResults under the plan', () => {
     expect(await pendingFor(db, 'recordings', id)).toBeUndefined()
   })
 
-  it('releases a local-only take when its delete is refused for a row never stored', async () => {
+  it('releases a local-only recording when its delete is refused for a row never stored', async () => {
     const id = await captureRecording(db)
     await keepLocalUntilSubscribed(db, [id])
     await deleteRecording(db, id)
@@ -201,7 +201,7 @@ describe('applyPushResults under the plan', () => {
     expect(await pendingBatch(db)).toHaveLength(0)
   })
 
-  it("keeps a local-only take's loop and play queued with it, uncounted", async () => {
+  it("keeps a local-only recording's loop and play queued with it, uncounted", async () => {
     const id = await captureRecording(db)
     const loopId = await addLoop(db, id, { start_ms: 1_000, end_ms: 5_000 })
     await recordEvent(db, 'play_events', playEventRow('play-1', { recording_id: id }))
@@ -222,7 +222,7 @@ describe('applyPushResults under the plan', () => {
     expect(await getInvalidChangeCount(db)).toBe(0)
   })
 
-  it('keeps a loop whose take an earlier push kept local, even when the take is not in the batch', async () => {
+  it('keeps a loop whose recording an earlier push kept local, even when the recording is not in the batch', async () => {
     const id = await captureRecording(db)
     await keepLocalUntilSubscribed(db, [id])
     const loopId = await addLoop(db, id, { start_ms: 1_000, end_ms: 5_000 })
@@ -236,7 +236,7 @@ describe('applyPushResults under the plan', () => {
     expect(await pendingFor(db, 'recording_loops', loopId)).toBeDefined()
   })
 
-  it('settles a refused loop once its take is no longer local-only', async () => {
+  it('settles a refused loop once its recording is no longer local-only', async () => {
     const id = await captureRecording(db)
     const loopId = await addLoop(db, id, { start_ms: 1_000, end_ms: 5_000 })
     const sent = (await pendingBatch(db)).filter((entry) => entry.table === 'recording_loops')

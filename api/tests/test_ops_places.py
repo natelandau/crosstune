@@ -40,7 +40,7 @@ class FakeMaps:
         return answer
 
 
-async def _take(session: AsyncSession, user, **fields) -> Recording:
+async def _named_recording(session: AsyncSession, user, **fields) -> Recording:
     fields = {
         "place_lat": LAT,
         "place_lon": LON,
@@ -80,13 +80,15 @@ async def _fresh(session: AsyncSession, rec: Recording) -> Recording:
 
 async def test_rename_automatic_renames_device_and_file_names_only(engine, verify_session) -> None:
     user = await make_user(verify_session)
-    device = await _take(verify_session, user)
-    from_file = await _take(
+    device = await _named_recording(verify_session, user)
+    from_file = await _named_recording(
         verify_session, user, place_origin="file", place_accuracy_m=None, place_lat=LAT + 3
     )
-    picked = await _take(verify_session, user, place_origin="picked", place_accuracy_m=None)
-    unnamed = await _take(verify_session, user, place_name=None)
-    gone = await _take(verify_session, user)
+    picked = await _named_recording(
+        verify_session, user, place_origin="picked", place_accuracy_m=None
+    )
+    unnamed = await _named_recording(verify_session, user, place_name=None)
+    gone = await _named_recording(verify_session, user)
     gone.deleted_at = gone.created_at
     nowhere = await add_recording(verify_session, user, "ready")
     before = device.server_seq
@@ -110,7 +112,7 @@ async def test_rename_automatic_renames_device_and_file_names_only(engine, verif
 
 async def test_rename_automatic_counts_an_unchanged_name(engine, verify_session) -> None:
     user = await make_user(verify_session)
-    await _take(verify_session, user)
+    await _named_recording(verify_session, user)
     await verify_session.commit()
 
     counts = await _run(engine, FakeMaps({f"{LAT}": "Galax, VA"}))
@@ -120,8 +122,8 @@ async def test_rename_automatic_counts_an_unchanged_name(engine, verify_session)
 
 async def test_rename_automatic_skips_a_row_changed_during_lookup(engine, verify_session) -> None:
     user = await make_user(verify_session)
-    moved = await _take(verify_session, user)
-    renamed = await _take(verify_session, user, place_lat=LAT + 1)
+    moved = await _named_recording(verify_session, user)
+    renamed = await _named_recording(verify_session, user, place_lat=LAT + 1)
     await verify_session.commit()
 
     async def change() -> None:
@@ -143,7 +145,7 @@ async def test_rename_automatic_skips_a_row_changed_during_lookup(engine, verify
 
 async def test_rename_automatic_skips_a_row_repicked_during_lookup(engine, verify_session) -> None:
     user = await make_user(verify_session)
-    rec = await _take(verify_session, user)
+    rec = await _named_recording(verify_session, user)
     await verify_session.commit()
 
     async def repick() -> None:
@@ -158,7 +160,7 @@ async def test_rename_automatic_skips_a_row_repicked_during_lookup(engine, verif
 
 async def test_rename_automatic_dry_run_writes_nothing(engine, verify_session) -> None:
     user = await make_user(verify_session)
-    rec = await _take(verify_session, user)
+    rec = await _named_recording(verify_session, user)
     before = rec.server_seq
     await verify_session.commit()
 
@@ -172,7 +174,7 @@ async def test_rename_automatic_dry_run_writes_nothing(engine, verify_session) -
 async def test_rename_automatic_paces_requests(engine, verify_session) -> None:
     user = await make_user(verify_session)
     for offset in range(3):
-        await _take(verify_session, user, place_lat=LAT + offset)
+        await _named_recording(verify_session, user, place_lat=LAT + offset)
     await verify_session.commit()
     maps = FakeMaps({f"{LAT + offset}": "Galax, VA" for offset in range(3)})
     sleeps: list[float] = []
@@ -186,9 +188,9 @@ async def test_rename_automatic_backs_off_and_continues_through_an_outage(
     engine, verify_session
 ) -> None:
     user = await make_user(verify_session)
-    busy = await _take(verify_session, user, place_lat=LAT)
-    down = await _take(verify_session, user, place_lat=LAT + 1)
-    fine = await _take(verify_session, user, place_lat=LAT + 2)
+    busy = await _named_recording(verify_session, user, place_lat=LAT)
+    down = await _named_recording(verify_session, user, place_lat=LAT + 1)
+    fine = await _named_recording(verify_session, user, place_lat=LAT + 2)
     await verify_session.commit()
     maps = FakeMaps(
         {
