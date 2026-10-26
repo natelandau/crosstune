@@ -75,6 +75,8 @@ folder. Compose it, never rebuild it.
   history, or exits at the root.
 - Verbs bar: on split and wide, the pane bar. Phone root screens use
   `RootBar`, one row that replaces the pane bar and the column title.
+  A root screen's title never truncates. Where it would, the screen
+  moves a bar verb into More (`useCrowdedRootTitle`).
 - App-wide zone: bottom on phone, sidebar foot on split and wide.
 - The phone's tab bar and Record disc float over the content, solid, with
   a hairline edge and no glass. Panes pad their end by

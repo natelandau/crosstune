@@ -1,4 +1,4 @@
-import { Ellipsis, ListChecks, Music, Plus } from 'lucide-react'
+import { Ellipsis, ListChecks, Music, Plus, SlidersHorizontal } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import type { Key, Selection } from 'react-aria-components'
 import { useLocation, useNavigate, useParams } from 'react-router'
@@ -32,6 +32,7 @@ import { applySelection } from '../selection/applySelection'
 import { BulkSheets, SelectionBar } from '../selection/SelectionBar'
 import { useScreenSelection, useSelectionReturn } from '../selection/useScreenSelection'
 import { RootBar } from '../../layout/RootBar'
+import { useCrowdedRootTitle } from '../../layout/useCrowdedRootTitle'
 import { ImportSheet } from '../import/ImportSheet'
 import { IMPORT_TUNES } from '../import/importCopy'
 import { useTuneActions } from '../tune/useTuneActions'
@@ -52,6 +53,7 @@ import { useToast } from '../../ui/Toast'
 import { CatalogFilterRow } from './CatalogFilterRow'
 import { catalogFiltersShown } from './filters'
 import { FiltersBarButton } from '../../ui/FiltersBarButton'
+import { filtersLabel } from '../../ui/filterCopy'
 import { HiddenMatch, SearchOffer } from './SearchOffer'
 import { TuneRow } from './TuneRow'
 import { useHadContent } from '../../ui/useHadContent'
@@ -151,7 +153,10 @@ export function CatalogScreen() {
 
   const phone = frame === 'phone'
   const [sheetOpen, setSheetOpen] = useState(false)
-  const barFilters = phone && catalogFiltersShown(ready, counts, sheet.count)
+  const filtersShown = phone && catalogFiltersShown(ready, counts, sheet.count)
+  // A narrow phone keeps the title whole by moving Filters into More.
+  const filtersInMore = useCrowdedRootTitle(titleRef, filtersShown && !selecting)
+  const barFilters = filtersShown && !filtersInMore
 
   const openFound = (id: string) => {
     screen.endSearch()
@@ -203,6 +208,16 @@ export function CatalogScreen() {
   )
 
   const more: MenuEntry[] = [
+    ...(filtersInMore
+      ? [
+          {
+            id: 'filters',
+            label: filtersLabel(sheet.count),
+            icon: SlidersHorizontal,
+            onAction: () => setSheetOpen(true),
+          },
+        ]
+      : []),
     { id: 'select', label: SELECT_TUNES, icon: ListChecks, onAction: fromMore },
     {
       id: 'archived',
