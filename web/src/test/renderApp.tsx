@@ -1,6 +1,6 @@
 import { render, type RenderResult } from '@testing-library/react'
 import type { ReactElement } from 'react'
-import { onTestFinished } from 'vitest'
+import { expect, onTestFinished } from 'vitest'
 import { page } from 'vitest/browser'
 import type { Store } from '../billing/store'
 import type { CrosstuneDb } from '../db/schema'
@@ -88,5 +88,8 @@ export async function renderApp({
       })
     })
   }
+  // The router commits its first render in a transition, and a lazy route can hold it, so a
+  // test that types before the shell mounts would press keys no shortcut hears yet.
+  await expect.element(page.getByRole('navigation').first()).toBeInTheDocument()
   return Object.assign(result, { router })
 }
