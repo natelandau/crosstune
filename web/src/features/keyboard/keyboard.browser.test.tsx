@@ -43,11 +43,19 @@ const PHONE = { width: 390, height: 844 }
 
 const search = () => page.getByRole('searchbox', { name: SEARCH_TUNES })
 
-/** Every pathname the router lands on after this call, in order. */
+/**
+ * Every pathname the router heads to after this call, in order. A lazy route counts once its
+ * navigation starts, since the router lands on it only after its chunk loads, which a slow
+ * runner can hold past a poll's timeout.
+ */
 function visits(router: AppRouter): string[] {
   const seen: string[] = []
+  let last = router.state.location.pathname
   const unsubscribe = router.subscribe((state) => {
-    if (state.navigation.state === 'idle') seen.push(state.location.pathname)
+    const to = (state.navigation.location ?? state.location).pathname
+    if (to === last) return
+    last = to
+    seen.push(to)
   })
   onTestFinished(unsubscribe)
   return seen
@@ -159,9 +167,10 @@ it('goes to Lists on G then L', async () => {
 
 it('goes to the Tuner on G then T', async () => {
   const { router } = await mountCatalog()
+  const seen = visits(router)
   focusBody()
   await userEvent.keyboard('gt')
-  await expect.poll(() => router.state.location.pathname).toBe(destination('tuner').root)
+  await expect.poll(() => seen).toEqual([destination('tuner').root])
 })
 
 it('drops G once the sequence has timed out', async () => {
@@ -174,8 +183,7 @@ it('drops G once the sequence has timed out', async () => {
   await userEvent.keyboard('l')
 
   await userEvent.keyboard('gs')
-  await expect.poll(() => router.state.location.pathname).toBe('/settings')
-  expect(seen).toEqual(['/settings'])
+  await expect.poll(() => seen).toEqual(['/settings'])
 })
 
 it('types l into the search when a click lands between G and L', async () => {
@@ -189,8 +197,7 @@ it('types l into the search when a click lands between G and L', async () => {
 
   focusBody()
   await userEvent.keyboard('gs')
-  await expect.poll(() => router.state.location.pathname).toBe('/settings')
-  expect(seen).toEqual(['/settings'])
+  await expect.poll(() => seen).toEqual(['/settings'])
 })
 
 const LOOSE_ROW = 'Loose row'

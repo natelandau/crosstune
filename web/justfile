@@ -58,9 +58,24 @@ _contract-check:
     done
     [ "$stale" -eq 0 ] || { echo "web/src/api is stale; run just contract" >&2; exit 1; }
 
+# Fail when the CI test image's Playwright differs from the one package.json pins
+[group('lint')]
+playwright-image:
+    {{ gate }} web-playwright-image just _playwright-image
+
+_playwright-image:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pinned=$(node -p "require('./package.json').devDependencies.playwright")
+    image=$(sed -nE 's|^ *image: mcr\.microsoft\.com/playwright:v([^-]+)-.*|\1|p' ../.github/workflows/web.yml)
+    [ "$image" = "$pinned" ] || {
+        echo "web.yml runs the tests on Playwright image '${image:-none}', but package.json pins $pinned" >&2
+        exit 1
+    }
+
 # Run all linters
 [group('lint')]
-lint: eslint format tsc typos deadcode contract-check
+lint: eslint format tsc typos deadcode contract-check playwright-image
 
 # Fix lint and formatting where tools can
 [group('lint')]

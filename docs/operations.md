@@ -110,6 +110,10 @@ is set.
   leaves the job green and uploads `playwright-report`. The `Web`
   workflow's browser tests rerun up to twice, and its job summary lists
   every test that needed a rerun.
+- The `Web` test shards run in Playwright's container image. Its tag
+  tracks `web/package.json`'s `playwright` version, and
+  `just web::playwright-image` fails when they differ, so bump both
+  together.
 - An API test that uses RustFS skips locally when RustFS is down, and
   fails in CI, where it always runs.
 
