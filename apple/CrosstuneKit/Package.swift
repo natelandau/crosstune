@@ -115,7 +115,8 @@ let package = Package(
                 "CrosstuneAnalytics", "CrosstuneAudio", "CrosstuneAuth", "CrosstuneBilling", "CrosstuneCommands",
                 "CrosstuneDiagnostics", "CrosstuneExport", "CrosstuneStore", "CrosstuneSync", "CrosstuneVocabulary",
                 .product(name: "GRDB", package: "GRDB.swift"),
-            ]
+            ],
+            resources: [.process("Resources")]
         ),
         .target(name: "CrosstuneVocabulary"),
         .target(

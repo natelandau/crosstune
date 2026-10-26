@@ -5,14 +5,16 @@ import SwiftUI
 struct SignInSheet: View {
     let mode: AuthMode
 
+    private var notice: String? { mode == .signUp ? WelcomeCopy.emailNotice : nil }
+
     var body: some View {
         #if os(macOS)
             // A dismissible AuthView sizes itself on the Mac, so the sheet sets no frame: a
             // narrower one clips the flow.
-            SignInView(notice: nil, isDismissible: true, mode: mode, palette: .mac)
+            SignInView(notice: notice, isDismissible: true, mode: mode, palette: .mac)
                 .shellSheet()
         #else
-            SignInView(notice: nil, isDismissible: true, mode: mode)
+            SignInView(notice: notice, isDismissible: true, mode: mode)
                 .shellSheet()
         #endif
     }
