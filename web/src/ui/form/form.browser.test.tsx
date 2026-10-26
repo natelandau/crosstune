@@ -5,6 +5,7 @@ import { contrastRatio } from '../../test/contrast'
 import { ANY } from '../filterCopy'
 import { DAY_LABEL, MONTH_LABEL, NO_DATE } from '../partialDate'
 import { renderWithProviders } from '../../test/render'
+import { Sheet } from '../Sheet'
 import { FieldRow } from './FieldRow'
 import { Group } from './Group'
 import { PartialDateField } from './PartialDateField'
@@ -600,3 +601,28 @@ it('never counts Escape as a pick while a pointer is held on an option', async (
   // Exactly one call, so the Escape above counted none.
   await expect.poll(() => onChoose.mock.calls.length).toBe(1)
 })
+
+it('heads a group one level under the page title', async () => {
+  renderWithProviders(
+    <Group header="Recording">
+      <Switch label="Save location" isSelected={false} onChange={() => {}} />
+    </Group>,
+  )
+  await expect.element(page.getByRole('heading', { name: 'Recording', level: 2 })).toBeVisible()
+})
+
+it.each(['touch', 'pointer'] as const)(
+  'heads a group in a %s sheet one level under its title',
+  async (density) => {
+    renderWithProviders(
+      <Sheet isOpen onOpenChange={() => {}} title="Edit tune">
+        <Group header="Details">
+          <Switch label="Crooked" isSelected={false} onChange={() => {}} />
+        </Group>
+      </Sheet>,
+      { density },
+    )
+    await expect.element(page.getByRole('heading', { name: 'Edit tune', level: 2 })).toBeVisible()
+    await expect.element(page.getByRole('heading', { name: 'Details', level: 3 })).toBeVisible()
+  },
+)

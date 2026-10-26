@@ -79,8 +79,10 @@ export function FilterRow({ label, children }: { label: string; children: ReactN
       aria-label={label}
       onScroll={measure}
       style={{ maskImage: mask, WebkitMaskImage: mask }}
-      className={`flex [scrollbar-width:none] gap-2 px-4 py-1 [&::-webkit-scrollbar]:hidden ${
-        touch ? 'overflow-x-auto [&>*]:shrink-0' : 'flex-wrap'
+      // A sideways scroller clips vertically too, so on touch the padding holds each capsule's
+      // full hit area and the negative margin keeps the row's footprint.
+      className={`flex [scrollbar-width:none] gap-2 px-4 [&::-webkit-scrollbar]:hidden ${
+        touch ? '-my-0.5 overflow-x-auto py-1.5 [&>*]:shrink-0' : 'flex-wrap py-1'
       }`}
     >
       {children}

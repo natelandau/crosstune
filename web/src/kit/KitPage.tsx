@@ -33,6 +33,7 @@ const TYPE_ROLES = [
   ['t-body', 'Body'],
   ['t-secondary', 'Secondary'],
   ['t-caption', 'Caption'],
+  ['t-tab', 'Tab'],
   ['t-timer', 'Timer'],
   ['t-lyrics', 'Lyrics'],
 ] as const

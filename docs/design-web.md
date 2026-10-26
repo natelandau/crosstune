@@ -188,6 +188,9 @@ folder. Compose it, never rebuild it.
   `web/src/ui/focus.css` only. A container that only passes focus on
   (dialog, menu, grid) shows no ring.
 - Focus returns to the opener when an overlay closes.
+- Headings never skip a level. A page's title is h1, a sheet's or section's
+  h2. A heading under one takes `useSubheadingLevel` from
+  `web/src/ui/headingLevel.ts`.
 - Contrast also holds on jet.
 - Forced colors: a glyph whose meaning is a fill paints in system colors.
 

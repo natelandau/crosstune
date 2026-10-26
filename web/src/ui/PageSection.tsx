@@ -4,6 +4,7 @@ import { Button as AriaButton } from 'react-aria-components'
 import { Button } from './Button'
 import { WASH_HOVER } from './press'
 import { InSectionHeading } from './sectionHeading'
+import { HeadingLevelContext } from './headingLevel'
 
 /**
  * One section of a document page: its heading in the section heading role with the add control
@@ -53,7 +54,7 @@ export function PageSection({
             >
               {title}
               <ChevronRight
-                className={`text-ink-2 size-4 transition-transform ${open ? 'rotate-90' : ''}`}
+                className={`text-ink-2 size-4 transition-transform duration-(--dur-short) ease-(--ease) ${open ? 'rotate-90' : ''}`}
                 aria-hidden
               />
             </AriaButton>
@@ -68,7 +69,11 @@ export function PageSection({
             ))}
         </InSectionHeading.Provider>
       </div>
-      {children && (!disclosure || open) && <div className="pt-2">{children}</div>}
+      {children && (!disclosure || open) && (
+        <HeadingLevelContext value={2}>
+          <div className="pt-2">{children}</div>
+        </HeadingLevelContext>
+      )}
     </section>
   )
 }

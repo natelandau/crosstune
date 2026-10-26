@@ -205,7 +205,7 @@ function FactsCard({
         >
           <span className="flex-1">{MORE_DETAILS}</span>
           <ChevronDown
-            className={`text-ink-2 size-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
+            className={`text-ink-2 size-4 transition-transform duration-(--dur-short) ease-(--ease) ${expanded ? 'rotate-180' : ''}`}
             aria-hidden
           />
         </AriaButton>

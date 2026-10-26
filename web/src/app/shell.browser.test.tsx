@@ -56,6 +56,29 @@ it('holds Catalog, Lists, Tuner, Recordings, then Record on the phone', async ()
   await expect.element(page.getByRole('navigation', { name: SIDEBAR })).not.toBeInTheDocument()
 })
 
+it.each(['regular', 'roomy'] as const)(
+  'keeps every tab label inside its tab on a 320px phone at the %s text size',
+  async (textSize) => {
+    if (textSize === 'roomy') document.documentElement.dataset.textSize = textSize
+    onTestFinished(() => {
+      delete document.documentElement.dataset.textSize
+    })
+    await renderApp({ path: '/catalog', db: openTestDb(), frame: { width: 320, height: 640 } })
+    const tabs = page.getByRole('navigation', { name: TAB_BAR })
+    await expect.element(tabs).toBeVisible()
+    const spill = () =>
+      tabs
+        .getByRole('link')
+        .elements()
+        .map((link) => {
+          const label = link.lastElementChild!.getBoundingClientRect()
+          const cell = link.getBoundingClientRect()
+          return Math.max(cell.left - label.left, label.right - cell.right)
+        })
+    await expect.poll(() => Math.max(...spill())).toBeLessThanOrEqual(0)
+  },
+)
+
 it('shows the account button on each phone root screen', async () => {
   const { router } = await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE })
   for (const id of PHONE_TABS) {

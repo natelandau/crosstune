@@ -27,6 +27,7 @@ import { useStampedDensity } from '../platform/density'
 import { DURATION, EASE, SPRING } from '../theme/motion'
 import { Button } from './Button'
 import { InBar } from './inBar'
+import { HeadingLevelContext } from './headingLevel'
 import { TONE_VARIANT, type ActionTone } from './toneVariant'
 import { PointerOverlay } from './PointerOverlay'
 import { recede } from './recede'
@@ -133,14 +134,16 @@ export function Sheet(props: SheetProps) {
   return (
     // A sheet opened from a bar is content, not part of the bar.
     <InBar value={false}>
-      <AnimatePresence onExitComplete={props.onClosed}>
-        {props.isOpen &&
-          (density === 'touch' ? (
-            <TouchSheet key="touch" {...props} />
-          ) : (
-            <PointerDialog key="pointer" {...props} />
-          ))}
-      </AnimatePresence>
+      <HeadingLevelContext value={2}>
+        <AnimatePresence onExitComplete={props.onClosed}>
+          {props.isOpen &&
+            (density === 'touch' ? (
+              <TouchSheet key="touch" {...props} />
+            ) : (
+              <PointerDialog key="pointer" {...props} />
+            ))}
+        </AnimatePresence>
+      </HeadingLevelContext>
     </InBar>
   )
 }
@@ -196,7 +199,7 @@ function SheetHeader({
       {title === undefined ? (
         <div className="min-w-0 flex-1" />
       ) : (
-        <Heading slot="title" className="t-heading min-w-0 flex-1 break-words">
+        <Heading slot="title" level={2} className="t-heading min-w-0 flex-1 break-words">
           {title}
         </Heading>
       )}

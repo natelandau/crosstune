@@ -257,15 +257,16 @@ it('gives the separator a full touch target', async () => {
   expect(getComputedStyle(separator.element(), '::before').width).toBe('44px')
 })
 
-it('keeps the separator clear of the list scrollbar on pointer', async () => {
+it('gives the separator a 24px pointer target clear of the list scrollbar', async () => {
   await renderApp({ path: '/catalog', db: openTestDb(), frame: WIDE })
   const separator = page.getByRole('separator', { name: COLUMN_WIDTH })
   await expect.element(separator).toBeInTheDocument()
   const box = listColumn().getBoundingClientRect()
   const hit = document.elementFromPoint(box.right - 4, box.top + box.height / 2)
   expect(listColumn().contains(hit)).toBe(true)
-  const beyond = separator.element().getBoundingClientRect().right + 4
-  expect(document.elementFromPoint(beyond, box.top + box.height / 2)).toBe(separator.element())
+  const right = separator.element().getBoundingClientRect().right
+  expect(getComputedStyle(separator.element(), '::before').width).toBe('24px')
+  expect(document.elementFromPoint(right + 20, box.top + box.height / 2)).toBe(separator.element())
 })
 
 it('falls back to the default width when the stored one is not a width', async () => {

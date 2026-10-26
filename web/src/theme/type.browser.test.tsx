@@ -12,6 +12,7 @@ const ROLES: Record<'touch' | 'pointer', [string, string, string, string][]> = {
     ['t-body', '16px', '400', 'normal'],
     ['t-secondary', '14px', '400', 'normal'],
     ['t-caption', '12px', '500', 'normal'],
+    ['t-tab', '11px', '600', 'normal'],
     ['t-timer', '56px', '300', 'normal'],
     ['t-lyrics', '26px', '400', 'normal'],
   ],
@@ -22,6 +23,7 @@ const ROLES: Record<'touch' | 'pointer', [string, string, string, string][]> = {
     ['t-body', '14px', '400', 'normal'],
     ['t-secondary', '12.5px', '400', 'normal'],
     ['t-caption', '11px', '500', 'normal'],
+    ['t-tab', '11px', '600', 'normal'],
     ['t-timer', '48px', '300', 'normal'],
     ['t-lyrics', '26px', '400', 'normal'],
   ],
@@ -95,9 +97,38 @@ it('gives counts tabular figures', async () => {
     .toContain('tabular-nums')
 })
 
-it('gives floating surfaces a dark shadow of their own', async () => {
-  const shadow = () =>
-    getComputedStyle(document.documentElement).getPropertyValue('--shadow-float').trim()
+it.each(['t-body', 't-secondary', 't-caption'])(
+  'wraps %s without a lone last word',
+  async (role) => {
+    renderWithProviders(<p className={role}>Learned from Kenny.</p>, { density: 'touch' })
+    await expect
+      .poll(() =>
+        getComputedStyle(document.querySelector(`.${role}`)!).getPropertyValue('text-wrap-style'),
+      )
+      .toBe('pretty')
+  },
+)
+
+it('caps a paragraph at a readable measure, but not a centered note', async () => {
+  renderWithProviders(
+    <div style={{ width: '2000px' }}>
+      <p className="t-secondary" data-testid="help">
+        Recordings keep their place.
+      </p>
+      <p className="t-secondary text-center" data-testid="note">
+        Waiting.
+      </p>
+    </div>,
+    { density: 'touch' },
+  )
+  const width = (id: string) =>
+    document.querySelector(`[data-testid="${id}"]`)!.getBoundingClientRect().width
+  await expect.poll(() => width('help')).toBeLessThan(1000)
+  expect(width('note')).toBe(2000)
+})
+
+it.each(['--shadow-float', '--shadow-lift'])('gives %s a dark shadow of its own', async (name) => {
+  const shadow = () => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   renderWithProviders(<p>x</p>, { scheme: 'light' })
   await expect.poll(shadow).not.toBe('')
   const light = shadow()
