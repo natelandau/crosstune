@@ -24,6 +24,7 @@ import { withInstrumentLabel } from '../../domain/instruments'
 import { openTestDb } from '../../test/db'
 import { DONE } from '../../ui/confirmCopy'
 import { ANY, FILTERS, filtersLabel, RESET, removeFilterLabel } from '../../ui/filterCopy'
+import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { KEY } from '../../ui/keyName'
 import { renderWithProviders } from '../../test/render'
 import { renderApp } from '../../test/renderApp'
@@ -187,6 +188,27 @@ it("the bar's Filters button carries no dot while nothing is set", async () => {
   await expect.poll(rootBar).not.toBeNull()
   await expect.element(barButton(FILTERS)).toBeVisible()
   expect(rootBar()!.querySelector('[data-set]')).toBeNull()
+})
+
+it('moves Filters into More on a phone too narrow for the whole title', async () => {
+  const db = openTestDb()
+  await seed(db, { status: 'learning' })
+  await createTune(db, { title: 'Cluck Old Hen', key: 'A' }, { status: 'learning' })
+  await renderApp({
+    path: '/catalog',
+    db,
+    frame: { width: 320, height: 640 },
+    density: 'touch',
+    launcher: { open: () => {} },
+  })
+  await expect.poll(rootBar).not.toBeNull()
+  await expect.element(barButton(MORE_ACTIONS)).toBeVisible()
+  await expect.element(barButton(filtersLabel(1))).not.toBeInTheDocument()
+  const title = page.getByRole('heading', { level: 1 }).element()
+  await expect.poll(() => title.scrollWidth <= title.clientWidth).toBe(true)
+  await barButton(MORE_ACTIONS).click()
+  await page.getByRole('menuitem', { name: filtersLabel(1) }).click()
+  await expect.element(page.getByRole('dialog', { name: FILTERS })).toBeVisible()
 })
 
 it.each([

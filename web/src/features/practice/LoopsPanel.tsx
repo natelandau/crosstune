@@ -6,8 +6,9 @@ import { LOOP_LIMIT, NO_ROOM } from '../../commands/messages'
 import type { LocalRecordingLoop } from '../../db/types'
 import { Capsule } from '../../ui/Capsule'
 import { FilterRow } from '../../ui/FilterRow'
-import { PANEL_TEXT_BUTTON, PANEL_TEXT_BUTTON_SHAPE } from './panel'
+import { offWhen, PANEL_TEXT_BUTTON, PANEL_TEXT_BUTTON_SHAPE } from './panel'
 import { loopName, partSuggestions, type Bounds, type NewLoop } from '../../domain/loopModel'
+import { SET_END, SET_START } from './trimViewCopy'
 import {
   DELETE_LOOP,
   INSIDE_LOOP,
@@ -33,8 +34,8 @@ export function NEW_LOOP_REASON(result: NewLoop, nameOf: (id: string) => string)
 }
 
 /**
- * The Loops mode: make a loop at the playhead, or delete the selected one. Times are on the
- * source timeline; `loops` is sorted by start.
+ * The Loops mode: make a loop at the playhead, move the selected one's edges to it, or delete
+ * the selected one. Times are on the source timeline; `loops` is sorted by start.
  */
 export function LoopsPanel({
   recordingId,
@@ -51,6 +52,7 @@ export function LoopsPanel({
   announce,
   onSuggestion,
   onRemoved,
+  onSetEdge,
 }: {
   recordingId: string
   loops: readonly LocalRecordingLoop[]
@@ -75,6 +77,8 @@ export function LoopsPanel({
   onSuggestion?: (label: string) => void
   /** Delete loop was pressed and the selected loop is on its way out. */
   onRemoved?: () => void
+  /** Set start or Set end was pressed, to move the selected loop's edge to the playhead. */
+  onSetEdge?: (edge: 'start' | 'end') => void
 }) {
   const db = useDb()
   const reasonId = useId()
@@ -110,32 +114,50 @@ export function LoopsPanel({
     .filter((l): l is string => !!l)
   const suggestions = renamingId ? partSuggestions(partStructure, usedLabels) : []
   const showHint = loops.length === 0 && canCreate && reason === null
+  const edgesOff = !selected || !canCreate
 
   return (
     <div data-loops-panel className="flex flex-col gap-3">
       <div className="flex items-center justify-center gap-2">
         <button
           type="button"
-          disabled={!canCreate || result.kind !== 'span'}
+          {...offWhen(!canCreate || result.kind !== 'span', () => {
+            create(onCommand?.() ?? undefined)
+          })}
           aria-describedby={reason ? reasonId : undefined}
           className={`${PANEL_TEXT_BUTTON} inline-flex items-center gap-2`}
-          onClick={() => {
-            create(onCommand?.() ?? undefined)
-          }}
         >
           <Plus aria-hidden="true" className="size-5" />
           {NEW_LOOP}
         </button>
         <button
           type="button"
-          disabled={!selected}
+          {...offWhen(!selected, remove)}
           className={`${PANEL_TEXT_BUTTON_SHAPE} inline-flex items-center gap-2 ${selected ? 'text-(--panel-danger)' : 'text-(--panel-muted)'}`}
-          onClick={remove}
         >
           <Trash2 aria-hidden="true" className="size-5" />
           {DELETE_LOOP}
         </button>
       </div>
+      {onSetEdge ? (
+        // A handle drag without the drag, as `[` and `]` are from the keyboard.
+        <div data-loop-edges className="flex items-center justify-center gap-2">
+          <button
+            type="button"
+            {...offWhen(edgesOff, () => onSetEdge('start'))}
+            className={PANEL_TEXT_BUTTON}
+          >
+            {SET_START}
+          </button>
+          <button
+            type="button"
+            {...offWhen(edgesOff, () => onSetEdge('end'))}
+            className={PANEL_TEXT_BUTTON}
+          >
+            {SET_END}
+          </button>
+        </div>
+      ) : null}
       {reason ? (
         <p id={reasonId} className="sr-only">
           {reason}

@@ -44,13 +44,13 @@ export function ModePanel({
           const next = MODES.find((m) => keys.has(m))
           if (next) onMode(next)
         }}
-        className="flex rounded-(--radius-capsule) bg-white/10 p-0.5"
+        className="flex rounded-(--radius-capsule) bg-(--panel-ink)/10 p-0.5"
       >
         {MODES.map((m) => (
           <ToggleButton
             key={m}
             id={m}
-            className="t-body t-num relative min-h-(--target) flex-1 cursor-default rounded-(--radius-capsule) px-2 text-(--panel-muted) transition-colors duration-(--dur-short) ease-(--ease) hover:text-(--panel-ink) data-[selected]:text-(--panel-on-ink) data-[selected]:delay-150"
+            className="t-body t-num relative min-h-(--target) flex-1 cursor-default rounded-(--radius-capsule) px-2 text-(--panel-muted) transition-colors duration-(--dur-short) ease-(--ease) hover:text-(--panel-ink) data-[selected]:text-(--panel-on-ink) data-[selected]:delay-(--dur-short)"
           >
             {/* One pill shared across the modes, so choosing a mode slides it there. */}
             {m === mode && (

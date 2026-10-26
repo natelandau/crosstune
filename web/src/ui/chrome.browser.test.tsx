@@ -183,6 +183,25 @@ it('scrolls on touch and wraps on pointer', async () => {
   await expect.poll(() => row.scrollWidth > row.clientWidth).toBe(false)
 })
 
+it("holds a touch capsule's full hit area inside the scrolling row", async () => {
+  renderWithProviders(
+    <FilterRow label={FILTERS}>
+      {CAPSULES.map((l) => (
+        <Capsule key={l} label={l} />
+      ))}
+    </FilterRow>,
+    { density: 'touch' },
+  )
+  const row = page.getByRole('group', { name: FILTERS }).element()
+  const capsule = page.getByRole('button', { name: CAPSULES[0] }).element()
+  await expect.poll(() => row.clientHeight).toBeGreaterThan(0)
+  const center = capsule.getBoundingClientRect().top + capsule.clientHeight / 2
+  const box = row.getBoundingClientRect()
+  // 44px target, centered on the capsule.
+  expect(center - box.top).toBeGreaterThanOrEqual(22)
+  expect(box.bottom - center).toBeGreaterThanOrEqual(22)
+})
+
 it('fades the trailing edge only while more remains', async () => {
   renderWithProviders(
     <FilterRow label={FILTERS}>

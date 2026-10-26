@@ -1,4 +1,4 @@
-import { Ellipsis, ListChecks, Music, Plus } from 'lucide-react'
+import { Ellipsis, ListChecks, Music, Plus, SlidersHorizontal } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import type { Key, Selection } from 'react-aria-components'
 import { useLocation, useNavigate, useParams } from 'react-router'
@@ -32,6 +32,7 @@ import { applySelection } from '../selection/applySelection'
 import { BulkSheets, SelectionBar } from '../selection/SelectionBar'
 import { useScreenSelection, useSelectionReturn } from '../selection/useScreenSelection'
 import { RootBar } from '../../layout/RootBar'
+import { useCrowdedRootTitle } from '../../layout/useCrowdedRootTitle'
 import { ImportSheet } from '../import/ImportSheet'
 import { IMPORT_TUNES } from '../import/importCopy'
 import { useTuneActions } from '../tune/useTuneActions'
@@ -52,9 +53,11 @@ import { useToast } from '../../ui/Toast'
 import { CatalogFilterRow } from './CatalogFilterRow'
 import { catalogFiltersShown } from './filters'
 import { FiltersBarButton } from '../../ui/FiltersBarButton'
+import { filtersLabel } from '../../ui/filterCopy'
 import { HiddenMatch, SearchOffer } from './SearchOffer'
 import { TuneRow } from './TuneRow'
 import { useHadContent } from '../../ui/useHadContent'
+import { useLatest } from '../../ui/useLatest'
 import type { CatalogEntry } from '../../db/types'
 
 const CATALOG_CONTEXT: SelectionContext = { kind: 'catalog' }
@@ -150,7 +153,10 @@ export function CatalogScreen() {
 
   const phone = frame === 'phone'
   const [sheetOpen, setSheetOpen] = useState(false)
-  const barFilters = phone && catalogFiltersShown(ready, counts, sheet.count)
+  const filtersShown = phone && catalogFiltersShown(ready, counts, sheet.count)
+  // A narrow phone keeps the title whole by moving Filters into More.
+  const filtersInMore = useCrowdedRootTitle(titleRef, filtersShown && !selecting)
+  const barFilters = filtersShown && !filtersInMore
 
   const openFound = (id: string) => {
     screen.endSearch()
@@ -177,7 +183,41 @@ export function CatalogScreen() {
     run(() => tuneActions.remove(entry.tune.id))
   }
 
+  // One set of row handlers for the life of the screen, reading the latest render through a
+  // ref, so the memoized rows re-render only when their own props change.
+  const rowActionsRef = useLatest({
+    edit: (entry: CatalogEntry) => openTune(entry.tune.id),
+    archive: (entry: CatalogEntry, archived: boolean) =>
+      run(() =>
+        tuneActions.archive({ tuneId: entry.tune.id, userTuneId: entry.userTune.id }, archived),
+      ),
+    remove: (entry: CatalogEntry) => void confirmDelete(entry),
+    select: (entry: CatalogEntry) => fromRow(entry.tune.id),
+    viewScans: (entry: CatalogEntry) => scans.open(entry.tune.id),
+  })
+  const rowActions = useMemo(
+    () => ({
+      onEdit: (entry: CatalogEntry) => rowActionsRef.current.edit(entry),
+      onArchive: (entry: CatalogEntry, archived: boolean) =>
+        rowActionsRef.current.archive(entry, archived),
+      onDelete: (entry: CatalogEntry) => rowActionsRef.current.remove(entry),
+      onSelect: (entry: CatalogEntry) => rowActionsRef.current.select(entry),
+      onViewScans: (entry: CatalogEntry) => rowActionsRef.current.viewScans(entry),
+    }),
+    [rowActionsRef],
+  )
+
   const more: MenuEntry[] = [
+    ...(filtersInMore
+      ? [
+          {
+            id: 'filters',
+            label: filtersLabel(sheet.count),
+            icon: SlidersHorizontal,
+            onAction: () => setSheetOpen(true),
+          },
+        ]
+      : []),
     { id: 'select', label: SELECT_TUNES, icon: ListChecks, onAction: fromMore },
     {
       id: 'archived',
@@ -322,6 +362,7 @@ export function CatalogScreen() {
               <RowList
                 label={TUNE_LIST}
                 arriving={hadNoTunes}
+                virtualized="page"
                 {...(selecting
                   ? {
                       selectionMode: 'multiple',
@@ -346,21 +387,12 @@ export function CatalogScreen() {
                     key={entry.tune.id}
                     entry={entry}
                     instruments={instruments}
-                    onEdit={() => openTune(entry.tune.id)}
-                    onArchive={(archived) =>
-                      run(() =>
-                        tuneActions.archive(
-                          { tuneId: entry.tune.id, userTuneId: entry.userTune.id },
-                          archived,
-                        ),
-                      )
-                    }
-                    onDelete={() => void confirmDelete(entry)}
-                    onSelect={() => fromRow(entry.tune.id)}
+                    onEdit={rowActions.onEdit}
+                    onArchive={rowActions.onArchive}
+                    onDelete={rowActions.onDelete}
+                    onSelect={rowActions.onSelect}
                     onViewScans={
-                      screen.tunesWithScans.has(entry.tune.id)
-                        ? () => scans.open(entry.tune.id)
-                        : undefined
+                      screen.tunesWithScans.has(entry.tune.id) ? rowActions.onViewScans : undefined
                     }
                     selecting={selecting}
                     opening={!wide && entry.tune.id === opening}

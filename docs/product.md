@@ -1,5 +1,7 @@
 # Crosstune
 
+<!-- impeccable:product-schema 1 -->
+
 Crosstune is a tune catalog and practice app for musicians who learn by
 ear. Each tune holds its status, its recordings, and its links. From that
 catalog a musician records, practices, and builds lists, with or without a
@@ -101,6 +103,12 @@ Each has a place in the data model and no code:
 - Musical facets live on the tune (key, mode, tuning, part structure). The
   user's record holds only the relationship: status, learned from, when,
   notes.
+- No invented proof. No testimonial, review, press quote, or user count in
+  any copy until a real one exists.
+
+## Platform
+
+adaptive
 
 ## Glossary
 

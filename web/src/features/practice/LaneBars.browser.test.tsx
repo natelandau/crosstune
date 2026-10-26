@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react'
+import { useMemo } from 'react'
 import { describe, expect, it } from 'vitest'
 import { BAR_STEP, BAR_WIDTH } from '../capture/waveformBars'
 import { LaneBars } from './LaneBars'
@@ -14,11 +15,12 @@ const values = Uint8Array.from({ length: 500 }, (_, i) => (i * 97) % 251)
 const shown = { peaks: { pointsPerSecond: 50, values }, loudest: 250 }
 
 function Harness({ startMs }: { startMs: number }) {
+  const start = useMemo(() => ({ get: () => startMs, subscribe: () => () => {} }), [startMs])
   return (
     <div style={{ width: WIDTH_PX }}>
       <LaneBars
         shown={shown}
-        startMs={startMs}
+        startMs={start}
         pxPerS={PX_PER_S}
         lengthMs={LENGTH_MS}
         heightClass="h-10"

@@ -96,7 +96,10 @@ function RecordingPlay({
       {control === 'close' || control === 'play' ? (
         <TransportGlyph shape={control === 'close' ? 'stop' : 'play'} />
       ) : (
-        <CloudDownload className={`size-5 ${offlineDownload ? 'opacity-40' : ''}`} aria-hidden />
+        <CloudDownload
+          className={`size-5 ${offlineDownload ? 'text-glyph-off' : ''}`}
+          aria-hidden
+        />
       )}
     </SlotButton>
   )

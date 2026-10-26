@@ -10,11 +10,16 @@ import type { LocalRecording } from '../../db/types'
 import { OFFLINE } from '../../sync/labels'
 import type { SyncEngine } from '../../sync/types'
 import { openTestDb } from '../../test/db'
-import { dataProviders, fakeEngine, fakePlaybackEngine } from '../../test/providers'
+import {
+  dataProviders,
+  FakeAudioElement,
+  fakeEngine,
+  fakePlaybackEngine,
+} from '../../test/providers'
 import { captureRecording } from '../../test/recordings'
 import type { HeldSettings } from '../practice/usePracticeOverlay'
 import { DOWNLOAD_FAILED } from '../../text/format'
-import type { PlaybackEngine } from './playbackEngine'
+import type { EngineClock, PlaybackEngine } from './playbackEngine'
 import { PlaybackEngineContext } from './PlaybackEngineProvider'
 import { SPEED_BADGE } from './transportCopy'
 import { useRecordingTransport } from './useRecordingTransport'
@@ -93,11 +98,15 @@ async function setup(
       <PlaybackEngineContext.Provider value={playback}>{children}</PlaybackEngineContext.Provider>
     </Data>
   )
+  let renders = 0
   const view = renderHook(
-    (props: Props) => useRecordingTransport({ ...props, title: 'Cluck Old Hen', held }),
+    (props: Props) => {
+      renders++
+      return useRecordingTransport({ ...props, title: 'Cluck Old Hen', held })
+    },
     { wrapper, initialProps: await read(id) },
   )
-  return { ...view, playback }
+  return { ...view, playback, renders: () => renders }
 }
 
 describe('useRecordingTransport', () => {
@@ -114,6 +123,34 @@ describe('useRecordingTransport', () => {
     await expect.poll(() => load.mock.calls.length).toBe(2)
     expect(load.mock.calls[1]![4]).toEqual({ keepLoop: true })
     await expect.poll(() => playback.getState()).toMatchObject({ playing: true, positionMs: 1500 })
+  })
+
+  it("renders on a play or pause, never on the engine's position tick", async () => {
+    const id = await captureRecording(db, { tuneId, durationMs: 3000, label: 'Jam' })
+    const element = new FakeAudioElement()
+    let tick = () => {}
+    const clock: EngineClock = {
+      every: (_ms, fn) => {
+        tick = fn
+        return () => {}
+      },
+      after: () => () => {},
+    }
+    const playback = fakePlaybackEngine(element as unknown as HTMLAudioElement, clock)
+    const { result, renders } = await setup(id, { playback })
+    await expect.poll(() => result.current.state.playing).toBe(true)
+    const before = renders()
+    for (const ms of [250, 500, 1250]) {
+      act(() => {
+        element.currentTime = ms / 1000
+        tick()
+      })
+      await expect.poll(() => playback.getState().positionMs).toBe(ms)
+    }
+    expect(renders()).toBe(before)
+    act(() => playback.pause())
+    await expect.poll(() => result.current.state.playing).toBe(false)
+    expect(renders()).toBeGreaterThan(before)
   })
 
   it('revokes every object url it mints, one recording after another', async () => {

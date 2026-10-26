@@ -14,6 +14,9 @@ import { usePracticeKeys } from './usePracticeKeys'
 import { usePracticeMode } from './usePracticeMode'
 import { usePracticeSettings } from './usePracticeSettings'
 import { formatPreciseDuration } from '../../text/format'
+import { clamp } from '../../math'
+import { usePlayhead } from '../player/playheadClock'
+import type { PracticeTimeline } from './usePracticeTimeline'
 import { PRESS } from '../../ui/press'
 import { PANEL_HOVER, ZOOM_IN, ZOOM_OUT, ZOOM_STEP } from './panel'
 import type { ShownPeaks } from './recordingRange'
@@ -110,7 +113,7 @@ export function PracticeView({
       <PracticeWaveformSlot {...slotProps(core)} shown={shown} blocked={blocked} />
       <div className="flex items-center justify-between gap-2">
         <p data-practice-clock className="t-timer t-num m-0">
-          {blocked ?? formatPreciseDuration(timeline.shownMs)}
+          {blocked ?? <PlayheadTime timeline={timeline} />}
         </p>
         <div data-practice-zoom className="flex items-center">
           <PracticeButton
@@ -188,5 +191,13 @@ export function PracticeView({
         {timeline.announcement}
       </p>
     </div>
+  )
+}
+
+/** The playhead's time to the tenth, which renders only when that text changes. */
+function PlayheadTime({ timeline }: { timeline: PracticeTimeline }) {
+  const { loaded, lengthMs } = timeline
+  return usePlayhead(timeline.playhead, (ms) =>
+    formatPreciseDuration(loaded ? clamp(ms, 0, lengthMs) : 0),
   )
 }

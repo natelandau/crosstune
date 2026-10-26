@@ -1,4 +1,5 @@
 import {
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -16,7 +17,7 @@ import {
   type Draft,
   type Span,
 } from '../../domain/loopModel'
-import { msAtX, xOfMs, type LaneView } from './practiceZoom'
+import { msAtX, xOfMs, type Lane } from './practiceZoom'
 import { useAutoPan } from './useAutoPan'
 import { capturePointer } from '../../platform/pointer'
 import { tap } from '../../platform/haptics'
@@ -53,7 +54,7 @@ export function LoopHandle({
   name,
   color,
   span,
-  view,
+  lane,
   bounds,
   playheadMs,
   surface,
@@ -70,11 +71,11 @@ export function LoopHandle({
   color: number
   /** The loop as shown, a draft ahead of its row included. */
   span: Span
-  view: LaneView
+  lane: Lane
   /** The free span around the loop on the source timeline, which the edge never leaves. */
   bounds: Bounds
-  /** On the source timeline. */
-  playheadMs: number
+  /** Where the playhead is drawn, on the source timeline. */
+  playheadMs: () => number
   /** The element the view's pixels are measured from. */
   surface: RefObject<HTMLDivElement | null>
   /** A draft while the handle moves; null when a drag ends without a write. */
@@ -117,8 +118,28 @@ export function LoopHandle({
   }
 
   const ms = span[edge === 'start' ? 'startMs' : 'endMs']
-  const x = xOfMs(view, ms)
-  const inView = x >= 0 && x <= view.widthPx
+  const trimStartMs = lane.trimStartMs
+  const handle = useRef<HTMLDivElement>(null)
+  const inView = () => {
+    const view = lane.view()
+    const x = xOfMs(view, ms)
+    return x >= 0 && x <= view.widthPx
+  }
+  // The view moves every frame while playing, so the handle follows it outside React.
+  useLayoutEffect(() => {
+    const place = () => {
+      const element = handle.current
+      if (!element) return
+      const view = lane.view()
+      const x = xOfMs(view, ms)
+      const shows = x >= 0 && x <= view.widthPx
+      element.style.left = `${clamp(x, 0, view.widthPx)}px`
+      element.style.opacity = shows ? '' : '0'
+      element.style.pointerEvents = shows ? '' : 'none'
+    }
+    place()
+    return lane.subscribe(place)
+  }, [lane, ms])
 
   const localX = (clientX: number) => clientX - (surface.current?.getBoundingClientRect().left ?? 0)
 
@@ -126,10 +147,11 @@ export function LoopHandle({
   const dragTo = (clientX: number) => {
     const pressed = press.current
     if (!pressed) return
+    const view = lane.view()
     const raw = msAtX(view, localX(clientX))
     const targets = pressed.alt
       ? [bounds.startMs, bounds.endMs]
-      : [playheadMs, bounds.startMs, bounds.endMs]
+      : [playheadMs(), bounds.startMs, bounds.endMs]
     const to = snapMs(raw, targets, 1000 / view.pxPerS)
     const snappedTo = to !== raw ? to : null
     if (snappedTo !== null && snappedTo !== pressed.snappedTo) tap()
@@ -141,7 +163,7 @@ export function LoopHandle({
     autoPan.track(localX(clientX))
   }
   const autoPan = useAutoPan({
-    view,
+    view: lane.view,
     onPan,
     follow: () => {
       if (press.current) dragTo(press.current.lastX)
@@ -194,14 +216,15 @@ export function LoopHandle({
 
   return (
     <div
+      ref={handle}
       role="slider"
       tabIndex={0}
       data-handle={edge}
       aria-label={edge === 'start' ? LOOP_START : LOOP_END}
-      aria-valuemin={bounds.startMs - view.trimStartMs}
-      aria-valuemax={bounds.endMs - view.trimStartMs}
-      aria-valuenow={ms - view.trimStartMs}
-      aria-valuetext={HANDLE_TEXT(name, edge, ms - view.trimStartMs)}
+      aria-valuemin={bounds.startMs - trimStartMs}
+      aria-valuemax={bounds.endMs - trimStartMs}
+      aria-valuenow={ms - trimStartMs}
+      aria-valuetext={HANDLE_TEXT(name, edge, ms - trimStartMs)}
       data-color={color}
       data-snapped={snapped || undefined}
       onTransitionRun={(event) => {
@@ -214,10 +237,9 @@ export function LoopHandle({
         if (isSettle(event)) settled()
       }}
       // A 44 px target around the edge and its tab; off the view it stays reachable by keyboard.
-      className={`loop-color absolute inset-y-0 z-10 flex w-11 -translate-x-1/2 cursor-ew-resize touch-none justify-center rounded-md outline-offset-0 select-none ${inView ? '' : 'pointer-events-none opacity-0'}`}
-      style={{ left: clamp(x, 0, view.widthPx) }}
+      className="loop-color absolute inset-y-0 z-10 flex w-11 -translate-x-1/2 cursor-ew-resize touch-none justify-center rounded-md outline-offset-0 select-none"
       onFocus={() => {
-        if (!inView) onReveal(ms)
+        if (!inView()) onReveal(ms)
       }}
       // A key let go elsewhere never reaches this handle's keyup.
       onBlur={commitNudge}
@@ -259,8 +281,8 @@ export function LoopHandle({
         data-grip
         className={`absolute top-1/2 flex h-11 w-4 -translate-y-1/2 items-center justify-center gap-0.5 bg-(--loop-handle) ${edge === 'start' ? 'right-1/2 rounded-l-md' : 'left-1/2 rounded-r-md'}`}
       >
-        <span className="h-4 w-px bg-white/90" />
-        <span className="h-4 w-px bg-white/90" />
+        <span className="h-4 w-px bg-(--panel-ink)/90" />
+        <span className="h-4 w-px bg-(--panel-ink)/90" />
       </span>
     </div>
   )

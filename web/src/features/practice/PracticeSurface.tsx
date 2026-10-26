@@ -1,5 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react'
 import type { PlaybackEngine } from '../player/playbackEngine'
+import { clamp } from '../../math'
+import { adjacent, newLoop, placedLoop } from '../../domain/loopModel'
+import { usePlayheadWhere } from '../player/playheadClock'
 import type { ShownPeaks } from './recordingRange'
 import { Waveform } from './Waveform'
 import { LoopsPanel } from './LoopsPanel'
@@ -29,14 +32,14 @@ export function PracticeOverview({
 }) {
   return (
     <div inert={!!blocked} className={offClass(blocked)}>
-      {timeline.visible ? (
+      {timeline.halfSpanMs !== null ? (
         <OverviewStrip
           shown={shown}
           lengthMs={timeline.lengthMs}
           trimStartMs={timeline.bounds.startMs}
-          visible={timeline.visible}
+          halfSpanMs={timeline.halfSpanMs}
           loops={loops.laneLoops}
-          playheadMs={timeline.playheadMs}
+          playhead={timeline.playhead}
           selectedId={loops.playback.selectedId}
           onSeek={timeline.seek}
         />
@@ -92,7 +95,7 @@ export function PracticeWaveformSlot({
               pxPerS={timeline.pxPerS}
               widthPx={size.width}
               bounds={timeline.bounds}
-              playheadMs={timeline.enginePlayheadMs}
+              playhead={timeline.playhead}
               renamingId={loops.renamingId}
               onTap={loops.onTap}
               onRenameStart={loops.startRename}
@@ -102,7 +105,6 @@ export function PracticeWaveformSlot({
               onCommit={loops.onCommit}
               pinches={pinches}
               scrubRef={timeline.scrub}
-              onScrubbing={timeline.onScrubbing}
             />
           </div>
         ) : (
@@ -134,11 +136,22 @@ export function PracticeLoopSwitcher({
   disabled: boolean
 }) {
   const trimStartMs = timeline.bounds.startMs
+  const placed = loops.rows.map(placedLoop)
+  const selectedId = loops.playback.selectedId
+  // The arrows depend on the playhead only through the loops either side of it.
+  const playheadMs = sourceMs(
+    timeline,
+    usePlayheadWhere(timeline.playhead, (ms) => {
+      const atMs = sourceMs(timeline, ms)
+      const previous = adjacent('previous', atMs, placed, selectedId)?.id
+      return `${previous ?? ''}|${adjacent('next', atMs, placed, selectedId)?.id ?? ''}`
+    }),
+  )
   return (
     <LoopSwitcher
       loops={loops.rows}
       playback={loops.playback}
-      playheadMs={timeline.playheadMs}
+      playheadMs={playheadMs}
       trimStartMs={trimStartMs}
       disabled={disabled}
       onCommand={timeline.settle}
@@ -164,12 +177,21 @@ export function PracticeLoopsPanel({
   /** Delete goes disabled with the loop, so focus needs somewhere to go. */
   onRemoved: () => void
 }) {
+  const placed = loops.rows.map(placedLoop)
+  // New loop depends on the playhead only through whether, and why not, it can make one there.
+  const playheadMs = sourceMs(
+    timeline,
+    usePlayheadWhere(timeline.playhead, (ms) => {
+      const result = newLoop(sourceMs(timeline, ms), placed, timeline.bounds)
+      return result.kind === 'inside' ? `inside:${result.id}` : result.kind
+    }),
+  )
   return (
     <LoopsPanel
       recordingId={recordingId}
       loops={loops.rows}
       playback={loops.playback}
-      playheadMs={timeline.playheadMs}
+      playheadMs={playheadMs}
       bounds={timeline.bounds}
       renamingId={loops.renamingId}
       partStructure={loops.partStructure}
@@ -181,8 +203,14 @@ export function PracticeLoopsPanel({
       // The panel writes the chosen name; the field closes without saving its own text.
       onSuggestion={loops.endRename}
       onRemoved={onRemoved}
+      onSetEdge={(edge) => loops.setEdge(edge, timeline.settledPlayheadMs())}
     />
   )
+}
+
+/** A drawn playhead (trimmed timeline) held to the take, on the source timeline. */
+function sourceMs(timeline: PracticeTimeline, ms: number): number {
+  return timeline.bounds.startMs + (timeline.loaded ? clamp(ms, 0, timeline.lengthMs) : 0)
 }
 
 /** The take as one plain bar, for a stretch with no length to scale yet. */

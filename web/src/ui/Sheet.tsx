@@ -27,10 +27,18 @@ import { useStampedDensity } from '../platform/density'
 import { DURATION, EASE, SPRING } from '../theme/motion'
 import { Button } from './Button'
 import { InBar } from './inBar'
+import { HeadingLevelContext } from './headingLevel'
 import { TONE_VARIANT, type ActionTone } from './toneVariant'
 import { PointerOverlay } from './PointerOverlay'
 import { recede } from './recede'
-import { growScale, originBox, releaseTarget, scrim, SHEET } from './sheetGeometry'
+import {
+  growScale,
+  originBox,
+  releaseTarget,
+  SCRIM_COLOR,
+  scrimOpacity,
+  SHEET,
+} from './sheetGeometry'
 import { useOverlayClaim } from './overlayClaim'
 import { useFittedHeight, useKeyboardInset, useScrollEdges, useViewport } from './sheetMeasure'
 import { clamp } from '../math'
@@ -133,14 +141,16 @@ export function Sheet(props: SheetProps) {
   return (
     // A sheet opened from a bar is content, not part of the bar.
     <InBar value={false}>
-      <AnimatePresence onExitComplete={props.onClosed}>
-        {props.isOpen &&
-          (density === 'touch' ? (
-            <TouchSheet key="touch" {...props} />
-          ) : (
-            <PointerDialog key="pointer" {...props} />
-          ))}
-      </AnimatePresence>
+      <HeadingLevelContext value={2}>
+        <AnimatePresence onExitComplete={props.onClosed}>
+          {props.isOpen &&
+            (density === 'touch' ? (
+              <TouchSheet key="touch" {...props} />
+            ) : (
+              <PointerDialog key="pointer" {...props} />
+            ))}
+        </AnimatePresence>
+      </HeadingLevelContext>
     </InBar>
   )
 }
@@ -196,7 +206,7 @@ function SheetHeader({
       {title === undefined ? (
         <div className="min-w-0 flex-1" />
       ) : (
-        <Heading slot="title" className="t-heading min-w-0 flex-1 break-words">
+        <Heading slot="title" level={2} className="t-heading min-w-0 flex-1 break-words">
           {title}
         </Heading>
       )}
@@ -508,7 +518,7 @@ function TouchSheet(props: SheetProps) {
   // an alert does.
   const fit = height === 'fit'
   const backdrop = useTransform([y, openAt], ([value, at]: number[]) =>
-    scrim(
+    scrimOpacity(
       fit
         ? clamp((closedY - value!) / Math.max(1, closedY - at!), 0, 1)
         : 1 - clamp(value! / closedY, 0, 1),
@@ -581,13 +591,19 @@ function TouchSheet(props: SheetProps) {
       isKeyboardDismissDisabled={locked}
       data-sheet-scrim
       className="fixed inset-0 z-50"
-      style={{ backgroundColor: backdrop }}
       // Reduced motion trades the slide for a cross-fade of the whole overlay.
       initial={reduceMotion ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       exit={reduceMotion ? { opacity: 0, transition: fade } : undefined}
       transition={fade}
     >
+      {/* A layer that fades, since animating a color repaints the whole window each frame. */}
+      <motion.div
+        aria-hidden
+        data-sheet-dim
+        className="absolute inset-0"
+        style={{ opacity: backdrop, backgroundColor: SCRIM_COLOR }}
+      />
       <MotionModal
         className="bg-ground absolute inset-x-0 rounded-t-(--radius-surface) shadow-(--shadow-float) after:absolute after:inset-x-0 after:top-full after:h-16 after:bg-inherit"
         style={{

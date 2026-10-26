@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { contrastRatio, relativeLuminance } from '../test/contrast'
-import { PALETTE, type Palette } from './tokens'
+import { HEAT_STEPS, KEY_COLORS, LOOP_COLORS, PALETTE, type Palette } from './tokens'
 
 // contrastRatio measures rgb() strings, and the palette is hex.
 function rgb(hex: string): string {
@@ -28,9 +28,11 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
       [`secondary ink on ${name}`, p.ink2, bg, 4.5],
       [`accent on ${name}`, p.accent, bg, 4.5],
     ]),
+    ['a glyph that cannot act on the ground', p.glyphOff, p.ground, 3],
     ['label on the accent fill', p.onAccentFill, p.accentFill, 4.5],
     ['the mark on the ground', p.markInk, p.ground, 3],
     ['label on coral', p.onCoral, p.coral, 4.5],
+    ['label on jet', p.onJet, p.jet, 4.5],
     ['absence mark on a card', p.glyphFaint, p.surface, 3],
     ['absence mark on the ground', p.glyphFaint, p.ground, 3],
     ...(['ground', 'surface'] as const).flatMap((name): Case[] => [
@@ -44,6 +46,8 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
       [`warning label on ${name}`, p.warning, bg, 4.5],
     ]),
     ['label on danger', p.onTone, p.danger, 4.5],
+    ['label on the record fill', p.onRecord, p.record, 4.5],
+    ['label on the record fill under the pointer', p.onRecord, p.recordHover, 4.5],
     ['label on warning', p.onTone, p.warning, 4.5],
     ...grounds
       .filter(([name]) => name !== 'field')
@@ -69,38 +73,13 @@ it.each([
   expect(PALETTE[scheme].learning).toBe(orange)
 })
 
-it.each(['light', 'dark'] as const)('practice reads on %s jet', (scheme) => {
-  const jet = PALETTE[scheme].jet
-  expect(ratio('#FFFFFF', jet)).toBeGreaterThanOrEqual(4.5)
-  // Practice draws the dark scheme's accent on jet in either appearance, as text and glyphs.
-  expect(ratio(PALETTE.dark.accent, jet)).toBeGreaterThanOrEqual(4.5)
-  expect(ratio(PALETTE.light.silver, jet)).toBeGreaterThanOrEqual(4.5)
-  expect(ratio(PALETTE.light.coral, jet)).toBeGreaterThanOrEqual(3)
-})
-
-// The tuner's two off-pitch steps on jet: both legible, and apart in lightness as well as hue,
-// so they stay apart under red-green color blindness.
-it.each(['light', 'dark'] as const)('tuner steps read on %s jet', (scheme) => {
-  const p = PALETTE[scheme]
-  expect(ratio(p.tuneClose, p.jet)).toBeGreaterThanOrEqual(3)
-  expect(ratio(p.coral, p.jet)).toBeGreaterThanOrEqual(3)
-  const gap = relativeLuminance(rgb(p.tuneClose)) - relativeLuminance(rgb(p.coral))
-  expect(Math.abs(gap)).toBeGreaterThanOrEqual(0.1)
-})
-
-// Inside the target zone the bars blend from the close step to green; every color between
-// stays legible on jet.
-it.each(['light', 'dark'] as const)('tuner bars read on %s jet across the blend', (scheme) => {
-  const p = PALETTE[scheme]
-  const bytes = (hex: string) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16))
-  const [close, green] = [bytes(p.tuneClose), bytes(PALETTE.dark.known)]
-  for (let step = 0; step <= 10; step++) {
-    const share = step / 10
-    const mixed = close.map((c, i) => Math.round(c * (1 - share) + green[i]! * share))
-    const hex = `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`
-    expect(ratio(hex, p.jet), `${share} green`).toBeGreaterThanOrEqual(3)
-  }
-})
+it.each(['light', 'dark'] as const)(
+  'draws a %s glyph that cannot act fainter than secondary ink',
+  (scheme) => {
+    const p = PALETTE[scheme]
+    expect(ratio(p.glyphOff, p.ground)).toBeLessThan(ratio(p.ink2, p.ground))
+  },
+)
 
 // Read from disk: the unit project hands CSS imports, raw ones included, over empty.
 const css = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8')
@@ -146,6 +125,110 @@ describe.each(['light', 'dark'] as const)('tokens.css in %s', (scheme) => {
   })
 })
 
+describe.each(['light', 'dark'] as const)('the music palettes in %s', (scheme) => {
+  const values = tokens(scheme)
+  const css = (name: string) => normal(values.get(name) ?? 'missing')
+
+  it.each(KEY_COLORS[scheme].map((colors, pitch) => [pitch, colors] as const))(
+    'matches tokens.ts for key %i',
+    (pitch, { bg, ink, onBg, onInk }) => {
+      expect(css(`--key-${pitch}-bg`)).toBe(normal(bg))
+      expect(css(`--key-${pitch}-ink`)).toBe(normal(ink))
+      expect(css(`--key-${pitch}-on-bg`)).toBe(normal(onBg))
+      expect(css(`--key-${pitch}-on-ink`)).toBe(normal(onInk))
+    },
+  )
+
+  it.each(KEY_COLORS[scheme].map((colors, pitch) => [pitch, colors] as const))(
+    'keeps key %i legible at rest and chosen',
+    (_, { bg, ink, onBg, onInk }) => {
+      expect(ratio(ink, bg)).toBeGreaterThanOrEqual(4.5)
+      expect(ratio(onInk, onBg)).toBeGreaterThanOrEqual(4.5)
+    },
+  )
+
+  it.each(LOOP_COLORS[scheme].map((color, slot) => [slot, color] as const))(
+    'matches tokens.ts for loop %i, its tint, and keeps its white label legible',
+    (slot, color) => {
+      expect(css(`--loop-${slot}`)).toBe(normal(color))
+      const tint = css(`--loop-${slot}-tint`)
+      expect(tint.startsWith(`rgba(${rgb(color).slice(4, -1).replace(/\s/g, '')},`)).toBe(true)
+      expect(ratio('#FFFFFF', color)).toBeGreaterThanOrEqual(4.5)
+    },
+  )
+
+  it.each(HEAT_STEPS[scheme].map((color, step) => [step + 1, color] as const))(
+    'matches tokens.ts for heatmap step %i and reads against the page',
+    (step, color) => {
+      expect(css(`--heat-${step}`)).toBe(normal(color))
+      expect(ratio(color, PALETTE[scheme].ground)).toBeGreaterThanOrEqual(3)
+    },
+  )
+})
+
+const practiceTheme = readFileSync(new URL('./practiceTheme.css', import.meta.url), 'utf8')
+
+/** Practice's ground in a scheme: the token practiceTheme.css paints it with, as set there. */
+function practiceGround(scheme: 'light' | 'dark'): string {
+  const ref = /--panel-ground:\s*var\((--[\w-]+)\);/.exec(practiceTheme)?.[1]
+  const value = ref === undefined ? undefined : tokens(scheme).get(ref)
+  if (value === undefined) throw new Error('practice paints its ground with no tokens.css color')
+  return value
+}
+
+describe.each(['light', 'dark'] as const)("practice's ground in %s", (scheme) => {
+  const ground = practiceGround(scheme)
+
+  it('keeps white, the accent, silver, and the coral playhead legible', () => {
+    expect(ratio('#FFFFFF', ground)).toBeGreaterThanOrEqual(4.5)
+    // Practice draws the dark scheme's accent in either appearance, as text and glyphs.
+    expect(ratio(PALETTE.dark.accent, ground)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(PALETTE.light.silver, ground)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(PALETTE.light.coral, ground)).toBeGreaterThanOrEqual(3)
+  })
+
+  // Practice draws the dark scheme's loops, each under its white name tab.
+  it.each(LOOP_COLORS.dark.map((color, slot) => [slot, color] as const))(
+    'draws loop %i legibly, under a legible name',
+    (slot, color) => {
+      expect(normal(declared(':root').get(`--loop-${slot}-dark`) ?? 'missing')).toBe(normal(color))
+      expect(ratio(color, ground)).toBeGreaterThanOrEqual(3)
+      expect(ratio('#FFFFFF', color)).toBeGreaterThanOrEqual(4.5)
+    },
+  )
+
+  // The tuner's two off-pitch steps: both legible, and apart in lightness as well as hue, so
+  // they stay apart under red-green color blindness.
+  it('keeps the tuner steps legible and apart', () => {
+    const p = PALETTE[scheme]
+    expect(ratio(p.tuneClose, ground)).toBeGreaterThanOrEqual(3)
+    expect(ratio(p.coral, ground)).toBeGreaterThanOrEqual(3)
+    const gap = relativeLuminance(rgb(p.tuneClose)) - relativeLuminance(rgb(p.coral))
+    expect(Math.abs(gap)).toBeGreaterThanOrEqual(0.1)
+  })
+
+  // Inside the target zone the bars blend from the close step to green; every color between
+  // stays legible.
+  it('keeps the tuner bars legible across the blend', () => {
+    const bytes = (hex: string) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16))
+    const [close, green] = [bytes(PALETTE[scheme].tuneClose), bytes(PALETTE.dark.known)]
+    for (let step = 0; step <= 10; step++) {
+      const share = step / 10
+      const mixed = close.map((c, i) => Math.round(c * (1 - share) + green[i]! * share))
+      const hex = `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`
+      expect(ratio(hex, ground), `${share} green`).toBeGreaterThanOrEqual(3)
+    }
+  })
+})
+
+it('redeclares every loop color for practice', () => {
+  const practice = practiceTheme
+  for (let slot = 0; slot < LOOP_COLORS.dark.length; slot++) {
+    expect(practice).toContain(`--loop-${slot}: var(--loop-${slot}-dark);`)
+    expect(practice).toContain(`--loop-${slot}-tint: var(--loop-${slot}-tint-dark);`)
+  }
+})
+
 it("gives practice the dark scheme's danger in either appearance", () => {
   expect(normal(declared(':root').get('--danger-dark') ?? 'missing')).toBe(
     normal(PALETTE.dark.danger),
@@ -173,14 +256,14 @@ function mixOf(values: Map<string, string>, name: string): string {
   return toHex(a.map((c, i) => c * share + under[i]! * (1 - share)))
 }
 
-// The in-tune wash replaces jet under the tuner's white type and green bars.
+// The in-tune wash replaces practice's ground under the tuner's white type and green bars.
 describe.each(['light', 'dark'] as const)('the tuner wash in %s', (scheme) => {
   const values = tokens(scheme)
   const wash = () => mixOf(values, '--tune-wash')
   it('keeps white type legible', () => expect(ratio('#FFFFFF', wash())).toBeGreaterThanOrEqual(4.5))
   it('keeps the green bars legible', () =>
     expect(ratio(values.get('--known-dark')!, wash())).toBeGreaterThanOrEqual(3))
-  it('reads apart from jet', () => expect(wash()).not.toBe(values.get('--jet')))
+  it('reads apart from the ground', () => expect(wash()).not.toBe(practiceGround(scheme)))
 })
 
 /** The hex color a translucent wash token paints over an opaque ground. */
@@ -212,6 +295,13 @@ describe.each(['light', 'dark'] as const)('washes in %s', (scheme) => {
     ['trial card secondary ink on its tint', '--ink-2', '--tint', '--ground', 4.5],
     ['trial card ink on its tint', '--ink', '--tint', '--ground', 4.5],
     ['secondary ink on a selected row', '--ink-2', '--wash', '--ground', 4.5],
+    // A dimmed row, such as an archived tune, under each wash a row takes.
+    ...(['--row-hover', '--wash', '--play-wash'] as const).flatMap(
+      (wash): [string, string, string, string, number][] => [
+        [`dimmed ink on ${wash}`, '--ink-2', wash, '--ground', 4.5],
+        [`a glyph that cannot act on ${wash}`, '--glyph-off', wash, '--ground', 3],
+      ],
+    ),
     ['ink on a set filter', '--ink', '--set-fill', '--ground', 4.5],
     ['secondary ink on a set filter', '--ink-2', '--set-fill', '--ground', 4.5],
     ['set filter label on its wash over the ground', '--set-label', '--set-fill', '--ground', 4.5],

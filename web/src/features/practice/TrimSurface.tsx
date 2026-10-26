@@ -12,7 +12,7 @@ import type { stripProps, TrimEditor } from './useTrimEditor'
 export function TrimStrips({
   trim,
   dispatch,
-  playheadMs,
+  playhead,
   loaded,
   detail,
   seek,
@@ -31,7 +31,7 @@ export function TrimStrips({
         trim={trim}
         dispatch={dispatch}
         shown={shown}
-        playheadMs={playheadMs}
+        playhead={playhead}
         loaded={loaded}
         label={OVERVIEW_LABEL}
         compact
@@ -44,7 +44,7 @@ export function TrimStrips({
           trim={trim}
           dispatch={dispatch}
           shown={shown}
-          playheadMs={playheadMs}
+          playhead={playhead}
           loaded={loaded}
           label={DETAIL_LABEL}
           onSeek={seek}

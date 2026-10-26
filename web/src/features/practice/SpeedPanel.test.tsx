@@ -27,7 +27,7 @@ describe('SpeedPanel', () => {
     await userEvent.click(faster)
     await userEvent.click(faster)
     expect(onChange.mock.calls.map(([v]) => v)).toEqual([145, 150])
-    expect(faster).toBeDisabled()
+    expect(faster).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByRole('slider', { name: SPEED })).toHaveValue('150')
   })
 
@@ -38,7 +38,7 @@ describe('SpeedPanel', () => {
     await userEvent.click(slower)
     await userEvent.click(slower)
     expect(onChange.mock.calls.map(([v]) => v)).toEqual([50])
-    expect(slower).toBeDisabled()
+    expect(slower).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('jumps to a preset chip and marks it chosen', async () => {
@@ -57,6 +57,6 @@ describe('SpeedPanel', () => {
     expect(onChange).toHaveBeenLastCalledWith(120)
     await userEvent.click(screen.getByRole('button', { name: RESET }))
     expect(onChange).toHaveBeenLastCalledWith(100)
-    expect(screen.getByRole('button', { name: RESET })).toBeDisabled()
+    expect(screen.getByRole('button', { name: RESET })).toHaveAttribute('aria-disabled', 'true')
   })
 })

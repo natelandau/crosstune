@@ -10,6 +10,9 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { keyPlatform } from '../platform/keyPlatform'
+import { isTextEntry } from './keyTarget'
+import { useOverlayOpen } from './overlayClaim'
 import { UNDO } from './toastCopy'
 import { useLatest } from './useLatest'
 import { Button } from './Button'
@@ -55,7 +58,9 @@ const REAL_CLOCK: ToastClock = {
 
 /**
  * Owns the one toast on screen. A new toast replaces the old. The countdown holds while the
- * toast has keyboard focus or the pointer is over it, so Undo stays reachable.
+ * toast has keyboard focus or the pointer is over it, so Undo stays reachable. Cmd-Z or Ctrl-Z
+ * presses the showing toast's Undo, so a keyboard never has to race the countdown; it stands
+ * down in a text field, whose own undo it would steal, and while an overlay holds the keyboard.
  */
 export function ToastProvider({
   children,
@@ -169,6 +174,28 @@ export function ToastProvider({
     }
   }, [leaving, toast?.id])
 
+  const undoRef = useLatest(leaving ? undefined : toast?.undo)
+  const undo = useCallback(() => {
+    undoRef.current?.()
+    dismiss()
+  }, [undoRef, dismiss])
+
+  const overlayOpenRef = useLatest(useOverlayOpen())
+  useEffect(() => {
+    if (!toast?.undo || leaving) return
+    const onKey = (event: KeyboardEvent) => {
+      const command = keyPlatform() === 'mac' ? event.metaKey : event.ctrlKey
+      const otherCommand = keyPlatform() === 'mac' ? event.ctrlKey : event.metaKey
+      if (!command || otherCommand || event.shiftKey || event.altKey) return
+      if (event.key.toLowerCase() !== 'z' || event.defaultPrevented || event.repeat) return
+      if (isTextEntry(event.target) || overlayOpenRef.current) return
+      event.preventDefault()
+      undo()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [toast?.undo, leaving, undo, overlayOpenRef])
+
   const api = useMemo(() => ({ show, dropUndo }), [show, dropUndo])
 
   return (
@@ -211,16 +238,7 @@ export function ToastProvider({
               }`}
             >
               <span>{toast.message}</span>
-              {toast.undo && (
-                <Button
-                  variant="plain"
-                  label={UNDO}
-                  onPress={() => {
-                    toast.undo?.()
-                    dismiss()
-                  }}
-                />
-              )}
+              {toast.undo && <Button variant="plain" label={UNDO} onPress={undo} />}
             </div>
           )}
         </div>,

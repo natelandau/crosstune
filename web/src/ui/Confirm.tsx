@@ -90,7 +90,7 @@ function PointerAlert({
       className="bg-ground w-80 max-w-full rounded-(--radius-surface) p-4 shadow-(--shadow-float)"
     >
       <Dialog role="alertdialog" aria-describedby={messageId} className="flex flex-col">
-        <Heading slot="title" className="t-heading pt-1">
+        <Heading slot="title" level={2} className="t-heading pt-1">
           {title}
         </Heading>
         <p id={messageId} className="t-body text-ink-2 pt-1">

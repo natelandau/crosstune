@@ -110,7 +110,7 @@ const account = () => page.getByRole('link', { name: new RegExp(STUB_USER_NAME) 
 const back = () => page.getByRole('main').getByRole('link', { name: SETTINGS.label })
 const groupHeadings = (detail: ReturnType<typeof page.getByRole>) => () =>
   detail
-    .getByRole('heading', { level: 3 })
+    .getByRole('heading', { level: 2 })
     .elements()
     .map((heading) => heading.textContent)
 

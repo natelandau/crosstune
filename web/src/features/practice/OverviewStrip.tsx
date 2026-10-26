@@ -1,40 +1,62 @@
-import { useRef, type PointerEvent } from 'react'
+import { useLayoutEffect, useMemo, useRef, type PointerEvent } from 'react'
 import type { ShownPeaks } from './recordingRange'
 import { Waveform } from './Waveform'
 import type { LaneLoop } from './PracticeWaveform'
 import { capturePointer } from '../../platform/pointer'
 import { clamp } from '../../math'
+import type { Moving } from '../player/playheadClock'
 
 /**
  * The whole trimmed recording, every loop as a band beneath it, the playhead, and a box around
  * the stretch the waveform shows. A tap moves the playhead there and a drag carries it along.
- * Pointer only: the waveform's own slider is the keyboard's way to the same places.
+ * Pointer only: the waveform's own slider is the keyboard's way to the same places. The
+ * playhead and the box follow `playhead` outside React.
  */
 export function OverviewStrip({
   shown,
   lengthMs,
   trimStartMs,
-  visible,
+  halfSpanMs,
   loops,
-  playheadMs,
+  playhead,
   selectedId,
   onSeek,
 }: {
   shown: ShownPeaks | null
   lengthMs: number
   trimStartMs: number
-  /** The zoomed stretch, on the trimmed timeline. */
-  visible: { startMs: number; endMs: number }
+  /** Half the stretch the zoomed waveform shows, which is centered on the playhead. */
+  halfSpanMs: number
   loops: readonly LaneLoop[]
-  /** On the source timeline. */
-  playheadMs: number
+  /** Where the playhead is drawn, on the trimmed timeline. */
+  playhead: Moving<number>
   selectedId: string | null
   /** `ms` on the trimmed timeline. */
   onSeek: (ms: number) => void
 }) {
   const strip = useRef<HTMLDivElement>(null)
   const press = useRef<number | null>(null)
+  const line = useRef<HTMLDivElement>(null)
+  const box = useRef<HTMLDivElement>(null)
   const share = (ms: number) => (lengthMs > 0 ? (ms / lengthMs) * 100 : 0)
+  // Held to the take: a scrub pulled past an end is drawn there by the zoomed waveform alone.
+  const position = useMemo<Moving<number>>(
+    () => ({ get: () => clamp(playhead.get(), 0, lengthMs), subscribe: playhead.subscribe }),
+    [playhead, lengthMs],
+  )
+  useLayoutEffect(() => {
+    const percent = (ms: number) => `${lengthMs > 0 ? (ms / lengthMs) * 100 : 0}%`
+    const place = () => {
+      const ms = position.get()
+      if (line.current) line.current.style.left = percent(ms)
+      if (box.current) {
+        box.current.style.left = percent(ms - halfSpanMs)
+        box.current.style.width = percent(2 * halfSpanMs)
+      }
+    }
+    place()
+    return position.subscribe(place)
+  }, [position, halfSpanMs, lengthMs])
   const msPerPx = () => {
     const width = strip.current?.getBoundingClientRect().width ?? 0
     return width > 0 ? lengthMs / width : 0
@@ -70,7 +92,7 @@ export function OverviewStrip({
         peaks={shown?.peaks ?? null}
         loudest={shown?.loudest}
         lengthMs={lengthMs}
-        positionMs={playheadMs - trimStartMs}
+        positionMs={position}
         heightClass="h-5"
         decorative
         onSeek={() => {}}
@@ -87,16 +109,13 @@ export function OverviewStrip({
         />
       ))}
       <div
+        ref={line}
         className="pointer-events-none absolute top-0 bottom-2 w-0.5 -translate-x-1/2 bg-(--playhead)"
-        style={{ left: `${share(playheadMs - trimStartMs)}%` }}
       />
       <div
+        ref={box}
         data-overview-box
         className="pointer-events-none absolute top-0 bottom-2 rounded-md border-2 border-(--panel-ink)"
-        style={{
-          left: `${share(visible.startMs)}%`,
-          width: `${share(visible.endMs - visible.startMs)}%`,
-        }}
       />
     </div>
   )

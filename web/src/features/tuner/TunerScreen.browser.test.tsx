@@ -12,7 +12,14 @@ import { a4Plus, fakeTunerMic, toneThrough } from '../../test/fakeTunerMic'
 import { fakePlaybackEngine, fakePlayer } from '../../test/providers'
 import { seeded } from '../../test/random'
 import { renderApp } from '../../test/renderApp'
-import { recordingFile, recordingRow, tuneRow, userSettingsRow, userTuneRow } from '../../test/rows'
+import {
+  linkRow,
+  recordingFile,
+  recordingRow,
+  tuneRow,
+  userSettingsRow,
+  userTuneRow,
+} from '../../test/rows'
 import { CANCEL } from '../../ui/confirmCopy'
 import { OverlayClaim } from '../../ui/overlayClaim'
 import type { Player } from '../player/usePlayer'
@@ -104,14 +111,28 @@ it('pauses playback on entry and leaves the queue', async () => {
 
 it('closes a link playing in its embed on entry', async () => {
   const embed = fakePlayer({ item: { kind: 'link', id: 'l1' } })
-  await mount({ player: embed })
+  // A link the dock can embed, so only the tuner closes it.
+  await mount({
+    player: embed,
+    seed: (db) =>
+      db.recording_links.put(
+        linkRow('l1', 't1', {
+          provider: 'youtube',
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          provider_ref: 'dQw4w9WgXcQ',
+        }),
+      ),
+  })
   await expect.poll(() => vi.mocked(embed.close).mock.calls.length).toBe(1)
 })
 
 it('keeps a loaded recording on entry', async () => {
   const recording = fakePlayer({ item: { kind: 'recording', id: 'r1' } })
-  const { fake } = await mount({ player: recording })
-  await expect.poll(() => fake.openTracks()).toBe(1)
+  // A recording the dock can play, so nothing closes it. The dock showing it means its read
+  // has settled, after the tuner's entry.
+  await mount({ player: recording, seed: seedTake })
+  await expect.element(tuner()).toBeVisible()
+  await expect.element(player().getByText(TAKE)).toBeVisible()
   expect(recording.close).not.toHaveBeenCalled()
 })
 

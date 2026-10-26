@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -47,9 +48,44 @@ export function PaneScroller({
     <PaneContext value={scope}>
       {/* Relative, so an absolute box inside, such as a hidden announcer, is clipped and
           scrolled by the pane instead of stretching the window. */}
-      <div ref={scroller} data-pane-scroller className={`relative ${className}`} {...rest}>
+      {/* Scroll padding keeps a control that takes focus clear of the pinned bar above and the
+          floating phone chrome below. */}
+      <div
+        ref={scroller}
+        data-pane-scroller
+        className={`relative scroll-pt-(--pane-bar-clearance) scroll-pb-(--float-clearance) ${className}`}
+        {...rest}
+      >
         {children}
       </div>
     </PaneContext>
   )
+}
+
+/**
+ * Holds the pane's top scroll padding at the height `bar` covers while pinned, so a control
+ * that takes focus never scrolls under the bar.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function usePinnedBarClearance(
+  bar: RefObject<HTMLElement | null> | undefined,
+  active = true,
+) {
+  useLayoutEffect(() => {
+    const element = bar?.current
+    const scroller = element?.closest<HTMLElement>('[data-pane-scroller]')
+    if (!active || !element || !scroller) return
+    const measure = () => {
+      // A bar pinned with a negative top hides that much of itself above the pane.
+      const top = Math.min(0, parseFloat(getComputedStyle(element).top) || 0)
+      scroller.style.setProperty('--pane-bar-clearance', `${element.offsetHeight + top}px`)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => {
+      observer.disconnect()
+      scroller.style.removeProperty('--pane-bar-clearance')
+    }
+  }, [bar, active])
 }

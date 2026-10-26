@@ -2,7 +2,6 @@ import { replace, type RouteObject } from 'react-router'
 import { tuneHomePath } from '../layout/tuneHome'
 import { ListsLayout } from '../features/lists/ListsLayout'
 import { RecordingsLayout } from '../features/recordings/RecordingsLayout'
-import { SettingsLayout } from '../features/settings/SettingsLayout'
 import { isSettingsPage } from '../features/settings/settingsPages'
 import {
   legacySettingsGroup,
@@ -10,8 +9,6 @@ import {
   SAVED_LOCATIONS_SEGMENT,
   settingsGroupPath,
 } from '../features/settings/settingsPaths'
-import { StatsPage } from '../features/stats/StatsPage'
-import { TunerScreen } from '../features/tuner/TunerScreen'
 import {
   CatalogNewTune,
   CatalogTune,
@@ -25,6 +22,9 @@ import { NOT_FOUND } from './notFound'
 import { NotFoundPage } from './NotFoundPage'
 import { destination } from '../layout/destinations'
 import { SIGN_UP_PATH } from '../auth/links'
+
+// Tuner, stats, and settings load on first visit, off the startup path; the service worker
+// precaches their chunks, so they still open offline.
 
 // Each redirect replaces its entry, so Back never lands on an address that sends it forward again.
 const tuneHome: RouteObject['loader'] = ({ params }) => replace(tuneHomePath(params.tuneId))
@@ -83,15 +83,27 @@ export function appRoutes(dev: boolean): RouteObject[] {
           element: <RecordingsLayout />,
           children: [{ path: ':tuneId', element: <RecordingsTune /> }],
         },
-        { path: '/tuner', element: <TunerScreen /> },
+        {
+          path: '/tuner',
+          lazy: async () => ({
+            Component: (await import('../features/tuner/TunerScreen')).TunerScreen,
+          }),
+        },
         {
           path: '/settings',
           // The layout reads the page from the address; the routes only admit the known ones.
           // Stats and a tune opened from it fill the detail through the outlet.
-          element: <SettingsLayout />,
+          lazy: async () => ({
+            Component: (await import('../features/settings/SettingsLayout')).SettingsLayout,
+          }),
           children: [
             { index: true, element: null },
-            { path: 'stats', element: <StatsPage /> },
+            {
+              path: 'stats',
+              lazy: async () => ({
+                Component: (await import('../features/stats/StatsPage')).StatsPage,
+              }),
+            },
             { path: 'stats/tunes/:tuneId', element: <StatsTune /> },
             { path: `recordings/${SAVED_LOCATIONS_SEGMENT}/:placeId`, element: null },
             { path: 'saved-locations/:placeId', loader: legacySavedLocation },

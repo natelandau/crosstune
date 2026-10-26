@@ -6,6 +6,7 @@ interface Saved {
   root: HTMLElement
   transform: string
   transformOrigin: string
+  willChange: string
   clipPath: string
   background: string
   bodyBackground: string
@@ -29,7 +30,6 @@ function write(): void {
   const fullScale = (width - SHEET.topMargin) / width
   const shift = progress * (SHEET.topMargin - SURFACE_RADIUS)
   root.style.transform = `translateY(${shift}px) scale(${1 - progress * (1 - fullScale)})`
-  root.style.clipPath = `inset(0 round ${progress * SURFACE_RADIUS}px)`
 }
 
 function snapshot(): void {
@@ -40,12 +40,17 @@ function snapshot(): void {
     root,
     transform: root.style.transform,
     transformOrigin: root.style.transformOrigin,
+    willChange: root.style.willChange,
     clipPath: root.style.clipPath,
     background: root.style.backgroundColor,
     bodyBackground: body.style.backgroundColor,
   }
   // Scale about the viewport's top edge, wherever the page is scrolled.
   root.style.transformOrigin = `50% ${-root.getBoundingClientRect().top}px`
+  // A fixed clip on its own layer, so a frame of the recede moves the page without repainting
+  // it. The corners take their full radius from the first frame rather than growing.
+  root.style.willChange = 'transform'
+  root.style.clipPath = `inset(0 round ${SURFACE_RADIUS}px)`
   root.style.backgroundColor = 'var(--ground)'
   body.style.backgroundColor = '#000'
 }
@@ -55,6 +60,7 @@ function restore(): void {
   const { root } = saved
   root.style.transform = saved.transform
   root.style.transformOrigin = saved.transformOrigin
+  root.style.willChange = saved.willChange
   root.style.clipPath = saved.clipPath
   root.style.backgroundColor = saved.background
   document.body.style.backgroundColor = saved.bodyBackground

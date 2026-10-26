@@ -5,7 +5,7 @@ import { useOverlayOpen } from './overlayClaim'
 /** The pointer tooltip that names an icon-only control or a glyph. */
 export function Tip({ children }: { children: ReactNode }) {
   return (
-    <Tooltip className="t-caption bg-jet rounded-(--radius-row) px-2 py-1 text-white shadow-(--shadow-float)">
+    <Tooltip className="t-caption bg-jet text-on-jet rounded-(--radius-row) px-2 py-1 shadow-(--shadow-float)">
       {children}
     </Tooltip>
   )

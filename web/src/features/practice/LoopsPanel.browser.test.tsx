@@ -123,7 +123,7 @@ describe('LoopsPanel', () => {
   it('disables New loop inside a loop and tells assistive tech which, out of sight', async () => {
     const t = setup({ loops: [row('a', 20_000, 40_000, 'B part')] })
     renderInPractice(t.ui('rec'), { db })
-    await expect.element(button(NEW_LOOP)).toBeDisabled()
+    await expect.element(button(NEW_LOOP)).toHaveAttribute('aria-disabled', 'true')
     await expect.poll(() => describedBy(NEW_LOOP)?.textContent).toBe(INSIDE_LOOP('B part'))
     await expectHidden(describedBy(NEW_LOOP)!)
   })
@@ -131,7 +131,7 @@ describe('LoopsPanel', () => {
   it('names an unnamed loop by its time', async () => {
     const t = setup({ loops: [row('a', 20_000, 40_000)] })
     renderInPractice(t.ui('rec'), { db })
-    await expect.element(button(NEW_LOOP)).toBeDisabled()
+    await expect.element(button(NEW_LOOP)).toHaveAttribute('aria-disabled', 'true')
     await expect.poll(() => describedBy(NEW_LOOP)?.textContent).toBe(INSIDE_LOOP('Loop 0:20'))
   })
 
@@ -141,7 +141,7 @@ describe('LoopsPanel', () => {
       loops: [row('a', 0, 9_800), row('b', 10_200, 20_000)],
     })
     renderInPractice(t.ui('rec'), { db })
-    await expect.element(button(NEW_LOOP)).toBeDisabled()
+    await expect.element(button(NEW_LOOP)).toHaveAttribute('aria-disabled', 'true')
     await expect.poll(() => describedBy(NEW_LOOP)?.textContent).toBe(NO_ROOM)
     await expectHidden(describedBy(NEW_LOOP)!)
   })
@@ -150,7 +150,7 @@ describe('LoopsPanel', () => {
     const loops = Array.from({ length: 100 }, (_, i) => row(`l${i}`, i * 1000, i * 1000 + 600))
     const t = setup({ loops, playheadMs: 150_000, bounds: { startMs: 0, endMs: 200_000 } })
     renderInPractice(t.ui('rec'), { db })
-    await expect.element(button(NEW_LOOP)).toBeDisabled()
+    await expect.element(button(NEW_LOOP)).toHaveAttribute('aria-disabled', 'true')
     await expect.poll(() => describedBy(NEW_LOOP)?.textContent).toBe(LOOP_LIMIT)
     await expectHidden(describedBy(NEW_LOOP)!)
   })
@@ -228,7 +228,7 @@ describe('LoopsPanel', () => {
       />,
       { db },
     )
-    await expect.element(button(NEW_LOOP)).toBeDisabled()
+    await expect.element(button(NEW_LOOP)).toHaveAttribute('aria-disabled', 'true')
     await expect.element(button(NEW_LOOP)).not.toHaveAttribute('aria-describedby')
     await expect.element(page.getByText(LOOPS_EMPTY_HINT)).not.toBeVisible()
   })
@@ -246,7 +246,7 @@ describe('LoopsPanel', () => {
   it('shows Delete loop disabled and not red with nothing selected', async () => {
     const t = setup({ loops: [row('a', 1000, 5000)] })
     renderInPractice(t.ui('rec'), { db })
-    await expect.element(button(DELETE_LOOP)).toBeDisabled()
+    await expect.element(button(DELETE_LOOP)).toHaveAttribute('aria-disabled', 'true')
     await expect
       .poll(() => getComputedStyle(button(DELETE_LOOP).element()).color)
       .not.toBe(dangerColor())
@@ -255,7 +255,7 @@ describe('LoopsPanel', () => {
   it('shows Delete loop enabled and red with a loop selected', async () => {
     const t = setup({ loops: [row('a', 1000, 5000)], selectedId: 'a' })
     renderInPractice(t.ui('rec'), { db })
-    await expect.element(button(DELETE_LOOP)).toBeEnabled()
+    await expect.element(button(DELETE_LOOP)).not.toHaveAttribute('aria-disabled')
     await expect
       .poll(() => getComputedStyle(button(DELETE_LOOP).element()).color)
       .toBe(dangerColor())

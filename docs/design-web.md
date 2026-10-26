@@ -27,7 +27,8 @@ folder. Compose it, never rebuild it.
   for touch and a step smaller for pointer.
 - Radii, shadows, targets, timing: `web/src/theme/shape.css`.
 - A screen never types a color, text size, radius, or row height.
-- Jet: the practice and trim ground and tooltips only. Never the app
+- Jet: tooltips only, in each appearance's own jet. Practice, trim, and
+  the tuner draw on `--jet-dark` in either appearance. Never the app
   ground. Practice's colors come from `web/src/theme/practiceTheme.css`,
   and a shared control drawn on jet takes its tokens from there.
 - No tertiary ink. Text quieter than secondary is `t-caption` in
@@ -74,10 +75,15 @@ folder. Compose it, never rebuild it.
   history, or exits at the root.
 - Verbs bar: on split and wide, the pane bar. Phone root screens use
   `RootBar`, one row that replaces the pane bar and the column title.
+  A root screen's title never truncates. Where it would, the screen
+  moves a bar verb into More (`useCrowdedRootTitle`).
 - App-wide zone: bottom on phone, sidebar foot on split and wide.
 - The phone's tab bar and Record disc float over the content, solid, with
   a hairline edge and no glass. Panes pad their end by
   `--float-clearance`, so the last row scrolls clear.
+- `PaneScroller` scroll-pads by its pinned bar and `--float-clearance`, so
+  focus never lands under chrome. A new scroll container under pinned or
+  floating chrome is a `PaneScroller`.
 - Pointer selection: bulk actions take the pane bar's trailing place.
   Phone: they replace the tab bar.
 - Filter row: touch, one line that scrolls sideways and fades at its end.
@@ -174,6 +180,8 @@ folder. Compose it, never rebuild it.
 - Never take a combination the browser owns (Cmd-N, Cmd-R).
 - Cmd-K works from a text field too, and stands down while another overlay
   is open.
+- Cmd-Z or Ctrl-Z presses the showing toast's Undo, never from a text
+  field, whose own undo keeps it.
 - Escape closes an open tooltip in the same press.
 - Tab crosses panes in DOM order.
 
@@ -183,6 +191,9 @@ folder. Compose it, never rebuild it.
   `web/src/ui/focus.css` only. A container that only passes focus on
   (dialog, menu, grid) shows no ring.
 - Focus returns to the opener when an overlay closes.
+- Headings never skip a level. A page's title is h1, a sheet's or section's
+  h2. A heading under one takes `useSubheadingLevel` from
+  `web/src/ui/headingLevel.ts`.
 - Contrast also holds on jet.
 - Forced colors: a glyph whose meaning is a fill paints in system colors.
 
@@ -198,8 +209,16 @@ Browser and library behavior that a new screen runs into.
   below it.
 - A drag runs on pointer events, never the browser's drag and drop, whose
   drag image and drop line cannot lift a row or slide the others.
+- The playback engine reports its position at every tick. A view reads the
+  engine's discrete facts with `useEngineState`, and draws position from a
+  `PlayheadClock` (`features/player/playheadClock.ts`): DOM writes each
+  frame, a render only when its text changes. Never subscribe to the whole
+  engine state.
 - Opening a sheet costs time in proportion to the page under it, so a long
   list behind a sheet is virtualized or short.
+- A virtualized `RowList` hands a row's element to another row as it
+  scrolls. State inside a row's content sits under a `key` of the row's id,
+  or it carries over to the next row.
 - A window opened by a third party (a store checkout) opens only after the
   sheet that asked for it has left, and no notice opens over it: it would
   sit under the sheet's inert page.

@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useLeaveTo } from './backTrail'
 import { useFrame } from '../platform/frame'
-import { usePane } from './pane'
+import { usePane, usePinnedBarClearance } from './pane'
 import { InBar } from '../ui/inBar'
 
 /**
@@ -34,6 +34,7 @@ export function PaneBar({
   const fullRef = useRef<HTMLSpanElement>(null)
   const [fits, setFits] = useState(true)
   const compact = compactTitle !== undefined
+  usePinnedBarClearance(pane?.bar, !bare)
 
   // The title's track grows only to its own content, so the room it could have is measured
   // from the bar less both sides at their natural widths.

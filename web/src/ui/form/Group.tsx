@@ -1,5 +1,6 @@
 import { useId, type ReactNode, type Ref } from 'react'
 import { ErrorLine } from '../ErrorLine'
+import { useSubheadingLevel } from '../headingLevel'
 
 /**
  * A form section: an optional header naming the group, its rows in one inset card, then help
@@ -33,6 +34,7 @@ export function Group({
   children: ReactNode
 }) {
   const headerId = useId()
+  const Header = `h${useSubheadingLevel()}` as const
   return (
     <section
       id={id}
@@ -41,14 +43,14 @@ export function Group({
       className={`scroll-mt-14 ${header ? 'pt-6' : 'pt-4'}`}
     >
       {header && (
-        <h3
+        <Header
           id={headerId}
           ref={headerRef}
           tabIndex={headerRef ? -1 : undefined}
           className="t-secondary text-ink-2 px-4 pb-2"
         >
           {header}
-        </h3>
+        </Header>
       )}
       {help && <p className="t-secondary text-ink-2 px-4 pb-2">{help}</p>}
       {plain ? (

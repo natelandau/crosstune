@@ -32,6 +32,13 @@ export interface LaneView {
   trimStartMs: number
 }
 
+/** The zoomed view as it stands. It moves outside React, so `subscribe` calls back on each move. */
+export interface Lane {
+  trimStartMs: number
+  view: () => LaneView
+  subscribe: (fn: () => void) => () => void
+}
+
 /** The x of a source time, in pixels from the view's left edge. */
 export function xOfMs(view: LaneView, sourceMs: number): number {
   return ((sourceMs - view.trimStartMs - view.startMs) / 1000) * view.pxPerS

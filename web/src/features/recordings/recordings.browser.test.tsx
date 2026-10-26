@@ -527,7 +527,7 @@ it('dims every recording on a free plan, filed and unfiled, and answers a tap wi
     // Named without Play, since the tap opens the Plan sheet instead.
     await expect.element(column().getByRole('row', { name: new RegExp(`^${name}`) })).toBeVisible()
     await expect.element(row(name)).toHaveAccessibleDescription(SUBSCRIBE_TO_PLAY)
-    await expect.poll(() => Number(getComputedStyle(row(name).element()).opacity)).toBeLessThan(1)
+    await expect.element(row(name)).toHaveAttribute('data-dimmed')
   }
   await row('Hen take').click()
   await expect

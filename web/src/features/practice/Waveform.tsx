@@ -1,18 +1,29 @@
-import { useEffect, useMemo, useRef, type KeyboardEvent, type PointerEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react'
 import { clamp } from '../../math'
 import { formatDuration } from '../../text/format'
 import { BAR_GAP, BAR_STEP, BAR_WIDTH, MIN_BAR } from '../capture/waveformBars'
 import { barLevels, type Peaks } from '../waveform/peaks'
 import { capturePointer } from '../../platform/pointer'
 import { BAR_CANVAS_CLASS, useBarCanvas } from './useBarCanvas'
+import type { Moving } from '../player/playheadClock'
 
 export const SEEK_LABEL = 'Position'
 
 const KEY_STEP_MS = 5000
 
+const still = () => () => {}
+
 /**
  * The whole trimmed recording as bars, which is also the scrubber: a tap or a drag seeks, and
- * the part already played is drawn in full color. Without peaks it is one plain bar.
+ * the part already played is drawn in full color. Without peaks it is one plain bar. A moving
+ * `positionMs` redraws only as the playhead passes another bar, without a render between.
  */
 export function Waveform({
   peaks,
@@ -30,7 +41,7 @@ export function Waveform({
   /** The value the bars scale to; the largest in `peaks` when left out. */
   loudest?: number
   lengthMs: number
-  positionMs: number
+  positionMs: number | Moving<number>
   /** No audio to seek yet. */
   disabled?: boolean
   label?: string
@@ -51,11 +62,19 @@ export function Waveform({
     () => (peaks ? barLevels(peaks.values, count, loudest) : []),
     [peaks, count, loudest],
   )
+  const moving = typeof positionMs === 'number' ? null : positionMs
+  const nowMs = () => (typeof positionMs === 'number' ? positionMs : positionMs.get())
   // Bars flip color one at a time, so a redraw is due only when another bar has been passed.
-  const playedX = lengthMs > 0 ? (Math.min(positionMs, lengthMs) / lengthMs) * size.width : 0
-  const played = peaks
-    ? Math.floor((playedX + BAR_GAP + BAR_WIDTH / 2) / BAR_STEP)
-    : Math.round(playedX)
+  const played = useSyncExternalStore(moving?.subscribe ?? still, () => {
+    const playedX = lengthMs > 0 ? (Math.min(nowMs(), lengthMs) / lengthMs) * size.width : 0
+    return peaks ? Math.floor((playedX + BAR_GAP + BAR_WIDTH / 2) / BAR_STEP) : Math.round(playedX)
+  })
+  // A moving position is spoken to the second, so the slider renders only as that changes.
+  const spokenS = useSyncExternalStore((!decorative && moving?.subscribe) || still, () =>
+    moving && !decorative ? Math.round(clamp(moving.get(), 0, lengthMs) / 1000) : 0,
+  )
+  const fixedMs =
+    typeof positionMs === 'number' ? positionMs : decorative ? undefined : spokenS * 1000
 
   useEffect(() => {
     const draw = begin()
@@ -88,9 +107,9 @@ export function Waveform({
     if (disabled) return
     const target =
       event.key === 'ArrowLeft' || event.key === 'ArrowDown'
-        ? positionMs - KEY_STEP_MS
+        ? nowMs() - KEY_STEP_MS
         : event.key === 'ArrowRight' || event.key === 'ArrowUp'
-          ? positionMs + KEY_STEP_MS
+          ? nowMs() + KEY_STEP_MS
           : event.key === 'Home'
             ? 0
             : event.key === 'End'
@@ -110,8 +129,8 @@ export function Waveform({
       aria-disabled={disabled || undefined}
       aria-valuemin={0}
       aria-valuemax={lengthMs}
-      aria-valuenow={positionMs}
-      aria-valuetext={formatDuration(positionMs)}
+      aria-valuenow={fixedMs}
+      aria-valuetext={fixedMs === undefined ? undefined : formatDuration(fixedMs)}
       // touch-none keeps a horizontal drag from scrolling the screen instead of seeking.
       className={`rounded-lg outline-offset-2 select-none ${disabled ? 'opacity-50' : 'cursor-pointer touch-none'}`}
       onPointerDown={(event) => {

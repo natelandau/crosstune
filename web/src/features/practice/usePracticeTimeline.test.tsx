@@ -12,7 +12,10 @@ import { usePracticeTimeline } from './usePracticeTimeline'
 const LENGTH_MS = 180_000
 const WIDTH_PX = 400
 
-function setup({ reduceMotion = false }: { reduceMotion?: boolean } = {}) {
+function setup({
+  reduceMotion = false,
+  onRender,
+}: { reduceMotion?: boolean; onRender?: () => void } = {}) {
   const view: RecordingView = {
     recording: recordingRow('rec-1', { trim_start_ms: 10_000, source_duration_ms: 190_000 }),
     file: recordingFile('rec-1'),
@@ -28,6 +31,7 @@ function setup({ reduceMotion = false }: { reduceMotion?: boolean } = {}) {
   )
   const rendered = renderHook(
     ({ width }: { width: number }) => {
+      onRender?.()
       const timeline = usePracticeTimeline({ view, engine, size: { width } })
       // Practice's loops open the view once they are read; here there are none.
       timeline.open(null)
@@ -92,13 +96,20 @@ describe('usePracticeTimeline', () => {
 
   it('holds the playhead it reports to the take while a scrub pulls past either end', () => {
     const { result } = setup()
-    act(() => result.current.onScrubbing(-500))
-    expect(result.current.shownMs).toBe(0)
-    expect(result.current.playheadMs).toBe(10_000)
-    expect(result.current.visible!.startMs + result.current.visible!.endMs).toBeCloseTo(0, 6)
-    act(() => result.current.onScrubbing(LENGTH_MS + 500))
-    expect(result.current.shownMs).toBe(LENGTH_MS)
-    expect(result.current.playheadMs).toBe(10_000 + LENGTH_MS)
+    act(() => result.current.playhead.setScrub(-500))
+    expect(result.current.playheadMs()).toBe(10_000)
+    act(() => result.current.playhead.setScrub(LENGTH_MS + 500))
+    expect(result.current.playheadMs()).toBe(10_000 + LENGTH_MS)
+  })
+
+  it('renders nothing as the playhead moves', () => {
+    let renders = 0
+    const { engine, result } = setup({ onRender: () => renders++ })
+    const before = renders
+    act(() => engine.seek(30_000))
+    act(() => result.current.playhead.setScrub(40_000))
+    expect(renders).toBe(before)
+    expect(result.current.playhead.ms).toBe(40_000)
   })
 
   it('skips from where the playhead shows', () => {

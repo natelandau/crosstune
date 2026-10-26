@@ -710,7 +710,7 @@ it("folds a free plan's recordings into one line that opens to dimmed rows", asy
   await expect.element(line).toHaveAttribute('aria-expanded', 'true')
   await expect.poll(() => takes.elements().length).toBe(3)
   for (const row of takes.elements()) {
-    await expect.poll(() => Number(getComputedStyle(row).opacity)).toBeLessThan(1)
+    await expect.element(row).toHaveAttribute('data-dimmed')
   }
 
   // A gated row's name drops the verb its tap will not do.

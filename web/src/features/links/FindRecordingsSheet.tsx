@@ -198,7 +198,6 @@ export function FindRecordingsSheet({
         <EmptyState
           icon={SlidersHorizontal}
           title={NO_SERVICES}
-          headingLevel={3}
           action={<Button label={MUSIC_SERVICES} onPress={find.openSettings} />}
         />
       ) : shown === null ? (

@@ -2,7 +2,7 @@ import { expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
-import { updateLoop } from '../../commands/loops'
+import { removeLoop, updateLoop } from '../../commands/loops'
 import { PAUSE } from '../player/transportCopy'
 import { ARROW_LARGE_STEP_MS, ARROW_STEP_MS } from './PracticeWaveform'
 import {
@@ -15,6 +15,7 @@ import {
 import { CENTS, PITCH, PITCH_PAUSES_ON_LOCK } from './PitchPanel'
 import { SPEED } from './SpeedPanel'
 import { TRIM } from './trimCopy'
+import { SET_END, SET_START } from './trimViewCopy'
 import { OFFLINE } from '../../sync/labels'
 import { liveLoops, seedLoop } from '../../test/recordings'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
@@ -46,10 +47,10 @@ vi.mock('../../commands/loops', { spy: true })
 
 const announced = () => practice()?.querySelector('[data-practice-announcer]')?.textContent ?? ''
 
-it('opens from the phone bar on the jet ground, in the light appearance too', async () => {
+it("opens from the phone bar on the dark scheme's jet, in the light appearance too", async () => {
   await mountPlaying(PHONE)
   await openPractice()
-  const jet = PALETTE.light.jet
+  const jet = PALETTE.dark.jet
   const rgb = `rgb(${[1, 3, 5].map((i) => parseInt(jet.slice(i, i + 2), 16)).join(', ')})`
   await expect.poll(() => getComputedStyle(practice()!).backgroundColor).toBe(rgb)
 })
@@ -117,6 +118,39 @@ it('picks a loop by its number in lane order, and a number past the last does no
   press('1')
   await expect.poll(announced).toBe(LOOP_SELECTED('A part'))
   expect(engine.getState().positionMs).toBe(5000)
+})
+
+it("moves the selected loop's edges to the playhead with Set start and Set end", async () => {
+  const { db, engine } = await mountPlaying(WIDE)
+  await seedLoop(db, 'r1', 5000, 8000, { label: 'A part' })
+  await openPractice()
+  press(' ')
+  await expect.poll(() => engine.getState().playing).toBe(false)
+  const setStart = page.getByRole('button', { name: SET_START })
+  const setEnd = page.getByRole('button', { name: SET_END })
+  await expect.element(setStart).toHaveAttribute('aria-disabled', 'true')
+  await expect.element(setEnd).toHaveAttribute('aria-disabled', 'true')
+  press('1')
+  await expect.element(setStart).not.toHaveAttribute('aria-disabled')
+  engine.seek(6000)
+  await setStart.click()
+  await expect.poll(async () => (await liveLoops(db, 'r1'))[0]?.start_ms).toBe(6000)
+  // The moved loop reaches the engine before the playhead leaves it, or Repeat would bring it back.
+  await expect.poll(() => engine.loopRange?.fromS).toBe(6)
+  engine.seek(12_000)
+  await expect.poll(() => engine.getState().positionMs).toBe(12_000)
+  await setEnd.click()
+  await expect.poll(async () => (await liveLoops(db, 'r1'))[0]?.end_ms).toBe(12_000)
+  expect((await liveLoops(db, 'r1'))[0]?.start_ms).toBe(6000)
+  // With its loop gone the button turns off but keeps focus, and a press does nothing.
+  await expect.element(setEnd).toHaveFocus()
+  await removeLoop(db, (await liveLoops(db, 'r1'))[0]!.id)
+  await expect.element(setEnd).toHaveAttribute('aria-disabled', 'true')
+  await expect.element(setEnd).toHaveFocus()
+  const writes = vi.mocked(updateLoop).mock.calls.length
+  await userEvent.keyboard('{Enter}')
+  await expect.element(setEnd).toHaveFocus()
+  expect(vi.mocked(updateLoop).mock.calls.length).toBe(writes)
 })
 
 it('loop_set reports each loop newly selected, a created one too', async () => {

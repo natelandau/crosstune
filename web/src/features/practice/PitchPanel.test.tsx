@@ -82,7 +82,10 @@ describe('PitchPanel', () => {
     // -1150 reads as -11 semitones and -50 cents.
     await userEvent.click(screen.getByRole('button', { name: PITCH_DOWN }))
     expect(onChange).toHaveBeenLastCalledWith(-1200)
-    expect(screen.getByRole('button', { name: PITCH_DOWN })).toBeDisabled()
+    expect(screen.getByRole('button', { name: PITCH_DOWN })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
   })
 
   it('never goes past a full octave with cents added', () => {
