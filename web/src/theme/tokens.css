@@ -30,7 +30,7 @@
   /* A tinted control's fill, a plain control's hover, and a tinted control's hover. */
   --tint: color-mix(in srgb, var(--accent) 12%, transparent);
   --tint-hover: color-mix(in srgb, var(--accent) 22%, transparent);
-  --tint-strong: color-mix(in srgb, var(--accent) 32%, transparent);
+  --tint-strong: color-mix(in srgb, var(--accent) 30%, transparent);
   --row-hover: color-mix(in srgb, var(--accent) 8%, transparent);
   /* A filled control that is off: a neutral shape that still stands apart from the ground. */
   --disabled-fill: #ddd9d3;
@@ -46,7 +46,7 @@
   --jet-dark: #1e212c;
   /* Text on jet, such as a tooltip's. */
   --on-jet: #ffffff;
-  --record: #ff3b30;
+  --record: #ff383c;
   /* The label on a record fill, and the fill under the pointer: white falls under 4.5:1 on the
      red, so the label is dark and the hover lightens. */
   --on-record: #16181d;
@@ -64,16 +64,16 @@
   /* The unknown ring on a surface or a wash, which the lighter grey falls under 3:1 on. */
   --unknown-on-surface: #737983;
   --silver: #bfc0c0;
-  --danger: #b42318;
+  --danger: #b3261e;
   /* The dark scheme's danger, which practice also uses in either appearance. */
   --danger-dark: #ff8a80;
   /* A control's fill in practice, which is drawn dark in either appearance. */
   --practice-fill: rgba(118, 118, 128, 0.24);
-  --warning: #b02e00;
+  --warning: #8a4b00;
   --hairline: rgba(30, 40, 55, 0.12);
   --wash: color-mix(in srgb, var(--accent) 12%, transparent);
   /* The playing row's wash, lighter than a selection's so the two read apart. */
-  --play-wash: color-mix(in srgb, var(--accent) 6%, transparent);
+  --play-wash: color-mix(in srgb, var(--accent) 10%, transparent);
   /* A set filter's wash and label, the same on every platform. Over a dark surface the wash
      leaves the accent short of 4.5:1, so the dark label is ink. */
   --set-fill: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -175,10 +175,10 @@
   /* The stats heatmap's four steps, from the lightest active day to the busiest: one hue, a cool
      grey-blue, so the steps read as amounts and never as categories. Even the lightest clears
      3:1 against the page, so a day with any activity never reads as empty. */
-  --heat-1: #8794aa;
-  --heat-2: #6b7891;
-  --heat-3: #4a566d;
-  --heat-4: #2a3342;
+  --heat-1: #707c93;
+  --heat-2: #56627a;
+  --heat-3: #3b465b;
+  --heat-4: #1f2634;
 }
 
 :root[data-scheme='dark'] {
@@ -198,23 +198,23 @@
   --on-tone: #16181d;
   --tint: color-mix(in srgb, var(--accent) 16%, transparent);
   --tint-hover: color-mix(in srgb, var(--accent) 28%, transparent);
-  --tint-strong: color-mix(in srgb, var(--accent) 38%, transparent);
+  --tint-strong: color-mix(in srgb, var(--accent) 50%, transparent);
   --row-hover: color-mix(in srgb, var(--accent) 10%, transparent);
   --disabled-fill: #3e3c37;
   --disabled-ink: #aba69e;
   --switch-off: #8a847b;
   --switch-on: #4a86c4;
   --jet: var(--jet-dark);
-  --record: #ff453a;
+  --record: #ff4245;
   --record-hover: #ff5f56;
   --unknown-on-surface: #8a909a;
   --known: #30d158;
   --learning: #ff9230;
   --danger: var(--danger-dark);
-  --warning: #ff9f0a;
+  --warning: #ffb35c;
   --hairline: rgba(230, 240, 255, 0.1);
   --wash: color-mix(in srgb, var(--accent) 24%, transparent);
-  --play-wash: color-mix(in srgb, var(--accent) 12%, transparent);
+  --play-wash: color-mix(in srgb, var(--accent) 18%, transparent);
   --set-fill: color-mix(in srgb, var(--accent) 22%, transparent);
   --set-fill-hover: color-mix(in srgb, var(--accent) 28%, transparent);
   --set-label: var(--ink);
@@ -291,10 +291,10 @@
   --loop-5-tint: var(--loop-5-tint-dark);
 
   /* Brighter with activity on a dark page, the reverse of the light steps. */
-  --heat-1: #5b667c;
-  --heat-2: #7d89a0;
-  --heat-3: #a6b0c4;
-  --heat-4: #d3d8e3;
+  --heat-1: #7f8ba2;
+  --heat-2: #a0abbf;
+  --heat-3: #c2c9d7;
+  --heat-4: #e4e8ef;
 }
 
 @theme inline {

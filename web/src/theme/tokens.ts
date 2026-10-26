@@ -57,7 +57,7 @@ export const PALETTE: Record<Scheme, Palette> = {
     onCoral: '#1D2230',
     jet: '#2D3142',
     onJet: '#FFFFFF',
-    record: '#FF3B30',
+    record: '#FF383C',
     onRecord: '#16181D',
     recordHover: '#FF564D',
     known: '#248A3D',
@@ -66,8 +66,8 @@ export const PALETTE: Record<Scheme, Palette> = {
     unknown: '#8A909A',
     unknownOnSurface: '#737983',
     silver: '#BFC0C0',
-    danger: '#B42318',
-    warning: '#B02E00',
+    danger: '#B3261E',
+    warning: '#8A4B00',
     hairline: 'rgba(30,40,55,0.12)',
     switchOff: '#8A857C',
     switchOn: '#1F5F9E',
@@ -94,7 +94,7 @@ export const PALETTE: Record<Scheme, Palette> = {
     onCoral: '#1D2230',
     jet: '#1E212C',
     onJet: '#FFFFFF',
-    record: '#FF453A',
+    record: '#FF4245',
     onRecord: '#16181D',
     recordHover: '#FF5F56',
     known: '#30D158',
@@ -104,7 +104,7 @@ export const PALETTE: Record<Scheme, Palette> = {
     unknownOnSurface: '#8A909A',
     silver: '#BFC0C0',
     danger: '#FF8A80',
-    warning: '#FF9F0A',
+    warning: '#FFB35C',
     hairline: 'rgba(230,240,255,0.10)',
     switchOff: '#8A847B',
     switchOn: '#4A86C4',
@@ -165,6 +165,6 @@ export const LOOP_COLORS: Record<Scheme, readonly string[]> = {
 
 /** The stats heatmap's four steps, from the lightest active day to the busiest. */
 export const HEAT_STEPS: Record<Scheme, readonly string[]> = {
-  light: ['#8794AA', '#6B7891', '#4A566D', '#2A3342'],
-  dark: ['#5B667C', '#7D89A0', '#A6B0C4', '#D3D8E3'],
+  light: ['#707C93', '#56627A', '#3B465B', '#1F2634'],
+  dark: ['#7F8BA2', '#A0ABBF', '#C2C9D7', '#E4E8EF'],
 }

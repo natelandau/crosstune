@@ -4,8 +4,7 @@ import SwiftUI
 /// The heatmap's four steps, from the lightest active day to the busiest: the web's hue,
 /// darkening in light mode and lightening in dark mode. Each step is at least 3:1 against every
 /// surface the grid can sit on: the grouped row and page in light (#FFFFFF down to #E5E5EA) and
-/// dark (#000000 up to #3A3A3C) on iOS and macOS. The steps sit further from the page than the
-/// web's `--heat-1` to `--heat-4`, whose lightest dark step fails on a grouped row.
+/// dark (#000000 up to #3A3A3C) on iOS and macOS. The web's `--heat-1` to `--heat-4` match.
 enum HeatColor {
     static let light: [UInt32] = [0x707c93, 0x56627a, 0x3b465b, 0x1f2634]
     static let dark: [UInt32] = [0x7f8ba2, 0xa0abbf, 0xc2c9d7, 0xe4e8ef]
