@@ -18,7 +18,9 @@ deployable reads its settings: `architecture.md`, Configuration.
 | [Periphery](https://github.com/peripheryapp/periphery) | 3.8            | Finds unused Swift code for `just apple::deadcode`.                             |
 
 Also a free [Clerk](https://clerk.com) development instance with email
-verification code sign-in on. From its dashboard: the Frontend API URL
+verification code, Apple, and Google sign-in on. The Apple app's
+welcome screen calls Apple and Google sign-in directly. From its
+dashboard: the Frontend API URL
 (`https://<slug>.clerk.accounts.dev`) and the publishable key
 (`pk_test_...`).
 
