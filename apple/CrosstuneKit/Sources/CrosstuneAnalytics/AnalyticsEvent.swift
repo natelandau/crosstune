@@ -22,6 +22,10 @@ public enum AnalyticsEvent: Sendable, Equatable {
     case accountDeletionCancelled
     /// This device's request created the account; `trial` is false for a comped one.
     case accountCreated(trial: Bool)
+    /// The explanation of why an account is needed opened from the welcome screens.
+    case accountReasonOpened
+    /// A sign-up method was chosen on the welcome screens, with the furthest carousel slide reached.
+    case signUpStarted(method: SignUpMethod, furthestSlide: WelcomeSlideName)
 
     case tuneCreated(source: ActionSource, fieldsSet: [TuneField], tuneID: String)
     case tuneEdited(fieldsChanged: [TuneField], tuneID: String)
@@ -118,6 +122,8 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .accountDeletionStarted: "account_deletion_started"
         case .accountDeletionCancelled: "account_deletion_cancelled"
         case .accountCreated: "account_created"
+        case .accountReasonOpened: "account_reason_opened"
+        case .signUpStarted: "sign_up_started"
         case .tuneCreated: "tune_created"
         case .tuneEdited: "tune_edited"
         case .tuneStatusChanged: "tune_status_changed"
@@ -190,10 +196,13 @@ public enum AnalyticsEvent: Sendable, Equatable {
     public var properties: [String: AnalyticsValue] {
         switch self {
         case .signedIn, .signedOut, .accountDeleted, .accountDeletionStarted, .accountDeletionCancelled,
-            .usageSharingDisabled, .savedLocationRenamed, .savedLocationDeleted, .locationOpenedInMaps:
+            .accountReasonOpened, .usageSharingDisabled, .savedLocationRenamed, .savedLocationDeleted,
+            .locationOpenedInMaps:
             [:]
         case .accountCreated(let trial):
             ["trial": .bool(trial)]
+        case .signUpStarted(let method, let furthestSlide):
+            ["method": .string(method.rawValue), "furthest_slide": .string(furthestSlide.rawValue)]
         case .tuneCreated(let source, let fields, let tuneID):
             ["source": .string(source.rawValue), "fields_set": .fields(fields), "tune_id": .string(tuneID)]
         case .tuneEdited(let fields, let tuneID):

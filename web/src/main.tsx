@@ -2,6 +2,7 @@ import { ClerkProvider } from '@clerk/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AnalyticsProvider } from './usage/AnalyticsProvider'
+import { LOCALIZATION } from './app/clerkAppearance'
 import { AuthGate } from './app/AuthGate'
 import { SignedInApp } from './app/SignedInApp'
 import { startServices } from './app/startServices'
@@ -14,7 +15,7 @@ function mountApp(element: HTMLElement) {
   if (!clerkKey) throw new Error('VITE_CLERK_PUBLISHABLE_KEY is not set')
   createRoot(element).render(
     <StrictMode>
-      <ClerkProvider publishableKey={clerkKey}>
+      <ClerkProvider publishableKey={clerkKey} localization={LOCALIZATION}>
         <AnalyticsProvider client={analytics}>
           <AuthGate>
             <SignedInApp />

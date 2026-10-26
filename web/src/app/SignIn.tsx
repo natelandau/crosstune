@@ -1,6 +1,6 @@
 import { SignIn as ClerkSignIn } from '@clerk/react'
 import { useState } from 'react'
-import { SIGN_UP_PATH } from '../auth/links'
+import { SIGN_UP_PATH, WELCOME_REASON } from '../auth/links'
 import { ACCOUNT_DELETED, hasAccountDeletedNotice } from '../auth/session'
 import { AuthLayout } from './AuthLayout'
 import { APPEARANCE } from './clerkAppearance'
@@ -11,6 +11,7 @@ export function SignIn({ staleSession }: { staleSession: boolean }) {
   const [deleted] = useState(hasAccountDeletedNotice)
   return (
     <AuthLayout
+      reason={WELCOME_REASON}
       notice={
         deleted ? (
           <p role="status" className="t-body m-0">

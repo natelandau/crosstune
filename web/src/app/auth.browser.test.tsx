@@ -3,12 +3,14 @@ import { page } from 'vitest/browser'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthSession } from '../auth/AuthContext'
 import {
+  NEXT_SLIDE,
   SIGN_IN_HEADLINE,
-  SIGN_IN_LINE,
   SIGN_IN_PATH,
-  SIGN_UP_LINE,
   SIGN_UP_PATH,
+  SLIDE_COUNT,
+  slideDotLabel,
   SPLASH_LABEL,
+  WELCOME_REASON,
 } from '../auth/links'
 import {
   ACCOUNT_DELETED,
@@ -48,7 +50,9 @@ vi.mock('@clerk/react', () => ({
   SignIn: (props: Record<string, unknown>) => {
     clerk.signIn = props
     return (
-      <div style={{ height: 600, width: '25rem', maxWidth: 'calc(100vw - 2.5rem)' }}>
+      <div
+        style={{ height: 600, width: 'var(--container-auth)', maxWidth: 'calc(100vw - 2.5rem)' }}
+      >
         Clerk sign-in form
       </div>
     )
@@ -257,7 +261,7 @@ describe('AuthGate', () => {
     await expect
       .element(page.getByRole('heading', { name: SIGN_IN_HEADLINE, level: 1 }))
       .toBeVisible()
-    await expect.element(page.getByText(SIGN_IN_LINE)).toBeVisible()
+    await expect.element(page.getByText(WELCOME_REASON)).toBeVisible()
     await expect.element(page.getByText('Crosstune')).toBeVisible()
     await expect.element(page.getByText('Clerk sign-in form')).toBeVisible()
   })
@@ -346,12 +350,12 @@ describe('AuthGate', () => {
           <p>signed in</p>
         </AuthGate>,
       )
-      await expect.element(page.getByText(SIGN_UP_LINE)).toBeVisible()
       await expect
         .element(page.getByRole('heading', { name: SIGN_IN_HEADLINE, level: 1 }))
         .toBeVisible()
-      await expect.element(page.getByText(SIGN_IN_LINE)).toBeVisible()
       await expect.element(page.getByText('Clerk sign-up form')).toBeVisible()
+      // Clerk's own subtitle carries the reason on sign-up.
+      expect(screen.queryByText(WELCOME_REASON)).toBeNull()
       expect(screen.queryByText('Clerk sign-in form')).toBeNull()
     },
   )
@@ -364,7 +368,6 @@ describe('AuthGate', () => {
       </AuthGate>,
     )
     await expect.element(page.getByText('Clerk sign-in form')).toBeVisible()
-    expect(screen.queryByText(SIGN_UP_LINE)).toBeNull()
     expect(screen.queryByText('Clerk sign-up form')).toBeNull()
   })
 
@@ -384,7 +387,7 @@ describe('AuthGate', () => {
     expect(clerk.signUp).toMatchObject({ routing: 'hash', signInUrl: SIGN_IN_PATH })
   })
 
-  it('passes the same appearance to sign-up as to sign-in', async () => {
+  it("dresses sign-up like sign-in, and moves only sign-up's social buttons", async () => {
     const gate = (
       <AuthGate>
         <p>signed in</p>
@@ -397,7 +400,9 @@ describe('AuthGate', () => {
     renderWithProviders(gate)
     await expect.element(page.getByText('Clerk sign-up form')).toBeVisible()
     expect(clerk.signIn.appearance).toBeDefined()
-    expect(clerk.signUp.appearance).toBe(clerk.signIn.appearance)
+    expect(clerk.signIn.appearance).not.toHaveProperty('options')
+    expect(clerk.signUp.appearance).toMatchObject(clerk.signIn.appearance as object)
+    expect(clerk.signUp.appearance).toHaveProperty('options.socialButtonsPlacement', 'bottom')
   })
 })
 
@@ -406,12 +411,13 @@ describe('the sign-in layout', () => {
     await page.viewport(390, 844)
   })
 
-  async function renderAt(width: number, height = 800) {
+  async function renderAt(width: number, density: 'touch' | 'pointer' = 'pointer', height = 800) {
     await page.viewport(width, height)
     renderWithProviders(
       <AuthGate>
         <p>signed in</p>
       </AuthGate>,
+      { density },
     )
     const heading = page.getByRole('heading', { name: SIGN_IN_HEADLINE })
     await expect.element(heading).toBeVisible()
@@ -439,8 +445,67 @@ describe('the sign-in layout', () => {
     await expect.poll(() => getComputedStyle(t).stroke).toBe(computedColor(coral))
   })
 
-  it.each([320, 768, 1200])('never scrolls sideways at %ipx', async (width) => {
-    await renderAt(width)
+  it('sets the account-deleted notice above the form, beside the carousel', async () => {
+    markAccountDeleted()
+    const { heading, form } = await renderAt(1200)
+    const notice = page.getByRole('status').filter({ hasText: ACCOUNT_DELETED })
+    await expect.element(notice).toBeVisible()
+    await expect
+      .poll(() => {
+        const box = notice.element().getBoundingClientRect()
+        return (
+          box.left >= heading.getBoundingClientRect().right &&
+          box.bottom <= form.getBoundingClientRect().top
+        )
+      })
+      .toBe(true)
+  })
+
+  // The arrows follow the carousel's width, not the window's frame, so a short wide window
+  // keeps them, and they end at the stage's trailing edge whether the page splits or stacks.
+  it.each([
+    ['split in a short window', 1280, 550, true],
+    ['stacked', 768, 800, false],
+  ] as const)('sets the arrows beside the stage when %s', async (_, width, height, split) => {
+    const { form } = await renderAt(width, 'pointer', height)
+    const next = page.getByRole('button', { name: NEXT_SLIDE })
+    await expect.element(next).toBeVisible()
+    const stage = document.querySelector('[data-slide-stage]')!
+    await expect
+      .poll(() =>
+        Math.abs(
+          next.element().getBoundingClientRect().right - stage.getBoundingClientRect().right,
+        ),
+      )
+      .toBeLessThan(4)
+    if (split) {
+      await expect
+        .poll(
+          () => next.element().getBoundingClientRect().right <= form.getBoundingClientRect().left,
+        )
+        .toBe(true)
+    }
+  })
+
+  it('hides the arrows at phone width', async () => {
+    await renderAt(390, 'touch', 844)
+    await expect
+      .element(page.getByRole('button', { name: slideDotLabel(SLIDE_COUNT) }))
+      .toBeVisible()
+    await expect
+      .element(page.getByRole('button', { name: NEXT_SLIDE, includeHidden: true }))
+      .not.toBeVisible()
+  })
+
+  it.each([
+    [320, 'touch'],
+    [320, 'pointer'],
+    [768, 'touch'],
+    [768, 'pointer'],
+    [1200, 'touch'],
+    [1200, 'pointer'],
+  ] as const)('never scrolls sideways at %ipx with %s density', async (width, density) => {
+    await renderAt(width, density)
     await expect.poll(() => document.documentElement.scrollWidth <= window.innerWidth).toBe(true)
   })
 })

@@ -28,6 +28,12 @@ export function referenceLabel(hz: number): string | null {
   return hz === STANDARD_A4 ? null : a4Label(hz)
 }
 
+/** A reading's offset as the stage shows it, signed and to a tenth of a cent. */
+export function formatCents(cents: number): string {
+  const shown = tenths(cents)
+  return `${shown < 0 ? '−' : '+'}${Math.abs(shown).toFixed(1)}¢`
+}
+
 /** A reading as a screen reader speaks it, such as A4, 3 cents flat. */
 export function spokenReading(note: Note): string {
   const name = `${note.name}${note.octave}`

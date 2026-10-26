@@ -9,10 +9,11 @@ import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvi
 import { usePlayer } from '../player/usePlayer'
 import { useTunerSettings } from '../settings/useTunerSettings'
 import { blend } from './blend'
-import { greenness, isInTune, tenths } from './pitch/notes'
+import { greenness, isInTune } from './pitch/notes'
 import type { Reading } from './pitch/tracker'
 import { TunerBars } from './TunerBars'
 import {
+  formatCents,
   hintLabel,
   LISTENING,
   MIC_DENIED_BODY,
@@ -104,11 +105,6 @@ function Message({ title, body }: { title?: string; body: string }) {
       <p className="t-body text-(--panel-muted)">{body}</p>
     </div>
   )
-}
-
-const formatCents = (cents: number) => {
-  const shown = tenths(cents)
-  return `${shown < 0 ? '−' : '+'}${Math.abs(shown).toFixed(1)}¢`
 }
 
 interface Announced {

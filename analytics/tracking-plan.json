@@ -321,6 +321,19 @@
       "other_account",
       "error"
     ],
+    "sign_up_method": [
+      "apple",
+      "google",
+      "email"
+    ],
+    "welcome_slide": [
+      "story",
+      "catalog",
+      "record",
+      "practice",
+      "listen",
+      "tuner"
+    ],
     "plan_notice": [
       "first_recording",
       "trial_reminder",
@@ -582,6 +595,7 @@
     "default_settings": "Are the default settings the ones people keep?",
     "facet_retention": "Does using more tune fields go with better retention?",
     "hands_free_control": "Do people control playback without touching the app?",
+    "signup_persuasion": "Do the welcome carousel and the account explanation lead people to sign up, and with which method?",
     "accessibility_reach": "How many people use assistive technology, and do they stay?"
   },
   "events": {
@@ -596,6 +610,38 @@
         "usage_by_platform"
       ],
       "properties": {}
+    },
+    "account_reason_opened": {
+      "description": "The explanation of why an account is needed opened from the welcome screens.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "signup_persuasion"
+      ],
+      "properties": {}
+    },
+    "sign_up_started": {
+      "description": "A person chose a sign-up method on the welcome screens.",
+      "clients": [
+        "apple"
+      ],
+      "answers": [
+        "signup_persuasion"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": "sign_up_method",
+          "required": true
+        },
+        "furthest_slide": {
+          "type": "string",
+          "enum": "welcome_slide",
+          "required": true
+        }
+      }
     },
     "account_created": {
       "description": "This device's request created the account. The API decides it, so it is sent at most once per account.",

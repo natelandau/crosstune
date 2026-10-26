@@ -15,7 +15,7 @@ How one feature works is in its code. Deploys and releases:
 | Web client        | React, Vite, React Router in data mode, React Aria Components, Motion, Tailwind `@theme` tokens | A component library (Ionic, daisyUI), or two component systems in one interface           |
 | Apple local store | SQLite through GRDB                                                                             | SwiftData or SQLiteData: the sync rules need exact control of transactions and migrations |
 | Web local store   | IndexedDB through Dexie                                                                         |                                                                                           |
-| Sign-in           | Clerk: emailed code, Google, Apple                                                              | Passwords, magic links, self-hosted auth                                                  |
+| Sign-in           | Clerk. Its dashboard sets the sign-in methods                                                   | Magic links, self-hosted auth                                                             |
 | Database          | Postgres on Neon, no extensions                                                                 | A vendor extension: the host changes with a connection string                             |
 | Audio and images  | Cloudflare R2, Standard storage. RustFS in Docker locally                                       | A hosted bucket for local work                                                            |
 | Hosts             | API on Railway. Web client and site on Cloudflare Workers                                       |                                                                                           |
@@ -183,6 +183,9 @@ How one feature works is in its code. Deploys and releases:
   webhook. Foreign keys cascade. `deleted_accounts` denylists the Clerk
   ID, so a still-valid token never recreates the row and its client wipes
   its local data.
+- The Apple app's welcome screen calls Clerk's Apple and Google sign-up
+  directly, so neither method can be turned off in Clerk's dashboard
+  without a release that removes its button.
 - Clerk never revokes Sign in with Apple. The API does, from a fresh
   authorization code the client sends with `DELETE /v1/me`.
 - Deletion queues PostHog deletes repeated over a week, since PostHog

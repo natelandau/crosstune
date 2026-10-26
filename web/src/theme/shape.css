@@ -27,6 +27,17 @@
   --container-page: 680px;
 }
 
+/* The sign-in form's width, as `max-w-auth`. Clerk's card reads the same variable. */
+@theme {
+  --container-auth: 25rem;
+}
+
+/* Where the welcome and sign-in page splits into two halves: `welcome:` at and above it,
+   `max-welcome:` strictly below, so exactly one side matches at any width. */
+@theme {
+  --breakpoint-welcome: 60rem;
+}
+
 /* Black shadows barely show on a near-black ground, so a floating surface also gets a faint
    light edge. */
 :root[data-scheme='dark'] {
