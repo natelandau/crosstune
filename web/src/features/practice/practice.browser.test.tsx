@@ -38,7 +38,7 @@ import {
   player,
   practice,
   press,
-  TAKE,
+  RECORDING_LABEL,
   WIDE,
 } from '../../test/practice'
 
@@ -58,7 +58,7 @@ it("opens from the phone bar on the dark scheme's jet, in the light appearance t
 it("opens from the dock's Expand on wide", async () => {
   await mountPlaying(WIDE)
   await openPractice()
-  await expect.element(page.getByRole('dialog', { name: TAKE })).toBeVisible()
+  await expect.element(page.getByRole('dialog', { name: RECORDING_LABEL })).toBeVisible()
 })
 
 it('plays and pauses with Space', async () => {
@@ -218,12 +218,12 @@ it('steps out with Escape: the loop, then practice, back to Expand, still playin
 
 it('shows Trim disabled in More while offline', async () => {
   const { db } = await mountPlaying(WIDE, { ready: true })
-  // Offline, and this device no longer holds the take's audio, so Trim has nothing to edit.
+  // Offline, and this device no longer holds the recording's audio, so Trim has nothing to edit.
   vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
   window.dispatchEvent(new Event('offline'))
   await db.recording_files.update('r1', { blob: undefined })
   await openButton().click()
-  const dialog = page.getByRole('dialog', { name: TAKE })
+  const dialog = page.getByRole('dialog', { name: RECORDING_LABEL })
   await dialog.getByRole('button', { name: MORE_ACTIONS }).click()
   const trim = page.getByRole('menuitem', { name: TRIM })
   await expect.element(trim).toHaveAttribute('aria-disabled', 'true')
@@ -259,29 +259,40 @@ it('holds the mode panel at one height across Loops, Speed, and Pitch', async ()
   await expect.poll(height).toBe(loops)
 })
 
-it("goes to the take's tune from More, closing practice", async () => {
+it("goes to the recording's tune from More, closing practice", async () => {
   const { router } = await mountPlaying(WIDE)
   await router.navigate('/recordings')
   await openPractice()
-  await page.getByRole('dialog', { name: TAKE }).getByRole('button', { name: MORE_ACTIONS }).click()
+  await page
+    .getByRole('dialog', { name: RECORDING_LABEL })
+    .getByRole('button', { name: MORE_ACTIONS })
+    .click()
   await page.getByRole('menuitem', { name: GO_TO_TUNE }).click()
   await expect.poll(practice).toBeNull()
   await expect.poll(() => router.state.location.pathname).toBe('/catalog/t1')
 })
 
-it('edits the take from More', async () => {
+it('edits the recording from More', async () => {
   await mountPlaying(WIDE)
   await openPractice()
-  await page.getByRole('dialog', { name: TAKE }).getByRole('button', { name: MORE_ACTIONS }).click()
+  await page
+    .getByRole('dialog', { name: RECORDING_LABEL })
+    .getByRole('button', { name: MORE_ACTIONS })
+    .click()
   await page.getByRole('menuitem', { name: EDIT }).click()
   const sheet = page.getByRole('dialog', { name: EDIT_RECORDING_TITLE })
-  await expect.element(sheet.getByRole('textbox', { name: RECORDING_NAME_LABEL })).toHaveValue(TAKE)
+  await expect
+    .element(sheet.getByRole('textbox', { name: RECORDING_NAME_LABEL }))
+    .toHaveValue(RECORDING_LABEL)
 })
 
-it('searches for a tune to file the take under from More', async () => {
+it('searches for a tune to file the recording under from More', async () => {
   await mountPlaying(WIDE, { filed: false })
   await openPractice()
-  await page.getByRole('dialog', { name: TAKE }).getByRole('button', { name: MORE_ACTIONS }).click()
+  await page
+    .getByRole('dialog', { name: RECORDING_LABEL })
+    .getByRole('button', { name: MORE_ACTIONS })
+    .click()
   await page.getByRole('menuitem', { name: ADD_TO_TUNE }).click()
   const sheet = page.getByRole('dialog', { name: ADD_TO_TUNE_TITLE })
   await sheet.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally Goodin')
@@ -294,10 +305,10 @@ it('searches for a tune to file the take under from More', async () => {
     .toBeVisible()
 })
 
-it('files the take under a tune picked in Add to tune, back over practice', async () => {
+it('files the recording under a tune picked in Add to tune, back over practice', async () => {
   const { db } = await mountPlaying(WIDE, { filed: false })
   await openPractice()
-  const dialog = page.getByRole('dialog', { name: TAKE })
+  const dialog = page.getByRole('dialog', { name: RECORDING_LABEL })
   await dialog.getByRole('button', { name: MORE_ACTIONS }).click()
   await page.getByRole('menuitem', { name: ADD_TO_TUNE }).click()
   const sheet = page.getByRole('dialog', { name: ADD_TO_TUNE_TITLE })
@@ -338,7 +349,7 @@ it('says pitch-shifted playback pauses when the screen locks, on an iPhone or iP
   vi.mocked(isAppleTouch).mockReturnValue(true)
   await mountPlaying(PHONE)
   await openPractice()
-  const dialog = page.getByRole('dialog', { name: TAKE })
+  const dialog = page.getByRole('dialog', { name: RECORDING_LABEL })
   await dialog.getByRole('radio', { name: new RegExp(`^${PITCH}`) }).click()
   await expect.element(dialog.getByText(PITCH_PAUSES_ON_LOCK)).toBeVisible()
 })
@@ -347,7 +358,7 @@ it('leaves the pitch lock notice out elsewhere', async () => {
   vi.mocked(isAppleTouch).mockReturnValue(false)
   await mountPlaying(PHONE)
   await openPractice()
-  const dialog = page.getByRole('dialog', { name: TAKE })
+  const dialog = page.getByRole('dialog', { name: RECORDING_LABEL })
   await dialog.getByRole('radio', { name: new RegExp(`^${PITCH}`) }).click()
   await expect.element(dialog.getByRole('slider', { name: CENTS })).toBeVisible()
   expect(dialog.getByText(PITCH_PAUSES_ON_LOCK).query()).toBeNull()
@@ -360,7 +371,10 @@ it('files under a tune made from the practice overlay, opens it, and reports it 
     wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
   })
   await openPractice()
-  await page.getByRole('dialog', { name: TAKE }).getByRole('button', { name: MORE_ACTIONS }).click()
+  await page
+    .getByRole('dialog', { name: RECORDING_LABEL })
+    .getByRole('button', { name: MORE_ACTIONS })
+    .click()
   await page.getByRole('menuitem', { name: ADD_TO_TUNE }).click()
   const sheet = page.getByRole('dialog', { name: ADD_TO_TUNE_TITLE })
   await sheet.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally Goodin')
@@ -378,5 +392,5 @@ it('files under a tune made from the practice overlay, opens it, and reports it 
   expect(filing()[0]!.props).toMatchObject({ source: 'recording_screen' })
   const [tune] = await db.tunes.where('title').equals('Sally Goodin').toArray()
   await expect.poll(() => router.state.location.pathname).toBe(`/catalog/${tune!.id}`)
-  await expect.element(page.getByRole('dialog', { name: TAKE })).not.toBeInTheDocument()
+  await expect.element(page.getByRole('dialog', { name: RECORDING_LABEL })).not.toBeInTheDocument()
 })

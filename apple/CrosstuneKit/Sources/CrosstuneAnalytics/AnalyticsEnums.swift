@@ -45,7 +45,7 @@ public enum ImportList: String, CaseIterable, Sendable {
     case existing
 }
 
-/// Where a recording came from: a take, an imported file, or an archive save.
+/// Where a recording came from: the microphone, an imported file, or an archive save.
 public enum RecordingOrigin: String, CaseIterable, Sendable {
     case recorded
     case imported
@@ -53,7 +53,7 @@ public enum RecordingOrigin: String, CaseIterable, Sendable {
 }
 
 /// How a recording's place was chosen: typed into search, picked from a suggestion, from the
-/// places near the take, or from the saved locations.
+/// places near the recording, or from the saved locations.
 public enum PlaceMethod: String, CaseIterable, Sendable {
     case search
     case suggestion
@@ -61,8 +61,8 @@ public enum PlaceMethod: String, CaseIterable, Sendable {
     case saved
 }
 
-/// How a saved location came to be: from the places near a take, a search result, or a name
-/// typed for the take's own point.
+/// How a saved location came to be: from the places near a recording, a search result, or a name
+/// typed for the recording's own point.
 public enum SavedLocationMethod: String, CaseIterable, Sendable {
     case nearby
     case search

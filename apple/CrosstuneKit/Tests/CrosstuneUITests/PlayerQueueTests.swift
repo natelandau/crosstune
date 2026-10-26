@@ -315,7 +315,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(fixture.queue.ends.isEmpty)
     }
 
-    @Test func aTakeStartingWhileASongLoadsLeavesTheQueue() async throws {
+    @Test func aRecordingStartingWhileASongLoadsLeavesTheQueue() async throws {
         let fixture = fixture()
         let capturing = Mutex(false)
         fixture.player.isCapturing = { capturing.withLock { $0 } }
@@ -331,12 +331,12 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(fixture.audio.calls.last == "releaseSession")
     }
 
-    @Test func aTakeStartingBeforeASongLoadsLeavesTheSessionAlone() async throws {
+    @Test func aRecordingStartingBeforeASongLoadsLeavesTheSessionAlone() async throws {
         let fixture = fixture()
         let capturing = Mutex(false)
         fixture.player.isCapturing = { capturing.withLock { $0 } }
         fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        // Before the decision's access lookup returns, as a tuner or take can start meanwhile.
+        // Before the decision's access lookup returns, as a tuner or recording can start meanwhile.
         capturing.withLock { $0 = true }
         try await eventually { fixture.queue.calls == ["leftQueue"] }
         #expect(!fixture.audio.calls.contains("yieldSessionToMusic"))
@@ -525,7 +525,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(fixture.player.isLoaded)
     }
 
-    @Test func aQueuedTrackIsRefusedDuringATake() async throws {
+    @Test func aQueuedTrackIsRefusedDuringARecording() async throws {
         let fixture = fixture()
         fixture.player.isCapturing = { true }
         #expect(!fixture.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance))

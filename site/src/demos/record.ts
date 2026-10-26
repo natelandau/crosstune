@@ -1,5 +1,5 @@
-// Record: one tap on the phone records at the Jalopy, files the take under Morrison's Jig with a
-// note, and the new recording lands in the list.
+// Record: one tap on the phone records at the Jalopy, files the recording under Morrison's Jig
+// with a note, and the new recording lands in the list.
 import { ic, phone } from './atoms'
 import { $ } from './runner'
 import type { DemoDef } from './types'

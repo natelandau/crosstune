@@ -42,7 +42,7 @@ function PlayButton({ control, loaded, onPress }: PlayAction) {
 type RowProps = Omit<Parameters<typeof ActionButtons>[0], 'play'>
 
 /**
- * The main button for a row, or null while the row cannot play here now. A take not on this
+ * The main button for a row, or null while the row cannot play here now. A recording not on this
  * device gives no button: its own row downloads it, since a Download at the top of the page reads
  * as downloading the tune.
  */

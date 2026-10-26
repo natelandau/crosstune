@@ -25,7 +25,7 @@ struct ReadingPaneContent: Equatable, Sendable {
         guard let item else { return nil }
         switch item.kind {
         case .recording:
-            // The stored row before the player's snapshot, which keeps a take's tune from before a refile.
+            // The stored row before the player's snapshot, which keeps a recording's tune from before a refile.
             let recording = try Recording.fetchOne(db, key: item.id) ?? item.recording
             return recording?.tuneID
         case .link:

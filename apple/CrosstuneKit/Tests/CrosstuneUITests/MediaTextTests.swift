@@ -13,7 +13,7 @@ private let takenAt = "2026-03-14T20:05:00.000Z"
 
 private func at(_ iso: String) -> Timestamp { Timestamp(iso: iso)! }
 
-/// A take by default: added and recorded at one instant, to the minute.
+/// A recording by default: added and recorded at one instant, to the minute.
 private func recording(
     label: String? = nil, state: String = "ready", durationMs: Int64? = 42_000, origin: String = "own",
     source: String = "microphone", addedAt: String = takenAt,
@@ -171,7 +171,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
         #expect(meta == ["0:42", "Storage full", "1.9 GB of 2 GB used"])
     }
 
-    @Test func saysALocalOnlyTakeSyncsOnSubscribingInPlaceOfItsStatus() {
+    @Test func saysALocalOnlyRecordingSyncsOnSubscribingInPlaceOfItsStatus() {
         #expect(RecordingText.isLocalUntilSubscribed == "On this device only. Syncs when you subscribe.")
         var waiting = file(.captured)
         waiting.uploadAttempts = 2
@@ -257,7 +257,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
             RecordingText.recordedDate(at("1998-10-03T00:00:00Z"), precision: .day, locale: locale) == "Oct 3, 1998")
     }
 
-    @Test func formatsATakeWithItsDateAndTime() {
+    @Test func formatsARecordingWithItsDateAndTime() {
         #expect(
             RecordingText.recordedDate(at("2026-10-03T16:12:00Z"), precision: .time, locale: locale, timeZone: utc)
                 == "Oct 3, 2026 at 4:12\u{202F}PM")
@@ -280,7 +280,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
                 == "Oct 3, 1998")
     }
 
-    @Test func readsATakeAndTheAddedDayInTheGivenZone() throws {
+    @Test func readsARecordingAndTheAddedDayInTheGivenZone() throws {
         let west = try #require(TimeZone(identifier: "America/Los_Angeles"))
         #expect(
             RecordingText.recordedDate(at("2026-10-03T16:12:00Z"), precision: .time, locale: locale, timeZone: west)

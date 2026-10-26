@@ -65,7 +65,7 @@ final class PracticeLog {
         if isPlaying {
             visit?.span.start(at: clock(), date: now())
         } else {
-            book(visit?.span.stop(at: clock()) ?? 0)
+            addPracticeTime(visit?.span.stop(at: clock()) ?? 0)
         }
     }
 
@@ -76,14 +76,14 @@ final class PracticeLog {
 
     func setSpeed(_ percent: Int) {
         guard let current = visit, current.speedPercent != percent else { return }
-        book(visit?.span.take(at: clock()) ?? 0)
+        addPracticeTime(visit?.span.take(at: clock()) ?? 0)
         visit?.speedPercent = percent
         if percent != PlaybackSetting.speed.standard { visit?.setSpeedOff = true }
     }
 
     func setPitch(_ cents: Int) {
         guard let current = visit, current.pitchCents != cents else { return }
-        book(visit?.span.take(at: clock()) ?? 0)
+        addPracticeTime(visit?.span.take(at: clock()) ?? 0)
         visit?.pitchCents = cents
         if cents != PlaybackSetting.pitch.standard { visit?.setPitchOff = true }
     }
@@ -124,7 +124,7 @@ final class PracticeLog {
     }
 
     /// Books `ms` of playing time to the settings in force over it.
-    private func book(_ ms: Int64) {
+    private func addPracticeTime(_ ms: Int64) {
         guard ms > 0, var current = visit else { return }
         current.durationMs += ms
         Self.add(ms, to: current.speedPercent, in: &current.speedMs)

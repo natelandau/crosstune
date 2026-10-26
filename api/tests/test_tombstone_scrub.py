@@ -79,7 +79,7 @@ async def seed_tune(client, headers) -> dict[str, str]:
             title="A video",
             artwork_url="https://example.com/a.jpg",
         ),
-        recording(ids["own"], tune_id=ids["tune"], label="Take one", **RECORDING_CONTENT),
+        recording(ids["own"], tune_id=ids["tune"], label="Recording one", **RECORDING_CONTENT),
         recording(
             ids["imported"],
             tune_id=ids["tune"],
@@ -181,7 +181,7 @@ async def test_an_own_recording_keeps_a_null_origin_url(
 ) -> None:
     headers = auth_headers("user_a")
     rec = uid()
-    await push(client, headers, recording(rec, label="Take one", **RECORDING_CONTENT))
+    await push(client, headers, recording(rec, label="Recording one", **RECORDING_CONTENT))
 
     await push(client, headers, change("recordings", rec, T1, op="delete"))
 

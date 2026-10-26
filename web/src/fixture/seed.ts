@@ -250,7 +250,7 @@ async function sheetBlob(seed: number, paper: string): Promise<Blob> {
   return canvas.convertToBlob({ type: 'image/jpeg' })
 }
 
-/** The take this device holds, with loops, so practice opens on it. */
+/** The recording this device holds, with loops, so practice opens on it. */
 const FIXTURE_PRACTICE_TAKE = 'rec-joy-2'
 const PRACTICE_TAKE_MS = 212_000
 
@@ -294,29 +294,29 @@ function phrasePeaks(durationMs: number): Uint8Array {
 const daysBefore = (now: Date, days: number, hour = 19) =>
   new Date(now.getFullYear(), now.getMonth(), now.getDate() - days, hour, 30).toISOString()
 
-/** Own takes filed and unfiled, plus one Slippery Hill import so Recordings shows Filters. */
+/** Own recordings filed and unfiled, plus one Slippery Hill import so Recordings shows Filters. */
 function recordings(now: Date): LocalRecording[] {
-  const take = (id: string, days: number, extra: Partial<LocalRecording>) =>
+  const recording = (id: string, days: number, extra: Partial<LocalRecording>) =>
     recordingRow(id, {
       added_at: daysBefore(now, days),
       recorded_at: daysBefore(now, days),
       ...extra,
     })
   return [
-    take('rec-joy-1', 120, {
+    recording('rec-joy-1', 120, {
       tune_id: FIXTURE_TUNE,
       label: 'Lesson with Bruce',
       duration_ms: 154_000,
     }),
-    take('rec-joy-2', 40, {
+    recording('rec-joy-2', 40, {
       tune_id: FIXTURE_TUNE,
       label: 'Slow practice',
       duration_ms: 212_000,
       position: 1,
     }),
-    take('rec-hen-1', 9, { tune_id: FIXTURE_OTHER_TUNE, duration_ms: 98_000 }),
-    take('rec-sally-1', 22, { tune_id: slug('Sally Goodin'), duration_ms: 131_000 }),
-    take('rec-deer-import', 300, {
+    recording('rec-hen-1', 9, { tune_id: FIXTURE_OTHER_TUNE, duration_ms: 98_000 }),
+    recording('rec-sally-1', 22, { tune_id: slug('Sally Goodin'), duration_ms: 131_000 }),
+    recording('rec-deer-import', 300, {
       tune_id: FORKED_DEER,
       label: 'Forked Deer, Henry Reed',
       source: 'import',
@@ -326,8 +326,8 @@ function recordings(now: Date): LocalRecording[] {
       recorded_at: '1966-01-01T12:00:00.000Z',
       recorded_precision: 'year',
     }),
-    take('rec-jam-1', 3, { label: 'Porch jam', duration_ms: 1_284_000 }),
-    take('rec-memo-1', 1, { label: 'B part idea', duration_ms: 41_000 }),
+    recording('rec-jam-1', 3, { label: 'Porch jam', duration_ms: 1_284_000 }),
+    recording('rec-memo-1', 1, { label: 'B part idea', duration_ms: 41_000 }),
   ]
 }
 
@@ -340,14 +340,14 @@ function history(now: Date, tuneIds: readonly string[]) {
   const plays: LocalPlayEvent[] = []
   const sessions: LocalPracticeSession[] = []
   const views: LocalScanView[] = []
-  const takes = ['rec-joy-1', 'rec-joy-2', 'rec-hen-1', 'rec-deer-import']
+  const recordingIds = ['rec-joy-1', 'rec-joy-2', 'rec-hen-1', 'rec-deer-import']
   for (let day = 0; day < 210; day++) {
     const at = daysBefore(now, day)
     // Busier on the weekend and in recent weeks, as a musician's practice runs.
     const weekend = [0, 6].includes(new Date(at).getDay())
     if (next() > (weekend ? 0.8 : 0.45) * (day < 60 ? 1 : 0.6)) continue
     const tuneId = tuneIds[Math.floor(next() * tuneIds.length)]!
-    const recordingId = takes[Math.floor(next() * takes.length)]!
+    const recordingId = recordingIds[Math.floor(next() * recordingIds.length)]!
     plays.push(
       playEventRow(`play-${day}`, {
         created_at: at,
@@ -516,7 +516,7 @@ export async function seedFixture(db: CrosstuneDb, now = new Date()): Promise<vo
       }),
     )
   } catch {
-    // Playwright's WebKit refuses a Blob in IndexedDB, so that pass has no take to practice.
+    // Playwright's WebKit refuses a Blob in IndexedDB, so that pass has no recording to practice.
   }
   // One named loop and one unnamed, so renaming the second offers the B part.
   await db.recording_loops.bulkPut([

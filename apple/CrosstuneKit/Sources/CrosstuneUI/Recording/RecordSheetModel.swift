@@ -5,21 +5,21 @@ import Foundation
 import Observation
 import SwiftUI
 
-/// The state of the record sheet's take, read off its ``Recorder``.
+/// The state of the record sheet's recording, read off its ``Recorder``.
 public enum RecordPhase: Equatable, Sendable {
     /// Waiting on microphone permission and the capture file.
     case starting
     case recording
-    /// A call or another app took the microphone; the take so far is kept.
+    /// A call or another app took the microphone; the recording so far is kept.
     case interrupted
     case saving
     /// Saved with something to say about it, such as reaching the size limit.
     case saved
-    /// Permission was refused, or the take could not start or be saved.
+    /// Permission was refused, or the recording could not start or be saved.
     case notRecording
 }
 
-/// One take in the record sheet: starts it when the sheet opens, and turns Stop and Cancel
+/// One recording in the record sheet: starts it when the sheet opens, and turns Stop and Cancel
 /// into what the recorder does, as the web's record modal does.
 @MainActor
 @Observable
@@ -43,10 +43,10 @@ public final class RecordSheetModel {
     public static let discardMessage = "The recording is not saved."
     public static let discard = "Discard"
     public static let locationNoteTitle = "Save where you record"
-    public static let locationNoteBody = "Crosstune adds the location to each take, so you can find it later."
+    public static let locationNoteBody = "Crosstune adds the location to each recording, so you can find it later."
     public static let continueToLocation = "Continue"
 
-    /// How a take ended, once the sheet should close.
+    /// How a recording ended, once the sheet should close.
     public enum Outcome: Equatable, Sendable {
         /// Saved as this recording.
         case saved(recordingID: String)
@@ -56,7 +56,7 @@ public final class RecordSheetModel {
 
     public let recorder: Recorder
     public let tuneID: String?
-    /// Where the take was asked for.
+    /// Where the recording was asked for.
     public let source: ActionSource
     private let analytics: AnalyticsClient
     private let locationAccess: LocationAccess?
@@ -67,9 +67,9 @@ public final class RecordSheetModel {
     public private(set) var isContinuing = false
     /// Set once the sheet has gone, so an answer to the prompt that comes later starts nothing.
     private var isGone = false
-    /// Set once the take's save or discard is reported, so a take is reported ending once.
+    /// Set once the recording's save or discard is reported, so a recording is reported ending once.
     private var reportedEnd = false
-    /// The title of the tune the take is filed under, once read; nil for an unfiled take.
+    /// The title of the tune the recording is filed under, once read; nil for an unfiled recording.
     public private(set) var tuneTitle: String?
     private let recentRecording: RecentRecording?
     /// Set once the sheet should close.
@@ -98,7 +98,7 @@ public final class RecordSheetModel {
         self.locationAccess = locationAccess
     }
 
-    /// Reads the title of the tune the take is filed under, for the sheet's "Filing under" line.
+    /// Reads the title of the tune the recording is filed under, for the sheet's "Filing under" line.
     public func loadTuneTitle(from store: CrosstuneStore) async {
         guard let tuneID else { return }
         let title = try? await store.read { db in
@@ -114,7 +114,7 @@ public final class RecordSheetModel {
     }
 
     public var phase: RecordPhase {
-        // Until this sheet's start runs, the recorder still describes the last take.
+        // Until this sheet's start runs, the recorder still describes the last recording.
         guard hasBegun else { return .starting }
         if recorder.isStarting { return .starting }
         switch recorder.state {
@@ -138,12 +138,12 @@ public final class RecordSheetModel {
         }
     }
 
-    /// True while there is a take to lose: the sheet refuses a swipe away and Cancel asks first.
+    /// True while there is a recording to lose: the sheet refuses a swipe away and Cancel asks first.
     public var isLive: Bool {
         [.starting, .recording, .interrupted].contains(phase)
     }
 
-    /// True while a swipe away would lose a take or a save. The location note holds no take yet,
+    /// True while a swipe away would lose a recording or a save. The location note holds no recording yet,
     /// so it leaves nothing to lose.
     public var blocksSwipeDismiss: Bool {
         !asksLocation && (isLive || phase == .saving)
@@ -163,7 +163,7 @@ public final class RecordSheetModel {
         Int64((recorder.elapsed * 1000).rounded())
     }
 
-    /// What went wrong, or what a saved take has to say. Nil while all is well.
+    /// What went wrong, or what a saved recording has to say. Nil while all is well.
     public var message: String? {
         guard hasBegun else { return nil }
         return recorder.errorMessage
@@ -176,7 +176,7 @@ public final class RecordSheetModel {
     /// Takes the recorder with `claim` and starts, once the sheet shows. Closes at once when
     /// another window's sheet got the recorder first. A device never asked for location shows
     /// the location note instead, and starts on Continue. With Location Services off for the
-    /// whole device there is no prompt to lead to, so the take starts at once.
+    /// whole device there is no prompt to lead to, so the recording starts at once.
     public func open(claim: @MainActor () -> Bool) async {
         guard !hasAppeared else { return }
         hasAppeared = true
@@ -186,7 +186,7 @@ public final class RecordSheetModel {
         }
         holdsRecorder = true
         // Allowed access never shows the note, so only another status waits on the device-wide
-        // switch before the take starts.
+        // switch before the recording starts.
         if let locationAccess, locationAccess.status != .allowed {
             await locationAccess.refresh()
             guard outcome == nil, !isGone else { return }
@@ -199,7 +199,7 @@ public final class RecordSheetModel {
     }
 
     /// Continue on the location note: shows the system prompt, waits for its answer, then starts
-    /// the take whatever the answer was. The note offers no way past the prompt, since App
+    /// the recording whatever the answer was. The note offers no way past the prompt, since App
     /// Review requires a message shown before it to lead to it.
     public func continueFromLocationNote() async {
         guard asksLocation, !isContinuing else { return }
@@ -222,17 +222,17 @@ public final class RecordSheetModel {
     /// asking again replaces it.
     public var isPending: Bool { !hasAppeared }
 
-    /// True when the sheet closed on a saved take with no tune. A take started from a tune is
+    /// True when the sheet closed on a saved recording with no tune. A recording started from a tune is
     /// saved under the tune whose screen is already open, so only an unfiled one moves the
     /// musician, to the recordings where it landed. A sheet swiped away after a save with a
-    /// note counts, since the take is saved all the same.
+    /// note counts, since the recording is saved all the same.
     public var landsOnRecordings: Bool {
         guard tuneID == nil else { return false }
         if case .saved = outcome { return true }
         return outcome == nil && phase == .saved
     }
 
-    /// Starts the take, filed under the sheet's tune. Call once, when the sheet opens.
+    /// Starts the recording, filed under the sheet's tune. Call once, when the sheet opens.
     func begin() async {
         guard !hasBegun else { return }
         hasBegun = true
@@ -242,7 +242,7 @@ public final class RecordSheetModel {
         if recorder.permissionDenied { analytics.send(.microphoneDenied(source: source)) }
     }
 
-    /// Stops and saves the take. The sheet closes unless the save has something to say.
+    /// Stops and saves the recording. The sheet closes unless the save has something to say.
     public func stop() async {
         guard !ending, hasStarted else { return }
         ending = true
@@ -251,7 +251,7 @@ public final class RecordSheetModel {
         settle()
     }
 
-    /// Reads a take the recorder ended on its own, as at the size limit.
+    /// Reads a recording the recorder ended on its own, as at the size limit.
     public func settle() {
         reportSaved()
         guard outcome == nil, phase == .saved, let id = recorder.savedRecordingID else { return }
@@ -272,14 +272,14 @@ public final class RecordSheetModel {
         }
     }
 
-    /// Throws the take away and closes, or keeps the sheet open to say the discard failed.
+    /// Throws the recording away and closes, or keeps the sheet open to say the discard failed.
     public func discard() async {
         guard !ending else { return }
         ending = true
         let captured = hasStarted
         await recorder.discard()
         ending = false
-        // Before the take begins, the recorder's message is an earlier take's.
+        // Before the recording begins, the recorder's message is an earlier recording's.
         guard recorder.errorMessage == nil || !hasBegun else { return }
         outcome = .dropped
         if captured, !reportedEnd {
@@ -288,7 +288,7 @@ public final class RecordSheetModel {
         }
     }
 
-    /// Done, once there is nothing live left: closes on what the take came to.
+    /// Done, once there is nothing live left: closes on what the recording came to.
     public func finish() {
         guard !isLive, phase != .saving else { return }
         reportSaved()
@@ -299,7 +299,7 @@ public final class RecordSheetModel {
         }
     }
 
-    /// The sheet went away without Stop or Cancel, as when its window closed. A live take is
+    /// The sheet went away without Stop or Cancel, as when its window closed. A live recording is
     /// kept rather than lost.
     public func abandon() async {
         isGone = true

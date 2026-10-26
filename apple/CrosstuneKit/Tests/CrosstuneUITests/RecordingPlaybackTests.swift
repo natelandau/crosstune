@@ -279,7 +279,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         #expect(player.recordingAudio == nil)
     }
 
-    @Test func refusesToPlayAnythingWhileATakeIsRecorded() async throws {
+    @Test func refusesToPlayAnythingWhileARecordingIsRecorded() async throws {
         let audio = FakeAudio()
         let player = PlayerModel(audio: audio)
         player.audioSource = { _ in playable() }
@@ -299,7 +299,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         #expect(audio.calls == loadAndPlay)
     }
 
-    @Test func holdsFetchedAudioSilentWhenATakeStartsMeanwhile() async throws {
+    @Test func holdsFetchedAudioSilentWhenARecordingStartsMeanwhile() async throws {
         let audio = FakeAudio()
         let source = HeldSource()
         let player = PlayerModel(audio: audio)
@@ -488,7 +488,7 @@ private let loadPaused = ["load", "setWindow", "setRate(100)", "setPitch(0)"]
         #expect(player.opensUnplayed)
     }
 
-    @Test func refusesAPausedOpenWhileATakeIsRecorded() {
+    @Test func refusesAPausedOpenWhileARecordingIsRecorded() {
         let player = player(FakeAudio())
         player.isCapturing = { true }
 

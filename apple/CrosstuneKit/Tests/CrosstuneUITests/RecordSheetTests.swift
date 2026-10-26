@@ -104,7 +104,7 @@ import Testing
         #expect(feed.bars.levels == [0.1, 0.2, 0.3])
     }
 
-    @Test func startsOverWithANewTake() {
+    @Test func startsOverWithANewRecording() {
         let feed = WaveformFeed(mode: .scrolling)
         feed.receive([0.1, 0.2, 0.3], total: 3)
         feed.receive([0.9], total: 1)
@@ -195,36 +195,36 @@ final class ToneInput: AudioInput {
     }
 
     @Test func recentRecordingMarksAndClears() {
-        let take = RecentRecording()
-        #expect(take.id == nil)
-        take.mark("a")
-        #expect(take.id == "a")
-        take.mark("b")
-        #expect(take.id == "b")
-        take.clear()
-        #expect(take.id == nil)
+        let recent = RecentRecording()
+        #expect(recent.id == nil)
+        recent.mark("a")
+        #expect(recent.id == "a")
+        recent.mark("b")
+        #expect(recent.id == "b")
+        recent.clear()
+        #expect(recent.id == nil)
     }
 
-    @Test func aLateRowNeverClearsANewerTake() {
-        let take = RecentRecording()
-        take.mark("a")
-        take.mark("b")
-        take.clear(ifID: "a")
-        #expect(take.id == "b")
-        take.clear(ifID: "b")
-        #expect(take.id == nil)
+    @Test func aLateRowNeverClearsANewerRecording() {
+        let recent = RecentRecording()
+        recent.mark("a")
+        recent.mark("b")
+        recent.clear(ifID: "a")
+        #expect(recent.id == "b")
+        recent.clear(ifID: "b")
+        #expect(recent.id == nil)
     }
 
     @Test func aMarkExpiresAfterItsLifetime() {
         var clock = Date(timeIntervalSince1970: 1000)
-        let take = RecentRecording(now: { clock })
-        take.mark("a")
+        let recent = RecentRecording(now: { clock })
+        recent.mark("a")
         clock += RecentRecording.lifetime.seconds - 0.1
-        #expect(take.id == "a")
+        #expect(recent.id == "a")
         clock += 0.2
-        #expect(take.id == nil)
-        take.mark("b")
-        #expect(take.id == "b")
+        #expect(recent.id == nil)
+        recent.mark("b")
+        #expect(recent.id == "b")
     }
 
     /// Runs a highlight whose `cancelAt`th wait, counting from zero, is cancelled, and returns
@@ -256,7 +256,7 @@ final class ToneInput: AudioInput {
             let (steps, cleared) = await highlight(cancelAt: cancelAt)
             #expect(steps.last?.0 == false)
             #expect(steps.last?.1 == HighlightTiming.fadeOut)
-            // A newer take or an expired mark is not this row's to clear.
+            // A newer recording or an expired mark is not this row's to clear.
             #expect(!cleared)
         }
     }
@@ -284,7 +284,7 @@ final class ToneInput: AudioInput {
     }
 
     @Test func readsAsStartingUntilItBegins() async throws {
-        // A recorder left saved from an earlier take must not close a fresh sheet.
+        // A recorder left saved from an earlier recording must not close a fresh sheet.
         let earlier = RecordSheetModel(recorder: recorder, tuneID: nil)
         await earlier.begin()
         try input.play(seconds: 0.5)
@@ -341,7 +341,7 @@ final class ToneInput: AudioInput {
         #expect(model.outcome == .saved(recordingID: saved.id))
     }
 
-    @Test func cancelAsksFirstOnceAudioIsCapturedAndKeepsTheTakeWhenRefused() async throws {
+    @Test func cancelAsksFirstOnceAudioIsCapturedAndKeepsTheRecordingWhenRefused() async throws {
         let model = RecordSheetModel(recorder: recorder, tuneID: nil)
         await model.begin()
         try input.play(seconds: 0.5)
@@ -447,7 +447,7 @@ final class ToneInput: AudioInput {
         await model.discard()
     }
 
-    @Test func aSavedUnfiledTakeLandsOnRecordingsEvenWhenSwipedAway() async throws {
+    @Test func aSavedUnfiledRecordingLandsOnRecordingsEvenWhenSwipedAway() async throws {
         let model = RecordSheetModel(recorder: recorder, tuneID: nil)
         await model.begin()
         try input.play(seconds: 0.5)
@@ -461,7 +461,7 @@ final class ToneInput: AudioInput {
         #expect(model.landsOnRecordings)
     }
 
-    @Test func aTakeForATuneOrADiscardedOneStaysPut() async throws {
+    @Test func aRecordingForATuneOrADiscardedOneStaysPut() async throws {
         let (tuneID, _) = try await Commands(store: store).createTune(
             TuneInput(title: "Soldier's Joy"), userTune: UserTuneInput(status: "known"))
         let filed = RecordSheetModel(recorder: recorder, tuneID: tuneID)
@@ -479,16 +479,16 @@ final class ToneInput: AudioInput {
         #expect(!dropped.landsOnRecordings)
     }
 
-    @Test func mayAskForATakeOnlyOverNoneOrOneThatNeverShowed() async {
-        #expect(RecordTake.mayReplace(nil))
-        let pending = RecordTake(model: RecordSheetModel(recorder: recorder, tuneID: nil))
-        #expect(RecordTake.mayReplace(pending))
-        let shown = RecordTake(model: RecordSheetModel(recorder: recorder, tuneID: nil))
+    @Test func mayAskForARecordingOnlyOverNoneOrOneThatNeverShowed() async {
+        #expect(RecordSheetItem.mayReplace(nil))
+        let pending = RecordSheetItem(model: RecordSheetModel(recorder: recorder, tuneID: nil))
+        #expect(RecordSheetItem.mayReplace(pending))
+        let shown = RecordSheetItem(model: RecordSheetModel(recorder: recorder, tuneID: nil))
         await shown.model.open(claim: { false })
-        #expect(!RecordTake.mayReplace(shown))
+        #expect(!RecordSheetItem.mayReplace(shown))
     }
 
-    @Test func aSheetThatGoesAwayLiveKeepsTheTake() async throws {
+    @Test func aSheetThatGoesAwayLiveKeepsTheRecording() async throws {
         let model = RecordSheetModel(recorder: recorder, tuneID: nil)
         await model.begin()
         try input.play(seconds: 0.5)
@@ -530,7 +530,8 @@ final class AccessManager: LocationManaging {
     @Test func theNoteSaysWhyBeforeThePrompt() {
         #expect(RecordSheetModel.locationNoteTitle == "Save where you record")
         #expect(
-            RecordSheetModel.locationNoteBody == "Crosstune adds the location to each take, so you can find it later.")
+            RecordSheetModel.locationNoteBody
+                == "Crosstune adds the location to each recording, so you can find it later.")
         #expect(RecordSheetModel.continueToLocation == "Continue")
     }
 
@@ -548,7 +549,7 @@ final class AccessManager: LocationManaging {
     }
 
     @Test(arguments: [CLAuthorizationStatus.authorizedAlways, .denied])
-    func continueAsksThenStartsTheTakeWhateverTheAnswer(answer: CLAuthorizationStatus) async throws {
+    func continueAsksThenStartsTheRecordingWhateverTheAnswer(answer: CLAuthorizationStatus) async throws {
         let manager = AccessManager(.notDetermined)
         let access = LocationAccess(manager: manager)
         let model = RecordSheetModel(recorder: recorder, tuneID: nil, locationAccess: access)
@@ -608,7 +609,7 @@ final class AccessManager: LocationManaging {
         await model.discard()
     }
 
-    @Test func aSwipeAwayClosesTheNoteButNotTheTakeAfterIt() async throws {
+    @Test func aSwipeAwayClosesTheNoteButNotTheRecordingAfterIt() async throws {
         let manager = AccessManager(.notDetermined)
         let access = LocationAccess(manager: manager)
         let model = RecordSheetModel(recorder: recorder, tuneID: nil, locationAccess: access)
@@ -628,7 +629,7 @@ final class AccessManager: LocationManaging {
         await model.discard()
     }
 
-    @Test func cancelOnTheNoteClosesEvenAfterAnEarlierTakeFailed() async throws {
+    @Test func cancelOnTheNoteClosesEvenAfterAnEarlierRecordingFailed() async throws {
         let earlier = RecordSheetModel(recorder: recorder, tuneID: nil)
         await earlier.begin()
         await earlier.stop()
@@ -643,7 +644,7 @@ final class AccessManager: LocationManaging {
         #expect(model.outcome == .dropped)
     }
 
-    @Test func aSheetClosedWhileThePromptIsUpStartsNoTake() async throws {
+    @Test func aSheetClosedWhileThePromptIsUpStartsNoRecording() async throws {
         let manager = AccessManager(.notDetermined)
         let access = LocationAccess(manager: manager)
         let model = RecordSheetModel(recorder: recorder, tuneID: nil, locationAccess: access)
@@ -661,7 +662,7 @@ final class AccessManager: LocationManaging {
         #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
     }
 
-    @Test func aSheetSwipedAwayWhileThePromptIsUpStartsNoTake() async throws {
+    @Test func aSheetSwipedAwayWhileThePromptIsUpStartsNoRecording() async throws {
         let manager = AccessManager(.notDetermined)
         let access = LocationAccess(manager: manager)
         let model = RecordSheetModel(recorder: recorder, tuneID: nil, locationAccess: access)
@@ -723,7 +724,7 @@ actor ReadCount {
         #expect(host.claim(for: store) != nil)
     }
 
-    @Test func aTakeStillSavingKeepsTheRecorderBusy() async throws {
+    @Test func aRecordingStillSavingKeepsTheRecorderBusy() async throws {
         let input = ToneInput()
         let host = RecorderHost(makeInput: { input })
         let store = try root.open()
@@ -747,8 +748,8 @@ actor ReadCount {
             #expect(!mac.contains("glassEffect"))
         }
 
-        /// The title is the only place the Mac sheet says what the take is doing.
-        @MainActor @Test func macTitleIsTheTakesStateExceptWhileAskingForLocation() {
+        /// The title is the only place the Mac sheet says what the recording is doing.
+        @MainActor @Test func macTitleIsTheRecordingsStateExceptWhileAskingForLocation() {
             #expect(
                 RecordSheet.macTitle(asksLocation: true, status: RecordSheetModel.notRecording)
                     == RecordSheetModel.title)

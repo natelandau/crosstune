@@ -307,7 +307,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(player.linkAudio == nil)
     }
 
-    @Test func aDecisionThatLandsDuringATakeEmptiesTheQueueAndCloses() async throws {
+    @Test func aDecisionThatLandsDuringARecordingEmptiesTheQueueAndCloses() async throws {
         let (player, _, music) = model(.fullTracks)
         let capturing = Mutex(false)
         player.isCapturing = { capturing.withLock { $0 } }

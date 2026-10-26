@@ -276,7 +276,8 @@ private func loop(_ id: String) -> RecordingLoop {
     @Test func theVisitFollowsTheLoadedRecordingWhenItChanges() async throws {
         let fixture = ActivityFixture()
         try await fixture.playRecording("r1")
-        let first = PracticeModel(player: fixture.player, recording: loggedTake("r1"), file: nil, writer: noLoopWrites)
+        let first = PracticeModel(
+            player: fixture.player, recording: loggedRecording("r1"), file: nil, writer: noLoopWrites)
         first.enter()
         fixture.player.setSpeed(80)
         try await fixture.fed { $0.speedPercent == 80 }
@@ -284,11 +285,12 @@ private func loop(_ id: String) -> RecordingLoop {
         // A playlist moves on while the screen shows; the screen's view, keyed by recording,
         // is made again for the new one.
         fixture.player.playQueued(
-            .recording(loggedTake("r2"), tuneTitle: nil), nowPlaying: NowPlaying(title: "r2", tuneTitle: nil),
+            .recording(loggedRecording("r2"), tuneTitle: nil), nowPlaying: NowPlaying(title: "r2", tuneTitle: nil),
             trigger: .autoAdvance)
         #expect(fixture.recorded.sessions.map(\.recordingID) == ["r1"])
         first.leave()
-        let second = PracticeModel(player: fixture.player, recording: loggedTake("r2"), file: nil, writer: noLoopWrites)
+        let second = PracticeModel(
+            player: fixture.player, recording: loggedRecording("r2"), file: nil, writer: noLoopWrites)
         second.enter()
         #expect(fixture.player.activity.screenRecordingID == "r2")
         try await waitFor { fixture.audio.isPlaying && fixture.player.item?.id == "r2" }
@@ -303,7 +305,7 @@ private func loop(_ id: String) -> RecordingLoop {
     @Test func showingTheScreenAgainCarriesOnItsVisit() async throws {
         let fixture = ActivityFixture()
         try await fixture.playRecording()
-        let model = PracticeModel(player: fixture.player, recording: loggedTake(), file: nil, writer: noLoopWrites)
+        let model = PracticeModel(player: fixture.player, recording: loggedRecording(), file: nil, writer: noLoopWrites)
         model.enter()
         fixture.player.setSpeed(80)
         try await fixture.fed { $0.speedPercent == 80 }
@@ -357,7 +359,7 @@ private func loop(_ id: String) -> RecordingLoop {
         #expect(fixture.sent("practice_ended").isEmpty)
     }
 
-    @Test func aTakeFiledDuringThePracticeReportsItsNewTune() async throws {
+    @Test func aRecordingFiledDuringThePracticeReportsItsNewTune() async throws {
         let fixture = ActivityFixture()
         try await fixture.playRecording(tuneID: nil)
         fixture.player.screenOpened("r1")
@@ -370,7 +372,7 @@ private func loop(_ id: String) -> RecordingLoop {
         #expect(fixture.sent("practice_ended").only?["tune_id"] == .string("t9"))
     }
 
-    @Test func aTakeFiledDuringTheVisitReportsItsPlayUnderItsNewTune() async throws {
+    @Test func aRecordingFiledDuringTheVisitReportsItsPlayUnderItsNewTune() async throws {
         let fixture = ActivityFixture()
         try await fixture.playRecording(tuneID: nil)
         fixture.player.screenOpened("r1")

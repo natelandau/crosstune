@@ -446,7 +446,7 @@ private struct RecordingsContent: View {
         #endif
     }
 
-    /// Whether a take under way disables one of `rows`' plays.
+    /// Whether a recording under way disables one of `rows`' plays.
     private func blocksPlay(_ rows: [RecordingView]) -> Bool {
         guard recorders?.isCapturing == true else { return false }
         return rows.contains { view in

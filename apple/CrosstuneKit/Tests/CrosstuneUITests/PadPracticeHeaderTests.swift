@@ -43,13 +43,13 @@ private final class NoCommands: TrackCommands {
         playback.end()
     }
 
-    @Test func keepsTheTakesOwnSubtitleWhenNoListPlays() {
+    @Test func keepsTheRecordingsOwnSubtitleWhenNoListPlays() {
         let playback = playback()
         #expect(subtitle(playback, showsReadingPane: true) == ownSubtitle())
         #expect(subtitle(nil, showsReadingPane: true) == ownSubtitle())
     }
 
-    @Test func keepsTheTakesOwnSubtitleOffThePadPracticeScreen() {
+    @Test func keepsTheRecordingsOwnSubtitleOffThePadPracticeScreen() {
         let playback = playback()
         playback.start(listID: "l1", name: "Saturday session", tuneIDs: ["a", "b"], shuffled: false)
         #expect(subtitle(playback, showsReadingPane: false) == ownSubtitle())

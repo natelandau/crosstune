@@ -369,7 +369,7 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
         #expect(result.unfiled.map(\.id) == ["a"])
     }
 
-    @Test func aTakeWithoutALinkSearchesByItsOwnPlaceName() {
+    @Test func aRecordingWithoutALinkSearchesByItsOwnPlaceName() {
         let own = RecordingView(
             recording: Recording(
                 id: "d", tuneID: nil, source: "microphone", addedAt: later(1_000), state: "ready",

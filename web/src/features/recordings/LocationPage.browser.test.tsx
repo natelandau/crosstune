@@ -44,7 +44,7 @@ import type { RecordingView } from './useRecordings'
 const STREET = '200 Eastern Pkwy, Brooklyn, NY'
 const SPOT = { lat: 40.6718, lon: -73.9635 }
 const M_PER_DEGREE = 111_320
-/** A point `meters` due north of the take. */
+/** A point `meters` due north of the recording. */
 const north = (meters: number) => ({ lat: SPOT.lat + meters / M_PER_DEGREE, lon: SPOT.lon })
 
 let db: CrosstuneDb
@@ -318,7 +318,7 @@ it('hides Name this location for a loose fix', async () => {
   expect(row(NAME_THIS_LOCATION).query()).toBeNull()
 })
 
-it('names this location: a saved location at the take, linked on Save', async () => {
+it('names this location: a saved location at the recording, linked on Save', async () => {
   const { analytics } = await setup({ initialPage: 'location' })
   await row(NAME_THIS_LOCATION).click()
   const naming = page.getByRole('dialog', { name: NAME_LOCATION_TITLE })
@@ -392,7 +392,7 @@ it('follows a rename of the linked saved location while open', async () => {
     .toHaveAttribute('aria-current', 'true')
 })
 
-it('shows the saved name for a linked take with no name of its own', async () => {
+it('shows the saved name for a linked recording with no name of its own', async () => {
   await setup({
     recording: captured({ place_id: 'p1', place_name: null }),
     places: [placeRow('p1', 'The barn', { ...SPOT, address: STREET })],
@@ -471,7 +471,7 @@ it('offers Clear location on the form only with a location, keeping focus on the
   await expect.element(form().getByRole('button', { name: locationRowName(null) })).toHaveFocus()
 })
 
-it('shows no Clear location on the form for a take with no location', async () => {
+it('shows no Clear location on the form for a recording with no location', async () => {
   await setup({ recording: recordingRow('r1', { label: 'Fast take' }) })
   await expect.element(form().getByRole('button', { name: locationRowName(null) })).toBeVisible()
   expect(form().getByRole('button', { name: CLEAR_LOCATION }).query()).toBeNull()

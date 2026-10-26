@@ -403,7 +403,7 @@ import Testing
         #expect(row.placeID == nil)
     }
 
-    @Test func aLateFixFillsATakeWithNoPlaceAndQueuesIt() async throws {
+    @Test func aLateFixFillsARecordingWithNoPlaceAndQueuesIt() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let commands = Commands(store: store)
@@ -520,7 +520,7 @@ import Testing
         let store = try root.open()
 
         let id = try await Commands(store: store).addUploadedFile(
-            fileName: "take.wav", contentType: nil, bytes: 99, tuneID: nil, label: "Take", at: noon)
+            fileName: "recording.wav", contentType: nil, bytes: 99, tuneID: nil, label: "Take", at: noon)
 
         let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
         #expect(row.source == "upload")
@@ -540,7 +540,7 @@ import Testing
 }
 
 @Suite struct RecordingDateTests {
-    private func take(_ store: CrosstuneStore) async throws -> String {
+    private func capturedRecording(_ store: CrosstuneStore) async throws -> String {
         let commands = Commands(store: store)
         try await commands.beginCapture("r1", fileName: "r1.aac", tuneID: nil, recordedAt: noon)
         try await commands.finishCapture("r1", fileName: "r1.m4a", bytes: 1, durationMs: 1, at: noon)
@@ -558,7 +558,7 @@ import Testing
     @Test func writesAPartialDateAndQueuesItKeepingWhenItWasAdded() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let id = try await take(store)
+        let id = try await capturedRecording(store)
         let year = try #require(Timestamp(iso: "1937-01-01T00:00:00.000Z"))
 
         try await Commands(store: store).updateRecordingDate(id, recordedAt: year, precision: .year)
@@ -576,7 +576,7 @@ import Testing
     @Test func clearsTheRecordedDateAndKeepsWhenItWasAdded() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let id = try await take(store)
+        let id = try await capturedRecording(store)
 
         try await Commands(store: store).updateRecordingDate(id, recordedAt: nil, precision: nil)
 
@@ -589,7 +589,7 @@ import Testing
     @Test func refusesADateWithoutItsPrecisionOrTheReverse() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let id = try await take(store)
+        let id = try await capturedRecording(store)
         let before = try await row(store, id)
         let commands = Commands(store: store)
 
@@ -606,7 +606,7 @@ import Testing
     @Test func refusesAPartialDateOffTheStartOfItsPeriod() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let id = try await take(store)
+        let id = try await capturedRecording(store)
         let commands = Commands(store: store)
 
         for (iso, precision) in [
@@ -637,7 +637,7 @@ import Testing
     @Test func acceptsADateExactlyADayAhead() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let id = try await take(store)
+        let id = try await capturedRecording(store)
         let commands = Commands(store: store)
         let now = Timestamp(iso: "2026-10-04T12:00:00.000Z")!
         let edge = Timestamp(iso: "2026-10-05T00:00:00.000Z")!
@@ -653,7 +653,7 @@ import Testing
     @Test func refusesAPartialDateMoreThanADayAheadButNotATime() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let id = try await take(store)
+        let id = try await capturedRecording(store)
         let commands = Commands(store: store)
         let now = Timestamp.now
         let ahead = Timestamp(milliseconds: now.milliseconds + 48 * 60 * 60_000)

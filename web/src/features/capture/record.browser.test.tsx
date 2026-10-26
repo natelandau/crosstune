@@ -87,7 +87,7 @@ function promptedGeolocation(permission: FakeLocationPermission) {
 const locationNote = () => sheet().getByRole('heading', { name: LOCATION_NOTE_TITLE })
 
 it.each(['granted', 'denied'] as const)(
-  'asks for location before the first take, and starts it once the answer is %s',
+  'asks for location before the first recording, and starts it once the answer is %s',
   async (state) => {
     const { getUserMedia } = fakeMediaForTest()
     const permission = fakeLocationPermissionForTest('prompt')
@@ -120,7 +120,7 @@ it('shows the location note only once, even when the prompt was dismissed', asyn
   await expect.poll(geolocation.asked).toBe(1)
   geolocation.answer('dismissed')
   await expect.element(sheet().getByRole('timer')).toBeVisible()
-  // The take reads Continue's answer, so a dismissed prompt is never raised a second time.
+  // The recording reads Continue's answer, so a dismissed prompt is never raised a second time.
   expect(geolocation.asked()).toBe(1)
   await sheet().getByRole('button', { name: STOP }).click()
   await expect.element(sheet()).not.toBeInTheDocument()
@@ -131,7 +131,7 @@ it('shows the location note only once, even when the prompt was dismissed', asyn
   expect(locationNote().query()).toBeNull()
 })
 
-it('closes from the location note with Cancel and never starts a take', async () => {
+it('closes from the location note with Cancel and never starts a recording', async () => {
   const { getUserMedia } = fakeMediaForTest()
   fakeLocationPermissionForTest('prompt')
   const db = openTestDb()
@@ -144,7 +144,7 @@ it('closes from the location note with Cancel and never starts a take', async ()
   expect(await db.recording_files.count()).toBe(0)
 })
 
-it('starts the take with no location note once location is allowed', async () => {
+it('starts the recording with no location note once location is allowed', async () => {
   fakeMediaForTest()
   fakeLocationPermissionForTest('granted')
   await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE, density: 'touch' })
@@ -163,7 +163,7 @@ it('records from the round Record button at 390, with the timer up and the butto
   await expect.element(sheet().getByRole('button', { name: STOP })).toBeVisible()
   await expect.poll(() => recordControl()?.getAttribute('aria-hidden')).toBe('true')
   await expect.element(page.getByRole('button', { name: RECORD_LABEL })).not.toBeInTheDocument()
-  // The tabs sit behind the sheet, so no tab switch can leave a live take behind.
+  // The tabs sit behind the sheet, so no tab switch can leave a live recording behind.
   const tabs = page.getByRole('navigation', { name: TAB_BAR, includeHidden: true })
   await expect.poll(() => tabs.element().closest('[inert]')).not.toBeNull()
 })
@@ -192,7 +192,7 @@ it('stays open and recording through Escape, a backdrop press, a drag down, and 
   expect(recorderState()).toBe('recording')
 })
 
-it('asks before Cancel discards a live take, and keeps recording when declined', async () => {
+it('asks before Cancel discards a live recording, and keeps recording when declined', async () => {
   fakeMediaForTest()
   const db = openTestDb()
   await renderApp({ path: '/catalog', db, frame: PHONE, density: 'touch' })
@@ -220,7 +220,7 @@ it('files under the tune it started from and names it', async () => {
   await expect.element(sheet().getByText(`${FILING_UNDER} Soldier's Joy`)).toBeVisible()
 })
 
-it("saves on Stop and slides the new take into the tune's recordings", async () => {
+it("saves on Stop and slides the new recording into the tune's recordings", async () => {
   fakeMediaForTest()
   const db = openTestDb()
   const tuneId = await seedTune(db)
@@ -310,8 +310,8 @@ it.each([
   expect(last).toBeLessThanOrEqual(window.innerHeight)
 })
 
-/** Records a take from the tune page and stops it, returning the tune's Recordings grid. */
-async function saveTakeOnTunePage(db: CrosstuneDb) {
+/** Makes a recording from the tune page and stops it, returning the tune's Recordings grid. */
+async function saveRecordingOnTunePage(db: CrosstuneDb) {
   const tuneId = await seedTune(db)
   await renderApp({ path: `/catalog/${tuneId}`, db, frame: PHONE, density: 'touch' })
   await recordFromTunePage()
@@ -323,10 +323,10 @@ async function saveTakeOnTunePage(db: CrosstuneDb) {
   }
 }
 
-it('marks the new take from the moment its row first appears', async () => {
+it('marks the new recording from the moment its row first appears', async () => {
   fakeMediaForTest()
   const db = openTestDb()
-  const { stop } = await saveTakeOnTunePage(db)
+  const { stop } = await saveRecordingOnTunePage(db)
   // Whether each row carried data-new as it entered the page.
   const entered: boolean[] = []
   const observer = new MutationObserver((mutations) => {
@@ -355,7 +355,7 @@ it('keeps the wash and drops the slide under reduced motion', async () => {
   })
   fakeMediaForTest()
   const db = openTestDb()
-  const { stop, recordings } = await saveTakeOnTunePage(db)
+  const { stop, recordings } = await saveRecordingOnTunePage(db)
 
   await stop()
 

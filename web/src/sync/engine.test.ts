@@ -473,7 +473,7 @@ describe('createSyncEngine', () => {
       })
     }
 
-    it('leaves a local-only take out while free, still sends its delete, and keeps nothing local after', async () => {
+    it('leaves a local-only recording out while free, still sends its delete, and keeps nothing local after', async () => {
       await db.entitlements.put(entitlementRow())
       const id = await captureRecording(db)
       await keepLocalUntilSubscribed(db, [id])
@@ -485,7 +485,7 @@ describe('createSyncEngine', () => {
       expect(await pendingFor(db, 'recordings', id)).toBeDefined()
 
       await deleteRecording(db, id)
-      // The server never stored the take, so it refuses the delete.
+      // The server never stored the recording, so it refuses the delete.
       fake.respondToPush((changes) =>
         changes.map((c) => ({ table: c.table, id: c.id, status: 'invalid', reason: 'not found' })),
       )
@@ -497,7 +497,7 @@ describe('createSyncEngine', () => {
       engine.stop()
     })
 
-    it('sends a local-only take once the plan is premium, and releases it when applied', async () => {
+    it('sends a local-only recording once the plan is premium, and releases it when applied', async () => {
       await db.entitlements.put(entitlementRow({ premium_source: 'comp' }))
       const id = await captureRecording(db)
       await keepLocalUntilSubscribed(db, [id])
@@ -558,14 +558,14 @@ describe('createSyncEngine', () => {
       expect(await getLocalOnlyRows(db)).toEqual(new Set())
     })
 
-    it("keeps a local-only take's loop and play with it, and sends them once Premium", async () => {
+    it("keeps a local-only recording's loop and play with it, and sends them once Premium", async () => {
       await db.entitlements.put(entitlementRow())
       const { tuneId, userTuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
       const id = await captureRecording(db, { tuneId })
       const loopId = await addLoop(db, id, { start_ms: 1_000, end_ms: 5_000 })
       await recordEvent(db, 'play_events', playEventRow('play-1', { recording_id: id }))
       await setPlaySource(db, userTuneId, { kind: 'recording', id })
-      // The server refuses the new take and every row that needs it, and takes the pin, whose
+      // The server refuses the new recording and every row that needs it, and takes the pin, whose
       // recording it never checks.
       fake.respondToPush((changes) =>
         changes.map((c) => {
@@ -597,7 +597,7 @@ describe('createSyncEngine', () => {
         [id, loopId, 'play-1'].toSorted(),
       )
 
-      // Still free: the take and its rows wait out the next push.
+      // Still free: the recording and its rows wait out the next push.
       const pushed = fake.pushes.length
       await engine.sync()
       expect(fake.pushes.slice(pushed).flat()).toEqual([])
@@ -618,7 +618,7 @@ describe('createSyncEngine', () => {
       expect(await getLocalOnlyRows(db)).toEqual(new Set())
     })
 
-    it('drops a local-only take that has nothing left in the outbox', async () => {
+    it('drops a local-only recording that has nothing left in the outbox', async () => {
       await keepLocalUntilSubscribed(db, ['gone'])
       const engine = engineFor()
       await engine.sync()
@@ -627,7 +627,7 @@ describe('createSyncEngine', () => {
     })
 
     it('ends a push whose results are all kept local instead of resending them', async () => {
-      const takes = [
+      const recordingIds = [
         await captureRecording(db),
         await captureRecording(db),
         await captureRecording(db),
@@ -636,16 +636,16 @@ describe('createSyncEngine', () => {
       const engine = engineFor(2)
       await engine.sync()
       expect(fake.pushes.map((batch) => batch.map((c) => c.id))).toEqual([
-        takes.slice(0, 2),
-        [takes[2]],
+        recordingIds.slice(0, 2),
+        [recordingIds[2]],
       ])
-      expect(await getLocalOnlyRows(db)).toEqual(new Set(takes))
+      expect(await getLocalOnlyRows(db)).toEqual(new Set(recordingIds))
       expect(await getInvalidChangeCount(db)).toBe(0)
       engine.stop()
     })
 
-    it('still pushes an edit queued behind a full batch of local-only takes', async () => {
-      const takes = [
+    it('still pushes an edit queued behind a full batch of local-only recordings', async () => {
+      const recordingIds = [
         await captureRecording(db),
         await captureRecording(db),
         await captureRecording(db),
@@ -656,10 +656,11 @@ describe('createSyncEngine', () => {
       await engine.sync()
       const sent = fake.pushes.flat().map((c) => c.id)
       expect(sent).toContain(tuneId)
-      // Each local-only take goes out once per push.
-      for (const take of takes) expect(sent.filter((id) => id === take)).toHaveLength(1)
+      // Each local-only recording goes out once per push.
+      for (const recordingId of recordingIds)
+        expect(sent.filter((id) => id === recordingId)).toHaveLength(1)
       expect(await pendingFor(db, 'tunes', tuneId)).toBeUndefined()
-      expect((await pendingBatch(db)).map((entry) => entry.row_id)).toEqual(takes)
+      expect((await pendingBatch(db)).map((entry) => entry.row_id)).toEqual(recordingIds)
       engine.stop()
     })
   })

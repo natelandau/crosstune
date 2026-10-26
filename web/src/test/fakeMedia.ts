@@ -95,7 +95,7 @@ function stubMediaGlobals(): { track: FakeTrack; getUserMedia: Mock } {
  * `stubMediaGlobals` for one test, putting every global it touches back when the test ends.
  * `navigator.mediaDevices`, `navigator.storage`, and `navigator.geolocation` are defined
  * properties, which `vi.unstubAllGlobals()` does not restore. The location permission reads as
- * unknown unless the test set it, since a browser that answers 'prompt' holds the take behind
+ * unknown unless the test set it, since a browser that answers 'prompt' holds the recording behind
  * the location note.
  */
 export function fakeMediaForTest(): { track: FakeTrack; getUserMedia: Mock } {

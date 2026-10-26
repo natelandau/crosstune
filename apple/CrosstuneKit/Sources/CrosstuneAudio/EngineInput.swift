@@ -20,7 +20,7 @@ public final class EngineInput: AudioInput {
     private var interrupted = false
     /// Set from a prepare until the next stop, so a prepare can tell a stop arrived meanwhile.
     private var preparing = false
-    /// Fixed for the take, so a resume never swaps left and right partway through.
+    /// Fixed for the recording, so a resume never swaps left and right partway through.
     private var stereo: EngineRunner.StereoRequest?
 
     public init() {}
@@ -35,7 +35,7 @@ public final class EngineInput: AudioInput {
         stereo = channels == .stereo ? Self.stereoRequest() : nil
         do {
             try await runner.activateSession(stereo: stereo)
-            // A stop while the session activated has already let go of the take.
+            // A stop while the session activated has already let go of the recording.
             guard preparing else { throw CancellationError() }
             observeSession()
             return await runner.inputChannelCount()
@@ -101,7 +101,7 @@ public final class EngineInput: AudioInput {
 
     #if os(iOS)
         /// Stereo from the built-in microphone, with left and right as the screen shows them
-        /// when the take starts.
+        /// when the recording starts.
         private static func stereoRequest() -> EngineRunner.StereoRequest {
             let scene = UIApplication.shared.connectedScenes
                 .compactMap { $0 as? UIWindowScene }
@@ -149,7 +149,7 @@ public final class EngineInput: AudioInput {
                 onEvent?(.interrupted)
             case .ended where interrupted:
                 // Left paused even when the system says resuming is fine, so the musician
-                // decides whether the take goes on after the call.
+                // decides whether the recording goes on after the call.
                 onEvent?(.interruptionEnded)
             default:
                 break
@@ -329,7 +329,7 @@ final class EngineRunner: @unchecked Sendable {
         }
 
         /// The session and the built-in port keep a stereo setup for the life of the process, so
-        /// a mono take clears it to record from the default microphone. Any other input keeps
+        /// a mono recording clears it to record from the default microphone. Any other input keeps
         /// both its channels, which the capture file mixes down rather than dropping the second.
         private static func resetStereo(_ session: AVAudioSession) {
             if let port = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {

@@ -32,8 +32,6 @@
           theme === 'dark' ||
           (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
         root.setAttribute('data-scheme', dark ? 'dark' : 'light')
-        // Older builds stored the large size as 'roomy'.
-        if (size === 'roomy') size = 'large'
         if (size === 'compact' || size === 'large') root.setAttribute('data-text-size', size)
         root.setAttribute(
           'data-density',

@@ -14,7 +14,10 @@ export type PlacePick =
       place: RecordingPlace & { name: string }
       savedPlaceId?: string
     }
-  /** A saved place near the take or picked from the list: the take keeps its own coordinates. */
+  /**
+   * A saved place near the recording or picked from the list: the recording keeps its own
+   * coordinates.
+   */
   | { kind: 'nearby' | 'saved'; place: LocalPlace }
 
 /** `text` trimmed and cut to `limit` code points, as the server counts them; null when empty. */
@@ -75,7 +78,7 @@ export async function renameSavedPlace(db: CrosstuneDb, id: string, name: string
   })
 }
 
-/** Takes keep their link, which the server clears; each shows its own name meanwhile. */
+/** Recordings keep their link, which the server clears; each shows its own name meanwhile. */
 export async function deleteSavedPlace(db: CrosstuneDb, id: string): Promise<void> {
   await writeTx(db, async () => {
     await livePlace(db, id)
@@ -85,8 +88,8 @@ export async function deleteSavedPlace(db: CrosstuneDb, id: string): Promise<voi
 
 /**
  * Sets a live recording's place from a pick and records that the musician chose it. A saved
- * place picked for a take with no coordinates lends its own point; otherwise the take keeps
- * its coordinates, accuracy, and own name.
+ * place picked for a recording with no coordinates lends its own point; otherwise the recording
+ * keeps its coordinates, accuracy, and own name.
  */
 export async function setRecordingPlace(
   db: CrosstuneDb,
@@ -117,7 +120,7 @@ export async function setRecordingPlace(
   })
 }
 
-/** A place picked by hand that a take moves to: its name and point, with no accuracy. */
+/** A place picked by hand that a recording moves to: its name and point, with no accuracy. */
 export type PickedPoint = { name: string; lat: number; lon: number }
 
 /** A saved place a pick makes once the edit is saved. */
@@ -131,7 +134,7 @@ export type SavedPlaceDraft = {
 
 /**
  * A pick that links a saved place, made first when the pick makes one. A link or a new place
- * `over` a point picked before it moves the take there; with none the take keeps its own.
+ * `over` a point picked before it moves the recording there; with none the recording keeps its own.
  */
 export type PlaceLink =
   /** A search result, with the saved place it makes when it is a venue or a street address. */

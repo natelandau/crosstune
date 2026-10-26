@@ -62,7 +62,7 @@ export function App({
 }) {
   useDensity()
   useSchemeSync(useAppearance())
-  const sheeted = (
+  const withSheets = (
     <ShortcutSheetProvider launcher={shortcutSheet}>
       <QuickFindProvider>
         <ScreenCommandsProvider>
@@ -78,9 +78,9 @@ export function App({
     </ShortcutSheetProvider>
   )
   const routed = tuneFormLauncher ? (
-    <TuneFormLauncherProvider value={tuneFormLauncher}>{sheeted}</TuneFormLauncherProvider>
+    <TuneFormLauncherProvider value={tuneFormLauncher}>{withSheets}</TuneFormLauncherProvider>
   ) : (
-    <TuneFormProvider>{sheeted}</TuneFormProvider>
+    <TuneFormProvider>{withSheets}</TuneFormProvider>
   )
   // Above the router, so practice's holds reach the bar and the overlay in every route, and the
   // round Record button, the capsule, and a tune page reach the one recorder.

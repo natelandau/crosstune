@@ -8,7 +8,7 @@ export interface StoredDate {
   recorded_precision: RecordingPrecision | null
 }
 
-/** A partial date is read in UTC, where it is stored; a take reads as the day it shows. */
+/** A partial date is read in UTC, where it is stored; a recording reads as the day it shows. */
 export function partsOf(at: string | null, precision: RecordingPrecision | null): DateParts {
   if (!at || !precision) return NO_DATE
   const date = new Date(at)

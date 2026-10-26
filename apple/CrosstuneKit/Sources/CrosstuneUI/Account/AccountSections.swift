@@ -61,7 +61,7 @@ public struct AccountSections: View {
     let session: AccountSession
     #if os(macOS)
         /// Cards shown between the account and the delete card, such as the catalog summary.
-        private let interlude: AnyView?
+        private let extraCards: AnyView?
     #endif
 
     @State private var pending = false
@@ -76,16 +76,16 @@ public struct AccountSections: View {
     public init(session: AccountSession) {
         self.session = session
         #if os(macOS)
-            interlude = nil
+            extraCards = nil
         #endif
     }
 
     #if os(macOS)
-        /// - Parameter interlude: Cards shown after the account and before the delete card,
+        /// - Parameter extraCards: Cards shown after the account and before the delete card,
         ///   which always comes last.
-        init(session: AccountSession, @ViewBuilder interlude: () -> some View) {
+        init(session: AccountSession, @ViewBuilder extraCards: () -> some View) {
             self.session = session
-            self.interlude = AnyView(interlude())
+            self.extraCards = AnyView(extraCards())
         }
 
         /// The Mac's cards, in order.
@@ -93,12 +93,12 @@ public struct AccountSections: View {
             /// Who is signed in, with Sign out.
             case identity
             /// The caller's cards.
-            case interlude
+            case extraCards
             /// Delete account, alone in its card and last, as a destructive action goes.
             case deleteAccount
         }
 
-        nonisolated static let macGroups: [MacGroup] = [.identity, .interlude, .deleteAccount]
+        nonisolated static let macGroups: [MacGroup] = [.identity, .extraCards, .deleteAccount]
         /// Signing out keeps everything on the server, so on the Mac it is an ordinary action.
         nonisolated static let macSignOutRole: MacButtonStyle.Role = .secondary
         nonisolated static let macDeleteRole: MacButtonStyle.Role = .destructive
@@ -109,7 +109,7 @@ public struct AccountSections: View {
             ForEach(Self.macGroups, id: \.self) { group in
                 switch group {
                 case .identity: macIdentity
-                case .interlude: interlude
+                case .extraCards: extraCards
                 case .deleteAccount: macDelete
                 }
             }

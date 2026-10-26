@@ -1841,7 +1841,7 @@
 .prec.field .v {
   color: var(--u-ink-2);
 }
-.tog {
+.toggle {
   width: 52px;
   height: 32px;
   border-radius: 16px;
@@ -1849,7 +1849,7 @@
   position: relative;
   transition: background 0.25s;
 }
-.tog i {
+.toggle i {
   position: absolute;
   left: 2px;
   top: 2px;
@@ -1860,10 +1860,10 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
   transition: transform 0.25s;
 }
-.tog.on {
+.toggle.on {
   background: var(--u-known);
 }
-.tog.on i {
+.toggle.on i {
   transform: translateX(20px);
 }
 

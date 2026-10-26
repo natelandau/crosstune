@@ -153,12 +153,12 @@ private func column(_ name: String) -> Int { tunesHeader.firstIndex(of: name)! }
     @Test func writesTheLocationARecordingShowsItsSavedLocationsNameWhileThatIsLive() {
         var input = emptyInput()
         func placed(_ id: String, name: String?, placeID: String) -> Recording {
-            var take = recording(id)
-            take.placeName = name
-            take.placeLat = 36.66
-            take.placeLon = -80.92
-            take.placeID = placeID
-            return take
+            var placed = recording(id)
+            placed.placeName = name
+            placed.placeLat = 36.66
+            placed.placeLon = -80.92
+            placed.placeID = placeID
+            return placed
         }
         input.recordings = [
             placed("linked", name: "1 Main St", placeID: "p1"),
@@ -276,9 +276,9 @@ private func column(_ name: String) -> Int { tunesHeader.firstIndex(of: name)! }
 
     @Test(
         arguments: [
-            ("take.M4A", "m4a"),
-            ("take.wav", "wav"),
-            ("take", "audio"),
+            ("recording.M4A", "m4a"),
+            ("recording.wav", "wav"),
+            ("recording", "audio"),
             (nil, "audio"),
         ] as [(String?, String)])
     func readsTheExtensionFromTheStoredFileName(fileName: String?, fileExtension: String) {

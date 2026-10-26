@@ -45,12 +45,12 @@ function recordControl(): Element | null {
 /**
  * The recorder, opened by the round Record button, the capsule, or a tune page through
  * `RecordStateProvider`. It is an overlay, never a route. Mount it inside the router, which it
- * holds still while a take is live and moves on once one is saved.
+ * holds still while a recording is live and moves on once one is saved.
  */
 export function RecordSheet() {
   const { target } = useRecordState()
-  // The take stays mounted through the sheet's exit, after the state has let it go. Each
-  // target is a new take, so a new one remounts it.
+  // The recording stays mounted through the sheet's exit, after the state has let it go. Each
+  // target is a new recording, so a new one remounts it.
   const [shown, setShown] = useState<{ target: RecordTarget; key: number } | null>(null)
   if (target && target !== shown?.target) setShown({ target, key: (shown?.key ?? 0) + 1 })
   const closed = useCallback(
@@ -59,11 +59,16 @@ export function RecordSheet() {
   )
   if (!shown) return null
   return (
-    <Take key={shown.key} target={shown.target} open={target === shown.target} onClosed={closed} />
+    <RecordingSheet
+      key={shown.key}
+      target={shown.target}
+      open={target === shown.target}
+      onClosed={closed}
+    />
   )
 }
 
-function Take({
+function RecordingSheet({
   target,
   open,
   onClosed,
@@ -102,7 +107,7 @@ function Take({
   })
   const { phase, live, refuseDismiss, discard } = session
 
-  // The browser's back would leave the take behind the page it lands on, so it is refused.
+  // The browser's back would leave the recording behind the page it lands on, so it is refused.
   const refuseRef = useLatest(refuseDismiss)
   const refuseBack = useCallback<BlockerFunction>(
     ({ historyAction }) => historyAction === NavigationType.Pop && refuseRef.current,
@@ -141,7 +146,7 @@ function Take({
   )
 }
 
-/** Why the browser is about to ask for location, before the take that asks. */
+/** Why the browser is about to ask for location, before the recording that asks. */
 function LocationNote({ note }: { note: LocationNoteState }) {
   const titleId = useId()
   return (

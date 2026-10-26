@@ -85,8 +85,8 @@ export function useRecordingRow(
     () => (blockedQuota ? getStorage(db) : undefined),
     [db, blockedQuota],
   )
-  // Only a take the server has not stored can be local-only, and a local-only take goes out as
-  // soon as the plan is Premium, so any other row skips the read.
+  // Only a recording the server has not stored can be local-only, and a local-only recording goes
+  // out as soon as the plan is Premium, so any other row skips the read.
   const free = !recordingsPlayable(usePlanOrUnknown())
   const mayBeLocalOnly = recording.server_seq === 0 && free
   const localOnlyRow = useLiveQuery(

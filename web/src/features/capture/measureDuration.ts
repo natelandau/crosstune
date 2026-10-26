@@ -5,7 +5,7 @@ export const MEASURE_TIMEOUT_MS = 10_000
  * The length of an audio file in whole milliseconds, or null when the browser cannot tell.
  *
  * Reads only the container's metadata through an audio element. Decoding the file instead
- * would hold the whole recording as PCM, which an hour-long take cannot afford on a phone.
+ * would hold the whole recording as PCM, which an hour-long recording cannot afford on a phone.
  * A stream whose header carries no length, such as a WebM written without cues, reports an
  * infinite duration and so measures as null.
  */

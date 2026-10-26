@@ -20,19 +20,19 @@ import { SPRING } from '../../theme/motion'
 import type { WaveformScrub } from './PracticeWaveform'
 
 export interface PracticeTimeline {
-  /** True once the engine knows the take's length. */
+  /** True once the engine knows the recording's length. */
   loaded: boolean
   /** Loaded and not failed: offline, unavailable, or failed audio cannot place a loop by ear. */
   audioReady: boolean
   playing: boolean
-  /** The trimmed take's length, from the row until the engine has loaded. */
+  /** The trimmed recording's length, from the row until the engine has loaded. */
   lengthMs: number
   /**
    * Where the playhead is drawn on the trimmed timeline, a scrub under way included, which moves
    * every frame outside React. Read a fact of it with `usePlayhead`.
    */
   playhead: PlayheadClock
-  /** The drawn playhead held to the take, on the source timeline. */
+  /** The drawn playhead held to the recording, on the source timeline. */
   playheadMs: () => number
   /** The waveform's scrub, for the commands to settle and read. */
   scrub: RefObject<WaveformScrub | null>
@@ -43,9 +43,9 @@ export interface PracticeTimeline {
   shownPositionMs: () => number
   /** Stops a momentum scroll and returns the shown playhead on the source timeline. */
   settledPlayheadMs: () => number
-  /** The trimmed take on the source timeline. */
+  /** The trimmed recording on the source timeline. */
   bounds: Bounds
-  /** The scale at which the whole take fills the view. */
+  /** The scale at which the whole recording fills the view. */
   minScale: number
   /** The scale the musician or the opening chose, before it is held to the frame. */
   scale: number | null
@@ -55,7 +55,7 @@ export interface PracticeTimeline {
   halfSpanMs: number | null
   /** False once zooming in can go no further, or while there is no scale. */
   canZoomIn: boolean
-  /** False once the whole take shows, or while there is no scale. */
+  /** False once the whole recording shows, or while there is no scale. */
   canZoomOut: boolean
   /**
    * Frames the opening view on `loop` (the selected loop's span), or 30 seconds around the
@@ -64,7 +64,7 @@ export interface PracticeTimeline {
    * `usePracticeLoops` calls it once the loops are read.
    */
   open: (loop: Span | null) => void
-  /** Multiplies the scale by `factor`, held between the whole take and the maximum. */
+  /** Multiplies the scale by `factor`, held between the whole recording and the maximum. */
   zoom: (factor: number) => void
   /**
    * Multiplies the scale by `factor` for a pinch under way, which stretches past either limit
@@ -73,7 +73,7 @@ export interface PracticeTimeline {
   pinchZoom: (factor: number) => void
   endPinch: () => void
   /**
-   * Frames `loop` and brings the playhead into it, or shows the whole take. Prefer
+   * Frames `loop` and brings the playhead into it, or shows the whole recording. Prefer
    * `usePracticeLoops`'s `fit`, which passes the selected loop as drawn.
    */
   fit: (loop: Span | null) => void
@@ -118,7 +118,7 @@ export function usePracticeTimeline({
   // moves ahead of the engine, and stops a momentum scroll first so it cannot carry the
   // playhead off afterward.
   const scrub = useRef<WaveformScrub | null>(null)
-  // Held to the take: a scrub pulled past an end is drawn there by the waveform alone.
+  // Held to the recording: a scrub pulled past an end is drawn there by the waveform alone.
   const playheadMs = () => trimStartMs + (loaded ? clamp(playhead.ms, 0, lengthMs) : 0)
   const settle = () => {
     scrub.current?.settleMomentumScroll()

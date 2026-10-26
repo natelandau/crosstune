@@ -60,7 +60,7 @@ export function fakeLocationPermissionForTest(state: LocationPermission): FakeLo
   return controller
 }
 
-/** 'unknown' for this test unless it already set an answer, so a take starts with no note. */
+/** 'unknown' for this test unless it already set an answer, so a recording starts with no note. */
 export function quietLocationPermissionForTest(): void {
   if (!active) fakeLocationPermissionForTest('unknown')
 }

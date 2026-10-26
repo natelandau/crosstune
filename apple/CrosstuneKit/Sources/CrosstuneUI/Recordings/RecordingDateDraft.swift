@@ -3,7 +3,7 @@ import CrosstuneStore
 import Foundation
 
 /// A recorded date as the Edit sheet holds it: a typed year, narrowed by an optional month and
-/// day. A take's exact time survives only while its date parts are left as they opened.
+/// day. A recording's exact time survives only while its date parts are left as they opened.
 public struct RecordingDateDraft: Equatable, Sendable {
     /// Why the parts cannot be stored.
     public enum Problem: Error, Equatable, Sendable {
@@ -26,8 +26,8 @@ public struct RecordingDateDraft: Equatable, Sendable {
 
     private var parts: Parts
     private let opened: Parts
-    /// The take's instant when the date opened at time precision.
-    private let take: Timestamp?
+    /// The recording's instant when the date opened at time precision.
+    private let exactTime: Timestamp?
     private let timeZone: TimeZone
 
     public var year: String { parts.year }
@@ -36,7 +36,7 @@ public struct RecordingDateDraft: Equatable, Sendable {
     /// Nil is Any.
     public var day: Int? { parts.day }
 
-    /// `timeZone` reads a take's day; a partial date is read in UTC, where it is stored.
+    /// `timeZone` reads a recording's day; a partial date is read in UTC, where it is stored.
     public init(recordedAt: Timestamp?, precision: RecordingPrecision?, timeZone: TimeZone = .current) {
         self.timeZone = timeZone
         var start = Parts()
@@ -49,7 +49,7 @@ public struct RecordingDateDraft: Equatable, Sendable {
         }
         parts = start
         opened = start
-        take = precision == .time ? recordedAt : nil
+        exactTime = precision == .time ? recordedAt : nil
     }
 
     /// The recording's date, or no date when its precision is one this build predates.
@@ -61,11 +61,11 @@ public struct RecordingDateDraft: Equatable, Sendable {
     /// Whether the parts differ from those the draft opened with. Only a changed date is written.
     public var isChanged: Bool { parts != opened }
 
-    /// Whether saving keeps the take's exact time.
-    public var keepsTime: Bool { take != nil && !isChanged }
+    /// Whether saving keeps the recording's exact time.
+    public var keepsTime: Bool { exactTime != nil && !isChanged }
 
-    /// The take's instant while it is kept, for the note under the date.
-    public var keptTake: Timestamp? { keepsTime ? take : nil }
+    /// The recording's instant while it is kept, for the note under the date.
+    public var keptTime: Timestamp? { keepsTime ? exactTime : nil }
 
     public var isEmpty: Bool { parts == Parts() }
 
@@ -113,11 +113,11 @@ public struct RecordingDateDraft: Equatable, Sendable {
         }
     }
 
-    /// The date to store at the most specific part given: the take itself while it is kept, no
+    /// The date to store at the most specific part given: the recording itself while it is kept, no
     /// date without a year whatever month or day is left behind it, else UTC midnight at the
     /// start of the period.
     public func resolved(now: Timestamp = .now) throws(Problem) -> (at: Timestamp?, precision: RecordingPrecision?) {
-        if keepsTime, let take { return (take, .time) }
+        if keepsTime, let exactTime { return (exactTime, .time) }
         if parts.year.isEmpty { return (nil, nil) }
         guard Self.isFullYear(parts.year), let year = Int(parts.year) else { throw .yearFormat }
         if year > Self.calendar(timeZone).component(.year, from: now.date) { throw .future }

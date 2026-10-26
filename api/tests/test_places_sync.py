@@ -18,7 +18,7 @@ def place(id_: str, at=T0, **data) -> dict:
 
 
 def spot(**data) -> dict:
-    """Recording fields for a take at the Galax point."""
+    """Recording fields at the Galax point."""
     return {"place_lat": GALAX["lat"], "place_lon": GALAX["lon"], **data}
 
 
@@ -176,7 +176,7 @@ async def test_a_push_that_omits_the_link_fields_keeps_the_stored_link(
     assert result["row"]["place_origin"] == "picked"
 
 
-async def test_an_old_client_move_of_a_linked_take_unlinks_it(client, auth_headers) -> None:
+async def test_an_old_client_move_of_a_linked_recording_unlinks_it(client, auth_headers) -> None:
     pid, rec = uid(), uid()
     await push(client, auth_headers("user_a"), place(pid))
     await push(
@@ -193,7 +193,7 @@ async def test_an_old_client_move_of_a_linked_take_unlinks_it(client, auth_heade
     assert result["row"]["place_origin"] == "device"
 
 
-async def test_a_new_take_without_an_origin_gets_one_from_its_accuracy(
+async def test_a_new_recording_without_an_origin_gets_one_from_its_accuracy(
     client, auth_headers
 ) -> None:
     device, picked = uid(), uid()
@@ -247,8 +247,8 @@ async def test_deleting_a_place_leaves_no_coordinates_behind(client, auth_header
 M_LAT = 1 / 111_195
 
 
-def take(rec: str, at=T0, *, north_m: float = 0, **data) -> dict:
-    """A device take north of the Galax point by some meters."""
+def recording_near_galax(rec: str, at=T0, *, north_m: float = 0, **data) -> dict:
+    """A device recording north of the Galax point by some meters."""
     fields = {
         "place_lat": GALAX["lat"] + north_m * M_LAT,
         "place_lon": GALAX["lon"],
@@ -258,16 +258,21 @@ def take(rec: str, at=T0, *, north_m: float = 0, **data) -> dict:
     return recording(rec, at, **fields)
 
 
-async def test_new_place_links_earlier_takes_within_30_m(client, auth_headers) -> None:
+async def test_new_place_links_earlier_recordings_within_30_m(client, auth_headers) -> None:
     near, far, pid = uid(), uid(), uid()
     headers = auth_headers("user_a")
-    await push(client, headers, take(near, north_m=20), take(far, north_m=40))
+    await push(
+        client,
+        headers,
+        recording_near_galax(near, north_m=20),
+        recording_near_galax(far, north_m=40),
+    )
     await push(client, headers, place(pid, T1))
     assert (await recording_row(client, headers, near))["place_id"] == pid
     assert (await recording_row(client, headers, far))["place_id"] is None
 
 
-async def test_new_place_links_earlier_file_takes_and_skips_loose_ones(
+async def test_new_place_links_earlier_file_recordings_and_skips_loose_ones(
     client, auth_headers
 ) -> None:
     filed, loose, pid = uid(), uid(), uid()
@@ -275,38 +280,40 @@ async def test_new_place_links_earlier_file_takes_and_skips_loose_ones(
     await push(
         client,
         headers,
-        take(filed, place_accuracy_m=None, place_origin="file"),
-        take(loose, place_accuracy_m=80),
+        recording_near_galax(filed, place_accuracy_m=None, place_origin="file"),
+        recording_near_galax(loose, place_accuracy_m=80),
     )
     await push(client, headers, place(pid, T1))
     assert (await recording_row(client, headers, filed))["place_id"] == pid
     assert (await recording_row(client, headers, loose))["place_id"] is None
 
 
-async def test_new_place_skips_picked_takes(client, auth_headers) -> None:
+async def test_new_place_skips_picked_recordings(client, auth_headers) -> None:
     picked, pid = uid(), uid()
     headers = auth_headers("user_a")
-    await push(client, headers, take(picked, place_accuracy_m=None, place_origin="picked"))
+    await push(
+        client, headers, recording_near_galax(picked, place_accuracy_m=None, place_origin="picked")
+    )
     await push(client, headers, place(pid, T1))
     assert (await recording_row(client, headers, picked))["place_id"] is None
 
 
-async def test_new_place_skips_takes_inside_two_places(client, auth_headers) -> None:
+async def test_new_place_skips_recordings_inside_two_places(client, auth_headers) -> None:
     rec, first, second, third = uid(), uid(), uid(), uid()
     headers = auth_headers("user_a")
     await push(client, headers, place(first, name="One", lat=GALAX["lat"] + 20 * M_LAT))
     await push(client, headers, place(second, name="Two", lat=GALAX["lat"] - 20 * M_LAT))
-    # Inside two places the push matches neither, so the take starts unlinked.
-    await push(client, headers, take(rec))
+    # Inside two places the push matches neither, so the recording starts unlinked.
+    await push(client, headers, recording_near_galax(rec))
     assert (await recording_row(client, headers, rec))["place_id"] is None
     await push(client, headers, place(third, T1, name="Three", lat=GALAX["lat"] + 5 * M_LAT))
     assert (await recording_row(client, headers, rec))["place_id"] is None
 
 
-async def test_new_place_skips_other_accounts_and_deleted_takes(client, auth_headers) -> None:
+async def test_new_place_skips_other_accounts_and_deleted_recordings(client, auth_headers) -> None:
     mine, theirs, pid = uid(), uid(), uid()
-    await push(client, auth_headers("user_b"), take(theirs))
-    await push(client, auth_headers("user_a"), take(mine))
+    await push(client, auth_headers("user_b"), recording_near_galax(theirs))
+    await push(client, auth_headers("user_a"), recording_near_galax(mine))
     await push(client, auth_headers("user_a"), change("recordings", mine, T1, op="delete"))
     await push(client, auth_headers("user_a"), place(pid, T2))
     assert (await recording_row(client, auth_headers("user_b"), theirs))["place_id"] is None
@@ -317,7 +324,7 @@ async def test_moved_place_relinks(client, auth_headers) -> None:
     pid, elsewhere = uid(), uid()
     headers = auth_headers("user_a")
     await push(client, headers, place(pid))
-    await push(client, headers, take(elsewhere, place_lat=40.0, place_lon=-75.0))
+    await push(client, headers, recording_near_galax(elsewhere, place_lat=40.0, place_lon=-75.0))
     assert (await recording_row(client, headers, elsewhere))["place_id"] is None
     await push(client, headers, place(pid, T1, lat=40.0, lon=-75.0))
     assert (await recording_row(client, headers, elsewhere))["place_id"] == pid
@@ -328,9 +335,15 @@ async def test_renamed_place_changes_nothing_but_server_seq_of_the_place(
 ) -> None:
     pid, rec, other = uid(), uid(), uid()
     headers = auth_headers("user_a")
-    await push(client, headers, place(pid), take(rec), take(other, north_m=1))
-    # A device take within the radius that the device unlinked, so a rematch would link it.
-    await push(client, headers, take(other, T1, north_m=1, place_id=None))
+    await push(
+        client,
+        headers,
+        place(pid),
+        recording_near_galax(rec),
+        recording_near_galax(other, north_m=1),
+    )
+    # A device recording within the radius that the device unlinked, so a rematch would link it.
+    await push(client, headers, recording_near_galax(other, T1, north_m=1, place_id=None))
     assert (await recording_row(client, headers, other))["place_id"] is None
     before = await recording_row(client, headers, rec)
     body = await pull(client, headers)
@@ -353,7 +366,7 @@ async def test_deleted_place_unlinks_its_recordings_and_keeps_their_names(
         client,
         headers,
         place(pid),
-        take(rec, place_id=pid, place_name="1 Main St", place_origin="picked"),
+        recording_near_galax(rec, place_id=pid, place_name="1 Main St", place_origin="picked"),
     )
     assert (await recording_row(client, headers, rec))["place_id"] == pid
     await push(client, headers, change("places", pid, T1, op="delete"))
@@ -364,10 +377,10 @@ async def test_deleted_place_unlinks_its_recordings_and_keeps_their_names(
     assert row["place_origin"] == "picked"
 
 
-async def test_unlinked_takes_are_candidates_for_another_place(client, auth_headers) -> None:
+async def test_unlinked_recordings_are_candidates_for_another_place(client, auth_headers) -> None:
     first, second, rec = uid(), uid(), uid()
     headers = auth_headers("user_a")
-    await push(client, headers, take(rec))
+    await push(client, headers, recording_near_galax(rec))
     await push(client, headers, place(first))
     assert (await recording_row(client, headers, rec))["place_id"] == first
     await push(client, headers, change("places", first, T1, op="delete"))
@@ -379,7 +392,7 @@ async def test_unlinked_takes_are_candidates_for_another_place(client, auth_head
 async def test_rematch_bumps_server_seq_and_not_updated_at(client, auth_headers) -> None:
     pid, rec = uid(), uid()
     headers = auth_headers("user_a")
-    await push(client, headers, take(rec))
+    await push(client, headers, recording_near_galax(rec))
     before = await recording_row(client, headers, rec)
     await push(client, headers, place(pid, T1))
     after = await recording_row(client, headers, rec)
@@ -391,11 +404,11 @@ async def test_rematch_bumps_server_seq_and_not_updated_at(client, auth_headers)
 async def test_replayed_push_does_not_relink_twice(client, auth_headers) -> None:
     pid, rec = uid(), uid()
     headers = auth_headers("user_a")
-    await push(client, headers, take(rec, T1))
+    await push(client, headers, recording_near_galax(rec, T1))
     await push(client, headers, place(pid))
     assert (await recording_row(client, headers, rec))["place_id"] == pid
-    # The device unlinks the take, then the place push is delivered again.
-    await push(client, headers, take(rec, T2, place_id=None))
+    # The device unlinks the recording, then the place push is delivered again.
+    await push(client, headers, recording_near_galax(rec, T2, place_id=None))
     unlinked = await recording_row(client, headers, rec)
     assert unlinked["place_id"] is None
     await push(client, headers, place(pid))
@@ -408,7 +421,7 @@ async def test_an_old_client_echo_of_the_stored_origin_with_new_coordinates_is_i
     """A 1.0.0 client keeps unknown fields from a pull and pushes them back with its edits."""
     pid, rec = uid(), uid()
     headers = auth_headers("user_a")
-    await push(client, headers, place(pid), take(rec))
+    await push(client, headers, place(pid), recording_near_galax(rec))
     linked = await recording_row(client, headers, rec)
     assert (linked["place_id"], linked["place_origin"]) == (pid, "device")
     # A hand pick elsewhere: new coordinates, no accuracy, and both link keys echoed.
@@ -429,10 +442,10 @@ async def test_an_old_client_echo_of_the_stored_origin_with_new_coordinates_is_i
 
 
 async def test_an_old_client_repick_at_the_same_point_reads_as_picked(client, auth_headers) -> None:
-    """A 1.0.0 hand pick at the take's own point drops the accuracy and echoes the rest."""
+    """A 1.0.0 hand pick at the recording's own point drops the accuracy and echoes the rest."""
     pid, rec = uid(), uid()
     headers = auth_headers("user_a")
-    await push(client, headers, place(pid), take(rec, place_name="12 Main St"))
+    await push(client, headers, place(pid), recording_near_galax(rec, place_name="12 Main St"))
     linked = await recording_row(client, headers, rec)
     assert (linked["place_id"], linked["place_origin"]) == (pid, "device")
     [result] = await push(
@@ -450,11 +463,13 @@ async def test_an_old_client_repick_at_the_same_point_reads_as_picked(client, au
 async def test_a_label_edit_at_the_same_point_keeps_the_device_origin(client, auth_headers) -> None:
     pid, rec = uid(), uid()
     headers = auth_headers("user_a")
-    await push(client, headers, place(pid), take(rec, place_name="12 Main St"))
+    await push(client, headers, place(pid), recording_near_galax(rec, place_name="12 Main St"))
     [result] = await push(
         client,
         headers,
-        take(rec, T1, label="Edited", place_name="12 Main St", place_origin="device", place_id=pid),
+        recording_near_galax(
+            rec, T1, label="Edited", place_name="12 Main St", place_origin="device", place_id=pid
+        ),
     )
     assert result["row"]["place_origin"] == "device"
     assert result["row"]["place_id"] == pid
@@ -463,7 +478,7 @@ async def test_a_label_edit_at_the_same_point_keeps_the_device_origin(client, au
 async def test_the_same_name_without_accuracy_keeps_the_device_origin(client, auth_headers) -> None:
     pid, rec = uid(), uid()
     headers = auth_headers("user_a")
-    await push(client, headers, place(pid), take(rec, place_name="12 Main St"))
+    await push(client, headers, place(pid), recording_near_galax(rec, place_name="12 Main St"))
     [result] = await push(
         client,
         headers,
@@ -481,12 +496,12 @@ async def test_the_same_name_without_accuracy_keeps_the_device_origin(client, au
     assert result["row"]["place_id"] == pid
 
 
-async def test_a_search_pick_of_the_place_a_take_is_linked_to_keeps_the_link(
+async def test_a_search_pick_of_the_place_a_recording_is_linked_to_keeps_the_link(
     client, auth_headers
 ) -> None:
     pid, rec = uid(), uid()
     headers = auth_headers("user_a")
-    await push(client, headers, place(pid), take(rec, north_m=20))
+    await push(client, headers, place(pid), recording_near_galax(rec, north_m=20))
     assert (await recording_row(client, headers, rec))["place_id"] == pid
     [result] = await push(
         client,
@@ -506,7 +521,7 @@ async def test_a_place_id_without_coordinates_is_dropped(client, auth_headers) -
     assert result["row"]["place_id"] is None
 
 
-async def test_a_device_take_at_a_saved_place_is_linked_on_push_without_apple_maps(
+async def test_a_device_recording_at_a_saved_place_is_linked_on_push_without_apple_maps(
     app, client, auth_headers
 ) -> None:
     app.state.maps = None
@@ -516,10 +531,10 @@ async def test_a_device_take_at_a_saved_place_is_linked_on_push_without_apple_ma
     results = await push(
         client,
         headers,
-        take(rec, T1),
-        take(filed, T1, place_accuracy_m=None, place_origin="file"),
-        take(picked, T1, place_accuracy_m=None, place_origin="picked"),
-        take(loose, T1, place_accuracy_m=80),
+        recording_near_galax(rec, T1),
+        recording_near_galax(filed, T1, place_accuracy_m=None, place_origin="file"),
+        recording_near_galax(picked, T1, place_accuracy_m=None, place_origin="picked"),
+        recording_near_galax(loose, T1, place_accuracy_m=80),
     )
     linked = {r["row"]["id"]: r["row"]["place_id"] for r in results}
     assert linked == {rec: pid, filed: pid, picked: None, loose: None}
@@ -528,14 +543,14 @@ async def test_a_device_take_at_a_saved_place_is_linked_on_push_without_apple_ma
     assert row["place_name"] is None
 
 
-async def test_deleting_a_place_links_takes_it_shared_with_a_nearby_place(
+async def test_deleting_a_place_links_recordings_it_shared_with_a_nearby_place(
     client, auth_headers
 ) -> None:
     first, second, rec = uid(), uid(), uid()
     headers = auth_headers("user_a")
     await push(client, headers, place(first, name="One", lat=GALAX["lat"] + 20 * M_LAT))
     await push(client, headers, place(second, name="Two", lat=GALAX["lat"] - 20 * M_LAT))
-    await push(client, headers, take(rec))
+    await push(client, headers, recording_near_galax(rec))
     before = await recording_row(client, headers, rec)
     assert before["place_id"] is None
     await push(client, headers, change("places", first, T1, op="delete"))
@@ -549,11 +564,13 @@ async def test_a_push_that_missed_a_server_link_keeps_it(client, auth_headers) -
     """A device that has not pulled the server's link pushes null for it with its next edit."""
     pid, rec = uid(), uid()
     headers = auth_headers("user_a")
-    await push(client, headers, take(rec))
+    await push(client, headers, recording_near_galax(rec))
     await push(client, headers, place(pid))
     assert (await recording_row(client, headers, rec))["place_id"] == pid
     [result] = await push(
-        client, headers, take(rec, T1, label="Edited", place_id=None, place_origin="device")
+        client,
+        headers,
+        recording_near_galax(rec, T1, label="Edited", place_id=None, place_origin="device"),
     )
     assert result["row"]["label"] == "Edited"
     assert result["row"]["place_id"] == pid
@@ -567,14 +584,14 @@ async def test_a_new_upload_without_an_origin_or_a_name_reads_as_from_the_file(
     assert result["row"]["place_origin"] == "file"
 
 
-async def test_moving_a_place_links_takes_it_shared_with_a_nearby_place(
+async def test_moving_a_place_links_recordings_it_shared_with_a_nearby_place(
     client, auth_headers
 ) -> None:
     first, second, rec = uid(), uid(), uid()
     headers = auth_headers("user_a")
     await push(client, headers, place(first, name="One", lat=GALAX["lat"] + 20 * M_LAT))
     await push(client, headers, place(second, name="Two", lat=GALAX["lat"] - 20 * M_LAT))
-    await push(client, headers, take(rec))
+    await push(client, headers, recording_near_galax(rec))
     assert (await recording_row(client, headers, rec))["place_id"] is None
     await push(client, headers, place(first, T1, name="One", lat=40.0, lon=-75.0))
     assert (await recording_row(client, headers, rec))["place_id"] == second

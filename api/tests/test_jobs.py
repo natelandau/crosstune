@@ -2694,7 +2694,7 @@ async def test_claim_takes_every_other_kind_before_a_reencode(runner, verify_ses
     job_runner, _ = runner
     user = await make_user(verify_session)
     backfill = await add_recording(verify_session, user, "ready")
-    take = await add_recording(verify_session, user, "uploaded")
+    uploaded = await add_recording(verify_session, user, "uploaded")
     earlier = utc_now() - timedelta(minutes=1)
     verify_session.add(
         Job(
@@ -2704,11 +2704,11 @@ async def test_claim_takes_every_other_kind_before_a_reencode(runner, verify_ses
             created_at=earlier,
         )
     )
-    verify_session.add(Job(recording_id=take.id, user_id=user.id, created_at=utc_now()))
+    verify_session.add(Job(recording_id=uploaded.id, user_id=user.id, created_at=utc_now()))
     await verify_session.commit()
     first = await job_runner._claim()
     assert first is not None
-    assert (first.recording_id, first.kind) == (take.id, JobKind.TRANSCODE.value)
+    assert (first.recording_id, first.kind) == (uploaded.id, JobKind.TRANSCODE.value)
     second = await job_runner._claim()
     assert second is not None
     assert (second.recording_id, second.kind) == (backfill.id, JobKind.REENCODE.value)
@@ -2920,7 +2920,7 @@ async def test_transcode_keeps_an_uploads_own_place_and_date(
     assert await _kinds(verify_session, rec) == []
 
 
-async def test_transcode_never_reads_a_place_or_date_for_a_microphone_take(
+async def test_transcode_never_reads_a_place_or_date_for_a_microphone_recording(
     runner, verify_session, media_fixtures, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     job_runner, store = runner

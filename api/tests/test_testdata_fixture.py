@@ -40,7 +40,7 @@ seed = 1
 first_created = 2025-06-01
 
 [files]
-audio = "take.m4a"
+audio = "recording.m4a"
 image = "scan.jpg"
 image_width = 10
 image_height = 20
@@ -51,7 +51,7 @@ microphone = 1
 upload = 1
 slippery_hill = 0
 unfiled = 0
-labels = ["Take"]
+labels = ["Recording"]
 slippery_hill_urls = []
 
 [scans]
@@ -73,7 +73,7 @@ def _fixture(
 ) -> Path:
     (tmp_path / "fixture.toml").write_text(MINIMAL.format(status=status, extra=extra))
     if media:
-        (tmp_path / "take.m4a").write_bytes(b"audio")
+        (tmp_path / "recording.m4a").write_bytes(b"audio")
         (tmp_path / "scan.jpg").write_bytes(b"image")
     return tmp_path
 
@@ -183,7 +183,7 @@ def test_missing_media_file_refused(tmp_path: Path) -> None:
     """A fixture whose audio or image file is missing is refused."""
     folder = _fixture(tmp_path, media=False)
 
-    with pytest.raises(FixtureError, match=r"take\.m4a"):
+    with pytest.raises(FixtureError, match=r"recording\.m4a"):
         load_fixture(folder)
 
 
@@ -308,7 +308,7 @@ def test_plan_files_match_rows() -> None:
 
     assert {f.id for f in plan.recordings} == set(recordings)
     for planned in plan.recordings:
-        assert planned.path == STANDARD / "take.m4a"
+        assert planned.path == STANDARD / "recording.m4a"
         assert planned.source == (recordings[planned.id] or {})["source"]
     assert {f.path for f in plan.scans} == {STANDARD / "scan.jpg"}
     assert {f.source for f in plan.scans} == {None}
@@ -409,7 +409,7 @@ def test_copied_fixture_folder_loads(tmp_path: Path) -> None:
     copy = tmp_path / "copy"
     shutil.copytree(STANDARD, copy)
 
-    assert load_fixture(copy).files.audio_path == copy / "take.m4a"
+    assert load_fixture(copy).files.audio_path == copy / "recording.m4a"
 
 
 def test_split_rounds_half_up() -> None:

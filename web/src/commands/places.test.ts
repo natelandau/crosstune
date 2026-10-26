@@ -103,7 +103,7 @@ describe('setRecordingPlace', () => {
       ...extra,
     })
 
-  it("a nearby pick keeps the take's coordinates and links", async () => {
+  it("a nearby pick keeps the recording's coordinates and links", async () => {
     await db.recordings.put(taken())
     await db.places.put(placeRow('p1', 'The Barn', { lat: 36.5, lon: -80.5 }))
     await setRecordingPlace(db, 'rec-1', { kind: 'nearby', place: (await db.places.get('p1'))! })
@@ -119,7 +119,7 @@ describe('setRecordingPlace', () => {
     expect((await pendingFor(db, 'recordings', 'rec-1'))?.data).toMatchObject(expected)
   })
 
-  it('a saved pick lends its point to a take with none', async () => {
+  it('a saved pick lends its point to a recording with none', async () => {
     await db.recordings.put(
       taken({
         place_name: null,
@@ -219,7 +219,7 @@ describe('linkRecordingPlace', () => {
     applePlaceId: null,
   }
 
-  it('a search pick of a venue saves it and links the take at the pick', async () => {
+  it('a search pick of a venue saves it and links the recording at the pick', async () => {
     await db.recordings.put(taken())
     const made = await linkRecordingPlace(db, 'rec-1', {
       kind: 'search',
@@ -330,7 +330,7 @@ describe('linkRecordingPlace', () => {
     expect(await db.recordings.get('rec-1')).toMatchObject({ ...placeOf(town), place_id: null })
   })
 
-  it('a nearby venue saves at its own point and the take keeps its own', async () => {
+  it('a nearby venue saves at its own point and the recording keeps its own', async () => {
     await db.recordings.put(taken())
     const made = await linkRecordingPlace(db, 'rec-1', {
       kind: 'create',
@@ -350,7 +350,7 @@ describe('linkRecordingPlace', () => {
     })
   })
 
-  it('a link over a pick moves the take to the pick', async () => {
+  it('a link over a pick moves the recording to the pick', async () => {
     await db.recordings.put(taken())
     await db.places.put(placeRow('p1', 'The barn', { lat: 1, lon: 2 }))
     await linkRecordingPlace(db, 'rec-1', {

@@ -23,7 +23,7 @@ import { useNearbyPlaces } from './useNearbyPlaces'
 
 /**
  * A recording's location page inside its edit sheet: a map of the spot, the location now with
- * its actions, the places near the take, the saved and recent locations, a search, and the
+ * its actions, the places near the recording, the saved and recent locations, a search, and the
  * access-off note. Every pick is held by the edit sheet until Save and returns to its form
  * through `onPicked`. The map and Nearby show only once MapKit answers, so the rest of the page
  * works without them.

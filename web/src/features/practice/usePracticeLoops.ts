@@ -55,7 +55,10 @@ export interface PracticeLoops {
   refusedReason: (result: NewLoop) => string | null
   /** N: a loop at `atMs`, or the reason it could not be made said aloud and returned. */
   createAt: (atMs: number) => string | null
-  /** Fit, on the selected loop as drawn (a handle's drag under way included), or the whole take. */
+  /**
+   * Fit, on the selected loop as drawn (a handle's drag under way included), or the whole
+   * recording.
+   */
   fit: () => void
   /** What practice's keys do, for `usePracticeKeys` with the caller's `isTop` and `blocked`. */
   keyActions: Omit<PracticeKeyActions, 'isTop' | 'blocked'>

@@ -15,9 +15,9 @@ public final class Recorder {
     public enum State: Equatable, Sendable {
         case idle
         case recording
-        /// Stopped by an interruption such as a phone call; the take so far is kept.
+        /// Stopped by an interruption such as a phone call; the recording so far is kept.
         case paused
-        /// Saving the stopped take as a recording.
+        /// Saving the stopped recording.
         case finishing
     }
 
@@ -32,11 +32,11 @@ public final class Recorder {
     nonisolated public static let nothingRecorded = "Nothing was recorded."
     nonisolated public static let discardFailed = "The recording could not be discarded."
 
-    /// A take stops at this share of the server's largest accepted file, leaving room for the
+    /// A recording stops at this share of the server's largest accepted file, leaving room for the
     /// encoder's last packets and the `.m4a` container so the finished file can still upload.
     static let sizeLimitFraction = 0.95
-    /// How long after Stop a fix still pending is saved to the take. A fix takes seconds to
-    /// settle, so a short take often stops first.
+    /// How long after Stop a fix still pending is saved to the recording. A fix takes seconds to
+    /// settle, so a short recording often stops first.
     static let lateFixWindow: Duration = .seconds(10)
 
     /// Where the user grants microphone access to Crosstune.
@@ -56,10 +56,10 @@ public final class Recorder {
     public private(set) var elapsed: TimeInterval = 0
     /// Recent input levels from 0 to 1, oldest first, about ``InputLevels/perSecond`` a second.
     public private(set) var levels: [Float] = []
-    /// How many levels this take has measured in all, so a reader of ``levels`` can tell which
+    /// How many levels this recording has measured in all, so a reader of ``levels`` can tell which
     /// are new once the window is full.
     public private(set) var levelCount = 0
-    /// True once an interruption has ended, so the take can go on.
+    /// True once an interruption has ended, so the recording can go on.
     public private(set) var resumeAvailable = false
     /// True when the user has refused microphone access.
     public private(set) var permissionDenied = false
@@ -70,12 +70,12 @@ public final class Recorder {
     /// True while a start waits on permission and the store. A second start does nothing,
     /// and a stop or discard backs the start out.
     public private(set) var isStarting = false
-    /// Where the device was, once its fix settles during the take. A fix that settles after
-    /// the take stops is saved by ``lateFixes`` instead.
+    /// Where the device was, once its fix settles during the recording. A fix that settles after
+    /// the recording stops is saved by ``lateFixes`` instead.
     @ObservationIgnored private(set) var settledCoordinate: Coordinate?
-    /// Whether the take's location request has answered, with a fix or with none.
+    /// Whether the recording's location request has answered, with a fix or with none.
     @ObservationIgnored private(set) var isFixSettled = false
-    /// Saved takes waiting on a fix that was still pending at Stop, by recording.
+    /// Saved recordings waiting on a fix that was still pending at Stop, by recording.
     @ObservationIgnored private(set) var lateFixes: [String: Task<Void, Never>] = [:]
 
     private let store: CrosstuneStore
@@ -83,24 +83,24 @@ public final class Recorder {
     private let channels: @MainActor () -> CaptureChannels
     private let location: (any LocationProvider)?
     private let sleep: @MainActor (Duration) async throws -> Void
-    /// The take's request for a fix, until the take ends.
+    /// The recording's request for a fix, until the recording ends.
     @ObservationIgnored private var fix: Task<Coordinate?, Never>?
-    /// Notes the fix as the take's while it records.
+    /// Notes the fix as the recording's while it records.
     @ObservationIgnored private var locating: Task<Void, Never>?
     private var capture: (id: String, writer: CaptureWriter)?
     private var inputLevels = InputLevels()
     /// Set by a stop or discard that arrives while a start is still under way: the start
     /// backs out at its next step instead of recording.
     private var abandoned = false
-    /// The file size at which the take stops, from the server's per-file cap.
+    /// The file size at which the recording stops, from the server's per-file cap.
     private var sizeCap: Int64?
-    /// Why the take ended early, told once it is saved.
+    /// Why the recording ended early, told once it is saved.
     private var endedEarly: String?
     private var isResuming = false
 
     /// - Parameters:
-    ///   - channels: The device's mono or stereo setting, read as each take starts.
-    ///   - location: Where each take was made; nil saves no place.
+    ///   - channels: The device's mono or stereo setting, read as each recording starts.
+    ///   - location: Where each recording was made; nil saves no place.
     ///   - sleep: Waits out ``lateFixWindow``.
     public init(
         store: CrosstuneStore, input: (any AudioInput)? = nil,
@@ -124,8 +124,8 @@ public final class Recorder {
         await store.deleteUnnamedFiles()
     }
 
-    /// Whether this process is recording or saving any take now. Playback waits until it is not,
-    /// since it would change the audio session under the microphone, or be recorded into the take.
+    /// Whether this process is recording or saving any recording now. Playback waits until it is not,
+    /// since it would change the audio session under the microphone, or be recorded into the recording.
     public static var hasActiveCapture: Bool {
         !active.isEmpty
     }
@@ -160,7 +160,7 @@ public final class Recorder {
             return
         }
         permissionDenied = false
-        // Asked only once the microphone is granted, so a refused take never prompts for location.
+        // Asked only once the microphone is granted, so a refused recording never prompts for location.
         startLocating()
         let commands = Commands(store: store)
         let finisher = CaptureFinisher(store: store)
@@ -169,7 +169,7 @@ public final class Recorder {
         Self.active.insert(recordingID)
         do {
             let bitrate = try await commands.captureBitrate()
-            // Without usage from the server yet, the take has no cap, as on the web.
+            // Without usage from the server yet, the recording has no cap, as on the web.
             let cap = (try? await store.meta(.storage, as: StorageUsage.self))??.maxFileBytes
             try await commands.beginCapture(
                 recordingID, fileName: CaptureFiles.captureName(recordingID), tuneID: tuneID, recordedAt: .now)
@@ -212,25 +212,25 @@ public final class Recorder {
         }
     }
 
-    /// Goes on recording into the same take after an interruption.
+    /// Goes on recording into the same recording after an interruption.
     public func resume() async {
         guard state == .paused, resumeAvailable, !isResuming else { return }
         isResuming = true
         defer { isResuming = false }
         do {
             try await input.resume()
-            // A stop while the microphone restarted has already ended the take.
+            // A stop while the microphone restarted has already ended the recording.
             guard state == .paused else { return }
             resumeAvailable = false
             state = .recording
         } catch {
-            // A stop while the microphone restarted has already ended the take.
+            // A stop while the microphone restarted has already ended the recording.
             guard state == .paused else { return }
             errorMessage = Self.microphoneFailed
         }
     }
 
-    /// Stops and saves the take. Returns the saved recording's ID, or nil when there was
+    /// Stops and saves the recording. Returns the saved recording's ID, or nil when there was
     /// nothing to save or saving failed. A stop while the start is still under way backs the
     /// start out, saving nothing.
     @discardableResult
@@ -268,7 +268,7 @@ public final class Recorder {
         }
     }
 
-    /// Stops and throws the take away, writing no recording. A discard while the start is
+    /// Stops and throws the recording away, writing no recording. A discard while the start is
     /// still under way backs the start out.
     public func discard() async {
         if isStarting {
@@ -300,7 +300,7 @@ public final class Recorder {
     }
 
     /// Asks where the device is without waiting on the answer: a slow, refused, or failed fix
-    /// only means the take has no place.
+    /// only means the recording has no place.
     private func startLocating() {
         settledCoordinate = nil
         isFixSettled = false
@@ -318,13 +318,13 @@ public final class Recorder {
         }
     }
 
-    /// Ends the take's location request.
+    /// Ends the recording's location request.
     private func stopLocating() {
         let (_, pending) = endLocating()
         pending?.cancel()
     }
 
-    /// Lets go of the take's location request, returning the fix if one settled, or else the
+    /// Lets go of the recording's location request, returning the fix if one settled, or else the
     /// request still pending, which the caller now owns. A request that settled with no fix
     /// returns neither.
     private func endLocating() -> (settled: Coordinate?, pending: Task<Coordinate?, Never>?) {
@@ -347,8 +347,8 @@ public final class Recorder {
         }
     }
 
-    /// Saves `pending` to the saved take once it settles, unless the window closes first or the
-    /// take has changed since `savedAt`.
+    /// Saves `pending` to the saved recording once it settles, unless the window closes first or the
+    /// recording has changed since `savedAt`.
     private func saveLateFix(
         _ pending: Task<Coordinate?, Never>, window: Task<Void, Never>, to recordingID: String, savedAt: Timestamp
     ) {
@@ -403,7 +403,7 @@ public final class Recorder {
             state = .paused
             resumeAvailable = true
         case .writeFailed:
-            // Whatever reached the file is still the take, so it is kept as Stop would.
+            // Whatever reached the file is still the recording, so it is kept as Stop would.
             endedEarly = Self.partialSave
             Task { await stop() }
         }

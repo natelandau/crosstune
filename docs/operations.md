@@ -290,7 +290,7 @@ fixture, `apple/Marketing/catalog.json`. The site uses no captures.
 - Framing renders HTML in Google Chrome with the site's font, so it needs
   Chrome and `just setup`. The preview needs ffmpeg.
 - The capture simulators are never signed in to an Apple Account, so no
-  system alert covers a capture, and location is refused, so a take never
-  opens on the location note.
+  system alert covers a capture, and location is refused, so a recording
+  never opens on the location note.
 - The `Marketing` test plan turns code coverage off: with it on, the Swift
   compiler crashes on the tuner's `isolated deinit`.

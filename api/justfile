@@ -181,7 +181,7 @@ withdraw *args:
 stats *args:
     uv run python -m crosstune.ops.stats "$@"
 
-# Re-name takes the server named, with the street-address rules (rename-automatic)
+# Re-name recordings the server named, with the street-address rules (rename-automatic)
 [group('accounts')]
 [positional-arguments]
 places *args:

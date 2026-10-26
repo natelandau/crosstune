@@ -8,9 +8,9 @@ public enum PlacePick: Sendable {
     /// A search result. Replaces the coordinates, clears the accuracy, and links the saved
     /// location made from it, if one was.
     case search(RecordingPlace, savedPlaceID: String?)
-    /// A saved location near the take. Keeps the take's own coordinates.
+    /// A saved location near the recording. Keeps the recording's own coordinates.
     case nearby(SavedPlace)
-    /// A saved location chosen from the list. Keeps the take's own coordinates.
+    /// A saved location chosen from the list. Keeps the recording's own coordinates.
     case saved(SavedPlace)
 }
 
@@ -59,15 +59,15 @@ extension StoreWriter {
         try put(place, at: time)
     }
 
-    /// Tombstones a live saved location; refuses a missing one. Takes keep their link, which the server clears; each
-    /// shows its own name meanwhile.
+    /// Tombstones a live saved location; refuses a missing one. Recordings keep their link, which the
+    /// server clears; each shows its own name meanwhile.
     public func deleteSavedPlace(_ placeID: String, at time: Timestamp = .now) throws {
         _ = try liveSavedPlace(placeID, db: db)
         try tombstone(SavedPlace.self, id: placeID, at: time)
     }
 
     /// Sets a live recording's place from a pick, and records that the user chose it. A
-    /// saved location picked for a take with no coordinates lends its own point.
+    /// saved location picked for a recording with no coordinates lends its own point.
     public func setRecordingPlace(_ recordingID: String, pick: PlacePick, at time: Timestamp = .now) throws {
         guard var recording = try Recording.fetchOne(db, key: recordingID), recording.deletedAt == nil else {
             throw CommandError.recordingNotFound

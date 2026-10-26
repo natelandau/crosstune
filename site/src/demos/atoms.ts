@@ -6,7 +6,7 @@ type Status = 'known' | 'learning' | 'unknown'
 /** A tune as a row shows it: title, key, mode, status, and an optional tuning note. */
 export type Tune = { t: string; k: string; m?: string; s: Status; tu?: string }
 
-/** A recording row: `mine` for the player's own take, otherwise a linked service. */
+/** A recording row: `mine` for the player's own recording, otherwise a linked service. */
 export type Rec = [kind: string, title: string, sub: string]
 
 /** Semitones above C, which picks the key pill's hue. */

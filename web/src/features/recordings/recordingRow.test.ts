@@ -167,7 +167,7 @@ describe('originLink', () => {
 })
 
 describe('recordingMeta', () => {
-  it('says a local-only take waits on this device in place of its status', () => {
+  it('says a local-only recording waits on this device in place of its status', () => {
     const result = recordingMeta(view({ recording: { duration_ms: 42_000 } }), null, {
       localOnly: true,
     })

@@ -45,7 +45,7 @@ public enum RecordingScreenText {
         "Trim to \(RecordingText.duration(milliseconds: milliseconds) ?? "")?"
     }
 
-    /// The accessible name of the control that opens the location page, or nil when the take has no
+    /// The accessible name of the control that opens the location page, or nil when the recording has no
     /// shown location.
     public static func editLocation(_ name: String?) -> String? {
         guard let name, !name.isEmpty else { return nil }
@@ -55,7 +55,7 @@ public enum RecordingScreenText {
     /// The practice screen's subtitle: where the recording came from, its length, then its
     /// ``credits(_:place:)``. The source is the tune it is filed under when its own label is the title,
     /// else the site it was imported from, else its date, which a title that is already the date
-    /// leaves out. A take with none of these has no subtitle.
+    /// leaves out. A recording with none of these has no subtitle.
     public static func subtitle(
         _ recording: Recording, tuneTitle: String?, lengthMs: Int64?, place: String? = nil,
         includesPlace: Bool = true, locale: Locale = .current, timeZone: TimeZone = .current
@@ -128,7 +128,7 @@ public enum RecordingScreenText {
         return named.isEmpty ? nil : named.joined(separator: ", ")
     }
 
-    /// Why the waveform, transport, and modes cannot be used now, or nil when they can: the take
+    /// Why the waveform, transport, and modes cannot be used now, or nil when they can: the recording
     /// is still being recorded, or its audio is downloading. A pending trim does not touch them,
     /// so it does not block.
     static func screenUnavailableReason(file: RecordingFile?, downloading: Bool) -> String? {
@@ -137,7 +137,7 @@ public enum RecordingScreenText {
         return nil
     }
 
-    /// Why Trim cannot be used now, or nil when it can: the take is still being recorded, its
+    /// Why Trim cannot be used now, or nil when it can: the recording is still being recorded, its
     /// audio is not here yet, or the server has yet to cut the last trim.
     static func trimDisabledReason(
         _ recording: Recording, file: RecordingFile?, audio: RecordingAudio?, offline: Bool = false

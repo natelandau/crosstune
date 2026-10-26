@@ -721,15 +721,15 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func showsANameThatArrivesForUnnamedCoordinatesWithoutCountingAsAnEdit() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let take = Recording(
+        let recording = Recording(
             id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", placeLat: 36.66,
             placeLon: -80.92, placeAccuracyM: 14)
-        try await store.write { writer in try writer.put(take, at: noon) }
-        let edit = EditRecordingModel(store: store, recording: take)
+        try await store.write { writer in try writer.put(recording, at: noon) }
+        let edit = EditRecordingModel(store: store, recording: recording)
         await edit.load()
         #expect(edit.place == nil)
 
-        var named = take
+        var named = recording
         named.placeName = "Galax, VA"
         let synced = named
         try await store.write { writer in try writer.put(synced, at: later(1_000)) }
@@ -747,17 +747,17 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func thePlaceSearchShowsANameThatArrivesWhileItIsOpen() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let take = Recording(
+        let recording = Recording(
             id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", placeLat: 36.66,
             placeLon: -80.92, placeAccuracyM: 14)
-        try await store.write { writer in try writer.put(take, at: noon) }
-        let edit = EditRecordingModel(store: store, recording: take)
+        try await store.write { writer in try writer.put(recording, at: noon) }
+        let edit = EditRecordingModel(store: store, recording: recording)
         let galax = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92))
         let search = PlaceSearchModel(edit: edit, search: { FakePlaceSearch() })
         #expect(search.current == nil)
         #expect(!search.isCurrent(galax))
 
-        var named = take
+        var named = recording
         named.placeName = "Galax, VA"
         let synced = named
         try await store.write { writer in try writer.put(synced, at: later(1_000)) }
@@ -769,23 +769,23 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func aNameThatArrivesAfterAPickOrAClearChangesNothing() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let take = Recording(
+        let recording = Recording(
             id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", placeLat: 36.66,
             placeLon: -80.92, placeAccuracyM: 14)
-        try await store.write { writer in try writer.put(take, at: noon) }
-        let picked = EditRecordingModel(store: store, recording: take)
-        let cleared = EditRecordingModel(store: store, recording: take)
+        try await store.write { writer in try writer.put(recording, at: noon) }
+        let picked = EditRecordingModel(store: store, recording: recording)
+        let cleared = EditRecordingModel(store: store, recording: recording)
         await picked.load()
         await cleared.load()
         let spot = RecordingPlace(name: "Ennis, Ireland", coordinate: Coordinate(lat: 52.84, lon: -8.98))
         picked.setPlace(spot, method: .search)
         cleared.clearPlace()
 
-        var named = take
+        var named = recording
         named.placeName = "Galax, VA"
         let synced = named
         try await store.write { writer in try writer.put(synced, at: later(1_000)) }
-        let watcher = EditRecordingModel(store: store, recording: take)
+        let watcher = EditRecordingModel(store: store, recording: recording)
         #expect(try await poll { watcher.place?.name == "Galax, VA" })
 
         #expect(picked.place == spot)
@@ -823,7 +823,7 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(edit.failure == nil)
     }
 
-    @Test func keepsATakesExactTimeWhenOnlyTheNameChanges() async throws {
+    @Test func keepsARecordingsExactTimeWhenOnlyTheNameChanges() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let taken = try #require(Timestamp(iso: "2026-10-04T01:30:12.345Z"))
@@ -979,13 +979,13 @@ private struct RefusingSyncAPI: SyncAPI {
         try await store.read { db in try SavedPlace.fetchAll(db) }
     }
 
-    @Test func namingCreatesASavedPlaceAndLinksTheTake() async throws {
+    @Test func namingCreatesASavedPlaceAndLinksTheRecording() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let sink = RecordingAnalyticsSink()
-        let take = captured(name: street)
-        try await put(store, [take])
-        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        let recording = captured(name: street)
+        try await put(store, [recording])
+        let edit = EditRecordingModel(store: store, recording: recording, analytics: sink.client)
         await edit.load()
         #expect(edit.canNamePlace)
         edit.nameLocation("  Tom’s kitchen  ")
@@ -1011,13 +1011,13 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(sink.captures.first { $0.name == "recording_place_set" }?.properties["method"] == .string("saved"))
     }
 
-    @Test func namingOnALinkedTakeRelinksOnlyThatTake() async throws {
+    @Test func namingOnALinkedRecordingRelinksOnlyThatRecording() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let barn = SavedPlace(id: "p1", createdAt: noon, name: "The barn", lat: spot.lat, lon: spot.lon)
-        let take = captured("r1", name: street, placeID: "p1")
-        try await put(store, [take, captured("r2", name: street, placeID: "p1")], places: [barn])
-        let edit = EditRecordingModel(store: store, recording: take)
+        let recording = captured("r1", name: street, placeID: "p1")
+        try await put(store, [recording, captured("r2", name: street, placeID: "p1")], places: [barn])
+        let edit = EditRecordingModel(store: store, recording: recording)
         await edit.load()
         #expect(try await poll { edit.place?.name == "The barn" })
         edit.nameLocation("Upstairs flat")
@@ -1033,9 +1033,9 @@ private struct RefusingSyncAPI: SyncAPI {
         let root = TemporaryRoot()
         let store = try root.open()
         let sink = RecordingAnalyticsSink()
-        let take = captured(name: street)
-        try await put(store, [take])
-        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        let recording = captured(name: street)
+        try await put(store, [recording])
+        let edit = EditRecordingModel(store: store, recording: recording, analytics: sink.client)
         await edit.load()
         let venue = NearbyPlace(
             name: "Rex Theater", address: "113 E Grayson St, Galax, VA", lat: 36.660_3, lon: -80.920_1,
@@ -1061,13 +1061,13 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(sink.captures.first { $0.name == "recording_place_set" }?.properties["method"] == .string("nearby"))
     }
 
-    @Test func pickingASearchedVenueCreatesASavedPlaceAndMovesTheTake() async throws {
+    @Test func pickingASearchedVenueCreatesASavedPlaceAndMovesTheRecording() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let sink = RecordingAnalyticsSink()
-        let take = captured(name: street)
-        try await put(store, [take])
-        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        let recording = captured(name: street)
+        try await put(store, [recording])
+        let edit = EditRecordingModel(store: store, recording: recording, analytics: sink.client)
         let jalopy = RecordingPlace(
             name: "Jalopy Theatre, 315 Columbia St, Brooklyn, NY", coordinate: Coordinate(lat: 40.684_5, lon: -74.001_9)
         )
@@ -1092,9 +1092,9 @@ private struct RefusingSyncAPI: SyncAPI {
         let root = TemporaryRoot()
         let store = try root.open()
         let sink = RecordingAnalyticsSink()
-        let take = captured(name: street)
-        try await put(store, [take])
-        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        let recording = captured(name: street)
+        try await put(store, [recording])
+        let edit = EditRecordingModel(store: store, recording: recording, analytics: sink.client)
         let town = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.661, lon: -80.923))
         edit.pickSearch(PickedPlace(place: town, saving: nil))
         #expect(await edit.save())
@@ -1109,8 +1109,8 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func aPickAndTheSavedPlaceItMakesWaitForSave() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let take = captured(name: street)
-        try await put(store, [take])
+        let recording = captured(name: street)
+        try await put(store, [recording])
         let before = try await stored(store)
         let edit = EditRecordingModel(store: store, recording: before)
         edit.pickNearby(
@@ -1120,14 +1120,14 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(try await stored(store) == before)
     }
 
-    @Test func linkedTakeWithoutItsOwnNameShowsTheSavedName() async throws {
+    @Test func linkedRecordingWithoutItsOwnNameShowsTheSavedName() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let barn = SavedPlace(
             id: "p1", createdAt: noon, name: "The barn", lat: spot.lat, lon: spot.lon, address: street)
-        let take = captured(placeID: "p1")
-        try await put(store, [take], places: [barn])
-        let edit = EditRecordingModel(store: store, recording: take)
+        let recording = captured(placeID: "p1")
+        try await put(store, [recording], places: [barn])
+        let edit = EditRecordingModel(store: store, recording: recording)
         await edit.load()
         #expect(try await poll { edit.place?.name == "The barn" })
         #expect(edit.placeAddress == street)
@@ -1147,9 +1147,9 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func namingOverAStagedSearchPickSavesAtThePickedPoint() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let take = captured(name: street)
-        try await put(store, [take])
-        let edit = EditRecordingModel(store: store, recording: take)
+        let recording = captured(name: street)
+        try await put(store, [recording])
+        let edit = EditRecordingModel(store: store, recording: recording)
         await edit.load()
         edit.pickSearch(PickedPlace(place: jalopy, saving: nil))
         #expect(edit.placeCoordinate == jalopy.coordinate)
@@ -1169,9 +1169,9 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func aNearbyVenueOverAStagedSearchPickKeepsThePickedPoint() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let take = captured(name: street)
-        try await put(store, [take])
-        let edit = EditRecordingModel(store: store, recording: take)
+        let recording = captured(name: street)
+        try await put(store, [recording])
+        let edit = EditRecordingModel(store: store, recording: recording)
         await edit.load()
         edit.pickSearch(PickedPlace(place: jalopy, saving: nil))
         let venue = NearbyPlace(
@@ -1192,9 +1192,9 @@ private struct RefusingSyncAPI: SyncAPI {
         let store = try root.open()
         let existing = SavedPlace(
             id: "p1", createdAt: noon, name: "Jalopy", lat: 40.684_5, lon: -74.001_9, applePlaceID: "J1")
-        let take = captured(name: street)
-        try await put(store, [take], places: [existing])
-        let edit = EditRecordingModel(store: store, recording: take)
+        let recording = captured(name: street)
+        try await put(store, [recording], places: [existing])
+        let edit = EditRecordingModel(store: store, recording: recording)
         await edit.load()
         #expect(try await poll { !edit.savedPlaces.isEmpty })
         edit.pickSearch(
@@ -1211,14 +1211,14 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(saved.place == jalopy)
     }
 
-    @Test func namingATakePickedAsAVenueKeepsNoAddress() async throws {
+    @Test func namingARecordingPickedAsAVenueKeepsNoAddress() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let take = Recording(
+        let recording = Recording(
             id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", placeName: jalopy.name,
             placeLat: jalopy.coordinate.lat, placeLon: jalopy.coordinate.lon, placeOrigin: "picked")
-        try await put(store, [take])
-        let edit = EditRecordingModel(store: store, recording: take)
+        try await put(store, [recording])
+        let edit = EditRecordingModel(store: store, recording: recording)
         await edit.load()
         edit.nameLocation("Back room")
         #expect(edit.placeAddress == nil)
@@ -1229,9 +1229,9 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func aStreetAddressSearchPickNamedKeepsItsAddressLine() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let take = captured(name: street)
-        try await put(store, [take])
-        let edit = EditRecordingModel(store: store, recording: take)
+        let recording = captured(name: street)
+        try await put(store, [recording])
+        let edit = EditRecordingModel(store: store, recording: recording)
         let center = RecordingPlace(name: "1038 Center St, Newton, MA", coordinate: Coordinate(lat: 42.33, lon: -71.2))
         edit.pickSearch(
             PickedPlace(
@@ -1241,13 +1241,13 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(edit.placeAddress == center.name)
     }
 
-    @Test func aPickedSavedPlaceDeletedMeanwhileFallsBackToTheTakesOwn() async throws {
+    @Test func aPickedSavedPlaceDeletedMeanwhileFallsBackToTheRecordingsOwn() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let barn = SavedPlace(id: "p1", createdAt: noon, name: "The barn", lat: spot.lat, lon: spot.lon)
-        let take = captured(name: street)
-        try await put(store, [take], places: [barn])
-        let edit = EditRecordingModel(store: store, recording: take)
+        let recording = captured(name: street)
+        try await put(store, [recording], places: [barn])
+        let edit = EditRecordingModel(store: store, recording: recording)
         await edit.load()
         edit.pickSaved(barn)
         #expect(try await poll { edit.place?.name == "The barn" })
@@ -1261,13 +1261,13 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(saved.placeAccuracyM == 12)
     }
 
-    @Test func aSavedPickOverAStagedSearchPickKeepsTheTakesOwn() async throws {
+    @Test func aSavedPickOverAStagedSearchPickKeepsTheRecordingsOwn() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let barn = SavedPlace(id: "p1", createdAt: noon, name: "The barn", lat: 36.67, lon: -80.93)
-        let take = captured(name: street)
-        try await put(store, [take], places: [barn])
-        let edit = EditRecordingModel(store: store, recording: take)
+        let recording = captured(name: street)
+        try await put(store, [recording], places: [barn])
+        let edit = EditRecordingModel(store: store, recording: recording)
         await edit.load()
         edit.pickSearch(PickedPlace(place: jalopy, saving: nil))
         edit.pickSaved(barn)
@@ -1285,9 +1285,9 @@ private struct RefusingSyncAPI: SyncAPI {
         let store = try root.open()
         let sink = RecordingAnalyticsSink()
         let barn = SavedPlace(id: "p1", createdAt: noon, name: "The barn", lat: 40.684_6, lon: -74.001_8)
-        let take = captured(name: street)
-        try await put(store, [take], places: [barn])
-        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        let recording = captured(name: street)
+        try await put(store, [recording], places: [barn])
+        let edit = EditRecordingModel(store: store, recording: recording, analytics: sink.client)
         await edit.load()
         edit.pickSearch(PickedPlace(place: jalopy, saving: nil))
         edit.pickNearby(.saved(barn))
@@ -1309,9 +1309,9 @@ private struct RefusingSyncAPI: SyncAPI {
         let sink = RecordingAnalyticsSink()
         let existing = SavedPlace(
             id: "p1", createdAt: noon, name: "Jalopy", lat: 40.684_5, lon: -74.001_9, applePlaceID: "J1")
-        let take = captured(name: street)
-        try await put(store, [take], places: [existing])
-        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        let recording = captured(name: street)
+        try await put(store, [recording], places: [existing])
+        let edit = EditRecordingModel(store: store, recording: recording, analytics: sink.client)
         await edit.load()
         #expect(try await poll { !edit.savedPlaces.isEmpty })
         edit.pickSearch(
@@ -1341,9 +1341,9 @@ private struct RefusingSyncAPI: SyncAPI {
         // Saved on a client whose search gives no Apple id, about 11 m north of the pick.
         let existing = SavedPlace(
             id: "p1", createdAt: noon, name: "  jalopy THEATRE ", lat: 40.684_6, lon: -74.001_9)
-        let take = captured(name: street)
-        try await put(store, [take], places: [existing])
-        let edit = EditRecordingModel(store: store, recording: take)
+        let recording = captured(name: street)
+        try await put(store, [recording], places: [existing])
+        let edit = EditRecordingModel(store: store, recording: recording)
         edit.pickSearch(
             PickedPlace(
                 place: jalopy,
@@ -1359,10 +1359,10 @@ private struct RefusingSyncAPI: SyncAPI {
         let store = try root.open()
         let sink = RecordingAnalyticsSink()
         let barn = SavedPlace(id: "p1", createdAt: noon, name: "The Barn", lat: spot.lat, lon: spot.lon)
-        let take = captured(name: street)
-        try await put(store, [take], places: [barn])
+        let recording = captured(name: street)
+        try await put(store, [recording], places: [barn])
 
-        let venue = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        let venue = EditRecordingModel(store: store, recording: recording, analytics: sink.client)
         venue.pickNearby(
             .venue(NearbyPlace(name: "the barn", address: nil, lat: spot.lat, lon: spot.lon, applePlaceID: "B1")))
         #expect(await venue.save())
@@ -1383,9 +1383,9 @@ private struct RefusingSyncAPI: SyncAPI {
         let sink = RecordingAnalyticsSink()
         let existing = SavedPlace(
             id: "p1", createdAt: noon, name: "Jalopy", lat: 40.684_5, lon: -74.001_9, applePlaceID: "J1")
-        let take = captured(name: street)
-        try await put(store, [take], places: [existing])
-        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
+        let recording = captured(name: street)
+        try await put(store, [recording], places: [existing])
+        let edit = EditRecordingModel(store: store, recording: recording, analytics: sink.client)
         #expect(edit.savedPlaces.isEmpty)
         edit.pickSearch(
             PickedPlace(
@@ -1402,10 +1402,10 @@ private struct RefusingSyncAPI: SyncAPI {
         let root = TemporaryRoot()
         let store = try root.open()
         let sink = RecordingAnalyticsSink()
-        let take = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
-        try await put(store, [take])
-        let edit = EditRecordingModel(store: store, recording: take, analytics: sink.client)
-        var named = take
+        let recording = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
+        try await put(store, [recording])
+        let edit = EditRecordingModel(store: store, recording: recording, analytics: sink.client)
+        var named = recording
         named.placeName = street
         named.placeLat = spot.lat
         named.placeLon = spot.lon
@@ -1417,7 +1417,7 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(sink.captures.first { $0.name == "recording_place_set" }?.properties["replaced"] == .bool(true))
     }
 
-    @Test func aLinkedTakeLeavesTheRecentLocations() async throws {
+    @Test func aLinkedRecordingLeavesTheRecentLocations() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let barn = SavedPlace(id: "p1", createdAt: noon, name: "The barn", lat: spot.lat, lon: spot.lon)
@@ -1599,7 +1599,7 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(transfers.failedDownloads == ["r1"])
     }
 
-    @Test func dimsAPlayWhileATakeIsRecordedAndSaysWhy() throws {
+    @Test func dimsAPlayWhileARecordingIsRecordedAndSaysWhy() throws {
         let recording = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
         let held = RecordingFile(id: "r1", localState: .downloaded, fileName: "r1.m4a")
         let blocked = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, playBlocked: true)
@@ -1622,7 +1622,7 @@ private struct RefusingSyncAPI: SyncAPI {
     }
 
     /// The group heading's note asks this of each row, so it shows only where a row has it.
-    @Test func onlyARowOfferingPlayIsStoodDownByATake() {
+    @Test func onlyARowOfferingPlayIsDisabledByARecording() {
         let recording = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
         let held = RecordingFile(id: "r1", localState: .downloaded, fileName: "r1.m4a")
         #expect(RecordingRowContent.blocksPlay(recording, file: held, loaded: false, downloading: false))
@@ -1698,12 +1698,12 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(!draft("1937-01-01T00:00:00.000Z", .year).keepsTime)
     }
 
-    @Test func opensATakeAsTheLocalDayItShowsAndKeepsItsTime() {
+    @Test func opensARecordingAsTheLocalDayItShowsAndKeepsItsTime() {
         // 01:30 UTC on Oct 4 is still Oct 3 in Los Angeles.
-        let take = draft("2026-10-04T01:30:00.000Z", .time)
-        #expect(parts(take) == ["2026", "10", "3"])
-        #expect(take.keepsTime)
-        #expect(take.keptTake == at("2026-10-04T01:30:00.000Z"))
+        let timed = draft("2026-10-04T01:30:00.000Z", .time)
+        #expect(parts(timed) == ["2026", "10", "3"])
+        #expect(timed.keepsTime)
+        #expect(timed.keptTime == at("2026-10-04T01:30:00.000Z"))
     }
 
     @Test func opensAnUnknownDateAsNoParts() {
@@ -1831,21 +1831,21 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(date.day == nil)
     }
 
-    @Test func dropsATakesTimeOnceItsDatePartsChange() throws {
-        var take = draft("2026-10-04T01:30:00.000Z", .time)
-        let kept = try take.resolved(now: now)
+    @Test func dropsARecordingsTimeOnceItsDatePartsChange() throws {
+        var timed = draft("2026-10-04T01:30:00.000Z", .time)
+        let kept = try timed.resolved(now: now)
         #expect(kept.at == at("2026-10-04T01:30:00.000Z"))
         #expect(kept.precision == .time)
-        take.setDay(2)
-        #expect(take.isChanged)
-        #expect(!take.keepsTime)
-        #expect(take.keptTake == nil)
-        let moved = try take.resolved(now: now)
+        timed.setDay(2)
+        #expect(timed.isChanged)
+        #expect(!timed.keepsTime)
+        #expect(timed.keptTime == nil)
+        let moved = try timed.resolved(now: now)
         #expect(moved.at == at("2026-10-02T00:00:00.000Z"))
         #expect(moved.precision == .day)
-        take.setDay(3)
-        #expect(!take.isChanged)
-        #expect(take.keepsTime)
+        timed.setDay(3)
+        #expect(!timed.isChanged)
+        #expect(timed.keepsTime)
     }
 
     @Test func clearsEveryPart() {
@@ -1857,7 +1857,7 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(date.isChanged)
     }
 
-    @Test func notesATakesTimeInTheLocalZone() {
+    @Test func notesARecordingsTimeInTheLocalZone() {
         let note = EditRecordingText.recordedAtNote(
             at("2026-10-04T01:30:00.000Z"), locale: Locale(identifier: "en_US"), timeZone: losAngeles)
         #expect(note == "Recorded at 6:30\u{202F}PM")

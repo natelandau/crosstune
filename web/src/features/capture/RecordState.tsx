@@ -20,7 +20,10 @@ export interface RecordTarget {
 
 export interface LastSaved {
   recordingId: string
-  /** Epoch milliseconds when the take was marked, so a list can tell a fresh take from one it already marked. */
+  /**
+   * Epoch milliseconds when the recording was marked, so a list can tell a fresh recording from
+   * one it already marked.
+   */
   at: number
 }
 
@@ -31,13 +34,13 @@ export interface RecordState {
   recording: boolean
   /** What the open recorder files under; null while closed. */
   target: RecordTarget | null
-  /** Ends the recorder. A take reported saved becomes `lastSaved`, if Stop has not marked it. */
+  /** Ends the recorder. A recording reported saved becomes `lastSaved`, unless Stop marked it. */
   close: (saved?: { recordingId: string } | null) => void
   /** Marks the recording Stop is saving as `lastSaved` before it is written, so its row shows
    * as new from its first render. */
   saving: (recordingId: string) => void
-  /** The newest take Stop marked or a save reported, null until one is. A take marked at Stop
-   * whose write fails names a recording no row has. */
+  /** The newest recording Stop marked or a save reported, null until one is. A recording marked
+   * at Stop whose write fails names a recording no row has. */
   lastSaved: LastSaved | null
 }
 
@@ -51,7 +54,7 @@ export function useRecordState(): RecordState {
   return state
 }
 
-/** `lastSaved`, or null, also outside a provider, for a row that may be the new take. */
+/** `lastSaved`, or null, also outside a provider, for a row that may be the new recording. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useLastSaved(): LastSaved | null {
   return useContext(RecordStateContext)?.lastSaved ?? null
@@ -78,7 +81,7 @@ export function RecordStateProvider({ children }: { children: ReactNode }) {
       open.current = true
       // iOS only unlocks audio inside the gesture that asked for it, so this runs before any await.
       unlockAudioContext()
-      // A take starts afresh, so a stopped list goes with its message.
+      // A recording starts afresh, so a stopped list goes with its message.
       listRef.current?.end()
       player.close()
       setTarget({ tuneId: tuneId ?? null, source })
@@ -86,7 +89,7 @@ export function RecordStateProvider({ children }: { children: ReactNode }) {
     [player, listRef],
   )
   const mark = useCallback((recordingId: string) => {
-    // The same take marked twice, by Stop and then by its save, stays one new take.
+    // The same recording marked twice, by Stop and then by its save, stays one new recording.
     setLastSaved((current) =>
       current?.recordingId === recordingId ? current : { recordingId, at: Date.now() },
     )

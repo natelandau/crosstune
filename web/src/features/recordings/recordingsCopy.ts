@@ -29,7 +29,7 @@ export const LOCATION_SEARCH_UNAVAILABLE = 'Location search is unavailable right
 export const LOCATION_SEARCH_OFFLINE = 'Location search needs a connection.'
 /** Under the location field and on the recording settings while the browser denies location. */
 export const LOCATION_ACCESS_OFF =
-  'Location access is off, so new takes don’t save where they were made. Allow location for this site in your browser’s settings.'
+  'Location access is off, so new recordings don’t save where they were made. Allow location for this site in your browser’s settings.'
 /** A wait under a second still reads as one, since "0 seconds" invites an instant retry. */
 export const locationSearchBusy = (seconds: number) => {
   const wait = Math.max(1, Math.ceil(seconds))
@@ -48,12 +48,12 @@ export const SEARCH_LOCATIONS = 'Search locations'
 export const editLocation = (name: string) => `Edit location, ${name}`
 /** The edit sheet's Location row, which opens the location page. */
 export const locationRowName = (name: string | null) => `${LOCATION_LABEL}, ${name ?? NOT_SET}`
-/** Naming the take's spot as a saved location. */
+/** Naming the recording's spot as a saved location. */
 export const NAME_LOCATION_TITLE = 'Name this location'
 export const SAVED_HERE = 'Saved here'
 export const LOCATION_NAME_LABEL = 'Location name'
 export const NAME_LOCATION_HELP = 'Recordings made here show this name.'
-/** Saves the typed name for the take's spot, once the edit is saved. */
+/** Saves the typed name for the recording's spot, once the edit is saved. */
 export const SAVE_LOCATION_NAME = 'Save'
 /** The name of a row that picks a location: the action label, then the row's lines. */
 export const pickLocationName = (name: string, detail?: string | null) =>

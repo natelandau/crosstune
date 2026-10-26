@@ -15,7 +15,7 @@ private func eventually(_ condition: () -> Bool) async throws {
 
 private let audioURL = URL(filePath: "/tmp/r1-aaaaaaaa.m4a")
 
-private func take(
+private func recording(
     trimStartMs: Int64 = 1000, trimEndMs: Int64? = 3000, speedPercent: Int = 75, pitchCents: Int = 200,
     label: String? = "Jam at Mike's"
 ) -> Recording {
@@ -59,7 +59,7 @@ private final class Writes {
         try await eventually { player.settling.isEmpty && player.writing.isEmpty }
     }
 
-    private func load(_ row: Recording = take()) async throws {
+    private func load(_ row: Recording = recording()) async throws {
         player.audioSource = { _ in audioFile() }
         player.play(.recording(row, tuneTitle: nil))
         try await eventually { player.recordingAudio == .loaded }
@@ -88,7 +88,7 @@ private final class Writes {
     @Test func anotherDevicesTrimReappliesTheWindow() async throws {
         try await load()
         let before = audio.calls.count
-        player.recordingChanged(id: "r1", to: take(trimStartMs: 2000), audioFile: audioFile(), tuneTitle: nil)
+        player.recordingChanged(id: "r1", to: recording(trimStartMs: 2000), audioFile: audioFile(), tuneTitle: nil)
         #expect(Array(audio.calls[before...]) == ["setWindow"])
         #expect(audio.window == PlaybackWindow(from: 2, to: 3))
     }
@@ -96,9 +96,9 @@ private final class Writes {
     @Test func aSettingFromElsewhereAppliesOnlyThatField() async throws {
         try await load()
         let before = audio.calls.count
-        player.recordingChanged(id: "r1", to: take(speedPercent: 60), audioFile: audioFile(), tuneTitle: nil)
+        player.recordingChanged(id: "r1", to: recording(speedPercent: 60), audioFile: audioFile(), tuneTitle: nil)
         player.recordingChanged(
-            id: "r1", to: take(speedPercent: 60, pitchCents: -100), audioFile: audioFile(), tuneTitle: nil)
+            id: "r1", to: recording(speedPercent: 60, pitchCents: -100), audioFile: audioFile(), tuneTitle: nil)
         #expect(Array(audio.calls[before...]) == ["setRate(60)", "setPitch(-100)"])
         #expect(player.speedPercent == 60)
         #expect(player.pitchCents == -100)
@@ -110,7 +110,7 @@ private final class Writes {
         let before = audio.calls.count
         let next = URL(filePath: "/tmp/r1-bbbbbbbb.m4a")
         player.recordingChanged(
-            id: "r1", to: take(), audioFile: audioFile(next, blobStartMs: 1000), tuneTitle: nil)
+            id: "r1", to: recording(), audioFile: audioFile(next, blobStartMs: 1000), tuneTitle: nil)
         #expect(audio.loaded == next)
         #expect(
             Array(audio.calls[before...]) == ["load", "setWindow", "setRate(75)", "setPitch(200)", "seek", "play"])
@@ -122,7 +122,7 @@ private final class Writes {
     @Test func aRowValueLandingWhileAChangeSettlesNeverOverridesIt() async throws {
         try await load()
         player.setSpeed(90)
-        player.recordingChanged(id: "r1", to: take(speedPercent: 60), audioFile: audioFile(), tuneTitle: nil)
+        player.recordingChanged(id: "r1", to: recording(speedPercent: 60), audioFile: audioFile(), tuneTitle: nil)
         #expect(audio.calls.last == "setRate(90)")
         #expect(player.speedPercent == 90)
         try await eventually { writes.made == [PlaybackSettings(speedPercent: 90)] }
@@ -132,9 +132,9 @@ private final class Writes {
         try await load()
         player.setPitch(300)
         try await eventually { !writes.made.isEmpty }
-        player.recordingChanged(id: "r1", to: take(pitchCents: 300), audioFile: audioFile(), tuneTitle: nil)
+        player.recordingChanged(id: "r1", to: recording(pitchCents: 300), audioFile: audioFile(), tuneTitle: nil)
         #expect(audio.calls.last == "setPitch(300)")
-        player.recordingChanged(id: "r1", to: take(pitchCents: 0), audioFile: audioFile(), tuneTitle: nil)
+        player.recordingChanged(id: "r1", to: recording(pitchCents: 0), audioFile: audioFile(), tuneTitle: nil)
         #expect(audio.calls.last == "setPitch(0)")
         #expect(player.pitchCents == 0)
     }
@@ -197,7 +197,7 @@ private final class Writes {
         player.setPitch(300)
         try await eventually { !writes.made.isEmpty }
         let next = URL(filePath: "/tmp/r1-bbbbbbbb.m4a")
-        player.recordingChanged(id: "r1", to: take(pitchCents: -100), audioFile: audioFile(next), tuneTitle: nil)
+        player.recordingChanged(id: "r1", to: recording(pitchCents: -100), audioFile: audioFile(next), tuneTitle: nil)
         #expect(audio.loaded == next)
         #expect(audio.calls.contains("setPitch(-100)"))
         #expect(player.pitchCents == -100)
@@ -239,7 +239,7 @@ private final class Writes {
     @Test func onlyTheWindowThatAskedShowsTheScreen() {
         let asking = UUID()
         let other = UUID()
-        player.open(.recording(take(), tuneTitle: nil), in: asking)
+        player.open(.recording(recording(), tuneTitle: nil), in: asking)
         #expect(player.showsExpanded(in: asking))
         #expect(!player.showsExpanded(in: other))
         player.isExpanded = false
@@ -256,7 +256,7 @@ private final class Writes {
     @Test func theScreenClosesOnlyWhenItsWindowsLastScreenGoes() {
         let window = UUID()
         let other = UUID()
-        player.open(.recording(take(), tuneTitle: nil), in: window)
+        player.open(.recording(recording(), tuneTitle: nil), in: window)
         let first = UUID()
         let second = UUID()
         player.screenAppeared(first, in: window)
@@ -272,7 +272,7 @@ private final class Writes {
 
     @Test func aLinkPlayedWhileAScreenIsOpenShowsInEveryWindow() throws {
         let asking = UUID()
-        player.open(.recording(take(), tuneTitle: nil), in: asking)
+        player.open(.recording(recording(), tuneTitle: nil), in: asking)
         var link = RecordingLink(id: "l1", tuneID: "t1", url: "https://example.com/x", provider: "youtube")
         link.providerRef = "dQw4w9WgXcQ"
         player.play(try #require(PlayerItem.link(link)))
@@ -286,7 +286,7 @@ private final class Writes {
         #expect(audio.calls.suffix(2) == ["setRate(100)", "setPitch(0)"])
         // The row changing underneath leaves the held settings playing.
         let before = audio.calls.count
-        player.recordingChanged(id: "r1", to: take(speedPercent: 60), audioFile: audioFile(), tuneTitle: nil)
+        player.recordingChanged(id: "r1", to: recording(speedPercent: 60), audioFile: audioFile(), tuneTitle: nil)
         #expect(audio.calls.count == before)
         player.hold("r1", nil)
         #expect(audio.calls.suffix(2) == ["setRate(60)", "setPitch(200)"])
@@ -294,7 +294,7 @@ private final class Writes {
 
     @Test func editOpensTheRecordingScreen() async throws {
         player.audioSource = { _ in audioFile() }
-        #expect(player.open(.recording(take(), tuneTitle: nil)))
+        #expect(player.open(.recording(recording(), tuneTitle: nil)))
         #expect(player.isExpanded)
         #expect(player.holds(.recording, id: "r1"))
         try await eventually { player.recordingAudio == .loaded }
@@ -302,7 +302,7 @@ private final class Writes {
         // Opening what is already loaded shows it without starting it over.
         player.isExpanded = false
         let before = audio.calls.count
-        #expect(player.open(.recording(take(), tuneTitle: nil)))
+        #expect(player.open(.recording(recording(), tuneTitle: nil)))
         #expect(player.isExpanded)
         #expect(audio.calls.count == before)
     }
@@ -378,7 +378,7 @@ private final class Writes {
             RecordingScreenText.screenUnavailableReason(file: nil, downloading: true)
                 == RecordingScreenText.trimWhileDownloading)
         // A pending trim blocks Trim but leaves the rest of the screen working.
-        var cutting = take()
+        var cutting = recording()
         cutting.playbackStartMs = 0
         cutting.playbackEndMs = 4000
         #expect(RecordingScreenText.trimDisabledReason(cutting, file: nil, audio: .loaded) != nil)
@@ -404,7 +404,7 @@ private final class Writes {
     @Test func theBadgeOpensTheLoadedRecordingsScreen() async throws {
         let window = UUID()
         try await load()
-        #expect(player.open(.recording(take(), tuneTitle: nil), in: window))
+        #expect(player.open(.recording(recording(), tuneTitle: nil), in: window))
         #expect(player.showsExpanded(in: window))
     }
 
@@ -464,7 +464,7 @@ private final class Writes {
     }
 
     @Test func saysWhyTrimCannotBeUsed() {
-        let row = take()
+        let row = recording()
         var capturing = RecordingFile(id: "r1", localState: .capturing)
         #expect(
             RecordingScreenText.trimDisabledReason(row, file: capturing, audio: .loaded)
@@ -474,7 +474,7 @@ private final class Writes {
             RecordingScreenText.trimDisabledReason(row, file: capturing, audio: .fetching)
                 == RecordingScreenText.trimWhileDownloading)
 
-        var cutting = take()
+        var cutting = recording()
         cutting.playbackStartMs = 0
         cutting.playbackEndMs = 4000
         #expect(
@@ -488,7 +488,7 @@ private final class Writes {
         // 5 points a second of 20 ms windows is 50 per second: 4 s of source.
         let values = (0..<200).map { UInt8($0 % 256) }
         let peaks = Peaks(values: values)
-        var row = take()
+        var row = recording()
         row.peaksRev = "p1"
         row.playbackStartMs = 500
 
@@ -504,7 +504,7 @@ private final class Writes {
 
     @Test func slicingShownPeaksFloorsOffsetsToPointIndicesWithinTheTrim() throws {
         let values = (0..<200).map { UInt8($0 % 256) }
-        let shown = try #require(ShownPeaks(take(), peaks: Peaks(values: values), peaksRev: nil))
+        let shown = try #require(ShownPeaks(recording(), peaks: Peaks(values: values), peaksRev: nil))
         let trimmed = Array(shown.values)
 
         let sliced = shown.sliced(fromMs: 400, toMs: 1000)
@@ -531,19 +531,19 @@ private final class Writes {
         RecordingText.date(recording, locale: locale, timeZone: gmt)
     }
 
-    @Test func aLabeledTakeNamesTheTuneItIsFiledUnder() {
+    @Test func aLabeledRecordingNamesTheTuneItIsFiledUnder() {
         let labeled = Recording(tuneID: "t1", source: "microphone", addedAt: noon, label: "Jam at Mike's")
         #expect(subtitle(labeled, tuneTitle: "Soldier's Joy") == "Soldier's Joy · 2:05")
     }
 
-    @Test func aTakeTitledByItsTuneReadsTheSiteItCameFromOrItsDate() {
+    @Test func aRecordingTitledByItsTuneReadsTheSiteItCameFromOrItsDate() {
         let imported = Recording(tuneID: "t1", source: "import", origin: "slippery_hill", addedAt: noon)
         #expect(subtitle(imported, tuneTitle: "Soldier's Joy") == "Slippery-Hill · 2:05")
         let own = Recording(tuneID: "t1", source: "microphone", addedAt: noon)
         #expect(subtitle(own, tuneTitle: "Soldier's Joy") == "\(date(own)) · 2:05")
     }
 
-    @Test func aTakeTitledByItsDateDoesNotRepeatIt() {
+    @Test func aRecordingTitledByItsDateDoesNotRepeatIt() {
         let unfiled = Recording(tuneID: nil, source: "microphone", addedAt: noon)
         #expect(subtitle(unfiled, tuneTitle: nil) == "2:05")
         #expect(subtitle(unfiled, tuneTitle: nil, lengthMs: nil).isEmpty)
@@ -570,11 +570,11 @@ private final class Writes {
         #expect(RecordingScreenText.editLocation("The Down Home") == "Edit location, The Down Home")
         #expect(RecordingScreenText.editLocation(nil) == nil)
         #expect(RecordingScreenText.editLocation("") == nil)
-        let take = RecordingView(
+        let view = RecordingView(
             recording: Recording(tuneID: nil, source: "microphone", addedAt: noon), file: nil, tuneID: nil,
             tuneTitle: nil)
-        #expect(EditRecordingSheet(view: take, initialPage: .location).initialPage == .location)
-        #expect(EditRecordingSheet(view: take).initialPage == nil)
+        #expect(EditRecordingSheet(view: view, initialPage: .location).initialPage == .location)
+        #expect(EditRecordingSheet(view: view).initialPage == nil)
         // The Mac heading keeps the place out of its text, since the place is a button there.
         let credited = Recording(
             tuneID: nil, source: "microphone", addedAt: noon, players: "Tommy Jarrell", placeName: "Galax, VA")
@@ -618,7 +618,7 @@ private final class Writes {
     @Test func aGridBarTakesTheLoudestPointItCoversWhereverTheGridStarts() throws {
         let values = (0..<200).map { UInt8($0 % 256) }
         // The trim keeps points 50 to 149, the loudest point in the file is 199.
-        let shown = try #require(ShownPeaks(take(), peaks: Peaks(values: values), peaksRev: nil))
+        let shown = try #require(ShownPeaks(recording(), peaks: Peaks(values: values), peaksRev: nil))
 
         // 50 ms bars over 20 ms points: bar 1 covers 50-100 ms, points 2 to 4.
         #expect(shown.gridLevel(barMs: 50, index: 0) == CGFloat(51) / 199)

@@ -63,7 +63,7 @@ describe('usePracticeTimeline', () => {
     expect(result.current.canZoomOut).toBe(true)
   })
 
-  it('zooms out no further than the whole take', () => {
+  it('zooms out no further than the whole recording', () => {
     const { result } = setup()
     for (let i = 0; i < 20; i++) act(() => result.current.zoom(1 / ZOOM_STEP))
     expect(result.current.pxPerS).toBe(WIDTH_PX / (LENGTH_MS / 1000))
@@ -71,7 +71,7 @@ describe('usePracticeTimeline', () => {
     expect(result.current.canZoomIn).toBe(true)
   })
 
-  it('Fit with no loop shows the whole take', () => {
+  it('Fit with no loop shows the whole recording', () => {
     const { result } = setup()
     act(() => result.current.fit(null))
     expect(result.current.pxPerS).toBe(result.current.minScale)
@@ -94,7 +94,7 @@ describe('usePracticeTimeline', () => {
     expect(result.current.pxPerS).toBe(set)
   })
 
-  it('holds the playhead it reports to the take while a scrub pulls past either end', () => {
+  it('holds the playhead it reports to the recording while a scrub pulls past either end', () => {
     const { result } = setup()
     act(() => result.current.playhead.setScrub(-500))
     expect(result.current.playheadMs()).toBe(10_000)
@@ -139,7 +139,7 @@ describe('a pinch past a zoom limit', () => {
     await expect.poll(() => result.current.pxPerS).toBe(MAX_PX_PER_S)
   })
 
-  it('stretches below the whole take, then springs back to it', async () => {
+  it('stretches below the whole recording, then springs back to it', async () => {
     MotionGlobalConfig.instantAnimations = true
     onTestFinished(() => {
       MotionGlobalConfig.instantAnimations = false

@@ -32,17 +32,22 @@ import { LISTENING, referenceLabel, SHARP, TAP_TO_LISTEN, TUNER_TITLE } from './
 import { TunerMicContext } from './useTuner'
 
 const TUNER = destination('tuner')
-const TAKE = 'Fast take'
+const RECORDING_LABEL = 'Fast take'
 
 async function seedA4(db: CrosstuneDb, hz: number) {
   await db.user_settings.put(userSettingsRow(settingsId('user_1'), { tuner_a4_hz: hz }))
 }
 
-async function seedTake(db: CrosstuneDb) {
+async function seedRecording(db: CrosstuneDb) {
   await db.tunes.put(tuneRow('t1', 'Old Joe Clark'))
   await db.user_tunes.put(userTuneRow('u-t1', 't1'))
   await db.recordings.put(
-    recordingRow('r1', { tune_id: 't1', label: TAKE, duration_ms: 3000, source_duration_ms: 3000 }),
+    recordingRow('r1', {
+      tune_id: 't1',
+      label: RECORDING_LABEL,
+      duration_ms: 3000,
+      source_duration_ms: 3000,
+    }),
   )
   await db.recording_files.put(
     recordingFile('r1', { blob: new Blob(['x'], { type: 'audio/mp4' }), local_duration_ms: 3000 }),
@@ -92,10 +97,10 @@ const readout = () => page.elementLocator(stage()!).getByRole('status')
 const player = () => page.getByRole('region', { name: PLAYER_REGION })
 
 it('pauses playback on entry and leaves the queue', async () => {
-  const { engine } = await mount({ path: '/catalog/t1', seed: seedTake })
+  const { engine } = await mount({ path: '/catalog/t1', seed: seedRecording })
   await page
     .getByRole('main', { name: TUNE })
-    .getByRole('row', { name: new RegExp(`^${PLAY} ${TAKE}`) })
+    .getByRole('row', { name: new RegExp(`^${PLAY} ${RECORDING_LABEL}`) })
     .click()
   await expect.poll(() => engine.getState().playing).toBe(true)
 
@@ -130,17 +135,17 @@ it('keeps a loaded recording on entry', async () => {
   const recording = fakePlayer({ item: { kind: 'recording', id: 'r1' } })
   // A recording the dock can play, so nothing closes it. The dock showing it means its read
   // has settled, after the tuner's entry.
-  await mount({ player: recording, seed: seedTake })
+  await mount({ player: recording, seed: seedRecording })
   await expect.element(tuner()).toBeVisible()
-  await expect.element(player().getByText(TAKE)).toBeVisible()
+  await expect.element(player().getByText(RECORDING_LABEL)).toBeVisible()
   expect(recording.close).not.toHaveBeenCalled()
 })
 
 it('stops listening while a play runs and listens again once it pauses', async () => {
-  const { fake, engine } = await mount({ path: '/catalog/t1', seed: seedTake })
+  const { fake, engine } = await mount({ path: '/catalog/t1', seed: seedRecording })
   await page
     .getByRole('main', { name: TUNE })
-    .getByRole('row', { name: new RegExp(`^${PLAY} ${TAKE}`) })
+    .getByRole('row', { name: new RegExp(`^${PLAY} ${RECORDING_LABEL}`) })
     .click()
   await expect.poll(() => engine.getState().playing).toBe(true)
   await page

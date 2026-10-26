@@ -615,7 +615,7 @@ async def _saved_place(session: AsyncSession, rec: Recording) -> Place:
     return place
 
 
-async def test_job_links_a_matching_take_and_still_names_it(
+async def test_job_links_a_matching_recording_and_still_names_it(
     namer: JobRunner, verify_session
 ) -> None:
     rec, _ = await seed_place(verify_session, origin="device", accuracy=10)
@@ -632,7 +632,9 @@ async def test_job_links_a_matching_take_and_still_names_it(
     assert rec.updated_at == UPDATED_AT
 
 
-async def test_job_links_a_file_take_without_accuracy(namer: JobRunner, verify_session) -> None:
+async def test_job_links_a_file_recording_without_accuracy(
+    namer: JobRunner, verify_session
+) -> None:
     rec, _ = await seed_place(verify_session, origin="file")
     place = await _saved_place(verify_session, rec)
 
@@ -642,7 +644,7 @@ async def test_job_links_a_file_take_without_accuracy(namer: JobRunner, verify_s
     assert rec.place_id == place.id
 
 
-async def test_job_leaves_a_picked_take_unlinked(namer: JobRunner, verify_session) -> None:
+async def test_job_leaves_a_picked_recording_unlinked(namer: JobRunner, verify_session) -> None:
     rec, _ = await seed_place(verify_session, origin="picked")
     await _saved_place(verify_session, rec)
 
@@ -653,7 +655,7 @@ async def test_job_leaves_a_picked_take_unlinked(namer: JobRunner, verify_sessio
     assert rec.place_name == "Galax, VA"
 
 
-async def test_job_leaves_a_loose_take_unlinked(namer: JobRunner, verify_session) -> None:
+async def test_job_leaves_a_loose_recording_unlinked(namer: JobRunner, verify_session) -> None:
     rec, _ = await seed_place(verify_session, origin="device", accuracy=200)
     await _saved_place(verify_session, rec)
 
@@ -663,7 +665,7 @@ async def test_job_leaves_a_loose_take_unlinked(namer: JobRunner, verify_session
     assert rec.place_id is None
 
 
-async def test_job_names_with_the_takes_accuracy(
+async def test_job_names_with_the_recordings_accuracy(
     namer: JobRunner, verify_session, maps: AppleMaps, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     await seed_place(verify_session, origin="device", accuracy=120)

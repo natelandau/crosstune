@@ -9,7 +9,7 @@ import { routes } from './routes'
 // wraps the shell, so the bar reaches its opener and practice reaches the router. The record
 // sheet sits here too, so it can navigate and hold the browser's back, and the shortcuts, so
 // they can navigate and reach each screen's search.
-const shelled: RouteObject[] = [
+const shellRoutes: RouteObject[] = [
   {
     element: (
       <ShortcutsProvider>
@@ -29,8 +29,8 @@ export interface AppRouterOptions {
 }
 
 export function createAppRouter({ initialEntries }: AppRouterOptions = {}) {
-  if (initialEntries) return createMemoryRouter(shelled, { initialEntries })
-  return createBrowserRouter(shelled)
+  if (initialEntries) return createMemoryRouter(shellRoutes, { initialEntries })
+  return createBrowserRouter(shellRoutes)
 }
 
 export type AppRouter = ReturnType<typeof createAppRouter>

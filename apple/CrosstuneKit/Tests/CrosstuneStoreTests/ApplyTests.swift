@@ -254,7 +254,7 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
 
     // MARK: Plan refusals
 
-    private func take(_ store: CrosstuneStore, id: String = "r1") async throws {
+    private func putRecording(_ store: CrosstuneStore, id: String = "r1") async throws {
         try await store.write { writer in
             try writer.put(
                 Recording(
@@ -267,10 +267,10 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         try await store.read { db in try StoreWriter.localOnlyRows(in: db) }
     }
 
-    @Test func aTakeTheServerRefusedForPremiumStaysLocalWithItsEntry() async throws {
+    @Test func aRecordingTheServerRefusedForPremiumStaysLocalWithItsEntry() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        try await take(store)
+        try await putRecording(store)
         let sent = try await store.pendingChanges(limit: 10)
 
         let result = try await store.write { writer in
@@ -286,10 +286,10 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         #expect(try await store.meta(.invalidChanges, as: Int.self) == nil)
     }
 
-    @Test func aPullThatSupersedesALocalOnlyTakeReleasesIt() async throws {
+    @Test func aPullThatSupersedesALocalOnlyRecordingReleasesIt() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        try await take(store)
+        try await putRecording(store)
         try await store.write { writer in try writer.keepLocalUntilSubscribed(["r1"]) }
         let pulled: JSONObject = [
             "id": .string("r1"), "created_at": .string(noon.iso), "updated_at": .string(later(60_000).iso),
@@ -304,11 +304,11 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         #expect(try await store.meta(.localOnlyRows, as: [String].self) == [])
     }
 
-    @Test func anAppliedResultReleasesALocalOnlyTake() async throws {
+    @Test func anAppliedResultReleasesALocalOnlyRecording() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        try await take(store)
-        try await take(store, id: "r2")
+        try await putRecording(store)
+        try await putRecording(store, id: "r2")
         try await store.write { writer in try writer.keepLocalUntilSubscribed(["r1", "r2"]) }
         let sent = try await store.pendingChanges(limit: 10)
 
@@ -325,10 +325,10 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["r2"])
     }
 
-    @Test func aRefusedDeleteOfALocalOnlyTakeTheServerNeverStoredReleasesIt() async throws {
+    @Test func aRefusedDeleteOfALocalOnlyRecordingTheServerNeverStoredReleasesIt() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        try await take(store)
+        try await putRecording(store)
         try await store.write { writer in
             try writer.keepLocalUntilSubscribed(["r1"])
             try writer.tombstone(Recording.self, id: "r1", at: later(1_000))
@@ -393,8 +393,8 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
     @Test func aFreeReadOfTheOutboxLeavesOutALocalOnlyUpsertButNeverItsDelete() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        try await take(store)
-        try await take(store, id: "r2")
+        try await putRecording(store)
+        try await putRecording(store, id: "r2")
         try await store.write { writer in try writer.keepLocalUntilSubscribed(["r1", "r2"]) }
         try await store.write { writer in try writer.tombstone(Recording.self, id: "r2", at: later(1_000)) }
 

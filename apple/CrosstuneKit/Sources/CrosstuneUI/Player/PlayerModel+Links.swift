@@ -103,7 +103,7 @@ extension PlayerModel {
                 return
             }
             guard !isCapturing() else {
-                // A queue left behind would answer the headphones' play button during the take.
+                // A queue left behind would answer the headphones' play button during the recording.
                 close()
                 return
             }

@@ -558,17 +558,22 @@ import Testing
             ])
     }
 
-    @Test func recordIsDisabledUnderASheetWhileSelectingOrForAPendingTakeOrACapture() {
+    @Test func recordIsDisabledUnderASheetWhileSelectingOrForAPendingRecordingOrACapture() {
         #expect(
-            MenuCommandAvailability.record(sheetsOpen: false, selecting: false, takePending: false, capturing: false))
+            MenuCommandAvailability.record(
+                sheetsOpen: false, selecting: false, recordingPending: false, capturing: false))
         #expect(
-            !MenuCommandAvailability.record(sheetsOpen: true, selecting: false, takePending: false, capturing: false))
+            !MenuCommandAvailability.record(
+                sheetsOpen: true, selecting: false, recordingPending: false, capturing: false))
         #expect(
-            !MenuCommandAvailability.record(sheetsOpen: false, selecting: true, takePending: false, capturing: false))
+            !MenuCommandAvailability.record(
+                sheetsOpen: false, selecting: true, recordingPending: false, capturing: false))
         #expect(
-            !MenuCommandAvailability.record(sheetsOpen: false, selecting: false, takePending: true, capturing: false))
+            !MenuCommandAvailability.record(
+                sheetsOpen: false, selecting: false, recordingPending: true, capturing: false))
         #expect(
-            !MenuCommandAvailability.record(sheetsOpen: false, selecting: false, takePending: false, capturing: true))
+            !MenuCommandAvailability.record(
+                sheetsOpen: false, selecting: false, recordingPending: false, capturing: true))
     }
 
     @Test func controlsAreDisabledUnderASheet() {

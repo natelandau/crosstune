@@ -38,7 +38,7 @@ export function recordedDateLabel(recordedAt: string, precision: RecordingPrecis
   return precision === 'time' ? TAKEN_AT.format(date) : PARTIAL[precision].format(date)
 }
 
-/** The time of day a take was recorded, in local time like the rest of an exact date. */
+/** The time of day a recording was made, in local time like the rest of an exact date. */
 export function recordedTime(recordedAt: string): string {
   return TAKEN_TIME.format(new Date(recordedAt))
 }

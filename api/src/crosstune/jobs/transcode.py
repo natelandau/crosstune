@@ -122,7 +122,7 @@ async def _adopt_upload_tags(session: AsyncSession, recording: Recording, info: 
     """Give an upload the place and date its file was tagged with, when it has none of its own.
 
     Re-read under the user's lock like the trim, so a place or date the user pushed while
-    the file transcoded is never overwritten. A microphone take already knows both, and
+    the file transcoded is never overwritten. A microphone recording already knows both, and
     an import's page is its only source of either.
     """
     if recording.source != RecordingSource.UPLOAD:

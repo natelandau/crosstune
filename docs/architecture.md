@@ -226,8 +226,9 @@ How one feature works is in its code. Deploys and releases:
 - A list plays only sources the app's own engine controls. Never an embed:
   it cannot report a track's end and stops when an iPhone locks.
 - MusicKit answers remote commands, next, and previous itself. The app
-  empties its queue when the player closes or a take starts, and on iOS
-  makes the audio session mixable before a song, or MusicKit interrupts it.
+  empties its queue when the player closes or a recording starts, and on
+  iOS makes the audio session mixable before a song, or MusicKit
+  interrupts it.
 
 ## Files
 
@@ -254,7 +255,7 @@ How one feature works is in its code. Deploys and releases:
   the sweep and the purge delete whatever their database does not know. A
   `pr-<n>` API adds its own prefix. Older scans keep `notation/` keys, so
   sweeps look under both prefixes.
-- Location: a take gets the device's location only when the user allows
+- Location: a recording gets the device's location only when the user allows
   it. Place search hints only with the account's country, never the user's
   location. The Maps key never reaches the browser.
 

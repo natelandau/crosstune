@@ -38,7 +38,7 @@ public struct AppShell: View {
     @State private var recordings: RecordingsModel?
     @State private var addedTune: AddedTuneUndo?
     @State private var counts: LiveQuery<CatalogCounts?>?
-    @State private var take: RecordTake?
+    @State private var recordSheetItem: RecordSheetItem?
     @State private var openSheets = ShellCover()
     /// Above the layout, so the shell's own sheets disable the iPhone record slot too.
     @State private var recordCover = ShellCover()
@@ -100,7 +100,8 @@ public struct AppShell: View {
             .modifier(LinkSheets())
             .modifier(
                 RecordSheets(
-                    take: $take, host: recorders, store: store, record: { startRecording(tuneID: $0, source: .tune) },
+                    item: $recordSheetItem, host: recorders, store: store,
+                    record: { startRecording(tuneID: $0, source: .tune) },
                     showRecordings: { recordingsShown += 1 })
             )
             // The sheet claims the shell only once it shows; this holds the menus from the request.
@@ -259,7 +260,7 @@ public struct AppShell: View {
     private var canRecord: Bool {
         MenuCommandAvailability.record(
             sheetsOpen: openSheets.isCovered, selecting: selecting.isCovered,
-            takePending: !RecordTake.mayReplace(take), capturing: recorders.isCapturing)
+            recordingPending: !RecordSheetItem.mayReplace(recordSheetItem), capturing: recorders.isCapturing)
     }
 
     private func show(_ destination: Destination) {
@@ -304,7 +305,7 @@ public struct AppShell: View {
     /// recorder only once it shows, so a presentation refused while another sheet is up holds
     /// nothing.
     private func startRecording(tuneID: String?, source: ActionSource) {
-        guard RecordTake.mayReplace(take), recorders.isFree(for: store) else { return }
+        guard RecordSheetItem.mayReplace(recordSheetItem), recorders.isFree(for: store) else { return }
         guard premium?.gate(.recordings, from: .record) ?? true else { return }
         // Playback would be recorded along with the instrument.
         PlayerBar.closePlayer(player, listPlayback)
@@ -312,7 +313,7 @@ public struct AppShell: View {
             recorder: recorders.recorder(for: store), tuneID: tuneID, recentRecording: recentRecordingForPlatform,
             source: source,
             analytics: analytics, locationAccess: locationAccess)
-        take = RecordTake(model: model)
+        recordSheetItem = RecordSheetItem(model: model)
         #if os(iOS)
             Task { await model.loadTuneTitle(from: store) }
         #endif

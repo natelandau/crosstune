@@ -31,7 +31,7 @@ final class PostHogSink: AnalyticsSink {
 
     private enum Phase {
         /// Never set up this launch.
-        case dormant
+        case notStarted
         /// Never set up, with no choice yet: events wait in memory for the regional default.
         case pending
         case sharing
@@ -46,7 +46,7 @@ final class PostHogSink: AnalyticsSink {
     }
 
     private struct State {
-        var phase = Phase.dormant
+        var phase = Phase.notStarted
         /// Nil until the session reports who is signed in, which an offline or signed-out launch
         /// may never do.
         var identity: Identity?
@@ -81,7 +81,7 @@ final class PostHogSink: AnalyticsSink {
             switch state.phase {
             case .sharing: backend.capture(name, properties, set: set)
             case .pending: hold(.capture(name, properties, set: set), in: &state)
-            case .dormant, .stopped: break
+            case .notStarted, .stopped: break
             }
         }
     }
@@ -91,14 +91,14 @@ final class PostHogSink: AnalyticsSink {
             switch state.phase {
             case .sharing: backend.screen(screen.rawValue, Self.screenProperties(for: screen))
             case .pending: hold(.screen(screen), in: &state)
-            case .dormant, .stopped: break
+            case .notStarted, .stopped: break
             }
         }
     }
 
     func deferDecision() {
         state.withLock { state in
-            if state.phase == .dormant { state.phase = .pending }
+            if state.phase == .notStarted { state.phase = .pending }
         }
     }
 
@@ -156,7 +156,7 @@ final class PostHogSink: AnalyticsSink {
         state.withLock { state in
             state.rememberedUserID = rememberedUserID
             switch (state.phase, enabled) {
-            case (.dormant, true), (.pending, true):
+            case (.notStarted, true), (.pending, true):
                 // Set up opted out, because opting in installs the lifecycle integration, which
                 // captures an install or update at once. By then the super properties are on and
                 // a person to forget is forgotten, so nothing goes out without them or as them.
@@ -179,7 +179,7 @@ final class PostHogSink: AnalyticsSink {
                 caughtUp(&state)
             case (.pending, false):
                 state.held = []
-                state.phase = .dormant
+                state.phase = .notStarted
             case (.sharing, false):
                 backend.optOut()
                 state.phase = .stopped
@@ -199,7 +199,7 @@ final class PostHogSink: AnalyticsSink {
     /// The identified user the SDK holds: read from the SDK once it is set up, else from the
     /// sink's own record of its last identify.
     private func heldUser(_ state: State) -> String? {
-        guard state.phase != .dormant, state.phase != .pending else {
+        guard state.phase != .notStarted, state.phase != .pending else {
             return defaults.string(forKey: Self.identifiedKey)
         }
         let held = backend.distinctID

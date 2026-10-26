@@ -13,7 +13,7 @@ import {
   PHONE,
   practice,
   press,
-  TAKE,
+  RECORDING_LABEL,
   waveform,
   WIDE,
 } from '../../test/practice'
@@ -24,7 +24,7 @@ import { editLocation, LOCATION_LABEL } from '../recordings/recordingsCopy'
 import { DELETE_LOOP, LOOP_NAME_SUGGESTIONS, NEW_LOOP } from './practiceCopy'
 import { TAB_BAR } from '../../layout/tabs'
 
-const dialog = () => page.getByRole('dialog', { name: TAKE })
+const dialog = () => page.getByRole('dialog', { name: RECORDING_LABEL })
 const box = (selector: string) =>
   practice()?.querySelector<HTMLElement>(selector)?.getBoundingClientRect() ?? null
 
@@ -128,7 +128,7 @@ const AT = '2026-01-01T00:00:00.000Z'
 
 type TuneId = keyof typeof TITLES
 
-/** Thursday jam: each tune with a take this device holds. */
+/** Thursday jam: each tune with a recording this device holds. */
 async function seedList(db: CrosstuneDb, tunes: TuneId[]) {
   const row = { created_at: AT, updated_at: AT, deleted_at: null, server_seq: 0 }
   for (const [position, id] of tunes.entries()) {
@@ -183,7 +183,7 @@ it("reads a playing list's place in the header and steps to the next tune", asyn
 
 it('makes the header location a control that opens the location page, saved name first', async () => {
   const { db } = await mountPlaying(WIDE, {
-    take: { place_name: '1 Main St', place_lat: 36.66, place_lon: -80.92, place_id: 'p1' },
+    recording: { place_name: '1 Main St', place_lat: 36.66, place_lon: -80.92, place_id: 'p1' },
   })
   await db.places.put(placeRow('p1', 'Town Hall'))
   await openPractice()
@@ -196,7 +196,7 @@ it('makes the header location a control that opens the location page, saved name
   await expect.element(page.getByRole('dialog', { name: LOCATION_LABEL })).toBeVisible()
 })
 
-it('shows no location control when the take has no place', async () => {
+it('shows no location control when the recording has no place', async () => {
   await mountPlaying(WIDE)
   await openPractice()
   await expect
@@ -207,7 +207,7 @@ it('shows no location control when the take has no place', async () => {
 it('gives the header location a full touch target without growing the subtitle line', async () => {
   const { db } = await mountPlaying(PHONE, {
     density: 'touch',
-    take: { place_name: '1 Main St', place_lat: 36.66, place_lon: -80.92, place_id: 'p1' },
+    recording: { place_name: '1 Main St', place_lat: 36.66, place_lon: -80.92, place_id: 'p1' },
   })
   await db.places.put(placeRow('p1', 'Town Hall'))
   await openPractice()

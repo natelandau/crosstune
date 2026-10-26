@@ -694,27 +694,27 @@ it("folds a free plan's recordings into one line that opens to dimmed rows", asy
   const section = tunePage().getByRole('region', { name: RECORDINGS_SECTION })
   const line = section.getByRole('button', { name: recordingsLine(3) })
   await expect.element(line).toHaveAttribute('aria-expanded', 'false')
-  const takes = section.getByRole('row', { name: /Take \d/ })
+  const recordingRows = section.getByRole('row', { name: /Take \d/ })
   await expect.element(section.getByRole('row', { name: /Henry Reed/ })).toBeVisible()
-  await expect.poll(() => takes.elements().length).toBe(0)
+  await expect.poll(() => recordingRows.elements().length).toBe(0)
 
   await line.click()
   await expect.element(line).toHaveAttribute('aria-expanded', 'true')
-  await expect.poll(() => takes.elements().length).toBe(3)
-  for (const row of takes.elements()) {
+  await expect.poll(() => recordingRows.elements().length).toBe(3)
+  for (const row of recordingRows.elements()) {
     await expect.element(row).toHaveAttribute('data-dimmed')
   }
 
   // A gated row's name drops the action label its tap will not do.
-  const take = section.getByRole('row', { name: /^Take 1/ })
-  await expect.element(take).toHaveAccessibleDescription(SUBSCRIBE_TO_PLAY)
-  await take.click({ button: 'right' })
+  const gatedRow = section.getByRole('row', { name: /^Take 1/ })
+  await expect.element(gatedRow).toHaveAccessibleDescription(SUBSCRIBE_TO_PLAY)
+  await gatedRow.click({ button: 'right' })
   await expect.element(page.getByRole('menuitem', { name: EDIT })).toBeVisible()
   await expect.element(page.getByRole('menuitem', { name: DELETE })).toBeVisible()
   await userEvent.keyboard('{Escape}')
   await expect.element(page.getByRole('menuitem', { name: EDIT })).not.toBeInTheDocument()
 
-  await take.click()
+  await gatedRow.click()
   await expect
     .element(
       page

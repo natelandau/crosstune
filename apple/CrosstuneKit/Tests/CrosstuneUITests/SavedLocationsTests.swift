@@ -20,7 +20,9 @@ import Testing
             name: name, lat: 36.3, lon: -82.4, address: address, applePlaceID: nil)
     }
 
-    private func take(_ store: CrosstuneStore, _ id: String, placeID: String?, deleted: Bool = false) async throws {
+    private func putRecording(_ store: CrosstuneStore, _ id: String, placeID: String?, deleted: Bool = false)
+        async throws
+    {
         try await store.write { writer in
             try writer.put(
                 Recording(
@@ -41,10 +43,10 @@ import Testing
         let barn = try await place(store, "barn")
         let gone = try await place(store, "Zed's")
         try await Commands(store: store).deleteSavedPlace(gone.id)
-        try await take(store, "r1", placeID: hall.id)
-        try await take(store, "r2", placeID: hall.id)
-        try await take(store, "r3", placeID: hall.id, deleted: true)
-        try await take(store, "r4", placeID: nil)
+        try await putRecording(store, "r1", placeID: hall.id)
+        try await putRecording(store, "r2", placeID: hall.id)
+        try await putRecording(store, "r3", placeID: hall.id, deleted: true)
+        try await putRecording(store, "r4", placeID: nil)
 
         let model = try await loaded(store)
 
@@ -169,7 +171,7 @@ import Testing
     @Test func recordingCountsGroupLiveRecordingsInOneQuery() async throws {
         let store = try root.open()
         let hall = try await place(store, "Town Hall")
-        for index in 0..<3 { try await take(store, "r\(index)", placeID: hall.id) }
+        for index in 0..<3 { try await putRecording(store, "r\(index)", placeID: hall.id) }
 
         let model = try await loaded(store)
 
@@ -180,7 +182,7 @@ import Testing
         let store = try root.open()
         let hall = try await place(store, "Town Hall")
         let barn = try await place(store, "Barn")
-        try await take(store, "r1", placeID: hall.id)
+        try await putRecording(store, "r1", placeID: hall.id)
         let model = try await loaded(store)
         #expect(try await poll { model.rows?.count == 2 })
 
@@ -189,7 +191,7 @@ import Testing
         #expect(deleted)
         #expect(try await poll { model.rows?.map(\.place.id) == [barn.id] })
         #expect(sink.captures == [.init(name: "saved_location_deleted", properties: [:], set: [:])])
-        // The take keeps its own coordinates.
+        // The recording keeps its own coordinates.
         let recording = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
         #expect(recording.placeLat == 36.3)
     }

@@ -1,30 +1,30 @@
 import CrosstuneStore
 import SwiftUI
 
-/// A take the record sheet is up for.
-struct RecordTake: Identifiable {
+/// A recording the record sheet is up for.
+struct RecordSheetItem: Identifiable {
     let id = UUID()
     let model: RecordSheetModel
 
-    /// Whether a new take may be asked for over `current`: when there is none, or when the
+    /// Whether a new recording may be asked for over `current`: when there is none, or when the
     /// one asked for never showed, as when another sheet was up at the time.
-    @MainActor static func mayReplace(_ current: RecordTake?) -> Bool {
+    @MainActor static func mayReplace(_ current: RecordSheetItem?) -> Bool {
         current?.model.isPending ?? true
     }
 }
 
 /// The record sheet, presented once over the whole shell, and the tune screen's New recording.
 struct RecordSheets: ViewModifier {
-    @Binding var take: RecordTake?
+    @Binding var item: RecordSheetItem?
     let host: RecorderHost
     let store: CrosstuneStore
-    /// Starts a take, filed under a tune or unfiled.
+    /// Starts a recording, filed under a tune or unfiled.
     let record: @MainActor (_ tuneID: String?) -> Void
-    /// Shows the Recordings screen, where a saved unfiled take lands.
+    /// Shows the Recordings screen, where a saved unfiled recording lands.
     let showRecordings: @MainActor () -> Void
 
     @Environment(\.tuneScreenActions) private var tuneScreenActions
-    /// The take on screen, kept past the dismissal that clears `take`.
+    /// The recording on screen, kept past the dismissal that clears `item`.
     @State private var shown: RecordSheetModel?
     @State private var source = UUID()
     @State private var latestRecord = LatestRecord()
@@ -32,13 +32,13 @@ struct RecordSheets: ViewModifier {
     func body(content: Content) -> some View {
         content
             .environment(\.tuneScreenActions, withRecord)
-            .sheet(item: $take, onDismiss: dismissed) { take in
-                RecordSheet(model: take.model) {
-                    shown = take.model
+            .sheet(item: $item, onDismiss: dismissed) { item in
+                RecordSheet(model: item.model) {
+                    shown = item.model
                     return host.claim(for: store) != nil
                 }
                 // Also when a window closes with its sheet up, which runs no onDismiss.
-                .onDisappear { release(take.model) }
+                .onDisappear { release(item.model) }
             }
     }
 

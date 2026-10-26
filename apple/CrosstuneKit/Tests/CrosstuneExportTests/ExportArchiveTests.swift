@@ -221,7 +221,7 @@ private final class Calls: @unchecked Sendable {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
     let audioFolder = store.audioFolder
-    let replacement = Data("a newer trim of the take".utf8)
+    let replacement = Data("a newer trim of the recording".utf8)
     let work = workFolder()
     defer { try? FileManager.default.removeItem(at: work) }
 

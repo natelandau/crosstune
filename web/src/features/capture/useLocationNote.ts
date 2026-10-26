@@ -7,23 +7,23 @@ import { devicePosition } from './devicePosition'
 const SEEN_KEY = 'crosstune.locationNoteSeen'
 
 export interface LocationNote {
-  /** True once the take may start. It never turns back, so a later permission change never
-   * pulls a live take behind the note. */
+  /** True once the recording may start. It never turns back, so a later permission change never
+   * pulls a live recording behind the note. */
   armed: boolean
   /** Whether the note shows in place of the recorder. */
   showing: boolean
   /** True from Continue until the browser has answered. */
   asking: boolean
-  /** Asks for the position once, which raises the browser's prompt, then arms the take. */
+  /** Asks for the position once, which raises the browser's prompt, then arms the recording. */
   proceed: () => void
-  /** The request Continue made, which the take reads its place from rather than asking again,
+  /** The request Continue made, which the recording reads its place from rather than asking again,
    * since a second request raises a dismissed prompt once more. Null until Continue. */
   position: Promise<RecordingPlace | null> | null
 }
 
 /**
- * The note before the first take on a device whose browser has yet to ask for location, so the
- * prompt arrives explained. A take waits only while the permission is unread, and skips the
+ * The note before the first recording on a device whose browser has yet to ask for location, so the
+ * prompt arrives explained. A recording waits only while the permission is unread, and skips the
  * note when the browser has already answered or cannot say.
  */
 export function useLocationNote(): LocationNote {

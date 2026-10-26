@@ -380,7 +380,7 @@ struct PadPracticeWidth: ViewModifier {
 @MainActor
 enum PadPracticeHeader {
     /// The playing list and the tune's place in it while a list plays on the practice screen, otherwise
-    /// the take's own subtitle.
+    /// the recording's own subtitle.
     static func subtitle(
         recording: Recording, tuneTitle: String?, lengthMs: Int64?, place: String? = nil, playback: ListPlayback?,
         showsReadingPane: Bool

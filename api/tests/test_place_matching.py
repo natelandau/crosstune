@@ -1,4 +1,4 @@
-"""Matching a take's coordinates to a saved place."""
+"""Matching a recording's coordinates to a saved place."""
 
 from __future__ import annotations
 

@@ -42,10 +42,10 @@ final class PlaceSearchModel {
     private(set) var picking: PlaceCompletion?
     /// Set once a location is picked or cleared, so nothing picks twice.
     private(set) var isDone = false
-    /// The venues near the take, nearest first; nil until the search answers, or for good when it
-    /// fails or the take has no point.
+    /// The venues near the recording, nearest first; nil until the search answers, or for good when it
+    /// fails or the recording has no point.
     private var venues: [NearbyPlace]?
-    /// Where the page looks for places near the take: the take's own point as the page opened,
+    /// Where the page looks for places near the recording: the recording's own point as the page opened,
     /// never the device's.
     private let center: Coordinate?
 
@@ -84,7 +84,7 @@ final class PlaceSearchModel {
     var recent: [RecordingPlace] { edit.recentPlaces }
     var saved: [SavedPlace] { edit.savedPlaces }
 
-    /// The saved locations within 150 m of the take, nearest first, then the venues not saved by
+    /// The saved locations within 150 m of the recording, nearest first, then the venues not saved by
     /// ``SavedPlace/existing(for:in:)``'s rule, at most 10 in all. Empty until the venue search answers, and when it fails.
     var nearby: [NearbyRow] {
         guard let center, let venues else { return [] }
@@ -95,7 +95,7 @@ final class PlaceSearchModel {
         return Array((close.map(NearbyRow.saved) + unsaved.map(NearbyRow.venue)).prefix(PlaceDistances.nearbyLimit))
     }
 
-    /// The saved locations within 30 m of the take, nearest first, offered before a new name so
+    /// The saved locations within 30 m of the recording, nearest first, offered before a new name so
     /// reusing one is one tap.
     var namingCandidates: [SavedPlace] {
         guard let point = edit.placeCoordinate else { return [] }
@@ -133,7 +133,7 @@ final class PlaceSearchModel {
         failure = nil
     }
 
-    /// Asks once for the venues near the take. A failure leaves Nearby out and the rest of the
+    /// Asks once for the venues near the recording. A failure leaves Nearby out and the rest of the
     /// page as it is.
     func loadNearby() async {
         guard let center, venues == nil, let makeNearby else { return }
@@ -175,7 +175,7 @@ final class PlaceSearchModel {
         finish { edit.setPlace(place, method: .suggestion) }
     }
 
-    /// Picks a saved location or a venue near the take.
+    /// Picks a saved location or a venue near the recording.
     func pickNearby(_ row: NearbyRow) -> Bool {
         finish { edit.pickNearby(row) }
     }
@@ -190,7 +190,7 @@ final class PlaceSearchModel {
         finish { edit.pickSaved(place, whileNaming: true) }
     }
 
-    /// Saves the take's point under `name` once the edit is saved. False for a name that trims
+    /// Saves the recording's point under `name` once the edit is saved. False for a name that trims
     /// to nothing.
     func name(_ name: String) -> Bool {
         guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
@@ -218,10 +218,10 @@ final class PlaceSearchModel {
 }
 
 /// A recording's location page: a map of the spot, the location now with its actions, the
-/// places near the take, the saved and recent locations, and a search. Pushed inside the edit
+/// places near the recording, the saved and recent locations, and a search. Pushed inside the edit
 /// sheet's navigation, and pops on a pick.
 /// A recording's location page: a map of the spot, the location now with its actions, the
-/// places near the take, the saved and recent locations, and a search. Pushed inside the edit
+/// places near the recording, the saved and recent locations, and a search. Pushed inside the edit
 /// sheet's navigation, and pops on a pick.
 struct PlaceSearchView: View {
     @State private var model: PlaceSearchModel

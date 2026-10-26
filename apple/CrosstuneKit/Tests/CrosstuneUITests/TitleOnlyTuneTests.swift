@@ -28,7 +28,7 @@ import Testing
                     instruments: ["violin"], newTuneGenre: genre, newTuneStatus: status), at: noon)
             try writer.put(TuneList(id: "set", createdAt: noon, name: "Session"), at: noon)
             try writer.put(
-                Recording(id: "take", tuneID: nil, source: "microphone", recordedAt: noon), at: noon)
+                Recording(id: "recording", tuneID: nil, source: "microphone", recordedAt: noon), at: noon)
         }
         return store
     }
@@ -117,14 +117,14 @@ import Testing
         let store = try await seeded()
 
         let created = try await Commands(store: store).createTitleOnly(
-            title: "Angeline", source: .recordingsList, listID: "set", recordingID: "take", analytics: sink.client)
+            title: "Angeline", source: .recordingsList, listID: "set", recordingID: "recording", analytics: sink.client)
 
         #expect(created.filingError == nil)
         let (listed, filedUnder) = try await store.read { db in
             (
                 try ListItem.filter(ListItem.CodingKeys.listID == "set" && ListItem.CodingKeys.deletedAt == nil)
                     .fetchAll(db).map(\.userTuneID),
-                try Recording.fetchOne(db, key: "take")?.tuneID
+                try Recording.fetchOne(db, key: "recording")?.tuneID
             )
         }
         #expect(listed == [created.userTuneID])
@@ -451,7 +451,7 @@ enum Work: CaseIterable, Sendable {
         let commands = Commands(store: store)
         switch self {
         case .recording:
-            try await commands.updateRecording("take", tuneID: .value(created.tuneID))
+            try await commands.updateRecording("recording", tuneID: .value(created.tuneID))
         case .link:
             try await store.write { writer in
                 try writer.put(

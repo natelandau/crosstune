@@ -34,7 +34,7 @@ final class HeroCaptures: CaptureTestCase {
         timeline.tap(shown(app.buttons["New loop"]))
         let created = seconds(waveform)
 
-        // The opening zoom fits the 30 s take to the waveform's width; the end goes 2.5 s later.
+        // The opening zoom fits the 30 s recording to the waveform's width; the end goes 2.5 s later.
         let end = shown(app.otherElements["Loop end"])
         let later = 2.5 * waveform.frame.width / 30 / end.frame.width
         timeline.drag(end, from: CGVector(dx: 0.5, dy: 0.5), to: CGVector(dx: 0.5 + later, dy: 0.5))
@@ -71,8 +71,9 @@ final class HeroCaptures: CaptureTestCase {
         Thread.sleep(forTimeInterval: 1)
         timeline.tap(stop)
 
-        let take = shown(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Waiting to upload'")).firstMatch)
-        timeline.drag(take, from: CGVector(dx: 0.85, dy: 0.5), to: CGVector(dx: 0.3, dy: 0.5), hold: 0.05)
+        let recordingRow = shown(
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Waiting to upload'")).firstMatch)
+        timeline.drag(recordingRow, from: CGVector(dx: 0.85, dy: 0.5), to: CGVector(dx: 0.3, dy: 0.5), hold: 0.05)
         timeline.tap(shown(app.buttons["Add to tune"]))
         dismissKeyboardTip(app)
         app.typeText("Half")

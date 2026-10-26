@@ -93,7 +93,8 @@ export function sortOrigins(origins: readonly string[]): string[] {
 /**
  * The meta parts in order, already worded; the row joins them with " · ". Under Date added the
  * date is when the recording was added; under every other sort it is when it was played. A
- * `localOnly` take, kept on this device until the user subscribes, says so in place of its status.
+ * `localOnly` recording, kept on this device until the user subscribes, says so in place of its
+ * status.
  */
 export function recordingMeta(
   view: RecordingView,

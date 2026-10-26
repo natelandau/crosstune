@@ -28,9 +28,9 @@
             @Environment(\.openSettings) private var openSettings
         #endif
 
-        /// Where the record screen's take reads its audio, since a capture must not record the room.
+        /// Where the record screen's recording reads its audio, since a capture must not record the room.
         private static let recordTone = FileManager.default.temporaryDirectory.appending(
-            path: "crosstune-sample-take.m4a")
+            path: "crosstune-sample-recording.m4a")
 
         /// - Parameters:
         ///   - playing: Starts with a link loaded in the player.

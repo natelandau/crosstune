@@ -59,7 +59,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
 
     case recordingStarted(source: ActionSource)
     case microphoneDenied(source: ActionSource)
-    /// A take saved with a tune is filed.
+    /// A recording saved with a tune is filed.
     case recordingSaved(seconds: Double, recordingID: String, tuneID: String?)
     case recordingDiscarded(seconds: Double)
     case audioImported(fileCount: Int, format: AudioFormat)

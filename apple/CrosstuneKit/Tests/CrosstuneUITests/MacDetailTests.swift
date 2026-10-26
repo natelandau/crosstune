@@ -20,7 +20,7 @@
         }
 
         private func openPaused(in window: UUID) async throws {
-            player.open(.recording(loggedTake(), tuneTitle: nil), in: window, playing: false)
+            player.open(.recording(loggedRecording(), tuneTitle: nil), in: window, playing: false)
             try await waitFor { player.recordingAudio == .loaded }
         }
 

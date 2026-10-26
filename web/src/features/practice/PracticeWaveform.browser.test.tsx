@@ -317,7 +317,7 @@ describe('PracticeWaveform', () => {
     expect(seek.mock.calls).toEqual([[LENGTH_MS]])
   })
 
-  it('a fling that ends at the end of the take does not play on', async () => {
+  it('a fling that ends at the end of the recording does not play on', async () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance'] })
     const { seek, play } = setup({ positionMs: 58_000, playing: true })
     play.mockClear()

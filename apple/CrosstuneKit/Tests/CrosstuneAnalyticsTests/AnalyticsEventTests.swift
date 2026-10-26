@@ -56,7 +56,7 @@ private let linkID = "9d3a6c1e-2f4b-4b7a-a5c8-7e1f0d2b3c94"
         ])
 }
 
-@Test func leavesOutWhatABulkActionOrAnUnfiledTakeDoesNotHave() {
+@Test func leavesOutWhatABulkActionOrAnUnfiledRecordingDoesNotHave() {
     #expect(
         AnalyticsEvent.bulkEditApplied(action: .archive, count: 3, fieldsChanged: nil).properties == [
             "action": .string("archive"), "count_bucket": .string("1-9"),

@@ -46,9 +46,9 @@ export interface RecordSessionOptions {
   /** The id Stop is about to save under, called before the recording is written, so a list can
    * know the new row as it appears. */
   onSaving?: (recordingId: string) => void
-  /** False holds the take from starting until it turns true. It must never turn back. */
+  /** False holds the recording from starting until it turns true. It must never turn back. */
   armed?: boolean
-  /** A position request already made, which the take reads its place from instead of asking. */
+  /** A position request already made, which the recording reads its place from, not asking. */
   position?: Promise<RecordingPlace | null> | null
 }
 
@@ -220,7 +220,7 @@ export function useRecordSession({
     statusLabel: STATUS[phase],
     stop,
     discard,
-    // A take held from starting has nothing to protect yet.
+    // A recording held from starting has nothing to protect yet.
     refuseDismiss: armed && (live || phase === 'saving'),
   }
 }

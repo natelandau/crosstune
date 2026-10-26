@@ -15,7 +15,8 @@ private func eventually(_ condition: () -> Bool) async throws {
 
 private let audioURL = URL(filePath: "/tmp/r1-aaaaaaaa.m4a")
 
-private func take(trimStartMs: Int64 = 0, trimEndMs: Int64? = nil, sourceDurationMs: Int64? = 60_000) -> Recording {
+private func recording(trimStartMs: Int64 = 0, trimEndMs: Int64? = nil, sourceDurationMs: Int64? = 60_000) -> Recording
+{
     Recording(
         id: "r1", tuneID: nil, source: "microphone", addedAt: noon, label: "Jam", state: "ready",
         sourceDurationMs: sourceDurationMs, trimStartMs: trimStartMs, trimEndMs: trimEndMs, speedPercent: 100,
@@ -119,7 +120,7 @@ private final class FakeLoops {
         store = FakeLoops(player: player)
     }
 
-    private func load(_ row: Recording = take()) async throws {
+    private func load(_ row: Recording = recording()) async throws {
         player.audioSource = { _ in
             RecordingAudioFile(url: audioURL, file: RecordingFile(id: "r1", localState: .downloaded))
         }
@@ -128,7 +129,7 @@ private final class FakeLoops {
     }
 
     /// Practice 300 points wide, which opens on 30 seconds: 10 points a second.
-    private func practice(_ row: Recording = take(), file: RecordingFile? = nil) -> PracticeModel {
+    private func practice(_ row: Recording = recording(), file: RecordingFile? = nil) -> PracticeModel {
         let model = PracticeModel(
             player: player, recording: row, file: file, writer: store.writer,
             announce: { [spoken] in spoken.said.append($0) })
@@ -289,14 +290,14 @@ private final class FakeLoops {
         #expect(abs(try #require(model.scale) - 150.0 / 11) < 0.001)
     }
 
-    @Test func aTakeStillCapturingHasNoViewUntilItsLengthIsKnown() {
+    @Test func aRecordingStillCapturingHasNoViewUntilItsLengthIsKnown() {
         let capturing = RecordingFile(id: "r1", localState: .capturing)
-        let model = practice(take(sourceDurationMs: nil), file: capturing)
+        let model = practice(recording(sourceDurationMs: nil), file: capturing)
         #expect(model.lengthMs == 0)
         #expect(model.zoomedWaveformView == nil)
         #expect(model.newLoopState == .noRoom)
 
-        model.follow(take(sourceDurationMs: 30_000), file: RecordingFile(id: "r1", localState: .downloaded))
+        model.follow(recording(sourceDurationMs: 30_000), file: RecordingFile(id: "r1", localState: .downloaded))
         #expect(model.zoomedWaveformView != nil)
     }
 
@@ -327,7 +328,7 @@ private final class FakeLoops {
         #expect(player.loops.selectedName == "B part")
 
         player.recordingChanged(
-            id: "r1", to: take(trimStartMs: 2000),
+            id: "r1", to: recording(trimStartMs: 2000),
             audioFile: RecordingAudioFile(
                 url: audioURL, file: RecordingFile(id: "r1", localState: .downloaded)), tuneTitle: nil)
         #expect(audio.loop == window(6000, 14_000, trimStartMs: 2000))
@@ -445,8 +446,8 @@ private final class FakeLoops {
 
     @Test func aRecordingShorterThanTheShortestLoopHasNoRoom() async throws {
         audio.duration = 0.4
-        try await load(take(sourceDurationMs: 400))
-        let model = practice(take(sourceDurationMs: 400))
+        try await load(recording(sourceDurationMs: 400))
+        let model = practice(recording(sourceDurationMs: 400))
         #expect(model.newLoopState == .noRoom)
         model.newLoop()
         await model.settle()
@@ -856,7 +857,7 @@ private final class FakeLoops {
         try await load()
         let now = Now()
         let model = PracticeModel(
-            player: player, recording: take(), file: nil, writer: store.writer, clock: { now.instant })
+            player: player, recording: recording(), file: nil, writer: store.writer, clock: { now.instant })
         model.setWidth(300)
         model.momentumScrollRun = .seconds(10)
         audio.elapsed = 10
@@ -878,7 +879,7 @@ private final class FakeLoops {
         try await load()
         let now = Now()
         let model = PracticeModel(
-            player: player, recording: take(), file: nil, writer: store.writer, clock: { now.instant })
+            player: player, recording: recording(), file: nil, writer: store.writer, clock: { now.instant })
         model.setWidth(300)
         model.momentumScrollRun = .seconds(10)
         audio.elapsed = 10
@@ -908,7 +909,7 @@ private final class FakeLoops {
         try await load()
         let now = Now()
         let model = PracticeModel(
-            player: player, recording: take(), file: nil, writer: store.writer, clock: { now.instant })
+            player: player, recording: recording(), file: nil, writer: store.writer, clock: { now.instant })
         model.setWidth(300)
         model.momentumScrollRun = .seconds(10)
         audio.elapsed = 10

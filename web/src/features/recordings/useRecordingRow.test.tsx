@@ -37,19 +37,19 @@ function renderRow(
 }
 
 describe('useRecordingRow local-only line', () => {
-  it('says a local-only take waits on this device only while the plan is free', async () => {
+  it('says a local-only recording waits on this device only while the plan is free', async () => {
     await db.entitlements.put(entitlementRow())
     await keepLocalUntilSubscribed(db, ['r1'])
     const { result } = renderRow()
     await expect.poll(() => result.current.meta).toContain(LOCAL_UNTIL_SUBSCRIBED)
 
-    // The take is still queued until the next push, but a Premium plan sends it out.
+    // The recording is still queued until the next push, but a Premium plan sends it out.
     await db.entitlements.put(entitlementRow({ premium_source: 'comp' }))
     await expect.poll(() => result.current.meta).not.toContain(LOCAL_UNTIL_SUBSCRIBED)
   })
 
   it.each(['captured', 'failed_upload'] as const)(
-    'says a stored take whose %s audio is only on this device waits for Premium',
+    'says a stored recording whose %s audio is only on this device waits for Premium',
     async (localState) => {
       await db.entitlements.put(entitlementRow())
       const { result } = renderRow(

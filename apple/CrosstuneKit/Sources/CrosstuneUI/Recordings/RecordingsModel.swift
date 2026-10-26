@@ -17,7 +17,7 @@ public struct RecordingView: Identifiable, Hashable, Sendable {
     /// its `tuneID` still names a tune deleted elsewhere.
     public let tuneID: String?
     public let tuneTitle: String?
-    /// The location's name to show: its saved location's while that is live, else the take's own.
+    /// The location's name to show: its saved location's while that is live, else the recording's own.
     public let shownPlace: String?
 
     public var id: String { recording.id }

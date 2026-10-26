@@ -33,7 +33,7 @@ export function playlistAvailability(
 }
 
 /**
- * Each tune's recordings, in tune-screen order (own takes first, each group by position), and
+ * Each tune's recordings, in tune-screen order (own recordings first, each group by position), and
  * its links, from one query per table whatever the number of tunes. A tune with neither is
  * absent from both maps.
  */

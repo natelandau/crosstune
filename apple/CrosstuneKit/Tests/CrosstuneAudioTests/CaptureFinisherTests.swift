@@ -15,7 +15,7 @@ private func file(_ store: CrosstuneStore, _ id: String) async throws -> Recordi
     try await store.read { db in try RecordingFile.fetchOne(db, key: id) }
 }
 
-/// A capture as the recorder leaves it mid-take: its row, and a file of tone.
+/// A capture as the recorder leaves it mid-recording: its row, and a file of tone.
 private func beginTone(
     _ store: CrosstuneStore, seconds: Double = 1, tuneID: String? = nil, recordedAt: Timestamp = noon
 ) async throws -> String {
@@ -72,7 +72,7 @@ private func beginTone(
         #expect(peaks.values.count == Int((Double(local.localDurationMs ?? 0) / 20).rounded()))
     }
 
-    @Test func aTuneDeletedDuringTheTakeLeavesTheRecordingUnfiled() async throws {
+    @Test func aTuneDeletedDuringTheRecordingLeavesTheRecordingUnfiled() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let commands = Commands(store: store)
@@ -190,7 +190,7 @@ private func beginTone(
         #expect(try await file(store, id)?.localState == .captured)
     }
 
-    @Test func aTakeKilledAfterItsExportIsRecordedWhenTheStoreOpensAgain() async throws {
+    @Test func aRecordingKilledAfterItsExportIsRecordedWhenTheStoreOpensAgain() async throws {
         let root = TemporaryRoot()
         let first = try root.open()
         let id = try await beginTone(first)

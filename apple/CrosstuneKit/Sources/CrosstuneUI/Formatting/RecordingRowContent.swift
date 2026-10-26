@@ -36,7 +36,7 @@ public struct RecordingRowContent: Hashable, Sendable {
     /// The red third line: why a stuck upload was refused, or that the last download this row
     /// asked for fetched nothing.
     public let error: String?
-    /// Reads dimmed: a download that cannot start offline or a play while a take is recorded,
+    /// Reads dimmed: a download that cannot start offline or a play while a recording is recorded,
     /// each of which keeps its name and tap, and any recording the plan holds back, whose tap
     /// offers Premium.
     public let isDimmed: Bool
@@ -46,12 +46,12 @@ public struct RecordingRowContent: Hashable, Sendable {
     /// never shown: Premium, for a recording the plan holds back.
     public let spokenNotice: String?
 
-    /// Whether a row offering `control` is disabled while a take records: only a play does.
+    /// Whether a row offering `control` is disabled while a recording is under way: only a play does.
     nonisolated static func blocksPlay(_ control: RecordingText.Control) -> Bool {
         control == .play
     }
 
-    /// Whether a recording's row would say Stop recording to play while a take records.
+    /// Whether a recording's row would say Stop recording to play while a recording is under way.
     nonisolated static func blocksPlay(
         _ recording: Recording, file: RecordingFile?, loaded: Bool, downloading: Bool
     ) -> Bool {
@@ -73,7 +73,7 @@ public struct RecordingRowContent: Hashable, Sendable {
         meta = RecordingText.meta(
             recording, file: file, storage: storage, offline: offlineDownload,
             dateInTitle: RecordingText.titleIsDate(recording, tuneTitle: tuneTitle, tuneNamedAbove: tuneNamedAbove),
-            // A row stays local-only until the next push, but a Premium plan sends the take on it.
+            // A row stays local-only until the next push, but a Premium plan sends the recording on it.
             sort: sort, isLocalUntilSubscribed: isLocalUntilSubscribed && !recordingsPlay, locale: locale,
             timeZone: timeZone
         ).joined(separator: " · ")

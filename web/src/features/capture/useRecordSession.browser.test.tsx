@@ -188,7 +188,7 @@ describe('useRecordSession', () => {
     await expect.poll(() => onDone.mock.calls).toEqual([[{ tuneId: null, recordingId: saved!.id }]])
   })
 
-  it('names the take Stop is saving before the save ends, under the id the save reports', async () => {
+  it('names the recording Stop is saving before the save ends, under the id the save reports', async () => {
     fakeMedia()
     const db = openTestDb()
     const { result, onDone, onSaving } = setup(db)
@@ -354,7 +354,7 @@ describe('useRecordSession', () => {
       expect(analytics.sends().filter((send) => send.name === 'recording_saved')).toEqual([])
     })
 
-    it('sends recording_saved for a take kept when the recorder goes away mid-take', async () => {
+    it('sends recording_saved for a recording kept when the recorder goes away mid-recording', async () => {
       fakeMedia()
       const db = openTestDb()
       const { result, unmount, analytics } = setup(db)

@@ -63,7 +63,7 @@ describe('usePracticeOverlayView', () => {
     expect(result.current.location).toBe('Galax, VA')
   })
 
-  it('shows the saved location name, following a rename, even when the take has no name', async () => {
+  it('shows the saved location name, following a rename, even when the recording has no name', async () => {
     await db.places.put(placeRow('p1', 'Town Hall'))
     const id = await captureRecording(db, { durationMs: 3000 })
     await db.recordings.update(id, { place_id: 'p1', place_name: null })
@@ -75,7 +75,7 @@ describe('usePracticeOverlayView', () => {
     await expect.poll(() => result.current.location).toBeNull()
   })
 
-  it('has no location for a take with no place', async () => {
+  it('has no location for a recording with no place', async () => {
     const id = await captureRecording(db)
     const { result } = setup(id)
     await expect.poll(() => result.current.view?.recording.id).toBe(id)

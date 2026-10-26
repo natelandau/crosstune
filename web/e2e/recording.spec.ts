@@ -198,7 +198,7 @@ test('trims a recording and another device sees it', async ({ page, browser }) =
   const confirm = page.getByRole('dialog').filter({ hasText: TRIM_CONFIRM_MESSAGE })
   await confirm.getByRole('button', { name: TRIM_CONFIRM_ACTION, exact: true }).click()
   await expect(confirm).toHaveCount(0)
-  const label = unique('Trimmed take')
+  const label = unique('Trimmed recording')
   await renameRecording(page, practice, label)
   // Practice's header gives the recording's length beside when it was made.
   await expect(practice.getByRole('banner')).toContainText(/\b0:03\b/, { timeout: 15_000 })

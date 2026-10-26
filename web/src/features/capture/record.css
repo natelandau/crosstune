@@ -1,8 +1,8 @@
-/* A new take slides in, and a wash over it fades once it has landed. The wash lies over
+/* A new recording slides in, and a wash over it fades once it has landed. The wash lies over
    the row, because a touch row's content paints its own ground. Under reduced motion the row
    shows in place and only the wash fades. */
 [role='row'][data-new] {
-  animation: new-take-in var(--dur-base) var(--ease) both;
+  animation: new-recording-in var(--dur-base) var(--ease) both;
 }
 
 [role='row'][data-new]::after {
@@ -12,17 +12,17 @@
   border-radius: inherit;
   background: var(--wash);
   pointer-events: none;
-  animation: new-take-wash var(--dur-long) var(--ease) var(--dur-base) both;
+  animation: new-recording-wash var(--dur-long) var(--ease) var(--dur-base) both;
 }
 
-@keyframes new-take-in {
+@keyframes new-recording-in {
   from {
     opacity: 0;
     transform: translateY(-0.5rem);
   }
 }
 
-@keyframes new-take-wash {
+@keyframes new-recording-wash {
   to {
     opacity: 0;
   }
@@ -34,6 +34,6 @@
   }
 
   [role='row'][data-new]::after {
-    animation: new-take-wash var(--dur-fade) var(--ease) both;
+    animation: new-recording-wash var(--dur-fade) var(--ease) both;
   }
 }

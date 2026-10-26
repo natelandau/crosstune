@@ -1,8 +1,8 @@
 /** The loosest fix that counts as a precise point: a pin, not a circle. */
 export const STREET_MAX_ACCURACY_M = 50
-/** How far from a take the location page looks for places near it. */
+/** How far from a recording the location page looks for places near it. */
 export const NEARBY_RADIUS_M = 150
-/** The most places the location page lists as near a take. */
+/** The most places the location page lists as near a recording. */
 export const NEARBY_LIMIT = 10
 /** How close a saved location sits to a point to count as the same spot. */
 export const MATCH_RADIUS_M = 30

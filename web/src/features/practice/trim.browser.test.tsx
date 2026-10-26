@@ -19,16 +19,24 @@ import { drag } from '../../test/gestures'
 import { PALETTE } from '../../theme/tokens'
 import { renderHookWithProviders } from '../../test/render'
 import { useOverlayClaim } from '../../ui/overlayClaim'
-import { mountPlaying, openPractice, PHONE, practice, press, TAKE, WIDE } from '../../test/practice'
+import {
+  mountPlaying,
+  openPractice,
+  PHONE,
+  practice,
+  press,
+  RECORDING_LABEL,
+  WIDE,
+} from '../../test/practice'
 
 vi.mock('../../commands/recordings', { spy: true })
 
-const practiceDialog = () => page.getByRole('dialog', { name: TAKE })
+const practiceDialog = () => page.getByRole('dialog', { name: RECORDING_LABEL })
 const trimDialog = () => page.getByRole('dialog', { name: TRIM })
 const more = () => practiceDialog().getByRole('button', { name: MORE_ACTIONS })
 const startHandle = () => trimDialog().getByRole('slider', { name: START_HANDLE })
 
-/** Practice opened on the take, then Trim chosen from More, once the audio's length is known. */
+/** Practice opened on the recording, then Trim chosen from More, once the audio's length is set. */
 async function openTrim(engine: PlaybackEngine) {
   await openPractice()
   await more().click()
@@ -113,8 +121,8 @@ it('gives way to a trim written elsewhere, and says so', async () => {
   await expect.element(practiceDialog().getByText(TRIM_CHANGED_ELSEWHERE)).toBeVisible()
 })
 
-it("plays at 100% while trimming and at the take's own speed after", async () => {
-  const { engine } = await mountPlaying(WIDE, { take: { speed_percent: 90 } })
+it("plays at 100% while trimming and at the recording's own speed after", async () => {
+  const { engine } = await mountPlaying(WIDE, { recording: { speed_percent: 90 } })
   await openPractice()
   await expect.poll(() => engine.getState().speedPercent).toBe(90)
   await more().click()

@@ -13,7 +13,7 @@ import type { LinkMediaRow, RecordingMediaRow } from './useTuneMedia'
 import { PinnedMark } from './PinnedMark'
 import { DISC_ROW_HOVER, TransportGlyph } from '../../ui/rowGlyphs'
 import { useLatest } from '../../ui/useLatest'
-import { useNewTake } from '../capture/useNewTake'
+import { useNewRecording } from '../capture/useNewRecording'
 import { Row } from '../../ui/Row'
 import { RowList } from '../../ui/RowList'
 import { rowActions } from '../../ui/sharedActions'
@@ -144,7 +144,7 @@ export function RecordingRow({
     origin: playOrigin,
     premiumFrom,
   })
-  const fresh = useNewTake(view.recording.id)
+  const fresh = useNewRecording(view.recording.id)
   const { title, control, open, retry, origin } = data
   const meta = data.meta.join(' · ')
   const glyph =

@@ -27,19 +27,19 @@ const PHONE_LANDSCAPE = { width: 844, height: 390 }
 const CATALOG = destination('catalog')
 
 const AT = '2026-01-01T00:00:00.000Z'
-const TAKE = 'Fast take'
+const RECORDING_LABEL = 'Fast take'
 
 async function seedTune(db: CrosstuneDb, id: string, title: string) {
   await db.tunes.put(tuneRow(id, title))
   await db.user_tunes.put(userTuneRow(`u-${id}`, id))
 }
 
-/** A take of `tuneId` this device holds, three seconds long, so it plays at once. */
-async function seedTake(db: CrosstuneDb, tuneId: string, extra: Partial<LocalRecording> = {}) {
+/** A recording of `tuneId` this device holds, three seconds long, so it plays at once. */
+async function seedRecording(db: CrosstuneDb, tuneId: string, extra: Partial<LocalRecording> = {}) {
   await db.recordings.put(
     recordingRow('r1', {
       tune_id: tuneId,
-      label: TAKE,
+      label: RECORDING_LABEL,
       duration_ms: 3000,
       source_duration_ms: 3000,
       ...extra,
@@ -75,7 +75,7 @@ async function playLink() {
   await expect.element(player()).toBeVisible()
 }
 
-/** Thursday jam: Old Joe Clark, whose take plays, then Forked Deer. */
+/** Thursday jam: Old Joe Clark, whose recording plays, then Forked Deer. */
 async function seedList(db: CrosstuneDb) {
   const row = { created_at: AT, updated_at: AT, deleted_at: null, server_seq: 0 }
   const list: LocalList = { id: 'l1', ...row, name: 'Thursday jam', position: 0 }
@@ -88,7 +88,7 @@ async function seedList(db: CrosstuneDb) {
   })
   await seedTune(db, 't1', 'Old Joe Clark')
   await seedTune(db, 't2', 'Forked Deer')
-  await seedTake(db, 't1')
+  await seedRecording(db, 't1')
   await db.lists.put(list)
   await db.list_items.bulkPut([item('i1', 't1', 0), item('i2', 't2', 1)])
 }
@@ -110,10 +110,11 @@ async function mount(
 const player = () => page.getByRole('region', { name: PLAYER_REGION })
 const box = (element: Element) => element.getBoundingClientRect()
 const tunePage = () => page.getByRole('main', { name: TUNE })
-const takeRow = () => tunePage().getByRole('row', { name: new RegExp(`^${PLAY} ${TAKE}`) })
+const recordingRowLocator = () =>
+  tunePage().getByRole('row', { name: new RegExp(`^${PLAY} ${RECORDING_LABEL}`) })
 
-async function playTake() {
-  const row = takeRow()
+async function playRecording() {
+  const row = recordingRowLocator()
   await expect.element(row).toBeVisible()
   const opener = row.element()
   await row.click()
@@ -124,9 +125,9 @@ async function playTake() {
 it('floats the phone bar just above the tab bar, with Play and Pause swapping', async () => {
   await mount('/catalog/t1', PHONE, async (db) => {
     await seedTune(db, 't1', 'Old Joe Clark')
-    await seedTake(db, 't1')
+    await seedRecording(db, 't1')
   })
-  await playTake()
+  await playRecording()
 
   const tabs = page.getByRole('navigation', { name: TAB_BAR })
   await expect
@@ -141,9 +142,9 @@ it('floats the phone bar just above the tab bar, with Play and Pause swapping', 
 it('docks inside the detail pane on wide, its time and scrubber following the engine', async () => {
   const { engine } = await mount('/catalog/t1', WIDE, async (db) => {
     await seedTune(db, 't1', 'Old Joe Clark')
-    await seedTake(db, 't1')
+    await seedRecording(db, 't1')
   })
-  await playTake()
+  await playRecording()
 
   const detail = document.querySelector('[data-column="detail"]')!
   await expect
@@ -161,7 +162,7 @@ it('docks inside the detail pane on wide, its time and scrubber following the en
 
   await expect.element(player().getByRole('button', { name: PAUSE })).toBeVisible()
   engine.seek(1500)
-  const scrubber = player().getByRole('slider', { name: PROGRESS(TAKE) })
+  const scrubber = player().getByRole('slider', { name: PROGRESS(RECORDING_LABEL) })
   await expect.poll(() => (scrubber.element() as HTMLInputElement).valueAsNumber).toBe(1500)
   await expect
     .element(player().getByRole('timer', { name: ELAPSED(formatDuration(1500)) }))
@@ -171,16 +172,18 @@ it('docks inside the detail pane on wide, its time and scrubber following the en
 it('keeps the recording playing as the window crosses from phone to wide', async () => {
   const { engine } = await mount('/catalog/t1', PHONE, async (db) => {
     await seedTune(db, 't1', 'Old Joe Clark')
-    await seedTake(db, 't1')
+    await seedRecording(db, 't1')
   })
   const load = vi.spyOn(engine, 'load')
   const unload = vi.spyOn(engine, 'unload')
-  await playTake()
+  await playRecording()
   await expect.element(player().getByRole('button', { name: PAUSE })).toBeVisible()
   engine.seek(1500)
 
   await page.viewport(WIDE.width, WIDE.height)
-  await expect.element(player().getByRole('slider', { name: PROGRESS(TAKE) })).toBeInTheDocument()
+  await expect
+    .element(player().getByRole('slider', { name: PROGRESS(RECORDING_LABEL) }))
+    .toBeInTheDocument()
   // The dock now shows, so any reload the frame change caused has already happened.
   await expect.poll(() => load.mock.calls.length).toBe(1)
   await expect.poll(() => unload.mock.calls.length).toBe(0)
@@ -190,9 +193,9 @@ it('keeps the recording playing as the window crosses from phone to wide', async
 it('closes, and hands focus back to the row that opened it', async () => {
   await mount('/catalog/t1', PHONE, async (db) => {
     await seedTune(db, 't1', 'Old Joe Clark')
-    await seedTake(db, 't1')
+    await seedRecording(db, 't1')
   })
-  const opener = await playTake()
+  const opener = await playRecording()
 
   await player().getByRole('button', { name: CLOSE_PLAYER, exact: true }).click()
   await expect.element(player()).not.toBeInTheDocument()
@@ -202,10 +205,10 @@ it('closes, and hands focus back to the row that opened it', async () => {
 it('lets the last catalog row scroll fully above the bar', async () => {
   await mount('/catalog/t1', PHONE, async (db) => {
     await seedTune(db, 't1', 'Old Joe Clark')
-    await seedTake(db, 't1')
+    await seedRecording(db, 't1')
     for (let n = 10; n < 40; n++) await seedTune(db, `t${n}`, `Reel number ${n}`)
   })
-  await playTake()
+  await playRecording()
   await tunePage().getByRole('link', { name: CATALOG.label }).click()
 
   const grid = page.getByRole('grid', { name: TUNE_LIST })
@@ -270,12 +273,12 @@ it('washes the catalog row of the tune that plays', async () => {
   await mount('/catalog/t1', WIDE, async (db) => {
     await seedTune(db, 't1', 'Old Joe Clark')
     await seedTune(db, 't2', 'Forked Deer')
-    await seedTake(db, 't1')
+    await seedRecording(db, 't1')
   })
   const rows = page.getByRole('grid', { name: TUNE_LIST })
   const row = (title: string) => rows.getByRole('row', { name: new RegExp(`^${title}`) })
   await expect.element(row('Old Joe Clark')).not.toHaveAttribute('data-playing')
-  await playTake()
+  await playRecording()
 
   await expect.element(row('Old Joe Clark')).toHaveAttribute('data-playing')
   await expect.element(row('Forked Deer')).not.toHaveAttribute('data-playing')
@@ -284,9 +287,9 @@ it('washes the catalog row of the tune that plays', async () => {
 it('shows the speed badge only away from the default speed', async () => {
   const { db } = await mount('/catalog/t1', PHONE, async (db) => {
     await seedTune(db, 't1', 'Old Joe Clark')
-    await seedTake(db, 't1', { speed_percent: 90 })
+    await seedRecording(db, 't1', { speed_percent: 90 })
   })
-  await playTake()
+  await playRecording()
   const badge = () => player().element().querySelector('[data-playback-badge]')
   await expect.poll(() => badge()?.textContent).toContain(SPEED_BADGE(90))
 
@@ -358,7 +361,7 @@ it("washes a list row while any of its tune's recordings or links plays", async 
   const rows = page.getByRole('grid', { name: TUNE_LIST })
   const row = (title: string) => rows.getByRole('row', { name: new RegExp(title) })
   await expect.element(row('Old Joe Clark')).not.toHaveAttribute('data-playing')
-  // The link, though the row's own control would play the take.
+  // The link, though the row's own control would play the recording.
   await playLink()
 
   await expect.element(row('Old Joe Clark')).toHaveAttribute('data-playing')

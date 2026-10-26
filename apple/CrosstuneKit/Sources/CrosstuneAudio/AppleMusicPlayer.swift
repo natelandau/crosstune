@@ -86,7 +86,7 @@ public final class AppleMusicPlayer: MusicPlayback {
     /// Moves on with each start, so a load that a play overtook leaves the playing queue alone.
     @ObservationIgnored private var plays = 0
 
-    /// - Parameter isCapturing: Whether a take is being recorded, when nothing may play.
+    /// - Parameter isCapturing: Whether a recording is being recorded, when nothing may play.
     public init(
         isCapturing: @escaping @MainActor () -> Bool = { Recorder.hasActiveCapture }
     ) {

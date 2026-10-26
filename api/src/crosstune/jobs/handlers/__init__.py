@@ -27,7 +27,7 @@ class JobHandler:
     # Runs under the job's claim, in a transaction, for a job whose attempts all ended
     # without recording an outcome, as when one takes the process down with it.
     abandon: Callable[[JobContext, AsyncSession, Job], Awaitable[object]] | None = None
-    # A background kind waits behind every other, so it never delays a new take or a trim.
+    # A background kind waits behind every other, so it never delays a new recording or a trim.
     background: bool = False
 
 

@@ -39,7 +39,7 @@ struct PrivacyManifestTests {
                     linked: true, tracking: false,
                     purposes: [analytics, "NSPrivacyCollectedDataTypePurposeAppFunctionality"]))
         // PostHog's GeoIP derives a country and city from the request, and with Precise Location
-        // off a take keeps the approximate fix.
+        // off a recording keeps the approximate fix.
         #expect(
             declared["NSPrivacyCollectedDataTypeCoarseLocation"]
                 == Declared(
@@ -60,7 +60,7 @@ struct PrivacyManifestTests {
         #expect(declared.values.allSatisfy { !$0.tracking })
     }
 
-    @Test func declaresTheAccountNameTheScansAndWhereTakesWereMade() throws {
+    @Test func declaresTheAccountNameTheScansAndWhereRecordingsWereMade() throws {
         let declared = try Self.declared()
         let functionality = Declared(
             linked: true, tracking: false, purposes: ["NSPrivacyCollectedDataTypePurposeAppFunctionality"])
@@ -69,7 +69,7 @@ struct PrivacyManifestTests {
         #expect(declared["NSPrivacyCollectedDataTypeName"] == functionality)
         // Camera scans and photo library uploads, stored with the account.
         #expect(declared["NSPrivacyCollectedDataTypePhotosorVideos"] == functionality)
-        // Where a take was recorded, stored with the recording at the device's full accuracy.
+        // Where a recording was recorded, stored with the recording at the device's full accuracy.
         #expect(declared["NSPrivacyCollectedDataTypePreciseLocation"] == functionality)
     }
 

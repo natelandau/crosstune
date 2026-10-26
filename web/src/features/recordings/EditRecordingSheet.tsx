@@ -37,8 +37,8 @@ import { useEndOnClose } from '../../ui/useEndOnClose'
 
 /**
  * A recording's name, the date it was recorded, its players, place, and notes, as a
- * part-height form. The date is a year, optionally narrowed to a month and a day; a take's exact
- * time survives only while its date parts are left alone. The Location row swaps the sheet's
+ * part-height form. The date is a year, optionally narrowed to a month and a day; a recording's
+ * exact time survives only while its date parts are left alone. The Location row swaps the sheet's
  * body for the location page, with Back in its header; Escape and a device back press go back
  * a page before they reach the sheet.
  */

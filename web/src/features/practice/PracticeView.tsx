@@ -53,7 +53,7 @@ export function PracticeView({
   view: RecordingView
   /** The peaks for the recording's current trim range. */
   shown: ShownPeaks | null
-  /** Why the waveform, transport, and modes cannot be used yet, such as a take still recording. */
+  /** Why the waveform, transport, and modes cannot be used yet, such as a recording under way. */
   blocked?: string
   /** Set to what Escape does here before practice closes; true when it did something. */
   escapeRef: RefObject<(() => boolean) | null>

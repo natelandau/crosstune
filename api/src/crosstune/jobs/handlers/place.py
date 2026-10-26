@@ -94,7 +94,7 @@ async def run(ctx: JobContext, job: Job) -> None:
 
 
 async def _settle(session: AsyncSession, current: Recording, name: str | None) -> None:
-    """Link the take to the saved place it sits at and name it, in one server_seq bump."""
+    """Link the recording to the saved place it sits at and name it, in one server_seq bump."""
     changed = False
     if (
         current.place_id is None

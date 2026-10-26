@@ -72,7 +72,7 @@ it('Undo deletes the new tune and returns to the catalog', async () => {
   await expect.poll(() => router.state.location.pathname).toBe('/catalog')
 })
 
-it('recording a take on the new tune drops Undo', async () => {
+it('making a recording on the new tune drops Undo', async () => {
   const { db, tuneId } = await createFromSearch()
   await db.recordings.put(recordingRow('r1', { tune_id: tuneId, label: 'Fast take' }))
   await expect.element(undo()).not.toBeInTheDocument()
