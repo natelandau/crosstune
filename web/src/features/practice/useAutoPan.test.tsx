@@ -29,43 +29,39 @@ function runFrames() {
 
 const start: LaneView = { startMs: 10_000, pxPerS: 20, widthPx: 300, trimStartMs: 0 }
 
-it('follows a pan against the view it produced, not the one before it', () => {
-  const onPan = vi.fn()
-  const follow = vi.fn()
-  const { result, rerender } = renderHook(({ view }) => useAutoPan({ view, onPan, follow }), {
-    initialProps: { view: start },
+/** A view that a pan moves at once, as the playhead clock does. */
+function setup() {
+  let view = start
+  const onPan = vi.fn((deltaMs: number) => {
+    view = { ...view, startMs: view.startMs + deltaMs }
   })
+  const seen: number[] = []
+  const follow = vi.fn(() => seen.push(view.startMs))
+  const { result } = renderHook(() => useAutoPan({ view: () => view, onPan, follow }))
+  return { result, onPan, follow, seen }
+}
+
+it('follows each pan against the view it produced', () => {
+  const { result, onPan, follow, seen } = setup()
   result.current.track(start.widthPx - 2)
+  expect(onPan).not.toHaveBeenCalled()
   runFrames()
   expect(onPan).toHaveBeenCalledTimes(1)
-  // The pan has not reached the view yet, so there is nothing new to follow.
-  expect(follow).not.toHaveBeenCalled()
-
-  rerender({ view: { ...start, startMs: start.startMs + 400 } })
   expect(follow).toHaveBeenCalledTimes(1)
+  expect(seen[0]).toBeGreaterThan(start.startMs)
 })
 
-it('keeps panning while the pan it asked for has yet to render', () => {
-  const onPan = vi.fn()
-  const follow = vi.fn()
-  const { result, rerender } = renderHook(({ view }) => useAutoPan({ view, onPan, follow }), {
-    initialProps: { view: start },
-  })
+it('keeps panning every frame the pointer stays at the edge', () => {
+  const { result, onPan, seen } = setup()
   result.current.track(start.widthPx - 2)
   runFrames()
   runFrames()
   expect(onPan).toHaveBeenCalledTimes(2)
-
-  rerender({ view: { ...start, startMs: start.startMs + 800 } })
-  expect(follow).toHaveBeenCalledTimes(1)
+  expect(seen[1]).toBeGreaterThan(seen[0]!)
 })
 
 it('stops panning when the pointer leaves the edge or the drag ends', () => {
-  const onPan = vi.fn()
-  const follow = vi.fn()
-  const { result, rerender } = renderHook(({ view }) => useAutoPan({ view, onPan, follow }), {
-    initialProps: { view: start },
-  })
+  const { result, onPan } = setup()
   result.current.track(start.widthPx - 2)
   runFrames()
   result.current.track(start.widthPx / 2)
@@ -77,6 +73,4 @@ it('stops panning when the pointer leaves the edge or the drag ends', () => {
   result.current.stop()
   runFrames()
   expect(onPan).toHaveBeenCalledTimes(2)
-  rerender({ view: { ...start, pxPerS: start.pxPerS * 2 } })
-  expect(follow).not.toHaveBeenCalled()
 })

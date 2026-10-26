@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from 'react'
 import type { RecordingFile } from '../../db/recordings'
 import type { LocalRecording } from '../../db/types'
@@ -18,7 +17,8 @@ import { useLoops } from '../practice/useLoops'
 import { DOWNLOAD_FAILED, DOWNLOADING, fileStateLabel, NOT_AVAILABLE } from '../../text/format'
 import type { HeldSettings } from '../practice/usePracticeOverlay'
 import type { PlaybackState } from './playbackEngine'
-import { usePlaybackEngine } from './PlaybackEngineProvider'
+import { useEngineState, usePlaybackEngine } from './PlaybackEngineProvider'
+import { usePlayheadClock, type FrameSource, type Moving } from './playheadClock'
 import { playbackWindow, type PlaybackWindow } from './playbackWindow'
 import { PITCH_BADGE, SPEED_BADGE } from './transportCopy'
 import { useCurrentAudio } from './useCurrentAudio'
@@ -32,13 +32,25 @@ export interface RecordingTransportOptions {
   title: string
   /** What practice plays ahead of the row, which wins over the row's settings. */
   held: () => HeldSettings | null
+  /** What the playhead's frames run on, for a test to step them. */
+  frames?: FrameSource
 }
 
+/** The engine's discrete facts, which render; the position moves through `playhead`. */
+export type TransportState = Pick<
+  PlaybackState,
+  'playing' | 'lengthMs' | 'failed' | 'loop' | 'repeat'
+>
+
 export interface RecordingTransport {
-  state: PlaybackState
+  state: TransportState
+  /**
+   * The playhead, which moves every frame outside React while playing. Read a fact of it with
+   * `usePlayhead`.
+   */
+  playhead: Moving<number>
   toggle: () => void
   seek: (ms: number) => void
-  remainingMs: number
   /** The speed badge, or null at the default speed. */
   speedText: string | null
   /** The pitch badge, or null at the default pitch. */
@@ -64,6 +76,7 @@ export function useRecordingTransport({
   file,
   title,
   held,
+  frames,
 }: RecordingTransportOptions): RecordingTransport {
   const engine = usePlaybackEngine()
   const online = useOnline()
@@ -205,7 +218,17 @@ export function useRecordingTransport({
     if (unloadable) reportLoadFailed(recording.id)
   }, [unloadable, reportLoadFailed, recording.id])
 
-  const state = useSyncExternalStore(engine.subscribe, engine.getState)
+  const playing = useEngineState(engine, (s) => s.playing)
+  const lengthMs = useEngineState(engine, (s) => s.lengthMs)
+  const failedToPlay = useEngineState(engine, (s) => s.failed)
+  const loop = useEngineState(engine, (s) => s.loop)
+  const repeat = useEngineState(engine, (s) => s.repeat)
+  const pitchUnavailable = useEngineState(engine, (s) => s.pitchUnavailable)
+  const state = useMemo<TransportState>(
+    () => ({ playing, lengthMs, failed: failedToPlay, loop, repeat }),
+    [playing, lengthMs, failedToPlay, loop, repeat],
+  )
+  const playhead = usePlayheadClock(engine, { frames })
 
   const toggle = useCallback(() => {
     if (engine.getState().playing) engine.pause()
@@ -231,12 +254,12 @@ export function useRecordingTransport({
 
   return {
     state,
+    playhead,
     toggle,
     seek,
-    remainingMs: Math.max(0, state.lengthMs - state.positionMs),
     speedText: recording.speed_percent !== 100 ? SPEED_BADGE(recording.speed_percent) : null,
     pitchText: recording.pitch_cents !== 0 ? PITCH_BADGE(recording.pitch_cents) : null,
-    pitchUnavailable: state.pitchUnavailable && recording.pitch_cents !== 0,
+    pitchUnavailable: pitchUnavailable && recording.pitch_cents !== 0,
     status,
     // Offline refuses the tap by not offering it, rather than leaving a control that cannot work.
     canRetry: !src && failed && online,

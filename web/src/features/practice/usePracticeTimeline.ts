@@ -1,16 +1,10 @@
 import { animate, useReducedMotionConfig, type AnimationPlaybackControls } from 'motion/react'
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type RefObject,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { clamp } from '../../math'
 import { useLatest } from '../../ui/useLatest'
 import type { PlaybackEngine } from '../player/playbackEngine'
+import { useEngineState } from '../player/PlaybackEngineProvider'
+import { usePlayheadClock, type FrameSource, type PlayheadClock } from '../player/playheadClock'
 import { trimmedLengthMs } from './recordingRange'
 import type { RecordingView } from '../recordings/useRecordings'
 import type { Bounds, Span } from '../../domain/loopModel'
@@ -33,21 +27,19 @@ export interface PracticeTimeline {
   playing: boolean
   /** The trimmed take's length, from the row until the engine has loaded. */
   lengthMs: number
-  /** The engine's position on the trimmed timeline. */
-  positionMs: number
-  /** Where the playhead shows on the trimmed timeline, a scrub under way included. */
-  shownMs: number
-  /** `shownMs` on the source timeline. */
-  playheadMs: number
-  /** The engine's position on the source timeline, which the waveform draws itself from. */
-  enginePlayheadMs: number
+  /**
+   * Where the playhead is drawn on the trimmed timeline, a scrub under way included, which moves
+   * every frame outside React. Read a fact of it with `usePlayhead`.
+   */
+  playhead: PlayheadClock
+  /** The drawn playhead held to the take, on the source timeline. */
+  playheadMs: () => number
   /** The waveform's scrub, for the commands to settle and read. */
   scrub: RefObject<WaveformScrub | null>
-  /** The waveform reports a scrub's playhead here, or null when it lets go. */
-  onScrubbing: (ms: number | null) => void
   /** Stops a glide under way where it shows. */
   settle: () => void
-  /** The shown playhead on the trimmed timeline, which a playing engine can be ahead of. */
+  /** The playhead now on the trimmed timeline, a scrub under way included, which a playing
+   * engine has moved on from since the last frame. */
   shownPositionMs: () => number
   /** Stops a glide and returns the shown playhead on the source timeline. */
   settledPlayheadMs: () => number
@@ -59,8 +51,8 @@ export interface PracticeTimeline {
   scale: number | null
   /** The scale drawn, or null while there is none yet. */
   pxPerS: number | null
-  /** What the view shows on the trimmed timeline, centered on the playhead. */
-  visible: { startMs: number; endMs: number } | null
+  /** Half the time the view shows, or null while there is no scale. */
+  halfSpanMs: number | null
   /** False once zooming in can go no further, or while there is no scale. */
   canZoomIn: boolean
   /** False once the whole take shows, or while there is no scale. */
@@ -103,30 +95,34 @@ export function usePracticeTimeline({
   view,
   engine,
   size,
+  frames,
 }: {
   view: RecordingView
   engine: PlaybackEngine
   size: { width: number }
+  /** What the playhead's frames run on, for a test to step them. */
+  frames?: FrameSource
 }): PracticeTimeline {
   const { recording, file } = view
-  const state = useSyncExternalStore(engine.subscribe, engine.getState)
+  // Only discrete facts render; the position moves through `playhead`.
+  const engineLengthMs = useEngineState(engine, (s) => s.lengthMs)
+  const failed = useEngineState(engine, (s) => s.failed)
+  const playing = useEngineState(engine, (s) => s.playing)
+  const playhead = usePlayheadClock(engine, { frames })
   const trimStartMs = recording.trim_start_ms
-  const loaded = state.lengthMs > 0
-  const audioReady = loaded && !state.failed
-  const lengthMs = loaded ? state.lengthMs : (trimmedLengthMs(recording, file) ?? 0)
-  const positionMs = loaded ? state.positionMs : 0
+  const loaded = engineLengthMs > 0
+  const audioReady = loaded && !failed
+  const lengthMs = loaded ? engineLengthMs : (trimmedLengthMs(recording, file) ?? 0)
 
   // Every command acts where the playhead shows, which a scrub or glide under way moves ahead
   // of the engine, and stops a glide first so it cannot carry the playhead off afterward.
   const scrub = useRef<WaveformScrub | null>(null)
-  const [scrubbingMs, setScrubbingMs] = useState<number | null>(null)
   // Held to the take: a scrub pulled past an end is drawn there by the waveform alone.
-  const shownMs = loaded ? clamp(scrubbingMs ?? positionMs, 0, lengthMs) : 0
-  const playheadMs = trimStartMs + shownMs
+  const playheadMs = () => trimStartMs + (loaded ? clamp(playhead.ms, 0, lengthMs) : 0)
   const settle = () => {
     scrub.current?.settleGlide()
   }
-  const shownPositionMs = () => scrub.current?.shownMs() ?? engine.getState().positionMs
+  const shownPositionMs = () => playhead.live()
   const bounds = useMemo(
     () => ({ startMs: trimStartMs, endMs: trimStartMs + lengthMs }),
     [trimStartMs, lengthMs],
@@ -154,7 +150,7 @@ export function usePracticeTimeline({
       widthPx > 0 &&
       lengthMs > 0
     ) {
-      setScale(openingScale(loop, playheadMs, widthPx))
+      setScale(openingScale(loop, playheadMs(), widthPx))
       setOpenedAt(widthPx)
     }
   }
@@ -223,20 +219,14 @@ export function usePracticeTimeline({
     if (atMs < loop.startMs || atMs >= loop.endMs) engine.seek(loop.startMs - trimStartMs)
   }
 
-  const half = pxPerS ? (widthPx / 2 / pxPerS) * 1000 : 0
-  const visible = pxPerS ? { startMs: shownMs - half, endMs: shownMs + half } : null
-
   return {
     loaded,
     audioReady,
-    playing: state.playing,
+    playing,
     lengthMs,
-    positionMs,
-    shownMs,
+    playhead,
     playheadMs,
-    enginePlayheadMs: trimStartMs + positionMs,
     scrub,
-    onScrubbing: setScrubbingMs,
     settle,
     shownPositionMs,
     settledPlayheadMs: () => {
@@ -247,7 +237,7 @@ export function usePracticeTimeline({
     minScale,
     scale,
     pxPerS,
-    visible,
+    halfSpanMs: pxPerS ? (widthPx / 2 / pxPerS) * 1000 : null,
     canZoomIn: !!pxPerS && pxPerS < MAX_PX_PER_S,
     canZoomOut: !!pxPerS && pxPerS > minScale,
     open,

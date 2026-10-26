@@ -16,6 +16,7 @@ import { usePlayer } from './usePlayer'
 import { usePlayerFocusReturn } from './usePlayerFocusReturn'
 import { useRecordingTransport } from './useRecordingTransport'
 import { usePracticeOverlay } from '../practice/usePracticeOverlay'
+import { loadPracticeModal } from '../practice/practiceModalLoader'
 import { useFrame } from '../../platform/frame'
 import { useNowPlaying } from '../../layout/NowPlayingSlot'
 import type { BarProps } from './barParts'
@@ -212,6 +213,10 @@ function RecordingBar({
     held: () => practiceOverlay.held(recording.id),
   })
   const openPractice = useOpenPractice()
+  // A loaded recording is what practice opens on, so its code loads now rather than on the tap.
+  useEffect(() => {
+    if (openPractice) loadPracticeModal().catch(() => {})
+  }, [openPractice])
   return (
     <Bar
       title={title}

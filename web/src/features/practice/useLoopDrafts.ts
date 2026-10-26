@@ -27,7 +27,8 @@ export function useLoopDrafts({
 }: {
   rows: readonly LocalRecordingLoop[]
   playback: LoopPlayback
-  playheadMs: number
+  /** Where the playhead is drawn, on the source timeline. */
+  playheadMs: () => number
   /** A refused write. */
   onError: (error: unknown) => void
 }): {
@@ -88,7 +89,8 @@ export function useLoopDrafts({
     putDraft(draft.id, span)
     // A repeating loop follows the drag while the playhead stays inside it; one dragged off
     // the playhead takes it along on release.
-    if (draft.id === playback.selectedId && playheadMs >= span.startMs && playheadMs < span.endMs) {
+    const atMs = playheadMs()
+    if (draft.id === playback.selectedId && atMs >= span.startMs && atMs < span.endMs) {
       playback.hold(draft.id, span)
     }
   }

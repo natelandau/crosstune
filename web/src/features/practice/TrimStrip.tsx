@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { formatPreciseDuration } from '../../text/format'
 import { slicePeaks } from '../waveform/peaks'
+import type { Moving } from '../player/playheadClock'
 import type { ShownPeaks } from './recordingRange'
 import type { TrimAction, TrimHandle, TrimState } from './trimModel'
 import { Waveform } from './Waveform'
@@ -45,7 +46,7 @@ export function TrimStrip({
   trim,
   dispatch,
   shown,
-  playheadMs,
+  playhead,
   loaded,
   label,
   compact = false,
@@ -58,7 +59,8 @@ export function TrimStrip({
   dispatch: ActionDispatch<[TrimAction]>
   /** Peaks from the start of `trim.bounds`. */
   shown: ShownPeaks | null
-  playheadMs: number
+  /** The playhead on the source timeline. */
+  playhead: Moving<number>
   loaded: boolean
   label: string
   compact?: boolean
@@ -81,6 +83,10 @@ export function TrimStrip({
     [shown, from, to, low],
   )
   const fraction = (ms: number) => (span > 0 ? (ms - from) / span : 0)
+  const position = useMemo<Moving<number>>(
+    () => ({ get: () => playhead.get() - from, subscribe: playhead.subscribe }),
+    [playhead, from],
+  )
 
   const endDrag = () => {
     dragging.current = null
@@ -125,7 +131,7 @@ export function TrimStrip({
         peaks={peaks}
         loudest={shown?.loudest}
         lengthMs={span}
-        positionMs={playheadMs - from}
+        positionMs={position}
         disabled={!loaded}
         label={label}
         compact={compact}

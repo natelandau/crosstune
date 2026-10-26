@@ -57,12 +57,33 @@ async function setup(confirm: (question: ConfirmQuestion) => Promise<boolean> = 
   const analytics = recordingAnalytics()
   const onDone = vi.fn()
   const onTrimmedElsewhere = vi.fn()
+  let renders = 0
   const rendered = renderHook(
-    ({ view }: { view: RecordingView }) =>
-      useTrimEditor({ view, engine, confirm, onDone, onTrimmedElsewhere, isTop: () => true }),
+    ({ view }: { view: RecordingView }) => {
+      renders++
+      return useTrimEditor({
+        view,
+        engine,
+        confirm,
+        onDone,
+        onTrimmedElsewhere,
+        isTop: () => true,
+      })
+    },
     { wrapper: dataProviders({ db, analytics }), initialProps: { view } },
   )
-  return { id, view, element, engine, tick, onDone, onTrimmedElsewhere, analytics, ...rendered }
+  return {
+    id,
+    view,
+    element,
+    engine,
+    tick,
+    onDone,
+    onTrimmedElsewhere,
+    analytics,
+    renders: () => renders,
+    ...rendered,
+  }
 }
 
 function press(key: string) {
@@ -70,6 +91,19 @@ function press(key: string) {
 }
 
 describe('useTrimEditor', () => {
+  it("renders on a play, never on the engine's position tick", async () => {
+    const { element, engine, tick, result, renders } = await setup()
+    act(() => result.current.playSelection())
+    expect(result.current.playing).toBe(true)
+    const before = renders()
+    for (const s of [0.25, 0.5, 1.25]) {
+      element.currentTime = s
+      act(() => tick())
+      expect(engine.getState().positionMs).toBe(s * 1000)
+    }
+    expect(renders()).toBe(before)
+  })
+
   it('plays the selection and stops at its end', async () => {
     const { element, engine, tick, result } = await setup()
     act(() => result.current.dispatch({ type: 'drag', handle: 'end', ms: 20_000 }))

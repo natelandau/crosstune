@@ -90,39 +90,6 @@ it.each(['light', 'dark'] as const)(
   },
 )
 
-it.each(['light', 'dark'] as const)('practice reads on %s jet', (scheme) => {
-  const jet = PALETTE[scheme].jet
-  expect(ratio('#FFFFFF', jet)).toBeGreaterThanOrEqual(4.5)
-  // Practice draws the dark scheme's accent on jet in either appearance, as text and glyphs.
-  expect(ratio(PALETTE.dark.accent, jet)).toBeGreaterThanOrEqual(4.5)
-  expect(ratio(PALETTE.light.silver, jet)).toBeGreaterThanOrEqual(4.5)
-  expect(ratio(PALETTE.light.coral, jet)).toBeGreaterThanOrEqual(3)
-})
-
-// The tuner's two off-pitch steps on jet: both legible, and apart in lightness as well as hue,
-// so they stay apart under red-green color blindness.
-it.each(['light', 'dark'] as const)('tuner steps read on %s jet', (scheme) => {
-  const p = PALETTE[scheme]
-  expect(ratio(p.tuneClose, p.jet)).toBeGreaterThanOrEqual(3)
-  expect(ratio(p.coral, p.jet)).toBeGreaterThanOrEqual(3)
-  const gap = relativeLuminance(rgb(p.tuneClose)) - relativeLuminance(rgb(p.coral))
-  expect(Math.abs(gap)).toBeGreaterThanOrEqual(0.1)
-})
-
-// Inside the target zone the bars blend from the close step to green; every color between
-// stays legible on jet.
-it.each(['light', 'dark'] as const)('tuner bars read on %s jet across the blend', (scheme) => {
-  const p = PALETTE[scheme]
-  const bytes = (hex: string) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16))
-  const [close, green] = [bytes(p.tuneClose), bytes(PALETTE.dark.known)]
-  for (let step = 0; step <= 10; step++) {
-    const share = step / 10
-    const mixed = close.map((c, i) => Math.round(c * (1 - share) + green[i]! * share))
-    const hex = `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`
-    expect(ratio(hex, p.jet), `${share} green`).toBeGreaterThanOrEqual(3)
-  }
-})
-
 // Read from disk: the unit project hands CSS imports, raw ones included, over empty.
 const css = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8')
 
@@ -208,17 +175,63 @@ describe.each(['light', 'dark'] as const)('the music palettes in %s', (scheme) =
   )
 })
 
-// Practice draws the dark scheme's loops on jet in either appearance.
-it.each(LOOP_COLORS.dark.map((color, slot) => [slot, color] as const))(
-  'draws loop %i on jet',
-  (slot, color) => {
-    expect(normal(declared(':root').get(`--loop-${slot}-dark`) ?? 'missing')).toBe(normal(color))
-    expect(ratio(color, PALETTE.dark.jet)).toBeGreaterThanOrEqual(3)
-  },
-)
+const practiceTheme = readFileSync(new URL('./practiceTheme.css', import.meta.url), 'utf8')
+
+/** Practice's ground in a scheme: the token practiceTheme.css paints it with, as set there. */
+function practiceGround(scheme: 'light' | 'dark'): string {
+  const ref = /--panel-ground:\s*var\((--[\w-]+)\);/.exec(practiceTheme)?.[1]
+  const value = ref === undefined ? undefined : tokens(scheme).get(ref)
+  if (value === undefined) throw new Error('practice paints its ground with no tokens.css color')
+  return value
+}
+
+describe.each(['light', 'dark'] as const)("practice's ground in %s", (scheme) => {
+  const ground = practiceGround(scheme)
+
+  it('keeps white, the accent, silver, and the coral playhead legible', () => {
+    expect(ratio('#FFFFFF', ground)).toBeGreaterThanOrEqual(4.5)
+    // Practice draws the dark scheme's accent in either appearance, as text and glyphs.
+    expect(ratio(PALETTE.dark.accent, ground)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(PALETTE.light.silver, ground)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(PALETTE.light.coral, ground)).toBeGreaterThanOrEqual(3)
+  })
+
+  // Practice draws the dark scheme's loops, each under its white name tab.
+  it.each(LOOP_COLORS.dark.map((color, slot) => [slot, color] as const))(
+    'draws loop %i legibly, under a legible name',
+    (slot, color) => {
+      expect(normal(declared(':root').get(`--loop-${slot}-dark`) ?? 'missing')).toBe(normal(color))
+      expect(ratio(color, ground)).toBeGreaterThanOrEqual(3)
+      expect(ratio('#FFFFFF', color)).toBeGreaterThanOrEqual(4.5)
+    },
+  )
+
+  // The tuner's two off-pitch steps: both legible, and apart in lightness as well as hue, so
+  // they stay apart under red-green color blindness.
+  it('keeps the tuner steps legible and apart', () => {
+    const p = PALETTE[scheme]
+    expect(ratio(p.tuneClose, ground)).toBeGreaterThanOrEqual(3)
+    expect(ratio(p.coral, ground)).toBeGreaterThanOrEqual(3)
+    const gap = relativeLuminance(rgb(p.tuneClose)) - relativeLuminance(rgb(p.coral))
+    expect(Math.abs(gap)).toBeGreaterThanOrEqual(0.1)
+  })
+
+  // Inside the target zone the bars blend from the close step to green; every color between
+  // stays legible.
+  it('keeps the tuner bars legible across the blend', () => {
+    const bytes = (hex: string) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16))
+    const [close, green] = [bytes(PALETTE[scheme].tuneClose), bytes(PALETTE.dark.known)]
+    for (let step = 0; step <= 10; step++) {
+      const share = step / 10
+      const mixed = close.map((c, i) => Math.round(c * (1 - share) + green[i]! * share))
+      const hex = `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`
+      expect(ratio(hex, ground), `${share} green`).toBeGreaterThanOrEqual(3)
+    }
+  })
+})
 
 it('redeclares every loop color for practice', () => {
-  const practice = readFileSync(new URL('./practiceTheme.css', import.meta.url), 'utf8')
+  const practice = practiceTheme
   for (let slot = 0; slot < LOOP_COLORS.dark.length; slot++) {
     expect(practice).toContain(`--loop-${slot}: var(--loop-${slot}-dark);`)
     expect(practice).toContain(`--loop-${slot}-tint: var(--loop-${slot}-tint-dark);`)
@@ -252,14 +265,14 @@ function mixOf(values: Map<string, string>, name: string): string {
   return toHex(a.map((c, i) => c * share + under[i]! * (1 - share)))
 }
 
-// The in-tune wash replaces jet under the tuner's white type and green bars.
+// The in-tune wash replaces practice's ground under the tuner's white type and green bars.
 describe.each(['light', 'dark'] as const)('the tuner wash in %s', (scheme) => {
   const values = tokens(scheme)
   const wash = () => mixOf(values, '--tune-wash')
   it('keeps white type legible', () => expect(ratio('#FFFFFF', wash())).toBeGreaterThanOrEqual(4.5))
   it('keeps the green bars legible', () =>
     expect(ratio(values.get('--known-dark')!, wash())).toBeGreaterThanOrEqual(3))
-  it('reads apart from jet', () => expect(wash()).not.toBe(values.get('--jet')))
+  it('reads apart from the ground', () => expect(wash()).not.toBe(practiceGround(scheme)))
 })
 
 /** The hex color a translucent wash token paints over an opaque ground. */

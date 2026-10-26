@@ -1,10 +1,10 @@
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useReducer,
   useRef,
   useState,
-  useSyncExternalStore,
   type Dispatch,
   type RefObject,
 } from 'react'
@@ -16,6 +16,8 @@ import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import { isControl, isTextEntry } from '../../ui/keyTarget'
 import { useLatest } from '../../ui/useLatest'
 import { TICK_MS, type PlaybackEngine } from '../player/playbackEngine'
+import { useEngineState } from '../player/PlaybackEngineProvider'
+import { usePlayheadClock, type FrameSource, type Moving } from '../player/playheadClock'
 import type { RecordingView } from '../recordings/useRecordings'
 import { ZOOM_STEP } from './panel'
 import {
@@ -53,6 +55,8 @@ export interface TrimEditorOptions {
   onTrimmedElsewhere: () => void
   /** True while nothing is stacked over the editor, so its keys are its own. */
   isTop: () => boolean
+  /** What the playhead's frames run on, for a test to step them. */
+  frames?: FrameSource
 }
 
 export interface TrimEditor {
@@ -63,8 +67,11 @@ export interface TrimEditor {
   /** True once the engine knows the audio's length. */
   loaded: boolean
   playing: boolean
-  /** The engine's position on the source timeline. */
-  playheadMs: number
+  /**
+   * The playhead on the source timeline, which moves every frame outside React while playing.
+   * Read a fact of it with `usePlayhead`.
+   */
+  playhead: Moving<number>
   /** The stretch of the source the detail waveform shows. */
   detail: [number, number]
   /** True once either handle has left the row's current trim. */
@@ -108,11 +115,15 @@ export function useTrimEditor({
   onDone,
   onTrimmedElsewhere,
   isTop,
+  frames,
 }: TrimEditorOptions): TrimEditor {
   const { recording, file } = view
   const db = useDb()
   const analytics = useAnalytics()
-  const state = useSyncExternalStore(engine.subscribe, engine.getState)
+  // Only discrete facts render; the position moves through `playhead`.
+  const playing = useEngineState(engine, (s) => s.playing)
+  const lengthMs = useEngineState(engine, (s) => s.lengthMs)
+  const clock = usePlayheadClock(engine, { frames })
   const [trim, dispatch] = useReducer(trimReducer, undefined, () => initialTrim(recording, file))
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -120,8 +131,11 @@ export function useTrimEditor({
   // out from under the pointer.
   const [heldWindow, setHeldWindow] = useState<[number, number] | null>(null)
   const low = trim.bounds[0]
-  const loaded = state.lengthMs > 0
-  const playheadMs = low + (loaded ? state.positionMs : 0)
+  const loaded = lengthMs > 0
+  const playhead = useMemo<Moving<number>>(
+    () => ({ get: () => low + (loaded ? clock.get() : 0), subscribe: clock.subscribe }),
+    [clock, low, loaded],
+  )
   const detail = heldWindow ?? detailWindow(trim)
   const changed = isChanged(trim, recording)
 
@@ -284,8 +298,8 @@ export function useTrimEditor({
     dispatch,
     low,
     loaded,
-    playing: state.playing,
-    playheadMs,
+    playing,
+    playhead,
     detail,
     changed,
     goTo,
@@ -313,7 +327,7 @@ export function stripProps(editor: TrimEditor) {
   return {
     trim: editor.trim,
     dispatch: editor.dispatch,
-    playheadMs: editor.playheadMs,
+    playhead: editor.playhead,
     loaded: editor.loaded,
     detail: editor.detail,
     seek: editor.seek,

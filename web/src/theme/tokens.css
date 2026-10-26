@@ -44,6 +44,9 @@
   --knob: #ffffff;
   --coral: #ef8354;
   --jet: #2d3142;
+  /* The dark scheme's jet, which is practice's ground in either appearance: the light jet is too
+     pale for the dark scheme's loops to clear 3:1 on it. */
+  --jet-dark: #1e212c;
   /* Text on jet, such as a tooltip's. */
   --on-jet: #ffffff;
   --record: #ff3b30;
@@ -52,13 +55,13 @@
   --on-record: #16181d;
   --record-hover: #ff564d;
   --known: #248a3d;
-  /* The dark scheme's known, which the tuner draws on jet in either appearance. */
+  /* The dark scheme's known, which the tuner draws on practice's ground in either appearance. */
   --known-dark: #30d158;
   /* The tuner's close step, lighter than its far step of full coral, so the two read apart by
      lightness and not only by hue. */
   --tune-close: #f6bba1;
   /* The tuner's ground while the note is in tune. */
-  --tune-wash: color-mix(in srgb, var(--known-dark) 14%, var(--jet));
+  --tune-wash: color-mix(in srgb, var(--known-dark) 14%, var(--jet-dark));
   --learning: #ff8d28;
   --unknown: #8a909a;
   /* The unknown ring on a surface or a wash, which the lighter grey falls under 3:1 on. */
@@ -205,7 +208,7 @@
   --disabled-ink: #aba69e;
   --switch-off: #8a847b;
   --switch-on: #4a86c4;
-  --jet: #1e212c;
+  --jet: var(--jet-dark);
   --record: #ff453a;
   --record-hover: #ff5f56;
   --unknown-on-surface: #8a909a;

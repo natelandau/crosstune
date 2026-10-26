@@ -63,10 +63,10 @@ export function TunerScreen() {
         data-pane-focus
         data-practice
         data-tuner
-        className="bg-jet flex min-h-full flex-col text-(--panel-ink) transition-colors duration-(--dur-short) ease-(--ease)"
+        className="flex min-h-full flex-col bg-(--panel-ground) text-(--panel-ink) transition-colors duration-(--dur-short) ease-(--ease)"
         style={{
           colorScheme: 'dark',
-          backgroundColor: green > 0 ? blend('--jet', '--tune-wash', green) : undefined,
+          backgroundColor: green > 0 ? blend('--panel-ground', '--tune-wash', green) : undefined,
         }}
       >
         <RootBar title={TUNER_TITLE} />

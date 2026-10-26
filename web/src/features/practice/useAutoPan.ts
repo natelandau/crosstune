@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { LaneView } from './practiceZoom'
 import { useLatest } from '../../ui/useLatest'
 
@@ -10,39 +10,31 @@ const AUTO_PAN_MAX_PX = 8
 /**
  * Pans the zoomed view while a drag holds the pointer near either end of it, faster the nearer
  * the edge, so a loop can be dragged past what is shown. It pans every frame the pointer stays
- * there, however late each pan renders, and `follow` runs once a panned view has rendered, to
- * recompute the drag against it. A pan the view's ends refuse renders nothing, so the view
- * rests at its end.
+ * there, and `follow` runs after each pan, to recompute the drag against the view it produced,
+ * which `view` reads as it stands. A pan the view's ends refuse leaves the view at its end.
  */
 export function useAutoPan({
   view,
   onPan,
   follow,
 }: {
-  view: LaneView
+  view: () => LaneView
   onPan: (deltaMs: number) => void
   follow: () => void
 }) {
   const latestRef = useLatest({ view, onPan, follow })
   const frame = useRef(0)
   const pointerX = useRef(0)
-  const panned = useRef(false)
-  useLayoutEffect(() => {
-    if (!panned.current) return
-    panned.current = false
-    latestRef.current.follow()
-  }, [view.startMs, view.pxPerS, latestRef])
 
   // Stable for the life of the drag surface, so an effect can stop it without re-running.
   const controls = useMemo(() => {
     const stop = () => {
       cancelAnimationFrame(frame.current)
       frame.current = 0
-      panned.current = false
     }
     const depth = () => {
       const x = pointerX.current
-      const width = latestRef.current.view.widthPx
+      const width = latestRef.current.view().widthPx
       if (x < AUTO_PAN_ZONE_PX) return -(AUTO_PAN_ZONE_PX - Math.max(0, x))
       if (x > width - AUTO_PAN_ZONE_PX) return AUTO_PAN_ZONE_PX - Math.max(0, width - x)
       return 0
@@ -51,9 +43,9 @@ export function useAutoPan({
       frame.current = 0
       const by = depth()
       if (by === 0) return
-      const { view, onPan } = latestRef.current
-      panned.current = true
-      onPan(((by / AUTO_PAN_ZONE_PX) * AUTO_PAN_MAX_PX * 1000) / view.pxPerS)
+      const { view, onPan, follow } = latestRef.current
+      onPan(((by / AUTO_PAN_ZONE_PX) * AUTO_PAN_MAX_PX * 1000) / view().pxPerS)
+      follow()
       frame.current = requestAnimationFrame(step)
     }
     return {

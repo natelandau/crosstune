@@ -1,5 +1,5 @@
 import { animate, useReducedMotionConfig, type AnimationPlaybackControls } from 'motion/react'
-import { useEffect, useMemo, useRef, useState, type PointerEvent, type RefObject } from 'react'
+import { useEffect, useMemo, useRef, type PointerEvent, type RefObject } from 'react'
 import type { PlaybackEngine } from '../player/playbackEngine'
 import { capturePointer } from '../../platform/pointer'
 import { useLatest } from '../../ui/useLatest'
@@ -41,28 +41,33 @@ interface Press {
 
 /**
  * Dragging the audio under a fixed playhead. A drag past the threshold holds playback where it
- * is and moves `scrubbingMs` (trimmed timeline), and a touch released while moving
- * glides on with exponential decay. A drag past either end pulls on with resistance and
- * springs back to that end on release, so `scrubbingMs` can briefly lie outside the take.
+ * is and reports the playhead it draws to `onShow` (trimmed timeline), and a touch released
+ * while moving glides on with exponential decay. A drag past either end pulls on with
+ * resistance and springs back to that end on release, so what it shows can briefly lie outside
+ * the take. `onShow` gets null once it lets go.
  * Once still, the engine seeks there once and plays on if it was playing. A press released
  * without moving is a tap, reported with its x from the element's left edge and the element
  * it began on.
  */
 export function useScrub({
   engine,
+  position,
   pxPerS,
   lengthMs,
   pinches,
+  onShow,
   onTap,
 }: {
   engine: ScrubEngine
+  /** Where the playhead is drawn now (trimmed timeline), where a drag picks the audio up. */
+  position: () => number
+  onShow: (ms: number | null) => void
   pxPerS: number
   lengthMs: number
   /** Counts pinches; a press that gave way to one seeks nothing. */
   pinches?: RefObject<number>
   onTap?: (x: number, target: EventTarget | null) => void
 }): {
-  scrubbingMs: number | null
   handlers: PointerHandlers
   /**
    * Stops a glide under way where it has got to, so a command acts where the playhead shows
@@ -72,9 +77,17 @@ export function useScrub({
   /** Where a scrub or glide under way has the playhead (trimmed timeline), else null. */
   shownMs: () => number | null
 } {
-  const [scrubbingMs, setScrubbingMs] = useState<number | null>(null)
   const reduceMotion = useReducedMotionConfig() ?? false
-  const latestRef = useLatest({ engine, pxPerS, lengthMs, pinches, onTap, reduceMotion })
+  const latestRef = useLatest({
+    engine,
+    position,
+    pxPerS,
+    lengthMs,
+    pinches,
+    onShow,
+    onTap,
+    reduceMotion,
+  })
   const shownRef = useRef<number | null>(null)
   const press = useRef<Press | null>(null)
   const frame = useRef(0)
@@ -84,7 +97,7 @@ export function useScrub({
   const controls = useMemo(() => {
     const show = (ms: number | null) => {
       shownRef.current = ms
-      setScrubbingMs(ms)
+      latestRef.current.onShow(ms)
     }
     const stopGlide = () => {
       cancelAnimationFrame(frame.current)
@@ -154,15 +167,12 @@ export function useScrub({
         // A second finger belongs to a pinch, not to this press.
         if (press.current) return
         capturePointer(event.currentTarget, event.pointerId)
-        const { engine, pinches } = latestRef.current
+        const { position, pinches } = latestRef.current
         const caught = gliding()
         if (caught) stopGlide()
         const caughtMs = caught ? shownRef.current : null
         const { pxPerS, lengthMs } = latestRef.current
-        const fromMs =
-          caughtMs === null
-            ? engine.getState().positionMs
-            : unstretchedMs(caughtMs, pxPerS, lengthMs)
+        const fromMs = caughtMs === null ? position() : unstretchedMs(caughtMs, pxPerS, lengthMs)
         press.current = {
           pointerId: event.pointerId,
           startX: event.clientX,
@@ -188,9 +198,9 @@ export function useScrub({
         if (!pressed.moved && Math.abs(dx) < DRAG_THRESHOLD_PX) return
         // A tap leaves playback alone; only a drag holds it, from where the playhead now is.
         if (!held.current) {
-          const { engine } = latestRef.current
+          const { engine, position } = latestRef.current
           const state = engine.getState()
-          pressed.fromMs = state.positionMs
+          pressed.fromMs = position()
           held.current = { playing: state.playing }
           if (state.playing) engine.pause()
         }
@@ -261,5 +271,5 @@ export function useScrub({
   )
 
   const { handlers, settleGlide, shownMs } = controls
-  return { scrubbingMs, handlers, settleGlide, shownMs }
+  return { handlers, settleGlide, shownMs }
 }

@@ -1,4 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, type KeyboardEvent, type RefObject } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type RefObject,
+} from 'react'
 import { LOOP_LIMITS } from '../../api/vocabulary'
 import { clamp } from '../../math'
 import { useLatest } from '../../ui/useLatest'
@@ -15,7 +23,8 @@ import {
   type Span,
 } from '../../domain/loopModel'
 import { LANES_LABEL, LOOP_NAME } from './practiceCopy'
-import { msAtX, viewAt, xOfMs } from './practiceZoom'
+import type { Moving, PlayheadClock } from '../player/playheadClock'
+import { msAtX, viewAt, xOfMs, type Lane } from './practiceZoom'
 import { AUTO_PAN_ZONE_PX } from './useAutoPan'
 import { useScrub } from './useScrub'
 
@@ -66,6 +75,10 @@ const KEY_STEPS: Record<string, [number, number]> = {
  * playhead, which is the seek; a tap reports where it landed so the caller can pick the loop
  * there. Every loop shows as a tint with a name tab, and the selected loop's edges are handles.
  * Before the start and after the end the view stays blank rather than clamping.
+ *
+ * The view follows `playhead` every frame outside React: the bars redraw, the ruler and tints
+ * slide on a transform, and the tabs and handles take their place. React renders only when the
+ * loops, the selection, the scale, or the stretch of ruler laid out changes.
  */
 export function PracticeWaveform({
   shown,
@@ -74,7 +87,7 @@ export function PracticeWaveform({
   pxPerS,
   widthPx,
   bounds,
-  playheadMs,
+  playhead,
   renamingId,
   onTap,
   onRenameStart,
@@ -84,7 +97,6 @@ export function PracticeWaveform({
   onCommit,
   pinches,
   scrubRef,
-  onScrubbing,
 }: {
   shown: ShownPeaks | null
   loops: readonly LaneLoop[]
@@ -94,8 +106,8 @@ export function PracticeWaveform({
   widthPx: number
   /** The trim range on the source timeline. */
   bounds: Bounds
-  /** On the source timeline. */
-  playheadMs: number
+  /** Where the playhead is drawn; a scrub here reports to it. */
+  playhead: PlayheadClock
   /** The loop whose name is being edited, if any. */
   renamingId: string | null
   /** `sourceMs` on the source timeline. */
@@ -109,24 +121,38 @@ export function PracticeWaveform({
   pinches: RefObject<number>
   /** Filled with this waveform's scrub while it is mounted. */
   scrubRef?: RefObject<WaveformScrub | null>
-  /** Where a scrub or glide shows the playhead (trimmed timeline), null once it lets go. */
-  onScrubbing?: (ms: number | null) => void
 }) {
   const engine = usePlaybackEngine()
   const surface = useRef<HTMLDivElement>(null)
+  const slider = useRef<HTMLDivElement>(null)
+  const tickTrack = useRef<HTMLDivElement>(null)
+  const tintTrack = useRef<HTMLDivElement>(null)
+  const tabs = useRef(new Map<string, HTMLElement>())
   const trimStartMs = bounds.startMs
   const lengthMs = bounds.endMs - bounds.startMs
 
-  /** A tap `x` px from the left edge. It never scrubs, so its view is centered on the playhead. */
-  const tapAt = (x: number) => {
-    const tapped = viewAt(pxPerS, playheadMs - trimStartMs, widthPx, trimStartMs)
-    onTap(Math.round(msAtX(tapped, x)))
-  }
-  const { scrubbingMs, handlers, settleGlide, shownMs } = useScrub({
+  const lane = useMemo<Lane>(
+    () => ({
+      trimStartMs,
+      view: () => viewAt(pxPerS, playhead.ms, widthPx, trimStartMs),
+      subscribe: playhead.subscribe,
+    }),
+    [playhead, pxPerS, widthPx, trimStartMs],
+  )
+  const viewStart = useMemo<Moving<number>>(
+    () => ({ get: () => lane.view().startMs, subscribe: lane.subscribe }),
+    [lane],
+  )
+
+  /** A tap `x` px from the left edge, on the view as drawn. */
+  const tapAt = (x: number) => onTap(Math.round(msAtX(lane.view(), x)))
+  const { handlers, settleGlide, shownMs } = useScrub({
     engine,
+    position: playhead.live,
     pxPerS,
     lengthMs,
     pinches,
+    onShow: playhead.setScrub,
     onTap: (x, target) => {
       const tab = target instanceof Element ? target.closest<HTMLElement>('[data-name-tab]') : null
       if (selected && tab?.dataset.nameTab === selected.id) {
@@ -144,25 +170,29 @@ export function PracticeWaveform({
       scrubRef.current = null
     }
   }, [scrubRef, settleGlide, shownMs])
-  const onScrubbingRef = useLatest(onScrubbing)
-  useEffect(() => onScrubbingRef.current?.(scrubbingMs), [scrubbingMs, onScrubbingRef])
 
-  const centerMs = scrubbingMs ?? playheadMs - trimStartMs
-  const view = viewAt(pxPerS, centerMs, widthPx, trimStartMs)
-  const endMs = view.startMs + (widthPx / pxPerS) * 1000
-
+  // The ruler is laid out a view's width either side of `anchorMs`, so it slides a half view
+  // either way before it needs laying out again.
+  const spanMs = (widthPx / pxPerS) * 1000
+  const [anchorMs, setAnchorMs] = useState(() => playhead.ms)
   const step = TICK_STEPS.find((ms) => (ms / 1000) * pxPerS >= MIN_TICK_PX) ?? 300_000
   const ticks: number[] = []
-  const lastTick = Math.min(endMs, lengthMs)
-  for (let t = Math.max(0, Math.ceil(view.startMs / step) * step); t <= lastTick; t += step) {
+  const lastTick = Math.min(anchorMs + spanMs, lengthMs)
+  for (
+    let t = Math.max(0, Math.ceil((anchorMs - spanMs) / step) * step);
+    t <= lastTick;
+    t += step
+  ) {
     ticks.push(t)
   }
+  /** The x of a trimmed time on the sliding tracks. */
+  const trackX = (ms: number) => (ms / 1000) * pxPerS
 
-  const seekBy = (deltaMs: number) =>
-    engine.seek(clamp(engine.getState().positionMs + deltaMs, 0, lengthMs))
+  const seekBy = (deltaMs: number) => engine.seek(clamp(playhead.ms + deltaMs, 0, lengthMs))
   /** Moves the playhead just far enough to bring a handle the keyboard reached into view. */
   const reveal = (sourceMs: number) => {
     const ms = sourceMs - trimStartMs
+    const centerMs = playhead.ms
     const reach = ((widthPx / 2 - AUTO_PAN_ZONE_PX) / pxPerS) * 1000
     if (ms < centerMs - reach) engine.seek(clamp(ms + reach, 0, lengthMs))
     else if (ms > centerMs + reach) engine.seek(clamp(ms - reach, 0, lengthMs))
@@ -170,7 +200,7 @@ export function PracticeWaveform({
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const steps = KEY_STEPS[event.key]
-    let toMs: number | null = steps ? centerMs + steps[event.shiftKey ? 1 : 0] : null
+    let toMs: number | null = steps ? playhead.ms + steps[event.shiftKey ? 1 : 0] : null
     if (event.key === 'Home') toMs = 0
     if (event.key === 'End') toMs = lengthMs
     if (toMs === null) return
@@ -190,67 +220,106 @@ export function PracticeWaveform({
       )
     : bounds
 
+  /** Puts everything that moves with the playhead where the view now has it. */
+  const placeRef = useLatest(() => {
+    const view = lane.view()
+    const centerMs = playhead.ms
+    surface.current?.setAttribute('data-start-ms', String(view.startMs))
+    const scale = window.devicePixelRatio || 1
+    // On whole device pixels, so the ruler's hairlines stay sharp as they slide.
+    const shift = `translateX(${Math.round(-trackX(view.startMs) * scale) / scale}px)`
+    if (tickTrack.current) tickTrack.current.style.transform = shift
+    if (tintTrack.current) tintTrack.current.style.transform = shift
+    const text = POSITION_TEXT(centerMs, lengthMs)
+    const range = slider.current
+    // While playing, the slider's value changes only as often as its words do.
+    if (range && (!playhead.running || range.getAttribute('aria-valuetext') !== text)) {
+      range.setAttribute('aria-valuenow', String(Math.round(centerMs)))
+      range.setAttribute('aria-valuetext', text)
+    }
+    for (const loop of shownLoops) {
+      const tab = tabs.current.get(loop.id)
+      if (!tab) continue
+      const x0 = xOfMs(view, loop.startMs)
+      const x1 = xOfMs(view, loop.endMs)
+      const off = x1 <= 0 || x0 >= widthPx
+      tab.style.display = off ? 'none' : ''
+      if (off) continue
+      const left = Math.max(0, x0) + TAB_INSET_PX
+      if (loop.id === renamingId) {
+        tab.style.left = `${Math.max(0, Math.min(left, widthPx - RENAME_FIELD_PX))}px`
+      } else {
+        tab.style.left = `${left}px`
+        tab.style.maxWidth = `${Math.max(0, Math.min(widthPx, x1) - TAB_INSET_PX - left)}px`
+      }
+    }
+    if (Math.abs(centerMs - anchorMs) > spanMs / 2) setAnchorMs(centerMs)
+  })
+  useLayoutEffect(() => placeRef.current())
+  useLayoutEffect(() => lane.subscribe(() => placeRef.current()), [lane, placeRef])
+
+  const tabRef = (id: string) => (element: HTMLElement | null) => {
+    if (element) tabs.current.set(id, element)
+    else tabs.current.delete(id)
+  }
+
   return (
     <div
       ref={surface}
       data-practice-waveform
-      data-start-ms={view.startMs}
       data-px-per-s={pxPerS}
       className="relative flex touch-none flex-col gap-1 select-none"
       {...handlers}
     >
       <div aria-hidden="true" className="t-caption relative h-4 overflow-hidden tabular-nums">
-        {ticks.map((t) => (
-          <span
-            key={t}
-            data-tick
-            className="absolute top-0 border-l border-(--panel-muted) pl-1 leading-4 text-(--panel-muted)"
-            style={{ left: ((t - view.startMs) / 1000) * pxPerS }}
-          >
-            {step < 1000 ? formatPreciseDuration(t) : formatDuration(t)}
-          </span>
-        ))}
+        <div ref={tickTrack} className="absolute inset-y-0 left-0">
+          {ticks.map((t) => (
+            <span
+              key={t}
+              data-tick
+              className="absolute top-0 border-l border-(--panel-muted) pl-1 leading-4 whitespace-nowrap text-(--panel-muted)"
+              style={{ left: trackX(t) }}
+            >
+              {step < 1000 ? formatPreciseDuration(t) : formatDuration(t)}
+            </span>
+          ))}
+        </div>
       </div>
       <div className="relative">
         <LaneBars
           shown={shown}
-          startMs={view.startMs}
+          startMs={viewStart}
           pxPerS={pxPerS}
           lengthMs={lengthMs}
           heightClass="practice-detail"
         />
-        {shownLoops.map((loop) => {
-          const x0 = xOfMs(view, loop.startMs)
-          const x1 = xOfMs(view, loop.endMs)
-          if (x1 <= 0 || x0 >= widthPx) return null
-          return (
-            <div
-              key={loop.id}
-              aria-hidden="true"
-              data-loop-tint={loop.id}
-              data-color={loop.color}
-              className="loop-color pointer-events-none absolute inset-y-0 bg-(--loop-tint)"
-              style={{ left: Math.max(0, x0), right: widthPx - Math.min(widthPx, x1) }}
-            />
-          )
-        })}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div ref={tintTrack} className="absolute inset-y-0 left-0">
+            {shownLoops.map((loop) => (
+              <div
+                key={loop.id}
+                data-loop-tint={loop.id}
+                data-color={loop.color}
+                className="loop-color absolute inset-y-0 bg-(--loop-tint)"
+                style={{
+                  left: trackX(loop.startMs - trimStartMs),
+                  width: trackX(loop.endMs - loop.startMs),
+                }}
+              />
+            ))}
+          </div>
+        </div>
         <div
+          ref={slider}
           role="slider"
           tabIndex={0}
           aria-label={LANES_LABEL}
           aria-valuemin={0}
           aria-valuemax={lengthMs}
-          aria-valuenow={Math.round(centerMs)}
-          aria-valuetext={POSITION_TEXT(centerMs, lengthMs)}
           className="absolute inset-0 cursor-grab rounded-md outline-offset-0"
           onKeyDown={onKeyDown}
         />
         {shownLoops.map((loop) => {
-          const x0 = xOfMs(view, loop.startMs)
-          const x1 = xOfMs(view, loop.endMs)
-          if (x1 <= 0 || x0 >= widthPx) return null
-          const left = Math.max(0, x0) + TAB_INSET_PX
-          const style = { left, maxWidth: Math.max(0, Math.min(widthPx, x1) - TAB_INSET_PX - left) }
           if (loop.id === renamingId) {
             return (
               <RenameField
@@ -258,22 +327,22 @@ export function PracticeWaveform({
                 id={loop.id}
                 label={loop.label}
                 color={loop.color}
-                left={Math.max(0, Math.min(left, widthPx - RENAME_FIELD_PX))}
                 width={Math.min(RENAME_FIELD_PX, widthPx)}
+                fieldRef={tabRef(loop.id)}
                 onCommit={onRenameCommit}
                 onCancel={onRenameCancel}
               />
             )
           }
-          const tabClass = `loop-color t-secondary absolute top-0 truncate rounded-b-md bg-(--loop) px-2 py-1 font-semibold text-white`
+          const tabClass = `loop-color t-secondary absolute top-0 truncate rounded-b-md bg-(--loop) px-2 py-1 font-semibold text-(--panel-ink)`
           return loop.id === selected?.id ? (
             <button
               key={loop.id}
+              ref={tabRef(loop.id)}
               type="button"
               data-name-tab={loop.id}
               data-color={loop.color}
               className={`${tabClass} z-10`}
-              style={style}
               onClick={() => onRenameStart(loop.id)}
             >
               {loop.name}
@@ -281,11 +350,11 @@ export function PracticeWaveform({
           ) : (
             <span
               key={loop.id}
+              ref={tabRef(loop.id)}
               aria-hidden="true"
               data-name-tab={loop.id}
               data-color={loop.color}
               className={`${tabClass} pointer-events-none`}
-              style={style}
             >
               {loop.name}
             </span>
@@ -306,9 +375,9 @@ export function PracticeWaveform({
                 name={selected.name}
                 color={selected.color}
                 span={selected.span}
-                view={view}
+                lane={lane}
                 bounds={room}
-                playheadMs={playheadMs}
+                playheadMs={() => trimStartMs + playhead.ms}
                 surface={surface}
                 onDraft={onDraft}
                 onCommit={onCommit}
@@ -332,16 +401,17 @@ function RenameField({
   id,
   label,
   color,
-  left,
   width,
+  fieldRef,
   onCommit,
   onCancel,
 }: {
   id: string
   label: string | null
   color: number
-  left: number
   width: number
+  /** Takes the field, which practice places as the view moves. */
+  fieldRef: (element: HTMLInputElement | null) => void
   onCommit: (id: string, label: string) => void
   onCancel: () => void
 }) {
@@ -360,14 +430,17 @@ function RenameField({
   }
   return (
     <input
-      ref={input}
+      ref={(element) => {
+        input.current = element
+        fieldRef(element)
+      }}
       type="text"
       aria-label={LOOP_NAME}
       defaultValue={label ?? ''}
       maxLength={LOOP_LIMITS.label}
       data-color={color}
       className="loop-color t-secondary absolute top-0 z-20 h-8 rounded-b-md border border-(--loop) bg-(--panel-ground) px-2"
-      style={{ left, width }}
+      style={{ width }}
       // The field takes its own presses, so selecting text never scrolls the audio.
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => {

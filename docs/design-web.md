@@ -27,7 +27,8 @@ folder. Compose it, never rebuild it.
   for touch and a step smaller for pointer.
 - Radii, shadows, targets, timing: `web/src/theme/shape.css`.
 - A screen never types a color, text size, radius, or row height.
-- Jet: the practice and trim ground and tooltips only. Never the app
+- Jet: tooltips only, in each appearance's own jet. Practice, trim, and
+  the tuner draw on `--jet-dark` in either appearance. Never the app
   ground. Practice's colors come from `web/src/theme/practiceTheme.css`,
   and a shared control drawn on jet takes its tokens from there.
 - No tertiary ink. Text quieter than secondary is `t-caption` in
@@ -206,6 +207,11 @@ Browser and library behavior that a new screen runs into.
   below it.
 - A drag runs on pointer events, never the browser's drag and drop, whose
   drag image and drop line cannot lift a row or slide the others.
+- The playback engine reports its position at every tick. A view reads the
+  engine's discrete facts with `useEngineState`, and draws position from a
+  `PlayheadClock` (`features/player/playheadClock.ts`): DOM writes each
+  frame, a render only when its text changes. Never subscribe to the whole
+  engine state.
 - Opening a sheet costs time in proportion to the page under it, so a long
   list behind a sheet is virtualized or short.
 - A virtualized `RowList` hands a row's element to another row as it

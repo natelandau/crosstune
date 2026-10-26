@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { fakePlaybackEngine, FakeAudioElement } from '../../test/providers'
 import type { EngineClock, PlaybackEngine } from '../player/playbackEngine'
-import { PlaybackEngineContext, useEngineState } from '../player/PlaybackEngineProvider'
+import { PlaybackEngineContext } from '../player/PlaybackEngineProvider'
+import { usePlayheadClock } from '../player/playheadClock'
 import { LOOP_END, LOOP_START } from './LoopHandle'
 import { loopAt } from '../../domain/loopModel'
 import { LANES_LABEL, LOOP_NAME } from './practiceCopy'
@@ -40,7 +41,7 @@ function Harness({
   spies: Spies
   pinches: RefObject<number>
 }) {
-  const positionMs = useEngineState(engine, (s) => s.positionMs)
+  const playhead = usePlayheadClock(engine)
   const [selectedId, setSelectedId] = useState(initialSelected)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const selectedLoop = loops.find((loop) => loop.id === selectedId) ?? null
@@ -62,7 +63,7 @@ function Harness({
         pxPerS={PX_PER_S}
         widthPx={WIDTH_PX}
         bounds={{ startMs: 0, endMs: LENGTH_MS }}
-        playheadMs={positionMs}
+        playhead={playhead}
         renamingId={renamingId}
         onTap={(ms) => {
           spies.onTap(ms)
@@ -243,8 +244,9 @@ describe('PracticeWaveform', () => {
     expect(painted(WIDTH_PX / 2 - 10)).toBe(false)
     const ticks = () => [...waveform().querySelectorAll<HTMLElement>('[data-tick]')]
     await expect.poll(() => ticks().length).toBeGreaterThan(0)
+    const left = waveform().getBoundingClientRect().left
     await expect
-      .poll(() => Math.min(...ticks().map((tick) => parseFloat(tick.style.left))))
+      .poll(() => Math.min(...ticks().map((tick) => tick.getBoundingClientRect().left - left)))
       .toBeGreaterThanOrEqual(200)
     pointer(surface(), 'pointerup', 390)
     await expect.poll(() => seek.mock.calls).toEqual([[0]])

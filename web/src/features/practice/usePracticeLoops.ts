@@ -17,7 +17,7 @@ import type { Draft, NewLoop } from '../../domain/loopModel'
 import { NEW_LOOP_REASON } from './LoopsPanel'
 import { LOOP_SELECTED } from './practiceCopy'
 import type { LaneLoop, SelectedLoop } from './PracticeWaveform'
-import { useLoopCommands, type LoopCommands } from './useLoopCommands'
+import { useLoopActions, type LoopActions } from './useLoopCommands'
 import { useLoopDrafts, type LoopDrafts } from './useLoopDrafts'
 import { useLoopPlayback, type LoopPlayback } from './useLoopPlayback'
 import { useLoops } from './useLoops'
@@ -33,7 +33,7 @@ export interface PracticeLoops {
   selected: SelectedLoop | null
   selectedRow: LocalRecordingLoop | null
   nameOf: (row: LocalRecordingLoop) => string
-  commands: LoopCommands
+  commands: LoopActions
   /** The tune's part structure, which the name suggestions come from. */
   partStructure: string | null
   drafts: LoopDrafts
@@ -98,11 +98,10 @@ export function usePracticeLoops({
     async () => (tuneId ? (liveTune(await db.tunes.get(tuneId))?.part_structure ?? null) : null),
     [db, tuneId],
   )
-  const commands = useLoopCommands({
+  const commands = useLoopActions({
     recordingId: recording.id,
     loops: rows,
     playback,
-    playheadMs,
     bounds,
     announce,
     onError,

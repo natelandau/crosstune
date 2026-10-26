@@ -1,4 +1,5 @@
 import { Maximize2 } from 'lucide-react'
+import { usePlayhead } from './playheadClock'
 import { formatDuration } from '../../text/format'
 import { ELAPSED, OPEN_RECORDING, REMAINING } from './transportCopy'
 import type { RecordingTransport } from './useRecordingTransport'
@@ -73,31 +74,35 @@ function Place({ transport, title }: { transport: RecordingTransport; title: str
       </span>
     )
   }
-  const { state, remainingMs } = transport
+  return <Times transport={transport} title={title} />
+}
+
+/** The elapsed and remaining times either side of the scrubber, which render only as their
+ * text changes. */
+function Times({ transport, title }: { transport: RecordingTransport; title: string }) {
+  const { playhead, state } = transport
+  const { lengthMs } = state
+  const elapsed = usePlayhead(playhead, (ms) => formatDuration(ms))
+  const remaining = usePlayhead(playhead, (ms) => formatDuration(Math.max(0, lengthMs - ms)))
   return (
     <span className="flex min-w-0 flex-1 items-center gap-2">
       <span
         role="timer"
         aria-live="off"
-        aria-label={ELAPSED(formatDuration(state.positionMs))}
+        aria-label={ELAPSED(elapsed)}
         className="t-caption t-num text-ink-2 shrink-0"
       >
-        {formatDuration(state.positionMs)}
+        {elapsed}
       </span>
-      <Scrubber
-        title={title}
-        positionMs={state.positionMs}
-        lengthMs={state.lengthMs}
-        onSeek={transport.seek}
-      />
+      <Scrubber title={title} playhead={playhead} lengthMs={lengthMs} onSeek={transport.seek} />
       <span
         role="timer"
         aria-live="off"
-        aria-label={REMAINING(formatDuration(remainingMs))}
+        aria-label={REMAINING(remaining)}
         className="t-caption t-num text-ink-2 shrink-0"
       >
         {/* The true minus, so the sign keeps one width beside the elapsed time. */}
-        {`−${formatDuration(remainingMs)}`}
+        {`−${remaining}`}
       </span>
     </span>
   )

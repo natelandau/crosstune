@@ -96,8 +96,8 @@ Decide any case the rules below do not name.
 - Tabular numerals wherever a number changes or lines up.
 - Depth only on floating surfaces and bars. No row, card, or section casts
   a shadow.
-- Practice and trim draw on the jet ground in the dark scheme, in every
-  appearance (the Mac differs).
+- Practice and trim draw in the dark scheme, on its jet, in every
+  appearance (the Mac differs). The light jet is too pale for the loops.
 
 ## Identity
 
