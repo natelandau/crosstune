@@ -51,7 +51,7 @@ const markup = () => `
       )
         .map(field)
         .join('')}
-      <div class="prec field tall"><span>Crooked</span><span class="tog" data-tog><i></i></span></div>
+      <div class="prec field tall"><span>Crooked</span><span class="toggle" data-toggle><i></i></span></div>
       ${(
         [
           ['Feel', 'Driving'],
@@ -72,11 +72,11 @@ export const folk: DemoDef = {
   markup,
   async script(d) {
     const st = d.stage
-    const tog = $('[data-tog]', st)
+    const toggle = $('[data-toggle]', st)
     const badge = $('[data-badge]', st)
     await d.wait(900)
-    await d.tap(tog)
-    tog.classList.add('on')
+    await d.tap(toggle)
+    toggle.classList.add('on')
     await d.wait(1600)
     $('[data-sig]', st).innerHTML = `${signal(true)}${battery}`
     badge.innerHTML = `${ic('sync')}Syncing`

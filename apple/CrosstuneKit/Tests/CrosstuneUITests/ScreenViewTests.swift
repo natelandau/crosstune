@@ -82,17 +82,17 @@ import Testing
         @ObservationIgnored var lifecycle: [String] = []
     }
 
-    @MainActor @Observable private final class ReadingShelf {
+    @MainActor @Observable private final class ReadingPaneModel {
         var reading: ReadingPaneContent
         init(_ reading: ReadingPaneContent) { self.reading = reading }
     }
 
-    private struct ShelvedReadingPane: View {
-        let shelf: ReadingShelf
+    private struct ObservedReadingPane: View {
+        let model: ReadingPaneModel
         @State private var visit = PadPracticeVisit()
 
         var body: some View {
-            ReadingPane(reading: shelf.reading, visit: visit)
+            ReadingPane(reading: model.reading, visit: visit)
         }
     }
 
@@ -209,12 +209,12 @@ import Testing
 
         @Test func theReadingPaneReportsAKindItGainsWhileItShows() async {
             let sink = RecordingAnalyticsSink()
-            let shelf = ReadingShelf(ReadingPaneContent(tuneID: "t1", scans: [], lyrics: "Oh the cuckoo"))
-            let window = host(ShelvedReadingPane(shelf: shelf).environment(\.analytics, sink.client))
+            let model = ReadingPaneModel(ReadingPaneContent(tuneID: "t1", scans: [], lyrics: "Oh the cuckoo"))
+            let window = host(ObservedReadingPane(model: model).environment(\.analytics, sink.client))
             defer { window.close() }
             await settle { !sink.calls.isEmpty }
 
-            shelf.reading = ReadingPaneContent(tuneID: "t1", scans: [Self.scan], lyrics: "Oh the cuckoo")
+            model.reading = ReadingPaneContent(tuneID: "t1", scans: [Self.scan], lyrics: "Oh the cuckoo")
             await settle { sink.calls.count >= 2 }
 
             #expect(

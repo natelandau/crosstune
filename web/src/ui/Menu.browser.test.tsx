@@ -76,7 +76,7 @@ const OPTIONS: ConfirmOptions = {
   action: DELETE,
 }
 
-function Asker({
+function ConfirmButton({
   onAnswer,
   options = OPTIONS,
 }: {
@@ -91,7 +91,7 @@ it.each(['touch', 'pointer'] as const)(
   'confirm resolves false from Cancel on %s',
   async (density) => {
     const onAnswer = vi.fn()
-    renderWithProviders(<Asker onAnswer={onAnswer} />, { density })
+    renderWithProviders(<ConfirmButton onAnswer={onAnswer} />, { density })
     await page.getByRole('button', { name: 'Ask' }).click()
     await expect.element(page.getByText(OPTIONS.message)).toBeVisible()
     await page.getByRole('button', { name: CANCEL }).click()
@@ -104,7 +104,7 @@ it.each(['touch', 'pointer'] as const)(
   'confirm resolves true only from the named action on %s',
   async (density) => {
     const onAnswer = vi.fn()
-    renderWithProviders(<Asker onAnswer={onAnswer} />, { density })
+    renderWithProviders(<ConfirmButton onAnswer={onAnswer} />, { density })
     await page.getByRole('button', { name: 'Ask' }).click()
     await page.getByRole('button', { name: DELETE }).click()
     await expect.poll(() => onAnswer).toHaveBeenCalledExactlyOnceWith(true)
@@ -115,7 +115,7 @@ it.each(['touch', 'pointer'] as const)(
   'confirm resolves false from Escape on %s',
   async (density) => {
     const onAnswer = vi.fn()
-    renderWithProviders(<Asker onAnswer={onAnswer} />, { density })
+    renderWithProviders(<ConfirmButton onAnswer={onAnswer} />, { density })
     await page.getByRole('button', { name: 'Ask' }).click()
     await expect.element(page.getByText(OPTIONS.message)).toBeVisible()
     await userEvent.keyboard('{Escape}')
@@ -124,7 +124,7 @@ it.each(['touch', 'pointer'] as const)(
 )
 
 it('confirm is an alert dialog on pointer', async () => {
-  renderWithProviders(<Asker onAnswer={() => {}} />, { density: 'pointer' })
+  renderWithProviders(<ConfirmButton onAnswer={() => {}} />, { density: 'pointer' })
   await page.getByRole('button', { name: 'Ask' }).click()
   await expect.element(page.getByRole('alertdialog', { name: OPTIONS.title })).toBeVisible()
   await page.getByRole('button', { name: CANCEL }).click()
@@ -156,9 +156,12 @@ it('confirm declines a second question while one is open', async () => {
 })
 
 it('confirm styles a warning action unlike a danger one', async () => {
-  renderWithProviders(<Asker onAnswer={() => {}} options={{ ...OPTIONS, tone: 'warning' }} />, {
-    density: 'pointer',
-  })
+  renderWithProviders(
+    <ConfirmButton onAnswer={() => {}} options={{ ...OPTIONS, tone: 'warning' }} />,
+    {
+      density: 'pointer',
+    },
+  )
   await page.getByRole('button', { name: 'Ask' }).click()
   const action = page.getByRole('button', { name: DELETE })
   await expect.element(action).toBeVisible()
@@ -172,7 +175,7 @@ it('confirm styles a warning action unlike a danger one', async () => {
 it.each(['touch', 'pointer'] as const)(
   'confirm describes the dialog by its message on %s',
   async (density) => {
-    renderWithProviders(<Asker onAnswer={() => {}} />, { density })
+    renderWithProviders(<ConfirmButton onAnswer={() => {}} />, { density })
     await page.getByRole('button', { name: 'Ask' }).click()
     const dialog = page.getByRole(density === 'pointer' ? 'alertdialog' : 'dialog', {
       name: OPTIONS.title,
@@ -191,7 +194,7 @@ it.each(['touch', 'pointer'] as const)(
       return (
         <>
           <Button label="Remove asker" onPress={() => setShown(false)} />
-          {shown && <Asker onAnswer={onAnswer} />}
+          {shown && <ConfirmButton onAnswer={onAnswer} />}
         </>
       )
     }
@@ -221,7 +224,7 @@ it.each(['touch', 'pointer'] as const)(
         <>
           <Button label="Remove asker" onPress={() => setShown(false)} />
           <Button label="Again" onPress={() => void confirm(OPTIONS).then(second)} />
-          {shown && <Asker onAnswer={first} />}
+          {shown && <ConfirmButton onAnswer={first} />}
         </>
       )
     }
@@ -246,7 +249,7 @@ it('confirm leaves a question owned by another caller open when a caller leaves'
     return (
       <>
         <Button label="Remove A" onPress={() => setShownA(false)} />
-        {shownA && <Asker onAnswer={() => {}} />}
+        {shownA && <ConfirmButton onAnswer={() => {}} />}
         <AskerB />
       </>
     )
@@ -293,7 +296,7 @@ it('moves between pointer menu items with the arrow keys', async () => {
 })
 
 it('confirm puts focus on Cancel when the alert opens', async () => {
-  renderWithProviders(<Asker onAnswer={() => {}} />, { density: 'pointer' })
+  renderWithProviders(<ConfirmButton onAnswer={() => {}} />, { density: 'pointer' })
   await page.getByRole('button', { name: 'Ask' }).click()
   await expect.element(page.getByRole('button', { name: CANCEL })).toHaveFocus()
   await page.getByRole('button', { name: CANCEL }).click()
@@ -301,7 +304,7 @@ it('confirm puts focus on Cancel when the alert opens', async () => {
 
 it('confirm resolves false from a backdrop click on pointer', async () => {
   const onAnswer = vi.fn()
-  renderWithProviders(<Asker onAnswer={onAnswer} />, { density: 'pointer' })
+  renderWithProviders(<ConfirmButton onAnswer={onAnswer} />, { density: 'pointer' })
   await page.getByRole('button', { name: 'Ask' }).click()
   await expect.element(page.getByRole('alertdialog')).toBeVisible()
   await userEvent.click(page.elementLocator(document.body), { position: { x: 10, y: 10 } })

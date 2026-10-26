@@ -1622,7 +1622,7 @@ private struct RefusingSyncAPI: SyncAPI {
     }
 
     /// The group heading's note asks this of each row, so it shows only where a row has it.
-    @Test func onlyARowOfferingPlayIsStoodDownByATake() {
+    @Test func onlyARowOfferingPlayIsDisabledByATake() {
         let recording = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
         let held = RecordingFile(id: "r1", localState: .downloaded, fileName: "r1.m4a")
         #expect(RecordingRowContent.blocksPlay(recording, file: held, loaded: false, downloading: false))

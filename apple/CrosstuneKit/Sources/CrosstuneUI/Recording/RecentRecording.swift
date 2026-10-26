@@ -76,12 +76,12 @@ private struct NewRecordingHighlight: ViewModifier {
     @Environment(RecentRecording.self) private var recentRecording: RecentRecording?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
-    @State private var lit = false
+    @State private var isHighlighted = false
 
     func body(content: Content) -> some View {
         content
             .background {
-                RoundedRectangle(cornerRadius: 10).fill(Self.wash(scheme)).opacity(lit ? 1 : 0)
+                RoundedRectangle(cornerRadius: 10).fill(Self.wash(scheme)).opacity(isHighlighted ? 1 : 0)
             }
             // Keyed on the id, so a take marked before the row appears still lights it.
             .task(id: recentRecording?.id) {
@@ -99,9 +99,9 @@ private struct NewRecordingHighlight: ViewModifier {
 
     private func set(_ on: Bool, _ duration: Duration) {
         if reduceMotion {
-            lit = on
+            isHighlighted = on
         } else {
-            withAnimation(.easeInOut(duration: duration.seconds)) { lit = on }
+            withAnimation(.easeInOut(duration: duration.seconds)) { isHighlighted = on }
         }
     }
 }
