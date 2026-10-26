@@ -103,6 +103,8 @@ private let samples: [AnalyticsEvent] = [
     .accountDeletionStarted,
     .accountDeletionCancelled,
     .accountCreated(trial: true),
+    .accountReasonOpened,
+    .signUpStarted(method: .google, furthestSlide: .practice),
     .tuneCreated(source: .catalog, fieldsSet: [.title, .key], tuneID: tuneID),
     .tuneEdited(fieldsChanged: [.title, .key], tuneID: tuneID),
     .tuneStatusChanged(from: TuneStatus("learning")!, to: TuneStatus("known")!, tuneID: tuneID),
@@ -184,6 +186,7 @@ private let samples: [AnalyticsEvent] = [
 private func hasASample(_ event: AnalyticsEvent) {
     switch event {
     case .signedIn, .signedOut, .accountDeleted, .accountDeletionStarted, .accountDeletionCancelled, .accountCreated,
+        .accountReasonOpened, .signUpStarted,
         .tuneCreated,
         .tuneEdited, .tuneStatusChanged, .tuneArchived, .tuneUnarchived, .tuneDeleted, .bulkEditApplied,
         .searchPerformed, .catalogFiltered, .catalogSorted, .lyricsOpened, .standOpened, .listCreated, .listRenamed,
@@ -302,6 +305,8 @@ private let pairedEnums: [(name: String, rawValues: [String])] = [
     ("purchase_period", PurchasePeriod.allCases.map(\.rawValue)),
     ("purchase_failure", PurchaseFailure.allCases.map(\.rawValue)),
     ("restore_outcome", RestoreOutcome.allCases.map(\.rawValue)),
+    ("sign_up_method", SignUpMethod.allCases.map(\.rawValue)),
+    ("welcome_slide", WelcomeSlideName.allCases.map(\.rawValue)),
 ]
 
 @Test(arguments: pairedEnums)

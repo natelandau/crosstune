@@ -253,6 +253,7 @@ export interface EventProps {
   signed_in: Empty
   signed_out: Empty
   account_created: { trial: boolean }
+  account_reason_opened: Empty
   account_deleted: Empty
   account_deletion_started: Empty
   account_deletion_cancelled: Empty

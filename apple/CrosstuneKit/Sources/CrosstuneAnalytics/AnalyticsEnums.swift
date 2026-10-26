@@ -299,3 +299,20 @@ public enum RestoreOutcome: String, CaseIterable, Sendable {
     case otherAccount = "other_account"
     case error
 }
+
+/// How a person chose to sign up on the welcome screens.
+public enum SignUpMethod: String, CaseIterable, Sendable {
+    case apple
+    case google
+    case email
+}
+
+/// A slide of the welcome carousel.
+public enum WelcomeSlideName: String, CaseIterable, Sendable {
+    case story
+    case catalog
+    case record
+    case practice
+    case listen
+    case tuner
+}

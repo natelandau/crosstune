@@ -80,6 +80,7 @@ const SAMPLES: { [N in EventName]: EventProps[N] } = {
   signed_in: {},
   signed_out: {},
   account_created: { trial: true },
+  account_reason_opened: {},
   account_deleted: {},
   account_deletion_started: {},
   account_deletion_cancelled: {},
