@@ -1,5 +1,5 @@
 import { ChevronRight, Plus, type LucideIcon } from 'lucide-react'
-import { useId, type ReactNode, type Ref } from 'react'
+import { useId, type ReactNode } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import { Button } from './Button'
 import { WASH_HOVER } from './press'
@@ -20,7 +20,6 @@ export function PageSection({
   add,
   open,
   onOpenChange,
-  ref,
   children,
 }: {
   title: string
@@ -32,18 +31,12 @@ export function PageSection({
   /** Whether a disclosure section shows its content; leave unset for one always shown. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
-  ref?: Ref<HTMLElement>
   children?: ReactNode
 }) {
   const headingId = useId()
   const disclosure = open !== undefined
   return (
-    <section
-      ref={ref}
-      aria-labelledby={headingId}
-      // Clears the sticky pane bar, so a section scrolled into view never hides its heading.
-      className="scroll-mt-14 pt-8 first:pt-0"
-    >
+    <section aria-labelledby={headingId} className="pt-8 first:pt-0">
       <div className="flex min-h-11 items-center justify-between gap-3">
         <h2 id={headingId} className="t-heading">
           {disclosure ? (

@@ -14,8 +14,8 @@ struct TuneBand: View {
     let detail: TuneDetail
     /// More's items the screen carries out; nil leaves More off the title's row.
     var more: TuneMoreHandlers?
-    /// Opens the page's Lyrics section; nil leaves Lyrics out of the verbs.
-    var onShowLyrics: (() -> Void)?
+    /// Opens the lyrics reader; nil leaves Lyrics out of the verbs.
+    var onReadLyrics: (() -> Void)?
     /// Hears whether the title is on screen as the page scrolls.
     let onTitleShows: (Bool) -> Void
 
@@ -102,7 +102,7 @@ struct TuneBand: View {
             if let failure = model.failure(at: .screen) {
                 FailureText(failure)
             }
-            TuneVerbs(detail: detail, playFirst: detail.playFirst, onShowLyrics: onShowLyrics)
+            TuneVerbs(detail: detail, playFirst: detail.playFirst, onReadLyrics: onReadLyrics)
                 .frame(maxWidth: compact ? .infinity : Self.verbRowMaxWidth, alignment: .leading)
         }
     }

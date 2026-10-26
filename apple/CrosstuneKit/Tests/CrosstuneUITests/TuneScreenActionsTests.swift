@@ -13,7 +13,7 @@ import Testing
         func build(_ tag: String) -> TuneScreenActions {
             TuneScreenActions()
                 .supplied(by: outer) { $0.addLink = { _ in _ = tag } }
-                .supplied(by: inner) { $0.readLyrics = { _ in _ = tag } }
+                .supplied(by: inner) { $0.readLyrics = { _, _ in _ = tag } }
         }
         #expect(build("first") == build("second"))
     }

@@ -429,33 +429,23 @@ it('opens and closes the Lyrics section in place, starting closed', async () => 
   await expect.element(section.getByText('My old hen')).not.toBeInTheDocument()
 })
 
-it("the verb row's Lyrics opens the section and scrolls it into view", async () => {
+it("the verb row's Lyrics opens the reader and leaves the section closed", async () => {
   const db = openTestDb()
   await seedWithLyrics(db)
-  for (let n = 0; n < 24; n++) {
-    await db.recording_links.put(
-      linkRow(`l${n}`, 't1', { title: `Take ${n}`, position: n, provider: 'apple_music' }),
-    )
-  }
   await renderApp({ path: '/catalog/t1', db, frame: PHONE })
-  const section = tunePage().getByRole('region', { name: LYRICS_SECTION })
-  const toggle = section.getByRole('button', { name: LYRICS_SECTION, exact: true })
-  await expect.element(toggle).toBeInTheDocument()
-  // Below the fold until the verb brings it up.
-  await expect
-    .poll(() => section.element().getBoundingClientRect().top)
-    .toBeGreaterThan(PHONE.height)
+  const toggle = tunePage()
+    .getByRole('region', { name: LYRICS_SECTION })
+    .getByRole('button', { name: LYRICS_SECTION, exact: true })
+  await expect.element(toggle).toHaveAttribute('aria-expanded', 'false')
   // The verb row comes before the section's own heading button.
-  await tunePage().getByRole('button', { name: LYRICS_SECTION, exact: true }).first().click()
-  await expect.element(toggle).toHaveAttribute('aria-expanded', 'true')
-  const bar = tunePage().element().querySelector('[data-pane-bar]')!
-  await expect
-    .poll(() => section.element().getBoundingClientRect().top)
-    .toBeGreaterThanOrEqual(bar.getBoundingClientRect().bottom - 1)
-  await expect
-    .poll(() => section.element().getBoundingClientRect().top)
-    .toBeLessThan(PHONE.height / 2)
-  await expect.element(toggle).toHaveFocus()
+  const verb = tunePage().getByRole('button', { name: LYRICS_SECTION, exact: true }).first()
+  await verb.click()
+  const reader = page.getByRole('dialog', { name: lyricsTitle('Cluck Old Hen') })
+  await expect.element(reader.getByText('My old hen', { exact: true })).toBeVisible()
+  await expect.element(toggle).toHaveAttribute('aria-expanded', 'false')
+  await userEvent.keyboard('{Escape}')
+  await expect.element(reader).not.toBeInTheDocument()
+  await expect.element(verb).toHaveFocus()
 })
 
 it("the Lyrics section's Edit opens the tune form at the lyrics", async () => {

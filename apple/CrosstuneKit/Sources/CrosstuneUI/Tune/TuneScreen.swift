@@ -374,7 +374,7 @@ private struct TuneContent: View {
                 .opensForSample(.listPicker) { actions.addToList?(detail.userTune.id) }
                 .opensForSample(.link) { actions.addLink?(tuneID) }
                 .opensForSample(.findRecordings) { actions.findRecordings?(tuneID, nil) }
-                .opensForSample(.lyrics) { actions.readLyrics?(tuneID) }
+                .opensForSample(.lyrics) { actions.readLyrics?(tuneID, .section) }
                 .opensForSample(.scans) { actions.viewScans?(tuneID, 0, .tune) }
         }
     }

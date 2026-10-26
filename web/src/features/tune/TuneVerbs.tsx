@@ -75,7 +75,7 @@ function Verbs({
   play: PlayAction | null
   practiceId: string | null
   onPractice: (recordingId: string) => void
-  /** Opens the Lyrics section, or null when the tune has no lyrics. */
+  /** Opens the lyrics reader, or null when the tune has no lyrics. */
   onLyrics: (() => void) | null
 }) {
   const phone = useFrame() === 'phone'
@@ -121,7 +121,7 @@ export function TuneVerbs({
 }: {
   tuneId: string
   media: TuneMediaData
-  /** Opens the Lyrics section, or null when the tune has no lyrics. */
+  /** Opens the lyrics reader, or null when the tune has no lyrics. */
   onLyrics: (() => void) | null
 }) {
   const source = useTuneSource(tuneId)

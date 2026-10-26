@@ -15,8 +15,8 @@ public enum TuneVerbsText {
 struct TuneVerbs: View {
     let detail: TuneDetail
     let playFirst: String
-    /// Opens the page's Lyrics section; nil leaves Lyrics out.
-    let onShowLyrics: (() -> Void)?
+    /// Opens the lyrics reader; nil leaves Lyrics out.
+    let onReadLyrics: (() -> Void)?
 
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
@@ -132,7 +132,7 @@ struct TuneVerbs: View {
     private var layout: Layout {
         Self.verbs(
             detail: detail, playFirst: playFirst, recordingsPlay: plan.recordingsPlay,
-            planRead: plan?.isLoaded ?? true, showsLyrics: onShowLyrics != nil,
+            planRead: plan?.isLoaded ?? true, showsLyrics: onReadLyrics != nil,
             capturing: recorders?.isCapturing ?? false,
             holds: { player?.holds($0, id: $1) ?? false }, downloading: { transfers?.isDownloading($0) ?? false })
     }
@@ -172,8 +172,9 @@ struct TuneVerbs: View {
                         player?.open(item, in: window, playing: false, source: .tune)
                     }
                 case .lyrics:
-                    if let onShowLyrics {
-                        button(TuneFieldLabels.lyrics, "text.quote", prominent: false, action: onShowLyrics)
+                    if let onReadLyrics {
+                        button(TuneFieldLabels.lyrics, "text.quote", prominent: false, action: onReadLyrics)
+                            .lyricsZoomSource(tuneID: detail.tune.id, origin: .verb)
                     }
                 }
             }
