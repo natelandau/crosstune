@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useReducedMotion } from '../../platform/motion'
+import { useScheme } from '../../theme/useScheme'
 import { barCount, createLevels, eachBar, pushLevel, rmsLevel } from './waveformBars'
 import { useLatest } from '../../ui/useLatest'
 
@@ -24,6 +25,13 @@ export function LiveWaveform({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pausedRef = useLatest(paused)
   const reduceMotion = useReducedMotion()
+  const scheme = useScheme()
+  const colorRef = useRef('')
+
+  // Read only on a scheme change, so a frame reads no styles.
+  useEffect(() => {
+    if (canvasRef.current) colorRef.current = getComputedStyle(canvasRef.current).color
+  }, [scheme, className])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -47,7 +55,6 @@ export function LiveWaveform({
     resize()
     const observer = new ResizeObserver(resize)
     observer.observe(canvas)
-    const color = getComputedStyle(canvas).color
     const fillBar = (x: number, y: number, w: number, h: number) => context.fillRect(x, y, w, h)
 
     const draw = () => {
@@ -57,7 +64,7 @@ export function LiveWaveform({
         pushLevel(state, rmsLevel(data), barCount(width))
       }
       context.clearRect(0, 0, width, height)
-      context.fillStyle = color
+      context.fillStyle = colorRef.current
       eachBar(state, width, height, fillBar)
     }
     draw()
@@ -67,7 +74,7 @@ export function LiveWaveform({
     }
   }, [analyser, active, reduceMotion, pausedRef])
 
-  // The draw loop reads this color off the canvas, so the bars follow the palette in either theme.
+  // The bars take this color off the canvas, so they follow the palette in either theme.
   return (
     <canvas
       ref={canvasRef}

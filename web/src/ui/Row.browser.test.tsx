@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { Selection } from 'react-aria-components'
 import { page, userEvent } from 'vitest/browser'
 import { expect, it, vi } from 'vitest'
+import { contrastRatio, paintedBackground } from '../test/contrast'
 import { longPress } from '../test/gestures'
 import { renderWithProviders } from '../test/render'
 import { CANCEL } from './Confirm'
@@ -127,15 +128,29 @@ it('puts the detail on a second line on touch', async () => {
     .toBeGreaterThanOrEqual(title.element().getBoundingClientRect().bottom - 1)
 })
 
-it('dims the whole row', async () => {
-  renderWithProviders(
-    <RowList label="Tunes">
-      <Row id="1" textValue="Old Joe" title="Old Joe" dimmed />
-    </RowList>,
-  )
-  const row = page.getByRole('row', { name: /Old Joe/ })
-  await expect.poll(() => Number(getComputedStyle(row.element()).opacity)).toBeLessThan(1)
-})
+it.each(['light', 'dark'] as const)(
+  'dims a row in %s with ink that keeps text contrast',
+  async (scheme) => {
+    renderWithProviders(
+      <RowList label="Tunes">
+        <Row id="1" textValue="Old Joe" title="Old Joe" detail="Archived" dimmed />
+        <Row id="2" textValue="Kesh" title="Kesh" />
+      </RowList>,
+      { scheme },
+    )
+    const title = page.getByText('Old Joe', { exact: true })
+    const detail = page.getByText('Archived', { exact: true })
+    const plain = page.getByText('Kesh', { exact: true })
+    const ratioOf = (element: Element) =>
+      contrastRatio(getComputedStyle(element).color, paintedBackground(element))
+    await expect.element(title).toBeVisible()
+    await expect.poll(() => ratioOf(title.element())).toBeLessThan(ratioOf(plain.element()))
+    await expect.poll(() => ratioOf(title.element())).toBeGreaterThanOrEqual(4.5)
+    await expect.poll(() => ratioOf(detail.element())).toBeGreaterThanOrEqual(4.5)
+    const row = page.getByRole('row', { name: /Old Joe/ })
+    await expect.poll(() => getComputedStyle(row.element()).opacity).toBe('1')
+  },
+)
 
 it('describes the row after its name', async () => {
   renderWithProviders(

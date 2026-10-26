@@ -80,7 +80,8 @@ Decide any case the rules below do not name.
 - Coral: the mark, the selected sidebar row's glyph, the playhead of
   anything that plays back, loop handles, and what marks Premium. Nothing
   else. Premium's coral is a fill with dark ink, never coral text.
-- Recording red: recording only, never a destructive action.
+- Recording red: recording only, never a destructive action. A label on
+  it is `onRecord`, dark, since white falls under 4.5:1.
 - Danger: destructive actions only. Warning: cautionary actions only.
 - Charts draw in ink tones.
 - Status, key, loop, and heatmap colors are identical on every platform.
@@ -176,7 +177,7 @@ Decide any case the rules below do not name.
 - One row component per platform for every list of tunes.
 - A row's title keeps its width first. Secondary details truncate, then
   drop out, before the title shrinks.
-- Archived: dimmed as a whole.
+- Archived: dimmed ink that still passes text contrast. Glyphs keep their color.
 - Reorder: drag the whole row, no grip. The dragged row lifts, the others
   slide aside, and a drop settles it. No drop line.
 - Playing row: an animated speaker and a light accent wash.

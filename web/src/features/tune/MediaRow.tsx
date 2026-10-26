@@ -152,7 +152,7 @@ export function RecordingRow({
       <TransportGlyph shape={control === 'close' ? 'stop' : 'play'} />
     ) : control === 'download' || control === 'downloading' ? (
       <CloudDownload
-        className={`size-5 shrink-0 ${control === 'downloading' || data.offlineDownload ? 'opacity-40' : ''}`}
+        className={`size-5 shrink-0 ${control === 'downloading' || data.offlineDownload ? 'text-glyph-off' : ''}`}
         aria-hidden
       />
     ) : null

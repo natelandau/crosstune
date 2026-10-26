@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { contrastRatio, relativeLuminance } from '../test/contrast'
-import { PALETTE, type Palette } from './tokens'
+import { HEAT_STEPS, KEY_COLORS, LOOP_COLORS, PALETTE, type Palette } from './tokens'
 
 // contrastRatio measures rgb() strings, and the palette is hex.
 function rgb(hex: string): string {
@@ -28,9 +28,12 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
       [`secondary ink on ${name}`, p.ink2, bg, 4.5],
       [`accent on ${name}`, p.accent, bg, 4.5],
     ]),
+    ['dimmed title on the ground', p.inkDim, p.ground, 4.5],
+    ['a glyph that cannot act on the ground', p.glyphOff, p.ground, 3],
     ['label on the accent fill', p.onAccentFill, p.accentFill, 4.5],
     ['the mark on the ground', p.markInk, p.ground, 3],
     ['label on coral', p.onCoral, p.coral, 4.5],
+    ['label on jet', p.onJet, p.jet, 4.5],
     ['absence mark on a card', p.glyphFaint, p.surface, 3],
     ['absence mark on the ground', p.glyphFaint, p.ground, 3],
     ...(['ground', 'surface'] as const).flatMap((name): Case[] => [
@@ -44,6 +47,8 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
       [`warning label on ${name}`, p.warning, bg, 4.5],
     ]),
     ['label on danger', p.onTone, p.danger, 4.5],
+    ['label on the record fill', p.onRecord, p.record, 4.5],
+    ['label on the record fill under the pointer', p.onRecord, p.recordHover, 4.5],
     ['label on warning', p.onTone, p.warning, 4.5],
     ...grounds
       .filter(([name]) => name !== 'field')
@@ -68,6 +73,22 @@ it.each([
 ] as const)("draws learning in Apple's %s orange", (scheme, orange) => {
   expect(PALETTE[scheme].learning).toBe(orange)
 })
+
+// A dimmed title still reads as a title: quieter than ink, louder than secondary ink.
+it.each(['light', 'dark'] as const)('dims the %s title between ink and secondary ink', (scheme) => {
+  const p = PALETTE[scheme]
+  const fromGround = (ink: string) => ratio(ink, p.ground)
+  expect(fromGround(p.inkDim)).toBeLessThan(fromGround(p.ink))
+  expect(fromGround(p.inkDim)).toBeGreaterThan(fromGround(p.ink2))
+})
+
+it.each(['light', 'dark'] as const)(
+  'draws a %s glyph that cannot act fainter than secondary ink',
+  (scheme) => {
+    const p = PALETTE[scheme]
+    expect(ratio(p.glyphOff, p.ground)).toBeLessThan(ratio(p.ink2, p.ground))
+  },
+)
 
 it.each(['light', 'dark'] as const)('practice reads on %s jet', (scheme) => {
   const jet = PALETTE[scheme].jet
@@ -146,6 +167,64 @@ describe.each(['light', 'dark'] as const)('tokens.css in %s', (scheme) => {
   })
 })
 
+describe.each(['light', 'dark'] as const)('the music palettes in %s', (scheme) => {
+  const values = tokens(scheme)
+  const css = (name: string) => normal(values.get(name) ?? 'missing')
+
+  it.each(KEY_COLORS[scheme].map((colors, pitch) => [pitch, colors] as const))(
+    'matches tokens.ts for key %i',
+    (pitch, { bg, ink, onBg, onInk }) => {
+      expect(css(`--key-${pitch}-bg`)).toBe(normal(bg))
+      expect(css(`--key-${pitch}-ink`)).toBe(normal(ink))
+      expect(css(`--key-${pitch}-on-bg`)).toBe(normal(onBg))
+      expect(css(`--key-${pitch}-on-ink`)).toBe(normal(onInk))
+    },
+  )
+
+  it.each(KEY_COLORS[scheme].map((colors, pitch) => [pitch, colors] as const))(
+    'keeps key %i legible at rest and chosen',
+    (_, { bg, ink, onBg, onInk }) => {
+      expect(ratio(ink, bg)).toBeGreaterThanOrEqual(4.5)
+      expect(ratio(onInk, onBg)).toBeGreaterThanOrEqual(4.5)
+    },
+  )
+
+  it.each(LOOP_COLORS[scheme].map((color, slot) => [slot, color] as const))(
+    'matches tokens.ts for loop %i, its tint, and keeps its white label legible',
+    (slot, color) => {
+      expect(css(`--loop-${slot}`)).toBe(normal(color))
+      const tint = css(`--loop-${slot}-tint`)
+      expect(tint.startsWith(`rgba(${rgb(color).slice(4, -1).replace(/\s/g, '')},`)).toBe(true)
+      expect(ratio('#FFFFFF', color)).toBeGreaterThanOrEqual(4.5)
+    },
+  )
+
+  it.each(HEAT_STEPS[scheme].map((color, step) => [step + 1, color] as const))(
+    'matches tokens.ts for heatmap step %i and reads against the page',
+    (step, color) => {
+      expect(css(`--heat-${step}`)).toBe(normal(color))
+      expect(ratio(color, PALETTE[scheme].ground)).toBeGreaterThanOrEqual(3)
+    },
+  )
+})
+
+// Practice draws the dark scheme's loops on jet in either appearance.
+it.each(LOOP_COLORS.dark.map((color, slot) => [slot, color] as const))(
+  'draws loop %i on jet',
+  (slot, color) => {
+    expect(normal(declared(':root').get(`--loop-${slot}-dark`) ?? 'missing')).toBe(normal(color))
+    expect(ratio(color, PALETTE.dark.jet)).toBeGreaterThanOrEqual(3)
+  },
+)
+
+it('redeclares every loop color for practice', () => {
+  const practice = readFileSync(new URL('./practiceTheme.css', import.meta.url), 'utf8')
+  for (let slot = 0; slot < LOOP_COLORS.dark.length; slot++) {
+    expect(practice).toContain(`--loop-${slot}: var(--loop-${slot}-dark);`)
+    expect(practice).toContain(`--loop-${slot}-tint: var(--loop-${slot}-tint-dark);`)
+  }
+})
+
 it("gives practice the dark scheme's danger in either appearance", () => {
   expect(normal(declared(':root').get('--danger-dark') ?? 'missing')).toBe(
     normal(PALETTE.dark.danger),
@@ -212,6 +291,14 @@ describe.each(['light', 'dark'] as const)('washes in %s', (scheme) => {
     ['trial card secondary ink on its tint', '--ink-2', '--tint', '--ground', 4.5],
     ['trial card ink on its tint', '--ink', '--tint', '--ground', 4.5],
     ['secondary ink on a selected row', '--ink-2', '--wash', '--ground', 4.5],
+    // A dimmed row, such as an archived tune, under each wash a row takes.
+    ...(['--row-hover', '--wash', '--play-wash'] as const).flatMap(
+      (wash): [string, string, string, string, number][] => [
+        [`dimmed title on ${wash}`, '--ink-dim', wash, '--ground', 4.5],
+        [`dimmed secondary ink on ${wash}`, '--ink-2', wash, '--ground', 4.5],
+        [`a glyph that cannot act on ${wash}`, '--glyph-off', wash, '--ground', 3],
+      ],
+    ),
     ['ink on a set filter', '--ink', '--set-fill', '--ground', 4.5],
     ['secondary ink on a set filter', '--ink-2', '--set-fill', '--ground', 4.5],
     ['set filter label on its wash over the ground', '--set-label', '--set-fill', '--ground', 4.5],

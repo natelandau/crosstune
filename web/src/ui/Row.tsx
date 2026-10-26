@@ -209,11 +209,12 @@ export function Row({
       data-playing={playing || undefined}
       data-current={current || undefined}
       data-new={fresh || undefined}
+      data-dimmed={dimmed || undefined}
       className={`group relative flex min-h-(--target) cursor-default items-center rounded-(--radius-row) transition-[box-shadow,background-color] duration-(--dur-short) ease-(--ease) data-[lifted]:shadow-(--shadow-float) data-[reordering]:z-10 ${
         touch
           ? 'overflow-hidden'
           : `data-[selected]:bg-wash data-[current]:bg-wash data-[pressed]:bg-wash! data-[reordering]:bg-ground! gap-3 px-3 py-0 data-[current]:[--row-tint:var(--wash)] data-[pressed]:[--row-tint:var(--wash)] data-[reordering]:bg-[linear-gradient(var(--row-tint),var(--row-tint))] data-[selected]:[--row-tint:var(--wash)] ${playing ? 'bg-(--play-wash) [--row-tint:var(--play-wash)]' : 'not-data-[selected]:not-data-[current]:hover:bg-row-hover [--row-tint:transparent] not-data-[selected]:not-data-[current]:hover:[--row-tint:var(--row-hover)]'}`
-      } ${dimmed ? 'opacity-60' : ''}`}
+      } ${dimmed ? 'text-ink [--ink:var(--ink-dim)]' : ''}`}
     >
       {touch ? (
         <RowSwipe rowKey={id} actions={actions} onLongPress={items.length > 0 ? openAt : undefined}>

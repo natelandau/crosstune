@@ -14,6 +14,9 @@
   --control-edge: var(--hairline);
   --ink: #1c2026;
   --ink-2: #61676f;
+  /* A dimmed row's title, such as an archived tune's: quieter than ink, still 4.5:1 on the row's
+     washes. Its secondary ink stays --ink-2, which has no room left to fade. */
+  --ink-dim: #545a62;
   /* The Harbor blue of text, focus rings, selection, and set filters. */
   --accent: #1f5f9e;
   /* The dark scheme's accent, which practice also uses on jet in either appearance. */
@@ -41,7 +44,13 @@
   --knob: #ffffff;
   --coral: #ef8354;
   --jet: #2d3142;
+  /* Text on jet, such as a tooltip's. */
+  --on-jet: #ffffff;
   --record: #ff3b30;
+  /* The label on a record fill, and the fill under the pointer: white falls under 4.5:1 on the
+     red, so the label is dark and the hover lightens. */
+  --on-record: #16181d;
+  --record-hover: #ff564d;
   --known: #248a3d;
   /* The dark scheme's known, which the tuner draws on jet in either appearance. */
   --known-dark: #30d158;
@@ -79,6 +88,9 @@
   --premium-ink: var(--accent);
   /* The faintest glyph that still clears 3:1 on a fill, for a mark that means absence. */
   --glyph-faint: #8a857c;
+  /* A control's glyph while it cannot act, such as a download offline: fainter than secondary
+     ink, still 3:1 under a row's washes. */
+  --glyph-off: #8a857c;
   /* The name the shared mark reads its T from. */
   --color-mark: var(--coral);
   color-scheme: light;
@@ -145,6 +157,21 @@
   --loop-5: #6b3fc4;
   --loop-5-tint: rgba(107, 63, 196, 0.2);
 
+  /* The dark scheme's loops, lighter to clear 3:1 on a dark page and no lighter, so white text
+     still clears 4.5:1 on them. Practice draws them on jet in either appearance. */
+  --loop-0-dark: #3570dc;
+  --loop-0-tint-dark: rgba(53, 112, 220, 0.3);
+  --loop-1-dark: #c0560a;
+  --loop-1-tint-dark: rgba(192, 86, 10, 0.3);
+  --loop-2-dark: #26853c;
+  --loop-2-tint-dark: rgba(38, 133, 60, 0.3);
+  --loop-3-dark: #c8368c;
+  --loop-3-tint-dark: rgba(200, 54, 140, 0.3);
+  --loop-4-dark: #0f808a;
+  --loop-4-tint-dark: rgba(15, 128, 138, 0.3);
+  --loop-5-dark: #7d56d8;
+  --loop-5-tint-dark: rgba(125, 86, 216, 0.3);
+
   /* The stats heatmap's four steps, from the lightest active day to the busiest: one hue, a cool
      grey-blue, so the steps read as amounts and never as categories. Even the lightest clears
      3:1 against the page, so a day with any activity never reads as empty. */
@@ -163,6 +190,7 @@
   --control-edge: transparent;
   --ink: #ecedf0;
   --ink-2: #9ca2ab;
+  --ink-dim: #b4b9c1;
   --accent: var(--accent-dark);
   --accent-fill: #2b609a;
   --on-accent-fill: #ffffff;
@@ -179,6 +207,7 @@
   --switch-on: #4a86c4;
   --jet: #1e212c;
   --record: #ff453a;
+  --record-hover: #ff5f56;
   --unknown-on-surface: #8a909a;
   --known: #30d158;
   --learning: #ff9230;
@@ -197,6 +226,7 @@
   /* Accent text falls under 4.5:1 on the dark wash. */
   --premium-ink: var(--ink);
   --glyph-faint: #706b63;
+  --glyph-off: #8a847b;
   color-scheme: dark;
 
   --key-0-bg: #5c3232;
@@ -248,23 +278,21 @@
   --key-11-on-bg: #48bc99;
   --key-11-on-ink: #052018;
 
-  /* Lighter than the light palette's to clear 3:1 on a dark page, and no lighter, so white
-     text still clears 4.5:1 on them. */
-  --loop-0: #3570dc;
-  --loop-0-tint: rgba(53, 112, 220, 0.3);
-  --loop-1: #c0560a;
-  --loop-1-tint: rgba(192, 86, 10, 0.3);
-  --loop-2: #26853c;
-  --loop-2-tint: rgba(38, 133, 60, 0.3);
-  --loop-3: #c8368c;
-  --loop-3-tint: rgba(200, 54, 140, 0.3);
-  --loop-4: #0f808a;
-  --loop-4-tint: rgba(15, 128, 138, 0.3);
-  --loop-5: #7d56d8;
-  --loop-5-tint: rgba(125, 86, 216, 0.3);
+  --loop-0: var(--loop-0-dark);
+  --loop-0-tint: var(--loop-0-tint-dark);
+  --loop-1: var(--loop-1-dark);
+  --loop-1-tint: var(--loop-1-tint-dark);
+  --loop-2: var(--loop-2-dark);
+  --loop-2-tint: var(--loop-2-tint-dark);
+  --loop-3: var(--loop-3-dark);
+  --loop-3-tint: var(--loop-3-tint-dark);
+  --loop-4: var(--loop-4-dark);
+  --loop-4-tint: var(--loop-4-tint-dark);
+  --loop-5: var(--loop-5-dark);
+  --loop-5-tint: var(--loop-5-tint-dark);
 
   /* Brighter with activity on a dark page, the reverse of the light steps. */
-  --heat-1: #59647a;
+  --heat-1: #5b667c;
   --heat-2: #7d89a0;
   --heat-3: #a6b0c4;
   --heat-4: #d3d8e3;
@@ -293,7 +321,10 @@
   --color-row-hover: var(--row-hover);
   --color-coral: var(--coral);
   --color-jet: var(--jet);
+  --color-on-jet: var(--on-jet);
   --color-record: var(--record);
+  --color-on-record: var(--on-record);
+  --color-record-hover: var(--record-hover);
   --color-known: var(--known);
   --color-learning: var(--learning);
   --color-unknown: var(--unknown);
@@ -309,6 +340,7 @@
   --color-premium-wash: var(--premium-wash);
   --color-premium-ink: var(--premium-ink);
   --color-glyph-faint: var(--glyph-faint);
+  --color-glyph-off: var(--glyph-off);
 }
 
 /* A surface, and any wash a row or a filter takes, draws the unknown ring and bar in the

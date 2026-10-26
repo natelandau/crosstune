@@ -551,8 +551,8 @@ it('hides archived tunes until Show archived, then dims them', async () => {
   await show.click()
   await expect.element(row('Old Joe Clark')).toBeVisible()
   await expect.element(row('Old Joe Clark')).toHaveAccessibleName(new RegExp(ARCHIVED))
-  await expect.poll(() => getComputedStyle(row('Old Joe Clark').element()).opacity).toBe('0.6')
-  expect(getComputedStyle(row('Forked Deer').element()).opacity).toBe('1')
+  await expect.element(row('Old Joe Clark')).toHaveAttribute('data-dimmed')
+  await expect.element(row('Forked Deer')).not.toHaveAttribute('data-dimmed')
   await page.getByRole('button', { name: MORE_ACTIONS }).click()
   await expect
     .element(page.getByRole('menuitemcheckbox', { name: SHOW_ARCHIVED }))

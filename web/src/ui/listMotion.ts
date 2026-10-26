@@ -118,9 +118,7 @@ export function useListMotion(list: HTMLElement | null, reduceMotion: boolean): 
 }
 
 function fadeIn(row: HTMLElement): void {
-  // To the row's own opacity, not 1, so a dimmed row lands dimmed.
-  const opacity = getComputedStyle(row).opacity
-  row.animate({ opacity: ['0', opacity] }, { duration: FADE_MS, easing: EASING })
+  row.animate({ opacity: ['0', '1'] }, { duration: FADE_MS, easing: EASING })
 }
 
 /**
