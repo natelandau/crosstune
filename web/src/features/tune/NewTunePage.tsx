@@ -13,14 +13,14 @@ import { useLatest } from '../../ui/useLatest'
 import { onPageLeave } from '../player/activity'
 import { markKeyFocus } from './freshTune'
 import { newTuneSource } from './newTuneState'
-import { bandGutter, factsLayout } from './factsLayout'
+import { headerGutter, attributesLayout } from './attributesLayout'
 import { TUNE_TITLE_LABEL } from './tuneFormCopy'
 import { useAddTune } from './useAddTune'
 
 const CATALOG = destination('catalog')
 
 /**
- * The page a new tune starts on: the band with a focused title field and nothing else. Enter
+ * The page a new tune starts on: the header with a focused title field and nothing else. Enter
  * creates the tune and the address becomes its page. Leaving the page with text typed creates
  * the tune too and leaves the navigation alone, and closing or hiding its tab creates it as
  * well. An empty or blank title writes nothing.
@@ -32,9 +32,9 @@ export function NewTunePage() {
   const addTune = useAddTune()
   const toast = useToast()
   const [title, setTitle] = useState('')
-  // Measured as the tune page measures, so the band keeps its gutter as the tune is created.
+  // Measured as the tune page measures, so the header keeps its gutter as the tune is created.
   const root = useRef<HTMLDivElement>(null)
-  const gutter = bandGutter(factsLayout(useElementSize(root).width))
+  const gutter = headerGutter(attributesLayout(useElementSize(root).width))
   // Settled once a create starts, by Enter or by leaving, so nothing creates the tune twice.
   const submitted = useRef(false)
   const mounted = useRef(true)
@@ -84,7 +84,7 @@ export function NewTunePage() {
     run(async () => {
       try {
         const tuneId = await addTune({ title: next, source })
-        // Left while the tune was made: wherever the musician went stands.
+        // Left while the tune was made: wherever the musician went is kept.
         if (!mounted.current) return
         markKeyFocus(tuneId)
         void navigate(tuneHomePath(tuneId), { replace: true })

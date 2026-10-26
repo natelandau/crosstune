@@ -7,9 +7,9 @@ export interface CapsuleProps extends Omit<
   AriaButtonProps,
   'children' | 'className' | 'aria-label'
 > {
-  /** The accessible name, and the visible text unless `children` gives the face. */
+  /** The accessible name, and the visible text unless `children` gives other content. */
   label: string
-  /** A face other than the label, such as a glyph and a count; `label` stays the name. */
+  /** Visible content other than the label, such as a glyph and a count; `label` stays the name. */
   children?: ReactNode
   ref?: Ref<HTMLButtonElement>
   /** The filter holds a value. Marks the element with `data-set` so a `FilterRow` can find it. */

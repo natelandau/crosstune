@@ -143,7 +143,7 @@ export type PlaceLink =
 const nameKey = (name: string) => name.trim().toLowerCase()
 
 /**
- * The live saved place a pick stands for, so a repeat pick links rather than saves twice: the one
+ * The live saved place a pick refers to, so a repeat pick links rather than saves twice: the one
  * with its Apple Maps id, else one of its name, trimmed and in any case, within 30 m. The name
  * match also covers an id, since a place saved from a search with no id has none.
  */

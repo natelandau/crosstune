@@ -124,7 +124,7 @@ struct SuggestionPicker: View {
 }
 
 extension EnvironmentValues {
-    /// True for form rows laid out on their own rather than in a `Form`, as in a fact editor.
+    /// True for form rows laid out on their own rather than in a `Form`, as in an attribute editor.
     @Entry var rowsOutsideForm = false
 }
 

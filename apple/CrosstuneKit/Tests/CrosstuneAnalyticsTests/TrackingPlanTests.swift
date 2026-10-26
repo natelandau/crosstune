@@ -116,7 +116,7 @@ private let samples: [AnalyticsEvent] = [
     .catalogFiltered(filter: .key),
     .catalogSorted(sort: .played),
     .lyricsOpened(tuneID: tuneID),
-    .standOpened(tuneID: tuneID),
+    .padPracticeOpened(tuneID: tuneID),
     .listCreated(listID: listID, count: 3),
     .listRenamed(listID: listID),
     .listDeleted(listID: listID, count: 12),
@@ -189,7 +189,8 @@ private func hasASample(_ event: AnalyticsEvent) {
         .accountReasonOpened, .signUpStarted,
         .tuneCreated,
         .tuneEdited, .tuneStatusChanged, .tuneArchived, .tuneUnarchived, .tuneDeleted, .bulkEditApplied,
-        .searchPerformed, .catalogFiltered, .catalogSorted, .lyricsOpened, .standOpened, .listCreated, .listRenamed,
+        .searchPerformed, .catalogFiltered, .catalogSorted, .lyricsOpened, .padPracticeOpened, .listCreated,
+        .listRenamed,
         .listDeleted, .listReordered, .tunesAddedToList, .tunesRemovedFromList, .importStarted, .importReviewed,
         .importCompleted, .recordingStarted, .microphoneDenied, .recordingSaved, .recordingDiscarded, .audioImported,
         .archiveRecordingSaved, .recordingFiled, .recordingUnfiled, .recordingRenamed, .recordingPlaceSet,
@@ -268,7 +269,7 @@ func eachValueMatchesItsPlanType(event: AnalyticsEvent) throws {
     }
 }
 
-/// Each Swift enum's raw values beside the plan enum they stand for.
+/// Each Swift enum's raw values beside the plan enum they mirror.
 private let pairedEnums: [(name: String, rawValues: [String])] = [
     ("source", ActionSource.allCases.map(\.rawValue)),
     ("origin", RecordingOrigin.allCases.map(\.rawValue)),

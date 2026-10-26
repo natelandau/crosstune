@@ -55,7 +55,7 @@ describe('lyricsSize', () => {
   })
 
   it('falls back to the default for a stored value that is not a step', () => {
-    localStorage.setItem(LYRICS_SIZE_KEY, 'roomy')
+    localStorage.setItem(LYRICS_SIZE_KEY, 'large')
     expect(readLyricsStep()).toBe(DEFAULT_LYRICS_STEP)
   })
 

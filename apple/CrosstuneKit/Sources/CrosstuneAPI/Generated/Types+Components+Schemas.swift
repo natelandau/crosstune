@@ -4881,7 +4881,7 @@ extension Components {
                 try encoder.encodeAdditionalProperties(additionalProperties)
             }
         }
-        /// Where a player stands with a tune.
+        /// A player's progress with a tune.
         ///
         /// - Remark: Generated from `#/components/schemas/TuneStatus`.
         public typealias TuneStatus = Swift.String

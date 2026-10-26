@@ -84,7 +84,7 @@ public final class EditRecordingModel {
     public private(set) var date: RecordingDateDraft
     public private(set) var notes: String
     public private(set) var players: String
-    /// The location picked or cleared here, nil while the recording's own stands.
+    /// The location picked or cleared here, nil while the recording's own is kept.
     private var stagedPick: StagedPlace?
     /// How the location was picked, nil until one is or once it is cleared.
     public private(set) var placeMethod: PlaceMethod?
@@ -137,7 +137,7 @@ public final class EditRecordingModel {
         saved = LiveQuery(store, initial: nil) { db in try SavedPlace.fetchAll(db).filter { $0.deletedAt == nil } }
     }
 
-    /// The recording as it stands in the store, or as opened once it is gone.
+    /// The recording as it is in the store, or as opened once it is gone.
     private var current: Recording { stored.value ?? recording }
 
     private var savedByID: [String: SavedPlace] {
@@ -182,7 +182,7 @@ public final class EditRecordingModel {
         }
     }
 
-    /// The location to show and save: its name and the point it stands for. A linked recording
+    /// The location to show and save: its name and the point it marks. A linked recording
     /// shows its saved location's name, read once the saved locations are, so its own name never
     /// flashes first.
     public var place: RecordingPlace? {

@@ -45,7 +45,7 @@ public struct TuneScreenActions: Equatable {
         self.record = record
         self.readLyrics = readLyrics
         self.viewScans = viewScans
-        // Closures handed in here have no host to stand for them, so they never equal another set.
+        // Closures handed in here have no host to identify them, so they never equal another set.
         let supplied =
             addToList != nil || addLink != nil || findRecordings != nil || record != nil || readLyrics != nil
             || viewScans != nil

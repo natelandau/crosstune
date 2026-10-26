@@ -106,7 +106,7 @@ enum SignUpButton: CaseIterable, Identifiable {
 
     /// The provider's mark leading the label, as each provider's guidelines ask: Apple's logo,
     /// and Google's standard full-color "G", drawn from Google's own asset and never recolored,
-    /// resized, or replaced by a monochrome stand-in. Email has no provider, so no mark.
+    /// resized, or replaced by a monochrome substitute. Email has no provider, so no mark.
     var mark: SignUpMark? {
         switch self {
         case .apple: .symbol("apple.logo")

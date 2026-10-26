@@ -82,7 +82,7 @@ func reportsNothingWithoutAKnownValue(_ value: String?) async throws {
     #expect(reports.trials == [false])
 }
 
-/// Sends every request to a server of scripted responses, standing in for URLSession.
+/// Sends every request to a server of scripted responses, in place of URLSession.
 private struct ResponseTransport: ClientTransport {
     let server: ResponseServer
 

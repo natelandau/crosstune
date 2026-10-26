@@ -44,7 +44,7 @@ test('swipe a tune row to edit and archive, and a list row to delete', async ({ 
   // replaced under the finger takes the gesture with it, so the gesture waits for it.
   await expectSynced(page, since)
   await swipeLeft(page, row)
-  // A row's Edit opens the tune's page, where its facts edit in place.
+  // A row's Edit opens the tune's page, where its attributes edit in place.
   await row.getByRole('button', { name: EDIT_TUNE, exact: true }).click()
   await expect(tunePage(page).getByRole('heading', { name: title, level: 1 })).toBeVisible()
   await tunePage(page)

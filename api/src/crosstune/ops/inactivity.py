@@ -112,7 +112,7 @@ def _waiting_line(account: Account) -> str:
 async def preview(
     sessionmaker: async_sessionmaker[AsyncSession], account: str, now: datetime
 ) -> list[str]:
-    """Describe where one account stands at `now`, writing nothing.
+    """Describe one account's inactivity state at `now`, writing nothing.
 
     Returns:
         The lines to print.
@@ -230,7 +230,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="crosstune.ops.inactivity", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
 
-    preview_parser = commands.add_parser("preview", help="show where an account stands")
+    preview_parser = commands.add_parser("preview", help="show an account's inactivity state")
     preview_parser.add_argument("account", help="Clerk user ID or email")
 
     send_parser = commands.add_parser("send-test", help="mail a warning to one account now")

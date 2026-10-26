@@ -49,7 +49,7 @@ public final class PlayerModel {
     @ObservationIgnored private var expandSource = ActionSource.dock
     /// The loaded recording's loops, the selected one, and Repeat.
     public let loops: LoopPlayback
-    /// Where the loaded recording's audio stands; nil unless a recording is loaded.
+    /// The state of the loaded recording's audio; nil unless a recording is loaded.
     public private(set) var recordingAudio: RecordingAudio?
     /// Why the last change to the loaded recording, a speed, a pitch, or a delete, did not
     /// land, until the next change. Shown wherever the player is, so it outlasts the screen

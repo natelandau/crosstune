@@ -372,7 +372,7 @@ public final class AudioPlayer: AudioPlayback {
     }
 
     /// A segment also ends when the system stops the engine; the interruption and
-    /// configuration handlers pick that up from where it stood, so only a running engine ends.
+    /// configuration handlers pick that up from where it stopped, so only a running engine ends.
     private func segmentEnded(_ id: Int, then pass: PlaybackSegment?) {
         guard id == segmentID, isPlaying, engine.isRunning else { return }
         guard let pass, let file else {
@@ -463,7 +463,7 @@ public final class AudioPlayer: AudioPlayback {
         observers.append(change)
     }
 
-    /// A new output device or format stops the engine, so playing goes on from where it stood.
+    /// A new output device or format stops the engine, so playing goes on from where it stopped.
     private func configurationChanged() {
         guard file != nil, isPlaying else { return }
         #if os(iOS)

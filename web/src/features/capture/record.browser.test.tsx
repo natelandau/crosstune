@@ -153,7 +153,7 @@ it('starts the take with no location note once location is allowed', async () =>
   expect(locationNote().query()).toBeNull()
 })
 
-it('records from the disc at 390, with the timer up and the disc out of reach', async () => {
+it('records from the round Record button at 390, with the timer up and the button out of reach', async () => {
   fakeMediaForTest()
   await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE, density: 'touch' })
   await page.getByRole('button', { name: RECORD_LABEL }).click()
@@ -267,7 +267,7 @@ it('records from the sidebar capsule at 1280 and goes to Recordings once saved',
 })
 
 it.each([
-  ['disc at 390', PHONE, 'touch'],
+  ['round button at 390', PHONE, 'touch'],
   ['capsule at 1280', WIDE, 'pointer'],
 ] as const)('grows out of the %s', async (_name, frame, density) => {
   fakeMediaForTest()
@@ -376,7 +376,7 @@ function withAnalytics() {
   }
 }
 
-it('reports recording_started with the dock as the source from the dome', async () => {
+it('reports recording_started with the dock as the source from the round Record button', async () => {
   fakeMediaForTest()
   const { analytics, wrap } = withAnalytics()
   await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE, density: 'touch', wrap })

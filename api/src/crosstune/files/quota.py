@@ -36,7 +36,7 @@ async def used_bytes(
     """The bytes that count against a user's quota.
 
     A live recording or scan counts its open upload slot's declared size when it has
-    one, otherwise its stored bytes. The slot stands in for, never adds to, the stored
+    one, otherwise its stored bytes. The slot replaces, never adds to, the stored
     file: confirming the upload replaces that file, and once the slot expires unused the
     file is still there and counts again. A recording's kept original counts as well.
 

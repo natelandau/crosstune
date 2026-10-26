@@ -23,7 +23,7 @@ import { DELETING } from '../../ui/confirmCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { messageFor } from '../../ui/useAction'
 import { useLatest } from '../../ui/useLatest'
-import { useLeaveTo } from '../../layout/backTrail'
+import { useLeaveTo } from '../../layout/backHistory'
 import { useScreenCommand } from '../../app/screenCommands'
 import { destination } from '../../layout/destinations'
 

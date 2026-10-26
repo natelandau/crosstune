@@ -5,7 +5,7 @@ import { createStoredValue, onOtherTabWrite, readStored } from '../platform/stor
 export const APPEARANCES = ['system', 'light', 'dark'] as const
 export type Appearance = (typeof APPEARANCES)[number]
 
-export const TEXT_SIZES = ['compact', 'regular', 'roomy'] as const
+export const TEXT_SIZES = ['compact', 'regular', 'large'] as const
 export type TextSize = (typeof TEXT_SIZES)[number]
 
 export const APPEARANCE_LABELS: Record<Appearance, string> = {
@@ -17,7 +17,7 @@ export const APPEARANCE_LABELS: Record<Appearance, string> = {
 export const TEXT_SIZE_LABELS: Record<TextSize, string> = {
   compact: 'Compact',
   regular: 'Regular',
-  roomy: 'Roomy',
+  large: 'Roomy',
 }
 
 // Both are per device, like the remembered user, so they live in localStorage rather than
@@ -30,7 +30,10 @@ function parseChoice<T extends string>(allowed: readonly T[], fallback: T) {
 }
 
 const parseAppearance = parseChoice(APPEARANCES, 'system')
-const parseTextSize = parseChoice(TEXT_SIZES, 'regular')
+const parseTextSizeChoice = parseChoice(TEXT_SIZES, 'regular')
+// Older builds stored the large size as 'roomy'.
+const parseTextSize = (raw: string | null): TextSize =>
+  parseTextSizeChoice(raw === 'roomy' ? 'large' : raw)
 
 export function readAppearance(): Appearance {
   return parseAppearance(readStored(APPEARANCE_KEY))

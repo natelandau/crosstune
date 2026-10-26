@@ -17,7 +17,7 @@ final class RecordingSleep: Sendable {
     }
 }
 
-/// Sends every request to a scripted server, standing in for URLSession.
+/// Sends every request to a scripted server, in place of URLSession.
 struct ScriptedTransport: ClientTransport {
     let server: ScriptedServer
 

@@ -121,7 +121,7 @@ export const INSTRUMENTS = [
 const PLACE_METHODS = ['search', 'suggestion', 'nearby', 'saved'] as const
 const SAVED_LOCATION_METHODS = ['nearby', 'search', 'custom'] as const
 
-/** The plan's `screen` enum without `stand`, which only the Apple apps have. */
+/** The plan's `screen` enum without the iPad practice screen, which only the Apple apps have. */
 export const SCREENS = [
   'welcome',
   'catalog',
@@ -241,9 +241,9 @@ export type SettingChange =
   | { setting: 'new_tune_genre_set'; value: boolean }
 
 /** The plan's `text_size` value for a text size: the step from regular. */
-export function textSizeOffset(size: 'compact' | 'regular' | 'roomy'): number {
+export function textSizeOffset(size: 'compact' | 'regular' | 'large'): number {
   if (size === 'compact') return -1
-  return size === 'roomy' ? 1 : 0
+  return size === 'large' ? 1 : 0
 }
 
 type Empty = Record<string, never>

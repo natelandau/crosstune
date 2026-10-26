@@ -344,7 +344,7 @@ private final class UndoChain {
     }
 }
 
-/// The list pick as it now stands, which a redo that makes the list again replaces.
+/// The list pick as it is now, which a redo that makes the list again replaces.
 @MainActor
 private final class LatestAddition {
     var value: ListAddition

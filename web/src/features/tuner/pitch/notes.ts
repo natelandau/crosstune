@@ -56,7 +56,7 @@ export function isInTune(cents: number): boolean {
  * How far a note `cents` off has come toward in tune: 0 outside the target zone, 1 in tune, and
  * rising evenly between, so a peg turn inside the zone shows as steady progress.
  */
-export function greenness(cents: number): number {
+export function inTuneFraction(cents: number): number {
   const off = Math.abs(tenths(cents))
   return Math.min(1, Math.max(0, (ZONE_CENTS - off) / (ZONE_CENTS - IN_TUNE_CENTS)))
 }

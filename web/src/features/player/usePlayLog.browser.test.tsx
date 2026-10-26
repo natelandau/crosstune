@@ -401,7 +401,7 @@ describe('usePlayLog', () => {
   })
 })
 
-/** Stands in for the browser's media session, so a test can press its lock-screen controls. */
+/** Fakes the browser's media session, so a test can press its lock-screen controls. */
 function fakeMediaSession() {
   const handlers = new Map<MediaSessionAction, MediaSessionActionHandler>()
   const session = {

@@ -47,7 +47,7 @@
         /// A secondary button on a `surface` card or footer takes the raised fill, lighter than
         /// the surface, never the `field` that reads gray on gray; on `ground` it keeps `field`.
         @Test(arguments: [ColorScheme.light, .dark])
-        func secondaryFillsStandOffTheirContainer(scheme: ColorScheme) throws {
+        func secondaryFillsContrastWithTheirContainer(scheme: ColorScheme) throws {
             for role in [MacButtonStyle.Role.secondary, .destructive] {
                 let onGround = try #require(
                     MacButtonStyle.fillRGB(

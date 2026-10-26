@@ -386,11 +386,15 @@ private final class Writes {
     }
 
     @Test func thePlayButtonNamesTheRepeat() {
-        #expect(PlayFace(isPlaying: false, repeating: nil) == PlayFace(label: "Play", systemImage: "play.fill"))
         #expect(
-            PlayFace(isPlaying: false, repeating: "B part")
-                == PlayFace(label: "Repeat B part", systemImage: "repeat"))
-        #expect(PlayFace(isPlaying: true, repeating: "B part") == PlayFace(label: "Pause", systemImage: "pause.fill"))
+            PlayButtonLabel(isPlaying: false, repeating: nil)
+                == PlayButtonLabel(label: "Play", systemImage: "play.fill"))
+        #expect(
+            PlayButtonLabel(isPlaying: false, repeating: "B part")
+                == PlayButtonLabel(label: "Repeat B part", systemImage: "repeat"))
+        #expect(
+            PlayButtonLabel(isPlaying: true, repeating: "B part")
+                == PlayButtonLabel(label: "Pause", systemImage: "pause.fill"))
     }
 
     @Test func theWaveformReadsThePlayheadAgainstTheLength() {

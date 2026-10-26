@@ -32,7 +32,7 @@ public struct PlayerBar: View {
         return music.trackTitle
     }
 
-    /// Where the playing list stands, shown under the tune's title; nil while no list plays.
+    /// The playing list's name and position, shown under the tune's title; nil while no list plays.
     static func playlistSubtitle(_ playback: ListPlayback?) -> String? {
         guard let playback, playback.isActive, let name = playback.listName else { return nil }
         return PlaylistControlText.subtitle(listName: name, position: playback.position, count: playback.count)
@@ -88,7 +88,7 @@ public struct PlayerBar: View {
         }
     }
 
-    /// What stands where the tune was: why the playlist stopped, and Close player to dismiss it.
+    /// What shows where the tune was: why the playlist stopped, and Close player to dismiss it.
     private func messageBar(_ message: String) -> some View {
         HStack(spacing: 4) {
             Text(message)

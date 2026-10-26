@@ -109,7 +109,7 @@ export function typedKey({ key, shiftKey }: Pick<KeyPress, 'key' | 'shiftKey'>):
 
 /**
  * The shortcut a key press asks for: a single key with no modifier, or the command key with K.
- * A shifted letter stands down, and Caps Lock does not change a letter. The go sequence's
+ * A shifted letter asks for nothing, and Caps Lock does not change a letter. The go sequence's
  * letters are `goSequence`'s to read.
  */
 export function matchShortcut(event: KeyPress, platform: KeyPlatform): ShortcutId | null {

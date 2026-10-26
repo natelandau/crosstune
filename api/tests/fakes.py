@@ -1,4 +1,4 @@
-"""In-memory stand-ins for hosted services."""
+"""In-memory fakes for hosted services."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 
 class FakeClerkUsers:
-    """A ClerkUsers stand-in.
+    """A fake ClerkUsers.
 
     While `error` is set, every call raises it; `apple_error` fails only `apple_user_ids`.
     `users` maps each Clerk user ID that `find_user` knows to its email, or None.
@@ -65,7 +65,7 @@ class FakeClerkUsers:
 
 
 class FakeAppleSignIn:
-    """An AppleSignIn stand-in. While `error` is set, `revoke` records the call, then raises it."""
+    """A fake AppleSignIn. While `error` is set, `revoke` records the call, then raises it."""
 
     def __init__(self, events: list[str] | None = None) -> None:
         self.calls: list[tuple[str, frozenset[str], AppleClient]] = []
@@ -84,7 +84,7 @@ class FakeAppleSignIn:
 
 
 class FakeMailer:
-    """A Mailer stand-in. While `error` is set, every send and batch raises it.
+    """A fake Mailer. While `error` is set, every send and batch raises it.
 
     `sent_batches` records each accepted batch. When `rate_limit_after_batches` is set,
     the batch after that many accepted ones raises `MailerRateLimitedError`.
@@ -116,7 +116,7 @@ class FakeMailer:
 
 
 class FakeRevenueCat:
-    """A RevenueCat stand-in. While `error` is set, every call raises it."""
+    """A fake RevenueCat. While `error` is set, every call raises it."""
 
     def __init__(
         self,
@@ -144,7 +144,7 @@ class FakeRevenueCat:
 
 
 class FakeStripe:
-    """A StripeSubscriptions stand-in.
+    """A fake StripeSubscriptions.
 
     While `error` is set, every call raises it, or only the method named by `fail_only`.
     `calls` logs each call that did not raise, in order.
@@ -185,7 +185,7 @@ class FakeStripe:
 
 
 class FakeAnalyticsPersons:
-    """An AnalyticsPersons stand-in. While `error` is set, every delete_person raises it."""
+    """A fake AnalyticsPersons. While `error` is set, every delete_person raises it."""
 
     def __init__(self) -> None:
         self.deleted: list[str] = []

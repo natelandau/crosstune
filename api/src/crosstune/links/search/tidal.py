@@ -135,7 +135,7 @@ async def _artist_names(
             log.warning("TIDAL artist lookup failed", extra={"error": type(error).__name__})
         return {}
     except (TimeoutError, httpx2.HTTPError, BlockedAddressError, ValueError) as error:
-        # No traceback: its frames hold the bearer token, and the hits stand without artists.
+        # No traceback: its frames hold the bearer token, and the hits are kept without artists.
         log.warning("TIDAL artist lookup failed", extra={"error": type(error).__name__})
         return {}
     names = {

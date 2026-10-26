@@ -33,7 +33,7 @@ import { Sheet } from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
 import { PRESS } from '../../ui/press'
 
-/** The Record control on screen, the disc or the capsule, which the sheet grows out of. */
+/** The Record control on screen, the round button or the capsule, which the sheet grows out of. */
 function recordControl(): Element | null {
   return (
     [...document.querySelectorAll('[data-record-control]')].find(
@@ -43,7 +43,7 @@ function recordControl(): Element | null {
 }
 
 /**
- * The recorder, opened by the disc, the capsule, or a tune page through
+ * The recorder, opened by the round Record button, the capsule, or a tune page through
  * `RecordStateProvider`. It is an overlay, never a route. Mount it inside the router, which it
  * holds still while a take is live and moves on once one is saved.
  */

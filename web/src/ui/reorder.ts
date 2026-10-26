@@ -118,7 +118,7 @@ function visibleBand(scroller: Element): { top: number; bottom: number } | null 
  * where it was drawn into its place. While the pointer rests near the
  * edge of the scroller's visible band, each of `frames` scrolls it, so rows off screen are
  * reachable. Positions come from the layout on every move and frame, never from a snapshot, so
- * rows a sync moves mid-drag are dropped among as they now stand. Offsets are layout
+ * rows a sync moves mid-drag are dropped among as they are now. Offsets are layout
  * positions, which transforms and scrolling leave alone.
  */
 export function beginReorderDrag(

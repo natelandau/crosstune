@@ -38,9 +38,9 @@ final class ShellPlace {
     private(set) var knowsSize = false
     /// Whether the Settings sheet is up over a compact window.
     var settingsSheetShown = false
-    /// Whether the catalog stands in for a saved Settings tab, which a compact window lacks,
+    /// Whether the catalog replaces a saved Settings tab, which a compact window lacks,
     /// until the musician closes the Settings sheet or the window widens.
-    private(set) var catalogStandsInForSettings = false
+    private(set) var catalogReplacesSettings = false
     /// The page open in the iPad Settings tab's detail column, and the root's page the compact
     /// window's sheet is on, so a size change keeps the same page.
     var settingsPage: SettingsPage?
@@ -127,13 +127,13 @@ final class ShellPlace {
     func settingsSheetChanged(shown: Bool) {
         guard shown || isCompact else { return }
         settingsSheetShown = shown
-        if !shown { catalogStandsInForSettings = false }
+        if !shown { catalogReplacesSettings = false }
     }
 
     /// The tab to save as the scene's, given the one saved now: a saved Settings while the catalog
-    /// stands in for it, so a wider window opens on Settings again, and otherwise the tab shown.
+    /// replaces it, so a wider window opens on Settings again, and otherwise the tab shown.
     func tabToSave(saved: Destination) -> Destination {
-        catalogStandsInForSettings && saved == .settings && tab == .catalog ? saved : tab
+        catalogReplacesSettings && saved == .settings && tab == .catalog ? saved : tab
     }
 
     /// Whether the window shows the compact shell. Until the place knows the window's size, as on
@@ -147,8 +147,8 @@ final class ShellPlace {
     func restore(tab saved: Destination, compact: Bool) {
         knowsSize = true
         isCompact = compact
-        catalogStandsInForSettings = compact && saved == .settings
-        tab = catalogStandsInForSettings ? .catalog : saved
+        catalogReplacesSettings = compact && saved == .settings
+        tab = catalogReplacesSettings ? .catalog : saved
     }
 
     /// Rebuilds the Settings sheet's stack from the iPad detail column's page as the window
@@ -159,7 +159,7 @@ final class ShellPlace {
         isCompact = true
         settingsPath = settingsPage.map { NavigationPath([$0]) } ?? NavigationPath()
         if tab == .settings {
-            catalogStandsInForSettings = true
+            catalogReplacesSettings = true
             tab = .catalog
             settingsSheetShown = true
         }
@@ -170,7 +170,7 @@ final class ShellPlace {
     func widened() {
         knowsSize = true
         isCompact = false
-        catalogStandsInForSettings = false
+        catalogReplacesSettings = false
         if settingsSheetShown {
             settingsSheetShown = false
             tab = .settings

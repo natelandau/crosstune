@@ -426,7 +426,7 @@ import Testing
         engine.stop()
     }
 
-    @Test func letsADeleteFromElsewhereStandWhenTheAudioIsMissing() async throws {
+    @Test func keepsADeleteFromElsewhereWhenTheAudioIsMissing() async throws {
         let audio = try await captured("r1", state: .failedUpload)
         try FileManager.default.removeItem(at: audio)
         try await store.write { writer in

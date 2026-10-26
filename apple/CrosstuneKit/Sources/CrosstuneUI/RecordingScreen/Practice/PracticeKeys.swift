@@ -5,7 +5,7 @@ import SwiftUI
 /// pauses; the arrows move the playhead a second (five with Shift), or nudge a focused handle;
 /// `[` and `]` set the selected loop's edges at the playhead; N adds a loop; Delete removes the
 /// selected loop and Return names it; Escape closes a name field, then deselects, then closes
-/// the screen. Every key but Escape stands down while a name field is being typed in, and a
+/// the screen. Every key but Escape is off while a name field is being typed in, and a
 /// focused slider or button keeps these keys too. While the screen cannot be used yet, only Escape works.
 struct PracticeKeys: ViewModifier {
     let model: PracticeModel

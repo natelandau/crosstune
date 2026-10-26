@@ -7,16 +7,16 @@ import GRDB
 import Observation
 import os
 
-/// One fact's change to a tune, applied to the form's values as the store holds them when the
+/// One attribute's change to a tune, applied to the form's values as the store holds them when the
 /// write runs.
-public typealias FactPatch = @Sendable (inout TuneFormValues) -> Void
+public typealias AttributePatch = @Sendable (inout TuneFormValues) -> Void
 
 /// The tune screen's state: the live tune with its media and lists, and the writes the screen
 /// makes against it.
 @MainActor
 @Observable
 public final class TuneModel {
-    /// Where the screen stands with its tune.
+    /// The screen's progress with its tune.
     public enum Phase: Equatable {
         /// Nothing read yet, which the screen shows as silence.
         case loading
@@ -40,14 +40,14 @@ public final class TuneModel {
         case media
         /// Under the lists.
         case lists
-        /// Beside the tune's facts: a single-fact edit.
-        case facts
+        /// Beside the tune's attributes: a single-attribute edit.
+        case attributes
         /// Under the notes field.
         case notes
 
         /// Whether writes here keep their failure apart from every other place's: notes write at
-        /// typing speed, and a fact write must not clear another section's failure.
-        var isField: Bool { self == .facts || self == .notes }
+        /// typing speed, and an attribute write must not clear another section's failure.
+        var isField: Bool { self == .attributes || self == .notes }
     }
 
     /// A failed write's message and where it shows.
@@ -62,7 +62,7 @@ public final class TuneModel {
     /// The last write failure above the rows, under the media, or under the lists, cleared by the
     /// next write to any of those.
     public private(set) var failure: Failure?
-    /// The last fact write's and notes write's failures, each cleared only by the next write to
+    /// The last attribute write's and notes write's failures, each cleared only by the next write to
     /// its own place.
     private var fieldFailures: [Place: String] = [:]
 
@@ -70,9 +70,9 @@ public final class TuneModel {
     private let analytics: AnalyticsClient
     private let detail: LiveQuery<TuneDetail??>
     private var deletingTitle: String?
-    /// The last fact write or notes step queued. Each waits for the one before, so writes land in
+    /// The last attribute write or notes step queued. Each waits for the one before, so writes land in
     /// the order they were made and a notes session ends after its last keystroke has landed.
-    private var factSteps: Task<Void, Never>?
+    private var attributeSteps: Task<Void, Never>?
     private var notesSessionOpen = false
     /// The stored notes when the open session began, or nil when they could not be read.
     private var notesAtSessionStart: String??
@@ -236,11 +236,11 @@ public final class TuneModel {
         }
     }
 
-    /// Writes one fact to this tune under the tune form's rules: a type fills an unset time
+    /// Writes one attribute to this tune under the tune form's rules: a type fills an unset time
     /// signature, a title never empties, and only a whole learned-on date saves. Reports the
     /// fields it changed once it lands, leaving notes typed in an open session to that session.
-    public func write(_ change: @escaping FactPatch) {
-        write(change, at: .facts)
+    public func write(_ change: @escaping AttributePatch) {
+        write(change, at: .attributes)
     }
 
     /// Writes the notes as typed, reporting a refusal under the notes field.
@@ -248,13 +248,15 @@ public final class TuneModel {
         write({ $0.notes = notes }, at: .notes)
     }
 
-    private func write(_ change: @escaping FactPatch, at place: Place) {
+    private func write(_ change: @escaping AttributePatch, at place: Place) {
         let tuneID = tuneID
         let inNotesSession = notesSessionOpen
-        enqueueFactStep { [self] in
-            var landed: FactWrite?
+        enqueueAttributeStep { [self] in
+            var landed: AttributeWrite?
             await run(place) { _ in
-                landed = try await store.write { writer in try Self.applyFact(writer, tuneID: tuneID, change: change) }
+                landed = try await store.write { writer in
+                    try Self.applyAttribute(writer, tuneID: tuneID, change: change)
+                }
             }
             guard let landed else { return }
             var after = landed.after
@@ -271,7 +273,7 @@ public final class TuneModel {
         guard began != notesSessionOpen else { return }
         notesSessionOpen = began
         let tuneID = tuneID
-        enqueueFactStep { [self] in
+        enqueueAttributeStep { [self] in
             let notes = await storedNotes(tuneID)
             if began {
                 notesAtSessionStart = notes
@@ -281,9 +283,9 @@ public final class TuneModel {
         }
     }
 
-    private func enqueueFactStep(_ step: @escaping @MainActor () async -> Void) {
-        let previous = factSteps
-        factSteps = Task {
+    private func enqueueAttributeStep(_ step: @escaping @MainActor () async -> Void) {
+        let previous = attributeSteps
+        attributeSteps = Task {
             await previous?.value
             await step()
         }
@@ -299,23 +301,23 @@ public final class TuneModel {
         }
     }
 
-    /// A landed fact write: the form's values before and after it, and the tunings it wrote over.
-    private struct FactWrite: Sendable {
+    /// A landed attribute write: the form's values before and after it, and the tunings it wrote over.
+    private struct AttributeWrite: Sendable {
         let before: TuneFormValues
         let after: TuneFormValues
         let storedTunings: JSONObject
     }
 
-    /// A fact write the form's rules refuse, in the form's own words.
-    private struct FactRefusal: LocalizedError {
+    /// An attribute write the form's rules refuse, in the form's own words.
+    private struct AttributeRefusal: LocalizedError {
         let message: String
         var errorDescription: String? { message }
     }
 
     /// Reads the tune and applies `change` in the write's own transaction, so a keystroke or a
     /// sync pull that landed since the screen last read is never written over.
-    nonisolated private static func applyFact(_ writer: StoreWriter, tuneID: String, change: FactPatch) throws
-        -> FactWrite
+    nonisolated private static func applyAttribute(_ writer: StoreWriter, tuneID: String, change: AttributePatch) throws
+        -> AttributeWrite
     {
         guard let tune = try Tune.fetchOne(writer.db, key: tuneID), tune.deletedAt == nil,
             let userTune = try UserTune.live(tuneID: tuneID, in: writer.db)
@@ -327,16 +329,16 @@ public final class TuneModel {
             after.setType(after.tuneType)
         }
         guard !after.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw FactRefusal(message: TuneFormModel.titleRequired)
+            throw AttributeRefusal(message: TuneFormModel.titleRequired)
         }
         // Only a change that sets the date answers for it; a stored one is the form's to fix.
         if after.learnedOn != before.learnedOn, !after.learnedOn.isEmpty, CalendarDay.date(after.learnedOn) == nil {
-            throw FactRefusal(message: LearnedOnEditor.incomplete)
+            throw AttributeRefusal(message: LearnedOnEditor.incomplete)
         }
         let patches = after.patches(from: before, storedTunings: tune.tunings)
         try writer.updateTuneEntry(
             tuneID: tuneID, userTuneID: userTune.id, tune: patches.tune, userTune: patches.userTune)
-        return FactWrite(before: before, after: after, storedTunings: tune.tunings)
+        return AttributeWrite(before: before, after: after, storedTunings: tune.tunings)
     }
 
     /// Runs a write, keeping its failure's message for the screen to show at `place`. True

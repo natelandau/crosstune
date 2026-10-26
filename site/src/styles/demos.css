@@ -1382,7 +1382,7 @@
   background: var(--u-wash);
   color: var(--slate);
 }
-.ph-disc {
+.ph-record-button {
   width: 66px;
   height: 66px;
   border-radius: 50%;
@@ -1394,7 +1394,7 @@
   place-items: center;
   flex: none;
 }
-.ph-disc i {
+.ph-record-button i {
   width: 24px;
   height: 24px;
   border-radius: 50%;

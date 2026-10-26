@@ -59,8 +59,8 @@ const REAL_CLOCK: ToastClock = {
 /**
  * Owns the one toast on screen. A new toast replaces the old. The countdown holds while the
  * toast has keyboard focus or the pointer is over it, so Undo stays reachable. Cmd-Z or Ctrl-Z
- * presses the showing toast's Undo, so a keyboard never has to race the countdown; it stands
- * down in a text field, whose own undo it would steal, and while an overlay holds the keyboard.
+ * presses the showing toast's Undo, so a keyboard never has to race the countdown; it turns
+ * off in a text field, whose own undo it would steal, and while an overlay holds the keyboard.
  */
 export function ToastProvider({
   children,

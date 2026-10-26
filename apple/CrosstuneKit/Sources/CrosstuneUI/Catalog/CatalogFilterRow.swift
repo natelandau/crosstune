@@ -220,7 +220,7 @@ struct CatalogFilterRow: View {
     }
 }
 
-/// A pull-down's face: its wording, then a small chevron saying it opens a choice.
+/// A pull-down's label: its wording, then a small chevron saying it opens a choice.
 private struct PullDownLabel: View {
     let text: String
 

@@ -268,7 +268,7 @@ function Group({
   children,
 }: {
   title: string
-  /** Stands in for the plain title, such as a tune's name that opens the tune. */
+  /** Replaces the plain title, such as a tune's name that opens the tune. */
   heading?: ReactNode
   children: ReactNode
 }) {

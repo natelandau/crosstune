@@ -19,14 +19,14 @@ import {
   type TuneFormValues,
   type TuningValues,
 } from './tuneFormValues'
-import { reportEdit } from './useFactWrite'
-import { suggestionsFor, type TuneFormSuggestions } from './factSuggestions'
+import { reportEdit } from './useAttributeWrite'
+import { suggestionsFor, type TuneFormSuggestions } from './attributeSuggestions'
 
 export interface UseTuneFormOptions {
   /** The tune to edit, looked up in the catalog. */
   tuneId: string
   onSaved: (tuneId: string, result: { userTuneId: string }) => void
-  /** False stands the catalog read down while a form that outlives its opens is closed. */
+  /** False pauses the catalog read while a form that outlives its opens is closed. */
   enabled?: boolean
 }
 

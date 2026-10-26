@@ -42,7 +42,7 @@ public protocol PlaybackTransport: AnyObject {
     func seek(to seconds: TimeInterval)
 }
 
-/// Plays one audio file at a time. ``AudioPlayer`` is the device's; a test stands in its own.
+/// Plays one audio file at a time. ``AudioPlayer`` is the device's; a test supplies its own.
 @MainActor
 public protocol AudioPlayback: PlaybackTransport {
     /// True once the loaded file turns out not to play.

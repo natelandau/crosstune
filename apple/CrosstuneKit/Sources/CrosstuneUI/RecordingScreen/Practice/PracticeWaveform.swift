@@ -19,7 +19,7 @@ enum PracticeFocus: Hashable {
 /// the loop under it or deselects. Every loop shows as a tint with a name tab, and the selected
 /// loop's edges are handles that a drag, the arrow keys, and VoiceOver move. Before the start
 /// and after the end the view stays blank rather than clamping. Until the recording's length
-/// is known, a plain timeline bar stands in.
+/// is known, a plain timeline bar shows instead.
 struct PracticeWaveform: View {
     let model: PracticeModel
     let peaks: ShownPeaks?
@@ -65,11 +65,11 @@ struct PracticeWaveform: View {
     var body: some View {
         let player = model.player
         // The player reports its position only a few times a second, so while it plays the view
-        // redraws every frame and runs the playhead on in between. A glide's position comes from
-        // the clock, so it redraws every frame too.
-        let still = model.gliding == nil && (!player.audio.isPlaying || model.draggedMs != nil)
+        // redraws every frame and runs the playhead on in between. A momentum scroll's position
+        // comes from the clock, so it redraws every frame too.
+        let still = model.momentumScroll == nil && (!player.audio.isPlaying || model.draggedMs != nil)
         TimelineView(.animation(paused: still)) { _ in
-            if let view = model.laneView {
+            if let view = model.zoomedWaveformView {
                 content(view)
             } else {
                 timelineBar
@@ -133,7 +133,7 @@ struct PracticeWaveform: View {
         .accessibilityHidden(true)
     }
 
-    private func content(_ view: LaneView) -> some View {
+    private func content(_ view: ZoomedWaveformView) -> some View {
         // Read once per frame and shared by the canvas and the name tabs.
         let placed = model.placedLoops
         return VStack(spacing: 4) {
@@ -170,7 +170,7 @@ struct PracticeWaveform: View {
 
     // MARK: The surface
 
-    private func surface(_ view: LaneView, placed: [PlacedLoop]) -> some View {
+    private func surface(_ view: ZoomedWaveformView, placed: [PlacedLoop]) -> some View {
         Canvas { context, size in
             draw(in: &context, size: size, view: view, placed: placed)
         }
@@ -209,13 +209,13 @@ struct PracticeWaveform: View {
         if let predictedDx { model.endScrub(predictedDx: predictedDx) } else { model.cancelScrub() }
     }
 
-    private func draw(in context: inout GraphicsContext, size: CGSize, view: LaneView, placed: [PlacedLoop]) {
+    private func draw(in context: inout GraphicsContext, size: CGSize, view: ZoomedWaveformView, placed: [PlacedLoop]) {
         let width = Double(size.width)
         let lengthMs = Double(model.lengthMs)
-        let lane = LaneBars(view: view, lengthMs: lengthMs, displayScale: context.environment.displayScale)
+        let bars = ZoomedWaveformBars(view: view, lengthMs: lengthMs, displayScale: context.environment.displayScale)
         // Bars cover only the recording's own stretch, so the view past either end stays blank.
-        let x0 = max(0, -lane.offsetX)
-        let x1 = min(width, lengthMs / 1000 * view.pointsPerSecond - lane.offsetX)
+        let x0 = max(0, -bars.offsetX)
+        let x1 = min(width, lengthMs / 1000 * view.pointsPerSecond - bars.offsetX)
         if x1 > x0 {
             let height = size.height
             // A trim past the end of the peaks leaves no points, and a silent file has no level to
@@ -224,15 +224,15 @@ struct PracticeWaveform: View {
             #if os(macOS)
                 if let peaks {
                     context.fillSplit(
-                        lane.path(height: height) { peaks.gridLevel(barMs: lane.barMs, index: $0) },
+                        bars.path(height: height) { peaks.gridLevel(barMs: bars.barMs, index: $0) },
                         atX: width / 2, played: MacWave.played, unplayed: MacWave.unplayed)
                 } else {
                     context.fill(
-                        lane.path(height: height) { PeakBars.placeholderLevel($0) }, with: .color(MacWave.placeholder))
+                        bars.path(height: height) { PeakBars.placeholderLevel($0) }, with: .color(MacWave.placeholder))
                 }
             #else
                 let path =
-                    peaks.map { peaks in lane.path(height: height) { peaks.gridLevel(barMs: lane.barMs, index: $0) } }
+                    peaks.map { peaks in bars.path(height: height) { peaks.gridLevel(barMs: bars.barMs, index: $0) } }
                     ?? BarPath.peakBars(levels: [], in: CGRect(x: x0, y: 0, width: x1 - x0, height: height))
                 if ground != nil {
                     // What has played, left of the fixed playhead, is white; what is to come is silver.
@@ -256,7 +256,7 @@ struct PracticeWaveform: View {
             CGRect(x: width / 2 - 1, y: 0, width: 2, height: Double(size.height)), onGround: ground != nil)
     }
 
-    private func drawRuler(in context: inout GraphicsContext, size: CGSize, view: LaneView) {
+    private func drawRuler(in context: inout GraphicsContext, size: CGSize, view: ZoomedWaveformView) {
         let step = Self.tickSteps.first { $0 / 1000 * view.pointsPerSecond >= Self.minTickPoints } ?? 300_000
         let last = min(view.endMs, Double(model.lengthMs))
         let environment = TextEnvironment(context.environment)
@@ -296,7 +296,7 @@ struct PracticeWaveform: View {
     // MARK: Name tabs
 
     @ViewBuilder
-    private func tabs(_ view: LaneView, placed: [PlacedLoop]) -> some View {
+    private func tabs(_ view: ZoomedWaveformView, placed: [PlacedLoop]) -> some View {
         let selectedID = model.selectedID
         let rows = model.rowsByID
         ForEach(placed, id: \.id) { loop in
@@ -316,7 +316,7 @@ struct PracticeWaveform: View {
 
     // MARK: Handles
 
-    private func handle(_ edge: LoopModel.Edge, at x: Double, view: LaneView) -> some View {
+    private func handle(_ edge: LoopModel.Edge, at x: Double, view: ZoomedWaveformView) -> some View {
         let inView = x >= 0 && x <= view.width
         let name = edge == .start ? PracticeText.loopStart : PracticeText.loopEnd
         return HandleMark(edge: edge, color: Self.handleColor(isTrim: false))
@@ -474,7 +474,7 @@ struct PracticeReadout: View {
                 .lineLimit(2)
         } else {
             TimelineView(
-                .animation(minimumInterval: 0.1, paused: !model.player.audio.isPlaying && model.gliding == nil)
+                .animation(minimumInterval: 0.1, paused: !model.player.audio.isPlaying && model.momentumScroll == nil)
             ) { _ in
                 Text(RecordingScreenText.preciseTime(milliseconds: Int64(model.shownCenterMs(at: model.clock()))))
                     #if os(macOS)
@@ -490,7 +490,7 @@ struct PracticeReadout: View {
     }
 }
 
-/// The page's background, or the practice ground where the screen stands on it, mostly opaque on
+/// The page's background, or the practice ground where the screen is drawn on it, mostly opaque on
 /// iOS and fully on the Mac, so text and buttons read over bars and loop tints.
 /// Its shape takes every press, so none falls through to the waveform.
 private struct Backing: ViewModifier {
@@ -589,7 +589,7 @@ extension GraphicsContext.Shading {
     enum MacWave {
         static var played: Color { Palette.ink.opacity(0.85) }
         static var unplayed: Color { Palette.ink.opacity(0.28) }
-        /// Bars standing in for a waveform not yet on hand, quieter than any real bar.
+        /// Bars in place of a waveform not yet on hand, quieter than any real bar.
         static var placeholder: Color { Palette.ink.opacity(0.12) }
         static var tick: Color { Palette.inkSecondary.opacity(0.6) }
         static let tickHeight: CGFloat = 5
@@ -672,7 +672,7 @@ enum PeakBars {
 
 /// The recording's bars across the zoomed view. Each bar covers a fixed stretch of the recording
 /// at this scale, so a scroll moves the bars rather than resampling them under a still comb.
-struct LaneBars {
+struct ZoomedWaveformBars {
     /// How much of the recording one bar covers.
     let barMs: Double
     /// The x of the recording's start, negated: how far the view has scrolled into it, snapped to
@@ -681,7 +681,7 @@ struct LaneBars {
     /// The bars in view, by index from the recording's start; nil when none are.
     let indices: ClosedRange<Int>?
 
-    init(view: LaneView, lengthMs: Double, displayScale: CGFloat) {
+    init(view: ZoomedWaveformView, lengthMs: Double, displayScale: CGFloat) {
         let step = Double(PeakBars.step)
         let scale = Double(max(1, displayScale))
         barMs = step / view.pointsPerSecond * 1000

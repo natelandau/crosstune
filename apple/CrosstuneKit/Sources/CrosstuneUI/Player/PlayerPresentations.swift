@@ -2,7 +2,7 @@
     import SwiftUI
 
     /// The player in full over an iOS shell: a recording's screen as a full-screen cover on the
-    /// practice ground, or a link's player in a sheet, and the link parked off screen while only
+    /// practice ground, or a link's player in a sheet, and the link's player kept offscreen while only
     /// the bar shows. Pulling either down leaves the bar playing.
     struct PlayerPresentations: ViewModifier {
         let player: PlayerModel
@@ -10,9 +10,9 @@
         /// Where the bar marks itself with ``zoomID`` for the cover to zoom out of, or nil for
         /// the standard presentation.
         let zoom: Namespace.ID?
-        /// Sets practice beside the playing tune's scans and lyrics, and stands a link the app
+        /// Sets practice beside the playing tune's scans and lyrics, and puts a link the app
         /// plays itself on the same cover, as the iPad does.
-        var standsWithReading = false
+        var showsReadingPane = false
 
         static let zoomID = "player"
 
@@ -25,30 +25,30 @@
                     Group {
                         // Elsewhere the cover only ever holds a recording, and keeps it while it
                         // goes after a skip to a link.
-                        if standsWithReading && player.item?.kind == .link {
-                            LinkStand(player: player)
+                        if showsReadingPane && player.item?.kind == .link {
+                            LinkPadPracticeScreen(player: player)
                         } else {
                             RecordingScreen(player: player)
                         }
                     }
-                    .environment(\.standsWithReading, standsWithReading)
+                    .environment(\.showsReadingPane, showsReadingPane)
                     // Read out here, since the screen's own appearance is always dark.
                     .practiceGround(colorScheme)
                     .zooms(from: Self.zoomID, in: zoom)
                 }
-                .modifier(EmbedParking(player: player, stage: stage))
+                .modifier(OffscreenEmbed(player: player, stage: stage))
                 .sheet(isPresented: expanded(onCover: false)) {
                     LinkPlayerSheet(player: player, stage: stage)
                 }
         }
 
         /// Whether the loaded item shows on the cover rather than in the link sheet: a recording
-        /// always, and a link MusicKit plays where practice stands beside reading. A link in its
+        /// always, and a link MusicKit plays where practice sits beside reading. A link in its
         /// provider's embed keeps the sheet, which holds the embed.
         private var isOnCover: Bool {
             switch player.item?.kind {
             case .recording: true
-            case .link: standsWithReading && player.music != nil
+            case .link: showsReadingPane && player.music != nil
             case nil: false
             }
         }
@@ -65,7 +65,7 @@
     /// Sets the header's subtitle only when there is one, so a link with nothing to say under
     /// its title keeps a one-line header. The subtitle comes from a view behind the content, so
     /// one arriving or going never rebuilds the content, and with it the music card.
-    private struct LinkStandSubtitle: ViewModifier {
+    private struct LinkPracticeSubtitle: ViewModifier {
         let subtitle: String?
 
         func body(content: Content) -> some View {
@@ -75,15 +75,15 @@
         }
     }
 
-    /// A link MusicKit plays, standing on the practice ground beside its tune's scans and
+    /// A link MusicKit plays, drawn on the practice ground beside its tune's scans and
     /// lyrics: its music card and the list's controls in place of the waveform.
-    private struct LinkStand: View {
+    private struct LinkPadPracticeScreen: View {
         let player: PlayerModel
 
         var body: some View {
-            Stand(player: player) {
+            PadPracticeScreen(player: player) {
                 NavigationStack {
-                    LinkStandPractice(player: player)
+                    LinkPadPractice(player: player)
                 }
                 .closesPracticeBySwipe(areaBottom: nil, isEnabled: true) { player.isExpanded = false }
             }
@@ -91,11 +91,11 @@
         }
     }
 
-    private struct LinkStandPractice: View {
+    private struct LinkPadPractice: View {
         let player: PlayerModel
 
         @Environment(\.practiceGround) private var ground
-        @Environment(\.standHasReading) private var standHasReading
+        @Environment(\.readingPaneHasContent) private var readingPaneHasContent
         @Environment(ListPlayback.self) private var playback: ListPlayback?
 
         var body: some View {
@@ -107,10 +107,12 @@
                 Spacer(minLength: 0)
             }
             .padding(16)
-            .modifier(StandPracticeWidth())
+            .modifier(PadPracticeWidth())
             .containerBackground(PhoneStyle.practiceGround(ground ?? .dark), for: .navigation)
             .navigationTitle(player.title ?? "")
-            .modifier(LinkStandSubtitle(subtitle: StandHeader.linkSubtitle(player: player, playback: playback)))
+            .modifier(
+                LinkPracticeSubtitle(subtitle: PadPracticeHeader.linkSubtitle(player: player, playback: playback))
+            )
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -122,8 +124,8 @@
                     .help(RecordingScreenText.close)
                     .keyboardShortcut(.cancelAction)
                 }
-                if standHasReading {
-                    ToolbarItem(placement: .primaryAction) { StandReadingToggle() }
+                if readingPaneHasContent {
+                    ToolbarItem(placement: .primaryAction) { ReadingPaneToggle() }
                 }
             }
         }

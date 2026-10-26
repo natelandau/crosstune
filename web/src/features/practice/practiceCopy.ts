@@ -3,7 +3,7 @@
 export const LOOPS_LABEL = 'Loops'
 export const MODES_LABEL = 'Practice mode'
 export const LOOP_NAME = 'Loop name'
-export const LANES_LABEL = 'Waveform'
+export const WAVEFORM_LABEL = 'Waveform'
 export const NEW_LOOP = 'New loop'
 export const DELETE_LOOP = 'Delete loop'
 export const LOOP_NAME_SUGGESTIONS = 'Suggestions'

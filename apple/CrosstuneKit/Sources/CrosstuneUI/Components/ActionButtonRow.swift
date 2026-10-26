@@ -63,7 +63,7 @@ extension View {
     /// The action button row's button look. On the Mac, the Mac's primary for the main button and its
     /// secondary for the rest, as a list's Play and Shuffle. Elsewhere, a prominent accent capsule
     /// for the main button and a glass one for the rest; where glass cannot draw, the bordered
-    /// styles stand in.
+    /// styles are used instead.
     @ViewBuilder func actionButtonStyle(prominent: Bool, glass: Bool) -> some View {
         #if os(macOS)
             buttonStyle(MacButtonStyle(prominent ? .primary : .secondary))

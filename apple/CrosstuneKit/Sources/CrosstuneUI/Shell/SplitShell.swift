@@ -173,7 +173,7 @@
         /// A selecting screen's toolbar holds only what acts on the selection.
         private var recordShows: Bool { selecting?.isCovered != true }
 
-        /// True while the sidebar is open, so its own record button stands in for the toolbar's.
+        /// True while the sidebar is open, so its own record button replaces the toolbar's.
         private var sidebarHoldsRecord: Bool { !sidebarHidden }
 
         private func columns(twoColumn: Bool) -> Binding<NavigationSplitViewVisibility> {

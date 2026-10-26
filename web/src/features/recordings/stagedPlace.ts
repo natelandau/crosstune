@@ -132,7 +132,7 @@ const point = (place: { lat: number; lon: number }): PlacePoint => ({
 
 /**
  * What the edit sheet shows and saves for a recording's location, from the pick held for Save
- * and the recording and saved locations as they stand now.
+ * and the recording and saved locations as they are now.
  */
 export class LocationState {
   /** The pick held for Save, with a link to a saved location deleted meanwhile fallen back. */
@@ -185,7 +185,7 @@ export class LocationState {
   }
 
   /**
-   * The location to show and save: its name and the point it stands for. A linked recording
+   * The location to show and save: its name and the point it marks. A linked recording
    * shows its saved location's name once the saved locations are read, so its own name never
    * flashes first.
    */
@@ -308,7 +308,7 @@ export class LocationState {
     }
   }
 
-  /** Whether the recording has a location for a pick to replace, as it stands now. */
+  /** Whether the recording has a location for a pick to replace, as it is now. */
   get hadPlace(): boolean {
     return recordingPlace(this.current) !== null || this.current.place_id != null
   }

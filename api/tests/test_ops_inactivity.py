@@ -363,7 +363,7 @@ PRODUCTION = Settings.model_construct(
 
 
 class _UnusedEngine:
-    """Stands in for the command's engine where no test reaches the database."""
+    """Replaces the command's engine where no test reaches the database."""
 
     async def dispose(self) -> None:
         return None

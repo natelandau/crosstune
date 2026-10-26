@@ -149,7 +149,7 @@ final class PurchaseWork {
     }
 
     /// Keyed by the client's identity. A live entry's models hold the client, so its identity is
-    /// never reused while the entry stands.
+    /// never reused while the entry lives.
     private static var all: [ObjectIdentifier: Entry] = [:]
 
     private init() {}

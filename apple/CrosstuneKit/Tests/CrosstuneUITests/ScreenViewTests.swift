@@ -22,7 +22,7 @@ import Testing
         ("Phone/SettingsRoot.swift", "settings"),
         ("Mac/MacSettingsTabs.swift", "settings"),
         ("Stats/StatsScreen.swift", "stats"),
-        ("Pad/Stand.swift", "stand"),
+        ("Pad/PadPracticeScreen.swift", "padPractice"),
         ("Welcome/WelcomeView.swift", "welcome"),
         ("Links/FindRecordingsSheet.swift", "findRecordings"),
     ]
@@ -74,7 +74,7 @@ import Testing
     /// session has none.
     let hasWindowServer = CGSessionCopyCurrentDictionary() != nil
 
-    /// Stands in for a page whose content swaps to "Deleting" while a delete runs.
+    /// Fakes a page whose content swaps to "Deleting" while a delete runs.
     @MainActor @Observable private final class Page {
         var shown = true
         var present = true
@@ -83,13 +83,13 @@ import Testing
     }
 
     @MainActor @Observable private final class ReadingShelf {
-        var reading: StandReading
-        init(_ reading: StandReading) { self.reading = reading }
+        var reading: ReadingPaneContent
+        init(_ reading: ReadingPaneContent) { self.reading = reading }
     }
 
     private struct ShelvedReadingPane: View {
         let shelf: ReadingShelf
-        @State private var visit = StandVisit()
+        @State private var visit = PadPracticeVisit()
 
         var body: some View {
             ReadingPane(reading: shelf.reading, visit: visit)
@@ -197,9 +197,9 @@ import Testing
 
         @Test func theReadingPaneReportsTheKindItOpensOn() async {
             let sink = RecordingAnalyticsSink()
-            let reading = StandReading(tuneID: "t1", scans: [], lyrics: "Oh the cuckoo")
+            let reading = ReadingPaneContent(tuneID: "t1", scans: [], lyrics: "Oh the cuckoo")
             let window = host(
-                ReadingPane(reading: reading, visit: StandVisit()).environment(\.analytics, sink.client))
+                ReadingPane(reading: reading, visit: PadPracticeVisit()).environment(\.analytics, sink.client))
             defer { window.close() }
 
             await settle { !sink.calls.isEmpty }
@@ -209,12 +209,12 @@ import Testing
 
         @Test func theReadingPaneReportsAKindItGainsWhileItShows() async {
             let sink = RecordingAnalyticsSink()
-            let shelf = ReadingShelf(StandReading(tuneID: "t1", scans: [], lyrics: "Oh the cuckoo"))
+            let shelf = ReadingShelf(ReadingPaneContent(tuneID: "t1", scans: [], lyrics: "Oh the cuckoo"))
             let window = host(ShelvedReadingPane(shelf: shelf).environment(\.analytics, sink.client))
             defer { window.close() }
             await settle { !sink.calls.isEmpty }
 
-            shelf.reading = StandReading(tuneID: "t1", scans: [Self.scan], lyrics: "Oh the cuckoo")
+            shelf.reading = ReadingPaneContent(tuneID: "t1", scans: [Self.scan], lyrics: "Oh the cuckoo")
             await settle { sink.calls.count >= 2 }
 
             #expect(
@@ -226,9 +226,9 @@ import Testing
 
         @Test func theReadingPaneReportsNothingForATuneTheListMovedTo() async {
             let sink = RecordingAnalyticsSink()
-            let visit = StandVisit()
+            let visit = PadPracticeVisit()
             _ = visit.readingShown(.scans, tuneID: "t1", picked: false)
-            let reading = StandReading(tuneID: "t2", scans: [], lyrics: "Oh the cuckoo")
+            let reading = ReadingPaneContent(tuneID: "t2", scans: [], lyrics: "Oh the cuckoo")
             let appeared = Counter()
             let window = host(
                 ReadingPane(reading: reading, visit: visit).environment(\.analytics, sink.client)

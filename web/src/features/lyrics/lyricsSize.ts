@@ -6,7 +6,7 @@ export const LYRICS_STEPS = 6
 export const DEFAULT_LYRICS_STEP = 4
 
 // Per device, like appearance and the app's own text size, so it needs no account. The step is
-// an absolute size rather than a multiplier on that setting: reading from a music stand is a
+// an absolute size rather than a multiplier on that setting: reading from sheet music on a desk is a
 // different distance from browsing in the hand, so compounding the two would make one wrong.
 export const LYRICS_SIZE_KEY = 'crosstune.lyricsSize'
 

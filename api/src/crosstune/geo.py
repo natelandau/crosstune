@@ -46,7 +46,7 @@ class MaxMindCountryReader:
 
 
 class NoCountryReader:
-    """Stands in when no database is available."""
+    """Replaces the reader when no database is available."""
 
     def country(self, ip: str) -> str | None:  # noqa: ARG002
         """Always None."""

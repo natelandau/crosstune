@@ -9,9 +9,9 @@ import { PlaybackEngineContext } from '../player/PlaybackEngineProvider'
 import { usePlayheadClock } from '../player/playheadClock'
 import { LOOP_END, LOOP_START } from './LoopHandle'
 import { loopAt } from '../../domain/loopModel'
-import { LANES_LABEL, LOOP_NAME } from './practiceCopy'
-import { GLIDE_TAU_MS } from './practiceZoom'
-import { PracticeWaveform, type LaneLoop } from './PracticeWaveform'
+import { WAVEFORM_LABEL, LOOP_NAME } from './practiceCopy'
+import { MOMENTUM_TAU_MS } from './practiceZoom'
+import { PracticeWaveform, type WaveformLoop } from './PracticeWaveform'
 import { tap } from '../../platform/haptics'
 
 vi.mock('../../platform/haptics', () => ({ tap: vi.fn() }))
@@ -36,7 +36,7 @@ function Harness({
   pinches,
 }: {
   engine: PlaybackEngine
-  loops: LaneLoop[]
+  loops: WaveformLoop[]
   initialSelected: string | null
   spies: Spies
   pinches: RefObject<number>
@@ -109,7 +109,7 @@ function setup({
 }: {
   positionMs?: number
   playing?: boolean
-  loops?: LaneLoop[]
+  loops?: WaveformLoop[]
   selected?: string | null
   reduceMotion?: boolean
 } = {}) {
@@ -147,7 +147,7 @@ function setup({
 }
 
 const waveform = () => document.querySelector<HTMLElement>('[data-practice-waveform]')!
-const surface = () => page.getByRole('slider', { name: LANES_LABEL }).element()
+const surface = () => page.getByRole('slider', { name: WAVEFORM_LABEL }).element()
 const viewStart = () => Number(waveform().dataset.startMs)
 
 /** The x within the waveform of a time, with the playhead at `centerMs`. */
@@ -186,7 +186,7 @@ function drag(target: Element, from: number, to: number) {
   pointer(target, 'pointerup', to)
 }
 
-const A: LaneLoop = {
+const A: WaveformLoop = {
   id: 'a',
   startMs: 19_000,
   endMs: 20_500,
@@ -194,7 +194,7 @@ const A: LaneLoop = {
   name: 'A part',
   label: 'A part',
 }
-const B: LaneLoop = {
+const B: WaveformLoop = {
   id: 'b',
   startMs: 20_500,
   endMs: 23_000,
@@ -218,7 +218,7 @@ describe('PracticeWaveform', () => {
 
   it('reads the position and moves it a second per arrow, five with Shift', async () => {
     const { seek } = setup()
-    const slider = page.getByRole('slider', { name: LANES_LABEL })
+    const slider = page.getByRole('slider', { name: WAVEFORM_LABEL })
     await expect.element(slider).toHaveAttribute('aria-valuetext', '0:20 of 1:00')
     ;(slider.element() as HTMLElement).focus()
     await userEvent.keyboard('{ArrowRight}')
@@ -301,7 +301,7 @@ describe('PracticeWaveform', () => {
     await expect.poll(() => seek.mock.calls).toEqual([[0]])
   })
 
-  it('a fling past the end glides to the end and stops there', async () => {
+  it('a fling past the end scrolls on to the end and stops there', async () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance'] })
     const { seek } = setup({ positionMs: 58_000 })
     const touch = { pointerType: 'touch' }
@@ -311,9 +311,9 @@ describe('PracticeWaveform', () => {
     vi.advanceTimersByTime(16)
     pointer(surface(), 'pointermove', 200, touch)
     pointer(surface(), 'pointerup', 200, touch)
-    vi.advanceTimersByTime(GLIDE_TAU_MS)
+    vi.advanceTimersByTime(MOMENTUM_TAU_MS)
     expect(seek).not.toHaveBeenCalled()
-    vi.advanceTimersByTime(3 * GLIDE_TAU_MS)
+    vi.advanceTimersByTime(3 * MOMENTUM_TAU_MS)
     expect(seek.mock.calls).toEqual([[LENGTH_MS]])
   })
 
@@ -328,7 +328,7 @@ describe('PracticeWaveform', () => {
     vi.advanceTimersByTime(16)
     pointer(surface(), 'pointermove', 200, touch)
     pointer(surface(), 'pointerup', 200, touch)
-    vi.advanceTimersByTime(4 * GLIDE_TAU_MS)
+    vi.advanceTimersByTime(4 * MOMENTUM_TAU_MS)
     expect(seek.mock.calls).toEqual([[LENGTH_MS]])
     expect(play).not.toHaveBeenCalled()
   })
@@ -524,7 +524,7 @@ describe('PracticeWaveform', () => {
     await expect.poll(() => spies.onCommit.mock.calls.length).toBe(1)
   })
 
-  it('a press that catches a glide takes over from where it got to', async () => {
+  it('a press that catches a momentum scroll takes over from where it got to', async () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance'] })
     const { seek } = setup({ positionMs: 20_000 })
     // act commits each render before it returns. A poll would advance the faked frames.
@@ -536,7 +536,7 @@ describe('PracticeWaveform', () => {
       vi.advanceTimersByTime(16)
       pointer(surface(), 'pointermove', 200, touch)
       pointer(surface(), 'pointerup', 200, touch)
-      vi.advanceTimersByTime(GLIDE_TAU_MS)
+      vi.advanceTimersByTime(MOMENTUM_TAU_MS)
     })
     const caughtStart = viewStart()
     expect(caughtStart).toBeGreaterThan(19_000)
@@ -547,7 +547,7 @@ describe('PracticeWaveform', () => {
     expect(viewStart()).toBeCloseTo(caughtStart + 500, 0)
     await act(async () => {
       pointer(surface(), 'pointerup', 150)
-      vi.advanceTimersByTime(4 * GLIDE_TAU_MS)
+      vi.advanceTimersByTime(4 * MOMENTUM_TAU_MS)
     })
     expect(seek).toHaveBeenCalledTimes(1)
     expect(seek.mock.calls[0]![0]).toBeCloseTo(caughtStart + 2000 + 500, 0)
@@ -572,7 +572,7 @@ describe('PracticeWaveform', () => {
   })
 
   it('keeps the name field inside the waveform near its right edge', async () => {
-    const late: LaneLoop = { ...B, startMs: 21_500, endMs: 23_000 }
+    const late: WaveformLoop = { ...B, startMs: 21_500, endMs: 23_000 }
     setup({ loops: [A, late], selected: 'b' })
     await page.getByRole('button', { name: 'B part' }).click()
     const field = page.getByRole('textbox', { name: LOOP_NAME })
@@ -586,7 +586,7 @@ describe('PracticeWaveform', () => {
   })
 
   it('opens the name field empty for an unnamed loop and commits it empty', async () => {
-    const unnamed: LaneLoop = { ...A, name: 'Loop 0:19', label: null }
+    const unnamed: WaveformLoop = { ...A, name: 'Loop 0:19', label: null }
     const { spies } = setup({ loops: [unnamed, B], selected: 'a' })
     await page.getByRole('button', { name: 'Loop 0:19' }).click()
     const field = page.getByRole('textbox', { name: LOOP_NAME })

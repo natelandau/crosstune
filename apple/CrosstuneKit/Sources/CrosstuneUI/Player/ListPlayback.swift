@@ -126,7 +126,7 @@ public final class ListPlayback: PlayerQueue {
             if settled, turn == generation { loadedGeneration = turn }
             return false
         }
-        // Something else took over while the tune resolved, and that stands.
+        // Something else took over while the tune resolved, and that wins.
         guard turn == generation, isActive, order?.jump(to: tuneID) == true else { return true }
         skips = 0
         trigger = .tap

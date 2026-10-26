@@ -63,7 +63,7 @@ final class PracticeModel {
 
     /// A released drag coasting from `from` to `to` over `runMs` from `start`. Its position is
     /// read from the clock as each frame draws, rather than stored step by step.
-    struct Glide: Equatable {
+    struct MomentumScroll: Equatable {
         let from: Int64
         let to: Int64
         let start: ContinuousClock.Instant
@@ -72,7 +72,7 @@ final class PracticeModel {
         func position(at now: ContinuousClock.Instant) -> Int64 {
             let parts = (now - start).components
             let elapsed = Double(parts.seconds) * 1000 + Double(parts.attoseconds) / 1e15
-            return PracticeZoom.glidePosition(from: from, to: to, elapsedMs: elapsed, runMs: runMs)
+            return PracticeZoom.momentumScrollPosition(from: from, to: to, elapsedMs: elapsed, runMs: runMs)
         }
     }
 
@@ -119,12 +119,12 @@ final class PracticeModel {
     var pointsPerSecond: Double?
     /// The playhead while a drag holds it, on the trimmed timeline.
     var draggedMs: Int64?
-    /// The glide under way, if any, which the waveform's frames follow.
-    var gliding: Glide?
-    /// The playhead while a drag or its glide moves it, on the trimmed timeline; playback seeks
+    /// The momentum scroll under way, if any, which the waveform's frames follow.
+    var momentumScroll: MomentumScroll?
+    /// The playhead while a drag or its momentum scroll moves it, on the trimmed timeline; playback seeks
     /// there once it settles.
     var scrubbingMs: Int64? {
-        get { gliding.map { $0.position(at: clock()) } ?? draggedMs }
+        get { momentumScroll.map { $0.position(at: clock()) } ?? draggedMs }
         set { draggedMs = newValue }
     }
     /// How deep a handle's drag is into either end's auto-pan zone, from -1 at the left edge to
@@ -136,10 +136,10 @@ final class PracticeModel {
     @ObservationIgnored let announce: (String) -> Void
     @ObservationIgnored var handleDrag: HandleDrag?
     @ObservationIgnored var activeScrub: Scrub?
-    /// Settles the glide under way once its run ends.
-    @ObservationIgnored var glide: Task<Void, Never>?
+    /// Settles the momentum scroll under way once its run ends.
+    @ObservationIgnored var momentumTask: Task<Void, Never>?
     /// How long a released drag coasts: three time constants, where 95% of its distance is covered.
-    @ObservationIgnored var glideRun: Duration = .milliseconds(3 * PracticeZoom.glideTauMs)
+    @ObservationIgnored var momentumScrollRun: Duration = .milliseconds(3 * PracticeZoom.momentumScrollTauMs)
     @ObservationIgnored var pinches = 0
     @ObservationIgnored var pinchBase: Double?
     /// The player's last reported position and when it came, which the playhead runs on from
@@ -152,7 +152,7 @@ final class PracticeModel {
     /// How long a name field that lost focus waits before it writes, so a suggestion chip
     /// whose press took the focus away writes its own name instead.
     @ObservationIgnored var blurDelay: Duration = .milliseconds(300)
-    /// Waits out ``blurDelay`` and ``glideRun``.
+    /// Waits out ``blurDelay`` and ``momentumScrollRun``.
     @ObservationIgnored var sleep: @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     @ObservationIgnored private var renameOpened = ""
     /// What the open name field holds, so a touch elsewhere can save it without waiting on focus.
@@ -197,11 +197,11 @@ final class PracticeModel {
     /// The playhead on the trimmed timeline.
     var positionMs: Double { isLoaded ? player.audio.elapsed * 1000 : 0 }
 
-    /// The playhead on the source timeline where it shows, a scrub or glide under way
+    /// The playhead on the source timeline where it shows, a scrub or momentum scroll under way
     /// included, which is where every loop command acts.
     var playheadMs: Int64 { trimStartMs + centerMs }
 
-    /// Takes the recording's row and file as they now stand.
+    /// Takes the recording's row and file as they are now.
     func follow(_ recording: Recording, file: RecordingFile?) {
         if recording != self.recording { self.recording = recording }
         if file != self.file { self.file = file }
@@ -408,7 +408,7 @@ final class PracticeModel {
 
     /// Shows `span` for `key` ahead of its row. A draft still waiting on its row keeps the base
     /// it began with; one whose row has caught up gives way, so the next edit takes the row as
-    /// it now stands for its base.
+    /// it is now for its base.
     func putDraft(_ key: String, _ span: LoopSpan) {
         for (id, draft) in drafts where hasLanded(id, draft) { drafts[id] = nil }
         let base = drafts[key]?.base ?? loops.first { $0.id == key }.map(Self.span)

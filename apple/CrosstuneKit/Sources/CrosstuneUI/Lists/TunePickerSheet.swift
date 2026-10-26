@@ -140,7 +140,7 @@ private struct TunePickerContent: View {
                 }
             }
             .onAppear { searchFocused = true }
-            // The screen under this sheet stands its Find down, so Command-F reaches this search.
+            // The screen under this sheet disables its Find, so Command-F reaches this search.
             .focusedSceneValue(\.findAction, MenuAction { searchFocused = true })
         }
 
@@ -232,7 +232,7 @@ private struct TunePickerContent: View {
                 }
             }
             .onAppear { searchFocused = true }
-            // The screen under this sheet stands its Find down, so Command-F reaches this search.
+            // The screen under this sheet disables its Find, so Command-F reaches this search.
             .focusedSceneValue(\.findAction, MenuAction { searchFocused = true })
         }
 

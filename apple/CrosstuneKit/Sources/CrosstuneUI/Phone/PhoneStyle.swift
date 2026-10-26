@@ -44,7 +44,7 @@ public enum PhoneStyle {
         switch tuneStep(cents: cents) {
         case .far: BrandStyle.coralHex
         case .close: tuneCloseHex
-        case .zone: mixHex(tuneCloseHex, toward: StatusStyle.knownDarkHex, share: greenness(cents: cents))
+        case .zone: mixHex(tuneCloseHex, toward: StatusStyle.knownDarkHex, share: inTuneFraction(cents: cents))
         }
     }
 

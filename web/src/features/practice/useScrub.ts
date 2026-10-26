@@ -4,7 +4,7 @@ import type { PlaybackEngine } from '../player/playbackEngine'
 import { capturePointer } from '../../platform/pointer'
 import { useLatest } from '../../ui/useLatest'
 import { DRAG_THRESHOLD_PX } from '../../domain/loopModel'
-import { GLIDE_TAU_MS, glideMs, scrubMs, unstretchedMs } from './practiceZoom'
+import { MOMENTUM_TAU_MS, momentumScrollMs, scrubMs, unstretchedMs } from './practiceZoom'
 import { clamp } from '../../math'
 import { SPRING } from '../../theme/motion'
 
@@ -22,16 +22,16 @@ export type ScrubEngine = Pick<PlaybackEngine, 'getState' | 'play' | 'pause' | '
 
 /** How far back the release velocity looks. */
 const VELOCITY_WINDOW_MS = 100
-/** A glide stops at three time constants, where 95% of its distance is covered. */
-const GLIDE_RUN_MS = 3 * GLIDE_TAU_MS
-const GLIDE_SPAN = 1 - Math.exp(-GLIDE_RUN_MS / GLIDE_TAU_MS)
+/** A momentum scroll stops at three time constants, where 95% of its distance is covered. */
+const MOMENTUM_RUN_MS = 3 * MOMENTUM_TAU_MS
+const MOMENTUM_SPAN = 1 - Math.exp(-MOMENTUM_RUN_MS / MOMENTUM_TAU_MS)
 
 interface Press {
   pointerId: number
   startX: number
   fromMs: number
   moved: boolean
-  /** A press that caught a glide stops it and is never a tap. */
+  /** A press that caught a momentum scroll stops it and is never a tap. */
   caught: boolean
   target: EventTarget | null
   touch: boolean
@@ -42,7 +42,7 @@ interface Press {
 /**
  * Dragging the audio under a fixed playhead. A drag past the threshold holds playback where it
  * is and reports the playhead it draws to `onShow` (trimmed timeline), and a touch released
- * while moving glides on with exponential decay. A drag past either end pulls on with
+ * while moving starts a momentum scroll with exponential decay. A drag past either end pulls on with
  * resistance and springs back to that end on release, so what it shows can briefly lie outside
  * the take. `onShow` gets null once it lets go.
  * Once still, the engine seeks there once and plays on if it was playing. A press released
@@ -70,11 +70,11 @@ export function useScrub({
 }): {
   handlers: PointerHandlers
   /**
-   * Stops a glide under way where it has got to, so a command acts where the playhead shows
-   * and the glide cannot carry it off afterward. True when there was one.
+   * Stops a momentum scroll under way where it has got to, so a command acts where the playhead shows
+   * and the scroll cannot carry it off afterward. True when there was one.
    */
-  settleGlide: () => boolean
-  /** Where a scrub or glide under way has the playhead (trimmed timeline), else null. */
+  settleMomentumScroll: () => boolean
+  /** Where a scrub or momentum scroll under way has the playhead (trimmed timeline), else null. */
   shownMs: () => number | null
 } {
   const reduceMotion = useReducedMotionConfig() ?? false
@@ -99,19 +99,19 @@ export function useScrub({
       shownRef.current = ms
       latestRef.current.onShow(ms)
     }
-    const stopGlide = () => {
+    const stopMomentumScroll = () => {
       cancelAnimationFrame(frame.current)
       frame.current = 0
       springBack.current?.stop()
       springBack.current = null
     }
-    const gliding = () => frame.current !== 0 || springBack.current !== null
+    const isMomentumScrolling = () => frame.current !== 0 || springBack.current !== null
     /**
      * Lets go of playback: seeks to `ms` unless null, and plays on if it was playing, unless
      * the playhead is at the end.
      */
     const settle = (ms: number | null) => {
-      stopGlide()
+      stopMomentumScroll()
       const { engine, lengthMs } = latestRef.current
       const atMs = ms === null ? null : clamp(ms, 0, lengthMs)
       if (atMs !== null) engine.seek(atMs)
@@ -120,17 +120,19 @@ export function useScrub({
       held.current = null
       if (was?.playing && (atMs ?? 0) < lengthMs) engine.play()
     }
-    const glide = (fromMs: number, toMs: number) => {
+    const startMomentumScroll = (fromMs: number, toMs: number) => {
       let startT: number | null = null
       const step = (t: number) => {
         startT ??= t
         const elapsed = t - startT
-        if (elapsed >= GLIDE_RUN_MS) {
+        if (elapsed >= MOMENTUM_RUN_MS) {
           frame.current = 0
           settle(toMs)
           return
         }
-        show(fromMs + ((toMs - fromMs) * (1 - Math.exp(-elapsed / GLIDE_TAU_MS))) / GLIDE_SPAN)
+        show(
+          fromMs + ((toMs - fromMs) * (1 - Math.exp(-elapsed / MOMENTUM_TAU_MS))) / MOMENTUM_SPAN,
+        )
         frame.current = requestAnimationFrame(step)
       }
       frame.current = requestAnimationFrame(step)
@@ -168,8 +170,8 @@ export function useScrub({
         if (press.current) return
         capturePointer(event.currentTarget, event.pointerId)
         const { position, pinches } = latestRef.current
-        const caught = gliding()
-        if (caught) stopGlide()
+        const caught = isMomentumScrolling()
+        if (caught) stopMomentumScroll()
         const caughtMs = caught ? shownRef.current : null
         const { pxPerS, lengthMs } = latestRef.current
         const fromMs = caughtMs === null ? position() : unstretchedMs(caughtMs, pxPerS, lengthMs)
@@ -237,11 +239,11 @@ export function useScrub({
           return
         }
         const distance = pressed.touch
-          ? glideMs(velocity(pressed.samples, performance.now()), pxPerS)
+          ? momentumScrollMs(velocity(pressed.samples, performance.now()), pxPerS)
           : 0
         const toMs = clamp(atMs + distance, 0, lengthMs)
         if (Math.abs(toMs - atMs) < 1) settle(atMs)
-        else glide(atMs, toMs)
+        else startMomentumScroll(atMs, toMs)
       },
       onPointerCancel: (event) => {
         const pressed = press.current
@@ -252,24 +254,24 @@ export function useScrub({
       // After a pointerup the press is already gone, so only a capture taken away mid-drag lands.
       onLostPointerCapture: (event) => handlers.onPointerCancel(event),
     }
-    const settleGlide = () => {
-      if (!gliding()) return false
+    const settleMomentumScroll = () => {
+      if (!isMomentumScrolling()) return false
       settle(shownRef.current)
       return true
     }
     const shownMs = () => shownRef.current
-    return { handlers, stopGlide, settle, settleGlide, shownMs }
+    return { handlers, stopMomentumScroll, settle, settleMomentumScroll, shownMs }
   }, [latestRef])
 
   // Leaving mid-scrub still lands the playhead where it was dragged.
   useEffect(
     () => () => {
       if (held.current) controls.settle(shownRef.current)
-      else controls.stopGlide()
+      else controls.stopMomentumScroll()
     },
     [controls],
   )
 
-  const { handlers, settleGlide, shownMs } = controls
-  return { handlers, settleGlide, shownMs }
+  const { handlers, settleMomentumScroll, shownMs } = controls
+  return { handlers, settleMomentumScroll, shownMs }
 }

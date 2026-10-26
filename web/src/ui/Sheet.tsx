@@ -30,7 +30,7 @@ import { InBar } from './inBar'
 import { HeadingLevelContext } from './headingLevel'
 import { TONE_VARIANT, type ActionTone } from './toneVariant'
 import { PointerOverlay } from './PointerOverlay'
-import { recede } from './recede'
+import { scaleBackground } from './backgroundScale'
 import {
   growScale,
   originBox,
@@ -126,7 +126,7 @@ export interface SheetProps {
   footnote?: ReactNode
   /** Runs once the sheet has finished closing and left the page. */
   onClosed?: () => void
-  /** The control the sheet grows out of and closes back into, such as the Record disc. */
+  /** The control the sheet grows out of and closes back into, such as the Record button. */
   origin?: () => Element | null
   children: ReactNode
 }
@@ -444,16 +444,16 @@ function PointerDialog(props: SheetProps) {
   )
 }
 
-/** Drives the page's recede from `y`, 0 (full) to `closedY` (none), while this sheet shows. */
-function useRecede(y: MotionValue<number>, closedY: number): void {
+/** Drives the page's background scale from `y`, 0 (full) to `closedY` (none), while this sheet shows. */
+function useBackgroundScale(y: MotionValue<number>, closedY: number): void {
   useLayoutEffect(() => {
-    const recession = recede()
-    const update = (value: number) => recession.set(1 - clamp(value / closedY, 0, 1))
+    const backgroundScale = scaleBackground()
+    const update = (value: number) => backgroundScale.set(1 - clamp(value / closedY, 0, 1))
     update(y.get())
     const stop = y.on('change', update)
     return () => {
       stop()
-      recession.release()
+      backgroundScale.release()
     }
   }, [y, closedY])
 }
@@ -533,7 +533,7 @@ function TouchSheet(props: SheetProps) {
   const pinned = footer && !inlineActions
   const actions = hasActions(props)
   const close = () => onOpenChange(false)
-  useRecede(y, closedY)
+  useBackgroundScale(y, closedY)
 
   // Where the sheet rests, so a new window size, such as a rotation, keeps it there.
   const detent = useRef<'part' | 'full'>(height === 'full' ? 'full' : 'part')

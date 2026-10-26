@@ -34,7 +34,7 @@ final class NowPlayingControls {
         }
     }
 
-    /// Shows `nowPlaying` with where playback stands on the trimmed timeline. The system moves
+    /// Shows `nowPlaying` with where playback is on the trimmed timeline. The system moves
     /// the elapsed time on by itself from `rate`, the chosen speed, so this runs only when
     /// something changes, never on a timer.
     func publish(

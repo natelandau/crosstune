@@ -15,7 +15,7 @@ public enum PlaceSearchText {
     public static let noPlacesFound = "No locations found"
     public static let pickFailed = "Couldn’t find that location. Try another."
 
-    /// A location row's accessible name, `Use <name>, <detail>`, a verb first as the web's
+    /// A location row's accessible name, `Use <name>, <detail>`, a actionLabel first as the web's
     /// `pickLocationName` says it.
     public static func pick(_ name: String, detail: String?) -> String {
         guard let detail, !detail.isEmpty else { return "Use \(name)" }
@@ -141,7 +141,7 @@ final class PlaceSearchModel {
             near: center, radiusM: PlaceDistances.nearbyRadiusM, limit: PlaceDistances.nearbyLimit)
     }
 
-    /// Asks for the suggestions for the query as it stands.
+    /// Asks for the suggestions for the query as it is now.
     func refresh() async {
         let asked = query
         guard !showsRecent else {
@@ -352,7 +352,7 @@ struct PlaceSearchView: View {
 
     #if os(macOS)
         /// Drawn on the edit sheet's scaffold, with Back in the cancel slot so Escape pops it. The
-        /// lists stand before a search as a picker's catalog does, and the results replace them.
+        /// lists show before a search as a picker's catalog does, and the results replace them.
         private var page: some View {
             MacSheet(
                 title: EditRecordingText.place, size: EditRecordingSheet.macSize,

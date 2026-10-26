@@ -110,13 +110,13 @@
             minWidth: CGFloat? = nil, onSelectedRow: Bool = false
         ) -> some View {
             modifier(
-                MacChipFace(
+                MacChipLabel(
                     state: state, hue: hue, hueInk: hueInk, size: size, emphasis: emphasis, minWidth: minWidth,
                     onSelectedRow: onSelectedRow))
         }
     }
 
-    private struct MacChipFace: ViewModifier {
+    private struct MacChipLabel: ViewModifier {
         let state: MacChipState
         let hue: Color?
         let hueInk: Color?

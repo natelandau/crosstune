@@ -248,7 +248,7 @@ export function filterCatalog(
   })
 }
 
-// Group the way facetMatches compares, so one option stands for every spelling it matches, shown
+// Group the way facetMatches compares, so one option represents every spelling it matches, shown
 // the way the stats breakdowns show it, so a tapped stats row names an option the sheet offers.
 function distinct(facet: Facet, values: (string | null | undefined)[]): string[] {
   return groupByFold(

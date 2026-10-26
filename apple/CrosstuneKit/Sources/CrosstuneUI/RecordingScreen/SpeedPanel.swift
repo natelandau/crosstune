@@ -121,12 +121,12 @@ struct SpeedPresetRow: View {
         // ViewThatFits picks the first layout whose ideal size fits, so the single line keeps
         // Reset at the trailing edge, which a flow layout cannot.
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: spacing.railGap) {
+            HStack(spacing: spacing.chipGap) {
                 presets
                 Spacer(minLength: 0)
                 reset
             }
-            FlowLayout(spacing: spacing.railGap, lineSpacing: spacing(12)) {
+            FlowLayout(spacing: spacing.chipGap, lineSpacing: spacing(12)) {
                 presets
                 reset
             }

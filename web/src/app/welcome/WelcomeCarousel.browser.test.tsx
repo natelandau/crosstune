@@ -58,7 +58,7 @@ afterEach(async () => {
 })
 
 describe('WelcomeCarousel', () => {
-  it('starts on the story slide', async () => {
+  it('starts on the intro slide', async () => {
     renderCarousel()
     const first = page.getByRole('group', { name: slideLabel(1) })
     await expect.element(first).toBeVisible()

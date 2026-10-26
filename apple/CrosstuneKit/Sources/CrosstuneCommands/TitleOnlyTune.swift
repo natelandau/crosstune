@@ -24,7 +24,7 @@ public struct CreatedTune: Sendable {
     /// The title as stored: trimmed and held to its limit.
     public let title: String
     public let defaults: NewTuneDefaults
-    /// The recording as it stood before it was filed under the tune, or nil when none was.
+    /// The recording as it was before it was filed under the tune, or nil when none was.
     public let filedRecording: Recording?
     /// Why the list or the recording refused the tune, which was created all the same.
     public let filingError: (any Error)?

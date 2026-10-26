@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import type { LaneView } from './practiceZoom'
+import type { ZoomedWaveformView } from './practiceZoom'
 import { useAutoPan } from './useAutoPan'
 
 let frames = new Map<number, FrameRequestCallback>()
@@ -27,7 +27,7 @@ function runFrames() {
   for (const frame of due) frame(0)
 }
 
-const start: LaneView = { startMs: 10_000, pxPerS: 20, widthPx: 300, trimStartMs: 0 }
+const start: ZoomedWaveformView = { startMs: 10_000, pxPerS: 20, widthPx: 300, trimStartMs: 0 }
 
 /** A view that a pan moves at once, as the playhead clock does. */
 function setup() {

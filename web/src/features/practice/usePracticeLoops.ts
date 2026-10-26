@@ -16,7 +16,7 @@ import {
 import type { Draft, NewLoop } from '../../domain/loopModel'
 import { NEW_LOOP_REASON } from './LoopsPanel'
 import { LOOP_SELECTED } from './practiceCopy'
-import type { LaneLoop, SelectedLoop } from './PracticeWaveform'
+import type { WaveformLoop, SelectedLoop } from './PracticeWaveform'
 import { useLoopActions, type LoopActions } from './useLoopCommands'
 import { useLoopDrafts, type LoopDrafts } from './useLoopDrafts'
 import { useLoopPlayback, type LoopPlayback } from './useLoopPlayback'
@@ -27,7 +27,7 @@ import type { PracticeTimeline } from './usePracticeTimeline'
 export interface PracticeLoops {
   /** The recording's loops in timeline order, empty until the first read. */
   rows: LocalRecordingLoop[]
-  laneLoops: LaneLoop[]
+  waveformLoops: WaveformLoop[]
   playback: LoopPlayback
   /** The selected loop as drawn, a handle's drag under way included. */
   selected: SelectedLoop | null
@@ -109,7 +109,7 @@ export function usePracticeLoops({
   const selectedRow = commands.selected
   const nameOf = (row: LocalRecordingLoop) => loopName(row.label ?? null, row.start_ms, trimStartMs)
 
-  const laneLoops = useMemo<LaneLoop[]>(
+  const waveformLoops = useMemo<WaveformLoop[]>(
     () =>
       rows.map((loop) => ({
         id: loop.id,
@@ -210,7 +210,7 @@ export function usePracticeLoops({
 
   return {
     rows,
-    laneLoops,
+    waveformLoops,
     playback,
     selected,
     selectedRow,

@@ -40,7 +40,7 @@ public struct UnfinishedCaptureRowContent: Hashable, Sendable {
 
     public let title: String
     /// What a tap on the row does, spoken before its title.
-    public let verb = RecordingRowActions.delete
+    public let actionLabel = RecordingRowActions.delete
 
     public init(capture: RecordingFile, locale: Locale = .current, timeZone: TimeZone = .current) {
         let started = RecordingText.recordedDate(

@@ -168,7 +168,7 @@ export function useTrimEditor({
   }, [trimmedElsewhere, onTrimmedElsewhereRef])
 
   // Play selection and Preview end run up to the end handle and stop on it. The check reads
-  // the handle as it stands, so moving it while playing moves where playback stops.
+  // the handle as it is now, so moving it while playing moves where playback stops.
   const stopAtEnd = useRef(false)
   const latestRef = useLatest(trim)
   useEffect(() => {

@@ -21,7 +21,7 @@ export function useTrimHold(id: string, trimming: boolean, settings?: TrimHoldSe
   const engine = usePlaybackEngine()
   const db = useDb()
   const given = settings !== undefined
-  // Undefined while the read is pending, null once the row is gone or `settings` stands in.
+  // Undefined while the read is pending, null once the row is gone or `settings` replaces it.
   const row = useLiveQuery(
     async () => (given ? null : ((await db.recordings.get(id)) ?? null)),
     [db, id, given],
@@ -42,7 +42,7 @@ export function useTrimHold(id: string, trimming: boolean, settings?: TrimHoldSe
     engine.setSpeed(100)
     engine.setPitch(0)
     return () => {
-      // The settings as they stand when trimming ends, not as they were when it began.
+      // The settings as they are when trimming ends, not as they were when it began.
       // eslint-disable-next-line react-hooks/exhaustive-deps
       const restore = settingsRef.current
       if (!restore) return

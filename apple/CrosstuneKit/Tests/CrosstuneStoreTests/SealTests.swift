@@ -19,7 +19,7 @@ import Testing
     #expect(try await store.read { db in try Tune.fetchCount(db) } == 0)
 }
 
-@Test func sealingStandsDownWhileWorkIsOnlyHere() async throws {
+@Test func sealingIsDisabledWhileWorkIsOnlyHere() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in try writer.put(Tune(createdAt: noon, title: "Unsent")) }

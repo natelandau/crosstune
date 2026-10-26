@@ -39,7 +39,7 @@ export function Switch({
         // holds a wrap off the row's edges, at either density.
         <span className="min-w-0 shrink py-[calc((var(--target)-1lh)/2)]">{label}</span>
       )}
-      {/* Off, a track dark enough to stand alone against the ground; on, a knob holding a check.
+      {/* Off, a track dark enough to contrast with the ground; on, a thumb holding a check.
           The pairs are measured in tokens.test.ts. */}
       <span aria-hidden className="switch-track">
         <span className="switch-thumb">

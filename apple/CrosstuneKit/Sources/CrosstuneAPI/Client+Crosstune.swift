@@ -7,7 +7,7 @@ extension Client {
     /// plus the client version and platform on every request, and retries while the API wakes from sleep.
     /// `onAccountCreated` hears whether the request that created the account started a trial.
     /// `onUpdateRequired` runs when the API refuses this build as too old.
-    /// `transport` stands in for URLSession in tests.
+    /// `transport` replaces URLSession in tests.
     public static func crosstune(
         origin: URL,
         tokens: any TokenProvider,

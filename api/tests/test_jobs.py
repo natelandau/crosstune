@@ -2177,7 +2177,7 @@ async def test_a_superseded_trim_failure_leaves_the_new_claim_alone(
 def _reclaim_then_fail(
     engine, recording_id: uuid.UUID, reclaimed_until: datetime
 ) -> Callable[..., Awaitable[bytes]]:
-    """A stand-in for a job's slow step: another pass claims the job, then the step fails."""
+    """A fake for a job's slow step: another pass claims the job, then the step fails."""
 
     async def step(*_args) -> bytes:
         async with make_sessionmaker(engine)() as other:
@@ -2223,7 +2223,7 @@ async def test_a_superseded_peaks_failure_leaves_the_new_claim_alone(
 
 
 def _finish_elsewhere_then_fail(engine, recording_id: uuid.UUID) -> Callable[..., Awaitable[bytes]]:
-    """A stand-in for a job's slow step: another pass claims and finishes the job, then it fails."""
+    """A fake for a job's slow step: another pass claims and finishes the job, then it fails."""
 
     async def step(*_args) -> bytes:
         async with make_sessionmaker(engine)() as other:

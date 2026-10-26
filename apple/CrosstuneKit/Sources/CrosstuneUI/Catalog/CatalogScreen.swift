@@ -27,9 +27,9 @@ public struct CatalogScreen: View {
     }
 
     #if os(macOS)
-        /// Whether the search field's filters button stands down: while selecting, as the column's
+        /// Whether the search field's filters button is disabled: while selecting, as the column's
         /// own actions do, and in a catalog with no tune to filter. Up while the catalog loads.
-        nonisolated static func filtersStandDown(_ results: CatalogResults?, isSelecting: Bool) -> Bool {
+        nonisolated static func filtersAreDisabled(_ results: CatalogResults?, isSelecting: Bool) -> Bool {
             isSelecting || results?.entries.isEmpty == true
         }
     #endif
@@ -244,7 +244,7 @@ private struct CatalogContent: View {
             .onChange(of: model.catalogRevision) { announceCount() }
     }
 
-    /// Whether the empty catalog's onboarding stands in for the list's own empty state, as it
+    /// Whether the empty catalog's onboarding replaces the list's own empty state, as it
     /// does on the Mac.
     private static func onboards(_ results: CatalogResults, query: String) -> Bool {
         #if os(macOS)
@@ -254,7 +254,7 @@ private struct CatalogContent: View {
         #endif
     }
 
-    /// Whether the selection bar stands in for the filter row, as it does on the Mac.
+    /// Whether the selection bar replaces the filter row, as it does on the Mac.
     private static func selectionBarShows(_ selection: TuneSelection) -> Bool {
         #if os(macOS)
             selection.isActive
@@ -299,7 +299,7 @@ private struct CatalogContent: View {
                 query: $model.query, isFocused: $searchFocused,
                 filterCount: CatalogFilterRow.searchFilterCount(
                     model.results?.filters ?? CatalogFilters(), filtersInSearch: CatalogFilterRow.filtersInSearch),
-                filtersDisabled: CatalogScreen.filtersStandDown(model.results, isSelecting: selection.isActive),
+                filtersDisabled: CatalogScreen.filtersAreDisabled(model.results, isSelecting: selection.isActive),
                 onSubmit: submitSearch
             ) { showsFilters = true }
         }

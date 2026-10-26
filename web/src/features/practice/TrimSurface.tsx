@@ -56,7 +56,7 @@ export function TrimStrips({
 }
 
 /**
- * Where each handle stands and how long the cut plays, counted from the current trim's start.
+ * Where each handle is and how long the cut plays, counted from the current trim's start.
  * `typeClass` is the app's own small text style.
  */
 export function TrimReadout({

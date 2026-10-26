@@ -40,7 +40,7 @@ enum PhoneMotion: Equatable {
 
 extension View {
     /// Animates changes of `value` as the platform and Reduce Motion allow. Pass `reduced: nil`
-    /// when the change is a movement that a cross-fade cannot stand in for.
+    /// when the change is a movement that a cross-fade cannot replace.
     func phoneAnimation<Value: Equatable>(
         _ animation: Animation = .default, reduced: Animation? = .easeInOut(duration: 0.2), value: Value
     ) -> some View {

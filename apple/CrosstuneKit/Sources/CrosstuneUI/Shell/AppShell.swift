@@ -40,14 +40,14 @@ public struct AppShell: View {
     @State private var counts: LiveQuery<CatalogCounts?>?
     @State private var take: RecordTake?
     @State private var openSheets = ShellCover()
-    /// Above the layout, so the shell's own sheets stand down the iPhone record slot too.
+    /// Above the layout, so the shell's own sheets disable the iPhone record slot too.
     @State private var recordCover = ShellCover()
     @State private var selecting = ShellCover()
     /// Bumped to bring the Recordings screen forward.
     @State private var recordingsShown = 0
     @State private var place = ShellPlace()
     @State private var playerWindow = UUID()
-    @State private var standVisit = StandVisit()
+    @State private var padPracticeVisit = PadPracticeVisit()
     @State private var recentTake = RecentTake()
     /// Made again for each plan, which is made again for each store.
     @State private var premium: PremiumPresenter?
@@ -55,7 +55,7 @@ public struct AppShell: View {
     @State private var purchase: PurchaseModel?
     /// Made again for each plan, as `premium` is.
     @State private var notices: NoticeModel?
-    /// Stands in when the app shares no claim across windows, as in previews.
+    /// Used when the app shares no claim across windows, as in previews.
     @State private var ownNoticeClaim = NoticeClaim()
     #if os(iOS)
         @Environment(\.horizontalSizeClass) private var sizeClass
@@ -146,7 +146,7 @@ public struct AppShell: View {
             .environment(\.premium, premium)
             .environment(\.purchase, purchase)
             .environment(\.playerWindow, playerWindow)
-            .environment(\.standVisit, standVisit)
+            .environment(\.padPracticeVisit, padPracticeVisit)
             .environment(\.openCatalogRoot, MenuAction(id: ShellActionID.openCatalogRoot) { showCatalogRoot() })
             .environment(\.openTune, TuneOpener(id: ObjectIdentifier(place)) { openTune($0) })
             .focusedSceneValue(

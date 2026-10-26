@@ -14,8 +14,8 @@
         /// Drawing that only the iPhone and iPad reach in a file the Mac also compiles for its
         /// other parts: from the line holding the first marker up to the one holding the second.
         static let iOSOnlyDrawing: [String: (from: String, to: String)] = [
-            // The bar itself shows only in the phone's tab accessory and the iPad's foot; the Mac
-            // reads its labels and its close control.
+            // The bar itself shows only in the phone's tab accessory and the iPad's bottom bar; the
+            // Mac reads its labels and its close control.
             "Player/PlayerBar.swift": ("public var body: some View", "struct PlayerCloseButton")
         ]
 

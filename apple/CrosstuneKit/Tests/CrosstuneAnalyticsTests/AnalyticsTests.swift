@@ -66,14 +66,14 @@ struct AnalyticsTests {
     @Test func forwardsScreensResetsAndTheOptOut() {
         let analytics = sink.client
 
-        analytics.screen(.stand)
+        analytics.screen(.padPractice)
         analytics.setEnabled(false, rememberedUserID: "user_a")
         analytics.reset()
         analytics.setEnabled(true, rememberedUserID: nil)
 
         #expect(
             sink.calls == [
-                .screen(.stand), .setEnabled(false, rememberedUserID: "user_a"), .reset,
+                .screen(.padPractice), .setEnabled(false, rememberedUserID: "user_a"), .reset,
                 .setEnabled(true, rememberedUserID: nil),
             ])
     }
@@ -136,7 +136,7 @@ func describesTheDeviceInEverySuperProperty(device: Analytics.Device, platform: 
         ])
 }
 
-@Test(arguments: [Screen.catalog, .tune, .lists, .stand])
+@Test(arguments: [Screen.catalog, .tune, .lists, .padPractice])
 func namesTheScreenInItsOwnPropertySoEveryClientBreaksDownTheSame(screen: Screen) {
     #expect(PostHogSink.screenProperties(for: screen) == ["screen": .string(screen.rawValue)])
 }

@@ -9,7 +9,7 @@ import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvi
 import { usePlayer } from '../player/usePlayer'
 import { useTunerSettings } from '../settings/useTunerSettings'
 import { blend } from './blend'
-import { greenness, isInTune } from './pitch/notes'
+import { inTuneFraction, isInTune } from './pitch/notes'
 import type { Reading } from './pitch/tracker'
 import { TunerBars } from './TunerBars'
 import {
@@ -54,7 +54,7 @@ export function TunerScreen() {
   const listening = active && state.status === 'listening'
   const reading = listening ? state.reading : null
   const shown = useHeldReading(reading, listening)
-  const green = shown ? greenness(shown.note.cents) : 0
+  const inTune = shown ? inTuneFraction(shown.note.cents) : 0
   const reference = referenceLabel(a4)
 
   return (
@@ -67,7 +67,7 @@ export function TunerScreen() {
         className="flex min-h-full flex-col bg-(--panel-ground) text-(--panel-ink) transition-colors duration-(--dur-short) ease-(--ease)"
         style={{
           colorScheme: 'dark',
-          backgroundColor: green > 0 ? blend('--panel-ground', '--tune-wash', green) : undefined,
+          backgroundColor: inTune > 0 ? blend('--panel-ground', '--tune-wash', inTune) : undefined,
         }}
       >
         <RootBar title={TUNER_TITLE} />
@@ -75,7 +75,7 @@ export function TunerScreen() {
         <div
           data-tuner-stage
           data-status={state.status}
-          data-greenness={shown ? green : undefined}
+          data-in-tune-fraction={shown ? inTune : undefined}
           data-heard={reading !== null}
           className="relative min-h-72 flex-1"
         >

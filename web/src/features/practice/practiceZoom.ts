@@ -7,8 +7,8 @@ export type ZoomFrame = { widthPx: number; lengthMs: number }
 /** Four pixels for each 20 ms peak, past which the bars only repeat themselves. */
 export const MAX_PX_PER_S = 200
 
-/** The time constant of a released drag's exponential glide. */
-export const GLIDE_TAU_MS = 325
+/** The time constant of a released drag's exponential momentum scroll. */
+export const MOMENTUM_TAU_MS = 325
 
 /** How much of the recording the view shows when there is no loop to fit. */
 export const OPENING_SPAN_MS = 30_000
@@ -23,7 +23,7 @@ export function minPxPerS(widthPx: number, lengthMs: number): number {
 }
 
 /** Where the zoomed view sits, for mapping between the source timeline and its pixels. */
-export interface LaneView {
+export interface ZoomedWaveformView {
   /** The view's left edge, on the trimmed timeline. */
   startMs: number
   pxPerS: number
@@ -32,20 +32,20 @@ export interface LaneView {
   trimStartMs: number
 }
 
-/** The zoomed view as it stands. It moves outside React, so `subscribe` calls back on each move. */
-export interface Lane {
+/** The current zoomed view. It moves outside React, so `subscribe` calls back on each move. */
+export interface ZoomedViewSource {
   trimStartMs: number
-  view: () => LaneView
+  view: () => ZoomedWaveformView
   subscribe: (fn: () => void) => () => void
 }
 
 /** The x of a source time, in pixels from the view's left edge. */
-export function xOfMs(view: LaneView, sourceMs: number): number {
+export function xOfMs(view: ZoomedWaveformView, sourceMs: number): number {
   return ((sourceMs - view.trimStartMs - view.startMs) / 1000) * view.pxPerS
 }
 
 /** The source time at `x` pixels from the view's left edge. */
-export function msAtX(view: LaneView, x: number): number {
+export function msAtX(view: ZoomedWaveformView, x: number): number {
   return view.trimStartMs + view.startMs + (x / view.pxPerS) * 1000
 }
 
@@ -92,8 +92,8 @@ export function scrubMs(fromMs: number, dxPx: number, pxPerS: number, lengthMs: 
 }
 
 /** The distance in ms a release at `velocityPxPerS` still travels, from exponential decay. */
-export function glideMs(velocityPxPerS: number, pxPerS: number): number {
-  return (-velocityPxPerS * GLIDE_TAU_MS) / pxPerS
+export function momentumScrollMs(velocityPxPerS: number, pxPerS: number): number {
+  return (-velocityPxPerS * MOMENTUM_TAU_MS) / pxPerS
 }
 
 /** A view centered on `centerMs` (trimmed timeline). Never clamped, so the ends show blank. */
@@ -102,7 +102,7 @@ export function viewAt(
   centerMs: number,
   widthPx: number,
   trimStartMs: number,
-): LaneView {
+): ZoomedWaveformView {
   return { startMs: centerMs - (widthPx / 2 / pxPerS) * 1000, pxPerS, widthPx, trimStartMs }
 }
 

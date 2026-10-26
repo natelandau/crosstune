@@ -125,7 +125,7 @@ const shown = () => {
   const box = document.querySelector('[data-actions]')!
   return [...box.querySelectorAll('button')].map((b) => b.textContent)
 }
-/** Resolves once the placeholder has gone and the row, or nothing, stands in its place. */
+/** Resolves once the placeholder has gone and the row, or nothing, is in its place. */
 const settled = () =>
   expect.poll(() => document.querySelector('[data-actions] > [aria-hidden]')).toBeNull()
 const noneDisabled = () =>

@@ -36,7 +36,7 @@ extension Tuner {
             (0.0, 1.0), (3, 1), (-3, 1), (6.5, 0.5), (-6.5, 0.5), (10, 0), (-10, 0), (20, 0), (-20, 0),
         ])
         func greensFromTheZoneEdgeToInTune(cents: Double, green: Double) {
-            #expect(abs(greenness(cents: cents) - green) < 1e-12)
+            #expect(abs(inTuneFraction(cents: cents) - green) < 1e-12)
         }
 
         @Test(arguments: [
@@ -56,10 +56,10 @@ extension Tuner {
         @Test func judgesTheShownTenth() {
             #expect(isInTune(cents: 3.04))
             #expect(tuneHint(cents: 3.04) == nil)
-            #expect(greenness(cents: 3.04) == 1)
+            #expect(inTuneFraction(cents: 3.04) == 1)
             #expect(!isInTune(cents: 3.05))
             #expect(tuneHint(cents: 3.05) == .sharp)
-            #expect(greenness(cents: 3.05) < 1)
+            #expect(inTuneFraction(cents: 3.05) < 1)
             #expect(isInTune(cents: -3.05))
             #expect(tuneHint(cents: -3.05) == nil)
             #expect(tuneStep(cents: 10.04) == .zone)

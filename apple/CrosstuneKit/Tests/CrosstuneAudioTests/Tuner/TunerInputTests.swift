@@ -6,7 +6,7 @@ import Testing
 
 private struct EngineFailed: Error {}
 
-/// Stands in for the engine, recording each call in order.
+/// Replaces the engine, recording each call in order.
 private final class FakeTunerEngine: TunerEngine {
     struct State {
         var log: [String] = []

@@ -2,7 +2,7 @@
     import CrosstuneVocabulary
     import SwiftUI
 
-    /// The row that stands in for a column's filter row while selecting: Select all, one Actions
+    /// The row that replaces a column's filter row while selecting: Select all, one Actions
     /// menu of every bulk action, and Done. The column title above it carries the count.
     struct MacSelectionBar: View {
         let count: Int

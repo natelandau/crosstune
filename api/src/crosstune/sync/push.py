@@ -102,7 +102,7 @@ async def _prefetch(session: AsyncSession, spec: TableSpec, changes: list[Change
 
     The ownership checks and table rules read rows one id at a time through `session.get`,
     which the identity map then answers without a round trip each. Earlier groups have
-    already written, so a parent this push created or changed loads as it now stands.
+    already written, so a parent this push created or changed loads in its current state.
     """
     if not changes:
         return []

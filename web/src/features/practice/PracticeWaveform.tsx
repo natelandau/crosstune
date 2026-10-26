@@ -13,7 +13,7 @@ import { useLatest } from '../../ui/useLatest'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { formatDuration, formatPreciseDuration } from '../../text/format'
 import type { ShownPeaks } from './recordingRange'
-import { LaneBars } from './LaneBars'
+import { ZoomedWaveformBars } from './ZoomedWaveformBars'
 import { LoopHandle } from './LoopHandle'
 import {
   roomAround,
@@ -22,14 +22,14 @@ import {
   type PlacedLoop,
   type Span,
 } from '../../domain/loopModel'
-import { LANES_LABEL, LOOP_NAME } from './practiceCopy'
+import { WAVEFORM_LABEL, LOOP_NAME } from './practiceCopy'
 import type { Moving, PlayheadClock } from '../player/playheadClock'
-import { msAtX, viewAt, xOfMs, type Lane } from './practiceZoom'
+import { msAtX, viewAt, xOfMs, type ZoomedViewSource } from './practiceZoom'
 import { AUTO_PAN_ZONE_PX } from './useAutoPan'
 import { useScrub } from './useScrub'
 
 /** `label` is the stored one, null when unnamed; `name` is what shows, a fallback included. */
-export type LaneLoop = PlacedLoop & { name: string; label: string | null }
+export type WaveformLoop = PlacedLoop & { name: string; label: string | null }
 
 export interface SelectedLoop {
   id: string
@@ -40,9 +40,9 @@ export interface SelectedLoop {
 
 /** What practice needs of a scrub under way, so its commands act where the playhead shows. */
 export interface WaveformScrub {
-  /** Stops a glide under way where it has got to; true when there was one. */
-  settleGlide: () => boolean
-  /** Where a scrub or glide has the playhead (trimmed timeline), else null. */
+  /** Stops a momentum scroll under way where it has got to; true when there was one. */
+  settleMomentumScroll: () => boolean
+  /** Where a scrub or momentum scroll has the playhead (trimmed timeline), else null. */
   shownMs: () => number | null
 }
 
@@ -99,7 +99,7 @@ export function PracticeWaveform({
   scrubRef,
 }: {
   shown: ShownPeaks | null
-  loops: readonly LaneLoop[]
+  loops: readonly WaveformLoop[]
   /** The selected loop as shown, a draft ahead of its row included. */
   selected: SelectedLoop | null
   pxPerS: number
@@ -131,7 +131,7 @@ export function PracticeWaveform({
   const trimStartMs = bounds.startMs
   const lengthMs = bounds.endMs - bounds.startMs
 
-  const lane = useMemo<Lane>(
+  const zoomedView = useMemo<ZoomedViewSource>(
     () => ({
       trimStartMs,
       view: () => viewAt(pxPerS, playhead.ms, widthPx, trimStartMs),
@@ -140,13 +140,13 @@ export function PracticeWaveform({
     [playhead, pxPerS, widthPx, trimStartMs],
   )
   const viewStart = useMemo<Moving<number>>(
-    () => ({ get: () => lane.view().startMs, subscribe: lane.subscribe }),
-    [lane],
+    () => ({ get: () => zoomedView.view().startMs, subscribe: zoomedView.subscribe }),
+    [zoomedView],
   )
 
   /** A tap `x` px from the left edge, on the view as drawn. */
-  const tapAt = (x: number) => onTap(Math.round(msAtX(lane.view(), x)))
-  const { handlers, settleGlide, shownMs } = useScrub({
+  const tapAt = (x: number) => onTap(Math.round(msAtX(zoomedView.view(), x)))
+  const { handlers, settleMomentumScroll, shownMs } = useScrub({
     engine,
     position: playhead.live,
     pxPerS,
@@ -165,11 +165,11 @@ export function PracticeWaveform({
 
   useLayoutEffect(() => {
     if (!scrubRef) return
-    scrubRef.current = { settleGlide, shownMs }
+    scrubRef.current = { settleMomentumScroll, shownMs }
     return () => {
       scrubRef.current = null
     }
-  }, [scrubRef, settleGlide, shownMs])
+  }, [scrubRef, settleMomentumScroll, shownMs])
 
   // The ruler is laid out a view's width either side of `anchorMs`, so it slides a half view
   // either way before it needs laying out again.
@@ -205,7 +205,7 @@ export function PracticeWaveform({
     if (event.key === 'End') toMs = lengthMs
     if (toMs === null) return
     event.preventDefault()
-    settleGlide()
+    settleMomentumScroll()
     engine.seek(clamp(toMs, 0, lengthMs))
   }
 
@@ -222,7 +222,7 @@ export function PracticeWaveform({
 
   /** Puts everything that moves with the playhead where the view now has it. */
   const placeRef = useLatest(() => {
-    const view = lane.view()
+    const view = zoomedView.view()
     const centerMs = playhead.ms
     surface.current?.setAttribute('data-start-ms', String(view.startMs))
     const scale = window.devicePixelRatio || 1
@@ -256,7 +256,7 @@ export function PracticeWaveform({
     if (Math.abs(centerMs - anchorMs) > spanMs / 2) setAnchorMs(centerMs)
   })
   useLayoutEffect(() => placeRef.current())
-  useLayoutEffect(() => lane.subscribe(() => placeRef.current()), [lane, placeRef])
+  useLayoutEffect(() => zoomedView.subscribe(() => placeRef.current()), [zoomedView, placeRef])
 
   const tabRef = (id: string) => (element: HTMLElement | null) => {
     if (element) tabs.current.set(id, element)
@@ -286,7 +286,7 @@ export function PracticeWaveform({
         </div>
       </div>
       <div className="relative">
-        <LaneBars
+        <ZoomedWaveformBars
           shown={shown}
           startMs={viewStart}
           pxPerS={pxPerS}
@@ -313,7 +313,7 @@ export function PracticeWaveform({
           ref={slider}
           role="slider"
           tabIndex={0}
-          aria-label={LANES_LABEL}
+          aria-label={WAVEFORM_LABEL}
           aria-valuemin={0}
           aria-valuemax={lengthMs}
           className="absolute inset-0 cursor-grab rounded-md outline-offset-0"
@@ -375,7 +375,7 @@ export function PracticeWaveform({
                 name={selected.name}
                 color={selected.color}
                 span={selected.span}
-                lane={lane}
+                zoomedView={zoomedView}
                 bounds={room}
                 playheadMs={() => trimStartMs + playhead.ms}
                 surface={surface}
@@ -383,9 +383,9 @@ export function PracticeWaveform({
                 onCommit={onCommit}
                 onPan={seekBy}
                 onReveal={reveal}
-                // Like a tap on the waveform, one that lands during a glide only stops it.
+                // Like a tap on the waveform, one that lands during a momentum scroll only stops it.
                 onTap={(x) => {
-                  if (!settleGlide()) tapAt(x)
+                  if (!settleMomentumScroll()) tapAt(x)
                 }}
                 pinches={pinches}
               />

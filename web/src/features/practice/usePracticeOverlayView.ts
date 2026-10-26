@@ -49,7 +49,7 @@ export interface PracticeOverlayView {
 
 /**
  * Practice's state for recording `id`: the row and its tune, what the header reads,
- * the waveform's peaks, where the audio stands, and which view shows. Mount it keyed on each
+ * the waveform's peaks, the state of the audio, and which view shows. Mount it keyed on each
  * open, so a fresh open starts on the main view.
  */
 export function usePracticeOverlayView(id: string): PracticeOverlayView {

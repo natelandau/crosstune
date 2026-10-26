@@ -106,7 +106,7 @@ describe('trackCreateAccount', () => {
 })
 
 describe('trackCreateAccountClicks', () => {
-  // A stand-in document: the listener reads only the click target's nearest placement.
+  // A fake document: the listener reads only the click target's nearest placement.
   function page() {
     type Listener = (event: { target: unknown; button: number }) => void
     const listeners: Record<string, Listener> = {}

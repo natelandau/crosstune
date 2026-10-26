@@ -70,7 +70,7 @@ public func isInTune(cents: Double) -> Bool {
 
 /// How far a note `cents` off has come toward in tune: 0 outside the target zone, 1 in tune, and
 /// rising evenly between, so a peg turn inside the zone shows as steady progress.
-public func greenness(cents: Double) -> Double {
+public func inTuneFraction(cents: Double) -> Double {
     min(1, max(0, (zoneCents - abs(tenths(cents))) / (zoneCents - inTuneCents)))
 }
 

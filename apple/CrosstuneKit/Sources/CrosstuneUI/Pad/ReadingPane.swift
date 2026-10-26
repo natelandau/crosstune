@@ -5,8 +5,8 @@ import SwiftUI
 extension ReadingChoice {
     var label: String {
         switch self {
-        case .scans: StandText.scans
-        case .lyrics: StandText.lyrics
+        case .scans: PadPracticeText.scans
+        case .lyrics: PadPracticeText.lyrics
         }
     }
 }
@@ -15,14 +15,14 @@ extension ReadingChoice {
 /// page at a time, or the lyrics at the reader's size. A tune with both opens on its scans, with
 /// a control to turn to the lyrics.
 struct ReadingPane: View {
-    let reading: StandReading
-    /// The stand's visit, which outlasts each tune's pane and decides what a showing reports.
-    let visit: StandVisit
+    let reading: ReadingPaneContent
+    /// The practice screen's visit, which outlasts each tune's pane and decides what a showing reports.
+    let visit: PadPracticeVisit
 
     @State private var choice = ReadingChoice.scans
     @Environment(\.analytics) private var analytics
 
-    init(reading: StandReading, visit: StandVisit) {
+    init(reading: ReadingPaneContent, visit: PadPracticeVisit) {
         self.reading = reading
         self.visit = visit
     }
@@ -31,7 +31,7 @@ struct ReadingPane: View {
         let segments = ReadingChoice.segments(reading)
         VStack(spacing: 12) {
             if !segments.isEmpty {
-                Picker(StandText.reading, selection: picked) {
+                Picker(PadPracticeText.reading, selection: picked) {
                     ForEach(segments, id: \.self) { choice in
                         Text(choice.label).tag(choice)
                     }

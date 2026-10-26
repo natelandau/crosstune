@@ -118,7 +118,7 @@ public struct AccountSections: View {
         private var macIdentity: some View {
             let blocked = session.isOffline || session.updateRequired
             return MacFormSection(Self.title, failure: blocked ? nil : signOutFailure) {
-                // Why Sign out stands down reads under the account it would sign out.
+                // Why Sign out is disabled reads under the account it would sign out.
                 MacSettingsRow(
                     Self.identity(session),
                     help: Self.footer(

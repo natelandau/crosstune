@@ -19,11 +19,11 @@ final class ShellCover {
 }
 
 extension EnvironmentValues {
-    /// Covers the iPhone tab bar's record slot, which stands down while a sheet or dialog is up
+    /// Covers the iPhone tab bar's record slot, which is disabled while a sheet or dialog is up
     /// or a screen is selecting. Supplied by the shell; nil outside it.
     @Entry var recordCover: ShellCover?
     /// Counts the sheets, dialogs, and file pickers up over the shell, so a menu command that
-    /// would open another stands down meanwhile. Supplied by the shell; nil outside it.
+    /// would open another is disabled meanwhile. Supplied by the shell; nil outside it.
     @Entry var openSheets: ShellCover?
     /// Counts the screens that are selecting, whose toolbar replaces the commands that make
     /// things. Supplied by the shell; nil outside it.
@@ -35,7 +35,7 @@ extension EnvironmentValues {
 
 extension View {
     /// Marks this view as a sheet over the shell while it shows: the record slot and the menu
-    /// commands that open sheets stand down. In a regular-width iOS window the sheet is a
+    /// commands that open sheets are disabled. In a regular-width iOS window the sheet is a
     /// centered form rather than page-sized.
     func shellSheet() -> some View {
         claimsShellAsSheet()
@@ -77,7 +77,7 @@ extension View {
             .modifier(Covers(cover: \.openSheets, isCovering: isPresenting))
     }
 
-    /// Stands the shell's menu commands down while `isRequesting` is true and this view shows. Put
+    /// Disables the shell's menu commands while `isRequesting` is true and this view shows. Put
     /// it on the view that asks for a sheet whose root claims the shell only once it shows, to
     /// close the gap in between. The record slot is left to the sheet, which hands it back as
     /// the sheet starts down rather than once it has gone.
@@ -86,7 +86,7 @@ extension View {
     }
 
     /// Marks this screen as selecting while `isSelecting` is true: the record slot and record
-    /// button give way to the selection's toolbar, and New tune stands down.
+    /// button give way to the selection's toolbar, and New tune is disabled.
     func claimsSelection(_ isSelecting: Bool) -> some View {
         modifier(Covers(cover: \.recordCover, isCovering: isSelecting))
             .modifier(Covers(cover: \.selecting, isCovering: isSelecting))

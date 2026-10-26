@@ -27,7 +27,7 @@ struct NeutralFill: ShapeStyle {
 
     /// The palette fill for `container`, or nil on the practice ground. A grouped form's card is
     /// the ground in light mode and the surface in dark mode, so a chip on it takes the fill that
-    /// stands off that layer.
+    /// contrasts with that layer.
     static func token(_ container: Container, scheme: ColorScheme) -> Palette.Token? {
         switch container {
         case .ground: .field

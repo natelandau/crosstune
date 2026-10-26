@@ -4,7 +4,7 @@
 
     /// The regular-width iPad frame: a tab view that is a sidebar in wide windows and a top bar
     /// in narrow ones, each tab a split of its content and the tune or page it opens, Record in
-    /// the bar's prominent slot, and the player in a capsule at the window's foot.
+    /// the bar's prominent slot, and the player in a bottom bar at the window's lower edge.
     struct PadShell: View {
         private let player: PlayerModel
         private let stage: EmbedStage
@@ -136,10 +136,10 @@
             // Our own capsule, since the system bottom accessory spans only the detail column in
             // the sidebar form.
             .overlay(alignment: .bottom) {
-                PadFootSlot(player: player, onRecord: onRecord)
+                PadBottomBarSlot(player: player, onRecord: onRecord)
             }
             .confirmsListDelete($deleting)
-            .modifier(PlayerPresentations(player: player, stage: stage, zoom: nil, standsWithReading: true))
+            .modifier(PlayerPresentations(player: player, stage: stage, zoom: nil, showsReadingPane: true))
             .task(id: store?.userID) {
                 lists = store.map { store in LiveQuery(store, initial: nil) { try ListSummary.fetchAll($0) } }
             }
@@ -222,13 +222,13 @@
         @ViewBuilder private func columns(_ destination: Destination) -> some View {
             let column = content(destination)
                 .toolbarTitleDisplayMode(.inlineLarge)
-                .modifier(PadFootClearance(player: player))
+                .modifier(PadBottomBarClearance(player: player))
             if PadTab.hasDetailColumn(destination) {
                 PadColumns(width: tabWidth) {
                     column
                 } detail: {
                     detail(destination)
-                        .modifier(PadFootClearance(player: player))
+                        .modifier(PadBottomBarClearance(player: player))
                 }
             } else {
                 column
@@ -278,9 +278,9 @@
 
     }
 
-    /// The foot capsule while it has anything to hold and no selection hides it. Its own view, so
-    /// the player loading redraws the foot rather than the whole shell.
-    private struct PadFootSlot: View {
+    /// The bottom bar while it has anything to hold and no selection hides it. Its own view, so
+    /// the player loading redraws the bottom bar rather than the whole shell.
+    private struct PadBottomBarSlot: View {
         let player: PlayerModel
         let onRecord: @MainActor () -> Void
 
@@ -288,15 +288,15 @@
         @Environment(ListPlayback.self) private var playback: ListPlayback?
 
         var body: some View {
-            let isShown = PadFoot.isShown(showsRecord: !RecordControl.isTab, player, playback)
+            let isShown = PadBottomBar.isShown(showsRecord: !RecordControl.isTab, player, playback)
             ZStack {
                 if selecting?.isCovered != true && isShown {
                     GlassEffectContainer {
-                        PadFoot(player: player, showsRecord: !RecordControl.isTab, onRecord: onRecord)
+                        PadBottomBar(player: player, showsRecord: !RecordControl.isTab, onRecord: onRecord)
                     }
-                    .padding(.horizontal, PadStyle.footSideMargin)
-                    .padding(.bottom, PadStyle.footInset)
-                    // The player's bar leaves its rise to the foot, so a capsule that arrives with
+                    .padding(.horizontal, PadStyle.bottomBarSideMargin)
+                    .padding(.bottom, PadStyle.bottomBarInset)
+                    // The player's bar leaves its rise to the bottom bar, so a capsule that arrives with
                     // it brings it in.
                     .phoneTransition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -305,15 +305,15 @@
         }
     }
 
-    /// Leaves room under a column's last row for the foot capsule while it shows.
-    private struct PadFootClearance: ViewModifier {
+    /// Leaves room under a column's last row for the bottom bar while it shows.
+    private struct PadBottomBarClearance: ViewModifier {
         let player: PlayerModel
 
         @Environment(ListPlayback.self) private var playback: ListPlayback?
 
         func body(content: Content) -> some View {
-            let footShown = PadFoot.isShown(showsRecord: !RecordControl.isTab, player, playback)
-            content.safeAreaPadding(.bottom, PadStyle.footClearance(footShown: footShown))
+            let bottomBarShown = PadBottomBar.isShown(showsRecord: !RecordControl.isTab, player, playback)
+            content.safeAreaPadding(.bottom, PadStyle.bottomBarClearance(bottomBarShown: bottomBarShown))
         }
     }
 

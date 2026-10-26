@@ -154,7 +154,7 @@ function view(): RecordingView {
   }
 }
 
-/** Stands in for the screen that opens the sheet: it nulls the recording once the sheet closes. */
+/** Fakes the screen that opens the sheet: it nulls the recording once the sheet closes. */
 function Host({
   initial,
   onClose,

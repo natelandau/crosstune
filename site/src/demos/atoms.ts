@@ -72,7 +72,7 @@ const TABS: [string, string][] = [
 const phTab = (on = 0) =>
   `<div class="ph-tab"><div class="ph-tabcap">${TABS.map(
     ([n, l], i) => `<span class="${i === on ? 'on' : ''}">${ic(n)}${l}</span>`,
-  ).join('')}</div><div class="ph-disc" data-disc><i></i></div></div>`
+  ).join('')}</div><div class="ph-record-button" data-record-button><i></i></div></div>`
 
 type PhoneOpts = {
   /** The selected tab, or -1 for a screen without the tab bar. */

@@ -4,7 +4,7 @@ import { COMP_GRANT, ENDS, RENEWS } from './planCopy'
 
 export interface Membership {
   label: string
-  /** Empty when the label stands alone, as a comp's grant with no end does. */
+  /** Empty when the label shows by itself, as a comp's grant with no end does. */
   value: string
 }
 

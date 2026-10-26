@@ -45,7 +45,7 @@ const CLOSED: Partial<Record<EditField, PickerOption[]>> = {
   is_crooked: asOptions([YES, NO]),
 }
 
-/** What an untouched row reads when no one value stands for every tune. */
+/** What an untouched row reads when no one value fits every tune. */
 const blankLabel = (summary: Summary) => (summary.kind === 'mixed' ? MIXED : NOT_SET)
 
 /**

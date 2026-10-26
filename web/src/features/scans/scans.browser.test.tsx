@@ -389,8 +389,8 @@ it('hands focus back to the Scans action on touch, leaving the row closed', asyn
   // The row gains Scans once the screen has read which tunes have scans.
   await expect.element(scans).toBeInTheDocument()
   // Held once found: the row leaves the accessibility tree while the viewer covers it.
-  const tray = row.element().querySelector<HTMLElement>('[data-swipe]')!
-  const swipe = () => tray.dataset.swipe
+  const swipeRow = row.element().querySelector<HTMLElement>('[data-swipe]')!
+  const swipe = () => swipeRow.dataset.swipe
   // React Aria reports a touch press 80ms after its lift when no click follows, so the swipe's
   // report and the tap's both run on this clock, in the order a phone can produce them: the
   // finger lands on Scans, the swipe's report arrives and is refused, then the finger lifts
@@ -401,7 +401,7 @@ it('hands focus back to the Scans action on touch, leaving the row closed', asyn
     // Past half of the three actions' width, so the release settles open.
     await swipeLeft(row, 200)
     await pollStill(swipe).toBe('open')
-    // The tray settles under the finger before a tap can land on it.
+    // The revealed actions settle under the finger before a tap can land on it.
     await pollStill(() => {
       const box = scans.element().getBoundingClientRect()
       const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
@@ -416,8 +416,8 @@ it('hands focus back to the Scans action on touch, leaving the row closed', asyn
   await expect.poll(swipe).toBe('closed')
   // Every state the row takes from here on.
   const seen: string[] = []
-  const observer = new MutationObserver(() => seen.push(tray.dataset.swipe ?? ''))
-  observer.observe(tray, { attributes: true, attributeFilter: ['data-swipe'] })
+  const observer = new MutationObserver(() => seen.push(swipeRow.dataset.swipe ?? ''))
+  observer.observe(swipeRow, { attributes: true, attributeFilter: ['data-swipe'] })
   onTestFinished(() => observer.disconnect())
   // A real press, as a phone's tap ends in a click. A bare pointer down and up leaves React
   // Aria to click for it, which it reads as assistive technology.
@@ -468,7 +468,7 @@ describe('on a free plan, no scans open', () => {
   const otherViewer = () => page.getByRole('dialog', { name: scanViewerName(OTHER) })
   const sheetsShown = (analytics: ReturnType<typeof recordingAnalytics>) =>
     analytics.sends().filter((send) => send.name === 'premium_sheet_shown')
-  /** A thumbnail the plan does not open, named without the verb it will not do. */
+  /** A thumbnail the plan does not open, named without the action label it will not do. */
   const gated = (index: number) =>
     scansSection().getByRole('button', { name: scanName(index), exact: true })
   const opacity = (button: ReturnType<typeof gated>) =>

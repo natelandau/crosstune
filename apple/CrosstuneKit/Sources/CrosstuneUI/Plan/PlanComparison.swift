@@ -232,7 +232,7 @@ extension View {
     #endif
 
     /// The Plan sheet's ground: the grouped background on iPhone and iPad, as Settings draws
-    /// it, so the cards stand out in both appearances. The Mac keeps the sheet's own ground.
+    /// it, so the cards contrast in both appearances. The Mac keeps the sheet's own ground.
     func planGround() -> some View {
         #if os(macOS)
             self

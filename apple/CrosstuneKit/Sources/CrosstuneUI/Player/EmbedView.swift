@@ -63,7 +63,7 @@ public final class EmbedStage {
     /// How much a view showing the player wins the web view over another.
     enum Prominence: Int, Comparable {
         /// Off screen, holding the player so it keeps playing.
-        case parked
+        case offscreen
         /// On screen, where the musician sees and touches the player.
         case shown
         /// On screen in the window the musician is using.

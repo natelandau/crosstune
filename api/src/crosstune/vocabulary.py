@@ -33,7 +33,7 @@ TUNING_LENGTH: Final = 100
 
 
 class TuneStatus(StrEnum):
-    """Where a player stands with a tune."""
+    """A player's progress with a tune."""
 
     KNOWN = "known"
     LEARNING = "learning"

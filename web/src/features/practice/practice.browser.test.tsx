@@ -101,7 +101,7 @@ it('adds a loop with L too', async () => {
   await expect.poll(async () => (await liveLoops(db, 'r1')).length).toBe(1)
 })
 
-it('picks a loop by its number in lane order, and a number past the last does nothing', async () => {
+it('picks a loop by its number in waveform order, and a number past the last does nothing', async () => {
   const { db, engine } = await mountPlaying(WIDE)
   await seedLoop(db, 'r1', 5000, 8000, { label: 'A part' })
   const second = await seedLoop(db, 'r1', 20_000, 24_000, { label: 'B part' })

@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import type { Provider, TuneStatus } from '../../api/vocabulary'
 import { PROVIDER_LABELS } from '../../constants'
 import { blend } from '../../features/tuner/blend'
-import { greenness } from '../../features/tuner/pitch/notes'
+import { inTuneFraction } from '../../features/tuner/pitch/notes'
 import { TunerBars } from '../../features/tuner/TunerBars'
 import { formatCents, hintLabel } from '../../features/tuner/tunerCopy'
 import { KeyPill } from '../../ui/KeyPill'
@@ -72,7 +72,7 @@ const PHONE_GROUPS: { key: string; rows: TuneStatus[] }[] = [
  * The folded tune list a player keeps in the case, with a small phone over its right margin
  * showing the same tunes grouped by key.
  */
-function PaperArt() {
+function IntroArt() {
   return (
     <Art>
       <div className="absolute inset-0">
@@ -268,13 +268,13 @@ const TUNER_CENTS = 6
 
 /** The Tuner screen's stage reading an A a little sharp, on the jet ground it always draws on. */
 function TunerArt() {
-  const green = greenness(TUNER_CENTS)
+  const inTune = inTuneFraction(TUNER_CENTS)
   return (
     <Art>
       <div
         data-practice
         className="relative h-[16em] w-[22.4em] overflow-hidden rounded-(--radius-surface) text-(--panel-ink)"
-        style={{ colorScheme: 'dark', backgroundColor: blend('--jet', '--tune-wash', green) }}
+        style={{ colorScheme: 'dark', backgroundColor: blend('--jet', '--tune-wash', inTune) }}
       >
         <TunerBars cents={TUNER_CENTS} />
         <div className="absolute inset-0 grid grid-rows-[1fr_auto_1fr] justify-items-center">
@@ -292,7 +292,7 @@ function TunerArt() {
 }
 
 export const SLIDE_ART: Record<SlideId, () => ReactNode> = {
-  story: PaperArt,
+  intro: IntroArt,
   catalog: CatalogArt,
   record: RecordArt,
   practice: PracticeArt,

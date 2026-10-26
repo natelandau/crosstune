@@ -93,7 +93,7 @@ public final class LoopPlayback {
         apply()
     }
 
-    /// Takes the recording's loops as they now stand.
+    /// Takes the recording's loops as they are now.
     func follow(_ loops: [RecordingLoop]) {
         rows =
             loops.filter { $0.deletedAt == nil }

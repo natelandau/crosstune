@@ -32,7 +32,7 @@ export interface Palette {
   hairline: string
   switchOff: string
   switchOn: string
-  knob: string
+  switchThumb: string
   glyphFaint: string
   glyphOff: string
   disabledFill: string
@@ -71,7 +71,7 @@ export const PALETTE: Record<Scheme, Palette> = {
     hairline: 'rgba(30,40,55,0.12)',
     switchOff: '#8A857C',
     switchOn: '#1F5F9E',
-    knob: '#FFFFFF',
+    switchThumb: '#FFFFFF',
     glyphFaint: '#8A857C',
     glyphOff: '#8A857C',
     disabledFill: '#DDD9D3',
@@ -108,7 +108,7 @@ export const PALETTE: Record<Scheme, Palette> = {
     hairline: 'rgba(230,240,255,0.10)',
     switchOff: '#8A847B',
     switchOn: '#4A86C4',
-    knob: '#FFFFFF',
+    switchThumb: '#FFFFFF',
     glyphFaint: '#706B63',
     glyphOff: '#8A847B',
     disabledFill: '#3E3C37',

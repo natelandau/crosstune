@@ -55,10 +55,10 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
         [`switch track off on ${name}`, p.switchOff, bg, 3],
         [`switch track on on ${name}`, p.switchOn, bg, 3],
       ]),
-    ['switch knob on the track off', p.knob, p.switchOff, 3],
-    ['switch knob on the track on', p.knob, p.switchOn, 3],
+    ['switch thumb on the track off', p.switchThumb, p.switchOff, 3],
+    ['switch thumb on the track on', p.switchThumb, p.switchOn, 3],
     ['label on a disabled fill', p.disabledInk, p.disabledFill, 4.5],
-    // Off, a filled control still stands apart from what it sits on.
+    // Off, a filled control still contrasts with what it sits on.
     ['disabled fill on the ground', p.disabledFill, p.ground, 1.2],
     ['disabled fill on a surface', p.disabledFill, p.surface, 1.2],
   ]

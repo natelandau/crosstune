@@ -3,7 +3,7 @@ import SwiftUI
 
 #if os(macOS)
     /// The Mac's one search field, flat on the field fill, with the filters control at its
-    /// trailing edge. It stands in for the system search field, which takes no accessory and
+    /// trailing edge. It replaces the system search field, which takes no accessory and
     /// draws apart from the app's other fields.
     struct FilterSearchField: View {
         nonisolated static let clearSearch = "Clear search"
@@ -13,7 +13,7 @@ import SwiftUI
         let isFocused: FocusState<Bool>.Binding
         /// The count of set sheet filters, or nil to leave the filters control out.
         let filterCount: Int?
-        /// Whether the filters stand down, such as while a selection lasts or with nothing to filter.
+        /// Whether the filters are disabled, such as while a selection lasts or with nothing to filter.
         var filtersDisabled = false
         let onSubmit: () -> Void
         var onFilters: () -> Void = {}

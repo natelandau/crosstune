@@ -27,7 +27,7 @@ import {
 } from './selectionCopy'
 import { DETAIL_LABELS } from '../tune/detailFields'
 import { ADD_TO_LIST_TITLE } from '../tune/tuneScreenCopy'
-import { FACTS_LABEL } from '../tune/factCopy'
+import { ATTRIBUTES_LABEL } from '../tune/attributeCopy'
 import { applyPullPage } from '../../sync/apply'
 import { openTestDb } from '../../test/db'
 import { tuneRow, userTuneRow } from '../../test/rows'
@@ -172,7 +172,7 @@ it('leaves the sidebar Record capsule available while selecting, and returns foc
   await startSelecting()
   await row('Forked').click()
   await expect.element(page.getByText(selectedTitle(1), { exact: true })).toBeVisible()
-  // Not stood down: the capsule keeps its place in the accessibility tree and its focus.
+  // Not hidden: the capsule keeps its place in the accessibility tree and its focus.
   const record = page.getByTestId('record-control')
   await expect.element(record).not.toHaveAttribute('aria-hidden')
   await expect.element(record).not.toHaveAttribute('inert')
@@ -195,7 +195,7 @@ it('selects on touch from the menu a long press opens, then by taps', async () =
   await expect.element(page.getByRole('toolbar', { name: SELECTION_ACTIONS })).toBeVisible()
 })
 
-it('replaces the tab bar on the phone and stands the Record disc down', async () => {
+it('replaces the tab bar on the phone and hides the round Record button', async () => {
   const db = openTestDb()
   await seedCatalog(db)
   await renderApp({ path: '/catalog', db, frame: PHONE })
@@ -242,7 +242,7 @@ it('keeps the selection through a resize and drops a tune deleted under it', asy
     .getByRole('button', { name: MORE_ACTIONS })
   await more.click()
   await expect.element(page.getByRole('menuitem', { name: archiveLabel(1, true) })).toBeVisible()
-  // Escape closes the menu first and leaves the selection standing.
+  // Escape closes the menu first and keeps the selection.
   await userEvent.keyboard('{Escape}')
   await expect.element(page.getByRole('menu')).not.toBeInTheDocument()
   await expect.element(page.getByText(selectedTitle(1), { exact: true })).toBeVisible()
@@ -456,11 +456,11 @@ it("adds the tune page's tune to a list from the picker", async () => {
   const listId = await createList(db, 'Thursday jam')
   await renderApp({ path: `/catalog/${ids['Forked Deer']}`, db, frame: WIDE })
   const tunePage = page.getByRole('main', { name: TUNE })
-  const facts = tunePage.getByRole('complementary', { name: FACTS_LABEL })
+  const attributes = tunePage.getByRole('complementary', { name: ATTRIBUTES_LABEL })
   const more = tunePage.getByRole('button', { name: MORE_ACTIONS })
   await expect.element(more).toBeVisible()
-  await expect.element(facts).toBeVisible()
-  expect(facts.getByRole('link').elements()).toHaveLength(0)
+  await expect.element(attributes).toBeVisible()
+  expect(attributes.getByRole('link').elements()).toHaveLength(0)
   await more.click()
   await page.getByRole('menuitem', { name: ADD_TO_LIST }).click()
 
@@ -472,5 +472,5 @@ it("adds the tune page's tune to a list from the picker", async () => {
   await jam.click()
   await expect.element(picker).not.toBeInTheDocument()
   await expect.poll(async () => await db.list_items.where('list_id').equals(listId).count()).toBe(1)
-  await expect.element(facts.getByRole('link', { name: 'Thursday jam' })).toBeVisible()
+  await expect.element(attributes.getByRole('link', { name: 'Thursday jam' })).toBeVisible()
 })

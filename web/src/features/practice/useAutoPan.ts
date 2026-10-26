@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import type { LaneView } from './practiceZoom'
+import type { ZoomedWaveformView } from './practiceZoom'
 import { useLatest } from '../../ui/useLatest'
 
 /** How near either end of the zoomed view a drag starts panning it. */
@@ -11,14 +11,14 @@ const AUTO_PAN_MAX_PX = 8
  * Pans the zoomed view while a drag holds the pointer near either end of it, faster the nearer
  * the edge, so a loop can be dragged past what is shown. It pans every frame the pointer stays
  * there, and `follow` runs after each pan, to recompute the drag against the view it produced,
- * which `view` reads as it stands. A pan the view's ends refuse leaves the view at its end.
+ * which `view` reads as it is now. A pan the view's ends refuse leaves the view at its end.
  */
 export function useAutoPan({
   view,
   onPan,
   follow,
 }: {
-  view: () => LaneView
+  view: () => ZoomedWaveformView
   onPan: (deltaMs: number) => void
   follow: () => void
 }) {

@@ -10,7 +10,7 @@ import { ErrorLine } from '../../ui/ErrorLine'
 import { Checkbox } from '../../ui/form/Checkbox'
 import { Group } from '../../ui/form/Group'
 import { Picker } from '../../ui/form/Picker'
-import { StatusRail } from '../../ui/form/StatusRail'
+import { StatusSegmentedControl } from '../../ui/form/StatusSegmentedControl'
 import { SuggestField } from '../../ui/form/SuggestField'
 import { TextField } from '../../ui/form/TextField'
 import { Sheet } from '../../ui/Sheet'
@@ -153,7 +153,7 @@ function ReviewStep({ session }: { session: ImportSession }) {
     <>
       <ErrorLine error={session.error} place="sheet" />
       <Group header={IMPORT_STATUS_LABEL} headerRef={heading} plain>
-        <StatusRail
+        <StatusSegmentedControl
           label={IMPORT_STATUS_LABEL}
           value={session.status}
           onChange={session.setStatus}

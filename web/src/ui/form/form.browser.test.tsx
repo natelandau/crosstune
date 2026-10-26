@@ -230,8 +230,8 @@ it.each(['light', 'dark'] as const)(
     const card = track.closest('section')!.firstElementChild!
     const style = (el: Element) => getComputedStyle(el)
     const bg = (el: Element) => style(el).backgroundColor
-    // In either state the track reads against the row and the ground, and the knob against
-    // the track. On, the knob holds a check, so the state never rests on the knob's place alone.
+    // In either state the track reads against the row and the ground, and the thumb against
+    // the track. On, the thumb holds a check, so the state never rests on the thumb's place alone.
     const pairs = () => [
       contrastRatio(bg(track), bg(card)),
       contrastRatio(bg(track), bg(document.body)),

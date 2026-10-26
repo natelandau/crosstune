@@ -342,7 +342,7 @@ private struct RecordingsContent: View {
     private var unfinishedSection: some View {
         recordingGroup {
             ForEach(model.unfinished, id: \.id) { capture in
-                // A capture shares its recording's id, so it must never stand in for that row.
+                // A capture shares its recording's id, so it must never replace that row.
                 unfinishedRow(capture)
                     .selectionDisabled()
             }
@@ -407,7 +407,7 @@ private struct RecordingsContent: View {
     }
 
     /// A section's title, under the list header when the section leads the recordings. A row of
-    /// its own between two sections would stand apart from both, so the count and sort ride on
+    /// its own between two sections would sit apart from both, so the count and sort ride on
     /// the first section's header, directly above the rows they describe.
     @ViewBuilder private func sectionHeader(
         _ title: String, listHeader arrangement: RecordingArrangement?, rows: [RecordingView]
@@ -443,7 +443,7 @@ private struct RecordingsContent: View {
         #endif
     }
 
-    /// Whether a take under way stands one of `rows`' plays down.
+    /// Whether a take under way disables one of `rows`' plays.
     private func blocksPlay(_ rows: [RecordingView]) -> Bool {
         guard recorders?.isCapturing == true else { return false }
         return rows.contains { view in
@@ -598,7 +598,7 @@ private struct RecordingsContent: View {
         }
         return MediaRow(
             glyph: .attention, title: row.title, secondLine: .text(UnfinishedCaptureRowContent.note),
-            verb: row.verb, action: { discarding = capture }
+            actionLabel: row.actionLabel, action: { discarding = capture }
         )
         .mediaRowInsets()
         .unselectedRowGround(isSelected: false)

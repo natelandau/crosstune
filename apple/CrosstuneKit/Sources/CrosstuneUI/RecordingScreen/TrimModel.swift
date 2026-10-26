@@ -72,7 +72,7 @@ final class TrimModel {
     @ObservationIgnored private let hold: Hold
     @ObservationIgnored private let analytics: AnalyticsClient
     @ObservationIgnored private var isHolding = false
-    /// Where the handles stood when the gesture under way began.
+    /// Where the handles were when the gesture under way began.
     @ObservationIgnored private var gestureOrigin: (start: Int64, end: Int64)?
     @ObservationIgnored private var pinchBase: Double?
 
@@ -154,7 +154,7 @@ final class TrimModel {
 
     // MARK: Gestures
 
-    /// Starts a gesture that drags `handle`, or seeks when nil, noting where the handles stand
+    /// Starts a gesture that drags `handle`, or seeks when nil, noting where the handles are
     /// for a pinch that follows to put back.
     func beginGesture(on handle: Handle?) {
         gestureOrigin = (start, end)
@@ -209,7 +209,7 @@ final class TrimModel {
     /// write of its own is under way, whose outcome it waits for.
     var mustGiveWay: Bool { isStale && !isSaving && !hasLeft }
 
-    /// Takes the recording's row as it now stands, noting a trim from elsewhere, and returns
+    /// Takes the recording's row as it is now, noting a trim from elsewhere, and returns
     /// ``mustGiveWay``. The screen's own write landing is not one.
     @discardableResult
     func follow(_ row: Recording) -> Bool {
@@ -219,7 +219,7 @@ final class TrimModel {
         return mustGiveWay
     }
 
-    /// Writes the handles as they stand, once, and leaves, returning whether it wrote. Writes
+    /// Writes the handles as they are, once, and leaves, returning whether it wrote. Writes
     /// nothing when no handle has moved, the trim has changed from elsewhere, or the screen has
     /// already given way. A failed write stays to be tried again.
     @discardableResult
@@ -261,7 +261,7 @@ final class TrimModel {
     }
 }
 
-/// Stops Play selection and Preview end on the end handle. It reads the handle as it stands on
+/// Stops Play selection and Preview end on the end handle. It reads the handle as it is at
 /// each position the player reports, so moving the handle while playing moves the stop.
 struct SelectionStop: Equatable {
     enum Action: Equatable {

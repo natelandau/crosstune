@@ -35,14 +35,14 @@ import Testing
 }
 
 @Suite struct MediaRowTests {
-    @Test func namesTheRowByItsVerbAndItsLines() {
+    @Test func namesTheRowByItsActionLabelAndItsLines() {
         #expect(
-            MediaRow.accessibilityName(verb: "Play", title: "Jam", details: ["0:42 · Mar 14"])
+            MediaRow.accessibilityName(actionLabel: "Play", title: "Jam", details: ["0:42 · Mar 14"])
                 == "Play Jam, 0:42 · Mar 14")
         #expect(
-            MediaRow.accessibilityName(verb: "Retry uploading", title: "Jam", details: ["0:42", "Refused"])
+            MediaRow.accessibilityName(actionLabel: "Retry uploading", title: "Jam", details: ["0:42", "Refused"])
                 == "Retry uploading Jam, 0:42, Refused")
-        #expect(MediaRow.accessibilityName(verb: nil, title: "Jam", details: []) == "Jam")
+        #expect(MediaRow.accessibilityName(actionLabel: nil, title: "Jam", details: []) == "Jam")
     }
 }
 
@@ -89,7 +89,7 @@ import Testing
         let spacing = Spacing(.large)
         #expect(spacing.scale == 1)
         #expect(spacing.rowInset == 10 && spacing.rowLineGap == 2 && spacing.chipVertical == 6)
-        #expect(spacing.railGap == 8)
+        #expect(spacing.chipGap == 8)
         #expect(spacing.stackGap == 8 && spacing.sectionGap == 16)
     }
 

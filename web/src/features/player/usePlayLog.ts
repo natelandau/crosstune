@@ -87,7 +87,7 @@ const detached: PlayLogControl = {
   replayedByQueue: () => () => {},
 }
 
-// Practice rendered without PlayerProvider, as in a test with a stand-in player,
+// Practice rendered without PlayerProvider, as in a test with a fake player,
 // logs nothing.
 export const PlayLogContext = createContext<PlayLogControl>(detached)
 

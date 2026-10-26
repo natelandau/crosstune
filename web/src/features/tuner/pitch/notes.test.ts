@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { greenness, isInTune, noteFor, tenths, tuneHint, tuneStep } from './notes'
+import { inTuneFraction, isInTune, noteFor, tenths, tuneHint, tuneStep } from './notes'
 
 describe('noteFor', () => {
   it('names A4 at 440 Hz', () => {
@@ -44,7 +44,7 @@ describe('tuneStep', () => {
   })
 })
 
-describe('greenness', () => {
+describe('inTuneFraction', () => {
   it.each([
     [0, 1],
     [3, 1],
@@ -55,8 +55,8 @@ describe('greenness', () => {
     [-10, 0],
     [20, 0],
     [-20, 0],
-  ])('%s cents is %s green', (cents, green) => {
-    expect(greenness(cents)).toBeCloseTo(green, 10)
+  ])('%s cents is %s in tune', (cents, fraction) => {
+    expect(inTuneFraction(cents)).toBeCloseTo(fraction, 10)
   })
 })
 
@@ -101,13 +101,13 @@ describe('judging the shown tenth', () => {
   it('counts 3.04 cents as in tune', () => {
     expect(isInTune(3.04)).toBe(true)
     expect(tuneHint(3.04)).toBeNull()
-    expect(greenness(3.04)).toBe(1)
+    expect(inTuneFraction(3.04)).toBe(1)
   })
 
   it('counts 3.05 cents, shown as 3.1, as sharp', () => {
     expect(isInTune(3.05)).toBe(false)
     expect(tuneHint(3.05)).toBe('sharp')
-    expect(greenness(3.05)).toBeLessThan(1)
+    expect(inTuneFraction(3.05)).toBeLessThan(1)
   })
 
   it('counts -3.05 cents, shown as 3.0 flat, as in tune', () => {

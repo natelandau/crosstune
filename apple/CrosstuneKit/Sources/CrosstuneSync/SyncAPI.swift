@@ -156,7 +156,7 @@ public struct SearchGroup: Hashable, Sendable {
     public enum Status: Hashable, Sendable {
         /// The service answered; `results` may be empty.
         case results
-        /// The service failed or timed out; its search page stands in.
+        /// The service failed or timed out; its search page is shown instead.
         case unavailable
         /// The service cannot be searched from here; only its search page shows.
         case searchOnly

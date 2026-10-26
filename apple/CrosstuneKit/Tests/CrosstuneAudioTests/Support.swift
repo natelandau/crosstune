@@ -42,7 +42,7 @@ func fileExists(_ url: URL) -> Bool {
     FileManager.default.fileExists(atPath: url.path(percentEncoded: false))
 }
 
-/// A microphone that records a tone on demand, standing in for the engine in tests.
+/// A microphone that records a tone on demand, in place of the engine in tests.
 @MainActor
 final class FakeInput: AudioInput {
     var permission = true

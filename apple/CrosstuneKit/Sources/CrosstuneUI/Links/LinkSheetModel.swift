@@ -160,7 +160,7 @@ public final class LinkSheetModel {
 
     /// What gets stored for a pasted link. A provider the server named that this build does not
     /// know cannot carry that provider's ref either, since a ref's format is the provider's own,
-    /// so the provider detected from the URL stands in.
+    /// so the provider detected from the URL is used instead.
     nonisolated static func input(_ url: String, resolved: ResolvedLink?) -> LinkInput {
         let detected = detectProvider(url)
         let (provider, providerRef) =

@@ -29,7 +29,7 @@ import { Group } from '../../ui/form/Group'
 import { PartialDateField } from '../../ui/form/PartialDateField'
 import { Picker } from '../../ui/form/Picker'
 import { asOptions } from '../../ui/form/pickerOptions'
-import { StatusRail } from '../../ui/form/StatusRail'
+import { StatusSegmentedControl } from '../../ui/form/StatusSegmentedControl'
 import { SuggestField } from '../../ui/form/SuggestField'
 import { Switch } from '../../ui/form/Switch'
 import { TextField } from '../../ui/form/TextField'
@@ -143,7 +143,7 @@ function TuneFormBody({ isOpen, onOpenChange, tuneId, focus }: TuneFormSheetProp
           </Group>
 
           <Group header={STATUS_HEADER} plain>
-            <StatusRail
+            <StatusSegmentedControl
               label={STATUS_HEADER}
               value={values.status}
               onChange={(status) => set('status', status)}

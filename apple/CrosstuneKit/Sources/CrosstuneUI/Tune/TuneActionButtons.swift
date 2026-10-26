@@ -140,7 +140,7 @@ struct TuneActionButtons: View {
     var body: some View {
         switch layout {
         case .holding:
-            // A hidden Play stands in at the row's height, so nothing shifts when the plan reads.
+            // A hidden Play holds the row's height, so nothing shifts when the plan reads.
             ActionButtonRow { button(MediaText.play, "play.fill", prominent: true) {} }
                 .hidden()
                 .accessibilityHidden(true)

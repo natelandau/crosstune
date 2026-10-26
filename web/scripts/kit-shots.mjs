@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Captures the app for a visual review: the kit at three widths, at each density, in
-// light, dark, and the roomy text size, then the app's screens on a seeded fixture catalog,
+// light, dark, and the large text size, then the app's screens on a seeded fixture catalog,
 // a few overlays, two frames of each page transition, and a WebKit pass. Headless only, so it
 // never takes a window or focus from whoever is using the machine.
 //
 // The app runs from index.html with `?fixture`, which mounts it on a seeded local database with
-// a signed-in test session and no network. `@clerk/react` is aliased to a stand-in here, so
+// a signed-in test session and no network. `@clerk/react` is aliased to a stub here, so
 // the sign-in screen renders with no Clerk instance.
 
 import { mkdir, rm } from 'node:fs/promises'
@@ -46,8 +46,8 @@ const DENSITIES = ['touch', 'pointer']
 
 const LIGHT = { name: 'light', appearance: 'light', textSize: 'regular' }
 const DARK = { name: 'dark', appearance: 'dark', textSize: 'regular' }
-const ROOMY = { name: 'roomy-light', appearance: 'light', textSize: 'roomy' }
-const LOOKS = [LIGHT, DARK, ROOMY]
+const LARGE = { name: 'large-light', appearance: 'light', textSize: 'large' }
+const LOOKS = [LIGHT, DARK, LARGE]
 
 /** The frames the app is captured on: each at the density its device has. */
 const APP_FRAMES = [
@@ -516,9 +516,9 @@ async function captureSettings(browser, origin, size, density, look) {
 
 async function captureExtras(browser, origin) {
   for (const { size, density } of APP_FRAMES) {
-    await captureSettings(browser, origin, size, density, ROOMY)
-    await captureScreens(browser, origin, size, density, ROOMY)
-    await capturePractice(browser, origin, size, density, ROOMY)
+    await captureSettings(browser, origin, size, density, LARGE)
+    await captureScreens(browser, origin, size, density, LARGE)
+    await capturePractice(browser, origin, size, density, LARGE)
   }
   let { context, page } = await openApp(browser, origin, {
     size: PHONE,

@@ -7,7 +7,7 @@ import Foundation
 import OSLog
 import Observation
 
-/// What the export sheet reads and builds, apart from the store so a test can stand in for it.
+/// What the export sheet reads and builds, apart from the store so a test can replace it.
 struct Exporter: Sendable {
     /// The counts now and after every change, until the caller stops listening.
     var counts: @Sendable () -> AsyncThrowingStream<ExportCounts, any Error>

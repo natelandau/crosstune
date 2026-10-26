@@ -18,14 +18,14 @@ private func near(_ a: Double, _ b: Double) -> Bool {
         #expect(PracticeZoom.scrub(from: from, dx: dx, pointsPerSecond: 100, lengthMs: 60_000) == expected)
     }
 
-    @Test func glideTravelsAgainstTheVelocity() {
-        #expect(PracticeZoom.glideTauMs == 325)
-        #expect(PracticeZoom.glide(velocity: 1000, pointsPerSecond: 100) == -3250)
+    @Test func momentumScrollTravelsAgainstTheVelocity() {
+        #expect(PracticeZoom.momentumScrollTauMs == 325)
+        #expect(PracticeZoom.momentumDistance(velocity: 1000, pointsPerSecond: 100) == -3250)
     }
 
-    @Test func aGlideEasesOutOnItsDecayAndLandsOnItsTarget() {
+    @Test func aMomentumScrollEasesOutOnItsDecayAndLandsOnItsTarget() {
         func at(_ elapsedMs: Double) -> Int64 {
-            PracticeZoom.glidePosition(from: 1000, to: 11_000, elapsedMs: elapsedMs, runMs: 900)
+            PracticeZoom.momentumScrollPosition(from: 1000, to: 11_000, elapsedMs: elapsedMs, runMs: 900)
         }
         #expect(at(0) == 1000)
         // One time constant in, a third of the run: (1 - e^-1) / (1 - e^-3) of the way.
@@ -40,16 +40,17 @@ private func near(_ a: Double, _ b: Double) -> Bool {
         #expect(zip(moves, moves.dropFirst()).allSatisfy { $0 >= $1 })
     }
 
-    @Test func aGlideBackwardMirrorsOneForward() {
-        let forward = PracticeZoom.glidePosition(from: 0, to: 6000, elapsedMs: 200, runMs: 975)
-        let backward = PracticeZoom.glidePosition(from: 6000, to: 0, elapsedMs: 200, runMs: 975)
+    @Test func aMomentumScrollBackwardMirrorsOneForward() {
+        let forward = PracticeZoom.momentumScrollPosition(from: 0, to: 6000, elapsedMs: 200, runMs: 975)
+        let backward = PracticeZoom.momentumScrollPosition(from: 6000, to: 0, elapsedMs: 200, runMs: 975)
         #expect(forward + backward == 6000)
     }
 
     @Test(arguments: [(Int64(5000), 0.0), (0, -5000.0)])
     func viewCentersWithoutClamping(_ center: Int64, _ expectedStart: Double) {
         let view = PracticeZoom.view(pointsPerSecond: 100, centerMs: center, width: 1000, trimStartMs: 1000)
-        #expect(view == LaneView(startMs: expectedStart, pointsPerSecond: 100, width: 1000, trimStartMs: 1000))
+        #expect(
+            view == ZoomedWaveformView(startMs: expectedStart, pointsPerSecond: 100, width: 1000, trimStartMs: 1000))
     }
 
     @Test func minimumScaleFitsTheRecording() {
@@ -84,7 +85,7 @@ private func near(_ a: Double, _ b: Double) -> Bool {
     }
 
     @Test func mapsSourceTimesToPointsAndBack() {
-        let view = LaneView(startMs: 10_000, pointsPerSecond: 20, width: 300, trimStartMs: 1000)
+        let view = ZoomedWaveformView(startMs: 10_000, pointsPerSecond: 20, width: 300, trimStartMs: 1000)
         #expect(view.x(ofSourceMs: 12_000) == 20)
         #expect(view.sourceMs(atX: 20) == 12_000)
         #expect(view.endMs == 25_000)

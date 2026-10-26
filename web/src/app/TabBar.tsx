@@ -34,7 +34,7 @@ function Tab({ id }: { id: Destination }) {
 }
 
 /**
- * The phone's floating bottom bar: a capsule of four tabs, then the Record disc on its own.
+ * The phone's floating bottom bar: a capsule of four tabs, then the round Record button on its own.
  * Under `AnimatePresence` it sinks below the foot of the screen as a selection bar takes its
  * place and rises back when selecting ends, inert on its way out so nothing there takes a press.
  */
@@ -56,7 +56,7 @@ export function TabBar() {
           <Tab key={id} id={id} />
         ))}
       </div>
-      <RecordControl shape="disc" />
+      <RecordControl shape="circle" />
     </motion.nav>
   )
 }

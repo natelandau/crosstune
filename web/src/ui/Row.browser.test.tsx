@@ -97,8 +97,8 @@ it('opens the row menu from the keyboard and runs an item', async () => {
   await expect.poll(() => onAction.mock.calls.length).toBe(1)
 })
 
-it('keeps 44px rows at the roomy size on touch', async () => {
-  document.documentElement.dataset.textSize = 'roomy'
+it('keeps 44px rows at the large size on touch', async () => {
+  document.documentElement.dataset.textSize = 'large'
   try {
     renderWithProviders(
       <RowList label="Tunes">

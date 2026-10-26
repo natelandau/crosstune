@@ -73,7 +73,7 @@ struct PageSection<Content: View, Accessory: View>: View {
         .buttonStyle(.plain)
         // The button merges its label, which drops the heading's own trait.
         .accessibilityAddTraits(.isHeader)
-        .accessibilityValue(expanded.wrappedValue ? FactCopy.expanded : FactCopy.collapsed)
+        .accessibilityValue(expanded.wrappedValue ? AttributeCopy.expanded : AttributeCopy.collapsed)
     }
 }
 

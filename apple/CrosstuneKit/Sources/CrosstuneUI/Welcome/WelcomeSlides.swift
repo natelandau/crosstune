@@ -4,7 +4,7 @@ import SwiftUI
 
 /// The welcome carousel's slides, in the order they show.
 enum WelcomeSlide: CaseIterable, Identifiable, Comparable {
-    case story
+    case intro
     case catalog
     case record
     case practice
@@ -15,7 +15,7 @@ enum WelcomeSlide: CaseIterable, Identifiable, Comparable {
 
     func headline(for device: WelcomeDevice) -> String {
         switch self {
-        case .story: WelcomeCopy.headline(for: device)
+        case .intro: WelcomeCopy.headline(for: device)
         case .catalog: WelcomeCopy.catalogHeadline
         case .record: WelcomeCopy.recordHeadline
         case .practice: WelcomeCopy.practiceHeadline
@@ -26,7 +26,7 @@ enum WelcomeSlide: CaseIterable, Identifiable, Comparable {
 
     var name: WelcomeSlideName {
         switch self {
-        case .story: .story
+        case .intro: .intro
         case .catalog: .catalog
         case .record: .record
         case .practice: .practice
@@ -42,8 +42,8 @@ enum WelcomeSlide: CaseIterable, Identifiable, Comparable {
 /// Which slide shows, and the furthest one the player has reached. Moves only when the player
 /// moves it.
 struct WelcomeCarousel: Equatable {
-    private(set) var current: WelcomeSlide = .story
-    private(set) var furthest: WelcomeSlide = .story
+    private(set) var current: WelcomeSlide = .intro
+    private(set) var furthest: WelcomeSlide = .intro
 
     mutating func show(_ slide: WelcomeSlide) {
         current = slide
@@ -69,7 +69,7 @@ struct WelcomeCarousel: Equatable {
 
 /// The slide drawings are laid out at `baseUnit` and scaled to `unit`, so the key pills and
 /// chips inside keep the drawing's proportions at every size, and each fills the same box as
-/// `PaperEcho` so the headline under it never moves between slides.
+/// `WelcomeIllustration` so the headline under it never moves between slides.
 private let baseUnit: CGFloat = 12
 
 extension View {
@@ -323,7 +323,7 @@ struct TunerSlideArt: View {
     private static let hintSize: CGFloat = 12
 
     var body: some View {
-        let ground = PhoneStyle.tuneGroundHex(colorScheme, green: greenness(cents: Self.cents))
+        let ground = PhoneStyle.tuneGroundHex(colorScheme, green: inTuneFraction(cents: Self.cents))
         ZStack {
             TunerBars(cents: Self.cents, animation: nil)
             VStack(spacing: 0) {
@@ -363,6 +363,7 @@ struct TunerSlideArt: View {
     slidePreview.preferredColorScheme(.dark)
 }
 
+// periphery:ignore - read by the slide previews
 @MainActor private var slidePreview: some View {
     ScrollView {
         VStack(spacing: 24) {

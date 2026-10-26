@@ -85,8 +85,8 @@ private let prepared: PreparedScan = {
             sink.captures == ["t1", "t2"].map { .init(name: "scan_viewed", properties: ["tune_id": .string($0)]) })
     }
 
-    @Test func theStandsReadingPaneReportsEachKindOnceAVisit() {
-        let visit = StandVisit()
+    @Test func theReadingPaneOnThePadReportsEachKindOnceAVisit() {
+        let visit = PadPracticeVisit()
         let picked: [ReadingChoice] = [.lyrics, .scans, .lyrics]
 
         #expect(visit.readingShown(.scans, tuneID: "t1", picked: false) == .scanViewed(tuneID: "t1"))
@@ -98,8 +98,8 @@ private let prepared: PreparedScan = {
 
     /// A playlist moving on shows the next tune's reading by itself, which is not a view the
     /// musician asked for; a segment picked on that tune is.
-    @Test func theStandsReadingPaneReportsNoTuneTheListMovedTo() {
-        let visit = StandVisit()
+    @Test func theReadingPaneOnThePadReportsNoTuneTheListMovedTo() {
+        let visit = PadPracticeVisit()
 
         #expect(visit.readingShown(.scans, tuneID: "t1", picked: false) == .scanViewed(tuneID: "t1"))
         #expect(visit.readingShown(.scans, tuneID: "t2", picked: false) == nil)
@@ -113,12 +113,12 @@ private let prepared: PreparedScan = {
         #expect(visit.readingShown(.lyrics, tuneID: "t4", picked: false) == .lyricsOpened(tuneID: "t4"))
     }
 
-    /// The first tune is the one the stand opened on, even with nothing to read, so the list
+    /// The first tune is the one the iPad practice screen opened on, even with nothing to read, so the list
     /// moving on to a tune with scans is not counted as a view.
-    @Test func theStandsFirstTuneIsTheOneItOpenedOn() {
-        let visit = StandVisit()
+    @Test func thePadPracticeScreensFirstTuneIsTheOneItOpenedOn() {
+        let visit = PadPracticeVisit()
 
-        #expect(visit.opened(tuneID: "t1") == .standOpened(tuneID: "t1"))
+        #expect(visit.opened(tuneID: "t1") == .padPracticeOpened(tuneID: "t1"))
         #expect(visit.readingShown(.scans, tuneID: "t2", picked: false) == nil)
         #expect(visit.readingShown(.scans, tuneID: "t2", picked: true) == .scanViewed(tuneID: "t2"))
     }
@@ -184,16 +184,16 @@ private let prepared: PreparedScan = {
             })
     }
 
-    @Test func theStandReportsOnlyTheFirstTuneOfAVisit() {
-        let visit = StandVisit()
+    @Test func thePadPracticeScreenReportsOnlyTheFirstTuneOfAVisit() {
+        let visit = PadPracticeVisit()
 
         #expect(
             [visit.opened(tuneID: "t1"), visit.opened(tuneID: "t1"), visit.opened(tuneID: "t2")] == [
-                .standOpened(tuneID: "t1"), nil, nil,
+                .padPracticeOpened(tuneID: "t1"), nil, nil,
             ])
 
         visit.ended()
 
-        #expect(visit.opened(tuneID: "t2") == .standOpened(tuneID: "t2"))
+        #expect(visit.opened(tuneID: "t2") == .padPracticeOpened(tuneID: "t2"))
     }
 }

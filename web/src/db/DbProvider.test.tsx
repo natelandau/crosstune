@@ -27,7 +27,7 @@ function Capture({ dbRef }: { dbRef: { current: CrosstuneDb | null } }) {
 
 /**
  * A user whose database is deleted once the test finishes, after the setup file's unmount, so
- * no provider still holds it open. DbProvider opens by user, so `openTestDb()` cannot stand in.
+ * no provider still holds it open. DbProvider opens by user, so `openTestDb()` cannot replace it.
  */
 function testUser(): string {
   const userId = `u-${crypto.randomUUID()}`

@@ -6,7 +6,7 @@ import CrosstuneSync
 import SwiftUI
 
 /// One tune, opened from any tune row: pushed on iPhone, in the detail column on iPad and Mac.
-/// Its key and title, its facts, how it sounds, its lyrics and scans, and the musician's notes.
+/// Its key and title, its attributes, how it sounds, its lyrics and scans, and the musician's notes.
 public struct TuneScreen: View {
     public static let fallbackTitle = "Tune"
     public static let gone = "This tune is gone"
@@ -65,7 +65,7 @@ public struct TuneScreen: View {
     }
 
     /// Whether the next tune can replace the page on screen: once it has read, or once its
-    /// read has failed, so a failure never leaves the last tune standing.
+    /// read has failed, so a failure never leaves the last tune showing.
     nonisolated static func arrivalSettled(phase: TuneModel.Phase, readFailed: Bool) -> Bool {
         phase != .loading || readFailed
     }
@@ -156,7 +156,7 @@ public struct TuneScreen: View {
 
     private func content(_ model: TuneModel) -> some View {
         let held = held.flatMap { $0.tuneID == model.tuneID ? $0 : nil }
-        return TuneContent(model: model, draftLayout: held?.factsLayout)
+        return TuneContent(model: model, draftLayout: held?.attributesLayout)
             .environment(\.focusesKeyTile, held?.created.byReturn == true)
     }
 
@@ -170,7 +170,7 @@ public struct TuneScreen: View {
         held = Self.keptHeld(held, showing: tuneID)
         guard let store else { return }
         guard NewTuneDraft.source(of: tuneID) == nil else {
-            // The draft stands alone, so no page from before it shows again as its tune reads.
+            // The draft shows by itself, so no page from before it shows again as its tune reads.
             model = nil
             arriving = nil
             return
@@ -226,7 +226,7 @@ private struct PageFade: Transition {
 private struct TuneContent: View {
     let model: TuneModel
     /// The layout the new-tune draft this page replaces read, nil for any other page.
-    var draftLayout: FactsLayout?
+    var draftLayout: AttributesLayout?
 
     @Environment(\.detailTune) private var detailTune
     @Environment(\.spacing) private var spacing
@@ -595,7 +595,7 @@ struct TuneMediaRows: View {
     }
 
     #if os(macOS)
-        /// Whether a take under way stands a shown row's play down, which the Mac says once
+        /// Whether a take under way disables a shown row's play, which the Mac says once
         /// above the rows rather than under each.
         private func blocksPlay(showsRecordings: Bool) -> Bool {
             guard recorders?.isCapturing == true else { return false }

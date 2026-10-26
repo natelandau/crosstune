@@ -32,7 +32,7 @@ struct TunerGround: View {
     let motion: Animation?
 
     var body: some View {
-        let green = held.shown(model).map { greenness(cents: $0.note.cents) } ?? 0
+        let green = held.shown(model).map { inTuneFraction(cents: $0.note.cents) } ?? 0
         BrandStyle.color(hex: PhoneStyle.tuneGroundHex(colorScheme, green: green))
             .ignoresSafeArea()
             .animation(motion, value: green)

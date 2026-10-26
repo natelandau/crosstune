@@ -399,7 +399,7 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
         #expect(StatsCopy.weekMonthLabels(days(from: "2026-09-06", count: 26)) == [nil, nil, nil, "Oct"])
     }
 
-    @Test func everyHeatStepStandsOutFromEverySurface() {
+    @Test func everyHeatStepContrastsWithEverySurface() {
         func luminance(_ rgb: UInt32) -> Double {
             func channel(_ shift: UInt32) -> Double {
                 let c = Double(rgb >> shift & 0xff) / 255

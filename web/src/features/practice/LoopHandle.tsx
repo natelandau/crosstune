@@ -17,7 +17,7 @@ import {
   type Draft,
   type Span,
 } from '../../domain/loopModel'
-import { msAtX, xOfMs, type Lane } from './practiceZoom'
+import { msAtX, xOfMs, type ZoomedViewSource } from './practiceZoom'
 import { useAutoPan } from './useAutoPan'
 import { capturePointer } from '../../platform/pointer'
 import { tap } from '../../platform/haptics'
@@ -54,7 +54,7 @@ export function LoopHandle({
   name,
   color,
   span,
-  lane,
+  zoomedView,
   bounds,
   playheadMs,
   surface,
@@ -71,7 +71,7 @@ export function LoopHandle({
   color: number
   /** The loop as shown, a draft ahead of its row included. */
   span: Span
-  lane: Lane
+  zoomedView: ZoomedViewSource
   /** The free span around the loop on the source timeline, which the edge never leaves. */
   bounds: Bounds
   /** Where the playhead is drawn, on the source timeline. */
@@ -118,10 +118,10 @@ export function LoopHandle({
   }
 
   const ms = span[edge === 'start' ? 'startMs' : 'endMs']
-  const trimStartMs = lane.trimStartMs
+  const trimStartMs = zoomedView.trimStartMs
   const handle = useRef<HTMLDivElement>(null)
   const inView = () => {
-    const view = lane.view()
+    const view = zoomedView.view()
     const x = xOfMs(view, ms)
     return x >= 0 && x <= view.widthPx
   }
@@ -130,7 +130,7 @@ export function LoopHandle({
     const place = () => {
       const element = handle.current
       if (!element) return
-      const view = lane.view()
+      const view = zoomedView.view()
       const x = xOfMs(view, ms)
       const shows = x >= 0 && x <= view.widthPx
       element.style.left = `${clamp(x, 0, view.widthPx)}px`
@@ -138,8 +138,8 @@ export function LoopHandle({
       element.style.pointerEvents = shows ? '' : 'none'
     }
     place()
-    return lane.subscribe(place)
-  }, [lane, ms])
+    return zoomedView.subscribe(place)
+  }, [zoomedView, ms])
 
   const localX = (clientX: number) => clientX - (surface.current?.getBoundingClientRect().left ?? 0)
 
@@ -147,7 +147,7 @@ export function LoopHandle({
   const dragTo = (clientX: number) => {
     const pressed = press.current
     if (!pressed) return
-    const view = lane.view()
+    const view = zoomedView.view()
     const raw = msAtX(view, localX(clientX))
     const targets = pressed.alt
       ? [bounds.startMs, bounds.endMs]
@@ -163,7 +163,7 @@ export function LoopHandle({
     autoPan.track(localX(clientX))
   }
   const autoPan = useAutoPan({
-    view: lane.view,
+    view: zoomedView.view,
     onPan,
     follow: () => {
       if (press.current) dragTo(press.current.lastX)

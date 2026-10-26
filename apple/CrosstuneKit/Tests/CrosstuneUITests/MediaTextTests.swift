@@ -364,14 +364,14 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
 }
 
 @Suite struct RecordingRowContentTests {
-    @Test func namesTheRowByItsVerbAndShowsTheMatchingGlyph() {
+    @Test func namesTheRowByItsActionLabelAndShowsTheMatchingGlyph() {
         let row = RecordingRowContent(recording: recording(label: "Jam"), file: file(.downloaded), tuneTitle: nil)
         #expect(row.glyph == .play)
-        #expect(row.verb == MediaText.play)
+        #expect(row.actionLabel == MediaText.play)
         #expect(row.tap == .play)
         let loaded = RecordingRowContent(recording: recording(), file: nil, tuneTitle: "Jam", loaded: true)
         #expect(loaded.glyph == .stop)
-        #expect(loaded.verb == MediaText.closePlayer)
+        #expect(loaded.actionLabel == MediaText.closePlayer)
         #expect(loaded.tap == .close)
     }
 
@@ -411,7 +411,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
         #expect(row.retryName == "Retry Jam")
         #expect(row.error == nil)
         #expect(row.glyph == .attention)
-        #expect(row.verb == "Retry")
+        #expect(row.actionLabel == "Retry")
         #expect(row.tap == .retry(.transcode))
     }
 
@@ -427,13 +427,13 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
             recording: recording(label: "Jam", state: "processing"), file: nil, tuneTitle: nil)
         #expect(row.glyph == .waiting)
         #expect(row.tap == nil)
-        #expect(row.verb == nil)
+        #expect(row.actionLabel == nil)
     }
 
     @Test func aDownloadSaysSoToAScreenReader() {
         let row = RecordingRowContent(recording: recording(label: "Jam"), file: nil, tuneTitle: nil, downloading: true)
         #expect(row.glyph == .downloading)
-        #expect(row.verb == RecordingText.downloading)
+        #expect(row.actionLabel == RecordingText.downloading)
         #expect(row.tap == nil)
     }
 }
@@ -445,7 +445,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
     @Test func anEmbeddableLinkPlaysAndClosesInTheApp() {
         let row = LinkRowContent(link: youtube, embeddable: true)
         #expect(row.glyph == .play)
-        #expect(row.verb == MediaText.play)
+        #expect(row.actionLabel == MediaText.play)
         #expect(row.tap == .play)
         let loaded = LinkRowContent(link: youtube, embeddable: true, loaded: true)
         #expect(loaded.glyph == .stop)
@@ -456,7 +456,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
         let row = LinkRowContent(link: youtube, embeddable: false)
         let url = try #require(row.outboundURL)
         #expect(row.glyph == MediaGlyph.none)
-        #expect(row.verb == LinkText.open)
+        #expect(row.actionLabel == LinkText.open)
         #expect(row.tap == .open(url))
         #expect(row.outboundLabel == "YouTube")
         #expect(row.outboundName == "Open Tommy Jarrell on YouTube")
@@ -466,7 +466,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
         let link = RecordingLink(tuneID: "t1", url: "javascript:alert(1)", provider: "other")
         let row = LinkRowContent(link: link, embeddable: false)
         #expect(row.tap == nil)
-        #expect(row.verb == nil)
+        #expect(row.actionLabel == nil)
         #expect(row.outboundURL == nil)
     }
 }

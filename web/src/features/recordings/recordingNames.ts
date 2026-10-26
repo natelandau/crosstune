@@ -1,7 +1,7 @@
 import { CLOSE_PLAYER } from '../player/transportCopy'
 
 /**
- * The verbs and names a recording's controls carry wherever they show: its play control, and
+ * The action labels and names a recording's controls carry wherever they show: its play control, and
  * the tune line and Go to tune action that open its tune.
  */
 

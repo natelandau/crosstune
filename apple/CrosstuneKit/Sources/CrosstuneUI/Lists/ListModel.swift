@@ -80,7 +80,7 @@ public struct ListContents: Hashable, Sendable {
 @MainActor
 @Observable
 public final class ListModel {
-    /// Where the screen stands with its list.
+    /// The screen's progress with its list.
     public enum Phase: Equatable {
         /// Nothing read yet, which the screen shows as silence.
         case loading
@@ -197,7 +197,7 @@ public final class ListModel {
         move(from: index, to: place.destination(from: index, count: rows.count))
     }
 
-    /// Moves the row at `from` to where the row at `to` stands, among the rows on screen.
+    /// Moves the row at `from` to where the row at `to` is, among the rows on screen.
     public func move(from: Int, to: Int) {
         let rows = rows
         guard let move = ListMove(ids: rows.map(\.item.id), from: from, to: to) else { return }

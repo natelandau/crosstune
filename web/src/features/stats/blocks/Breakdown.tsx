@@ -127,7 +127,7 @@ function ShareRow({
   peak: number
   onOpen: (() => void) | undefined
 }) {
-  const face = (
+  const label = (
     <>
       <span className="t-body min-w-0 flex-1 truncate">{value}</span>
       <span className="t-body t-num text-ink-2">{count.toLocaleString('en-US')}</span>
@@ -147,14 +147,14 @@ function ShareRow({
         onPress={onOpen}
         className={`${SHARE_ROW} ${PRESS}`}
       >
-        {face}
+        {label}
       </AriaButton>
     )
   return (
     <div className={SHARE_ROW}>
       <span className="sr-only">{valueLabel(value, count)}</span>
       <span aria-hidden className="contents">
-        {face}
+        {label}
       </span>
     </div>
   )

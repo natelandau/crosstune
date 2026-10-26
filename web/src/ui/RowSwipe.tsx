@@ -182,7 +182,10 @@ export function RowSwipe({
   // The row's rounded clip antialiases the content and the actions under it alike, so a
   // closed row would fringe its corners in the actions' color. Clip the actions to what the
   // content has uncovered; clip-path leaves them focusable.
-  const trayClip = useTransform(x, (offset) => `inset(0 0 0 ${Math.max(0, width + offset)}px)`)
+  const revealedActionsClip = useTransform(
+    x,
+    (offset) => `inset(0 0 0 ${Math.max(0, width + offset)}px)`,
+  )
 
   const settle = useCallback(
     (open: boolean) => {
@@ -350,7 +353,7 @@ export function RowSwipe({
     >
       <motion.div
         data-swipe-actions
-        style={{ clipPath: trayClip }}
+        style={{ clipPath: revealedActionsClip }}
         className="absolute inset-y-0 right-0 flex"
         // Focus from the keyboard or assistive technology opens the row, so the focused action
         // is in view. React Aria's input modality, which every engine reports alike, is set by

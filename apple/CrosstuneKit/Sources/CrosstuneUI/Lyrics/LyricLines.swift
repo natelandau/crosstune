@@ -1,7 +1,7 @@
 import Foundation
 
-/// Splits a lyrics body into verses of lines, and takes its opening lines for a row that stands
-/// in for the whole body.
+/// Splits a lyrics body into verses of lines, and takes its opening lines for a row that
+/// substitutes for the whole body.
 public enum LyricLines {
     /// A blank line, however many of them a paste carries, is one verse break; every other line
     /// is kept as written apart from the whitespace at either end, since the reading view renders
@@ -24,7 +24,7 @@ public enum LyricLines {
         return verses
     }
 
-    /// The opening lines, for a row that stands in for the whole body.
+    /// The opening lines, for a row that substitutes for the whole body.
     public static func opening(_ text: String?, count: Int) -> [String] {
         Array(lines(text).flatMap { $0 }.prefix(Swift.max(0, count)))
     }

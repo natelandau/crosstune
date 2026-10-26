@@ -165,7 +165,7 @@ public enum RecordingText {
     /// already shows the same one. Under Date added the date is when the recording was added;
     /// under every other sort, or none, it is when it was played. `offline` marks a download that
     /// cannot start, and replaces the status. A take held for Premium says so in place of its
-    /// status. The file's own length stands in until the server reports the recording's.
+    /// status. The file's own length is shown until the server reports the recording's.
     public static func meta(
         _ recording: Recording, file: RecordingFile?, storage: StorageFigures? = nil, offline: Bool = false,
         dateInTitle: Bool = false, sort: RecordingSort? = nil, heldForPremium: Bool = false,

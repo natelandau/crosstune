@@ -3,7 +3,7 @@ import { useElementSize } from '../../ui/useElementSize'
 import type { PlaybackEngine } from '../player/playbackEngine'
 import { useZoomGestures } from './useZoomGestures'
 import type { RecordingView } from '../recordings/useRecordings'
-import { LANES_LABEL } from './practiceCopy'
+import { WAVEFORM_LABEL } from './practiceCopy'
 import { usePracticeLoops, type PracticeLoops } from './usePracticeLoops'
 import { usePracticeTimeline, type PracticeTimeline } from './usePracticeTimeline'
 
@@ -47,7 +47,7 @@ export function usePracticeCore({
   const content = useRef<HTMLDivElement>(null)
   const focusWaveform = () =>
     content.current
-      ?.querySelector<HTMLElement>(`[role="slider"][aria-label="${LANES_LABEL}"]`)
+      ?.querySelector<HTMLElement>(`[role="slider"][aria-label="${WAVEFORM_LABEL}"]`)
       ?.focus()
   const loops = usePracticeLoops({
     view,

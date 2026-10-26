@@ -35,8 +35,8 @@ Decide any case the rules below do not name.
   where it is.
 - Quiet chrome, musical content. Color comes from the music and one
   accent.
-- An item is a document, not a form. Read on a page, edit one fact in
-  place, edit many in a sheet.
+- An item is a document, not a form. Read on a page, edit one attribute
+  in place, edit many in a sheet.
 - Layout follows the width of the column it sits in, never the device.
 - Looks back, never nudges. No streaks, no points, no badges for use.
 
@@ -120,7 +120,7 @@ Decide any case the rules below do not name.
 - Swipe left reveals one to three full-height, equal-width actions in their
   tone. Full swipe only opens the row. No swipe is destructive.
 - Long press or right-click on a row opens its menu.
-- Shortcuts stand down while a text field or overlay holds the keyboard.
+- Shortcuts are disabled while a text field or overlay holds the keyboard.
 - Arrow keys walk rows, Enter opens, Escape steps out (top overlay, then
   selection), Cmd-A or Ctrl-A selects all.
 
@@ -150,7 +150,7 @@ Decide any case the rules below do not name.
   clear of it.
 - A control with nothing to act on is absent, never shown disabled.
   Exceptions, shown disabled: form buttons and a mode panel's controls.
-- App-wide controls (Record, sheet-opening commands) stand down behind
+- App-wide controls (Record, sheet-opening commands) are disabled behind
   every sheet, dialog, and file picker, and while a screen is selecting.
 - One action reached from several places opens one component, over the
   current screen. Finishing returns the musician where they were.
@@ -245,7 +245,7 @@ Decide any case the rules below do not name.
   reads "Not set".
 - Closed choice: a field row that opens a picker. A pill grid only where
   values carry color.
-- Open vocabulary: a text field with suggestions. Any typed value stands,
+- Open vocabulary: a text field with suggestions. Any typed value is kept,
   and empty means empty. Closed lists are only what the API validates.
 - A required field never clears: pressing the chosen value keeps it. An
   optional one clears.
@@ -284,8 +284,8 @@ Decide any case the rules below do not name.
 
 ## Pages
 
-- Plain ground, no cards, at most 680 wide. The tune page's facts card
-  and start card are the only cards.
+- Plain ground, no cards, at most 680 wide. The tune page's attributes
+  card and start card are the only cards.
 - Title in the content, selectable.
 - Section: heading with its controls trailing. Space separates sections,
   never a hairline.
@@ -294,8 +294,8 @@ Decide any case the rules below do not name.
   items fill is absent until it holds something.
 - Action button row: what the musician does with the item, never editing.
   A button shows only when it can act now, and is never disabled.
-- Facts: the same facts in the same order on every item, so nothing moves
-  between items. An unset value reads "Add".
+- Attributes: the same attributes in the same order on every item, so
+  nothing moves between items. An unset value reads "Add".
 - Moving between items cross-fades. The current page stays until the next
   has read, so the column never goes blank.
 - Mode panels: a segmented control under the main surface. The panel

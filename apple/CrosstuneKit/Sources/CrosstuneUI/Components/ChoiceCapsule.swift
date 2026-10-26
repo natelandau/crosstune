@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// One choice in a rail of capsules: a neutral fill at rest, the accent fill when chosen, and a 44
+/// One choice in a segmented control of capsules: a neutral fill at rest, the accent fill when chosen, and a 44
 /// point target whatever its text size, which takes no more room than the capsule. The Mac
 /// draws it as a ``MacChip``.
 public struct ChoiceCapsule<Label: View>: View {

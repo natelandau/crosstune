@@ -47,17 +47,17 @@ export function App({
   store,
 }: {
   router: AppRouter
-  /** Stands in for the tune form, for a test that watches what opens it. */
+  /** Replaces the tune form, for a test that watches what opens it. */
   tuneFormLauncher?: TuneFormLauncher
-  /** Stands in for the player, for a test that watches what plays. */
+  /** Replaces the player, for a test that watches what plays. */
   player?: Player
-  /** Stands in for the playback engine, for a test that drives what plays. */
+  /** Replaces the playback engine, for a test that drives what plays. */
   playbackEngine?: PlaybackEngine
   /** The device's back, such as Android's; the web's by default. */
   backAdapter?: BackAdapter
-  /** Stands in for the shortcut sheet, for a test that watches what opens it. */
+  /** Replaces the shortcut sheet, for a test that watches what opens it. */
   shortcutSheet?: ShortcutSheetLauncher
-  /** Stands in for the web store; null means purchasing is unavailable. */
+  /** Replaces the web store; null means purchasing is unavailable. */
   store?: Store | null
 }) {
   useDensity()
@@ -83,7 +83,7 @@ export function App({
     <TuneFormProvider>{sheeted}</TuneFormProvider>
   )
   // Above the router, so practice's holds reach the bar and the overlay in every route, and the
-  // disc, the capsule, and a tune page reach the one recorder.
+  // round Record button, the capsule, and a tune page reach the one recorder.
   const practiced = (
     <PracticeOverlayStateProvider>
       <RecordStateProvider>

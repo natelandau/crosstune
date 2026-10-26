@@ -56,7 +56,7 @@ describe('createSharedLiveQuery', () => {
     await waitFor(() => expect(result.current).toBe(1))
   })
 
-  it('stands down once nothing reads it, so a later reader starts fresh', async () => {
+  it('stops once nothing reads it, so a later reader starts fresh', async () => {
     const { db, useCount, wrapper } = setup()
     const first = renderHook(() => useCount(), { wrapper })
     await waitFor(() => expect(first.result.current).toBe(0))

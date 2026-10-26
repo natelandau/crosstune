@@ -746,7 +746,7 @@ function closeControl(): 'header' | 'actions' | 'none' {
   return buttons.length === 1 && buttons[0]!.closest('header') ? 'header' : 'actions'
 }
 
-/** Every place the way out has stood while the sheet showed, from now until the test ends. */
+/** Every place the way out has been while the sheet showed, from now until the test ends. */
 function watchCloseControl(): () => ReadonlySet<string> {
   const places = new Set<string>([closeControl()])
   const observer = new MutationObserver(() => {

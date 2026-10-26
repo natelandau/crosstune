@@ -21,10 +21,10 @@ export interface OverlayClaimOptions {
 /**
  * Claims that an overlay is open while `active`, the one signal every overlay sets, by holding
  * an overlay entry on the app's back stack. Returns whether this claim is the latest one still
- * held, so the overlay is the one on top. A tooltip stands down while any claim holds, because
+ * held, so the overlay is the one on top. A tooltip turns off while any claim holds, because
  * an open tooltip takes Escape on the document before the overlay can hear it. A claim that
- * `coversShell`, such as a sheet or dialog, also stands the Record controls and the menu
- * commands down; a popover at its control does not. Claims count, because an exiting overlay
+ * `coversShell`, such as a sheet or dialog, also hides the Record controls and turns the menu
+ * commands off; a popover at its control does not. Claims count, because an exiting overlay
  * and its successor can briefly both be mounted.
  */
 export function useOverlayClaim({

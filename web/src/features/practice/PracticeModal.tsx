@@ -30,7 +30,7 @@ import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
 import { useOnTop, useOverlayClaim } from '../../ui/overlayClaim'
 import { PracticeHeader } from './PracticeHeader'
-import { PracticeView, type FocusCarry } from './PracticeView'
+import { PracticeView, type SavedFocus } from './PracticeView'
 import { TrimPanel } from './TrimPanel'
 
 const MotionModal = motion.create(Modal)
@@ -77,7 +77,7 @@ export function PracticeModal({ id, onClose }: { id: string; onClose: () => void
   const reduceMotion = useReducedMotionConfig() ?? false
   const state = usePracticeOverlayView(id)
   const { view, title, subtitle, shows } = state
-  // A take practiced on a music stand, propped up with the hands on the violin, must not dim.
+  // A take practiced with the device propped up with the hands on the violin, must not dim.
   useWakeLock(true)
   const playback = useListPlayback()
   const listed = playback.active?.message === null ? playback.active : null
@@ -112,7 +112,7 @@ export function PracticeModal({ id, onClose }: { id: string; onClose: () => void
   // ahead of any field inside, so a rename's Escape ends the rename and nothing more.
   const escapeRef = useRef<(() => boolean) | null>(null)
   const carried = useRef<string | null>(null)
-  const [focusCarry] = useState<FocusCarry>(() => ({
+  const [savedFocus] = useState<SavedFocus>(() => ({
     peek: () => carried.current,
     keep: (key) => {
       carried.current = key
@@ -245,7 +245,7 @@ export function PracticeModal({ id, onClose }: { id: string; onClose: () => void
                         shown={state.peaks}
                         blocked={practiceBlocker(view.file, state.audio, recordingsPlay)}
                         escapeRef={escapeRef}
-                        focusCarry={focusCarry}
+                        savedFocus={savedFocus}
                         isTop={isTop}
                         onError={state.setError}
                       />

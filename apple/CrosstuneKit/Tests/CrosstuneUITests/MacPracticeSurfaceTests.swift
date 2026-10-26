@@ -57,10 +57,10 @@
 
         // MARK: Sheets
 
-        /// In light the scans' mat is the field gray, so a white page stands off it.
-        @Test func scanMatSetsThePageApart() {
-            #expect(ScanViewer.matHex(.light) == Palette.hex(.field, .light))
-            #expect(contrastRatio("#FFFFFF", ScanViewer.matHex(.light)) > 1.2)
+        /// In light the scan background is the field gray, so a white page contrasts with it.
+        @Test func scanBackgroundSetsThePageApart() {
+            #expect(ScanViewer.scanBackgroundHex(.light) == Palette.hex(.field, .light))
+            #expect(contrastRatio("#FFFFFF", ScanViewer.scanBackgroundHex(.light)) > 1.2)
         }
 
         /// The services and a service's results share one height, so going back from results
@@ -104,7 +104,7 @@
         // MARK: Recordings and dock
 
         /// Every dock glyph control is the Mac icon button; with an embed playing, a now-playing
-        /// glyph stands where play would be.
+        /// glyph shows where play would be.
         @Test func dockControlsAreIconButtons() throws {
             let text = try Self.macSource("Mac/PlayerDock.swift")
             #expect(!text.contains("DockGlyph"))

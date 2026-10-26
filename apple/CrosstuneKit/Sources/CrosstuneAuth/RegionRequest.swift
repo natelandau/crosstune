@@ -8,7 +8,7 @@ import OpenAPIURLSession
 extension Region {
     /// Asks the API where the caller is. It is the one request made with no session token, since
     /// it runs before anyone signs in, so it uses a client without ``AuthMiddleware``.
-    /// `transport` stands in for URLSession in tests.
+    /// `transport` replaces URLSession in tests.
     public static func fetch(
         origin: URL, transport: any ClientTransport = URLSessionTransport()
     ) async throws -> Region {

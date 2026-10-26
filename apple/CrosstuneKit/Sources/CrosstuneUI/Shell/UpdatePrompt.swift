@@ -108,7 +108,7 @@ private struct UpdatePrompt: ViewModifier {
         @Environment(\.appearsActive) private var appearsActive
     #endif
     @Environment(\.updatePromptClaim) private var sharedClaim
-    /// Stands in when the app shares no claim across windows, as in previews.
+    /// Used when the app shares no claim across windows, as in previews.
     @State private var ownClaim = UpdatePromptClaim()
     @State private var window = PromptWindow()
     @State private var shows = false

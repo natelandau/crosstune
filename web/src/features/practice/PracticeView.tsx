@@ -28,7 +28,7 @@ import { PracticeButton } from './PracticeButton'
 import { TransportRow } from './TransportRow'
 
 /** Where `PracticeView` leaves the control focus was on, for the next view to take up. */
-export interface FocusCarry {
+export interface SavedFocus {
   peek: () => string | null
   keep: (key: string | null) => void
 }
@@ -46,7 +46,7 @@ export function PracticeView({
   shown,
   blocked,
   escapeRef,
-  focusCarry,
+  savedFocus,
   isTop,
   onError,
 }: {
@@ -61,7 +61,7 @@ export function PracticeView({
    * The `data-focus-key` of the control focus was on when this view last unmounted, which a
    * fresh view puts focus back on as it mounts.
    */
-  focusCarry: FocusCarry
+  savedFocus: SavedFocus
   /** True while practice is the overlay on top. */
   isTop: () => boolean
   onError: (message: string | null) => void
@@ -90,19 +90,19 @@ export function PracticeView({
   usePracticeKeys(escapeRef, { ...loops.keyActions, isTop, blocked })
 
   // A list moving on remounts this view, Play and Next tune included, so focus follows the
-  // control it was on into the new one within the same commit. The carry is spent on mount
+  // control it was on into the new one within the same commit. The saved focus is spent on mount
   // whether or not it lands, so it can never pull focus back later.
   useLayoutEffect(() => {
     const root = content.current
-    const key = focusCarry.peek()
-    focusCarry.keep(null)
+    const key = savedFocus.peek()
+    savedFocus.keep(null)
     if (key) root?.querySelector<HTMLElement>(`[data-focus-key="${CSS.escape(key)}"]`)?.focus()
     return () => {
       const focused = document.activeElement
       if (!(focused instanceof HTMLElement) || !root?.contains(focused)) return
-      focusCarry.keep(focused.closest<HTMLElement>('[data-focus-key]')?.dataset.focusKey ?? null)
+      savedFocus.keep(focused.closest<HTMLElement>('[data-focus-key]')?.dataset.focusKey ?? null)
     }
-  }, [content, focusCarry])
+  }, [content, savedFocus])
 
   const off = blocked ? 'pointer-events-none opacity-50' : ''
   const unusable = !timeline.loaded || !!blocked

@@ -7,7 +7,7 @@ import Foundation
     import AppKit
 #endif
 
-/// The assistive features the device has on, as the person property values they stand for.
+/// The assistive features the device has on, as the person property values they map to.
 public enum AssistiveTech {
     @MainActor public static func current() -> [AssistiveTechnology] {
         #if os(iOS)

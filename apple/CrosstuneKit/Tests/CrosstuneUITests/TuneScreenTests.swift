@@ -266,12 +266,12 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(await model.delete() == false)
     }
 
-    // MARK: - Single-fact writes
+    // MARK: - Single-attribute writes
 
     private let sink = RecordingAnalyticsSink()
 
     /// A store holding `tunes`, each with the musician's own row, and a shown model for the first.
-    private func factModel(
+    private func attributeModel(
         _ tunes: [Tune], status: String = "want_to_learn", root: TemporaryRoot
     ) async throws -> (CrosstuneStore, TuneModel) {
         let store = try root.open()
@@ -296,7 +296,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func writesKeyAndReportsOnlyKey() async throws {
         let root = TemporaryRoot()
-        let (store, model) = try await factModel(
+        let (store, model) = try await attributeModel(
             [Tune(id: "t1", createdAt: noon, title: "Sally Ann", composer: "Trad", key: "A")], root: root)
 
         model.write { $0.key = "D" }
@@ -305,12 +305,12 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(sink.captures == [edited(["key"])])
         let tune = try await storedTune(store, "t1")
         #expect(tune.key == "D" && tune.composer == "Trad")
-        #expect(model.failure(at: .facts) == nil)
+        #expect(model.failure(at: .attributes) == nil)
     }
 
     @Test func reportsStatusChange() async throws {
         let root = TemporaryRoot()
-        let (_, model) = try await factModel(
+        let (_, model) = try await attributeModel(
             [Tune(id: "t1", createdAt: noon, title: "Sally Ann")], status: "learning", root: root)
 
         model.write { $0.status = "known" }
@@ -327,7 +327,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func typeFillsUnsetTimeSignature() async throws {
         let root = TemporaryRoot()
-        let (store, model) = try await factModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
+        let (store, model) = try await attributeModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
 
         model.write { $0.tuneType = "Jig" }
 
@@ -339,7 +339,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func typeKeepsChosenTimeSignature() async throws {
         let root = TemporaryRoot()
-        let (store, model) = try await factModel(
+        let (store, model) = try await attributeModel(
             [Tune(id: "t1", createdAt: noon, title: "Sally Ann", timeSignature: "2/4")], root: root)
 
         model.write { $0.tuneType = "Jig" }
@@ -352,7 +352,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func trimsOpenText() async throws {
         let root = TemporaryRoot()
-        let (store, model) = try await factModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
+        let (store, model) = try await attributeModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
 
         model.write { $0.composer = "  Jay Ungar \n" }
 
@@ -363,12 +363,12 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func refusesEmptyTitle() async throws {
         let root = TemporaryRoot()
-        let (store, model) = try await factModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
+        let (store, model) = try await attributeModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
 
         model.write { $0.title = "   " }
 
-        try await eventually { model.failure(at: .facts) != nil }
-        #expect(model.failure(at: .facts) == TuneFormModel.titleRequired)
+        try await eventually { model.failure(at: .attributes) != nil }
+        #expect(model.failure(at: .attributes) == TuneFormModel.titleRequired)
         #expect(model.failure(at: .screen) == nil && model.failure(at: .media) == nil)
         #expect(try await storedTune(store, "t1").title == "Sally Ann")
         #expect(sink.captures.isEmpty)
@@ -376,12 +376,12 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func refusesPartialLearnedOn() async throws {
         let root = TemporaryRoot()
-        let (store, model) = try await factModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
+        let (store, model) = try await attributeModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
 
         model.write { $0.learnedOn = "2024-03" }
 
-        try await eventually { model.failure(at: .facts) != nil }
-        #expect(model.failure(at: .facts) == LearnedOnEditor.incomplete)
+        try await eventually { model.failure(at: .attributes) != nil }
+        #expect(model.failure(at: .attributes) == LearnedOnEditor.incomplete)
         let learnedOn = try await store.read { db in
             try UserTune.filter(UserTune.CodingKeys.tuneID == "t1").fetchOne(db)?.learnedOn
         }
@@ -389,17 +389,17 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         // A whole date lands, and clears the refusal.
         model.write { $0.learnedOn = "2024-03-04" }
         try await eventually { model.shown?.userTune.learnedOn == "2024-03-04" }
-        #expect(model.failure(at: .facts) == nil)
+        #expect(model.failure(at: .attributes) == nil)
     }
 
     @Test func aTypePickFillsAnUnsetTimeSignature() async throws {
         let root = TemporaryRoot()
-        let (store, model) = try await factModel(
+        let (store, model) = try await attributeModel(
             [Tune(id: "t1", createdAt: noon, title: "Sally Ann"), Tune(id: "t2", createdAt: noon, title: "Cooley's")],
             root: root)
         let detail = try #require(model.shown)
 
-        model.write(FactEdit.tuneType(detail).patch("Jig"))
+        model.write(AttributeEdit.tuneType(detail).patch("Jig"))
 
         try await eventually { model.shown?.tune.tuneType == "Jig" }
         #expect(try await storedTune(store, "t1").timeSignature == "6/8")
@@ -407,11 +407,11 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func aTypePickKeepsATimeSignatureAlreadySet() async throws {
         let root = TemporaryRoot()
-        let (store, model) = try await factModel(
+        let (store, model) = try await attributeModel(
             [Tune(id: "t1", createdAt: noon, title: "Sally Ann", timeSignature: "4/4")], root: root)
         let detail = try #require(model.shown)
 
-        model.write(FactEdit.tuneType(detail).patch("Jig"))
+        model.write(AttributeEdit.tuneType(detail).patch("Jig"))
 
         try await eventually { model.shown?.tune.tuneType == "Jig" }
         #expect(try await storedTune(store, "t1").timeSignature == "4/4")
@@ -419,19 +419,19 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func refusesAWholeDateThatIsNotOnTheCalendar() async throws {
         let root = TemporaryRoot()
-        let (_, model) = try await factModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
+        let (_, model) = try await attributeModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
 
         model.write { $0.learnedOn = "2024-02-30" }
 
-        try await eventually { model.failure(at: .facts) != nil }
-        #expect(model.failure(at: .facts) == LearnedOnEditor.incomplete)
+        try await eventually { model.failure(at: .attributes) != nil }
+        #expect(model.failure(at: .attributes) == LearnedOnEditor.incomplete)
         #expect(model.shown?.userTune.learnedOn == nil)
         #expect(sink.captures.isEmpty)
     }
 
     @Test func clearsLearnedOn() async throws {
         let root = TemporaryRoot()
-        let (_, model) = try await factModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
+        let (_, model) = try await attributeModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
         model.write { $0.learnedOn = "2024-03-04" }
 
         model.write { $0.learnedOn = "" }
@@ -439,22 +439,22 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         try await eventually { sink.captures.count == 2 }
         #expect(sink.captures == [edited(["learned_on"]), edited(["learned_on"])])
         try await eventually { model.shown?.userTune.learnedOn == nil }
-        #expect(model.failure(at: .facts) == nil)
+        #expect(model.failure(at: .attributes) == nil)
     }
 
     @Test func refusesAWriteToATuneDeletedMidFlight() async throws {
         let root = TemporaryRoot()
-        let (store, model) = try await factModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
+        let (store, model) = try await attributeModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
         try await Commands(store: store).deleteTune("t1")
 
         model.write { $0.key = "D" }
 
-        try await eventually { model.failure(at: .facts) != nil }
-        #expect(model.failure(at: .facts) == CommandError.tuneNotFoundMessage)
+        try await eventually { model.failure(at: .attributes) != nil }
+        #expect(model.failure(at: .attributes) == CommandError.tuneNotFoundMessage)
         #expect(sink.captures.isEmpty)
     }
 
-    @Test func aFactWriteLeavesOtherPlacesFailuresAndTheyLeaveItsToo() async throws {
+    @Test func anAttributeWriteLeavesOtherPlacesFailuresAndTheyLeaveItsToo() async throws {
         let root = TemporaryRoot()
         let store = try await SampleCatalog.copiedStore(root: root.url)
         try await store.write { writer in
@@ -467,23 +467,23 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         let listsFailure = try #require(model.failure(at: .lists))
 
         model.write { $0.title = "" }
-        try await eventually { model.failure(at: .facts) != nil }
+        try await eventually { model.failure(at: .attributes) != nil }
         #expect(model.failure(at: .lists) == listsFailure)
         model.write { $0.key = "G" }
         try await eventually { !sink.captures.isEmpty }
-        #expect(model.failure(at: .facts) == nil)
+        #expect(model.failure(at: .attributes) == nil)
         #expect(model.failure(at: .lists) == listsFailure)
 
         model.write { $0.title = "" }
-        try await eventually { model.failure(at: .facts) != nil }
+        try await eventually { model.failure(at: .attributes) != nil }
         await model.removeLink("sample_link_youtube")
         #expect(model.failure(at: .lists) == nil)
-        #expect(model.failure(at: .facts) == TuneFormModel.titleRequired)
+        #expect(model.failure(at: .attributes) == TuneFormModel.titleRequired)
     }
 
     @Test func landsOnTheTuneItWasOpenedFor() async throws {
         let root = TemporaryRoot()
-        let (store, first) = try await factModel(
+        let (store, first) = try await attributeModel(
             [
                 Tune(id: "t1", createdAt: noon, title: "Sally Ann", key: "A"),
                 Tune(id: "t2", createdAt: noon, title: "Angeline", key: "A"),
@@ -494,7 +494,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         // The detail column swaps to the next tune before either write lands.
         let next = TuneModel(store: store, tuneID: "t2", analytics: sink.client)
 
-        try await eventually { first.failure(at: .facts) != nil }
+        try await eventually { first.failure(at: .attributes) != nil }
         #expect(try await storedTune(store, "t1").key == "D")
         #expect(try await storedTune(store, "t2").key == "A")
         try await eventually { next.shown != nil }
@@ -503,40 +503,40 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(sink.captures == [edited(["key"])])
     }
 
-    @Test func aNotesWriteFailsUnderTheNotesAndLeavesTheFactsAlone() async throws {
+    @Test func aNotesWriteFailsUnderTheNotesAndLeavesTheAttributesAlone() async throws {
         let root = TemporaryRoot()
-        let (_, model) = try await factModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
+        let (_, model) = try await attributeModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
 
         model.write { $0.title = "" }
-        try await eventually { model.failure(at: .facts) != nil }
+        try await eventually { model.failure(at: .attributes) != nil }
         model.writeNotes("Drive the B part")
         try await eventually { model.shown?.userTune.notes == "Drive the B part" }
-        #expect(model.failure(at: .facts) == TuneFormModel.titleRequired)
+        #expect(model.failure(at: .attributes) == TuneFormModel.titleRequired)
         #expect(model.failure(at: .notes) == nil)
     }
 
     @Test func aRefusedNotesWriteShowsAtTheNotes() async throws {
         let root = TemporaryRoot()
-        let (store, model) = try await factModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
+        let (store, model) = try await attributeModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
         try await Commands(store: store).deleteTune("t1")
 
         model.writeNotes("Drive the B part")
 
         try await eventually { model.failure(at: .notes) != nil }
         #expect(model.failure(at: .notes) == CommandError.tuneNotFoundMessage)
-        #expect(model.failure(at: .facts) == nil)
+        #expect(model.failure(at: .attributes) == nil)
     }
 
     @Test func notesReportOncePerSession() async throws {
         let root = TemporaryRoot()
-        let (_, model) = try await factModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
+        let (_, model) = try await attributeModel([Tune(id: "t1", createdAt: noon, title: "Sally Ann")], root: root)
 
         model.noteEditing(began: true)
         model.write { $0.notes = "D" }
         model.write { $0.notes = "Dri" }
         model.write { $0.notes = "Drive the B part" }
         model.noteEditing(began: false)
-        // Fact writes land in order, so this one's report marks that everything before it is in.
+        // Attribute writes land in order, so this one's report marks that everything before it is in.
         model.write { $0.key = "G" }
 
         try await eventually { sink.captures.last == edited(["key"]) }
@@ -668,7 +668,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(sections(worded, scans: 0, scanAddable: false) == [.recordings, .lyrics, .notes])
     }
 
-    @Test func listsEndThePageOnlyWhereTheFactsShowAsACard() {
+    @Test func listsEndThePageOnlyWhereTheAttributesShowAsACard() {
         let worded = detail(lyrics: "My old hen")
         let addLine = addLine(worded, scans: 1)
         #expect(
@@ -768,25 +768,25 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     }
 
     @Test func theKeyTileHoldsTheKeyAndANamedModeOrOffersToAddOne() {
-        #expect(TuneBand.keyTile(detail(key: "A", modes: ["dorian"])) == .key("A", mode: "dorian"))
-        #expect(TuneBand.keyTile(detail(key: "A", modes: ["other"])) == .key("A", mode: nil))
-        #expect(TuneBand.keyTile(detail(key: "A", modes: [])) == .key("A", mode: nil))
-        #expect(TuneBand.keyTile(detail(key: nil)) == .empty)
-        #expect(TuneBand.keyTile(detail(key: "  ")) == .empty)
-        #expect(TuneBand.keyTileLabel(.key("A", mode: "dorian")) == "Key, A dorian")
-        #expect(TuneBand.keyTileLabel(.key("A", mode: nil)) == "Key, A")
-        #expect(TuneBand.keyTileLabel(.empty) == "Add key")
+        #expect(TuneHeader.keyTile(detail(key: "A", modes: ["dorian"])) == .key("A", mode: "dorian"))
+        #expect(TuneHeader.keyTile(detail(key: "A", modes: ["other"])) == .key("A", mode: nil))
+        #expect(TuneHeader.keyTile(detail(key: "A", modes: [])) == .key("A", mode: nil))
+        #expect(TuneHeader.keyTile(detail(key: nil)) == .empty)
+        #expect(TuneHeader.keyTile(detail(key: "  ")) == .empty)
+        #expect(TuneHeader.keyTileLabel(.key("A", mode: "dorian")) == "Key, A dorian")
+        #expect(TuneHeader.keyTileLabel(.key("A", mode: nil)) == "Key, A")
+        #expect(TuneHeader.keyTileLabel(.empty) == "Add key")
     }
 
     @Test func theKeyTileIsSmallerOnACompactWidth() {
-        #expect(TuneBand.keyTileSize(compact: true) == 54)
-        #expect(TuneBand.keyTileSize(compact: false) == 64)
+        #expect(TuneHeader.keyTileSize(compact: true) == 54)
+        #expect(TuneHeader.keyTileSize(compact: false) == 64)
     }
 
     @Test func aRenameEndingAnyWayButEscapeSavesAndEscapeRestores() {
-        #expect(TuneBand.renameResult(.commit, draft: "Sally Ann ", stored: "Sally Gooden") == "Sally Ann")
-        #expect(TuneBand.renameResult(.cancel, draft: "Sally Ann", stored: "Sally Gooden") == nil)
-        #expect(TuneBand.renameResult(.commit, draft: " ", stored: "Sally Gooden") == nil)
+        #expect(TuneHeader.renameResult(.commit, draft: "Sally Ann ", stored: "Sally Gooden") == "Sally Ann")
+        #expect(TuneHeader.renameResult(.cancel, draft: "Sally Ann", stored: "Sally Gooden") == nil)
+        #expect(TuneHeader.renameResult(.commit, draft: " ", stored: "Sally Gooden") == nil)
     }
 
     @Test func aNotesSessionOpensOnFocusAndClosesOnceOnBlurOrLeaving() {
@@ -802,10 +802,10 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     }
 
     @Test func aRenameSavesOnlyATrimmedChangedTitle() {
-        #expect(TuneBand.renamed("  Soldier's Joy II ", from: "Soldier's Joy") == "Soldier's Joy II")
-        #expect(TuneBand.renamed("Soldier's Joy", from: "Soldier's Joy") == nil)
-        #expect(TuneBand.renamed("   ", from: "Soldier's Joy") == nil)
-        #expect(TuneBand.renamed("", from: "Soldier's Joy") == nil)
+        #expect(TuneHeader.renamed("  Soldier's Joy II ", from: "Soldier's Joy") == "Soldier's Joy II")
+        #expect(TuneHeader.renamed("Soldier's Joy", from: "Soldier's Joy") == nil)
+        #expect(TuneHeader.renamed("   ", from: "Soldier's Joy") == nil)
+        #expect(TuneHeader.renamed("", from: "Soldier's Joy") == nil)
     }
 
     @Test func moreLeadsWithEditAllDetailsAndLeavesOutWhatCannotAct() {
@@ -837,24 +837,24 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(TuneScreen.addScanText == "Scan or image")
         #expect(TuneScreen.addLyrics == "Add lyrics")
         #expect(TuneScreen.addLyricsText == "Lyrics")
-        #expect(TuneBand.rename == "Rename")
-        #expect(TuneBand.addKey == "Add key")
+        #expect(TuneHeader.rename == "Rename")
+        #expect(TuneHeader.addKey == "Add key")
     }
 
     /// The page says what is missing with a start card or an add line, never an empty-state block.
     @Test(arguments: [
-        "Tune/TunePage.swift", "Tune/TuneBand.swift", "Tune/FirstRecordingCard.swift", "Tune/NotesField.swift",
+        "Tune/TunePage.swift", "Tune/TuneHeader.swift", "Tune/FirstRecordingCard.swift", "Tune/NotesField.swift",
     ])
     func noEmptyStateBlocks(path: String) throws {
         let text = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.sources.appending(path: path)))
         #expect(!text.contains("PageEmptyState"))
     }
 
-    /// The band's key tile and rename write through the opened tune's own model, so a save that
+    /// The header's key tile and rename write through the opened tune's own model, so a save that
     /// lands as the detail column swaps tunes lands on the tune it was made on.
-    @Test func theBandWritesThroughItsOwnTunesModel() throws {
+    @Test func theHeaderWritesThroughItsOwnTunesModel() throws {
         let text = SourceScan.withoutComments(
-            try SourceScan.text(at: SourceScan.sources.appending(path: "Tune/TuneBand.swift")))
+            try SourceScan.text(at: SourceScan.sources.appending(path: "Tune/TuneHeader.swift")))
         #expect(text.contains("write: model.write"))
         #expect(text.contains("model.write {"))
     }

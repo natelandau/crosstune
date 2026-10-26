@@ -5,7 +5,7 @@ import SwiftUI
 /// a second line, the site an imported recording came from, the tune line for a filed recording,
 /// a red line for a transfer error, and Retry at the trailing edge.
 ///
-/// The row is the control. Its spoken name is its verb plus the lines it shows.
+/// The row is the control. Its spoken name is its actionLabel plus the lines it shows.
 public struct MediaRow: View {
     /// The line under the title.
     public enum SecondLine {
@@ -57,7 +57,7 @@ public struct MediaRow: View {
     private let glyph: MediaGlyph
     private let title: String
     private let secondLine: SecondLine?
-    private let verb: String?
+    private let actionLabel: String?
     private let action: (() -> Void)?
     private let sourceLine: SourceLine?
     private let tuneLine: TuneLine?
@@ -78,11 +78,11 @@ public struct MediaRow: View {
         @State private var isHovered = false
     #endif
 
-    /// `verb` names what the row does or would do, "Play" or "Downloading"; with no `action` the
+    /// `actionLabel` names what the row does or would do, "Play" or "Downloading"; with no `action` the
     /// row is inert. `dimmed` marks a row whose control cannot act right now, such as a download
     /// offline. `spokenNotice` is spoken after the row's lines and never shown.
     public init(
-        glyph: MediaGlyph, title: String, secondLine: SecondLine?, verb: String? = nil,
+        glyph: MediaGlyph, title: String, secondLine: SecondLine?, actionLabel: String? = nil,
         action: (() -> Void)? = nil, sourceLine: SourceLine? = nil, tuneLine: TuneLine? = nil,
         error: String? = nil, notice: String? = nil, spokenNotice: String? = nil, retry: Retry? = nil,
         dimmed: Bool = false
@@ -90,7 +90,7 @@ public struct MediaRow: View {
         self.glyph = glyph
         self.title = title
         self.secondLine = secondLine
-        self.verb = verb
+        self.actionLabel = actionLabel
         self.action = action
         self.sourceLine = sourceLine
         self.tuneLine = tuneLine
@@ -101,9 +101,9 @@ public struct MediaRow: View {
         isDimmed = dimmed
     }
 
-    /// The row control's spoken name: the verb and the lines it shows, a comma between lines.
-    nonisolated public static func accessibilityName(verb: String?, title: String, details: [String]) -> String {
-        let first = verb.map { "\($0) \(title)" } ?? title
+    /// The row control's spoken name: the actionLabel and the lines it shows, a comma between lines.
+    nonisolated public static func accessibilityName(actionLabel: String?, title: String, details: [String]) -> String {
+        let first = actionLabel.map { "\($0) \(title)" } ?? title
         return ([first] + details).joined(separator: ", ")
     }
 
@@ -382,7 +382,7 @@ public struct MediaRow: View {
         if let notice { details.append(notice) }
         if let error { details.append(error) }
         if let spokenNotice { details.append(spokenNotice) }
-        return Self.accessibilityName(verb: verb, title: title, details: details)
+        return Self.accessibilityName(actionLabel: actionLabel, title: title, details: details)
     }
 
     /// The glyph's square, smaller on the Mac where a pointer needs no 44 point target.
@@ -515,7 +515,7 @@ extension MediaRow {
         perform: @escaping (RecordingRowContent.Tap) -> Void, onRetry: @escaping (RecordingText.Retry) -> Void
     ) {
         self.init(
-            glyph: row.glyph, title: row.title, secondLine: .text(row.meta), verb: row.verb,
+            glyph: row.glyph, title: row.title, secondLine: .text(row.meta), actionLabel: row.actionLabel,
             action: row.tap.map { tap in { perform(tap) } }, sourceLine: sourceLine, tuneLine: tuneLine,
             error: row.error, notice: row.notice, spokenNotice: row.spokenNotice,
             retry: row.retry.flatMap { retry in row.retryName.map { Retry(name: $0) { onRetry(retry) } } },
@@ -527,7 +527,8 @@ extension MediaRow {
         self.init(
             glyph: row.glyph, title: row.title,
             secondLine: row.outboundURL.map { .link(row.outboundLabel, $0, name: row.outboundName) },
-            verb: row.verb, action: row.tap.map { tap in { perform(tap) } }, notice: row.notice, dimmed: row.isDimmed)
+            actionLabel: row.actionLabel, action: row.tap.map { tap in { perform(tap) } }, notice: row.notice,
+            dimmed: row.isDimmed)
     }
 }
 

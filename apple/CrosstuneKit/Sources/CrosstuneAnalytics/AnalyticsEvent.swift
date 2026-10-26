@@ -42,7 +42,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
     case catalogSorted(sort: CatalogSort)
 
     case lyricsOpened(tuneID: String)
-    case standOpened(tuneID: String)
+    case padPracticeOpened(tuneID: String)
 
     case listCreated(listID: String, count: Int)
     /// Never the name.
@@ -135,7 +135,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .catalogFiltered: "catalog_filtered"
         case .catalogSorted: "catalog_sorted"
         case .lyricsOpened: "lyrics_opened"
-        case .standOpened: "stand_opened"
+        case .padPracticeOpened: "pad_practice_opened"
         case .listCreated: "list_created"
         case .listRenamed: "list_renamed"
         case .listDeleted: "list_deleted"
@@ -210,7 +210,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .tuneStatusChanged(let from, let to, let tuneID):
             ["from": .string(from.rawValue), "to": .string(to.rawValue), "tune_id": .string(tuneID)]
         case .tuneArchived(let tuneID), .tuneUnarchived(let tuneID), .lyricsOpened(let tuneID),
-            .standOpened(let tuneID), .scanViewed(let tuneID), .scansReordered(let tuneID):
+            .padPracticeOpened(let tuneID), .scanViewed(let tuneID), .scansReordered(let tuneID):
             ["tune_id": .string(tuneID)]
         case .tuneDeleted(let tuneID, let recordings, let links, let scans):
             [

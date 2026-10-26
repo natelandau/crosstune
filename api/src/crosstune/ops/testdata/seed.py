@@ -56,7 +56,7 @@ async def snapshot_server_grants(session: AsyncSession, user_id: uuid.UUID) -> G
     """Record the user's trial and comp grants so a seed's temporary comp can be undone.
 
     Returns:
-        GrantSnapshot: The grants as they stand now.
+        GrantSnapshot: The grants as they are now.
     """
     grants = await session.scalars(
         select(Grant)
@@ -183,7 +183,7 @@ async def _attach_recording(
         msg = f"{planned.path.name} is not one of the audio types {sorted(_AUDIO_TYPES)}"
         raise DataCommandError(msg)
     if recording.source == RecordingSource.IMPORT:
-        # The local file stands in for the import, so nothing fetches from Slippery-Hill.
+        # The local file replaces the import, so nothing fetches from Slippery-Hill.
         await session.execute(
             delete(Job).where(Job.recording_id == planned.id, Job.kind == JobKind.IMPORT.value)
         )

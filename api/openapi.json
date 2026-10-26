@@ -4003,7 +4003,7 @@
         "type": "object"
       },
       "TuneStatus": {
-        "description": "Where a player stands with a tune.",
+        "description": "A player's progress with a tune.",
         "enum": [
           "known",
           "learning",

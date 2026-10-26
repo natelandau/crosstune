@@ -1,7 +1,7 @@
 #if os(macOS)
     import SwiftUI
 
-    /// What a Mac control sits on, so its fill stands off it: `field` on the `ground` of a column
+    /// What a Mac control sits on, so its fill contrasts with it: `field` on the `ground` of a column
     /// or sheet, `raised` on a `surface` card or footer.
     enum MacContainer: CaseIterable, Sendable {
         case ground

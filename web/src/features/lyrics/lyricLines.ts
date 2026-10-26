@@ -24,7 +24,7 @@ export function lyricLines(text: string | null | undefined): string[][] {
   return verses
 }
 
-/** The opening lines, for a row that stands in for the whole body. */
+/** The opening lines, for a row that shows them in place of the whole body. */
 export function lyricOpening(text: string | null | undefined, count: number): string[] {
   // slice(0, count) with a negative count counts back from the end, so it would return every
   // line but the last rather than none.

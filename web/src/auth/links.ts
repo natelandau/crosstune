@@ -28,10 +28,10 @@ export const WHY_ACCOUNT_BODY: readonly string[] = [
 export const WHY_ACCOUNT_DONE = 'Done'
 
 export const WELCOME_SLIDES: readonly {
-  id: 'story' | 'catalog' | 'record' | 'practice' | 'listen' | 'tuner'
+  id: 'intro' | 'catalog' | 'record' | 'practice' | 'listen' | 'tuner'
   headline: string
 }[] = [
-  { id: 'story', headline: SIGN_IN_HEADLINE },
+  { id: 'intro', headline: SIGN_IN_HEADLINE },
   { id: 'catalog', headline: 'Filter your tunes by key, tuning, time signature, and more.' },
   { id: 'record', headline: 'Your tune list and your recordings, finally in one place.' },
   { id: 'practice', headline: 'Slow it down. Loop the hard part.' },

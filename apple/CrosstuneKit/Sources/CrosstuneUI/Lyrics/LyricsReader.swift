@@ -204,7 +204,7 @@ struct LyricsBody: View {
     }
 }
 
-/// The whole lyrics body, over the reader. No tune form stands behind it, so Done is the write,
+/// The whole lyrics body, over the reader. No tune form is behind it, so Done is the write,
 /// the way the web's reading view edits without a form.
 private struct LyricsEditSheet: View {
     let model: LyricsReaderModel

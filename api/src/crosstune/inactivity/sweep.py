@@ -3,8 +3,8 @@
 The deletion is irreversible, so it runs only when both warnings were accepted by
 Resend and recorded, counts every date from those recorded sends, and decides again
 under the account's lock. An email goes out with no transaction open and no lock
-held; its record is written afterwards, and only when the account still stands
-where it stood when the send was decided.
+held; its record is written afterwards, and only when the account is still
+in the state it was in when the send was decided.
 """
 
 from __future__ import annotations

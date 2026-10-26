@@ -60,7 +60,7 @@ it('refits once the page fonts finish loading', async () => {
 
 it.each([
   ['a narrow phone', undefined],
-  ['a narrow phone at the largest text size', 'roomy'],
+  ['a narrow phone at the largest text size', 'large'],
 ] as const)('fits every label inside its button on %s', async (_, textSize) => {
   if (textSize) document.documentElement.dataset.textSize = textSize
   await page.viewport(320, 640)

@@ -488,17 +488,18 @@ private struct RefusingSyncAPI: SyncAPI {
 
     @Test func aTuneLineIsAControlOfItsOwnBesideTheRow() {
         let row = MediaRow(
-            glyph: .play, title: "Take 1", secondLine: .text("1:02"), verb: "Play", action: {},
+            glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
             tuneLine: MediaRow.TuneLine(title: "Soldier's Joy", action: {}))
         #expect(row.controlNames == ["Play Take 1, 1:02", "Open Soldier's Joy"])
 
-        let unfiled = MediaRow(glyph: .play, title: "Take 1", secondLine: .text("1:02"), verb: "Play", action: {})
+        let unfiled = MediaRow(
+            glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
         #expect(unfiled.controlNames == ["Play Take 1, 1:02"])
     }
 
     @Test func drawsItsInnerControlsInReadingOrderWithRetryAtTheTrailingEdge() {
         let row = MediaRow(
-            glyph: .play, title: "Take 1", secondLine: .text("1:02"), verb: "Play", action: {},
+            glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
             tuneLine: MediaRow.TuneLine(title: "Soldier's Joy", action: {}),
             retry: MediaRow.Retry(name: "Retry Take 1", action: {}))
         #expect(row.innerControls.map(\.name) == ["Open Soldier's Joy", "Retry Take 1"])
@@ -509,7 +510,7 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func anImportsSourceLineComesBeforeTheTuneLine() throws {
         let page = try #require(URL(string: "https://www.slippery-hill.com/content/bear-creek-sally-goodin"))
         let row = MediaRow(
-            glyph: .play, title: "Take 1", secondLine: .text("1:02"), verb: "Play", action: {},
+            glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
             sourceLine: MediaRow.SourceLine(title: "Slippery-Hill", url: page),
             tuneLine: MediaRow.TuneLine(title: "Soldier's Joy", action: {}),
             retry: MediaRow.Retry(name: "Retry Take 1", action: {}))
@@ -520,12 +521,12 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(row.innerControls.map(\.isTrailing) == [false, false, true])
         #expect(row.stacksLineControls, "two padded line targets would overlap")
         let sourceOnly = MediaRow(
-            glyph: .play, title: "Take 1", secondLine: .text("1:02"), verb: "Play", action: {},
+            glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
             sourceLine: MediaRow.SourceLine(title: "Slippery-Hill", url: page),
             retry: MediaRow.Retry(name: "Retry Take 1", action: {}))
         #expect(!sourceOnly.stacksLineControls, "one line reaches into the row's space without growing it")
         let tuneOnly = MediaRow(
-            glyph: .play, title: "Take 1", secondLine: .text("1:02"), verb: "Play", action: {},
+            glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
             tuneLine: MediaRow.TuneLine(title: "Soldier's Joy", action: {}))
         #expect(!tuneOnly.stacksLineControls)
         #expect(
@@ -1397,7 +1398,7 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(!sink.captures.map(\.name).contains("saved_location_created"))
     }
 
-    @Test func replacedReadsTheLocationAsItStandsNow() async throws {
+    @Test func replacedReadsTheCurrentLocation() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let sink = RecordingAnalyticsSink()
@@ -1639,7 +1640,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let capture = RecordingFile(id: "c1", localState: .capturing, recordedAt: noon)
         let row = UnfinishedCaptureRowContent(
             capture: capture, locale: Locale(identifier: "en_US"), timeZone: TimeZone(identifier: "UTC")!)
-        #expect(row.verb == RecordingRowActions.delete)
+        #expect(row.actionLabel == RecordingRowActions.delete)
         #expect(row.title == "Recording, Sep 25, 2026 at 12:00\u{202F}PM")
     }
 
@@ -1893,7 +1894,7 @@ private struct RefusingSyncAPI: SyncAPI {
                 == [.unfinished, .count, .storage])
     }
 
-    @Test func theStorageRowStandsAsideForAnEmptyState() {
+    @Test func theStorageRowHidesForAnEmptyState() {
         #expect(
             RecordingArrangement.sectionOrder(
                 hasUnfinished: false, hasUnfiled: false, tuneCount: 0, showsEmptyState: true)
@@ -1911,21 +1912,21 @@ private struct RefusingSyncAPI: SyncAPI {
 
     @Test func aRowThatOpensTheScreenSaysOpen() {
         let row = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, opensScreen: true)
-        #expect(row.verb == MediaText.open)
+        #expect(row.actionLabel == MediaText.open)
         #expect(row.glyph == .play)
         #expect(row.tap == .open)
     }
 
     @Test func theLoadedRowThatOpensTheScreenNeverShowsStop() {
         let row = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, loaded: true, opensScreen: true)
-        #expect(row.verb == MediaText.open)
+        #expect(row.actionLabel == MediaText.open)
         #expect(row.glyph == .play)
         #expect(row.tap == .open)
     }
 
     @Test func aDownloadRowThatOpensTheScreenStillDownloads() {
         let row = RecordingRowContent(recording: recording, file: nil, tuneTitle: nil, opensScreen: true)
-        #expect(row.verb == RecordingRowContent.download)
+        #expect(row.actionLabel == RecordingRowContent.download)
         #expect(row.tap == .download)
     }
 }
@@ -1948,17 +1949,17 @@ private struct RefusingSyncAPI: SyncAPI {
     }
 
     @MainActor
-    @Test func aFreePlanSpeaksNoVerbAndNamesPremium() {
+    @Test func aFreePlanSpeaksNoActionLabelAndNamesPremium() {
         let title = RecordingText.title(recording, tuneTitle: nil)
         for file in [held, nil] {
             let row = RecordingRowContent(recording: recording, file: file, tuneTitle: nil, recordingsPlay: false)
-            #expect(row.verb == nil)
+            #expect(row.actionLabel == nil)
             #expect(row.spokenNotice == RecordingText.subscribeToPlay)
             let names = MediaRow(recording: row, perform: { _ in }, onRetry: { _ in }).controlNames
             #expect(names == ["\(title), \(row.meta), \(RecordingText.subscribeToPlay)"])
         }
         let plays = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, recordingsPlay: true)
-        #expect(plays.verb == MediaText.play && plays.spokenNotice == nil)
+        #expect(plays.actionLabel == MediaText.play && plays.spokenNotice == nil)
     }
 
     @Test func aFreePlanNeverDownloadsFromATap() {

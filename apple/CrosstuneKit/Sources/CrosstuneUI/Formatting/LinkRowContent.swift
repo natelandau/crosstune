@@ -14,7 +14,7 @@ public struct LinkRowContent: Hashable, Sendable {
     public let glyph: MediaGlyph
     public let title: String
     /// What a tap would do, spoken before the title.
-    public let verb: String?
+    public let actionLabel: String?
     /// What a tap does, or nil for a link that can neither play nor open.
     public let tap: Tap?
     /// Where the second line's link out goes, or nil when the link must not be opened.
@@ -37,11 +37,11 @@ public struct LinkRowContent: Hashable, Sendable {
         outboundLabel = LinkText.outboundLabel(link)
         outboundName = LinkText.outboundName(link)
         switch (embeddable, loaded) {
-        case (true, true): (glyph, verb, tap) = (.stop, MediaText.closePlayer, .close)
-        case (true, false): (glyph, verb, tap) = (.play, MediaText.play, .play)
+        case (true, true): (glyph, actionLabel, tap) = (.stop, MediaText.closePlayer, .close)
+        case (true, false): (glyph, actionLabel, tap) = (.play, MediaText.play, .play)
         case (false, _):
             // Nothing to load in the player, so the row is the link out, as the line under it is.
-            (glyph, verb, tap) = (.none, outboundURL == nil ? nil : LinkText.open, outboundURL.map { .open($0) })
+            (glyph, actionLabel, tap) = (.none, outboundURL == nil ? nil : LinkText.open, outboundURL.map { .open($0) })
         }
         let blockedPlay = playBlocked && tap == .play
         isDimmed = blockedPlay

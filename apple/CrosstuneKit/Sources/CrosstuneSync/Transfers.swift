@@ -228,7 +228,7 @@ struct Transfers {
     /// recording row at all. A capture still in progress is left alone: it has no recording row
     /// yet. A tombstoned recording whose audio never uploaded is restored unfiled instead, since
     /// the server takes a newer upsert over its tombstone and this file is the only copy. One
-    /// whose audio is gone from disk has no copy to save, so its delete stands.
+    /// whose audio is gone from disk has no copy to save, so its delete is kept.
     func dropTombstonedFiles() async throws {
         let audioFolder = store.audioFolder
         // Read first so a pass with nothing to drop never takes the write lock.
