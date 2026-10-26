@@ -18,15 +18,15 @@ const settings: WebSettings = {
   tunerA4Hz: 440,
 }
 
-const figures = { used_bytes: 0, quota_bytes: 1, max_file_bytes: 1 }
+const usage = { used_bytes: 0, quota_bytes: 1, max_file_bytes: 1 }
 
 function storedDb(): Promise<CrosstuneDb> {
   const db = openTestDb()
-  return setStorage(db, figures).then(() => db)
+  return setStorage(db, usage).then(() => db)
 }
 
 describe('personProperties', () => {
-  it('reports only the device-local settings until the figures exist', async () => {
+  it('reports only the device-local settings until storage usage exists', async () => {
     const db = openTestDb()
     expect(await personProperties(db, settings)).toEqual({
       setting_appearance: 'system',
@@ -34,13 +34,13 @@ describe('personProperties', () => {
     })
   })
 
-  it('reports the new-tune settings once the figures exist', async () => {
+  it('reports the new-tune settings once storage usage exists', async () => {
     const db = openTestDb()
     const chosen = { ...settings, newTuneStatus: 'learning', newTuneGenreSet: true }
     const before = await personProperties(db, chosen)
     expect(before).not.toHaveProperty('setting_new_tune_status')
     expect(before).not.toHaveProperty('setting_new_tune_genre_set')
-    await setStorage(db, figures)
+    await setStorage(db, usage)
     expect(await personProperties(db, chosen)).toMatchObject({
       setting_new_tune_status: 'learning',
       setting_new_tune_genre_set: true,
@@ -62,7 +62,7 @@ describe('personProperties', () => {
     expect((await personProperties(db, settings)).catalog_size).toBe('0')
   })
 
-  it('leaves storage out until the figures exist', async () => {
+  it('leaves storage out until storage usage exists', async () => {
     const db = openTestDb()
     expect(await personProperties(db, settings)).not.toHaveProperty('storage_used')
     await setStorage(db, { used_bytes: 20_000_000, quota_bytes: 1, max_file_bytes: 1 })

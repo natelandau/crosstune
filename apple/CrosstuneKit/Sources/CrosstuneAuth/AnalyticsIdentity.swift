@@ -38,7 +38,7 @@ struct AnalyticsIdentity {
         }
         userLetGo = nil
         if let rememberedUserID, rememberedUserID != userID { analytics.reset() }
-        // The store's figures come later, from `identify(userID:withFiguresIn:canIdentify:)`;
+        // The store's usage come later, from `identify(userID:withUsageIn:canIdentify:)`;
         // what the device itself knows goes now.
         analytics.identify(
             userID: userID, signedUpAt: signedUpAt, catalogSize: nil, storageUsed: nil, fieldsUsed: nil,
@@ -46,15 +46,15 @@ struct AnalyticsIdentity {
         if userID != rememberedUserID { analytics.send(.signedIn) }
     }
 
-    /// Identifies `userID` with the figures in `store` and what the device knows, unless
-    /// `canIdentify` refuses once the figures are read.
+    /// Identifies `userID` with the usage in `store` and what the device knows, unless
+    /// `canIdentify` refuses once the usage is read.
     ///
-    /// - Returns: Whether the identify carried the API's figures.
+    /// - Returns: Whether the identify carried the API's usage.
     func identify(
-        userID: String, withFiguresIn store: CrosstuneStore, canIdentify: @MainActor () -> Bool
+        userID: String, withUsageIn store: CrosstuneStore, canIdentify: @MainActor () -> Bool
     ) async -> Bool {
         await AccountSession.identify(
-            userID: userID, withFiguresIn: store, analytics: analytics, deviceSettings: deviceSettings(),
+            userID: userID, withUsageIn: store, analytics: analytics, deviceSettings: deviceSettings(),
             assistiveTech: assistiveTech(), canIdentify: canIdentify)
     }
 

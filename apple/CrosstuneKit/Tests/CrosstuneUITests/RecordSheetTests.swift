@@ -194,8 +194,8 @@ final class ToneInput: AudioInput {
         #expect(RecordSheet.filingUnder("Soldier's Joy") == "Filing under Soldier's Joy")
     }
 
-    @Test func recentTakeMarksAndClears() {
-        let take = RecentTake()
+    @Test func recentRecordingMarksAndClears() {
+        let take = RecentRecording()
         #expect(take.id == nil)
         take.mark("a")
         #expect(take.id == "a")
@@ -206,7 +206,7 @@ final class ToneInput: AudioInput {
     }
 
     @Test func aLateRowNeverClearsANewerTake() {
-        let take = RecentTake()
+        let take = RecentRecording()
         take.mark("a")
         take.mark("b")
         take.clear(ifID: "a")
@@ -217,9 +217,9 @@ final class ToneInput: AudioInput {
 
     @Test func aMarkExpiresAfterItsLifetime() {
         var clock = Date(timeIntervalSince1970: 1000)
-        let take = RecentTake(now: { clock })
+        let take = RecentRecording(now: { clock })
         take.mark("a")
-        clock += RecentTake.lifetime.seconds - 0.1
+        clock += RecentRecording.lifetime.seconds - 0.1
         #expect(take.id == "a")
         clock += 0.2
         #expect(take.id == nil)
@@ -262,7 +262,8 @@ final class ToneInput: AudioInput {
     }
 
     @Test func theHighlightPhasesSumToTheConstant() {
-        #expect(HighlightTiming.fadeIn + HighlightTiming.hold + HighlightTiming.fadeOut == PhoneStyle.newTakeHighlight)
+        #expect(
+            HighlightTiming.fadeIn + HighlightTiming.hold + HighlightTiming.fadeOut == PhoneStyle.newRecordingHighlight)
     }
 }
 
@@ -301,8 +302,8 @@ final class ToneInput: AudioInput {
     @Test func recordsAndStopsSavingUnderTheTuneAndCloses() async throws {
         let (tuneID, _) = try await Commands(store: store).createTune(
             TuneInput(title: "Soldier's Joy"), userTune: UserTuneInput(status: "known"))
-        let recent = RecentTake()
-        let model = RecordSheetModel(recorder: recorder, tuneID: tuneID, recentTake: recent)
+        let recent = RecentRecording()
+        let model = RecordSheetModel(recorder: recorder, tuneID: tuneID, recentRecording: recent)
         await model.loadTuneTitle(from: store)
         #expect(model.tuneTitle == "Soldier's Joy")
         await model.begin()

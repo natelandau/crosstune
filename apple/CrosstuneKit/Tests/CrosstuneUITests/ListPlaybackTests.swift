@@ -97,7 +97,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
 
 @MainActor
 @Suite final class ListPlaybackTests {
-    private struct Rig {
+    private struct Fixture {
         let player: PlayerModel
         let audio: FakeAudio
         let music: FakeMusic
@@ -109,7 +109,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
     private let suite = TemporaryDefaults("ListPlaybackTests")
     private var defaults: UserDefaults { suite.defaults }
 
-    private func rig(_ items: [String: PlayerItem]? = nil) -> Rig {
+    private func fixture(_ items: [String: PlayerItem]? = nil) -> Fixture {
         let audio = FakeAudio()
         let music = FakeMusic()
         let player = PlayerModel(audio: audio, appleMusic: AppleMusic(access: FakeAccess(.fullTracks), player: music))
@@ -123,26 +123,26 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
             ])
         let playback = ListPlayback(player: player, commands: commands, defaults: defaults, rng: SplitMix64(seed: 1))
         playback.resolve = { await resolver.resolve($0, $1) }
-        return Rig(
+        return Fixture(
             player: player, audio: audio, music: music, commands: commands, resolver: resolver, playback: playback)
     }
 
-    private func start(_ rig: Rig, _ tuneIDs: [String] = ["a", "b", "c"], at tuneID: String? = nil) {
-        rig.playback.start(listID: "list1", name: listName, tuneIDs: tuneIDs, shuffled: false, at: tuneID)
+    private func start(_ fixture: Fixture, _ tuneIDs: [String] = ["a", "b", "c"], at tuneID: String? = nil) {
+        fixture.playback.start(listID: "list1", name: listName, tuneIDs: tuneIDs, shuffled: false, at: tuneID)
     }
 
-    private func playing(_ rig: Rig, _ itemID: String) async throws {
-        try await eventually { rig.player.item?.id == itemID && rig.player.transport?.isPlaying == true }
+    private func playing(_ fixture: Fixture, _ itemID: String) async throws {
+        try await eventually { fixture.player.item?.id == itemID && fixture.player.transport?.isPlaying == true }
     }
 
-    private func loads(_ rig: Rig) -> Int {
-        rig.audio.calls.count(where: { $0 == "load" })
+    private func loads(_ fixture: Fixture) -> Int {
+        fixture.audio.calls.count(where: { $0 == "load" })
     }
 
     @Test func practiceScreenHeaderFollowsASkip() async throws {
-        let rig = rig()
-        start(rig)
-        try await playing(rig, "ra")
+        let fixture = fixture()
+        start(fixture)
+        try await playing(fixture, "ra")
         let own = RecordingScreenText.subtitle(
             Recording(id: "ra", tuneID: "a", source: "microphone", addedAt: noon, label: "Take a", state: "ready"),
             tuneTitle: "Tune a", lengthMs: nil)
@@ -150,497 +150,498 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
             PadPracticeHeader.subtitle(
                 recording: Recording(
                     id: "ra", tuneID: "a", source: "microphone", addedAt: noon, label: "Take a", state: "ready"),
-                tuneTitle: "Tune a", lengthMs: nil, playback: rig.playback, showsReadingPane: true)
+                tuneTitle: "Tune a", lengthMs: nil, playback: fixture.playback, showsReadingPane: true)
         }
         #expect(header() == "\(listName) \u{B7} 1 of 3")
         #expect(header() != own)
 
-        rig.playback.next()
-        try await playing(rig, "rb")
+        fixture.playback.next()
+        try await playing(fixture, "rb")
         #expect(header() == "\(listName) \u{B7} 2 of 3")
     }
 
     @Test func playsInOrderAndAdvancesOnFinish() async throws {
-        let rig = rig()
-        start(rig)
-        try await playing(rig, "ra")
-        #expect(rig.playback.isActive)
-        #expect(rig.playback.listID == "list1")
-        #expect(rig.playback.listName == listName)
-        #expect(rig.playback.currentTuneID == "a")
-        #expect(rig.playback.position == 1)
-        #expect(rig.playback.count == 3)
-        #expect(rig.commands.isEnabled)
-        #expect(rig.player.queue === rig.playback)
-        #expect(rig.audio.nowPlaying == NowPlaying(title: "Tune a", tuneTitle: listName))
+        let fixture = fixture()
+        start(fixture)
+        try await playing(fixture, "ra")
+        #expect(fixture.playback.isActive)
+        #expect(fixture.playback.listID == "list1")
+        #expect(fixture.playback.listName == listName)
+        #expect(fixture.playback.currentTuneID == "a")
+        #expect(fixture.playback.position == 1)
+        #expect(fixture.playback.count == 3)
+        #expect(fixture.commands.isEnabled)
+        #expect(fixture.player.queue === fixture.playback)
+        #expect(fixture.audio.nowPlaying == NowPlaying(title: "Tune a", tuneTitle: listName))
 
-        rig.audio.end(.finished)
-        try await playing(rig, "rb")
-        #expect(rig.playback.position == 2)
-        rig.audio.end(.finished)
-        try await playing(rig, "rc")
-        #expect(rig.playback.position == 3)
+        fixture.audio.end(.finished)
+        try await playing(fixture, "rb")
+        #expect(fixture.playback.position == 2)
+        fixture.audio.end(.finished)
+        try await playing(fixture, "rc")
+        #expect(fixture.playback.position == 3)
 
         // With repeat off the playlist ends on the last tune, paused.
-        rig.audio.end(.finished)
-        try await eventually { !rig.playback.isActive }
-        #expect(rig.player.item?.id == "rc")
-        #expect(rig.player.queue == nil)
-        #expect(!rig.audio.isPlaying)
-        #expect(!rig.commands.isEnabled)
-        #expect(rig.playback.endMessage == nil)
-        #expect(rig.resolver.asked == ["a", "b", "c"])
+        fixture.audio.end(.finished)
+        try await eventually { !fixture.playback.isActive }
+        #expect(fixture.player.item?.id == "rc")
+        #expect(fixture.player.queue == nil)
+        #expect(!fixture.audio.isPlaying)
+        #expect(!fixture.commands.isEnabled)
+        #expect(fixture.playback.endMessage == nil)
+        #expect(fixture.resolver.asked == ["a", "b", "c"])
     }
 
     @Test func startingFromAReportStopsWhatWasLoadedAtOnce() async throws {
-        let rig = rig()
-        rig.player.play(recording("x"))
-        try await playing(rig, "rx")
-        rig.resolver.holding = ["a"]
+        let fixture = fixture()
+        fixture.player.play(recording("x"))
+        try await playing(fixture, "rx")
+        fixture.resolver.holding = ["a"]
         let report = PlaylistReport(playable: ["a", "b"], skipped: [:], total: 2)
-        rig.playback.start(listID: "list1", name: listName, report: report, shuffled: false)
+        fixture.playback.start(listID: "list1", name: listName, report: report, shuffled: false)
         // The first tune is still resolving, and what was loaded is already gone.
-        try await eventually { rig.resolver.isHolding("a") }
-        #expect(rig.player.item == nil)
-        rig.resolver.release("a")
-        try await playing(rig, "ra")
+        try await eventually { fixture.resolver.isHolding("a") }
+        #expect(fixture.player.item == nil)
+        fixture.resolver.release("a")
+        try await playing(fixture, "ra")
     }
 
     @Test func startDropsARepeatedTune() async throws {
-        let rig = rig()
-        start(rig, ["a", "b", "a"])
-        try await playing(rig, "ra")
-        #expect(rig.playback.count == 2)
+        let fixture = fixture()
+        start(fixture, ["a", "b", "a"])
+        try await playing(fixture, "ra")
+        #expect(fixture.playback.count == 2)
     }
 
     @Test func skipsAnUnresolvableTune() async throws {
-        let rig = rig(["a": recording("a"), "c": recording("c")])
-        start(rig)
-        try await playing(rig, "ra")
-        rig.audio.end(.finished)
-        try await playing(rig, "rc")
-        #expect(rig.resolver.asked == ["a", "b", "c"])
-        #expect(rig.playback.position == 3)
+        let fixture = fixture(["a": recording("a"), "c": recording("c")])
+        start(fixture)
+        try await playing(fixture, "ra")
+        fixture.audio.end(.finished)
+        try await playing(fixture, "rc")
+        #expect(fixture.resolver.asked == ["a", "b", "c"])
+        #expect(fixture.playback.position == 3)
     }
 
     @Test func skipsWhenThePlayerCouldNotPlay() async throws {
-        let rig = rig()
-        rig.player.audioSource = { id in
+        let fixture = fixture()
+        fixture.player.audioSource = { id in
             guard id != "rb" else { return nil }
             return audioFile(id)
         }
-        start(rig)
-        try await playing(rig, "ra")
-        rig.audio.end(.finished)
-        try await playing(rig, "rc")
-        #expect(rig.resolver.asked == ["a", "b", "c"])
+        start(fixture)
+        try await playing(fixture, "ra")
+        fixture.audio.end(.finished)
+        try await playing(fixture, "rc")
+        #expect(fixture.resolver.asked == ["a", "b", "c"])
     }
 
     @Test func stopsAfterOneFailedPassWithRepeatList() async throws {
-        let rig = rig([:])
-        rig.playback.cycleRepeat()
-        #expect(rig.playback.repeatMode == .list)
-        start(rig, at: "b")
-        try await eventually { !rig.playback.isActive }
-        #expect(rig.playback.endMessage == ListPlaybackText.nothingLeft)
-        #expect(rig.resolver.asked == ["b", "c", "a"])
-        #expect(!rig.player.isLoaded)
-        #expect(rig.player.queue == nil)
-        #expect(!rig.commands.isEnabled)
+        let fixture = fixture([:])
+        fixture.playback.cycleRepeat()
+        #expect(fixture.playback.repeatMode == .list)
+        start(fixture, at: "b")
+        try await eventually { !fixture.playback.isActive }
+        #expect(fixture.playback.endMessage == ListPlaybackText.nothingLeft)
+        #expect(fixture.resolver.asked == ["b", "c", "a"])
+        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.queue == nil)
+        #expect(!fixture.commands.isEnabled)
     }
 
     @Test func failingTunesAfterOneThatPlayedStopWithTheMessage() async throws {
-        let rig = rig()
-        rig.playback.cycleRepeat()
-        start(rig)
-        try await playing(rig, "ra")
-        rig.resolver.items = [:]
-        rig.audio.end(.finished)
-        try await eventually { !rig.playback.isActive }
-        #expect(rig.playback.endMessage == ListPlaybackText.nothingLeft)
-        #expect(rig.resolver.asked == ["a", "b", "c", "a"])
-        #expect(!rig.player.isLoaded)
+        let fixture = fixture()
+        fixture.playback.cycleRepeat()
+        start(fixture)
+        try await playing(fixture, "ra")
+        fixture.resolver.items = [:]
+        fixture.audio.end(.finished)
+        try await eventually { !fixture.playback.isActive }
+        #expect(fixture.playback.endMessage == ListPlaybackText.nothingLeft)
+        #expect(fixture.resolver.asked == ["a", "b", "c", "a"])
+        #expect(!fixture.player.isLoaded)
     }
 
     @Test func aStaleResolveNeverPlays() async throws {
-        let rig = rig()
-        rig.resolver.holding = ["a"]
-        start(rig)
-        try await eventually { rig.resolver.isHolding("a") }
-        rig.playback.next()
-        try await playing(rig, "rb")
-        rig.resolver.release("a")
-        try await eventually { rig.resolver.answered.contains("a") }
-        #expect(rig.player.item?.id == "rb")
-        #expect(loads(rig) == 1)
-        #expect(rig.playback.currentTuneID == "b")
-        #expect(rig.playback.position == 2)
+        let fixture = fixture()
+        fixture.resolver.holding = ["a"]
+        start(fixture)
+        try await eventually { fixture.resolver.isHolding("a") }
+        fixture.playback.next()
+        try await playing(fixture, "rb")
+        fixture.resolver.release("a")
+        try await eventually { fixture.resolver.answered.contains("a") }
+        #expect(fixture.player.item?.id == "rb")
+        #expect(loads(fixture) == 1)
+        #expect(fixture.playback.currentTuneID == "b")
+        #expect(fixture.playback.position == 2)
     }
 
     @Test func previousRestartsAfterThreeSeconds() async throws {
-        let rig = rig()
-        start(rig, at: "b")
-        try await playing(rig, "rb")
-        rig.audio.elapsed = 5
-        rig.commands.pressPrevious()
-        #expect(rig.audio.elapsed == 0)
-        #expect(rig.audio.calls.last == "seek")
-        #expect(rig.player.item?.id == "rb")
-        #expect(rig.playback.position == 2)
-        #expect(rig.resolver.asked == ["b"])
+        let fixture = fixture()
+        start(fixture, at: "b")
+        try await playing(fixture, "rb")
+        fixture.audio.elapsed = 5
+        fixture.commands.pressPrevious()
+        #expect(fixture.audio.elapsed == 0)
+        #expect(fixture.audio.calls.last == "seek")
+        #expect(fixture.player.item?.id == "rb")
+        #expect(fixture.playback.position == 2)
+        #expect(fixture.resolver.asked == ["b"])
     }
 
     @Test func previousGoesBackWithinThreeSeconds() async throws {
-        let rig = rig()
-        start(rig, at: "b")
-        try await playing(rig, "rb")
-        rig.audio.elapsed = 2
-        rig.commands.pressPrevious()
-        try await playing(rig, "ra")
-        #expect(rig.playback.position == 1)
+        let fixture = fixture()
+        start(fixture, at: "b")
+        try await playing(fixture, "rb")
+        fixture.audio.elapsed = 2
+        fixture.commands.pressPrevious()
+        try await playing(fixture, "ra")
+        #expect(fixture.playback.position == 1)
 
         // At the first tune it restarts.
-        rig.playback.previous()
-        #expect(rig.audio.calls.last == "seek")
-        #expect(rig.player.item?.id == "ra")
-        #expect(rig.resolver.asked == ["b", "a"])
+        fixture.playback.previous()
+        #expect(fixture.audio.calls.last == "seek")
+        #expect(fixture.player.item?.id == "ra")
+        #expect(fixture.resolver.asked == ["b", "a"])
     }
 
     @Test func repeatOneReplaysTheTune() async throws {
-        let rig = rig()
-        rig.playback.cycleRepeat()
-        rig.playback.cycleRepeat()
-        #expect(rig.playback.repeatMode == .one)
-        start(rig)
-        try await playing(rig, "ra")
-        rig.audio.end(.finished)
-        try await eventually { self.loads(rig) == 2 && rig.audio.isPlaying }
-        #expect(rig.player.item?.id == "ra")
-        #expect(rig.playback.position == 1)
+        let fixture = fixture()
+        fixture.playback.cycleRepeat()
+        fixture.playback.cycleRepeat()
+        #expect(fixture.playback.repeatMode == .one)
+        start(fixture)
+        try await playing(fixture, "ra")
+        fixture.audio.end(.finished)
+        try await eventually { self.loads(fixture) == 2 && fixture.audio.isPlaying }
+        #expect(fixture.player.item?.id == "ra")
+        #expect(fixture.playback.position == 1)
 
         // A skip still moves on.
-        rig.commands.pressNext()
-        try await playing(rig, "rb")
+        fixture.commands.pressNext()
+        try await playing(fixture, "rb")
     }
 
     @Test func musicKitNextGoesToTheNextTune() async throws {
-        let rig = rig(["a": try song("a"), "b": try song("b")])
-        start(rig, ["a", "b"])
-        try await playing(rig, "la")
-        rig.music.end(.next)
-        try await playing(rig, "lb")
-        #expect(rig.music.loaded == [try songKind("a"), try songKind("b")])
-        #expect(rig.music.guardedLoads == [true, true])
+        let fixture = fixture(["a": try song("a"), "b": try song("b")])
+        start(fixture, ["a", "b"])
+        try await playing(fixture, "la")
+        fixture.music.end(.next)
+        try await playing(fixture, "lb")
+        #expect(fixture.music.loaded == [try songKind("a"), try songKind("b")])
+        #expect(fixture.music.guardedLoads == [true, true])
     }
 
     @Test func musicKitPreviousPastThreeSecondsReplaysTheSong() async throws {
-        let rig = rig(["a": try song("a"), "b": try song("b")])
-        start(rig, ["a", "b"], at: "b")
-        try await playing(rig, "lb")
-        rig.music.end(.previous(elapsed: 5))
-        try await eventually { rig.music.loaded.count == 2 && rig.music.isPlaying }
-        #expect(rig.music.loaded == [try songKind("b"), try songKind("b")])
-        #expect(rig.player.item?.id == "lb")
-        #expect(rig.playback.position == 2)
+        let fixture = fixture(["a": try song("a"), "b": try song("b")])
+        start(fixture, ["a", "b"], at: "b")
+        try await playing(fixture, "lb")
+        fixture.music.end(.previous(elapsed: 5))
+        try await eventually { fixture.music.loaded.count == 2 && fixture.music.isPlaying }
+        #expect(fixture.music.loaded == [try songKind("b"), try songKind("b")])
+        #expect(fixture.player.item?.id == "lb")
+        #expect(fixture.playback.position == 2)
     }
 
     @Test func musicKitPreviousWithinThreeSecondsGoesBack() async throws {
-        let rig = rig(["a": try song("a"), "b": try song("b")])
-        start(rig, ["a", "b"], at: "b")
-        try await playing(rig, "lb")
-        rig.music.end(.previous(elapsed: 2))
-        try await playing(rig, "la")
-        #expect(rig.playback.position == 1)
+        let fixture = fixture(["a": try song("a"), "b": try song("b")])
+        start(fixture, ["a", "b"], at: "b")
+        try await playing(fixture, "lb")
+        fixture.music.end(.previous(elapsed: 2))
+        try await playing(fixture, "la")
+        #expect(fixture.playback.position == 1)
 
         // At the first tune it replays.
-        rig.music.end(.previous(elapsed: 1))
-        try await eventually { rig.music.loaded.count == 3 && rig.music.isPlaying }
-        #expect(rig.music.loaded.last == (try songKind("a")))
-        #expect(rig.playback.position == 1)
+        fixture.music.end(.previous(elapsed: 1))
+        try await eventually { fixture.music.loaded.count == 3 && fixture.music.isPlaying }
+        #expect(fixture.music.loaded.last == (try songKind("a")))
+        #expect(fixture.playback.position == 1)
     }
 
     @Test func musicKitPreviousWaitsForMusicKitToSettle() async throws {
-        let rig = rig(["a": try song("a"), "b": try song("b"), "c": try song("c")])
-        rig.music.holdsSettles = true
-        start(rig, at: "b")
-        try await playing(rig, "lb")
-        rig.music.end(.previous(elapsed: 1))
-        try await eventually { rig.music.isHoldingSettle }
-        #expect(rig.music.loaded.count == 1)
-        #expect(rig.resolver.asked == ["b"])
-        rig.music.releaseSettle()
-        try await playing(rig, "la")
+        let fixture = fixture(["a": try song("a"), "b": try song("b"), "c": try song("c")])
+        fixture.music.holdsSettles = true
+        start(fixture, at: "b")
+        try await playing(fixture, "lb")
+        fixture.music.end(.previous(elapsed: 1))
+        try await eventually { fixture.music.isHoldingSettle }
+        #expect(fixture.music.loaded.count == 1)
+        #expect(fixture.resolver.asked == ["b"])
+        fixture.music.releaseSettle()
+        try await playing(fixture, "la")
 
         // A next while it waits wins over the previous.
-        rig.music.end(.previous(elapsed: 1))
-        try await eventually { rig.music.isHoldingSettle }
-        rig.playback.next()
-        try await playing(rig, "lb")
-        rig.music.releaseSettle()
-        try await eventually { rig.music.settled == 2 }
-        #expect(rig.player.item?.id == "lb")
-        #expect(rig.playback.position == 2)
-        #expect(rig.resolver.asked == ["b", "a", "b"])
+        fixture.music.end(.previous(elapsed: 1))
+        try await eventually { fixture.music.isHoldingSettle }
+        fixture.playback.next()
+        try await playing(fixture, "lb")
+        fixture.music.releaseSettle()
+        try await eventually { fixture.music.settled == 2 }
+        #expect(fixture.player.item?.id == "lb")
+        #expect(fixture.playback.position == 2)
+        #expect(fixture.resolver.asked == ["b", "a", "b"])
     }
 
     @Test func jumpToAnUnplayableTuneReturnsFalse() async throws {
-        let rig = rig(["a": recording("a"), "c": recording("c")])
-        start(rig)
-        try await playing(rig, "ra")
-        #expect(await rig.playback.jump(to: "b") == false)
-        #expect(rig.player.item?.id == "ra")
-        #expect(rig.playback.position == 1)
+        let fixture = fixture(["a": recording("a"), "c": recording("c")])
+        start(fixture)
+        try await playing(fixture, "ra")
+        #expect(await fixture.playback.jump(to: "b") == false)
+        #expect(fixture.player.item?.id == "ra")
+        #expect(fixture.playback.position == 1)
 
         // The tune still playing carries on through the playlist.
-        rig.audio.end(.finished)
-        try await playing(rig, "rc")
+        fixture.audio.end(.finished)
+        try await playing(fixture, "rc")
 
-        #expect(await rig.playback.jump(to: "a"))
-        try await playing(rig, "ra")
-        #expect(rig.playback.position == 1)
-        #expect(rig.playback.currentTuneID == "a")
+        #expect(await fixture.playback.jump(to: "a"))
+        try await playing(fixture, "ra")
+        #expect(fixture.playback.position == 1)
+        #expect(fixture.playback.currentTuneID == "a")
     }
 
     @Test func aDeletedTuneIsSkippedWhenItsTurnComes() async throws {
-        let rig = rig()
-        start(rig)
-        try await playing(rig, "ra")
-        rig.resolver.items["b"] = nil
-        rig.audio.end(.finished)
-        try await playing(rig, "rc")
-        #expect(rig.playback.position == 3)
+        let fixture = fixture()
+        start(fixture)
+        try await playing(fixture, "ra")
+        fixture.resolver.items["b"] = nil
+        fixture.audio.end(.finished)
+        try await playing(fixture, "rc")
+        #expect(fixture.playback.position == 3)
     }
 
     @Test func aPinChangedMidPlayAppliesFromTheNextTune() async throws {
-        let rig = rig(["a": recording("a"), "b": recording("b")])
-        start(rig, ["a", "b"])
-        try await playing(rig, "ra")
-        rig.resolver.items = ["a": try song("a"), "b": try song("b")]
-        #expect(rig.player.item?.id == "ra")
-        #expect(loads(rig) == 1)
-        rig.audio.end(.finished)
-        try await playing(rig, "lb")
-        #expect(rig.music.loaded == [try songKind("b")])
+        let fixture = fixture(["a": recording("a"), "b": recording("b")])
+        start(fixture, ["a", "b"])
+        try await playing(fixture, "ra")
+        fixture.resolver.items = ["a": try song("a"), "b": try song("b")]
+        #expect(fixture.player.item?.id == "ra")
+        #expect(loads(fixture) == 1)
+        fixture.audio.end(.finished)
+        try await playing(fixture, "lb")
+        #expect(fixture.music.loaded == [try songKind("b")])
     }
 
     @Test func closeEndsThePlaylistAndDisablesCommands() async throws {
-        let rig = rig()
-        start(rig)
-        try await playing(rig, "ra")
-        rig.player.close()
-        #expect(!rig.playback.isActive)
-        #expect(rig.playback.listID == nil)
-        #expect(rig.playback.currentTuneID == nil)
-        #expect(rig.playback.count == 0)
-        #expect(rig.playback.endMessage == nil)
-        #expect(!rig.commands.isEnabled)
-        #expect(!rig.player.isLoaded)
+        let fixture = fixture()
+        start(fixture)
+        try await playing(fixture, "ra")
+        fixture.player.close()
+        #expect(!fixture.playback.isActive)
+        #expect(fixture.playback.listID == nil)
+        #expect(fixture.playback.currentTuneID == nil)
+        #expect(fixture.playback.count == 0)
+        #expect(fixture.playback.endMessage == nil)
+        #expect(!fixture.commands.isEnabled)
+        #expect(!fixture.player.isLoaded)
     }
 
     @Test func endLeavesTheLoadedTune() async throws {
-        let rig = rig()
-        start(rig)
-        try await playing(rig, "ra")
-        rig.playback.end()
-        #expect(!rig.playback.isActive)
-        #expect(!rig.commands.isEnabled)
-        #expect(rig.player.queue == nil)
-        #expect(rig.player.item?.id == "ra")
+        let fixture = fixture()
+        start(fixture)
+        try await playing(fixture, "ra")
+        fixture.playback.end()
+        #expect(!fixture.playback.isActive)
+        #expect(!fixture.commands.isEnabled)
+        #expect(fixture.player.queue == nil)
+        #expect(fixture.player.item?.id == "ra")
         // The tune's end no longer reaches the playlist.
-        let asked = rig.resolver.asked
-        rig.audio.end(.finished)
-        rig.music.end(.next)
-        #expect(rig.resolver.asked == asked)
-        #expect(rig.player.item?.id == "ra")
-        #expect(loads(rig) == 1)
+        let asked = fixture.resolver.asked
+        fixture.audio.end(.finished)
+        fixture.music.end(.next)
+        #expect(fixture.resolver.asked == asked)
+        #expect(fixture.player.item?.id == "ra")
+        #expect(loads(fixture) == 1)
     }
 
     @Test func repeatAndShuffleSurviveARestart() {
-        let rig = rig()
-        rig.playback.cycleRepeat()
-        rig.playback.setShuffled(true)
+        let fixture = fixture()
+        fixture.playback.cycleRepeat()
+        fixture.playback.setShuffled(true)
         #expect(defaults.string(forKey: "listPlayback.repeat") == "list")
         #expect(defaults.bool(forKey: "listPlayback.shuffle"))
 
-        let again = ListPlayback(player: rig.player, commands: FakeTrackCommands(), defaults: defaults)
+        let again = ListPlayback(player: fixture.player, commands: FakeTrackCommands(), defaults: defaults)
         #expect(again.repeatMode == .list)
         #expect(again.isShuffled)
         again.cycleRepeat()
         again.cycleRepeat()
         #expect(again.repeatMode == .off)
-        #expect(ListPlayback(player: rig.player, commands: FakeTrackCommands(), defaults: defaults).repeatMode == .off)
+        #expect(
+            ListPlayback(player: fixture.player, commands: FakeTrackCommands(), defaults: defaults).repeatMode == .off)
     }
 
     @Test func resolvesEachTuneWithinThePlayingList() async throws {
-        let rig = rig()
-        start(rig)
-        try await playing(rig, "ra")
-        #expect(rig.resolver.lists == ["list1"])
+        let fixture = fixture()
+        start(fixture)
+        try await playing(fixture, "ra")
+        #expect(fixture.resolver.lists == ["list1"])
     }
 
     @Test func startFromAReportPlaysOnlyTheTunesThatWillPlay() async throws {
-        let rig = rig()
+        let fixture = fixture()
         let report = PlaylistReport(playable: ["a", "c"], skipped: [.nothing: ["b"]], total: 3)
-        rig.playback.start(listID: "list1", name: listName, report: report, shuffled: false)
-        try await playing(rig, "ra")
-        #expect(rig.playback.count == 2)
-        rig.audio.end(.finished)
-        try await playing(rig, "rc")
-        #expect(rig.playback.position == 2)
-        #expect(rig.resolver.asked == ["a", "c"])
+        fixture.playback.start(listID: "list1", name: listName, report: report, shuffled: false)
+        try await playing(fixture, "ra")
+        #expect(fixture.playback.count == 2)
+        fixture.audio.end(.finished)
+        try await playing(fixture, "rc")
+        #expect(fixture.playback.position == 2)
+        #expect(fixture.resolver.asked == ["a", "c"])
     }
 
     @Test func theBarAndNowPlayingNameTheTuneNotItsSource() async throws {
-        let rig = rig(["a": recording("a"), "b": try song("b")])
-        start(rig, ["a", "b"])
-        try await playing(rig, "ra")
-        #expect(rig.player.title != "Tune a")
-        #expect(rig.playback.title == "Tune a")
-        #expect(PlayerBar.title(rig.player, rig.playback) == "Tune a")
-        #expect(PlayerBar.showLabel(rig.player, playback: rig.playback).contains("Tune a"))
-        rig.audio.end(.finished)
-        try await playing(rig, "lb")
-        #expect(PlayerBar.title(rig.player, rig.playback) == "Tune b")
+        let fixture = fixture(["a": recording("a"), "b": try song("b")])
+        start(fixture, ["a", "b"])
+        try await playing(fixture, "ra")
+        #expect(fixture.player.title != "Tune a")
+        #expect(fixture.playback.title == "Tune a")
+        #expect(PlayerBar.title(fixture.player, fixture.playback) == "Tune a")
+        #expect(PlayerBar.showLabel(fixture.player, playback: fixture.playback).contains("Tune a"))
+        fixture.audio.end(.finished)
+        try await playing(fixture, "lb")
+        #expect(PlayerBar.title(fixture.player, fixture.playback) == "Tune b")
 
         // Played on its own, the bar names what the player holds.
-        rig.playback.end()
-        #expect(PlayerBar.title(rig.player, rig.playback) == rig.player.title)
+        fixture.playback.end()
+        #expect(PlayerBar.title(fixture.player, fixture.playback) == fixture.player.title)
     }
 
     @Test func theBarTitleAndPositionChangeTogetherWhenTheNextTuneLoads() async throws {
-        let rig = rig()
-        start(rig, ["a", "b"])
-        try await playing(rig, "ra")
-        rig.resolver.holding = ["b"]
-        rig.playback.next()
-        try await eventually { rig.resolver.isHolding("b") }
-        #expect(rig.playback.currentTuneID == "b")
-        #expect(PlayerBar.title(rig.player, rig.playback) == "Tune a")
-        #expect(rig.playback.position == 1)
-        rig.resolver.release("b")
-        try await playing(rig, "rb")
-        #expect(PlayerBar.title(rig.player, rig.playback) == "Tune b")
-        #expect(rig.playback.position == 2)
+        let fixture = fixture()
+        start(fixture, ["a", "b"])
+        try await playing(fixture, "ra")
+        fixture.resolver.holding = ["b"]
+        fixture.playback.next()
+        try await eventually { fixture.resolver.isHolding("b") }
+        #expect(fixture.playback.currentTuneID == "b")
+        #expect(PlayerBar.title(fixture.player, fixture.playback) == "Tune a")
+        #expect(fixture.playback.position == 1)
+        fixture.resolver.release("b")
+        try await playing(fixture, "rb")
+        #expect(PlayerBar.title(fixture.player, fixture.playback) == "Tune b")
+        #expect(fixture.playback.position == 2)
     }
 
     @Test func aSecondNextAtTheEndPausesTheTuneStillPlaying() async throws {
-        let rig = rig()
-        start(rig, ["a", "b"])
-        try await playing(rig, "ra")
-        rig.resolver.holding = ["b"]
-        rig.playback.next()
-        try await eventually { rig.resolver.isHolding("b") }
-        rig.playback.next()
-        #expect(!rig.playback.isActive)
-        #expect(!rig.audio.isPlaying)
-        rig.resolver.release("b")
-        try await eventually { rig.resolver.answered.contains("b") }
-        #expect(rig.player.item?.id == "ra")
+        let fixture = fixture()
+        start(fixture, ["a", "b"])
+        try await playing(fixture, "ra")
+        fixture.resolver.holding = ["b"]
+        fixture.playback.next()
+        try await eventually { fixture.resolver.isHolding("b") }
+        fixture.playback.next()
+        #expect(!fixture.playback.isActive)
+        #expect(!fixture.audio.isPlaying)
+        fixture.resolver.release("b")
+        try await eventually { fixture.resolver.answered.contains("b") }
+        #expect(fixture.player.item?.id == "ra")
     }
 
     @Test func aZeroLengthTrackDoesNotCountAsPlayed() async throws {
-        let rig = rig(["a": recording("a")])
-        rig.audio.duration = 0
-        rig.playback.cycleRepeat()
-        start(rig)
-        try await playing(rig, "ra")
-        rig.audio.end(.finished)
-        try await eventually { self.loads(rig) == 2 && rig.audio.isPlaying }
-        rig.audio.end(.finished)
-        try await eventually { !rig.playback.isActive }
-        #expect(rig.playback.endMessage == ListPlaybackText.nothingLeft)
+        let fixture = fixture(["a": recording("a")])
+        fixture.audio.duration = 0
+        fixture.playback.cycleRepeat()
+        start(fixture)
+        try await playing(fixture, "ra")
+        fixture.audio.end(.finished)
+        try await eventually { self.loads(fixture) == 2 && fixture.audio.isPlaying }
+        fixture.audio.end(.finished)
+        try await eventually { !fixture.playback.isActive }
+        #expect(fixture.playback.endMessage == ListPlaybackText.nothingLeft)
     }
 
     @Test func aTrackThatPlayedLetsRepeatGoRound() async throws {
-        let rig = rig(["a": recording("a")])
-        rig.playback.cycleRepeat()
-        start(rig)
-        try await playing(rig, "ra")
+        let fixture = fixture(["a": recording("a")])
+        fixture.playback.cycleRepeat()
+        start(fixture)
+        try await playing(fixture, "ra")
         for round in 2...3 {
-            rig.audio.end(.finished)
-            try await eventually { self.loads(rig) == round && rig.audio.isPlaying }
+            fixture.audio.end(.finished)
+            try await eventually { self.loads(fixture) == round && fixture.audio.isPlaying }
         }
-        #expect(rig.playback.isActive)
+        #expect(fixture.playback.isActive)
     }
 
     @Test func settlesOnceTheNewTuneLoads() async throws {
-        let rig = rig()
-        start(rig)
-        try await playing(rig, "ra")
-        #expect(rig.playback.isSettled)
-        rig.resolver.holding = ["b"]
-        rig.playback.next()
-        #expect(!rig.playback.isSettled)
-        try await eventually { rig.resolver.isHolding("b") }
-        rig.resolver.release("b")
-        try await playing(rig, "rb")
-        #expect(rig.playback.isSettled)
+        let fixture = fixture()
+        start(fixture)
+        try await playing(fixture, "ra")
+        #expect(fixture.playback.isSettled)
+        fixture.resolver.holding = ["b"]
+        fixture.playback.next()
+        #expect(!fixture.playback.isSettled)
+        try await eventually { fixture.resolver.isHolding("b") }
+        fixture.resolver.release("b")
+        try await playing(fixture, "rb")
+        #expect(fixture.playback.isSettled)
     }
 
     @Test func shuffleOnDuringPlayShufflesOnlyTheTunesAhead() async throws {
-        let rig = rig()
-        start(rig, ["a", "b", "c", "d", "e"], at: "b")
-        try await playing(rig, "rb")
-        rig.playback.setShuffled(true)
-        #expect(rig.playback.isShuffled)
-        #expect(rig.playback.position == 2)
-        #expect(rig.playback.currentTuneID == "b")
-        #expect(self.loads(rig) == 1)
+        let fixture = fixture()
+        start(fixture, ["a", "b", "c", "d", "e"], at: "b")
+        try await playing(fixture, "rb")
+        fixture.playback.setShuffled(true)
+        #expect(fixture.playback.isShuffled)
+        #expect(fixture.playback.position == 2)
+        #expect(fixture.playback.currentTuneID == "b")
+        #expect(self.loads(fixture) == 1)
         var played: [String] = []
         for position in 3...5 {
-            rig.playback.next()
+            fixture.playback.next()
             try await eventually {
-                rig.playback.position == position && rig.audio.isPlaying && self.loads(rig) == position - 1
+                fixture.playback.position == position && fixture.audio.isPlaying && self.loads(fixture) == position - 1
             }
-            played.append(try #require(rig.playback.currentTuneID))
+            played.append(try #require(fixture.playback.currentTuneID))
         }
         #expect(played.sorted() == ["c", "d", "e"])
     }
 
     @Test func shuffleOffDuringPlayGoesOnInListOrder() async throws {
-        let rig = rig()
-        rig.playback.start(
+        let fixture = fixture()
+        fixture.playback.start(
             listID: "list1", name: listName, tuneIDs: ["a", "b", "c", "d", "e"], shuffled: true, at: "c")
-        try await playing(rig, "rc")
-        rig.playback.setShuffled(false)
-        #expect(!rig.playback.isShuffled)
-        #expect(rig.playback.position == 3)
-        #expect(self.loads(rig) == 1)
-        rig.playback.next()
-        try await playing(rig, "rd")
-        rig.playback.next()
-        try await playing(rig, "re")
+        try await playing(fixture, "rc")
+        fixture.playback.setShuffled(false)
+        #expect(!fixture.playback.isShuffled)
+        #expect(fixture.playback.position == 3)
+        #expect(self.loads(fixture) == 1)
+        fixture.playback.next()
+        try await playing(fixture, "rd")
+        fixture.playback.next()
+        try await playing(fixture, "re")
     }
 
     @Test func aJumpWhileTheNextTuneResolvesWins() async throws {
-        let rig = rig()
-        start(rig)
-        try await playing(rig, "ra")
-        rig.resolver.holding = ["b"]
-        rig.playback.next()
-        try await eventually { rig.resolver.isHolding("b") }
-        #expect(await rig.playback.jump(to: "c"))
-        try await playing(rig, "rc")
-        rig.resolver.release("b")
-        try await eventually { rig.resolver.answered.contains("b") }
-        #expect(rig.player.item?.id == "rc")
-        #expect(rig.playback.currentTuneID == "c")
-        #expect(rig.playback.position == 3)
+        let fixture = fixture()
+        start(fixture)
+        try await playing(fixture, "ra")
+        fixture.resolver.holding = ["b"]
+        fixture.playback.next()
+        try await eventually { fixture.resolver.isHolding("b") }
+        #expect(await fixture.playback.jump(to: "c"))
+        try await playing(fixture, "rc")
+        fixture.resolver.release("b")
+        try await eventually { fixture.resolver.answered.contains("b") }
+        #expect(fixture.player.item?.id == "rc")
+        #expect(fixture.playback.currentTuneID == "c")
+        #expect(fixture.playback.position == 3)
     }
 
     @Test func aSecondStartReplacesTheFirstWhileItResolves() async throws {
-        let rig = rig()
-        rig.resolver.holding = ["a"]
-        start(rig)
-        try await eventually { rig.resolver.isHolding("a") }
-        rig.playback.start(listID: "list2", name: "Other", tuneIDs: ["c"], shuffled: false)
-        try await playing(rig, "rc")
-        rig.resolver.release("a")
-        try await eventually { rig.resolver.answered.contains("a") }
-        #expect(rig.player.item?.id == "rc")
-        #expect(rig.playback.listID == "list2")
-        #expect(rig.playback.count == 1)
-        #expect(self.loads(rig) == 1)
+        let fixture = fixture()
+        fixture.resolver.holding = ["a"]
+        start(fixture)
+        try await eventually { fixture.resolver.isHolding("a") }
+        fixture.playback.start(listID: "list2", name: "Other", tuneIDs: ["c"], shuffled: false)
+        try await playing(fixture, "rc")
+        fixture.resolver.release("a")
+        try await eventually { fixture.resolver.answered.contains("a") }
+        #expect(fixture.player.item?.id == "rc")
+        #expect(fixture.playback.listID == "list2")
+        #expect(fixture.playback.count == 1)
+        #expect(self.loads(fixture) == 1)
     }
 }
 
@@ -651,9 +652,9 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
     private let suite = TemporaryDefaults("PlaylistEventTests")
     private let commands = FakeTrackCommands()
 
-    private func playlist(_ rig: ActivityRig) -> ListPlayback {
+    private func playlist(_ fixture: ActivityFixture) -> ListPlayback {
         let playback = ListPlayback(
-            player: rig.player, commands: commands, defaults: suite.defaults, analytics: rig.sink.client)
+            player: fixture.player, commands: commands, defaults: suite.defaults, analytics: fixture.sink.client)
         playback.resolve = { _, tuneID in
             ListPlayback.Turn(
                 title: "Tune \(tuneID)", item: .recording(loggedTake("r\(tuneID)", tuneID: tuneID), tuneTitle: nil))
@@ -662,30 +663,30 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
     }
 
     /// Waits until recording `id` plays and the play log has heard it.
-    private func playing(_ rig: ActivityRig, _ id: String) async throws {
-        try await waitFor { rig.audio.isPlaying && rig.player.item?.id == id }
-        try await rig.fed { $0.loaded == PlaySubject(kind: .recording, id: id) && $0.playing }
+    private func playing(_ fixture: ActivityFixture, _ id: String) async throws {
+        try await waitFor { fixture.audio.isPlaying && fixture.player.item?.id == id }
+        try await fixture.fed { $0.loaded == PlaySubject(kind: .recording, id: id) && $0.playing }
     }
 
     @Test func playingAListReportsThePlaylistOnceAndEachTrack() async throws {
-        let rig = ActivityRig()
-        let playback = playlist(rig)
+        let fixture = ActivityFixture()
+        let playback = playlist(fixture)
         playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b", "c"], shuffled: false)
-        try await playing(rig, "ra")
-        rig.clock.advance(15_000)
-        rig.audio.end(.finished)
-        try await playing(rig, "rb")
-        rig.clock.advance(15_000)
-        rig.audio.end(.finished)
-        try await waitFor { rig.sent("playback_ended").count == 2 }
+        try await playing(fixture, "ra")
+        fixture.clock.advance(15_000)
+        fixture.audio.end(.finished)
+        try await playing(fixture, "rb")
+        fixture.clock.advance(15_000)
+        fixture.audio.end(.finished)
+        try await waitFor { fixture.sent("playback_ended").count == 2 }
         #expect(
-            rig.sent("playlist_started") == [
+            fixture.sent("playlist_started") == [
                 [
                     "shuffle": .bool(false), "repeat": .string("off"), "count_bucket": .string("1-9"),
                     "list_id": .string("list1"),
                 ]
             ])
-        let ended = rig.sent("playback_ended")
+        let ended = fixture.sent("playback_ended")
         #expect(ended.map { $0["queue"] } == [.string("playlist"), .string("playlist")])
         #expect(ended.map { $0["source"] } == [.string("list"), .string("list")])
         #expect(ended.map { $0["trigger"] } == [.string("tap"), .string("auto_advance")])
@@ -695,49 +696,49 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
     }
 
     @Test func aPlaylistReportsItsStartOnceItsFirstTuneLoads() async throws {
-        let rig = ActivityRig()
-        let playback = playlist(rig)
+        let fixture = ActivityFixture()
+        let playback = playlist(fixture)
         playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b"], shuffled: false)
-        #expect(rig.sent("playlist_started").isEmpty)
-        try await playing(rig, "ra")
-        #expect(rig.sent("playlist_started").count == 1)
+        #expect(fixture.sent("playlist_started").isEmpty)
+        try await playing(fixture, "ra")
+        #expect(fixture.sent("playlist_started").count == 1)
         playback.end()
     }
 
     @Test func aPlaylistWithNothingToPlayReportsNoStart() async throws {
-        let rig = ActivityRig()
-        let playback = playlist(rig)
+        let fixture = ActivityFixture()
+        let playback = playlist(fixture)
         playback.resolve = { _, _ in nil }
         playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b"], shuffled: false)
         try await waitFor { playback.endMessage == ListPlaybackText.nothingLeft }
-        #expect(rig.sent("playlist_started").isEmpty)
+        #expect(fixture.sent("playlist_started").isEmpty)
     }
 
     @Test func aPlaylistRefusedDuringATakeReportsNoStart() async throws {
-        let rig = ActivityRig()
-        rig.player.isCapturing = { true }
-        let playback = playlist(rig)
+        let fixture = ActivityFixture()
+        fixture.player.isCapturing = { true }
+        let playback = playlist(fixture)
         playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b"], shuffled: false)
         try await waitFor { !playback.isActive }
-        #expect(rig.sent("playlist_started").isEmpty)
+        #expect(fixture.sent("playlist_started").isEmpty)
     }
 
     @Test func nextInAPlaylistIsASkip() async throws {
-        let rig = ActivityRig()
-        let playback = playlist(rig)
+        let fixture = ActivityFixture()
+        let playback = playlist(fixture)
         playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b", "c"], shuffled: false)
-        try await playing(rig, "ra")
-        rig.clock.advance(5_000)
+        try await playing(fixture, "ra")
+        fixture.clock.advance(5_000)
         commands.pressNext()
-        try await playing(rig, "rb")
-        rig.clock.advance(12_000)
+        try await playing(fixture, "rb")
+        fixture.clock.advance(12_000)
         playback.end()
-        rig.player.close()
-        try await waitFor { rig.sent("playback_ended").count == 2 }
-        let ended = rig.sent("playback_ended")
+        fixture.player.close()
+        try await waitFor { fixture.sent("playback_ended").count == 2 }
+        let ended = fixture.sent("playback_ended")
         #expect(ended.map { $0["recording_id"] } == [.string("ra"), .string("rb")])
         #expect(ended.first?["ended_by"] == .string("skipped"))
         #expect(ended.last?["trigger"] == .string("skip"))
-        #expect(rig.sent("playlist_started").count == 1)
+        #expect(fixture.sent("playlist_started").count == 1)
     }
 }

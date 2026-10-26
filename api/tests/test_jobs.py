@@ -26,9 +26,9 @@ from crosstune.inactivity.sweep import (
     next_inactivity_run,
 )
 from crosstune.jobs import attempt as attempt_module
+from crosstune.jobs import audio_rewrite as audio_rewrite_module
 from crosstune.jobs import media
 from crosstune.jobs import recording_peaks as recording_peaks_module
-from crosstune.jobs import recut as recut_module
 from crosstune.jobs import reencode as reencode_module
 from crosstune.jobs import runner as runner_module
 from crosstune.jobs import sweep as sweep_module
@@ -1903,13 +1903,13 @@ async def test_second_trim_narrows_from_original(
     first_peaks = decode_peaks(store.get_bytes(rec.peaks_key))
 
     cut_sources: list[bytes] = []
-    real_cut = recut_module.cut
+    real_cut = audio_rewrite_module.cut
 
     async def recording_cut(source, target, start_ms, end_ms, *, info=None) -> None:
         cut_sources.append(source.read_bytes())
         await real_cut(source, target, start_ms, end_ms, info=info)
 
-    monkeypatch.setattr(recut_module, "cut", recording_cut)
+    monkeypatch.setattr(audio_rewrite_module, "cut", recording_cut)
     await save_trim(verify_session, rec, 500, 1500)
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
@@ -2080,7 +2080,7 @@ async def test_trim_requeues_when_changed_during_job(
     rec = await seed_ready(verify_session, store, media_fixtures["m4a"], "audio/mp4", tmp_path)
     old = (rec.playback_key, rec.peaks_key, rec.playback_start_ms, rec.playback_end_ms)
     await save_trim(verify_session, rec, 200, 1800)
-    real_cut = recut_module.cut
+    real_cut = audio_rewrite_module.cut
 
     async def push_trim_then_cut(source, target, start_ms, end_ms, *, info=None) -> None:
         async with make_sessionmaker(engine)() as pusher:
@@ -2092,7 +2092,7 @@ async def test_trim_requeues_when_changed_during_job(
             await pusher.commit()
         await real_cut(source, target, start_ms, end_ms, info=info)
 
-    monkeypatch.setattr(recut_module, "cut", push_trim_then_cut)
+    monkeypatch.setattr(audio_rewrite_module, "cut", push_trim_then_cut)
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
     assert (rec.trim_start_ms, rec.trim_end_ms) == (500, 1500)
@@ -2105,7 +2105,7 @@ async def test_trim_requeues_when_changed_during_job(
     assert len(jobs) == 1
     assert jobs[0].attempts == 0
 
-    monkeypatch.setattr(recut_module, "cut", real_cut)
+    monkeypatch.setattr(audio_rewrite_module, "cut", real_cut)
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
     assert (rec.playback_start_ms, rec.playback_end_ms) == (500, 1500)
@@ -2166,7 +2166,7 @@ async def test_a_superseded_trim_failure_leaves_the_new_claim_alone(
         msg = "boom on a stale claim"
         raise RuntimeError(msg)
 
-    monkeypatch.setattr(recut_module, "cut", reclaim_then_fail)
+    monkeypatch.setattr(audio_rewrite_module, "cut", reclaim_then_fail)
     assert await job_runner.run_once() == 1
     [job] = await trim_jobs(verify_session, rec)
     assert job.locked_until == reclaimed_until
@@ -2273,7 +2273,7 @@ async def test_a_trim_failure_after_another_pass_finished_the_job_is_quiet(
     async def cut(source, target, start_ms, end_ms, *, info=None) -> None:
         await finish()
 
-    monkeypatch.setattr(recut_module, "cut", cut)
+    monkeypatch.setattr(audio_rewrite_module, "cut", cut)
     assert await job_runner.run_once() == 1
     assert await trim_jobs(verify_session, rec) == []
 
@@ -2331,7 +2331,7 @@ async def test_trim_requeues_when_peaks_change_during_job(
     rec = await seed_ready(verify_session, store, media_fixtures["m4a"], "audio/mp4", tmp_path)
     await save_trim(verify_session, rec, 500, 1500)
     newer_peaks = peaks_key(rec.user_id, rec.id, new_rev())
-    real_cut = recut_module.cut
+    real_cut = audio_rewrite_module.cut
 
     async def swap_peaks_then_cut(source, target, start_ms, end_ms, *, info=None) -> None:
         async with make_sessionmaker(engine)() as writer:
@@ -2340,7 +2340,7 @@ async def test_trim_requeues_when_peaks_change_during_job(
             await writer.commit()
         await real_cut(source, target, start_ms, end_ms, info=info)
 
-    monkeypatch.setattr(recut_module, "cut", swap_peaks_then_cut)
+    monkeypatch.setattr(audio_rewrite_module, "cut", swap_peaks_then_cut)
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
     assert rec.peaks_key == newer_peaks
@@ -2749,10 +2749,10 @@ async def test_reencode_is_stale_when_a_trim_lands_during_the_job(
     await degrade_playback(store, verify_session, rec, tmp_path)
     await queue_reencode(verify_session, rec)
     concurrent_key = playback_key(rec.user_id, rec.id, new_rev())
-    real_recut = reencode_module.recut_playback
+    real_rewrite = reencode_module.rewrite_playback
 
-    async def trim_lands_then_recut(*args, **kwargs) -> tuple[Revision, Probe]:
-        result = await real_recut(*args, **kwargs)
+    async def trim_lands_then_rewrite(*args, **kwargs) -> tuple[Revision, Probe]:
+        result = await real_rewrite(*args, **kwargs)
         async with make_sessionmaker(engine)() as trimmer:
             row = await trimmer.get(Recording, rec.id)
             row.trim_start_ms = 500
@@ -2760,7 +2760,7 @@ async def test_reencode_is_stale_when_a_trim_lands_during_the_job(
             await trimmer.commit()
         return result
 
-    monkeypatch.setattr(reencode_module, "recut_playback", trim_lands_then_recut)
+    monkeypatch.setattr(reencode_module, "rewrite_playback", trim_lands_then_rewrite)
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
     assert rec.playback_key == concurrent_key
@@ -2792,17 +2792,17 @@ async def test_reencode_is_stale_when_the_recording_is_deleted_during_the_job(
     await degrade_playback(store, verify_session, rec, tmp_path)
     old = (rec.playback_key, rec.playback_rev, rec.server_seq)
     await queue_reencode(verify_session, rec)
-    real_recut = reencode_module.recut_playback
+    real_rewrite = reencode_module.rewrite_playback
 
-    async def delete_then_recut(*args, **kwargs) -> tuple[Revision, Probe]:
-        result = await real_recut(*args, **kwargs)
+    async def delete_then_rewrite(*args, **kwargs) -> tuple[Revision, Probe]:
+        result = await real_rewrite(*args, **kwargs)
         async with make_sessionmaker(engine)() as deleter:
             row = await deleter.get(Recording, rec.id)
             row.deleted_at = utc_now()
             await deleter.commit()
         return result
 
-    monkeypatch.setattr(reencode_module, "recut_playback", delete_then_recut)
+    monkeypatch.setattr(reencode_module, "rewrite_playback", delete_then_rewrite)
     job_runner._purge = AsyncMock(return_value=0)
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)

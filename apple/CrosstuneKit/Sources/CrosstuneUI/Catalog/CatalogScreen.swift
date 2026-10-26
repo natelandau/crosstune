@@ -96,7 +96,7 @@ private struct CatalogContent: View {
     @Environment(ScanTunes.self) private var scanTunes: ScanTunes?
     @Environment(\.premium) private var premium
     @Environment(\.tuneScreenActions) private var tuneScreenActions
-    @Environment(AddedTuneOffer.self) private var addedTune: AddedTuneOffer?
+    @Environment(AddedTuneUndo.self) private var addedTune: AddedTuneUndo?
     @AppStorage(CatalogSortChoice.storageKey) private var sort = CatalogSortChoice.default
     @State private var pushed: String?
     @State private var showsFilters = false
@@ -220,14 +220,14 @@ private struct CatalogContent: View {
             // A tab the musician is not looking at stays alive, so it must not answer the menu.
             .focusedSceneValue(
                 \.catalogSort,
-                MenuGates.sort(
+                MenuCommandAvailability.sort(
                     isShown: isShown, sheetsOpen: openSheets?.isCovered == true, selecting: selection.isActive)
                     ? chosenSort : nil
             )
             #if os(macOS)
                 .focusedSceneValue(
                     \.selectTunesAction,
-                    MenuGates.select(
+                    MenuCommandAvailability.select(
                         isShown: isShown, sheetsOpen: openSheets?.isCovered == true, selecting: selection.isActive,
                         hasRows: results?.visible.isEmpty == false)
                         ? MenuAction(id: selectActionID) { selection.enter() } : nil
@@ -235,7 +235,7 @@ private struct CatalogContent: View {
             #endif
             .focusedSceneValue(
                 \.findAction,
-                MenuGates.find(isShown: isShown, sheetsOpen: openSheets?.isCovered == true)
+                MenuCommandAvailability.find(isShown: isShown, sheetsOpen: openSheets?.isCovered == true)
                     ? MenuAction { searchFocused = true } : nil
             )
             // The count is read out when the filters or the stored tunes change its wording, never
@@ -398,8 +398,8 @@ private struct CatalogContent: View {
                         .listRowSeparator(.hidden)
                         .selectionDisabled()
                 }
-                if let offer = results.outcome.offerLabel, let title = results.outcome.title {
-                    SearchOfferRow(label: offer) { createFromSearch(title) }
+                if let label = results.outcome.addTypedTitleLabel, let title = results.outcome.title {
+                    AddTypedTitleRow(label: label) { createFromSearch(title) }
                         .selectionDisabled()
                 }
             }
@@ -472,8 +472,8 @@ private struct CatalogContent: View {
             if let hidden = results.outcome.hidden {
                 HiddenMatchNote(match: hidden, onOpen: open)
             }
-            if let offer = results.outcome.offerLabel, let typed = results.outcome.title {
-                Button(offer) { createFromSearch(typed) }
+            if let label = results.outcome.addTypedTitleLabel, let typed = results.outcome.title {
+                Button(label) { createFromSearch(typed) }
                     .contentMask()
                     .buttonStyle(.accentProminent)
             } else if noTunes {
@@ -501,7 +501,7 @@ private struct CatalogContent: View {
     /// Creates the tune by the typed title and opens its page, with Undo in the Added banner.
     private func createFromSearch(_ title: String) {
         guard let addedTune else { return }
-        model.searchOfferTaken()
+        model.typedTitleAdded()
         Task {
             if let tuneID = await addedTune.addAfterAnyRunning(title: title, source: .searchOffer) { open(tuneID) }
         }

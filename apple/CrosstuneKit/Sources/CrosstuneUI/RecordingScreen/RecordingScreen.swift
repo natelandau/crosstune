@@ -224,7 +224,7 @@ struct RecordingScreenContent: View {
     /// A tune the add to tune sheet asked to start, made once that sheet has gone.
     @State private var creating: String?
     @Environment(\.openTune) private var openTune
-    @Environment(AddedTuneOffer.self) private var addedTune: AddedTuneOffer?
+    @Environment(AddedTuneUndo.self) private var addedTune: AddedTuneUndo?
     @State private var deleting: RecordingView?
     @State private var failure: String?
     /// The open trim screen's model, kept until the screen has gone.
@@ -389,7 +389,7 @@ struct RecordingScreenContent: View {
     private var isCompactHeight: Bool { verticalSizeClass == .compact }
 
     private func screen(_ practice: PracticeModel) -> some View {
-        let blocker = screenBlocker
+        let disabledReason = screenUnavailableReason
         return VStack(spacing: spacing.stackGap) {
             #if os(macOS)
                 header
@@ -401,7 +401,7 @@ struct RecordingScreenContent: View {
                 Text(trimNotice)
                     .font(.platform(.footnote))
             }
-            if blocker == nil,
+            if disabledReason == nil,
                 let status = RecordingPlayerText.status(
                     player.recordingAudio, hasFailed: player.audio.hasFailed, offline: session?.isOffline == true)
             {
@@ -409,19 +409,19 @@ struct RecordingScreenContent: View {
             }
             PlaylistControlsRow()
             #if os(macOS)
-                stage(practice, blocker: blocker)
+                stage(practice, disabledReason: disabledReason)
             #else
                 OverviewStrip(model: practice, peaks: shownPeaks)
-                    .disabled(blocker != nil)
-                    .opacity(blocker != nil ? 0.5 : 1)
-                waveform(practice, blocker: blocker)
+                    .disabled(disabledReason != nil)
+                    .opacity(disabledReason != nil ? 0.5 : 1)
+                waveform(practice, disabledReason: disabledReason)
                     // Outside the dimming, so the reason the screen is blocked reads at full strength.
                     .overlay(alignment: .bottom) {
-                        WaveformOverlay(model: practice, blocker: blocker, showsReadout: ground == nil)
+                        WaveformOverlay(model: practice, disabledReason: disabledReason, showsReadout: ground == nil)
                     }
                 // On the ground the readout sits under the playhead rather than over the wave.
                 if ground != nil {
-                    PracticeReadout(model: practice, blocker: blocker)
+                    PracticeReadout(model: practice, disabledReason: disabledReason)
                 }
             #endif
             ScrollView {
@@ -429,15 +429,15 @@ struct RecordingScreenContent: View {
                     // The transport right under the stage it plays, then the mode picker over
                     // its panel, so the two read as one unit.
                     VStack(spacing: MacStyle.sectionGap) {
-                        PracticeControls(model: practice, blocker: blocker)
+                        PracticeControls(model: practice, disabledReason: disabledReason)
                         modeWidth(
                             VStack(spacing: 16) {
                                 ModePicker(model: practice)
                                 ModeControls(model: practice, onDeleted: focusWaveform)
                             }
                         )
-                        .disabled(blocker != nil)
-                        .opacity(blocker != nil ? 0.5 : 1)
+                        .disabled(disabledReason != nil)
+                        .opacity(disabledReason != nil ? 0.5 : 1)
                     }
                     .padding(.top, MacStyle.headingGap)
                     .onGeometryChange(for: Double.self) {
@@ -449,17 +449,17 @@ struct RecordingScreenContent: View {
                     VStack(spacing: spacing.sectionGap) {
                         // On the ground the transport leads, right under the waveform it plays.
                         if ground != nil {
-                            PracticeControls(model: practice, blocker: blocker)
+                            PracticeControls(model: practice, disabledReason: disabledReason)
                         }
                         modeWidth(ModePicker(model: practice))
-                            .disabled(blocker != nil)
-                            .opacity(blocker != nil ? 0.5 : 1)
+                            .disabled(disabledReason != nil)
+                            .opacity(disabledReason != nil ? 0.5 : 1)
                         if ground == nil {
-                            PracticeControls(model: practice, blocker: blocker)
+                            PracticeControls(model: practice, disabledReason: disabledReason)
                         }
                         modeWidth(ModeControls(model: practice, onDeleted: focusWaveform))
-                            .disabled(blocker != nil)
-                            .opacity(blocker != nil ? 0.5 : 1)
+                            .disabled(disabledReason != nil)
+                            .opacity(disabledReason != nil ? 0.5 : 1)
                     }
                     .onGeometryChange(for: Double.self) {
                         $0.size.height
@@ -500,7 +500,7 @@ struct RecordingScreenContent: View {
         .defaultFocus($focus, .screen)
         .modifier(
             PracticeKeys(
-                model: practice, focus: $focus, isBlocked: blocker != nil, onDeleted: focusWaveform,
+                model: practice, focus: $focus, isBlocked: disabledReason != nil, onDeleted: focusWaveform,
                 onClose: close)
         )
         .onChange(of: focus) { _, _ in practice.commitNudge() }
@@ -517,12 +517,12 @@ struct RecordingScreenContent: View {
     }
 
     /// The waveform, which takes the height the controls leave, down to its floor.
-    private func waveform(_ practice: PracticeModel, blocker: String?) -> some View {
+    private func waveform(_ practice: PracticeModel, disabledReason: String?) -> some View {
         PracticeWaveform(
             model: practice, peaks: shownPeaks, focus: $focus, accessibilityFocus: $waveformFocused
         )
-        .disabled(blocker != nil)
-        .opacity(blocker != nil ? 0.5 : 1)
+        .disabled(disabledReason != nil)
+        .opacity(disabledReason != nil ? 0.5 : 1)
         .frame(minHeight: PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight), maxHeight: .infinity)
         .onGeometryChange(for: CGFloat.self) {
             $0.size.height
@@ -534,22 +534,22 @@ struct RecordingScreenContent: View {
     #if os(macOS)
         /// The stage: a card holding the overview, the waveform with its zoom over the corner,
         /// and the readout centered under the playhead with the loop switcher at its line's start.
-        private func stage(_ practice: PracticeModel, blocker: String?) -> some View {
+        private func stage(_ practice: PracticeModel, disabledReason: String?) -> some View {
             VStack(spacing: 12) {
                 OverviewStrip(model: practice, peaks: shownPeaks)
-                    .disabled(blocker != nil)
-                    .opacity(blocker != nil ? 0.5 : 1)
-                waveform(practice, blocker: blocker)
+                    .disabled(disabledReason != nil)
+                    .opacity(disabledReason != nil ? 0.5 : 1)
+                waveform(practice, disabledReason: disabledReason)
                     // Outside the dimming, so the zoom keeps its strength beside a blocked wave.
                     .overlay(alignment: .bottomTrailing) {
-                        WaveformOverlay(model: practice, blocker: blocker, showsReadout: false)
+                        WaveformOverlay(model: practice, disabledReason: disabledReason, showsReadout: false)
                     }
                 // The loop switcher leads the readout's line, and an equal flexible slot trails it,
                 // so the readout stays centered under the playhead.
                 HStack(spacing: 12) {
-                    LoopSwitcher(model: practice, blocker: blocker)
+                    LoopSwitcher(model: practice, disabledReason: disabledReason)
                     // Outside the dimming, so the reason the screen is blocked reads at full strength.
-                    PracticeReadout(model: practice, blocker: blocker)
+                    PracticeReadout(model: practice, disabledReason: disabledReason)
                         .layoutPriority(1)
                     Color.clear.frame(maxWidth: .infinity, maxHeight: 0)
                 }
@@ -616,17 +616,17 @@ struct RecordingScreenContent: View {
             .joined(separator: " · ")
     }
 
-    private var screenBlocker: String? {
-        RecordingScreenText.screenBlocker(
+    private var screenUnavailableReason: String? {
+        RecordingScreenText.screenUnavailableReason(
             file: rows.file, downloading: transfers?.isDownloading(rows.recording.id) == true)
     }
 
     /// Whether the plan lets recordings play, which practice and trim need.
     private var recordingsPlay: Bool { plan.recordingsPlay }
 
-    private var trimBlocker: String? {
+    private var trimDisabledReason: String? {
         let downloading = transfers?.isDownloading(rows.recording.id) == true
-        return RecordingScreenText.trimBlocker(
+        return RecordingScreenText.trimDisabledReason(
             rows.recording, file: rows.file, audio: downloading ? .fetching : player.recordingAudio,
             offline: session?.isOffline == true)
     }
@@ -636,7 +636,7 @@ struct RecordingScreenContent: View {
         return Menu {
             ForEach(
                 RecordingMenuItem.items(
-                    inTune: view.tuneID != nil, trimBlocker: trimBlocker,
+                    inTune: view.tuneID != nil, trimDisabledReason: trimDisabledReason,
                     openOrigin: RecordingMenuItem.openOrigin(for: rows.recording), trims: recordingsPlay),
                 id: \.self
             ) { item in
@@ -647,12 +647,12 @@ struct RecordingScreenContent: View {
                 } label: {
                     Label {
                         Text(item.label)
-                        if let reason = item.blocker { Text(reason) }
+                        if let reason = item.disabledReason { Text(reason) }
                     } icon: {
                         Image(systemName: item.systemImage)
                     }
                 }
-                .disabled(item.blocker != nil)
+                .disabled(item.disabledReason != nil)
             }
         } label: {
             Label(TuneScreen.moreActions, systemImage: "ellipsis")
@@ -721,7 +721,7 @@ struct RecordingScreenContent: View {
     }
 
     private func openTrim() {
-        guard recordingsPlay, path.isEmpty, trimBlocker == nil, let commands else { return }
+        guard recordingsPlay, path.isEmpty, trimDisabledReason == nil, let commands else { return }
         let id = rows.recording.id
         let model = TrimModel(
             recording: rows.recording, file: rows.file,

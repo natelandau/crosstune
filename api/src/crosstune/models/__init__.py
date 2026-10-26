@@ -3,7 +3,7 @@
 from crosstune.models.account_notice import AccountNotice
 from crosstune.models.analytics_deletion import AnalyticsDeletion
 from crosstune.models.billing_notice import BillingNotice
-from crosstune.models.client_version_sighting import ClientVersionSighting
+from crosstune.models.client_version import AccountClientVersion
 from crosstune.models.deleted_account import DeletedAccount
 from crosstune.models.entitlement import Entitlement
 from crosstune.models.grant import Grant
@@ -26,10 +26,10 @@ from crosstune.models.user_settings import UserSettings
 from crosstune.models.user_tune import UserTune
 
 __all__ = [
+    "AccountClientVersion",
     "AccountNotice",
     "AnalyticsDeletion",
     "BillingNotice",
-    "ClientVersionSighting",
     "DeletedAccount",
     "Entitlement",
     "Grant",

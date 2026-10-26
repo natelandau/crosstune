@@ -7,7 +7,7 @@ import { listCatalog, MAX_RESULTS } from '../catalog/tuneMatches'
 import type { TuneMatches } from '../catalog/useTuneMatches'
 import { useInstruments } from '../settings/useInstruments'
 
-import { SearchOffer } from '../catalog/SearchOffer'
+import { AddTypedTitle } from '../catalog/AddTypedTitle'
 import { TuneRowView } from '../catalog/TuneRow'
 import { ErrorLine } from '../../ui/ErrorLine'
 import { RowList } from '../../ui/RowList'
@@ -19,8 +19,8 @@ const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()
 
 /**
  * The one tune search every picker shows: the field, the whole catalog A to Z until something
- * is typed, then up to a screenful of matches, and the offer to create a tune by the typed
- * title. A taken tune stays in the results, marked and inert, so a picker never hides a tune.
+ * is typed, then up to a screenful of matches, and the row that adds the typed title as a
+ * tune. A taken tune stays in the results, marked and inert, so a picker never hides a tune.
  */
 export function TuneSearchList({
   label,
@@ -133,7 +133,7 @@ export function TuneSearchList({
           })}
         </RowList>
       )}
-      {!idle && <SearchOffer outcome={outcome} onCreate={onCreate} />}
+      {!idle && <AddTypedTitle outcome={outcome} onCreate={onCreate} />}
     </>
   )
 }

@@ -176,7 +176,7 @@ def _from_ms(value: object) -> datetime | None:
 def _map_subscription(
     item: dict[str, Any], active: dict[object, object], now: datetime
 ) -> PaidSubscription | None:
-    """Map one subscription, or None when it is not a premium one from a store we mirror."""
+    """Map one subscription, or None when it is not a premium one from a store we sync."""
     source = _SOURCES.get(item.get("store"))
     environment = item.get("environment")
     subscription_id = item.get("id")

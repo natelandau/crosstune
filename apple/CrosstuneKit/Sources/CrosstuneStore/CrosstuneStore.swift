@@ -13,8 +13,8 @@ public final class CrosstuneStore: Sendable {
     public enum StoreError: Error, Equatable {
         /// A user ID that is not safe as a folder name.
         case invalidUserID(String)
-        /// A write after ``sealUnlessUnsent()`` sealed the store.
-        case sealed
+        /// A write after ``lockWritesUnlessUnsent()`` locked the store's writes.
+        case writesLocked
     }
 
     public let userID: String
@@ -22,7 +22,7 @@ public final class CrosstuneStore: Sendable {
     /// Read queries, including `ValueObservation`, run against this.
     public let database: DatabasePool
     private let closed = Mutex(false)
-    private let sealed = Mutex(false)
+    private let writesLocked = Mutex(false)
 
     public var audioFolder: URL { folder.appending(path: "audio", directoryHint: .isDirectory) }
     public var scansFolder: URL { folder.appending(path: "scans", directoryHint: .isDirectory) }
@@ -98,7 +98,7 @@ public final class CrosstuneStore: Sendable {
         // A write, not a read, so no row naming one of these files can commit between reading the
         // names and removing the files.
         try? await database.write { [self] db in
-            try ensureUnsealed()
+            try ensureWritable()
             let files = try String.fetchAll(
                 db, sql: "SELECT file_name FROM recording_files WHERE file_name IS NOT NULL")
             let peaks = try String.fetchAll(
@@ -200,26 +200,26 @@ public final class CrosstuneStore: Sendable {
         }
     }
 
-    /// Whether ``close()`` has been called or the store is sealed, so a late write can tell a
+    /// Whether ``close()`` has been called or writes are locked, so a late write can tell a
     /// store being left from a real failure.
-    public var isClosed: Bool { closed.withLock { $0 } || sealed.withLock { $0 } }
+    public var isClosed: Bool { closed.withLock { $0 } || writesLocked.withLock { $0 } }
 
     /// Refuses every later write, unless the store still holds work that exists only on this
-    /// device, and says whether it sealed. One write transaction checks and seals, and writes run
-    /// one at a time, so no write can land between the check and the seal.
-    public func sealUnlessUnsent() async throws -> Bool {
+    /// device, and says whether it locked them. One write transaction checks and locks, and writes
+    /// run one at a time, so no write can land between the check and the lock.
+    public func lockWritesUnlessUnsent() async throws -> Bool {
         try await database.write { [self] db in
             let unsent =
                 try OutboxEntry.edits.fetchCount(db) + RecordingFile.notUploadedCount(db)
                 + ScanFile.notUploadedCount(db)
             guard unsent == 0 else { return false }
-            sealed.withLock { $0 = true }
+            writesLocked.withLock { $0 = true }
             return true
         }
     }
 
-    private func ensureUnsealed() throws {
-        if sealed.withLock({ $0 }) { throw StoreError.sealed }
+    private func ensureWritable() throws {
+        if writesLocked.withLock({ $0 }) { throw StoreError.writesLocked }
     }
 
     /// Runs `body` in one write transaction: every row it stores and every change it queues
@@ -229,7 +229,7 @@ public final class CrosstuneStore: Sendable {
         -> Value
     {
         try await database.write { [self] db in
-            try ensureUnsealed()
+            try ensureWritable()
             return try body(StoreWriter(db: db))
         }
     }
@@ -280,26 +280,26 @@ public final class CrosstuneStore: Sendable {
     }
 
     /// The oldest pending changes, in the order they were first queued. While `premium` is false
-    /// the upsert of a recording or scan held for Premium is left out, with every upsert that
-    /// names a held recording in `recording_id`, which the server would refuse without it; a
-    /// delete never is, so deleting a held row still reaches the server. The rows in `skipping`
+    /// the upsert of a recording or scan kept local until subscribed is left out, with every upsert
+    /// that names such a recording in `recording_id`, which the server would refuse without it; a
+    /// delete never is, so deleting a local-only row still reaches the server. The rows in `skipping`
     /// are left out the same way whatever the plan.
     public func pendingChanges(limit: Int, premium: Bool = true, skipping: Set<String> = []) async throws
         -> [OutboxEntry]
     {
         try await database.read { db in
             var request = OutboxEntry.order(OutboxEntry.CodingKeys.seq)
-            let held = (premium ? [] : try StoreWriter.premiumHolds(in: db)).union(skipping)
-            if !held.isEmpty {
+            let localOnly = (premium ? [] : try StoreWriter.localOnlyRows(in: db)).union(skipping)
+            if !localOnly.isEmpty {
                 typealias Column = OutboxEntry.CodingKeys
                 let upsert = Column.op == OutboxEntry.Operation.upsert.rawValue
                 let recordingID = SQL("json_extract(\(Column.data), '$.recording_id')").sqlExpression
                 request = request.filter(
                     !(SyncTable.premiumOnly.map(\.rawValue).contains(Column.tableName) && upsert
-                        && held.contains(Column.rowID)))
+                        && localOnly.contains(Column.rowID)))
                 request = request.filter(
                     !(SyncTable.recordingDependents.map(\.rawValue).contains(Column.tableName) && upsert
-                        && held.contains(recordingID)))
+                        && localOnly.contains(recordingID)))
             }
             return try request.limit(limit).fetchAll(db)
         }
@@ -312,7 +312,7 @@ public final class CrosstuneStore: Sendable {
 
     public func setMeta(_ key: MetaKey, to value: some Encodable & Sendable) async throws {
         try await database.write { [self] db in
-            try ensureUnsealed()
+            try ensureWritable()
             try Meta.set(db, key, to: value)
         }
     }

@@ -413,7 +413,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         let entries = [sample("The Butterfly"), sample("Elzic's Farewell")]
         #expect(await bulk.setStatus("known", of: entries))
         #expect(try await userTune(store, "The Butterfly").status == "known")
-        let offer = try #require(bulk.offer)
+        let offer = try #require(bulk.undoBannerItem)
         #expect(offer.message == "Set 2 tunes to Known")
         #expect(undoManager.canUndo)
         #expect(undoManager.undoActionName == BulkActionText.setStatus)
@@ -430,11 +430,11 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         let undoManager = UndoManager()
         bulk.undoManager = undoManager
         #expect(await bulk.setArchived(true, [sample("Tam Lin"), sample("Say Old Man")]))
-        #expect(bulk.offer?.message == "Archived 1 tune", "only the tune not already archived counts")
+        #expect(bulk.undoBannerItem?.message == "Archived 1 tune", "only the tune not already archived counts")
         #expect(try await userTune(store, "Tam Lin").archivedAt != nil)
 
         undoManager.undo()
-        #expect(bulk.offer == nil)
+        #expect(bulk.undoBannerItem == nil)
         try await eventually { try await userTune(store, "Tam Lin").archivedAt == nil }
         #expect(try await userTune(store, "Say Old Man").archivedAt != nil)
     }
@@ -454,7 +454,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         undoManager.redo()
         try await eventually { try await userTune(store, "The Butterfly").status == "known" }
         #expect(undoManager.canUndo)
-        #expect(bulk.offer == nil, "a redo does not bring the banner back")
+        #expect(bulk.undoBannerItem == nil, "a redo does not bring the banner back")
 
         // Asked back to back, the writes still land in order.
         undoManager.undo()
@@ -488,7 +488,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)
         #expect(!(await bulk.setArchived(false, [sample("Tam Lin")])))
-        #expect(bulk.offer == nil)
+        #expect(bulk.undoBannerItem == nil)
     }
 
     @Test func suggestsTheCatalogsComposersAndLearnedFromNames() async throws {
@@ -524,7 +524,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         let gone = entry("gone")
         #expect(!(await bulk.setStatus("known", of: [gone])))
         #expect(bulk.failure != nil)
-        #expect(bulk.offer == nil)
+        #expect(bulk.undoBannerItem == nil)
         #expect(await bulk.setStatus("known", of: [sample("Tam Lin")]))
         #expect(bulk.failure == nil, "the next action clears the failure")
     }
@@ -542,10 +542,10 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         let before = try await order()
         let items = [before[0], before[2]]
         #expect(await bulk.remove(itemIDs: items, from: "Tuesday session", listID: SampleCatalog.lists[0].id))
-        #expect(bulk.offer?.message == "Removed 2 tunes from Tuesday session")
+        #expect(bulk.undoBannerItem?.message == "Removed 2 tunes from Tuesday session")
         #expect(try await order().count == 3)
 
-        bulk.offer?.undo?()
+        bulk.undoBannerItem?.undo?()
         try await eventually { try await order() == before }
     }
 
@@ -569,7 +569,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         var form = BulkEditForm(entries: [sample("Tam Lin"), sample("Big Scioty")], instruments: [])
         form.touch(.genre, .text("Irish"))
         #expect(await bulk.edit([sample("Tam Lin"), sample("Big Scioty")], patch: form.patch))
-        #expect(bulk.offer?.message == "Edited 2 tunes")
+        #expect(bulk.undoBannerItem?.message == "Edited 2 tunes")
         #expect(try await tune(store, "Big Scioty").genre == "Irish")
         #expect(try await tune(store, "Big Scioty").key == "C/G", "an untouched field is not written")
 
@@ -586,13 +586,13 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         picker.newName = "Irish"
         let addition = try #require(await picker.create())
         bulk.added(addition)
-        #expect(bulk.offer?.message == "Created Irish with 2 tunes")
+        #expect(bulk.undoBannerItem?.message == "Created Irish with 2 tunes")
         #expect(
             BulkActionText.added(
                 ListAddition(listID: "l", listName: "Waltzes", added: 3, created: false, itemIDs: []))
                 == "Added 3 tunes to Waltzes")
 
-        bulk.offer?.undo?()
+        bulk.undoBannerItem?.undo?()
         try await eventually { try await store.read { try ListSummary.fetchAll($0).count } == 2 }
     }
 
@@ -607,7 +607,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         #expect(one.message == "This removes its links and list entries.")
 
         #expect(await bulk.delete(many))
-        #expect(bulk.offer == nil, "a delete has nothing to undo")
+        #expect(bulk.undoBannerItem == nil, "a delete has nothing to undo")
         let deletedID = sample("Soldier's Joy").tune.id
         #expect(try await store.read { try Tune.fetchOne($0, key: deletedID)?.deletedAt } != nil)
     }

@@ -20,7 +20,7 @@ import Testing
     /// the selected branch of a ternary (`isSelected ? nil : ...`), so a selected row keeps the
     /// system's selection fill.
     @Test func noRowBackgroundFallsBackToNilWhenUnselected() throws {
-        var offenders: [String] = []
+        var violations: [String] = []
         for file in SourceScan.files() {
             let code = SourceScan.iOSCompiled(
                 SourceScan.withoutPreviews(SourceScan.withoutComments(try SourceScan.text(at: file))))
@@ -29,12 +29,12 @@ import Testing
                 let open = code.index(before: found.upperBound)
                 let span = SourceScan.call(in: code, opening: open)
                 if Self.unselectedBranchIsNil(span) {
-                    offenders.append("\(SourceScan.relative(file)): \(span.prefix(80))")
+                    violations.append("\(SourceScan.relative(file)): \(span.prefix(80))")
                 }
                 from = found.upperBound
             }
         }
-        #expect(offenders.isEmpty, "listRowBackground falls back to nil for an unselected row: \(offenders)")
+        #expect(violations.isEmpty, "listRowBackground falls back to nil for an unselected row: \(violations)")
     }
 
     @Test func theNilCheckFlagsEveryNilButTheSelectedBranch() {

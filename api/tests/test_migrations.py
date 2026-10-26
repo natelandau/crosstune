@@ -3963,3 +3963,34 @@ async def test_0055_infers_place_origin(engine, database_url: str, truncate_all:
                 await conn.execute(
                     text(f"update recordings set {values} where id = '{rows[target][0]}'")  # noqa: S608 -- literals
                 )
+
+
+async def _client_version_constraints(session: AsyncSession) -> set[tuple[str, str]]:
+    result = await session.execute(
+        text(
+            "select c.relname, k.conname from pg_constraint k "
+            "join pg_class c on c.oid = k.conrelid "
+            "where k.contype in ('p', 'f') "
+            "and c.relname in ('client_versions', 'client_version_sightings')"
+        )
+    )
+    return {(row[0], row[1]) for row in result}
+
+
+async def test_0057_renames_client_versions_and_downgrade_restores_the_old_names(
+    session: AsyncSession, database_url: str
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0056")
+        assert await _client_version_constraints(session) == {
+            ("client_version_sightings", "client_version_sightings_pkey"),
+            ("client_version_sightings", "client_version_sightings_user_id_fkey"),
+        }
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert await _client_version_constraints(session) == {
+        ("client_versions", "client_versions_pkey"),
+        ("client_versions", "client_versions_user_id_fkey"),
+    }

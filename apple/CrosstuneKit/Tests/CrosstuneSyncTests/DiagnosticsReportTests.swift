@@ -7,7 +7,7 @@ import Testing
 
 @testable import CrosstuneSync
 
-/// A sync or transfer streak that lasts is reported to diagnostics by area, unless it only means
+/// A persistent sync or transfer failure is reported to diagnostics by area, unless it only means
 /// the session has expired.
 @MainActor
 @Suite struct SyncDiagnosticsTests {
@@ -54,7 +54,7 @@ import Testing
         engine.stop()
     }
 
-    @Test func lastingSyncErrorReportsSyncArea() async throws {
+    @Test func persistentSyncErrorReportsSyncArea() async throws {
         let engine = engine()
         api.failure = APIStatusError(status: 500)
 
@@ -76,7 +76,7 @@ import Testing
         engine.stop()
     }
 
-    @Test func lastingTransferErrorReportsTransferArea() async throws {
+    @Test func persistentTransferErrorReportsTransferArea() async throws {
         let engine = engine(transferPass: { throw APIStatusError(status: 500) })
 
         try await failForMinutes(10, engine: engine) { await $0.transfer() }

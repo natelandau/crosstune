@@ -119,13 +119,13 @@ private struct TunePickerContent: View {
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
                                 }
-                                if let offer = results.outcome.offerLabel, let title = results.outcome.title {
+                                if let label = results.outcome.addTypedTitleLabel, let title = results.outcome.title {
                                     Button {
                                         create(title)
                                     } label: {
                                         HStack(spacing: 8) {
                                             MacPickGlyph(kind: .add)
-                                            Text(offer)
+                                            Text(label)
                                                 .contentMask()
                                         }
                                     }
@@ -215,8 +215,8 @@ private struct TunePickerContent: View {
                             .font(.platform(.footnote))
                             .foregroundStyle(.inkSecondary)
                     }
-                    if let offer = results.outcome.offerLabel, let title = results.outcome.title {
-                        SearchOfferRow(label: offer) { create(title) }
+                    if let label = results.outcome.addTypedTitleLabel, let title = results.outcome.title {
+                        AddTypedTitleRow(label: label) { create(title) }
                     }
                 }
             }

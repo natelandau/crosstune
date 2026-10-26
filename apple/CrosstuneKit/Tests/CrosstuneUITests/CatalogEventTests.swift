@@ -87,7 +87,7 @@ import Testing
         let (_, catalog) = try await loadedCatalog(settleDelay: .seconds(60))
         catalog.query = "Rove Riley"
 
-        catalog.searchOfferTaken()
+        catalog.typedTitleAdded()
 
         #expect(sink.captures == [searched("0", tookOffer: true)])
     }

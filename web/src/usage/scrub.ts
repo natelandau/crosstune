@@ -11,7 +11,7 @@ const KEPT_SEGMENTS = new Set<string>([
   'recordings',
   'settings',
   'stats',
-  'kit',
+  'gallery',
   ...SETTINGS_PAGE_IDS,
   ...Object.keys(LEGACY_SETTINGS_PAGES),
   SAVED_LOCATIONS_SEGMENT,

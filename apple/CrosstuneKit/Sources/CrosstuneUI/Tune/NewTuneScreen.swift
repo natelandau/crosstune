@@ -210,7 +210,7 @@ struct NewTuneScreen: View {
     /// Told the tune the draft made, before the draft's place moves to it.
     let onCreated: @MainActor (HeldDraft) -> Void
 
-    @Environment(AddedTuneOffer.self) private var addedTune: AddedTuneOffer?
+    @Environment(AddedTuneUndo.self) private var addedTune: AddedTuneUndo?
 
     var body: some View {
         if let addedTune {
@@ -235,7 +235,7 @@ private struct DraftPage: View {
     @State private var attributesLayout: AttributesLayout?
     @FocusState private var focused: Bool
 
-    init(source: ActionSource, addedTune: AddedTuneOffer, onCreated: @escaping @MainActor (HeldDraft) -> Void) {
+    init(source: ActionSource, addedTune: AddedTuneUndo, onCreated: @escaping @MainActor (HeldDraft) -> Void) {
         self.onCreated = onCreated
         // Held strongly, so a leave as the window closes still reaches the banner.
         _draft = State(
@@ -414,7 +414,8 @@ struct NewTuneCommand: ViewModifier {
     }
 
     private var canOpen: Bool {
-        MenuGates.newTune(sheetsOpen: openSheets?.isCovered == true, selecting: selecting?.isCovered == true)
+        MenuCommandAvailability.newTune(
+            sheetsOpen: openSheets?.isCovered == true, selecting: selecting?.isCovered == true)
     }
 }
 

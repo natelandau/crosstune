@@ -21,7 +21,7 @@ export function AnalyticsIdentity() {
   // Clerk has no user in an offline session; the ISO string keeps the effect from re-running
   // on a new Date instance for the same moment.
   const signedUpAt = user?.createdAt?.toISOString()
-  const missedFigures = useRef(false)
+  const missedUsage = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -33,7 +33,7 @@ export function AnalyticsIdentity() {
       } catch (error) {
         if (cancelled) return
         Sentry.captureException(error)
-        missedFigures.current = true
+        missedUsage.current = true
       }
       if (cancelled) return
       if (!offline) {
@@ -51,23 +51,23 @@ export function AnalyticsIdentity() {
     }
   }, [analytics, db, userId, offline, signedUpAt])
 
-  // The first sync that brings the account's figures completes the person. A store that
-  // already held them was covered by the identify above. Until the person is set, each change
-  // to the figures tries again.
+  // The first sync that brings the account's storage usage completes the person. A store that
+  // already held it was covered by the identify above. Until the person is set, each change
+  // to the usage tries again.
   const storage = useLiveQuery(() => getStorage(db), [db])
   useEffect(() => {
     if (storage === undefined) return
     if (storage === null) {
-      missedFigures.current = true
+      missedUsage.current = true
       return
     }
-    if (!missedFigures.current) return
+    if (!missedUsage.current) return
     let cancelled = false
     void readWebSettings(db, userId)
       .then((settings) => personProperties(db, settings))
       .then((person) => {
         if (cancelled) return
-        missedFigures.current = false
+        missedUsage.current = false
         analytics.setPerson(person)
       })
       .catch((error: unknown) => Sentry.captureException(error))

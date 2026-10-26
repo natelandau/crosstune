@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react'
 import { Link } from 'react-router'
 import { Button as AriaButton } from 'react-aria-components'
-import { OPEN, addOfferLabel, hiddenMatchText, openTuneName } from './catalogCopy'
+import { OPEN, addTypedTitleLabel, hiddenMatchText, openTuneName } from './catalogCopy'
 import type { SearchOutcome } from './searchIntent'
 import { destination } from '../../layout/destinations'
 import { ROW_PRESS } from '../../ui/press'
@@ -9,7 +9,7 @@ import { ROW_PRESS } from '../../ui/press'
 const CATALOG = destination('catalog')
 
 /** The row under the results that adds the typed title as a new tune. */
-export function SearchOffer({
+export function AddTypedTitle({
   outcome,
   onCreate,
 }: {
@@ -24,7 +24,7 @@ export function SearchOffer({
         className={`t-body text-ink flex min-h-(--target) w-full items-center gap-3 rounded-(--radius-row) px-3 text-start ${ROW_PRESS}`}
       >
         <Plus className="size-5 shrink-0" aria-hidden />
-        <span className="min-w-0 truncate">{addOfferLabel(outcome)}</span>
+        <span className="min-w-0 truncate">{addTypedTitleLabel(outcome)}</span>
       </AriaButton>
     </div>
   )

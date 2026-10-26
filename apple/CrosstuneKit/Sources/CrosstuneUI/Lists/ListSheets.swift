@@ -52,7 +52,7 @@ struct ListSheets: ViewModifier {
             .environment(\.tuneScreenActions, withAddToList)
             .focusedSceneValue(
                 \.newListAction,
-                MenuGates.newList(sheetsOpen: openSheets?.isCovered == true)
+                MenuCommandAvailability.newList(sheetsOpen: openSheets?.isCovered == true)
                     ? MenuAction(id: ShellActionID.newList(window: window)) { naming = .new } : nil
             )
             .sheet(item: $naming) { target in

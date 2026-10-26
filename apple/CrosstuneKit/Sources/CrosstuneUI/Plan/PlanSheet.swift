@@ -3,8 +3,8 @@ import CrosstuneBilling
 import CrosstuneStore
 import SwiftUI
 
-/// The account's plan: what Free and Premium each hold, sold to a free or trial account, or
-/// confirmed to a Premium one. A locked tap opens it naming what was tapped.
+/// The account's plan: what Free and Premium each hold, purchasable for a free or trial account,
+/// or confirmed to a Premium one. A locked tap opens it naming what was tapped.
 struct PlanSheet: View {
     nonisolated static let close = "Close"
 
@@ -29,24 +29,24 @@ struct PlanSheet: View {
         self.now = now
     }
 
-    /// Whether the sheet sells or confirms the plan.
+    /// Whether the sheet shows purchase options or confirms the plan.
     enum Mode: Equatable {
-        case selling
+        case purchasable
         case member
     }
 
-    /// A paid or comped plan is confirmed; every other plan, unknown included, is sold to.
+    /// A paid or comped plan is confirmed; every other plan, unknown included, is purchasable.
     nonisolated static func mode(_ plan: Plan) -> Mode {
-        plan.kind == .premium && !plan.isTrial ? .member : .selling
+        plan.kind == .premium && !plan.isTrial ? .member : .purchasable
     }
 
     /// What the sheet offers to buy.
     enum Sale: Equatable {
         /// No choice and no Subscribe.
-        case notSelling
+        case notPurchasable
         /// Asking the store: a disabled Subscribe holds its place, so nothing moves under a tap.
         case loading
-        /// As `notSelling`, saying the store could not be reached.
+        /// As `notPurchasable`, saying the store could not be reached.
         case offline
         /// Annual or Monthly, at the store's prices, and Subscribe.
         case choice([PurchaseOffer])
@@ -75,20 +75,20 @@ struct PlanSheet: View {
         }
     }
 
-    /// Sells only to an account that can subscribe, once the store has answered with a price.
+    /// Purchasable only for an account that can subscribe, once the store has answered with a price.
     /// `offers` is nil without a purchase model.
     nonisolated static func sale(plan: Plan, offers: PurchaseModel.Offers?, line: PurchaseModel.Line?) -> Sale {
-        guard let offers else { return .notSelling }
+        guard let offers else { return .notPurchasable }
         // The plan turns Premium only once the sync lands, and may before the sheet closes; the
         // outcome stays either way.
         if line == .subscribed || line == .restored { return .subscribed }
-        guard plan.canSubscribe else { return .notSelling }
+        guard plan.canSubscribe else { return .notPurchasable }
         switch offers {
         case .loading: return .loading
         case .unavailable: return .offline
         case .ready(let found):
             let offered = choices(found)
-            return offered.isEmpty ? .notSelling : .choice(offered)
+            return offered.isEmpty ? .notPurchasable : .choice(offered)
         }
     }
 
@@ -146,15 +146,15 @@ struct PlanSheet: View {
     /// try in this sheet, and failing that the offline line while the store cannot be reached.
     nonisolated static func outcomeLine(_ sale: Sale, line: PurchaseModel.Line?) -> String? {
         switch sale {
-        case .choice, .loading, .notSelling: line.map(PlanText.line)
+        case .choice, .loading, .notPurchasable: line.map(PlanText.line)
         case .subscribed: settledLine(line)
         case .offline: line.map(PlanText.line) ?? PlanText.subscribeOffline
         }
     }
 
-    /// Whether the sheet asks the store for offers: only where it may sell them.
+    /// Whether the sheet asks the store for offers: only where the plan is purchasable.
     nonisolated static func asksForOffers(_ plan: Plan) -> Bool {
-        mode(plan) == .selling && plan.canSubscribe
+        mode(plan) == .purchasable && plan.canSubscribe
     }
 
     /// What restarts a sheet's ask for offers when it changes.
@@ -217,8 +217,8 @@ struct PlanSheet: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
                             switch mode {
-                            case .selling:
-                                selling(currentPlan)
+                            case .purchasable:
+                                purchasable(currentPlan)
                                 inlineActions(sale)
                             case .member:
                                 member(currentPlan)
@@ -243,7 +243,7 @@ struct PlanSheet: View {
             storefront = .unread
             storefront = .read(await Self.storefront(for: currentPlan, client: purchases))
         }
-        // Asks only where the sheet sells, and again when the connection comes back.
+        // Asks only where the plan is purchasable, and again when the connection comes back.
         .task(id: OfferAsk(sells: Self.asksForOffers(currentPlan), offline: purchase?.isOffline)) {
             guard Self.asksForOffers(currentPlan) else { return }
             await purchase?.loadOffers()
@@ -255,7 +255,7 @@ struct PlanSheet: View {
     #if !os(macOS)
         /// The mark over the headline, a trial's card, and the comparison.
         @ViewBuilder
-        private func selling(_ plan: Plan) -> some View {
+        private func purchasable(_ plan: Plan) -> some View {
             let (title, message) = Self.headline(reason)
             VStack(spacing: 6) {
                 PlanMark()
@@ -350,7 +350,7 @@ struct PlanSheet: View {
                     }
                     // The phone's glass xmark is easy to miss, so Close also reads as a button.
                     PrimaryAction { Button(Self.close) { dismiss() } }
-                case (.offline, _), (.notSelling, _), (.choice, nil), (.loading, nil):
+                case (.offline, _), (.notPurchasable, _), (.choice, nil), (.loading, nil):
                     if let line {
                         paragraph(line).foregroundStyle(.inkSecondary)
                     }
@@ -380,7 +380,7 @@ struct PlanSheet: View {
         }
 
         /// The terms a sale shows, with Restore purchases beside the legal links; Restore alone
-        /// while nothing is sold, and nothing once a purchase settles.
+        /// while nothing is purchasable, and nothing once a purchase settles.
         @ViewBuilder
         private func terms(_ sale: Sale, purchase: PurchaseModel) -> some View {
             if case .choice(let offers) = sale {
@@ -408,7 +408,7 @@ struct PlanSheet: View {
 
 #if os(macOS)
     extension PlanSheet {
-        /// Close, then Subscribe trailing while the sheet sells, which never takes Return, since
+        /// Close, then Subscribe trailing while the plan is purchasable, which never takes Return, since
         /// a locked tap opens the sheet unasked. Subscribe holds its place, disabled, while the
         /// store answers, while a purchase runs, and while the store cannot be reached, when the
         /// subtitle says why.
@@ -422,7 +422,7 @@ struct PlanSheet: View {
                 footer.primary = .subscribe(title: PlanText.subscribe, isEnabled: !isWorking, action: subscribe)
             case .loading, .offline:
                 footer.primary = .subscribe(title: PlanText.subscribe, isEnabled: false, action: subscribe)
-            case .notSelling, .subscribed:
+            case .notPurchasable, .subscribed:
                 break
             }
             return footer
@@ -433,7 +433,7 @@ struct PlanSheet: View {
             MacSheetFooter(primary: .init(Self.close, action: close), escape: close)
         }
 
-        /// The Mac sheet's subtitle: why nothing sells while the store cannot be reached, which
+        /// The Mac sheet's subtitle: why nothing is purchasable while the store cannot be reached, which
         /// says more than the pitch then, or the pitch.
         nonisolated static func macSubtitle(_ sale: Sale, line: PurchaseModel.Line?, pitch: String) -> String {
             sale == .offline && line == nil ? PlanText.subscribeOffline : pitch
@@ -444,7 +444,7 @@ struct PlanSheet: View {
             sale == .offline && line == nil ? nil : outcomeLine(sale, line: line)
         }
 
-        /// The mark, title, and line over a trial's card and the comparison while selling, or the
+        /// The mark, title, and line over a trial's card and the comparison while purchasable, or the
         /// membership and what Premium includes for a member, with Restore purchases leading
         /// the footer.
         func macSheet(_ plan: Plan, mode: Mode, sale: Sale) -> some View {
@@ -465,7 +465,7 @@ struct PlanSheet: View {
             } content: {
                 VStack(alignment: .leading, spacing: 16) {
                     switch mode {
-                    case .selling:
+                    case .purchasable:
                         if plan.isTrial {
                             TrialCard(
                                 startsAt: plan.trialStartsAt, endsAt: plan.trialEndsAt ?? plan.premiumEndsAt, now: now)
@@ -486,7 +486,7 @@ struct PlanSheet: View {
             Task { await Self.subscribe(purchase, from: entry) }
         }
 
-        /// The period choice and its terms, then the outcome of a try or why nothing is sold.
+        /// The period choice and its terms, then the outcome of a try or why nothing is purchasable.
         @ViewBuilder
         private func macSale(_ sale: Sale) -> some View {
             if case .choice(let offers) = sale, let purchase {
@@ -494,7 +494,7 @@ struct PlanSheet: View {
             }
             if let line = Self.macOutcomeLine(sale, line: purchase?.line) {
                 Text(line)
-                    .foregroundStyle(sale == .offline || sale == .notSelling ? Palette.inkSecondary : Palette.ink)
+                    .foregroundStyle(sale == .offline || sale == .notPurchasable ? Palette.inkSecondary : Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if case .choice(let offers) = sale, let purchase,

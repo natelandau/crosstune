@@ -3,7 +3,7 @@ import { page, userEvent } from 'vitest/browser'
 import { expect, it, vi } from 'vitest'
 import { recordingAnalytics } from '../../usage/testing'
 import { createTune } from '../../commands/tunes'
-import { addOfferLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
+import { addTypedTitleLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
 import { recordingDateLabel } from '../../text/format'
 import { RECORDING_LIMITS } from '../../api/vocabulary'
 import type { LocalRecording } from '../../db/types'
@@ -213,7 +213,7 @@ it('files a recording under a new tune made from the typed title, and opens it',
   await dialog.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally Goodin')
   await dialog
     .getByRole('button', {
-      name: addOfferLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
+      name: addTypedTitleLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
     })
     .click()
   await expect.element(dialog).not.toBeInTheDocument()

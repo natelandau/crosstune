@@ -22,14 +22,14 @@ private let portal = URL(string: "https://billing.example.com/portal")!
     private let sink = RecordingAnalyticsSink()
 
     @Test func aFreeOrTrialPlanSellsAndAPremiumPlanIsAMember() {
-        #expect(PlanSheet.mode(Plan(kind: .free)) == .selling)
-        #expect(PlanSheet.mode(Plan(kind: .premium, source: .trial, trialEndsAt: instant)) == .selling)
+        #expect(PlanSheet.mode(Plan(kind: .free)) == .purchasable)
+        #expect(PlanSheet.mode(Plan(kind: .premium, source: .trial, trialEndsAt: instant)) == .purchasable)
         #expect(PlanSheet.mode(Plan(kind: .premium, source: .comp)) == .member)
         #expect(PlanSheet.mode(Plan(kind: .premium, source: .apple)) == .member)
         #expect(PlanSheet.mode(Plan(kind: .premium, source: .stripe)) == .member)
-        // A plan not yet read sells nothing, but is not taken for a member either.
-        #expect(PlanSheet.mode(.unknown) == .selling)
-        #expect(PlanSheet.sale(plan: .unknown, offers: .ready(offers), line: nil) == .notSelling)
+        // A plan not yet read is not purchasable, but is not taken for a member either.
+        #expect(PlanSheet.mode(.unknown) == .purchasable)
+        #expect(PlanSheet.sale(plan: .unknown, offers: .ready(offers), line: nil) == .notPurchasable)
     }
 
     @Test func thePlanReasonLeadsWithThePitch() {
@@ -136,7 +136,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         let sale = PlanSheet.sale(plan: trial, offers: .ready(offers), line: .subscribed)
         #expect(sale == .subscribed)
         #expect(PlanSheet.outcomeLine(sale, line: .subscribed) == PlanText.subscribed)
-        #expect(PlanSheet.mode(trial) == .selling)
+        #expect(PlanSheet.mode(trial) == .purchasable)
         // Once the sync lands, the sheet confirms the plan instead.
         #expect(PlanSheet.mode(Plan(kind: .premium, source: .apple)) == .member)
     }
@@ -148,11 +148,11 @@ private let portal = URL(string: "https://billing.example.com/portal")!
             PlanSheet.sale(plan: Plan(kind: .premium, source: .trial), offers: .ready(offers), line: nil)
                 == .choice(offers))
         #expect(PlanSheet.sale(plan: free, offers: .loading, line: nil) == .loading)
-        #expect(PlanSheet.sale(plan: free, offers: .ready([]), line: nil) == .notSelling)
-        #expect(PlanSheet.sale(plan: free, offers: nil, line: nil) == .notSelling)
+        #expect(PlanSheet.sale(plan: free, offers: .ready([]), line: nil) == .notPurchasable)
+        #expect(PlanSheet.sale(plan: free, offers: nil, line: nil) == .notPurchasable)
         let comp = Plan(kind: .premium, source: .comp)
-        #expect(PlanSheet.sale(plan: comp, offers: .ready(offers), line: nil) == .notSelling)
-        #expect(PlanSheet.sale(plan: comp, offers: .unavailable, line: nil) == .notSelling)
+        #expect(PlanSheet.sale(plan: comp, offers: .ready(offers), line: nil) == .notPurchasable)
+        #expect(PlanSheet.sale(plan: comp, offers: .unavailable, line: nil) == .notPurchasable)
         #expect(PlanSheet.sale(plan: free, offers: .unavailable, line: nil) == .offline)
         // A line from an earlier try keeps the choice up for another.
         #expect(PlanSheet.sale(plan: free, offers: .ready(offers), line: .failed) == .choice(offers))
@@ -172,7 +172,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
     }
 
     @Test func aRestoreSettlesTheSheetAsAPurchaseDoes() {
-        // Until the sync turns the plan Premium, the sheet must not sell under the restored line.
+        // Until the sync turns the plan Premium, the sheet must not show purchase options under the restored line.
         let free = Plan(kind: .free)
         #expect(PlanSheet.sale(plan: free, offers: .ready(offers), line: .restored) == .subscribed)
         #expect(PlanSheet.sale(plan: free, offers: .unavailable, line: .restored) == .subscribed)
@@ -192,8 +192,8 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(PlanSheet.outcomeLine(.offline, line: nil) == PlanText.subscribeOffline)
         // A restore tried while offline says how it went in place of the offline line.
         #expect(PlanSheet.outcomeLine(.offline, line: .restoreFailed) == PlanText.line(.restoreFailed))
-        #expect(PlanSheet.outcomeLine(.notSelling, line: nil) == nil)
-        #expect(PlanSheet.outcomeLine(.notSelling, line: .restoreFailed) == PlanText.line(.restoreFailed))
+        #expect(PlanSheet.outcomeLine(.notPurchasable, line: nil) == nil)
+        #expect(PlanSheet.outcomeLine(.notPurchasable, line: .restoreFailed) == PlanText.line(.restoreFailed))
     }
 
     @Test func whileTheStoreAnswersSubscribesPlaceIsHeld() {
@@ -202,14 +202,15 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(PlanSheet.sale(plan: free, offers: .loading, line: nil) == .loading)
         #expect(PlanSheet.sale(plan: trial, offers: .loading, line: nil) == .loading)
         // Only a plan that can subscribe waits for the store.
-        #expect(PlanSheet.sale(plan: Plan(kind: .premium, source: .comp), offers: .loading, line: nil) == .notSelling)
-        #expect(PlanSheet.sale(plan: .unknown, offers: .loading, line: nil) == .notSelling)
+        #expect(
+            PlanSheet.sale(plan: Plan(kind: .premium, source: .comp), offers: .loading, line: nil) == .notPurchasable)
+        #expect(PlanSheet.sale(plan: .unknown, offers: .loading, line: nil) == .notPurchasable)
         #expect(PlanSheet.sale(plan: free, offers: .loading, line: .subscribed) == .subscribed)
         #expect(PlanSheet.outcomeLine(.loading, line: nil) == nil)
         #expect(PlanSheet.outcomeLine(.loading, line: .restoreFailed) == PlanText.line(.restoreFailed))
     }
 
-    @Test func onlyASellingSheetForAPlanThatCanSubscribeAsksForOffers() {
+    @Test func onlyAPurchasableSheetForAPlanThatCanSubscribeAsksForOffers() {
         #expect(PlanSheet.asksForOffers(Plan(kind: .free)))
         #expect(PlanSheet.asksForOffers(Plan(kind: .premium, source: .trial, trialEndsAt: instant)))
         for plan in [Plan(kind: .premium, source: .apple), Plan(kind: .premium, source: .stripe), comp, .unknown] {
@@ -222,7 +223,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(PlanSheet.offersRestore(.choice(offers)))
         #expect(PlanSheet.offersRestore(.loading))
         #expect(PlanSheet.offersRestore(.offline))
-        #expect(PlanSheet.offersRestore(.notSelling))
+        #expect(PlanSheet.offersRestore(.notPurchasable))
         // After a purchase, a restore could replace its line and bring Subscribe back.
         #expect(PlanSheet.offersRestore(.subscribed) == false)
     }
@@ -412,7 +413,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(
             PlanSheet.membership(
                 Plan(kind: .premium, source: .stripe, premiumEndsAt: lapsed, autoRenews: true), now: instant) == nil)
-        // Nothing to show for a plan the sheet sells to.
+        // Nothing to show for a purchasable plan.
         #expect(PlanSheet.membership(Plan(kind: .free), now: instant) == nil)
         #expect(PlanSheet.membership(Plan(kind: .premium, source: .trial, premiumEndsAt: ends), now: instant) == nil)
     }
@@ -471,7 +472,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(try await poll { plan.plan.isTrial })
         let presenter = PremiumPresenter(plan: plan, analytics: sink.client)
         presenter.present(.plan, from: .planGroup)
-        #expect(PlanSheet.mode(plan.plan) == .selling)
+        #expect(PlanSheet.mode(plan.plan) == .purchasable)
 
         try await write("apple")
         #expect(try await poll { PlanSheet.mode(plan.plan) == .member })
@@ -480,7 +481,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         // A refund lapses the grant: the row loses its source.
         try await write(nil)
         #expect(try await poll { plan.plan.kind == .free })
-        #expect(PlanSheet.mode(plan.plan) == .selling)
+        #expect(PlanSheet.mode(plan.plan) == .purchasable)
         #expect(presenter.presented == .plan)
     }
 }
@@ -526,7 +527,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         }
 
         @Test func nothingToBuyLeavesCloseAlone() {
-            for sale in [PlanSheet.Sale.notSelling, .subscribed] {
+            for sale in [PlanSheet.Sale.notPurchasable, .subscribed] {
                 let footer = PlanSheet.macFooter(sale, isWorking: false, close: {}, subscribe: {})
                 #expect(footer.cancel?.title == PlanSheet.close, "\(sale)")
                 #expect(footer.primary == nil, "\(sale)")
@@ -537,7 +538,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
             #expect(MembershipCard.macManage == "Manage\u{2026}")
         }
 
-        /// Offline, the Mac sheet says why nothing sells in its subtitle, never in a line floating
+        /// Offline, the Mac sheet says why nothing is purchasable in its subtitle, never in a line floating
         /// under the cards; an outcome tried offline still reads in the body.
         @Test func offlineReasonIsTheMacSubtitle() {
             #expect(PlanSheet.macSubtitle(.offline, line: nil, pitch: "Pitch") == PlanText.subscribeOffline)

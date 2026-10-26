@@ -1,5 +1,5 @@
 import { RECORDING_ORIGINS } from '../../api/vocabulary'
-import type { StorageFigures } from '../../db/meta'
+import type { StorageUsage } from '../../db/meta'
 import { isNotUploaded } from '../../db/recordings'
 import {
   addedDateLabel,
@@ -13,7 +13,7 @@ import {
 } from '../../text/format'
 import { providerLabel } from '../links/display'
 import type { RecordingSort } from './arrangeRecordings'
-import { HELD_FOR_PREMIUM } from './recordingCopy'
+import { LOCAL_UNTIL_SUBSCRIBED } from './recordingCopy'
 import { recordingLabel } from './recordingMatch'
 import { ALL_RECORDINGS, MY_RECORDINGS } from './recordingsCopy'
 import type { RecordingView } from './useRecordings'
@@ -92,23 +92,23 @@ export function sortOrigins(origins: readonly string[]): string[] {
 
 /**
  * The meta parts in order, already worded; the row joins them with " · ". Under Date added the
- * date is when the recording was added; under every other sort it is when it was played. A take
- * `held` for Premium says so in place of its status.
+ * date is when the recording was added; under every other sort it is when it was played. A
+ * `localOnly` take, kept on this device until the user subscribes, says so in place of its status.
  */
 export function recordingMeta(
   view: RecordingView,
-  storage: StorageFigures | null,
+  storage: StorageUsage | null,
   {
     dateInTitle = false,
     sort,
-    held = false,
-  }: { dateInTitle?: boolean; sort?: RecordingSort; held?: boolean } = {},
+    localOnly = false,
+  }: { dateInTitle?: boolean; sort?: RecordingSort; localOnly?: boolean } = {},
 ): string[] {
   const { recording, file } = view
-  if (held) {
+  if (localOnly) {
     return [
       formatDuration(recording.duration_ms ?? file?.local_duration_ms),
-      HELD_FOR_PREMIUM,
+      LOCAL_UNTIL_SUBSCRIBED,
     ].filter((part): part is string => Boolean(part))
   }
   const status = fileStateLabel(recording, file)

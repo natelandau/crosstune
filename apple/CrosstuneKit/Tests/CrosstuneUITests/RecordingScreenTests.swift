@@ -309,14 +309,14 @@ private final class Writes {
 
     @Test func theMoreMenuOffersTrimEditAddToTuneAndDelete() {
         #expect(
-            RecordingMenuItem.items(inTune: false, trimBlocker: nil) == [
-                .trim(blocker: nil), .edit, .addToTune, .delete,
+            RecordingMenuItem.items(inTune: false, trimDisabledReason: nil) == [
+                .trim(disabledReason: nil), .edit, .addToTune, .delete,
             ])
         #expect(
-            RecordingMenuItem.items(inTune: true, trimBlocker: RecordingScreenText.trimBusy) == [
-                .trim(blocker: RecordingScreenText.trimBusy), .edit, .removeFromTune, .delete,
+            RecordingMenuItem.items(inTune: true, trimDisabledReason: RecordingScreenText.trimBusy) == [
+                .trim(disabledReason: RecordingScreenText.trimBusy), .edit, .removeFromTune, .delete,
             ])
-        #expect(RecordingMenuItem.trim(blocker: nil).label == "Trim")
+        #expect(RecordingMenuItem.trim(disabledReason: nil).label == "Trim")
         #expect(RecordingMenuItem.edit.label == RecordingRowActions.edit)
         #expect(RecordingRowActions.edit == "Edit")
         #expect(RecordingMenuItem.addToTune.label == RecordingRowActions.addToTune)
@@ -325,7 +325,7 @@ private final class Writes {
 
     @Test func theMoreMenuLeavesTrimOutWhenTheRecordingCannotTrim() {
         #expect(
-            RecordingMenuItem.items(inTune: true, trimBlocker: nil, trims: false) == [
+            RecordingMenuItem.items(inTune: true, trimDisabledReason: nil, trims: false) == [
                 .edit, .removeFromTune, .delete,
             ])
     }
@@ -339,8 +339,8 @@ private final class Writes {
         #expect(open == .openOrigin(site: "Slippery-Hill", page: try #require(URL(string: page))))
         #expect(open.label == RecordingRowActions.openOn("Slippery-Hill"))
         #expect(
-            RecordingMenuItem.items(inTune: true, trimBlocker: nil, openOrigin: open) == [
-                .trim(blocker: nil), .edit, .removeFromTune, open, .delete,
+            RecordingMenuItem.items(inTune: true, trimDisabledReason: nil, openOrigin: open) == [
+                .trim(disabledReason: nil), .edit, .removeFromTune, open, .delete,
             ])
         #expect(RecordingMenuItem.openOrigin(for: imported("javascript:alert(1)")) == nil)
         #expect(RecordingMenuItem.openOrigin(for: imported(nil, origin: "own")) == nil)
@@ -369,20 +369,20 @@ private final class Writes {
     }
 
     @Test func aRecordingStillCapturingDisablesTheWaveformTransportAndModesWithTheReason() {
-        #expect(RecordingScreenText.screenBlocker(file: nil, downloading: false) == nil)
+        #expect(RecordingScreenText.screenUnavailableReason(file: nil, downloading: false) == nil)
         #expect(
-            RecordingScreenText.screenBlocker(
+            RecordingScreenText.screenUnavailableReason(
                 file: RecordingFile(id: "r1", localState: .capturing), downloading: false)
                 == RecordingScreenText.trimWhileRecording)
         #expect(
-            RecordingScreenText.screenBlocker(file: nil, downloading: true)
+            RecordingScreenText.screenUnavailableReason(file: nil, downloading: true)
                 == RecordingScreenText.trimWhileDownloading)
         // A pending trim blocks Trim but leaves the rest of the screen working.
         var cutting = take()
         cutting.playbackStartMs = 0
         cutting.playbackEndMs = 4000
-        #expect(RecordingScreenText.trimBlocker(cutting, file: nil, audio: .loaded) != nil)
-        #expect(RecordingScreenText.screenBlocker(file: nil, downloading: false) == nil)
+        #expect(RecordingScreenText.trimDisabledReason(cutting, file: nil, audio: .loaded) != nil)
+        #expect(RecordingScreenText.screenUnavailableReason(file: nil, downloading: false) == nil)
     }
 
     @Test func thePlayButtonNamesTheRepeat() {
@@ -467,20 +467,21 @@ private final class Writes {
         let row = take()
         var capturing = RecordingFile(id: "r1", localState: .capturing)
         #expect(
-            RecordingScreenText.trimBlocker(row, file: capturing, audio: .loaded)
+            RecordingScreenText.trimDisabledReason(row, file: capturing, audio: .loaded)
                 == RecordingScreenText.trimWhileRecording)
         capturing.localState = .downloaded
         #expect(
-            RecordingScreenText.trimBlocker(row, file: capturing, audio: .fetching)
+            RecordingScreenText.trimDisabledReason(row, file: capturing, audio: .fetching)
                 == RecordingScreenText.trimWhileDownloading)
 
         var cutting = take()
         cutting.playbackStartMs = 0
         cutting.playbackEndMs = 4000
-        #expect(RecordingScreenText.trimBlocker(cutting, file: nil, audio: .loaded) == RecordingScreenText.trimBusy)
+        #expect(
+            RecordingScreenText.trimDisabledReason(cutting, file: nil, audio: .loaded) == RecordingScreenText.trimBusy)
         cutting.playbackStartMs = 1000
         cutting.playbackEndMs = 3000
-        #expect(RecordingScreenText.trimBlocker(cutting, file: nil, audio: .loaded) == nil)
+        #expect(RecordingScreenText.trimDisabledReason(cutting, file: nil, audio: .loaded) == nil)
     }
 
     @Test func showsOnlyPeaksThatLineUpWithTheTrim() throws {

@@ -6,33 +6,33 @@ import Testing
 
 private let t0 = Date(timeIntervalSince1970: 0)
 
-@Suite struct FailureStreakTests {
-    @Test func reportsOnceTheStreakHasLasted() {
-        var streak = FailureStreak(lasting: .seconds(300))
+@Suite struct ConsecutiveFailuresTests {
+    @Test func reportsOnceTheFailuresPersist() {
+        var failures = ConsecutiveFailures(persistsFor: .seconds(300))
 
-        let reported = [0, 60, 120, 180, 240, 299, 300, 360].map { streak.failed(at: t0 + TimeInterval($0)) }
+        let reported = [0, 60, 120, 180, 240, 299, 300, 360].map { failures.failed(at: t0 + TimeInterval($0)) }
 
         #expect(reported == [false, false, false, false, false, false, true, false])
     }
 
     @Test func endedStartsAgain() {
-        var streak = FailureStreak(lasting: .seconds(300), gap: .seconds(300))
-        let first = [0, 300].map { streak.failed(at: t0 + TimeInterval($0)) }
+        var failures = ConsecutiveFailures(persistsFor: .seconds(300), gap: .seconds(300))
+        let first = [0, 300].map { failures.failed(at: t0 + TimeInterval($0)) }
         #expect(first == [false, true])
 
-        streak.ended()
+        failures.ended()
 
-        let next = [400, 700].map { streak.failed(at: t0 + TimeInterval($0)) }
+        let next = [400, 700].map { failures.failed(at: t0 + TimeInterval($0)) }
         #expect(next == [false, true])
     }
 
-    /// Two failures either side of a suspended app are not one lasting failure.
+    /// Two failures either side of a suspended app are not one persistent failure.
     @Test func aLongGapStartsAgain() {
-        var streak = FailureStreak(lasting: .seconds(300))
+        var failures = ConsecutiveFailures(persistsFor: .seconds(300))
 
         let resumed: TimeInterval = 8 * 3600
         let times: [TimeInterval] = [0, 60, resumed, resumed + 120, resumed + 240, resumed + 300]
-        let reported = times.map { streak.failed(at: t0 + $0) }
+        let reported = times.map { failures.failed(at: t0 + $0) }
 
         #expect(reported == [false, false, false, false, false, true])
     }
@@ -63,9 +63,9 @@ func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
     #expect(!isReportableFailure(wrapped))
 }
 
-/// A run loop's failing streak reports once it has lasted, whatever the backoff in between.
+/// A run loop reports consecutive failures once they persist, whatever the backoff in between.
 @MainActor
-@Suite struct SyncLoopLastingFailureTests {
+@Suite struct SyncLoopPersistentFailureTests {
     enum Outcome {
         case success, failure, unreportable, offline, stopped
     }
@@ -88,7 +88,7 @@ func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
             afterRun: { state.finished += 1 },
             now: { clock.now },
             isReportable: { _, error in !(error is Unreportable) },
-            onLastingFailure: { status, _ in state.lasting.append(status) },
+            onPersistentFailure: { status, _ in state.persistent.append(status) },
             run: {
                 switch state.outcome {
                 case .success: return
@@ -118,25 +118,25 @@ func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
         }
     }
 
-    @Test func lastingFailureReportsOncePerStreak() async throws {
+    @Test func persistentFailureReportsOncePerRunOfFailures() async throws {
         for seconds in stride(from: 0, through: 3600, by: 60) {
             try await run(.failure, at: seconds)
         }
 
-        #expect(state.lasting == [.error])
+        #expect(state.persistent == [.error])
         loop.cancelRetry()
     }
 
-    @Test func streakThatClearsReportsNothing() async throws {
+    @Test func failuresThatClearReportNothing() async throws {
         for seconds in stride(from: 0, through: 240, by: 60) {
             try await run(.failure, at: seconds)
         }
         try await run(.success, at: 300)
 
-        #expect(state.lasting.isEmpty)
+        #expect(state.persistent.isEmpty)
     }
 
-    @Test func offlineRunEndsTheStreak() async throws {
+    @Test func offlineRunEndsTheConsecutiveFailures() async throws {
         for seconds in stride(from: 0, through: 240, by: 60) {
             try await run(.failure, at: seconds)
         }
@@ -144,15 +144,15 @@ func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
         for seconds in stride(from: 300, through: 540, by: 60) {
             try await run(.failure, at: seconds)
         }
-        #expect(state.lasting.isEmpty)
+        #expect(state.persistent.isEmpty)
 
         try await run(.failure, at: 600)
 
-        #expect(state.lasting == [.error])
+        #expect(state.persistent == [.error])
         loop.cancelRetry()
     }
 
-    @Test func unreportableFailureEndsTheStreak() async throws {
+    @Test func unreportableFailureEndsTheConsecutiveFailures() async throws {
         for seconds in stride(from: 0, through: 240, by: 60) {
             try await run(.failure, at: seconds)
         }
@@ -160,16 +160,16 @@ func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
         for seconds in stride(from: 300, through: 540, by: 60) {
             try await run(.failure, at: seconds)
         }
-        #expect(state.lasting.isEmpty)
+        #expect(state.persistent.isEmpty)
 
         try await run(.failure, at: 600)
 
-        #expect(state.lasting == [.error])
+        #expect(state.persistent == [.error])
         loop.cancelRetry()
     }
 
-    /// A stopped run neither failed nor landed, so the streak around it carries on.
-    @Test func stoppedRunLeavesTheStreakRunning() async throws {
+    /// A stopped run neither failed nor landed, so the consecutive failures around it carry on.
+    @Test func stoppedRunLeavesTheConsecutiveFailuresCounting() async throws {
         for seconds in stride(from: 0, through: 240, by: 60) {
             try await run(.failure, at: seconds)
         }
@@ -180,7 +180,7 @@ func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
 
         try await run(.failure, at: 300)
 
-        #expect(state.lasting == [.error])
+        #expect(state.persistent == [.error])
         loop.cancelRetry()
     }
 }
@@ -188,7 +188,7 @@ func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
 /// What a test loop's run does next, and what the loop has reported.
 @MainActor
 final class LoopScript {
-    var outcome = SyncLoopLastingFailureTests.Outcome.success
+    var outcome = SyncLoopPersistentFailureTests.Outcome.success
     var finished = 0
-    var lasting: [SyncStatus] = []
+    var persistent: [SyncStatus] = []
 }

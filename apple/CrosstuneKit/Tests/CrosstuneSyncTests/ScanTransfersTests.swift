@@ -247,7 +247,7 @@ import Testing
         #expect(try await file("p1")?.origin == .downloaded)
     }
 
-    @Test func quotaRefusalMarksTheScanStorageFullUntilTheFiguresShowRoom() async throws {
+    @Test func quotaRefusalMarksTheScanStorageFullUntilTheUsageShowRoom() async throws {
         let image = try await capturedScan("p1", image: "0123456789")
         api.transferFailures["scan-slot p1"] = APIStatusError(
             status: 413, problemType: quotaProblem, detail: "This scan would pass your storage quota.")
@@ -263,11 +263,11 @@ import Testing
         #expect(engine.transferStatus == .idle)
 
         api.transferFailures = [:]
-        try await store.setMeta(.storage, to: StorageFigures(usedBytes: 95, quotaBytes: 100, maxFileBytes: 50))
+        try await store.setMeta(.storage, to: StorageUsage(usedBytes: 95, quotaBytes: 100, maxFileBytes: 50))
         await engine.transfer()
         #expect(api.transfers == ["scan-slot p1"])
 
-        try await store.setMeta(.storage, to: StorageFigures(usedBytes: 50, quotaBytes: 100, maxFileBytes: 50))
+        try await store.setMeta(.storage, to: StorageUsage(usedBytes: 50, quotaBytes: 100, maxFileBytes: 50))
         await engine.transfer()
         #expect(api.transfers == ["scan-slot p1", "scan-slot p1", "put p1", "scan-confirm p1"])
         #expect(try await self.file("p1")?.error == nil)
@@ -615,7 +615,7 @@ import Testing
         #expect(try await file("p2")?.origin == .downloaded)
     }
 
-    @Test func aScanRowHeldForPremiumWaitsWhileFreeAndIsPushedOncePremium() async throws {
+    @Test func aScanRowKeptLocalUntilSubscribedWaitsWhileFreeAndIsPushedOncePremium() async throws {
         try await storeEntitlement(store, source: "trial", expiresAt: later(86_400_000))
         try await capturedScan("p1", serverSeq: 0, queued: true)
         api.respondToPush = { changes in
@@ -627,7 +627,7 @@ import Testing
 
         await engine.sync()
         #expect(pushesOfP1() == 1)
-        #expect(try await store.read { db in try StoreWriter.premiumHolds(in: db) } == ["p1"])
+        #expect(try await store.read { db in try StoreWriter.localOnlyRows(in: db) } == ["p1"])
 
         // Still free: the held scan stays out of the push, and its image waits.
         try await storeEntitlement(store, source: nil)
@@ -640,7 +640,7 @@ import Testing
         await engine.sync()
 
         #expect(pushesOfP1() == 2)
-        #expect(try await store.read { db in try StoreWriter.premiumHolds(in: db) }.isEmpty)
+        #expect(try await store.read { db in try StoreWriter.localOnlyRows(in: db) }.isEmpty)
         #expect(try await file("p1")?.error == nil)
     }
 

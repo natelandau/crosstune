@@ -131,7 +131,7 @@ public enum RecordingScreenText {
     /// Why the waveform, transport, and modes cannot be used now, or nil when they can: the take
     /// is still being recorded, or its audio is downloading. A pending trim does not touch them,
     /// so it does not block.
-    static func screenBlocker(file: RecordingFile?, downloading: Bool) -> String? {
+    static func screenUnavailableReason(file: RecordingFile?, downloading: Bool) -> String? {
         if file?.localState == .capturing { return trimWhileRecording }
         if downloading || file?.localState == .downloading { return trimWhileDownloading }
         return nil
@@ -139,7 +139,7 @@ public enum RecordingScreenText {
 
     /// Why Trim cannot be used now, or nil when it can: the take is still being recorded, its
     /// audio is not here yet, or the server has yet to cut the last trim.
-    static func trimBlocker(
+    static func trimDisabledReason(
         _ recording: Recording, file: RecordingFile?, audio: RecordingAudio?, offline: Bool = false
     ) -> String? {
         if file?.localState == .capturing { return trimWhileRecording }

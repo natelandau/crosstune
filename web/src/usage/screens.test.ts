@@ -3,11 +3,11 @@ import { expect, it } from 'vitest'
 import { appRoutes } from '../app/routes'
 import { screenFor } from './screens'
 
-// The addresses that show no screen: redirects, the component kit, and the not-found page.
+// The addresses that show no screen: redirects, the component gallery, and the not-found page.
 const NOT_SCREENS = [
   '/',
   '/sign-up',
-  '/kit',
+  '/gallery',
   '/tunes/:tuneId',
   '/settings/saved-locations/:placeId',
   '/*',
@@ -43,11 +43,11 @@ it.each([
   expect(screenFor(path, false)).toBe(screen)
 })
 
-it('maps the not-found page, the kit, and a redirect to nothing', () => {
+it('maps the not-found page, the gallery, and a redirect to nothing', () => {
   expect(screenFor('/settings/saved-locations/p1', false)).toBeNull()
   expect(screenFor('/catalog/t1', true)).toBeNull()
   expect(screenFor('/nowhere', true)).toBeNull()
-  expect(screenFor('/kit', false)).toBeNull()
+  expect(screenFor('/gallery', false)).toBeNull()
   expect(screenFor('/', false)).toBeNull()
 })
 

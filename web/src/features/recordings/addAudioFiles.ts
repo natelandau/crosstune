@@ -20,9 +20,9 @@ async function addAudioFile(db: CrosstuneDb, file: File, tuneId: string | null) 
   if (file.size === 0) throw new Error(EMPTY_FILE_ERROR)
   // Read at the moment of the check, so a file picked right after the screen opens is held
   // to the cached limit rather than slipping past an unread one.
-  const figures = await getStorage(db)
-  if (figures && file.size > figures.max_file_bytes) {
-    throw new Error(`Files are limited to ${formatBytes(figures.max_file_bytes)}.`)
+  const usage = await getStorage(db)
+  if (usage && file.size > usage.max_file_bytes) {
+    throw new Error(`Files are limited to ${formatBytes(usage.max_file_bytes)}.`)
   }
   // Measured here, before the upload, so the file can be played and trimmed to its real
   // length while it is still only on this device.

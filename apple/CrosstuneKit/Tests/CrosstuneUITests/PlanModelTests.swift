@@ -111,7 +111,7 @@ private func pull(_ row: Entitlement, into store: CrosstuneStore) async throws {
         #expect(player.plan == nil)
     }
 
-    @Test func followsTheTakesHeldForPremium() async throws {
+    @Test func followsTheTakesKeptLocalUntilSubscribed() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let model = PlanModel(store: store)
@@ -119,11 +119,11 @@ private func pull(_ row: Entitlement, into store: CrosstuneStore) async throws {
         try await store.write { writer in
             try writer.put(
                 Recording(id: "r1", createdAt: noon, tuneID: nil, source: "microphone", addedAt: noon), at: noon)
-            try writer.holdForPremium(["r1"])
+            try writer.keepLocalUntilSubscribed(["r1"])
         }
-        try await eventually { model.heldForPremium == ["r1"] }
-        try await store.write { writer in try writer.releasePremiumHolds(["r1"]) }
-        try await eventually { model.heldForPremium.isEmpty }
+        try await eventually { model.isLocalUntilSubscribed == ["r1"] }
+        try await store.write { writer in try writer.releaseLocalOnlyRows(["r1"]) }
+        try await eventually { model.isLocalUntilSubscribed.isEmpty }
     }
 
     @Test func readsUnknownUntilARowIsStored() async throws {

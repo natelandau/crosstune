@@ -1,9 +1,9 @@
 import type { Table } from 'dexie'
 import type { ChangeResult, EventRow, PullRow } from '../api/types'
 import {
-  getPremiumHolds,
-  holdForPremium,
-  releasePremiumHolds,
+  getLocalOnlyRows,
+  keepLocalUntilSubscribed,
+  releaseLocalOnlyRows,
   setEventsCursor,
   setPullCursor,
 } from '../db/meta'
@@ -54,7 +54,7 @@ async function pendingByRow(db: CrosstuneDb): Promise<Map<string, OutboxEntry>> 
 
 /** A recording's or scan's upsert the server refused for Premium waits in the outbox; every
  * other result settles its entry. */
-function isHeld(entry: OutboxEntry, result: ChangeResult): boolean {
+function isLocalUntilSubscribed(entry: OutboxEntry, result: ChangeResult): boolean {
   return (
     result.status === 'invalid' &&
     result.reason === PREMIUM_REQUIRED_REASON &&
@@ -70,18 +70,19 @@ function awaitedRecording(entry: OutboxEntry, result: ChangeResult): string | nu
 }
 
 /**
- * Store what the server answered for a sent batch. `held` lists the recordings and scans it
- * refused for Premium: their entries stay queued and uncounted, since the device can judge Premium before
- * the server's grant agrees and the change is not lost. A row refused because its recording is
- * held stays queued the same way, to go out with it, and its recording is listed in `held` too.
+ * Store what the server answered for a sent batch. `keptLocal` lists the recordings and scans
+ * it refused for Premium: their entries stay queued and uncounted, since the device can judge
+ * Premium before the server's grant agrees and the change is not lost. A row refused because its
+ * recording is kept local stays queued the same way, to go out with it, and its recording is
+ * listed in `keptLocal` too.
  */
 export async function applyPushResults(
   db: CrosstuneDb,
   sent: OutboxEntry[],
   results: ChangeResult[],
-): Promise<{ invalid: InvalidChange[]; settled: number; held: string[] }> {
+): Promise<{ invalid: InvalidChange[]; settled: number; keptLocal: string[] }> {
   const invalid: InvalidChange[] = []
-  const held: string[] = []
+  const keptLocal: string[] = []
   let settled = 0
   const byKey = new Map(results.map((r) => [rowKey(r.table, r.id), r]))
   const tables = [...syncTables(db), ...eventTables(db), db.outbox, db.meta]
@@ -126,8 +127,8 @@ export async function applyPushResults(
         current.seq === entry.seq &&
         current.updated_at === entry.updated_at
       if (!unchanged) continue
-      if (isHeld(entry, result)) {
-        held.push(entry.row_id)
+      if (isLocalUntilSubscribed(entry, result)) {
+        keptLocal.push(entry.row_id)
         continue
       }
       const recordingId = awaitedRecording(entry, result)
@@ -140,23 +141,23 @@ export async function applyPushResults(
       settle(entry, result)
     }
 
-    const stillHeld = await getPremiumHolds(db)
-    for (const id of held) stillHeld.add(id)
-    for (const id of released) stillHeld.delete(id)
+    const localOnly = await getLocalOnlyRows(db)
+    for (const id of keptLocal) localOnly.add(id)
+    for (const id of released) localOnly.delete(id)
     const keptFor = new Set<string>()
     for (const { entry, result, recordingId } of waiting) {
-      if (stillHeld.has(recordingId)) keptFor.add(recordingId)
+      if (localOnly.has(recordingId)) keptFor.add(recordingId)
       else settle(entry, result)
     }
 
     for (const [table, rows] of stores) await storeFor(db, table).bulkPut(rows)
     for (const [table, ids] of rejectedEvents) await storeFor(db, table).bulkDelete(ids)
     await db.outbox.bulkDelete(settledSeqs)
-    await holdForPremium(db, held)
-    await releasePremiumHolds(db, released)
-    for (const id of keptFor) if (!held.includes(id)) held.push(id)
+    await keepLocalUntilSubscribed(db, keptLocal)
+    await releaseLocalOnlyRows(db, released)
+    for (const id of keptFor) if (!keptLocal.includes(id)) keptLocal.push(id)
   })
-  return { invalid, settled, held }
+  return { invalid, settled, keptLocal }
 }
 
 export async function applyPullPage(

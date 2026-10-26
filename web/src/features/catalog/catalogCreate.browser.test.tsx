@@ -3,7 +3,7 @@ import { afterEach, expect, it } from 'vitest'
 import { addToList, createList } from '../../commands/lists'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
-import { addOfferLabel, SEARCH_TUNES } from './catalogCopy'
+import { addTypedTitleLabel, SEARCH_TUNES } from './catalogCopy'
 import { clearFresh } from '../tune/freshTune'
 import { addedMessage, keptMessage, NOTES_SECTION } from '../tune/tuneScreenCopy'
 import { TUNE } from '../tune/tunePageCopy'
@@ -34,7 +34,9 @@ async function createFromSearch() {
   const app = await renderApp({ path: '/catalog', db })
   await search().fill(TITLE)
   await page
-    .getByRole('button', { name: addOfferLabel({ kind: 'create', title: TITLE, another: false }) })
+    .getByRole('button', {
+      name: addTypedTitleLabel({ kind: 'create', title: TITLE, another: false }),
+    })
     .click()
   await expect.poll(() => created(db)).toBeDefined()
   const tuneId = (await created(db))!.id

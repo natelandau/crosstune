@@ -28,7 +28,7 @@ class Step(StrEnum):
 
 @dataclass(frozen=True)
 class NoticeState:
-    """The stored warnings for an account, mirroring `InactivityNotice`."""
+    """The stored warnings for an account, matching `InactivityNotice`."""
 
     active_since: datetime
     first_sent_at: datetime | None

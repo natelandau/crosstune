@@ -20,7 +20,7 @@ from crosstune.billing.withdrawal import PENDING
 from crosstune.client_version import ClientVersion, is_blocked, parse_version
 from crosstune.db.base import utc_now
 from crosstune.db.engine import make_engine, make_sessionmaker
-from crosstune.models import ClientVersionSighting, Entitlement, Grant, User
+from crosstune.models import AccountClientVersion, Entitlement, Grant, User
 from crosstune.ops.billing import BillingCommandError, check_target, load_settings
 from crosstune.vocabulary import CONSENT_COUNTRIES
 
@@ -132,12 +132,12 @@ async def version_counts(
     """
     stmt = (
         select(
-            ClientVersionSighting.platform,
-            ClientVersionSighting.version,
+            AccountClientVersion.platform,
+            AccountClientVersion.version,
             func.count(),
         )
-        .where(ClientVersionSighting.last_seen_at >= now - timedelta(days=active_days))
-        .group_by(ClientVersionSighting.platform, ClientVersionSighting.version)
+        .where(AccountClientVersion.last_seen_at >= now - timedelta(days=active_days))
+        .group_by(AccountClientVersion.platform, AccountClientVersion.version)
     )
     rows: list[tuple[str, str, int, Version | None]] = [
         (platform, version, accounts, parse_version(version))

@@ -12,6 +12,6 @@ export const recordedAtNote = (time: string) => `Recorded at ${time}`
 export const ADD_TO_TUNE = 'Add to tune'
 
 /** The meta line of a take the server refused for Premium, which waits on this device. */
-export const HELD_FOR_PREMIUM = 'On this device only. Syncs when you subscribe.'
+export const LOCAL_UNTIL_SUBSCRIBED = 'On this device only. Syncs when you subscribe.'
 /** Why a recording a free plan does not play is dimmed, heard after its row's name. */
 export const SUBSCRIBE_TO_PLAY = 'Subscribe to play'

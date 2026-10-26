@@ -12,7 +12,7 @@ KNOWN_PLATFORMS: frozenset[str] = APPLE_PLATFORMS | {"web"}
 type Version = tuple[int, int, int]
 
 # ASCII digits only: `\d` would also accept digits from other scripts. Nine digits a part
-# keeps `int()` cheap and the text within the sighting's column.
+# keeps `int()` cheap and the text within the `client_versions` column.
 _VERSION = re.compile(r"[0-9]{1,9}(\.[0-9]{1,9}){0,2}")
 
 

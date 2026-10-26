@@ -27,11 +27,11 @@ import Testing
             FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil)?
             .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" } ?? []
         #expect(!files.isEmpty)
-        let offenders = try files.filter { file in
+        let violations = try files.filter { file in
             let source = try String(contentsOf: file, encoding: .utf8)
             return source.contains(".borderedProminent") || source.contains(".glassProminent")
         }.map(\.lastPathComponent).filter { $0 != "AccentProminent.swift" }.sorted()
-        #expect(offenders.isEmpty, "System prominent styles outside AccentProminent: \(offenders)")
+        #expect(violations.isEmpty, "System prominent styles outside AccentProminent: \(violations)")
     }
 
     /// A set filter's label, the accent in light mode and ink in dark mode, on its wash over

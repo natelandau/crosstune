@@ -36,7 +36,7 @@ public struct AppShell: View {
     #endif
     @State private var catalog: CatalogModel?
     @State private var recordings: RecordingsModel?
-    @State private var addedTune: AddedTuneOffer?
+    @State private var addedTune: AddedTuneUndo?
     @State private var counts: LiveQuery<CatalogCounts?>?
     @State private var take: RecordTake?
     @State private var openSheets = ShellCover()
@@ -48,7 +48,7 @@ public struct AppShell: View {
     @State private var place = ShellPlace()
     @State private var playerWindow = UUID()
     @State private var padPracticeVisit = PadPracticeVisit()
-    @State private var recentTake = RecentTake()
+    @State private var recentRecording = RecentRecording()
     /// Made again for each plan, which is made again for each store.
     @State private var premium: PremiumPresenter?
     /// Made again for each plan, as `premium` is, and only in a build that offers purchases.
@@ -133,7 +133,7 @@ public struct AppShell: View {
             .environment(\.commands, Commands(store: store))
             .environment(player)
             .environment(recorders)
-            .environment(recentTakeForPlatform)
+            .environment(recentRecordingForPlatform)
             .environment(catalog)
             .environment(recordings)
             .environment(addedTune)
@@ -162,7 +162,7 @@ public struct AppShell: View {
             .modifier(
                 ShellControls(
                     player: player, playback: listPlayback, window: playerWindow,
-                    isActive: MenuGates.controls(sheetsOpen: openSheets.isCovered), show: show(_:))
+                    isActive: MenuCommandAvailability.controls(sheetsOpen: openSheets.isCovered), show: show(_:))
             )
             // Made here rather than by their screens, which a Mac or iPad sidebar tears down, so
             // each search lasts the app session and leaves with the signed-in shell.
@@ -173,7 +173,7 @@ public struct AppShell: View {
                         .flatMap(CatalogSortChoice.init(rawValue:)) ?? .default,
                     analytics: analytics)
                 recordings = RecordingsModel(store: store, analytics: analytics)
-                addedTune = AddedTuneOffer(store: store, analytics: analytics)
+                addedTune = AddedTuneUndo(store: store, analytics: analytics)
                 addedTune?.undoManager = undoManager
                 addedTune?.voiceOverRunning = voiceOver
                 counts = LiveQuery(store, initial: nil) { try CatalogCounts.fetch($0) }
@@ -223,9 +223,9 @@ public struct AppShell: View {
     }
 
     /// The highlight is the iPhone and iPad list's; the Mac's rows stay as they are.
-    private var recentTakeForPlatform: RecentTake? {
+    private var recentRecordingForPlatform: RecentRecording? {
         #if os(iOS)
-            recentTake
+            recentRecording
         #else
             nil
         #endif
@@ -257,7 +257,7 @@ public struct AppShell: View {
     }
 
     private var canRecord: Bool {
-        MenuGates.record(
+        MenuCommandAvailability.record(
             sheetsOpen: openSheets.isCovered, selecting: selecting.isCovered,
             takePending: !RecordTake.mayReplace(take), capturing: recorders.isCapturing)
     }
@@ -309,7 +309,8 @@ public struct AppShell: View {
         // Playback would be recorded along with the instrument.
         PlayerBar.closePlayer(player, listPlayback)
         let model = RecordSheetModel(
-            recorder: recorders.recorder(for: store), tuneID: tuneID, recentTake: recentTakeForPlatform, source: source,
+            recorder: recorders.recorder(for: store), tuneID: tuneID, recentRecording: recentRecordingForPlatform,
+            source: source,
             analytics: analytics, locationAccess: locationAccess)
         take = RecordTake(model: model)
         #if os(iOS)

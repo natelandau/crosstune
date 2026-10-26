@@ -149,7 +149,7 @@ describe('scanUploadPass', () => {
     expect(await (await db.scan_files.get(scanId))?.blob.text()).toBe(IMAGE)
   })
 
-  it('does not retry a storage-full scan until the storage figures show room', async () => {
+  it('does not retry a storage-full scan until storage usage shows room', async () => {
     const { scanId } = await capturedScan()
     await pushedEverything()
     fake.failSlot(quotaRefusal())

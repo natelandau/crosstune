@@ -5,7 +5,7 @@ import type * as ListsModule from '../../commands/lists'
 import { deleteList, moveItem } from '../../commands/lists'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalList, LocalListItem } from '../../db/types'
-import { SEARCH_TUNES, TUNE_LIST, SELECT_TUNES, addOfferLabel } from '../catalog/catalogCopy'
+import { SEARCH_TUNES, TUNE_LIST, SELECT_TUNES, addTypedTitleLabel } from '../catalog/catalogCopy'
 import { EDITED_YESTERDAY, editedLabel } from './editedLabel'
 import {
   ADD_LIST,
@@ -439,7 +439,7 @@ it('the list picker adds a new tune and stays open', async () => {
   await dialog.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally Goodin')
   await dialog
     .getByRole('button', {
-      name: addOfferLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
+      name: addTypedTitleLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
     })
     .click()
   const added = dialog.getByRole('row', { name: /Sally Goodin/ })

@@ -9,7 +9,7 @@ import anyio.to_thread
 import pytest
 
 from crosstune.db.base import new_uuid7
-from crosstune.models import ClientVersionSighting, Entitlement, Grant, User
+from crosstune.models import AccountClientVersion, Entitlement, Grant, User
 from crosstune.ops import stats
 from crosstune.ops.stats import CountryRow, VersionRow
 
@@ -158,14 +158,14 @@ async def test_counts_withdrawals_refunded_but_not_cancelled(session: AsyncSessi
     assert await stats.refunded_not_cancelled(session) == 1
 
 
-async def _sighting(
+async def _add_client_version(
     session: AsyncSession, platform: str, version: str, *, seen_days_ago: int = 1
 ) -> None:
     user_id = new_uuid7()
     session.add(User(id=user_id, clerk_user_id=f"user_{user_id.hex[-12:]}", created_at=NOW))
     await session.flush()
     session.add(
-        ClientVersionSighting(
+        AccountClientVersion(
             user_id=user_id,
             platform=platform,
             version=version,
@@ -176,11 +176,11 @@ async def _sighting(
 
 
 async def _seed_versions(session: AsyncSession) -> None:
-    await _sighting(session, "ios", "1.10.0")
-    await _sighting(session, "ios", "1.10.0", seen_days_ago=29)
-    await _sighting(session, "ios", "1.9.0")
-    await _sighting(session, "macos", "1.2.0")
-    await _sighting(session, "ios", "1.0.0", seen_days_ago=40)
+    await _add_client_version(session, "ios", "1.10.0")
+    await _add_client_version(session, "ios", "1.10.0", seen_days_ago=29)
+    await _add_client_version(session, "ios", "1.9.0")
+    await _add_client_version(session, "macos", "1.2.0")
+    await _add_client_version(session, "ios", "1.0.0", seen_days_ago=40)
 
 
 async def test_version_counts_window_and_order(session: AsyncSession) -> None:
@@ -196,8 +196,8 @@ async def test_version_counts_window_and_order(session: AsyncSession) -> None:
 
 
 async def test_version_counts_never_block_web_or_without_a_floor(session: AsyncSession) -> None:
-    await _sighting(session, "web", "0.1.0")
-    await _sighting(session, "ios", "1.0.0")
+    await _add_client_version(session, "web", "0.1.0")
+    await _add_client_version(session, "ios", "1.0.0")
 
     with_floor = await stats.version_counts(session, NOW, 30, (9, 0, 0))
     without_floor = await stats.version_counts(session, NOW, 30, None)
@@ -207,8 +207,8 @@ async def test_version_counts_never_block_web_or_without_a_floor(session: AsyncS
 
 
 async def test_version_counts_put_unparsable_versions_last(session: AsyncSession) -> None:
-    await _sighting(session, "ios", "garbage")
-    await _sighting(session, "ios", "1.2.0")
+    await _add_client_version(session, "ios", "garbage")
+    await _add_client_version(session, "ios", "1.2.0")
 
     rows = await stats.version_counts(session, NOW, 30, (2, 0, 0))
 
@@ -241,7 +241,7 @@ async def test_main_prints_versions_without_yes(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setattr(stats, "load_settings", lambda: settings)
-    await _sighting(verify_session, "ios", "1.4.0", seen_days_ago=0)
+    await _add_client_version(verify_session, "ios", "1.4.0", seen_days_ago=0)
     await verify_session.commit()
 
     code = await anyio.to_thread.run_sync(stats.main, ["versions"])

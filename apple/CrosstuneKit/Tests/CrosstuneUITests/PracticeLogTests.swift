@@ -117,205 +117,205 @@ private func loop(_ id: String) -> RecordingLoop {
         add: { _, _ in throw CancellationError() }, update: { _, _, _ in }, remove: { _ in })
 
     @Test func openingTheScreenEndsTheDockPlayAndAnOrdinaryVisitIsAScreenPlay() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording(origin: .row)
-        rig.clock.advance(15_000)
-        rig.player.screenOpened("r1")
-        #expect(rig.recorded.plays.map(\.context) == ["row"])
-        #expect(rig.recorded.plays.map(\.listenedMs) == [15_000])
-        rig.clock.advance(12_000)
-        rig.player.screenClosed()
-        #expect(rig.recorded.plays.map(\.context) == ["row", "recording_screen"])
-        #expect(rig.recorded.plays.last?.listenedMs == 12_000)
-        #expect(rig.recorded.sessions.isEmpty)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording(origin: .row)
+        fixture.clock.advance(15_000)
+        fixture.player.screenOpened("r1")
+        #expect(fixture.recorded.plays.map(\.context) == ["row"])
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [15_000])
+        fixture.clock.advance(12_000)
+        fixture.player.screenClosed()
+        #expect(fixture.recorded.plays.map(\.context) == ["row", "recording_screen"])
+        #expect(fixture.recorded.plays.last?.listenedMs == 12_000)
+        #expect(fixture.recorded.sessions.isEmpty)
     }
 
     @Test func aSlowedDownVisitIsPracticeAndNotAlsoAPlay() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.player.screenOpened("r1")
-        rig.player.setSpeed(80)
-        try await rig.fed { $0.speedPercent == 80 }
-        rig.clock.advance(20_000)
-        rig.player.screenClosed()
-        #expect(rig.recorded.plays.isEmpty)
-        let session = try #require(rig.recorded.sessions.only)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.player.screenOpened("r1")
+        fixture.player.setSpeed(80)
+        try await fixture.fed { $0.speedPercent == 80 }
+        fixture.clock.advance(20_000)
+        fixture.player.screenClosed()
+        #expect(fixture.recorded.plays.isEmpty)
+        let session = try #require(fixture.recorded.sessions.only)
         #expect(session.recordingID == "r1")
         #expect(session.speedPercent == 80)
         #expect(session.durationMs == 20_000)
     }
 
     @Test func onlyTheLatestScreenToOpenClosesTheVisit() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
         let first = UUID()
         let second = UUID()
-        rig.player.screenOpened("r1", by: first)
-        rig.player.setSpeed(80)
-        try await rig.fed { $0.speedPercent == 80 }
-        rig.clock.advance(5_000)
+        fixture.player.screenOpened("r1", by: first)
+        fixture.player.setSpeed(80)
+        try await fixture.fed { $0.speedPercent == 80 }
+        fixture.clock.advance(5_000)
         // A second window shows the same recording, then the first window's screen goes.
-        rig.player.screenOpened("r1", by: second)
-        rig.player.screenClosed(by: first)
-        rig.clock.advance(15_000)
-        #expect(rig.recorded.sessions.isEmpty)
+        fixture.player.screenOpened("r1", by: second)
+        fixture.player.screenClosed(by: first)
+        fixture.clock.advance(15_000)
+        #expect(fixture.recorded.sessions.isEmpty)
 
-        rig.player.screenClosed(by: second)
-        let session = try #require(rig.recorded.sessions.only)
+        fixture.player.screenClosed(by: second)
+        let session = try #require(fixture.recorded.sessions.only)
         #expect(session.durationMs == 20_000)
     }
 
     @Test func anotherRecordingPlayingWhileTheScreenShowsCountsTowardNoVisit() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording("r1")
-        rig.player.setSpeed(80)
-        try await rig.fed { $0.speedPercent == 80 }
-        rig.player.screenOpened("r2")
+        let fixture = ActivityFixture()
+        try await fixture.playRecording("r1")
+        fixture.player.setSpeed(80)
+        try await fixture.fed { $0.speedPercent == 80 }
+        fixture.player.screenOpened("r2")
         // A pause and resume from the lock screen, while r1 is still the one loaded.
-        try await rig.pause()
-        try await rig.resume()
-        rig.clock.advance(20_000)
-        rig.player.screenClosed()
-        #expect(rig.recorded.sessions.isEmpty)
-        #expect(rig.recorded.plays.isEmpty)
+        try await fixture.pause()
+        try await fixture.resume()
+        fixture.clock.advance(20_000)
+        fixture.player.screenClosed()
+        #expect(fixture.recorded.sessions.isEmpty)
+        #expect(fixture.recorded.plays.isEmpty)
     }
 
     @Test func aLoopPlayedOnTheScreenIsPractice() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.player.screenOpened("r1")
-        rig.player.loopsChanged(id: "r1", to: [loop("loop1")])
-        rig.player.loops.select("loop1")
-        try await rig.fed { $0.loopID == "loop1" }
-        rig.clock.advance(12_000)
-        rig.player.screenClosed()
-        #expect(rig.recorded.plays.isEmpty)
-        #expect(rig.recorded.sessions.only?.loopIDs == ["loop1"])
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.player.screenOpened("r1")
+        fixture.player.loopsChanged(id: "r1", to: [loop("loop1")])
+        fixture.player.loops.select("loop1")
+        try await fixture.fed { $0.loopID == "loop1" }
+        fixture.clock.advance(12_000)
+        fixture.player.screenClosed()
+        #expect(fixture.recorded.plays.isEmpty)
+        #expect(fixture.recorded.sessions.only?.loopIDs == ["loop1"])
     }
 
     @Test func playingOnInTheDockAfterTheScreenIsAFreshPlay() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.player.screenOpened("r1")
-        rig.player.setSpeed(80)
-        try await rig.fed { $0.speedPercent == 80 }
-        rig.clock.advance(20_000)
-        rig.player.screenClosed()
-        rig.clock.advance(11_000)
-        rig.player.close()
-        #expect(rig.recorded.sessions.map(\.durationMs) == [20_000])
-        #expect(rig.recorded.plays.map(\.context) == ["dock"])
-        #expect(rig.recorded.plays.map(\.listenedMs) == [11_000])
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.player.screenOpened("r1")
+        fixture.player.setSpeed(80)
+        try await fixture.fed { $0.speedPercent == 80 }
+        fixture.clock.advance(20_000)
+        fixture.player.screenClosed()
+        fixture.clock.advance(11_000)
+        fixture.player.close()
+        #expect(fixture.recorded.sessions.map(\.durationMs) == [20_000])
+        #expect(fixture.recorded.plays.map(\.context) == ["dock"])
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [11_000])
     }
 
     @Test func trimTimeYieldsNoPlay() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.player.screenOpened("r1")
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.player.screenOpened("r1")
         // The trim screen plays at normal speed and pitch while it shows.
-        rig.player.hold("r1", PlaybackSettings(speedPercent: 100, pitchCents: 0))
-        try await rig.fed { $0.trimming && $0.playing }
-        rig.clock.advance(30_000)
-        rig.player.screenClosed()
-        #expect(rig.recorded.sessions.isEmpty)
-        #expect(rig.recorded.plays.isEmpty)
+        fixture.player.hold("r1", PlaybackSettings(speedPercent: 100, pitchCents: 0))
+        try await fixture.fed { $0.trimming && $0.playing }
+        fixture.clock.advance(30_000)
+        fixture.player.screenClosed()
+        #expect(fixture.recorded.sessions.isEmpty)
+        #expect(fixture.recorded.plays.isEmpty)
         // Playing on in the dock afterward is a play of its own.
-        rig.player.hold("r1", nil)
-        rig.clock.advance(11_000)
-        rig.player.close()
-        #expect(rig.recorded.plays.map(\.context) == ["dock"])
-        #expect(rig.recorded.plays.map(\.listenedMs) == [11_000])
+        fixture.player.hold("r1", nil)
+        fixture.clock.advance(11_000)
+        fixture.player.close()
+        #expect(fixture.recorded.plays.map(\.context) == ["dock"])
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [11_000])
     }
 
     @Test func leavingTheForegroundPausedOnTheScreenWritesThePracticeSoFar() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.player.screenOpened("r1")
-        rig.player.setSpeed(80)
-        try await rig.fed { $0.speedPercent == 80 }
-        rig.clock.advance(20_000)
-        try await rig.pause()
-        rig.player.leftForeground()
-        #expect(rig.recorded.sessions.map(\.durationMs) == [20_000])
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.player.screenOpened("r1")
+        fixture.player.setSpeed(80)
+        try await fixture.fed { $0.speedPercent == 80 }
+        fixture.clock.advance(20_000)
+        try await fixture.pause()
+        fixture.player.leftForeground()
+        #expect(fixture.recorded.sessions.map(\.durationMs) == [20_000])
         // The screen still open starts a visit of its own.
-        try await rig.resume()
-        rig.clock.advance(15_000)
-        rig.player.screenClosed()
-        #expect(rig.recorded.sessions.map(\.durationMs) == [20_000, 15_000])
-        #expect(rig.recorded.plays.isEmpty)
+        try await fixture.resume()
+        fixture.clock.advance(15_000)
+        fixture.player.screenClosed()
+        #expect(fixture.recorded.sessions.map(\.durationMs) == [20_000, 15_000])
+        #expect(fixture.recorded.plays.isEmpty)
     }
 
     @Test func leavingTheForegroundPlayingOnTheScreenKeepsOneVisit() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.player.screenOpened("r1")
-        rig.player.setSpeed(80)
-        try await rig.fed { $0.speedPercent == 80 }
-        rig.clock.advance(20_000)
-        rig.player.leftForeground()
-        #expect(rig.recorded.sessions.isEmpty)
-        rig.clock.advance(15_000)
-        rig.player.screenClosed()
-        #expect(rig.recorded.sessions.map(\.durationMs) == [35_000])
-        #expect(rig.recorded.plays.isEmpty)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.player.screenOpened("r1")
+        fixture.player.setSpeed(80)
+        try await fixture.fed { $0.speedPercent == 80 }
+        fixture.clock.advance(20_000)
+        fixture.player.leftForeground()
+        #expect(fixture.recorded.sessions.isEmpty)
+        fixture.clock.advance(15_000)
+        fixture.player.screenClosed()
+        #expect(fixture.recorded.sessions.map(\.durationMs) == [35_000])
+        #expect(fixture.recorded.plays.isEmpty)
     }
 
     @Test func closingThePlayerOnTheScreenDecidesTheVisitOnce() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.player.screenOpened("r1")
-        rig.player.setSpeed(80)
-        try await rig.fed { $0.speedPercent == 80 }
-        rig.clock.advance(20_000)
-        rig.player.close()
-        rig.player.screenClosed()
-        #expect(rig.recorded.sessions.map(\.durationMs) == [20_000])
-        #expect(rig.recorded.plays.isEmpty)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.player.screenOpened("r1")
+        fixture.player.setSpeed(80)
+        try await fixture.fed { $0.speedPercent == 80 }
+        fixture.clock.advance(20_000)
+        fixture.player.close()
+        fixture.player.screenClosed()
+        #expect(fixture.recorded.sessions.map(\.durationMs) == [20_000])
+        #expect(fixture.recorded.plays.isEmpty)
     }
 
     @Test func theVisitFollowsTheLoadedRecordingWhenItChanges() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording("r1")
-        let first = PracticeModel(player: rig.player, recording: loggedTake("r1"), file: nil, writer: noLoopWrites)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording("r1")
+        let first = PracticeModel(player: fixture.player, recording: loggedTake("r1"), file: nil, writer: noLoopWrites)
         first.enter()
-        rig.player.setSpeed(80)
-        try await rig.fed { $0.speedPercent == 80 }
-        rig.clock.advance(12_000)
+        fixture.player.setSpeed(80)
+        try await fixture.fed { $0.speedPercent == 80 }
+        fixture.clock.advance(12_000)
         // A playlist moves on while the screen shows; the screen's view, keyed by recording,
         // is made again for the new one.
-        rig.player.playQueued(
+        fixture.player.playQueued(
             .recording(loggedTake("r2"), tuneTitle: nil), nowPlaying: NowPlaying(title: "r2", tuneTitle: nil),
             trigger: .autoAdvance)
-        #expect(rig.recorded.sessions.map(\.recordingID) == ["r1"])
+        #expect(fixture.recorded.sessions.map(\.recordingID) == ["r1"])
         first.leave()
-        let second = PracticeModel(player: rig.player, recording: loggedTake("r2"), file: nil, writer: noLoopWrites)
+        let second = PracticeModel(player: fixture.player, recording: loggedTake("r2"), file: nil, writer: noLoopWrites)
         second.enter()
-        #expect(rig.player.activity.screenRecordingID == "r2")
-        try await waitFor { rig.audio.isPlaying && rig.player.item?.id == "r2" }
-        rig.player.setSpeed(70)
-        try await rig.fed { $0.playing && $0.speedPercent == 70 }
-        rig.clock.advance(15_000)
-        rig.player.screenClosed()
-        #expect(rig.recorded.sessions.map(\.recordingID) == ["r1", "r2"])
-        #expect(rig.recorded.sessions.map(\.durationMs) == [12_000, 15_000])
+        #expect(fixture.player.activity.screenRecordingID == "r2")
+        try await waitFor { fixture.audio.isPlaying && fixture.player.item?.id == "r2" }
+        fixture.player.setSpeed(70)
+        try await fixture.fed { $0.playing && $0.speedPercent == 70 }
+        fixture.clock.advance(15_000)
+        fixture.player.screenClosed()
+        #expect(fixture.recorded.sessions.map(\.recordingID) == ["r1", "r2"])
+        #expect(fixture.recorded.sessions.map(\.durationMs) == [12_000, 15_000])
     }
 
     @Test func showingTheScreenAgainCarriesOnItsVisit() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        let model = PracticeModel(player: rig.player, recording: loggedTake(), file: nil, writer: noLoopWrites)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        let model = PracticeModel(player: fixture.player, recording: loggedTake(), file: nil, writer: noLoopWrites)
         model.enter()
-        rig.player.setSpeed(80)
-        try await rig.fed { $0.speedPercent == 80 }
-        rig.clock.advance(10_000)
+        fixture.player.setSpeed(80)
+        try await fixture.fed { $0.speedPercent == 80 }
+        fixture.clock.advance(10_000)
         // As on coming back from the trim screen.
         model.leave()
         model.enter()
-        rig.clock.advance(10_000)
-        rig.player.screenClosed()
-        #expect(rig.recorded.sessions.map(\.durationMs) == [20_000])
-        #expect(rig.recorded.sessions.map(\.speedPercent) == [80])
-        #expect(rig.recorded.plays.isEmpty)
+        fixture.clock.advance(10_000)
+        fixture.player.screenClosed()
+        #expect(fixture.recorded.sessions.map(\.durationMs) == [20_000])
+        #expect(fixture.recorded.sessions.map(\.speedPercent) == [80])
+        #expect(fixture.recorded.plays.isEmpty)
     }
 }
 
@@ -324,60 +324,60 @@ private func loop(_ id: String) -> RecordingLoop {
 @MainActor
 @Suite struct PracticeEndedTests {
     @Test func aPracticeVisitReportsTheToolsUsed() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.player.screenOpened("r1")
-        rig.player.loopsChanged(id: "r1", to: [loop("loop1")])
-        rig.player.loops.select("loop1")
-        rig.player.setSpeed(80)
-        try await rig.fed { $0.loopID == "loop1" && $0.speedPercent == 80 && $0.playing }
-        rig.clock.advance(120_000)
-        rig.player.screenClosed()
-        try await waitFor { !rig.sent("practice_ended").isEmpty }
-        let report = try #require(rig.sent("practice_ended").only)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.player.screenOpened("r1")
+        fixture.player.loopsChanged(id: "r1", to: [loop("loop1")])
+        fixture.player.loops.select("loop1")
+        fixture.player.setSpeed(80)
+        try await fixture.fed { $0.loopID == "loop1" && $0.speedPercent == 80 && $0.playing }
+        fixture.clock.advance(120_000)
+        fixture.player.screenClosed()
+        try await waitFor { !fixture.sent("practice_ended").isEmpty }
+        let report = try #require(fixture.sent("practice_ended").only)
         #expect(report["used_loops"] == .bool(true))
         #expect(report["used_speed"] == .bool(true))
         #expect(report["used_pitch"] == .bool(false))
         #expect(report["duration_bucket"] == .string("2-5m"))
         #expect(report["kind"] == .string("recorded"))
         #expect(report["recording_id"] == .string("r1"))
-        #expect(rig.sent("playback_ended").isEmpty)
+        #expect(fixture.sent("playback_ended").isEmpty)
     }
 
     @Test func aVisitThatWasNotPracticeIsAPlayFromTheScreen() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.player.screenOpened("r1")
-        rig.clock.advance(12_000)
-        rig.player.screenClosed()
-        try await waitFor { !rig.sent("playback_ended").isEmpty }
-        let report = try #require(rig.sent("playback_ended").only)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.player.screenOpened("r1")
+        fixture.clock.advance(12_000)
+        fixture.player.screenClosed()
+        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["source"] == .string("recording_screen"))
         #expect(report["ended_by"] == .string("closed"))
-        #expect(rig.sent("practice_ended").isEmpty)
+        #expect(fixture.sent("practice_ended").isEmpty)
     }
 
     @Test func aTakeFiledDuringThePracticeReportsItsNewTune() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording(tuneID: nil)
-        rig.player.screenOpened("r1")
-        rig.player.setSpeed(80)
-        try await rig.fed { $0.speedPercent == 80 && $0.playing }
-        rig.clock.advance(60_000)
-        rig.recorded.tunes["r1"] = "t9"
-        rig.player.screenClosed()
-        try await waitFor { !rig.sent("practice_ended").isEmpty }
-        #expect(rig.sent("practice_ended").only?["tune_id"] == .string("t9"))
+        let fixture = ActivityFixture()
+        try await fixture.playRecording(tuneID: nil)
+        fixture.player.screenOpened("r1")
+        fixture.player.setSpeed(80)
+        try await fixture.fed { $0.speedPercent == 80 && $0.playing }
+        fixture.clock.advance(60_000)
+        fixture.recorded.tunes["r1"] = "t9"
+        fixture.player.screenClosed()
+        try await waitFor { !fixture.sent("practice_ended").isEmpty }
+        #expect(fixture.sent("practice_ended").only?["tune_id"] == .string("t9"))
     }
 
     @Test func aTakeFiledDuringTheVisitReportsItsPlayUnderItsNewTune() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording(tuneID: nil)
-        rig.player.screenOpened("r1")
-        rig.clock.advance(12_000)
-        rig.recorded.tunes["r1"] = "t9"
-        rig.player.screenClosed()
-        try await waitFor { !rig.sent("playback_ended").isEmpty }
-        #expect(rig.sent("playback_ended").only?["tune_id"] == .string("t9"))
+        let fixture = ActivityFixture()
+        try await fixture.playRecording(tuneID: nil)
+        fixture.player.screenOpened("r1")
+        fixture.clock.advance(12_000)
+        fixture.recorded.tunes["r1"] = "t9"
+        fixture.player.screenClosed()
+        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        #expect(fixture.sent("playback_ended").only?["tune_id"] == .string("t9"))
     }
 }

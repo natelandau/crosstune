@@ -16,7 +16,7 @@ const SYNC_STATUSES: readonly SyncStatus[] = ['idle', 'syncing', 'offline', 'una
 
 /**
  * Mounts the app on a seeded local catalog with a signed-in test session and no network,
- * for `just web::kit-shots`. `fixture=signin` shows the sign-in screen instead, `sync` picks
+ * for `just web::gallery-shots`. `fixture=signin` shows the sign-in screen instead, `sync` picks
  * the status the fake sync engine reports, and `now`, an ISO time, fixes the clock the seed
  * dates count back from and every label reads, so two captures on different days agree.
  */

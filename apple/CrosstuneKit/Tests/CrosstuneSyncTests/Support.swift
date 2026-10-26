@@ -91,7 +91,7 @@ final class FakeSyncAPI: SyncAPI {
     /// Thrown by the storage call alone while set.
     var storageFailure: (any Error)?
     var pullQueue: [PullPage] = []
-    var figures = StorageFigures(usedBytes: 10, quotaBytes: 1_000, maxFileBytes: 100)
+    var usage = StorageUsage(usedBytes: 10, quotaBytes: 1_000, maxFileBytes: 100)
     var respondToPush: @MainActor ([Change]) async throws -> [PushResult] = { changes in
         changes.map { PushResult(table: $0.table, id: $0.id, status: .applied, row: FakeSyncAPI.echo($0)) }
     }
@@ -152,12 +152,12 @@ final class FakeSyncAPI: SyncAPI {
         if let failure { throw failure }
     }
 
-    func storage() async throws -> StorageFigures {
+    func storage() async throws -> StorageUsage {
         onRequest()
         if let failure { throw failure }
         storageCalls += 1
         if let storageFailure { throw storageFailure }
-        return figures
+        return usage
     }
 
     func resolveLink(url: String) async throws -> ResolvedLink {

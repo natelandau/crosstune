@@ -442,7 +442,7 @@ describe('uploadPass', () => {
     expect(await pendingFor(db, 'recordings', id)).toBeUndefined()
   })
 
-  it('skips a blocked row until storage figures show room for it', async () => {
+  it('skips a blocked row until storage usage shows room for it', async () => {
     const id = await captured()
     fake.failSlot(
       new ApiError(413, { type: QUOTA_PROBLEM, title: 't', status: 413, detail: 'full' }),
@@ -468,7 +468,7 @@ describe('uploadPass', () => {
     )
     await pushed(id)
     expect((await db.recording_files.get(id))?.local_state).toBe('blocked_quota')
-    // Figures that would otherwise skip the row without ever reaching the tombstone check.
+    // Usage that would otherwise skip the row without ever reaching the tombstone check.
     await setStorage(db, { used_bytes: 99, quota_bytes: 100, max_file_bytes: 50 })
     await db.recordings.update(id, { deleted_at: AT })
     await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
@@ -1244,7 +1244,7 @@ describe('upload reporting', () => {
     ])
   })
 
-  it('upload_failed is sent once for a failure streak, not for each retry', async () => {
+  it('upload_failed is sent once for consecutive failures, not for each retry', async () => {
     const id = await captured()
     fake.failSlot(refusal(500))
     await pushed(id)
@@ -1273,7 +1273,7 @@ describe('upload reporting', () => {
     await uploadPass(db, fake.api, reports)
     expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')
 
-    // The same file, queued again and failing again, is a new streak.
+    // The same file, queued again and failing again, starts a new run of failures.
     await db.recordings.update(id, { state: 'pending_upload' })
     await db.recording_files.update(id, { local_state: 'captured' })
     fake.failSlot(refusal(500))
@@ -1302,7 +1302,7 @@ describe('upload reporting', () => {
     expect(analytics.sends()).toEqual([])
   })
 
-  it('storage_limit_reached once per blocked streak with storage_used', async () => {
+  it('storage_limit_reached once per run of blocked attempts with storage_used', async () => {
     const id = await captured()
     fake.setStorage({ used_bytes: 20_000_000, quota_bytes: 25_000_000, max_file_bytes: 50 })
     fake.failSlot(quota())
@@ -1317,7 +1317,7 @@ describe('upload reporting', () => {
       { name: 'storage_limit_reached', props: { storage_used: '10-50MB' } },
     ])
 
-    // A blocked file that goes through ends the streak.
+    // A blocked file that goes through ends the run.
     fake.failSlot(null)
     await uploadPass(db, fake.api, createUploadReports(analytics))
     expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')
@@ -1332,7 +1332,7 @@ describe('upload reporting', () => {
     ])
   })
 
-  it('upload_failed is sent again after a blocked upload ends the streak', async () => {
+  it('upload_failed is sent again after a blocked upload ends the consecutive failures', async () => {
     const id = await captured()
     fake.failSlot(refusal(500))
     await pushed(id)
@@ -1366,12 +1366,12 @@ describe('upload reporting', () => {
     expect(analytics.sends()).toEqual([])
   })
 
-  it('a storage figures read failure never changes the upload outcome', async () => {
+  it('a storage usage read failure never changes the upload outcome', async () => {
     const id = await captured()
     fake.failSlot(quota())
     await pushed(id)
     await db.recording_files.update(id, { local_state: 'captured' })
-    // The pass reads the figures once itself; the report is the second read.
+    // The pass reads storage usage once itself; the report is the second read.
     vi.spyOn(db.meta, 'get')
       .mockResolvedValueOnce(undefined)
       .mockRejectedValue(new Error('read failed'))
@@ -1383,11 +1383,11 @@ describe('upload reporting', () => {
     expect(analytics.sends()).toEqual([])
   })
 
-  it('storage_limit_reached is not sent without storage figures', async () => {
+  it('storage_limit_reached is not sent without storage usage', async () => {
     const id = await captured()
     fake.failSlot(quota())
     const analytics = recordingAnalytics()
-    // As if the figures had never been fetched: the pass reads them from the db.
+    // As if storage usage had never been fetched: the pass reads them from the db.
     vi.spyOn(fake.api, 'me').mockRejectedValue(new ApiError(500, null))
 
     await runEngine(analytics)

@@ -34,13 +34,13 @@ final class HeldSleep {
         await withCheckedContinuation { pending = $0 }
     }
 
-    func isHeld() async {
+    func hasText() async {
         while pending == nil { await Task.yield() }
     }
 
     /// Ends the held sleep, as when its time is up.
     func elapse() async {
-        await isHeld()
+        await hasText()
         pending?.resume()
         pending = nil
     }
@@ -215,7 +215,7 @@ final class HeldSleep {
         let first = Task { await provider.currentLocation() }
         await fixRequested(manager)
         let second = Task { await provider.currentLocation() }
-        await clock.isHeld()
+        await clock.hasText()
         for _ in 0..<10 { await Task.yield() }
         provider.received([fix()])
         // A late duplicate callback resumes no one twice.
@@ -250,7 +250,7 @@ final class HeldSleep {
 
         manager.authorizationStatus = .authorizedAlways
         provider.authorizationChanged()
-        await clock.isHeld()
+        await clock.hasText()
         #expect(clock.requested == [DeviceLocationProvider.fixTimeout])
         provider.received([fix()])
 
@@ -275,7 +275,7 @@ final class HeldSleep {
         let manager = FakeLocationManager(status: .authorizedAlways)
         let provider = provider(manager)
         let first = Task { await provider.currentLocation() }
-        await clock.isHeld()
+        await clock.hasText()
         first.cancel()
         #expect(await first.value == nil)
 

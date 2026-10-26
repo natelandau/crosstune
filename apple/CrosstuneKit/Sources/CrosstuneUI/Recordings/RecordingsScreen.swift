@@ -56,7 +56,7 @@ private struct RecordingsContent: View {
 
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
-    @Environment(AddedTuneOffer.self) private var addedTune: AddedTuneOffer?
+    @Environment(AddedTuneUndo.self) private var addedTune: AddedTuneUndo?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.detailTune) private var detailTune
@@ -292,10 +292,13 @@ private struct RecordingsContent: View {
             if tuneID == nil { pushZooms = false }
         }
         // A tab the musician is not looking at stays alive, so it must not answer the menu.
-        .focusedSceneValue(\.recordingsSort, MenuGates.sort(isShown: isShown, sheetsOpen: sheetsOpen) ? $sort : nil)
+        .focusedSceneValue(
+            \.recordingsSort, MenuCommandAvailability.sort(isShown: isShown, sheetsOpen: sheetsOpen) ? $sort : nil
+        )
         .focusedSceneValue(
             \.findAction,
-            MenuGates.find(isShown: isShown, sheetsOpen: sheetsOpen) ? MenuAction { searchFocused = true } : nil
+            MenuCommandAvailability.find(isShown: isShown, sheetsOpen: sheetsOpen)
+                ? MenuAction { searchFocused = true } : nil
         )
         .coversShell(discarding != nil)
         .confirmationDialog(
@@ -521,7 +524,7 @@ private struct RecordingsContent: View {
         ) { kind in
             retry(view.id, kind)
         }
-        .newTakeHighlight(view.id)
+        .newRecordingHighlight(view.id)
         .mediaRowInsets()
         .unselectedRowGround(isSelected: openRecording?.wrappedValue == view.id)
         #if os(macOS)

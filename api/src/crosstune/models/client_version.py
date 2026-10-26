@@ -12,10 +12,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from crosstune.db.base import Base
 
 
-class ClientVersionSighting(Base):
+class AccountClientVersion(Base):
     """One row per account and platform, so a count of versions in use is a count of rows."""
 
-    __tablename__ = "client_version_sightings"
+    __tablename__ = "client_versions"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True

@@ -103,13 +103,13 @@ async function scheduleRetry(db: CrosstuneDb, id: string, cause: unknown): Promi
   })
 }
 
-/** What an upload pass reports, with the per-file failure streaks it has already reported. */
+/** What an upload pass reports, with the files whose consecutive failures it has reported. */
 export interface UploadReports {
-  /** A failed attempt that will be retried: sent once per streak, never while offline. */
+  /** A retried failed attempt: sent once per run of consecutive failures, never while offline. */
   failed(row: LocalRecording, cause: unknown): void
-  /** A permanent refusal: always sent (unless offline), and ends the streak. */
+  /** A permanent refusal: always sent (unless offline), and ends the consecutive failures. */
   refused(row: LocalRecording, cause: unknown): void
-  /** A file that settled or left the queue ends its streak. */
+  /** A file that settled or left the queue ends its consecutive failures. */
   ended(id: string): void
   storageLimit(db: CrosstuneDb): Promise<void>
 }
@@ -118,7 +118,7 @@ export function createUploadReports(
   analytics: AnalyticsClient,
   isOnline: () => boolean = () => navigator.onLine,
 ): UploadReports {
-  const streaks = new Set<string>()
+  const reportedFailures = new Set<string>()
   const send = (row: LocalRecording, cause: unknown): boolean => {
     // Offline is expected, not friction; the same test the transfer loop applies.
     if (!isOnline() || cause instanceof NoTokenError) return false
@@ -130,15 +130,15 @@ export function createUploadReports(
   }
   return {
     failed(row, cause) {
-      if (streaks.has(row.id)) return
-      if (send(row, cause)) streaks.add(row.id)
+      if (reportedFailures.has(row.id)) return
+      if (send(row, cause)) reportedFailures.add(row.id)
     },
     refused(row, cause) {
-      streaks.delete(row.id)
+      reportedFailures.delete(row.id)
       send(row, cause)
     },
-    ended: (id) => void streaks.delete(id),
-    // Without the figures nothing is sent, since a guessed use would land in the wrong bucket.
+    ended: (id) => void reportedFailures.delete(id),
+    // Without storage usage nothing is sent, since a guessed use would land in the wrong bucket.
     async storageLimit(db) {
       try {
         const storage = await getStorage(db)
@@ -317,7 +317,7 @@ export async function uploadPass(
   reports: UploadReports,
 ): Promise<unknown> {
   // Run before the quota skip below, so a blocked row whose recording was deleted
-  // elsewhere is cleaned up instead of being skipped forever by the figures check.
+  // elsewhere is cleaned up instead of being skipped forever by the storage usage check.
   await dropTombstonedFiles(db, reports)
   if (!recordingsPlayable(await readPlan(db, new Date()))) return null
 
@@ -329,7 +329,7 @@ export async function uploadPass(
   const nowMs = Date.now()
   let firstError: unknown = null
   for (const file of waiting) {
-    // A pass is the only place a blocked row is reconsidered, so re-check the figures
+    // A pass is the only place a blocked row is reconsidered, so re-check storage usage
     // rather than hammering the server with a slot request that will fail again.
     if (
       file.local_state === 'blocked_quota' &&
@@ -482,7 +482,7 @@ export interface DownloadRetries {
 }
 
 /** When the download pass may next try each recording whose download failed, backing off as
- * uploads do so a lasting error is not re-sent after every sync. Kept in memory: a reload
+ * uploads do so a persistent error is not re-sent after every sync. Kept in memory: a reload
  * tries each once more, and a Play tap fetches regardless. */
 export function createDownloadRetries(now: () => number = Date.now): DownloadRetries {
   const waits = new Map<string, { attempts: number; until: number }>()

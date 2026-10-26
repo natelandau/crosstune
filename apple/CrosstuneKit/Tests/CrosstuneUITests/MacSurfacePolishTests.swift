@@ -35,14 +35,14 @@
         /// A list's head is one height whether the play line, nothing, or the selection bar
         /// sits under its title, so entering selection never moves the rows.
         @Test func listHeadKeepsItsHeightWhateverItHolds() {
-            let offer = ListPlayOffer(
+            let offer = ListPlayAvailability(
                 report: PlaylistReport(playable: ["a"], skipped: [.nothing: ["b"]], total: 2), canStart: true,
                 onPlay: {}, onShuffle: {}, onWhatPlays: {})
             let bar = AnyView(
                 MacSelectionBar(
                     count: 1, allSelected: false, canSelectAll: true, onSelectAll: {}, actions: [], canAddToList: true,
                     isPending: false, onAction: { _ in }, onDone: {}))
-            func height(play: ListPlayOffer?, selecting: Bool) -> CGFloat {
+            func height(play: ListPlayAvailability?, selecting: Bool) -> CGFloat {
                 let head = MacListTitle(name: "Tuesday session", play: play, isSelecting: selecting)
                     .environment(\.selectionBar, bar)
                     .frame(width: 420)

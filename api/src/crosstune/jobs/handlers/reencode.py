@@ -1,4 +1,4 @@
-"""Re-cut a ready recording's playback file from its original at the current rate."""
+"""Rewrite a ready recording's playback file from its original at the current rate."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from crosstune.jobs.attempt import attempt_timeout, changed, load_claimed
-from crosstune.jobs.recovery import recover_failed_recut
+from crosstune.jobs.recovery import recover_failed_audio_rewrite
 from crosstune.jobs.reencode import reencode
 
 if TYPE_CHECKING:
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 async def run(ctx: JobContext, job: Job) -> None:
-    """Re-cut one recording's playback file from its original, never leaving ready.
+    """Rewrite one recording's playback file from its original, never leaving ready.
 
     Like a trim, the download and ffmpeg work run with no transaction open, and the
     superseded file is deleted only after the commit that stops pointing at it.
@@ -38,7 +38,7 @@ async def run(ctx: JobContext, job: Job) -> None:
                 # reencode() deletes its own upload when it raises; this is only set
                 # once it has returned and something after it failed.
                 orphaned = changed(recording.playback_key, previous_playback_key)
-                await recover_failed_recut(
+                await recover_failed_audio_rewrite(
                     ctx, session, job, exc, orphaned=[orphaned], release_backup=False
                 )
                 return
@@ -52,7 +52,7 @@ async def _prepare(session: AsyncSession, job: Job) -> tuple[Recording, Job] | N
 
     Returns:
         tuple[Recording, Job] | None: The loaded pair, or None when there is
-        nothing to re-cut: the row is gone, soft-deleted, not ready, has no
+        nothing to rewrite: the row is gone, soft-deleted, not ready, has no
         original or no complete playback range, or another claimer has since
         re-locked the job past our own claim.
     """

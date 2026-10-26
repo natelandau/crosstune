@@ -3,9 +3,9 @@ import Foundation
 
 /// An action in the recording screen's ⋯ menu, which holds every screen-level action.
 enum RecordingMenuItem: Hashable {
-    /// Opens the trim editor; `blocker` says why it cannot open now, and the item stays in the
+    /// Opens the trim editor; `disabledReason` says why it cannot open now, and the item stays in the
     /// menu, disabled, showing it.
-    case trim(blocker: String?)
+    case trim(disabledReason: String?)
     case edit
     case addToTune
     case removeFromTune
@@ -17,9 +17,9 @@ enum RecordingMenuItem: Hashable {
     /// recording has a page to open, then Delete. `trims` false leaves Trim out, as on a free
     /// plan.
     static func items(
-        inTune: Bool, trimBlocker: String?, openOrigin: RecordingMenuItem? = nil, trims: Bool = true
+        inTune: Bool, trimDisabledReason: String?, openOrigin: RecordingMenuItem? = nil, trims: Bool = true
     ) -> [RecordingMenuItem] {
-        (trims ? [.trim(blocker: trimBlocker)] : []) + [.edit, inTune ? .removeFromTune : .addToTune]
+        (trims ? [.trim(disabledReason: trimDisabledReason)] : []) + [.edit, inTune ? .removeFromTune : .addToTune]
             + (openOrigin.map { [$0] } ?? []) + [.delete]
     }
 
@@ -29,8 +29,8 @@ enum RecordingMenuItem: Hashable {
     }
 
     /// Why the item cannot be used now, shown under its label; nil when it can.
-    var blocker: String? {
-        if case .trim(let blocker) = self { blocker } else { nil }
+    var disabledReason: String? {
+        if case .trim(let disabledReason) = self { disabledReason } else { nil }
     }
 
     var label: String {

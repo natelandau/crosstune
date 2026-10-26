@@ -23,8 +23,8 @@ import Testing
         "selectedName", "switcherLabel",
         // A stats breakdown's value, which can be a composer or who a tune was learned from.
         "value",
-        // The catalog's offer to add the typed search as a tune.
-        "offerLabel",
+        // The catalog's row that adds the typed title as a tune.
+        "addTypedTitleLabel",
         // The genre new tunes start with.
         "newTuneGenre",
         // The line an import read a candidate from.
@@ -327,8 +327,8 @@ import Testing
         ("Components/UndoBanner.swift", "Text(message)"),
         // The account's initials, read from its name.
         ("Shell/AccountButton.swift", "Text(letters)"),
-        ("Catalog/SearchOffer.swift", "Label(label"),
-        ("Catalog/SearchOffer.swift", "Text(match.note)"),
+        ("Catalog/AddTypedTitle.swift", "Label(label"),
+        ("Catalog/AddTypedTitle.swift", "Text(match.note)"),
         // The system picker shows a typed value as its own choice and as the row's selection.
         ("TuneForm/SuggestionPicker.swift", "Picker(selection: selection)"),
         // An import row's second line, which can repeat the line it was read from, and the list
@@ -378,10 +378,10 @@ import Testing
         #expect(Self.sites(in: text) == [Site(line: 3, view: "Label", masked: false)])
     }
 
-    @Test func theSearchOfferAndUndoMessagesAreContent() {
+    @Test func theAddTypedTitleAndUndoMessagesAreContent() {
         let text = """
-            if let offer = results.outcome.offerLabel {
-                Button(offer) { create() }
+            if let label = results.outcome.addTypedTitleLabel {
+                Button(label) { create() }
             }
             Text(BulkActions.added(addition))
             Text(BulkActions.removed(count, from: list))

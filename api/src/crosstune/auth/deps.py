@@ -8,7 +8,7 @@ from fastapi import Depends, Request
 
 from crosstune.auth.account_created import ACCOUNT_CREATED_STATE_KEY
 from crosstune.auth.tokens import verify_clerk_token
-from crosstune.client_sightings import SIGHTING_USER_STATE_KEY
+from crosstune.client_versions import CLIENT_VERSION_USER_STATE_KEY
 from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
@@ -18,7 +18,7 @@ from crosstune.models import (
 )
 from crosstune.users.service import provision_user
 
-# Where the body admission middleware leaves the claims it verified, so they are not
+# Where the request body limit middleware leaves the claims it verified, so they are not
 # verified twice.
 CLAIMS_STATE_KEY = "clerk_claims"
 
@@ -65,7 +65,7 @@ async def current_user(request: Request, session: DbSession) -> User:
     )
     if started is not None:
         setattr(request.state, ACCOUNT_CREATED_STATE_KEY, started)
-    setattr(request.state, SIGHTING_USER_STATE_KEY, user.id)
+    setattr(request.state, CLIENT_VERSION_USER_STATE_KEY, user.id)
     return user
 
 

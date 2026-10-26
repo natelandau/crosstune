@@ -309,15 +309,15 @@ import Testing
         engine.stop()
     }
 
-    @Test func skipsABlockedFileUntilTheFiguresShowRoom() async throws {
+    @Test func skipsABlockedFileUntilTheUsageShowRoom() async throws {
         try await captured("r1", audio: "0123456789", state: .blockedQuota)
-        try await store.setMeta(.storage, to: StorageFigures(usedBytes: 95, quotaBytes: 100, maxFileBytes: 50))
+        try await store.setMeta(.storage, to: StorageUsage(usedBytes: 95, quotaBytes: 100, maxFileBytes: 50))
         let engine = engine()
 
         await engine.transfer()
         #expect(api.transfers.isEmpty)
 
-        try await store.setMeta(.storage, to: StorageFigures(usedBytes: 50, quotaBytes: 100, maxFileBytes: 50))
+        try await store.setMeta(.storage, to: StorageUsage(usedBytes: 50, quotaBytes: 100, maxFileBytes: 50))
         await engine.transfer()
         #expect(api.transfers == ["slot r1", "put r1", "confirm r1"])
     }

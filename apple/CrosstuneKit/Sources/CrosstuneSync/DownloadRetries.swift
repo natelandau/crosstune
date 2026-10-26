@@ -1,7 +1,7 @@
 import Foundation
 
 /// When the download pass may next try each recording whose download failed, doubling the wait
-/// with each failure in a row as uploads do, so a lasting error is not re-sent after every sync.
+/// with each failure in a row as uploads do, so a persistent error is not re-sent after every sync.
 /// Kept in memory: a relaunch tries each once more, and a play fetches regardless.
 @MainActor
 final class DownloadRetries {

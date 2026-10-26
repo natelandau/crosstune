@@ -119,12 +119,12 @@ export function canSubscribe(plan: Plan): boolean {
   return plan.kind === 'free' || (plan.kind === 'premium' && plan.source === 'trial')
 }
 
-/** Whether the Plan sheet sells to the plan or confirms it. */
-export type PlanMode = 'selling' | 'member'
+/** Whether the Plan sheet shows the plan purchase options or confirms it. */
+export type PlanMode = 'purchasable' | 'member'
 
-/** A paid or comped plan is confirmed; every other plan, unknown and trial included, is sold to. */
+/** A paid or comped plan is confirmed; any other, unknown and trial included, is purchasable. */
 export function planMode(plan: Plan): PlanMode {
-  return plan.kind === 'premium' && plan.source !== 'trial' ? 'member' : 'selling'
+  return plan.kind === 'premium' && plan.source !== 'trial' ? 'member' : 'purchasable'
 }
 
 /** How much of a trial has passed, from 0 at its start to 1 at its end and after. The server

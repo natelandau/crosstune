@@ -528,7 +528,7 @@ private let blankAndSentinel = CatalogSearch.entries(
         let outcome = SearchOutcome(
             entries: entries, visible: [entry("s1")], query: "soldier's joy", archivedShown: false)
         #expect(outcome == .create(title: "soldier's joy", another: true, hidden: nil))
-        #expect(outcome.offerLabel == "Add another \"soldier's joy\"")
+        #expect(outcome.addTypedTitleLabel == "Add another \"soldier's joy\"")
         #expect(
             SearchOutcome(entries: entries, visible: [entry("s2")], query: "cluckin hen", archivedShown: false)
                 == .create(title: "cluckin hen", another: true, hidden: nil))
@@ -554,7 +554,7 @@ private let blankAndSentinel = CatalogSearch.entries(
     @Test func offersToCreateTheTrimmedQueryWhenNothingMatchesExactly() {
         let outcome = SearchOutcome(entries: entries, visible: [entry("s1")], query: "  Soldier ", archivedShown: false)
         #expect(outcome == .create(title: "Soldier", another: false, hidden: nil))
-        #expect(outcome.offerLabel == "Add \"Soldier\"")
+        #expect(outcome.addTypedTitleLabel == "Add \"Soldier\"")
     }
 
     @Test func returnOpensTheOnlyVisibleTuneWhateverTheOutcome() {
@@ -728,7 +728,7 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(model.results?.visible.map(\.tune.title) == ["Ashokan Farewell", "Elzic's Farewell"])
         #expect(model.results?.outcome == .create(title: "FAREW\u{C9}LL", another: false, hidden: nil))
         model.query = "ashokan farewell"
-        #expect(model.results?.outcome.offerLabel == "Add another \"ashokan farewell\"")
+        #expect(model.results?.outcome.addTypedTitleLabel == "Add another \"ashokan farewell\"")
         model.query = ""
         #expect(model.results?.visible.map(\.tune.id) == all)
 
@@ -801,11 +801,11 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(genres.count(where: { $0 == "Old-time" }) == 1)
     }
 
-    @Test func takingTheSearchOfferOrOpeningANewTuneClearsTheSearch() async throws {
+    @Test func takingTheAddTypedTitleOrOpeningANewTuneClearsTheSearch() async throws {
         let root = TemporaryRoot()
         let model = CatalogModel(store: try await sampleStore(root))
         model.query = "Rove Riley"
-        model.searchOfferTaken()
+        model.typedTitleAdded()
         #expect(model.query == "")
         model.query = "Rove"
         model.newTune()

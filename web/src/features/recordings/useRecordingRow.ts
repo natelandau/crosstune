@@ -3,7 +3,7 @@ import { recordingsPlayable } from '../../billing/plan'
 import { usePlanOrUnknown } from '../../billing/usePlan'
 import { useDb } from '../../db/DbProvider'
 import { isNotUploaded } from '../../db/recordings'
-import { getPremiumHolds, getStorage } from '../../db/meta'
+import { getLocalOnlyRows, getStorage } from '../../db/meta'
 import { OFFLINE } from '../../sync/labels'
 import { useOnline } from '../../sync/SyncProvider'
 import { usePremiumSheet, type PremiumEntry } from '../plan/PremiumSheetProvider'
@@ -85,17 +85,17 @@ export function useRecordingRow(
     () => (blockedQuota ? getStorage(db) : undefined),
     [db, blockedQuota],
   )
-  // Only a take the server has not stored can be held, and a held take goes out as soon as the
-  // plan is Premium, so any other row skips the read.
+  // Only a take the server has not stored can be local-only, and a local-only take goes out as
+  // soon as the plan is Premium, so any other row skips the read.
   const free = !recordingsPlayable(usePlanOrUnknown())
-  const mayBeHeld = recording.server_seq === 0 && free
-  const heldRow = useLiveQuery(
-    async () => mayBeHeld && (await getPremiumHolds(db)).has(recording.id),
-    [db, mayBeHeld, recording.id],
+  const mayBeLocalOnly = recording.server_seq === 0 && free
+  const localOnlyRow = useLiveQuery(
+    async () => mayBeLocalOnly && (await getLocalOnlyRows(db)).has(recording.id),
+    [db, mayBeLocalOnly, recording.id],
   )
   // A free plan uploads no audio, so audio not yet uploaded waits for Premium too.
-  const heldAudio = free && file?.local_state !== 'capturing' && isNotUploaded(file)
-  const held = (heldRow ?? false) || heldAudio
+  const localOnlyAudio = free && file?.local_state !== 'capturing' && isNotUploaded(file)
+  const localOnly = (localOnlyRow ?? false) || localOnlyAudio
   const shownControl = rowControl(view, {
     loaded,
     downloading: fetch === 'fetching' || file?.local_state === 'downloading',
@@ -104,8 +104,8 @@ export function useRecordingRow(
   // with nothing to play yet stays without a control.
   const control = free && shownControl !== 'none' ? 'play' : shownControl
   const offlineDownload = control === 'download' && !online
-  // A download control is only ever offered for a ready, not-held recording, so the ordinary
-  // meta parts (tries, storage) never apply here; Offline takes the status word's place, the
+  // A download control is only ever offered for a ready recording that is not local-only, so the
+  // ordinary meta parts (tries, storage) never apply here; Offline takes the status word's place, the
   // way every other state does, rather than riding along as a suffix on the control's name.
   const meta = offlineDownload
     ? [formatDuration(recording.duration_ms ?? file?.local_duration_ms), OFFLINE].filter(
@@ -114,7 +114,7 @@ export function useRecordingRow(
     : recordingMeta(view, storage ?? null, {
         dateInTitle: titleIsDate(view, { tuneNamedAbove }),
         sort,
-        held,
+        localOnly,
       })
 
   const open = free

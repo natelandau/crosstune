@@ -488,7 +488,7 @@ class MockHttp:
         return httpx2.Response(404, text="no mock route")
 
     def client(self) -> httpx2.AsyncClient:
-        # follow_redirects mirrors the production client, so a hop a resolver takes in
+        # follow_redirects matches the production client, so a hop a resolver takes in
         # production is a hop these tests take too.
         return httpx2.AsyncClient(
             transport=httpx2.MockTransport(self.handler), follow_redirects=True

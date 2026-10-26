@@ -89,14 +89,14 @@ import Testing
         let limit = Vocabulary.Limits.Tune.title
         // The cap lands just after a space, which the second trim takes off.
         let typed = "  " + String(repeating: "a", count: limit - 1) + " tail"
-        let added = AddedTuneOffer(store: store, analytics: sink.client)
+        let added = AddedTuneUndo(store: store, analytics: sink.client)
 
         let tuneID = try #require(await added.add(title: typed, source: .searchOffer))
 
         let (tune, _) = try #require(try await stored(store, tuneID))
         #expect(tune.title == String(repeating: "a", count: limit - 1))
-        #expect(added.offer?.message == AddedTuneOffer.added(tune.title))
-        #expect(added.offer?.undo != nil)
+        #expect(added.undoBannerItem?.message == AddedTuneUndo.added(tune.title))
+        #expect(added.undoBannerItem?.undo != nil)
     }
 
     @Test func refusesABlankTitleAndCreatesNothing() async throws {
@@ -105,11 +105,11 @@ import Testing
         await #expect(throws: CommandError.tuneTitleRequired) {
             try await Commands(store: store).createTitleOnly(title: "   ", source: .list, analytics: sink.client)
         }
-        let added = AddedTuneOffer(store: store, analytics: sink.client)
+        let added = AddedTuneUndo(store: store, analytics: sink.client)
         #expect(await added.add(title: " \n ", source: .searchOffer) == nil)
 
         #expect(try await liveTuneCount(store) == 0)
-        #expect(added.offer?.undo == nil)
+        #expect(added.undoBannerItem?.undo == nil)
         #expect(sink.captures.isEmpty)
     }
 
@@ -181,9 +181,9 @@ import Testing
 
     @Test func undoDeletesATuneWithNothingAddedAndReportsTheDelete() async throws {
         let store = try await seeded()
-        let added = AddedTuneOffer(store: store, analytics: sink.client)
+        let added = AddedTuneUndo(store: store, analytics: sink.client)
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
-        let undo = try #require(added.offer?.undo)
+        let undo = try #require(added.undoBannerItem?.undo)
 
         undo()
 
@@ -200,7 +200,7 @@ import Testing
     @Test(arguments: Work.allCases)
     func undoIsWithdrawnOnceWorkAttaches(_ work: Work) async throws {
         let store = try await seeded()
-        let added = AddedTuneOffer(store: store, analytics: sink.client)
+        let added = AddedTuneUndo(store: store, analytics: sink.client)
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
         let created = try #require(try await stored(store, tuneID))
 
@@ -210,8 +210,8 @@ import Testing
                 defaults: NewTuneDefaults(nil)),
             in: store)
 
-        #expect(try await poll { added.offer != nil && added.offer?.undo == nil })
-        #expect(added.offer?.message == AddedTuneOffer.added("Angeline"))
+        #expect(try await poll { added.undoBannerItem != nil && added.undoBannerItem?.undo == nil })
+        #expect(added.undoBannerItem?.message == AddedTuneUndo.added("Angeline"))
     }
 
     /// The musician leaves the page, something is added to the tune from
@@ -220,10 +220,10 @@ import Testing
     @Test(arguments: Work.allCases)
     func undoAfterWorkArrivesFromElsewhereKeepsTheTune(_ work: Work) async throws {
         let store = try await seeded()
-        let added = AddedTuneOffer(store: store, analytics: sink.client)
+        let added = AddedTuneUndo(store: store, analytics: sink.client)
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
         // The banner holds the offer it drew, Undo and all, whatever the model does after.
-        let undo = try #require(added.offer?.undo)
+        let undo = try #require(added.undoBannerItem?.undo)
         let created = try #require(try await stored(store, tuneID))
 
         try await work.attach(
@@ -233,8 +233,8 @@ import Testing
             in: store)
         undo()
 
-        #expect(try await poll { added.offer?.message == AddedTuneOffer.kept("Angeline") })
-        #expect(added.offer?.undo == nil)
+        #expect(try await poll { added.undoBannerItem?.message == AddedTuneUndo.kept("Angeline") })
+        #expect(added.undoBannerItem?.undo == nil)
         #expect(try await stored(store, tuneID) != nil)
         #expect(added.undone == nil)
         #expect(!sink.captures.map(\.name).contains("tune_deleted"))
@@ -242,23 +242,23 @@ import Testing
 
     @Test func systemUndoCarriesTheSameUndoAndLeavesWithTheBanners() async throws {
         let store = try await seeded()
-        let added = AddedTuneOffer(store: store, analytics: sink.client)
+        let added = AddedTuneUndo(store: store, analytics: sink.client)
         let undoManager = UndoManager()
         added.undoManager = undoManager
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
         #expect(undoManager.canUndo)
-        #expect(undoManager.undoActionName == AddedTuneOffer.undoActionName)
+        #expect(undoManager.undoActionName == AddedTuneUndo.undoActionName)
 
         undoManager.undo()
 
-        #expect(added.offer == nil)
+        #expect(added.undoBannerItem == nil)
         #expect(try await poll { try await stored(store, tuneID) == nil })
         #expect(!undoManager.canUndo)
     }
 
     @Test func systemUndoIsWithdrawnWithTheBannersOnceWorkAttaches() async throws {
         let store = try await seeded()
-        let added = AddedTuneOffer(store: store, analytics: sink.client)
+        let added = AddedTuneUndo(store: store, analytics: sink.client)
         let undoManager = UndoManager()
         added.undoManager = undoManager
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
@@ -269,20 +269,20 @@ import Testing
                 tuneID: tuneID, userTuneID: created.1.id, title: created.0.title, defaults: NewTuneDefaults(nil)),
             in: store)
 
-        #expect(try await poll { added.offer?.undo == nil })
+        #expect(try await poll { added.undoBannerItem?.undo == nil })
         #expect(!undoManager.canUndo)
     }
 
     @Test func theBannersUndoTakesTheSystemUndoWithIt() async throws {
         let store = try await seeded()
-        let added = AddedTuneOffer(store: store, analytics: sink.client)
+        let added = AddedTuneUndo(store: store, analytics: sink.client)
         let undoManager = UndoManager()
         added.undoManager = undoManager
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
         // A press is a later event than the add, whose undo group has closed by then.
         #expect(try await poll { undoManager.groupingLevel == 0 })
 
-        added.offer?.undo?()
+        added.undoBannerItem?.undo?()
 
         #expect(try await poll { try await stored(store, tuneID) == nil })
         #expect(!undoManager.canUndo)
@@ -290,29 +290,29 @@ import Testing
 
     @Test func anUndoOnATuneAlreadyDeletedReportsNothingMore() async throws {
         let store = try await seeded()
-        let added = AddedTuneOffer(store: store, analytics: sink.client)
+        let added = AddedTuneUndo(store: store, analytics: sink.client)
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
 
         await added.undo(tuneID: tuneID, title: "Angeline", pressedAt: added.shownCount)
         await added.undo(tuneID: tuneID, title: "Angeline", pressedAt: added.shownCount)
 
         #expect(sink.captures.map(\.name) == ["tune_created", "tune_deleted"])
-        #expect(added.offer?.message != AddedTuneOffer.kept("Angeline"))
+        #expect(added.undoBannerItem?.message != AddedTuneUndo.kept("Angeline"))
     }
 
     @Test func aTuneDeletedElsewhereWithdrawsUndoAndItsUndoDoesNothing() async throws {
         let store = try await seeded()
-        let added = AddedTuneOffer(store: store, analytics: sink.client)
+        let added = AddedTuneUndo(store: store, analytics: sink.client)
         let undoManager = UndoManager()
         added.undoManager = undoManager
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
 
         try await Commands(store: store).deleteTune(tuneID)
 
-        #expect(try await poll { added.offer != nil && added.offer?.undo == nil })
+        #expect(try await poll { added.undoBannerItem != nil && added.undoBannerItem?.undo == nil })
         #expect(!undoManager.canUndo)
         await added.undo(tuneID: tuneID, title: "Angeline", pressedAt: added.shownCount)
-        #expect(added.offer?.message == AddedTuneOffer.added("Angeline"))
+        #expect(added.undoBannerItem?.message == AddedTuneUndo.added("Angeline"))
         #expect(added.undone == nil)
         #expect(sink.captures.map(\.name) == ["tune_created"])
     }
@@ -320,7 +320,7 @@ import Testing
     @Test func aBannerThatTimesOutTakesItsSystemUndoWithIt() async throws {
         let store = try await seeded()
         let deadline = Deadline()
-        let added = AddedTuneOffer(store: store, analytics: sink.client, waitOut: { _ in await deadline.wait() })
+        let added = AddedTuneUndo(store: store, analytics: sink.client, waitOut: { _ in await deadline.wait() })
         let undoManager = UndoManager()
         added.undoManager = undoManager
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
@@ -330,14 +330,14 @@ import Testing
 
         deadline.pass()
 
-        #expect(try await poll { added.offer == nil })
+        #expect(try await poll { added.undoBannerItem == nil })
         #expect(!undoManager.canUndo)
         #expect(try await stored(store, tuneID) != nil)
     }
 
     @Test func aKeptUndoLeavesANewerBannerAndItsUndo() async throws {
         let store = try await seeded()
-        let added = AddedTuneOffer(store: store, analytics: sink.client)
+        let added = AddedTuneUndo(store: store, analytics: sink.client)
         let first = try #require(await added.add(title: "Angeline", source: .searchOffer))
         let created = try #require(try await stored(store, first))
         try await Work.notes.attach(
@@ -350,33 +350,33 @@ import Testing
 
         await added.undo(tuneID: first, title: "Angeline", pressedAt: pressedAt)
 
-        #expect(added.offer?.message == AddedTuneOffer.added("Cluck Old Hen"))
-        #expect(added.offer?.undo != nil)
+        #expect(added.undoBannerItem?.message == AddedTuneUndo.added("Cluck Old Hen"))
+        #expect(added.undoBannerItem?.undo != nil)
         #expect(try await stored(store, first) != nil)
     }
 
     @Test func aNoticeWaitsForTheBannerWhoseUndoIsOnShow() async throws {
         let store = try await seeded()
-        let added = AddedTuneOffer(store: store, analytics: sink.client)
+        let added = AddedTuneUndo(store: store, analytics: sink.client)
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
         let created = try #require(try await stored(store, tuneID))
 
         added.notify(AddToTuneModel.failed)
-        #expect(added.offer?.message == AddedTuneOffer.added("Angeline"))
-        #expect(added.offer?.undo != nil)
+        #expect(added.undoBannerItem?.message == AddedTuneUndo.added("Angeline"))
+        #expect(added.undoBannerItem?.undo != nil)
 
         try await Work.notes.attach(
             to: CreatedTune(
                 tuneID: tuneID, userTuneID: created.1.id, title: created.0.title, defaults: NewTuneDefaults(nil)),
             in: store)
-        #expect(try await poll { added.offer?.message == AddToTuneModel.failed })
-        #expect(added.offer?.undo == nil)
+        #expect(try await poll { added.undoBannerItem?.message == AddToTuneModel.failed })
+        #expect(added.undoBannerItem?.undo == nil)
     }
 
     @Test func noticesShowFirstInFirstOut() async throws {
         let store = try await seeded()
         let deadline = Deadline()
-        let added = AddedTuneOffer(store: store, analytics: sink.client, waitOut: { _ in await deadline.wait() })
+        let added = AddedTuneUndo(store: store, analytics: sink.client, waitOut: { _ in await deadline.wait() })
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
         let created = try #require(try await stored(store, tuneID))
         added.notify("first")
@@ -386,24 +386,24 @@ import Testing
             to: CreatedTune(
                 tuneID: tuneID, userTuneID: created.1.id, title: created.0.title, defaults: NewTuneDefaults(nil)),
             in: store)
-        #expect(try await poll { added.offer?.message == "first" })
+        #expect(try await poll { added.undoBannerItem?.message == "first" })
         // A notice arriving while others wait joins the end, rather than replacing the one on show.
         added.notify("third")
-        #expect(added.offer?.message == "first")
+        #expect(added.undoBannerItem?.message == "first")
 
         // Each banner's wait has begun before its time is passed: the Added one, then each notice.
         #expect(try await poll { deadline.started == 2 })
         deadline.pass()
-        #expect(try await poll { added.offer?.message == "second" && deadline.started == 3 })
+        #expect(try await poll { added.undoBannerItem?.message == "second" && deadline.started == 3 })
         deadline.pass()
-        #expect(try await poll { added.offer?.message == "third" && deadline.started == 4 })
+        #expect(try await poll { added.undoBannerItem?.message == "third" && deadline.started == 4 })
         deadline.pass()
-        #expect(try await poll { added.offer == nil })
+        #expect(try await poll { added.undoBannerItem == nil })
     }
 
     @Test func aSecondAddWhileOneRunsCreatesNothingMore() async throws {
         let store = try await seeded()
-        let added = AddedTuneOffer(store: store, analytics: sink.client)
+        let added = AddedTuneUndo(store: store, analytics: sink.client)
 
         async let first = added.add(title: "Angeline", source: .searchOffer)
         async let second = added.add(title: "Angeline", source: .searchOffer)

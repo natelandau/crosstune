@@ -108,7 +108,7 @@ async function fieldsUsed(db: CrosstuneDb): Promise<TuneField[]> {
 
 /**
  * What the web reports about the musician: bucketed catalog figures and the current settings.
- * Until a sync has stored the account's figures only the device-local settings are reported.
+ * Until a sync has stored the account's storage usage only the device-local settings are reported.
  */
 export async function personProperties(
   db: CrosstuneDb,

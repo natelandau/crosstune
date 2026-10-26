@@ -261,7 +261,7 @@ struct StatsDocument: View {
     }
 
     /// Lists, recordings, and links, then scans when there are any, on one line.
-    static func tallyLine(_ counts: Stats.Counts) -> String {
+    static func countsLine(_ counts: Stats.Counts) -> String {
         let parts =
             [
                 (StatsCopy.listsLabel, counts.lists), (StatsCopy.recordingsLabel, counts.recordings),
@@ -301,7 +301,7 @@ struct StatsDocument: View {
                     .accessibilityElement(children: .combine)
                 }
             }
-            Text(Self.tallyLine(counts))
+            Text(Self.countsLine(counts))
                 .font(PageStyle.body)
                 .monospacedDigit()
             if counts.archived > 0 {

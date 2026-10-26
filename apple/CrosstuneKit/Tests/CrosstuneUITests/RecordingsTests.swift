@@ -62,7 +62,7 @@ private struct RefusingSyncAPI: SyncAPI {
     func events(since: Int64) async throws -> EventsPage { EventsPage(rows: [], nextSince: since, hasMore: false) }
     func recordNotice(_ notice: PlanNotice) async throws {}
     func refreshBilling() async throws {}
-    func storage() async throws -> StorageFigures { StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0) }
+    func storage() async throws -> StorageUsage { StorageUsage(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0) }
     func resolveLink(url: String) async throws -> ResolvedLink { throw URLError(.badURL) }
     func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
         throw URLError(.badURL)
@@ -141,7 +141,7 @@ private struct RefusingSyncAPI: SyncAPI {
             try writer.tombstone(Recording.self, id: "deleted", at: noon)
             try RecordingFile(id: "stuck", localState: .capturing, fileName: "stuck.aac", recordedAt: noon)
                 .insert(writer.db)
-            try writer.setMeta(.storage, to: StorageFigures(usedBytes: 5, quotaBytes: 10, maxFileBytes: 4))
+            try writer.setMeta(.storage, to: StorageUsage(usedBytes: 5, quotaBytes: 10, maxFileBytes: 4))
         }
 
         let model = RecordingsModel(store: store)
@@ -336,11 +336,11 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func measuresStorageAgainstAKnownPlansQuota() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        try await store.setMeta(.storage, to: StorageFigures(usedBytes: 5, quotaBytes: 1_000, maxFileBytes: 4))
+        try await store.setMeta(.storage, to: StorageUsage(usedBytes: 5, quotaBytes: 1_000, maxFileBytes: 4))
         let model = RecordingsModel(store: store)
         try await eventually { model.arrangement(.default) != nil }
         let premium = Plan(kind: .premium, quotaBytes: 50)
-        #expect(model.storage(plan: premium) == StorageFigures(usedBytes: 5, quotaBytes: 50, maxFileBytes: 4))
+        #expect(model.storage(plan: premium) == StorageUsage(usedBytes: 5, quotaBytes: 50, maxFileBytes: 4))
         #expect(model.storage(plan: .unknown)?.quotaBytes == 1_000)
         // Free has no quota to measure against.
         #expect(model.storage(plan: Plan(kind: .free)) == nil)
@@ -349,7 +349,7 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func hidesStorageUntilTheServerSaysWhatTheQuotaIs() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        try await store.setMeta(.storage, to: StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0))
+        try await store.setMeta(.storage, to: StorageUsage(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0))
         let model = RecordingsModel(store: store)
         try await eventually { model.arrangement(.default) != nil }
         #expect(model.storage == nil)
@@ -946,7 +946,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let model = AddToTuneModel(store: store, recordingID: "r1")
         try await eventually { model.results != nil }
         model.query = "Sally Goodin"
-        #expect(model.results?.outcome.offerLabel == "Add \"Sally Goodin\"")
+        #expect(model.results?.outcome.addTypedTitleLabel == "Add \"Sally Goodin\"")
         #expect(await model.submit() == .create(title: "Sally Goodin"))
     }
 }
@@ -1564,7 +1564,7 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func refusesWhatTheServerWouldNeverTake() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        try await store.setMeta(.storage, to: StorageFigures(usedBytes: 0, quotaBytes: 10_000, maxFileBytes: 2_000_000))
+        try await store.setMeta(.storage, to: StorageUsage(usedBytes: 0, quotaBytes: 10_000, maxFileBytes: 2_000_000))
         let cases: [(URL, String)] = [
             (try write("notes.txt", bytes: 10, in: root), RecordingImport.notAudio),
             (try write("empty.mp3", bytes: 0, in: root), RecordingImport.emptyFile),

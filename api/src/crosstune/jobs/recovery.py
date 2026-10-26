@@ -1,4 +1,4 @@
-"""Recover a failed re-cut of a ready recording, shared by the trim and re-encode kinds."""
+"""Recover a failed audio rewrite of a ready recording, shared by the trim and re-encode kinds."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-async def recover_failed_recut(
+async def recover_failed_audio_rewrite(
     ctx: JobContext,
     session: AsyncSession,
     job: Job,

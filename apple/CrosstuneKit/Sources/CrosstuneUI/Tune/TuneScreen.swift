@@ -242,7 +242,7 @@ private struct TuneContent: View {
     // periphery:ignore - read through its binding
     @State private var visited = false
     @Environment(\.tunePageLeaving) private var leaving
-    @Environment(AddedTuneOffer.self) private var addedTune: AddedTuneOffer?
+    @Environment(AddedTuneUndo.self) private var addedTune: AddedTuneUndo?
     #if os(iOS)
         @Environment(\.horizontalSizeClass) private var sizeClass
     #endif
@@ -626,7 +626,7 @@ struct TuneMediaRows: View {
             Self.item(view) { kind in retry(view.id, kind) }
             if pinned { PinnedMark() }
         }
-        .newTakeHighlight(view.id)
+        .newRecordingHighlight(view.id)
         .recordingRowActions(
             Self.rowHandlers(
                 view, pinned: pinned,

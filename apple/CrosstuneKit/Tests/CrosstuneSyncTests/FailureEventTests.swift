@@ -97,7 +97,7 @@ extension TransfersTests {
 
     @Test func aFullStorageReportsTheLimitOnce() async throws {
         let sink = RecordingAnalyticsSink()
-        try await store.setMeta(.storage, to: StorageFigures(usedBytes: 95_000_000, quotaBytes: 100, maxFileBytes: 50))
+        try await store.setMeta(.storage, to: StorageUsage(usedBytes: 95_000_000, quotaBytes: 100, maxFileBytes: 50))
         try await captured("r1")
         api.transferFailures["slot r1"] = APIStatusError(
             status: 413, problemType: quotaProblem, detail: "This recording would pass your storage quota.")
@@ -107,9 +107,9 @@ extension TransfersTests {
         #expect(try await file("r1")?.localState == .blockedQuota)
         #expect(sink.captures == [storageLimit(95_000_000)])
 
-        // The figures show room, so the pass tries the file again and is refused again.
+        // The usage shows room, so the pass tries the file again and is refused again.
         try await store.setMeta(
-            .storage, to: StorageFigures(usedBytes: 40_000_000, quotaBytes: 10_000_000_000, maxFileBytes: 50))
+            .storage, to: StorageUsage(usedBytes: 40_000_000, quotaBytes: 10_000_000_000, maxFileBytes: 50))
         await engine.transfer()
         await engine.transfer()
         #expect(api.transfers.count(where: { $0 == "slot r1" }) == 3)
@@ -122,8 +122,8 @@ extension TransfersTests {
         #expect(sink.captures == [storageLimit(95_000_000), storageLimit(40_000_000)])
     }
 
-    /// Without the storage figures there is no use to report, and a guess would skew the chart.
-    @Test func aFullStorageWithItsFiguresUnknownReportsNothing() async throws {
+    /// Without the storage usage there is no use to report, and a guess would skew the chart.
+    @Test func aFullStorageWithItsUsageUnknownReportsNothing() async throws {
         let sink = RecordingAnalyticsSink()
         try await captured("r1")
         api.transferFailures["slot r1"] = APIStatusError(

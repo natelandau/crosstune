@@ -71,7 +71,7 @@ public final class RecordSheetModel {
     private var reportedEnd = false
     /// The title of the tune the take is filed under, once read; nil for an unfiled take.
     public private(set) var tuneTitle: String?
-    private let recentTake: RecentTake?
+    private let recentRecording: RecentRecording?
     /// Set once the sheet should close.
     public private(set) var outcome: Outcome?
     /// True while the discard confirmation is up.
@@ -87,12 +87,12 @@ public final class RecordSheetModel {
     private var ending = false
 
     public init(
-        recorder: Recorder, tuneID: String?, recentTake: RecentTake? = nil, source: ActionSource = .dock,
+        recorder: Recorder, tuneID: String?, recentRecording: RecentRecording? = nil, source: ActionSource = .dock,
         analytics: AnalyticsClient = .noop, locationAccess: LocationAccess? = nil
     ) {
         self.recorder = recorder
         self.tuneID = tuneID
-        self.recentTake = recentTake
+        self.recentRecording = recentRecording
         self.source = source
         self.analytics = analytics
         self.locationAccess = locationAccess
@@ -107,10 +107,10 @@ public final class RecordSheetModel {
         tuneTitle = title
     }
 
-    /// Marks the saved take as the one to highlight where it landed. Nothing when none saved.
+    /// Marks the saved recording as the one to highlight where it landed. Nothing when none saved.
     public func markRecent() {
         guard phase == .saved, let id = recorder.savedRecordingID else { return }
-        recentTake?.mark(id)
+        recentRecording?.mark(id)
     }
 
     public var phase: RecordPhase {

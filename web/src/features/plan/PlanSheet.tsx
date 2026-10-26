@@ -39,13 +39,13 @@ const TITLES: Record<PremiumReason, string> = {
   plan: PREMIUM_PLAN_TITLE,
 }
 
-/** What the sheet offers to buy. */
-type Sale =
-  /** Nothing to sell here: no store, or a plan that cannot subscribe. No purchase controls. */
-  | { kind: 'notSelling' }
+/** The purchase options the sheet shows. */
+type PurchaseOptions =
+  /** Not purchasable here: no store, or a plan that cannot subscribe. No purchase controls. */
+  | { kind: 'notPurchasable' }
   /** Asking the store: Subscribe holds its place, off, so the actions never move. */
   | { kind: 'pending' }
-  /** The store answered with nothing to sell. */
+  /** The store answered with nothing to buy. */
   | { kind: 'empty' }
   /** The store could not be reached; its line takes the choice's place. */
   | { kind: 'offline' }
@@ -54,33 +54,33 @@ type Sale =
   /** A purchase went through before the plan turned Premium; its line replaces the choice. */
   | { kind: 'subscribed' }
 
-/** Sells only to an account that can subscribe, online, once the store has answered with a price. */
-function saleOf({
-  selling,
+/** Purchasable only by an account that can subscribe, online, once the store has a price. */
+function purchaseOptionsFor({
+  hasStore,
   plan,
   online,
   offers,
   settled,
 }: {
-  /** Whether this build has a store to sell through. */
-  selling: boolean
+  /** Whether this build has a store to buy through. */
+  hasStore: boolean
   plan: Plan
   online: boolean
   offers: Offers
   settled: boolean
-}): Sale {
-  if (!selling) return { kind: 'notSelling' }
+}): PurchaseOptions {
+  if (!hasStore) return { kind: 'notPurchasable' }
   if (settled) return { kind: 'subscribed' }
-  if (!canSubscribe(plan)) return { kind: 'notSelling' }
+  if (!canSubscribe(plan)) return { kind: 'notPurchasable' }
   if (!online || offers.kind === 'failed') return { kind: 'offline' }
   if (offers.kind === 'pending') return { kind: 'pending' }
   return offers.offers.length > 0 ? { kind: 'choice', offers: offers.offers } : { kind: 'empty' }
 }
 
 /**
- * The account's plan: what Free and Premium each hold, sold to a free or trial account, or
- * confirmed to a Premium one. A locked tap opens it leading with what was tapped. Where the store
- * can sell, Annual or Monthly, Subscribe, and the renewal terms end the page.
+ * The account's plan: what Free and Premium each hold, purchasable by a free or trial account,
+ * or confirmed to a Premium one. A locked tap opens it leading with what was tapped. Where the store
+ * has a price, Annual or Monthly, Subscribe, and the renewal terms end the page.
  */
 export function PlanSheet({
   open,
@@ -93,7 +93,7 @@ export function PlanSheet({
   open: boolean
   /** Kept until the sheet has left, so it does not change as it closes; null once it has. */
   reason: PremiumReason | null
-  /** A purchase went through this session, so the sheet stops selling until the plan follows. */
+  /** A purchase went through this session, so no purchase options show until the plan follows. */
   settled: boolean
   onClose: () => void
   onClosed: () => void
@@ -118,17 +118,21 @@ export function PlanSheet({
         : reason === 'plan'
           ? PREMIUM_PITCH
           : null
-  const sale =
-    mode === 'selling'
-      ? saleOf({ selling: store !== null, plan, online, offers, settled })
-      : ({ kind: 'notSelling' } as const)
-  const choice = sale.kind === 'choice' ? sale.offers : null
+  const options =
+    mode === 'purchasable'
+      ? purchaseOptionsFor({ hasStore: store !== null, plan, online, offers, settled })
+      : ({ kind: 'notPurchasable' } as const)
+  const choice = options.kind === 'choice' ? options.offers : null
   // Annual by default, or the one period the store sells when it sells only one.
   const chosen = choice?.some((offer) => offer.period === period) ? period : choice?.[0]?.period
   const chosenPrice = choice?.find((offer) => offer.period === chosen)?.price
   const line =
-    sale.kind === 'subscribed' ? SUBSCRIBED : sale.kind === 'offline' ? SUBSCRIBE_OFFLINE : null
-  const primary = subscribeAction(sale, () => onSubscribe(chosen ?? period))
+    options.kind === 'subscribed'
+      ? SUBSCRIBED
+      : options.kind === 'offline'
+        ? SUBSCRIBE_OFFLINE
+        : null
+  const primary = subscribeAction(options, () => onSubscribe(chosen ?? period))
   return (
     <Sheet
       isOpen={open && reason !== null}
@@ -140,14 +144,14 @@ export function PlanSheet({
       closeButton
       primaryLarge
       inlineActions
-      describedBy={mode === 'selling' && body ? bodyId : undefined}
+      describedBy={mode === 'purchasable' && body ? bodyId : undefined}
       primary={primary}
       cancel={null}
       accessory={
         choice ? (
           <PeriodTiles offers={choice} period={chosen ?? period} onChange={setPeriod} />
         ) : line ? (
-          <p className={`t-secondary ${sale.kind === 'offline' ? 'text-ink-2' : ''}`}>{line}</p>
+          <p className={`t-secondary ${options.kind === 'offline' ? 'text-ink-2' : ''}`}>{line}</p>
         ) : undefined
       }
       footnote={
@@ -155,7 +159,7 @@ export function PlanSheet({
       }
       onClosed={onClosed}
     >
-      {mode === 'selling' ? (
+      {mode === 'purchasable' ? (
         <div className="flex flex-col gap-4 pt-2">
           <div className="flex flex-col items-center gap-1 text-center">
             <Mark className="mb-3 h-10" />
@@ -206,14 +210,17 @@ function Member({ plan, headlineId }: { plan: Plan; headlineId: string }) {
   )
 }
 
-/** The sale's Subscribe. The header's close button is the one way out through every answer. */
-function subscribeAction(sale: Sale, subscribe: () => void): SheetPrimary | undefined {
-  switch (sale.kind) {
+/** The Subscribe action. The header's close button is the one way out through every answer. */
+function subscribeAction(
+  options: PurchaseOptions,
+  subscribe: () => void,
+): SheetPrimary | undefined {
+  switch (options.kind) {
     case 'pending':
       return { label: SUBSCRIBE, onPress: () => {}, isDisabled: true }
     case 'choice':
       return { label: SUBSCRIBE, onPress: subscribe }
-    case 'notSelling':
+    case 'notPurchasable':
     case 'empty':
     case 'offline':
     case 'subscribed':

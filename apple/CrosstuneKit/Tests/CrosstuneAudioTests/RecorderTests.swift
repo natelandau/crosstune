@@ -268,7 +268,7 @@ final class ChannelSetting {
     @Test func aTakeStopsAndSavesAtTheSizeLimit() async throws {
         let maxFileBytes = 100_000
         try await store.setMeta(
-            .storage, to: StorageFigures(usedBytes: 0, quotaBytes: 1_000_000, maxFileBytes: maxFileBytes))
+            .storage, to: StorageUsage(usedBytes: 0, quotaBytes: 1_000_000, maxFileBytes: maxFileBytes))
         await recorder.start(tuneID: nil)
 
         var buffers = 0
@@ -426,12 +426,12 @@ final class ChannelSetting {
         location.holds = true
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
-        await location.isHeld()
+        await location.hasText()
 
         let saved = try #require(await recorder.stop())
         #expect(try await savedRow(saved).placeLat == nil)
         #expect(recorder.errorMessage == nil)
-        await clock.isHeld()
+        await clock.hasText()
         #expect(clock.requested == [Recorder.lateFixWindow])
         await location.answer()
         await recorder.lateFixes[saved]?.value
@@ -449,7 +449,7 @@ final class ChannelSetting {
         location.holds = true
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
-        await location.isHeld()
+        await location.hasText()
 
         let stop = Task { await recorder.stop() }
         while recorder.state != .finishing { await Task.yield() }
@@ -467,7 +467,7 @@ final class ChannelSetting {
         location.answersCancelledAtOnce = true
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
-        await location.isHeld()
+        await location.hasText()
 
         let saved = try #require(await recorder.stop())
         let late = try #require(recorder.lateFixes[saved])
@@ -482,7 +482,7 @@ final class ChannelSetting {
         location.holds = true
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
-        await location.isHeld()
+        await location.hasText()
 
         let saved = try #require(await recorder.stop())
         let galax = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92))
@@ -500,7 +500,7 @@ final class ChannelSetting {
         location.holds = true
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
-        await location.isHeld()
+        await location.hasText()
 
         let saved = try #require(await recorder.stop())
         try await Commands(store: store).updateRecording(saved, place: .value(nil))
@@ -518,12 +518,12 @@ final class ChannelSetting {
         location.holds = true
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
-        await location.isHeld()
+        await location.hasText()
         let first = try #require(await recorder.stop())
 
         await recorder.start(tuneID: nil)
         #expect(recorder.state == .recording)
-        await location.isHeld(count: 2)
+        await location.hasText(count: 2)
         await location.answer()
         await recorder.lateFixes[first]?.value
 
@@ -547,7 +547,7 @@ final class ChannelSetting {
         location.fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
         location.holds = true
         await recorder.start(tuneID: nil)
-        await location.isHeld()
+        await location.hasText()
 
         await recorder.discard()
         await location.answer()

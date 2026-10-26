@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 
 /// How much of the account's audio quota is spent.
 struct StorageSummary: View {
-    let storage: StorageFigures
+    let storage: StorageUsage
 
     @Environment(\.spacing) private var spacing
 
@@ -34,7 +34,7 @@ struct StorageSummary: View {
     /// The Recordings column's foot on the Mac: the storage summary pinned in a surface bar with
     /// a top hairline, so it stays in view however long the list runs.
     struct StorageBar: View {
-        let storage: StorageFigures
+        let storage: StorageUsage
 
         var body: some View {
             StorageSummary(storage: storage)

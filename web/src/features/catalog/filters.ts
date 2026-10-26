@@ -176,7 +176,7 @@ export function catalogEntries(
 
 /** True when the query names the tune's title or an alternate title, as `sameText` compares them. */
 export function titleMatches(tune: LocalTune, query: string): boolean {
-  return isHeld(query) && [tune.title, ...tune.alternate_titles].some((t) => sameText(t, query))
+  return hasText(query) && [tune.title, ...tune.alternate_titles].some((t) => sameText(t, query))
 }
 
 export function hideArchived<T extends CatalogEntry>(entries: T[], show: boolean): T[] {
@@ -184,12 +184,12 @@ export function hideArchived<T extends CatalogEntry>(entries: T[], show: boolean
 }
 
 /** Whether a value holds anything the fold keeps; whitespace or combining marks alone are blank. */
-function isHeld(value: string | null | undefined): value is string {
+function hasText(value: string | null | undefined): value is string {
   return value != null && foldText(value) !== ''
 }
 
 function isMissing(values: readonly (string | null | undefined)[]): boolean {
-  return !values.some(isHeld)
+  return !values.some(hasText)
 }
 
 /**
@@ -212,7 +212,7 @@ function attributeValues(
 }
 
 function facetMatches(filter: string, value: string | null | undefined): boolean {
-  return filter === 'all' || (isHeld(value) && sameText(filter, value))
+  return filter === 'all' || (hasText(value) && sameText(filter, value))
 }
 
 export function filterCatalog(
@@ -275,7 +275,7 @@ export function facetValues(entries: CatalogEntry[]): FacetValues {
       ),
     ]),
   ) as FacetValues
-  if (values.key.length > 0 && entries.some((e) => !isHeld(e.tune.key)))
+  if (values.key.length > 0 && entries.some((e) => !hasText(e.tune.key)))
     values.key = [NO_KEY, ...values.key]
   return values
 }

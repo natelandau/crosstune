@@ -263,11 +263,11 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         }
     }
 
-    private func holds(_ store: CrosstuneStore) async throws -> Set<String> {
-        try await store.read { db in try StoreWriter.premiumHolds(in: db) }
+    private func localOnlyRows(_ store: CrosstuneStore) async throws -> Set<String> {
+        try await store.read { db in try StoreWriter.localOnlyRows(in: db) }
     }
 
-    @Test func holdsATakeTheServerRefusedForPremiumAndKeepsItsEntry() async throws {
+    @Test func aTakeTheServerRefusedForPremiumStaysLocalWithItsEntry() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await take(store)
@@ -282,15 +282,15 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         #expect(result.invalid == [])
         #expect(result.settled == 0)
         #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["r1"])
-        #expect(try await holds(store) == ["r1"])
+        #expect(try await localOnlyRows(store) == ["r1"])
         #expect(try await store.meta(.invalidChanges, as: Int.self) == nil)
     }
 
-    @Test func aPullThatSupersedesAHeldTakeReleasesItsStoredHold() async throws {
+    @Test func aPullThatSupersedesALocalOnlyTakeReleasesIt() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await take(store)
-        try await store.write { writer in try writer.holdForPremium(["r1"]) }
+        try await store.write { writer in try writer.keepLocalUntilSubscribed(["r1"]) }
         let pulled: JSONObject = [
             "id": .string("r1"), "created_at": .string(noon.iso), "updated_at": .string(later(60_000).iso),
             "deleted_at": .null, "server_seq": .integer(5), "source": .string("microphone"),
@@ -301,15 +301,15 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         try await store.write { writer in try writer.applyPullPage(rows: [(.recordings, pulled)], nextSince: 5) }
 
         #expect(try await store.pendingChangeCount() == 0)
-        #expect(try await store.meta(.premiumHolds, as: [String].self) == [])
+        #expect(try await store.meta(.localOnlyRows, as: [String].self) == [])
     }
 
-    @Test func anAppliedResultReleasesAHeldTake() async throws {
+    @Test func anAppliedResultReleasesALocalOnlyTake() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await take(store)
         try await take(store, id: "r2")
-        try await store.write { writer in try writer.holdForPremium(["r1", "r2"]) }
+        try await store.write { writer in try writer.keepLocalUntilSubscribed(["r1", "r2"]) }
         let sent = try await store.pendingChanges(limit: 10)
 
         try await store.write { writer in
@@ -321,16 +321,16 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
                 ])
         }
 
-        #expect(try await holds(store) == ["r2"])
+        #expect(try await localOnlyRows(store) == ["r2"])
         #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["r2"])
     }
 
-    @Test func aRefusedDeleteOfAHeldTakeTheServerNeverStoredReleasesIt() async throws {
+    @Test func aRefusedDeleteOfALocalOnlyTakeTheServerNeverStoredReleasesIt() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await take(store)
         try await store.write { writer in
-            try writer.holdForPremium(["r1"])
+            try writer.keepLocalUntilSubscribed(["r1"])
             try writer.tombstone(Recording.self, id: "r1", at: later(1_000))
         }
         let sent = try await store.pendingChanges(limit: 10, premium: false)
@@ -344,10 +344,10 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         #expect(result.invalid == [])
         #expect(result.settled == 1)
         #expect(try await store.pendingChangeCount() == 0)
-        #expect(try await holds(store).isEmpty)
+        #expect(try await localOnlyRows(store).isEmpty)
     }
 
-    @Test func holdsAScanTheServerRefusedForPremiumAndKeepsItsEntryAndFile() async throws {
+    @Test func aScanTheServerRefusedForPremiumStaysLocalWithItsEntryAndFile() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await store.write { writer in
@@ -364,20 +364,20 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
 
         #expect(result.invalid == [])
         #expect(result.settled == 0)
-        #expect(result.held == ["p1"])
-        #expect(try await holds(store) == ["p1"])
+        #expect(result.keptLocal == ["p1"])
+        #expect(try await localOnlyRows(store) == ["p1"])
         #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["p1"])
         #expect(try await store.pendingChanges(limit: 10, premium: false).isEmpty)
         let file = try await store.read { db in try ScanFile.fetchOne(db, key: "p1") }
         #expect(file?.error == nil)
     }
 
-    @Test func anAppliedResultReleasesAHeldScan() async throws {
+    @Test func anAppliedResultReleasesALocalOnlyScan() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await store.write { writer in
             try writer.put(ScanRecord(id: "p1", createdAt: noon, tuneID: "t2", width: 600, height: 800), at: noon)
-            try writer.holdForPremium(["p1"])
+            try writer.keepLocalUntilSubscribed(["p1"])
         }
         let sent = try await store.pendingChanges(limit: 10)
 
@@ -386,16 +386,16 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
                 sent: sent, results: [PushResult(table: .scans, id: "p1", status: .applied)])
         }
 
-        #expect(try await holds(store).isEmpty)
-        #expect(try await store.meta(.premiumHolds, as: [String].self) == [])
+        #expect(try await localOnlyRows(store).isEmpty)
+        #expect(try await store.meta(.localOnlyRows, as: [String].self) == [])
     }
 
-    @Test func aFreeReadOfTheOutboxLeavesOutAHeldUpsertButNeverItsDelete() async throws {
+    @Test func aFreeReadOfTheOutboxLeavesOutALocalOnlyUpsertButNeverItsDelete() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await take(store)
         try await take(store, id: "r2")
-        try await store.write { writer in try writer.holdForPremium(["r1", "r2"]) }
+        try await store.write { writer in try writer.keepLocalUntilSubscribed(["r1", "r2"]) }
         try await store.write { writer in try writer.tombstone(Recording.self, id: "r2", at: later(1_000)) }
 
         #expect(try await store.pendingChanges(limit: 10, premium: false).map(\.rowID) == ["r2"])

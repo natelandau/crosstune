@@ -76,7 +76,7 @@ async def _sign_up(client: httpx2.AsyncClient, auth_headers, *names: str) -> Non
         assert (await client.get("/v1/me", headers=auth_headers(name))).status_code == 200
 
 
-async def test_refresh_mirrors_and_turns_premium(client, app, auth_headers) -> None:
+async def test_refresh_syncs_and_turns_premium(client, app, auth_headers) -> None:
     app.state.revenuecat = FakeRevenueCat({"user_a": [_stripe_sub()]})
     headers = auth_headers("user_a")
 

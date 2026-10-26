@@ -2,13 +2,13 @@ import { renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { usePlanOrUnknown } from '../../billing/usePlan'
-import { holdForPremium } from '../../db/meta'
+import { keepLocalUntilSubscribed } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders, fakePlayer } from '../../test/providers'
 import { entitlementRow, recordingFile, recordingRow } from '../../test/rows'
 import { PlayerContext } from '../player/usePlayer'
-import { HELD_FOR_PREMIUM } from './recordingCopy'
+import { LOCAL_UNTIL_SUBSCRIBED } from './recordingCopy'
 import { useRecordingRow } from './useRecordingRow'
 import type { RecordingView } from './useRecordings'
 
@@ -36,16 +36,16 @@ function renderRow(
   return renderHook(() => useRecordingRow(view), { wrapper: wrapperFor(player) })
 }
 
-describe('useRecordingRow held line', () => {
-  it('says a held take waits on this device only while the plan is free', async () => {
+describe('useRecordingRow local-only line', () => {
+  it('says a local-only take waits on this device only while the plan is free', async () => {
     await db.entitlements.put(entitlementRow())
-    await holdForPremium(db, ['r1'])
+    await keepLocalUntilSubscribed(db, ['r1'])
     const { result } = renderRow()
-    await expect.poll(() => result.current.meta).toContain(HELD_FOR_PREMIUM)
+    await expect.poll(() => result.current.meta).toContain(LOCAL_UNTIL_SUBSCRIBED)
 
-    // The hold is still queued until the next push, but a Premium plan sends it out.
+    // The take is still queued until the next push, but a Premium plan sends it out.
     await db.entitlements.put(entitlementRow({ premium_source: 'comp' }))
-    await expect.poll(() => result.current.meta).not.toContain(HELD_FOR_PREMIUM)
+    await expect.poll(() => result.current.meta).not.toContain(LOCAL_UNTIL_SUBSCRIBED)
   })
 
   it.each(['captured', 'failed_upload'] as const)(
@@ -57,7 +57,7 @@ describe('useRecordingRow held line', () => {
         fakePlayer(),
         recordingFile('r1', { local_state: localState, blob: new Blob(['audio']) }),
       )
-      await expect.poll(() => result.current.meta).toContain(HELD_FOR_PREMIUM)
+      await expect.poll(() => result.current.meta).toContain(LOCAL_UNTIL_SUBSCRIBED)
     },
   )
 })
@@ -82,11 +82,11 @@ describe('useRecordingRow on a free plan', () => {
     expect(result.current.disabled).toBe(false)
   })
 
-  it('offers no upload retry while the plan holds uploads, but keeps a transcode retry', async () => {
+  it('offers no upload retry while the plan keeps audio local, but keeps a transcode retry', async () => {
     await db.entitlements.put(entitlementRow())
     const file = recordingFile('r1', { local_state: 'failed_upload', blob: new Blob(['audio']) })
     const stuck = renderRow(recordingRow('r1', { server_seq: 3 }), fakePlayer(), file)
-    await expect.poll(() => stuck.result.current.meta).toContain(HELD_FOR_PREMIUM)
+    await expect.poll(() => stuck.result.current.meta).toContain(LOCAL_UNTIL_SUBSCRIBED)
     expect(stuck.result.current.retry).toBeNull()
 
     const failed = renderRow(recordingRow('r2', { state: 'failed' }), fakePlayer())

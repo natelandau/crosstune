@@ -15,7 +15,7 @@ export type AudioFetch = 'held' | 'unavailable' | 'offline' | 'downloading' | 'f
 
 /** Why Trim cannot be used right now, or undefined when it can. `recordingsPlay` is false while
  * the plan plays no recording. */
-export function trimBlocker(
+export function trimDisabledReason(
   recording: LocalRecording,
   file: RecordingFile | undefined,
   audio: AudioFetch,
@@ -36,7 +36,7 @@ export function trimBlocker(
 
 /** Why the waveform, transport, and modes cannot be used right now, or undefined when they can.
  * `recordingsPlay` is false while the plan plays no recording. */
-export function practiceBlocker(
+export function practiceDisabledReason(
   file: RecordingFile | undefined,
   audio: AudioFetch,
   recordingsPlay: boolean,

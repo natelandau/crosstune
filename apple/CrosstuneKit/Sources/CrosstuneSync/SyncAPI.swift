@@ -11,8 +11,8 @@ public protocol SyncAPI: Sendable {
     func events(since: Int64) async throws -> EventsPage
     /// Tells the server the account has seen a one-time notice. A repeat changes nothing.
     func recordNotice(_ notice: PlanNotice) async throws
-    /// The account's recording storage figures.
-    func storage() async throws -> StorageFigures
+    /// The account's recording storage usage.
+    func storage() async throws -> StorageUsage
     /// Asks the server to read the account's purchases from the billing provider now, rather than
     /// wait for its webhook.
     func refreshBilling() async throws

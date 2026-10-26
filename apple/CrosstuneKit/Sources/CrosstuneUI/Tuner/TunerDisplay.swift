@@ -6,7 +6,7 @@ import SwiftUI
 /// its body, so a reading redraws only the views that show one.
 @MainActor
 @Observable
-final class TunerHeld {
+final class TunerLastReading {
     var last: Reading?
     var announcer = TunerAnnouncer()
 
@@ -26,24 +26,24 @@ final class TunerHeld {
 /// The ground behind the tuner, greening as the shown note comes into tune.
 struct TunerGround: View {
     let model: TunerModel?
-    let held: TunerHeld
+    let lastReading: TunerLastReading
     /// The screen's own appearance, not the dark one its content takes.
     let colorScheme: ColorScheme
     let motion: Animation?
 
     var body: some View {
-        let green = held.shown(model).map { inTuneFraction(cents: $0.note.cents) } ?? 0
+        let green = lastReading.shown(model).map { inTuneFraction(cents: $0.note.cents) } ?? 0
         BrandStyle.color(hex: PhoneStyle.tuneGroundHex(colorScheme, green: green))
             .ignoresSafeArea()
             .animation(motion, value: green)
     }
 }
 
-/// The tuner's stage: the bars and the note heard, the prompt while nothing is, or why it cannot
+/// The tuner's display: the bars and the note heard, the prompt while nothing is, or why it cannot
 /// listen.
-struct TunerStage: View {
+struct TunerDisplay: View {
     let model: TunerModel?
-    let held: TunerHeld
+    let lastReading: TunerLastReading
     let motion: Animation?
 
     @Environment(\.openURL) private var openURL
@@ -63,7 +63,7 @@ struct TunerStage: View {
             case .idle:
                 EmptyView()
             case .listening:
-                if let shown = held.shown(model) {
+                if let shown = lastReading.shown(model) {
                     TunerBars(cents: shown.note.cents, animation: motion)
                     readout(shown)
                 } else {
@@ -76,14 +76,14 @@ struct TunerStage: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: reading) {
             guard let reading else { return }
-            held.last = reading
-            if let words = held.announcer.next(reading) {
+            lastReading.last = reading
+            if let words = lastReading.announcer.next(reading) {
                 AccessibilityNotification.Announcement(words).post()
             }
         }
     }
 
-    /// The note on the stage's middle, level with in-tune bars, and the cents hanging below it.
+    /// The note on the display's middle, level with in-tune bars, and the cents hanging below it.
     private func readout(_ shown: Reading) -> some View {
         let note = shown.note
         return VStack(spacing: 0) {

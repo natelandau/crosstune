@@ -13,7 +13,7 @@ struct RecordingItem: View {
     /// True in a list whose heading already names the recording's tune.
     var tuneNamedAbove = false
     /// The account's storage, for a recording the quota blocked.
-    var storage: StorageFigures?
+    var storage: StorageUsage?
     /// The Recordings screen's sort, which picks the date the meta line shows. Nil elsewhere,
     /// which shows when it was played.
     var sort: RecordingSort?
@@ -43,7 +43,7 @@ struct RecordingItem: View {
             loaded: player?.holds(.recording, id: id) ?? false, downloading: transfers?.isDownloading(id) ?? false,
             downloadFailed: transfers?.failedDownloads.contains(id) ?? false, offline: offline,
             playBlocked: recorders?.isCapturing ?? false, storage: storage, sort: sort, opensScreen: opensScreen,
-            heldForPremium: plan?.heldForPremium.contains(id) ?? false,
+            isLocalUntilSubscribed: plan?.isLocalUntilSubscribed.contains(id) ?? false,
             recordingsPlay: plan.recordingsPlay)
         MediaRow(
             recording: row,

@@ -11,14 +11,14 @@ export const META_RECORDINGS_ORIGIN = 'recordings_origin'
 export const META_SCAN_INVERT = 'scan_invert'
 /** Recordings and scans the server refused for Premium: their changes wait in the outbox until
  * it agrees. */
-const META_PREMIUM_HOLDS = 'premium_holds'
+const META_LOCAL_ONLY_ROWS = 'premium_holds'
 /** The seen notices whose post the server refused for good: they stay seen and are never
  * posted again. */
 export const META_REFUSED_NOTICES = 'refused_notices'
 /** One-time notices seen on this device that the server has not confirmed yet. */
 export const META_SEEN_NOTICES = 'seen_notices'
 
-export interface StorageFigures {
+export interface StorageUsage {
   used_bytes: number
   quota_bytes: number
   max_file_bytes: number
@@ -58,12 +58,12 @@ export function getInvalidChangeCount(db: CrosstuneDb): Promise<number> {
   return getMeta(db, META_INVALID_CHANGES, 0)
 }
 
-export function getStorage(db: CrosstuneDb): Promise<StorageFigures | null> {
-  return getMeta<StorageFigures | null>(db, META_STORAGE, null)
+export function getStorage(db: CrosstuneDb): Promise<StorageUsage | null> {
+  return getMeta<StorageUsage | null>(db, META_STORAGE, null)
 }
 
-export function setStorage(db: CrosstuneDb, figures: StorageFigures): Promise<void> {
-  return setMeta(db, META_STORAGE, figures)
+export function setStorage(db: CrosstuneDb, usage: StorageUsage): Promise<void> {
+  return setMeta(db, META_STORAGE, usage)
 }
 
 /** Whether this device downloads every ready recording so it plays without a connection. */
@@ -91,41 +91,41 @@ export async function countInvalidChanges(db: CrosstuneDb, added: number): Promi
   })
 }
 
-export async function getPremiumHolds(db: CrosstuneDb): Promise<Set<string>> {
-  return new Set(await getMeta<string[]>(db, META_PREMIUM_HOLDS, []))
+export async function getLocalOnlyRows(db: CrosstuneDb): Promise<Set<string>> {
+  return new Set(await getMeta<string[]>(db, META_LOCAL_ONLY_ROWS, []))
 }
 
 async function changeHolds(db: CrosstuneDb, change: (holds: Set<string>) => void): Promise<void> {
   await db.transaction('rw', db.meta, async () => {
-    const holds = await getPremiumHolds(db)
+    const holds = await getLocalOnlyRows(db)
     const size = holds.size
     change(holds)
-    if (holds.size !== size) await setMeta(db, META_PREMIUM_HOLDS, [...holds])
+    if (holds.size !== size) await setMeta(db, META_LOCAL_ONLY_ROWS, [...holds])
   })
 }
 
-export function holdForPremium(db: CrosstuneDb, ids: string[]): Promise<void> {
+export function keepLocalUntilSubscribed(db: CrosstuneDb, ids: string[]): Promise<void> {
   if (ids.length === 0) return Promise.resolve()
   return changeHolds(db, (holds) => ids.forEach((id) => holds.add(id)))
 }
 
-export function releasePremiumHolds(db: CrosstuneDb, ids: string[]): Promise<void> {
+export function releaseLocalOnlyRows(db: CrosstuneDb, ids: string[]): Promise<void> {
   if (ids.length === 0) return Promise.resolve()
   return changeHolds(db, (holds) => ids.forEach((id) => holds.delete(id)))
 }
 
 /** Drop the holds whose row has no queued upsert left, as after its entry was dropped or
  * superseded by a pull. */
-export async function prunePremiumHolds(db: CrosstuneDb): Promise<void> {
+export async function pruneLocalOnlyRows(db: CrosstuneDb): Promise<void> {
   await db.transaction('rw', db.meta, db.outbox, async () => {
-    const holds = await getPremiumHolds(db)
+    const holds = await getLocalOnlyRows(db)
     if (holds.size === 0) return
     const queued = await db.outbox
       .where('[table+row_id]')
       .anyOf([...holds].flatMap((id) => PREMIUM_TABLES.map((table) => [table, id])))
       .toArray()
     const live = new Set(queued.filter((entry) => entry.op !== 'delete').map((e) => e.row_id))
-    await releasePremiumHolds(
+    await releaseLocalOnlyRows(
       db,
       [...holds].filter((id) => !live.has(id)),
     )

@@ -67,7 +67,7 @@ extension StoreWriter {
             try tombstone(ScanRecord.self, id: scan.id, at: time, enqueueDelete: false)
             try ScanFile.deleteOne(db, key: scan.id)
         }
-        try releasePremiumHolds(scans.map(\.id))
+        try releaseLocalOnlyRows(scans.map(\.id))
     }
 }
 

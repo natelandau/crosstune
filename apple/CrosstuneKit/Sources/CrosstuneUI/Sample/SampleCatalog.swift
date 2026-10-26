@@ -40,7 +40,7 @@
             instruments: instruments.sorted(), searchProviders: searchProviders)
 
         /// The account's storage, as the last sync would have left it.
-        public static let storage = StorageFigures(
+        public static let storage = StorageUsage(
             usedBytes: 48_200_000, quotaBytes: 1_000_000_000, maxFileBytes: 100_000_000)
 
         public static let entries: [Entry] = [

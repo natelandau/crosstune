@@ -45,7 +45,7 @@ describe('useStorageSummary', () => {
 })
 
 describe('useStorageSummary with a plan', () => {
-  it('takes a premium quota from the entitlements row and the used bytes from the server figure', async () => {
+  it('takes a premium quota from the entitlements row and the used bytes from the server-reported usage', async () => {
     await db.entitlements.put(
       entitlementRow({ premium_source: 'comp', premium_quota_bytes: 50_000_000 }),
     )
@@ -54,7 +54,7 @@ describe('useStorageSummary with a plan', () => {
     await expect.poll(() => result.current?.label).toBe('12 MB of 50 MB used')
   })
 
-  it('gives no quota on a free plan, whatever quota the server figure last held', async () => {
+  it('gives no quota on a free plan, whatever quota the server last reported', async () => {
     await db.entitlements.put(entitlementRow())
     await setStorage(db, { used_bytes: 12_000_000, quota_bytes: 1_000_000_000, max_file_bytes: 1 })
     const { result } = setup()

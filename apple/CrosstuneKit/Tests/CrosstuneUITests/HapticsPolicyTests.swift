@@ -23,10 +23,10 @@ import Testing
             FileManager.default.enumerator(at: Self.sources, includingPropertiesForKeys: nil)?
             .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" } ?? []
         #expect(!files.isEmpty)
-        let offenders = try files.filter { file in
+        let violations = try files.filter { file in
             let source = try String(contentsOf: file, encoding: .utf8)
             return Self.hapticMarkers.contains { source.contains($0) }
         }.map(\.lastPathComponent).filter { !Self.allowed.contains($0) }.sorted()
-        #expect(offenders.isEmpty, "Haptics outside the allowlist: \(offenders.joined(separator: ", "))")
+        #expect(violations.isEmpty, "Haptics outside the allowlist: \(violations.joined(separator: ", "))")
     }
 }

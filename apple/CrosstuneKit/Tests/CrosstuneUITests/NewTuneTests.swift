@@ -18,7 +18,7 @@ import Testing
     /// Held for the test, since the store's folder goes with it.
     private let root = TemporaryRoot()
 
-    private func opened() async throws -> (CrosstuneStore, AddedTuneOffer) {
+    private func opened() async throws -> (CrosstuneStore, AddedTuneUndo) {
         let store = try root.open()
         try await store.write { writer in
             try writer.put(
@@ -26,10 +26,10 @@ import Testing
                     id: settingsID(clerkUserID: store.userID), createdAt: noon, audioQuality: "standard",
                     instruments: ["violin"]), at: noon)
         }
-        return (store, AddedTuneOffer(store: store, analytics: sink.client))
+        return (store, AddedTuneUndo(store: store, analytics: sink.client))
     }
 
-    private func draft(_ added: AddedTuneOffer, source: ActionSource = .catalog) -> NewTuneDraft {
+    private func draft(_ added: AddedTuneUndo, source: ActionSource = .catalog) -> NewTuneDraft {
         NewTuneDraft(source: source) { title, source in await added.addAfterAnyRunning(title: title, source: source) }
     }
 
@@ -51,8 +51,8 @@ import Testing
         #expect(created.title == "Angeline")
         #expect(created.byReturn)
         #expect(try await liveTitles(store) == ["Angeline"])
-        #expect(added.offer?.message == AddedTuneOffer.added("Angeline"))
-        #expect(added.offer?.undo != nil)
+        #expect(added.undoBannerItem?.message == AddedTuneUndo.added("Angeline"))
+        #expect(added.undoBannerItem?.undo != nil)
         #expect(sink.captures.map(\.name) == ["tune_created"])
         #expect(sink.captures.first?.properties["tune_id"] == .string(created.tuneID))
     }
@@ -66,7 +66,7 @@ import Testing
 
         #expect(!created.byReturn)
         #expect(try await liveTitles(store) == ["Angeline"])
-        #expect(added.offer?.message == AddedTuneOffer.added("Angeline"))
+        #expect(added.undoBannerItem?.message == AddedTuneUndo.added("Angeline"))
     }
 
     @Test func theDraftTellsItsPageTheTuneHoweverItEnds() async throws {
@@ -92,7 +92,7 @@ import Testing
 
         #expect(try await liveTitles(store).isEmpty)
         // Blank is a discard, not a refusal: the banner says nothing.
-        #expect(added.offer == nil)
+        #expect(added.undoBannerItem == nil)
         #expect(sink.captures.isEmpty)
     }
 
@@ -143,7 +143,7 @@ import Testing
         let (store, _) = try await opened()
         var landSearch: CheckedContinuation<Void, Never>?
         // The catalog's search makes a tune at the same moment, held here until the draft waits.
-        let added = AddedTuneOffer(store: store, analytics: sink.client) { title, source in
+        let added = AddedTuneUndo(store: store, analytics: sink.client) { title, source in
             if title == "Rove Riley" { await withCheckedContinuation { landSearch = $0 } }
             return try await CrosstuneCommands.Commands(store: store).createTitleOnly(title: title, source: source)
         }
@@ -353,7 +353,7 @@ import Testing
                     .environment(\.heldDraftChanged, HeldDraftWatch(heldChanged))
                     .environment(\.detailTune, column.value)
                     .environment(\.store, store)
-                    .environment(AddedTuneOffer(store: store))
+                    .environment(AddedTuneUndo(store: store))
                     .environment(\.openDrafts, drafts))
             window.orderFrontRegardless()
             return window

@@ -38,15 +38,15 @@ struct ScanTransfers {
             let serverSeqs = Dictionary(uniqueKeysWithValues: scans.map { ($0.id, $0.serverSeq) })
             return files.map { ($0, serverSeqs[$0.scanID] ?? 0) }
         }
-        let storage = try await store.meta(.storage, as: StorageFigures.self)
+        let storage = try await store.meta(.storage, as: StorageUsage.self)
         let now = Timestamp.now
         var firstError: (any Error)?
         for (file, serverSeq) in waiting {
             // A refused row the server has since stored, as after a later edit's push, can take
             // a slot after all.
             if file.error == ScanFile.refusedError, serverSeq == 0 { continue }
-            // Only the figures a sync refreshes free a scan refused for quota; asking for a slot
-            // before they show room would draw the same refusal.
+            // Only the usage a sync refreshes frees a scan refused for quota; asking for a slot
+            // before it shows room would draw the same refusal.
             if file.error == ScanFile.storageFullError, let storage {
                 let bytes = (try? fileSize(store.scansFolder.appending(path: file.fileName))) ?? 0
                 if Int64(storage.usedBytes) + bytes > Int64(storage.quotaBytes) { continue }

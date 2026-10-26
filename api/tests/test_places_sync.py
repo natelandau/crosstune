@@ -329,7 +329,7 @@ async def test_renamed_place_changes_nothing_but_server_seq_of_the_place(
     pid, rec, other = uid(), uid(), uid()
     headers = auth_headers("user_a")
     await push(client, headers, place(pid), take(rec), take(other, north_m=1))
-    # A device take within the radius that the device unlinked, so a reach-back would link it.
+    # A device take within the radius that the device unlinked, so a rematch would link it.
     await push(client, headers, take(other, T1, north_m=1, place_id=None))
     assert (await recording_row(client, headers, other))["place_id"] is None
     before = await recording_row(client, headers, rec)
@@ -376,7 +376,7 @@ async def test_unlinked_takes_are_candidates_for_another_place(client, auth_head
     assert (await recording_row(client, headers, rec))["place_id"] == second
 
 
-async def test_reach_back_bumps_server_seq_and_not_updated_at(client, auth_headers) -> None:
+async def test_rematch_bumps_server_seq_and_not_updated_at(client, auth_headers) -> None:
     pid, rec = uid(), uid()
     headers = auth_headers("user_a")
     await push(client, headers, take(rec))

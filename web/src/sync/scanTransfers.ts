@@ -133,8 +133,8 @@ export async function scanUploadPass(db: CrosstuneDb, api: SyncApi): Promise<unk
   const nowMs = Date.now()
   let firstError: unknown = null
   for (const file of waiting) {
-    // Only the storage figures a sync refreshes free a refused scan; asking for a slot
-    // before they show room would draw the same refusal.
+    // Only the storage usage a sync refreshes frees a refused scan; asking for a slot
+    // before it shows room would draw the same refusal.
     if (
       file.error === SCAN_STORAGE_FULL_ERROR &&
       storage &&
