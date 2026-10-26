@@ -115,6 +115,57 @@ worktree $branch:
     just --justfile '{{ justfile() }}' apple::prune-derived-data
     echo "worktree ready at $path"
 
+# Remove .worktrees/<branch>, its branch once merged, its database and bucket, and its Xcode DerivedData
+worktree-remove $branch:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    main="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+    path="$main/.worktrees/$branch"
+    registered() { git -C "$main" worktree list --porcelain | grep -qxF "worktree $path"; }
+    if ! registered; then
+        echo "no worktree at $path" >&2
+        exit 1
+    fi
+    # This worktree's files vanish below, so everything after runs from the main checkout.
+    cd "$main"
+    if [ -x "$path/apple/scripts/mac-app.sh" ]; then
+        (cd "$path" && apple/scripts/mac-app.sh done)
+    fi
+    # Never --force, which discards uncommitted work. git deregisters a worktree before it
+    # deletes the folder, so a folder an editor filled with untracked build output stays behind.
+    if ! git worktree remove "$path"; then
+        registered && exit 1
+        rm -rf "$path"
+        echo "deleted $path, which git left behind"
+    fi
+    git fetch --quiet origin main || echo "could not fetch origin; checking the merge against the last fetch" >&2
+    tip="$(git rev-parse "$branch")"
+    merged() {
+        git merge-base --is-ancestor "$tip" main && return 0
+        git merge-base --is-ancestor "$tip" origin/main && return 0
+        # A squash merge leaves no ancestry. A merged pull request whose head is this tip
+        # proves it, and a later local commit means work the merge never saw.
+        if command -v gh > /dev/null &&
+            gh pr list --head "$branch" --state merged --json headRefOid --jq '.[].headRefOid' 2> /dev/null |
+            grep -qxF "$tip"; then
+            return 0
+        fi
+        # Without a pull request: the branch as one commit, which git cherry marks `-` when
+        # origin/main already holds the same patch.
+        local base squashed
+        base="$(git merge-base "$tip" origin/main)"
+        squashed="$(git commit-tree "$tip^{tree}" -p "$base" -m squashed)"
+        [[ "$(git cherry origin/main "$squashed")" == -* ]]
+    }
+    if merged; then
+        git branch -D "$branch"
+    else
+        echo "kept branch $branch: neither main nor origin/main holds its work" >&2
+    fi
+    just --justfile "$main/justfile" --working-directory "$main" api::prune-worktree-dbs
+    just --justfile "$main/justfile" --working-directory "$main" apple::prune-derived-data
+    echo "removed $path"
+
 # Copy the main checkout's .env files, Apple secrets, and Apple local overrides into this worktree, replacing any already here
 worktree-env:
     #!/usr/bin/env bash

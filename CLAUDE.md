@@ -94,6 +94,11 @@ every label. The glossary in `docs/product.md` has the reasons.
   and bucket. Never run
   `just dev-setup` in a worktree: it points the git hooks every checkout
   shares at that worktree's venv, and removing the worktree breaks them.
+- Remove a worktree with `just worktree-remove <branch>`, never
+  `git worktree remove`. It also deletes the branch once main or
+  origin/main holds its work, squash merges included, and the
+  worktree's database and bucket, and its Xcode DerivedData. It refuses a
+  worktree with uncommitted changes; never pass `--force` to git instead.
 - `just test` never runs Playwright. `just e2e` does. It starts Postgres,
   its own API on :8001, and its own preview server against its own
   `crosstune_e2e` database. It does not need `just dev`, and it can run
