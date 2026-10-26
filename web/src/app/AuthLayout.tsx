@@ -1,38 +1,52 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import { useAnalytics } from '../usage/AnalyticsProvider'
-import { SIGN_IN_HEADLINE, SIGN_IN_LINE } from '../auth/links'
+import { WHY_ACCOUNT_LINK } from '../auth/links'
+import { Button } from '../ui/Button'
 import { Lockup } from '../ui/Mark'
+import { AccountReasonSheet } from './welcome/AccountReasonSheet'
+import { WelcomeCarousel } from './welcome/WelcomeCarousel'
 
 /**
- * Two halves on a wide screen, the name and promise leading and Clerk's form trailing; one
+ * Two halves on a wide screen, the name and the carousel leading and the account trailing; one
  * column on a phone. Sign-in and sign-up share it, so moving between them keeps the page still.
  */
 export function AuthLayout({
-  line,
   notice,
   form,
+  reason,
 }: {
-  /** A second line under the promise. */
-  line?: string
   notice?: ReactNode
   form: ReactNode
+  /** Shown under the form; sign-up omits it because Clerk's subtitle carries it. */
+  reason?: string
 }) {
   const analytics = useAnalytics()
   useEffect(() => analytics.screen('welcome'), [analytics])
+  const [whyOpen, setWhyOpen] = useState(false)
+  const lockupId = useId()
   return (
     <main className="flex min-h-dvh items-center justify-center p-4">
-      <div className="flex w-full max-w-5xl flex-col gap-8 min-[60rem]:flex-row min-[60rem]:items-center min-[60rem]:gap-16">
-        <div className="flex flex-1 flex-col items-start gap-6">
-          <Lockup className="t-heading" />
-          <div className="flex flex-col gap-2">
-            <h1 className="t-screen-title m-0">{SIGN_IN_HEADLINE}</h1>
-            <p className="t-body text-ink-2 m-0">{SIGN_IN_LINE}</p>
-            {line ? <p className="t-body text-ink-2 m-0">{line}</p> : null}
-          </div>
-          {notice}
+      <div className="welcome:flex-row welcome:items-center welcome:gap-16 flex w-full max-w-5xl flex-col gap-8">
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-6">
+          <span id={lockupId}>
+            <Lockup className="t-heading" />
+          </span>
+          <WelcomeCarousel labelledBy={lockupId} />
         </div>
-        <div className="flex min-w-0 flex-1 justify-center">{form}</div>
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-4">
+          {notice}
+          {form}
+          {reason ? <p className="t-body text-ink-2 max-w-auth m-0">{reason}</p> : null}
+          <Button
+            label={WHY_ACCOUNT_LINK}
+            onPress={() => {
+              analytics.send('account_reason_opened', {})
+              setWhyOpen(true)
+            }}
+          />
+        </div>
       </div>
+      <AccountReasonSheet isOpen={whyOpen} onOpenChange={setWhyOpen} />
     </main>
   )
 }

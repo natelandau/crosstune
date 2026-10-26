@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { FLAT, hintLabel, referenceLabel, SHARP, spokenReading } from './tunerCopy'
+import { FLAT, formatCents, hintLabel, referenceLabel, SHARP, spokenReading } from './tunerCopy'
 
 describe('referenceLabel', () => {
   it('says nothing at 440', () => {
@@ -34,5 +34,15 @@ describe('hintLabel', () => {
     [3.05, SHARP],
   ])('%s cents hints %s', (cents, label) => {
     expect(hintLabel(cents)).toBe(label)
+  })
+})
+
+describe('formatCents', () => {
+  it.each([
+    [6, '+6.0¢'],
+    [0, '+0.0¢'],
+    [-3.44, '−3.4¢'],
+  ])('shows %s cents as %s', (cents, shown) => {
+    expect(formatCents(cents)).toBe(shown)
   })
 })

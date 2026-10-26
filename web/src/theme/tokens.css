@@ -46,6 +46,9 @@
   --jet-dark: #1e212c;
   /* Text on jet, such as a tooltip's. */
   --on-jet: #ffffff;
+  /* A drawn device's frame: jet on light paper, and raised on dark, where jet sinks into the
+     ground. */
+  --device-bezel: var(--jet);
   --record: #ff383c;
   /* The label on a record fill, and the fill under the pointer: white falls under 4.5:1 on the
      red, so the label is dark and the hover lightens. */
@@ -205,6 +208,7 @@
   --switch-off: #8a847b;
   --switch-on: #4a86c4;
   --jet: var(--jet-dark);
+  --device-bezel: var(--raised);
   --record: #ff4245;
   --record-hover: #ff5f56;
   --unknown-on-surface: #8a909a;
@@ -321,6 +325,7 @@
   --color-coral: var(--coral);
   --color-jet: var(--jet);
   --color-on-jet: var(--on-jet);
+  --color-device-bezel: var(--device-bezel);
   --color-record: var(--record);
   --color-on-record: var(--on-record);
   --color-record-hover: var(--record-hover);
