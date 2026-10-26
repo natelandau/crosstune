@@ -174,6 +174,7 @@ struct TuneActionButtons: View {
                 case .lyrics:
                     if let onReadLyrics {
                         button(TuneFieldLabels.lyrics, "text.quote", prominent: false, action: onReadLyrics)
+                            // ViewThatFits builds only the shown candidate, so this registers once, not per candidate.
                             .lyricsZoomSource(tuneID: detail.tune.id, origin: .actionButton)
                     }
                 }
