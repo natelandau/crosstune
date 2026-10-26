@@ -190,8 +190,6 @@ fails there at random. Every web test follows these rules:
 - Under fake timers, a poll advances the clock by its interval on each
   miss, so it can fire a timer the test means to hold. There, poll with
   `pollStill` and `elementStill` from `web/src/test/stillPoll.ts`.
-- Never wait a fixed time for something to happen. A fixed wait proves only
-  that something did not happen, after a poll has seen the thing that did.
 - Behavior driven by elapsed time or animation frames takes its clock or
   frame source as an input, or the test uses fake timers. No assertion
   depends on how many frames a runner renders.
@@ -200,11 +198,11 @@ fails there at random. Every web test follows these rules:
   test. A test database comes from `openTestDb()`, which deletes it after
   the tree unmounts; never delete it in an `afterEach`, which runs while
   the tree is still mounted.
-- A stress recipe, such as `just web::stress`, runs once per branch, when
-  its work is done and before it lands or opens a pull request. It never
-  runs per commit or per task, and a subagent executing part of a plan
-  never runs it. `just web::stress 5` with no files shuffles every test
-  file the branch added or changed since `main`.
+- A stress recipe, such as `just web::stress`, runs only to reproduce or
+  fix a flaky test. Never as a routine step: not per commit, per task, or
+  branch, and not before a pull request. `just web::stress 5 <files>`
+  shuffles those files five times. With no files, it takes every test file
+  the branch added or changed since `main`.
 - Never raise a timeout or add a retry to make a test pass. CI retries a
   failed browser test so one race doesn't fail the run, and the job summary
   lists every test that needed a retry. A listed test is a bug to fix.

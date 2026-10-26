@@ -106,7 +106,7 @@ test-unit *args:
 test-browser *args:
     {{ gate }} web-test-browser --argc "$#" --file .env --tool 'node --version' pnpm vitest run --project browser --project browser-webkit "$@"
 
-# Once per finished branch: run tests shuffled, by default the branch's changed test files; SEED=<n> replays one
+# Reproduce a flaky test: run tests shuffled, by default the branch's changed test files; SEED=<n> replays one
 [group('test')]
 [positional-arguments]
 stress runs *args:
