@@ -403,6 +403,23 @@ it('recedes the page behind a touch sheet and restores it on close', async () =>
   expect(document.body.getAttribute('style') ?? '').toBe('')
 })
 
+it('moves the receding page without changing its clip as the sheet rises', async () => {
+  renderWithProviders(
+    <div data-sheet-root>
+      <Harness />
+    </div>,
+    { density: 'touch' },
+  )
+  const root = document.querySelector<HTMLElement>('[data-sheet-root]')!
+  const frames = await everyFrame(
+    () => ({ clip: root.style.clipPath, transform: root.style.transform }),
+    openSettled,
+  )
+  const opened = frames.filter((frame) => frame.transform !== '')
+  expect(new Set(opened.map((frame) => frame.transform)).size).toBeGreaterThan(1)
+  expect(new Set(opened.map((frame) => frame.clip))).toEqual(new Set(['inset(0px round 14px)']))
+})
+
 it('restores the receded page when the sheet unmounts open', async () => {
   const { rerender } = renderWithProviders(
     <div data-sheet-root>
@@ -669,8 +686,14 @@ it.each(['touch', 'pointer'] as const)(
   async (density) => {
     renderWithProviders(<Harness height="full" />, { density })
     await open()
-    const scrim = () =>
-      getComputedStyle(document.querySelector('[data-sheet-scrim]')!).backgroundColor
+    // A touch sheet fades a black layer; a pointer dialog colors the overlay.
+    const scrim = () => {
+      const dim = document.querySelector('[data-sheet-dim]')
+      if (!dim)
+        return getComputedStyle(document.querySelector('[data-sheet-scrim]')!).backgroundColor
+      const { backgroundColor, opacity } = getComputedStyle(dim)
+      return backgroundColor.replace('rgb(', 'rgba(').replace(')', `, ${opacity})`)
+    }
     await expect.poll(scrim).toBe('rgba(0, 0, 0, 0.4)')
   },
 )

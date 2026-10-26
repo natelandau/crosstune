@@ -208,6 +208,9 @@ Browser and library behavior that a new screen runs into.
   drag image and drop line cannot lift a row or slide the others.
 - Opening a sheet costs time in proportion to the page under it, so a long
   list behind a sheet is virtualized or short.
+- A virtualized `RowList` hands a row's element to another row as it
+  scrolls. State inside a row's content sits under a `key` of the row's id,
+  or it carries over to the next row.
 - A window opened by a third party (a store checkout) opens only after the
   sheet that asked for it has left, and no notice opens over it: it would
   sit under the sheet's inert page.

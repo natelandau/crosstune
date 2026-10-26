@@ -38,6 +38,35 @@ function snapshot(list: HTMLElement, sliding: WeakMap<HTMLElement, Animation>): 
   )
 }
 
+/**
+ * A virtualized list's rows, in visual order. Each sits in a positioned wrapper of its own and
+ * the DOM order lags while scrolling, so places are measured against the list itself.
+ */
+function placedSnapshot(list: HTMLElement): Snapshot {
+  const origin = list.getBoundingClientRect()
+  const placed = rowsOf(list).map((row): [string, Placed] => {
+    const box = row.getBoundingClientRect()
+    return [
+      row.dataset.key!,
+      {
+        row,
+        top: box.top - origin.top,
+        left: box.left - origin.left,
+        width: box.width,
+        height: box.height,
+      },
+    ]
+  })
+  return new Map(placed.sort(([, a], [, b]) => a.top - b.top))
+}
+
+/** Whether any row in both snapshots changed its place. */
+const anyMoved = (a: Snapshot, b: Snapshot): boolean =>
+  [...b].some(([key, place]) => {
+    const was = a.get(key)
+    return was !== undefined && Math.abs(was.top - place.top) >= 0.5
+  })
+
 const sameOrder = (a: Snapshot, b: Snapshot): boolean => {
   if (a.size !== b.size) return false
   const later = [...b.keys()]
@@ -50,8 +79,16 @@ const sameOrder = (a: Snapshot, b: Snapshot): boolean => {
  * row fades out where it stood while the rows below slide up over it. A change to the rows'
  * size alone, such as a resize, moves nothing. Paused while a drag is under way or settling,
  * since the drag places the rows itself, and off under reduced motion.
+ *
+ * In a `virtualized` list, rows also mount and unmount as it scrolls; a change that moves no
+ * row and keeps the row count is that, and animates nothing. A removed row whose element the
+ * list reuses for another row leaves no picture to fade; the rows below still slide up.
  */
-export function useListMotion(list: HTMLElement | null, reduceMotion: boolean): void {
+export function useListMotion(
+  list: HTMLElement | null,
+  reduceMotion: boolean,
+  virtualized = false,
+): void {
   const reduceMotionRef = useLatest(reduceMotion)
 
   // Watches the rows themselves, not this list's renders: React Aria builds the rows in an
@@ -59,17 +96,23 @@ export function useListMotion(list: HTMLElement | null, reduceMotion: boolean): 
   useLayoutEffect(() => {
     if (!list) return
     const sliding = new WeakMap<HTMLElement, Animation>()
-    let last = snapshot(list, sliding)
+    const measure = () => (virtualized ? placedSnapshot(list) : snapshot(list, sliding))
+    const rowCount = () => list.getAttribute('aria-rowcount')
+    let last = measure()
+    let lastCount = rowCount()
 
     const changed = () => {
       const before = last
-      const after = snapshot(list, sliding)
+      const after = measure()
+      const beforeCount = lastCount
       last = after
+      lastCount = rowCount()
       if (reduceMotionRef.current || sameOrder(before, after)) return
       if (list.querySelector('[data-reordering]')) return
       // A list that kept none of its rows is a different list, such as another list opened in
       // its place; it swaps like a page.
       if (![...after.keys()].some((key) => before.has(key))) return
+      if (virtualized && lastCount === beforeCount && !anyMoved(before, after)) return
 
       const viewTop = -list.getBoundingClientRect().top
       const viewBottom = viewTop + window.innerHeight
@@ -102,19 +145,46 @@ export function useListMotion(list: HTMLElement | null, reduceMotion: boolean): 
 
     // The mutation callback runs before the next paint, so no frame shows a row in its new
     // place before it starts from the old one.
-    const rows = new MutationObserver(changed)
-    rows.observe(list, { childList: true })
+    const rows = new MutationObserver(
+      virtualized
+        ? (records) => {
+            // A virtualized list places a row by its wrapper's style and reuses elements, so
+            // only those changes count, not a row's own content restyling itself.
+            if (records.some((record) => isPlacement(list, record))) changed()
+          }
+        : changed,
+    )
+    rows.observe(
+      list,
+      virtualized
+        ? {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['style', 'data-key'],
+          }
+        : { childList: true },
+    )
     // Kept current when a row's height changes alone, which adds or removes no row, so the next
     // change never slides from a stale place.
     const sizes = new ResizeObserver(() => {
-      last = snapshot(list, sliding)
+      last = measure()
     })
     sizes.observe(list)
     return () => {
       rows.disconnect()
       sizes.disconnect()
     }
-  }, [list, reduceMotionRef])
+  }, [list, reduceMotionRef, virtualized])
+}
+
+/** A mutation that adds, removes, places, or reassigns a virtualized list's row. */
+function isPlacement(list: HTMLElement, record: MutationRecord): boolean {
+  const target = record.target as Element
+  if (record.type === 'childList') return target === list || target.parentElement === list
+  if (record.attributeName === 'data-key') return target.getAttribute('role') === 'row'
+  // A wrapper is a direct child of the virtualizer's content box inside the list.
+  return target.parentElement?.parentElement === list
 }
 
 function fadeIn(row: HTMLElement): void {

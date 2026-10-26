@@ -1,5 +1,5 @@
 import { Archive, ArchiveRestore, ListChecks, SquarePen, Trash2 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { memo, type ReactNode } from 'react'
 import type { Key } from 'react-aria-components'
 import type { Instrument } from '../../api/vocabulary'
 import { STATUS_LABELS } from '../../constants'
@@ -33,8 +33,11 @@ function spokenRow(title: string, keyName: string | null, status: string, detail
  * The one tune row: status glyph, title, the played instruments' tunings and "Archived" in
  * secondary, and the compact key pill trailing, so the keys form a column. The tunings line
  * leaves a standard tuning unsaid, so on touch the second line shows only what is unusual.
+ *
+ * Memoized, and its handlers take the row's entry, so a list passes the same handlers to every
+ * row and a change elsewhere on the screen re-renders none of them.
  */
-export function TuneRow({
+export const TuneRow = memo(function TuneRow({
   entry,
   instruments,
   onEdit,
@@ -49,12 +52,12 @@ export function TuneRow({
   entry: CatalogEntry
   instruments: ReadonlySet<Instrument>
   /** Opens the tune's scans; present only for a tune that has any. */
-  onViewScans?: () => void
-  onEdit: () => void
-  onArchive: (archived: boolean) => void
-  onDelete: () => void
+  onViewScans?: (entry: CatalogEntry) => void
+  onEdit: (entry: CatalogEntry) => void
+  onArchive: (entry: CatalogEntry, archived: boolean) => void
+  onDelete: (entry: CatalogEntry) => void
   /** Opens selection with this row selected. */
-  onSelect: () => void
+  onSelect: (entry: CatalogEntry) => void
   /** The screen is selecting, and acts on its rows from its own bar, so the row offers nothing. */
   selecting?: boolean
   /** True for the row whose page is opening, so its title morphs into the page title. */
@@ -66,14 +69,14 @@ export function TuneRow({
   const actions: RowAction[] = selecting
     ? []
     : [
-        ...scansAction(onViewScans),
-        { id: 'edit', label: EDIT_TUNE, icon: SquarePen, onAction: onEdit },
+        ...scansAction(onViewScans && (() => onViewScans(entry))),
+        { id: 'edit', label: EDIT_TUNE, icon: SquarePen, onAction: () => onEdit(entry) },
         {
           id: 'archive',
           label: archived ? UNARCHIVE : ARCHIVE,
           icon: archived ? ArchiveRestore : Archive,
           tone: 'warning',
-          onAction: () => onArchive(!archived),
+          onAction: () => onArchive(entry, !archived),
         },
       ]
   // A row shows at most three actions, so Delete, the one a stray swipe should not reach,
@@ -81,9 +84,15 @@ export function TuneRow({
   const menu: RowAction[] = selecting
     ? []
     : [
-        { id: 'select', label: SELECT, icon: ListChecks, onAction: onSelect },
+        { id: 'select', label: SELECT, icon: ListChecks, onAction: () => onSelect(entry) },
         ...actions,
-        { id: 'delete', label: DELETE, icon: Trash2, tone: 'danger', onAction: onDelete },
+        {
+          id: 'delete',
+          label: DELETE,
+          icon: Trash2,
+          tone: 'danger',
+          onAction: () => onDelete(entry),
+        },
       ]
   return (
     <TuneRowView
@@ -96,7 +105,7 @@ export function TuneRow({
       playing={playing}
     />
   )
-}
+})
 
 /**
  * The tune row's parts around the caller's own row key and actions, for a tune shown outside

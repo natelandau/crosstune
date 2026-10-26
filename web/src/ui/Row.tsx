@@ -217,7 +217,14 @@ export function Row({
       } ${dimmed ? 'text-ink [--ink:var(--ink-dim)]' : ''}`}
     >
       {touch ? (
-        <RowSwipe rowKey={id} actions={actions} onLongPress={items.length > 0 ? openAt : undefined}>
+        // Keyed, since a virtualized list hands one row's element to another as it scrolls, and
+        // a swipe's offset must not carry over.
+        <RowSwipe
+          key={id}
+          rowKey={id}
+          actions={actions}
+          onLongPress={items.length > 0 ? openAt : undefined}
+        >
           {content}
         </RowSwipe>
       ) : (

@@ -31,6 +31,7 @@ import { EDIT_TUNE } from '../tune/tuneScreenCopy'
 import { clearFresh } from '../tune/freshTune'
 import { NEW_TUNE_PATH, tuneHomePath } from '../../layout/tuneHome'
 import { openTestDb } from '../../test/db'
+import { tuneRow, userTuneRow } from '../../test/rows'
 import { viewTransitionsDone } from '../../test/viewTransitions'
 import { ANY, FILTERS } from '../../ui/filterCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
@@ -699,4 +700,86 @@ it('shows a row tuning whole or not at all on pointer', async () => {
   // A short tuning fits beside a short title, so it must show.
   await expect.poll(fit('Duck River')).toBe('whole')
   await expect.poll(fit('Cluck Old Hen')).toMatch(/^(whole|hidden)$/)
+})
+
+/** `count` tunes titled in order, "Tune 000" first. */
+async function seedMany(db: CrosstuneDb, count: number): Promise<void> {
+  const ids = Array.from({ length: count }, (_, i) => String(i).padStart(3, '0'))
+  await db.tunes.bulkPut(ids.map((id) => tuneRow(`t${id}`, `Tune ${id}`)))
+  await db.user_tunes.bulkPut(ids.map((id) => userTuneRow(`u${id}`, `t${id}`)))
+}
+
+const MANY = 200
+// A pointer row's height, which every row in these lists has.
+const ROW_PX = 32
+
+/** Waits until the list has measured its rows, so a scroll lands where it would for a person. */
+const settled = () => expect.poll(() => tunes().element().clientHeight).toBe(MANY * ROW_PX)
+
+it('mounts only the rows near the window in a long catalog', async () => {
+  const db = openTestDb()
+  await seedMany(db, MANY)
+  await mount(db)
+  await expect.element(row('Tune 000')).toBeVisible()
+  await expect.element(tunes()).toHaveAttribute('aria-rowcount', String(MANY))
+  await expect.poll(() => tunes().getByRole('row').elements().length).toBeLessThan(60)
+  expect(tunes().getByRole('row').elements().length).toBeGreaterThan(10)
+  await expect.element(row(`Tune ${MANY - 1}`)).not.toBeInTheDocument()
+  await expect.element(row('Tune 000')).toHaveAttribute('aria-rowindex', '1')
+})
+
+it('reaches rows past the window from the keyboard, scrolling the pane to them', async () => {
+  const db = openTestDb()
+  await seedMany(db, MANY)
+  await mount(db)
+  await expect.element(row('Tune 000')).toBeVisible()
+  row('Tune 000').element().focus()
+  await expect.element(row('Tune 000')).toHaveFocus()
+  for (let step = 1; step <= 40; step += 1) {
+    await userEvent.keyboard('{ArrowDown}')
+    await expect.element(row(`Tune ${String(step).padStart(3, '0')}`)).toHaveFocus()
+  }
+  await expect.element(row('Tune 040')).toBeInViewport()
+  await expect.element(row('Tune 000')).not.toBeInTheDocument()
+  await userEvent.keyboard('{End}')
+  await expect.element(row(`Tune ${MANY - 1}`)).toHaveFocus()
+  await expect.element(row(`Tune ${MANY - 1}`)).toBeInViewport()
+})
+
+it('mounts the rows a scroll of the pane brings into view', async () => {
+  const db = openTestDb()
+  await seedMany(db, MANY)
+  await mount(db)
+  await expect.element(row('Tune 000')).toBeVisible()
+  await settled()
+  const pane = tunes().element().closest<HTMLElement>('[data-pane-scroller]')!
+  pane.scrollTop = 100 * ROW_PX
+  await expect.element(row('Tune 100')).toBeInTheDocument()
+  await expect.element(row('Tune 000')).not.toBeInTheDocument()
+})
+
+it('comes back from a pushed tune to the same place in a long catalog', async () => {
+  const db = openTestDb()
+  await seedMany(db, MANY)
+  const { router } = await mount(db)
+  await expect.element(row('Tune 000')).toBeVisible()
+  await settled()
+  const pane = tunes().element().closest<HTMLElement>('[data-pane-scroller]')!
+  pane.scrollTop = 100 * ROW_PX
+  await expect.element(row('Tune 100')).toBeInTheDocument()
+  await expect.element(row('Tune 000')).not.toBeInTheDocument()
+  const opened = tunes()
+    .getByRole('row')
+    .elements()
+    .find((element) => {
+      const box = element.getBoundingClientRect()
+      return box.top > 200 && box.bottom < 600
+    })!
+  const name = opened.querySelector('[data-row-title]')!.textContent!
+  const top = opened.getBoundingClientRect().top
+  await row(name).click()
+  await expect.element(tunePage()).toBeVisible()
+  await router.navigate(-1)
+  await expect.element(row(name)).toBeVisible()
+  await expect.poll(() => row(name).element().getBoundingClientRect().top).toBe(top)
 })

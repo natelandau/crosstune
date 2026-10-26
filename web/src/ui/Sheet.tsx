@@ -31,7 +31,14 @@ import { HeadingLevelContext } from './headingLevel'
 import { TONE_VARIANT, type ActionTone } from './toneVariant'
 import { PointerOverlay } from './PointerOverlay'
 import { recede } from './recede'
-import { growScale, originBox, releaseTarget, scrim, SHEET } from './sheetGeometry'
+import {
+  growScale,
+  originBox,
+  releaseTarget,
+  SCRIM_COLOR,
+  scrimOpacity,
+  SHEET,
+} from './sheetGeometry'
 import { useOverlayClaim } from './overlayClaim'
 import { useFittedHeight, useKeyboardInset, useScrollEdges, useViewport } from './sheetMeasure'
 import { clamp } from '../math'
@@ -511,7 +518,7 @@ function TouchSheet(props: SheetProps) {
   // an alert does.
   const fit = height === 'fit'
   const backdrop = useTransform([y, openAt], ([value, at]: number[]) =>
-    scrim(
+    scrimOpacity(
       fit
         ? clamp((closedY - value!) / Math.max(1, closedY - at!), 0, 1)
         : 1 - clamp(value! / closedY, 0, 1),
@@ -584,13 +591,19 @@ function TouchSheet(props: SheetProps) {
       isKeyboardDismissDisabled={locked}
       data-sheet-scrim
       className="fixed inset-0 z-50"
-      style={{ backgroundColor: backdrop }}
       // Reduced motion trades the slide for a cross-fade of the whole overlay.
       initial={reduceMotion ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       exit={reduceMotion ? { opacity: 0, transition: fade } : undefined}
       transition={fade}
     >
+      {/* A layer that fades, since animating a color repaints the whole window each frame. */}
+      <motion.div
+        aria-hidden
+        data-sheet-dim
+        className="absolute inset-0"
+        style={{ opacity: backdrop, backgroundColor: SCRIM_COLOR }}
+      />
       <MotionModal
         className="bg-ground absolute inset-x-0 rounded-t-(--radius-surface) shadow-(--shadow-float) after:absolute after:inset-x-0 after:top-full after:h-16 after:bg-inherit"
         style={{

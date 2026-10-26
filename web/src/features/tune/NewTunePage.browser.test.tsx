@@ -264,11 +264,14 @@ async function createFromPage(db: CrosstuneDb, router: AppRouter, typed: string)
   return made!.id
 }
 
-/** The titles of the catalog's rows, read from the list column even while a page covers it. */
-const listedTitles = () =>
-  [...document.querySelectorAll('[data-column="list"] [role="row"]')]
-    .map((row) => row.textContent ?? '')
-    .join('\n')
+/**
+ * How many tunes the catalog lists, read from the list column even while a page covers it. A
+ * hidden list mounts none of its rows, so the count is the grid's own.
+ */
+const listedCount = () =>
+  Number(
+    document.querySelector('[data-column="list"] [role="grid"]')?.getAttribute('aria-rowcount'),
+  )
 
 const undo = () => page.getByRole('status').getByRole('button', { name: UNDO }).click()
 
@@ -278,12 +281,13 @@ it('Undo leaves the musician on the other tune they opened', async () => {
   const [other] = await db.tunes.where('title').equals('Forked Deer').toArray()
   await router.navigate(`/catalog/${other!.id}`)
   await expect.element(page.getByRole('heading', { level: 1, name: 'Forked Deer' })).toBeVisible()
+  await expect.poll(listedCount).toBeGreaterThan(1)
+  const listed = listedCount()
   await undo()
   await expect.poll(async () => (await db.tunes.get(made))?.deleted_at).toBeTruthy()
   // The catalog, held behind the page, drops the row once it has read the delete, so anything
   // the delete would set off has run.
-  await expect.poll(() => listedTitles()).not.toContain('Soldier’s Joy')
-  expect(listedTitles()).toContain('Forked Deer')
+  await expect.poll(listedCount).toBe(listed - 1)
   expect(router.state.location.pathname).toBe(`/catalog/${other!.id}`)
   await expect.element(page.getByRole('heading', { level: 1, name: 'Forked Deer' })).toBeVisible()
 })

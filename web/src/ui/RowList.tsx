@@ -29,8 +29,49 @@ import { SwipeGroup, useSwipeGate } from './RowSwipe'
 const ROW_DRAG_TYPE = 'application/x-crosstune-row'
 // How far a mouse press moves before it becomes a drag, so a click with a shaky hand stays one.
 const DRAG_SLOP_PX = 4
-// A row's height before it is measured, which sizes the scrollbar of a virtualized list.
-const VIRTUAL_LAYOUT = { estimatedRowHeight: 48 }
+// A row's height before any is measured, which sizes the scrollbar of a virtualized list.
+const FIRST_ESTIMATE_PX = 48
+
+const VIRTUAL_FRAME = {
+  none: '',
+  own: 'max-h-[60dvh] overflow-y-auto',
+  // The virtualizer stops pointer events on its rows while anything scrolls, and the page
+  // scrolls far more than a list's own box: a tap just after a scroll would do nothing.
+  page: '[&>[role=presentation]]:pointer-events-auto!',
+}
+
+/**
+ * Lays rows out again only when the list's width changes. A page-height list is as tall as its
+ * rows, so the stock layout, which also starts over on a height change, would drop every
+ * measured row each time one is measured, and the list would never settle. A hidden list, at
+ * width 0, keeps its layout, so it shows again with its rows where they were.
+ */
+class RowLayout<T> extends ListLayout<T> {
+  override shouldInvalidate(...[next, previous]: Parameters<ListLayout<T>['shouldInvalidate']>) {
+    return next.width !== previous.width && next.width > 0
+  }
+}
+
+/**
+ * The height a virtualized list guesses for a row it has not measured: the mean of the rows it
+ * has. A guess off by a few px, over a long list, moves a row a jump such as End lands on out
+ * of view once the rows above it are measured.
+ */
+function useRowEstimate(list: HTMLElement | null, enabled: boolean): number {
+  const [estimate, setEstimate] = useState(FIRST_ESTIMATE_PX)
+  useEffect(() => {
+    if (!list || !enabled) return
+    const observer = new ResizeObserver(() => {
+      const rows = rowsOf(list)
+      if (rows.length === 0) return
+      const mean = Math.round(rows.reduce((sum, row) => sum + row.offsetHeight, 0) / rows.length)
+      if (mean > 0) setEstimate((current) => (Math.abs(current - mean) >= 1 ? mean : current))
+    })
+    observer.observe(list)
+    return () => observer.disconnect()
+  }, [list, enabled])
+  return estimate
+}
 
 /** The keys whose selection differs between two selections, or null when either is all. */
 function changed(before: Selection, after: Selection): Key[] | null {
@@ -68,7 +109,7 @@ export function RowList({
   moveLabel = (item) => moveRowLabel(item.title),
   frames,
   arriving = false,
-  virtualized = false,
+  virtualized,
 }: {
   label: string
   children: ReactNode
@@ -100,10 +141,11 @@ export function RowList({
   /** Fades in, since it took the place of an empty state; see `useHadContent`. */
   arriving?: boolean
   /**
-   * Renders only the rows in view, in a scroll area of its own capped at 60dvh, for
-   * a list as long as the catalog. Rows of a virtualized list are plain items: no reorder.
+   * Renders only the rows in view, for a list as long as the catalog: `own` in a scroll area of
+   * its own capped at 60dvh, `page` at full height in whatever scrolls the page. Rows of a
+   * virtualized list are plain items: no reorder, since a drag measures every row.
    */
-  virtualized?: boolean
+  virtualized?: 'own' | 'page'
 }) {
   const gate = useSwipeGate()
   const list = useRef<HTMLDivElement>(null)
@@ -114,7 +156,9 @@ export function RowList({
   const holding = useRef(false)
   // State as well as the ref, since the list mounts again once it can first reorder.
   const [listElement, setListElement] = useState<HTMLDivElement | null>(null)
-  useListMotion(listElement, reduceMotion)
+  useListMotion(listElement, reduceMotion, virtualized !== undefined)
+  const estimate = useRowEstimate(listElement, virtualized !== undefined)
+  const layoutOptions = useMemo(() => ({ estimatedRowHeight: estimate }), [estimate])
   const listRef = useCallback((element: HTMLDivElement | null) => {
     list.current = element
     setListElement(element)
@@ -314,17 +358,20 @@ export function RowList({
       }
       // Positioned and isolated, so a removed row's last frame is placed within the list and
       // fades beneath the rows that slide over it.
-      className={`relative isolate ${virtualized ? '' : 'flex flex-col'} ${bleed ? '-mx-3' : 'px-2'} ${arriving ? 'arrive' : ''} ${virtualized ? 'max-h-[60dvh] overflow-y-auto' : ''}`}
+      className={`relative isolate ${virtualized ? '' : 'flex flex-col'} ${bleed ? '-mx-3' : virtualized === 'page' ? '' : 'px-2'} ${arriving ? 'arrive' : ''} ${VIRTUAL_FRAME[virtualized ?? 'none']}`}
     >
       {children}
     </GridList>
   )
+  // The virtualizer sizes its rows to the list's full width, padding included, so a list with
+  // no scroll area of its own takes its inset from a wrapper or it would overhang its edge.
+  const placed = virtualized === 'page' && !bleed ? <div className="px-2">{grid}</div> : grid
   return (
     <SwipeGroup gate={gate}>
       <ReorderContext value={reorderable ? reorder : null}>
         {virtualized ? (
-          <Virtualizer layout={ListLayout} layoutOptions={VIRTUAL_LAYOUT}>
-            {grid}
+          <Virtualizer layout={RowLayout} layoutOptions={layoutOptions}>
+            {placed}
           </Virtualizer>
         ) : (
           grid

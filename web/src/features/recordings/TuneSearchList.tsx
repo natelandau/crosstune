@@ -100,7 +100,7 @@ export function TuneSearchList({
       {shown.length > 0 && (
         <RowList
           label={TUNE_LIST}
-          virtualized={idle}
+          virtualized={idle ? 'own' : undefined}
           onAction={(key) => {
             const entry = shown.find((match) => match.userTune.id === key)
             if (entry) pick(entry)

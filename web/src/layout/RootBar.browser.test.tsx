@@ -30,6 +30,10 @@ async function seedTunes(db: CrosstuneDb, count = 40) {
   await db.user_tunes.bulkPut(ids.map((id) => userTuneRow(`u${id}`, `t${id}`)))
 }
 
+/** Waits until the catalog holds all 40 seeded tunes; it mounts only the rows near view. */
+const allListed = () =>
+  expect.element(page.getByRole('grid')).toHaveAttribute('aria-rowcount', '40')
+
 const listColumn = () => document.querySelector<HTMLElement>('[data-column="list"]')!
 const rootBar = () => document.querySelector<HTMLElement>('[data-root-bar]')
 const rootBarLocator = () => page.elementLocator(rootBar()!)
@@ -66,7 +70,7 @@ it('collapses the title into the pinned row once the list scrolls', async () => 
   const db = openTestDb()
   await seedTunes(db)
   await renderApp({ path: '/catalog', db, frame: PHONE })
-  await expect.element(page.getByRole('row', { name: /^Tune 039\b/ })).toBeInTheDocument()
+  await allListed()
   await expect.poll(rootBar).not.toBeNull()
   await expect.element(rootBarLocator()).toHaveAttribute('data-collapsed', 'false')
   await scrollList(600)
@@ -84,7 +88,7 @@ it('starts collapsed when the pane opens scrolled', async () => {
   const db = openTestDb()
   await seedTunes(db)
   await renderApp({ path: '/catalog', db, frame: SPLIT })
-  await expect.element(page.getByRole('row', { name: /^Tune 039\b/ })).toBeInTheDocument()
+  await allListed()
   await scrollList(600)
   // The phone's bar mounts into the pane already scrolled; what it holds on insertion is what
   // paints first.
@@ -107,7 +111,7 @@ it('keeps the sync badge beside the small title once collapsed', async () => {
   const db = openTestDb()
   await seedTunes(db)
   await renderApp({ path: '/catalog', db, frame: PHONE, sync: { status: () => 'offline' } })
-  await expect.element(page.getByRole('row', { name: /^Tune 039\b/ })).toBeInTheDocument()
+  await allListed()
   const badge = page.getByTestId('sync-status')
   await expect.element(badge).toHaveTextContent(OFFLINE)
   await scrollList(600)
@@ -123,7 +127,7 @@ it('keeps search pinned under the row', async () => {
   const db = openTestDb()
   await seedTunes(db)
   await renderApp({ path: '/catalog', db, frame: PHONE })
-  await expect.element(page.getByRole('row', { name: /^Tune 039\b/ })).toBeInTheDocument()
+  await allListed()
   await scrollList(600)
   await expect.element(rootBarLocator()).toHaveAttribute('data-collapsed', 'true')
   const search = page.getByRole('searchbox', { name: SEARCH_TUNES })

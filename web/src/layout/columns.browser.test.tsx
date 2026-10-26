@@ -86,6 +86,16 @@ function rowInView(): HTMLElement {
   })!
 }
 
+/**
+ * Waits until the catalog holds `count` tunes, each measured at its pointer height; it mounts
+ * only the rows near view, so the last row is no sign of a full list.
+ */
+async function allListed(count: number) {
+  const grid = catalog().getByRole('grid')
+  await expect.element(grid).toHaveAttribute('aria-rowcount', String(count))
+  await expect.poll(() => grid.element().clientHeight).toBe(count * 32)
+}
+
 it('shows the list beside the open tune on wide', async () => {
   const db = openTestDb()
   await seedMany(db, 5)
@@ -110,7 +120,7 @@ it('keeps the tune open and the list in place when a wide window narrows to spli
   const db = openTestDb()
   await seedMany(db, 40)
   const { router } = await renderApp({ path: '/catalog', db, frame: WIDE })
-  await expect.element(catalog().getByRole('row', { name: /^Tune 039\b/ })).toBeInTheDocument()
+  await allListed(40)
   const top = await scrollList(400)
   expect(top).toBeGreaterThan(0)
   const row = rowInView()
@@ -162,7 +172,7 @@ it('keeps the open tune, the list, and its scroll across a tablet rotation', asy
   const db = openTestDb()
   await seedMany(db, 40)
   await renderApp({ path: '/catalog', db, frame: TABLET_LANDSCAPE })
-  await expect.element(catalog().getByRole('row', { name: /^Tune 039\b/ })).toBeInTheDocument()
+  await allListed(40)
   // The list is laid out at portrait height before it hides, and the browser clamps its scroll
   // to the range it has there: 288px for 40 rows, so the scroll stays within it.
   const top = await scrollList(200)
@@ -282,7 +292,7 @@ it('shows the pane bar title only once the column title scrolls away', async () 
   await seedMany(db, 60)
   await renderApp({ path: '/catalog', db, frame: SPLIT })
   await expect.element(catalog().getByRole('heading', { name: CATALOG })).toBeVisible()
-  await expect.element(catalog().getByRole('row', { name: /^Tune 059\b/ })).toBeInTheDocument()
+  await allListed(60)
   const barTitle = () => listColumn().querySelector<HTMLElement>('[data-pane-title]')!
   await expect.poll(() => barTitle()).not.toBeNull()
   await expect.poll(() => getComputedStyle(barTitle()).opacity).toBe('0')

@@ -55,6 +55,7 @@ import { FiltersBarButton } from '../../ui/FiltersBarButton'
 import { HiddenMatch, SearchOffer } from './SearchOffer'
 import { TuneRow } from './TuneRow'
 import { useHadContent } from '../../ui/useHadContent'
+import { useLatest } from '../../ui/useLatest'
 import type { CatalogEntry } from '../../db/types'
 
 const CATALOG_CONTEXT: SelectionContext = { kind: 'catalog' }
@@ -176,6 +177,30 @@ export function CatalogScreen() {
     // An open tune's page leaves on its own once the tune is gone.
     run(() => tuneActions.remove(entry.tune.id))
   }
+
+  // One set of row handlers for the life of the screen, reading the latest render through a
+  // ref, so the memoized rows re-render only when their own props change.
+  const rowActionsRef = useLatest({
+    edit: (entry: CatalogEntry) => openTune(entry.tune.id),
+    archive: (entry: CatalogEntry, archived: boolean) =>
+      run(() =>
+        tuneActions.archive({ tuneId: entry.tune.id, userTuneId: entry.userTune.id }, archived),
+      ),
+    remove: (entry: CatalogEntry) => void confirmDelete(entry),
+    select: (entry: CatalogEntry) => fromRow(entry.tune.id),
+    viewScans: (entry: CatalogEntry) => scans.open(entry.tune.id),
+  })
+  const rowActions = useMemo(
+    () => ({
+      onEdit: (entry: CatalogEntry) => rowActionsRef.current.edit(entry),
+      onArchive: (entry: CatalogEntry, archived: boolean) =>
+        rowActionsRef.current.archive(entry, archived),
+      onDelete: (entry: CatalogEntry) => rowActionsRef.current.remove(entry),
+      onSelect: (entry: CatalogEntry) => rowActionsRef.current.select(entry),
+      onViewScans: (entry: CatalogEntry) => rowActionsRef.current.viewScans(entry),
+    }),
+    [rowActionsRef],
+  )
 
   const more: MenuEntry[] = [
     { id: 'select', label: SELECT_TUNES, icon: ListChecks, onAction: fromMore },
@@ -322,6 +347,7 @@ export function CatalogScreen() {
               <RowList
                 label={TUNE_LIST}
                 arriving={hadNoTunes}
+                virtualized="page"
                 {...(selecting
                   ? {
                       selectionMode: 'multiple',
@@ -346,21 +372,12 @@ export function CatalogScreen() {
                     key={entry.tune.id}
                     entry={entry}
                     instruments={instruments}
-                    onEdit={() => openTune(entry.tune.id)}
-                    onArchive={(archived) =>
-                      run(() =>
-                        tuneActions.archive(
-                          { tuneId: entry.tune.id, userTuneId: entry.userTune.id },
-                          archived,
-                        ),
-                      )
-                    }
-                    onDelete={() => void confirmDelete(entry)}
-                    onSelect={() => fromRow(entry.tune.id)}
+                    onEdit={rowActions.onEdit}
+                    onArchive={rowActions.onArchive}
+                    onDelete={rowActions.onDelete}
+                    onSelect={rowActions.onSelect}
                     onViewScans={
-                      screen.tunesWithScans.has(entry.tune.id)
-                        ? () => scans.open(entry.tune.id)
-                        : undefined
+                      screen.tunesWithScans.has(entry.tune.id) ? rowActions.onViewScans : undefined
                     }
                     selecting={selecting}
                     opening={!wide && entry.tune.id === opening}
