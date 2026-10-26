@@ -11,7 +11,7 @@ const VISIBLE = 0.35
 
 type Playable = { play(): void; pause(): void; userPaused: boolean }
 
-/** Scatters the five places to their `data-from` offsets until they first come into view. */
+/** Scatters the scraps to their `data-from` offsets until they first come into view. */
 function mountPlaces(places: HTMLElement): { playable: Playable; settle(): void } {
   const scraps = [...places.querySelectorAll<HTMLElement>('[data-from]')]
   for (const s of scraps) {

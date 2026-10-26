@@ -1,5 +1,5 @@
 ---
-// The five places a player's tunes live today, joined by dashed lines to one Crosstune tune. Each
+// The paper list and four apps a player's music lives in today, joined by dashed lines to one Crosstune tune. Each
 // scrap's `data-from` is the offset and turn it drifts in from, once, when the picture scrolls in.
 import '../styles/demos.css'
 ---
@@ -9,7 +9,7 @@ import '../styles/demos.css'
   data-places
   data-nosnippet
   role="img"
-  aria-label="A folded paper tune list, a voice memo, a streaming app, a slow-down app, and a set list in notes, joined by dashed lines to one Crosstune tune."
+  aria-label="A folded paper tune list, a voice memo, a streaming app, a slow-down app, and a tuner app, joined by dashed lines to one Crosstune tune."
 >
   <div class="places-in" aria-hidden="true">
     <svg class="lines" viewBox="0 0 560 440" preserveAspectRatio="none">
@@ -67,16 +67,16 @@ import '../styles/demos.css'
       <br />
       <span class="s2">70%, loop 1:02 to 1:14</span>
     </div>
-    <div class="scrap sc-notes" data-from="0,22,1">
+    <div class="scrap sc-tuner" data-from="0,22,1">
       <div class="sl">
         <svg>
-          <use href="#i-list"></use>
+          <use href="#i-wave"></use>
         </svg>
-        Notes
+        Tuner app
       </div>
-      <b>Set list, Saturday</b>
+      <b>D string</b>
       <br />
-      <span class="s2">Opener in D, then A</span>
+      <span class="s2">12 cents flat</span>
     </div>
     <div class="hub">
       <div class="hub-h">
@@ -94,7 +94,7 @@ import '../styles/demos.css'
           <svg>
             <use href="#i-music"></use>
           </svg>
-          Learning, D, DDAD tuning
+          Learning, in D
         </li>
         <li>
           <svg>
@@ -116,9 +116,9 @@ import '../styles/demos.css'
         </li>
         <li>
           <svg>
-            <use href="#i-list"></use>
+            <use href="#i-wave"></use>
           </svg>
-          On Saturday's set list
+          Tuned to DDAD
         </li>
       </ul>
     </div>

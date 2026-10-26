@@ -2565,7 +2565,7 @@
   right: 2%;
   bottom: 30px;
 }
-.sc-notes {
+.sc-tuner {
   left: 50%;
   bottom: 0;
   margin-left: -86px;
@@ -2633,7 +2633,7 @@
     bottom: 120px;
     right: 0;
   }
-  .places-art .sc-notes {
+  .places-art .sc-tuner {
     margin-left: -78px;
   }
 }

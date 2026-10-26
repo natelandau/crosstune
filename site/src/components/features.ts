@@ -22,12 +22,12 @@ type Feature = {
 export const FEATURES: readonly Feature[] = [
   {
     id: 'tunes',
-    heading: 'Every tune you know, are learning, or want to learn',
-    body: 'Keep your whole repertoire in one list and sort it the way you think about it: by key, by tuning, by type, or by what you can play right now. At a jam, filter to D and pick something everyone knows.',
+    heading: 'Your whole repertoire in one list',
+    body: "Show only the tunes in G, the tunes you're still learning, or everything you learned from one player. Every filter combines with the others, and the list sorts by name, date added, or last played.",
     points: [
-      'Status for every tune: known, learning, or want to learn',
-      'Filter by key, mode, tuning, type, and more',
-      'Fast and easy search',
+      'Filter by key, mode, tuning, type, genre, and more',
+      'Sort by name, date added, or last played',
+      'Fast search across every tune',
     ],
     demo: 'tunes',
     layout: 'right',
@@ -35,7 +35,7 @@ export const FEATURES: readonly Feature[] = [
   {
     id: 'tune-page',
     heading: 'Open a tune and everything is there',
-    body: 'Each tune holds the recordings you learned it from, your own takes, scans of your written notes or sheet music, and the lyrics. It also keeps who you learned it from, where and when, and the composer if you know one. All of it is laid out so you can find the one thing you need with an instrument in your hand.',
+    body: 'Each tune holds links to recordings on music services, your own recordings, scans of your notes or sheet music, and the lyrics. Everything is on one page, so you can find what you need with an instrument in your hand.',
     points: [
       'Recordings and links from Spotify, YouTube, Apple Music, and more',
       "Scans of anything you want to keep with the tune, from your phone's camera or your photos",
@@ -73,8 +73,8 @@ export const FEATURES: readonly Feature[] = [
   },
   {
     id: 'tuner',
-    heading: 'A tuner on the stand',
-    body: 'Crosstune hears the note you play and shows how far off it is, from upright bass to fiddle. Tune up without leaving the app.',
+    heading: 'Tune up without leaving the app',
+    body: "You don't need a separate tuner app. Crosstune's tuner is built in and free forever.",
     points: ['Works for any instrument', 'Reads low bass strings', 'Free on every plan'],
     demo: 'tuner',
     layout: 'right',
