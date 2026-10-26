@@ -1,6 +1,6 @@
 /// How much of the account's recording quota is in use, kept under `MetaKey.storage` with the
 /// web client's keys.
-public struct StorageFigures: Codable, Hashable, Sendable {
+public struct StorageUsage: Codable, Hashable, Sendable {
     public var usedBytes: Int
     public var quotaBytes: Int
     public var maxFileBytes: Int

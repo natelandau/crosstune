@@ -304,7 +304,7 @@ import Testing
                 Recording(id: recordingID, createdAt: noon, tuneID: tuneID, source: "microphone", addedAt: noon),
                 at: noon)
             try RecordingFile(id: recordingID, localState: .captured, updatedAt: noon).insert(writer.db)
-            try writer.holdForPremium([recordingID])
+            try writer.keepLocalUntilSubscribed([recordingID])
         }
 
         let deleteTime = later(60 * 60 * 1000)
@@ -316,7 +316,7 @@ import Testing
         #expect(try await store.read { db in try ListItem.fetchOne(db, key: itemID) }?.deletedAt == deleteTime)
         #expect(try await store.read { db in try Recording.fetchOne(db, key: recordingID) }?.deletedAt == deleteTime)
         #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
-        #expect(try await store.meta(.premiumHolds, as: [String].self) == [])
+        #expect(try await store.meta(.localOnlyRows, as: [String].self) == [])
 
         let queued = try await store.pendingChanges(limit: 10)
         #expect(queued.queuedOps == [QueuedOp(table: .tunes, op: .delete), QueuedOp(table: .lists, op: .upsert)])

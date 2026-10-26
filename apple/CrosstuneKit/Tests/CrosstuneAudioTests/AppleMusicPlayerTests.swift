@@ -86,57 +86,57 @@ import Testing
     }
 }
 
-@Suite struct StrayPlaysTests {
+@Suite struct UnrequestedPlaysTests {
     private let start = ContinuousClock.now
 
     @Test func aPlayStillReportedFromBeforeThePauseIsPausedButNotCounted() {
-        var strays = StrayPlays()
-        let first = strays.status(playing: true, at: start)
-        let second = strays.status(playing: true, at: start + .seconds(0.01))
+        var unrequested = UnrequestedPlays()
+        let first = unrequested.status(playing: true, at: start)
+        let second = unrequested.status(playing: true, at: start + .seconds(0.01))
         #expect(first && second)
-        #expect(strays.pausedAt == nil)
+        #expect(unrequested.pausedAt == nil)
     }
 
     @Test func aPlayAfterAStoppedStatusIsCounted() {
-        var strays = StrayPlays()
-        let before = strays.status(playing: true, at: start)
-        let stopped = strays.status(playing: false, at: start + .seconds(0.05))
+        var unrequested = UnrequestedPlays()
+        let before = unrequested.status(playing: true, at: start)
+        let stopped = unrequested.status(playing: false, at: start + .seconds(0.05))
         #expect(before && !stopped)
-        #expect(strays.pausedAt == nil)
-        let stray = start + .seconds(0.9)
-        let paused = strays.status(playing: true, at: stray)
+        #expect(unrequested.pausedAt == nil)
+        let unrequestedAt = start + .seconds(0.9)
+        let paused = unrequested.status(playing: true, at: unrequestedAt)
         #expect(paused)
-        #expect(strays.pausedAt == stray)
+        #expect(unrequested.pausedAt == unrequestedAt)
     }
 
     @Test func aLaterPlayMovesTheCountOn() {
-        var strays = StrayPlays()
-        _ = strays.status(playing: false, at: start)
-        _ = strays.status(playing: true, at: start + .seconds(0.1))
-        _ = strays.status(playing: true, at: start + .seconds(0.3))
-        #expect(strays.pausedAt == start + .seconds(0.3))
+        var unrequested = UnrequestedPlays()
+        _ = unrequested.status(playing: false, at: start)
+        _ = unrequested.status(playing: true, at: start + .seconds(0.1))
+        _ = unrequested.status(playing: true, at: start + .seconds(0.3))
+        #expect(unrequested.pausedAt == start + .seconds(0.3))
     }
 }
 
 @Suite struct PreviousSettleTests {
     private let start = ContinuousClock.now
 
-    @Test func waitsWhileNoStrayPlayHasBeenPaused() {
-        #expect(!previousHasSettled(waitingSince: start, strayPausedAt: nil, now: start + .seconds(1.4)))
+    @Test func waitsWhileNoUnrequestedPlayHasBeenPaused() {
+        #expect(!previousHasSettled(waitingSince: start, unrequestedPausedAt: nil, now: start + .seconds(1.4)))
     }
 
-    @Test func goesAheadOnceAStrayPlayWasPausedAQuarterSecondAgo() {
+    @Test func goesAheadOnceAnUnrequestedPlayWasPausedAQuarterSecondAgo() {
         let paused = start + .seconds(0.5)
-        #expect(!previousHasSettled(waitingSince: start, strayPausedAt: paused, now: paused + .seconds(0.2)))
-        #expect(previousHasSettled(waitingSince: start, strayPausedAt: paused, now: paused + .seconds(0.25)))
+        #expect(!previousHasSettled(waitingSince: start, unrequestedPausedAt: paused, now: paused + .seconds(0.2)))
+        #expect(previousHasSettled(waitingSince: start, unrequestedPausedAt: paused, now: paused + .seconds(0.25)))
     }
 
-    @Test func goesAheadAtOnceForAStrayPlayPausedBeforeTheWait() {
+    @Test func goesAheadAtOnceForAnUnrequestedPlayPausedBeforeTheWait() {
         let paused = start - .seconds(1)
-        #expect(previousHasSettled(waitingSince: start, strayPausedAt: paused, now: start))
+        #expect(previousHasSettled(waitingSince: start, unrequestedPausedAt: paused, now: start))
     }
 
     @Test func givesUpWaitingAfterOneAndAHalfSeconds() {
-        #expect(previousHasSettled(waitingSince: start, strayPausedAt: nil, now: start + .seconds(1.5)))
+        #expect(previousHasSettled(waitingSince: start, unrequestedPausedAt: nil, now: start + .seconds(1.5)))
     }
 }

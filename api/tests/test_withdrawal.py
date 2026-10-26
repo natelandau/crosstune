@@ -264,7 +264,7 @@ async def test_a_retry_completes_after_a_refresh_ended_the_refunded_grant(
 ) -> None:
     headers = _headers(make_token)
     await _stuck_after_refund(client, app, headers, monkeypatch)
-    # RevenueCat saw the refund and dropped the subscription, so the mirror ends the grant.
+    # RevenueCat saw the refund and dropped the subscription, so the sync ends the grant.
     app.state.revenuecat = FakeRevenueCat({USER: []})
     assert (await client.post(REFRESH, headers=headers)).status_code == 204
 

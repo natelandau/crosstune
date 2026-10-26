@@ -9,7 +9,7 @@ import SwiftUI
 struct LoopSwitcher: View {
     let model: PracticeModel
     /// Why the screen cannot be used yet, which turns the arrows off.
-    let blocker: String?
+    let disabledReason: String?
 
     @Environment(\.spacing) private var spacing
 
@@ -53,7 +53,7 @@ struct LoopSwitcher: View {
         #else
             .buttonStyle(.borderless)
         #endif
-        .disabled(!model.canStep(direction) || blocker != nil)
+        .disabled(!model.canStep(direction) || disabledReason != nil)
         .help(name)
     }
 }

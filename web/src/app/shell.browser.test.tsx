@@ -406,7 +406,7 @@ it.each([
   ['phone', PHONE],
   ['wide', WIDE],
 ])('hides the %s Record control while a dialog is open', async (_name, frame) => {
-  await renderApp({ path: '/kit', db: openTestDb(), frame })
+  await renderApp({ path: '/gallery', db: openTestDb(), frame })
   const record = page.getByTestId('record-control')
   await expect.element(record).not.toHaveAttribute('aria-hidden')
   await page.getByRole('button', { name: 'Confirm delete' }).click()
@@ -420,7 +420,7 @@ it.each([
   ['phone', PHONE, TAB_BAR],
   ['wide', WIDE, SIDEBAR],
 ])('marks no destination current outside the four on the %s', async (_name, frame, nav) => {
-  await renderApp({ path: '/kit', db: openTestDb(), frame })
+  await renderApp({ path: '/gallery', db: openTestDb(), frame })
   const navigation = page.getByRole('navigation', { name: nav })
   await expect
     .element(navigation.getByRole('link', { name: DESTINATIONS[0]!.label, exact: true }))

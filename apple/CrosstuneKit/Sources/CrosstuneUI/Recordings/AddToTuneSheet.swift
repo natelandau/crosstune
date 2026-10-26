@@ -217,13 +217,13 @@ private struct AddToTuneContent: View {
                                 ForEach(model.idleResults ?? []) { row($0) }
                             } else if let results = model.results {
                                 ForEach(results.rows) { row($0) }
-                                if let offer = results.outcome.offerLabel, let title = results.outcome.title {
+                                if let label = results.outcome.addTypedTitleLabel, let title = results.outcome.title {
                                     Button {
                                         create(title)
                                     } label: {
                                         HStack(spacing: 8) {
                                             MacPickGlyph(kind: .add)
-                                            Text(offer)
+                                            Text(label)
                                                 .contentMask()
                                         }
                                     }
@@ -276,8 +276,8 @@ private struct AddToTuneContent: View {
                     ForEach(results.rows) { entry in
                         row(entry)
                     }
-                    if let offer = results.outcome.offerLabel, let title = results.outcome.title {
-                        SearchOfferRow(label: offer) { create(title) }
+                    if let label = results.outcome.addTypedTitleLabel, let title = results.outcome.title {
+                        AddTypedTitleRow(label: label) { create(title) }
                     }
                 }
             }

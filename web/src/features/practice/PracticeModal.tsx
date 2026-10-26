@@ -13,7 +13,7 @@ import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { listPosition } from '../player/playerCopy'
 import { useListPlayback } from '../player/useListPlayback'
 import { useRecordingActionsWith } from '../recordings/useRecordingActionsWith'
-import { practiceBlocker, trimBlocker } from './practiceOverlayModel'
+import { practiceDisabledReason, trimDisabledReason } from './practiceOverlayModel'
 import { recordingsPlayable } from '../../billing/plan'
 import { usePlanOrUnknown } from '../../billing/usePlan'
 import { usePracticeOverlayView } from './usePracticeOverlayView'
@@ -98,7 +98,7 @@ export function PracticeModal({ id, onClose }: { id: string; onClose: () => void
     // A control with nothing to act on is absent, so a free plan's menu has no Trim.
     onTrim: recordingsPlay ? state.openTrim : undefined,
     trimBlocked: view
-      ? trimBlocker(view.recording, view.file, state.audio, recordingsPlay)
+      ? trimDisabledReason(view.recording, view.file, state.audio, recordingsPlay)
       : undefined,
     onOpenTune: (opened) => {
       if (opened.tuneId) openTune(opened.tuneId)
@@ -243,7 +243,7 @@ export function PracticeModal({ id, onClose }: { id: string; onClose: () => void
                         key={view.recording.id}
                         view={view}
                         shown={state.peaks}
-                        blocked={practiceBlocker(view.file, state.audio, recordingsPlay)}
+                        blocked={practiceDisabledReason(view.file, state.audio, recordingsPlay)}
                         escapeRef={escapeRef}
                         savedFocus={savedFocus}
                         isTop={isTop}

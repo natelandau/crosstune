@@ -384,19 +384,19 @@ private let day: TimeInterval = 86_400
         let purchase = PurchaseModel(client: FakePurchaseClient(), refresh: {}, sync: {}, analytics: sink.client)
         #expect(NoticeSheet.sells(.trialReminder, plan: trial, purchase: purchase))
         #expect(NoticeSheet.sells(.trialEnded, plan: free, purchase: purchase))
-        // The first recording informs and never sells.
+        // The first recording informs and is never purchasable.
         #expect(NoticeSheet.sells(.firstRecording, plan: trial, purchase: purchase) == false)
-        // A build that offers no purchase sells nothing.
+        // A build with no purchase model is not purchasable.
         #expect(NoticeSheet.sells(.trialReminder, plan: trial, purchase: nil) == false)
         #expect(NoticeSheet.sells(.trialEnded, plan: free, purchase: nil) == false)
-        // An account already paying, or comped, is sold nothing.
+        // An account already paying, or comped, is not purchasable.
         for source: PlanSource in [.apple, .stripe, .comp] {
             let plan = Plan(kind: .premium, source: source)
             #expect(NoticeSheet.sells(.trialEnded, plan: plan, purchase: purchase) == false)
             #expect(NoticeSheet.sells(.trialReminder, plan: plan, purchase: purchase) == false)
         }
         #expect(NoticeSheet.sells(.trialEnded, plan: .unknown, purchase: purchase) == false)
-        // Compare plans reports where it came from, whether or not the notice sells.
+        // Compare plans reports where it came from, whether or not the notice is purchasable.
         #expect(NoticeSheet.entry(.trialReminder) == .trialReminder)
         #expect(NoticeSheet.entry(.trialEnded) == .trialEnded)
         #expect(NoticeSheet.entry(.firstRecording) == nil)
@@ -422,7 +422,7 @@ private let day: TimeInterval = 86_400
         for offers: PurchaseModel.Offers in [.unavailable, .ready([monthly]), .ready([])] {
             #expect(NoticeSheet.offer(sells: true, offers: offers, line: nil) == comparePlans)
         }
-        // A notice that cannot sell offers the comparison alone, prices or not.
+        // A notice that is not purchasable shows the comparison alone, prices or not.
         #expect(NoticeSheet.offer(sells: false, offers: .ready([annual]), line: nil) == comparePlans)
         #expect(NoticeSheet.offer(sells: false, offers: nil, line: nil) == comparePlans)
         // A failed try keeps the choice, with its line above it.
@@ -482,7 +482,7 @@ private let day: TimeInterval = 86_400
         #expect(
             NoticeSheet.offer(sells: true, offers: .unavailable, line: nil)
                 == .init(primary: .comparePlans, secondary: nil))
-        // A notice that cannot sell never waits on the store.
+        // A notice that is not purchasable never waits on the store.
         #expect(
             NoticeSheet.offer(sells: false, offers: .loading, line: nil)
                 == .init(primary: .comparePlans, secondary: nil))
@@ -566,17 +566,17 @@ private let day: TimeInterval = 86_400
         }
 
         @Test func trialNoticeNeverDefaultsToSubscribe() {
-            let selling = NoticeSheet.macTrialFooter(
+            let purchasable = NoticeSheet.macTrialFooter(
                 NoticeSheet.Offer(primary: .subscribe("$49.99"), secondary: .comparePlans), isWorking: false,
                 onClose: {}, onComparePlans: {}, onSubscribe: {})
-            #expect(selling.cancel?.title == PlanSheet.close)
-            #expect(selling.secondary?.title == PlanText.comparePlans)
-            #expect(selling.primary?.title == NoticeText.subscribeAnnual("$49.99"))
-            #expect(selling.primary?.role == .primary)
-            #expect(selling.primary?.isDefault == false)
+            #expect(purchasable.cancel?.title == PlanSheet.close)
+            #expect(purchasable.secondary?.title == PlanText.comparePlans)
+            #expect(purchasable.primary?.title == NoticeText.subscribeAnnual("$49.99"))
+            #expect(purchasable.primary?.role == .primary)
+            #expect(purchasable.primary?.isDefault == false)
             #expect(
                 MacSheetAction.keyboardRoles(
-                    cancel: selling.cancel, primary: selling.primary)
+                    cancel: purchasable.cancel, primary: purchasable.primary)
                     == .init(cancel: .cancellation, primary: nil))
 
             let waiting = NoticeSheet.macTrialFooter(

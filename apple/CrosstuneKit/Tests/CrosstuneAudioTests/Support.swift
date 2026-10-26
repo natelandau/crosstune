@@ -166,13 +166,13 @@ final class FakeLocation: LocationProvider {
     }
 
     /// Waits until `count` requests are held.
-    func isHeld(count: Int = 1) async {
+    func hasText(count: Int = 1) async {
         while pending.count < count { await Task.yield() }
     }
 
     /// Answers every held request with ``fix``, as one fix answers every caller.
     func answer() async {
-        await isHeld()
+        await hasText()
         let answered = pending
         pending = []
         for request in answered { request.continuation.resume(returning: fix) }

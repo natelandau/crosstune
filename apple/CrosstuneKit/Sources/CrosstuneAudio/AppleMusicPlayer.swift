@@ -82,7 +82,7 @@ public final class AppleMusicPlayer: MusicPlayback {
     /// Set once the app is done with a guarded song. MusicKit can go on to play the entry a
     /// previous moved to whatever it is told, so any play it starts from then on is paused.
     @ObservationIgnored private var hasLetGo = false
-    @ObservationIgnored private var strayPlays = StrayPlays()
+    @ObservationIgnored private var unrequestedPlays = UnrequestedPlays()
     /// Moves on with each start, so a load that a play overtook leaves the playing queue alone.
     @ObservationIgnored private var plays = 0
 
@@ -236,7 +236,7 @@ public final class AppleMusicPlayer: MusicPlayback {
     public func settleAfterPrevious() async {
         #if os(iOS)
             let start = ContinuousClock.now
-            while !previousHasSettled(waitingSince: start, strayPausedAt: strayPlays.pausedAt, now: .now) {
+            while !previousHasSettled(waitingSince: start, unrequestedPausedAt: unrequestedPlays.pausedAt, now: .now) {
                 do {
                     try await Task.sleep(for: .milliseconds(50))
                 } catch {
@@ -295,7 +295,7 @@ public final class AppleMusicPlayer: MusicPlayback {
         guarded = false
         if !hasLetGo {
             hasLetGo = true
-            strayPlays = StrayPlays()
+            unrequestedPlays = UnrequestedPlays()
         }
     }
 
@@ -304,7 +304,7 @@ public final class AppleMusicPlayer: MusicPlayback {
         revision += 1
         guard let player else { return }
         if hasLetGo {
-            pauseStrayPlay(of: player)
+            pauseUnrequestedPlay(of: player)
         } else {
             reportMove(of: player)
         }
@@ -321,8 +321,8 @@ public final class AppleMusicPlayer: MusicPlayback {
         onTrackEnd?(end)
     }
 
-    private func pauseStrayPlay(of player: ApplicationMusicPlayer) {
-        guard strayPlays.status(playing: player.state.playbackStatus == .playing, at: .now) else { return }
+    private func pauseUnrequestedPlay(of player: ApplicationMusicPlayer) {
+        guard unrequestedPlays.status(playing: player.state.playbackStatus == .playing, at: .now) else { return }
         player.pause()
     }
 
@@ -398,7 +398,7 @@ struct SongPosition: Equatable {
 /// The plays MusicKit starts after the app let go of a guarded song. Statuses still reading
 /// playing from before the app's own pause are paused but not counted: only a play after a
 /// stopped status is MusicKit starting the entry it moved to.
-struct StrayPlays: Equatable {
+struct UnrequestedPlays: Equatable {
     /// When the last counted play was paused.
     private(set) var pausedAt: ContinuousClock.Instant?
     private var sawStopped = false
@@ -415,11 +415,11 @@ struct StrayPlays: Equatable {
 }
 
 /// Whether the hand-off after a MusicKit previous, waiting since `waitingSince`, may go ahead:
-/// a stray play was paused a quarter second ago or more, or a second and a half has passed with
+/// an unrequested play was paused a quarter second ago or more, or a second and a half has passed with
 /// none.
 func previousHasSettled(
-    waitingSince: ContinuousClock.Instant, strayPausedAt: ContinuousClock.Instant?, now: ContinuousClock.Instant
+    waitingSince: ContinuousClock.Instant, unrequestedPausedAt: ContinuousClock.Instant?, now: ContinuousClock.Instant
 ) -> Bool {
-    if let strayPausedAt, now >= strayPausedAt + .seconds(0.25) { return true }
+    if let unrequestedPausedAt, now >= unrequestedPausedAt + .seconds(0.25) { return true }
     return now >= waitingSince + .seconds(1.5)
 }

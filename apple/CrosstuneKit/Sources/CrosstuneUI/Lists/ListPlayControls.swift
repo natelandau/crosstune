@@ -20,7 +20,7 @@ public enum ListPlayText {
 }
 
 /// What a list can play now, and what its Play, Shuffle, and what-plays line do.
-struct ListPlayOffer {
+struct ListPlayAvailability {
     /// The list as it plays, which turns Play into a pause and resume control.
     struct Playing {
         let isPlaying: Bool
@@ -52,7 +52,7 @@ struct ListPlayOffer {
 /// resumes it. With nothing to play, and the list not playing, only the line shows. It is the
 /// list's first row, so it sets no margins of its own.
 struct ListPlayControls: View {
-    let offer: ListPlayOffer
+    let offer: ListPlayAvailability
 
     @Environment(\.spacing) private var spacing
     @Environment(\.drawsGlass) private var drawsGlass

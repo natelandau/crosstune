@@ -153,10 +153,10 @@ async def link_earlier_takes(session: AsyncSession, place: Place) -> int:
     return linked
 
 
-async def reach_back_around(
+async def rematch_neighbor_places(
     session: AsyncSession, *, user_id: uuid.UUID, lat: float, lon: float
 ) -> int:
-    """Reach back from every live saved place that shares takes with a point's match radius.
+    """Link earlier takes to every live saved place that shares takes with a point's match radius.
 
     A take matches no place while two lie within its radius, so removing a place at this
     point can leave a neighbor as some take's only match. Such a neighbor lies within two

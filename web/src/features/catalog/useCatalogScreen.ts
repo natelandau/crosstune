@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { countBucket } from '../../usage/buckets'
-import { createSearchSettler, realSettleClock, type SettleClock } from '../../usage/searchSettler'
+import {
+  createSearchDebouncer,
+  realDebounceClock,
+  type DebounceClock,
+} from '../../usage/searchDebouncer'
 import type { Instrument } from '../../api/vocabulary'
 import type { SortChoice } from '../../ui/sortChoice'
 import { useTunesWithScans } from '../scans/useScans'
@@ -38,8 +42,8 @@ const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()
 export interface CatalogScreenOptions {
   onOpenTune(id: string): void
   onCreate(title: string): void
-  /** Times the pause after which a search counts as settled; tests pass their own. */
-  settleClock?: SettleClock
+  /** Times the pause after which a search counts; tests pass their own. */
+  debounceClock?: DebounceClock
 }
 
 export interface CatalogScreen {
@@ -93,18 +97,18 @@ export interface CatalogScreen {
 export function useCatalogScreen({
   onOpenTune,
   onCreate,
-  settleClock = realSettleClock,
+  debounceClock = realDebounceClock,
 }: CatalogScreenOptions): CatalogScreen {
   const analytics = useAnalytics()
-  const settler = useMemo(
+  const debouncer = useMemo(
     () =>
-      createSearchSettler(settleClock, ({ resultCount, tookOffer }) =>
+      createSearchDebouncer(debounceClock, ({ resultCount, addedTypedTitle }) =>
         analytics.send('search_performed', {
           result_count_bucket: countBucket(resultCount),
-          took_offer: tookOffer,
+          took_offer: addedTypedTitle,
         }),
       ),
-    [settleClock, analytics],
+    [debounceClock, analytics],
   )
   const loadedEntries = useCatalog(true, { heard: true })
   const [storedFilters, updateFilters, filterError] = useCatalogFilters()
@@ -175,34 +179,34 @@ export function useCatalogScreen({
   }
 
   const resultCount = ready ? tunes.length : undefined
-  useEffect(() => settler.setCount(resultCount), [settler, resultCount])
+  useEffect(() => debouncer.setCount(resultCount), [debouncer, resultCount])
   // The search is reported when the screen goes, or when the tab is hidden and may not return.
   useEffect(() => {
     const onHidden = () => {
-      if (document.visibilityState === 'hidden') settler.finish()
+      if (document.visibilityState === 'hidden') debouncer.finish()
     }
     document.addEventListener('visibilitychange', onHidden)
     return () => {
       document.removeEventListener('visibilitychange', onHidden)
-      settler.finish()
+      debouncer.finish()
     }
-  }, [settler])
+  }, [debouncer])
 
   const setQuery = (value: string) => {
     setQueryState(value)
     writeSearchQuery('catalog', value)
-    settler.typed(value)
+    debouncer.typed(value)
   }
   const refreshQuery = useCallback(() => {
     const stored = readSearchQuery('catalog')
     setQueryState(stored)
     // Only a cleared query ends a search; a restored one was not typed here.
-    if (stored.trim() === '') settler.typed(stored)
-  }, [settler])
+    if (stored.trim() === '') debouncer.typed(stored)
+  }, [debouncer])
   const createFromSearch = (title?: string) => {
     const typed = title ?? (outcome.kind === 'create' ? outcome.title : undefined)
     if (typed === undefined) return
-    settler.finish(true)
+    debouncer.finish(true)
     // A tune created from the search ends that search, whether or not the create lands.
     setQuery('')
     onCreate(typed)
@@ -211,7 +215,7 @@ export function useCatalogScreen({
     if (!ready) return null
     const action = enterAction(query, tunes, outcome, selecting)
     if (action.kind === 'open') {
-      settler.finish()
+      debouncer.finish()
       onOpenTune(action.tuneId)
     } else if (action.kind === 'create') createFromSearch(action.title)
     return action
@@ -244,7 +248,7 @@ export function useCatalogScreen({
       analytics.send('catalog_sorted', { sort: choice.sort })
     },
     announcement: announced.text,
-    endSearch: () => settler.finish(),
+    endSearch: () => debouncer.finish(),
     refreshQuery,
   }
 }

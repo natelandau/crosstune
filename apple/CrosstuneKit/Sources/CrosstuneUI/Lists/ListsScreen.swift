@@ -23,12 +23,12 @@ public struct ListsScreen: View {
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.plan) private var plan
-    @State private var playable: LiveQuery<ListsPlayOffers.Snapshot?>?
+    @State private var playable: LiveQuery<ListsPlayability.Snapshot?>?
     /// Whether this device plays Apple Music in full, nil until read.
     @State private var appleMusic: AppleMusicAccessState?
     /// What each list would play now, by list id, rebuilt only when what decides it changes
     /// rather than on each redraw, since it walks every entry of every list.
-    @State private var offers: [String: PlaylistReport] = [:]
+    @State private var reports: [String: PlaylistReport] = [:]
 
     public init() {}
 
@@ -36,7 +36,7 @@ public struct ListsScreen: View {
         let lists = lists?.value
         List {
             ForEach(lists ?? []) { summary in
-                let report = offers[summary.id]
+                let report = reports[summary.id]
                 NavigationLink(value: ListRoute(id: summary.id)) {
                     HStack(spacing: 0) {
                         ListRow(summary)
@@ -98,30 +98,30 @@ public struct ListsScreen: View {
             self.lists = LiveQuery(store, initial: nil) { db in try ListSummary.fetchAll(db) }
             let settingsRow = settingsID(clerkUserID: store.userID)
             self.playable = LiveQuery(store, initial: nil) { db in
-                try ListsPlayOffers.Snapshot.fetch(db, settingsID: settingsRow)
+                try ListsPlayability.Snapshot.fetch(db, settingsID: settingsRow)
             }
         }
         .task {
             guard let access = player?.appleMusic?.access else { return }
             appleMusic = await access.current()
         }
-        .onChange(of: offerInputs, initial: true) { _, inputs in
-            offers = ListsPlayOffers.reports(
+        .onChange(of: playabilityInputs, initial: true) { _, inputs in
+            reports = ListsPlayability.reports(
                 inputs.snapshot, canStart: inputs.canStart, fullTracks: inputs.fullTracks, online: inputs.online,
                 recordingsPlay: inputs.recordingsPlay)
         }
     }
 
-    private struct OfferInputs: Equatable {
-        var snapshot: ListsPlayOffers.Snapshot?
+    private struct PlayabilityInputs: Equatable {
+        var snapshot: ListsPlayability.Snapshot?
         var canStart: Bool
         var fullTracks: Bool?
         var online: Bool
         var recordingsPlay: Bool
     }
 
-    private var offerInputs: OfferInputs {
-        OfferInputs(
+    private var playabilityInputs: PlayabilityInputs {
+        PlayabilityInputs(
             snapshot: playable?.value ?? nil, canStart: listPlayback != nil && !(recorders?.isCapturing ?? false),
             // Unread until the Apple Music access reads, where there is one to read.
             fullTracks: player?.appleMusic?.access == nil ? false : appleMusic.map { $0 == .fullTracks },

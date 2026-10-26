@@ -1,4 +1,4 @@
-"""Create and change grants: the trials and comps the server issues, and mirrored paid ones.
+"""Create and change grants: the trials and comps the server issues, and paid ones synced from the billing provider.
 
 Each mutating function leaves calling `refresh_entitlement` to its caller.
 """
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
     from crosstune.config import Settings
 
-# Mirrors the partial unique index on grants, so an upsert can target it.
+# Matches the partial unique index on grants, so an upsert can target it.
 _SERVER_SOURCES = text("source in ('trial', 'comp')")
 _PAID_SOURCES = text("source in ('apple', 'stripe')")
 
@@ -127,7 +127,7 @@ async def end_trial(session: AsyncSession, user_id: uuid.UUID, now: datetime) ->
     )
 
 
-async def mirror_paid_grants(
+async def sync_paid_grants(
     session: AsyncSession,
     user_id: uuid.UUID,
     subscriptions: list[PaidSubscription],

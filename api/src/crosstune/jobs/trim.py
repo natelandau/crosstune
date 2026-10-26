@@ -1,4 +1,4 @@
-"""Re-cuts a recording's playback file from its untouched original after a trim is saved."""
+"""Rewrites a recording's playback file from its untouched original after a trim is saved."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING
 
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
+from crosstune.jobs.audio_rewrite import rewrite_playback
 from crosstune.jobs.peaks import build_peaks, slice_peaks
-from crosstune.jobs.recut import recut_playback
 from crosstune.recordings.loops import reclamp_recording_loops
 from crosstune.recordings.service import attach_peaks, attach_playback
 from crosstune.recordings.trim_rules import clamp_trim, effective_end
@@ -142,7 +142,7 @@ async def _cut_and_upload(
     source = work_dir / "original"
     target = work_dir / "playback.m4a"
     await store.download(original, source)
-    playback, info = await recut_playback(
+    playback, info = await rewrite_playback(
         store, recording, source=source, kept=kept, target=target, uploaded=uploaded
     )
 
@@ -193,7 +193,7 @@ def _write_clamped_trim(recording: Recording, start_ms: int, end_ms: int) -> Non
 async def trim(
     session: AsyncSession, store: ObjectStore, recording: Recording, work_dir: Path
 ) -> list[str]:
-    """Re-cut the playback file and peaks of a ready recording to its saved trim.
+    """Rewrite the playback file and peaks of a ready recording to its saved trim.
 
     Always cuts from the original, never from the current playback file, so every
     playback file stays one encode from the source. The original is never modified

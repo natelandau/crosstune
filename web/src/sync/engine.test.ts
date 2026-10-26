@@ -12,9 +12,9 @@ import { addScans } from '../commands/scans'
 import {
   getEventsCursor,
   getInvalidChangeCount,
-  getPremiumHolds,
+  getLocalOnlyRows,
   getPullCursor,
-  holdForPremium,
+  keepLocalUntilSubscribed,
 } from '../db/meta'
 import { pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
@@ -473,10 +473,10 @@ describe('createSyncEngine', () => {
       })
     }
 
-    it('leaves a held take out while free, still sends its delete, and holds nothing after', async () => {
+    it('leaves a local-only take out while free, still sends its delete, and keeps nothing local after', async () => {
       await db.entitlements.put(entitlementRow())
       const id = await captureRecording(db)
-      await holdForPremium(db, [id])
+      await keepLocalUntilSubscribed(db, [id])
       const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
       const engine = engineFor()
       await engine.sync()
@@ -492,24 +492,24 @@ describe('createSyncEngine', () => {
       await engine.sync()
       expect(fake.pushes.at(-1)).toEqual([expect.objectContaining({ id, op: 'delete' })])
       expect(await pendingBatch(db)).toHaveLength(0)
-      expect(await getPremiumHolds(db)).toEqual(new Set())
+      expect(await getLocalOnlyRows(db)).toEqual(new Set())
       expect(await getInvalidChangeCount(db)).toBe(0)
       engine.stop()
     })
 
-    it('sends a held take once the plan is premium, and releases it when applied', async () => {
+    it('sends a local-only take once the plan is premium, and releases it when applied', async () => {
       await db.entitlements.put(entitlementRow({ premium_source: 'comp' }))
       const id = await captureRecording(db)
-      await holdForPremium(db, [id])
+      await keepLocalUntilSubscribed(db, [id])
       const engine = engineFor()
       await engine.sync()
       expect(fake.pushes.flat().map((c) => c.id)).toContain(id)
       expect(await pendingFor(db, 'recordings', id)).toBeUndefined()
-      expect(await getPremiumHolds(db)).toEqual(new Set())
+      expect(await getLocalOnlyRows(db)).toEqual(new Set())
       engine.stop()
     })
 
-    it('holds a scan refused for Premium unreported while free, and sends it once Premium', async () => {
+    it('keeps a scan refused for Premium local and unreported while free, and sends it once Premium', async () => {
       await db.entitlements.put(entitlementRow())
       const { tuneId } = await createTune(db, { title: 'Angeline' }, { status: 'known' })
       const [scanId] = await addScans(db, tuneId, [
@@ -535,9 +535,9 @@ describe('createSyncEngine', () => {
       expect(onInvalid).not.toHaveBeenCalled()
       expect(await getInvalidChangeCount(db)).toBe(0)
       expect(await pendingFor(db, 'scans', scanId!)).toBeDefined()
-      expect(await getPremiumHolds(db)).toEqual(new Set([scanId]))
+      expect(await getLocalOnlyRows(db)).toEqual(new Set([scanId]))
 
-      // Still free: the held scan stays out of the next push.
+      // Still free: the local-only scan stays out of the next push.
       const sentBefore = fake.pushes.length
       await engine.sync()
       expect(
@@ -555,10 +555,10 @@ describe('createSyncEngine', () => {
       engine.stop()
       expect(fake.pushes.at(-1)?.map((c) => c.id)).toContain(scanId)
       expect(await pendingFor(db, 'scans', scanId!)).toBeUndefined()
-      expect(await getPremiumHolds(db)).toEqual(new Set())
+      expect(await getLocalOnlyRows(db)).toEqual(new Set())
     })
 
-    it("keeps a held take's loop and play with it, and sends them once Premium", async () => {
+    it("keeps a local-only take's loop and play with it, and sends them once Premium", async () => {
       await db.entitlements.put(entitlementRow())
       const { tuneId, userTuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
       const id = await captureRecording(db, { tuneId })
@@ -615,18 +615,18 @@ describe('createSyncEngine', () => {
           .map((c) => c.id),
       ).toEqual([id, loopId, 'play-1'])
       expect(await pendingBatch(db)).toHaveLength(0)
-      expect(await getPremiumHolds(db)).toEqual(new Set())
+      expect(await getLocalOnlyRows(db)).toEqual(new Set())
     })
 
-    it('drops a hold whose take has nothing left in the outbox', async () => {
-      await holdForPremium(db, ['gone'])
+    it('drops a local-only take that has nothing left in the outbox', async () => {
+      await keepLocalUntilSubscribed(db, ['gone'])
       const engine = engineFor()
       await engine.sync()
       engine.stop()
-      expect(await getPremiumHolds(db)).toEqual(new Set())
+      expect(await getLocalOnlyRows(db)).toEqual(new Set())
     })
 
-    it('ends a push whose results are all held instead of resending them', async () => {
+    it('ends a push whose results are all kept local instead of resending them', async () => {
       const takes = [
         await captureRecording(db),
         await captureRecording(db),
@@ -639,12 +639,12 @@ describe('createSyncEngine', () => {
         takes.slice(0, 2),
         [takes[2]],
       ])
-      expect(await getPremiumHolds(db)).toEqual(new Set(takes))
+      expect(await getLocalOnlyRows(db)).toEqual(new Set(takes))
       expect(await getInvalidChangeCount(db)).toBe(0)
       engine.stop()
     })
 
-    it('still pushes an edit queued behind a full batch of held takes', async () => {
+    it('still pushes an edit queued behind a full batch of local-only takes', async () => {
       const takes = [
         await captureRecording(db),
         await captureRecording(db),
@@ -656,7 +656,7 @@ describe('createSyncEngine', () => {
       await engine.sync()
       const sent = fake.pushes.flat().map((c) => c.id)
       expect(sent).toContain(tuneId)
-      // Each held take goes out once per push.
+      // Each local-only take goes out once per push.
       for (const take of takes) expect(sent.filter((id) => id === take)).toHaveLength(1)
       expect(await pendingFor(db, 'tunes', tuneId)).toBeUndefined()
       expect((await pendingBatch(db)).map((entry) => entry.row_id)).toEqual(takes)
@@ -1287,7 +1287,7 @@ describe('seen notices', () => {
     expect(fake.notices).toEqual(['first_recording'])
   })
 
-  it('reports a failing notice post once per streak of failed syncs', async () => {
+  it('reports a failing notice post once per run of consecutive failed syncs', async () => {
     await db.entitlements.put(trial)
     await markNoticeSeen(db, 'first_recording')
     const engine = engineFor()
@@ -1378,7 +1378,7 @@ describe('sync_failed', () => {
     return { analytics, engine }
   }
 
-  it('sync_failed once per streak and state, again after a clean run', async () => {
+  it('sync_failed once per state across consecutive failures, again after a clean run', async () => {
     const { analytics, engine } = reporting()
 
     fake.fail(new ApiError(500, null))

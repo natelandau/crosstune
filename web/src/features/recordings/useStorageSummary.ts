@@ -16,17 +16,17 @@ export interface StorageSummary {
 
 /**
  * How much storage the account uses, and how much of its quota that is; null until the server has
- * given a figure. The quota comes from the plan when it is known, so it stays right offline after
+ * reported it. The quota comes from the plan when it is known, so it stays right offline after
  * a plan lapses; free has none, as the server's quota of 0 says too. The used bytes come from the
- * server's last figure.
+ * server's last report.
  */
 export function useStorageSummary(): StorageSummary | null {
   const db = useDb()
   const plan = usePlan()
-  const figures = useLiveQuery(() => getStorage(db), [db])
-  if (!figures) return null
-  const used = figures.used_bytes
-  const quota = plan.kind === 'free' ? 0 : (plan.quotaBytes ?? figures.quota_bytes)
+  const usage = useLiveQuery(() => getStorage(db), [db])
+  if (!usage) return null
+  const used = usage.used_bytes
+  const quota = plan.kind === 'free' ? 0 : (plan.quotaBytes ?? usage.quota_bytes)
   if (quota <= 0) {
     return { used, quota: null, fraction: null, label: `${formatBytes(used)} used` }
   }

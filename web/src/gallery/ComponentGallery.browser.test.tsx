@@ -1,23 +1,23 @@
 import { page, userEvent } from 'vitest/browser'
 import { expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
-import { KitPage } from './KitPage'
+import { ComponentGallery, GALLERY_TITLE } from './ComponentGallery'
 
-it('renders the kit page in Geist', async () => {
-  renderWithProviders(<KitPage />)
-  await expect.element(page.getByRole('heading', { name: 'Kit', level: 1 })).toBeVisible()
+it('renders the gallery page in Geist', async () => {
+  renderWithProviders(<ComponentGallery />)
+  await expect.element(page.getByRole('heading', { name: GALLERY_TITLE, level: 1 })).toBeVisible()
   await expect.poll(() => getComputedStyle(document.body).fontFamily).toContain('Geist')
 })
 
 it('stamps the density and scheme a test asks for on the root', async () => {
-  renderWithProviders(<KitPage />, { density: 'touch', scheme: 'dark' })
+  renderWithProviders(<ComponentGallery />, { density: 'touch', scheme: 'dark' })
   expect(document.documentElement.dataset.density).toBe('touch')
   expect(document.documentElement.dataset.scheme).toBe('dark')
 })
 
 it('keeps a 16px gutter and spaces its sections apart', async () => {
-  renderWithProviders(<KitPage />, { density: 'touch' })
-  const title = page.getByRole('heading', { name: 'Kit', level: 1 })
+  renderWithProviders(<ComponentGallery />, { density: 'touch' })
+  const title = page.getByRole('heading', { name: GALLERY_TITLE, level: 1 })
   await expect.element(title).toBeVisible()
   expect(title.element().getBoundingClientRect().left).toBe(16)
   const [first, second] = document.querySelectorAll('main > section')
@@ -25,13 +25,13 @@ it('keeps a 16px gutter and spaces its sections apart', async () => {
 })
 
 it('switches the whole page density from one control', async () => {
-  renderWithProviders(<KitPage />, { density: 'touch' })
+  renderWithProviders(<ComponentGallery />, { density: 'touch' })
   await userEvent.click(page.getByRole('button', { name: 'Pointer' }))
   await expect.poll(() => document.documentElement.dataset.density).toBe('pointer')
 })
 
 it('opens a locked sheet that keeps typed work on Escape', async () => {
-  renderWithProviders(<KitPage />, { density: 'touch' })
+  renderWithProviders(<ComponentGallery />, { density: 'touch' })
   await page.getByRole('button', { name: 'Locked sheet' }).click()
   await page.getByRole('textbox', { name: 'Title' }).fill('Sally Goodin')
   await userEvent.keyboard('{Escape}')
@@ -41,7 +41,7 @@ it('opens a locked sheet that keeps typed work on Escape', async () => {
 })
 
 it('asks a cautionary question for the caution demo', async () => {
-  renderWithProviders(<KitPage />, { density: 'pointer' })
+  renderWithProviders(<ComponentGallery />, { density: 'pointer' })
   await page.getByRole('button', { name: 'Confirm caution' }).click()
   const alert = page.getByRole('alertdialog', { name: 'Archive "Soldier\'s Joy"?' })
   await expect.element(alert).toBeVisible()

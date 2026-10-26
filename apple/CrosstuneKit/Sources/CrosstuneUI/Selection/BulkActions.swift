@@ -75,8 +75,8 @@ public struct BulkDeleteQuestion: Identifiable, Sendable {
 
 /// What a selection can do to its tunes, and the one place each action is defined: what it
 /// writes, what the banner says, and how it is undone. Every action but delete applies at once
-/// and offers its undo in a banner and through the system undo manager; delete asks first and
-/// offers nothing, because the recordings it takes cannot come back. A failure keeps the
+/// and shows its undo in a banner and through the system undo manager; delete asks first and
+/// shows nothing, because the recordings it takes cannot come back. A failure keeps the
 /// selection, so the action can be tried again.
 @MainActor
 @Observable
@@ -87,7 +87,7 @@ public final class BulkActions {
     public private(set) var editFailure: String?
     public private(set) var isPending = false
     /// The last action's undo, for the banner.
-    public var offer: UndoOffer?
+    public var undoBannerItem: UndoBannerItem?
     /// The window's undo manager, which carries each action's undo for Command-Z, the Edit menu,
     /// and shake.
     @ObservationIgnored public weak var undoManager: UndoManager?
@@ -197,12 +197,12 @@ public final class BulkActions {
         editFailure = nil
     }
 
-    /// Offers the undo of a pick the list picker made, which ran its own write so a failure could
+    /// Shows the undo of a pick the list picker made, which ran its own write so a failure could
     /// stay in the picker.
     public func added(_ addition: ListAddition) {
         failure = nil
         let current = LatestAddition(addition)
-        offer(
+        showUndo(
             Undoable(message: BulkActionText.added(addition), actionName: BulkActionText.addToList) {
                 try await current.value.undo(with: $0)
             } redo: {
@@ -268,7 +268,7 @@ public final class BulkActions {
         failure = nil
         defer { isPending = false }
         do {
-            if let undoable = try await write(Commands(store: store)) { offer(undoable) }
+            if let undoable = try await write(Commands(store: store)) { showUndo(undoable) }
             return true
         } catch {
             Self.logger.warning("A bulk action failed: \(error)")
@@ -280,20 +280,20 @@ public final class BulkActions {
     /// Shows the banner and registers the same undo with the undo manager. Whichever is used
     /// first withdraws the other, so one action is never undone twice. The undo and redo writes
     /// hold only the store, so they still run after the screen that made this model has gone.
-    private func offer(_ undoable: Undoable) {
+    private func showUndo(_ undoable: Undoable) {
         let chain = UndoChain()
         let manager = undoManager
         let store = store
         let failed: @MainActor (String) -> Void = { [weak self] message in self?.failure = message }
-        let shown = UndoOffer(message: undoable.message) {
+        let shown = UndoBannerItem(message: undoable.message) {
             manager?.removeAllActions(withTarget: chain)
             chain.run(undoable.undo, store: store, onFailure: failed)
         }
         Self.registerUndo(undoable, chain: chain, manager: manager, store: store, onFailure: failed) {
             [weak self] in
-            if self?.offer?.id == shown.id { self?.offer = nil }
+            if self?.undoBannerItem?.id == shown.id { self?.undoBannerItem = nil }
         }
-        offer = shown
+        undoBannerItem = shown
     }
 
     /// Registers the undo, which registers the redo as it runs, which registers the undo again,

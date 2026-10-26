@@ -34,7 +34,7 @@ public enum SyncTable: String, CaseIterable, Codable, Sendable {
     public static let eventTables = allCases.filter(\.isEvent)
 
     /// The tables whose new rows the server takes only from a Premium account. A refused upsert
-    /// is held for Premium rather than reported.
+    /// is kept local until subscribed rather than reported.
     public static let premiumOnly: Set<SyncTable> = [.recordings, .scans]
 
     /// The tables whose rows name a recording in `recording_id`, which the server refuses while

@@ -70,7 +70,7 @@ let uploadRetryMax: Duration = .seconds(30 * 60)
 
 /// How long a file that failed to upload `attempts` times in a row waits before the next try.
 func uploadBackoff(attempts: Int) -> Duration {
-    // Capped before the shift so a long streak cannot overflow.
+    // Capped before the shift so many failures in a row cannot overflow.
     let factor = 1 << min(attempts, 16)
     return min(uploadRetryMax, uploadRetryBase * factor)
 }

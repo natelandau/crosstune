@@ -1,4 +1,4 @@
-"""Re-cuts a recording's playback file from its original at the current playback bit rate."""
+"""Rewrites a recording's playback file from its original at the current playback bit rate."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 
 from crosstune.db.base import bump_server_seq
 from crosstune.db.locks import lock_user
+from crosstune.jobs.audio_rewrite import rewrite_playback
 from crosstune.jobs.media import playback_bitrate, probe
-from crosstune.jobs.recut import recut_playback
 from crosstune.recordings.service import attach_playback
 from crosstune.storage.store import delete_best_effort
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-# A playback file this close to its target already sounds as good as a re-cut would.
+# A playback file this close to its target already sounds as good as a rewrite would.
 CLOSE_TO_TARGET = 0.9
 # The encoder can fall short of its target, most on stereo near 320 kbps, so a cut
 # must measurably beat the current file to be worth every client downloading it again.
@@ -32,7 +32,7 @@ WORTH_REPLACING = 1.1
 
 
 class ReencodeError(Exception):
-    """The recording has no original or no complete range to re-cut from."""
+    """The recording has no original or no complete range to rewrite from."""
 
 
 def _log_outcome(recording_id: uuid.UUID, outcome: str, **rates: int | None) -> None:
@@ -66,7 +66,7 @@ def _row_bit_rate(recording: Recording) -> int | None:
 async def reencode(
     session: AsyncSession, store: ObjectStore, recording: Recording, work_dir: Path
 ) -> Replacement | None:
-    """Re-cut the playback file of a ready recording from its original over the same range.
+    """Rewrite the playback file of a ready recording from its original over the same range.
 
     Lifts a playback file encoded below what its original supports. A file already
     near its target, a file whose rate the row does not record, or a cut that measures
@@ -97,7 +97,7 @@ async def reencode(
     start_ms, end_ms = recording.playback_start_ms, recording.playback_end_ms
     if original is None or current_key is None or start_ms is None or end_ms is None:
         msg = (
-            f"recording {recording.id} has nothing to re-cut: original={original}, "
+            f"recording {recording.id} has nothing to rewrite: original={original}, "
             f"playback={current_key}, range={start_ms}-{end_ms}"
         )
         raise ReencodeError(msg)
@@ -125,7 +125,7 @@ async def reencode(
 
     uploaded: list[str] = []
     try:
-        playback, cut_info = await recut_playback(
+        playback, cut_info = await rewrite_playback(
             store,
             recording,
             source=source,
@@ -137,7 +137,10 @@ async def reencode(
         cut = cut_info.bit_rate
         if cut is None or cut < WORTH_REPLACING * current:
             await delete_best_effort(
-                store, uploaded, log=log, message="could not delete a re-cut no better than before"
+                store,
+                uploaded,
+                log=log,
+                message="could not delete a rewritten playback file no better than before",
             )
             _log_outcome(recording.id, "no_better", **rates, cut_bps=cut)
             return None
@@ -156,7 +159,7 @@ async def reencode(
         )
         if stale:
             await delete_best_effort(
-                store, uploaded, log=log, message="could not delete a stale re-cut"
+                store, uploaded, log=log, message="could not delete a stale rewritten playback file"
             )
             _log_outcome(recording.id, "stale", **rates, cut_bps=cut)
             return None
@@ -169,7 +172,7 @@ async def reencode(
         # The caller rolls the row back, but this object is already in the bucket and
         # nothing will ever reference it. A cancelled job cleans up too.
         await delete_best_effort(
-            store, uploaded, log=log, message="could not delete an orphaned re-cut"
+            store, uploaded, log=log, message="could not delete an orphaned rewritten playback file"
         )
         raise
     return Replacement(recording.id, current_key, {**rates, "cut_bps": cut})

@@ -46,8 +46,8 @@ struct TunerScreen: View {
     #endif
     @State private var settings: LiveQuery<SettingsSummaries?>?
     /// Forgotten once listening stops, so the next session starts with the prompt. Only the
-    /// ground and the stage read it, so a reading never redraws the whole screen.
-    @State private var held = TunerHeld()
+    /// ground and the display read it, so a reading never redraws the whole screen.
+    @State private var lastReading = TunerLastReading()
 
     /// The account's reference pitch, nil until its settings load.
     private var loadedA4: Int? {
@@ -107,12 +107,12 @@ struct TunerScreen: View {
                     .foregroundStyle(PhoneStyle.tuneMuted)
                     .padding(.horizontal, PageStyle.pageMargin)
             }
-            TunerStage(model: model, held: held, motion: motion)
+            TunerDisplay(model: model, lastReading: lastReading, motion: motion)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .environment(\.colorScheme, .dark)
         .background {
-            TunerGround(model: model, held: held, colorScheme: colorScheme, motion: motion)
+            TunerGround(model: model, lastReading: lastReading, colorScheme: colorScheme, motion: motion)
         }
         // A visited tab stays alive behind the selected one, so being on screen is not enough.
         .modifier(KeepsScreenAwake(active: lifecycle.shown && lifecycle.foreground && !covered))
@@ -135,7 +135,7 @@ struct TunerScreen: View {
         }
         .onDisappear {
             appeared = false
-            held.forget()
+            lastReading.forget()
             // A disappeared view runs no more changes, so the stop is sent here.
             var gone = lifecycle
             gone.shown = false
@@ -143,12 +143,12 @@ struct TunerScreen: View {
         }
         .onChange(of: lifecycle, initial: true) {
             // Forgotten here as well as on the model's stop, which arrives a moment later.
-            if lifecycle.a4 == nil { held.last = nil }
+            if lifecycle.a4 == nil { lastReading.last = nil }
             drive(lifecycle)
         }
         // The next session starts fresh, with the prompt and its own announcements.
         .onChange(of: status) {
-            if status != .listening { held.forget() }
+            if status != .listening { lastReading.forget() }
         }
     }
 

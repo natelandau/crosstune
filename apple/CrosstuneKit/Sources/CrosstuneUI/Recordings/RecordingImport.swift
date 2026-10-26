@@ -47,8 +47,8 @@ public enum RecordingImport {
         guard bytes > 0 else { throw Refusal(message: emptyFile) }
         // Read at the moment of the check, so a file picked right after launch is held to the
         // stored limit rather than slipping past one not yet read.
-        if let figures = try await store.meta(.storage, as: StorageFigures.self), bytes > Int64(figures.maxFileBytes) {
-            throw Refusal(message: tooLarge(figures.maxFileBytes))
+        if let usage = try await store.meta(.storage, as: StorageUsage.self), bytes > Int64(usage.maxFileBytes) {
+            throw Refusal(message: tooLarge(usage.maxFileBytes))
         }
         let recordingID = newID()
         let ext = type.preferredFilenameExtension ?? url.pathExtension

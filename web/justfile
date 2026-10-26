@@ -172,10 +172,10 @@ preview:
     pnpm vite build
     pnpm vite preview
 
-# Capture the component kit and app screens on a seeded fixture into .cache/kit-shots for review
+# Capture the component gallery and app screens on a seeded fixture into .cache/gallery-shots for review
 [group('run')]
-kit-shots:
-    node scripts/kit-shots.mjs
+gallery-shots:
+    node scripts/gallery-shots.mjs
 
 # Build for production and validate the Worker config and bundle without uploading
 [group('build')]

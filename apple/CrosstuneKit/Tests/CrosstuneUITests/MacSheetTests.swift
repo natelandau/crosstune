@@ -220,16 +220,16 @@
         }
 
         @Test func purchaseScanCatchesAClosureThatBuys() {
-            #expect(Self.purchaseOffenders("primary: .init(\"Go\") { Task { await purchase.buy(from: entry) } }") == 1)
-            #expect(Self.purchaseOffenders("MacSheetAction(PlanText.go, action: onSubscribe)") == 1)
-            #expect(Self.purchaseOffenders("secondary: .init(\"Go\", isDefault: false) {\n    macSubscribe()\n}") == 1)
-            #expect(Self.purchaseOffenders(".subscribe(title: PlanText.subscribe, action: subscribe)") == 0)
-            #expect(Self.purchaseOffenders("primary: .init(PlanSheet.close, action: close)") == 0)
+            #expect(Self.purchaseViolations("primary: .init(\"Go\") { Task { await purchase.buy(from: entry) } }") == 1)
+            #expect(Self.purchaseViolations("MacSheetAction(PlanText.go, action: onSubscribe)") == 1)
+            #expect(Self.purchaseViolations("secondary: .init(\"Go\", isDefault: false) {\n    macSubscribe()\n}") == 1)
+            #expect(Self.purchaseViolations(".subscribe(title: PlanText.subscribe, action: subscribe)") == 0)
+            #expect(Self.purchaseViolations("primary: .init(PlanSheet.close, action: close)") == 0)
             #expect(
-                Self.purchaseOffenders("MacSheetAction(PlanText.restore) { Task { await purchase.restore() } }") == 0)
+                Self.purchaseViolations("MacSheetAction(PlanText.restore) { Task { await purchase.restore() } }") == 0)
         }
 
-        private static func purchaseOffenders(_ text: String) -> Int { purchasesOutsideSubscribe(in: text).count }
+        private static func purchaseViolations(_ text: String) -> Int { purchasesOutsideSubscribe(in: text).count }
 
         /// Only `.subscribe(title:)` builds an action that buys, so no other footer action, by its
         /// closure or the function it is handed, can start a purchase on Return.

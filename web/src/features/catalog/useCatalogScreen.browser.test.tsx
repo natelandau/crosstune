@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { recordingAnalytics } from '../../usage/testing'
-import { type SettleClock } from '../../usage/searchSettler'
+import { type DebounceClock } from '../../usage/searchDebouncer'
 import { createTune, setArchived } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -22,10 +22,10 @@ beforeEach(async () => {
   }
 })
 
-/** A clock a test steps by hand, so a search settles exactly when the test says. */
+/** A clock a test steps by hand, so a search counts exactly when the test says. */
 function manualClock() {
   const pending = new Set<() => void>()
-  const clock: SettleClock = {
+  const clock: DebounceClock = {
     after: (_ms, run) => {
       pending.add(run)
       return () => void pending.delete(run)
@@ -45,7 +45,7 @@ function setup() {
   const onCreate = vi.fn()
   const analytics = recordingAnalytics()
   const { clock, pause } = manualClock()
-  const view = renderHook(() => useCatalogScreen({ onOpenTune, onCreate, settleClock: clock }), {
+  const view = renderHook(() => useCatalogScreen({ onOpenTune, onCreate, debounceClock: clock }), {
     wrapper: dataProviders({ db, analytics }),
   })
   return { ...view, onOpenTune, onCreate, analytics, pause }
@@ -174,7 +174,7 @@ describe('useCatalogScreen', () => {
   })
 
   describe('analytics', () => {
-    it('reports a search once it settles and ends, with the count it settled on', async () => {
+    it('reports a search once it counts and ends, with the count it showed then', async () => {
       const { result, analytics, pause } = setup()
       await ready(result)
       act(() => result.current.setQuery('banshee'))
@@ -187,7 +187,7 @@ describe('useCatalogScreen', () => {
       ])
     })
 
-    it('reports the settled query when a different one settles', async () => {
+    it('reports the counted query when a different one counts', async () => {
       const { result, analytics, pause } = setup()
       await ready(result)
       act(() => result.current.setQuery('banshee'))

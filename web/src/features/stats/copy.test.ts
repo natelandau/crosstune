@@ -5,7 +5,7 @@ import {
   onThisDayLine,
   scansLine,
   showAllLabel,
-  tallyLine,
+  countsLine,
   valueLabel,
   weekMonthLabels,
 } from './copy'
@@ -30,12 +30,12 @@ describe('scansLine', () => {
   })
 })
 
-describe('tallyLine', () => {
+describe('countsLine', () => {
   it('names lists and links, and adds scans only once there are any', () => {
-    expect(tallyLine({ lists: 3, links: 1200, scans: 0, scan_tunes: 0 })).toBe(
+    expect(countsLine({ lists: 3, links: 1200, scans: 0, scan_tunes: 0 })).toBe(
       'Lists 3 · Links 1,200',
     )
-    expect(tallyLine({ lists: 0, links: 4, scans: 86, scan_tunes: 41 })).toBe(
+    expect(countsLine({ lists: 0, links: 4, scans: 86, scan_tunes: 41 })).toBe(
       'Lists 0 · Links 4 · 86 scans across 41 tunes',
     )
   })

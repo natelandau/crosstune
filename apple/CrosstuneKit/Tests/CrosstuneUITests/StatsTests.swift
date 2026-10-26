@@ -41,7 +41,7 @@ private struct FailingEventsAPI: SyncAPI {
     }
     func recordNotice(_ notice: PlanNotice) async throws {}
     func refreshBilling() async throws {}
-    func storage() async throws -> StorageFigures { StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0) }
+    func storage() async throws -> StorageUsage { StorageUsage(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0) }
     func resolveLink(url: String) async throws -> ResolvedLink { throw URLError(.badURL) }
     func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
         throw URLError(.badURL)
@@ -302,15 +302,15 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
         #expect(ShareBarRow.share(count: 3, max: 0) == 0)
     }
 
-    @Test func tallyLineJoinsListsRecordingsLinksAndScans() {
+    @Test func countsLineJoinsListsRecordingsLinksAndScans() {
         func counts(scans: Int) -> Stats.Counts {
             Stats.Counts(
                 known: 0, learning: 0, wantToLearn: 0, tunes: 0, archived: 0, lists: 2, recordings: 6, links: 3,
                 scans: scans, scanTunes: 1)
         }
-        #expect(StatsDocument.tallyLine(counts(scans: 0)) == "Lists 2 · Recordings 6 · Links 3")
+        #expect(StatsDocument.countsLine(counts(scans: 0)) == "Lists 2 · Recordings 6 · Links 3")
         #expect(
-            StatsDocument.tallyLine(counts(scans: 4))
+            StatsDocument.countsLine(counts(scans: 4))
                 == "Lists 2 · Recordings 6 · Links 3 · \(StatsCopy.scansLine(scans: 4, tunes: 1))")
     }
 

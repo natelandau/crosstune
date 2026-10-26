@@ -17,7 +17,7 @@ public final class PlanModel {
     /// Whether the first read of the row has landed, so unknown is not claimed before it has.
     public var isLoaded: Bool { row.value != nil }
     /// The recordings and scans the server refused as Premium only, which wait on this device.
-    public var heldForPremium: Set<String> { holds.value }
+    public var isLocalUntilSubscribed: Set<String> { holds.value }
 
     private let row: LiveQuery<Entitlement??>
     private let holds: LiveQuery<Set<String>>
@@ -40,7 +40,7 @@ public final class PlanModel {
         self.notifications = notifications
         let row = LiveQuery<Entitlement??>(store, initial: nil) { db in .some(try Entitlement.current(db)) }
         self.row = row
-        holds = LiveQuery<Set<String>>(store, initial: []) { db in try StoreWriter.premiumHolds(in: db) }
+        holds = LiveQuery<Set<String>>(store, initial: []) { db in try StoreWriter.localOnlyRows(in: db) }
         following = Task { [weak self] in
             for await _ in Observations({ @MainActor in row.value }) {
                 self?.judge()

@@ -19,7 +19,7 @@ private final class ViewsRecorded {
 
 /// A scan view log on a test clock, writing to `recorded`.
 @MainActor
-private struct ScanViewRig {
+private struct ScanViewFixture {
     let clock = ActivityClock()
     let recorded = ViewsRecorded()
     let log: ScanViewLog
@@ -37,19 +37,19 @@ private struct ScanViewRig {
 @MainActor
 @Suite struct ScanViewLogTests {
     @Test func aLookUnderThreeSecondsWritesNothing() {
-        let rig = ScanViewRig()
-        rig.log.start(tuneID: "t1", origin: .tune)
-        rig.clock.advance(2_999)
-        rig.log.end()
-        #expect(rig.recorded.views.isEmpty)
+        let fixture = ScanViewFixture()
+        fixture.log.start(tuneID: "t1", origin: .tune)
+        fixture.clock.advance(2_999)
+        fixture.log.end()
+        #expect(fixture.recorded.views.isEmpty)
     }
 
     @Test func threeSecondsWritesAView() throws {
-        let rig = ScanViewRig()
-        rig.log.start(tuneID: "t1", origin: .tune)
-        rig.clock.advance(3_000)
-        rig.log.end()
-        let view = try #require(rig.recorded.views.only)
+        let fixture = ScanViewFixture()
+        fixture.log.start(tuneID: "t1", origin: .tune)
+        fixture.clock.advance(3_000)
+        fixture.log.end()
+        let view = try #require(fixture.recorded.views.only)
         #expect(view.tuneID == "t1")
         #expect(view.context == "tune")
         #expect(view.listID == nil)
@@ -60,99 +60,99 @@ private struct ScanViewRig {
     }
 
     @Test func endingTwiceWritesOnce() {
-        let rig = ScanViewRig()
-        rig.log.start(tuneID: "t1", origin: .tune)
-        rig.clock.advance(5_000)
-        rig.log.end()
-        rig.clock.advance(5_000)
-        rig.log.end()
-        #expect(rig.viewedMs == [5_000])
+        let fixture = ScanViewFixture()
+        fixture.log.start(tuneID: "t1", origin: .tune)
+        fixture.clock.advance(5_000)
+        fixture.log.end()
+        fixture.clock.advance(5_000)
+        fixture.log.end()
+        #expect(fixture.viewedMs == [5_000])
     }
 
     @Test func leavingTheForegroundEndsTheViewAndComingBackStartsAnother() {
-        let rig = ScanViewRig()
-        rig.log.start(tuneID: "t1", origin: .row)
-        rig.clock.advance(5_000)
-        rig.log.foreground(false)
-        #expect(rig.viewedMs == [5_000], "the app may never come back, so the view is written as it leaves")
+        let fixture = ScanViewFixture()
+        fixture.log.start(tuneID: "t1", origin: .row)
+        fixture.clock.advance(5_000)
+        fixture.log.foreground(false)
+        #expect(fixture.viewedMs == [5_000], "the app may never come back, so the view is written as it leaves")
 
         // Time in the background counts toward nothing.
-        rig.clock.advance(8 * 3_600_000)
-        rig.log.foreground(true)
-        rig.clock.advance(4_000)
-        rig.log.end()
+        fixture.clock.advance(8 * 3_600_000)
+        fixture.log.foreground(true)
+        fixture.clock.advance(4_000)
+        fixture.log.end()
 
-        #expect(rig.viewedMs == [5_000, 4_000])
-        #expect(rig.recorded.views.map(\.startedAt) == [noon, later(5_000 + 8 * 3_600_000)])
-        #expect(Set(rig.recorded.views.map(\.id)).count == 2)
-        #expect(rig.recorded.views.map(\.context) == ["row", "row"])
+        #expect(fixture.viewedMs == [5_000, 4_000])
+        #expect(fixture.recorded.views.map(\.startedAt) == [noon, later(5_000 + 8 * 3_600_000)])
+        #expect(Set(fixture.recorded.views.map(\.id)).count == 2)
+        #expect(fixture.recorded.views.map(\.context) == ["row", "row"])
     }
 
     @Test func shortLooksEitherSideOfTheBackgroundAreNeverAddedTogether() {
-        let rig = ScanViewRig()
-        rig.log.start(tuneID: "t1", origin: .tune)
-        rig.clock.advance(2_000)
-        rig.log.foreground(false)
-        rig.clock.advance(60_000)
-        rig.log.foreground(true)
-        rig.clock.advance(2_000)
-        rig.log.end()
-        #expect(rig.recorded.views.isEmpty)
+        let fixture = ScanViewFixture()
+        fixture.log.start(tuneID: "t1", origin: .tune)
+        fixture.clock.advance(2_000)
+        fixture.log.foreground(false)
+        fixture.clock.advance(60_000)
+        fixture.log.foreground(true)
+        fixture.clock.advance(2_000)
+        fixture.log.end()
+        #expect(fixture.recorded.views.isEmpty)
     }
 
     @Test func anInactiveSpellKeepsTheViewGoing() {
-        let rig = ScanViewRig()
-        rig.log.start(tuneID: "t1", origin: .tune)
-        rig.clock.advance(2_000)
+        let fixture = ScanViewFixture()
+        fixture.log.start(tuneID: "t1", origin: .tune)
+        fixture.clock.advance(2_000)
         // Inactive, as under Control Center, is still the foreground.
-        rig.log.foreground(true)
-        rig.clock.advance(2_000)
-        rig.log.end()
-        #expect(rig.viewedMs == [4_000])
+        fixture.log.foreground(true)
+        fixture.clock.advance(2_000)
+        fixture.log.end()
+        #expect(fixture.viewedMs == [4_000])
     }
 
     @Test func aViewerOpenedInTheBackgroundStartsTimingOnReturn() {
-        let rig = ScanViewRig()
-        rig.log.foreground(false)
-        rig.log.start(tuneID: "t1", origin: .tune)
-        rig.clock.advance(60_000)
-        rig.log.foreground(true)
-        rig.clock.advance(3_000)
-        rig.log.end()
-        #expect(rig.viewedMs == [3_000])
+        let fixture = ScanViewFixture()
+        fixture.log.foreground(false)
+        fixture.log.start(tuneID: "t1", origin: .tune)
+        fixture.clock.advance(60_000)
+        fixture.log.foreground(true)
+        fixture.clock.advance(3_000)
+        fixture.log.end()
+        #expect(fixture.viewedMs == [3_000])
     }
 
     @Test func keepsWhereTheViewerWasOpened() {
-        let rig = ScanViewRig()
+        let fixture = ScanViewFixture()
         for origin in [ScanViewOrigin.tune, .row, .list(id: "l1")] {
-            rig.log.start(tuneID: "t1", origin: origin)
-            rig.clock.advance(3_000)
-            rig.log.end()
+            fixture.log.start(tuneID: "t1", origin: origin)
+            fixture.clock.advance(3_000)
+            fixture.log.end()
         }
-        #expect(rig.recorded.views.map(\.context) == ["tune", "row", "list"])
-        #expect(rig.recorded.views.map(\.listID) == [nil, nil, "l1"])
+        #expect(fixture.recorded.views.map(\.context) == ["tune", "row", "list"])
+        #expect(fixture.recorded.views.map(\.listID) == [nil, nil, "l1"])
     }
 
     @Test func openingAnotherTunesScansEndsThePreviousView() {
-        let rig = ScanViewRig()
-        rig.log.start(tuneID: "t1", origin: .tune)
-        rig.clock.advance(4_000)
-        rig.log.start(tuneID: "t2", origin: .row)
-        #expect(rig.recorded.views.map(\.tuneID) == ["t1"])
-        rig.clock.advance(3_000)
-        rig.log.end()
-        #expect(rig.recorded.views.map(\.tuneID) == ["t1", "t2"])
-        #expect(rig.viewedMs == [4_000, 3_000])
+        let fixture = ScanViewFixture()
+        fixture.log.start(tuneID: "t1", origin: .tune)
+        fixture.clock.advance(4_000)
+        fixture.log.start(tuneID: "t2", origin: .row)
+        #expect(fixture.recorded.views.map(\.tuneID) == ["t1"])
+        fixture.clock.advance(3_000)
+        fixture.log.end()
+        #expect(fixture.recorded.views.map(\.tuneID) == ["t1", "t2"])
+        #expect(fixture.viewedMs == [4_000, 3_000])
     }
 
     @Test func aLogMadeInTheBackgroundTimesNothingUntilTheForeground() {
-        let rig = ScanViewRig(isForeground: false)
-        rig.log.start(tuneID: "t1", origin: .tune)
-        rig.clock.advance(30_000)
-        rig.log.foreground(true)
-        rig.clock.advance(3_000)
-        rig.log.end()
-        #expect(rig.viewedMs == [3_000])
+        let fixture = ScanViewFixture(isForeground: false)
+        fixture.log.start(tuneID: "t1", origin: .tune)
+        fixture.clock.advance(30_000)
+        fixture.log.foreground(true)
+        fixture.clock.advance(3_000)
+        fixture.log.end()
+        #expect(fixture.viewedMs == [3_000])
     }
 }
 
@@ -162,12 +162,12 @@ private struct ScanViewRig {
     private let root = TemporaryRoot()
 
     @Test func presentingAndDismissingTheViewerLogsOneView() throws {
-        let rig = ScanViewRig()
+        let fixture = ScanViewFixture()
         let request = ScanRequest(tuneID: "t1", startIndex: 2, origin: .list(id: "l1"))
-        rig.log.follow(from: nil, to: request)
-        rig.clock.advance(6_000)
-        rig.log.follow(from: request, to: nil)
-        let view = try #require(rig.recorded.views.only)
+        fixture.log.follow(from: nil, to: request)
+        fixture.clock.advance(6_000)
+        fixture.log.follow(from: request, to: nil)
+        let view = try #require(fixture.recorded.views.only)
         #expect(view.tuneID == "t1")
         #expect(view.context == "list")
         #expect(view.listID == "l1")
@@ -176,53 +176,53 @@ private struct ScanViewRig {
 
     @Test func closingWritesOneViewWhicheverSignalComesFirst() {
         for disappearFirst in [false, true] {
-            let rig = ScanViewRig()
+            let fixture = ScanViewFixture()
             let request = ScanRequest(tuneID: "t1", startIndex: 0, origin: .tune)
-            rig.log.follow(from: nil, to: request)
-            rig.clock.advance(4_000)
+            fixture.log.follow(from: nil, to: request)
+            fixture.clock.advance(4_000)
             if disappearFirst {
-                rig.log.viewerDisappeared(tuneID: "t1")
-                rig.clock.advance(500)
-                rig.log.follow(from: request, to: nil)
+                fixture.log.viewerDisappeared(tuneID: "t1")
+                fixture.clock.advance(500)
+                fixture.log.follow(from: request, to: nil)
             } else {
-                rig.log.follow(from: request, to: nil)
-                rig.clock.advance(500)
-                rig.log.viewerDisappeared(tuneID: "t1")
+                fixture.log.follow(from: request, to: nil)
+                fixture.clock.advance(500)
+                fixture.log.viewerDisappeared(tuneID: "t1")
             }
-            #expect(rig.viewedMs == [4_000], "disappear first: \(disappearFirst)")
+            #expect(fixture.viewedMs == [4_000], "disappear first: \(disappearFirst)")
         }
     }
 
     @Test func anOldViewersDisappearanceLeavesTheNewViewRunning() {
-        let rig = ScanViewRig()
+        let fixture = ScanViewFixture()
         let old = ScanRequest(tuneID: "t1", startIndex: 0, origin: .tune)
         let new = ScanRequest(tuneID: "t2", startIndex: 0, origin: .row)
-        rig.log.follow(from: nil, to: old)
-        rig.clock.advance(1_000)
-        rig.log.follow(from: old, to: new)
-        rig.clock.advance(2_000)
-        rig.log.viewerDisappeared(tuneID: "t1")
-        rig.clock.advance(2_000)
-        rig.log.follow(from: new, to: nil)
-        #expect(rig.recorded.views.map(\.tuneID) == ["t2"])
-        #expect(rig.viewedMs == [4_000])
+        fixture.log.follow(from: nil, to: old)
+        fixture.clock.advance(1_000)
+        fixture.log.follow(from: old, to: new)
+        fixture.clock.advance(2_000)
+        fixture.log.viewerDisappeared(tuneID: "t1")
+        fixture.clock.advance(2_000)
+        fixture.log.follow(from: new, to: nil)
+        #expect(fixture.recorded.views.map(\.tuneID) == ["t2"])
+        #expect(fixture.viewedMs == [4_000])
     }
 
     @Test func eachContextReachesTheLog() {
-        let rig = ScanViewRig()
+        let fixture = ScanViewFixture()
         for origin in [ScanViewOrigin.tune, .row, .list(id: "l1")] {
             let request = ScanRequest(tuneID: "t1", startIndex: 0, origin: origin)
-            rig.log.follow(from: nil, to: request)
-            rig.clock.advance(3_000)
-            rig.log.follow(from: request, to: nil)
+            fixture.log.follow(from: nil, to: request)
+            fixture.clock.advance(3_000)
+            fixture.log.follow(from: request, to: nil)
         }
-        #expect(rig.recorded.views.map(\.context) == ["tune", "row", "list"])
-        #expect(rig.recorded.views.map(\.listID) == [nil, nil, "l1"])
+        #expect(fixture.recorded.views.map(\.context) == ["tune", "row", "list"])
+        #expect(fixture.recorded.views.map(\.listID) == [nil, nil, "l1"])
     }
 
     @Test func eachWindowCountsItsOwnViewer() {
-        let first = ScanViewRig()
-        let second = ScanViewRig()
+        let first = ScanViewFixture()
+        let second = ScanViewFixture()
         let one = ScanRequest(tuneID: "t1", startIndex: 0, origin: .tune)
         let two = ScanRequest(tuneID: "t2", startIndex: 0, origin: .row)
         first.log.follow(from: nil, to: one)

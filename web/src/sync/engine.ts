@@ -5,7 +5,7 @@ import { ApiError, NetworkError, NoTokenError } from '../api/client'
 import type { Change, DeleteAccountOptions, ResolveResponse } from '../api/types'
 import { readPlan } from '../billing/entitlement'
 import { postSeenNotices } from '../billing/notices'
-import { countInvalidChanges, getEventsCursor, getPullCursor, prunePremiumHolds } from '../db/meta'
+import { countInvalidChanges, getEventsCursor, getPullCursor, pruneLocalOnlyRows } from '../db/meta'
 import { PUSH_BATCH_SIZE, pendingBatch } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { applyEventsPage, applyPullPage, applyPushResults, type InvalidChange } from './apply'
@@ -72,7 +72,7 @@ interface Loop<S extends string> {
 
 /**
  * A serialized run loop. Triggers while a run is in flight coalesce into one more run
- * after it; a failed run backs off and retries; the first failure of a streak is reported.
+ * after it; a failed run backs off and retries; the first of consecutive failures is reported.
  */
 function createLoop<S extends string>({
   idle,
@@ -90,7 +90,7 @@ function createLoop<S extends string>({
   classify: (error: unknown) => S
   isStopped: () => boolean
   afterRun?: () => void
-  /** Called when a run fails into a state, other than offline, that this streak has not reported. */
+  /** Called when a run fails into a state, other than offline, not yet reported since the last success. */
   onFailure?: (state: S, error: unknown) => void
 }): Loop<S> {
   let status = idle
@@ -132,7 +132,7 @@ function createLoop<S extends string>({
       setStatus(idle)
     } catch (error) {
       const next = classify(error)
-      // Report once per streak: a retry that fails the same way adds nothing.
+      // Report once until a run succeeds: a retry that fails the same way adds nothing.
       if (next !== 'offline' && failures === 0) Sentry.captureException(error)
       if (next !== 'offline' && reportedFailure !== next) {
         reportedFailure = next
@@ -200,13 +200,13 @@ export function createSyncEngine({
   let noticeFailureReported = false
 
   async function push(): Promise<void> {
-    await prunePremiumHolds(db)
+    await pruneLocalOnlyRows(db)
     const premium = (await readPlan(db, new Date())).kind !== 'free'
-    // Held this push: each is sent at most once, so a full batch of them never stops the
+    // Kept local this push: each is sent at most once, so a full batch of them never stops the
     // entries queued behind.
-    const heldNow = new Set<string>()
+    const keptLocalThisPush = new Set<string>()
     for (;;) {
-      const batch = await pendingBatch(db, batchSize, { premium, skip: heldNow })
+      const batch = await pendingBatch(db, batchSize, { premium, skip: keptLocalThisPush })
       if (batch.length === 0) return
       const changes: Change[] = batch.map((entry) => ({
         table: entry.table,
@@ -216,12 +216,12 @@ export function createSyncEngine({
         data: entry.data,
       }))
       const response = await api.push(changes)
-      const { invalid, settled, held } = await applyPushResults(db, batch, response.results)
+      const { invalid, settled, keptLocal } = await applyPushResults(db, batch, response.results)
       for (const change of invalid) onInvalid(change)
       if (invalid.length > 0) await countInvalidChanges(db, invalid.length)
-      for (const id of held) heldNow.add(id)
-      // A batch that neither settles nor holds anything would send the same entries forever.
-      if ((settled === 0 && held.length === 0) || batch.length < batchSize) return
+      for (const id of keptLocal) keptLocalThisPush.add(id)
+      // A batch that neither settles nor keeps anything local would send the same entries forever.
+      if ((settled === 0 && keptLocal.length === 0) || batch.length < batchSize) return
     }
   }
 
@@ -332,7 +332,7 @@ export function createSyncEngine({
                 // A notice that failed to post waits for the next sync; only an auth failure
                 // fails this one.
                 if (isAuthFailure(error)) throw error
-                // Reported once per streak: a retry that fails the same way adds nothing.
+                // Reported once until a post succeeds: a retry that fails the same way adds nothing.
                 if (!noticeFailureReported && classifyFailure(error, isOnline) !== 'offline') {
                   noticeFailureReported = true
                   Sentry.captureException(error, { level: 'warning' })
@@ -342,7 +342,7 @@ export function createSyncEngine({
               try {
                 await refreshStorage(db, api)
               } catch (error) {
-                // Storage figures are informational; only an auth failure should fail a sync
+                // Storage usage is informational; only an auth failure should fail a sync
                 // whose push and pull already landed.
                 if (isAuthFailure(error)) throw error
               }

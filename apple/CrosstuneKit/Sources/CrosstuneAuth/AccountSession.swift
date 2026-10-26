@@ -170,8 +170,8 @@ public final class AccountSession {
     /// Set through sign-out, so a change of Clerk's user meanwhile leaves the analytics reset to
     /// leaving, which sends `signed_out` first.
     @ObservationIgnored private var isSigningOut = false
-    /// Whether a sync of the open store has identified the person with the API's figures.
-    @ObservationIgnored private var syncedFiguresReported = false
+    /// Whether a sync of the open store has identified the person with the API's usage.
+    @ObservationIgnored private var syncedUsageReported = false
     @ObservationIgnored private let analytics: AnalyticsClient
     @ObservationIgnored private let diagnostics: DiagnosticsClient
     @ObservationIgnored private var identity: AnalyticsIdentity
@@ -182,7 +182,7 @@ public final class AccountSession {
     ///   - storageOrigin: Where a storage URL the API signs as a bare path resolves. Only a
     ///     local API signs those; see ``LiveSyncAPI``.
     ///   - analytics: Where sign-in, sign-out, and deletion are reported.
-    ///   - diagnostics: Where lasting failures are reported for crash reporting.
+    ///   - diagnostics: Where persistent failures are reported for crash reporting.
     ///   - deviceSettings: The settings this device keeps outside the store, which the person
     ///     carries beside the synced ones.
     ///   - assistiveTech: The assistive features the device has on, which the person carries.
@@ -267,7 +267,7 @@ public final class AccountSession {
         let userID = Self.follow(
             clerkUserID: clerk.user?.id, signedUpAt: clerk.user?.createdAt, isLeaving: isSigningOut || isLeavingDeleted,
             signedOutUserID: &signedOutUserID, remembered: remembered, identity: &identity)
-        identifyWithStoreFigures()
+        identifyWithStorageUsage()
         if userID == nil {
             needsSignIn = false
         } else {
@@ -293,12 +293,12 @@ public final class AccountSession {
     }
 
     /// The catalog size and storage use the user's person carries, from the open store. Both are
-    /// nil until a sync has brought the API's figures: before then a new device's empty catalog
+    /// nil until a sync has brought the API's usage: before then a new device's empty catalog
     /// is not the account's, and setting it would overwrite the person's size with nothing.
-    static func storeFigures(in store: CrosstuneStore) async -> (
+    static func storageUsage(in store: CrosstuneStore) async -> (
         catalogSize: Int?, storageUsed: Int64?, fieldsUsed: [TuneField]?, settings: [SettingChange]
     ) {
-        guard let storage = try? await store.meta(.storage, as: StorageFigures.self) else { return (nil, nil, nil, []) }
+        guard let storage = try? await store.meta(.storage, as: StorageUsage.self) else { return (nil, nil, nil, []) }
         let tunes = try? await store.accountCounts().tunes
         let fields = try? await store.read { try fieldsUsed(in: $0) }
         let settings = (try? await store.read { try syncedSettings(in: $0) }) ?? []
@@ -365,15 +365,15 @@ public final class AccountSession {
         return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// Sets the store's figures on the person once both Clerk's user and their store are known,
+    /// Sets the store's usage on the person once both Clerk's user and their store are known,
     /// whichever comes last.
     ///
-    /// - Parameter carried: Called with whether the identify carried the API's figures.
-    private func identifyWithStoreFigures(carried: @escaping @MainActor (Bool) -> Void = { _ in }) {
+    /// - Parameter carried: Called with whether the identify carried the API's usage.
+    private func identifyWithStorageUsage(carried: @escaping @MainActor (Bool) -> Void = { _ in }) {
         guard case .signedIn(let userID, confirmed: true) = phase, let store, store.userID == userID else { return }
         let identity = identity
         Task { [weak self] in
-            let sent = await identity.identify(userID: userID, withFiguresIn: store) {
+            let sent = await identity.identify(userID: userID, withUsageIn: store) {
                 self?.mayIdentify(userID) ?? false
             }
             carried(sent)
@@ -386,41 +386,41 @@ public final class AccountSession {
         return true
     }
 
-    /// Identifies the user with the store's figures, unless `canIdentify` refuses once they are read.
+    /// Identifies the user with the store's usage, unless `canIdentify` refuses once it is read.
     /// The device's own settings go even before a sync, since the device always knows them.
     ///
-    /// - Returns: Whether the identify carried the API's figures.
+    /// - Returns: Whether the identify carried the API's usage.
     static func identify(
-        userID: String, withFiguresIn store: CrosstuneStore, analytics: AnalyticsClient,
+        userID: String, withUsageIn store: CrosstuneStore, analytics: AnalyticsClient,
         deviceSettings: [SettingChange] = [], assistiveTech: [AssistiveTechnology]? = nil,
         canIdentify: @MainActor () -> Bool
     ) async -> Bool {
-        let figures = await storeFigures(in: store)
+        let usage = await storageUsage(in: store)
         guard canIdentify() else { return false }
         analytics.identify(
-            userID: userID, signedUpAt: nil, catalogSize: figures.catalogSize, storageUsed: figures.storageUsed,
-            fieldsUsed: figures.fieldsUsed,
-            settings: (figures.storageUsed == nil ? [] : figures.settings) + deviceSettings,
+            userID: userID, signedUpAt: nil, catalogSize: usage.catalogSize, storageUsed: usage.storageUsed,
+            fieldsUsed: usage.fieldsUsed,
+            settings: (usage.storageUsed == nil ? [] : usage.settings) + deviceSettings,
             assistiveTech: assistiveTech)
-        return figures.storageUsed != nil
+        return usage.storageUsed != nil
     }
 
-    /// Whether a sync identifies the person with the store's figures: only one that stored them,
+    /// Whether a sync identifies the person with the store's usage: only one that stored it,
     /// since a returning device's store still holds its last session's, until one has.
-    nonisolated static func identifiesAfterSync(storedFigures: Bool, reported: Bool) -> Bool {
-        storedFigures && !reported
+    nonisolated static func identifiesAfterSync(storedUsage: Bool, reported: Bool) -> Bool {
+        storedUsage && !reported
     }
 
-    /// The first sync of a session that stores the API's figures, which a new device lacks and a
-    /// returning one holds only from its last session, identifies the person again with them.
-    private func syncLanded(in synced: CrosstuneStore, storedFigures: Bool) {
+    /// The first sync of a session that stores the API's usage, which a new device lacks and a
+    /// returning one holds only from its last session, identifies the person again with it.
+    private func syncLanded(in synced: CrosstuneStore, storedUsage: Bool) {
         needsSignIn = false
-        guard Self.identifiesAfterSync(storedFigures: storedFigures, reported: syncedFiguresReported),
+        guard Self.identifiesAfterSync(storedUsage: storedUsage, reported: syncedUsageReported),
             store === synced
         else { return }
-        identifyWithStoreFigures { [weak self] carried in
+        identifyWithStorageUsage { [weak self] carried in
             guard carried, let self, store === synced else { return }
-            syncedFiguresReported = true
+            syncedUsageReported = true
         }
     }
 
@@ -671,10 +671,10 @@ public final class AccountSession {
         // Only an ended session forgets the person, so a refused sign-out keeps sending as them.
         analytics.send(.signedOut)
         analytics.reset()
-        // Sealed, the store refuses any write still on its way, so the check holds until the
-        // folder goes.
+        // With writes locked, the store refuses any write still on its way, so the check holds
+        // until the folder goes.
         var keepsFolder = false
-        if let store { keepsFolder = (try? await store.sealUnlessUnsent()) != true }
+        if let store { keepsFolder = (try? await store.lockWritesUnlessUnsent()) != true }
         try? store?.close()
         if !keepsFolder { try CrosstuneStore.delete(userID: userID, root: root) }
     }
@@ -820,12 +820,12 @@ public final class AccountSession {
         let engine = SyncEngine(
             store: opened, api: LiveSyncAPI(client: client, storageOrigin: storageOrigin),
             isOffline: { [weak self] in self?.isOffline ?? true }, analytics: analytics, diagnostics: diagnostics)
-        syncedFiguresReported = false
-        engine.onSynced = { [weak self] in self?.syncLanded(in: opened, storedFigures: $0) }
+        syncedUsageReported = false
+        engine.onSynced = { [weak self] in self?.syncLanded(in: opened, storedUsage: $0) }
         sync = SessionSync(store: opened, engine: engine, isActive: isActive, isOffline: isOffline)
         // A capture a crash or kill cut short is saved now rather than waiting on the user.
         Task { await Recorder.recoverLeftoverCaptures(in: opened) }
-        identifyWithStoreFigures()
+        identifyWithStorageUsage()
     }
 
     /// Only one user is signed in at a time, so any other folder was left by a sign-out that did

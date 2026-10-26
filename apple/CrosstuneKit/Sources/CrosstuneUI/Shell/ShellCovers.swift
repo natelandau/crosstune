@@ -206,7 +206,7 @@ private struct Covers: ViewModifier {
 #endif
 
 /// When each menu command can act, from what covers the shell.
-enum MenuGates {
+enum MenuCommandAvailability {
     /// New tune opens its draft, unless a sheet or dialog is up, or a screen is selecting.
     static func newTune(sheetsOpen: Bool, selecting: Bool) -> Bool {
         !sheetsOpen && !selecting

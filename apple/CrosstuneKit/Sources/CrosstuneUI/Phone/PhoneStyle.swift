@@ -65,6 +65,6 @@ public enum PhoneStyle {
     public static let lyricsMaxWidth: CGFloat = 600
     /// How far a horizontal drag must travel to skip.
     public static let swipeSkipThreshold: CGFloat = 60
-    /// How long a new take stays highlighted.
-    public static let newTakeHighlight: Duration = .milliseconds(1500)
+    /// How long a new recording stays highlighted.
+    public static let newRecordingHighlight: Duration = .milliseconds(1500)
 }

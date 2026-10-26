@@ -165,29 +165,32 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
         #expect(RecordingText.meta(recording(state: "failed", durationMs: nil), file: nil) == ["Couldn't process"])
     }
 
-    @Test func addsStorageFiguresWhenBlockedByTheQuota() {
-        let storage = StorageFigures(usedBytes: 1_950_000_000, quotaBytes: 2_000_000_000, maxFileBytes: 100_000_000)
+    @Test func addsStorageUsageWhenBlockedByTheQuota() {
+        let storage = StorageUsage(usedBytes: 1_950_000_000, quotaBytes: 2_000_000_000, maxFileBytes: 100_000_000)
         let meta = RecordingText.meta(recording(state: "pending_upload"), file: file(.blockedQuota), storage: storage)
         #expect(meta == ["0:42", "Storage full", "1.9 GB of 2 GB used"])
     }
 
-    @Test func saysAHeldTakeSyncsOnSubscribingInPlaceOfItsStatus() {
-        #expect(RecordingText.heldForPremium == "On this device only. Syncs when you subscribe.")
+    @Test func saysALocalOnlyTakeSyncsOnSubscribingInPlaceOfItsStatus() {
+        #expect(RecordingText.isLocalUntilSubscribed == "On this device only. Syncs when you subscribe.")
         var waiting = file(.captured)
         waiting.uploadAttempts = 2
-        let held = RecordingText.meta(recording(state: "pending_upload"), file: waiting, heldForPremium: true)
-        #expect(held == ["0:42", RecordingText.heldForPremium])
+        let localOnly = RecordingText.meta(
+            recording(state: "pending_upload"), file: waiting, isLocalUntilSubscribed: true)
+        #expect(localOnly == ["0:42", RecordingText.isLocalUntilSubscribed])
         let row = RecordingRowContent(
-            recording: recording(state: "pending_upload"), file: file(.captured), tuneTitle: nil, heldForPremium: true,
+            recording: recording(state: "pending_upload"), file: file(.captured), tuneTitle: nil,
+            isLocalUntilSubscribed: true,
             recordingsPlay: false)
-        #expect(row.meta == "0:42 · \(RecordingText.heldForPremium)")
+        #expect(row.meta == "0:42 · \(RecordingText.isLocalUntilSubscribed)")
     }
 
-    @Test func leavesTheHeldLabelOffOncePremium() {
+    @Test func leavesTheLocalOnlyLabelOffOncePremium() {
         let row = RecordingRowContent(
-            recording: recording(state: "pending_upload"), file: file(.captured), tuneTitle: nil, heldForPremium: true,
+            recording: recording(state: "pending_upload"), file: file(.captured), tuneTitle: nil,
+            isLocalUntilSubscribed: true,
             recordingsPlay: true)
-        #expect(!row.meta.contains(RecordingText.heldForPremium))
+        #expect(!row.meta.contains(RecordingText.isLocalUntilSubscribed))
     }
 
     @Test func saysOfflineForADownloadThatCannotStart() {

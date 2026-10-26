@@ -6,7 +6,7 @@ import Observation
 import os
 
 /// Keeps one user's store in step with the API: pushes the outbox, pulls what changed on the
-/// server, and refreshes the storage figures, on a loop that retries with backoff.
+/// server, and refreshes the storage usage, on a loop that retries with backoff.
 ///
 /// Recording audio and scan images move on a second loop, triggered after every sync
 /// run, so a long upload never holds up push and pull.
@@ -24,8 +24,8 @@ public final class SyncEngine {
     /// The recordings whose audio is being fetched now, by a play or the download pass.
     public private(set) var downloading: Set<String> = []
     /// Called after each run that finishes clean, which proves the API accepts the session, with
-    /// whether the run stored fresh storage figures.
-    @ObservationIgnored public var onSynced: (@MainActor (_ storedFigures: Bool) -> Void)?
+    /// whether the run stored fresh storage usage.
+    @ObservationIgnored public var onSynced: (@MainActor (_ storedUsage: Bool) -> Void)?
 
     private let store: CrosstuneStore
     private let api: any SyncAPI
@@ -63,7 +63,7 @@ public final class SyncEngine {
         },
         now: now,
         isReportable: { _, error in isReportableFailure(error) },
-        onLastingFailure: { [weak self] _, error in self?.diagnostics.report(error, area: .sync) },
+        onPersistentFailure: { [weak self] _, error in self?.diagnostics.report(error, area: .sync) },
         run: { [weak self] in try await self?.runSync() }
     )
     @ObservationIgnored private lazy var transferLoop = SyncLoop<TransferStatus>(
@@ -72,7 +72,7 @@ public final class SyncEngine {
         classify: { [weak self] error in classifyTransferFailure(error, isOffline: self?.isOffline() ?? true) },
         now: now,
         isReportable: { _, error in isReportableFailure(error) },
-        onLastingFailure: { [weak self] _, error in self?.diagnostics.report(error, area: .transfer) },
+        onPersistentFailure: { [weak self] _, error in self?.diagnostics.report(error, area: .transfer) },
         run: transferPass ?? { [weak self] in try await self?.runTransfers() }
     )
     @ObservationIgnored let downloadRetries = DownloadRetries()
@@ -143,7 +143,7 @@ public final class SyncEngine {
         }
     }
 
-    /// Pushes, pulls, and refreshes the storage figures now, or once more after the run in
+    /// Pushes, pulls, and refreshes the storage usage now, or once more after the run in
     /// flight. Returns when that run is done; a failure shows in ``status``.
     public func sync() async {
         await syncLoop.trigger()
@@ -351,21 +351,21 @@ public final class SyncEngine {
         try await push()
         try await postSeenNotices()
         try await pull()
-        var storedFigures = false
+        var storedUsage = false
         do {
             try checkStopped()
-            let figures = try await api.storage()
-            try await store.setMeta(.storage, to: figures)
-            storedFigures = true
+            let usage = try await api.storage()
+            try await store.setMeta(.storage, to: usage)
+            storedUsage = true
         } catch  where endsThePass(error) {
             throw error
         } catch {
-            // Storage figures are informational; only an auth failure fails a run whose push and
+            // Storage usage is informational; only an auth failure fails a run whose push and
             // pull already landed.
         }
         let finished = Timestamp.now
         lastSyncedAt = finished.date
-        onSynced?(storedFigures)
+        onSynced?(storedUsage)
         do {
             try await store.setMeta(.lastSyncedAt, to: finished)
         } catch {
@@ -382,25 +382,25 @@ public final class SyncEngine {
 
     private func push() async throws {
         let premium = try await store.plan(at: now()).kind != .free
-        // Rows the server held during this push. Read past, so a device that judges Premium
+        // Rows the server refused as Premium only during this push. Read past, so a device that judges Premium
         // before the server agrees neither resends them nor lets them starve the edits behind.
-        var heldThisPush: Set<String> = []
+        var keptLocalThisPush: Set<String> = []
         while true {
-            let batch = try await store.pendingChanges(limit: batchSize, premium: premium, skipping: heldThisPush)
+            let batch = try await store.pendingChanges(limit: batchSize, premium: premium, skipping: keptLocalThisPush)
             if batch.isEmpty { return }
             try checkStopped()
             let results = try await api.push(batch.map(Change.init))
-            let (invalid, settled, held) = try await store.write { writer in
+            let (invalid, settled, keptLocal) = try await store.write { writer in
                 try writer.applyPushResults(sent: batch, results: results)
             }
-            heldThisPush.formUnion(held)
+            keptLocalThisPush.formUnion(keptLocal)
             for change in invalid {
                 logger.warning(
                     "Change rejected: \(change.table.rawValue, privacy: .public) \(change.id, privacy: .public) \(change.reason ?? "", privacy: .public)"
                 )
             }
-            // A batch that settles nothing and holds nothing would send the same entries forever.
-            if (settled == 0 && held.isEmpty) || batch.count < batchSize { return }
+            // A batch that settles nothing and keeps nothing local would send the same entries forever.
+            if (settled == 0 && keptLocal.isEmpty) || batch.count < batchSize { return }
         }
     }
 

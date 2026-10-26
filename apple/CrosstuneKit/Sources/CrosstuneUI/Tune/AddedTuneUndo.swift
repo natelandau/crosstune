@@ -44,7 +44,7 @@ extension CreatedTune {
 /// withdrawn with it.
 @MainActor
 @Observable
-public final class AddedTuneOffer {
+public final class AddedTuneUndo {
     nonisolated public static func added(_ title: String) -> String {
         "Added \(title)"
     }
@@ -58,7 +58,7 @@ public final class AddedTuneOffer {
     nonisolated public static let undoActionName = "Add tune"
 
     /// What the banner shows, nil when nothing.
-    public var offer: UndoOffer?
+    public var undoBannerItem: UndoBannerItem?
     /// The last tune an Undo deleted, which its page leaves.
     public private(set) var undone: String?
     /// The window's undo manager, which carries the banner's Undo for Command-Z, the Edit menu,
@@ -83,7 +83,7 @@ public final class AddedTuneOffer {
     @ObservationIgnored private(set) var shownCount = 0
     /// One deadline per banner, whichever tab or column draws it.
     @ObservationIgnored private var deadline: Task<Void, Never>?
-    /// Follows the offered tune for work or its delete, to take Undo away once either arrives.
+    /// Follows the added tune for work or its delete, to take Undo away once either arrives.
     @ObservationIgnored private var watch: Task<Void, Never>?
     @ObservationIgnored private var watchedTuneID: String?
     /// The target the shown Undo is registered against in the undo manager, so it can be
@@ -126,7 +126,7 @@ public final class AddedTuneOffer {
         deadline?.cancel()
     }
 
-    /// Creates a tune from its title and offers its Undo in the banner. The new tune's id, or nil
+    /// Creates a tune from its title and shows its Undo in the banner. The new tune's id, or nil
     /// when another add is running or the create failed, whose reason the banner shows.
     public func add(title: String, source: ActionSource) async -> String? {
         guard !isAdding else { return nil }
@@ -139,11 +139,11 @@ public final class AddedTuneOffer {
         }
         do {
             let created = try await create(title, source)
-            offerUndo(tuneID: created.tuneID, title: created.title)
+            showUndo(tuneID: created.tuneID, title: created.title)
             return created.tuneID
         } catch {
             Self.logger.warning("A tune could not be added from its title: \(error)")
-            show(UndoOffer(message: failureMessage(error)))
+            show(UndoBannerItem(message: failureMessage(error)))
             return nil
         }
     }
@@ -162,15 +162,15 @@ public final class AddedTuneOffer {
     /// A banner offering Undo keeps it: the notice follows once that banner leaves or loses its
     /// Undo, after any notice already waiting.
     public func notify(_ message: String) {
-        if offer?.undo != nil || !pendingNotices.isEmpty {
+        if undoBannerItem?.undo != nil || !pendingNotices.isEmpty {
             pendingNotices.append(message)
         } else {
-            show(UndoOffer(message: message))
+            show(UndoBannerItem(message: message))
         }
     }
 
-    private func offerUndo(tuneID: String, title: String) {
-        let shown = UndoOffer(message: Self.added(title)) { [weak self] in
+    private func showUndo(tuneID: String, title: String) {
+        let shown = UndoBannerItem(message: Self.added(title)) { [weak self] in
             guard let self else { return }
             stopWatching()
             withdrawSystemUndo()
@@ -184,7 +184,7 @@ public final class AddedTuneOffer {
             MainActor.assumeIsolated {
                 // An Undo withdrawn while its event's group was still open stays in the stack.
                 guard let self, self.systemUndo === target else { return }
-                if self.offer?.id == shown.id { self.offer = nil }
+                if self.undoBannerItem?.id == shown.id { self.undoBannerItem = nil }
                 self.systemUndo = nil
                 self.stopWatching()
                 let pressedAt = self.shownCount
@@ -211,11 +211,11 @@ public final class AddedTuneOffer {
         }
     }
 
-    private func show(_ next: UndoOffer) {
+    private func show(_ next: UndoBannerItem) {
         stopWatching()
         withdrawSystemUndo()
         shownCount += 1
-        offer = next
+        undoBannerItem = next
         let id = next.id
         let voiceOver = voiceOverRunning
         let waitOut = waitOut
@@ -232,16 +232,16 @@ public final class AddedTuneOffer {
 
     /// The banner's time is up: it leaves, its Undo with it, menu and all.
     private func expire(_ id: UUID) {
-        guard offer?.id == id else { return }
+        guard undoBannerItem?.id == id else { return }
         stopWatching()
         withdrawSystemUndo()
-        offer = nil
+        undoBannerItem = nil
         showPendingNotice()
     }
 
     private func showPendingNotice() {
         guard !pendingNotices.isEmpty else { return }
-        show(UndoOffer(message: pendingNotices.removeFirst()))
+        show(UndoBannerItem(message: pendingNotices.removeFirst()))
     }
 
     private func withdrawSystemUndo() {
@@ -257,8 +257,8 @@ public final class AddedTuneOffer {
 
     private func withdrawUndo(from id: UUID) {
         withdrawSystemUndo()
-        guard let offer, offer.id == id else { return }
-        self.offer = offer.withoutUndo()
+        guard let item = undoBannerItem, item.id == id else { return }
+        undoBannerItem = item.withoutUndo()
         showPendingNotice()
     }
 
@@ -277,11 +277,11 @@ public final class AddedTuneOffer {
                 // Deleted already, here or elsewhere, which reported it then.
                 if isLatest { showPendingNotice() }
             case .kept:
-                if isLatest { show(UndoOffer(message: Self.kept(title))) }
+                if isLatest { show(UndoBannerItem(message: Self.kept(title))) }
             }
         } catch {
             Self.logger.warning("An added tune could not be undone: \(error)")
-            if isLatest { show(UndoOffer(message: failureMessage(error))) }
+            if isLatest { show(UndoBannerItem(message: failureMessage(error))) }
         }
     }
 }
@@ -299,17 +299,17 @@ extension View {
 }
 
 private struct AddedTuneBanner: ViewModifier {
-    @Environment(AddedTuneOffer.self) private var added: AddedTuneOffer?
+    @Environment(AddedTuneUndo.self) private var added: AddedTuneUndo?
     @State private var isShown = false
 
     func body(content: Content) -> some View {
         content
-            // The offer keeps its own deadline, so a tab coming back never restarts it.
+            // The banner keeps its own deadline, so a tab coming back never restarts it.
             .undoBanner(
                 Binding {
-                    isShown ? added?.offer : nil
+                    isShown ? added?.undoBannerItem : nil
                 } set: {
-                    added?.offer = $0
+                    added?.undoBannerItem = $0
                 },
                 timesOut: false
             )

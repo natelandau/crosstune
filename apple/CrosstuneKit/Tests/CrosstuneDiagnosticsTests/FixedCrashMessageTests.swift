@@ -85,7 +85,7 @@ struct FixedCrashMessageTests {
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent()
         let call = try Regex(#"\b(?:fatalError|preconditionFailure|precondition|assertionFailure|assert)\("#)
-        var offenders: [String] = []
+        var violations: [String] = []
         var allowedSeen: Set<String> = []
         for root in ["CrosstuneKit/Sources", "Crosstune"] {
             for url in Self.swiftFiles(under: apple.appending(path: root)) {
@@ -105,12 +105,12 @@ struct FixedCrashMessageTests {
                             continue
                         }
                         let line = source[..<match.range.lowerBound].filter { $0 == "\n" }.count + 1
-                        offenders.append("\(relative):\(line)")
+                        violations.append("\(relative):\(line)")
                     }
                 }
             }
         }
-        #expect(offenders.isEmpty, "crash messages must not interpolate values: \(offenders)")
+        #expect(violations.isEmpty, "crash messages must not interpolate values: \(violations)")
         #expect(allowedSeen == Self.allowed, "an allowed message no longer exists")
     }
 }

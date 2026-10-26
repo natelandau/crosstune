@@ -18,7 +18,7 @@ import {
   showAllLabel,
   STATS_TITLE,
   summaryLine,
-  tallyLine,
+  countsLine,
   TUNES_LABEL,
   valueLabel,
 } from './copy'
@@ -83,7 +83,7 @@ it('shows the tune total and the status split with each count', async () => {
     .element(counts().getByRole('button', { name: valueLabel(STATUS_LABELS.want_to_learn, 1) }))
     .toBeVisible()
   await expect
-    .element(counts().getByText(tallyLine({ lists: 0, links: 0, scans: 0, scan_tunes: 0 })))
+    .element(counts().getByText(countsLine({ lists: 0, links: 0, scans: 0, scan_tunes: 0 })))
     .toBeVisible()
 })
 

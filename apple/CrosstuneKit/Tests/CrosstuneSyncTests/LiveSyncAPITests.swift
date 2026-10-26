@@ -214,16 +214,16 @@ private func json(_ data: Data?) throws -> JSONObject {
         #expect(try PlayEvent(wire: try #require(results.first?.row)).serverSeq == 4)
     }
 
-    @Test func readsTheStorageFigures() async throws {
+    @Test func readsTheStorageUsage() async throws {
         let transport = RecordingTransport(
             body: """
                 {"id": "u", "clerk_user_id": "user_1", "email": null, "created_at": "2026-09-11T00:00:00Z",
                  "storage": {"used_bytes": 5, "quota_bytes": 100, "max_file_bytes": 50}}
                 """)
 
-        let figures = try await api(transport).storage()
+        let usage = try await api(transport).storage()
 
-        #expect(figures == StorageFigures(usedBytes: 5, quotaBytes: 100, maxFileBytes: 50))
+        #expect(usage == StorageUsage(usedBytes: 5, quotaBytes: 100, maxFileBytes: 50))
     }
 
     @Test func resolvesALink() async throws {

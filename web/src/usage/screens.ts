@@ -19,7 +19,7 @@ const SCREEN_PATTERNS: [pattern: string, screen: Screen][] = [
   ['/settings/:page', 'settings'],
 ]
 
-/** The screen an address shows, or null for the not-found page, `/kit`, and redirect-only paths. */
+/** The screen an address shows, or null for the not-found page, `/gallery`, and redirect-only paths. */
 export function screenFor(pathname: string, notFound: boolean): Screen | null {
   if (notFound) return null
   for (const [pattern, screen] of SCREEN_PATTERNS) {

@@ -12,7 +12,7 @@ export const OPEN = 'Open'
 type CreateOutcome = Extract<SearchOutcome, { kind: 'create' }>
 
 /** The add row's label, which reads as a second tune when the title is already taken. */
-export function addOfferLabel(outcome: CreateOutcome): string {
+export function addTypedTitleLabel(outcome: CreateOutcome): string {
   return outcome.another ? `Add another "${outcome.title}"` : `Add "${outcome.title}"`
 }
 

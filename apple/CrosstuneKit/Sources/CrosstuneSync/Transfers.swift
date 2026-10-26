@@ -30,7 +30,7 @@ struct Transfers {
     /// plan refusal ends only this pass's uploads; either way the files keep their state.
     func uploadPass() async throws -> (any Error)? {
         // Before the quota skip below, so a blocked file whose recording was deleted elsewhere is
-        // cleaned up instead of being skipped forever by the figures check.
+        // cleaned up instead of being skipped forever by the usage check.
         try await dropTombstonedFiles()
         guard try await store.plan(at: now()).recordingsPlay else { return nil }
 
@@ -38,11 +38,11 @@ struct Transfers {
         let files = try await store.read { db in
             try RecordingFile.filter(waiting.contains(RecordingFile.CodingKeys.localState)).fetchAll(db)
         }
-        let storage = try await store.meta(.storage, as: StorageFigures.self)
+        let storage = try await store.meta(.storage, as: StorageUsage.self)
         let now = Timestamp.now
         var firstError: (any Error)?
         for file in files {
-            // A pass is the only place a blocked file is reconsidered, so the figures are checked
+            // A pass is the only place a blocked file is reconsidered, so the usage is checked
             // rather than asking for a slot the server will refuse again.
             if file.localState == .blockedQuota, let storage,
                 Int64(storage.usedBytes) + (file.bytes ?? 0) > Int64(storage.quotaBytes)
@@ -175,22 +175,22 @@ struct Transfers {
         }
     }
 
-    /// Reports the limit at the storage use the figures show. Without them nothing is sent, since
+    /// Reports the limit at the storage use the usage shows. Without it nothing is sent, since
     /// a guessed use would land in the wrong bucket.
     private func reportStorageLimit() async {
         do {
-            guard let storage = try await store.meta(.storage, as: StorageFigures.self) else {
-                logger.info("The storage limit was reached before any storage figures; not reported")
+            guard let storage = try await store.meta(.storage, as: StorageUsage.self) else {
+                logger.info("The storage limit was reached before any storage usage; not reported")
                 return
             }
             analytics.send(.storageLimitReached(bytesUsed: Int64(storage.usedBytes)))
         } catch {
-            logger.error("The storage figures were not read: \(logDescription(of: error), privacy: .public)")
+            logger.error("The storage usage was not read: \(logDescription(of: error), privacy: .public)")
         }
     }
 
     /// A transient failure goes back to captured for a later pass, but not before a backoff that
-    /// doubles with each failure in a row, so a lasting error does not resend the same file on
+    /// doubles with each failure in a row, so a persistent error does not resend the same file on
     /// every pass. The file keeps the reason, so a recording that keeps waiting can say why.
     private func scheduleRetry(_ id: String, after error: any Error) async throws {
         let message = transferMessage(error)

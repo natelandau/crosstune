@@ -61,8 +61,8 @@ public struct RecordingRowContent: Hashable, Sendable {
     public init(
         recording: Recording, file: RecordingFile?, tuneTitle: String?, tuneNamedAbove: Bool = false,
         loaded: Bool = false, downloading: Bool = false, downloadFailed: Bool = false, offline: Bool = false,
-        playBlocked: Bool = false, storage: StorageFigures? = nil, sort: RecordingSort? = nil,
-        opensScreen: Bool = false, heldForPremium: Bool = false, recordingsPlay: Bool = true,
+        playBlocked: Bool = false, storage: StorageUsage? = nil, sort: RecordingSort? = nil,
+        opensScreen: Bool = false, isLocalUntilSubscribed: Bool = false, recordingsPlay: Bool = true,
         locale: Locale = .current, timeZone: TimeZone = .current
     ) {
         let title = RecordingText.title(
@@ -73,8 +73,9 @@ public struct RecordingRowContent: Hashable, Sendable {
         meta = RecordingText.meta(
             recording, file: file, storage: storage, offline: offlineDownload,
             dateInTitle: RecordingText.titleIsDate(recording, tuneTitle: tuneTitle, tuneNamedAbove: tuneNamedAbove),
-            // A hold lifts only on the next push, but a Premium plan sends the take on it.
-            sort: sort, heldForPremium: heldForPremium && !recordingsPlay, locale: locale, timeZone: timeZone
+            // A row stays local-only until the next push, but a Premium plan sends the take on it.
+            sort: sort, isLocalUntilSubscribed: isLocalUntilSubscribed && !recordingsPlay, locale: locale,
+            timeZone: timeZone
         ).joined(separator: " · ")
         let blockedPlay = playBlocked && Self.blocksPlay(control)
         isDimmed = offlineDownload || blockedPlay || !recordingsPlay

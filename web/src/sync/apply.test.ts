@@ -7,9 +7,9 @@ import { addLoop } from '../commands/loops'
 import {
   getEventsCursor,
   getInvalidChangeCount,
-  getPremiumHolds,
+  getLocalOnlyRows,
   getPullCursor,
-  holdForPremium,
+  keepLocalUntilSubscribed,
 } from '../db/meta'
 import { pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
@@ -163,33 +163,33 @@ describe('applyPushResults', () => {
 })
 
 describe('applyPushResults under the plan', () => {
-  const heldResult = (id: string) =>
+  const localOnlyResult = (id: string) =>
     ({ table: 'recordings', id, status: 'invalid', reason: PREMIUM_REQUIRED_REASON }) as const
 
-  it('keeps a take the server refused for Premium queued and holds it, uncounted', async () => {
+  it('keeps a take the server refused for Premium queued and local-only, uncounted', async () => {
     const id = await captureRecording(db)
     const sent = await pendingBatch(db)
-    const { invalid, settled, held } = await applyPushResults(db, sent, [heldResult(id)])
+    const { invalid, settled, keptLocal } = await applyPushResults(db, sent, [localOnlyResult(id)])
     expect(invalid).toEqual([])
     expect(settled).toBe(0)
-    expect(held).toEqual([id])
+    expect(keptLocal).toEqual([id])
     expect(await pendingFor(db, 'recordings', id)).toBeDefined()
-    expect(await getPremiumHolds(db)).toEqual(new Set([id]))
+    expect(await getLocalOnlyRows(db)).toEqual(new Set([id]))
     expect(await getInvalidChangeCount(db)).toBe(0)
   })
 
-  it('releases a hold once the take is applied', async () => {
+  it('releases a local-only take once it is applied', async () => {
     const id = await captureRecording(db)
-    await holdForPremium(db, [id])
+    await keepLocalUntilSubscribed(db, [id])
     const sent = await pendingBatch(db)
     await applyPushResults(db, sent, [{ table: 'recordings', id, status: 'applied' }])
-    expect(await getPremiumHolds(db)).toEqual(new Set())
+    expect(await getLocalOnlyRows(db)).toEqual(new Set())
     expect(await pendingFor(db, 'recordings', id)).toBeUndefined()
   })
 
-  it("releases a hold when the held take's delete is refused for a row never stored", async () => {
+  it('releases a local-only take when its delete is refused for a row never stored', async () => {
     const id = await captureRecording(db)
-    await holdForPremium(db, [id])
+    await keepLocalUntilSubscribed(db, [id])
     await deleteRecording(db, id)
     const sent = await pendingBatch(db)
     const { invalid, settled } = await applyPushResults(db, sent, [
@@ -197,46 +197,46 @@ describe('applyPushResults under the plan', () => {
     ])
     expect(invalid).toEqual([])
     expect(settled).toBe(1)
-    expect(await getPremiumHolds(db)).toEqual(new Set())
+    expect(await getLocalOnlyRows(db)).toEqual(new Set())
     expect(await pendingBatch(db)).toHaveLength(0)
   })
 
-  it("keeps a held take's loop and play queued with it, uncounted", async () => {
+  it("keeps a local-only take's loop and play queued with it, uncounted", async () => {
     const id = await captureRecording(db)
     const loopId = await addLoop(db, id, { start_ms: 1_000, end_ms: 5_000 })
     await recordEvent(db, 'play_events', playEventRow('play-1', { recording_id: id }))
     const sent = await pendingBatch(db)
     const missing = (table: 'recording_loops' | 'play_events', rowId: string) =>
       ({ table, id: rowId, status: 'invalid', reason: MISSING_RECORDING_REASON }) as const
-    const { invalid, settled, held } = await applyPushResults(db, sent, [
-      heldResult(id),
+    const { invalid, settled, keptLocal } = await applyPushResults(db, sent, [
+      localOnlyResult(id),
       missing('recording_loops', loopId),
       missing('play_events', 'play-1'),
     ])
     expect(invalid).toEqual([])
     expect(settled).toBe(0)
-    expect(held).toEqual([id])
+    expect(keptLocal).toEqual([id])
     expect(await pendingFor(db, 'recording_loops', loopId)).toBeDefined()
     expect(await pendingFor(db, 'play_events', 'play-1')).toBeDefined()
     expect(await db.play_events.get('play-1')).toBeDefined()
     expect(await getInvalidChangeCount(db)).toBe(0)
   })
 
-  it('keeps a loop whose take an earlier push held, even when the take is not in the batch', async () => {
+  it('keeps a loop whose take an earlier push kept local, even when the take is not in the batch', async () => {
     const id = await captureRecording(db)
-    await holdForPremium(db, [id])
+    await keepLocalUntilSubscribed(db, [id])
     const loopId = await addLoop(db, id, { start_ms: 1_000, end_ms: 5_000 })
     const sent = (await pendingBatch(db)).filter((entry) => entry.table === 'recording_loops')
-    const { invalid, settled, held } = await applyPushResults(db, sent, [
+    const { invalid, settled, keptLocal } = await applyPushResults(db, sent, [
       { table: 'recording_loops', id: loopId, status: 'invalid', reason: MISSING_RECORDING_REASON },
     ])
     expect(invalid).toEqual([])
     expect(settled).toBe(0)
-    expect(held).toEqual([id])
+    expect(keptLocal).toEqual([id])
     expect(await pendingFor(db, 'recording_loops', loopId)).toBeDefined()
   })
 
-  it('settles a refused loop once its take is no longer held', async () => {
+  it('settles a refused loop once its take is no longer local-only', async () => {
     const id = await captureRecording(db)
     const loopId = await addLoop(db, id, { start_ms: 1_000, end_ms: 5_000 })
     const sent = (await pendingBatch(db)).filter((entry) => entry.table === 'recording_loops')
@@ -250,37 +250,37 @@ describe('applyPushResults under the plan', () => {
     expect(await pendingFor(db, 'recording_loops', loopId)).toBeUndefined()
   })
 
-  it('keeps a scan the server refused for Premium queued and holds it, uncounted', async () => {
+  it('keeps a scan the server refused for Premium queued and local-only, uncounted', async () => {
     const { tuneId } = await createTune(db, { title: 'Angeline' }, { status: 'known' })
     const [scanId] = await addScans(db, tuneId, [
       { blob: new Blob(['jpeg'], { type: 'image/jpeg' }), width: 800, height: 1200 },
     ])
     const sent = (await pendingBatch(db)).filter((entry) => entry.table === 'scans')
-    const { invalid, settled, held } = await applyPushResults(db, sent, [
+    const { invalid, settled, keptLocal } = await applyPushResults(db, sent, [
       { table: 'scans', id: scanId!, status: 'invalid', reason: PREMIUM_REQUIRED_REASON },
     ])
     expect(invalid).toEqual([])
     expect(settled).toBe(0)
-    expect(held).toEqual([scanId])
+    expect(keptLocal).toEqual([scanId])
     expect(await pendingFor(db, 'scans', scanId!)).toBeDefined()
-    expect(await getPremiumHolds(db)).toEqual(new Set([scanId]))
+    expect(await getLocalOnlyRows(db)).toEqual(new Set([scanId]))
     expect((await db.scan_files.get(scanId!))?.error).toBeNull()
     expect(await getInvalidChangeCount(db)).toBe(0)
   })
 
-  it('releases a held scan once the server applies it', async () => {
+  it('releases a local-only scan once the server applies it', async () => {
     const { tuneId } = await createTune(db, { title: 'Angeline' }, { status: 'known' })
     const [scanId] = await addScans(db, tuneId, [
       { blob: new Blob(['jpeg'], { type: 'image/jpeg' }), width: 800, height: 1200 },
     ])
-    await holdForPremium(db, [scanId!])
+    await keepLocalUntilSubscribed(db, [scanId!])
     const sent = (await pendingBatch(db)).filter((entry) => entry.table === 'scans')
-    const { settled, held } = await applyPushResults(db, sent, [
+    const { settled, keptLocal } = await applyPushResults(db, sent, [
       { table: 'scans', id: scanId!, status: 'applied' },
     ])
     expect(settled).toBe(1)
-    expect(held).toEqual([])
-    expect(await getPremiumHolds(db)).toEqual(new Set())
+    expect(keptLocal).toEqual([])
+    expect(await getLocalOnlyRows(db)).toEqual(new Set())
   })
 })
 

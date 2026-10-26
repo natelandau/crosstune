@@ -3,7 +3,7 @@ import { page, userEvent } from 'vitest/browser'
 import { deleteRecording } from '../../commands/recordings'
 import { META_RECORDINGS_ORIGIN, setStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
-import { addOfferLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
+import { addTypedTitleLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
 import { providerLabel } from '../links/display'
 import { NOT_AUDIO_ERROR } from './addAudioFiles'
 import { openTuneName } from './recordingNames'
@@ -374,7 +374,7 @@ it('files an unfiled recording under a new tune from its menu, and opens its pag
   await dialog.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally Goodin')
   await dialog
     .getByRole('button', {
-      name: addOfferLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
+      name: addTypedTitleLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
     })
     .click()
   await expect.poll(() => db.tunes.where('title').equals('Sally Goodin').count()).toBe(1)

@@ -2,7 +2,7 @@ import CrosstuneAnalytics
 import SwiftUI
 
 /// The row under the search results that adds the typed title as a tune.
-struct SearchOfferRow: View {
+struct AddTypedTitleRow: View {
     let label: String
     let action: () -> Void
 

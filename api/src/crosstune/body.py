@@ -1,4 +1,4 @@
-"""Request body admission: who may send one, and how large.
+"""Request body limits: who may send one, and how large.
 
 FastAPI reads and parses a route's whole body before any dependency runs, so the
 bearer token dependency alone would let an anonymous caller make the API buffer a
@@ -31,14 +31,14 @@ class BodyTooLargeError(AppError):
         super().__init__(413, "Content Too Large", TOO_LARGE_DETAIL)
 
 
-class BodyAdmission:
+class RequestBodyLimit:
     """Refuse a body from an unverified caller, and any body over its route's limit."""
 
     def __init__(self, app: ASGIApp) -> None:
         self._app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        """Admit the request, or answer it with a problem before its body is read."""
+        """Pass the request on, or answer it with a problem before its body is read."""
         if scope["type"] != "http":
             await self._app(scope, receive, send)
             return

@@ -188,7 +188,7 @@ class RecordingLinkData(_RecordingLinkFields):
     @field_validator("url")
     @classmethod
     def _web_scheme(cls, url: str) -> str:
-        # Mirrors the client's outboundUrl, never stricter: a pasted link it accepted offline
+        # Matches the client's outboundUrl, never stricter: a pasted link it accepted offline
         # that failed here would be dropped as invalid. A scheme-less paste is read as https.
         match = URL_SCHEME.match(url.strip(URL_EDGE).translate(URL_IGNORED))
         if match and match.group(1).lower() not in WEB_SCHEMES:

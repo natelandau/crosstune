@@ -107,7 +107,7 @@ struct SettingsRoot: View {
                     }
                 }
             } else {
-                // Holds the card's place so the rows below never shift as the figures load.
+                // Holds the card's place so the rows below never shift as the usage loads.
                 Text(verbatim: " ").accessibilityHidden(true)
             }
         }

@@ -48,7 +48,7 @@ func waitFor(_ condition: @MainActor () -> Bool) async throws {
 
 /// A player on fakes, timed on a test clock, writing what it logs to `recorded`.
 @MainActor
-struct ActivityRig {
+struct ActivityFixture {
     let clock: ActivityClock
     let audio = FakeAudio()
     let music = FakeMusic()
@@ -289,70 +289,70 @@ private let linkTap = PlayAttribution(
     private let suite = TemporaryDefaults("PlayLogTests")
 
     @Test func aRecordingPlayedFromARowIsLogged() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording(origin: .row)
-        rig.clock.advance(12_000)
-        rig.player.close()
-        let play = try #require(rig.recorded.plays.only)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording(origin: .row)
+        fixture.clock.advance(12_000)
+        fixture.player.close()
+        let play = try #require(fixture.recorded.plays.only)
         #expect(play.recordingID == "r1")
         #expect(play.context == "row")
         #expect(play.listenedMs == 12_000)
     }
 
     @Test func aPausedOpenLogsNoPlay() async throws {
-        let rig = ActivityRig()
-        rig.player.open(.recording(loggedTake(), tuneTitle: nil), playing: false)
-        try await waitFor { rig.player.recordingAudio == .loaded }
-        try await rig.heard(playing: false)
-        rig.clock.advance(30_000)
-        rig.player.isExpanded = false
-        #expect(rig.recorded.plays.isEmpty)
+        let fixture = ActivityFixture()
+        fixture.player.open(.recording(loggedTake(), tuneTitle: nil), playing: false)
+        try await waitFor { fixture.player.recordingAudio == .loaded }
+        try await fixture.heard(playing: false)
+        fixture.clock.advance(30_000)
+        fixture.player.isExpanded = false
+        #expect(fixture.recorded.plays.isEmpty)
     }
 
     @Test func pauseAndResumeOnTheSameRecordingIsOnePlay() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.clock.advance(6_000)
-        try await rig.pause()
-        rig.clock.advance(60_000)
-        try await rig.resume()
-        rig.clock.advance(6_000)
-        rig.player.close()
-        #expect(rig.recorded.plays.map(\.listenedMs) == [12_000])
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.clock.advance(6_000)
+        try await fixture.pause()
+        fixture.clock.advance(60_000)
+        try await fixture.resume()
+        fixture.clock.advance(6_000)
+        fixture.player.close()
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [12_000])
     }
 
     @Test func startingAnotherItemEndsTheCurrentPlay() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording("r1")
-        rig.clock.advance(15_000)
-        rig.player.play(.recording(loggedTake("r2"), tuneTitle: nil))
-        #expect(rig.recorded.plays.map(\.recordingID) == ["r1"])
-        #expect(rig.recorded.plays.map(\.listenedMs) == [15_000])
+        let fixture = ActivityFixture()
+        try await fixture.playRecording("r1")
+        fixture.clock.advance(15_000)
+        fixture.player.play(.recording(loggedTake("r2"), tuneTitle: nil))
+        #expect(fixture.recorded.plays.map(\.recordingID) == ["r1"])
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [15_000])
     }
 
     @Test func aReplayAfterTheEndIsASecondPlay() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.clock.advance(20_000)
-        rig.audio.end(.finished)
-        #expect(rig.recorded.plays.map(\.listenedMs) == [20_000])
-        try await rig.heard(playing: false)
-        try await rig.resume()
-        rig.clock.advance(11_000)
-        rig.player.close()
-        #expect(rig.recorded.plays.map(\.listenedMs) == [20_000, 11_000])
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.clock.advance(20_000)
+        fixture.audio.end(.finished)
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [20_000])
+        try await fixture.heard(playing: false)
+        try await fixture.resume()
+        fixture.clock.advance(11_000)
+        fixture.player.close()
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [20_000, 11_000])
     }
 
     @Test func appleMusicNativePlayIsLogged() async throws {
-        let rig = ActivityRig()
-        rig.music.duration = 200
-        rig.player.play(try #require(PlayerItem.link(link())), origin: .row)
-        try await waitFor { rig.player.linkAudio == .native }
-        try await rig.heard(playing: true)
-        rig.clock.advance(30_000)
-        try await rig.pause()
-        rig.player.close()
-        let play = try #require(rig.recorded.plays.only)
+        let fixture = ActivityFixture()
+        fixture.music.duration = 200
+        fixture.player.play(try #require(PlayerItem.link(link())), origin: .row)
+        try await waitFor { fixture.player.linkAudio == .native }
+        try await fixture.heard(playing: true)
+        fixture.clock.advance(30_000)
+        try await fixture.pause()
+        fixture.player.close()
+        let play = try #require(fixture.recorded.plays.only)
         #expect(play.linkID == "l1")
         #expect(play.recordingID == nil)
         #expect(play.context == "row")
@@ -360,51 +360,51 @@ private let linkTap = PlayAttribution(
     }
 
     @Test func embedPlayIsNotLogged() async throws {
-        let rig = ActivityRig()
+        let fixture = ActivityFixture()
         let video = link(url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", provider: "youtube")
-        rig.player.play(try #require(PlayerItem.link(video)), origin: .row)
-        #expect(rig.player.embed != nil)
-        rig.clock.advance(60_000)
-        rig.player.close()
-        #expect(rig.recorded.plays.isEmpty)
+        fixture.player.play(try #require(PlayerItem.link(video)), origin: .row)
+        #expect(fixture.player.embed != nil)
+        fixture.clock.advance(60_000)
+        fixture.player.close()
+        #expect(fixture.recorded.plays.isEmpty)
     }
 
     @Test func listPlaybackLogsListContext() async throws {
-        let rig = ActivityRig()
-        let playback = ListPlayback(player: rig.player, commands: NoTrackCommands(), defaults: suite.defaults)
+        let fixture = ActivityFixture()
+        let playback = ListPlayback(player: fixture.player, commands: NoTrackCommands(), defaults: suite.defaults)
         playback.resolve = { _, tuneID in
             ListPlayback.Turn(
                 title: "Tune \(tuneID)", item: .recording(loggedTake("r\(tuneID)", tuneID: tuneID), tuneTitle: nil))
         }
         playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b"], shuffled: false)
-        try await waitFor { rig.audio.isPlaying && rig.player.item?.id == "ra" }
-        try await rig.heard(playing: true)
-        rig.clock.advance(15_000)
-        rig.audio.end(.finished)
-        try await waitFor { rig.player.item?.id == "rb" }
-        let play = try #require(rig.recorded.plays.only)
+        try await waitFor { fixture.audio.isPlaying && fixture.player.item?.id == "ra" }
+        try await fixture.heard(playing: true)
+        fixture.clock.advance(15_000)
+        fixture.audio.end(.finished)
+        try await waitFor { fixture.player.item?.id == "rb" }
+        let play = try #require(fixture.recorded.plays.only)
         #expect(play.recordingID == "ra")
         #expect(play.context == "list")
         #expect(play.listID == "list1")
     }
 
-    private func playlist(_ rig: ActivityRig, _ items: [String: PlayerItem]) throws -> ListPlayback {
-        let playback = ListPlayback(player: rig.player, commands: NoTrackCommands(), defaults: suite.defaults)
+    private func playlist(_ fixture: ActivityFixture, _ items: [String: PlayerItem]) throws -> ListPlayback {
+        let playback = ListPlayback(player: fixture.player, commands: NoTrackCommands(), defaults: suite.defaults)
         playback.resolve = { _, tuneID in items[tuneID].map { ListPlayback.Turn(title: "Tune \(tuneID)", item: $0) } }
         return playback
     }
 
     @Test func aPlaylistSongLogsItsListAndLink() async throws {
-        let rig = ActivityRig()
-        rig.music.duration = 200
-        let playback = try playlist(rig, ["a": try #require(PlayerItem.link(link()))])
+        let fixture = ActivityFixture()
+        fixture.music.duration = 200
+        let playback = try playlist(fixture, ["a": try #require(PlayerItem.link(link()))])
         playback.start(listID: "list1", name: "Session", tuneIDs: ["a"], shuffled: false)
-        try await waitFor { rig.player.linkAudio == .native }
-        try await rig.heard(playing: true)
-        rig.clock.advance(12_000)
+        try await waitFor { fixture.player.linkAudio == .native }
+        try await fixture.heard(playing: true)
+        fixture.clock.advance(12_000)
         playback.end()
-        rig.player.close()
-        let play = try #require(rig.recorded.plays.only)
+        fixture.player.close()
+        let play = try #require(fixture.recorded.plays.only)
         #expect(play.linkID == "l1")
         #expect(play.recordingID == nil)
         #expect(play.context == "list")
@@ -413,112 +413,112 @@ private let linkTap = PlayAttribution(
     }
 
     @Test func aSyncedAddressChangeKeepsTheQueuedSongsPlay() async throws {
-        let rig = ActivityRig()
-        rig.music.duration = 200
-        let playback = try playlist(rig, ["a": try #require(PlayerItem.link(link()))])
+        let fixture = ActivityFixture()
+        fixture.music.duration = 200
+        let playback = try playlist(fixture, ["a": try #require(PlayerItem.link(link()))])
         playback.start(listID: "list1", name: "Session", tuneIDs: ["a"], shuffled: false)
-        try await waitFor { rig.player.linkAudio == .native }
-        try await rig.heard(playing: true)
-        rig.clock.advance(6_000)
+        try await waitFor { fixture.player.linkAudio == .native }
+        try await fixture.heard(playing: true)
+        fixture.clock.advance(6_000)
         let moved = "https://music.apple.com/us/album/the-silver-spear/1440833081?i=1440833099"
-        rig.player.linkChanged(id: "l1", to: link(url: moved))
-        #expect(rig.recorded.plays.isEmpty)
-        try await waitFor { rig.player.linkAudio == .native && rig.music.isPlaying }
-        try await rig.heard(playing: true)
-        rig.clock.advance(6_000)
+        fixture.player.linkChanged(id: "l1", to: link(url: moved))
+        #expect(fixture.recorded.plays.isEmpty)
+        try await waitFor { fixture.player.linkAudio == .native && fixture.music.isPlaying }
+        try await fixture.heard(playing: true)
+        fixture.clock.advance(6_000)
         playback.end()
-        rig.player.close()
-        #expect(rig.recorded.plays.map(\.listenedMs) == [12_000])
-        #expect(rig.recorded.plays.map(\.listID) == ["list1"])
+        fixture.player.close()
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [12_000])
+        #expect(fixture.recorded.plays.map(\.listID) == ["list1"])
     }
 
     @Test func anAppleMusicSongStoppingAtItsEndCountsAReplayAsASecondPlay() async throws {
-        let rig = ActivityRig()
-        rig.music.duration = 200
-        rig.player.play(try #require(PlayerItem.link(link())), origin: .row)
-        try await waitFor { rig.player.linkAudio == .native }
-        try await rig.heard(playing: true)
-        rig.clock.advance(30_000)
+        let fixture = ActivityFixture()
+        fixture.music.duration = 200
+        fixture.player.play(try #require(PlayerItem.link(link())), origin: .row)
+        try await waitFor { fixture.player.linkAudio == .native }
+        try await fixture.heard(playing: true)
+        fixture.clock.advance(30_000)
         // MusicKit stops at the end of a song played on its own without reporting an end.
-        rig.music.elapsed = 199.6
-        rig.music.isPlaying = false
-        try await waitFor { rig.recorded.plays.count == 1 }
-        #expect(rig.recorded.plays.map(\.listenedMs) == [30_000])
-        try await rig.heard(playing: false)
-        rig.music.elapsed = 0
-        try await rig.resume()
-        rig.clock.advance(11_000)
-        rig.player.close()
-        #expect(rig.recorded.plays.map(\.listenedMs) == [30_000, 11_000])
+        fixture.music.elapsed = 199.6
+        fixture.music.isPlaying = false
+        try await waitFor { fixture.recorded.plays.count == 1 }
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [30_000])
+        try await fixture.heard(playing: false)
+        fixture.music.elapsed = 0
+        try await fixture.resume()
+        fixture.clock.advance(11_000)
+        fixture.player.close()
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [30_000, 11_000])
     }
 
     @Test func aPauseBeforeTheEndKeepsOnePlay() async throws {
-        let rig = ActivityRig()
-        rig.music.duration = 200
-        rig.player.play(try #require(PlayerItem.link(link())), origin: .row)
-        try await waitFor { rig.player.linkAudio == .native }
-        try await rig.heard(playing: true)
-        rig.clock.advance(6_000)
-        rig.music.elapsed = 150
-        try await rig.pause()
-        try await rig.resume()
-        rig.clock.advance(6_000)
-        rig.player.close()
-        #expect(rig.recorded.plays.map(\.listenedMs) == [12_000])
+        let fixture = ActivityFixture()
+        fixture.music.duration = 200
+        fixture.player.play(try #require(PlayerItem.link(link())), origin: .row)
+        try await waitFor { fixture.player.linkAudio == .native }
+        try await fixture.heard(playing: true)
+        fixture.clock.advance(6_000)
+        fixture.music.elapsed = 150
+        try await fixture.pause()
+        try await fixture.resume()
+        fixture.clock.advance(6_000)
+        fixture.player.close()
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [12_000])
     }
 
     @Test func backgroundWhilePausedFlushesThePlay() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.clock.advance(14_000)
-        try await rig.pause()
-        rig.player.leftForeground()
-        #expect(rig.recorded.plays.map(\.listenedMs) == [14_000])
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.clock.advance(14_000)
+        try await fixture.pause()
+        fixture.player.leftForeground()
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [14_000])
         // What plays after coming back is a play of its own.
-        try await rig.resume()
-        rig.clock.advance(3_000)
-        rig.player.close()
-        #expect(rig.recorded.plays.map(\.listenedMs) == [14_000])
+        try await fixture.resume()
+        fixture.clock.advance(3_000)
+        fixture.player.close()
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [14_000])
     }
 
     @Test func backgroundWhilePlayingKeepsOnePlay() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.clock.advance(8_000)
-        rig.player.leftForeground()
-        #expect(rig.recorded.plays.isEmpty)
-        rig.clock.advance(8_000)
-        rig.player.close()
-        #expect(rig.recorded.plays.map(\.listenedMs) == [16_000])
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.clock.advance(8_000)
+        fixture.player.leftForeground()
+        #expect(fixture.recorded.plays.isEmpty)
+        fixture.clock.advance(8_000)
+        fixture.player.close()
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [16_000])
     }
 
     @Test func leavingTheStoreDropsTheOpenPlay() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.clock.advance(30_000)
-        rig.player.leaveStore()
-        #expect(rig.recorded.plays.isEmpty)
-        #expect(rig.player.activityWriter == nil)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.clock.advance(30_000)
+        fixture.player.leaveStore()
+        #expect(fixture.recorded.plays.isEmpty)
+        #expect(fixture.player.activityWriter == nil)
     }
 
     @Test func anotherStoresWriterDropsTheOpenPlay() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.clock.advance(30_000)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.clock.advance(30_000)
         let other = ActivityRecorded()
-        rig.player.activityWriter = other.writer
-        rig.player.close()
-        #expect(rig.recorded.plays.isEmpty)
+        fixture.player.activityWriter = other.writer
+        fixture.player.close()
+        #expect(fixture.recorded.plays.isEmpty)
         #expect(other.plays.isEmpty)
     }
 
     @Test func theSameStoresWriterKeepsTheOpenPlay() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.clock.advance(30_000)
-        rig.player.activityWriter = rig.recorded.writer
-        rig.player.close()
-        #expect(rig.recorded.plays.map(\.listenedMs) == [30_000])
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.clock.advance(30_000)
+        fixture.player.activityWriter = fixture.recorded.writer
+        fixture.player.close()
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [30_000])
     }
 }
 
@@ -580,70 +580,70 @@ private final class EndedPlays {
 @MainActor
 @Suite struct PlaybackEndedTests {
     @Test func aSkipAfterThreeSecondsStillReportsAnEnd() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording("r1")
-        rig.clock.advance(3_000)
-        rig.player.play(.recording(loggedTake("r2"), tuneTitle: nil))
-        try await waitFor { rig.sent("playback_ended").count == 1 }
-        let report = try #require(rig.sent("playback_ended").only)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording("r1")
+        fixture.clock.advance(3_000)
+        fixture.player.play(.recording(loggedTake("r2"), tuneTitle: nil))
+        try await waitFor { fixture.sent("playback_ended").count == 1 }
+        let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["listened_bucket"] == .string("<10s"))
         #expect(report["ended_by"] == .string("skipped"))
         #expect(report["completed"] == .bool(false))
         #expect(report["recording_id"] == .string("r1"))
-        #expect(rig.recorded.plays.isEmpty)
+        #expect(fixture.recorded.plays.isEmpty)
     }
 
     @Test func aPauseAndResumeIsOnePlay() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.clock.advance(20_000)
-        try await rig.pause()
-        rig.clock.advance(60_000)
-        try await rig.resume()
-        rig.clock.advance(20_000)
-        rig.audio.end(.finished)
-        try await waitFor { !rig.sent("playback_ended").isEmpty }
-        let report = try #require(rig.sent("playback_ended").only)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.clock.advance(20_000)
+        try await fixture.pause()
+        fixture.clock.advance(60_000)
+        try await fixture.resume()
+        fixture.clock.advance(20_000)
+        fixture.audio.end(.finished)
+        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["listened_bucket"] == .string("30s-2m"))
         #expect(report["completed"] == .bool(true))
         #expect(report["ended_by"] == .string("finished"))
     }
 
     @Test func playEndedAfterALockScreenPauseIsSystemControlled() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.clock.advance(20_000)
-        rig.audio.onSystemCommand?()
-        try await rig.pause()
-        rig.player.leftForeground()
-        try await waitFor { !rig.sent("playback_ended").isEmpty }
-        let report = try #require(rig.sent("playback_ended").only)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.clock.advance(20_000)
+        fixture.audio.onSystemCommand?()
+        try await fixture.pause()
+        fixture.player.leftForeground()
+        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["ended_by"] == .string("paused"))
         #expect(report["system_controlled"] == .bool(true))
     }
 
     @Test func playEndedWithOnlyInAppControlsIsNotSystemControlled() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.clock.advance(20_000)
-        try await rig.pause()
-        rig.player.leftForeground()
-        try await waitFor { !rig.sent("playback_ended").isEmpty }
-        let report = try #require(rig.sent("playback_ended").only)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.clock.advance(20_000)
+        try await fixture.pause()
+        fixture.player.leftForeground()
+        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["ended_by"] == .string("paused"))
         #expect(report["system_controlled"] == .bool(false))
     }
 
     @Test func aSystemCommandMarksOnlyThePlayItActedOn() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording("r1")
-        rig.clock.advance(12_000)
-        rig.audio.onSystemCommand?()
-        try await rig.playRecording("r2")
-        rig.clock.advance(12_000)
-        rig.player.close()
-        try await waitFor { rig.sent("playback_ended").count == 2 }
-        let reports = rig.sent("playback_ended")
+        let fixture = ActivityFixture()
+        try await fixture.playRecording("r1")
+        fixture.clock.advance(12_000)
+        fixture.audio.onSystemCommand?()
+        try await fixture.playRecording("r2")
+        fixture.clock.advance(12_000)
+        fixture.player.close()
+        try await waitFor { fixture.sent("playback_ended").count == 2 }
+        let reports = fixture.sent("playback_ended")
         let first = try #require(reports.first { $0["recording_id"] == .string("r1") })
         let second = try #require(reports.first { $0["recording_id"] == .string("r2") })
         #expect(first["system_controlled"] == .bool(true))
@@ -662,14 +662,14 @@ private final class EndedPlays {
     }
 
     @Test func aSingleListRowPlayIsNotAPlaylist() async throws {
-        let rig = ActivityRig()
-        rig.player.play(.recording(loggedTake(), tuneTitle: nil), origin: .list(id: "list1"), source: .list)
-        try await waitFor { rig.audio.isPlaying }
-        try await rig.heard(playing: true)
-        rig.clock.advance(12_000)
-        rig.player.close()
-        try await waitFor { !rig.sent("playback_ended").isEmpty }
-        let report = try #require(rig.sent("playback_ended").only)
+        let fixture = ActivityFixture()
+        fixture.player.play(.recording(loggedTake(), tuneTitle: nil), origin: .list(id: "list1"), source: .list)
+        try await waitFor { fixture.audio.isPlaying }
+        try await fixture.heard(playing: true)
+        fixture.clock.advance(12_000)
+        fixture.player.close()
+        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["queue"] == .string("single"))
         #expect(report["source"] == .string("list"))
         #expect(report["trigger"] == .string("tap"))
@@ -678,33 +678,33 @@ private final class EndedPlays {
     }
 
     @Test func aSlipperyHillRecordingPlaysAsSlipperyHill() async throws {
-        let rig = ActivityRig()
+        let fixture = ActivityFixture()
         let saved = Recording(
             id: "r1", tuneID: "t1", source: "import", origin: "slippery_hill", recordedAt: noon, label: "Jam",
             state: "ready", sourceDurationMs: 60_000, speedPercent: 100, pitchCents: 0)
-        rig.player.play(.recording(saved, tuneTitle: nil), origin: .row, source: .tune)
-        try await waitFor { rig.audio.isPlaying }
-        try await rig.heard(playing: true)
-        rig.clock.advance(12_000)
-        rig.player.close()
-        try await waitFor { !rig.sent("playback_ended").isEmpty }
-        let report = try #require(rig.sent("playback_ended").only)
+        fixture.player.play(.recording(saved, tuneTitle: nil), origin: .row, source: .tune)
+        try await waitFor { fixture.audio.isPlaying }
+        try await fixture.heard(playing: true)
+        fixture.clock.advance(12_000)
+        fixture.player.close()
+        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["kind"] == .string("slippery_hill"))
         #expect(report["source"] == .string("tune"))
         #expect(report["service"] == nil)
     }
 
     @Test func aLinkPlayCarriesItsService() async throws {
-        let rig = ActivityRig()
-        rig.music.duration = 200
-        rig.player.play(try #require(PlayerItem.link(link())), origin: .row, source: .tune)
-        try await waitFor { rig.player.linkAudio == .native }
-        try await rig.heard(playing: true)
-        rig.clock.advance(30_000)
-        try await rig.pause()
-        rig.player.close()
-        try await waitFor { !rig.sent("playback_ended").isEmpty }
-        let report = try #require(rig.sent("playback_ended").only)
+        let fixture = ActivityFixture()
+        fixture.music.duration = 200
+        fixture.player.play(try #require(PlayerItem.link(link())), origin: .row, source: .tune)
+        try await waitFor { fixture.player.linkAudio == .native }
+        try await fixture.heard(playing: true)
+        fixture.clock.advance(30_000)
+        try await fixture.pause()
+        fixture.player.close()
+        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["kind"] == .string("link"))
         #expect(report["service"] == .string("apple_music"))
         #expect(report["link_id"] == .string("l1"))
@@ -719,15 +719,15 @@ private final class EndedPlays {
             try loggedTake("r1", tuneID: "t1").insert(db)
             try loggedTake("r2", tuneID: nil).insert(db)
         }
-        let rig = ActivityRig()
-        rig.player.activityWriter = .store(store)
-        try await rig.playRecording("r1")
-        rig.clock.advance(12_000)
-        try await rig.playRecording("r2", tuneID: nil)
-        rig.clock.advance(12_000)
-        rig.player.close()
-        try await waitFor { rig.sent("playback_ended").count == 2 }
-        let reports = rig.sent("playback_ended")
+        let fixture = ActivityFixture()
+        fixture.player.activityWriter = .store(store)
+        try await fixture.playRecording("r1")
+        fixture.clock.advance(12_000)
+        try await fixture.playRecording("r2", tuneID: nil)
+        fixture.clock.advance(12_000)
+        fixture.player.close()
+        try await waitFor { fixture.sent("playback_ended").count == 2 }
+        let reports = fixture.sent("playback_ended")
         let filed = try #require(reports.first { $0["recording_id"] == .string("r1") })
         let unfiled = try #require(reports.first { $0["recording_id"] == .string("r2") })
         #expect(filed["tune_id"] == .string("t1"))
@@ -740,8 +740,8 @@ private final class EndedPlays {
 @MainActor
 @Suite struct AppQuitReportTests {
     /// The names of the captures and flushes the sink has heard, in order.
-    private func heard(_ rig: ActivityRig) -> [String] {
-        rig.sink.calls.compactMap {
+    private func heard(_ fixture: ActivityFixture) -> [String] {
+        fixture.sink.calls.compactMap {
             switch $0 {
             case .capture(let name, _, _): name
             case .flush: "flush"
@@ -751,93 +751,93 @@ private final class EndedPlays {
     }
 
     @Test func quittingMidPlayReportsThePlayAsClosedBeforeTheFlush() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.clock.advance(12_000)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.clock.advance(12_000)
 
-        rig.player.appQuitting()
-        rig.sink.client.flush()
+        fixture.player.appQuitting()
+        fixture.sink.client.flush()
 
-        #expect(heard(rig) == ["playback_ended", "flush"])
-        let report = try #require(rig.sent("playback_ended").only)
+        #expect(heard(fixture) == ["playback_ended", "flush"])
+        let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["ended_by"] == .string("closed"))
         #expect(report["tune_id"] == .string("t1"))
-        #expect(rig.recorded.plays.map(\.listenedMs) == [12_000])
+        #expect(fixture.recorded.plays.map(\.listenedMs) == [12_000])
     }
 
     @Test func quittingMidPracticeReportsThePracticeBeforeTheFlush() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.player.screenOpened("r1")
-        rig.player.setSpeed(80)
-        try await rig.fed { $0.speedPercent == 80 }
-        rig.clock.advance(20_000)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.player.screenOpened("r1")
+        fixture.player.setSpeed(80)
+        try await fixture.fed { $0.speedPercent == 80 }
+        fixture.clock.advance(20_000)
 
-        rig.player.appQuitting()
-        rig.sink.client.flush()
+        fixture.player.appQuitting()
+        fixture.sink.client.flush()
 
-        #expect(heard(rig) == ["practice_ended", "flush"])
-        let report = try #require(rig.sent("practice_ended").only)
+        #expect(heard(fixture) == ["practice_ended", "flush"])
+        let report = try #require(fixture.sent("practice_ended").only)
         #expect(report["tune_id"] == .string("t1"))
-        #expect(rig.recorded.sessions.map(\.durationMs) == [20_000])
+        #expect(fixture.recorded.sessions.map(\.durationMs) == [20_000])
     }
 
     @Test func quittingWithTheTuneUnknownStillReportsBeforeTheFlush() async throws {
-        let rig = ActivityRig()
-        rig.player.play(PlayerItem(kind: .recording, id: "r1", title: "Jam"), origin: .row)
-        try await waitFor { rig.audio.isPlaying }
-        try await rig.heard(playing: true)
-        rig.clock.advance(12_000)
+        let fixture = ActivityFixture()
+        fixture.player.play(PlayerItem(kind: .recording, id: "r1", title: "Jam"), origin: .row)
+        try await waitFor { fixture.audio.isPlaying }
+        try await fixture.heard(playing: true)
+        fixture.clock.advance(12_000)
 
-        rig.player.appQuitting()
-        rig.sink.client.flush()
+        fixture.player.appQuitting()
+        fixture.sink.client.flush()
 
-        #expect(heard(rig) == ["playback_ended", "flush"])
-        #expect(rig.sent("playback_ended").only?["tune_id"] == nil)
+        #expect(heard(fixture) == ["playback_ended", "flush"])
+        #expect(fixture.sent("playback_ended").only?["tune_id"] == nil)
     }
 
     @Test func backgroundingWhilePausedReportsThePlayAtOnceWithItsTune() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.clock.advance(14_000)
-        try await rig.pause()
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.clock.advance(14_000)
+        try await fixture.pause()
 
-        rig.player.leftForeground()
+        fixture.player.leftForeground()
 
-        #expect(rig.sent("playback_ended").map { $0["tune_id"] } == [.string("t1")])
+        #expect(fixture.sent("playback_ended").map { $0["tune_id"] } == [.string("t1")])
     }
 
     @Test func aLinkPlayReportsItsTuneAtOnce() async throws {
-        let rig = ActivityRig()
-        rig.music.duration = 200
-        rig.player.play(try #require(PlayerItem.link(link())), origin: .row, source: .tune)
-        try await waitFor { rig.player.linkAudio == .native }
-        try await rig.heard(playing: true)
-        rig.clock.advance(12_000)
+        let fixture = ActivityFixture()
+        fixture.music.duration = 200
+        fixture.player.play(try #require(PlayerItem.link(link())), origin: .row, source: .tune)
+        try await waitFor { fixture.player.linkAudio == .native }
+        try await fixture.heard(playing: true)
+        fixture.clock.advance(12_000)
 
-        rig.player.close()
+        fixture.player.close()
 
-        #expect(rig.sent("playback_ended").map { $0["tune_id"] } == [.string("t1")])
+        #expect(fixture.sent("playback_ended").map { $0["tune_id"] } == [.string("t1")])
     }
 
     /// The recording screen's play carries on in the dock as the screen's, not as a tap there.
     @Test func playingOnAfterTheScreenClosesKeepsTheScreensAttribution() async throws {
-        let rig = ActivityRig()
-        try await rig.playRecording()
-        rig.player.screenOpened("r1")
-        rig.player.setSpeed(80)
-        try await rig.fed { $0.speedPercent == 80 }
-        rig.clock.advance(20_000)
-        rig.player.screenClosed()
-        rig.clock.advance(11_000)
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.player.screenOpened("r1")
+        fixture.player.setSpeed(80)
+        try await fixture.fed { $0.speedPercent == 80 }
+        fixture.clock.advance(20_000)
+        fixture.player.screenClosed()
+        fixture.clock.advance(11_000)
 
-        rig.player.close()
+        fixture.player.close()
 
-        let report = try #require(rig.sent("playback_ended").last)
+        let report = try #require(fixture.sent("playback_ended").last)
         #expect(report["source"] == .string("recording_screen"))
         #expect(report["trigger"] == .string("tap"))
         #expect(report["queue"] == .string("single"))
-        #expect(rig.recorded.plays.map(\.context) == ["dock"])
+        #expect(fixture.recorded.plays.map(\.context) == ["dock"])
     }
 }
 
@@ -856,15 +856,15 @@ private final class OpenedURLs {
     private let video = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
     @Test func openingTheLoadedLinkInItsProviderReportsOnce() async throws {
-        let rig = ActivityRig()
+        let fixture = ActivityFixture()
         let item = try #require(PlayerItem.link(link()))
-        rig.player.play(item, origin: .row)
+        fixture.player.play(item, origin: .row)
         let opened = OpenedURLs()
 
-        rig.player.openLinkInProvider(with: opened.open)
+        fixture.player.openLinkInProvider(with: opened.open)
 
         #expect(
-            rig.sink.captures.filter { $0.name == "link_opened_externally" } == [
+            fixture.sink.captures.filter { $0.name == "link_opened_externally" } == [
                 .init(
                     name: "link_opened_externally",
                     properties: ["service": .string("apple_music"), "link_id": .string("l1")])
@@ -873,30 +873,30 @@ private final class OpenedURLs {
     }
 
     @Test func theEmbedOpeningItsProviderReportsTheLoadedLink() throws {
-        let rig = ActivityRig()
-        rig.player.play(try #require(PlayerItem.link(link("l2", url: video, provider: "youtube"))), origin: .row)
+        let fixture = ActivityFixture()
+        fixture.player.play(try #require(PlayerItem.link(link("l2", url: video, provider: "youtube"))), origin: .row)
         let opened = OpenedURLs()
         let stage = EmbedStage(openExternally: opened.open)
-        stage.onOpened = { [player = rig.player] in player.embedOpened($0) }
+        stage.onOpened = { [player = fixture.player] in player.embedOpened($0) }
         let page = try #require(URL(string: video))
 
         stage.openFromEmbed(page)
 
-        #expect(rig.sent("link_opened_externally") == [["service": .string("youtube"), "link_id": .string("l2")]])
+        #expect(fixture.sent("link_opened_externally") == [["service": .string("youtube"), "link_id": .string("l2")]])
         #expect(opened.all == [page])
     }
 
     @Test func theEmbedOpeningAnotherSiteReportsNoOpen() throws {
-        let rig = ActivityRig()
-        rig.player.play(try #require(PlayerItem.link(link("l2", url: video, provider: "youtube"))), origin: .row)
+        let fixture = ActivityFixture()
+        fixture.player.play(try #require(PlayerItem.link(link("l2", url: video, provider: "youtube"))), origin: .row)
         let opened = OpenedURLs()
         let stage = EmbedStage(openExternally: opened.open)
-        stage.onOpened = { [player = rig.player] in player.embedOpened($0) }
+        stage.onOpened = { [player = fixture.player] in player.embedOpened($0) }
         let page = try #require(URL(string: "https://consent.google.com/ml?continue=https://www.youtube.com"))
 
         stage.openFromEmbed(page)
 
-        #expect(rig.sent("link_opened_externally").isEmpty)
+        #expect(fixture.sent("link_opened_externally").isEmpty)
         #expect(opened.all == [page])
     }
 
@@ -914,13 +914,13 @@ private final class OpenedURLs {
     }
 
     @Test func nothingLoadedReportsNoOpen() {
-        let rig = ActivityRig()
+        let fixture = ActivityFixture()
         let opened = OpenedURLs()
 
-        rig.player.openLinkInProvider(with: opened.open)
-        rig.player.embedOpened(URL(string: songURL)!)
+        fixture.player.openLinkInProvider(with: opened.open)
+        fixture.player.embedOpened(URL(string: songURL)!)
 
-        #expect(rig.sink.captures.isEmpty)
+        #expect(fixture.sink.captures.isEmpty)
         #expect(opened.all.isEmpty)
     }
 }

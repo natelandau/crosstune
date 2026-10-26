@@ -9,7 +9,7 @@ public enum MetaKey: String, Sendable {
     case eventsCursor = "events_cursor"
     /// How many pushed changes the server refused.
     case invalidChanges = "invalid_changes"
-    /// The account's storage figures from the API.
+    /// The account's storage usage from the API.
     case storage
     /// Whether this device downloads every ready recording to play without a connection.
     case keepOffline = "keep_offline"
@@ -23,7 +23,7 @@ public enum MetaKey: String, Sendable {
     case lastSyncedAt = "last_synced_at"
     /// The recordings and scans whose upsert the server refused as Premium only. Their changes
     /// stay queued and wait out a free plan, so they reach the server once the account subscribes.
-    case premiumHolds = "premium_holds"
+    case localOnlyRows = "premium_holds"
     /// The one-time notices dismissed on this device that the pulled entitlements row does not
     /// carry yet. Each is posted after push, and dropped once a pull brings the row that has it.
     case seenNotices = "seen_notices"
@@ -58,40 +58,40 @@ enum Meta {
 }
 
 extension StoreWriter {
-    /// The recordings and scans held for Premium, read inside a transaction or a `LiveQuery`
-    /// fetch. A hold counts only while its row's upsert is still queued. A delete, or a parent's delete
+    /// The recordings and scans kept local until subscribed, read inside a transaction or a `LiveQuery`
+    /// fetch. A row counts only while its upsert is still queued. A delete, or a parent's delete
     /// that drops the entry, leaves nothing waiting on the plan, and may bring no result to
-    /// release the hold.
-    public static func premiumHolds(in db: Database) throws -> Set<String> {
-        let held = try storedHolds(in: db)
-        guard !held.isEmpty else { return [] }
+    /// release it.
+    public static func localOnlyRows(in db: Database) throws -> Set<String> {
+        let stored = try storedLocalOnlyRows(in: db)
+        guard !stored.isEmpty else { return [] }
         typealias Column = OutboxEntry.CodingKeys
         let queued = try String.fetchAll(
             db,
             OutboxEntry.select(Column.rowID).filter(
                 SyncTable.premiumOnly.map(\.rawValue).contains(Column.tableName)
-                    && Column.op == OutboxEntry.Operation.upsert.rawValue && held.contains(Column.rowID)))
+                    && Column.op == OutboxEntry.Operation.upsert.rawValue && stored.contains(Column.rowID)))
         return Set(queued)
     }
 
-    public func holdForPremium(_ ids: some Sequence<String>) throws {
-        let held = try Self.storedHolds(in: db)
-        let next = held.union(ids)
-        if next != held { try setPremiumHolds(next) }
+    public func keepLocalUntilSubscribed(_ ids: some Sequence<String>) throws {
+        let stored = try Self.storedLocalOnlyRows(in: db)
+        let next = stored.union(ids)
+        if next != stored { try setLocalOnlyRows(next) }
     }
 
-    public func releasePremiumHolds(_ ids: some Sequence<String>) throws {
-        let held = try Self.storedHolds(in: db)
-        let next = held.subtracting(ids)
-        if next != held { try setPremiumHolds(next) }
+    public func releaseLocalOnlyRows(_ ids: some Sequence<String>) throws {
+        let stored = try Self.storedLocalOnlyRows(in: db)
+        let next = stored.subtracting(ids)
+        if next != stored { try setLocalOnlyRows(next) }
     }
 
-    private static func storedHolds(in db: Database) throws -> Set<String> {
-        Set(try Meta.value(db, .premiumHolds, as: [String].self) ?? [])
+    private static func storedLocalOnlyRows(in db: Database) throws -> Set<String> {
+        Set(try Meta.value(db, .localOnlyRows, as: [String].self) ?? [])
     }
 
-    private func setPremiumHolds(_ ids: Set<String>) throws {
-        try Meta.set(db, .premiumHolds, to: ids.sorted())
+    private func setLocalOnlyRows(_ ids: Set<String>) throws {
+        try Meta.set(db, .localOnlyRows, to: ids.sorted())
     }
 }
 

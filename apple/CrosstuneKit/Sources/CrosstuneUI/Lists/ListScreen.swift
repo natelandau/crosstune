@@ -196,7 +196,7 @@ private struct ListTunes: View {
                 .columnTitled(macTitle)
                 .focusedSceneValue(
                     \.selectTunesAction,
-                    MenuGates.select(
+                    MenuCommandAvailability.select(
                         isShown: true, sheetsOpen: openSheets?.isCovered == true, selecting: selection.isActive,
                         hasRows: !rows.isEmpty)
                         ? MenuAction(id: selectActionID) { selection.enter() } : nil
@@ -306,17 +306,17 @@ private struct ListTunes: View {
 
     /// What Play, Shuffle, and the line under them act on, or nil while they are disabled: with no
     /// tunes, while selecting, and until the access read.
-    private func playOffer(_ rows: [ListEntry]) -> ListPlayOffer? {
+    private func playOffer(_ rows: [ListEntry]) -> ListPlayAvailability? {
         selection.isActive ? nil : offer(rows)
     }
 
     /// ``playOffer(_:)`` whether selecting or not, for the Mac's pane bar, which keeps its
     /// controls while selecting.
-    private func offer(_ rows: [ListEntry]) -> ListPlayOffer? {
+    private func offer(_ rows: [ListEntry]) -> ListPlayAvailability? {
         guard !rows.isEmpty, hasReadAppleMusic else { return nil }
         let report = playReport(rows)
         let playing = listPlaying
-        return ListPlayOffer(
+        return ListPlayAvailability(
             report: report, canStart: listPlayback != nil && !(recorders?.isCapturing ?? false),
             playing: playing,
             onPlay: { playing == nil ? startPlaylist(report, shuffled: false) : togglePlaylist() },
@@ -325,11 +325,11 @@ private struct ListTunes: View {
     }
 
     /// This list as it plays, or nil while another list or nothing plays.
-    private var listPlaying: ListPlayOffer.Playing? {
+    private var listPlaying: ListPlayAvailability.Playing? {
         guard let listPlayback, listPlayback.listID == list.id else { return nil }
         // Until the tune loads, the transport still plays the tune being left.
         let settled = listPlayback.isSettled
-        return ListPlayOffer.Playing(
+        return ListPlayAvailability.Playing(
             isPlaying: settled && player?.transport?.isPlaying == true, isSettled: settled)
     }
 

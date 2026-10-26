@@ -12,7 +12,7 @@ import {
   NO_TUNES_TITLE,
   SEARCH_TUNES,
   SHOW_ARCHIVED,
-  addOfferLabel,
+  addTypedTitleLabel,
   hiddenMatchText,
   openTuneName,
   TUNE_LIST,
@@ -392,7 +392,7 @@ it('offers to add another tune by a title already taken', async () => {
   await expect.poll(rowsSettled).toBe(true)
   await page
     .getByRole('button', {
-      name: addOfferLabel({ kind: 'create', title: 'Forked Deer', another: true }),
+      name: addTypedTitleLabel({ kind: 'create', title: 'Forked Deer', another: true }),
     })
     .click()
   await expect.poll(() => db.tunes.where('title').equals('Forked Deer').count()).toBe(2)
@@ -480,7 +480,7 @@ it('offers to add the typed title under the results', async () => {
   // The row slides up into place over the offer below it, and takes a press it slides under.
   await expect.poll(rowsSettled).toBe(true)
   const offer = page.getByRole('button', {
-    name: addOfferLabel({ kind: 'create', title: 'Joy', another: false }),
+    name: addTypedTitleLabel({ kind: 'create', title: 'Joy', another: false }),
   })
   await offer.click()
   await expect.poll(() => db.tunes.where('title').equals('Joy').count()).toBe(1)
@@ -495,7 +495,7 @@ it(`adds a tune by the title from the empty state's Add`, async () => {
   await search().fill("Soldier's Joy")
   await page
     .getByRole('button', {
-      name: addOfferLabel({ kind: 'create', title: "Soldier's Joy", another: false }),
+      name: addTypedTitleLabel({ kind: 'create', title: "Soldier's Joy", another: false }),
     })
     .click()
   await expect.poll(() => db.tunes.where('title').equals("Soldier's Joy").count()).toBe(1)

@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Storage used against the quota: the figure over a bar, or the figure alone with no quota.
 struct StorageMeter: View {
-    let storage: StorageFigures
+    let storage: StorageUsage
 
     @Environment(\.spacing) private var spacing
 

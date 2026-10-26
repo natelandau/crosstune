@@ -1,7 +1,7 @@
 import { Button as AriaButton } from 'react-aria-components'
 import { STATUSES, type TuneStatus } from '../../../api/vocabulary'
 import { STATUS_LABELS } from '../../../constants'
-import { archivedLine, COUNTS_HEADER, tallyLine, TUNES_LABEL, valueLabel } from '../copy'
+import { archivedLine, COUNTS_HEADER, countsLine, TUNES_LABEL, valueLabel } from '../copy'
 import type { Counts as CountsData } from '../types'
 import { PageSection } from '../../../ui/PageSection'
 import { ErrorLine } from '../../../ui/ErrorLine'
@@ -10,7 +10,7 @@ import { StatusSplitBar } from '../../../ui/StatusSplitBar'
 import { PRESS } from './press'
 
 /**
- * The tune total, one bar split by status with each status's count under it, and the tally.
+ * The tune total, one bar split by status with each status's count under it, and the counts line.
  * Always shown, at zero too. Archived tunes count only in the quiet line under it.
  */
 export function Counts({
@@ -50,7 +50,7 @@ export function Counts({
         ))}
       </ul>
       <ErrorLine error={error} place="inline" />
-      <p className="t-body t-num pt-2">{tallyLine(counts)}</p>
+      <p className="t-body t-num pt-2">{countsLine(counts)}</p>
       {counts.archived > 0 && (
         <p className="t-secondary text-ink-2 pt-1">{archivedLine(counts.archived)}</p>
       )}

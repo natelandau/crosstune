@@ -91,7 +91,7 @@ describe('AnalyticsIdentity', () => {
     expect(analytics.calls[0]).not.toHaveProperty('signedUpAt')
   })
 
-  it('sets storage_used once after the first sync stores the figures', async () => {
+  it('sets storage_used once after the first sync stores the storage usage', async () => {
     const analytics = recordingAnalytics()
     const db = openTestDb()
     render(<AnalyticsIdentity />, { wrapper: dataProviders({ db, analytics }) })
@@ -122,7 +122,7 @@ describe('AnalyticsIdentity', () => {
     expect(analytics.calls[1]).toMatchObject({ userId: testSession.userId, person: {} })
   })
 
-  it('completes the person on the next figures change after the identify read failed', async () => {
+  it('completes the person on the next storage usage change after the identify read failed', async () => {
     const analytics = recordingAnalytics()
     const db = openTestDb()
     await setStorage(db, { used_bytes: 20_000_000, quota_bytes: 1, max_file_bytes: 1 })
@@ -131,7 +131,7 @@ describe('AnalyticsIdentity', () => {
     await expect.poll(() => types(analytics)).toContain('identify')
     expect(person.failed).toBe(1)
     expect(analytics.calls[1]).toMatchObject({ person: {} })
-    // Depending on which settles first, the retry runs on the stored figures or on this change.
+    // Depending on which settles first, the retry runs on the stored usage or on this change.
     await setStorage(db, { used_bytes: 60_000_000, quota_bytes: 1, max_file_bytes: 1 })
     await expect.poll(() => types(analytics)).toEqual(['signed_in', 'identify', 'setPerson'])
   })
@@ -146,7 +146,7 @@ describe('AnalyticsIdentity', () => {
     await expect.poll(() => types(analytics)).toEqual(['signed_in', 'identify', 'account_created'])
   })
 
-  it('retries the figures on their next change after a failed read', async () => {
+  it('retries the storage usage on its next change after a failed read', async () => {
     const analytics = recordingAnalytics()
     const db = openTestDb()
     render(<AnalyticsIdentity />, { wrapper: dataProviders({ db, analytics }) })

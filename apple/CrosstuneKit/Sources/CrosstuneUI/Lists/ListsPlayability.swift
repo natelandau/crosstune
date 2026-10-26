@@ -5,7 +5,7 @@ import SwiftUI
 
 /// What each list on the iPhone lists screen would play now, so a row offers Play only for a
 /// list with a tune that plays.
-enum ListsPlayOffers {
+enum ListsPlayability {
     /// Every live list's tunes, with the settings a playlist reads, from one read.
     struct Snapshot: Equatable, Sendable {
         var lists: [ListContents] = []
@@ -88,8 +88,8 @@ struct ListsRowPlayButton: View {
             .disabled(!settled)
             .accessibilityLabel(
                 isPlaying
-                    ? ListsPlayOffers.pauseLabel(listName: summary.name)
-                    : ListsPlayOffers.playLabel(listName: summary.name))
+                    ? ListsPlayability.pauseLabel(listName: summary.name)
+                    : ListsPlayability.playLabel(listName: summary.name))
         } else if let report {
             Button {
                 onPlay(report)
@@ -101,7 +101,7 @@ struct ListsRowPlayButton: View {
             }
             // Borderless, so the tap stays the button's and never opens the row.
             .buttonStyle(.borderless)
-            .accessibilityLabel(ListsPlayOffers.playLabel(listName: summary.name))
+            .accessibilityLabel(ListsPlayability.playLabel(listName: summary.name))
         } else {
             Color.clear
                 .frame(width: slot, height: slot)

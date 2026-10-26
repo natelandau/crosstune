@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import select, text
 
 from crosstune.billing.access import refresh_entitlement
-from crosstune.billing.grants import PaidSubscription, grant_comp, mirror_paid_grants, set_trial_end
+from crosstune.billing.grants import PaidSubscription, grant_comp, set_trial_end, sync_paid_grants
 from crosstune.config import Settings
 from crosstune.db.base import utc_now
 from crosstune.db.locks import advisory_lock_key
@@ -712,7 +712,7 @@ async def test_withdraw_refunds_through_the_real_path(
     revenuecat = FakeRevenueCat({FREE_USER: [sub]})
     stripe = FakeStripe()
     mailer = FakeMailer()
-    await mirror_paid_grants(session, user.id, [sub], utc_now())
+    await sync_paid_grants(session, user.id, [sub], utc_now())
     message = await _withdraw_command(
         session,
         settings,

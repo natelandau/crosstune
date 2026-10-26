@@ -28,12 +28,12 @@ struct PlayButtonLabel: Equatable {
 struct PracticeControls: View {
     let model: PracticeModel
     /// Why the waveform, transport, and modes cannot be used yet.
-    let blocker: String?
+    let disabledReason: String?
 
     @Environment(\.spacing) private var spacing
 
     var body: some View {
-        let ready = model.isLoaded && blocker == nil
+        let ready = model.isLoaded && disabledReason == nil
         VStack(spacing: spacing.stackGap) {
             Transport(model: model)
                 .disabled(!ready)
@@ -51,7 +51,7 @@ struct PracticeControls: View {
                     .frame(maxWidth: .infinity)
                 #endif
             #if !os(macOS)
-                LoopSwitcher(model: model, blocker: blocker)
+                LoopSwitcher(model: model, disabledReason: disabledReason)
             #endif
         }
     }

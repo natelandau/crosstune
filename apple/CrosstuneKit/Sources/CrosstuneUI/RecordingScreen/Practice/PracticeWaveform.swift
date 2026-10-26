@@ -386,7 +386,7 @@ struct PracticeWaveform: View {
 struct WaveformOverlay: View {
     let model: PracticeModel
     /// Why the waveform, transport, and modes cannot be used yet, shown in place of the readout.
-    let blocker: String?
+    let disabledReason: String?
     /// False where the readout sits under the waveform instead.
     var showsReadout = true
 
@@ -395,7 +395,7 @@ struct WaveformOverlay: View {
     var body: some View {
         HStack(alignment: .bottom, spacing: spacing(8)) {
             if showsReadout {
-                PracticeReadout(model: model, blocker: blocker)
+                PracticeReadout(model: model, disabledReason: disabledReason)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .modifier(Backing())
@@ -434,7 +434,7 @@ struct WaveformOverlay: View {
             #else
                 .buttonStyle(.borderless)
             #endif
-            .disabled(blocker != nil)
+            .disabled(disabledReason != nil)
             // Capped so the cluster stays a corner control that never reaches the playhead.
             .dynamicTypeSize(...DynamicTypeSize.large)
             .modifier(Backing())
@@ -464,11 +464,11 @@ struct WaveformOverlay: View {
 /// The playhead's time to the tenth of a second, or why the screen cannot be used yet.
 struct PracticeReadout: View {
     let model: PracticeModel
-    let blocker: String?
+    let disabledReason: String?
 
     var body: some View {
-        if let blocker {
-            Text(blocker)
+        if let disabledReason {
+            Text(disabledReason)
                 .font(.platform(.subheadline).weight(.semibold))
                 .foregroundStyle(.inkSecondary)
                 .lineLimit(2)

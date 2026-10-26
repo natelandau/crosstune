@@ -294,7 +294,7 @@ describe('createRecordingSession finish and cancel', () => {
     expect((await db.recording_files.get('rec_1'))?.local_state).toBe('captured')
   })
 
-  it('never stops a recording for size when no storage figures are cached', async () => {
+  it('never stops a recording for size when no storage usage is cached', async () => {
     const { session, recorders } = setup()
     await session.start()
     recorders[0]!.emit('x'.repeat(10_000))

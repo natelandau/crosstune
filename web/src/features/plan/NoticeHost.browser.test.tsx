@@ -347,7 +347,7 @@ it('stacks Subscribe, then Compare plans as text, then the renewal and terms lin
   }
 })
 
-it('leads with Compare plans as the full-width primary when the notice cannot sell', async () => {
+it('leads with Compare plans as the full-width primary when the notice has nothing purchasable', async () => {
   const db = openTestDb()
   await mount(db, lapsed())
   const notice = dialog(TRIAL_ENDED_TITLE)
@@ -469,7 +469,7 @@ it("holds Subscribe's place, off, while the plan reads unknown under an open not
   const priced = notice.getByRole('button', { name: subscribeAnnual('$49.99') })
   await expect.element(priced).toBeEnabled()
 
-  // No row reads as an unknown plan, which can neither sell nor rule selling out.
+  // No row reads as an unknown plan, which can neither show purchase options nor rule them out.
   await db.entitlements.clear()
   await expect.element(notice.getByRole('button', { name: SUBSCRIBE, exact: true })).toBeDisabled()
   await expect.element(notice.getByRole('button', { name: COMPARE_PLANS })).toBeEnabled()

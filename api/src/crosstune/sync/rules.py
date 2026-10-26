@@ -24,7 +24,7 @@ from crosstune.places.matching import (
     distance_m,
     link_earlier_takes,
     matching_place_id,
-    reach_back_around,
+    rematch_neighbor_places,
     unlink_place,
 )
 from crosstune.recordings.loops import (
@@ -207,7 +207,7 @@ class PlaceRules(RowRules):
         return None
 
     async def applied(self, row: Place) -> None:
-        """Reach back on a new or moved place, and from the neighbors of a moved place's old point.
+        """Link earlier takes to a new or moved place, and to the neighbors of its old point.
 
         Runs for a replayed or stale push too, which leaves the point as it was and so
         links nothing a second time.
@@ -217,7 +217,7 @@ class PlaceRules(RowRules):
             # Moving away can leave a neighbor of the old point as some take's only match.
             if self.stored_point is not None:
                 lat, lon = self.stored_point
-                await reach_back_around(self.session, user_id=self.user_id, lat=lat, lon=lon)
+                await rematch_neighbor_places(self.session, user_id=self.user_id, lat=lat, lon=lon)
 
     # The point of a place this delete removes, read before the delete scrubs it.
     deleted_point: tuple[float, float] | None = None
@@ -227,15 +227,15 @@ class PlaceRules(RowRules):
         self.deleted_point = (row.lat, row.lon)
 
     async def deleted(self, row: Place) -> None:
-        """Unlink the recordings filed under a deleted place, then reach back from its neighbors.
+        """Unlink the recordings filed under a deleted place, then rematch its neighbors.
 
         The unlinked takes keep their own names. A take that matched both this place and a
-        neighbor matched neither, so each live place near the deleted one reaches back again.
+        neighbor matched neither, so each live place near the deleted one links its earlier takes again.
         """
         await unlink_place(self.session, row.id)
         if self.deleted_point is not None:
             lat, lon = self.deleted_point
-            await reach_back_around(self.session, user_id=self.user_id, lat=lat, lon=lon)
+            await rematch_neighbor_places(self.session, user_id=self.user_id, lat=lat, lon=lon)
 
 
 class RecordingRules(RowRules):

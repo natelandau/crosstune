@@ -25,10 +25,10 @@ public struct PushResult: Sendable {
 }
 
 /// The reason a push result gives for a recording or scan a free account may not add. The
-/// change stays queued, held until the plan is Premium again.
+/// change stays queued, kept local until the plan is Premium again.
 public let premiumRequiredReason = "premium required"
 /// The reason a push result gives for a row whose recording the server does not have, as for
-/// a loop on a take held for Premium.
+/// a loop on a recording kept local until subscribed.
 public let missingRecordingReason = "recording_id does not reference one of your recordings"
 
 /// A push the server refused, so the local edit will never reach it.
@@ -108,12 +108,12 @@ extension StoreWriter {
     /// replaced meanwhile, keeps its entry for the next push.
     ///
     /// A recording or scan refused as Premium only is neither reported nor settled: its entry
-    /// stays and its id is held until a later result for it settles. A row refused because its
-    /// recording is held stays queued the same way, to go out with it. `held` names the
-    /// recordings and scans this batch held.
+    /// stays and its id is kept local until a later result for it settles. A row refused because its
+    /// recording is local-only stays queued the same way, to go out with it. `keptLocal` names
+    /// the recordings and scans this batch kept local.
     @discardableResult
     public func applyPushResults(sent: [OutboxEntry], results: [PushResult]) throws -> (
-        invalid: [InvalidChange], settled: Int, held: [String]
+        invalid: [InvalidChange], settled: Int, keptLocal: [String]
     ) {
         // A duplicate result for one row keeps the last, as the web's Map construction does.
         let byKey = Dictionary(
@@ -122,7 +122,7 @@ extension StoreWriter {
         var invalid: [InvalidChange] = []
         var settledSeqs: [Int64] = []
         var settled = 0
-        var held: [String] = []
+        var keptLocal: [String] = []
         var released: [String] = []
         var orphans: [(entry: OutboxEntry, result: PushResult, recordingID: String)] = []
 
@@ -158,7 +158,7 @@ extension StoreWriter {
             {
                 // The entry carries the row once the account subscribes. Not counted as
                 // settled, since its entry stays in the outbox.
-                held.append(entry.rowID)
+                keptLocal.append(entry.rowID)
                 continue
             }
             if result.status == .invalid, entry.op != .delete, result.reason == missingRecordingReason,
@@ -172,19 +172,19 @@ extension StoreWriter {
             try settle(entry, result)
         }
 
-        let stillHeld = try Self.premiumHolds(in: db).union(held).subtracting(released)
-        for orphan in orphans where !stillHeld.contains(orphan.recordingID) {
+        let stillLocalOnly = try Self.localOnlyRows(in: db).union(keptLocal).subtracting(released)
+        for orphan in orphans where !stillLocalOnly.contains(orphan.recordingID) {
             try settle(orphan.entry, orphan.result)
         }
 
         try OutboxEntry.deleteAll(db, keys: settledSeqs)
-        try releasePremiumHolds(released)
-        try holdForPremium(held)
+        try releaseLocalOnlyRows(released)
+        try keepLocalUntilSubscribed(keptLocal)
         if !invalid.isEmpty {
             let priorCount = try meta(.invalidChanges, as: Int.self) ?? 0
             try setMeta(.invalidChanges, to: priorCount + invalid.count)
         }
-        return (invalid, settled, held)
+        return (invalid, settled, keptLocal)
     }
 
     /// Applies one page of pulled rows: a row with no newer local write pending overwrites the
@@ -209,7 +209,7 @@ extension StoreWriter {
         }
 
         try OutboxEntry.deleteAll(db, keys: supersededSeqs)
-        try releasePremiumHolds(supersededHolds)
+        try releaseLocalOnlyRows(supersededHolds)
         try setMeta(.pullCursor, to: nextSince)
     }
 

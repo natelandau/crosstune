@@ -43,7 +43,7 @@
                 .wordBoundaryKind(.simple)
         }
 
-        private static func offenders(in text: String) -> [String] {
+        private static func violations(in text: String) -> [String] {
             SourceScan.withoutComments(text).split(separator: "\n")
                 .filter { $0.contains(textStyle) }
                 .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -53,7 +53,7 @@
             var found: [String] = []
             for file in SourceScan.files() {
                 guard let drawn = try Self.macDrawn(file) else { continue }
-                found += Self.offenders(in: drawn).map { "\(SourceScan.relative(file)) \($0)" }
+                found += Self.violations(in: drawn).map { "\(SourceScan.relative(file)) \($0)" }
             }
             #expect(found.isEmpty, "\(found.joined(separator: "\n"))")
         }
@@ -98,8 +98,8 @@
         }
 
         @Test func scanCatchesAStyleWithAModifier() {
-            #expect(Self.offenders(in: ".font(.body.weight(.semibold))").count == 1)
-            #expect(Self.offenders(in: ".font(MacStyle.body)").isEmpty)
+            #expect(Self.violations(in: ".font(.body.weight(.semibold))").count == 1)
+            #expect(Self.violations(in: ".font(MacStyle.body)").isEmpty)
         }
 
         @Test func previewsEndWhereTheirBracesClose() {

@@ -21,7 +21,7 @@ struct StoredSettings: Equatable, Sendable {
     var tunerA4Hz: Int
     var keepsOffline: Bool
     var invalidChanges: Int
-    var storage: StorageFigures?
+    var storage: StorageUsage?
     /// The audio this device holds, captured or downloaded.
     var localAudioBytes: Int64
 
@@ -38,7 +38,7 @@ struct StoredSettings: Equatable, Sendable {
             // Anything but a stored true reads as off, as the web reads it.
             keepsOffline: (try? MetaKey.keepOffline.value(in: db, as: Bool.self)) == true,
             invalidChanges: (try? MetaKey.invalidChanges.value(in: db, as: Int.self)) ?? 0,
-            storage: try? MetaKey.storage.value(in: db, as: StorageFigures.self),
+            storage: try? MetaKey.storage.value(in: db, as: StorageUsage.self),
             localAudioBytes: try RecordingFile.localAudioBytes(db))
     }
 
@@ -520,20 +520,20 @@ public final class SettingsModel {
                 capitalizationContext: inSentence ? .middleOfSentence : .unknown))
     }
 
-    /// The account's storage figures, once the server has reported them. A free account's carry
+    /// The account's storage usage, once the server has reported it. A free account's carries
     /// no quota.
-    public var storage: StorageFigures? { stored.value?.storage }
+    public var storage: StorageUsage? { stored.value?.storage }
 
-    /// The storage figures with the plan's quota in place of the reported one. Used bytes always
+    /// The storage usage with the plan's quota in place of the reported one. Used bytes always
     /// come from the server.
-    public func storage(plan: Plan) -> StorageFigures? {
+    public func storage(plan: Plan) -> StorageUsage? {
         storage?.measured(against: plan)
     }
 
     /// The share of the quota spent, from 0 to 1.
-    nonisolated public static func storageFraction(_ figures: StorageFigures) -> Double {
-        guard figures.quotaBytes > 0 else { return 0 }
-        return min(1, max(0, Double(figures.usedBytes) / Double(figures.quotaBytes)))
+    nonisolated public static func storageFraction(_ usage: StorageUsage) -> Double {
+        guard usage.quotaBytes > 0 else { return 0 }
+        return min(1, max(0, Double(usage.usedBytes) / Double(usage.quotaBytes)))
     }
 
     // MARK: Writes

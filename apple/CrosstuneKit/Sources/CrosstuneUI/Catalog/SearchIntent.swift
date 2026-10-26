@@ -62,7 +62,7 @@ public enum SearchOutcome: Hashable, Sendable {
     }
 
     /// The add row's label: `Add "query"`, or `Add another "query"` when the title exists.
-    public var offerLabel: String? {
+    public var addTypedTitleLabel: String? {
         guard case .create(let title, let another, _) = self else { return nil }
         return another ? "Add another \"\(title)\"" : "Add \"\(title)\""
     }

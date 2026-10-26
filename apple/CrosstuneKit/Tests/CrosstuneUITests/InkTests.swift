@@ -35,7 +35,7 @@
                 .wordBoundaryKind(.simple)
         }
 
-        static func offenders(in text: String) -> [String] {
+        static func violations(in text: String) -> [String] {
             SourceScan.withoutComments(text).split(separator: "\n")
                 .filter { $0.contains(foreground) || $0.contains(handedOn) }
                 .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -61,7 +61,7 @@
             for file in SourceScan.files() {
                 let name = SourceScan.relative(file)
                 let text = try SourceScan.text(at: file)
-                let (lines, unused) = Self.unallowed(Self.offenders(in: text), allowed: Self.allowed[name] ?? [])
+                let (lines, unused) = Self.unallowed(Self.violations(in: text), allowed: Self.allowed[name] ?? [])
                 found += lines.map { "\(name) \($0)" }
                 stale += unused.map { "\(name) \($0)" }
             }
@@ -70,25 +70,25 @@
         }
 
         @Test func scanCatchesEachSpelling() {
-            #expect(Self.offenders(in: ".foregroundStyle(.secondary)").count == 1)
-            #expect(Self.offenders(in: ".foregroundStyle(.secondary.opacity(0.5))").count == 1)
-            #expect(Self.offenders(in: ".foregroundStyle(isOn ? .primary : .tertiary)").count == 1)
-            #expect(Self.offenders(in: "context.fill(path, with: .style(.secondary))").count == 1)
-            #expect(Self.offenders(in: "context.fill(path, with: .style(.tertiary))").count == 1)
-            #expect(Self.offenders(in: "let c = Color.secondary").count == 1)
-            #expect(Self.offenders(in: "let c = AnyShapeStyle(.secondary)").count == 1)
-            #expect(Self.offenders(in: "let c = premium ? ink : AnyShapeStyle(.tertiary)").count == 1)
-            #expect(Self.offenders(in: "case .ring: .secondary").count == 1)
-            #expect(Self.offenders(in: "case .ring: .secondary.opacity(0.4)").count == 1)
-            #expect(Self.offenders(in: "case .a, .b: .tertiary").count == 1)
-            #expect(Self.offenders(in: "default: .tertiary").count == 1)
-            #expect(Self.offenders(in: "return .secondary").count == 1)
-            #expect(Self.offenders(in: "if off { return .tertiary }").count == 1)
-            #expect(Self.offenders(in: "case .secondary, .destructive: control").isEmpty)
-            #expect(Self.offenders(in: "case .caption: self = .secondary").isEmpty)
-            #expect(Self.offenders(in: "AnyShapeStyle(.quaternary)").isEmpty)
-            #expect(Self.offenders(in: ".foregroundStyle(Palette.inkSecondary)").isEmpty)
-            #expect(Self.offenders(in: ".font(MacStyle.secondary)").isEmpty)
+            #expect(Self.violations(in: ".foregroundStyle(.secondary)").count == 1)
+            #expect(Self.violations(in: ".foregroundStyle(.secondary.opacity(0.5))").count == 1)
+            #expect(Self.violations(in: ".foregroundStyle(isOn ? .primary : .tertiary)").count == 1)
+            #expect(Self.violations(in: "context.fill(path, with: .style(.secondary))").count == 1)
+            #expect(Self.violations(in: "context.fill(path, with: .style(.tertiary))").count == 1)
+            #expect(Self.violations(in: "let c = Color.secondary").count == 1)
+            #expect(Self.violations(in: "let c = AnyShapeStyle(.secondary)").count == 1)
+            #expect(Self.violations(in: "let c = premium ? ink : AnyShapeStyle(.tertiary)").count == 1)
+            #expect(Self.violations(in: "case .ring: .secondary").count == 1)
+            #expect(Self.violations(in: "case .ring: .secondary.opacity(0.4)").count == 1)
+            #expect(Self.violations(in: "case .a, .b: .tertiary").count == 1)
+            #expect(Self.violations(in: "default: .tertiary").count == 1)
+            #expect(Self.violations(in: "return .secondary").count == 1)
+            #expect(Self.violations(in: "if off { return .tertiary }").count == 1)
+            #expect(Self.violations(in: "case .secondary, .destructive: control").isEmpty)
+            #expect(Self.violations(in: "case .caption: self = .secondary").isEmpty)
+            #expect(Self.violations(in: "AnyShapeStyle(.quaternary)").isEmpty)
+            #expect(Self.violations(in: ".foregroundStyle(Palette.inkSecondary)").isEmpty)
+            #expect(Self.violations(in: ".font(MacStyle.secondary)").isEmpty)
         }
     }
 #endif

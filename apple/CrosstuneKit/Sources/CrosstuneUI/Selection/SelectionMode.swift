@@ -194,7 +194,7 @@ private struct SelectionMode: ViewModifier {
             } message: { question in
                 Text(question.message)
             }
-            .undoBanner(offer)
+            .undoBanner(undoBannerItem)
             #if DEBUG
                 .opensForSample(.bulkEdit, when: bulk != nil && rows.count >= 3) {
                     let picked = Array(rows.prefix(3))
@@ -205,7 +205,7 @@ private struct SelectionMode: ViewModifier {
                     selection.enter(selecting: [rows[0].tune.id, rows[2].tune.id])
                 }
                 .opensForSample(.undoBanner, when: bulk != nil) {
-                    bulk?.offer = UndoOffer(message: BulkActionText.statusSet("known", count: 3)) {}
+                    bulk?.undoBannerItem = UndoBannerItem(message: BulkActionText.statusSet("known", count: 3)) {}
                 }
             #endif
             .task(id: store.map(ObjectIdentifier.init)) {
@@ -418,11 +418,11 @@ private struct SelectionMode: ViewModifier {
         $deleting.isPresent()
     }
 
-    private var offer: Binding<UndoOffer?> {
+    private var undoBannerItem: Binding<UndoBannerItem?> {
         Binding {
-            bulk?.offer
+            bulk?.undoBannerItem
         } set: {
-            bulk?.offer = $0
+            bulk?.undoBannerItem = $0
         }
     }
 }

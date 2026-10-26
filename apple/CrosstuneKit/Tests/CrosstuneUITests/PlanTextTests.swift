@@ -176,14 +176,14 @@ import Testing
         }
     }
 
-    @Test func measuresTheFiguresAgainstThePlansQuota() {
-        let reported = StorageFigures(usedBytes: 1, quotaBytes: 900, maxFileBytes: 1)
+    @Test func measuresTheUsageAgainstThePlansQuota() {
+        let reported = StorageUsage(usedBytes: 1, quotaBytes: 900, maxFileBytes: 1)
         #expect(reported.measured(against: Plan(kind: .premium, quotaBytes: 50)).quotaBytes == 50)
         #expect(reported.measured(against: Plan(kind: .premium)) == reported)
         #expect(reported.measured(against: .unknown) == reported)
         // A free plan has no quota, even under a report from before it lapsed.
         #expect(
             reported.measured(against: Plan(kind: .free))
-                == StorageFigures(usedBytes: 1, quotaBytes: 0, maxFileBytes: 1))
+                == StorageUsage(usedBytes: 1, quotaBytes: 0, maxFileBytes: 1))
     }
 }

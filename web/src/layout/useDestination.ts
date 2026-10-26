@@ -10,7 +10,7 @@ const ROOTS = Object.fromEntries(DESTINATIONS.map((d) => [d.id, d.root])) as Rec
 
 /**
  * The destination the current location belongs to, and the two ways to switch. `current` is
- * null for paths outside every destination, such as `/kit`, where no destination reads as current.
+ * null for paths outside every destination, such as `/gallery`, where no destination reads as current.
  */
 export function useDestination(): {
   current: Destination | null

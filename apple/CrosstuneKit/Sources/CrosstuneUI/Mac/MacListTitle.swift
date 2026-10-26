@@ -9,7 +9,7 @@
     /// `play` is nil while the list cannot offer playing at all, such as while it is empty.
     struct MacListTitle: View {
         let name: String
-        let play: ListPlayOffer?
+        let play: ListPlayAvailability?
         let isSelecting: Bool
 
         /// The slot's height: the selection bar's row, the same block the catalog's filter row
@@ -37,7 +37,7 @@
             }
         }
 
-        private func playLine(_ play: ListPlayOffer) -> some View {
+        private func playLine(_ play: ListPlayAvailability) -> some View {
             Button(action: play.onWhatPlays) {
                 HStack(spacing: 4) {
                     Text(ListPlayText.line(for: play.report))
@@ -78,7 +78,7 @@
     /// action, Shuffle secondary. While the list plays, Play pauses and resumes it. Neither
     /// shows while the list has nothing to play and is not playing.
     struct MacListPlayButtons: View {
-        let play: ListPlayOffer
+        let play: ListPlayAvailability
 
         var body: some View {
             if play.showsButtons {

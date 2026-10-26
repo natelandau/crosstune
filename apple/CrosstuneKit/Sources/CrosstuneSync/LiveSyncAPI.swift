@@ -59,11 +59,11 @@ public struct LiveSyncAPI: SyncAPI {
         }
     }
 
-    public func storage() async throws -> StorageFigures {
+    public func storage() async throws -> StorageUsage {
         switch try await client.meV1MeGet(.init()) {
         case .ok(let response):
             let storage = try response.body.json.storage
-            return StorageFigures(
+            return StorageUsage(
                 usedBytes: storage.usedBytes, quotaBytes: storage.quotaBytes, maxFileBytes: storage.maxFileBytes)
         case .undocumented(let status, _): throw APIStatusError(status: status)
         }

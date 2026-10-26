@@ -244,16 +244,16 @@ describe('nextPlanChange', () => {
 })
 
 describe('planMode', () => {
-  it('confirms a paid or comped plan and sells to every other', () => {
+  it('confirms a paid or comped plan and makes every other purchasable', () => {
     const mode = (row: Parameters<typeof entitlementRow>[0] | null) =>
       planMode(planFrom(row === null ? null : entitlementRow(row), NOW))
-    expect(mode(null)).toBe('selling')
-    expect(mode({})).toBe('selling')
-    expect(mode({ premium_source: 'trial', premium_expires_at: at(DAY) })).toBe('selling')
+    expect(mode(null)).toBe('purchasable')
+    expect(mode({})).toBe('purchasable')
+    expect(mode({ premium_source: 'trial', premium_expires_at: at(DAY) })).toBe('purchasable')
     expect(mode({ premium_source: 'stripe', premium_expires_at: at(DAY) })).toBe('member')
     expect(mode({ premium_source: 'apple', premium_expires_at: at(DAY) })).toBe('member')
     expect(mode({ premium_source: 'comp', premium_expires_at: null })).toBe('member')
-    expect(mode({ premium_source: 'stripe', premium_expires_at: at(-DAY) })).toBe('selling')
+    expect(mode({ premium_source: 'stripe', premium_expires_at: at(-DAY) })).toBe('purchasable')
   })
 })
 

@@ -61,7 +61,7 @@ struct RecordingsSnapshot: Equatable, Sendable {
 /// The recordings screen's settings from the store's meta, read apart from the recordings so a
 /// meta write never refetches every recording.
 struct RecordingsSettings: Equatable, Sendable {
-    var storage: StorageFigures?
+    var storage: StorageUsage?
     /// The stored origin choice: `all`, `own`, or an import source.
     var choice: String
 }
@@ -223,16 +223,16 @@ public final class RecordingsModel {
     }
 
     /// The account's storage, once the server has said what its quota is.
-    public var storage: StorageFigures? {
+    public var storage: StorageUsage? {
         guard let storage = settings.value?.storage, storage.quotaBytes > 0 else { return nil }
         return storage
     }
 
     /// The account's storage measured against the plan's quota when the plan is known, nil when
     /// the plan has no quota.
-    public func storage(plan: Plan) -> StorageFigures? {
-        guard let figures = storage?.measured(against: plan), figures.quotaBytes > 0 else { return nil }
-        return figures
+    public func storage(plan: Plan) -> StorageUsage? {
+        guard let usage = storage?.measured(against: plan), usage.quotaBytes > 0 else { return nil }
+        return usage
     }
 
     /// What a delete costs: a recording the server has never seen exists only on this device.
@@ -264,7 +264,7 @@ public final class RecordingsModel {
 
     nonisolated static func fetchSettings(_ db: Database) throws -> RecordingsSettings {
         RecordingsSettings(
-            storage: try? MetaKey.storage.value(in: db, as: StorageFigures.self),
+            storage: try? MetaKey.storage.value(in: db, as: StorageUsage.self),
             // An unreadable choice reads as All, so a damaged setting never blanks the screen.
             choice: storedChoice(db))
     }

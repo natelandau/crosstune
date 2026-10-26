@@ -698,15 +698,15 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
             ])
     }
 
-    @Test func theIdentifyAfterTheFiguresLandCarriesTheAssistiveTechnologyInUseThen() async throws {
+    @Test func theIdentifyAfterTheUsageLandCarriesTheAssistiveTechnologyInUseThen() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let inUse = AssistiveTechInUse()
         let identity = AnalyticsIdentity(analytics: sink.client, assistiveTech: { inUse.features })
-        try await store.setMeta(.storage, to: StorageFigures(usedBytes: 20_000_000, quotaBytes: 0, maxFileBytes: 0))
+        try await store.setMeta(.storage, to: StorageUsage(usedBytes: 20_000_000, quotaBytes: 0, maxFileBytes: 0))
         inUse.features = [.voiceover, .boldText]
 
-        let carried = await identity.identify(userID: "user_a", withFiguresIn: store) { true }
+        let carried = await identity.identify(userID: "user_a", withUsageIn: store) { true }
 
         #expect(carried)
         guard case .identify("user_a", let set, _) = try #require(sink.calls.last) else {
@@ -843,7 +843,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     }
 }
 
-@Test func storeFiguresCountLiveTunesAndTheStoredStorageUse() async throws {
+@Test func storeUsageCountLiveTunesAndTheStoredStorageUse() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in
@@ -852,15 +852,15 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
         try writer.put(UserTune(tuneID: tune.id, status: "known"))
         try writer.put(UserTune(deletedAt: .now, tuneID: tune.id, status: "known"))
     }
-    try await store.setMeta(.storage, to: StorageFigures(usedBytes: 20_000_000, quotaBytes: 0, maxFileBytes: 0))
+    try await store.setMeta(.storage, to: StorageUsage(usedBytes: 20_000_000, quotaBytes: 0, maxFileBytes: 0))
 
-    let figures = await AccountSession.storeFigures(in: store)
+    let usage = await AccountSession.storageUsage(in: store)
 
-    #expect(figures.catalogSize == 1)
-    #expect(figures.storageUsed == 20_000_000)
+    #expect(usage.catalogSize == 1)
+    #expect(usage.storageUsed == 20_000_000)
 }
 
-@Test func storeFiguresWaitForTheFirstSync() async throws {
+@Test func storeUsageWaitForTheFirstSync() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in
@@ -869,10 +869,10 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
         try writer.put(UserTune(tuneID: tune.id, status: "known"))
     }
 
-    let figures = await AccountSession.storeFigures(in: store)
+    let usage = await AccountSession.storageUsage(in: store)
 
-    #expect(figures.catalogSize == nil)
-    #expect(figures.storageUsed == nil)
+    #expect(usage.catalogSize == nil)
+    #expect(usage.storageUsed == nil)
 }
 
 @Test func fieldsUsedListsOnlyFieldsSomeTuneFills() async throws {
@@ -919,7 +919,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
 }
 
 @MainActor
-@Test func identifyingWithStoreFiguresCarriesThemOnceASyncHasStoredThem() async throws {
+@Test func identifyingWithStoreUsageCarriesThemOnceASyncHasStoredThem() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
@@ -930,10 +930,10 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     }
 
     let before = await AccountSession.identify(
-        userID: "user_a", withFiguresIn: store, analytics: sink.client, canIdentify: { true })
-    try await store.setMeta(.storage, to: StorageFigures(usedBytes: 20_000_000, quotaBytes: 0, maxFileBytes: 0))
+        userID: "user_a", withUsageIn: store, analytics: sink.client, canIdentify: { true })
+    try await store.setMeta(.storage, to: StorageUsage(usedBytes: 20_000_000, quotaBytes: 0, maxFileBytes: 0))
     let after = await AccountSession.identify(
-        userID: "user_a", withFiguresIn: store, analytics: sink.client, canIdentify: { true })
+        userID: "user_a", withUsageIn: store, analytics: sink.client, canIdentify: { true })
 
     #expect(!before)
     #expect(after)
@@ -954,7 +954,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
-    try await store.setMeta(.storage, to: StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0))
+    try await store.setMeta(.storage, to: StorageUsage(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0))
     try await store.setMeta(.keepOffline, to: true)
     try await store.write { writer in
         try writer.put(
@@ -964,7 +964,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     }
 
     _ = await AccountSession.identify(
-        userID: "user_a", withFiguresIn: store, analytics: sink.client,
+        userID: "user_a", withUsageIn: store, analytics: sink.client,
         deviceSettings: [.appearance(.dark), .textSize(2), .captureChannels(.stereo)], canIdentify: { true })
 
     guard case .identify(_, let set, _) = try #require(sink.calls.last) else {
@@ -990,7 +990,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     let sink = RecordingAnalyticsSink()
 
     _ = await AccountSession.identify(
-        userID: "user_a", withFiguresIn: store, analytics: sink.client, assistiveTech: [.voiceover, .boldText],
+        userID: "user_a", withUsageIn: store, analytics: sink.client, assistiveTech: [.voiceover, .boldText],
         canIdentify: { true })
 
     #expect(
@@ -1005,10 +1005,10 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
-    try await store.setMeta(.storage, to: StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0))
+    try await store.setMeta(.storage, to: StorageUsage(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0))
 
     _ = await AccountSession.identify(
-        userID: "user_a", withFiguresIn: store, analytics: sink.client, canIdentify: { true })
+        userID: "user_a", withUsageIn: store, analytics: sink.client, canIdentify: { true })
 
     guard case .identify(_, let set, _) = try #require(sink.calls.last) else {
         Issue.record("The last call is not an identify")
@@ -1038,32 +1038,32 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     try await store.write { writer in try writer.put(UserSettings(audioQuality: "high")) }
 
     _ = await AccountSession.identify(
-        userID: "user_a", withFiguresIn: store, analytics: sink.client, deviceSettings: [.appearance(.dark)],
+        userID: "user_a", withUsageIn: store, analytics: sink.client, deviceSettings: [.appearance(.dark)],
         canIdentify: { true })
 
     #expect(sink.calls == [.identify("user_a", set: ["setting_appearance": .string("dark")], setOnce: [:])])
 }
 
 @MainActor
-@Test func identifyingWithStoreFiguresNeverRevivesAResetPerson() async throws {
+@Test func identifyingWithStoreUsageNeverRevivesAResetPerson() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
-    try await store.setMeta(.storage, to: StorageFigures(usedBytes: 20_000_000, quotaBytes: 0, maxFileBytes: 0))
+    try await store.setMeta(.storage, to: StorageUsage(usedBytes: 20_000_000, quotaBytes: 0, maxFileBytes: 0))
 
     let carried = await AccountSession.identify(
-        userID: "user_a", withFiguresIn: store, analytics: sink.client, canIdentify: { false })
+        userID: "user_a", withUsageIn: store, analytics: sink.client, canIdentify: { false })
 
     #expect(!carried)
     #expect(sink.calls.isEmpty)
 }
 
-@Test func onlyASyncThatStoredTheFiguresIdentifiesWithThem() {
-    // A returning device still holds its last session's figures, so a sync whose storage
-    // call failed must not count them as fresh.
-    #expect(!AccountSession.identifiesAfterSync(storedFigures: false, reported: false))
-    #expect(AccountSession.identifiesAfterSync(storedFigures: true, reported: false))
-    #expect(!AccountSession.identifiesAfterSync(storedFigures: true, reported: true))
+@Test func onlyASyncThatStoredTheUsageIdentifiesWithIt() {
+    // A returning device still holds its last session's usage, so a sync whose storage
+    // call failed must not count it as fresh.
+    #expect(!AccountSession.identifiesAfterSync(storedUsage: false, reported: false))
+    #expect(AccountSession.identifiesAfterSync(storedUsage: true, reported: false))
+    #expect(!AccountSession.identifiesAfterSync(storedUsage: true, reported: true))
 }
 
 @Test func connectivityFiresOnceWhenGoingOnline() {
@@ -1115,8 +1115,8 @@ final class CountingSyncAPI: SyncAPI {
     func recordNotice(_ notice: PlanNotice) async throws {}
     func refreshBilling() async throws {}
 
-    func storage() async throws -> StorageFigures {
-        StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0)
+    func storage() async throws -> StorageUsage {
+        StorageUsage(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0)
     }
 
     func resolveLink(url: String) async throws -> ResolvedLink {

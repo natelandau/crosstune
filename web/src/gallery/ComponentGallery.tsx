@@ -64,8 +64,8 @@ function MenuSection() {
     setAnswer(ok ? 'Confirmed' : 'Declined')
   }
   return (
-    <section aria-labelledby="kit-menus">
-      <h2 id="kit-menus" className="t-heading">
+    <section aria-labelledby="gallery-menus">
+      <h2 id="gallery-menus" className="t-heading">
         Menus
       </h2>
       <div className="flex flex-wrap items-center gap-3 py-2">
@@ -100,8 +100,8 @@ function ChromeSection() {
   const { show } = useToast()
   const [ascending, setAscending] = useState(true)
   return (
-    <section aria-labelledby="kit-chrome">
-      <h2 id="kit-chrome" className="t-heading">
+    <section aria-labelledby="gallery-chrome">
+      <h2 id="gallery-chrome" className="t-heading">
         List chrome
       </h2>
       <ListHeader
@@ -151,18 +151,20 @@ function ChromeSection() {
   )
 }
 
-type KitSheet = 'part' | 'full' | 'locked'
+export const GALLERY_TITLE = 'Gallery'
+
+type GallerySheet = 'part' | 'full' | 'locked'
 
 function SheetSection() {
-  const [shown, setShown] = useState<KitSheet | null>(null)
+  const [shown, setShown] = useState<GallerySheet | null>(null)
   const [title, setTitle] = useState('')
   const close = () => setShown(null)
   const onOpenChange = (open: boolean) => {
     if (!open) close()
   }
   return (
-    <section aria-labelledby="kit-sheets">
-      <h2 id="kit-sheets" className="t-heading">
+    <section aria-labelledby="gallery-sheets">
+      <h2 id="gallery-sheets" className="t-heading">
         Sheets
       </h2>
       <div className="flex flex-wrap items-center gap-3 py-2">
@@ -213,14 +215,14 @@ function SheetSection() {
   )
 }
 
-export function KitPage() {
+export function ComponentGallery() {
   const density = useStampedDensity()
   return (
     <div className="px-4 pb-16">
-      <h1 className="t-page-title pt-6 pb-4">Kit</h1>
+      <h1 className="t-page-title pt-6 pb-4">{GALLERY_TITLE}</h1>
       <main className="flex flex-col gap-8">
-        <section aria-labelledby="kit-type">
-          <h2 id="kit-type" className="t-heading">
+        <section aria-labelledby="gallery-type">
+          <h2 id="gallery-type" className="t-heading">
             Type
           </h2>
           {TYPE_ROLES.map(([className, name]) => (
@@ -230,8 +232,8 @@ export function KitPage() {
           ))}
           <p className="t-body t-num">11 of 84 tunes</p>
         </section>
-        <section aria-labelledby="kit-buttons">
-          <h2 id="kit-buttons" className="t-heading">
+        <section aria-labelledby="gallery-buttons">
+          <h2 id="gallery-buttons" className="t-heading">
             Buttons
           </h2>
           <div role="group" aria-label="Density" className="flex items-center gap-2 py-2">
@@ -257,8 +259,8 @@ export function KitPage() {
             <Capsule label="Reel" set onRemove={() => {}} removeLabel={removeFilterLabel('Reel')} />
           </div>
         </section>
-        <section aria-labelledby="kit-music">
-          <h2 id="kit-music" className="t-heading">
+        <section aria-labelledby="gallery-music">
+          <h2 id="gallery-music" className="t-heading">
             Status and keys
           </h2>
           <div className="flex flex-wrap items-center gap-3 py-2">
@@ -282,8 +284,8 @@ export function KitPage() {
             <KeyCap keyName="K" />
           </div>
         </section>
-        <section aria-labelledby="kit-rows">
-          <h2 id="kit-rows" className="t-heading">
+        <section aria-labelledby="gallery-rows">
+          <h2 id="gallery-rows" className="t-heading">
             Rows
           </h2>
           <RowList label="Catalog tunes" selectionMode="multiple">

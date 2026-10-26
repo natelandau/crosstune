@@ -85,8 +85,8 @@ export function scansLine(scans: number, tunes: number): string {
   return `${countScans(scans)} across ${countTunes(tunes)}`
 }
 
-/** The counts block's tally of lists and links, then scans once there are any. */
-export function tallyLine({
+/** The counts block's counts line of lists and links, then scans once there are any. */
+export function countsLine({
   lists,
   links,
   scans,

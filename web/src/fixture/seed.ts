@@ -177,7 +177,7 @@ const slug = (title: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
 
-// scripts/kit-shots.mjs deep-links to these two ids by their slugs.
+// scripts/gallery-shots.mjs deep-links to these two ids by their slugs.
 const FIXTURE_TUNE = slug("Soldier's Joy")
 const FIXTURE_OTHER_TUNE = slug('Cluck Old Hen')
 const FORKED_DEER = slug('Forked Deer')

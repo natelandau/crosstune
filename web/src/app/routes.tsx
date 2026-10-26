@@ -40,14 +40,21 @@ const knownSettingsPage: RouteObject['loader'] = ({ params }) => {
 const legacySavedLocation: RouteObject['loader'] = ({ params }) =>
   replace(savedLocationPath(params.placeId ?? ''))
 
-// A literal flag, so a production build drops the kit's import and never emits its chunk.
-const KIT: RouteObject[] = import.meta.env.DEV
-  ? [{ path: '/kit', lazy: async () => ({ Component: (await import('../kit/KitPage')).KitPage }) }]
+// A literal flag, so a production build drops the gallery's import and never emits its chunk.
+const GALLERY: RouteObject[] = import.meta.env.DEV
+  ? [
+      {
+        path: '/gallery',
+        lazy: async () => ({
+          Component: (await import('../gallery/ComponentGallery')).ComponentGallery,
+        }),
+      },
+    ]
   : []
 
 /**
  * Tab-scoped like native stacks: a tune opened from a list stays in Lists and Back returns to the
- * list. `dev` adds the component kit, a design review page only a dev server builds or serves.
+ * list. `dev` adds the component gallery, a design review page only a dev server builds or serves.
  */
 export function appRoutes(dev: boolean): RouteObject[] {
   return [
@@ -57,7 +64,7 @@ export function appRoutes(dev: boolean): RouteObject[] {
         { path: '/', loader: () => replace(destination('catalog').root) },
         // A signed-in visit here, such as the one right after a sign-up, belongs in the app.
         { path: SIGN_UP_PATH, loader: () => replace('/') },
-        ...(dev ? KIT : []),
+        ...(dev ? GALLERY : []),
         {
           path: '/catalog',
           // No index route: at the root the outlet is empty, which is what shows the list alone.

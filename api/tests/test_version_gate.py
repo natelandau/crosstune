@@ -12,7 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from crosstune.config import Settings
 from crosstune.errors import UPDATE_REQUIRED_PROBLEM
 from crosstune.main import create_app
-from crosstune.models import ClientVersionSighting, User
+from crosstune.models import AccountClientVersion, User
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,11 +32,11 @@ def _client(platform: str, version: str) -> dict[str, str]:
 BLOCKED = _client("ios", "1.2.3")
 
 
-async def _sightings(session: AsyncSession) -> list[tuple[str, str]]:
+async def _client_versions(session: AsyncSession) -> list[tuple[str, str]]:
     session.expire_all()
     result = await session.execute(
-        select(ClientVersionSighting.platform, ClientVersionSighting.version).order_by(
-            ClientVersionSighting.platform
+        select(AccountClientVersion.platform, AccountClientVersion.version).order_by(
+            AccountClientVersion.platform
         )
     )
     return [tuple(row) for row in result]
@@ -88,7 +88,7 @@ async def test_an_oversized_version_is_ignored(
     await _provision(client, auth_headers, "u1")
     r = await client.get("/v1/me", headers=auth_headers("u1") | _client("ios", version))
     assert r.status_code == 200, r.text
-    assert await _sightings(verify_session) == []
+    assert await _client_versions(verify_session) == []
 
 
 async def test_no_floor_blocks_nothing(client, app, auth_headers) -> None:
@@ -102,7 +102,7 @@ async def test_blocked_with_an_invalid_token_still_gets_426(
 ) -> None:
     r = await client.get("/v1/me", headers={"Authorization": "Bearer nope"} | BLOCKED)
     assert r.status_code == 426
-    assert await _sightings(verify_session) == []
+    assert await _client_versions(verify_session) == []
 
 
 async def test_blocked_without_a_token_still_gets_426(client) -> None:
@@ -111,7 +111,7 @@ async def test_blocked_without_a_token_still_gets_426(client) -> None:
 
 
 async def test_blocked_push_with_a_body_gets_426(client, app, auth_headers) -> None:
-    # Over the body cap too: the gate answers before the body is admitted or read.
+    # Over the body cap too: the gate answers before the body is checked or read.
     app.state.settings.max_request_body_bytes = 10
     r = await client.post(
         "/v1/sync/push",
@@ -128,7 +128,7 @@ async def test_blocked_request_records_the_version(
     await _provision(client, auth_headers, "u1")
     r = await client.get("/v1/me", headers=auth_headers("u1") | BLOCKED)
     assert r.status_code == 426
-    assert await _sightings(verify_session) == [("ios", "1.2.3")]
+    assert await _client_versions(verify_session) == [("ios", "1.2.3")]
 
 
 async def test_blocked_gets_426_when_the_account_lookup_fails(
@@ -150,7 +150,7 @@ async def test_blocked_gets_426_when_the_account_lookup_fails(
     r = await client.get("/v1/me", headers=auth_headers("u1") | BLOCKED)
     assert r.status_code == 426
     assert r.json()["type"] == UPDATE_REQUIRED_PROBLEM
-    assert await _sightings(verify_session) == []
+    assert await _client_versions(verify_session) == []
 
 
 async def test_blocked_unknown_user_is_not_provisioned(
@@ -167,7 +167,7 @@ async def test_accepted_request_records_the_version(
     await _provision(client, auth_headers, "u1")
     r = await client.get("/v1/me", headers=auth_headers("u1") | _client("ios", "1.3.0"))
     assert r.status_code == 200, r.text
-    assert await _sightings(verify_session) == [("ios", "1.3.0")]
+    assert await _client_versions(verify_session) == [("ios", "1.3.0")]
 
 
 async def test_the_request_that_creates_the_account_records_the_version(
@@ -175,7 +175,7 @@ async def test_the_request_that_creates_the_account_records_the_version(
 ) -> None:
     r = await client.get("/v1/me", headers=auth_headers("u1") | _client("ios", "1.3.0"))
     assert r.status_code == 200, r.text
-    assert await _sightings(verify_session) == [("ios", "1.3.0")]
+    assert await _client_versions(verify_session) == [("ios", "1.3.0")]
 
 
 async def test_failed_route_still_records(
@@ -187,7 +187,7 @@ async def test_failed_route_still_records(
         headers=auth_headers("u1") | _client("macos", "2.0"),
     )
     assert r.status_code == 404
-    assert await _sightings(verify_session) == [("macos", "2.0")]
+    assert await _client_versions(verify_session) == [("macos", "2.0")]
 
 
 async def test_webhooks_and_healthz_are_never_gated(client) -> None:

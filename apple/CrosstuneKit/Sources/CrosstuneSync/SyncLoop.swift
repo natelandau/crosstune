@@ -16,14 +16,14 @@ protocol LoopStatus: Hashable, Sendable {
 /// A run gave up at a request boundary because its loop was stopped.
 struct RunStopped: Error {}
 
-/// How long each retry of a failing streak waits; the last delay repeats.
+/// How long each retry after consecutive failures waits; the last delay repeats.
 let retryBackoff: [Duration] = [1, 2, 4, 8, 16, 32, 60].map { .seconds($0) }
 
 /// A serialized run loop.
 ///
 /// A trigger while a run is in flight coalesces into one more run after it. A failed run backs
-/// off and retries, and the first failure of a streak is logged. A streak that lasts is handed to
-/// `onLastingFailure` once.
+/// off and retries, and the first of consecutive failures is logged. A persistent failure is handed
+/// to `onPersistentFailure` once.
 @MainActor @Observable
 final class SyncLoop<Status: LoopStatus> {
     private(set) var status = Status.idle
@@ -34,14 +34,14 @@ final class SyncLoop<Status: LoopStatus> {
     private let isStopped: @MainActor () -> Bool
     private let afterRun: @MainActor () -> Void
     /// Called when a run fails into a state other than offline that the last reported failure of
-    /// this streak was not in, with that state and the error.
+    /// these consecutive failures was not in, with that state and the error.
     private let onFailure: @MainActor (Status, any Error) -> Void
-    /// Whether a failure counts toward a streak worth reporting. One that does not ends the
-    /// streak, as offline does.
+    /// Whether a failure counts toward a persistent failure worth reporting. One that does not
+    /// ends the consecutive failures, as offline does.
     private let isReportable: @MainActor (Status, any Error) -> Bool
-    /// Called once per streak of reportable failures, on the first failure at least
-    /// ``lastingFailure`` after the streak's first, with that state and the error.
-    private let onLastingFailure: @MainActor (Status, any Error) -> Void
+    /// Called once per run of consecutive reportable failures, on the first failure at least
+    /// ``persistentFailure`` after the run's first, with that state and the error.
+    private let onPersistentFailure: @MainActor (Status, any Error) -> Void
     private let now: @MainActor () -> Date
     private let sleep: Sleeper
     private let logger: Logger
@@ -49,10 +49,10 @@ final class SyncLoop<Status: LoopStatus> {
     @ObservationIgnored private var running: Task<Void, Never>?
     @ObservationIgnored private var again = false
     @ObservationIgnored private var failures = 0
-    /// The failed state last reported in the current streak of failures; a clean run ends it.
+    /// The failed state last reported in the current consecutive failures; a clean run ends them.
     @ObservationIgnored private var reportedFailure: Status?
     @ObservationIgnored private var retry: Task<Void, Never>?
-    @ObservationIgnored private var streak = FailureStreak(lasting: lastingFailure)
+    @ObservationIgnored private var consecutiveFailures = ConsecutiveFailures(persistsFor: persistentFailure)
 
     init(
         name: String,
@@ -63,7 +63,7 @@ final class SyncLoop<Status: LoopStatus> {
         onFailure: @escaping @MainActor (Status, any Error) -> Void = { _, _ in },
         now: @escaping @MainActor () -> Date = Date.init,
         isReportable: @escaping @MainActor (Status, any Error) -> Bool = { _, _ in true },
-        onLastingFailure: @escaping @MainActor (Status, any Error) -> Void = { _, _ in },
+        onPersistentFailure: @escaping @MainActor (Status, any Error) -> Void = { _, _ in },
         run: @escaping @MainActor () async throws -> Void
     ) {
         self.run = run
@@ -73,7 +73,7 @@ final class SyncLoop<Status: LoopStatus> {
         self.onFailure = onFailure
         self.now = now
         self.isReportable = isReportable
-        self.onLastingFailure = onLastingFailure
+        self.onPersistentFailure = onPersistentFailure
         self.sleep = sleep
         logger = Logger(subsystem: "app.crosstune.Crosstune", category: name)
     }
@@ -120,7 +120,7 @@ final class SyncLoop<Status: LoopStatus> {
             try await run()
             failures = 0
             reportedFailure = nil
-            streak.ended()
+            consecutiveFailures.ended()
             cancelRetry()
             status = .idle
         } catch is RunStopped {
@@ -128,7 +128,7 @@ final class SyncLoop<Status: LoopStatus> {
             status = before
         } catch {
             let next = classify(error)
-            // Once per streak: a retry that fails the same way adds nothing.
+            // Once per run of failures: a retry that fails the same way adds nothing.
             if next != .offline && failures == 0 {
                 logger.error("Run failed: \(logDescription(of: error), privacy: .public)")
             }
@@ -137,11 +137,11 @@ final class SyncLoop<Status: LoopStatus> {
                 reportedFailure = next
                 onFailure(next, error)
             }
-            // Checked before the streak, so a failure never reported cannot spend its one report.
+            // Checked before the consecutive failures, so a failure never reported cannot spend its one report.
             if next == .offline || !isReportable(next, error) {
-                streak.ended()
-            } else if streak.failed(at: now()) {
-                onLastingFailure(next, error)
+                consecutiveFailures.ended()
+            } else if consecutiveFailures.failed(at: now()) {
+                onPersistentFailure(next, error)
             }
             if !isStopped() { scheduleRetry() }
         }

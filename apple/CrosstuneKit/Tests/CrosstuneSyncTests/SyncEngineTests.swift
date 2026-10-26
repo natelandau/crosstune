@@ -463,15 +463,15 @@ import Testing
         #expect(try await store.pendingChangeCount() == 0)
     }
 
-    @Test func keepsTheStorageFigures() async throws {
+    @Test func keepsTheStorageUsage() async throws {
         let engine = engine()
 
         await engine.sync()
 
-        #expect(try await store.meta(.storage, as: StorageFigures.self) == api.figures)
+        #expect(try await store.meta(.storage, as: StorageUsage.self) == api.usage)
     }
 
-    @Test func finishesCleanWhenOnlyTheStorageFiguresFail() async throws {
+    @Test func finishesCleanWhenOnlyTheStorageUsageFail() async throws {
         api.storageFailure = APIStatusError(status: 500)
         let engine = engine()
 
@@ -479,10 +479,10 @@ import Testing
 
         #expect(engine.status == .idle)
         #expect(engine.lastSyncedAt != nil)
-        #expect(try await store.meta(.storage, as: StorageFigures.self) == nil)
+        #expect(try await store.meta(.storage, as: StorageUsage.self) == nil)
     }
 
-    @Test func reportsWhetherTheRunStoredTheStorageFigures() async throws {
+    @Test func reportsWhetherTheRunStoredTheStorageUsage() async throws {
         let engine = engine()
         var stored: [Bool] = []
         engine.onSynced = { stored.append($0) }
@@ -496,7 +496,7 @@ import Testing
         engine.stop()
     }
 
-    @Test func failsTheRunWhenTheStorageFiguresAreRefused() async throws {
+    @Test func failsTheRunWhenTheStorageUsageAreRefused() async throws {
         api.storageFailure = APIStatusError(status: 401)
         let engine = engine()
 
@@ -597,15 +597,15 @@ import Testing
         }
     }
 
-    func holds() async throws -> Set<String> {
-        try await store.read { db in try StoreWriter.premiumHolds(in: db) }
+    func localOnlyRows() async throws -> Set<String> {
+        try await store.read { db in try StoreWriter.localOnlyRows(in: db) }
     }
 
-    @Test func aFreePlanLeavesAHeldTakeOutButSendsItsDelete() async throws {
+    @Test func aFreePlanLeavesALocalOnlyTakeOutButSendsItsDelete() async throws {
         try await storeEntitlement(store, source: nil)
         let tune = try await createTune(store, title: "X")
         try await putTake("r1")
-        try await store.write { writer in try writer.holdForPremium(["r1"]) }
+        try await store.write { writer in try writer.keepLocalUntilSubscribed(["r1"]) }
         let engine = engine()
 
         await engine.sync()
@@ -622,14 +622,14 @@ import Testing
         #expect(api.pushes[1].map(\.id) == ["r1"])
         #expect(api.pushes[1].first?.op == .delete)
         #expect(try await store.pendingChangeCount() == 0)
-        #expect(try await holds().isEmpty)
+        #expect(try await localOnlyRows().isEmpty)
     }
 
-    @Test func aPremiumPlanJudgedByTheEnginesClockSendsAHeldTake() async throws {
+    @Test func aPremiumPlanJudgedByTheEnginesClockSendsALocalOnlyTake() async throws {
         // Ended by the real clock, but not by the engine's.
         try await storeEntitlement(store, source: "trial", expiresAt: later(3_600_000))
         try await putTake("r1")
-        try await store.write { writer in try writer.holdForPremium(["r1"]) }
+        try await store.write { writer in try writer.keepLocalUntilSubscribed(["r1"]) }
         api.respondToPush = { changes in changes.map { PushResult(table: $0.table, id: $0.id, status: .applied) } }
         let engine = engine(now: { noon.date })
 
@@ -638,14 +638,14 @@ import Testing
         #expect(api.pushes.first?.map(\.id) == ["r1"])
         #expect(engine.status == .idle)
         #expect(try await store.pendingChangeCount() == 0)
-        #expect(try await holds().isEmpty)
+        #expect(try await localOnlyRows().isEmpty)
     }
 
-    @Test func aHeldTakesDeleteTheServerNeverStoredStillReleasesItsHold() async throws {
+    @Test func aLocalOnlyTakesDeleteTheServerNeverStoredStillReleasesIt() async throws {
         try await storeEntitlement(store, source: nil)
         try await putTake("r1")
         try await store.write { writer in
-            try writer.holdForPremium(["r1"])
+            try writer.keepLocalUntilSubscribed(["r1"])
             try writer.tombstone(Recording.self, id: "r1", at: later(1_000))
         }
         api.respondToPush = { changes in
@@ -656,10 +656,10 @@ import Testing
 
         #expect(api.pushes.first?.map(\.op) == [.delete])
         #expect(try await store.pendingChangeCount() == 0)
-        #expect(try await holds().isEmpty)
+        #expect(try await localOnlyRows().isEmpty)
     }
 
-    @Test func heldTakesFillingWholeBatchesDoNotStarveTheEditsBehindThem() async throws {
+    @Test func localOnlyTakesFillingWholeBatchesDoNotStarveTheEditsBehindThem() async throws {
         for id in ["r1", "r2", "r3"] { try await putTake(id) }
         let tune = try await createTune(store, title: "X")
         api.respondToPush = { changes in
@@ -678,7 +678,7 @@ import Testing
         #expect(sent.filter { ["r1", "r2", "r3"].contains($0) } == ["r1", "r2", "r3"])
         #expect(engine.status == .idle)
         #expect(Set(try await store.pendingChanges(limit: 10).map(\.rowID)) == ["r1", "r2", "r3"])
-        #expect(try await holds() == ["r1", "r2", "r3"])
+        #expect(try await localOnlyRows() == ["r1", "r2", "r3"])
     }
 
     func putLoop(_ id: String, on recordingID: String) async throws {
@@ -689,7 +689,7 @@ import Testing
         }
     }
 
-    @Test func aHeldTakesLoopStaysQueuedWithItAndGoesOutOnceReleased() async throws {
+    @Test func aLocalOnlyTakesLoopStaysQueuedWithItAndGoesOutOnceReleased() async throws {
         try await putTake("r1")
         try await putLoop("l1", on: "r1")
         api.respondToPush = { changes in
@@ -713,15 +713,15 @@ import Testing
 
         #expect(api.pushes.last.map { Set($0.map(\.id)) } == ["r1", "l1"])
         #expect(try await store.pendingChangeCount() == 0)
-        #expect(try await holds().isEmpty)
+        #expect(try await localOnlyRows().isEmpty)
     }
 
-    @Test func aFreePlanLeavesAHeldTakesLoopOut() async throws {
+    @Test func aFreePlanLeavesALocalOnlyTakesLoopOut() async throws {
         try await storeEntitlement(store, source: nil)
         let tune = try await createTune(store, title: "X")
         try await putTake("r1")
         try await putLoop("l1", on: "r1")
-        try await store.write { writer in try writer.holdForPremium(["r1"]) }
+        try await store.write { writer in try writer.keepLocalUntilSubscribed(["r1"]) }
 
         await engine().sync()
 
@@ -751,7 +751,7 @@ import Testing
         }
     }
 
-    @Test func aHeldTakesPlayAndPracticeStayQueuedWithItAndGoOutOnceReleased() async throws {
+    @Test func aLocalOnlyTakesPlayAndPracticeStayQueuedWithItAndGoOutOnceReleased() async throws {
         try await putTake("r1")
         try await recordPlay(store, id: "e1")
         try await recordPractice("s1", on: "r1")
@@ -768,10 +768,10 @@ import Testing
 
         #expect(api.pushes.last.map { Set($0.map(\.id)) } == ["r1", "e1", "s1"])
         #expect(try await store.pendingChangeCount() == 0)
-        #expect(try await holds().isEmpty)
+        #expect(try await localOnlyRows().isEmpty)
     }
 
-    @Test func aRowMissingARecordingThatIsNotHeldSettles() async throws {
+    @Test func aRowMissingARecordingThatIsNotLocalOnlySettles() async throws {
         try await recordPlay(store, id: "e1")
         try await putLoop("l1", on: "r1")
         refuseTakesAndTheirRows()
@@ -783,11 +783,11 @@ import Testing
         #expect(try await store.meta(.invalidChanges, as: Int.self) == 1)
     }
 
-    @Test func aHeldTakesDeleteReleasesItsRowsInTheSameBatch() async throws {
+    @Test func aLocalOnlyTakesDeleteReleasesItsRowsInTheSameBatch() async throws {
         try await putTake("r1")
         try await recordPlay(store, id: "e1")
         try await store.write { writer in
-            try writer.holdForPremium(["r1"])
+            try writer.keepLocalUntilSubscribed(["r1"])
             try writer.tombstone(Recording.self, id: "r1", at: later(1_000))
         }
         api.respondToPush = { changes in
@@ -802,30 +802,30 @@ import Testing
 
         #expect(api.pushes.map { Set($0.map(\.id)) } == [["r1", "e1"]])
         #expect(try await store.pendingChangeCount() == 0)
-        #expect(try await holds().isEmpty)
+        #expect(try await localOnlyRows().isEmpty)
     }
 
     /// A tune's delete drops its recordings' queued changes rather than queuing their deletes,
     /// as the server's cascade covers them.
     @Test(arguments: [nil, "comp"])
-    func aHeldTakeDroppedByACascadeLetsItsRowsSettle(source: String?) async throws {
+    func aLocalOnlyTakeDroppedByACascadeLetsItsRowsSettle(source: String?) async throws {
         try await storeEntitlement(store, source: source)
         try await putTake("r1")
         try await recordPlay(store, id: "e1")
         try await store.write { writer in
-            try writer.holdForPremium(["r1"])
+            try writer.keepLocalUntilSubscribed(["r1"])
             try writer.tombstone(Recording.self, id: "r1", at: later(1_000), enqueueDelete: false)
         }
         refuseTakesAndTheirRows()
 
         await engine().sync()
 
-        #expect(try await holds().isEmpty)
+        #expect(try await localOnlyRows().isEmpty)
         #expect(try await store.pendingChangeCount() == 0)
         #expect(try await store.read { db in try PlayEvent.fetchCount(db) } == 0)
     }
 
-    @Test func aPushWhoseResultsAreAllHeldEnds() async throws {
+    @Test func aPushWhoseResultsAreAllKeptLocalEnds() async throws {
         try await putTake("r1")
         api.respondToPush = { changes in
             changes.map {
@@ -839,7 +839,7 @@ import Testing
         #expect(api.pushes.count == 1)
         #expect(engine.status == .idle)
         #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["r1"])
-        #expect(try await holds() == ["r1"])
+        #expect(try await localOnlyRows() == ["r1"])
     }
 
     // MARK: Seen notices

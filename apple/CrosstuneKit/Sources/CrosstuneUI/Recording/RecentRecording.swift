@@ -1,19 +1,19 @@
 import Observation
 import SwiftUI
 
-/// The take saved last, so the row it landed on can light up once. The shell sets it as the
+/// The recording saved last, so the row it landed on can light up once. The shell sets it as the
 /// record sheet closes; the row whose recording matches clears it when its highlight ends.
 @MainActor
 @Observable
-public final class RecentTake {
+public final class RecentRecording {
     /// How long a mark stays claimable: the highlight plus a grace for a row that appears late.
-    static let lifetime: Duration = PhoneStyle.newTakeHighlight + .seconds(3.5)
+    static let lifetime: Duration = PhoneStyle.newRecordingHighlight + .seconds(3.5)
 
     @ObservationIgnored private let now: () -> Date
     private var markedID: String?
     @ObservationIgnored private var markedAt = Date.distantPast
 
-    /// The take to highlight, or nil once cleared or older than ``lifetime``, so a row that
+    /// The recording to highlight, or nil once cleared or older than ``lifetime``, so a row that
     /// shows long after the save does not light up.
     public var id: String? {
         guard let markedID, now().timeIntervalSince(markedAt) <= Self.lifetime.seconds else { return nil }
@@ -37,12 +37,12 @@ public final class RecentTake {
     }
 }
 
-/// How a highlight spends `PhoneStyle.newTakeHighlight`: a quarter fading in, half held, a
+/// How a highlight spends `PhoneStyle.newRecordingHighlight`: a quarter fading in, half held, a
 /// quarter fading out.
 enum HighlightTiming {
-    static let fadeIn: Duration = PhoneStyle.newTakeHighlight / 4
-    static let hold: Duration = PhoneStyle.newTakeHighlight / 2
-    static let fadeOut: Duration = PhoneStyle.newTakeHighlight / 4
+    static let fadeIn: Duration = PhoneStyle.newRecordingHighlight / 4
+    static let hold: Duration = PhoneStyle.newRecordingHighlight / 2
+    static let fadeOut: Duration = PhoneStyle.newRecordingHighlight / 4
 }
 
 /// One highlight's sequence: light up, hold, fade out, then clear the mark. Cut short, by a
@@ -70,10 +70,10 @@ struct HighlightRun {
 }
 
 /// Washes a recording's row in the accent while it is the take just saved, then clears the mark.
-private struct NewTakeHighlight: ViewModifier {
+private struct NewRecordingHighlight: ViewModifier {
     let recordingID: String
 
-    @Environment(RecentTake.self) private var recentTake: RecentTake?
+    @Environment(RecentRecording.self) private var recentRecording: RecentRecording?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
     @State private var lit = false
@@ -84,11 +84,11 @@ private struct NewTakeHighlight: ViewModifier {
                 RoundedRectangle(cornerRadius: 10).fill(Self.wash(scheme)).opacity(lit ? 1 : 0)
             }
             // Keyed on the id, so a take marked before the row appears still lights it.
-            .task(id: recentTake?.id) {
-                guard let recentTake, recentTake.id == recordingID else { return }
+            .task(id: recentRecording?.id) {
+                guard let recentRecording, recentRecording.id == recordingID else { return }
                 await HighlightRun(
                     set: set, sleep: { try await Task.sleep(for: $0) },
-                    clear: { recentTake.clear(ifID: recordingID) }
+                    clear: { recentRecording.clear(ifID: recordingID) }
                 ).run()
             }
     }
@@ -113,8 +113,8 @@ extension Duration {
 }
 
 extension View {
-    /// Highlights the row for `recordingID` when it is the take just saved.
-    func newTakeHighlight(_ recordingID: String) -> some View {
-        modifier(NewTakeHighlight(recordingID: recordingID))
+    /// Highlights the row for `recordingID` when it is the recording just saved.
+    func newRecordingHighlight(_ recordingID: String) -> some View {
+        modifier(NewRecordingHighlight(recordingID: recordingID))
     }
 }

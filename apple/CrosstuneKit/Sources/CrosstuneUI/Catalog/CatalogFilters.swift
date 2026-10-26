@@ -120,7 +120,7 @@ public enum MissingAttribute: Hashable, Sendable, RawRepresentable {
 
     /// Whether the entry holds nothing for this attribute.
     func isMissing(in entry: CatalogEntry) -> Bool {
-        !values(of: entry).contains(where: CatalogSearch.isHeld)
+        !values(of: entry).contains(where: CatalogSearch.hasText)
     }
 }
 
@@ -299,7 +299,7 @@ public enum CatalogSearch {
     }
 
     /// Whether a value holds anything the fold keeps; whitespace or combining marks alone are blank.
-    static func isHeld(_ value: String?) -> Bool {
+    static func hasText(_ value: String?) -> Bool {
         !foldText(value ?? "").isEmpty
     }
 
@@ -324,7 +324,7 @@ public enum CatalogSearch {
             }
             values[facet] = groupByFold(held) { $0 }.map(\.shown).sorted(by: precedes)
         }
-        if let keys = values[.key], !keys.isEmpty, entries.contains(where: { !isHeld($0.tune.key) }) {
+        if let keys = values[.key], !keys.isEmpty, entries.contains(where: { !hasText($0.tune.key) }) {
             values[.key] = [CatalogFilters.noKey] + keys
         }
         return values

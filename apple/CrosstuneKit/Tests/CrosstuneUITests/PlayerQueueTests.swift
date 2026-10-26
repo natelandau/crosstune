@@ -53,14 +53,14 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
 
 @MainActor
 @Suite struct PlayerQueueTests {
-    private struct Rig {
+    private struct Fixture {
         let player: PlayerModel
         let audio: FakeAudio
         let music: FakeMusic
         let queue: FakeQueue
     }
 
-    private func rig(_ state: AppleMusicAccessState = .fullTracks, found: Bool = true) -> Rig {
+    private func fixture(_ state: AppleMusicAccessState = .fullTracks, found: Bool = true) -> Fixture {
         let audio = FakeAudio()
         let music = FakeMusic()
         music.found = found
@@ -73,560 +73,560 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         }
         let queue = FakeQueue()
         player.queue = queue
-        return Rig(player: player, audio: audio, music: music, queue: queue)
+        return Fixture(player: player, audio: audio, music: music, queue: queue)
     }
 
-    private func queueRecording(_ rig: Rig) async throws {
-        rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.player.recordingAudio == .loaded }
+    private func queueRecording(_ fixture: Fixture) async throws {
+        fixture.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.player.recordingAudio == .loaded }
     }
 
-    private func queueSong(_ rig: Rig) async throws {
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.player.linkAudio == .native }
+    private func queueSong(_ fixture: Fixture) async throws {
+        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.player.linkAudio == .native }
     }
 
     @Test func aQueuedRecordingTurnsOffIntervalSkips() async throws {
-        let rig = rig()
-        try await queueRecording(rig)
-        #expect(!rig.audio.skipsByInterval)
-        rig.player.close()
-        #expect(rig.audio.skipsByInterval)
+        let fixture = fixture()
+        try await queueRecording(fixture)
+        #expect(!fixture.audio.skipsByInterval)
+        fixture.player.close()
+        #expect(fixture.audio.skipsByInterval)
     }
 
     @Test func aQueuedTrackHoldsTheSessionUntilTheQueueLeaves() async throws {
-        let rig = rig()
-        try await queueRecording(rig)
-        #expect(rig.audio.holdsSession)
-        #expect(!rig.audio.calls.contains("releaseSession"))
-        rig.player.close()
-        #expect(!rig.audio.holdsSession)
-        #expect(rig.audio.calls.last == "releaseSession")
+        let fixture = fixture()
+        try await queueRecording(fixture)
+        #expect(fixture.audio.holdsSession)
+        #expect(!fixture.audio.calls.contains("releaseSession"))
+        fixture.player.close()
+        #expect(!fixture.audio.holdsSession)
+        #expect(fixture.audio.calls.last == "releaseSession")
     }
 
     @Test func aQueuedSongYieldsTheSessionAndLoadsGuarded() async throws {
-        let rig = rig()
-        rig.music.holdsLoads = true
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.music.isHoldingLoad }
+        let fixture = fixture()
+        fixture.music.holdsLoads = true
+        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.music.isHoldingLoad }
         // The load is still waiting, so the yield came first.
-        #expect(rig.audio.calls == ["yieldSessionToMusic"])
-        rig.music.release()
-        try await eventually { rig.player.linkAudio == .native }
-        #expect(rig.music.loaded == [.song(id: "1440833090")])
-        #expect(rig.music.guardedLoads == [true])
-        #expect(rig.music.calls == ["load", "play"])
-        #expect(!rig.player.isExpanded)
+        #expect(fixture.audio.calls == ["yieldSessionToMusic"])
+        fixture.music.release()
+        try await eventually { fixture.player.linkAudio == .native }
+        #expect(fixture.music.loaded == [.song(id: "1440833090")])
+        #expect(fixture.music.guardedLoads == [true])
+        #expect(fixture.music.calls == ["load", "play"])
+        #expect(!fixture.player.isExpanded)
     }
 
     @Test func aQueuedSongLoadedPausedTellsTheTunerItYieldedForNothing() async throws {
-        let rig = rig()
+        let fixture = fixture()
         var told = 0
-        rig.player.playbackDidNotStart = { told += 1 }
-        rig.player.playQueued(
+        fixture.player.playbackDidNotStart = { told += 1 }
+        fixture.player.playQueued(
             try songItem(), nowPlaying: queuedNowPlaying, autoplay: false, trigger: .autoAdvance)
-        try await eventually { rig.player.linkAudio == .native }
+        try await eventually { fixture.player.linkAudio == .native }
 
-        #expect(rig.audio.calls == ["yieldSessionToMusic"])
-        #expect(!rig.music.calls.contains("play"))
+        #expect(fixture.audio.calls == ["yieldSessionToMusic"])
+        #expect(!fixture.music.calls.contains("play"))
         #expect(told == 1)
     }
 
     @Test func aQueuedSongThatPlaysLeavesTheTunerWaiting() async throws {
-        let rig = rig()
+        let fixture = fixture()
         var told = 0
-        rig.player.playbackDidNotStart = { told += 1 }
-        try await queueSong(rig)
+        fixture.player.playbackDidNotStart = { told += 1 }
+        try await queueSong(fixture)
 
-        #expect(rig.music.calls == ["load", "play"])
+        #expect(fixture.music.calls == ["load", "play"])
         #expect(told == 0)
     }
 
     @Test func aSongStillBeingLookedUpLoadsPausedForTheTuner() async throws {
-        let rig = rig()
-        rig.music.holdsLoads = true
-        rig.player.play(try songItem())
-        try await eventually { rig.music.isHoldingLoad }
-        #expect(rig.player.linkAudio == .deciding)
+        let fixture = fixture()
+        fixture.music.holdsLoads = true
+        fixture.player.play(try songItem())
+        try await eventually { fixture.music.isHoldingLoad }
+        #expect(fixture.player.linkAudio == .deciding)
 
-        rig.player.quietForTuner()
-        rig.music.release()
+        fixture.player.quietForTuner()
+        fixture.music.release()
 
-        try await eventually { rig.player.linkAudio == .native }
-        #expect(rig.music.calls == ["load"])
-        #expect(rig.player.isLoaded)
+        try await eventually { fixture.player.linkAudio == .native }
+        #expect(fixture.music.calls == ["load"])
+        #expect(fixture.player.isLoaded)
     }
 
     @Test func aQueuedSongStillBeingLookedUpLoadsPausedForTheTuner() async throws {
-        let rig = rig()
-        rig.music.holdsLoads = true
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.music.isHoldingLoad }
+        let fixture = fixture()
+        fixture.music.holdsLoads = true
+        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.music.isHoldingLoad }
 
-        rig.player.quietForTuner()
-        rig.music.release()
+        fixture.player.quietForTuner()
+        fixture.music.release()
 
-        try await eventually { rig.player.linkAudio == .native }
-        #expect(rig.music.calls == ["load"])
-        #expect(rig.player.queue != nil)
+        try await eventually { fixture.player.linkAudio == .native }
+        #expect(fixture.music.calls == ["load"])
+        #expect(fixture.player.queue != nil)
     }
 
     @Test func queuingTheLoadedSongAgainReloadsIt() async throws {
-        let rig = rig()
-        try await queueSong(rig)
-        rig.music.end(.finished)
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.music.loaded.count == 2 && rig.player.linkAudio == .native }
-        #expect(rig.music.guardedLoads == [true, true])
-        #expect(rig.music.calls == ["load", "play", "stop", "load", "play"])
+        let fixture = fixture()
+        try await queueSong(fixture)
+        fixture.music.end(.finished)
+        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.music.loaded.count == 2 && fixture.player.linkAudio == .native }
+        #expect(fixture.music.guardedLoads == [true, true])
+        #expect(fixture.music.calls == ["load", "play", "stop", "load", "play"])
     }
 
     @Test func queuingTheLoadedRecordingAgainReloadsIt() async throws {
-        let rig = rig()
-        try await queueRecording(rig)
-        rig.audio.end(.finished)
-        rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.audio.calls.count(where: { $0 == "load" }) == 2 && rig.audio.isPlaying }
-        #expect(rig.audio.calls.count(where: { $0 == "play" }) == 2)
+        let fixture = fixture()
+        try await queueRecording(fixture)
+        fixture.audio.end(.finished)
+        fixture.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.audio.calls.count(where: { $0 == "load" }) == 2 && fixture.audio.isPlaying }
+        #expect(fixture.audio.calls.count(where: { $0 == "play" }) == 2)
     }
 
     @Test(arguments: [AppleMusicAccessState.noSubscription, .declined, .notAsked])
     func aQueuedSongWithoutAccessReportsCouldNotPlay(state: AppleMusicAccessState) async throws {
-        let rig = rig(state)
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.queue.calls == ["couldNotPlay"] }
-        #expect(rig.player.linkAudio == nil)
-        #expect(rig.player.embed == nil)
-        #expect(!rig.player.isLoaded)
-        #expect(!rig.player.isExpanded)
-        #expect(rig.music.loaded.isEmpty)
-        #expect(!rig.music.calls.contains("play"))
+        let fixture = fixture(state)
+        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.queue.calls == ["couldNotPlay"] }
+        #expect(fixture.player.linkAudio == nil)
+        #expect(fixture.player.embed == nil)
+        #expect(!fixture.player.isLoaded)
+        #expect(!fixture.player.isExpanded)
+        #expect(fixture.music.loaded.isEmpty)
+        #expect(!fixture.music.calls.contains("play"))
     }
 
     @Test func aQueuedSongThatIsNotFoundReportsCouldNotPlay() async throws {
-        let rig = rig(.fullTracks, found: false)
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.queue.calls == ["couldNotPlay"] }
-        #expect(rig.player.linkAudio == nil)
-        #expect(rig.player.embed == nil)
-        #expect(!rig.player.isLoaded)
-        #expect(!rig.player.isExpanded)
+        let fixture = fixture(.fullTracks, found: false)
+        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.queue.calls == ["couldNotPlay"] }
+        #expect(fixture.player.linkAudio == nil)
+        #expect(fixture.player.embed == nil)
+        #expect(!fixture.player.isLoaded)
+        #expect(!fixture.player.isExpanded)
     }
 
     @Test func aQueuedSongThatDoesNotStartReportsCouldNotPlay() async throws {
-        let rig = rig()
-        rig.music.starts = false
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.queue.calls == ["couldNotPlay"] }
-        #expect(rig.player.linkAudio == nil)
-        #expect(!rig.player.isLoaded)
+        let fixture = fixture()
+        fixture.music.starts = false
+        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.queue.calls == ["couldNotPlay"] }
+        #expect(fixture.player.linkAudio == nil)
+        #expect(!fixture.player.isLoaded)
     }
 
     @Test func aQueuedAlbumReportsCouldNotPlayWithoutLoading() async throws {
-        let rig = rig()
-        rig.player.playQueued(try songItem(queuedAlbum), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.queue.calls == ["couldNotPlay"] }
-        #expect(rig.music.loaded.isEmpty)
-        #expect(rig.player.linkAudio == nil)
-        #expect(rig.player.embed == nil)
+        let fixture = fixture()
+        fixture.player.playQueued(try songItem(queuedAlbum), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.queue.calls == ["couldNotPlay"] }
+        #expect(fixture.music.loaded.isEmpty)
+        #expect(fixture.player.linkAudio == nil)
+        #expect(fixture.player.embed == nil)
     }
 
     @Test func aQueuedRecordingWithNoAudioReportsCouldNotPlay() async throws {
-        let rig = rig()
-        rig.player.audioSource = { _ in nil }
-        rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.queue.calls == ["couldNotPlay"] }
-        #expect(!rig.player.isLoaded)
-        #expect(rig.player.recordingAudio == nil)
-        #expect(rig.audio.holdsSession)
+        let fixture = fixture()
+        fixture.player.audioSource = { _ in nil }
+        fixture.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.queue.calls == ["couldNotPlay"] }
+        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.recordingAudio == nil)
+        #expect(fixture.audio.holdsSession)
     }
 
     @Test func aQueuedRecordingPlaysWithoutItsLoop() async throws {
-        let rig = rig()
+        let fixture = fixture()
         let loop = RecordingLoop(
             id: "p1", createdAt: noon, updatedAt: noon, recordingID: "r1", label: nil, startMs: 1000, endMs: 2000,
             color: 0)
-        rig.player.loops.follow([loop])
-        rig.player.loops.select("p1")
-        #expect(rig.player.loops.selectedID == "p1")
-        try await queueRecording(rig)
-        #expect(rig.audio.keptLoop == false)
-        #expect(rig.audio.loop == nil)
-        #expect(!rig.audio.calls.contains("setLoop"))
-        #expect(!rig.audio.calls.contains("setRepeat(true)"))
-        #expect(!rig.audio.isRepeating)
-        #expect(rig.player.loops.selectedID == nil)
-        #expect(rig.audio.isPlaying)
+        fixture.player.loops.follow([loop])
+        fixture.player.loops.select("p1")
+        #expect(fixture.player.loops.selectedID == "p1")
+        try await queueRecording(fixture)
+        #expect(fixture.audio.keptLoop == false)
+        #expect(fixture.audio.loop == nil)
+        #expect(!fixture.audio.calls.contains("setLoop"))
+        #expect(!fixture.audio.calls.contains("setRepeat(true)"))
+        #expect(!fixture.audio.isRepeating)
+        #expect(fixture.player.loops.selectedID == nil)
+        #expect(fixture.audio.isPlaying)
     }
 
     @Test func eachTrackEndReportsToTheQueue() async throws {
-        let rig = rig()
-        try await queueRecording(rig)
-        rig.audio.end(.finished)
-        try await queueSong(rig)
-        rig.music.end(.next)
-        rig.music.end(.previous(elapsed: 5))
-        #expect(rig.queue.ends == [.finished, .next, .previous(elapsed: 5)])
+        let fixture = fixture()
+        try await queueRecording(fixture)
+        fixture.audio.end(.finished)
+        try await queueSong(fixture)
+        fixture.music.end(.next)
+        fixture.music.end(.previous(elapsed: 5))
+        #expect(fixture.queue.ends == [.finished, .next, .previous(elapsed: 5)])
     }
 
     @Test func closeAndPlainPlayLeaveTheQueue() async throws {
-        let rig = rig()
-        try await queueRecording(rig)
-        rig.player.close()
-        #expect(rig.queue.calls == ["leftQueue"])
-        #expect(rig.player.queue == nil)
-        #expect(!rig.audio.holdsSession)
-        #expect(rig.audio.skipsByInterval)
+        let fixture = fixture()
+        try await queueRecording(fixture)
+        fixture.player.close()
+        #expect(fixture.queue.calls == ["leftQueue"])
+        #expect(fixture.player.queue == nil)
+        #expect(!fixture.audio.holdsSession)
+        #expect(fixture.audio.skipsByInterval)
 
-        rig.player.queue = rig.queue
-        try await queueRecording(rig)
-        rig.player.play(recordingItem())
-        #expect(rig.queue.calls == ["leftQueue", "leftQueue"])
-        #expect(rig.player.queue == nil)
-        #expect(!rig.audio.holdsSession)
-        #expect(rig.audio.skipsByInterval)
-        try await eventually { rig.player.recordingAudio == .loaded }
+        fixture.player.queue = fixture.queue
+        try await queueRecording(fixture)
+        fixture.player.play(recordingItem())
+        #expect(fixture.queue.calls == ["leftQueue", "leftQueue"])
+        #expect(fixture.player.queue == nil)
+        #expect(!fixture.audio.holdsSession)
+        #expect(fixture.audio.skipsByInterval)
+        try await eventually { fixture.player.recordingAudio == .loaded }
         // The recording just loaded no longer reports to a queue.
-        rig.audio.end(.finished)
-        #expect(rig.queue.ends.isEmpty)
+        fixture.audio.end(.finished)
+        #expect(fixture.queue.ends.isEmpty)
     }
 
     @Test func leavingTheStoreLeavesTheQueue() async throws {
-        let rig = rig()
-        try await queueRecording(rig)
-        rig.player.leaveStore()
-        #expect(rig.queue.calls == ["leftQueue"])
-        #expect(rig.player.queue == nil)
+        let fixture = fixture()
+        try await queueRecording(fixture)
+        fixture.player.leaveStore()
+        #expect(fixture.queue.calls == ["leftQueue"])
+        #expect(fixture.player.queue == nil)
     }
 
     @Test func leaveQueueKeepsTheLoadedItem() async throws {
-        let rig = rig()
-        try await queueRecording(rig)
-        let item = rig.player.item
-        rig.player.leaveQueue()
-        #expect(rig.player.item == item)
-        #expect(rig.player.recordingAudio == .loaded)
-        #expect(rig.player.queue == nil)
-        #expect(rig.queue.calls.isEmpty)
-        #expect(!rig.audio.holdsSession)
-        #expect(rig.audio.skipsByInterval)
-        #expect(rig.audio.calls.last == "releaseSession")
-        rig.audio.end(.finished)
-        #expect(rig.queue.ends.isEmpty)
+        let fixture = fixture()
+        try await queueRecording(fixture)
+        let item = fixture.player.item
+        fixture.player.leaveQueue()
+        #expect(fixture.player.item == item)
+        #expect(fixture.player.recordingAudio == .loaded)
+        #expect(fixture.player.queue == nil)
+        #expect(fixture.queue.calls.isEmpty)
+        #expect(!fixture.audio.holdsSession)
+        #expect(fixture.audio.skipsByInterval)
+        #expect(fixture.audio.calls.last == "releaseSession")
+        fixture.audio.end(.finished)
+        #expect(fixture.queue.ends.isEmpty)
     }
 
     @Test func aTakeStartingWhileASongLoadsLeavesTheQueue() async throws {
-        let rig = rig()
+        let fixture = fixture()
         let capturing = Mutex(false)
-        rig.player.isCapturing = { capturing.withLock { $0 } }
-        rig.music.holdsLoads = true
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.music.isHoldingLoad }
+        fixture.player.isCapturing = { capturing.withLock { $0 } }
+        fixture.music.holdsLoads = true
+        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.music.isHoldingLoad }
         capturing.withLock { $0 = true }
-        rig.music.release()
-        try await eventually { rig.queue.calls == ["leftQueue"] }
-        #expect(!rig.music.calls.contains("play"))
-        #expect(!rig.player.isLoaded)
-        #expect(rig.player.queue == nil)
-        #expect(rig.audio.calls.last == "releaseSession")
+        fixture.music.release()
+        try await eventually { fixture.queue.calls == ["leftQueue"] }
+        #expect(!fixture.music.calls.contains("play"))
+        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.queue == nil)
+        #expect(fixture.audio.calls.last == "releaseSession")
     }
 
     @Test func aTakeStartingBeforeASongLoadsLeavesTheSessionAlone() async throws {
-        let rig = rig()
+        let fixture = fixture()
         let capturing = Mutex(false)
-        rig.player.isCapturing = { capturing.withLock { $0 } }
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        fixture.player.isCapturing = { capturing.withLock { $0 } }
+        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         // Before the decision's access lookup returns, as a tuner or take can start meanwhile.
         capturing.withLock { $0 = true }
-        try await eventually { rig.queue.calls == ["leftQueue"] }
-        #expect(!rig.audio.calls.contains("yieldSessionToMusic"))
-        #expect(rig.music.loaded.isEmpty)
-        #expect(!rig.player.isLoaded)
+        try await eventually { fixture.queue.calls == ["leftQueue"] }
+        #expect(!fixture.audio.calls.contains("yieldSessionToMusic"))
+        #expect(fixture.music.loaded.isEmpty)
+        #expect(!fixture.player.isLoaded)
     }
 
     @Test func aSongNotDecidedByTheTimeoutReportsCouldNotPlay() async throws {
-        let rig = rig()
-        rig.player.decisionTimeout = .milliseconds(20)
-        rig.music.holdsLoads = true
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.music.isHoldingLoad }
-        try await eventually { rig.queue.calls == ["couldNotPlay"] }
-        #expect(!rig.player.isLoaded)
-        #expect(rig.player.embed == nil)
-        rig.music.release()
+        let fixture = fixture()
+        fixture.player.decisionTimeout = .milliseconds(20)
+        fixture.music.holdsLoads = true
+        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.music.isHoldingLoad }
+        try await eventually { fixture.queue.calls == ["couldNotPlay"] }
+        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.embed == nil)
+        fixture.music.release()
     }
 
     @Test func aPlainPlayOfTheQueuedSongLoadsItUnguarded() async throws {
-        let rig = rig()
-        try await queueSong(rig)
-        rig.player.play(try songItem())
-        try await eventually { rig.music.loaded.count == 2 && rig.player.linkAudio == .native }
-        #expect(rig.music.guardedLoads == [true, false])
-        #expect(rig.queue.calls == ["leftQueue"])
+        let fixture = fixture()
+        try await queueSong(fixture)
+        fixture.player.play(try songItem())
+        try await eventually { fixture.music.loaded.count == 2 && fixture.player.linkAudio == .native }
+        #expect(fixture.music.guardedLoads == [true, false])
+        #expect(fixture.queue.calls == ["leftQueue"])
     }
 
     @Test func aSongLeftLoadedByTheQueueResumesUnguarded() async throws {
-        let rig = rig()
-        try await queueSong(rig)
-        rig.music.end(.finished)
-        rig.player.leaveQueue()
-        let told = rig.queue.calls
-        try await eventually { rig.music.loaded.count == 2 && rig.player.linkAudio == .native }
-        #expect(rig.music.guardedLoads == [true, false])
-        #expect(!rig.music.isPlaying)
+        let fixture = fixture()
+        try await queueSong(fixture)
+        fixture.music.end(.finished)
+        fixture.player.leaveQueue()
+        let told = fixture.queue.calls
+        try await eventually { fixture.music.loaded.count == 2 && fixture.player.linkAudio == .native }
+        #expect(fixture.music.guardedLoads == [true, false])
+        #expect(!fixture.music.isPlaying)
 
         // The bar's play button.
-        rig.player.transport?.play()
-        #expect(rig.music.isPlaying)
-        rig.music.pause()
-        rig.player.play(try songItem())
-        #expect(rig.music.isPlaying)
-        #expect(rig.music.loaded.count == 2)
-        #expect(rig.queue.calls == told)
+        fixture.player.transport?.play()
+        #expect(fixture.music.isPlaying)
+        fixture.music.pause()
+        fixture.player.play(try songItem())
+        #expect(fixture.music.isPlaying)
+        #expect(fixture.music.loaded.count == 2)
+        #expect(fixture.queue.calls == told)
     }
 
     @Test func aSongThatLoadsAfterTheQueueLeftIsReleasedUnguarded() async throws {
-        let rig = rig()
-        rig.music.holdsLoads = true
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.music.isHoldingLoad }
-        rig.player.leaveQueue()
-        rig.music.holdsLoads = false
-        rig.music.release()
-        try await eventually { rig.music.guardedLoads.last == false && rig.player.linkAudio == .native }
-        #expect(!rig.music.isPlaying)
-        #expect(!rig.music.calls.contains("play"))
-        #expect(!rig.music.calls.contains("stop"))
+        let fixture = fixture()
+        fixture.music.holdsLoads = true
+        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.music.isHoldingLoad }
+        fixture.player.leaveQueue()
+        fixture.music.holdsLoads = false
+        fixture.music.release()
+        try await eventually { fixture.music.guardedLoads.last == false && fixture.player.linkAudio == .native }
+        #expect(!fixture.music.isPlaying)
+        #expect(!fixture.music.calls.contains("play"))
+        #expect(!fixture.music.calls.contains("stop"))
     }
 
     @Test func releasingASongKeepsTheOpenPlayerAndTheBar() async throws {
-        let rig = rig()
-        try await queueSong(rig)
-        rig.player.expand()
-        rig.music.holdsLoads = true
-        rig.player.leaveQueue()
-        try await eventually { rig.music.isHoldingLoad }
-        #expect(rig.player.linkAudio == .native)
-        #expect(rig.player.isExpanded)
-        #expect(rig.player.transport === rig.music)
-        #expect(!rig.music.calls.contains("stop"))
-        rig.music.holdsLoads = false
-        rig.music.release()
-        try await eventually { rig.music.guardedLoads == [true, false] }
-        #expect(rig.player.isExpanded)
-        #expect(rig.player.linkAudio == .native)
+        let fixture = fixture()
+        try await queueSong(fixture)
+        fixture.player.expand()
+        fixture.music.holdsLoads = true
+        fixture.player.leaveQueue()
+        try await eventually { fixture.music.isHoldingLoad }
+        #expect(fixture.player.linkAudio == .native)
+        #expect(fixture.player.isExpanded)
+        #expect(fixture.player.transport === fixture.music)
+        #expect(!fixture.music.calls.contains("stop"))
+        fixture.music.holdsLoads = false
+        fixture.music.release()
+        try await eventually { fixture.music.guardedLoads == [true, false] }
+        #expect(fixture.player.isExpanded)
+        #expect(fixture.player.linkAudio == .native)
     }
 
     @Test func aFailedReleaseLeavesTheSongPlayableInTheBar() async throws {
-        let rig = rig()
-        try await queueSong(rig)
-        rig.music.found = false
-        rig.player.leaveQueue()
-        try await eventually { rig.music.guardedLoads == [true, false] }
-        #expect(rig.player.linkAudio == .native)
-        #expect(rig.player.transport === rig.music)
-        #expect(rig.player.playsInBar)
+        let fixture = fixture()
+        try await queueSong(fixture)
+        fixture.music.found = false
+        fixture.player.leaveQueue()
+        try await eventually { fixture.music.guardedLoads == [true, false] }
+        #expect(fixture.player.linkAudio == .native)
+        #expect(fixture.player.transport === fixture.music)
+        #expect(fixture.player.playsInBar)
     }
 
     @Test func aPlayDuringTheReleaseCancelsIt() async throws {
-        let rig = rig()
-        try await queueSong(rig)
-        rig.music.holdsLoads = true
-        rig.player.leaveQueue()
-        try await eventually { rig.music.isHoldingLoad }
-        rig.player.play(try songItem())
-        try await eventually { rig.music.heldLoads == 2 }
-        rig.music.holdsLoads = false
-        rig.music.release()
-        try await eventually { rig.player.linkAudio == .native }
-        #expect(rig.music.cancelledLoads == [.song(id: "1440833090")])
-        #expect(rig.music.guardedLoads == [true, false, false])
-        #expect(rig.music.isPlaying)
+        let fixture = fixture()
+        try await queueSong(fixture)
+        fixture.music.holdsLoads = true
+        fixture.player.leaveQueue()
+        try await eventually { fixture.music.isHoldingLoad }
+        fixture.player.play(try songItem())
+        try await eventually { fixture.music.heldLoads == 2 }
+        fixture.music.holdsLoads = false
+        fixture.music.release()
+        try await eventually { fixture.player.linkAudio == .native }
+        #expect(fixture.music.cancelledLoads == [.song(id: "1440833090")])
+        #expect(fixture.music.guardedLoads == [true, false, false])
+        #expect(fixture.music.isPlaying)
     }
 
     @Test func theBarsPlayDuringTheReleaseKeepsTheGuardedSong() async throws {
-        let rig = rig()
-        try await queueSong(rig)
-        rig.music.pause()
-        rig.music.holdsLoads = true
-        rig.player.leaveQueue()
-        try await eventually { rig.music.isHoldingLoad }
-        rig.player.transport?.play()
-        rig.music.holdsLoads = false
-        rig.music.release()
-        try await eventually { rig.music.loadResults.count == 2 }
-        #expect(rig.music.loadResults == [true, false])
-        #expect(rig.music.guardedLoads == [true, false])
-        #expect(rig.music.isPlaying)
+        let fixture = fixture()
+        try await queueSong(fixture)
+        fixture.music.pause()
+        fixture.music.holdsLoads = true
+        fixture.player.leaveQueue()
+        try await eventually { fixture.music.isHoldingLoad }
+        fixture.player.transport?.play()
+        fixture.music.holdsLoads = false
+        fixture.music.release()
+        try await eventually { fixture.music.loadResults.count == 2 }
+        #expect(fixture.music.loadResults == [true, false])
+        #expect(fixture.music.guardedLoads == [true, false])
+        #expect(fixture.music.isPlaying)
 
         // The guard queue is still loaded, so a play of the same song frees it.
-        rig.music.pause()
-        rig.player.play(try songItem())
-        try await eventually { rig.music.loaded.count == 3 && rig.music.isPlaying }
-        #expect(rig.music.guardedLoads == [true, false, false])
+        fixture.music.pause()
+        fixture.player.play(try songItem())
+        try await eventually { fixture.music.loaded.count == 3 && fixture.music.isPlaying }
+        #expect(fixture.music.guardedLoads == [true, false, false])
     }
 
     @Test func aQueuedSongFailingAfterTheQueueLeftFallsBackToTheEmbed() async throws {
-        let rig = rig()
-        rig.music.found = false
-        rig.music.holdsLoads = true
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.music.isHoldingLoad }
-        rig.player.leaveQueue()
-        rig.music.release()
-        try await eventually { rig.player.linkAudio == .embed }
-        #expect(rig.player.isLoaded)
-        #expect(!rig.player.isExpanded)
-        #expect(rig.queue.calls.isEmpty)
+        let fixture = fixture()
+        fixture.music.found = false
+        fixture.music.holdsLoads = true
+        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.music.isHoldingLoad }
+        fixture.player.leaveQueue()
+        fixture.music.release()
+        try await eventually { fixture.player.linkAudio == .embed }
+        #expect(fixture.player.isLoaded)
+        #expect(!fixture.player.isExpanded)
+        #expect(fixture.queue.calls.isEmpty)
     }
 
     @Test func aQueuedRecordingKeepsTheQueuesNowPlayingThroughEdits() async throws {
-        let rig = rig()
-        try await queueRecording(rig)
+        let fixture = fixture()
+        try await queueRecording(fixture)
         let file = RecordingAudioFile(url: queuedAudio, file: RecordingFile(id: "r1", localState: .downloaded))
         var row = try #require(recordingItem().recording)
         row.label = "Renamed"
-        rig.player.recordingChanged(id: "r1", to: row, audioFile: file, tuneTitle: "Kitchen Reel")
-        #expect(rig.player.title == "Renamed")
-        #expect(rig.audio.nowPlaying == queuedNowPlaying)
+        fixture.player.recordingChanged(id: "r1", to: row, audioFile: file, tuneTitle: "Kitchen Reel")
+        #expect(fixture.player.title == "Renamed")
+        #expect(fixture.audio.nowPlaying == queuedNowPlaying)
 
         let revision = RecordingAudioFile(
             url: URL(filePath: "/tmp/queued-2.m4a"), file: RecordingFile(id: "r1", localState: .downloaded))
-        rig.player.recordingChanged(id: "r1", to: row, audioFile: revision, tuneTitle: "Kitchen Reel")
-        #expect(rig.audio.loaded == revision.url)
-        #expect(rig.audio.nowPlaying == queuedNowPlaying)
+        fixture.player.recordingChanged(id: "r1", to: row, audioFile: revision, tuneTitle: "Kitchen Reel")
+        #expect(fixture.audio.loaded == revision.url)
+        #expect(fixture.audio.nowPlaying == queuedNowPlaying)
     }
 
     @Test func aQueuedRecordingReloadedAfterAFailedDeleteReportsCouldNotPlayWhenGone() async throws {
         struct Refused: Error {}
-        let rig = rig()
-        try await queueRecording(rig)
-        rig.player.audioSource = { _ in nil }
-        await rig.player.deleteLoadedRecording { throw Refused() }
-        try await eventually { rig.queue.calls == ["couldNotPlay"] }
-        #expect(!rig.player.isLoaded)
+        let fixture = fixture()
+        try await queueRecording(fixture)
+        fixture.player.audioSource = { _ in nil }
+        await fixture.player.deleteLoadedRecording { throw Refused() }
+        try await eventually { fixture.queue.calls == ["couldNotPlay"] }
+        #expect(!fixture.player.isLoaded)
     }
 
     @Test func aFetchThatFailsAfterTheQueueLeftShowsUnavailable() async throws {
-        let rig = rig()
+        let fixture = fixture()
         var waiting: CheckedContinuation<Void, Never>?
         var asked = false
-        rig.player.audioSource = { _ in
+        fixture.player.audioSource = { _ in
             asked = true
             await withCheckedContinuation { waiting = $0 }
             return nil
         }
-        rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        fixture.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { asked && waiting != nil }
-        rig.player.leaveQueue()
+        fixture.player.leaveQueue()
         waiting?.resume()
-        try await eventually { rig.player.recordingAudio == .unavailable }
-        #expect(rig.queue.calls.isEmpty)
-        #expect(rig.player.isLoaded)
+        try await eventually { fixture.player.recordingAudio == .unavailable }
+        #expect(fixture.queue.calls.isEmpty)
+        #expect(fixture.player.isLoaded)
     }
 
     @Test func aQueuedTrackIsRefusedDuringATake() async throws {
-        let rig = rig()
-        rig.player.isCapturing = { true }
-        #expect(!rig.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance))
-        #expect(!rig.player.isLoaded)
-        #expect(rig.queue.calls.isEmpty)
+        let fixture = fixture()
+        fixture.player.isCapturing = { true }
+        #expect(!fixture.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance))
+        #expect(!fixture.player.isLoaded)
+        #expect(fixture.queue.calls.isEmpty)
     }
 
     @Test func aSyncedSongAddressLoadsGuardedForTheQueue() async throws {
-        let rig = rig()
-        try await queueSong(rig)
+        let fixture = fixture()
+        try await queueSong(fixture)
         let moved = "https://music.apple.com/us/album/the-silver-spear/1440833081?i=1440833095"
         let row = RecordingLink(
             id: "l1", tuneID: "t1", url: moved, provider: "apple_music", providerRef: detectProvider(moved).providerRef)
-        rig.player.linkChanged(id: "l1", to: row)
-        try await eventually { rig.music.loaded.count == 2 && rig.player.linkAudio == .native }
-        #expect(rig.music.loaded.last == .song(id: "1440833095"))
-        #expect(rig.music.guardedLoads == [true, true])
-        #expect(rig.player.queue === rig.queue)
+        fixture.player.linkChanged(id: "l1", to: row)
+        try await eventually { fixture.music.loaded.count == 2 && fixture.player.linkAudio == .native }
+        #expect(fixture.music.loaded.last == .song(id: "1440833095"))
+        #expect(fixture.music.guardedLoads == [true, true])
+        #expect(fixture.player.queue === fixture.queue)
         // The song still reports its end, so the queue moves on.
-        rig.music.end(.finished)
-        #expect(rig.queue.ends == [.finished])
+        fixture.music.end(.finished)
+        #expect(fixture.queue.ends == [.finished])
     }
 
     @Test func aSyncedSongAddressKeepsAPausedQueuedSongPaused() async throws {
-        let rig = rig()
-        try await queueSong(rig)
-        rig.music.pause()
+        let fixture = fixture()
+        try await queueSong(fixture)
+        fixture.music.pause()
         let moved = "https://music.apple.com/us/album/the-silver-spear/1440833081?i=1440833095"
         let row = RecordingLink(
             id: "l1", tuneID: "t1", url: moved, provider: "apple_music", providerRef: detectProvider(moved).providerRef)
-        rig.player.linkChanged(id: "l1", to: row)
-        try await eventually { rig.music.loaded.count == 2 && rig.player.linkAudio == .native }
-        #expect(rig.music.guardedLoads == [true, true])
-        #expect(!rig.music.isPlaying)
+        fixture.player.linkChanged(id: "l1", to: row)
+        try await eventually { fixture.music.loaded.count == 2 && fixture.player.linkAudio == .native }
+        #expect(fixture.music.guardedLoads == [true, true])
+        #expect(!fixture.music.isPlaying)
     }
 
     @Test func aSyncedSongAddressKeepsAPlayingQueuedSongPlaying() async throws {
-        let rig = rig()
-        try await queueSong(rig)
+        let fixture = fixture()
+        try await queueSong(fixture)
         let moved = "https://music.apple.com/us/album/the-silver-spear/1440833081?i=1440833095"
         let row = RecordingLink(
             id: "l1", tuneID: "t1", url: moved, provider: "apple_music", providerRef: detectProvider(moved).providerRef)
-        rig.player.linkChanged(id: "l1", to: row)
-        try await eventually { rig.music.loaded.count == 2 && rig.music.isPlaying }
-        #expect(rig.music.guardedLoads == [true, true])
+        fixture.player.linkChanged(id: "l1", to: row)
+        try await eventually { fixture.music.loaded.count == 2 && fixture.music.isPlaying }
+        #expect(fixture.music.guardedLoads == [true, true])
     }
 
     @Test func aSyncedAddressThatIsNoLongerASongReportsCouldNotPlay() async throws {
-        let rig = rig()
-        try await queueSong(rig)
+        let fixture = fixture()
+        try await queueSong(fixture)
         let row = RecordingLink(
             id: "l1", tuneID: "t1", url: queuedAlbum, provider: "apple_music",
             providerRef: detectProvider(queuedAlbum).providerRef)
-        rig.player.linkChanged(id: "l1", to: row)
-        #expect(rig.queue.calls == ["couldNotPlay"])
-        #expect(!rig.player.isLoaded)
-        #expect(rig.music.loaded.count == 1)
-        #expect(rig.player.queue === rig.queue)
+        fixture.player.linkChanged(id: "l1", to: row)
+        #expect(fixture.queue.calls == ["couldNotPlay"])
+        #expect(!fixture.player.isLoaded)
+        #expect(fixture.music.loaded.count == 1)
+        #expect(fixture.player.queue === fixture.queue)
     }
 
     @Test func aQueuedRecordingDeletedBySyncReportsCouldNotPlay() async throws {
-        let rig = rig()
-        try await queueRecording(rig)
+        let fixture = fixture()
+        try await queueRecording(fixture)
         var row = try #require(recordingItem().recording)
         row.deletedAt = noon
-        rig.player.recordingChanged(id: "r1", to: row, audioFile: nil, tuneTitle: "Kitchen Girl")
-        #expect(rig.queue.calls == ["couldNotPlay"])
-        #expect(!rig.player.isLoaded)
-        #expect(rig.player.queue === rig.queue)
+        fixture.player.recordingChanged(id: "r1", to: row, audioFile: nil, tuneTitle: "Kitchen Girl")
+        #expect(fixture.queue.calls == ["couldNotPlay"])
+        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.queue === fixture.queue)
     }
 
     @Test func aQueuedSongWhoseLinkIsGoneReportsCouldNotPlay() async throws {
-        let rig = rig()
-        try await queueSong(rig)
-        rig.player.linkChanged(id: "l1", to: nil)
-        #expect(rig.queue.calls == ["couldNotPlay"])
-        #expect(!rig.player.isLoaded)
-        #expect(rig.player.queue === rig.queue)
+        let fixture = fixture()
+        try await queueSong(fixture)
+        fixture.player.linkChanged(id: "l1", to: nil)
+        #expect(fixture.queue.calls == ["couldNotPlay"])
+        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.queue === fixture.queue)
     }
 
     @Test func aQueuedReplaceKeepsTheOpenPlayer() async throws {
-        let rig = rig()
+        let fixture = fixture()
         let window = UUID()
-        try await queueRecording(rig)
-        rig.player.expand(in: window)
-        try await queueSong(rig)
-        #expect(rig.player.isExpanded)
-        #expect(rig.player.expandedWindow == window)
-        try await queueRecording(rig)
-        #expect(rig.player.showsExpanded(in: window))
+        try await queueRecording(fixture)
+        fixture.player.expand(in: window)
+        try await queueSong(fixture)
+        #expect(fixture.player.isExpanded)
+        #expect(fixture.player.expandedWindow == window)
+        try await queueRecording(fixture)
+        #expect(fixture.player.showsExpanded(in: window))
     }
 
     @Test func aQueuedTrackThatCannotPlayKeepsTheOpenPlayerForTheNext() async throws {
-        let rig = rig()
+        let fixture = fixture()
         let window = UUID()
-        try await queueRecording(rig)
-        rig.player.expand(in: window)
-        rig.music.found = false
-        rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { rig.queue.calls == ["couldNotPlay"] }
-        try await queueRecording(rig)
-        #expect(rig.player.showsExpanded(in: window))
+        try await queueRecording(fixture)
+        fixture.player.expand(in: window)
+        fixture.music.found = false
+        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually { fixture.queue.calls == ["couldNotPlay"] }
+        try await queueRecording(fixture)
+        #expect(fixture.player.showsExpanded(in: window))
     }
 }

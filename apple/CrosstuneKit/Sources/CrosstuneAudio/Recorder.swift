@@ -169,8 +169,8 @@ public final class Recorder {
         Self.active.insert(recordingID)
         do {
             let bitrate = try await commands.captureBitrate()
-            // Without figures from the server yet, the take has no cap, as on the web.
-            let cap = (try? await store.meta(.storage, as: StorageFigures.self))??.maxFileBytes
+            // Without usage from the server yet, the take has no cap, as on the web.
+            let cap = (try? await store.meta(.storage, as: StorageUsage.self))??.maxFileBytes
             try await commands.beginCapture(
                 recordingID, fileName: CaptureFiles.captureName(recordingID), tuneID: tuneID, recordedAt: .now)
             if abandoned { return await backOut(recordingID) }

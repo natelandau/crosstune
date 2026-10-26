@@ -364,7 +364,7 @@ public final class CatalogModel {
 
     /// The search's add row or Return is creating a tune by the typed title, which ends the
     /// search whatever the create's outcome.
-    public func searchOfferTaken() {
+    public func typedTitleAdded() {
         reportSearch(tookOffer: true)
         query = ""
     }

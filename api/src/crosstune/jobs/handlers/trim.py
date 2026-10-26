@@ -1,4 +1,4 @@
-"""Re-cut a ready recording's playback file to its saved trim."""
+"""Rewrite a ready recording's playback file to its saved trim."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from crosstune.jobs.attempt import RELEASE_TIMEOUT_SECONDS, attempt_timeout, load_claimed
-from crosstune.jobs.recovery import recover_failed_recut, release_backup_copy
+from crosstune.jobs.recovery import recover_failed_audio_rewrite, release_backup_copy
 from crosstune.jobs.trim import trim
 from crosstune.recordings.service import ensure_trim_job
 from crosstune.recordings.trim_rules import needs_trim
@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 
 async def run(ctx: JobContext, job: Job) -> None:
-    """Re-cut one recording's playback file to its saved trim, never leaving ready.
+    """Rewrite one recording's playback file to its saved trim, never leaving ready.
 
     Like a transcode, the download and ffmpeg work run with no transaction open.
     The superseded files are deleted only after the commit that stops pointing at
@@ -57,7 +57,7 @@ async def run(ctx: JobContext, job: Job) -> None:
                     for key in (recording.playback_key, recording.peaks_key)
                     if key not in (None, previous_playback_key, previous_peaks_key)
                 ]
-                await recover_failed_recut(
+                await recover_failed_audio_rewrite(
                     ctx, session, job, exc, orphaned=orphaned, release_backup=True
                 )
                 return

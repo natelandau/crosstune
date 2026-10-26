@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from crosstune.storage.store import ObjectStore, Revision
 
 
-async def recut_playback(
+async def rewrite_playback(
     store: ObjectStore,
     recording: Recording,
     *,

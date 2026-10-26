@@ -420,9 +420,9 @@ public struct SettingsScreen: View {
         }
 
         @ViewBuilder private func storageSection(_ model: SettingsModel) -> some View {
-            if let figures = model.storage(plan: plan) {
+            if let usage = model.storage(plan: plan) {
                 Section(SettingsModel.storage) {
-                    StorageMeter(storage: figures)
+                    StorageMeter(storage: usage)
                 }
             }
         }
@@ -618,9 +618,9 @@ public struct SettingsScreen: View {
         }
 
         @ViewBuilder private func macStorage(_ model: SettingsModel) -> some View {
-            if let figures = model.storage(plan: plan) {
+            if let usage = model.storage(plan: plan) {
                 MacFormSection(SettingsModel.storage) {
-                    StorageMeter(storage: figures)
+                    StorageMeter(storage: usage)
                 }
             }
         }

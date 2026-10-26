@@ -25,7 +25,7 @@ private struct SilentSyncAPI: SyncAPI {
     func events(since: Int64) async throws -> EventsPage { EventsPage(rows: [], nextSince: since, hasMore: false) }
     func recordNotice(_ notice: PlanNotice) async throws {}
     func refreshBilling() async throws {}
-    func storage() async throws -> StorageFigures { StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0) }
+    func storage() async throws -> StorageUsage { StorageUsage(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0) }
     func resolveLink(url: String) async throws -> ResolvedLink { throw URLError(.badURL) }
     func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
         throw URLError(.badURL)
@@ -142,10 +142,10 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     }
 
     @Test func readsStorageAsUsedOfQuotaAndCapsTheBar() {
-        let figures = StorageFigures(usedBytes: 48_200_000, quotaBytes: 1_000_000_000, maxFileBytes: 1)
-        #expect(RecordingText.storageUsed(figures) == "48.2 MB of 1 GB used")
-        #expect(SettingsModel.storageFraction(figures) == 0.0482)
-        let over = StorageFigures(usedBytes: 2_000, quotaBytes: 1_000, maxFileBytes: 1)
+        let usage = StorageUsage(usedBytes: 48_200_000, quotaBytes: 1_000_000_000, maxFileBytes: 1)
+        #expect(RecordingText.storageUsed(usage) == "48.2 MB of 1 GB used")
+        #expect(SettingsModel.storageFraction(usage) == 0.0482)
+        let over = StorageUsage(usedBytes: 2_000, quotaBytes: 1_000, maxFileBytes: 1)
         #expect(SettingsModel.storageFraction(over) == 1)
     }
 
@@ -224,11 +224,11 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
     @Test func showsUsageWithNoQuota() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let figures = StorageFigures(usedBytes: 10, quotaBytes: 0, maxFileBytes: 0)
-        try await store.setMeta(.storage, to: figures)
+        let usage = StorageUsage(usedBytes: 10, quotaBytes: 0, maxFileBytes: 0)
+        try await store.setMeta(.storage, to: usage)
         let model = try await loadedModel(store)
-        #expect(model.storage == figures)
-        #expect(RecordingText.storageUsed(figures) == "10 B used")
+        #expect(model.storage == usage)
+        #expect(RecordingText.storageUsed(usage) == "10 B used")
     }
 
     @Test func togglesAnInstrumentAtOnceAndStoresIt() async throws {

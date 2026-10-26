@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Captures the app for a visual review: the kit at three widths, at each density, in
+// Captures the app for a visual review: the gallery at three widths, at each density, in
 // light, dark, and the large text size, then the app's screens on a seeded fixture catalog,
 // a few overlays, two frames of each page transition, and a WebKit pass. Headless only, so it
 // never takes a window or focus from whoever is using the machine.
@@ -15,7 +15,7 @@ import { chromium, webkit } from 'playwright'
 import { createServer } from 'vite'
 
 const WEB = fileURLToPath(new URL('..', import.meta.url))
-const OUT = fileURLToPath(new URL('../.cache/kit-shots/', import.meta.url))
+const OUT = fileURLToPath(new URL('../.cache/gallery-shots/', import.meta.url))
 const CLERK_STUB = fileURLToPath(new URL('../src/fixture/clerkStub.tsx', import.meta.url))
 
 // Ids and titles from src/fixture/seed.ts.
@@ -104,15 +104,15 @@ async function settle(page, density) {
   await page.evaluate(() => document.fonts.ready)
 }
 
-async function openKit(browser, origin, size, density, look) {
+async function openGallery(browser, origin, size, density, look) {
   const { context, page } = await open(
     browser,
-    `${origin}/kit?fixture&now=${NOW}`,
+    `${origin}/gallery?fixture&now=${NOW}`,
     size,
     density,
     look,
   )
-  await page.getByRole('heading', { name: 'Kit', level: 1 }).waitFor()
+  await page.getByRole('heading', { name: 'Gallery', level: 1 }).waitFor()
   await settle(page, density)
   return { context, page }
 }
@@ -207,29 +207,29 @@ async function shoot(page, file, fullPage = false, animations = 'disabled') {
   console.log(`wrote ${path}`)
 }
 
-async function captureKit(browser, origin) {
+async function captureGallery(browser, origin) {
   for (const size of SIZES) {
     for (const density of DENSITIES) {
       for (const look of LOOKS) {
-        const { context, page } = await openKit(browser, origin, size, density, look)
+        const { context, page } = await openGallery(browser, origin, size, density, look)
         await shoot(page, `${size.name}-${density}-${look.name}`, true)
         await context.close()
       }
     }
   }
 
-  let { context, page } = await openKit(browser, origin, PHONE, 'touch', LIGHT)
+  let { context, page } = await openGallery(browser, origin, PHONE, 'touch', LIGHT)
   await page.getByRole('button', { name: 'Part-height sheet' }).click()
   await still(page.getByRole('dialog', { name: 'Sort tunes' }))
   await shoot(page, '390-touch-light-sheet')
   await context.close()
-  ;({ context, page } = await openKit(browser, origin, PHONE, 'touch', LIGHT))
+  ;({ context, page } = await openGallery(browser, origin, PHONE, 'touch', LIGHT))
   await page.getByRole('button', { name: 'Confirm delete' }).click()
   // On touch the confirmation is an action sheet, so its message is the stable thing to find.
   await page.getByText('This removes its links and list entries.').waitFor()
   await shoot(page, '390-touch-light-confirm')
   await context.close()
-  ;({ context, page } = await openKit(browser, origin, DESKTOP, 'pointer', LIGHT))
+  ;({ context, page } = await openGallery(browser, origin, DESKTOP, 'pointer', LIGHT))
   await page.getByRole('button', { name: 'Show toast' }).click()
   await page.getByText('Archived 3 tunes').waitFor()
   // Opened from the keyboard so the shot also shows the focus ring on a menu item.
@@ -673,7 +673,7 @@ try {
   await rm(OUT, { recursive: true, force: true })
   await mkdir(OUT, { recursive: true })
   browser = await chromium.launch({ headless: true })
-  await captureKit(browser, origin)
+  await captureGallery(browser, origin)
   for (const { size, density } of APP_FRAMES) {
     for (const look of [LIGHT, DARK]) {
       await captureScreens(browser, origin, size, density, look)

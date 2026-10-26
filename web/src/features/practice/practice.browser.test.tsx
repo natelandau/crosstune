@@ -22,7 +22,7 @@ import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { GO_TO_TUNE } from '../recordings/recordingNames'
 import { PALETTE } from '../../theme/tokens'
 import { isAppleTouch } from '../../platform/appleTouch'
-import { addOfferLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
+import { addTypedTitleLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
 import { EDIT, RECORDING_NAME_LABEL, ADD_TO_TUNE } from '../recordings/recordingCopy'
 import {
   ADD_TO_TUNE_TITLE,
@@ -288,7 +288,7 @@ it('searches for a tune to file the take under from More', async () => {
   await expect
     .element(
       sheet.getByRole('button', {
-        name: addOfferLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
+        name: addTypedTitleLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
       }),
     )
     .toBeVisible()
@@ -366,7 +366,7 @@ it('files under a tune made from the practice overlay, opens it, and reports it 
   await sheet.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally Goodin')
   await sheet
     .getByRole('button', {
-      name: addOfferLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
+      name: addTypedTitleLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
     })
     .click()
   // Playing and practice report too, as their plays end.

@@ -5,14 +5,14 @@ import SwiftUI
 /// sheet, and its storage against the plan's quota. Nothing shows while the plan is unknown.
 struct PlanSection: View {
     let plan: Plan
-    let storage: StorageFigures?
+    let storage: StorageUsage?
 
     @Environment(\.premium) private var premium
 
     /// What VoiceOver adds to the plan row, which opens the plan rather than changing it here.
     nonisolated static let hint = PlanText.seePlan
 
-    /// Opens the Plan sheet, which sells to a free or trial account and confirms a Premium one.
+    /// Opens the Plan sheet, which shows purchase options to a free or trial account and confirms a Premium one.
     static func open(_ premium: PremiumPresenter?) {
         premium?.present(.plan, from: .planGroup)
     }

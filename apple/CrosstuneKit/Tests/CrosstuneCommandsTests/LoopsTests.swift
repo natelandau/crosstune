@@ -106,8 +106,8 @@ private let noon = Timestamp.now
 
     @Test func holdsANewLoopInsideTheTrimAndIgnoresRemovedLoops() async throws {
         let (store, commands) = try await seededWithTrim(start: 1000, end: 5000, duration: 9000)
-        let blocker = try await commands.addLoop(recordingID: "r1", startMs: 1000, endMs: 3000, label: nil)
-        try await commands.removeLoop(blocker.id)
+        let disabledReason = try await commands.addLoop(recordingID: "r1", startMs: 1000, endMs: 3000, label: nil)
+        try await commands.removeLoop(disabledReason.id)
 
         let created = try await commands.addLoop(recordingID: "r1", startMs: 500, endMs: 9000, label: nil)
         let row = try #require(try await loop(store, created.id))

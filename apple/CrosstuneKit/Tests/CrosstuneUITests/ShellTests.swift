@@ -521,33 +521,33 @@ import Testing
     }
 }
 
-@Suite struct MenuGateTests {
+@Suite struct MenuCommandAvailabilityTests {
     @Test func newTuneIsDisabledUnderASheetOrWhileSelecting() {
-        #expect(MenuGates.newTune(sheetsOpen: false, selecting: false))
-        #expect(!MenuGates.newTune(sheetsOpen: true, selecting: false))
-        #expect(!MenuGates.newTune(sheetsOpen: false, selecting: true))
+        #expect(MenuCommandAvailability.newTune(sheetsOpen: false, selecting: false))
+        #expect(!MenuCommandAvailability.newTune(sheetsOpen: true, selecting: false))
+        #expect(!MenuCommandAvailability.newTune(sheetsOpen: false, selecting: true))
     }
 
     @Test func newListIsDisabledUnderASheet() {
-        #expect(MenuGates.newList(sheetsOpen: false))
-        #expect(!MenuGates.newList(sheetsOpen: true))
+        #expect(MenuCommandAvailability.newList(sheetsOpen: false))
+        #expect(!MenuCommandAvailability.newList(sheetsOpen: true))
     }
 
     @Test func findActsOnlyForAScreenOnShowWithNoSheetUp() {
-        #expect(MenuGates.find(isShown: true, sheetsOpen: false))
-        #expect(!MenuGates.find(isShown: false, sheetsOpen: false))
-        #expect(!MenuGates.find(isShown: true, sheetsOpen: true))
+        #expect(MenuCommandAvailability.find(isShown: true, sheetsOpen: false))
+        #expect(!MenuCommandAvailability.find(isShown: false, sheetsOpen: false))
+        #expect(!MenuCommandAvailability.find(isShown: true, sheetsOpen: true))
     }
 
     @Test func sortByActsOnlyWhileTheRecordingsShowWithNoSheetUp() {
-        #expect(MenuGates.sort(isShown: true, sheetsOpen: false))
-        #expect(!MenuGates.sort(isShown: false, sheetsOpen: false))
-        #expect(!MenuGates.sort(isShown: true, sheetsOpen: true))
+        #expect(MenuCommandAvailability.sort(isShown: true, sheetsOpen: false))
+        #expect(!MenuCommandAvailability.sort(isShown: false, sheetsOpen: false))
+        #expect(!MenuCommandAvailability.sort(isShown: true, sheetsOpen: true))
     }
 
     @Test func sortByIsDisabledWhileTheScreenSelects() {
-        #expect(!MenuGates.sort(isShown: true, sheetsOpen: false, selecting: true))
-        #expect(MenuGates.sort(isShown: true, sheetsOpen: false, selecting: false))
+        #expect(!MenuCommandAvailability.sort(isShown: true, sheetsOpen: false, selecting: true))
+        #expect(MenuCommandAvailability.sort(isShown: true, sheetsOpen: false, selecting: false))
     }
 
     @Test func sortByOffersEveryRecordingSort() {
@@ -559,16 +559,21 @@ import Testing
     }
 
     @Test func recordIsDisabledUnderASheetWhileSelectingOrForAPendingTakeOrACapture() {
-        #expect(MenuGates.record(sheetsOpen: false, selecting: false, takePending: false, capturing: false))
-        #expect(!MenuGates.record(sheetsOpen: true, selecting: false, takePending: false, capturing: false))
-        #expect(!MenuGates.record(sheetsOpen: false, selecting: true, takePending: false, capturing: false))
-        #expect(!MenuGates.record(sheetsOpen: false, selecting: false, takePending: true, capturing: false))
-        #expect(!MenuGates.record(sheetsOpen: false, selecting: false, takePending: false, capturing: true))
+        #expect(
+            MenuCommandAvailability.record(sheetsOpen: false, selecting: false, takePending: false, capturing: false))
+        #expect(
+            !MenuCommandAvailability.record(sheetsOpen: true, selecting: false, takePending: false, capturing: false))
+        #expect(
+            !MenuCommandAvailability.record(sheetsOpen: false, selecting: true, takePending: false, capturing: false))
+        #expect(
+            !MenuCommandAvailability.record(sheetsOpen: false, selecting: false, takePending: true, capturing: false))
+        #expect(
+            !MenuCommandAvailability.record(sheetsOpen: false, selecting: false, takePending: false, capturing: true))
     }
 
     @Test func controlsAreDisabledUnderASheet() {
-        #expect(MenuGates.controls(sheetsOpen: false))
-        #expect(!MenuGates.controls(sheetsOpen: true))
+        #expect(MenuCommandAvailability.controls(sheetsOpen: false))
+        #expect(!MenuCommandAvailability.controls(sheetsOpen: true))
     }
 }
 

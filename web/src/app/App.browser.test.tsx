@@ -4,18 +4,19 @@ import type { RouteObject } from 'react-router'
 import { openTestDb } from '../test/db'
 import { renderApp } from '../test/renderApp'
 import { appRoutes } from './routes'
+import { GALLERY_TITLE } from '../gallery/ComponentGallery'
 
-it('mounts the kit at /kit', async () => {
-  await renderApp({ path: '/kit', db: openTestDb() })
-  await expect.element(page.getByRole('heading', { name: 'Kit', level: 1 })).toBeVisible()
+it('mounts the gallery at /gallery', async () => {
+  await renderApp({ path: '/gallery', db: openTestDb() })
+  await expect.element(page.getByRole('heading', { name: GALLERY_TITLE, level: 1 })).toBeVisible()
 })
 
-it('leaves /kit out of the route table outside a dev server', () => {
+it('leaves /gallery out of the route table outside a dev server', () => {
   const paths = (list: RouteObject[]): string[] =>
     list.flatMap((route) => [route.path ?? '', ...paths(route.children ?? [])])
-  expect(paths(appRoutes(true))).toContain('/kit')
+  expect(paths(appRoutes(true))).toContain('/gallery')
   expect(paths(appRoutes(false))).toContain('/catalog')
-  expect(paths(appRoutes(false))).not.toContain('/kit')
+  expect(paths(appRoutes(false))).not.toContain('/gallery')
 })
 
 it('mounts the catalog landmark at /catalog', async () => {

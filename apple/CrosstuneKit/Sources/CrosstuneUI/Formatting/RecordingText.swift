@@ -14,7 +14,7 @@ public enum RecordingText {
     public static let processing = "Processing"
     public static let processFailed = "Couldn't process"
     /// A take the server refused as Premium only, which waits here until the account subscribes.
-    public static let heldForPremium = "On this device only. Syncs when you subscribe."
+    public static let isLocalUntilSubscribed = "On this device only. Syncs when you subscribe."
 
     /// What a recording row the plan holds back says instead of its play.
     nonisolated public static let subscribeToPlay = "Subscribe to play"
@@ -164,16 +164,16 @@ public enum RecordingText {
     /// that needs nothing shows a date in place of a status, unless `dateInTitle` says its title
     /// already shows the same one. Under Date added the date is when the recording was added;
     /// under every other sort, or none, it is when it was played. `offline` marks a download that
-    /// cannot start, and replaces the status. A take held for Premium says so in place of its
-    /// status. The file's own length is shown until the server reports the recording's.
+    /// cannot start, and replaces the status. A take kept local until subscribed says so in place
+    /// of its status. The file's own length is shown until the server reports the recording's.
     public static func meta(
-        _ recording: Recording, file: RecordingFile?, storage: StorageFigures? = nil, offline: Bool = false,
-        dateInTitle: Bool = false, sort: RecordingSort? = nil, heldForPremium: Bool = false,
+        _ recording: Recording, file: RecordingFile?, storage: StorageUsage? = nil, offline: Bool = false,
+        dateInTitle: Bool = false, sort: RecordingSort? = nil, isLocalUntilSubscribed: Bool = false,
         locale: Locale = .current, timeZone: TimeZone = .current
     ) -> [String] {
         let length = duration(milliseconds: recording.durationMs ?? file?.localDurationMs)
         if offline { return [length, SyncStatus.offlineLabel].compactMap { $0 } }
-        if heldForPremium { return [length, Self.heldForPremium].compactMap { $0 } }
+        if isLocalUntilSubscribed { return [length, Self.isLocalUntilSubscribed].compactMap { $0 } }
         // The title's date is the recorded one when known, so under Date added it differs and stays.
         let titleShowsSameDate = dateInTitle && (sort != .added || recording.knownRecordedDate == nil)
         let date: String? =
@@ -192,11 +192,11 @@ public enum RecordingText {
         return [length, status, tries, used].compactMap { $0 }
     }
 
-    /// The account's storage figures as `48.2 MB of 1 GB used`, or `48.2 MB used` with no quota.
-    public static func storageUsed(_ figures: StorageFigures) -> String {
-        let used = bytes(Int64(figures.usedBytes))
-        guard figures.quotaBytes > 0 else { return "\(used) used" }
-        return "\(used) of \(bytes(Int64(figures.quotaBytes))) used"
+    /// The account's storage usage as `48.2 MB of 1 GB used`, or `48.2 MB used` with no quota.
+    public static func storageUsed(_ usage: StorageUsage) -> String {
+        let used = bytes(Int64(usage.usedBytes))
+        guard usage.quotaBytes > 0 else { return "\(used) used" }
+        return "\(used) of \(bytes(Int64(usage.quotaBytes))) used"
     }
 
     /// The origin of a recording made on a device of the account's own.

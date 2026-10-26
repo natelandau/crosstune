@@ -11,8 +11,8 @@ from starlette.requests import Request
 
 from crosstune.auth.deps import verify_bearer
 from crosstune.body import API_PREFIX, WEBHOOK_PREFIX
-from crosstune.client_sightings import SIGHTING_USER_STATE_KEY, record_sighting
 from crosstune.client_version import ClientVersion, client_version, is_blocked
+from crosstune.client_versions import CLIENT_VERSION_USER_STATE_KEY, record_client_version
 from crosstune.db.base import utc_now
 from crosstune.errors import AppError, UpdateRequiredError, problem_response
 from crosstune.models import User
@@ -27,7 +27,7 @@ class VersionGate:
     """Answer an Apple build below the floor with 426, recording the version it reported.
 
     Plain ASGI and outermost, so a blocked request is answered before its body is
-    admitted or read and before any route or dependency runs. An accepted request's
+    checked or read and before any route or dependency runs. An accepted request's
     version is recorded after the app returns, once its own session has closed, so the
     write never holds a second pooled connection beside it.
     """
@@ -58,10 +58,10 @@ class VersionGate:
         # Shared with the app below, which may otherwise start its own state dict.
         request_state: dict = scope.setdefault("state", {})
         await self._app(scope, receive, send)
-        user_id = request_state.get(SIGHTING_USER_STATE_KEY)
+        user_id = request_state.get(CLIENT_VERSION_USER_STATE_KEY)
         if user_id is not None:
-            await record_sighting(
-                state.sessionmaker, state.client_sightings, user_id, client, utc_now()
+            await record_client_version(
+                state.sessionmaker, state.recorded_client_versions, user_id, client, utc_now()
             )
 
 
@@ -76,9 +76,9 @@ async def _record_blocked(request: Request, client: ClientVersion) -> None:
         logger.debug("not recording a blocked build: %s", exc.detail)
         return
     state = request.app.state
-    sightings = state.client_sightings
+    recorded = state.recorded_client_versions
     clerk_user_id = claims["sub"]
-    user_id = sightings.account(clerk_user_id)
+    user_id = recorded.account(clerk_user_id)
     if user_id is None:
         try:
             async with state.sessionmaker() as session:
@@ -90,5 +90,5 @@ async def _record_blocked(request: Request, client: ClientVersion) -> None:
             return
         if user_id is None:
             return
-        sightings.remember_account(clerk_user_id, user_id)
-    await record_sighting(state.sessionmaker, sightings, user_id, client, utc_now())
+        recorded.remember_account(clerk_user_id, user_id)
+    await record_client_version(state.sessionmaker, recorded, user_id, client, utc_now())

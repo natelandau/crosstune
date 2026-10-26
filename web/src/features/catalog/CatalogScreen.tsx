@@ -5,7 +5,7 @@ import { useLocation, useNavigate, useParams } from 'react-router'
 import { useDb } from '../../db/DbProvider'
 import {
   ADD_TUNE,
-  addOfferLabel,
+  addTypedTitleLabel,
   catalogEmpty,
   SEARCH_TUNES,
   SHOW_ARCHIVED,
@@ -54,7 +54,7 @@ import { CatalogFilterRow } from './CatalogFilterRow'
 import { catalogFiltersShown } from './filters'
 import { FiltersBarButton } from '../../ui/FiltersBarButton'
 import { filtersLabel } from '../../ui/filterCopy'
-import { HiddenMatch, SearchOffer } from './SearchOffer'
+import { HiddenMatch, AddTypedTitle } from './AddTypedTitle'
 import { TuneRow } from './TuneRow'
 import { useHadContent } from '../../ui/useHadContent'
 import { useLatest } from '../../ui/useLatest'
@@ -341,7 +341,7 @@ export function CatalogScreen() {
                     <HiddenMatch outcome={outcome} onOpen={openFound} />
                     <Button
                       variant="primary"
-                      label={addOfferLabel(outcome)}
+                      label={addTypedTitleLabel(outcome)}
                       onPress={() => createFromSearch()}
                     />
                   </div>
@@ -401,7 +401,7 @@ export function CatalogScreen() {
                 ))}
               </RowList>
               <HiddenMatch outcome={outcome} onOpen={openFound} />
-              <SearchOffer outcome={outcome} onCreate={createFromSearch} />
+              <AddTypedTitle outcome={outcome} onCreate={createFromSearch} />
             </div>
           )}
         </>

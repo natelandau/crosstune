@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PROVIDER_LABELS } from '../../constants'
-import type { StorageFigures } from '../../db/meta'
+import type { StorageUsage } from '../../db/meta'
 import type { RecordingFile } from '../../db/recordings'
 import type { LocalRecording } from '../../db/types'
 import { recordingFile, recordingRow } from '../../test/rows'
@@ -16,7 +16,7 @@ import {
   rowControl,
   titleIsDate,
 } from './recordingRow'
-import { HELD_FOR_PREMIUM } from './recordingCopy'
+import { LOCAL_UNTIL_SUBSCRIBED } from './recordingCopy'
 
 function view(
   overrides: {
@@ -167,11 +167,11 @@ describe('originLink', () => {
 })
 
 describe('recordingMeta', () => {
-  it('says a held take waits on this device in place of its status', () => {
+  it('says a local-only take waits on this device in place of its status', () => {
     const result = recordingMeta(view({ recording: { duration_ms: 42_000 } }), null, {
-      held: true,
+      localOnly: true,
     })
-    expect(result).toEqual(['0:42', HELD_FOR_PREMIUM])
+    expect(result).toEqual(['0:42', LOCAL_UNTIL_SUBSCRIBED])
   })
 
   it('names no site for an imported recording', () => {
@@ -288,8 +288,8 @@ describe('recordingMeta', () => {
     expect(result).toEqual(['0:42', WAITING_TO_UPLOAD, '2 failed tries'])
   })
 
-  it('adds the storage label for a blocked upload when storage figures are known', () => {
-    const storage: StorageFigures = {
+  it('adds the storage label for a blocked upload when storage usage is known', () => {
+    const storage: StorageUsage = {
       used_bytes: 1_000_000,
       quota_bytes: 2_000_000,
       max_file_bytes: 500_000,
@@ -301,7 +301,7 @@ describe('recordingMeta', () => {
     expect(result).toContain('1 MB of 2 MB used')
   })
 
-  it('omits the storage label for a blocked upload when storage figures are unknown', () => {
+  it('omits the storage label for a blocked upload when storage usage is unknown', () => {
     const result = recordingMeta(
       view({ file: recordingFile('r1', { local_state: 'blocked_quota' }) }),
       null,
