@@ -315,11 +315,27 @@ private struct ListTunes: View {
     private func offer(_ rows: [ListEntry]) -> ListPlayOffer? {
         guard !rows.isEmpty, hasReadAppleMusic else { return nil }
         let report = playReport(rows)
+        let playing = listPlaying
         return ListPlayOffer(
             report: report, canStart: listPlayback != nil && !(recorders?.isCapturing ?? false),
-            onPlay: { startPlaylist(report, shuffled: false) },
+            playing: playing,
+            onPlay: { playing == nil ? startPlaylist(report, shuffled: false) : togglePlaylist() },
             onShuffle: { startPlaylist(report, shuffled: true) },
             onWhatPlays: { showsWhatPlays = true })
+    }
+
+    /// This list as it plays, or nil while another list or nothing plays.
+    private var listPlaying: ListPlayOffer.Playing? {
+        guard let listPlayback, listPlayback.listID == list.id else { return nil }
+        // Until the tune loads, the transport still plays the tune being left.
+        let settled = listPlayback.isSettled
+        return ListPlayOffer.Playing(
+            isPlaying: settled && player?.transport?.isPlaying == true, isSettled: settled)
+    }
+
+    private func togglePlaylist() {
+        guard listPlayback?.isSettled == true, let transport = player?.transport else { return }
+        if transport.isPlaying { transport.pause() } else { transport.play() }
     }
 
     /// Controls wait for the access read, so the count never flashes a subscription skip.

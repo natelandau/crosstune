@@ -75,23 +75,28 @@
     }
 
     /// A list's Play and Shuffle, leading its pane bar's controls: Play the column's one primary
-    /// action, Shuffle secondary.
+    /// action, Shuffle secondary. While the list plays, Play pauses and resumes it. Neither
+    /// shows while the list has nothing to play and is not playing.
     struct MacListPlayButtons: View {
         let play: ListPlayOffer
 
         var body: some View {
-            Group {
-                Button(action: play.onPlay) {
-                    Label(ListPlayText.play, systemImage: "play.fill")
+            if play.showsButtons {
+                Group {
+                    Button(action: play.onPlay) {
+                        Label(play.playLabel, systemImage: play.playSymbol)
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                    .buttonStyle(.macPrimary)
+                    .disabled(play.isPlayDisabled)
+                    Button(action: play.onShuffle) {
+                        Label(ListPlayText.shuffle, systemImage: "shuffle")
+                    }
+                    .buttonStyle(.macSecondary)
+                    .disabled(play.isShuffleDisabled)
                 }
-                .buttonStyle(.macPrimary)
-                Button(action: play.onShuffle) {
-                    Label(ListPlayText.shuffle, systemImage: "shuffle")
-                }
-                .buttonStyle(.macSecondary)
+                .labelStyle(.titleAndIcon)
             }
-            .labelStyle(.titleAndIcon)
-            .disabled(play.report.playable.isEmpty || !play.canStart)
         }
     }
 #endif

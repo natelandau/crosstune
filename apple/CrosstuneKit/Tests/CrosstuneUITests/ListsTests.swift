@@ -810,6 +810,60 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
+@Suite struct ListPlayOfferTests {
+    private func offer(
+        report: PlaylistReport = PlaylistReport(playable: ["a"], skipped: [:], total: 1), canStart: Bool = true,
+        playing: ListPlayOffer.Playing? = nil
+    ) -> ListPlayOffer {
+        ListPlayOffer(
+            report: report, canStart: canStart, playing: playing, onPlay: {}, onShuffle: {}, onWhatPlays: {})
+    }
+
+    @Test func offersPlayWhileTheListIsStopped() {
+        let stopped = offer()
+        #expect(stopped.playLabel == ListPlayText.play)
+        #expect(stopped.playSymbol == "play.fill")
+        #expect(!stopped.isPlayDisabled)
+    }
+
+    @Test func offersPauseWhileTheListPlaysAndPlayWhilePaused() {
+        let playing = offer(playing: .init(isPlaying: true, isSettled: true))
+        #expect(playing.playLabel == ListPlayText.pause)
+        #expect(playing.playSymbol == "pause.fill")
+        let paused = offer(playing: .init(isPlaying: false, isSettled: true))
+        #expect(paused.playLabel == ListPlayText.play)
+        #expect(!paused.isPlayDisabled)
+    }
+
+    @Test func holdsPlayWhileTheNextTuneLoads() {
+        let loading = offer(playing: .init(isPlaying: false, isSettled: false))
+        #expect(loading.isPlayDisabled)
+        #expect(!loading.isShuffleDisabled)
+    }
+
+    @Test func leavesOutTheButtonsWhenNothingCanPlay() {
+        let none = PlaylistReport(playable: [], skipped: [.nothing: ["a"]], total: 1)
+        #expect(!offer(report: none).showsButtons)
+        #expect(offer().showsButtons)
+    }
+
+    /// A playing list's tunes can stop being playable, such as when their recordings are
+    /// deleted, and Play must still pause what plays.
+    @Test func pausesAPlayingListWithNothingLeftToStart() {
+        let none = PlaylistReport(playable: [], skipped: [.nothing: ["a"]], total: 1)
+        let playing = offer(report: none, playing: .init(isPlaying: true, isSettled: true))
+        #expect(playing.showsButtons)
+        #expect(!playing.isPlayDisabled)
+        #expect(playing.isShuffleDisabled)
+    }
+
+    @Test func holdsBothWhileATakeRecords() {
+        let recording = offer(canStart: false, playing: .init(isPlaying: true, isSettled: true))
+        #expect(recording.isPlayDisabled)
+        #expect(recording.isShuffleDisabled)
+    }
+}
+
 @Suite struct ListRowTapTests {
     @Test func jumpsWithinThePlayingListAndPlaysAloneOtherwise() {
         #expect(ListRowPlay.tap(listPlaying: true) == .jump)
