@@ -125,9 +125,4 @@ describe('text size', () => {
     setTextSize('regular')
     expect(root.hasAttribute('data-text-size')).toBe(false)
   })
-
-  it("reads a stored 'roomy' as large", () => {
-    localStorage.setItem(TEXT_SIZE_KEY, 'roomy')
-    expect(readTextSize()).toBe('large')
-  })
 })

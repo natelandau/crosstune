@@ -30,10 +30,7 @@ function parseChoice<T extends string>(allowed: readonly T[], fallback: T) {
 }
 
 const parseAppearance = parseChoice(APPEARANCES, 'system')
-const parseTextSizeChoice = parseChoice(TEXT_SIZES, 'regular')
-// Older builds stored the large size as 'roomy'.
-const parseTextSize = (raw: string | null): TextSize =>
-  parseTextSizeChoice(raw === 'roomy' ? 'large' : raw)
+const parseTextSize = parseChoice(TEXT_SIZES, 'regular')
 
 export function readAppearance(): Appearance {
   return parseAppearance(readStored(APPEARANCE_KEY))
