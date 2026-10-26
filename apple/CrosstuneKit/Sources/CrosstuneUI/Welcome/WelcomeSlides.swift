@@ -363,6 +363,7 @@ struct TunerSlideArt: View {
     slidePreview.preferredColorScheme(.dark)
 }
 
+// periphery:ignore - read by the slide previews
 @MainActor private var slidePreview: some View {
     ScrollView {
         VStack(spacing: 24) {

@@ -30,6 +30,7 @@ protocol ClerkSignUpCalls: Sendable {
 public struct NativeSignUp: Sendable {
     public static let live = NativeSignUp(calls: LiveClerkSignUpCalls())
     /// Never reaches Clerk: every flow ends as a cancel, for previews.
+    // periphery:ignore - read by the welcome previews
     public static let preview = NativeSignUp(
         calls: StubClerkSignUpCalls(error: CancellationError(), sessionAfterCall: false))
 
