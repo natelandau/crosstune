@@ -65,7 +65,7 @@ const CATALOG_ROW: ScanViewOrigin = { context: 'row' }
 
 const CATALOG = destination('catalog')
 
-/** The catalog's list column: its verbs, search, count and sort, and the tune rows. */
+/** The catalog's list column: its bar buttons, search, count and sort, and the tune rows. */
 export function CatalogScreen() {
   const db = useDb()
   const tuneActions = useTuneActions()
@@ -256,7 +256,7 @@ export function CatalogScreen() {
             />
           ) : undefined
         }
-        verbs={
+        actions={
           <>
             <Button icon={Plus} label={ADD_TUNE} iconOnly onPress={addNewTune} />
             {barFilters && (

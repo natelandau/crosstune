@@ -49,8 +49,13 @@ against production, such as granting a comp or a trial.
 
 ## Naming
 
-`violin`, never `fiddle`, and tune, never song, in the schema, the API, and
-every label. The glossary in `docs/product.md` has the reasons.
+- `violin`, never `fiddle`, and tune, never song, in the schema, the API,
+  and every label. The glossary in `docs/product.md` has the reasons.
+- Self-documenting names. Every name in code and docs says what the thing
+  is, in the standard term a developer new to the project already knows:
+  a button is a button, a toolbar is a toolbar. No metaphor, and no coined
+  term that needs a glossary. The glossary's terms are the only project
+  vocabulary.
 
 ## Task runner
 

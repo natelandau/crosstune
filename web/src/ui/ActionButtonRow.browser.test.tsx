@@ -3,7 +3,7 @@ import { afterEach, expect, it } from 'vitest'
 import { page } from 'vitest/browser'
 import { renderWithProviders } from '../test/render'
 import { Button } from './Button'
-import { VerbRow } from './VerbRow'
+import { ActionButtonRow } from './ActionButtonRow'
 
 afterEach(async () => {
   delete document.documentElement.dataset.textSize
@@ -22,11 +22,11 @@ const insets = () =>
 
 const row = () => (
   <div className="px-4">
-    <VerbRow tight>
+    <ActionButtonRow tight>
       <Button variant="primary" icon={Play} solidIcon label="Play" fullWidth />
       <Button variant="tinted" icon={Gauge} label="Practice" fullWidth />
       <Button variant="tinted" icon={TextQuote} label="Lyrics" fullWidth />
-    </VerbRow>
+    </ActionButtonRow>
   </div>
 )
 

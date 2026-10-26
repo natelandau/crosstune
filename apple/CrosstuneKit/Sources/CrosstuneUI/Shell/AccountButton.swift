@@ -55,8 +55,8 @@ func showsAccountItem(showAccount: MenuAction?, isSelecting: Bool) -> Bool {
         }
     }
 
-    /// A root tab's account button, the bar's outermost trailing item, set apart from the verbs'
-    /// glass group. A screen lists it last in the same toolbar as its verbs, since the bar orders
+    /// A root tab's account button, the bar's outermost trailing item, set apart from the other buttons'
+    /// glass group. A screen lists it last in the same toolbar as its buttons, since the bar orders
     /// items from separate toolbar modifiers outer modifier first.
     struct AccountToolbarItem: ToolbarContent {
         @Environment(\.showAccount) private var showAccount

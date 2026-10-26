@@ -40,17 +40,17 @@ struct ListPlayControls: View {
     var body: some View {
         let disabled = offer.report.playable.isEmpty || !offer.canStart
         VStack(alignment: .leading, spacing: spacing.stackGap) {
-            VerbRow {
+            ActionButtonRow {
                 Button(action: offer.onPlay) {
                     Label(ListPlayText.play, systemImage: "play.fill")
                         .frame(maxWidth: .infinity)
                 }
-                .verbStyle(prominent: true, glass: drawsGlass)
+                .actionButtonStyle(prominent: true, glass: drawsGlass)
                 Button(action: offer.onShuffle) {
                     Label(ListPlayText.shuffle, systemImage: "shuffle")
                         .frame(maxWidth: .infinity)
                 }
-                .verbStyle(prominent: false, glass: drawsGlass)
+                .actionButtonStyle(prominent: false, glass: drawsGlass)
             }
             .disabled(disabled)
             Button(action: offer.onWhatPlays) {

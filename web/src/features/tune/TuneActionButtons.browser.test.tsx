@@ -17,8 +17,8 @@ import { PracticeOverlayContext } from '../practice/usePracticeOverlay'
 import { PLAY } from '../player/transportCopy'
 import { DOWNLOAD } from '../recordings/recordingNames'
 import { LYRICS_SECTION } from './tuneScreenCopy'
-import { TuneVerbs } from './TuneVerbs'
-import { PRACTICE } from './tuneVerbsCopy'
+import { TuneActionButtons } from './TuneActionButtons'
+import { PRACTICE } from './tuneActionsCopy'
 import type { RecordingMediaRow, TuneMediaData } from './useTuneMedia'
 
 afterAll(async () => {
@@ -27,7 +27,7 @@ afterAll(async () => {
 
 type Media = TuneMediaData & { setPasting: Mock; setFinding: Mock }
 
-/** The parts of the media the verbs read; its rows take the shape the real hook gives them. */
+/** The parts of the media the buttons read; its rows take the shape the real hook gives them. */
 function mediaFor(views: RecordingView[], only: Provider | null): Media {
   const rows: RecordingMediaRow[] = views.map((view) => ({
     view,
@@ -65,7 +65,7 @@ async function setup({
   /** False puts the account on the free plan, which plays no recordings. */
   playable?: boolean
   recordingState?: RecordingState
-  /** True gives the row a Lyrics verb, as a tune with lyrics does. */
+  /** True gives the row a Lyrics button, as a tune with lyrics does. */
   lyrics?: boolean
 } = {}) {
   await page.viewport(width, 800)
@@ -103,8 +103,12 @@ async function setup({
           }}
         >
           <RecordLauncherContext.Provider value={launcher}>
-            <div data-verbs>
-              <TuneVerbs tuneId={tuneId} media={media} onLyrics={lyrics ? onLyrics : null} />
+            <div data-actions>
+              <TuneActionButtons
+                tuneId={tuneId}
+                media={media}
+                onLyrics={lyrics ? onLyrics : null}
+              />
             </div>
           </RecordLauncherContext.Provider>
         </PracticeOverlayContext.Provider>
@@ -118,33 +122,33 @@ async function setup({
 const button = (name: string) => page.getByRole('button', { name, exact: true })
 /** The row's buttons once the source has read, so an empty list means no row at all. */
 const shown = () => {
-  const box = document.querySelector('[data-verbs]')!
+  const box = document.querySelector('[data-actions]')!
   return [...box.querySelectorAll('button')].map((b) => b.textContent)
 }
 /** Resolves once the placeholder has gone and the row, or nothing, stands in its place. */
 const settled = () =>
-  expect.poll(() => document.querySelector('[data-verbs] > [aria-hidden]')).toBeNull()
+  expect.poll(() => document.querySelector('[data-actions] > [aria-hidden]')).toBeNull()
 const noneDisabled = () =>
-  expect(document.querySelectorAll('[data-verbs] button:disabled')).toHaveLength(0)
+  expect(document.querySelectorAll('[data-actions] button:disabled')).toHaveLength(0)
 
-it('a tune with nothing to play has no verb row', async () => {
+it('a tune with nothing to play has no action button row', async () => {
   await setup()
   await settled()
-  expect(document.querySelector('[data-verbs]')!.childElementCount).toBe(0)
+  expect(document.querySelector('[data-actions]')!.childElementCount).toBe(0)
 })
 
-/** Every button ever added inside the verb row, even one removed again before a poll reads. */
-function watchVerbButtons(): HTMLElement[] {
+/** Every button ever added inside the action button row, even one removed again before a poll reads. */
+function watchRowButtons(): HTMLElement[] {
   const added: HTMLElement[] = []
   const observer = new MutationObserver((records) => {
     for (const record of records) {
-      const inRow = record.target instanceof Element && record.target.closest('[data-verbs]')
+      const inRow = record.target instanceof Element && record.target.closest('[data-actions]')
       for (const node of record.addedNodes) {
         if (!(node instanceof HTMLElement)) continue
-        if (inRow || node.matches('[data-verbs]')) {
+        if (inRow || node.matches('[data-actions]')) {
           added.push(...(node.matches('button') ? [node] : []), ...node.querySelectorAll('button'))
         } else {
-          added.push(...node.querySelectorAll<HTMLElement>('[data-verbs] button'))
+          added.push(...node.querySelectorAll<HTMLElement>('[data-actions] button'))
         }
       }
     }
@@ -155,12 +159,12 @@ function watchVerbButtons(): HTMLElement[] {
 }
 
 it('a free plan with only recordings shows neither Play nor Practice', async () => {
-  const added = watchVerbButtons()
+  const added = watchRowButtons()
   await setup({ withRecording: true, playable: false })
   await settled()
-  // Held through the plan being judged: a free row never lets a recording verb through.
+  // Held through the plan being judged: a free row never lets a recording button through.
   await expect.poll(() => shown()).toEqual([])
-  await expect.poll(() => document.querySelector('[data-verbs]')!.childElementCount).toBe(0)
+  await expect.poll(() => document.querySelector('[data-actions]')!.childElementCount).toBe(0)
   expect(added).toEqual([])
 })
 
@@ -191,9 +195,9 @@ it('a tune with only lyrics has a row of Lyrics alone', async () => {
   expect(shown()).toEqual([LYRICS_SECTION])
 })
 
-it('a tune that plays only a link offers its main verb, no Practice', async () => {
+it('a tune that plays only a link offers its main button, no Practice', async () => {
   await setup({ withLink: true })
-  // An Apple Music link opens on its own site, so its verb says Open.
+  // An Apple Music link opens on its own site, so its button says Open.
   await expect.element(button(OPEN)).toBeVisible()
   expect(shown()).toEqual([OPEN])
   noneDisabled()
@@ -213,13 +217,13 @@ it('leaves Practice out while the only recording is still processing', async () 
   expect(shown()).toEqual([OPEN])
 })
 
-it('a recording still processing alone leaves no verb row', async () => {
+it('a recording still processing alone leaves no action button row', async () => {
   await setup({ withRecording: true, withBlob: false, recordingState: 'uploaded' })
   await settled()
   expect(shown()).toEqual([])
 })
 
-it('a recording not on this device gives no verb, never Download', async () => {
+it('a recording not on this device gives no button, never Download', async () => {
   await setup({ withRecording: true, withBlob: false })
   await settled()
   await expect.poll(() => shown()).toEqual([])
@@ -232,7 +236,7 @@ it('a recording not on this device leaves Lyrics alone in the row', async () => 
   expect(shown()).toEqual([LYRICS_SECTION])
 })
 
-it('leaves every recording verb out while its recording downloads', async () => {
+it('leaves every recording button out while its recording downloads', async () => {
   await setup({ withRecording: true, withBlob: false, fileState: 'downloading', lyrics: true })
   await expect.element(button(LYRICS_SECTION)).toBeVisible()
   expect(shown()).toEqual([LYRICS_SECTION])
@@ -243,14 +247,14 @@ it('the phone shows Play, Practice, and Lyrics in equal columns on one line each
   await setup({ withRecording: true, lyrics: true, width: 390 })
   await expect.element(button(LYRICS_SECTION)).toBeVisible()
   expect(shown()).toEqual([PLAY, PRACTICE, LYRICS_SECTION])
-  const buttons = [...document.querySelectorAll<HTMLElement>('[data-verbs] button')]
+  const buttons = [...document.querySelectorAll<HTMLElement>('[data-actions] button')]
   await expect
     .poll(() => new Set(buttons.map((b) => Math.round(b.getBoundingClientRect().width))).size)
     .toBe(1)
   for (const b of buttons) expect(getComputedStyle(b).whiteSpace).toBe('nowrap')
 })
 
-it('the phone shows only the main verb for a link', async () => {
+it('the phone shows only the main button for a link', async () => {
   await setup({ withLink: true, width: 390 })
   await expect.element(button(OPEN)).toBeVisible()
   expect(shown()).toEqual([OPEN])

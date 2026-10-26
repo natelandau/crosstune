@@ -8,7 +8,7 @@ import { InBar } from '../ui/inBar'
 
 /**
  * The bar over one pane: a leading control, the pane's title small once its column title has
- * scrolled away, and the pane's verbs trailing. It sticks to the top of the pane's scroll.
+ * scrolled away, and the pane's buttons trailing. It sticks to the top of the pane's scroll.
  */
 export function PaneBar({
   title,

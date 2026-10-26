@@ -49,7 +49,7 @@ async function scrollList(top: number) {
   await delivered
 }
 
-it('puts the title, the verbs, then the account button in one row on each phone root', async () => {
+it('puts the title, the buttons, then the account button in one row on each phone root', async () => {
   const { router } = await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE })
   for (const id of PHONE_TABS) {
     const { label, root } = destination(id)

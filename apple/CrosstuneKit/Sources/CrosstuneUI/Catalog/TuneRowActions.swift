@@ -2,7 +2,7 @@ import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 
-/// The verbs a tune row offers, on every screen that offers them.
+/// The actions a tune row offers, on every screen that offers them.
 public enum TuneRowActions {
     public static let edit = "Edit"
     public static let archive = "Archive"

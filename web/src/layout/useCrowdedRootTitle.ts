@@ -2,8 +2,8 @@ import { useLayoutEffect, useState, type RefObject } from 'react'
 import { useLatest } from '../ui/useLatest'
 
 /**
- * Whether the phone row's title would truncate with one more icon button among its verbs. A
- * screen moves a verb into its More menu while this holds. It measures against the room the
+ * Whether the phone row's title would truncate with one more icon button among its buttons. A
+ * screen moves a button into its More menu while this holds. It measures against the room the
  * title would have with the button back, so moving the button out never frees enough room to
  * bring it straight back. Off while `enabled` is false, as on a frame with no title row.
  */
@@ -26,7 +26,7 @@ export function useCrowdedRootTitle(
       const row = lane.parentElement
       if (!row) return
       const style = getComputedStyle(row)
-      // One icon button and the gap before it, as the verbs space them.
+      // One icon button and the gap before it, as the bar spaces its buttons.
       const slot = parseFloat(style.getPropertyValue('--target-control')) + parseFloat(style.gap)
       const head = title.parentElement!
       // The title at full width, with the badge beside it.

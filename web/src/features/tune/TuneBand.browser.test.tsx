@@ -42,7 +42,7 @@ function Band({ tuneId }: { tuneId: string }) {
       title={undefined}
       active
       gutter="px-4"
-      verbs={null}
+      actions={null}
     />
   )
 }

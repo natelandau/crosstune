@@ -9,7 +9,6 @@ import {
   useState,
   ViewTransition,
   type ReactNode,
-  type Ref,
 } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import { useLocation } from 'react-router'
@@ -71,7 +70,7 @@ import { TuneBand } from './TuneBand'
 import { AddedLine, TuneFacts, TuneLists } from './TuneFacts'
 import { isQuietPick } from './tunePick'
 import { useTuneScans, type TuneScansParts } from './useTuneScans'
-import { TuneVerbs } from './TuneVerbs'
+import { TuneActionButtons } from './TuneActionButtons'
 import { readTuneTitle, rememberTuneTitle } from './tuneTitle'
 import { WASH_HOVER } from '../../ui/press'
 
@@ -221,16 +220,6 @@ function TuneDocument({
   const [picking, setPicking] = useState(false)
   const [reading, setReading] = useState(false)
   const [lyricsOpen, setLyricsOpen] = useState(false)
-  // Counts the verb row's Lyrics presses, so each one scrolls the section in once it has opened.
-  const [lyricsAsked, setLyricsAsked] = useState(0)
-  const lyricsSection = useRef<HTMLElement>(null)
-  useEffect(() => {
-    const section = lyricsSection.current
-    if (lyricsAsked === 0 || !section) return
-    section.scrollIntoView({ block: 'start' })
-    // Focus follows the words, so the next Tab reads on from the section, not the band.
-    section.querySelector<HTMLElement>('h2 button')?.focus({ preventScroll: true })
-  }, [lyricsAsked])
 
   useEffect(() => {
     if (ready || missing) onRead()
@@ -263,12 +252,7 @@ function TuneDocument({
       items={more}
     />
   )
-  const showLyrics = shownFacts?.hasLyrics
-    ? () => {
-        setLyricsOpen(true)
-        setLyricsAsked((count) => count + 1)
-      }
-    : null
+  const readLyrics = () => setReading(true)
 
   const factsPanel = view && screen.instruments && (
     <TuneFacts
@@ -289,10 +273,9 @@ function TuneDocument({
       recordAvailable={record.available}
       onRecord={() => record.start({ tuneId, source: 'tune' })}
       onEditLyrics={() => form.open({ tuneId, focus: 'lyrics' })}
-      onReadLyrics={() => setReading(true)}
+      onReadLyrics={readLyrics}
       lyricsOpen={lyricsOpen}
       onLyricsOpenChange={setLyricsOpen}
-      lyricsRef={lyricsSection}
       lists={
         !rail &&
         view && (
@@ -327,7 +310,13 @@ function TuneDocument({
           active={!hidden}
           gutter={gutter}
           more={moreOnTitle ? moreMenu : undefined}
-          verbs={<TuneVerbs tuneId={tuneId} media={media} onLyrics={showLyrics} />}
+          actions={
+            <TuneActionButtons
+              tuneId={tuneId}
+              media={media}
+              onLyrics={shownFacts?.hasLyrics ? readLyrics : null}
+            />
+          }
         />
         <div className={gutter}>
           {deletingName && (
@@ -411,7 +400,6 @@ function TuneSections({
   onReadLyrics,
   lyricsOpen,
   onLyricsOpenChange,
-  lyricsRef,
   lists,
 }: {
   tuneId: string
@@ -426,7 +414,6 @@ function TuneSections({
   onReadLyrics: () => void
   lyricsOpen: boolean
   onLyricsOpenChange: (open: boolean) => void
-  lyricsRef: Ref<HTMLElement>
   /** The lists and the day added, which end the page where the facts are a card. */
   lists: ReactNode
 }) {
@@ -499,7 +486,6 @@ function TuneSections({
 
       {hasLyrics && (
         <PageSection
-          ref={lyricsRef}
           title={LYRICS_SECTION}
           open={lyricsOpen}
           onOpenChange={onLyricsOpenChange}

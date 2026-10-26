@@ -1,5 +1,13 @@
 import SwiftUI
 
+/// The tune page control the lyrics reader opens from, which it zooms out of and back into.
+public enum LyricsOrigin: Hashable, Sendable {
+    /// The Lyrics button in the action button row.
+    case actionButton
+    /// The Lyrics section's reader button.
+    case section
+}
+
 /// What the tune screen starts but another part of the app owns: the list picker, the paste
 /// link and Find recordings sheets, the record sheet, the lyrics reader, and the scan viewer.
 /// The shell supplies them; a control whose action is missing shows disabled.
@@ -17,8 +25,8 @@ public struct TuneScreenActions: Equatable {
     public var findRecordings: (@MainActor (_ tuneID: String, _ service: String?) -> Void)?
     /// Starts a recording filed under a tune.
     public var record: (@MainActor (_ tuneID: String) -> Void)?
-    /// Opens a tune's lyrics to read.
-    public var readLyrics: (@MainActor (_ tuneID: String) -> Void)?
+    /// Opens a tune's lyrics to read, zooming out of the control at `origin`.
+    public var readLyrics: (@MainActor (_ tuneID: String, _ origin: LyricsOrigin) -> Void)?
     /// Opens a tune's scans full screen, on the scan at `startIndex`, logging each look as
     /// opened from `origin`. Tune rows offer it too, at the first scan.
     public var viewScans: (@MainActor (_ tuneID: String, _ startIndex: Int, _ origin: ScanViewOrigin) -> Void)?
@@ -28,7 +36,7 @@ public struct TuneScreenActions: Equatable {
     public init(
         addToList: (@MainActor (String) -> Void)? = nil, addLink: (@MainActor (String) -> Void)? = nil,
         findRecordings: (@MainActor (String, String?) -> Void)? = nil, record: (@MainActor (String) -> Void)? = nil,
-        readLyrics: (@MainActor (String) -> Void)? = nil,
+        readLyrics: (@MainActor (String, LyricsOrigin) -> Void)? = nil,
         viewScans: (@MainActor (String, Int, ScanViewOrigin) -> Void)? = nil
     ) {
         self.addToList = addToList

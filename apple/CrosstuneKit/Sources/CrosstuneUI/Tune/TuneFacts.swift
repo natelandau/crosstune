@@ -1,7 +1,7 @@
 import CrosstuneStore
 import SwiftUI
 
-/// Where the tune page's facts stand: a rail beside the content, or a card under the verb row.
+/// Where the tune page's facts stand: a rail beside the content, or a card under the action button row.
 enum FactsLayout: Equatable, Sendable {
     case rail
     case card

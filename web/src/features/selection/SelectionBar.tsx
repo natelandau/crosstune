@@ -28,7 +28,7 @@ import type { CatalogEntry } from '../../db/types'
 /** The More cell's caption on the phone's bar; its name stays `MORE_ACTIONS`. */
 export const MORE_CAPTION = 'More'
 
-interface Verb {
+interface BarButton {
   icon: LucideIcon
   label: string
   /** The phone's caption, when shorter than the label it must start the label with. */
@@ -43,7 +43,7 @@ function Cell({
   isDisabled,
   onPress,
   ...trigger
-}: Verb & MenuTriggerProps & { isDisabled: boolean }) {
+}: BarButton & MenuTriggerProps & { isDisabled: boolean }) {
   return (
     <AriaButton
       {...trigger}
@@ -125,13 +125,19 @@ export function SelectionBar({
     [restoreFocusRef],
   )
 
-  const control = (verb: Verb, onPress?: () => void): ReactElement<MenuTriggerProps> =>
+  const control = (button: BarButton, onPress?: () => void): ReactElement<MenuTriggerProps> =>
     phone ? (
-      <Cell {...verb} isDisabled={none} onPress={onPress} />
+      <Cell {...button} isDisabled={none} onPress={onPress} />
     ) : (
-      <Button icon={verb.icon} label={verb.label} iconOnly isDisabled={none} onPress={onPress} />
+      <Button
+        icon={button.icon}
+        label={button.label}
+        iconOnly
+        isDisabled={none}
+        onPress={onPress}
+      />
     )
-  const verbs = (
+  const buttons = (
     <>
       <Menu
         label={SET_STATUS}
@@ -156,7 +162,7 @@ export function SelectionBar({
         bare={inRootBar}
         leading={
           <span ref={lead} className="contents">
-            {/* An icon on pointer, like the verbs beside Done, so the count keeps its width in
+            {/* An icon on pointer, like the buttons beside Done, so the count keeps its width in
                 the narrowest content column. */}
             <Button
               icon={phone ? undefined : ListChecks}
@@ -168,7 +174,7 @@ export function SelectionBar({
         }
         trailing={
           <>
-            {!phone && verbs}
+            {!phone && buttons}
             <Button label={DONE} onPress={selection.exit} />
           </>
         }
@@ -188,7 +194,7 @@ export function SelectionBar({
                 aria-label={SELECTION_ACTIONS}
                 className="bg-ground border-hairline grid grid-cols-4 items-center border-t pb-[env(safe-area-inset-bottom)]"
               >
-                {verbs}
+                {buttons}
               </Toolbar>
             </motion.div>
           </div>,

@@ -2,7 +2,7 @@ import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 
-/// One tune as a document: the band with its key, title, and verbs across the top, then the
+/// One tune as a document: the band with its key, title, and action buttons across the top, then the
 /// content beside the facts rail, or under the facts card where the column is narrow.
 struct TunePage: View {
     let model: TuneModel
@@ -103,9 +103,7 @@ struct TunePageColumn: View {
     var onTitleShows: (Bool) -> Void = { _ in }
 
     @Environment(\.tuneScreenActions) private var actions
-    @Environment(\.lyricsZoom) private var lyricsZoom
     @Environment(\.premium) private var premium
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var editingScans = false
     @State private var lyricsOpen = false
 
@@ -156,23 +154,9 @@ struct TunePageColumn: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            column { showLyrics(proxy) }
-        }
-    }
-
-    /// Opens Lyrics and brings its heading to the top of the page.
-    private func showLyrics(_ proxy: ScrollViewProxy) {
-        withAnimation(reduceMotion ? nil : .default) {
-            lyricsOpen = true
-            proxy.scrollTo(Section.lyrics, anchor: .top)
-        }
-    }
-
-    private func column(onShowLyrics: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             TuneBand(
-                model: model, detail: detail, more: more, onShowLyrics: onShowLyrics, onTitleShows: onTitleShows
+                model: model, detail: detail, more: more, onReadLyrics: readLyrics, onTitleShows: onTitleShows
             )
             .offset(y: titleRise)
             .tuneBandPlacement(layout)
@@ -207,6 +191,10 @@ struct TunePageColumn: View {
         TuneFacts(model: model, detail: detail, layout: layout, pinnedTop: pinnedTop, onAddToList: addToList)
     }
 
+    private var readLyrics: (() -> Void)? {
+        actions.readLyrics.map { read in { read(detail.tune.id, .actionButton) } }
+    }
+
     private var addToList: (() -> Void)? {
         actions.addToList.map { add in { add(detail.userTune.id) } }
     }
@@ -230,7 +218,7 @@ struct TunePageColumn: View {
             ForEach(sections, id: \.self) { section in
                 switch section {
                 case .recordings: media
-                case .lyrics: lyrics.id(Section.lyrics)
+                case .lyrics: lyrics
                 case .scans: scansSection
                 case .notes: notes
                 case .addLine: addLineView(addLine)
@@ -300,10 +288,10 @@ struct TunePageColumn: View {
             #endif
             if let readLyrics = actions.readLyrics {
                 Button(TuneScreen.openLyrics, systemImage: "arrow.up.left.and.arrow.down.right") {
-                    readLyrics(detail.tune.id)
+                    readLyrics(detail.tune.id, .section)
                 }
                 .labelStyle(.iconOnly)
-                .zoomSource(id: detail.tune.id, in: lyricsZoom)
+                .lyricsZoomSource(tuneID: detail.tune.id, origin: .section)
                 #if os(macOS)
                     .help(TuneScreen.openLyrics)
                 #endif

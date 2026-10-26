@@ -11,27 +11,27 @@ interface RootBarProps {
   title: string
   /** Reaches the screen's one heading, where focus lands when a control holding it leaves. */
   titleRef?: Ref<HTMLHeadingElement>
-  verbs?: ReactNode
+  actions?: ReactNode
   /** The screen's search field, pinned under the row on the phone. */
   search?: ReactNode
-  /** Selection's controls, which take the place of the title row and the verbs. */
+  /** Selection's controls, which take the place of the title row and the actions. */
   selection?: ReactNode
 }
 
 /**
- * A destination root's top: its title, its verbs, and on the phone the account button. Split
+ * A destination root's top: its title, its actions, and on the phone the account button. Split
  * and wide keep the pane bar over the column title. The phone has one row, the large title
- * leading and the verbs and account button trailing, which pins on scroll with the title shrunk
+ * leading and the actions and account button trailing, which pins on scroll with the title shrunk
  * into it and the search field under it.
  */
-export function RootBar({ title, titleRef, verbs, search, selection }: RootBarProps) {
+export function RootBar({ title, titleRef, actions, search, selection }: RootBarProps) {
   const phone = useFrame() === 'phone'
   if (phone) {
     return (
       <PhoneRootBar
         title={title}
         titleRef={titleRef}
-        verbs={verbs}
+        actions={actions}
         search={search}
         selection={selection}
       />
@@ -39,14 +39,14 @@ export function RootBar({ title, titleRef, verbs, search, selection }: RootBarPr
   }
   return (
     <>
-      {selection ?? <PaneBar title={title} trailing={verbs} />}
+      {selection ?? <PaneBar title={title} trailing={actions} />}
       <ColumnTitle title={title} titleRef={titleRef} />
       {search && <div className="px-4 pb-2">{search}</div>}
     </>
   )
 }
 
-function PhoneRootBar({ title, titleRef, verbs, search, selection }: RootBarProps) {
+function PhoneRootBar({ title, titleRef, actions, search, selection }: RootBarProps) {
   const pane = usePane()
   const bar = pane?.bar
   const setTitleOut = pane?.setTitleOut
@@ -99,7 +99,7 @@ function PhoneRootBar({ title, titleRef, verbs, search, selection }: RootBarProp
             </div>
           </div>
           <InBar value>
-            {verbs && <div className="flex shrink-0 items-center gap-1">{verbs}</div>}
+            {actions && <div className="flex shrink-0 items-center gap-1">{actions}</div>}
             <AccountButton />
           </InBar>
         </div>

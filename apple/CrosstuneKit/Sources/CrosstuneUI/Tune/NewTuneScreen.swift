@@ -201,7 +201,7 @@ struct HeldDraft: Equatable {
 }
 
 /// The page a new tune starts on: the tune page's band with a focused title field and nothing
-/// else, since a tune not made yet has no facts, verbs, or content to act on. The catalog's Add
+/// else, since a tune not made yet has no facts, action buttons, or content to act on. The catalog's Add
 /// button and the menu's New tune open it.
 struct NewTuneScreen: View {
     nonisolated static let title = "New tune"

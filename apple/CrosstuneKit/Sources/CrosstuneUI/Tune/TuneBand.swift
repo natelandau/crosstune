@@ -2,7 +2,7 @@ import CrosstuneVocabulary
 import SwiftUI
 
 /// The top of a tune's page, on the page ground: the key tile in the key's color, the title in
-/// the page title role with the tune's other names, Archived when it is, and the verb row. The
+/// the page title role with the tune's other names, Archived when it is, and the action button row. The
 /// title renames in place, and the tile opens the key editor.
 struct TuneBand: View {
     /// The title's control, named with the title it renames.
@@ -14,8 +14,8 @@ struct TuneBand: View {
     let detail: TuneDetail
     /// More's items the screen carries out; nil leaves More off the title's row.
     var more: TuneMoreHandlers?
-    /// Opens the page's Lyrics section; nil leaves Lyrics out of the verbs.
-    var onShowLyrics: (() -> Void)?
+    /// Opens the lyrics reader; nil leaves Lyrics out of the action buttons.
+    var onReadLyrics: (() -> Void)?
     /// Hears whether the title is on screen as the page scrolls.
     let onTitleShows: (Bool) -> Void
 
@@ -102,8 +102,8 @@ struct TuneBand: View {
             if let failure = model.failure(at: .screen) {
                 FailureText(failure)
             }
-            TuneVerbs(detail: detail, playFirst: detail.playFirst, onShowLyrics: onShowLyrics)
-                .frame(maxWidth: compact ? .infinity : Self.verbRowMaxWidth, alignment: .leading)
+            TuneActionButtons(detail: detail, playFirst: detail.playFirst, onReadLyrics: onReadLyrics)
+                .frame(maxWidth: compact ? .infinity : Self.actionRowMaxWidth, alignment: .leading)
         }
     }
 
@@ -122,8 +122,8 @@ struct TuneBand: View {
             }
     }
 
-    /// Beside a wide page's content the verbs keep a button's width rather than stretching.
-    private static let verbRowMaxWidth: CGFloat = 520
+    /// Beside a wide page's content the action buttons keep a button's width rather than stretching.
+    private static let actionRowMaxWidth: CGFloat = 520
 }
 
 /// The band's first line: the key tile's slot with the title beside it. The new-tune draft lays

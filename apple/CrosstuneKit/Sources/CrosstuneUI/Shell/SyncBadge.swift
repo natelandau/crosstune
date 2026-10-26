@@ -53,7 +53,7 @@ public struct SyncBadge: View {
 extension View {
     /// Adds the sync badge to this screen's toolbar, reading the session and engine from the
     /// environment. Nothing is added while sync needs no attention. `leading` puts it at the
-    /// bar's leading edge on iPhone, for a screen whose two verbs fill the trailing edge. A
+    /// bar's leading edge on iPhone, for a screen whose two buttons fill the trailing edge. A
     /// leading badge stands aside while the screen is selecting, whose Select All takes that edge.
     /// `isShown` false leaves the badge out, as where another place shows it.
     func syncBadgeToolbar(leading: Bool = false, isShown: Bool = true) -> some View {

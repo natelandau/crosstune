@@ -5,7 +5,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@MainActor @Suite struct TuneVerbsTests {
+@MainActor @Suite struct TuneActionButtonsTests {
     private let tune = Tune(createdAt: noon, title: "Test")
 
     private var userTune: UserTune { UserTune(createdAt: noon, tuneID: tune.id, status: "learning") }
@@ -35,19 +35,19 @@ import Testing
         return TuneDetail(tune: tune, userTune: userTune ?? self.userTune, links: links, recordings: recordings)
     }
 
-    private func verbs(
+    private func buttons(
         _ detail: TuneDetail, recordingsPlay: Bool = true, planRead: Bool = true, showsLyrics: Bool = true,
         capturing: Bool = false, loaded: Set<String> = []
-    ) -> TuneVerbs.Layout {
-        TuneVerbs.verbs(
+    ) -> TuneActionButtons.Layout {
+        TuneActionButtons.buttons(
             detail: detail, playFirst: UserSettings.playFirstRecordings, recordingsPlay: recordingsPlay,
             planRead: planRead, showsLyrics: showsLyrics, capturing: capturing,
             holds: { loaded.contains($1) })
     }
 
-    private func names(_ layout: TuneVerbs.Layout) -> [String] {
-        guard case .verbs(let verbs) = layout else { return ["holding"] }
-        return verbs.map {
+    private func names(_ layout: TuneActionButtons.Layout) -> [String] {
+        guard case .buttons(let buttons) = layout else { return ["holding"] }
+        return buttons.map {
             switch $0 {
             case .play(let primary): primary.label
             case .practice: "Practice"
@@ -57,116 +57,117 @@ import Testing
     }
 
     @Test func showsNoRowForATuneWithNothingToPlayOrRead() {
-        #expect(verbs(detail()) == .verbs([]))
+        #expect(buttons(detail()) == .buttons([]))
     }
 
     @Test func offersPlayForALinkOnly() {
-        #expect(names(verbs(detail(links: [video()]))) == ["Play"])
+        #expect(names(buttons(detail(links: [video()]))) == ["Play"])
     }
 
     @Test func offersPlayAndPracticeForARecordingOnTheDevice() {
-        #expect(names(verbs(detail(recordings: [recording(held: true)]))) == ["Play", "Practice"])
+        #expect(names(buttons(detail(recordings: [recording(held: true)]))) == ["Play", "Practice"])
     }
 
     @Test func offersLyricsLastWhenTheTuneHasThem() {
         let words = "Grasshopper sitting on a sweet potato vine"
-        #expect(names(verbs(detail(lyrics: words))) == ["Lyrics"])
+        #expect(names(buttons(detail(lyrics: words))) == ["Lyrics"])
         #expect(
-            names(verbs(detail(recordings: [recording(held: true)], lyrics: words)))
+            names(buttons(detail(recordings: [recording(held: true)], lyrics: words)))
                 == ["Play", "Practice", "Lyrics"])
     }
 
     @Test func leavesLyricsOutWithBlankLyricsOrNoWayToShowThem() {
-        #expect(verbs(detail(lyrics: " \n\t ")) == .verbs([]))
-        #expect(verbs(detail(lyrics: "Grasshopper sitting"), showsLyrics: false) == .verbs([]))
+        #expect(buttons(detail(lyrics: " \n\t ")) == .buttons([]))
+        #expect(buttons(detail(lyrics: "Grasshopper sitting"), showsLyrics: false) == .buttons([]))
     }
 
     @Test func showsNoRowOnAFreePlanWithOnlyRecordings() {
-        #expect(verbs(detail(recordings: [recording(held: true)]), recordingsPlay: false) == .verbs([]))
+        #expect(buttons(detail(recordings: [recording(held: true)]), recordingsPlay: false) == .buttons([]))
     }
 
     @Test func keepsALinkOnAFreePlanWithoutPractice() {
-        let layout = verbs(detail(recordings: [recording(held: true)], links: [video()]), recordingsPlay: false)
+        let layout = buttons(detail(recordings: [recording(held: true)], links: [video()]), recordingsPlay: false)
         #expect(names(layout) == ["Play"])
     }
 
     @Test func dropsPlayAndPracticeWhileATakeIsRecording() {
-        #expect(verbs(detail(recordings: [recording(held: true)]), capturing: true) == .verbs([]))
-        #expect(names(verbs(detail(links: [page()]), capturing: true)) == ["Open"])
+        #expect(buttons(detail(recordings: [recording(held: true)]), capturing: true) == .buttons([]))
+        #expect(names(buttons(detail(links: [page()]), capturing: true)) == ["Open"])
     }
 
     @Test func neverOffersDownloadForARecordingOnlyOnTheServer() {
-        #expect(verbs(detail(recordings: [recording()])) == .verbs([]))
-        #expect(names(verbs(detail(recordings: [recording(), recording("r2", held: true)]))) == ["Practice"])
+        #expect(buttons(detail(recordings: [recording()])) == .buttons([]))
+        #expect(names(buttons(detail(recordings: [recording(), recording("r2", held: true)]))) == ["Practice"])
     }
 
     @Test func holdsTheRowWhileThePlanIsUnread() {
-        #expect(verbs(detail(links: [video()]), planRead: false) == .holding)
-        #expect(verbs(detail(recordings: [recording()]), planRead: false) == .holding)
-        #expect(verbs(detail(lyrics: "Grasshopper sitting"), planRead: false) == .holding)
+        #expect(buttons(detail(links: [video()]), planRead: false) == .holding)
+        #expect(buttons(detail(recordings: [recording()]), planRead: false) == .holding)
+        #expect(buttons(detail(lyrics: "Grasshopper sitting"), planRead: false) == .holding)
     }
 
-    @Test func holdsNoRowForATuneNoVerbCouldActOn() {
-        #expect(verbs(detail(), planRead: false) == .verbs([]))
-        #expect(verbs(detail(lyrics: "Grasshopper sitting"), planRead: false, showsLyrics: false) == .verbs([]))
+    @Test func holdsNoRowForATuneNoButtonCouldActOn() {
+        #expect(buttons(detail(), planRead: false) == .buttons([]))
+        #expect(buttons(detail(lyrics: "Grasshopper sitting"), planRead: false, showsLyrics: false) == .buttons([]))
     }
 
     @Test func pressingPlayStopsTheItemThePlayerHoldsElsePlaysIt() {
         let item = PlayerItem.recording(Recording(id: "r1", tuneID: tune.id, source: "microphone"), tuneTitle: "Test")
-        #expect(TuneVerbs.press(.play(item), links: []) { _, _ in false } == .play(item))
-        #expect(TuneVerbs.press(.play(item), links: []) { $0 == item.kind && $1 == item.id } == .stop)
+        #expect(TuneActionButtons.press(.play(item), links: []) { _, _ in false } == .play(item))
+        #expect(TuneActionButtons.press(.play(item), links: []) { $0 == item.kind && $1 == item.id } == .stop)
     }
 
     @Test func pressingOpenReportsTheLinkItOpens() throws {
         let link = page()
         let url = try #require(LinkText.outboundURL(link.url))
         #expect(
-            TuneVerbs.press(.open(url, linkTitle: "Tune"), links: [video(), link]) { _, _ in false }
+            TuneActionButtons.press(.open(url, linkTitle: "Tune"), links: [video(), link]) { _, _ in false }
                 == .open(url, link: link))
         let elsewhere = try #require(URL(string: "https://example.org/other"))
         #expect(
-            TuneVerbs.press(.open(elsewhere, linkTitle: "Other"), links: [link]) { _, _ in false }
+            TuneActionButtons.press(.open(elsewhere, linkTitle: "Other"), links: [link]) { _, _ in false }
                 == .open(elsewhere, link: nil))
     }
 
-    @Test func pressingAVerbWithNothingToDoDoesNothing() {
-        #expect(TuneVerbs.press(.downloading, links: []) { _, _ in false } == .nothing)
-        #expect(TuneVerbs.press(.inert, links: []) { _, _ in false } == .nothing)
+    @Test func pressingAButtonWithNothingToDoDoesNothing() {
+        #expect(TuneActionButtons.press(.downloading, links: []) { _, _ in false } == .nothing)
+        #expect(TuneActionButtons.press(.inert, links: []) { _, _ in false } == .nothing)
     }
 
     @Test func namesThePrimaryForWhatAPressDoes() {
-        #expect(names(verbs(detail(recordings: [recording(held: true)]))).first == "Play")
-        #expect(names(verbs(detail(links: [page()]))).first == "Open")
-        #expect(names(verbs(detail(recordings: [recording(held: true)]), loaded: ["r1"])).first == "Stop")
-        #expect(names(verbs(detail(links: [video()]), loaded: ["l1"])).first == "Stop")
+        #expect(names(buttons(detail(recordings: [recording(held: true)]))).first == "Play")
+        #expect(names(buttons(detail(links: [page()]))).first == "Open")
+        #expect(names(buttons(detail(recordings: [recording(held: true)]), loaded: ["r1"])).first == "Stop")
+        #expect(names(buttons(detail(links: [video()]), loaded: ["l1"])).first == "Stop")
     }
 
     @Test func offersNoPlayWhileTheTakeDownloads() {
         let downloading = TuneRecording(
             recording: Recording(id: "r1", tuneID: tune.id, source: "microphone", state: "ready"),
             file: RecordingFile(id: "r1", localState: .downloading))
-        #expect(verbs(detail(recordings: [downloading])) == .verbs([]))
+        #expect(buttons(detail(recordings: [downloading])) == .buttons([]))
     }
 
     @Test func offersPracticeOnlyForARecordingOnTheDevice() {
-        #expect(names(verbs(detail(recordings: [recording(state: "pending_upload")]))) == [])
-        #expect(names(verbs(detail(recordings: [recording(state: "pending_upload", held: true)]))).contains("Practice"))
+        #expect(names(buttons(detail(recordings: [recording(state: "pending_upload")]))) == [])
+        let held = detail(recordings: [recording(state: "pending_upload", held: true)])
+        #expect(names(buttons(held)).contains("Practice"))
     }
 
     @Test func practicesThePinnedRecordingOnTheDeviceElseTheFirstOnTheDevice() {
         let first = recording("a")
         let second = recording("b", held: true)
         let third = recording("c", held: true)
-        #expect(practiceID(verbs(detail(recordings: [first, second, third]))) == "b")
+        #expect(practiceID(buttons(detail(recordings: [first, second, third]))) == "b")
         let pinned = UserTune(createdAt: noon, tuneID: tune.id, status: "learning", playRecordingID: "c")
-        #expect(practiceID(verbs(detail(recordings: [first, second, third], userTune: pinned))) == "c")
+        #expect(practiceID(buttons(detail(recordings: [first, second, third], userTune: pinned))) == "c")
         let pinnedAway = UserTune(createdAt: noon, tuneID: tune.id, status: "learning", playRecordingID: "a")
-        #expect(practiceID(verbs(detail(recordings: [first, second, third], userTune: pinnedAway))) == "b")
+        #expect(practiceID(buttons(detail(recordings: [first, second, third], userTune: pinnedAway))) == "b")
     }
 
-    private func practiceID(_ layout: TuneVerbs.Layout) -> String? {
-        guard case .verbs(let verbs) = layout else { return nil }
-        for case .practice(let item) in verbs { return item.id }
+    private func practiceID(_ layout: TuneActionButtons.Layout) -> String? {
+        guard case .buttons(let buttons) = layout else { return nil }
+        for case .practice(let item) in buttons { return item.id }
         return nil
     }
 }

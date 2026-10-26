@@ -285,6 +285,7 @@ private struct LyricsEditSheet: View {
 /// A tune to read the lyrics of, as the reader's presentation identity.
 private struct LyricsRequest: Identifiable {
     let tuneID: String
+    let origin: LyricsOrigin
 
     var id: String { tuneID }
 }
@@ -313,15 +314,40 @@ struct LyricsScreens: ViewModifier {
             #else
                 .fullScreenCover(item: $request) { request in
                     LyricsReader(tuneID: request.tuneID)
-                    .zooms(from: request.tuneID, in: reduceMotion ? nil : zoom)
+                    .zooms(
+                        from: Self.sourceID(tuneID: request.tuneID, origin: request.origin),
+                        in: reduceMotion ? nil : zoom)
                 }
             #endif
+    }
+
+    /// The id the control at `origin` marks itself with for the reader to zoom out of.
+    fileprivate static func sourceID(tuneID: String, origin: LyricsOrigin) -> String {
+        "\(tuneID)#\(origin)"
     }
 
     /// The tune screen's actions as set further out, with Open lyrics opening the reader.
     private var withReadLyrics: TuneScreenActions {
         tuneScreenActions.supplied(by: source) { actions in
-            actions.readLyrics = { tuneID in request = LyricsRequest(tuneID: tuneID) }
+            actions.readLyrics = { tuneID, origin in request = LyricsRequest(tuneID: tuneID, origin: origin) }
         }
+    }
+}
+
+/// Marks a lyrics control as where the reader it opens zooms out of and back into.
+private struct LyricsZoomSource: ViewModifier {
+    let tuneID: String
+    let origin: LyricsOrigin
+    @Environment(\.lyricsZoom) private var zoom
+
+    func body(content: Content) -> some View {
+        content.zoomSource(id: LyricsScreens.sourceID(tuneID: tuneID, origin: origin), in: zoom)
+    }
+}
+
+extension View {
+    /// Marks this control as where the reader for `tuneID`, opened from `origin`, zooms out of.
+    func lyricsZoomSource(tuneID: String, origin: LyricsOrigin) -> some View {
+        modifier(LyricsZoomSource(tuneID: tuneID, origin: origin))
     }
 }

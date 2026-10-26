@@ -56,7 +56,7 @@ export const RECORDINGS_FILTER_ROW = 'Filter recordings'
 const tunePath = (tuneId: string) => `${RECORDINGS.root}/${tuneId}`
 
 /**
- * Every recording, unfiled first and then filed, with Upload as the verb, search and the
+ * Every recording, unfiled first and then filed, with Upload as the bar's button, search and the
  * source filter to narrow, and the account's storage at the foot. Files dropped on the column
  * on pointer import as unfiled recordings.
  */
@@ -124,7 +124,7 @@ export function RecordingsScreen() {
       <RootBar
         title={RECORDINGS.label}
         titleRef={titleRef}
-        verbs={
+        actions={
           <>
             <UploadControl onFiles={importFiles} onHeld={held} />
             {phone && screen.showsFilters && (
@@ -315,7 +315,7 @@ function TuneHeading({
 }
 
 /**
- * Upload, the screen's Add verb: it opens the system picker for audio files, or, while uploads
+ * Upload, the screen's Add button: it opens the system picker for audio files, or, while uploads
  * are held, answers with `onHeld` instead.
  */
 function UploadControl({

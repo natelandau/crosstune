@@ -11,7 +11,7 @@ import { messageFor } from '../../ui/useAction'
 import { Button } from '../../ui/Button'
 import { WhatPlaysSheet } from './WhatPlaysSheet'
 import { PRESS } from '../../ui/press'
-import { VerbRow } from '../../ui/VerbRow'
+import { ActionButtonRow } from '../../ui/ActionButtonRow'
 
 /**
  * Play and Shuffle for a list, over the line that says how many of its tunes will play. The
@@ -40,7 +40,7 @@ export function ListPlayRow({
 
   return (
     <div data-list-play className="flex flex-col gap-1 px-4 pb-2">
-      <VerbRow>
+      <ActionButtonRow>
         <Button
           variant="primary"
           icon={Play}
@@ -58,7 +58,7 @@ export function ListPlayRow({
           isDisabled={disabled}
           onPress={() => start(true)}
         />
-      </VerbRow>
+      </ActionButtonRow>
       {/* Held at its height while the sources read, so the rows under it do not shift. */}
       <div className="flex min-h-(--target-control) items-center">
         {report && (

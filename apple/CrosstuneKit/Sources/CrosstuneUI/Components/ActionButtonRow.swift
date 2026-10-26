@@ -3,7 +3,7 @@ import SwiftUI
 /// A page's main actions side by side: on iPhone and iPad each takes an equal share of the
 /// width; on the Mac each keeps its natural width, as the Mac's buttons do everywhere. Set the
 /// controls' size here so every page's row reads the same.
-struct VerbRow<Content: View>: View {
+struct ActionButtonRow<Content: View>: View {
     @ViewBuilder let content: Content
 
     @Environment(\.spacing) private var spacing
@@ -54,17 +54,17 @@ struct VerbRow<Content: View>: View {
 #endif
 
 extension EnvironmentValues {
-    /// Draws the verb row's labels closer to their buttons' edges, the last step before a
+    /// Draws the action button row's labels closer to their buttons' edges, the last step before a
     /// label would be cut short.
-    @Entry var tightVerbLabels = false
+    @Entry var tightActionButtonLabels = false
 }
 
 extension View {
-    /// The verb row's button look. On the Mac, the Mac's primary for the main verb and its
+    /// The action button row's button look. On the Mac, the Mac's primary for the main button and its
     /// secondary for the rest, as a list's Play and Shuffle. Elsewhere, a prominent accent capsule
-    /// for the main verb and a glass one for the rest; where glass cannot draw, the bordered
+    /// for the main button and a glass one for the rest; where glass cannot draw, the bordered
     /// styles stand in.
-    @ViewBuilder func verbStyle(prominent: Bool, glass: Bool) -> some View {
+    @ViewBuilder func actionButtonStyle(prominent: Bool, glass: Bool) -> some View {
         #if os(macOS)
             buttonStyle(MacButtonStyle(prominent ? .primary : .secondary))
         #else
@@ -77,20 +77,20 @@ extension View {
         #endif
     }
 
-    /// Fills the verb's share of the row, so its capsule spans it, on one line. A Mac verb keeps
+    /// Fills the button's share of the row, so its capsule spans it, on one line. A Mac button keeps
     /// its natural width.
-    func verbLabelWidth() -> some View {
+    func actionButtonLabelWidth() -> some View {
         #if os(macOS)
             self
         #else
-            modifier(VerbLabelWidth())
+            modifier(ActionButtonLabelWidth())
         #endif
     }
 }
 
 #if !os(macOS)
-    private struct VerbLabelWidth: ViewModifier {
-        @Environment(\.tightVerbLabels) private var tight
+    private struct ActionButtonLabelWidth: ViewModifier {
+        @Environment(\.tightActionButtonLabels) private var tight
 
         func body(content: Content) -> some View {
             content

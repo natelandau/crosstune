@@ -35,7 +35,7 @@ public struct ListRow: View {
     }
 }
 
-/// The verbs a list row offers, on every screen that offers them.
+/// The actions a list row offers, on every screen that offers them.
 public enum ListRowActions {
     public static let edit = TuneRowActions.edit
     public static let delete = DeleteListMessage.delete
