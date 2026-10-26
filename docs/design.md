@@ -177,7 +177,7 @@ Decide any case the rules below do not name.
 - One row component per platform for every list of tunes.
 - A row's title keeps its width first. Secondary details truncate, then
   drop out, before the title shrinks.
-- Archived: dimmed ink that still passes text contrast. Glyphs keep their color.
+- Archived: all text in secondary ink. Glyphs keep their color.
 - Reorder: drag the whole row, no grip. The dragged row lifts, the others
   slide aside, and a drop settles it. No drop line.
 - Playing row: an animated speaker and a light accent wash.

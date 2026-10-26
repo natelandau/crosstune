@@ -14,9 +14,6 @@
   --control-edge: var(--hairline);
   --ink: #1c2026;
   --ink-2: #61676f;
-  /* A dimmed row's title, such as an archived tune's: quieter than ink, still 4.5:1 on the row's
-     washes. Its secondary ink stays --ink-2, which has no room left to fade. */
-  --ink-dim: #545a62;
   /* The Harbor blue of text, focus rings, selection, and set filters. */
   --accent: #1f5f9e;
   /* The dark scheme's accent, which practice also uses on jet in either appearance. */
@@ -193,7 +190,6 @@
   --control-edge: transparent;
   --ink: #ecedf0;
   --ink-2: #9ca2ab;
-  --ink-dim: #b4b9c1;
   --accent: var(--accent-dark);
   --accent-fill: #2b609a;
   --on-accent-fill: #ffffff;

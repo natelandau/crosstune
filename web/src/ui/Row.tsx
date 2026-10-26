@@ -214,7 +214,7 @@ export function Row({
         touch
           ? 'overflow-hidden'
           : `data-[selected]:bg-wash data-[current]:bg-wash data-[pressed]:bg-wash! data-[reordering]:bg-ground! gap-3 px-3 py-0 data-[current]:[--row-tint:var(--wash)] data-[pressed]:[--row-tint:var(--wash)] data-[reordering]:bg-[linear-gradient(var(--row-tint),var(--row-tint))] data-[selected]:[--row-tint:var(--wash)] ${playing ? 'bg-(--play-wash) [--row-tint:var(--play-wash)]' : 'not-data-[selected]:not-data-[current]:hover:bg-row-hover [--row-tint:transparent] not-data-[selected]:not-data-[current]:hover:[--row-tint:var(--row-hover)]'}`
-      } ${dimmed ? 'text-ink [--ink:var(--ink-dim)]' : ''}`}
+      } ${dimmed ? 'text-ink [--ink:var(--ink-2)]' : ''}`}
     >
       {touch ? (
         // Keyed, since a virtualized list hands one row's element to another as it scrolls, and

@@ -28,7 +28,6 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
       [`secondary ink on ${name}`, p.ink2, bg, 4.5],
       [`accent on ${name}`, p.accent, bg, 4.5],
     ]),
-    ['dimmed title on the ground', p.inkDim, p.ground, 4.5],
     ['a glyph that cannot act on the ground', p.glyphOff, p.ground, 3],
     ['label on the accent fill', p.onAccentFill, p.accentFill, 4.5],
     ['the mark on the ground', p.markInk, p.ground, 3],
@@ -72,14 +71,6 @@ it.each([
   ['dark', '#FF9230'],
 ] as const)("draws learning in Apple's %s orange", (scheme, orange) => {
   expect(PALETTE[scheme].learning).toBe(orange)
-})
-
-// A dimmed title still reads as a title: quieter than ink, louder than secondary ink.
-it.each(['light', 'dark'] as const)('dims the %s title between ink and secondary ink', (scheme) => {
-  const p = PALETTE[scheme]
-  const fromGround = (ink: string) => ratio(ink, p.ground)
-  expect(fromGround(p.inkDim)).toBeLessThan(fromGround(p.ink))
-  expect(fromGround(p.inkDim)).toBeGreaterThan(fromGround(p.ink2))
 })
 
 it.each(['light', 'dark'] as const)(
@@ -307,8 +298,7 @@ describe.each(['light', 'dark'] as const)('washes in %s', (scheme) => {
     // A dimmed row, such as an archived tune, under each wash a row takes.
     ...(['--row-hover', '--wash', '--play-wash'] as const).flatMap(
       (wash): [string, string, string, string, number][] => [
-        [`dimmed title on ${wash}`, '--ink-dim', wash, '--ground', 4.5],
-        [`dimmed secondary ink on ${wash}`, '--ink-2', wash, '--ground', 4.5],
+        [`dimmed ink on ${wash}`, '--ink-2', wash, '--ground', 4.5],
         [`a glyph that cannot act on ${wash}`, '--glyph-off', wash, '--ground', 3],
       ],
     ),

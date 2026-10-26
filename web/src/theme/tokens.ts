@@ -12,7 +12,6 @@ export interface Palette {
   raised: string
   ink: string
   ink2: string
-  inkDim: string
   markInk: string
   onTone: string
   coral: string
@@ -52,7 +51,6 @@ export const PALETTE: Record<Scheme, Palette> = {
     raised: '#FFFEFC',
     ink: '#1C2026',
     ink2: '#61676F',
-    inkDim: '#545A62',
     markInk: '#4F5D75',
     onTone: '#FFFFFF',
     coral: '#EF8354',
@@ -90,7 +88,6 @@ export const PALETTE: Record<Scheme, Palette> = {
     raised: '#34373D',
     ink: '#ECEDF0',
     ink2: '#9CA2AB',
-    inkDim: '#B4B9C1',
     markInk: '#FFFFFF',
     onTone: '#16181D',
     coral: '#EF8354',
