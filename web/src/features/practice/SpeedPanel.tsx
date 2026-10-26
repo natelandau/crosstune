@@ -4,6 +4,7 @@ import { RECORDING_RANGES } from '../../api/vocabulary'
 import { SPEED_BADGE, SPEED_LABEL } from '../player/transportCopy'
 import {
   clampSpeed,
+  offWhen,
   PANEL_ICON_BUTTON,
   PANEL_TEXT_BUTTON,
   RESET,
@@ -42,8 +43,7 @@ export function SpeedPanel({
           type="button"
           aria-label={SLOWER}
           className={PANEL_ICON_BUTTON}
-          disabled={value <= min}
-          onClick={() => step(-SPEED_STEP)}
+          {...offWhen(value <= min, () => step(-SPEED_STEP))}
         >
           <Minus aria-hidden="true" className="size-5" />
         </button>
@@ -62,8 +62,7 @@ export function SpeedPanel({
           type="button"
           aria-label={FASTER}
           className={PANEL_ICON_BUTTON}
-          disabled={value >= max}
-          onClick={() => step(SPEED_STEP)}
+          {...offWhen(value >= max, () => step(SPEED_STEP))}
         >
           <Plus aria-hidden="true" className="size-5" />
         </button>
@@ -90,8 +89,7 @@ export function SpeedPanel({
         <button
           type="button"
           className={`${PANEL_TEXT_BUTTON} ms-auto`}
-          disabled={value === DEFAULT_SPEED}
-          onClick={() => onChange(DEFAULT_SPEED)}
+          {...offWhen(value === DEFAULT_SPEED, () => onChange(DEFAULT_SPEED))}
         >
           {RESET}
         </button>

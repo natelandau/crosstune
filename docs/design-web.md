@@ -78,6 +78,9 @@ folder. Compose it, never rebuild it.
 - The phone's tab bar and Record disc float over the content, solid, with
   a hairline edge and no glass. Panes pad their end by
   `--float-clearance`, so the last row scrolls clear.
+- `PaneScroller` scroll-pads by its pinned bar and `--float-clearance`, so
+  focus never lands under chrome. A new scroll container under pinned or
+  floating chrome is a `PaneScroller`.
 - Pointer selection: bulk actions take the pane bar's trailing place.
   Phone: they replace the tab bar.
 - Filter row: touch, one line that scrolls sideways and fades at its end.
@@ -174,6 +177,8 @@ folder. Compose it, never rebuild it.
 - Never take a combination the browser owns (Cmd-N, Cmd-R).
 - Cmd-K works from a text field too, and stands down while another overlay
   is open.
+- Cmd-Z or Ctrl-Z presses the showing toast's Undo, never from a text
+  field, whose own undo keeps it.
 - Escape closes an open tooltip in the same press.
 - Tab crosses panes in DOM order.
 

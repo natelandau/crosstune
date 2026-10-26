@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { RECORD_TEXT, TABS } from '../../layout/tabs'
+import { UNDO } from '../../ui/toastCopy'
 import { SEARCH_TUNES } from '../catalog/catalogCopy'
 import {
   GO_TO,
@@ -126,6 +127,7 @@ describe('SHORTCUTS', () => {
     expect(label('record')).toBe(RECORD_TEXT)
     expect(label('search')).toBe(SEARCH_TUNES)
     expect(label('shortcuts')).toBe(SHORTCUTS_TITLE)
+    expect(label('undo')).toBe(UNDO)
     expect(['goCatalog', 'goLists', 'goRecordings', 'goTuner', 'goSettings'].map(label)).toEqual(
       TABS.map((tab) => tab.label),
     )
@@ -133,7 +135,7 @@ describe('SHORTCUTS', () => {
 
   it('lists each group together, in sheet order', () => {
     expect(SHORTCUTS.map((shortcut) => shortcut.group)).toEqual([
-      ...Array<string>(6).fill('General'),
+      ...Array<string>(7).fill('General'),
       ...Array<string>(5).fill(GO_TO),
       'Playback',
     ])

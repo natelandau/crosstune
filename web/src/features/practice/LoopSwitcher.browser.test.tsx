@@ -109,8 +109,8 @@ describe('LoopSwitcher', () => {
 
   it('disables an arrow with no loop that way', async () => {
     setup({ playheadMs: 10_000, loops: [row('a', 20_000, 25_000)] })
-    await expect.element(button(PREVIOUS_LOOP)).toBeDisabled()
-    await expect.element(button(NEXT_LOOP)).toBeEnabled()
+    await expect.element(button(PREVIOUS_LOOP)).toHaveAttribute('aria-disabled', 'true')
+    await expect.element(button(NEXT_LOOP)).not.toHaveAttribute('aria-disabled')
   })
 
   it('disables both arrows when told to', async () => {
@@ -119,7 +119,7 @@ describe('LoopSwitcher', () => {
       loops: [row('a', 1000, 5000), row('b', 20_000, 25_000)],
       disabled: true,
     })
-    await expect.element(button(PREVIOUS_LOOP)).toBeDisabled()
-    await expect.element(button(NEXT_LOOP)).toBeDisabled()
+    await expect.element(button(PREVIOUS_LOOP)).toHaveAttribute('aria-disabled', 'true')
+    await expect.element(button(NEXT_LOOP)).toHaveAttribute('aria-disabled', 'true')
   })
 })

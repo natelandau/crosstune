@@ -2,10 +2,11 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { LocalRecordingLoop } from '../../db/types'
 import { adjacent, loopName, placedLoop, type PlacedLoop, type Span } from '../../domain/loopModel'
 import { LOOP_SELECTED, NEXT_LOOP, NO_LOOP, PREVIOUS_LOOP } from './practiceCopy'
+import { offWhen } from './panel'
 import type { LoopPlayback } from './useLoopPlayback'
 
 const ARROW =
-  'grid size-9 shrink-0 place-items-center rounded-full text-(--panel-ink) disabled:opacity-40'
+  'grid size-9 shrink-0 place-items-center rounded-full text-(--panel-ink) aria-disabled:opacity-40'
 
 /**
  * The selected loop's name between Previous and Next, under the play button. With no loop
@@ -63,9 +64,8 @@ export function LoopSwitcher({
       <button
         type="button"
         aria-label={PREVIOUS_LOOP}
-        disabled={disabled || !previous}
+        {...offWhen(disabled || !previous, () => step(previous))}
         className={ARROW}
-        onClick={() => step(previous)}
       >
         <ChevronLeft aria-hidden="true" className="size-5" />
       </button>
@@ -75,9 +75,8 @@ export function LoopSwitcher({
       <button
         type="button"
         aria-label={NEXT_LOOP}
-        disabled={disabled || !next}
+        {...offWhen(disabled || !next, () => step(next))}
         className={ARROW}
-        onClick={() => step(next)}
       >
         <ChevronRight aria-hidden="true" className="size-5" />
       </button>

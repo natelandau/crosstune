@@ -2,7 +2,7 @@ import { useLayoutEffect, useState, type ReactNode, type Ref } from 'react'
 import { useFrame } from '../platform/frame'
 import { AccountButton } from './AccountButton'
 import { ColumnTitle } from './ColumnTitle'
-import { usePane } from './pane'
+import { usePane, usePinnedBarClearance } from './pane'
 import { PaneBar } from './PaneBar'
 import { ScreenSyncBadge } from './SyncBadge'
 import { InBar } from '../ui/inBar'
@@ -51,6 +51,7 @@ function PhoneRootBar({ title, titleRef, verbs, search, selection }: RootBarProp
   const bar = pane?.bar
   const setTitleOut = pane?.setTitleOut
   const [collapsed, setCollapsed] = useState(false)
+  usePinnedBarClearance(bar)
 
   // The row is the only place the title shows, so no other bar repeats it.
   useLayoutEffect(() => {

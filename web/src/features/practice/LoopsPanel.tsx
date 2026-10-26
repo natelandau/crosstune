@@ -6,7 +6,7 @@ import { LOOP_LIMIT, NO_ROOM } from '../../commands/messages'
 import type { LocalRecordingLoop } from '../../db/types'
 import { Capsule } from '../../ui/Capsule'
 import { FilterRow } from '../../ui/FilterRow'
-import { PANEL_TEXT_BUTTON, PANEL_TEXT_BUTTON_SHAPE } from './panel'
+import { offWhen, PANEL_TEXT_BUTTON, PANEL_TEXT_BUTTON_SHAPE } from './panel'
 import { loopName, partSuggestions, type Bounds, type NewLoop } from '../../domain/loopModel'
 import {
   DELETE_LOOP,
@@ -116,21 +116,19 @@ export function LoopsPanel({
       <div className="flex items-center justify-center gap-2">
         <button
           type="button"
-          disabled={!canCreate || result.kind !== 'span'}
+          {...offWhen(!canCreate || result.kind !== 'span', () => {
+            create(onCommand?.() ?? undefined)
+          })}
           aria-describedby={reason ? reasonId : undefined}
           className={`${PANEL_TEXT_BUTTON} inline-flex items-center gap-2`}
-          onClick={() => {
-            create(onCommand?.() ?? undefined)
-          }}
         >
           <Plus aria-hidden="true" className="size-5" />
           {NEW_LOOP}
         </button>
         <button
           type="button"
-          disabled={!selected}
+          {...offWhen(!selected, remove)}
           className={`${PANEL_TEXT_BUTTON_SHAPE} inline-flex items-center gap-2 ${selected ? 'text-(--panel-danger)' : 'text-(--panel-muted)'}`}
-          onClick={remove}
         >
           <Trash2 aria-hidden="true" className="size-5" />
           {DELETE_LOOP}

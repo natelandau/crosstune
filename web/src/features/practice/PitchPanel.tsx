@@ -1,7 +1,7 @@
 import { Minus, Plus } from 'lucide-react'
 import { useId, useState } from 'react'
 import { PITCH_LABEL, PITCH_UNAVAILABLE } from '../player/transportCopy'
-import { clampPitch, PANEL_ICON_BUTTON, PANEL_TEXT_BUTTON, RESET } from './panel'
+import { clampPitch, offWhen, PANEL_ICON_BUTTON, PANEL_TEXT_BUTTON, RESET } from './panel'
 
 export const PITCH = PITCH_LABEL
 export const SEMITONES = 'Semitones'
@@ -70,8 +70,7 @@ export function PitchPanel({
             type="button"
             aria-label={PITCH_DOWN}
             className={PANEL_ICON_BUTTON}
-            disabled={semitones <= -MAX_SEMITONES}
-            onClick={() => combine(semitones - 1, cents)}
+            {...offWhen(semitones <= -MAX_SEMITONES, () => combine(semitones - 1, cents))}
           >
             <Minus aria-hidden="true" className="size-5" />
           </button>
@@ -82,8 +81,7 @@ export function PitchPanel({
             type="button"
             aria-label={PITCH_UP}
             className={PANEL_ICON_BUTTON}
-            disabled={semitones >= MAX_SEMITONES}
-            onClick={() => combine(semitones + 1, cents)}
+            {...offWhen(semitones >= MAX_SEMITONES, () => combine(semitones + 1, cents))}
           >
             <Plus aria-hidden="true" className="size-5" />
           </button>
@@ -109,8 +107,7 @@ export function PitchPanel({
         <button
           type="button"
           className={PANEL_TEXT_BUTTON}
-          disabled={value === 0}
-          onClick={() => onChange(0)}
+          {...offWhen(value === 0, () => onChange(0))}
         >
           {RESET}
         </button>

@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 import { page } from 'vitest/browser'
 import { renderWithProviders } from '../test/render'
 import { Button } from '../ui/Button'
+import { PaneScroller } from './pane'
 import { PaneBar } from './PaneBar'
 
 const rect = (element: Element) => element.getBoundingClientRect()
@@ -47,4 +48,24 @@ it('shows the compact title only while the full one would not fit, both ways', a
   await expect.element(page.getByText('12 selected', { exact: true })).toBeVisible()
   rerender(bar(220))
   await expect.element(page.getByText('12', { exact: true })).toBeVisible()
+})
+
+it('scrolls a control that takes focus out from under the pinned bar', async () => {
+  renderWithProviders(
+    <PaneScroller style={{ height: 300 }} className="overflow-y-auto">
+      <PaneBar title="Tunes" titleAlways />
+      <div style={{ height: 600 }} />
+      <Button label="Hidden" onPress={() => {}} />
+      <div style={{ height: 600 }} />
+    </PaneScroller>,
+  )
+  const hidden = page.getByRole('button', { name: 'Hidden' })
+  await expect.element(hidden).toBeInTheDocument()
+  const scroller = document.querySelector<HTMLElement>('[data-pane-scroller]')!
+  const bar = document.querySelector('[data-pane-bar]')!
+  await expect.poll(() => getComputedStyle(scroller).scrollPaddingTop).toBe(`${rect(bar).height}px`)
+  // Leaves the control in view, but under the bar.
+  scroller.scrollTop += rect(hidden.element()).top - rect(scroller).top - 4
+  ;(hidden.element() as HTMLElement).focus()
+  await expect.poll(() => rect(hidden.element()).top).toBeGreaterThanOrEqual(rect(bar).bottom)
 })

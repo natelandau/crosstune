@@ -11,11 +11,20 @@ export const PANEL_HOVER = 'not-disabled:not-aria-disabled:hover:bg-(--panel-hov
 /** The hover of a control on the panels' round fill. */
 export const PANEL_FILLED_HOVER = 'not-disabled:not-aria-disabled:hover:bg-(--fill-tertiary-hover)'
 
+/**
+ * A native button's off state and press: aria-disabled rather than disabled, since a disabled
+ * button cannot hold focus, so one that turns itself off, such as a stepper reaching its end,
+ * would drop the keyboard to the document. A press while off does nothing.
+ */
+export function offWhen(off: boolean, onClick: () => void) {
+  return { 'aria-disabled': off || undefined, onClick: off ? undefined : onClick } as const
+}
+
 /** A round stepper button. */
-export const PANEL_ICON_BUTTON = `grid size-11 shrink-0 place-items-center rounded-full bg-(--fill-tertiary) disabled:opacity-40 ${PRESS} ${PANEL_FILLED_HOVER}`
+export const PANEL_ICON_BUTTON = `grid size-11 shrink-0 place-items-center rounded-full bg-(--fill-tertiary) aria-disabled:opacity-40 ${PRESS} ${PANEL_FILLED_HOVER}`
 
 /** A text button's shape with no color of its own, for a button that picks its own. */
-export const PANEL_TEXT_BUTTON_SHAPE = `t-body min-h-11 rounded-full px-4 disabled:opacity-40 ${PRESS} ${PANEL_HOVER}`
+export const PANEL_TEXT_BUTTON_SHAPE = `t-body min-h-11 rounded-full px-4 aria-disabled:opacity-40 ${PRESS} ${PANEL_HOVER}`
 
 /** A text button, such as Reset. */
 export const PANEL_TEXT_BUTTON = `${PANEL_TEXT_BUTTON_SHAPE} text-(--panel-ink)`

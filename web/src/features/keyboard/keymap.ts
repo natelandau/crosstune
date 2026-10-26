@@ -1,6 +1,7 @@
 import { RECORD_TEXT, tabLabel } from '../../layout/tabs'
 import { SEARCH_TUNES } from '../catalog/catalogCopy'
 import type { KeyPlatform } from '../../platform/keyPlatform'
+import { UNDO } from '../../ui/toastCopy'
 
 export const QUICK_FIND = 'Quick Find'
 /** The shortcut, and Quick Find's command, that opens a new tune's page. */
@@ -17,6 +18,7 @@ export type ShortcutId =
   | 'newTune'
   | 'record'
   | 'shortcuts'
+  | 'undo'
   | 'goCatalog'
   | 'goLists'
   | 'goRecordings'
@@ -45,6 +47,8 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: 'newTune', keys: ['N'], label: NEW_TUNE_TITLE, group: 'General' },
   { id: 'record', keys: ['R'], label: RECORD_TEXT, group: 'General' },
   { id: 'shortcuts', keys: ['?'], label: SHORTCUTS_TITLE, group: 'General' },
+  // Heard by the toast, which owns its Undo.
+  { id: 'undo', keys: [COMMAND_KEY, 'Z'], label: UNDO, group: 'General' },
   { id: 'stepOut', keys: ['Escape'], label: STEP_OUT, group: 'General' },
   { id: 'goCatalog', keys: ['G', 'C'], label: tabLabel('catalog'), group: GO_TO },
   { id: 'goLists', keys: ['G', 'L'], label: tabLabel('lists'), group: GO_TO },
